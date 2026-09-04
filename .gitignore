@@ -54,4 +54,5 @@ Thumbs.db
 *.swp
 
 # ---- Agent scratch ----
+# NOTE: .agent/ is TRACKED (specs, plans, research). Only .remember/ is local.
 .remember/

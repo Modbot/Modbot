@@ -46,36 +46,63 @@ Each of these was settled during brainstorming. Rationale is recorded so future 
 Rejected: full-TypeScript (loses the overlay), Blazor for the web UI (charting and data-grid
 ecosystems are far behind React, and M2.5 needs both).
 
-### 2.2 License: source-available, non-commercial
+### 2.2 License: AGPL-3.0
 
-The requirement — *anyone may use and modify it, nobody may commercialise it including the author,
-changes flow back upstream, author retains copyright and trademark* — **is not open source** under the
-OSI definition. Field-of-use and non-commercial restrictions fail OSD #6. The project must not
-describe itself as "open source"; it is **"source available, non-commercial."**
+**`LICENSE` is GNU Affero General Public License v3.0**, verbatim. Modbot **is** open source under
+the OSI definition and may describe itself as such.
 
 | File | Contents |
 |---|---|
-| `LICENSE` | **PolyForm Noncommercial 1.0.0**, verbatim |
-| `CLA.md` | Contributor License Agreement. A license cannot compel upstreaming; only a contribution agreement can. Also required to keep copyright consolidated for any future relicensing. |
+| `LICENSE` | **AGPL-3.0**, verbatim |
+| `CLA.md` | Contributor License Agreement. A license cannot compel upstreaming; only a contribution agreement can. Also required to keep copyright consolidated so relicensing remains possible. |
 | `TRADEMARK.md` | "Modbot" and its logo are excluded from the license grant. Forks may not use the name. |
 
-Rejected: AGPL-3.0 (OSI-compliant and prevents closed SaaS forks, but permits commercial use);
-CC BY-NC (explicitly not intended for software).
+**What AGPL does and does not deliver**, recorded so it is not misremembered later:
 
-**Known cost:** PolyForm-NC repositories are excluded from some package registries and will not
-attract corporate contributors. Accepted deliberately.
+- ✅ Anyone may use, modify, self-host and fork it.
+- ✅ Anyone who runs a **modified** Modbot as a network service must offer their source to its users.
+  This is the clause that prevents a closed-source hosted fork.
+- ✅ Copyright remains with the author; the trademark is separate and unlicensed.
+- ❌ **It does not prohibit commercial use.** Someone may lawfully run a paid Modbot hosting service,
+  provided they offer modified source to their users. A non-commercial restriction (PolyForm-NC) was
+  considered and rejected in favour of being genuinely open source.
+- ❌ It does not compel upstream contribution. That is the CLA's job, and it is social rather than
+  legal — the CLA governs what you may do with contributions you receive, not whether they arrive.
+
+Dependency compatibility: both VRChat SDKs and Discord.Net are MIT, which is AGPL-compatible.
 
 ### 2.3 One VRChat account, REST polling
 
 Each deployment authenticates as exactly **one** VRChat account, which must be a moderator of the
-managed group. No proxy pools, no multi-account request distribution — these are rate-limit evasion
-and are the fastest route to Modbot being named in a VRChat TOS conversation.
+managed group. **No multi-account request distribution and no rotating proxy pools** — those are
+rate-limit evasion and the fastest route to Modbot being named in a VRChat TOS conversation.
 
 The Pipeline websocket is **not used**. It carries friend and location updates, which are not
 meaningful in a group-moderation context. Ingestion is REST polling on a governed schedule.
 
 This makes the whole system a **single-writer scheduling problem**: one token bucket, one priority
 queue, N job types competing for it. That is the piece worth getting genuinely right.
+
+### 2.3.1 One optional egress proxy — for WAF access, not evasion
+
+Cloudflare's WAF blocks some networks outright, including many datacentre and VPS IP ranges. An
+operator on such a network cannot reach the VRChat API at all — not rate-limited, **blocked**.
+
+Modbot therefore supports **one optional, statically configured egress proxy**, set during
+onboarding immediately after the VRChat account step (§7.1). This is a connectivity fix for
+operators who would otherwise be unable to run Modbot at all.
+
+The distinction from the old implementation is total and deliberate:
+
+| Old (SaaS) | New |
+|---|---|
+| Pool of proxies, rotated per request | **One** proxy, or none |
+| Sticky sessions encoded in the proxy username (`NetworkCredential(pw, sessionName)`) | No sessions |
+| `ProxyChangeRequired` → rotate to a fresh IP and retry | WAF block → **tell the operator**, surfaced as a health state |
+| Purpose: distribute load across IPs to exceed rate limits | Purpose: reach the API at all |
+
+Volume through one proxy is identical to volume without one. Modbot never rotates IPs in response
+to a block, because that is the behaviour the rate limits exist to prevent.
 
 ### 2.4 Single-tenant, single-group appliance
 
@@ -96,9 +123,9 @@ sites. The seam exists; it is not exercised.
 
 ### 2.6 Configuration lives in the database
 
-Environment variables are limited to `PORT` and `DATABASE_URL` (plus an optional
-`MODBOT_SECRET_KEY`, §8.3). Everything else — VRChat credentials, group selection, Discord bot
-token, SMTP — is entered through a first-run onboarding wizard and stored in the database.
+Environment variables are limited to **`PORT` and `DATABASE_URL`, and nothing else**. VRChat
+credentials, the egress proxy, group selection, Discord bot token and SMTP are all entered through
+a first-run onboarding wizard and stored in the database.
 
 Deploying Modbot is: click the Railway template, open the URL, follow the wizard.
 
@@ -108,7 +135,7 @@ Deploying Modbot is: click the Railway template, open the URL, follow the wizard
 
 ```
 Modbot/
-├─ agent/                     # planning artefacts — specs, plans, research
+├─ .agent/                    # planning artefacts — specs, plans, research
 │  ├─ specs/                  # design documents (this file)
 │  ├─ plans/                  # implementation plans
 │  └─ research/               # investigation notes
@@ -133,8 +160,20 @@ Modbot/
 └─ README.md
 ```
 
-`agent/` is deliberately **not** a dotfolder. Contributors and agents must be able to find it by
-browsing the repository on GitHub.
+`.agent/` holds planning artefacts and is kept distinct from `docs/`, which is reserved for real
+end-user documentation: setup, usage, self-hosting and API reference. `AGENTS.md` at the repository
+root points contributors and agents at `.agent/` so the dotfolder is still discoverable.
+
+### 3.1 A standing rule: no hardcoded VRChat capacity constants
+
+**Nowhere in Modbot may an instance capacity, member cap, or similar VRChat limit be written as a
+constant.** VRChat grants per-group exemptions that raise the usual 80-user instance ceiling to 200
+or 300, and those exemptions change without notice.
+
+Capacity is **data read from the API**, never a compile-time assumption. This applies to UI
+progress bars, capacity warnings, pagination sizing, presence-buffer allocation and analytics
+bucketing alike. A group that received an exemption must not see Modbot report "80/80 — full" for
+an instance holding 240 people.
 
 ---
 
@@ -180,12 +219,14 @@ The single most important interface in the system. **Nothing else may ever const
 ```csharp
 public interface IVRChatGate
 {
+    // The callback returns ApiResponse<T>, so callers MUST use the
+    // ...WithHttpInfoAsync variants. These never throw (see below).
     Task<VRChatResult<T>> ExecuteAsync<T>(
-        Func<IVRChat, CancellationToken, Task<T>> call,
+        Func<IVRChat, CancellationToken, Task<ApiResponse<T>>> call,
         VRChatCallPriority priority = VRChatCallPriority.Background,
         CancellationToken ct = default);
 
-    VRChatSessionState State { get; }
+    VRChatSessionState State { get; }   // Healthy | Reauthenticating | RateLimited | WafBlocked | Unconfigured
 }
 
 public readonly record struct VRChatResult<T>(
@@ -199,17 +240,36 @@ public readonly record struct VRChatResult<T>(
 
 Responsibilities, all in one place:
 
-- Owns the one authenticated `IVRChat` instance built from `VRChat.API`.
+- Owns the one authenticated `IVRChat` instance built from `VRChat.API`, including the optional
+  egress proxy (§2.3.1) via `VRChatClientBuilder.WithProxy`.
 - Persists and re-hydrates the auth cookie from the database (never `cookie.txt` on disk).
 - Serialises all calls (`SemaphoreSlim(1)`) behind a token bucket.
 - **Priority queue**: interactive moderation actions preempt background sync.
 - `401` → transparent re-login (TOTP via the stored 2FA secret), then retry once.
-- `429` → honour `Retry-After` from `ApiException.Headers`, exponential backoff.
-- Parses `ApiException.ErrorContent` into `WafCode` so Cloudflare blocks are distinguishable from
-  ordinary errors, and surfaces this in the UI as a health state rather than as noise in the logs.
+- `429` → exponential backoff (see the limitation below).
+- Classifies WAF blocks distinctly from ordinary errors and surfaces them as a **health state in
+  the UI with a prompt to configure a proxy** — not as log noise.
 - Emits `X-Modbot-Contact-Email` / `X-Modbot-Contact-URL` headers and a descriptive User-Agent via
   `WithApplication(...)`, so VRChat can identify and contact the operator. Being a legible API
   citizen is a design goal, not an afterthought.
+
+**No exception translation is required.** `VRChat.API` has been modified upstream so that every
+`...WithHttpInfoAsync` method catches `ApiException` internally and returns a non-success
+`ApiResponse<T>` instead of throwing. `ApiResponse<T>` exposes `StatusCode`, `Headers`, `Data`,
+`ErrorText`, `Cookies` and `RawContent` — everything the gate needs. Verified in
+`GroupsApi.GetGroupMembersWithHttpInfoAsync`.
+
+**Known upstream limitation.** The catch path constructs a fresh `ApiResponse` with
+`new Multimap<string, string>()` and no `RawContent`, so on **error** responses:
+
+- `Headers` is empty → **`Retry-After` is unavailable on a 429.** The gate uses exponential backoff
+  with a conservative floor instead.
+- The WAF body survives only inside `ErrorText`, formatted as `"Error calling {method}: {body}"`,
+  so `WafCode` must be extracted by locating the JSON payload within that string.
+
+Both are worth fixing upstream — passing `ex.Headers` and `ex.ErrorContent` through would benefit
+every consumer. Until then the gate is written to tolerate their absence, and must not regress if
+they later become populated.
 
 **Split-ready:** the token bucket and semaphore sit behind an `IRateLimitLease`. The in-process
 implementation is a `SemaphoreSlim`; a future distributed implementation is a Redis lease. Same
@@ -312,10 +372,20 @@ a full rebuild from facts is always available and is the supported fix for any a
 
 ### 5.5 Retention and privacy
 
-| Data | Default retention | Configurable |
-|---|---|---|
-| Raw facts (`modbot_event`) | 365 days | yes |
-| Rollups | forever | yes |
+Retention is **tiered by fact class**, because the volume profiles differ by three orders of
+magnitude (§5.7) while the value profiles run the opposite way.
+
+| Fact class | Examples | Volume | Default retention |
+|---|---|---|---|
+| **Moderation** | bans, kicks, role changes, audit-log entries, membership changes | low — hundreds/day | **forever** |
+| **Presence** | instance join/leave, avatar change, session heartbeats | high — up to ~18k/hour at peak | **90 days** |
+| **Rollups** | all derived aggregates | trivial | **forever** |
+
+All configurable. Flat 365-day retention was the initial proposal and is wrong: at peak presence
+volume it implies on the order of 10⁸ rows, which is real money in Railway storage for data whose
+individual rows stop being interesting within weeks — while a ban from three years ago is exactly
+the kind of thing a moderator needs. Long-range questions ("who are our regulars over two years")
+are answered from rollups, which are cheap and kept permanently.
 
 Charts therefore keep their full history even after the underlying events age out.
 
@@ -334,12 +404,43 @@ paragraph in `docs/`, stated plainly and without editorialising.
 | **Metrics** | yes | Group health over time: member growth, join/leave rate, ban rate, staff action volume, per-moderator activity. |
 | **Segments** | **no — M6.5** | Queryable cohorts (*"members with >10h in our worlds in the last 30 days, no bans, joined before June"*) → export, bulk action, giveaway draw. Requires presence data to be interesting. |
 
-### 5.7 Storage choice
+### 5.7 Volume, and why client facts must be deduplicated at ingest
 
-Plain **PostgreSQL**, monthly partitions on `modbot_event`.
+Sizing comes from the extreme upper bound: a major-league group with 400k+ members running **30
+concurrent instances**, each with **4–6 moderators running the Windows client**, at roughly **10
+joins/leaves per minute per instance**.
 
-A busy group running instances around the clock is projected at roughly 15–25k presence events/day
-once M6 lands — a few million rows per year, which is unremarkable for partitioned Postgres.
+| | Rate | Note |
+|---|---|---|
+| Actual events | ~18k/hour | 30 instances × 10/min × 60 |
+| **Reports received** | **~110k/hour** | same events, reported independently by 4–6 clients each |
+
+**The 6× gap is the design requirement.** Six moderator clients in one instance all observe the
+same person joining and all report it. Without deduplication the fact log inflates sixfold, every
+"who joined" query returns duplicates, and — worst — **time-spent calculations sextuple-count**,
+which silently corrupts exactly the metric that giveaways and regular-detection depend on.
+
+Therefore:
+
+- **Deduplication happens at the ingest boundary, not in storage.** A duplicate report is discarded
+  before it becomes a fact.
+- Client-sourced facts carry a **deterministic event identity** so that independent clients
+  observing the same event compute the *same* key without coordinating:
+  `hash(instance_id, subject_id, type, floor(observed_at / bucket))`, enforced by a unique index.
+- Clients do not need to agree, elect a leader, or know about each other. Whichever report arrives
+  first wins; the rest are no-ops. A client dropping out mid-instance loses no coverage, because the
+  others are already reporting the same events.
+- The `source` and `occurred_before` fields (§5.3) still apply: the earliest-arriving report sets
+  the timestamp window, and a later authoritative source can supersede it.
+
+Sustained peak is therefore ~18k facts/hour ≈ 430k/day, which at the 90-day presence retention of
+§5.5 is roughly 39M live rows — comfortable for partitioned Postgres. Typical groups (100–10,000
+members, one or two instances) sit three orders of magnitude below this.
+
+### 5.7.1 Storage choice
+
+Plain **PostgreSQL**, monthly partitions on `modbot_event`, so retention pruning is a partition
+drop rather than a mass `DELETE`.
 
 - **Not TimescaleDB**: continuous aggregates are licensed under the TSL, not Apache, which conflicts
   with the project's licensing care. It remains a cheap upgrade path precisely because it is an
@@ -353,7 +454,10 @@ once M6 lands — a few million rows per year, which is unremarkable for partiti
 ### 6.1 Removed from `old/`
 
 `ModbotBilling`, `ModbotTransaction`, `ModbotGroupAccount`, `ModbotRole`, `Session`,
-`ModbotGroup` (as a tenancy table), `ProxyOptions`, and the Clerk and Svix integrations.
+`ModbotGroup` (as a tenancy table), and the Clerk and Svix integrations.
+
+Proxy configuration is **retained but reshaped**: from a rotating pool with per-request sticky
+sessions to a single optional egress proxy stored in `Settings` (§2.3.1).
 
 ### 6.2 Retained, reworked
 
@@ -367,7 +471,7 @@ every sync diff emits facts.
 
 | Entity | Purpose |
 |---|---|
-| `Settings` | Singleton row. The managed group's id and cached metadata, VRChat credentials, Discord bot token, SMTP config, retention policy, feature toggles. Secrets encrypted (§8.3). |
+| `Settings` | Singleton row. The managed group's id and cached metadata, VRChat credentials, **egress proxy config (§2.3.1)**, Discord bot token, SMTP config, per-class retention policy (§5.5), feature toggles. Secrets encrypted (§8.3). |
 | `ModbotUser` | Staff account: username, password hash, permission bitfield, optional Discord link. |
 | `ApiKey` | Tokens for the read API, separate from user session credentials. |
 | `modbot_event` | The fact log (§5.3). |
@@ -392,11 +496,33 @@ With no `ModbotUser` rows present, every route redirects to `/setup`:
 1. **Create administrator** — username and password.
 2. **VRChat login** — email, password, TOTP secret. Validated live against the API; failure is shown
    immediately rather than at first sync. Session cookie persisted to `Settings`.
-3. **Select group** — from the groups where the authenticated account holds moderator permissions.
+3. **Connection check / proxy** — see §7.1.1.
+4. **Select group** — from the groups where the authenticated account holds moderator permissions.
    If none qualify, say so explicitly and explain the required permissions.
-4. **Optional** — Discord bot token and guild, SMTP for notifications, Discord OAuth application.
+5. **Optional** — Discord bot token and guild, SMTP for notifications, Discord OAuth application.
 
 Each step is independently re-runnable later from settings.
+
+#### 7.1.1 Connection check and proxy step
+
+Immediately after the VRChat account step, Modbot **tests its own egress** and tells the operator
+whether they need a proxy, rather than making them find out from a failed sync hours later:
+
+> **Using a proxy?** Let's test whether you need one.
+> [ Test connection ] — Modbot will try to reach the VRChat API directly.
+
+- **Pass** → "No proxy needed." Continue. The field stays available but collapsed.
+- **Fail with a WAF block** → the diagnosis is stated plainly: this network's IP range is blocked by
+  Cloudflare, which is common on datacentre and VPS hosting, and it is not the operator's fault or a
+  VRChat account problem. A proxy is required to continue, with **iproyal.com** offered as a known
+  working option. A proxy URL and credentials can then be entered and **re-tested in place** until
+  the check passes.
+- **Fail otherwise** (DNS, timeout, bad credentials) → distinguish it from a WAF block, because the
+  remedy is completely different and a proxy will not help.
+
+The same check is re-runnable from settings, and the gate's `WafBlocked` health state (§4.1) links
+straight back to it — so an operator whose host is blocked *after* a working install gets the same
+guided fix instead of a wall of failed syncs.
 
 ### 7.2 Sessions
 
@@ -429,32 +555,31 @@ No hosted email provider dependency.
 |---|---|---|
 | `PORT` | yes | provided by Railway |
 | `DATABASE_URL` | yes | Postgres connection |
-| `MODBOT_SECRET_KEY` | no | optional encryption key override (§8.3) |
 
-Everything else lives in `Settings`.
+**That is the complete list.** Everything else lives in `Settings` and is set through the wizard.
 
 ### 8.2 Migrations
 
 EF Core migrations applied automatically at startup, as in the old implementation. A self-hosted
 appliance must not require the operator to run a migration command.
 
-### 8.3 Secret storage — decision required
+### 8.3 Secret storage — settled
 
-Database-stored secrets need an encryption key, and a key is an environment variable. The options,
-none of them free:
+Secrets in `Settings` (VRChat password and 2FA secret, Discord bot token, SMTP password, proxy
+credentials) are encrypted at rest with a key generated on first boot and **stored in the database**.
 
-| Option | Cost |
-|---|---|
-| Require `MODBOT_SECRET_KEY` | One more variable. **Losing it permanently bricks every stored secret** — a serious hazard on Railway, where people redeploy and reset environments. |
-| Auto-generate to a Railway volume | Zero extra variables. Fails if the volume is lost or the service is recreated. |
-| **Key in the database, documented honestly** ← proposed | Protects against casual reading of a database dump, and nothing more. **No weaker than environment variables in practice** — Railway stores those in plaintext and displays them in its dashboard. Cannot brick the install. |
+No environment variable, no volume, no key-management step. This deliberately protects against
+casual reading of a database dump and **nothing more** — an attacker with full database access has
+the key too.
 
-**Proposed:** the third, with `MODBOT_SECRET_KEY` supported as an *optional* override for operators
-who want real encryption at rest and accept the recovery risk. The threat model is stated plainly in
-`docs/security.md`. A self-hosted tool that can permanently destroy itself over a lost environment
-variable is worse in practice than one that is honest about what it does and does not protect.
+That is the correct trade for this project. Modbot is run by community groups on managed hosting,
+where in practice nobody touches the database directly, and where Railway already stores environment
+variables in plaintext and displays them in its dashboard — so a key held there would not be
+meaningfully safer. What a required key *would* reliably do is permanently brick installs when
+someone redeploys and loses it.
 
-**This decision is flagged for explicit sign-off.**
+The threat model is stated in one honest paragraph in `docs/security.md`. Operators who need real
+encryption at rest should encrypt the database itself, which is where that control belongs.
 
 ---
 
@@ -512,13 +637,16 @@ Meilisearch, Redis, AutoMapper, Clerk, Svix.
 
 | Layer | Approach |
 |---|---|
-| `IVRChatGate` | Unit tests with a faked `IVRChat`. Must cover: 401 re-login, 429 `Retry-After`, WAF classification, priority preemption, serialisation under concurrency. |
-| Sync jobs | Fed recorded VRChat payloads; assert both projections **and** emitted facts. |
+| `IVRChatGate` | Unit tests with a faked `IVRChat`. Must cover: 401 re-login, 429 backoff **without** a `Retry-After` header, WAF classification from `ErrorText`, priority preemption, serialisation under concurrency, and proxy vs. direct egress. |
+| Sync jobs | Fed recorded VRChat payloads; assert both projections **and** emitted facts, including `occurred_before` windows on inferred events. |
+| **Ingest deduplication** | Replay the same instance event as reported by six independent clients with jittered timestamps; assert **exactly one** fact is written and that time-spent totals are unchanged versus a single-client replay. |
 | Analytics | Property test the core invariant: rollups recomputed from facts equal rollups built incrementally. |
+| Capacity handling | An instance reporting a capacity above the usual ceiling (exemption case, §3.1) must render and bucket correctly — regression guard against reintroduced constants. |
 | API | Integration tests against Postgres via Testcontainers. |
 
-The gate and the fact log get the most rigorous coverage: the gate because everything depends on it,
-the fact log because its mistakes are unrecoverable.
+The gate, the fact log and ingest deduplication get the most rigorous coverage: the gate because
+everything depends on it, the fact log because its mistakes are unrecoverable, and deduplication
+because its failure mode is **silent** — nothing errors, the numbers are simply wrong by 6×.
 
 ---
 
@@ -551,17 +679,28 @@ else depends on it — Modbot must be fully useful whether or not it ever exists
 
 ---
 
-## 15. Decisions taken without explicit sign-off
+## 15. Decision log
 
-Recorded so they are visible rather than buried. All are cheap to reverse except the first.
+Recorded so they are visible rather than buried, and so they are not relitigated.
 
-1. **Secret storage** (§8.3) — key in the database, documented, with an optional environment override.
-   **Flagged for explicit approval.**
-2. **Meilisearch dropped** in favour of `pg_trgm` (§6.4).
-3. **`agent/` rather than `.agent/`** — discoverability when browsing on GitHub.
-4. **`VRChat.API` used rather than a hand-rolled client.** Investigation of `old/VRChat/VRChatClient.cs`
-   found it existed for three reasons: per-request proxy sticky sessions (dead under the one-account
-   model), WAF error surfacing, and a non-throwing result type. `ApiException` exposes `ErrorCode`,
-   `ErrorContent` and `Headers`, which is sufficient for the latter two — and both belong in
-   `IVRChatGate` regardless. The hand-roll was roughly 90% proxy plumbing that no longer applies.
-5. **Retention defaults** — 365 days for facts, indefinite for rollups (§5.5).
+1. **License is AGPL-3.0** (§2.2), replacing an earlier PolyForm Noncommercial proposal. Modbot is
+   genuinely open source; the accepted consequence is that commercial hosting is permitted.
+2. **Secret storage settled** (§8.3) — key in the database, no environment variable, honest docs.
+   Community-group threat model, not a multinational SaaS one.
+3. **Meilisearch dropped** in favour of `pg_trgm` (§6.4).
+4. **`.agent/` rather than `agent/`**, with `AGENTS.md` at the root pointing to it.
+5. **Proxy support restored, reshaped** (§2.3.1) — one optional egress proxy for WAF-blocked
+   networks, with a guided test in the wizard (§7.1.1). Not a rotating pool; never a response to
+   rate limiting.
+6. **`VRChat.API` used rather than a hand-rolled client.** The old `VRChatClient.cs` existed because
+   at the time of writing the maintainer did not yet maintain `VRChat.API` and it was broken — a
+   historical constraint, not a technical one. It has since been modified upstream so
+   `...WithHttpInfoAsync` returns a full `ApiResponse<T>` and never throws, which is precisely what
+   the gate wants. Two upstream gaps remain, documented in §4.1.
+7. **Retention is tiered** (§5.5) — moderation facts forever, presence facts 90 days, rollups
+   forever. Replaces a flat 365-day default that did not survive contact with real peak volume.
+8. **Client facts are deduplicated at the ingest boundary** (§5.7) via a deterministic event
+   identity. Required because 4–6 moderator clients per instance report the same events, a 6×
+   amplification that would otherwise corrupt every time-spent metric.
+9. **No hardcoded VRChat capacity constants anywhere** (§3.1) — instance limits are raised by
+   exemption and must be read from the API.
