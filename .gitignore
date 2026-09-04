@@ -1,0 +1,57 @@
+# ---- Modbot workspace exclusions ----
+# Reference-only clones. Not part of the Modbot source tree.
+libs/
+old/
+
+# ---- .NET ----
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+*.userprefs
+.vs/
+artifacts/
+TestResults/
+*.binlog
+BenchmarkDotNet.Artifacts/
+
+# ---- Node / frontend ----
+node_modules/
+dist/
+build/
+.next/
+.turbo/
+.vite/
+*.tsbuildinfo
+.pnpm-store/
+
+# ---- Secrets & local config ----
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Local.json
+*.pfx
+*.key
+secrets.json
+
+# ---- Local data ----
+*.db
+*.db-shm
+*.db-wal
+data/
+logs/
+*.log
+
+# ---- Editors / OS ----
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# ---- Agent scratch ----
+.remember/
