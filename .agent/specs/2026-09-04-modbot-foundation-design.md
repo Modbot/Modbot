@@ -186,7 +186,7 @@ an instance holding 240 people.
    AuditLogSyncJob  ─┤        │  • owns THE authenticated session│──▶ VRChat.API ──▶ VRChat
    ModerationAction ─┘        │  • token bucket + Semaphore(1)   │
                               │  • 401 → re-login                │
-                              │  • 429 → Retry-After backoff     │
+                              │  • 429 → COLD STOP, never retry  │
                               │  • WAF detection → surfaced      │
                               │  • ApiException → VRChatResult<T>│
                               └──────────────────────────────────┘
@@ -315,6 +315,8 @@ VRChat's rate limit does not behave like a normal API limit, and the gate must n
   duration. A 429 tells you that you are limited and nothing else.
 - **Retrying while limited extends the penalty.** Empirically, a retry issued before the penalty
   expires appears to add roughly **45–80 seconds** to it.
+- **Limits are per-endpoint, and sometimes per-resource** — scoped to a particular group id rather
+  than to the account. There is no single global allowance to reason about.
 
 That third property is the one that matters, because it breaks the standard tool. Exponential
 backoff assumes probing is free and optimises for converging quickly on the recovery moment; a
@@ -327,23 +329,49 @@ not the total wait.**
 A 429 is treated as an **incident, not control flow**. It is surfaced in the UI, recorded as a fact,
 and counted — a healthy Modbot should emit approximately zero.
 
-**Budget.** The operator configures an estimated requests-per-hour ceiling; Modbot runs at a
-conservative fraction of it (proposed default **60%**) and never bursts to the estimate. The token
-bucket in §4.1 enforces this as a hard cap, not as best-effort pacing. The estimate lives in
-`Settings` with a documented default, because it is a guess about someone else's undocumented
-system and will need changing without a redeploy.
+**Hierarchical budgets.** Because limits are per-endpoint and sometimes per-resource, a single
+global bucket is insufficient. The gate maintains a **hierarchy of token buckets**, and a request
+must acquire a token at *every* level it belongs to:
 
-**On a 429 — cold stop.** All VRChat traffic halts, including interactive moderation actions, which
-fail fast with an explanatory message rather than queueing into the penalty.
+```
+  global  ──▶  endpoint class          ──▶  resource (optional)
+  (backstop)   e.g. groups.members          e.g. grp_1a2b…
+```
 
-1. Wait a long fixed base period (proposed **15 minutes**). Issue nothing at all.
-2. Send **one** probe: the cheapest available call.
-3. If it succeeds, resume at a reduced budget (below). If it fails, wait **a longer period**
-   (proposed +15 minutes each time, linear) and probe once more.
-4. After a small number of failures, stop and alert the operator. Something is wrong that waiting
-   will not fix.
+- **Global** is a backstop, not the model — it exists because an account-wide limit may also apply
+  and we cannot see it.
+- **Endpoint class** groups related operations (`groups.members`, `groups.bans`, `groups.auditlog`,
+  `users.read`, `moderation.write`). Each has its own configurable ceiling.
+- **Resource** applies where a limit is observed to be scoped to a specific id. In a single-group
+  appliance this dimension usually collapses to one group, but it must exist in the model — some
+  endpoints key on user or world ids, and the appliance assumption must not bake it out.
 
-Never more than one probe per waiting period, and no short retries at any point.
+Each ceiling is an operator-configurable estimate in `Settings`; Modbot runs at a conservative
+fraction of it (proposed default **60%**) and never bursts to the estimate. These are guesses about
+someone else's undocumented system and must be changeable without a redeploy.
+
+**On a 429 — scoped cold stop.** Halt the **most specific bucket** that matched the failing request,
+not all VRChat traffic. A limit hit on `groups.members` must not stop audit-log ingestion, which is
+both cheap and the authoritative fact source.
+
+Simultaneously apply a multiplicative decrease to **every ancestor bucket**, because a 429 on one
+endpoint is evidence that the whole estimate is optimistic and may indicate proximity to an unseen
+account-wide limit.
+
+Interactive moderation actions are exempt from *other* buckets' stops but obey their own: if
+`moderation.write` is cold, a ban fails fast with an explanatory message rather than queueing into
+the penalty.
+
+Recovery, applied per stopped bucket:
+
+1. Wait a long fixed base period (proposed **15 minutes**). Issue nothing **on that bucket** at all.
+2. Send **one** probe: the cheapest call in that endpoint class.
+3. If it succeeds, resume that bucket at a reduced budget (below). If it fails, wait **a longer
+   period** (proposed +15 minutes each time, linear) and probe once more.
+4. After a small number of failures, leave the bucket stopped and alert the operator. Something is
+   wrong that waiting will not fix.
+
+Never more than one probe per waiting period per bucket, and no short retries at any point.
 
 **Budget adaptation — AIMD, tuned for expensive loss.** The same shape as TCP congestion control,
 with the constants pushed hard toward caution because the loss signal here is far more punishing
@@ -371,10 +399,51 @@ resumes its cold wait before issuing anything.
 
 - Sync intervals are derived, not fixed (§4.2).
 - The priority queue is the budget allocator, not a nicety: it decides what a scarce, non-renewable
-  resource is spent on.
-- The UI must show real last-sync times per data type, plus current gate health
+  resource is spent on — and now allocates across endpoint classes, not one flat pool.
+- Rate-limit windows are measured on `IModbotClock` (§4.4), never the host clock.
+- The UI must show real last-sync times per data type, plus per-bucket gate health
   (`Healthy | RateLimited | WafBlocked | Reauthenticating`) — an operator has to be able to see that
-  Modbot is deliberately slow rather than broken.
+  Modbot is deliberately slow rather than broken, and *which* part of it is stopped.
+
+### 4.4 Time — one authority, never the local clock
+
+Modbot has **one clock**: `IModbotClock`, served by the backend. Nothing anywhere — server, client,
+overlay — reads `DateTime.Now` or `DateTimeOffset.UtcNow` directly for anything that becomes a fact,
+a rollup boundary, or a rate-limit window.
+
+This exists because analytics correctness depends on timestamps from **many machines that Modbot
+does not control**. A moderator's PC with a clock ten minutes off would otherwise silently corrupt
+session durations, deduplication and every time-bucketed metric — and it would do so invisibly,
+producing plausible-looking wrong numbers rather than an error.
+
+**Client synchronisation.** Windows clients synchronise to server time rather than merely tolerating
+skew, using the standard SNTP round-trip estimate:
+
+```
+offset = ((t1 - t0) + (t2 - t3)) / 2       round-trip compensated
+    t0 client send   t1 server receive
+    t2 server send   t3 client receive
+```
+
+- Re-measured periodically and on reconnect; smoothed across samples, and samples with an outlying
+  round-trip discarded rather than averaged in.
+- Clients report `occurred_at` in **server time**, having applied their offset, along with the
+  offset itself and their confidence in it.
+- The client never steps the machine's own clock. The offset is applied to reported timestamps only.
+
+**Defence in depth — skew is corrected *and* tolerated.** Synchronisation reduces skew; it does not
+guarantee it. So in addition:
+
+- The server records its own `observed_at` on every ingested fact, which is authoritative for
+  ordering and is never taken from a client.
+- A client `occurred_at` that disagrees with `observed_at` beyond a plausible transport delay is
+  **clamped and flagged**, not trusted and not silently discarded — a systematically skewed client
+  is a fault worth surfacing to the operator.
+- Deduplication windows (§5.7) are sized against residual skew, not raw clock skew, which is what
+  makes a window narrow enough to preserve genuine rapid rejoins viable at all.
+
+The gate uses the same clock for its rate-limit windows, so a host clock adjustment (NTP step, VM
+migration, DST bug) cannot make it believe a penalty has expired.
 
 ---
 
@@ -509,20 +578,47 @@ Therefore:
 
 - **Deduplication happens at the ingest boundary, not in storage.** A duplicate report is discarded
   before it becomes a fact.
-- Client-sourced facts carry a **deterministic event identity** so that independent clients
-  observing the same event compute the *same* key without coordinating:
-  `hash(instance_id, subject_id, type, floor(observed_at / bucket))`, enforced by a unique index.
 - Clients do not need to agree, elect a leader, or know about each other. Whichever report arrives
   first wins; the rest are no-ops. A client dropping out mid-instance loses no coverage, because the
   others are already reporting the same events.
 - The `source` and `occurred_before` fields (§5.3) still apply: the earliest-arriving report sets
   the timestamp window, and a later authoritative source can supersede it.
 
+#### 5.7.1 Sizing the deduplication window
+
+The window is squeezed from both sides by real numbers:
+
+| Bound | Value | Source |
+|---|---|---|
+| **Floor** — must not merge distinct events | a genuine leave-and-rejoin can complete in **15 s** on a fast cached world | observed |
+| **Ceiling** — must merge reports of one event | residual clock disagreement between moderator PCs after synchronisation | §4.4 |
+
+**Proposed window: ±5 seconds** — a 10-second span, comfortably inside the 15-second floor.
+
+That is only viable because of `IModbotClock` (§4.4). Against *raw* machine clocks the ceiling is
+unbounded — a PC whose clock is minutes off would need a window of minutes, which would swallow
+every genuine rejoin. **Synchronising to server time is what makes a narrow window possible at all**;
+it is a correctness prerequisite for deduplication, not a nicety.
+
+**Windowed, not bucketed.** An earlier `floor(timestamp / bucket)` hash is rejected: it fails at
+bucket boundaries. Two clients reporting the same join at `14:00:04.9` and `14:00:05.1` fall into
+different 5-second buckets and both get written — and the failure is silent and intermittent,
+appearing only for events that happen to straddle a boundary. Instead, ingest performs a range check
+for an existing fact matching `(instance_id, subject_id, type)` within ±window, backed by an index on
+`(instance_id, subject_id, type, occurred_at)`.
+
+Note that join and leave are distinct `type` values, so a 15-second leave→rejoin cycle produces two
+*joins* 15 s apart — outside the window — and never collides with its own leave.
+
+The window is configurable, and a slow-PC join taking 30–60 s to complete does not widen it:
+moderators observe the join when the user actually enters the instance, not while their client is
+loading.
+
 Sustained peak is therefore ~18k facts/hour ≈ 430k/day, which at the 90-day presence retention of
 §5.5 is roughly 39M live rows — comfortable for partitioned Postgres. Typical groups (100–10,000
 members, one or two instances) sit three orders of magnitude below this.
 
-### 5.7.1 Storage choice
+#### 5.7.2 Storage choice
 
 Plain **PostgreSQL**, monthly partitions on `modbot_event`, so retention pruning is a partition
 drop rather than a mass `DELETE`.
@@ -726,7 +822,8 @@ Meilisearch, Redis, AutoMapper, Clerk, Svix.
 | **Rate limiting** (§4.3) | Against a fake VRChat that models the *punitive* limiter — a 429 while penalised extends the penalty. Assert: **at most one probe per waiting period**; no request is issued during a cold stop; budget halves on 429 and recovers only additively; the token bucket never exceeds the configured fraction of the ceiling. A test that passes against a *non*-punitive fake proves nothing, so the fake's penalty-extension behaviour is itself asserted. |
 | **Restart safety** (§4.3.2) | Trip the limit, destroy and recreate the host, assert the new instance resumes the cold wait from persisted state and issues nothing. Then simulate a crash-loop and assert total probes stay bounded — the regression guard against a restart loop escalating a rate limit. |
 | Sync jobs | Fed recorded VRChat payloads; assert both projections **and** emitted facts, including `occurred_before` windows on inferred events. |
-| **Ingest deduplication** | Replay the same instance event as reported by six independent clients with jittered timestamps; assert **exactly one** fact is written and that time-spent totals are unchanged versus a single-client replay. |
+| **Ingest deduplication** | Replay the same instance event as reported by six independent clients with jittered timestamps; assert **exactly one** fact is written and time-spent totals match a single-client replay. Must include the **boundary case** that killed the bucketed design (reports at `14:00:04.9` / `14:00:05.1`) and the **floor case** (a genuine rejoin 15 s later yields *two* facts, not one). |
+| **Time provider** (§4.4) | SNTP offset estimation under asymmetric latency; outlier round-trips discarded; a client whose clock is minutes off still produces correctly-ordered facts; a client `occurred_at` beyond plausible transport delay is clamped **and flagged**, not silently accepted or dropped. |
 | Analytics | Property test the core invariant: rollups recomputed from facts equal rollups built incrementally. |
 | Capacity handling | An instance reporting a capacity above the usual ceiling (exemption case, §3.1) must render and bucket correctly — regression guard against reintroduced constants. |
 | API | Integration tests against Postgres via Testcontainers. |
@@ -802,3 +899,15 @@ Recorded so they are visible rather than buried, and so they are not relitigated
     protected.
 12. **Rate-limit state persists in the database** (§4.3.2), so a redeploy or crash-loop cannot reset
     the gate into a live penalty and escalate it.
+13. **Rate-limit budgets are hierarchical** — global → endpoint class → resource (§4.3.1). VRChat's
+    limits are per-endpoint and sometimes scoped to a specific group id, so one flat bucket cannot
+    model them. A 429 cold-stops only the most specific matching bucket while decreasing every
+    ancestor.
+14. **One clock: `IModbotClock`** (§4.4). Nothing reads the local system clock for anything that
+    becomes a fact, a rollup boundary, or a rate-limit window. Clients synchronise to server time
+    (SNTP round-trip estimate) *and* the server independently records `observed_at` and clamps
+    implausible client timestamps — corrected and tolerated, not one or the other.
+15. **Deduplication is windowed (±5 s), not bucketed** (§5.7.1). A `floor(t / bucket)` hash fails
+    silently at bucket boundaries. The window is bounded below by a genuine 15-second leave-and-
+    rejoin and is only narrow enough to fit because of §4.4 — server-time sync is a correctness
+    prerequisite for deduplication, not an optimisation.
