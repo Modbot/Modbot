@@ -246,7 +246,8 @@ Responsibilities, all in one place:
 - Serialises all calls (`SemaphoreSlim(1)`) behind a token bucket.
 - **Priority queue**: interactive moderation actions preempt background sync.
 - `401` → transparent re-login (TOTP via the stored 2FA secret), then retry once.
-- `429` → exponential backoff (see the limitation below).
+- `429` → **cold stop, never retry** (§4.3). This is the one place the gate deliberately does not
+  behave like a normal HTTP client.
 - Classifies WAF blocks distinctly from ordinary errors and surfaces them as a **health state in
   the UI with a prompt to configure a proxy** — not as log noise.
 - Emits `X-Modbot-Contact-Email` / `X-Modbot-Contact-URL` headers and a descriptive User-Agent via
@@ -260,29 +261,43 @@ Responsibilities, all in one place:
 `GroupsApi.GetGroupMembersWithHttpInfoAsync`.
 
 **Known upstream limitation.** The catch path constructs a fresh `ApiResponse` with
-`new Multimap<string, string>()` and no `RawContent`, so on **error** responses:
+`new Multimap<string, string>()` and no `RawContent`, so on **error** responses `Headers` is empty
+and the WAF body survives only inside `ErrorText`, formatted as `"Error calling {method}: {body}"` —
+`WafCode` must be extracted by locating the JSON payload within that string.
 
-- `Headers` is empty → **`Retry-After` is unavailable on a 429.** The gate uses exponential backoff
-  with a conservative floor instead.
-- The WAF body survives only inside `ErrorText`, formatted as `"Error calling {method}: {body}"`,
-  so `WafCode` must be extracted by locating the JSON payload within that string.
-
-Both are worth fixing upstream — passing `ex.Headers` and `ex.ErrorContent` through would benefit
-every consumer. Until then the gate is written to tolerate their absence, and must not regress if
-they later become populated.
+Worth fixing upstream, but **it changes nothing about rate limiting**: VRChat does not send
+`Retry-After` at all, so there is no header to recover (§4.3). The gate must tolerate the absence
+of both and must not regress if they later become populated.
 
 **Split-ready:** the token bucket and semaphore sit behind an `IRateLimitLease`. The in-process
 implementation is a `SemaphoreSlim`; a future distributed implementation is a Redis lease. Same
 interface, same call sites.
 
-### 4.2 Sync jobs
+### 4.2 Sync jobs — budget-derived, not fixed-interval
 
-| Job | Interval | Mode |
-|---|---|---|
-| `MemberSyncJob` | 5 min incremental, 30 min full | paged, stops early on unchanged page unless full |
-| `BanSyncJob` | 15 min | paged |
-| `InviteSyncJob` | 15 min | paged |
-| `AuditLogSyncJob` | 1 min | cursor-based, newest-first until known cursor reached |
+Jobs declare a **cost** and a **desired freshness**. The scheduler allocates the request budget
+(§4.3) across them; it does **not** run them on hardcoded timers.
+
+| Job | Request cost | Desired freshness | Priority |
+|---|---|---|---|
+| `AuditLogSyncJob` | 1–2 (cursor-based, newest-first until a known cursor) | 1 min | highest — cheap, and the authoritative fact source |
+| `MemberSyncJob` (incremental) | 1–3 pages (stops on first unchanged page) | 5 min | high |
+| `BanSyncJob` | ⌈bans / 100⌉ | 15 min | medium |
+| `InviteSyncJob` | ⌈invites / 100⌉ | 15 min | medium |
+| `MemberSyncJob` (full) | ⌈members / 100⌉ | as budget allows | lowest — deliberately starvable |
+
+**Fixed intervals do not survive contact with large groups.** A 50,000-member group costs 500
+requests for one full member sync. On a 30-minute timer that is 1,000 requests/hour for a single
+job — which on a plausible budget is the entire allowance, spent re-reading mostly-unchanged rows,
+leaving nothing for the audit log or for a moderator trying to issue a ban.
+
+So freshness targets are **aspirations the scheduler meets when it can**. Under budget pressure it
+degrades in a defined order: full syncs stretch out first (hours, or overnight), then bans and
+invites, then incremental members. The audit log and interactive actions are protected. The UI
+displays actual last-sync times per data type, never an implied guarantee.
+
+This also means **large groups automatically sync less often** with no configuration, and small
+groups — the 100-to-10,000-member majority — comfortably meet every freshness target.
 
 All persistence is **batched** — one `SaveChangesAsync` per page, not per entity. The old
 implementation issued two round-trips per member, so a 5,000-member group cost roughly 10,000
@@ -290,6 +305,76 @@ sequential database calls per sync.
 
 Mapping from SDK models to entities uses **Riok.Mapperly** (source-generated, compile-time verified),
 not AutoMapper.
+
+### 4.3 Rate limiting — an opaque, punitive limit
+
+VRChat's rate limit does not behave like a normal API limit, and the gate must not treat it like one:
+
+- **No published limit.** The threshold is undocumented and changes.
+- **No `Retry-After`.** No header communicates the limit, the remaining allowance, or the penalty
+  duration. A 429 tells you that you are limited and nothing else.
+- **Retrying while limited extends the penalty.** Empirically, a retry issued before the penalty
+  expires appears to add roughly **45–80 seconds** to it.
+
+That third property is the one that matters, because it breaks the standard tool. Exponential
+backoff assumes probing is free and optimises for converging quickly on the recovery moment; a
+schedule of 1/2/4/8 minutes issues four probes and can add three to five minutes of penalty while
+never converging. **Under a per-probe penalty, the objective is to minimise the number of probes,
+not the total wait.**
+
+#### 4.3.1 Prevention is the mechanism; recovery is damage control
+
+A 429 is treated as an **incident, not control flow**. It is surfaced in the UI, recorded as a fact,
+and counted — a healthy Modbot should emit approximately zero.
+
+**Budget.** The operator configures an estimated requests-per-hour ceiling; Modbot runs at a
+conservative fraction of it (proposed default **60%**) and never bursts to the estimate. The token
+bucket in §4.1 enforces this as a hard cap, not as best-effort pacing. The estimate lives in
+`Settings` with a documented default, because it is a guess about someone else's undocumented
+system and will need changing without a redeploy.
+
+**On a 429 — cold stop.** All VRChat traffic halts, including interactive moderation actions, which
+fail fast with an explanatory message rather than queueing into the penalty.
+
+1. Wait a long fixed base period (proposed **15 minutes**). Issue nothing at all.
+2. Send **one** probe: the cheapest available call.
+3. If it succeeds, resume at a reduced budget (below). If it fails, wait **a longer period**
+   (proposed +15 minutes each time, linear) and probe once more.
+4. After a small number of failures, stop and alert the operator. Something is wrong that waiting
+   will not fix.
+
+Never more than one probe per waiting period, and no short retries at any point.
+
+**Budget adaptation — AIMD, tuned for expensive loss.** The same shape as TCP congestion control,
+with the constants pushed hard toward caution because the loss signal here is far more punishing
+than a dropped packet:
+
+- **On a 429:** multiplicative decrease — halve the effective budget. The estimate was wrong.
+- **On sustained success:** additive increase — recover by a small fixed step per hour, capped at
+  the configured ceiling. Recovery should take hours, not minutes.
+
+The asymmetry is the point. Overshooting costs an opaque multi-minute outage; undershooting costs
+slightly staler data.
+
+#### 4.3.2 Penalty state must survive restarts
+
+The current penalty state, the adapted budget, and the recent-request window are **persisted in the
+database**, not held in memory.
+
+A Railway redeploy, a crash, or an OOM kill would otherwise reset the gate to full budget and send
+it straight back into a live penalty — and a crash-loop would do this every few seconds, issuing a
+continuous stream of penalty-extending probes. **A restart loop must not be able to escalate a
+ten-minute rate limit into an account-level problem.** On boot the gate reads persisted state and
+resumes its cold wait before issuing anything.
+
+#### 4.3.3 Consequences elsewhere
+
+- Sync intervals are derived, not fixed (§4.2).
+- The priority queue is the budget allocator, not a nicety: it decides what a scarce, non-renewable
+  resource is spent on.
+- The UI must show real last-sync times per data type, plus current gate health
+  (`Healthy | RateLimited | WafBlocked | Reauthenticating`) — an operator has to be able to see that
+  Modbot is deliberately slow rather than broken.
 
 ---
 
@@ -637,7 +722,9 @@ Meilisearch, Redis, AutoMapper, Clerk, Svix.
 
 | Layer | Approach |
 |---|---|
-| `IVRChatGate` | Unit tests with a faked `IVRChat`. Must cover: 401 re-login, 429 backoff **without** a `Retry-After` header, WAF classification from `ErrorText`, priority preemption, serialisation under concurrency, and proxy vs. direct egress. |
+| `IVRChatGate` | Unit tests with a faked `IVRChat`: 401 re-login, WAF classification from `ErrorText`, priority preemption, serialisation under concurrency, proxy vs. direct egress. |
+| **Rate limiting** (§4.3) | Against a fake VRChat that models the *punitive* limiter — a 429 while penalised extends the penalty. Assert: **at most one probe per waiting period**; no request is issued during a cold stop; budget halves on 429 and recovers only additively; the token bucket never exceeds the configured fraction of the ceiling. A test that passes against a *non*-punitive fake proves nothing, so the fake's penalty-extension behaviour is itself asserted. |
+| **Restart safety** (§4.3.2) | Trip the limit, destroy and recreate the host, assert the new instance resumes the cold wait from persisted state and issues nothing. Then simulate a crash-loop and assert total probes stay bounded — the regression guard against a restart loop escalating a rate limit. |
 | Sync jobs | Fed recorded VRChat payloads; assert both projections **and** emitted facts, including `occurred_before` windows on inferred events. |
 | **Ingest deduplication** | Replay the same instance event as reported by six independent clients with jittered timestamps; assert **exactly one** fact is written and that time-spent totals are unchanged versus a single-client replay. |
 | Analytics | Property test the core invariant: rollups recomputed from facts equal rollups built incrementally. |
@@ -704,3 +791,14 @@ Recorded so they are visible rather than buried, and so they are not relitigated
    amplification that would otherwise corrupt every time-spent metric.
 9. **No hardcoded VRChat capacity constants anywhere** (§3.1) — instance limits are raised by
    exemption and must be read from the API.
+10. **No exponential backoff on rate limits** (§4.3). VRChat's limiter is opaque, sends no
+    `Retry-After`, and *extends* the penalty by ~45–80s when retried early — so backoff chases a
+    deadline it keeps pushing away. Replaced by: a hard budget below an operator-configured
+    estimate, cold stop on 429, one probe per long waiting period, and AIMD budget adaptation with
+    a fast decrease and slow increase.
+11. **Sync intervals are budget-derived, not fixed** (§4.2). Fixed timers put a 50k-member group's
+    full sync at ~1,000 requests/hour, which alone could exhaust the budget. Freshness targets are
+    aspirations; degradation order is defined and the audit log plus interactive actions are
+    protected.
+12. **Rate-limit state persists in the database** (§4.3.2), so a redeploy or crash-loop cannot reset
+    the gate into a live penalty and escalate it.
