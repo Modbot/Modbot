@@ -405,6 +405,43 @@ resumes its cold wait before issuing anything.
   (`Healthy | RateLimited | WafBlocked | Reauthenticating`) — an operator has to be able to see that
   Modbot is deliberately slow rather than broken, and *which* part of it is stopped.
 
+#### 4.3.4 Provisional limits, and a standing instruction
+
+Real per-endpoint limits are unknown and will be established **during implementation, endpoint by
+endpoint**. Until then Modbot assumes a **sustained 0.3–1 request/second per endpoint class**.
+
+> **Standing instruction for implementers (human or agent):**
+> **Ask about the rate limit before building against an endpoint Modbot has not used before.**
+> Do not infer a limit from a neighbouring endpoint, and do not raise a provisional value because a
+> sync feels slow. These numbers are guesses about an undocumented system whose failure mode is
+> opaque and punitive (§4.3); the cost of being wrong is asymmetric.
+
+Provisional defaults, taken from the pacing the previous implementation actually ran in production
+(`old/Modbot/Consumers/`), which is the best empirical evidence available:
+
+| Endpoint class | Provisional rate | Source |
+|---|---|---|
+| `groups.members` | **0.67 req/s** | `MemberConsumer` — 1500 ms between pages |
+| `groups.bans` | **0.29 req/s** | `BanConsumer` — 3500 ms between pages |
+| `groups.auditlog` | **0.29 req/s** | `LogConsumer` — 3500 ms between pages |
+| `groups.invites` | **0.29 req/s** | no prior data; matched to the conservative neighbour |
+| `users.read` | **0.33 req/s** | `UserProducer` — 3000 ms |
+| `moderation.write` | **0.3 req/s** | unknown; interactive and low-volume, kept conservative |
+| `auth` | negligible | login and re-login only |
+
+Two caveats about that evidence:
+
+1. **Those rates were per-group in a multi-tenant deployment**, with each group's consumer holding
+   its own proxy session — so the per-account rate was N× the per-endpoint figure above. Under one
+   account and no proxy rotation these become the *total* rates, which puts the new design at parity
+   or safer for a single group.
+2. **The old 429 handling was almost certainly too aggressive.** It waited 3 minutes and then
+   retried via `goto TryAgain`, repeatedly. If a real penalty runs ~10 minutes, that is three or
+   more premature probes, each adding 45–80 s — roughly 2.5–4 minutes of self-inflicted extension
+   per incident. This is consistent with the penalty-extension behaviour described in §4.3 and is
+   most likely how it was discovered. It is the direct reason the cold-stop base is **15 minutes**
+   with **one** probe, not 3 minutes with retries.
+
 ### 4.4 Time — one authority, never the local clock
 
 Modbot has **one clock**: `IModbotClock`, served by the backend. Nothing anywhere — server, client,
@@ -907,7 +944,10 @@ Recorded so they are visible rather than buried, and so they are not relitigated
     becomes a fact, a rollup boundary, or a rate-limit window. Clients synchronise to server time
     (SNTP round-trip estimate) *and* the server independently records `observed_at` and clamps
     implausible client timestamps — corrected and tolerated, not one or the other.
-15. **Deduplication is windowed (±5 s), not bucketed** (§5.7.1). A `floor(t / bucket)` hash fails
+15. **Rate limits are provisional and endpoint-specific** (§4.3.4). Assume 0.3–1 req/s per endpoint
+    class, seeded from the previous implementation's production pacing. **Implementers must ask
+    before building against a new endpoint** rather than inferring a limit from a neighbour.
+16. **Deduplication is windowed (±5 s), not bucketed** (§5.7.1). A `floor(t / bucket)` hash fails
     silently at bucket boundaries. The window is bounded below by a genuine 15-second leave-and-
     rejoin and is only narrow enough to fit because of §4.4 — server-time sync is a correctness
     prerequisite for deduplication, not an optimisation.
