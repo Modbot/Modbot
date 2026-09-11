@@ -175,6 +175,39 @@ progress bars, capacity warnings, pagination sizing, presence-buffer allocation 
 bucketing alike. A group that received an exemption must not see Modbot report "80/80 — full" for
 an instance holding 240 people.
 
+### 3.2 A standing rule: the client's source is its privacy policy
+
+The Windows client (M3) runs unattended on a volunteer moderator's personal PC, reads VRChat's log
+files, and sends what it observes to a server. That is, accurately described, the shape of spyware.
+The only thing separating Modbot from spyware is that its behaviour is **honest, bounded and
+verifiable** — and a moderator asked to install it is entitled to check rather than trust.
+
+Therefore, in `Modbot.Client` and `Modbot.Overlay` specifically:
+
+- **Every function that reads from disk, captures data, or transmits it carries a plain-language
+  comment** stating what it reads, why, what leaves the machine, and what does not. Written for a
+  suspicious reader with moderate technical skill, not for a compiler.
+- **Redaction and exclusion are commented at the point they happen**, so a reader can see the thing
+  *not* being sent, in the code, rather than taking a README's word for it.
+- Comment density here is deliberately higher than the rest of the codebase. This is not a style
+  inconsistency to be cleaned up; **do not "simplify" these comments away.**
+- The README ships a summary table of every file read and every field transmitted, and it is a
+  review failure for that table to drift from the code.
+
+```csharp
+// Reads VRChat's own output log -- the same file VRChat writes for its own diagnostics, which you
+// can open in Notepad right now. We scan ONLY for instance join/leave lines and avatar-change
+// lines. We do not read chat, we do not read your friends list, and nothing about worlds you visit
+// outside this group's instances is sent anywhere.
+//
+// What leaves your PC for each line matched: the VRChat user id, the instance id, and a timestamp.
+// That is all. The raw log line is never transmitted and never stored.
+```
+
+AGPL guarantees a moderator *can* read the source. Comments like this are what make that right
+practically useful rather than theoretical — most people who want reassurance will not reconstruct
+intent from a regex and a `HttpClient.PostAsync`.
+
 ---
 
 ## 4. Runtime architecture
@@ -481,6 +514,59 @@ guarantee it. So in addition:
 
 The gate uses the same clock for its rate-limit windows, so a host clock adjustment (NTP step, VM
 migration, DST bug) cannot make it believe a penalty has expired.
+
+### 4.5 Notifications — one pipeline, several channels
+
+Modbot raises notifications through a single `INotifier` abstraction. Channels are delivery
+mechanisms behind it, not parallel systems, so a new event type reaches every channel for free and
+a new channel serves every existing event for free.
+
+```
+  event ──▶ INotifier ──▶ routing (severity × user preference × availability)
+                             ├──▶ Email        SMTP, operator-supplied (§7.4)          M0
+                             ├──▶ Discord      bot DM, or a channel                    M5
+                             ├──▶ Web Push     VAPID; works in the browser and as PWA  M3
+                             └──▶ Client       native toast + SteamVR overlay HUD      M3
+```
+
+#### 4.5.1 The failure mode is fatigue, not delivery
+
+A moderation tool that notifies too much gets muted, and a muted tool misses the one alert that
+mattered. So severity is the primary routing input, and **the defaults are deliberately quiet**:
+
+| Severity | Examples | Default routing |
+|---|---|---|
+| **Critical** | VRChat credentials rejected; WAF block; sync stopped | Every available channel, immediately |
+| **Warning** | Rate limit cold stop; accountability ticket opened (§5.8.5); repeat offender detected at ban threshold | Push + Discord immediately; email only if unacknowledged after a delay |
+| **Info** | Member milestones, sync summaries, weekly metrics | **Digest only** — never an immediate interrupt |
+
+Per-user, per-channel, per-severity preferences on top of that. An operator who wants everything by
+email can have it; nobody gets it by default.
+
+**Notifications are themselves deduplicated and rate-limited.** A sync failing every minute produces
+one notification and then a state change, not sixty. This uses the same reasoning as §4.3: the thing
+being protected is a scarce resource, and here the resource is the operator's attention.
+
+#### 4.5.2 The overlay is the channel that justifies the others
+
+A moderator inside VRChat cannot see email, cannot see Discord, and cannot see a browser. For the
+person actually doing moderation at the moment it matters, **the SteamVR overlay is the only channel
+that exists** (M3).
+
+This is why notifications are one pipeline rather than a Discord feature and an email feature. The
+routing table above is what lets "a flagged user just joined your instance" reach a moderator's
+headset, a co-owner's phone via push, and the staff channel in Discord, from one raised event.
+
+#### 4.5.3 Graceful degradation
+
+Channels have different availability: email needs SMTP configured, Discord needs a bot token *and* a
+linked account, push needs a browser subscription. Routing skips unavailable channels silently and
+**never fails the action that raised the notification** — a ban does not fail because SMTP is down.
+Delivery is at-least-once, attempted out of band, and failures are surfaced in settings as channel
+health rather than thrown at the caller.
+
+If an event's severity is Critical and *no* channel is available, that itself is surfaced in the UI
+on next login, because a Critical alert nobody can receive is the same as no alerting at all.
 
 ---
 
