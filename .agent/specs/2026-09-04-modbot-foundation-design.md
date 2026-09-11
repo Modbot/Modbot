@@ -514,6 +514,31 @@ log ships in M0 even though most of the analytics UI does not.
 **Invariant: rollups are recomputable from facts; facts are never mutated.** A bug in a metric is a
 re-run, not lost data. A metric invented next year backfills across all recorded history.
 
+#### 5.2.1 The counted-only path — when *not* to write a fact
+
+One deliberate exception. Some events are **high-cardinality and individually worthless**: nobody
+will ever ask "who sent a Discord message at 14:32:07", only "how many did this person send this
+week". Discord message volume is the canonical case, and a busy server produces thousands a day.
+
+For these, Modbot **increments a rollup directly and writes no fact at all**:
+
+```
+  Discord message ──▶ ROLLUPS only     (discord.messages, dimension = user)
+                      no modbot_event row, no message content ever stored
+```
+
+Three reasons, and the third is the one that settles it:
+
+1. **Volume** — a fact per message would dwarf every other source combined, for no query anyone runs.
+2. **The invariant still holds** where it matters. These rollups are not recomputable, which is a
+   real cost; it is accepted only for metrics where the aggregate *is* the datum.
+3. **Privacy.** Modbot must never store message content, and storing a per-message row with author
+   and timestamp is a social graph whether or not the text is attached. Counting sidesteps the
+   question entirely — there is nothing to leak, subpoena, or accidentally expose in an export.
+
+The test for this path: *would anyone ever query an individual one of these?* If yes, it is a fact.
+Kicks, bans, joins, leaves and voice-channel sessions are all facts. Message counts are not.
+
 ### 5.3 Fact schema
 
 ```sql
@@ -523,17 +548,30 @@ modbot_event                     -- PARTITION BY RANGE (occurred_at), monthly pa
   occurred_before  timestamptz  null       -- NULL = exact; else upper bound of the window
   observed_at      timestamptz  not null   -- when Modbot learned of it
   type             smallint     not null   -- MemberJoined | MemberLeft | BanAdded | RoleGranted |
-                                           -- InstanceJoined | InstanceLeft | AvatarChanged | ...
-  subject_id       text         not null   -- usr_... this fact is about
-  actor_id         text         null       -- usr_... who caused it
+                                           -- InstanceJoined | InstanceLeft | AvatarChanged |
+                                           -- DiscordMemberJoined | DiscordVoiceJoined | ...
+  subject_platform smallint     not null   -- VRChat | Discord
+  subject_id       text         not null   -- usr_... or a Discord snowflake
+  actor_platform   smallint     null
+  actor_id         text         null       -- who caused it
   instance_id      text         null
-  source           smallint     not null   -- AuditLog | SyncDiff | Client | Manual
+  source           smallint     not null   -- AuditLog | SyncDiff | Client | Discord | Manual
   data             jsonb        not null
 
-  INDEX (subject_id, occurred_at DESC)
+  INDEX (subject_platform, subject_id, occurred_at DESC)
+  INDEX (actor_platform, actor_id, occurred_at DESC)   -- moderator pattern detection, §5.8.5
   INDEX (type, occurred_at DESC)
   GIN   (data)
 ```
+
+**`subject_platform` exists because Discord is a second fact source** (§9.1), not only a second
+surface. A Discord snowflake and a VRChat `usr_…` must not collide in one text column, and once
+accounts are linked (M5) a dossier needs to query both sides of the same person. Keeping the
+platform as its own column rather than namespacing the string (`dc:123…`) keeps the identifier
+joinable against the user tables without parsing.
+
+**`actor_id` gets its own index** because §5.8.5 asks actor-side questions — "everything this
+moderator has done" — which the subject-side index cannot answer efficiently.
 
 **`occurred_before` and `source` are what make the analytics honest.** When the audit log reports a
 ban at 14:32:07, that is exact. When a sync diff notices a member is gone, all that is actually known
@@ -591,7 +629,8 @@ paragraph in `docs/`, stated plainly and without editorialising.
 
 | Surface | In M2.5 | Description |
 |---|---|---|
-| **Dossier** | yes | One user, everything Modbot knows: join date, roles, ban history, every audit-log mention, and (from M3) sessions, time spent, avatar history. "Who is this person" is the question staff ask most often. |
+| **Dossier** | yes | One user, everything Modbot knows: join date, roles, **full moderation history** (kicks, warns, bans, by whom, with classifications), every audit-log mention, and (from M3) sessions, time spent, avatar history. "Who is this person" is the question staff ask most often. |
+| **Accountability** | yes | Repeat-offender detection and moderator pattern detection (§5.8), both computed from audit-log facts — neither requires Modbot to perform actions. |
 | **Metrics** | yes | Group health over time: member growth, join/leave rate, ban rate, staff action volume, per-moderator activity. |
 | **Segments** | **no — M7** | Queryable cohorts (*"members with >10h in our worlds in the last 30 days, no bans, joined before June"*) → export, bulk action, giveaway draw. Requires presence data to be interesting. |
 
@@ -664,6 +703,102 @@ drop rather than a mass `DELETE`.
   with the project's licensing care. It remains a cheap upgrade path precisely because it is an
   extension *on* Postgres.
 - **Not ClickHouse or DuckDB**: breaks "Postgres is the only external service."
+
+### 5.8 Moderation accountability
+
+Three related capabilities, all of them queries over the fact log rather than new subsystems:
+**repeat-offender detection** (subject-side), **moderator pattern detection** (actor-side), and the
+**classification** data that makes both legible.
+
+#### 5.8.1 Friction scales with reversibility — the governing principle
+
+Volunteer moderators will not fill in a form for every kick. Requiring one does not produce better
+records; it produces moderators who stop using Modbot, or who type "troll" five hundred times. A
+required field that is always answered the same way carries no information and costs real goodwill.
+
+So friction is graduated against how hard the action is to undo:
+
+| Action | Reversibility | Volume | Required input |
+|---|---|---|---|
+| **Kick** | seconds — they can rejoin | high | **Optional** one-tap classification |
+| **Warn / mute** | trivial | medium | **Optional** one-tap classification |
+| **Ban** | deliberate act to reverse; removes someone from the community | low | **Full report required** |
+
+The optional classification is **togglable to required** in settings, for groups that want stricter
+record-keeping and have the staff culture to sustain it. Default is optional.
+
+#### 5.8.2 Classification must be one tap, not a text box
+
+This is the design decision the whole feature depends on. An optional free-text field gets a
+single-digit completion rate; a row of buttons costs about a second and gets a high one.
+
+Classification is a **fixed, group-editable enum** — for example: Crasher, Harassment, NSFW, Spam,
+Advertising, Underage, Ban Evasion, Other — presented as buttons in every surface that performs a
+moderation action (web UI, Discord bot, and later the SteamVR overlay, where typing is genuinely
+hostile). Free text is an *additional* optional note, never the primary input.
+
+**The classification is not paperwork; it is the signal.** Without it, moderator pattern detection
+can only observe "Mod A kicked User B five times." With it, it can distinguish that from "Mod A
+kicked User B five times, all classified *Crasher*, consistent with four other moderators' kicks of
+the same user" — which is obviously fine — and from "five kicks, all *Other*, no other moderator has
+ever actioned this user" — which is worth a human look. Data quality at the point of capture is what
+makes the difference between a useful signal and an accusation generator.
+
+#### 5.8.3 Ban reports
+
+A ban requires a report before it is submitted: classification (mandatory here), a written
+justification, and optional evidence references. Modbot pre-fills everything it already knows —
+prior kicks and warnings, who issued them, their classifications, the user's join date and history —
+so the moderator is confirming a case rather than composing one from memory.
+
+This is deliberately the *only* place with real friction, because it is the only action that is
+costly to get wrong and rare enough to afford the cost.
+
+#### 5.8.4 Repeat offenders
+
+Subject-side aggregation over facts: prior kicks, warns, mutes and bans, across all moderators and
+all instances, with classifications where present.
+
+Surfaced two ways: passively in the dossier (§5.6), and **proactively at the moment of action** —
+when a moderator is about to kick someone, Modbot shows that this is the user's fourth kick in
+thirty days from three different moderators. That is the moment the information is worth having, and
+it is also the moment it costs nothing to display.
+
+#### 5.8.5 Moderator pattern detection
+
+Actor-side aggregation, looking for the shape the user described: one moderator repeatedly actioning
+one user across separate instances and sessions, where no other moderator has.
+
+Candidate signals, all computed from existing fact fields:
+
+- Same `actor_id` → same `subject_id`, repeatedly, across distinct `instance_id`s and sessions.
+- No other moderator has ever actioned that subject (an isolated grudge looks very different from a
+  user everyone is removing).
+- The actor's rate of unclassified actions, relative to their peers.
+- The actor's action volume relative to peers over the same period.
+
+**Design constraints, which matter more than the detection itself:**
+
+- **It surfaces patterns for human review. It never accuses, and never auto-punishes a moderator.**
+  Wrongly flagging a volunteer who was handling a persistent troll is corrosive in a way that a
+  missed detection is not — the costs are asymmetric, so the thresholds should be too.
+- Thresholds are configurable, with conservative defaults.
+- A flagged pattern opens a **ticket**, which is a prompt for explanation rather than a disciplinary
+  process. Group owners see it; the moderator is asked, not sanctioned.
+- **Good classification behaviour reduces future friction.** Where a flagged pattern is fully
+  explained by consistent classifications that other moderators corroborate, the ticket is
+  auto-resolved and never shown. Moderators who spend the one second get asked fewer questions
+  later — which is the incentive that makes §5.8.2 work in practice rather than only on paper.
+- Resolutions are recorded as facts, so "this was reviewed and found legitimate" is itself history.
+
+#### 5.8.6 What this needs, and when
+
+Most of it does **not** require Modbot to perform moderation actions. Audit-log ingestion (M2)
+already supplies `actor_id`, `subject_id` and action type for kicks and bans performed in VRChat's
+own UI — so repeat-offender and moderator-pattern detection work from M2.5 onward.
+
+Only the *capture* side — classification prompts, ban reports, tickets — requires Modbot to be the
+one performing the action, and that is M4.
 
 ---
 
@@ -815,6 +950,29 @@ linking and auto-invite.
 Runs as an `IHostedService` inside `Modbot.Host`. If no bot token is configured, it does not start
 and the rest of Modbot is unaffected.
 
+### 9.1 Discord is a second fact source, not only a second surface
+
+From M5, the bot also **ingests**, giving the Discord side of a community the same treatment VRChat's
+audit log gets — an equivalent activity history, queryable and charted alongside the VRChat data.
+
+| Signal | Storage path | Why |
+|---|---|---|
+| Member joined / left | **fact** | Individually interesting; pairs with VRChat group join/leave |
+| Role granted / removed | **fact** | Audit trail; underpins role sync (M5) |
+| Moderation action (Discord ban, kick, timeout) | **fact** | Feeds §5.8 accountability alongside VRChat actions |
+| Voice channel join / leave | **fact** | Sessions and time-spent, exactly like instance presence |
+| **Messages sent** | **rollup only** (§5.2.1) | High volume, individually worthless, and content is never stored |
+| Current member count, online count | rollup snapshot | A gauge, not an event |
+
+Facts carry `subject_platform = Discord` (§5.3). Once accounts are linked (M5), a dossier answers
+"this person" across both platforms rather than "this VRChat account" and "this Discord account"
+separately — which is what makes a linked account worth having.
+
+**Voice presence is treated exactly like instance presence**: same session model, same time-spent
+rollups, same 90-day retention and same purge-user coverage (§5.5). A community running events in
+Discord voice rather than in-world gets the same regulars detection and the same giveaway
+eligibility as one running instances.
+
 ---
 
 ## 10. Web UI
@@ -889,11 +1047,11 @@ else depends on it — Modbot must be fully useful whether or not it ever exists
 | **M0** | Foundation: repo, licensing, CI, `IVRChatGate`, `IModbotClock`, auth, onboarding, **fact log + rollups + retention** | this |
 | **M1** | Member/ban/invite sync, search UI, **facts emitted on diff** | this |
 | **M2** | Audit log ingestion, parsing, viewer — **authoritative facts, dedups M1's inferences** | this |
-| **M2.5** | User dossier, metrics dashboard | this |
+| **M2.5** | User dossier with moderation history, metrics dashboard, repeat-offender + moderator pattern detection (§5.8) | this |
 | — | Basic Discord bot: audit log sync, lookup commands | this |
 | **M3** | **Windows client + SteamVR overlay; presence facts, ingest API, client auth** | future |
-| M4 | Moderation actions: ban/kick by display name, user id, avatar id | future |
-| M5 | Discord: ban sync, role sync, account linking, auto-invite | future |
+| M4 | Moderation actions; one-tap classification, required ban reports, accountability tickets (§5.8) | future |
+| M5 | Discord: ban sync, role sync, account linking, auto-invite, **Discord as a fact source + analytics** (§9.1) | future |
 | M6 | Instance launching, instance list monitoring and Discord sync | future |
 | M7 | Segments, cohorts, giveaways | future |
 | M8 | Group flagging, AI moderation, federated warning network | future |
@@ -985,7 +1143,23 @@ Recorded so they are visible rather than buried, and so they are not relitigated
 15. **Rate limits are provisional and endpoint-specific** (§4.3.4). Assume 0.3–1 req/s per endpoint
     class, seeded from the previous implementation's production pacing. **Implementers must ask
     before building against a new endpoint** rather than inferring a limit from a neighbour.
-16. **Deduplication is windowed (±5 s), not bucketed** (§5.7.1). A `floor(t / bucket)` hash fails
+16. **Moderation friction scales with reversibility** (§5.8.1). Kicks and warns take an *optional*
+    one-tap classification; only bans require a report. Requiring a form per kick does not produce
+    better records, it produces moderators who abandon the tool or type "troll" five hundred times.
+    Togglable to required in settings; default optional.
+17. **Classification is a one-tap enum, never a text box** (§5.8.2) — and it is the *signal* that
+    makes moderator pattern detection possible rather than an accusation generator, not paperwork.
+18. **Accountability surfaces patterns for review; it never accuses or auto-punishes** (§5.8.5).
+    Wrongly flagging a volunteer handling a persistent troll is corrosive in a way a missed
+    detection is not, so the thresholds are asymmetric too. Good classification behaviour
+    auto-resolves tickets, which is the incentive that makes the optional field actually get used.
+19. **`subject_platform` / `actor_platform` columns** (§5.3), because Discord is a second fact
+    source (§9.1) and a snowflake must not collide with a `usr_…` in one text column. `actor_id`
+    gets its own index for §5.8.5's actor-side queries.
+20. **A counted-only path exists for high-cardinality events** (§5.2.1). Discord message volume
+    increments a rollup and writes no fact — too voluminous, individually worthless, and counting
+    means there is no social graph to leak. The test: would anyone ever query an individual one?
+21. **Deduplication is windowed (±5 s), not bucketed** (§5.7.1). A `floor(t / bucket)` hash fails
     silently at bucket boundaries. The window is bounded below by a genuine 15-second leave-and-
     rejoin and is only narrow enough to fit because of §4.4 — server-time sync is a correctness
     prerequisite for deduplication, not an optimisation.
