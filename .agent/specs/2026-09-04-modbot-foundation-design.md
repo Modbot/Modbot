@@ -19,7 +19,7 @@ Three surfaces, sharing one backend:
 
 1. **Web tool** — the primary operator UI.
 2. **Discord bot** — a second surface for groups that live in Discord.
-3. **Windows client + SteamVR overlay** — in-instance monitoring (M6, separate spec cycle).
+3. **Windows client + SteamVR overlay** — in-instance monitoring (M3, separate spec cycle).
 
 Plus `my.modbot.co`: a static page that stores a list of Modbot instance URLs in `localStorage`
 and redirects to the one you pick, in the manner of Home Assistant. It holds no data and has no backend.
@@ -591,9 +591,9 @@ paragraph in `docs/`, stated plainly and without editorialising.
 
 | Surface | In M2.5 | Description |
 |---|---|---|
-| **Dossier** | yes | One user, everything Modbot knows: join date, roles, ban history, every audit-log mention, and (from M6) sessions, time spent, avatar history. "Who is this person" is the question staff ask most often. |
+| **Dossier** | yes | One user, everything Modbot knows: join date, roles, ban history, every audit-log mention, and (from M3) sessions, time spent, avatar history. "Who is this person" is the question staff ask most often. |
 | **Metrics** | yes | Group health over time: member growth, join/leave rate, ban rate, staff action volume, per-moderator activity. |
-| **Segments** | **no — M6.5** | Queryable cohorts (*"members with >10h in our worlds in the last 30 days, no bans, joined before June"*) → export, bulk action, giveaway draw. Requires presence data to be interesting. |
+| **Segments** | **no — M7** | Queryable cohorts (*"members with >10h in our worlds in the last 30 days, no bans, joined before June"*) → export, bulk action, giveaway draw. Requires presence data to be interesting. |
 
 ### 5.7 Volume, and why client facts must be deduplicated at ingest
 
@@ -809,7 +809,7 @@ In scope for this spec:
   per-type filtering.
 - **Lookup commands** — `/user`, `/member`, returning dossier summaries.
 
-Deferred to M4: ban synchronisation in both directions, role synchronisation, VRChat↔Discord account
+Deferred to M5: ban synchronisation in both directions, role synchronisation, VRChat↔Discord account
 linking and auto-invite.
 
 Runs as an `IHostedService` inside `Modbot.Host`. If no bot token is configured, it does not start
@@ -873,9 +873,9 @@ because its failure mode is **silent** — nothing errors, the numbers are simpl
 
 ## 13. Non-goals for this spec
 
-Moderation actions (M3); Discord ban and role sync, account linking (M4); instance launching and
-monitoring (M5); the Windows client and SteamVR overlay (M6); segments, cohorts and giveaways
-(M6.5); group flagging, AI moderation and the federated warning network (M7).
+The Windows client and SteamVR overlay (M3); moderation actions (M4); Discord ban and role sync,
+account linking (M5); instance launching and monitoring (M6); segments, cohorts and giveaways (M7);
+group flagging, AI moderation and the federated warning network (M8).
 
 Federation is deliberately last. It is the only feature that is inherently political, and nothing
 else depends on it — Modbot must be fully useful whether or not it ever exists.
@@ -886,17 +886,55 @@ else depends on it — Modbot must be fully useful whether or not it ever exists
 
 | # | Slice | Spec |
 |---|---|---|
-| **M0** | Foundation: repo, licensing, CI, `IVRChatGate`, auth, onboarding, **fact log + rollups + retention** | this |
+| **M0** | Foundation: repo, licensing, CI, `IVRChatGate`, `IModbotClock`, auth, onboarding, **fact log + rollups + retention** | this |
 | **M1** | Member/ban/invite sync, search UI, **facts emitted on diff** | this |
 | **M2** | Audit log ingestion, parsing, viewer — **authoritative facts, dedups M1's inferences** | this |
 | **M2.5** | User dossier, metrics dashboard | this |
 | — | Basic Discord bot: audit log sync, lookup commands | this |
-| M3 | Moderation actions: ban/kick by display name, user id, avatar id | future |
-| M4 | Discord: ban sync, role sync, account linking, auto-invite | future |
-| M5 | Instance launching, instance list monitoring and Discord sync | future |
-| M6 | Windows client + SteamVR overlay; presence facts | future |
-| M6.5 | Segments, cohorts, giveaways | future |
-| M7 | Group flagging, AI moderation, federated warning network | future |
+| **M3** | **Windows client + SteamVR overlay; presence facts, ingest API, client auth** | future |
+| M4 | Moderation actions: ban/kick by display name, user id, avatar id | future |
+| M5 | Discord: ban sync, role sync, account linking, auto-invite | future |
+| M6 | Instance launching, instance list monitoring and Discord sync | future |
+| M7 | Segments, cohorts, giveaways | future |
+| M8 | Group flagging, AI moderation, federated warning network | future |
+
+### 14.1 Why the client comes third
+
+The Windows client was originally sixth. It moved ahead of moderation actions, Discord sync and
+instance tooling for one reason: **presence data is only ever valuable retroactively, and it cannot
+be backfilled.**
+
+This is the same argument as §5.1, applied to a milestone instead of a schema. Every week the client
+does not exist is a week of instance history that no future feature can recover. "Who are our real
+regulars?", "who was in the instance when that happened?", and every giveaway weighted by time spent
+are all questions whose answers are being *destroyed* right now, not merely deferred.
+
+Everything that moved down is, by contrast, **convenience over capability** — the work is deferred,
+but nothing is lost by deferring it:
+
+- **Moderation actions (M4)** — VRChat's own UI can already ban and kick. Modbot makes it faster and
+  searchable; it does not make it possible.
+- **Discord sync (M5)** — a second surface onto data M1–M2 already hold.
+- **Instance tooling (M6)** — launching instances works today, just manually.
+
+Deferring any of those costs staff time. Deferring the client costs history.
+
+**Consequences of the move:**
+
+- The client's unknowns arrive sooner. Log tailing, client authentication and the ingest API all
+  need their own brainstorm → spec cycle before implementation, and that cycle should start early
+  rather than after M2.5 lands.
+- **Client authentication is a new auth surface** not yet designed. Staff log in with a
+  username and password; a client running unattended on a moderator's PC needs its own credential
+  with a narrow scope — ingest only, revocable per device. `ApiKey` (§6.3) exists but is scoped for
+  the read API; whether it extends or a distinct device-token concept is needed is an M3 design
+  question.
+- The M0 substrate the client depends on — the fact log, `IModbotClock`, the deduplication window —
+  is **already in the first spec**, so nothing needs pulling forward. This was fortunate rather than
+  planned, and is why the move is cheap.
+- **Segments and giveaways (M7) are no longer blocked by anything after M3.** They were sequenced
+  late only because they needed presence data. That constraint now lifts three milestones earlier,
+  so M7 could reasonably follow M3 directly.
 
 ---
 
