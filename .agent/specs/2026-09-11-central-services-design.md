@@ -144,10 +144,37 @@ they have.
 
 ### 3.3 The manifest
 
-Per channel, a small JSON document listing available versions, their payload URLs, hashes, minimum
-supported OS, and release notes URL. Clients poll it on a jittered interval — jittered because
-tens of thousands of clients waking at the same minute is a self-inflicted thundering herd against
-a CDN for no benefit.
+Per channel, a small JSON document listing available releases: version, payload URL, hash, minimum
+supported OS, release notes URL, and — critically — **the range of Modbot API versions each release
+supports** (foundation §2.7.3).
+
+```json
+{
+  "channel": "stable",
+  "releases": [
+    {
+      "version": "2026.1.1a",
+      "assemblyVersion": "2026.1.1.1",
+      "msiProductVersion": "26.1.11",
+      "url": "https://…/Modbot-Client-2026.1.1a.msi",
+      "sha256": "…",
+      "apiVersionMin": 3,
+      "apiVersionMax": 4,
+      "minimumOs": "10.0.19041"
+    }
+  ]
+}
+```
+
+That `apiVersionMin`/`apiVersionMax` pair is what makes foundation §2.7.4 work **without a backend**.
+The client reads its server's API version, fetches this static file, and picks the newest release
+whose range covers it. All selection logic runs in the client; the host serves bytes and learns
+nothing about who asked or which server they are pairing with.
+
+Clients poll the manifest on a **jittered** interval — the same reasoning as foundation §4.2.2, one
+layer out. Tens of thousands of clients waking on the same minute is a self-inflicted thundering herd
+against a CDN for no benefit, and it is avoided the same way: an offset generated per install, not a
+shared wall-clock schedule.
 
 Old versions stay available. A client that skipped six releases must be able to reach the current
 one, and pulling old payloads breaks exactly the stale installs most in need of updating.

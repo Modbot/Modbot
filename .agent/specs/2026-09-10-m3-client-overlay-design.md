@@ -331,6 +331,27 @@ in the entire system, and pretending otherwise would undercut everything §3 cla
 - Manifests over HTTPS; stable-and-beta channels; full payloads rather than binary deltas, because
   delta patching adds an attack surface and a failure mode for no meaningful benefit at this size.
 
+### 9.2.1 Version compatibility
+
+The client carries its own calendar version (foundation §2.7.1) and declares the **range of Modbot
+API versions it supports** (§2.7.3). A moderator never chooses a build:
+
+1. During pairing, the client reads the server's API version from its unauthenticated endpoint.
+2. It fetches the static release manifest (central services §3.3) and picks the newest release whose
+   `apiVersionMin`/`apiVersionMax` covers that server.
+3. It installs that one.
+
+Because self-hosted servers update on their operator's schedule, **the newest client is frequently
+not the right client.** A group still running a six-month-old Modbot must get the newest build that
+still speaks its API version, not the newest build that exists — so the updater's job is "newest
+*compatible*", never "newest".
+
+When a server moves to an API version no released client supports yet, or the client's own build is
+too old to speak to an upgraded server, the client says so with **both numbers named** and what to
+do. A version mismatch must never present as a parse error, a silent no-op, or ingest that quietly
+stops — which would be indistinguishable from the log-parser failure of §2.2 and is exactly as
+unrecoverable.
+
 ### 9.3 Why updates are close to mandatory anyway
 
 §2.1 records that VRChat's log format is undocumented and may change without notice. When it does,
