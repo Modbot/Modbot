@@ -79,15 +79,24 @@ flag**. Without it the client runs, reads the log, and silently learns nothing u
 
 This makes flag setup a **first-run blocker** for the client, not a settings-page detail.
 
+#### 2.3.0 The flags
+
+```
+--log-debug-levels="API;All;Always;AssetBundleDownloadManager;ContentCreator;Errors;NetworkData;NetworkProcessing;NetworkTransport;Warnings" --enable-debug-gui --enable-sdk-log-levels --enable-udon-debug-logging --enable-verbose-logging --log-console-out
+```
+
+Long enough that typing it is not realistic — the UI presents it on a **copy button**, and the
+quoting inside `--log-debug-levels` must survive the round trip intact.
+
 #### 2.3.1 Detect from the log, not from Steam's configuration
 
-The obvious approach — read Steam's `localconfig.vdf` to see whether the flag is set — is the wrong
+The obvious approach — read Steam's `localconfig.vdf` to see whether the flags are set — is the wrong
 one on three counts:
 
-1. **It does not generalise.** VRChat is also launched from the Oculus store, from a desktop
-   shortcut, and from a non-Steam copy. Steam's config answers the question for one launcher.
-2. **It answers the wrong question.** What matters is whether *the running VRChat* has verbose output,
-   not whether a config file contains a string.
+1. **It answers the wrong question.** What matters is whether *the running VRChat* is producing
+   verbose output, not whether a config file contains a string. A flag set but VRChat not yet
+   restarted looks identical to a flag that works.
+2. **It does not generalise.** VRChat also launches from a desktop shortcut or a non-Steam copy.
 3. **It reads another application's configuration**, which is squarely the behaviour §8.1 is trying
    to avoid looking like.
 
@@ -101,14 +110,20 @@ sentinel appears, the client confirms it without being asked.
 
 #### 2.3.2 Instruct, verify — do not silently reconfigure
 
-When the flag is missing, the client shows **platform-specific instructions** with the exact flag on a
-copy button: Steam launch options, Oculus, or a desktop shortcut's target. Then it waits, watches, and
-confirms once VRChat is restarted.
+When the flags are missing, the client shows instructions with the string on a copy button — Steam
+launch options, or a desktop shortcut's target. Then it waits, watches, and confirms once VRChat is
+restarted.
 
-**Writing the flag into Steam's configuration automatically is available only as an explicit,
+**Writing the flags into Steam's configuration automatically is available only as an explicit,
 consented action**, never a default and never silent. If offered at all it must:
 
 - state exactly which file it will modify and what it will add;
+- **append, never replace.** Read the existing `LaunchOptions`, preserve every argument already
+  there, and add only the flags that are absent. A moderator may have their own launch options —
+  `-vrmode`, resolution overrides, an OSC port — and silently discarding them is both destructive and
+  hard to diagnose, since the symptom appears in VRChat rather than in Modbot.
+- be **idempotent**: running it twice must not duplicate flags, and re-running after VRChat updates
+  must not accumulate them;
 - **require Steam to be closed**, because Steam rewrites `localconfig.vdf` on exit and will discard
   the change otherwise;
 - back the file up first;
@@ -334,12 +349,113 @@ and a disabled overlay notifies nobody.
 
 | Fact | `source` | Notes |
 |---|---|---|
-| `InstanceJoined` | `Client` | Deduplicated across reporting clients |
-| `InstanceLeft` | `Client` | Session duration derived from the pair |
-| `AvatarChanged` | `Client` | Avatar id only |
+| `InstanceJoined` | `Client` | A genuine arrival, observed while already present. Deduplicated across reporting clients. |
+| `InstancePresenceObserved` | `Client` | Present when the local user arrived. **Arrival time unknown and earlier** — see §7.1 |
+| `InstanceLeft` | `Client` | A genuine departure. Session duration derived from the pair. |
+| `AvatarChanged` | `Client` | Avatar **file id** and display name — *not* an avatar id. See §7.2 |
 
 All carry `subject_platform = VRChat` (foundation §5.3), fall under the **Presence** retention class
 (90 days by default, foundation §5.5), and are covered by purge-user.
+
+### 7.1 Phantom joins and leaves must not be recorded as real
+
+VRChat emits `OnPlayerJoined` for **everyone already in the instance** when the local user arrives,
+and `OnPlayerLeft` for **everyone still present** when they depart. Neither group joined or left.
+
+Recorded naively this inflates join and leave counts by the instance population every time any
+moderator enters or exits, and destroys time-spent — the metric M7's giveaways and regulars detection
+depend on. It fails silently, like every other hazard in this subsystem.
+
+Both bursts are cleanly delimited:
+
+| Boundary | Rule |
+|---|---|
+| Arrival | Every `OnPlayerJoined` up to **and including the local user's own** is roster, not arrival |
+| Departure | Every `OnPlayerLeft` **after `OnLeftRoom`** is phantom |
+| Local identity | `Initialized PlayerAPI "<name>" is local` |
+
+`OnLeftRoom` (the local user left) is distinct from `OnPlayerLeftRoom` (a remote player left). One
+character apart, opposite meanings.
+
+Roster observations become `InstancePresenceObserved` with an open-ended earlier bound, which is
+exactly foundation §5.3's precision model. The existing supersede rule then resolves the
+cross-moderator case for free: a moderator present from the start who saw the genuine arrival
+supersedes a later moderator's roster snapshot of the same person.
+
+Full evidence: `.agent/research/vrchat-log-events.md` §3.
+
+### 7.2 Avatar identity is resolved on the server, never the client
+
+**VRChat deliberately withholds avatar ids from clients** to frustrate avatar ripping. The log gives
+an avatar's *display name* and a **thumbnail file id** (`file_…`); it never gives `avtr_…`, and the
+file id cannot be exchanged for avatar information through VRChat's own API.
+
+So the client reports what it legitimately has — **file id and display name** — and the **server**
+resolves identity through a third-party avatar database (§7.3).
+
+This split is not a workaround; it is the correct boundary anyway:
+
+- The client stays a passive log reader. Resolution needs outbound calls to a service the moderator
+  never agreed to talk to, and doing that from a volunteer's personal PC would violate §3.1's
+  "it never left your machine" framing.
+- Resolution results are **cached once per deployment** rather than re-queried by every moderator's
+  client, which is both far fewer requests and far less exposure.
+- The privacy decision about a third-party lookup belongs to the group operator, once, in settings —
+  not implicitly to every moderator who installs the client.
+
+### 7.3 Avatar database providers
+
+Avatar resolution uses **VRCX-compatible search APIs** — community-run services, not VRChat's.
+
+**The endpoint is configurable in settings**, shipping with a known list. Providers differ in
+capability and quality, and the list records both, because a fresh operator has no way to know:
+
+| Provider | Notes |
+|---|---|
+| `https://api.avtrdb.com/v3/avatar/search/vrcx` | **supports file-id query** — the capability Modbot needs |
+| `https://vrcx.vrcdb.com/avatars/Avatar/VRCX` | search only |
+| `https://paw-api.amelia.fun/vrcx_search` | search only |
+| `https://avatarwbvrcxsearch.worldbalancer.com/vrcx_search` | search only |
+| `https://vrcx.avtr.zip` | ⚠ proxies thumbnails badly |
+| `https://api.avatarrecovery.com/Avatar/vrcx` | ⚠ requires cookies |
+| `https://avatar.worldbalancer.com/vrcx_search.php` | ⚠ **no file id in response** — cannot serve §7.2 |
+
+**File-id query support is a capability flag, not a detail.** Providers that only search by name
+cannot answer "which avatar is this file id", which is the whole question. The settings UI must show
+which providers can and cannot, rather than letting an operator select one that silently never
+resolves anything.
+
+Known-bad providers ship in the list **with their problems stated** rather than being omitted —
+someone will otherwise rediscover them and wonder why they behave oddly.
+
+#### 7.3.1 Rules for calling them
+
+These are volunteer-run services doing the VRChat community a favour. The discipline from §4.3
+applies, for the same reasons:
+
+- **Cache aggressively and permanently.** A `file_… → avtr_…` mapping never changes, so it is
+  resolved **once per deployment, ever**. Cache hits are the overwhelming majority after warmup.
+- **Rate limit** through the gate's hierarchy as its own endpoint class, conservatively by default.
+- **Failover in configured order**, skipping providers lacking the needed capability.
+- **A miss is normal, not an error.** Coverage is partial; unknown avatars display as unknown rather
+  than as a failure.
+- **Never block moderation on a lookup.** Resolution is asynchronous and enriches facts after the
+  event; a ban is never delayed waiting on a third-party service.
+
+#### 7.3.2 Disclosure
+
+Resolution sends avatar file ids to a third party, which is member-adjacent data leaving the
+deployment. Therefore:
+
+- It is **disabled by default** and enabled deliberately, with a plain statement of what is sent
+  where at the moment of enabling.
+- The endpoint is fully configurable, so an operator may point it at something they run themselves.
+- What is sent is **the file id and nothing else** — no user id, no group, no instance, no
+  deployment identifier. The provider learns that somebody asked about an avatar, not who wore it
+  or where.
+
+That last point is what keeps this compatible with foundation §5.5's posture. The lookup is about an
+*avatar*, never about a person.
 
 ---
 
@@ -516,8 +632,13 @@ a stale parser.
 - Acting on VRChat's API as the moderator's own account — all API traffic goes through the server's
   single account and `IVRChatGate` (foundation §2.3).
 - Auto-moderation from the client. The client observes and reports; it never acts.
-- macOS or Linux builds in M3. The overlay targets SteamVR on Windows, which is where VRChat's
-  desktop and VR users are.
+- **Any platform other than Windows PC VRChat.** Quest and other standalone headsets cannot expose
+  logs or host a SteamVR overlay at all, so they are not a deferred target -- they are out of scope
+  permanently. Meta/Oculus-store VRChat is likewise not supported. macOS and Linux are not targets.
+
+  This is not a limitation to apologise for: presence coverage comes from *moderators* running the
+  client, and a group needs only some of its staff on PC for coverage to work. Standalone users are
+  still fully visible **in** the data; they just cannot be reporters of it.
 
 ---
 
@@ -559,10 +680,16 @@ These need answers before the plan is written, and at least the first needs hand
     name is a separate mutable field; both are hostile input on display surfaces (M6 §4.1.1), and
     identity is `worldId` + `instanceId`. Confirm parsing against the real log sample, including a
     group instance whose id was set to free text via VRCX.
-11. **The verbose-logging flag itself** (2.3): its exact name, and a **sentinel line shape that
-    appears if and only if it is enabled**. The sentinel is what 2.3.1's detection is built on, so
-    it needs confirming against a log captured WITHOUT the flag -- the sample analysed so far was
-    captured with it on, which shows what is present but not what is missing.
-12. **Whether the instance API exposes occupants' avatar ids.** Avatar ids are absent from the log
-    (research 4), which blocks M4 3.2's ban-by-avatar-id. Worth one focused check before M4 is
-    planned, since it decides whether that feature ships or is withdrawn.
+11. ~~The verbose-logging flag.~~ **Answered** -- recorded verbatim in 2.3.0. Still needs a
+    **sentinel line shape** confirmed against a log captured WITHOUT the flags, since the sample
+    analysed so far was captured with them on: it shows what is present, not what is missing.
+12. ~~Whether the instance API exposes occupants' avatar ids.~~ **Answered -- it does not, by
+    design.** VRChat withholds avatar ids from clients to frustrate ripping. Resolution moves
+    server-side via a VRCX-compatible third-party database (7.2, 7.3), which unblocks M4 3.2.
+13. **Avatar file id in the log.** 7.2 assumes the client can read a thumbnail `file_...` id per
+    wearer. The sample analysed showed `Switching <user> to avatar <name>` with no file id -- it may
+    appear on a different line, or only under the full flag set of 2.3.0. **Confirm before planning
+    M3**, since without a per-wearer file id the server has only an avatar display name to resolve
+    from, which is much weaker.
+14. **Response shapes of the avatar providers** in 7.3, which differ per provider and are undocumented.
+    Needs one sample response from each before an adapter is written.

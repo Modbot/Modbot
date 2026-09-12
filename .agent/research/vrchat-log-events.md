@@ -184,41 +184,40 @@ That is the payoff for having built precision into the schema before knowing thi
 
 ---
 
-## 4. Avatar ids are not in the log — **second most important finding**
+## 4. Avatar ids are absent from the log **by design**
 
 ```
 [Behaviour] Switching CODYYYYYYYYYYYY to avatar Pengus
                                                 ^^^^^^ display name, not avtr_…
 ```
 
-The only `avtr_` ids in this 17k-line sample are the local user's own avatar in the header block and
-`[API]` **404 lines** for avatars that failed to load. **No line associates a remote user with an
-avatar id.**
+The only `avtr_` ids in this 17k-line sample are the local user's own in the header block, and
+`[API]` **404s** for avatars that failed to load. Nothing associates a remote user with an avatar id.
 
-### 4.1 This affects a headline feature
+**This is deliberate on VRChat's part.** Avatar ids are withheld from clients to frustrate avatar
+ripping. It is not an oversight and will not be fixed; no amount of log parsing will produce one.
 
-M4 §3.2 specifies "ban everyone wearing this crasher avatar", targeted by `avtr_` id, and M3 §7
-specifies an `AvatarChanged` fact carrying "avatar id only". Neither is possible from log data as it
-exists.
+### 4.1 What the client *can* see
 
-Avatar **names** are a weak substitute: set by the avatar's author, not unique, trivially copied, and
-freely changeable. A crasher avatar renamed once evades a name-based rule.
+An avatar **display name**, and a **thumbnail file id** (`file_…`). The file id cannot be exchanged
+for avatar information through VRChat's own API.
 
-### 4.2 Options, none free
+### 4.2 Resolution is server-side, through a third-party database
 
-1. **Record avatar names and accept the weakness.** Honest, cheap, still useful — distinctive crasher
-   avatar names do recur. Must not be presented in the UI as identity.
-2. **Resolve name → id server-side.** VRChat has no reliable public search by avatar name, so this
-   probably does not work.
-3. **Drop avatar-id targeting from M4** and keep avatar *names* as dossier context only.
-4. **Find another source.** Worth one focused check of whether a populated instance's API response
-   exposes occupants' avatar ids before concluding it is impossible.
+The client reports file id and display name; the **Modbot server** resolves identity through a
+VRCX-compatible community avatar database. See M3 §7.2–§7.3 for the provider list, capability flags,
+caching, rate limiting and disclosure rules.
 
-**Recommendation: (1) plus (4).** Ship avatar names as weak, clearly-labelled context; investigate
-(4) before M4 is planned, since it is the difference between a working headline feature and a
-withdrawn one. **M3 §7 and M4 §3.2 need amending either way.**
+This unblocks M4 §3.2's ban-by-avatar-id, which the earlier reading of this section had assessed as
+blocked. The earlier conclusion was right about the log and wrong about the ceiling.
 
----
+### 4.3 Still to confirm
+
+The `Switching <user> to avatar <name>` line carries **no file id**. Whether a per-wearer `file_…`
+appears elsewhere — a different line, or only under the full flag set of M3 §2.3.0 — is **open and
+blocking for M3** (open question 13). Without a per-wearer file id the server has only an avatar
+display name to resolve from, which is substantially weaker: author-set, non-unique, and freely
+renamed.
 
 ## 5. Parsing hazards
 
