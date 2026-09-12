@@ -959,24 +959,51 @@ migration, DST bug) cannot make it believe a penalty has expired.
 
 Logging is **Serilog**, writing several tracks at once. Two are always on, two are opt-in.
 
-| Track | Format | Purpose | Default |
+**Console is its own profile.** File logging is **three separate streams**, each answering a
+different question. Seq is optional on top.
+
+| Profile | Destination | Level | Contents |
 |---|---|---|---|
-| **Console** | rendered text | someone watching a terminal or `railway logs` | **on** |
-| **JSONL file** | one compact JSON object per line | the queryable record — `jq`, `grep`, later import | **on** |
-| **Text file** | rendered text, rolling daily | the same content on disk, readable without tooling | **on** |
-| **Seq** | Seq sink | structured log browsing during development | **opt-in** |
-| Log server | proprietary | a future Modbot-native sink | **not built yet** |
+| **Console** | stdout, rendered text | `Information` | What a human watching a terminal or `railway logs` needs. Concise, no noise. |
+| **Main** | `modbot_log_<MM-dd-yyyy>_<epoch>.jsonl` | `Information` | The application record — syncs, moderation, notifications, config changes. **Excludes HTTP.** |
+| **Debug** | `modbot_log_debug_<MM-dd-yyyy>_<epoch>.jsonl` | `Debug` | Everything, verbose, including HTTP. Off in production unless an operator turns it on. |
+| **HTTP** | `modbot_log_http_<MM-dd-yyyy>_<epoch>.jsonl` | `Information` | VRChat and Discord API traffic **only**: method, endpoint class, status, duration, bucket state, retry-after. |
+| Seq | network | `Debug` | Opt-in, structured browsing during development. |
+| Log server | network | — | A future Modbot-native sink. Not built. |
 
-#### Why both a text file and a JSONL file
+All file streams are JSONL — one compact JSON object per line.
 
-They serve different readers and neither substitutes for the other. Text is what a self-hoster opens
-when something breaks, and it has to be legible without installing anything. **JSONL is what survives
-contact with a real question** — "every 429 on `groups.members` in the last week, with the bucket
-state at the time" is a one-line `jq` query against structured properties, and completely
-unanswerable against a rendered sentence that flattened them into prose.
+#### Why HTTP gets its own file
 
-Writing both costs a little disk and removes the choice between being readable now and being
-queryable later.
+This is the one that earns its keep. §4.3 exists to reason about an opaque, punitive rate limiter,
+and the questions that matter are things like *"every 429 on `groups.members` in the last week, with
+the bucket state at the time"*, or *"did 429s on other endpoint classes follow user-sync bursts"* —
+which is the specific signal §4.2.5 says would invalidate the `users.read` exemption.
+
+Those are one-line `jq` queries against a file containing **nothing but API traffic**. Against a
+combined log they mean grepping application noise at a ratio of hundreds to one, and against rendered
+text they are unanswerable, because the interesting values were flattened into a sentence.
+
+Main deliberately **excludes** HTTP so it stays readable for an operator diagnosing a sync problem.
+Correlation ids (below) join the two files when you need both.
+
+#### Why the filename carries a Unix epoch
+
+`modbot_log_09-12-2026_1757707200.jsonl` — the date is for humans scanning a directory, the epoch is
+the process start time.
+
+It means **every run gets its own file**, so a restart is visible as a file boundary rather than a
+seam in the middle of one. That matters directly for §4.3.2: rate-limit penalty state must survive
+restarts, and a crash-loop is the failure mode being guarded against. Being able to see "this process
+lived four seconds" by looking at filenames is how you spot one.
+
+Streams roll by size within a run, and are pruned by count and age so a self-hosted appliance cannot
+fill its own disk.
+
+#### Routing
+
+Events carry a `LogArea` property. The HTTP stream includes only `LogArea = Http`; Main excludes it;
+Debug takes everything. One property, three filters — no separate logger instances to keep in sync.
 
 #### Rules
 
