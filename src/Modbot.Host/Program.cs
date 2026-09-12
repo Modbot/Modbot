@@ -1,3 +1,5 @@
+using Modbot.Api;
+using Scalar.AspNetCore;
 using Modbot.Core;
 using Modbot.Core.Configuration;
 using Modbot.Core.Logging;
@@ -30,17 +32,19 @@ try
 
     builder.Services.AddSingleton(env);
     builder.Services.AddHealthChecks();
+    builder.Services.AddModbotApi();
 
     var app = builder.Build();
 
     app.MapHealthChecks("/health/live");
-    app.MapGet("/api/version", () => Results.Ok(new
-    {
-        // Calendar version (spec 2.7.1); apiVersion is separate and bumps only on a breaking
-        // change, so one client build works across a span of server releases.
-        version = ModbotVersion.Release,
-        apiVersion = ModbotVersion.Api,
-    }));
+    app.MapModbotApi();
+
+    // The OpenAPI document is generated from the endpoints, so it cannot drift from what is
+    // actually served. Scalar renders it for humans; the raw JSON feeds client generation.
+    app.MapOpenApi("/api/openapi/{documentName}.json");
+    app.MapScalarApiReference("/api/reference", options => options
+        .WithTitle("Modbot API")
+        .WithOpenApiRoutePattern("/api/openapi/{documentName}.json"));
 
     // The SPA is built into wwwroot by the Modbot.Web Vite build.
     app.UseDefaultFiles();
