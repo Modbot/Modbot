@@ -1,0 +1,106 @@
+namespace Modbot.Core.Data.Entities;
+
+/// <summary>
+/// Which system an identifier belongs to.
+/// </summary>
+/// <remarks>
+/// Spec 5.3. Its own column rather than a namespaced string (<c>dc:123…</c>) so the identifier
+/// stays joinable against the user tables without parsing, and so a Discord snowflake can never
+/// collide with a VRChat id in the same text column.
+/// <para><strong>Persisted as smallint. Never renumber a member.</strong></para>
+/// </remarks>
+public enum FactPlatform : short
+{
+    VRChat = 1,
+    Discord = 2,
+
+    /// <summary>Modbot itself: the subject or actor of its own audit entries (spec 5.9).</summary>
+    Modbot = 3,
+}
+
+/// <summary>
+/// Where a fact came from, which is also what tells you how much to trust its timestamp.
+/// </summary>
+/// <remarks>
+/// Spec 5.3. An <see cref="AuditLog"/> ban is exact; a <see cref="SyncDiff"/> one is an inference
+/// with a window. Same event, different confidence -- and when both arrive, the authoritative one
+/// wins.
+/// <para><strong>Persisted as smallint. Never renumber a member.</strong></para>
+/// </remarks>
+public enum FactSource : short
+{
+    /// <summary>VRChat's own group audit log. Authoritative and exact.</summary>
+    AuditLog = 1,
+
+    /// <summary>Inferred by comparing two syncs. Carries an <c>occurred_before</c> window.</summary>
+    SyncDiff = 2,
+
+    /// <summary>Reported by a moderator's Windows client (M3). The deduplicated path.</summary>
+    Client = 3,
+
+    /// <summary>Observed in Discord (M5).</summary>
+    Discord = 4,
+
+    /// <summary>Entered by a person through Modbot.</summary>
+    Manual = 5,
+
+    /// <summary>
+    /// Modbot's own record of what happened inside Modbot: logins, settings changes, sync
+    /// failures. There is no second audit system -- the fact log already is the audit log
+    /// (spec 5.9).
+    /// </summary>
+    Modbot = 6,
+}
+
+/// <summary>
+/// What happened.
+/// </summary>
+/// <remarks>
+/// <para>Spec 5.3 and 5.9.2. <strong>Persisted as smallint. Never renumber a member.</strong></para>
+/// <para>
+/// Values are grouped in blocks by retention class (spec 5.5), which is what the retention job
+/// prunes on: moderation facts are kept forever, presence facts for 90 days by default.
+/// </para>
+/// </remarks>
+public enum FactType : short
+{
+    // --- Membership and moderation (retention: forever) ---
+    MemberJoined = 100,
+    MemberLeft = 101,
+    MemberBanned = 102,
+    MemberUnbanned = 103,
+    MemberKicked = 104,
+    RoleGranted = 105,
+    RoleRevoked = 106,
+    InviteCreated = 107,
+
+    // --- Presence (retention: 90 days) ---
+    InstanceJoined = 200,
+    InstanceLeft = 201,
+    AvatarChanged = 202,
+
+    // --- Discord (M5) ---
+    DiscordMemberJoined = 300,
+    DiscordMemberLeft = 301,
+    DiscordVoiceJoined = 302,
+    DiscordVoiceLeft = 303,
+    DiscordRoleGranted = 304,
+    DiscordRoleRevoked = 305,
+
+    // --- Modbot's own audit entries (spec 5.9.2) ---
+    Login = 400,
+    LoginFailed = 401,
+    PasswordChanged = 402,
+    ApiKeyCreated = 403,
+    ApiKeyRevoked = 404,
+    SettingsChanged = 405,
+
+    // --- Modbot operational events. Presence retention: "a sync failed last March" is not
+    //     history anyone needs, and letting it accumulate would bury the records that are. ---
+    SyncFailed = 500,
+    RateLimitColdStop = 501,
+    WafBlocked = 502,
+    MigrationApplied = 503,
+    RetentionPruned = 504,
+    PartitionCreated = 505,
+}

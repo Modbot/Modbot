@@ -13,6 +13,9 @@ public class ModbotContext : DbContext
 
     public DbSet<ModbotUser> Users => Set<ModbotUser>();
 
+    /// <summary>The fact log (spec 5.3). Append-only: never update or delete a row here.</summary>
+    public DbSet<ModbotEvent> Events => Set<ModbotEvent>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -74,6 +77,52 @@ public class ModbotContext : DbContext
             // The uniqueness that matters is on the normalised form: without it "Alice" and
             // "alice" are two accounts, and which one a login reaches depends on collation.
             entity.HasIndex(e => e.UsernameNormalized).IsUnique();
+        });
+
+        builder.Entity<ModbotEvent>(entity =>
+        {
+            entity.ToTable("modbot_event");
+
+            // Postgres requires the partition key in every unique constraint on a partitioned
+            // table, so the key is (id, occurred_at) rather than id alone.
+            entity.HasKey(e => new { e.Id, e.OccurredAt })
+                .HasName("pk_modbot_event");
+
+            // Serial rather than an identity column: the table is created by hand-written SQL
+            // because EF cannot express declarative partitioning, and a plain sequence default
+            // is the form that works on a partitioned parent everywhere.
+            entity.Property(e => e.Id).UseSerialColumn();
+
+            entity.Property(e => e.Data).HasColumnType("jsonb");
+
+            // Ids are opaque (spec 3.1.1): text, never uuid, and no length assumption.
+            entity.Property(e => e.SubjectId).HasColumnType("text");
+            entity.Property(e => e.ActorId).HasColumnType("text");
+            entity.Property(e => e.WorldId).HasColumnType("text");
+            entity.Property(e => e.InstanceId).HasColumnType("text");
+
+            entity.HasIndex(e => new { e.SubjectPlatform, e.SubjectId, e.OccurredAt })
+                .HasDatabaseName("ix_modbot_event_subject")
+                .IsDescending(false, false, true);
+
+            // Actor-side questions -- "everything this moderator has done" -- which the
+            // subject-side index cannot answer efficiently (spec 5.8.5).
+            entity.HasIndex(e => new { e.ActorPlatform, e.ActorId, e.OccurredAt })
+                .HasDatabaseName("ix_modbot_event_actor")
+                .IsDescending(false, false, true);
+
+            entity.HasIndex(e => new { e.Type, e.OccurredAt })
+                .HasDatabaseName("ix_modbot_event_type")
+                .IsDescending(false, true);
+
+            // The deduplication range check (spec 5.7.1) runs on every client-reported fact, so
+            // it gets its own index in the order the check narrows.
+            entity.HasIndex(e => new { e.InstanceId, e.SubjectId, e.Type, e.OccurredAt })
+                .HasDatabaseName("ix_modbot_event_dedup");
+
+            entity.HasIndex(e => e.Data)
+                .HasDatabaseName("ix_modbot_event_data")
+                .HasMethod("gin");
         });
 
         base.OnModelCreating(builder);
