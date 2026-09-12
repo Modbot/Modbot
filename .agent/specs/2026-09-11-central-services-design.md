@@ -153,10 +153,10 @@ supports** (foundation §2.7.3).
   "channel": "stable",
   "releases": [
     {
-      "version": "2026.1.1a",
-      "assemblyVersion": "2026.1.1.1",
-      "msiProductVersion": "26.1.11",
-      "url": "https://…/Modbot-Client-2026.1.1a.msi",
+      "version": "2026.1.7",
+      "assemblyVersion": "2026.1.7.0",
+      "msiProductVersion": "26.1.7",
+      "url": "https://…/Modbot-Client-2026.1.7.msi",
       "sha256": "…",
       "apiVersionMin": 3,
       "apiVersionMax": 4,
