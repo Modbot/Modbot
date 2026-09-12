@@ -43,7 +43,9 @@ secrets.json
 *.db
 *.db-shm
 *.db-wal
-data/
+# Anchored: an unanchored `data/` also matches src/Modbot.Core/Data and tests/.../Data,
+# which silently swallowed the entire EF Core model.
+/data/
 logs/
 *.log
 
