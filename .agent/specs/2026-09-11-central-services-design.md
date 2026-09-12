@@ -49,19 +49,20 @@ ordinary, useful, and how a maintainer decides what to support.
 - **No public directory.** The registry is not browsable and not enumerable by third parties (§4.3).
 - **No content of any kind from a group's database.**
 
-### 1.2 The governing rule, narrowed
+### 1.2 The governing rule still holds
 
-The original rule — *"Modbot must be completely functional with zero contact, forever"* — no longer
-holds literally now that onboarding routes through `my.modbot.co`. The honest version:
+> **Modbot never requires contact with a project-operated service.**
 
-> **Modbot must keep running with zero contact.** A deployment that has completed onboarding
-> continues to work indefinitely if every project-operated service disappears: syncing, moderating,
-> recording facts and serving its UI are all local.
+This survives the registry, because neither half of "registration" is mandatory:
 
-What changes is **first-run**, which now has a registration step (§4.1). That step has a skip path —
-required in intent, not in enforcement — because an air-gapped or firewalled deployment must still
-be installable, and because a project that can brick new installs by going down has taken on a
-responsibility it should not want.
+- The **register page** (§4.1) runs in the operator's browser and saves to their own
+  `localStorage`. It is a bookmark manager. Skipping it costs a convenience.
+- The **register API** (§4.2) is called by the deployment *only when usage analytics are enabled*.
+  Turn analytics off and the call never happens.
+
+An earlier draft justified the skip path by pointing at air-gapped deployments. **That was wrong** —
+Modbot cannot do anything without reaching VRChat's API, so an offline Modbot is not a degraded
+deployment, it is a non-functional one. The skip path is justified by consent, not by connectivity.
 
 ---
 
@@ -237,27 +238,36 @@ releases are still exactly where anyone would look for them.
 Deployments register themselves with `my.modbot.co` so the project knows how many exist, what
 versions are live, and roughly how they are configured.
 
-### 4.1 Registration happens during onboarding
+### 4.1 The register page — browser-side, for the operator
 
-The first-run wizard sends the operator to:
+During onboarding (and from settings afterwards) Modbot offers a button that opens a **new tab**:
 
 ```
-my.modbot.co/register?modbotInstanceUrl=https://modbot-vrckings.up.railway.app&instanceId=<uuid>
+my.modbot.co/register?modbotInstanceUrl=https://modbot-vrckings.up.railway.app
 ```
 
-The page records the pairing, saves the instance to `localStorage` so the selector remembers it, and
-returns the operator to their deployment to continue setup.
+The page saves that URL into the browser's `localStorage` and confirms. That is all it does.
 
-`instanceId` is a **random UUID the deployment generates for itself** on first boot. It is not
-derived from the URL, the group, the operator, or anything else — so it identifies a deployment
-across URL changes without encoding anything about it.
+**This is for the operator, not for the project.** It is what makes `my.modbot.co` a usable jumping-off
+point — someone who runs Modbot for two groups, or who arrives from the documentation site, picks
+their instance from a list instead of hunting for a Railway URL.
 
-**The step can be skipped.** It is presented as the expected path and the skip is deliberately plain
-rather than hidden, because a firewalled or air-gapped deployment must still be installable, and
-because a project able to brick new installs by going offline has taken on a responsibility it
-should not want (§1.2).
+A **new tab rather than a redirect-and-return**: the deployment never depends on the round trip
+completing, so a slow or unreachable `my.modbot.co` cannot stall onboarding. The wizard continues
+behind it.
 
-### 4.2 What registration stores
+The instance list lives in that browser and nowhere else. The page has no backend; **which instances
+a given person uses is not something the project learns here.**
+
+### 4.2 The register API — server-side, only with analytics enabled
+
+Separately, a deployment with usage analytics enabled calls `POST /api/instances/register` itself,
+then reports periodically (§5).
+
+**This is the only part that tells the project anything**, and it happens only with consent. A
+deployment with analytics off never calls it, and works identically.
+
+### 4.3 What registration stores
 
 | Field | Why |
 |---|---|
@@ -268,7 +278,7 @@ should not want (§1.2).
 
 Nothing else. No group id, no group name, no member count, no operator identity, no credentials.
 
-### 4.3 The registry is not a directory
+### 4.4 The registry is not a directory
 
 **It is never publicly browsable or enumerable.** There is no endpoint that lists deployments, and
 no page that shows them.

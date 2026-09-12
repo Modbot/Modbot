@@ -35,6 +35,13 @@ app.UseStaticFiles();
 
 app.MapGet("/health/live", () => Results.Ok());
 
+// The selector is one static page handling three routes client-side. Serve the
+// same file for each so a deep link works on first load, not only after
+// navigating from the root.
+var selectorPage = File.ReadAllText(Path.Combine(app.Environment.WebRootPath, "index.html"));
+foreach (var route in new[] { "/register", "/instanceredirect" })
+    app.MapGet(route, () => Results.Content(selectorPage, "text/html; charset=utf-8"));
+
 // ── Instance registry ────────────────────────────────────────────────────────
 // Deployments register themselves so the project can count them and know which
 // versions are live. Central services spec section 4.
