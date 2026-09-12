@@ -1,0 +1,183 @@
+{
+  "id": "modbot_impersonation_staff",
+  "name": "Staff and platform impersonation",
+  "description": "Accounts claiming to be VRChat staff, group moderators, or verified accounts when they are not. This is how most social-engineering attacks on these communities begin -- a fake moderator asking a member to 'verify' something. Scoped mostly to display names and status, because that is where the claim has to appear to work.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": [
+    "general",
+    "all-ages",
+    "18-plus",
+    "lgbtq",
+    "family-friendly",
+    "educational",
+    "gaming",
+    "club",
+    "roleplay",
+    "language-learning"
+  ],
+  "defaultSeverity": "review",
+  "rules": [
+    {
+      "id": "impersonate_vrchat_staff",
+      "type": "pattern",
+      "severity": "high",
+      "category": "impersonation",
+      "regex": "\\bvrc(?:hat)? ?(?:staff|moderator|mod team|support|admin|trust ?(?:and|&) ?safety|security|developer|dev team)\\b",
+      "note": "Claiming to be VRChat itself. VRChat staff do not moderate individual group instances and do not contact users through profiles. Note the false positive: a genuine VRChat employee may well be in your group as a member, and some list it in their bio honestly. Check before acting -- a real one will not mind being asked."
+    },
+    {
+      "id": "impersonate_official",
+      "type": "pattern",
+      "severity": "review",
+      "category": "impersonation",
+      "regex": "\\b(?:official(?: account| staff| support| moderator)?|verified(?: account)?|authorised ?rep|authorized ?rep)\\b",
+      "fields": [
+        "displayName",
+        "status"
+      ],
+      "note": "Authority claims in the nameplate. Scoped to displayName and status because the claim only works where it is seen first. Bios are excluded -- a bio saying 'official account of our group' is often simply true. Verify against your group roster; that check takes ten seconds and settles it."
+    },
+    {
+      "id": "impersonate_checkmark",
+      "type": "pattern",
+      "severity": "review",
+      "category": "impersonation",
+      "regex": "[✓✔✅🔷☑]",
+      "fields": [
+        "displayName"
+      ],
+      "note": "Verification-badge characters in a display name -- check marks, the blue diamond, the ballot-box tick. Used to fake the visual language of a verified account. Plenty of people also just like tick emoji, so this is review and display-name-scoped. Look at whether the rest of the name makes an authority claim."
+    },
+    {
+      "id": "impersonate_moderator_title",
+      "type": "combination",
+      "severity": "review",
+      "category": "impersonation",
+      "anyOf": [
+        "mod",
+        "moderator",
+        "admin",
+        "owner",
+        "staff",
+        "founder",
+        "gm"
+      ],
+      "allOf": [
+        "report to me"
+      ],
+      "withinWords": 8,
+      "note": "Claiming a staff role AND soliciting reports, which is the combination that actually causes harm -- it redirects members away from real staff at the moment they most need them. Role words alone are far too common (everyone is a mod of something) which is why the solicitation half is required."
+    },
+    {
+      "id": "impersonate_account_verify",
+      "type": "combination",
+      "severity": "high",
+      "category": "impersonation",
+      "anyOf": [
+        "verify your account",
+        "account verification",
+        "confirm your identity",
+        "re-verify",
+        "security check",
+        "login to confirm"
+      ],
+      "allOf": [
+        "link"
+      ],
+      "noneOf": [
+        "verify on the official site",
+        "vrchat.com",
+        "through the group page"
+      ],
+      "withinWords": 10,
+      "note": "Credential phishing wearing a staff uniform. No legitimate verification flow starts from a stranger's profile. This is the payload that the rest of the rules in this list are the setup for."
+    },
+    {
+      "id": "impersonate_modbot",
+      "type": "pattern",
+      "severity": "high",
+      "category": "impersonation",
+      "regex": "\\bmod ?bot(?: official| staff| support| system)?\\b",
+      "fields": [
+        "displayName",
+        "status"
+      ],
+      "note": "Impersonating this tool. A moderation bot's name carries authority precisely because members are told to trust it, which makes it worth stealing. Modbot does not DM members and does not ask for anything."
+    },
+    {
+      "id": "impersonate_specific_person",
+      "type": "combination",
+      "severity": "review",
+      "category": "impersonation",
+      "anyOf": [
+        "the real",
+        "real account",
+        "main account",
+        "not an alt",
+        "original account"
+      ],
+      "allOf": [
+        "real"
+      ],
+      "noneOf": [
+        "real name is not important",
+        "keeping it real",
+        "for real"
+      ],
+      "withinWords": 6,
+      "note": "Identity disputes between two accounts claiming to be the same person. Usually means one account is impersonating another, and occasionally means a member has been locked out of their own. The flag tells you to look at both; it does not tell you which is which."
+    },
+    {
+      "id": "impersonate_zero_width_name",
+      "type": "pattern",
+      "severity": "review",
+      "category": "impersonation",
+      "regex": "[аеорсхһԁԛ]",
+      "fields": [
+        "displayName"
+      ],
+      "note": "Cyrillic letters that render identically to Latin ones -- а, е, о, р, с, х and friends -- used to register a display name that looks exactly like an existing member's or a staff account's. Normalisation and confusable folding should already collapse these before matching, so a hit on this rule usually means the raw name is being checked deliberately. Obvious and important false positive: members who actually write in Russian, Ukrainian, Serbian or Bulgarian. Look at whether the whole name is Cyrillic (fine) or just two letters in an otherwise Latin name (not fine)."
+    },
+    {
+      "id": "impersonate_staff_dm_claim",
+      "type": "combination",
+      "severity": "high",
+      "category": "impersonation",
+      "anyOf": [
+        "dm me for",
+        "message me about",
+        "contact me for"
+      ],
+      "allOf": [
+        "ban appeal"
+      ],
+      "noneOf": [
+        "appeal through the group",
+        "use the form",
+        "official appeal channel"
+      ],
+      "withinWords": 10,
+      "note": "Fake appeals handling. Targets members who are already banned or worried about being banned, and therefore already anxious and less likely to check. If your group has a real appeals process, say where it is publicly -- that does more than this rule does."
+    },
+    {
+      "id": "impersonate_group_name",
+      "type": "combination",
+      "severity": "note",
+      "category": "impersonation",
+      "anyOf": [
+        "hq",
+        "headquarters",
+        "official server",
+        "main branch",
+        "central"
+      ],
+      "allOf": [
+        "official"
+      ],
+      "withinWords": 5,
+      "note": "Recorded. Accounts styling themselves as the official arm of something. Frequently harmless branding by a member who runs a fan community, which is why it only records. Useful when a group is being actively impersonated and you need to find the copies."
+    }
+  ]
+}

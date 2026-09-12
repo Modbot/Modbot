@@ -1,0 +1,109 @@
+{
+  "id": "modbot_profanity_mild",
+  "name": "Mild profanity",
+  "description": "Ordinary swearing, for groups that keep a family-friendly tone. Everything here is low severity by design: these words are rude, not harmful, and a tool that treats them like slurs teaches moderators to ignore it. Slurs live in the other lists.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["all-ages", "family-friendly", "educational"],
+  "defaultSeverity": "note",
+  "rules": [
+    {
+      "id": "profanity_fuck",
+      "type": "pattern",
+      "severity": "note",
+      "category": "profanity",
+      "regex": "\\bfuck(?:s|ed|er|ers|ing|in|wit|tard|boy|face|head)?\\b",
+      "note": "The word and its common suffixes. No Scunthorpe risk here -- there is no innocent English word containing it. Word boundaries stop it matching inside names."
+    },
+    {
+      "id": "profanity_shit",
+      "type": "pattern",
+      "severity": "note",
+      "category": "profanity",
+      "regex": "\\bshit(?:s|ty|ting|ter|head|show|storm|post|posting)?\\b",
+      "note": "Includes 'shitpost', which in most online communities is an ordinary word for low-effort joking and not really profanity at all. Groups that do not care about it should be aware it is bundled here."
+    },
+    {
+      "id": "profanity_bitch",
+      "type": "pattern",
+      "severity": "note",
+      "category": "profanity",
+      "regex": "\\bbitch(?:es|y|ing|ass)?\\b",
+      "note": "Also the correct term for a female dog, which is a genuine false positive in any group with dog breeders or owners in it. Note that used AT a person it is usually harassment rather than profanity -- if the bio names a target, handle it under the harassment list instead."
+    },
+    {
+      "id": "profanity_cunt",
+      "type": "pattern",
+      "severity": "review",
+      "category": "profanity",
+      "regex": "\\bcunt(?:s|y)?\\b",
+      "note": "The one word in this list set above 'note', and the one whose severity is most contested. In American English it is about the harshest word available and is usually gendered abuse. In Australian, Scottish and Irish English it is frequently affectionate ('good cunt', 'mad cunt'). Your group's membership should decide -- if your members are mostly Australian, drop this to note."
+    },
+    {
+      "id": "profanity_general",
+      "type": "pattern",
+      "severity": "note",
+      "category": "profanity",
+      "regex": "\\b(?:bastard|asshole|arsehole|arse|prick|twat|wanker|bollocks|bugger|piss|pissed|crap|douche ?bag|jackass|dumbass|smartass)\\b",
+      "note": "General-purpose swearing, mostly British and American. 'Arse' and 'piss' are much milder in British English than their American equivalents read. 'Pissed' means drunk in the UK and angry in the US -- neither is serious."
+    },
+    {
+      "id": "profanity_damn_hell",
+      "type": "pattern",
+      "severity": "note",
+      "category": "profanity-mild",
+      "regex": "\\b(?:damn|damnit|goddamn|hell|heck|darn|crikey|bloody hell)\\b",
+      "note": "The mildest tier, included mainly for explicitly religious or young-children groups. 'Hell' is also a place in Norway, a Metallica song, and half of 'hell yeah'. Most groups should disable this rule -- it will generate more flags than the rest of the list combined and almost none of them will matter."
+    },
+    {
+      "id": "profanity_slut_whore",
+      "type": "pattern",
+      "severity": "review",
+      "category": "profanity",
+      "regex": "\\b(?:slut|slutty|whore|hoe|skank|thot|tramp)\\b",
+      "note": "Gendered insults rather than plain profanity, which is why these are at review while 'fuck' is at note. 'Hoe' is a garden tool and 'tramp' is a hiking term in New Zealand and a Disney dog. If it is aimed at a named person, treat it as harassment, not profanity."
+    },
+    {
+      "id": "profanity_acronyms",
+      "type": "pattern",
+      "severity": "note",
+      "category": "profanity",
+      "regex": "\\b(?:wtf|stfu|gtfo|lmfao|ffs|af|omfg|kmt|smfh|idgaf|dgaf)\\b",
+      "note": "Initialisms. 'AF' as an intensifier ('tired af') is included and is extremely common and very mild; groups that find this noisy should split it out. Note that 'KYS' is deliberately NOT here -- it is a suicide instruction and belongs in the harassment list at high severity."
+    },
+    {
+      "id": "profanity_asterisk_censored",
+      "type": "pattern",
+      "severity": "note",
+      "category": "profanity-evasion",
+      "regex": "\\b(?:f[*#@$_.-]{2,3}k|s[*#@$_.-]{2}t|b[*#@$_.-]{3}h|c[*#@$_.-]{3}t|a[*#@$_.-]{2}hole)\\b",
+      "note": "Self-censored spellings. Normalisation folds leetspeak and homoglyphs, but it does not turn 'f***' into 'fuck' -- the characters are punctuation, not letter substitutes. This rule exists to cover that gap. Note the irony: a member who writes 'f***' is making an effort to keep it clean, so this is arguably the least actionable rule in the list. It is here for completeness, and most groups should leave it off."
+    },
+    {
+      "id": "profanity_spelled_out",
+      "type": "pattern",
+      "severity": "note",
+      "category": "profanity-evasion",
+      "regex": "\\b(?:phuck|fudge ?you|frick|fricking|frig|freaking|shizz|shiz|beotch|biatch|byatch)\\b",
+      "note": "Minced oaths and deliberate misspellings. Most of these are people trying to stay within the rules, so treat a match as evidence of good faith rather than evasion. Included because a family-friendly group may still prefer they not be used."
+    },
+    {
+      "id": "profanity_scunthorpe_warning",
+      "type": "pattern",
+      "severity": "note",
+      "category": "profanity",
+      "regex": "\\b(?:cock ?up|knob|knobhead|tosser|git|minger|bellend|nonce)\\b",
+      "note": "British insults, included for completeness. One serious caveat: 'nonce' is British slang for a child sex offender, so its use is usually an accusation rather than profanity -- if it names someone, that is either a safeguarding report or a defamation problem, and either way it is not a swearing matter. The rest are mild. This rule's id references the Scunthorpe problem because the town of Scunthorpe, the surname Cockburn and the place name Penistone are exactly why every rule in this list keeps wholeWord on."
+    },
+    {
+      "id": "profanity_displayname_only",
+      "type": "pattern",
+      "severity": "review",
+      "category": "profanity",
+      "regex": "\\b(?:fuck|shit|cunt|bitch|dick|ass ?hole)\\b",
+      "fields": ["displayName"],
+      "note": "The same words, but in a display name, and one severity step up. A bio is read by choice; a display name is shown to every person in the instance whether they wanted it or not, and in a family-friendly group that includes children and their parents. This distinction is the main thing that makes a profanity list usable at all -- most groups should enable this rule and leave the bio rules at note."
+    }
+  ]
+}

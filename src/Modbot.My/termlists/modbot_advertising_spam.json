@@ -1,0 +1,371 @@
+{
+  "id": "modbot_advertising_spam",
+  "name": "Advertising, spam and scams",
+  "description": "Unsolicited promotion, invite farming, and the scam patterns that target VRChat and Discord users -- free Nitro, fake Steam trades, crypto recovery, account boosting. Scam rules are high severity; ordinary self-promotion is only recorded, because most groups tolerate some of it and a few actively want it.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": [
+    "general",
+    "all-ages",
+    "18-plus",
+    "lgbtq",
+    "family-friendly",
+    "educational",
+    "gaming",
+    "club",
+    "roleplay",
+    "language-learning"
+  ],
+  "defaultSeverity": "review",
+  "rules": [
+    {
+      "id": "spam_discord_invite",
+      "type": "pattern",
+      "severity": "review",
+      "category": "advertising",
+      "regex": "\\b(?:discord\\.gg|discord\\.com/invite|discordapp\\.com/invite|dsc\\.gg|invite\\.gg)/[a-zA-Z0-9\\-]{2,32}\\b",
+      "note": "A Discord invite link. Most VRChat groups run their own Discord and expect members to link it, so this is review rather than high -- the question is whose server it is, not whether links are allowed. If your group permits member servers, disable this and keep the invite-farming rule below."
+    },
+    {
+      "id": "spam_invite_farming",
+      "type": "combination",
+      "severity": "review",
+      "category": "advertising",
+      "anyOf": [
+        "join my",
+        "join our",
+        "come join",
+        "new server",
+        "looking for members",
+        "active members needed",
+        "we need staff"
+      ],
+      "allOf": [
+        "server"
+      ],
+      "noneOf": [
+        "join my world",
+        "join our group",
+        "join the queue",
+        "minecraft server",
+        "our own server"
+      ],
+      "withinWords": 8,
+      "note": "Recruiting a group's members into another server. This is the behaviour most groups actually object to, as distinct from a link sitting quietly in a bio. Requires a recruitment phrase near 'server'."
+    },
+    {
+      "id": "spam_url_shortener",
+      "type": "pattern",
+      "severity": "review",
+      "category": "advertising",
+      "regex": "\\b(?:bit\\.ly|tinyurl\\.com|cutt\\.ly|shorturl\\.at|is\\.gd|rb\\.gy|t\\.co|goo\\.gl|ow\\.ly|rebrand\\.ly|linktr\\.ee)/[a-zA-Z0-9\\-_]{3,}",
+      "note": "Shortened links hide their destination, which is why scams prefer them. Linktree is included and is also used entirely legitimately by artists and creators -- in a creative community expect to dismiss it constantly, and consider removing it from this pattern."
+    },
+    {
+      "id": "spam_free_nitro",
+      "type": "pattern",
+      "severity": "high",
+      "category": "scam",
+      "regex": "\\b(?:free ?nitro|nitro ?giveaway|discord ?nitro ?free|1 ?(?:month|year) ?nitro|claim ?(?:your )?nitro|steam ?nitro)\\b",
+      "note": "The single most common Discord scam: a fake Nitro gift that leads to a credential-phishing page. Real Nitro gifts are sent through Discord's own gift system, not advertised in a VRChat bio. 'Steam Nitro' does not exist at all and is a reliable tell."
+    },
+    {
+      "id": "spam_steam_phish",
+      "type": "pattern",
+      "severity": "high",
+      "category": "scam",
+      "regex": "\\bste[a4]m(?:c[o0]mmunity|-?community|powered|community-?gift)\\.(?:ru|cf|tk|gq|ml|ga|top|xyz|click|site|online|shop|live|fun)\\b",
+      "note": "Steam Community lookalike domains. The real site is steamcommunity.com -- any other top-level domain is a phishing page harvesting Steam credentials and inventory. The character class covers the common '4' substitution in case it reaches the matcher before normalisation."
+    },
+    {
+      "id": "spam_steam_trade_scam",
+      "type": "pattern",
+      "severity": "high",
+      "category": "scam",
+      "regex": "\\b(?:i accidentally reported you|you.?ve been reported for|steam support (?:will|has) contact|your account will be (?:banned|suspended)|verify with (?:a )?steam (?:admin|support)|middleman for the trade)\\b",
+      "note": "The 'I accidentally reported you, talk to this Steam admin' scam, which ends with the victim handing over their account. Platform support never contacts users through a game profile or a DM from a stranger. Say that to anyone who was taken in -- the shame is the thing that stops people reporting it."
+    },
+    {
+      "id": "spam_crypto",
+      "type": "combination",
+      "severity": "high",
+      "category": "scam",
+      "anyOf": [
+        "bitcoin",
+        "btc",
+        "ethereum",
+        "eth",
+        "crypto",
+        "usdt",
+        "solana",
+        "nft",
+        "web3",
+        "metamask",
+        "airdrop"
+      ],
+      "allOf": [
+        "dm"
+      ],
+      "noneOf": [
+        "not crypto",
+        "hate crypto",
+        "anti nft",
+        "no nft",
+        "crypto is a scam",
+        "nft bad"
+      ],
+      "withinWords": 10,
+      "note": "Crypto solicitation. A member who merely mentions owning crypto is not spamming; the contact request beside it is what makes this a pitch. The exclusions cover the many people whose bios say they dislike NFTs, which would otherwise be the most common match by a wide margin."
+    },
+    {
+      "id": "spam_crypto_recovery",
+      "type": "pattern",
+      "severity": "high",
+      "category": "scam",
+      "regex": "\\b(?:recovery ?expert|recover (?:your )?(?:lost|stolen) (?:funds|crypto|bitcoin|wallet)|hack(?:er)? for hire|certified (?:ethical )?hacker for|blockchain recovery|asset recovery specialist)\\b",
+      "note": "Recovery scams, which target people who have already been defrauded once -- the most cynical category on this list. There is no service that recovers stolen cryptocurrency; every account offering it is a second fraud."
+    },
+    {
+      "id": "spam_investment",
+      "type": "pattern",
+      "severity": "high",
+      "category": "scam",
+      "regex": "\\b(?:guaranteed (?:profit|returns?|income)|double your (?:money|investment)|1000x|100x gains|forex ?signals?|binary options|copy ?trading|passive income (?:system|method)|make \\$?[0-9]{3,5} ?(?:a|per|/) ?(?:day|week))\\b",
+      "note": "Investment fraud phrasing. 'Guaranteed returns' is the tell that distinguishes a scam from someone who genuinely trades -- no legitimate financial product is allowed to say it."
+    },
+    {
+      "id": "spam_seed_phrase",
+      "type": "pattern",
+      "severity": "high",
+      "category": "scam",
+      "regex": "\\b(?:seed ?phrase|recovery ?phrase|private ?key|12 ?words? ?phrase|24 ?words? ?phrase|wallet ?key)\\b",
+      "note": "Anyone asking for a seed phrase is stealing a wallet; there is no other reason to ask. Also worth flagging when a member POSTS their own -- that is someone about to lose everything and they need a warning, not a sanction."
+    },
+    {
+      "id": "spam_game_currency",
+      "type": "pattern",
+      "severity": "high",
+      "category": "scam",
+      "regex": "\\b(?:free ?(?:vbucks|v-?bucks|robux|riot ?points|primogems|gems|coins)|(?:vbucks|robux) ?generator|no ?(?:human )?verification|no ?survey ?free)\\b",
+      "note": "Game-currency generator scams, which target children specifically and are the reason this rule matters most in an all-ages group. Every one of these is either a survey farm or credential theft -- there are no generators."
+    },
+    {
+      "id": "spam_account_sales",
+      "type": "combination",
+      "severity": "review",
+      "category": "advertising",
+      "anyOf": [
+        "selling",
+        "for sale",
+        "buy my",
+        "cheap",
+        "wts",
+        "trading"
+      ],
+      "allOf": [
+        "account"
+      ],
+      "noneOf": [
+        "account of what happened",
+        "on account of",
+        "my account was",
+        "account recovery help"
+      ],
+      "withinWords": 6,
+      "note": "Account sales, which breach VRChat's and most platforms' terms and are a common way for banned users to return. 'On account of' is excluded because the phrase is ordinary English."
+    },
+    {
+      "id": "spam_boosting_services",
+      "type": "pattern",
+      "severity": "review",
+      "category": "advertising",
+      "regex": "\\b(?:elo ?boost(?:ing|er)?|rank ?boost(?:ing|er)?|carry ?service|cheap ?boost|smurf ?accounts? for sale|coaching \\$)\\b",
+      "note": "Paid boosting services. Ordinary in some gaming communities and bannable in others, which is why this is review and not high. Note that 'carry' between friends is free and normal -- the rule requires the commercial framing."
+    },
+    {
+      "id": "spam_follow_me",
+      "type": "pattern",
+      "severity": "note",
+      "category": "self-promotion",
+      "regex": "\\b(?:sub ?to my|subscribe to my|follow me on|check out my (?:channel|stream|page)|link in bio|new video up|live now on twitch|drop a follow)\\b",
+      "note": "Recorded, not flagged. Ordinary self-promotion, and many VRChat groups exist precisely so streamers and artists can find each other. This rule is here so a group that bans promotion has something to switch on, and so a group that doesn't can see the volume before deciding. Most groups should leave it off."
+    },
+    {
+      "id": "spam_commissions",
+      "type": "combination",
+      "severity": "note",
+      "category": "self-promotion",
+      "anyOf": [
+        "commissions open",
+        "comms open",
+        "taking commissions",
+        "dm for prices",
+        "starting at $",
+        "ko-fi",
+        "kofi",
+        "patreon"
+      ],
+      "allOf": [
+        "commission"
+      ],
+      "noneOf": [
+        "commissions closed",
+        "comms closed",
+        "not taking commissions"
+      ],
+      "withinWords": 10,
+      "note": "Recorded only, and most groups should disable this outright. Avatar, art and world commissions are a large part of how VRChat's creative economy works and how a lot of members pay rent. Treating them as spam would be both unpopular and wrong. The rule exists for groups whose whole purpose is something else and who want the traffic elsewhere."
+    },
+    {
+      "id": "spam_offplatform_contact",
+      "type": "pattern",
+      "severity": "review",
+      "category": "advertising",
+      "regex": "\\b(?:t\\.me/[a-zA-Z0-9_]{3,}|wa\\.me/[0-9]{6,}|whatsapp ?\\+?[0-9]{8,}|telegram ?@?[a-zA-Z0-9_]{4,}|signal ?\\+?[0-9]{8,})\\b",
+      "note": "Contact details for platforms with no moderation, which is where a scam moves once it has your attention. Also entirely normal between friends -- check whether the bio is addressed to everyone or to nobody in particular."
+    },
+    {
+      "id": "spam_giveaway_bait",
+      "type": "pattern",
+      "severity": "high",
+      "category": "scam",
+      "regex": "\\b(?:you (?:have )?won|congratulations you|claim your (?:prize|reward|gift)|selected as (?:a )?winner|giveaway winner dm|click here to claim)\\b",
+      "note": "Prize-notification bait. A genuine giveaway does not notify winners through a stranger's VRChat bio. Note this is also a common phishing opener sent in DMs, so a match here often means the account has been compromised rather than created for fraud -- consider that before banning a long-standing member."
+    },
+    {
+      "id": "spam_gift_card",
+      "type": "pattern",
+      "severity": "high",
+      "category": "scam",
+      "regex": "\\b(?:gift ?card ?code|steam ?(?:gift ?)?card|itunes ?card|google ?play ?card|send (?:me )?(?:a )?gift ?card|amazon ?card)\\b",
+      "note": "Gift cards are the standard payment method for scams because they are irreversible and untraceable. Any request for one from a stranger is fraud. A member simply mentioning they received a gift card is the false positive."
+    },
+    {
+      "id": "spam_cashapp_beg",
+      "type": "combination",
+      "severity": "review",
+      "category": "advertising",
+      "anyOf": [
+        "cashapp",
+        "cash app",
+        "venmo",
+        "paypal.me",
+        "paypal me",
+        "zelle",
+        "throne",
+        "wishlist"
+      ],
+      "allOf": [
+        "send"
+      ],
+      "noneOf": [
+        "send me a message",
+        "send a friend request",
+        "sent from"
+      ],
+      "withinWords": 8,
+      "note": "Payment-handle solicitation. Distinguish carefully between a member in genuine hardship asking for help, a creator taking tips, and a scammer running a sob story -- the words are identical and only context separates them. That judgement is exactly why this produces a flag and not an action."
+    },
+    {
+      "id": "spam_mass_dm",
+      "type": "pattern",
+      "severity": "review",
+      "category": "spam",
+      "regex": "\\b(?:dm ?(?:all|everyone)|mass ?dm|auto ?dm|bulk ?message|friend ?request ?bot|add ?bot)\\b",
+      "note": "Automated messaging tools. In VRChat these are used to spam friend requests at scale, which is how most scam accounts find victims."
+    },
+    {
+      "id": "spam_zalgo_padding",
+      "type": "pattern",
+      "severity": "note",
+      "category": "spam",
+      "regex": "[─-▟■-◿]{20,}",
+      "note": "Long runs of box-drawing and block characters, used to pad a bio into an unreadable wall or to push content out of view. Note that a lot of members use these for genuinely decorative bio borders, so this is recorded rather than flagged, and the threshold is set high to skip ordinary separators. Combining-mark 'zalgo' text is stripped by normalisation before this rule ever sees it."
+    },
+    {
+      "id": "spam_pharma",
+      "type": "pattern",
+      "severity": "review",
+      "category": "spam",
+      "regex": "\\b(?:cheap ?(?:viagra|cialis|xanax|adderall)|no ?prescription|online ?pharmacy|buy ?pills ?online|weight ?loss ?miracle)\\b",
+      "note": "Classic pharmaceutical spam, which mostly reaches VRChat via compromised accounts rather than deliberate posting. Treat a match on an established member as a possible compromise first."
+    },
+    {
+      "id": "spam_adult_site_ads",
+      "type": "combination",
+      "severity": "review",
+      "category": "advertising",
+      "anyOf": [
+        "hot singles",
+        "meet local",
+        "horny girls near",
+        "click here for",
+        "sexy cams",
+        "adult dating"
+      ],
+      "allOf": [
+        "click"
+      ],
+      "withinWords": 8,
+      "note": "Adult-site advertising bait, which is almost always a bot or a compromised account rather than a member. Distinct from the sexual-content lists: the problem here is the advertisement, not the subject."
+    },
+    {
+      "id": "spam_engagement_bait",
+      "type": "pattern",
+      "severity": "note",
+      "category": "spam",
+      "regex": "\\b(?:like ?and ?(?:share|subscribe)|smash ?that ?(?:like|subscribe)|first ?100 ?(?:people|followers)|tag ?(?:3|three) ?friends|repost ?to ?win)\\b",
+      "note": "Engagement-farming phrasing carried over from other platforms. Harmless but tiresome, hence note. 'Smash that like button' is also a widely used joke, which is most of what you will see."
+    },
+    {
+      "id": "spam_group_poaching",
+      "type": "combination",
+      "severity": "review",
+      "category": "advertising",
+      "anyOf": [
+        "better than",
+        "leave that group",
+        "this group is dead",
+        "come to ours instead",
+        "we pay staff"
+      ],
+      "allOf": [
+        "group"
+      ],
+      "withinWords": 10,
+      "note": "Actively recruiting away from the group the member is currently in. Different from ordinary cross-promotion because it disparages the host. Read the match before acting -- criticism of a group is not automatically poaching, and a group that flags every complaint about itself has built a loyalty filter rather than a moderation tool."
+    },
+    {
+      "id": "spam_fake_staff_dm",
+      "type": "combination",
+      "severity": "high",
+      "category": "scam",
+      "anyOf": [
+        "vrchat support",
+        "vrchat staff",
+        "official moderator",
+        "trust and safety",
+        "system admin"
+      ],
+      "allOf": [
+        "dm"
+      ],
+      "noneOf": [
+        "report to vrchat support",
+        "contact vrchat support at",
+        "official support site"
+      ],
+      "withinWords": 8,
+      "note": "Impersonating platform staff to extract credentials. VRChat staff do not DM users about account problems. Overlaps with the impersonation list -- enable both if your group has been targeted."
+    },
+    {
+      "id": "spam_qr_code_bait",
+      "type": "pattern",
+      "severity": "review",
+      "category": "scam",
+      "regex": "\\b(?:scan ?(?:this|the|my) ?qr|qr ?code ?(?:in|on) ?(?:my|the) ?(?:world|avatar|poster))\\b",
+      "note": "QR codes in VRChat worlds and on avatars, which a viewer scans with a phone and which lead anywhere at all. Increasingly common as a phishing vector precisely because nobody can see the destination before scanning."
+    }
+  ]
+}

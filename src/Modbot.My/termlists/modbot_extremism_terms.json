@@ -5,7 +5,18 @@
   "version": "2026.9.0",
   "source": "modbot",
   "license": "CC0-1.0",
-  "suitableFor": ["general", "all-ages", "18-plus", "lgbtq", "family-friendly", "educational", "gaming", "club", "roleplay", "language-learning"],
+  "suitableFor": [
+    "general",
+    "all-ages",
+    "18-plus",
+    "lgbtq",
+    "family-friendly",
+    "educational",
+    "gaming",
+    "club",
+    "roleplay",
+    "language-learning"
+  ],
   "defaultSeverity": "high",
   "rules": [
     {
@@ -37,9 +48,26 @@
       "type": "combination",
       "severity": "high",
       "category": "neo-nazi",
-      "allOf": ["hitler"],
-      "anyOf": ["did nothing wrong", "was right", "had a point", "best", "goat", "my hero", "based", "should have won", "finish the job"],
-      "noneOf": ["hitler was wrong", "fuck hitler", "anti hitler", "hitler was a monster"],
+      "allOf": [
+        "hitler"
+      ],
+      "anyOf": [
+        "did nothing wrong",
+        "was right",
+        "had a point",
+        "best",
+        "goat",
+        "my hero",
+        "based",
+        "should have won",
+        "finish the job"
+      ],
+      "noneOf": [
+        "hitler was wrong",
+        "fuck hitler",
+        "anti hitler",
+        "hitler was a monster"
+      ],
       "withinWords": 6,
       "note": "Praise for Hitler specifically. Bare mentions are not flagged -- history students, film fans and people arguing against Nazis all say the name. Only approval is matched, and explicit disapproval is excluded."
     },
@@ -64,8 +92,19 @@
       "type": "combination",
       "severity": "review",
       "category": "neo-nazi",
-      "anyOf": ["sonnenrad", "black sun", "wolfsangel", "othala", "odal rune", "algiz", "tyr rune", "life rune"],
-      "allOf": ["14"],
+      "anyOf": [
+        "sonnenrad",
+        "black sun",
+        "wolfsangel",
+        "othala",
+        "odal rune",
+        "algiz",
+        "tyr rune",
+        "life rune"
+      ],
+      "allOf": [
+        "14"
+      ],
       "withinWords": 10,
       "note": "Germanic runes were appropriated by the SS and are still used by neo-Nazi groups, but they are also genuine religious symbols for Heathens, Asatru and other modern pagans, and ordinary decoration for Norse-mythology fans. Flagging a rune alone would mean flagging a religion. This rule requires explicit white-nationalist numerology nearby. If a match is a pagan's bio, dismiss it -- and do not ask them to justify their religion."
     },
@@ -74,7 +113,7 @@
       "type": "pattern",
       "severity": "review",
       "category": "neo-nazi",
-      "regex": "[\\x{5350}]",
+      "regex": "[卐]",
       "note": "The right-facing swastika (U+5350). The LEFT-facing manji (U+534D) is deliberately not matched: it is a Buddhist, Hindu and Jain religious symbol, appears on Japanese maps to mark temples, and is used constantly by anime fans. Getting these two the wrong way round is the classic failure of naive filters. Even the right-facing form appears in East Asian religious contexts, so this is review rather than high."
     },
     {
@@ -90,9 +129,22 @@
       "type": "combination",
       "severity": "high",
       "category": "neo-nazi",
-      "allOf": ["final solution"],
-      "anyOf": ["jewish", "jews", "question", "needed", "was right", "part 2", "round two"],
-      "noneOf": ["final solution to the problem set", "final solution of the equation"],
+      "allOf": [
+        "final solution"
+      ],
+      "anyOf": [
+        "jewish",
+        "jews",
+        "question",
+        "needed",
+        "was right",
+        "part 2",
+        "round two"
+      ],
+      "noneOf": [
+        "final solution to the problem set",
+        "final solution of the equation"
+      ],
       "withinWords": 6,
       "note": "'Final solution' is ordinary English in maths, engineering and project work, so a second term is required. With 'the Jewish question' beside it, there is no ambiguity."
     },
@@ -117,8 +169,17 @@
       "type": "combination",
       "severity": "high",
       "category": "violent-extremism",
-      "anyOf": ["siege", "siegepilled", "read siege", "accelerationism", "accelerationist", "terrorgram"],
-      "allOf": ["mason"],
+      "anyOf": [
+        "siege",
+        "siegepilled",
+        "read siege",
+        "accelerationism",
+        "accelerationist",
+        "terrorgram"
+      ],
+      "allOf": [
+        "mason"
+      ],
       "withinWords": 10,
       "note": "James Mason's 'Siege' is the founding text of militant accelerationism. Requires 'Mason' nearby because 'siege' alone is a medieval-warfare and strategy-game word, and 'accelerationism' also names an unrelated political-philosophy tendency."
     },
@@ -127,8 +188,17 @@
       "type": "combination",
       "severity": "high",
       "category": "violent-extremism",
-      "allOf": ["accelerate"],
-      "anyOf": ["the collapse", "the system", "the fall", "the war", "the purge", "the reset"],
+      "allOf": [
+        "accelerate"
+      ],
+      "anyOf": [
+        "the collapse",
+        "the system",
+        "the fall",
+        "the war",
+        "the purge",
+        "the reset"
+      ],
       "withinWords": 5,
       "note": "Accelerationist framing without the book title. Note that 'accelerate' is common in unrelated technical and fitness bios, so the second half is required."
     },
@@ -145,9 +215,23 @@
       "type": "combination",
       "severity": "review",
       "category": "violent-extremism",
-      "anyOf": ["boogaloo", "big igloo", "big luau", "boog", "civil war 2", "civil war two"],
-      "allOf": ["ready"],
-      "noneOf": ["electric boogaloo", "breakin 2", "boogaloo dance", "boogie"],
+      "anyOf": [
+        "boogaloo",
+        "big igloo",
+        "big luau",
+        "boog",
+        "civil war 2",
+        "civil war two"
+      ],
+      "allOf": [
+        "ready"
+      ],
+      "noneOf": [
+        "electric boogaloo",
+        "breakin 2",
+        "boogaloo dance",
+        "boogie"
+      ],
       "withinWords": 10,
       "note": "The 'boogaloo' movement anticipates a second US civil war. The word comes from a 1984 dance-film sequel and 'electric boogaloo' is still an extremely common joke suffix for any sequel, which is why that phrasing is excluded and why a readiness word is required. Expect to dismiss dance and meme matches."
     },
@@ -164,9 +248,27 @@
       "type": "combination",
       "severity": "high",
       "category": "violent-extremism",
-      "allOf": ["high score"],
-      "anyOf": ["beat the", "new record", "body count", "kill count", "tarrant", "breivik", "shooting", "irl"],
-      "noneOf": ["high score on", "leaderboard", "arcade", "speedrun", "pinball", "my high score"],
+      "allOf": [
+        "high score"
+      ],
+      "anyOf": [
+        "beat the",
+        "new record",
+        "body count",
+        "kill count",
+        "tarrant",
+        "breivik",
+        "shooting",
+        "irl"
+      ],
+      "noneOf": [
+        "high score on",
+        "leaderboard",
+        "arcade",
+        "speedrun",
+        "pinball",
+        "my high score"
+      ],
       "withinWords": 8,
       "note": "Mass shootings framed as a leaderboard. This is unavoidably adjacent to ordinary gaming vocabulary, which is why the noneOf list is long and 'irl' is one of the triggers. In a gaming community this rule needs watching -- if it is generating constant dismissals, turn it off rather than ignoring it."
     },
@@ -175,9 +277,28 @@
       "type": "combination",
       "severity": "high",
       "category": "violent-extremism",
-      "allOf": ["manifesto"],
-      "anyOf": ["read it", "dm for", "link", "download", "pdf", "based", "he was right", "tarrant", "breivik", "unabomber"],
-      "noneOf": ["communist manifesto", "cluetrain", "agile manifesto", "my manifesto for", "artist manifesto"],
+      "allOf": [
+        "manifesto"
+      ],
+      "anyOf": [
+        "read it",
+        "dm for",
+        "link",
+        "download",
+        "pdf",
+        "based",
+        "he was right",
+        "tarrant",
+        "breivik",
+        "unabomber"
+      ],
+      "noneOf": [
+        "communist manifesto",
+        "cluetrain",
+        "agile manifesto",
+        "my manifesto for",
+        "artist manifesto"
+      ],
       "withinWords": 8,
       "note": "Distributing attacker manifestos. The noneOf list removes the several famous political and professional documents that share the word; what remains is circulation of attack material."
     },
@@ -186,9 +307,24 @@
       "type": "combination",
       "severity": "high",
       "category": "violent-extremism",
-      "anyOf": ["school shooter", "shoot up", "shoot my school", "columbine", "trenchcoat mafia"],
-      "allOf": ["im"],
-      "noneOf": ["school shooter game", "documentary", "survivor of", "lost a friend", "prevent school shootings", "news"],
+      "anyOf": [
+        "school shooter",
+        "shoot up",
+        "shoot my school",
+        "columbine",
+        "trenchcoat mafia"
+      ],
+      "allOf": [
+        "im"
+      ],
+      "noneOf": [
+        "school shooter game",
+        "documentary",
+        "survivor of",
+        "lost a friend",
+        "prevent school shootings",
+        "news"
+      ],
       "withinWords": 10,
       "note": "First-person identification with school shooters. Columbine fandom is a real and documented subculture. The noneOf entries exclude survivors, journalists and people discussing prevention, all of whom use the same words for the opposite reason. A genuine match here is an immediate safety escalation, not a normal moderation queue item."
     },
@@ -205,9 +341,27 @@
       "type": "combination",
       "severity": "high",
       "category": "extremist-group",
-      "allOf": ["isis"],
-      "anyOf": ["caliphate", "bayah", "baya", "pledge allegiance", "soldier of", "join the", "khilafah", "dawlah"],
-      "noneOf": ["goddess isis", "isis and osiris", "egyptian", "kemetic", "isis unit", "archer"],
+      "allOf": [
+        "isis"
+      ],
+      "anyOf": [
+        "caliphate",
+        "bayah",
+        "baya",
+        "pledge allegiance",
+        "soldier of",
+        "join the",
+        "khilafah",
+        "dawlah"
+      ],
+      "noneOf": [
+        "goddess isis",
+        "isis and osiris",
+        "egyptian",
+        "kemetic",
+        "isis unit",
+        "archer"
+      ],
       "withinWords": 8,
       "note": "The acronym only when it sits inside jihadist vocabulary. The noneOf guard protects Kemetic pagans and Egyptology fans, for whom Isis is a goddess, and people named Isis. Getting this wrong means accusing a pagan of terrorism, so the guard is not optional."
     },
@@ -216,9 +370,27 @@
       "type": "combination",
       "severity": "high",
       "category": "violent-extremism",
-      "allOf": ["jihad"],
-      "anyOf": ["armed", "violent", "join the", "wage", "kuffar", "kill the", "martyrdom", "istishhad", "inghimasi"],
-      "noneOf": ["greater jihad", "inner jihad", "jihad of the self", "struggle against my", "jihad means struggle"],
+      "allOf": [
+        "jihad"
+      ],
+      "anyOf": [
+        "armed",
+        "violent",
+        "join the",
+        "wage",
+        "kuffar",
+        "kill the",
+        "martyrdom",
+        "istishhad",
+        "inghimasi"
+      ],
+      "noneOf": [
+        "greater jihad",
+        "inner jihad",
+        "jihad of the self",
+        "struggle against my",
+        "jihad means struggle"
+      ],
       "withinWords": 8,
       "note": "Read this note before acting. 'Jihad' is an ordinary and central religious term meaning struggle, most often personal and spiritual, and it is a common given name. Flagging it bare would mean flagging Muslims for being Muslim. This rule requires explicit violence vocabulary alongside it, and excludes the standard theological phrases for the non-violent sense. The same principle is why 'Allahu akbar', 'inshallah', 'shahada', 'ummah' and 'kafir' appear nowhere in this list: they are everyday devotional words, not extremism."
     },
@@ -243,9 +415,26 @@
       "type": "combination",
       "severity": "high",
       "category": "violent-extremism",
-      "anyOf": ["3d printed gun", "fgc 9", "ghost gun", "pipe bomb", "tatp", "anfo", "how to make a bomb"],
-      "allOf": ["dm"],
-      "noneOf": ["news article", "documentary", "prop", "airsoft", "in game", "nerf"],
+      "anyOf": [
+        "3d printed gun",
+        "fgc 9",
+        "ghost gun",
+        "pipe bomb",
+        "tatp",
+        "anfo",
+        "how to make a bomb"
+      ],
+      "allOf": [
+        "dm"
+      ],
+      "noneOf": [
+        "news article",
+        "documentary",
+        "prop",
+        "airsoft",
+        "in game",
+        "nerf"
+      ],
       "withinWords": 12,
       "note": "Offering weapon or explosive manufacturing information. Requires a contact word so that news discussion and prop-making do not match. Airsoft and game contexts are excluded. A genuine match is a platform report, not a warning."
     },
@@ -254,8 +443,18 @@
       "type": "combination",
       "severity": "high",
       "category": "violent-extremism",
-      "allOf": ["gas the"],
-      "anyOf": ["jews", "kikes", "blacks", "trannies", "gays", "immigrants", "them all"],
+      "allOf": [
+        "gas the"
+      ],
+      "anyOf": [
+        "jews",
+        "kikes",
+        "blacks",
+        "trannies",
+        "gays",
+        "immigrants",
+        "them all"
+      ],
       "withinWords": 5,
       "note": "Eliminationist phrasing aimed at a group. Deliberately requires a target so that a chemistry or cooking bio does not match."
     },
@@ -264,9 +463,24 @@
       "type": "combination",
       "severity": "high",
       "category": "violent-extremism",
-      "anyOf": ["kill all", "exterminate all", "round up all", "deport all", "hang all", "purge all"],
-      "allOf": ["all"],
-      "noneOf": ["kill all the bugs", "kill all enemies", "kill all mobs", "kill all processes", "killall"],
+      "anyOf": [
+        "kill all",
+        "exterminate all",
+        "round up all",
+        "deport all",
+        "hang all",
+        "purge all"
+      ],
+      "allOf": [
+        "all"
+      ],
+      "noneOf": [
+        "kill all the bugs",
+        "kill all enemies",
+        "kill all mobs",
+        "kill all processes",
+        "killall"
+      ],
       "withinWords": 4,
       "note": "Group-directed eliminationist language. The noneOf entries exclude gaming and the Unix 'killall' command, both of which are frequent in these communities. Read what group is named before acting -- the target is the whole point."
     },
@@ -275,9 +489,26 @@
       "type": "combination",
       "severity": "high",
       "category": "violent-extremism",
-      "anyOf": ["9/11", "911 attacks", "christchurch", "utoya", "oklahoma city", "bataclan", "manchester arena"],
-      "allOf": ["based"],
-      "noneOf": ["never forget", "victims", "memorial", "anniversary", "survivor", "tribute"],
+      "anyOf": [
+        "9/11",
+        "911 attacks",
+        "christchurch",
+        "utoya",
+        "oklahoma city",
+        "bataclan",
+        "manchester arena"
+      ],
+      "allOf": [
+        "based"
+      ],
+      "noneOf": [
+        "never forget",
+        "victims",
+        "memorial",
+        "anniversary",
+        "survivor",
+        "tribute"
+      ],
       "withinWords": 8,
       "note": "Approval of a specific terrorist attack. Requires an approval word because these events are mentioned in memorial and historical contexts constantly, all of which are excluded."
     },
@@ -286,9 +517,24 @@
       "type": "combination",
       "severity": "note",
       "category": "neo-nazi",
-      "allOf": ["mein kampf"],
-      "anyOf": ["favourite", "favorite", "based", "required reading", "he was right", "truth"],
-      "noneOf": ["studying", "history class", "annotated edition", "critical edition", "for my essay"],
+      "allOf": [
+        "mein kampf"
+      ],
+      "anyOf": [
+        "favourite",
+        "favorite",
+        "based",
+        "required reading",
+        "he was right",
+        "truth"
+      ],
+      "noneOf": [
+        "studying",
+        "history class",
+        "annotated edition",
+        "critical edition",
+        "for my essay"
+      ],
       "withinWords": 8,
       "note": "Recorded rather than flagged. Owning or reading the book is not extremism -- it is on university syllabuses and sold in annotated critical editions. Only endorsement is recorded, and academic framing is excluded. Useful as corroboration alongside other rules in this list."
     },
@@ -297,8 +543,15 @@
       "type": "combination",
       "severity": "review",
       "category": "violent-extremism",
-      "allOf": ["fedpost"],
-      "anyOf": ["time to", "about to", "gonna", "deleted"],
+      "allOf": [
+        "fedpost"
+      ],
+      "anyOf": [
+        "time to",
+        "about to",
+        "gonna",
+        "deleted"
+      ],
       "withinWords": 6,
       "note": "'Fedposting' is in-group slang for posting something that would attract law-enforcement attention, usually a threat framed as a joke. The word's presence means the account knows the line and is playing with it. Low confidence on its own, which is why it is review."
     }

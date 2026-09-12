@@ -1,0 +1,104 @@
+{
+  "id": "modbot_drug_references",
+  "name": "Drug sales and references",
+  "description": "Drug supply and dealing signals, plus general drug references for groups that want a clean tone. The supply rules are the useful ones. Recovery language, harm reduction, prescribed medication and legal cannabis are deliberately excluded throughout -- a list that flags people for being in recovery is worse than no list.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["all-ages", "family-friendly", "educational", "general", "gaming"],
+  "defaultSeverity": "review",
+  "rules": [
+    {
+      "id": "drugs_dealing",
+      "type": "combination",
+      "severity": "high",
+      "category": "drugs",
+      "anyOf": ["plug", "connect", "menu", "prices", "shipping", "stock", "restocked", "drops today"],
+      "allOf": ["dm"],
+      "noneOf": ["dm for commissions", "dm for prices on avatars", "art prices", "menu of worlds", "plug in your headset", "plug and play", "usb plug"],
+      "withinWords": 8,
+      "note": "The shape of a dealer's bio: a product word plus a contact instruction. None of the trigger words mean drugs on their own -- 'plug' is a power connector, a 'menu' is a menu -- so the combination and the exclusions carry the whole rule. This is the one to enable; the substance-name rules below are much noisier."
+    },
+    {
+      "id": "drugs_supply_terms",
+      "type": "pattern",
+      "severity": "high",
+      "category": "drugs",
+      "regex": "\\b(?:trap ?house|re ?up|eighth for|oz for|qp for|pressed ?(?:pills|bars)|blues? ?(?:30s|m30)|perc ?30|xans? for sale|carts for sale)\\b",
+      "note": "Supply-side vocabulary with quantities and prices attached, which is what distinguishes dealing from talking. 'M30' and 'blues' refer to counterfeit oxycodone pills, which are the main vector for fentanyl deaths among young people -- worth treating as urgent in any group with minors in it."
+    },
+    {
+      "id": "drugs_hard_substances",
+      "type": "pattern",
+      "severity": "review",
+      "category": "drugs",
+      "regex": "\\b(?:heroin|fentanyl|fent|meth(?:amphetamine)?|crack ?cocaine|cocaine|coke ?lines|ketamine|ket|mdma|molly|ecstasy|xanax|xannies|percocet|oxy(?:contin)?|adderall|addy)\\b",
+      "note": "Named controlled substances. Mentioning one is not dealing and is not necessarily use: 'Adderall' and 'Xanax' are prescribed to a great many people, 'coke' is also a soft drink and a surname, and 'ket' is a common given name abbreviation. Read the sentence. In an all-ages group this is still worth seeing; in an adult group most matches will be conversation."
+    },
+    {
+      "id": "drugs_cannabis",
+      "type": "pattern",
+      "severity": "note",
+      "category": "drugs",
+      "regex": "\\b(?:420 ?friendly|stoner|weed|cannabis|marijuana|blunt|joint|dab|edibles|thc|kush|loud pack)\\b",
+      "note": "Recorded, not flagged, and most groups outside the all-ages category should disable it. Cannabis is legal where a large share of these communities' members live, and '420 friendly' in a bio is a lifestyle statement of the same order as 'coffee addict'. 'Joint' and 'dab' both have completely unrelated everyday meanings -- a joint account, a dab as a dance move."
+    },
+    {
+      "id": "drugs_minor_supply",
+      "type": "combination",
+      "severity": "high",
+      "category": "drugs",
+      "anyOf": ["no id needed", "no age check", "discreet", "any age", "young clients welcome"],
+      "allOf": ["dm"],
+      "withinWords": 10,
+      "note": "Supply explicitly offered without age checks, which in a community containing minors is the worst version of this. Overlaps with the underage-risk list on purpose."
+    },
+    {
+      "id": "drugs_darknet",
+      "type": "pattern",
+      "severity": "high",
+      "category": "drugs",
+      "regex": "\\b(?:dark ?net ?market|dnm|onion ?link|tor ?vendor|vendor ?rating|escrow ?vendor|pgp ?key for)\\b",
+      "note": "Darknet market vocabulary. 'PGP key' alone is ordinary among privacy-minded and technical members and is not matched -- only the vendor framing is. A genuine match means commercial supply, not personal use."
+    },
+    {
+      "id": "drugs_inhalants_huffing",
+      "type": "pattern",
+      "severity": "review",
+      "category": "drugs",
+      "regex": "\\b(?:huffing|whip ?its|whippets|nangs|galaxy ?gas|balloon ?gas|duster ?high)\\b",
+      "note": "Inhalant and nitrous use, which skews young, is cheap, and causes permanent nerve damage quickly. Worth flagging in an all-ages group specifically because the members most likely to be doing it are the ones least likely to know that. 'Whippets' is also a dog breed."
+    },
+    {
+      "id": "drugs_recovery_protected",
+      "type": "combination",
+      "severity": "note",
+      "category": "drugs",
+      "anyOf": ["sober", "clean", "in recovery", "days sober", "na meeting", "aa meeting", "harm reduction", "naloxone", "narcan", "test your"],
+      "allOf": ["sober"],
+      "withinWords": 12,
+      "note": "Recorded at the lowest severity, and its real purpose is to be visible next to any other flag from this list. A member in recovery, or one carrying naloxone, is not a drug problem -- they are frequently the person in your community most likely to save someone's life. If you see this alongside a substance match on the same account, that is almost always your answer."
+    },
+    {
+      "id": "drugs_alcohol_minors",
+      "type": "combination",
+      "severity": "review",
+      "category": "drugs",
+      "anyOf": ["drunk", "wasted", "blackout", "shots", "vodka", "beer", "hammered", "pregaming"],
+      "allOf": ["im 1"],
+      "withinWords": 10,
+      "note": "Underage drinking, matched by requiring a stated teenage age nearby -- 'im 1' catches 'im 14' through 'im 17' as a fragment. Fragment matching is deliberate here and is the only way to bind the two halves; it will occasionally catch 'im 1 hour away', which is why it is review. Adults drinking is not a matter for this list."
+    },
+    {
+      "id": "drugs_selling_prescription",
+      "type": "combination",
+      "severity": "high",
+      "category": "drugs",
+      "anyOf": ["adderall", "vyvanse", "ritalin", "xanax", "klonopin", "valium", "oxy", "tramadol"],
+      "allOf": ["selling"],
+      "noneOf": ["im prescribed", "my prescription", "i take", "pharmacist", "side effects"],
+      "withinWords": 8,
+      "note": "Diverting prescription medication. The exclusions protect the far larger number of members who simply take these drugs as prescribed and mention it -- often to explain their attention span or anxiety, which is information they volunteered and should not be punished for."
+    }
+  ]
+}

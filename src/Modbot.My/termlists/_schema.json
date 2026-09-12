@@ -75,7 +75,7 @@
           "then": {
             "required": ["regex"],
             "properties": {
-              "regex": { "type": "string", "description": "RE2-safe regular expression. No backreferences, no lookaround -- these run against untrusted input at sync rate and must not backtrack." }
+              "regex": { "type": "string", "description": "Regular expression, evaluated by .NET Regex. No backreferences and no lookaround -- these run against untrusted input at sync rate and must not backtrack. Write non-ASCII characters LITERALLY (JSON is UTF-8); do not use RE2/PCRE \x{...} escapes, which .NET does not support." }
             }
           }
         },

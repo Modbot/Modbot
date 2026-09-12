@@ -1,0 +1,240 @@
+[
+  {
+    "id": "modbot_advertising_spam",
+    "name": "Advertising, spam and scams",
+    "description": "Unsolicited promotion, invite farming, and the scam patterns that target VRChat and Discord users -- free Nitro, fake Steam trades, crypto recovery, account boosting. Scam rules are high severity; ordinary self-promotion is only recorded, because most groups tolerate some of it and a few actively want it.",
+    "suitableFor": [
+      "general",
+      "all-ages",
+      "18-plus",
+      "lgbtq",
+      "family-friendly",
+      "educational",
+      "gaming",
+      "club",
+      "roleplay",
+      "language-learning"
+    ],
+    "ruleCount": 27,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_ai_topics",
+    "name": "AI policy topics",
+    "description": "Policies written in plain language for an AI provider to evaluate, for the cases no word list can reach -- implication, tone, novel slang, and languages the term lists do not cover. Topic rules are advisory and can never auto-action. Every topic carries counter-examples, because the failure mode of an AI reviewer is confident over-flagging, and the counter-examples are what hold it back.",
+    "suitableFor": [
+      "general",
+      "all-ages",
+      "18-plus",
+      "lgbtq",
+      "family-friendly",
+      "educational",
+      "gaming",
+      "club",
+      "roleplay",
+      "language-learning"
+    ],
+    "ruleCount": 15,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_drug_references",
+    "name": "Drug sales and references",
+    "description": "Drug supply and dealing signals, plus general drug references for groups that want a clean tone. The supply rules are the useful ones. Recovery language, harm reduction, prescribed medication and legal cannabis are deliberately excluded throughout -- a list that flags people for being in recovery is worse than no list.",
+    "suitableFor": [
+      "all-ages",
+      "family-friendly",
+      "educational",
+      "general",
+      "gaming"
+    ],
+    "ruleCount": 10,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_extremism_terms",
+    "name": "Extremism and violent-extremist signalling",
+    "description": "Neo-Nazi vocabulary, organised extremist group names, mass-attacker veneration and jihadist recruitment language. Written to catch affiliation, not religion or history: bare religious phrases, runes with legitimate pagan use, and the Buddhist manji are all deliberately excluded.",
+    "suitableFor": [
+      "general",
+      "all-ages",
+      "18-plus",
+      "lgbtq",
+      "family-friendly",
+      "educational",
+      "gaming",
+      "club",
+      "roleplay",
+      "language-learning"
+    ],
+    "ruleCount": 31,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_harassment_terms",
+    "name": "Harassment, threats and doxxing",
+    "description": "Targeted abuse aimed at a person rather than a group: threats of violence, suicide baiting, doxxing and swatting signals, ableist slurs, and the VRChat-specific tooling used to grief instances. Most of these are only meaningful when they have a target, so a large share are combination rules.",
+    "suitableFor": [
+      "general",
+      "all-ages",
+      "18-plus",
+      "lgbtq",
+      "family-friendly",
+      "educational",
+      "gaming",
+      "club",
+      "roleplay",
+      "language-learning"
+    ],
+    "ruleCount": 28,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_impersonation_staff",
+    "name": "Staff and platform impersonation",
+    "description": "Accounts claiming to be VRChat staff, group moderators, or verified accounts when they are not. This is how most social-engineering attacks on these communities begin -- a fake moderator asking a member to 'verify' something. Scoped mostly to display names and status, because that is where the claim has to appear to work.",
+    "suitableFor": [
+      "general",
+      "all-ages",
+      "18-plus",
+      "lgbtq",
+      "family-friendly",
+      "educational",
+      "gaming",
+      "club",
+      "roleplay",
+      "language-learning"
+    ],
+    "ruleCount": 10,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_limited_communities_terms",
+    "name": "Anti-LGBTQ+ content",
+    "description": "Transphobic and homophobic slurs and rhetoric. Named for the communities it protects, not the content it contains. Built so that people describing their own identity are never flagged: reclaimed words are only matched alongside hostile context, and the pronouns field is excluded from every slur rule.",
+    "suitableFor": [
+      "general",
+      "all-ages",
+      "18-plus",
+      "lgbtq",
+      "family-friendly",
+      "educational",
+      "gaming",
+      "club",
+      "roleplay",
+      "language-learning"
+    ],
+    "ruleCount": 29,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_political_combinations",
+    "name": "Political content (combination rules)",
+    "description": "For groups that want to stay apolitical. Deliberately even-handed: it flags partisan statements from every direction, because the rule is 'not here', not 'not that opinion'. Almost every rule is a combination, because single political words are worthless on their own -- this list is the reference example of how the combination type is meant to be used.",
+    "suitableFor": [
+      "general",
+      "all-ages",
+      "family-friendly",
+      "educational",
+      "gaming",
+      "club",
+      "language-learning"
+    ],
+    "ruleCount": 30,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_profanity_mild",
+    "name": "Mild profanity",
+    "description": "Ordinary swearing, for groups that keep a family-friendly tone. Everything here is low severity by design: these words are rude, not harmful, and a tool that treats them like slurs teaches moderators to ignore it. Slurs live in the other lists.",
+    "suitableFor": [
+      "all-ages",
+      "family-friendly",
+      "educational"
+    ],
+    "ruleCount": 12,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_racist_terms",
+    "name": "Racial slurs and white-supremacist signalling",
+    "description": "Racial and ethnic slurs, plus the numeric codes and dogwhistles white-supremacist accounts use to signal to each other. Most groups will want this; it is the list with the least legitimate use for the words it contains.",
+    "suitableFor": [
+      "general",
+      "all-ages",
+      "18-plus",
+      "lgbtq",
+      "family-friendly",
+      "educational",
+      "gaming",
+      "club",
+      "roleplay",
+      "language-learning"
+    ],
+    "ruleCount": 36,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_selfharm_welfare",
+    "name": "Self-harm and welfare signals",
+    "description": "Signs that the account holder may be at risk of self-harm or suicide, and pro-self-harm community markers. This is a welfare list, not a conduct list: nothing here is a rule a member has broken. Only enable it if someone in your team is willing and able to respond to what it finds -- flags that nobody reads are worse than no flags.",
+    "suitableFor": [
+      "general",
+      "all-ages",
+      "18-plus",
+      "lgbtq",
+      "family-friendly",
+      "educational",
+      "gaming",
+      "club",
+      "roleplay",
+      "language-learning"
+    ],
+    "ruleCount": 12,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_sexual_terms_18plus",
+    "name": "Sexual content floor (18+ venues)",
+    "description": "A minimum floor for adult venues that permit explicit content but still need limits. Assumes sexual content is allowed: what it flags is content that is non-consensual, illegal or otherwise a platform-ToS problem, commercial solicitation, and explicit text pushed into display names where nobody opted in. Not suitable for all-ages groups -- use the all-ages sexual list for those.",
+    "suitableFor": [
+      "18-plus",
+      "club",
+      "roleplay"
+    ],
+    "ruleCount": 20,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_sexual_terms_allages",
+    "name": "Sexual content (all-ages and family-friendly)",
+    "description": "A strict list for groups where minors are present by design. Flags explicit language, kink vocabulary, adult-content advertising and innuendo an 18+ venue would never care about. Expect a higher flag rate than the 18+ list -- that is the intent. Do not enable this alongside the 18+ list; pick one. Note what is deliberately absent: stating a sexual orientation or gender identity is not sexual content and no rule here treats it as such -- 'I'm gay' is an identity, 'looking to hook up' is a solicitation.",
+    "suitableFor": [
+      "all-ages",
+      "family-friendly",
+      "educational",
+      "language-learning"
+    ],
+    "ruleCount": 29,
+    "version": "2026.9.0"
+  },
+  {
+    "id": "modbot_underage_risk",
+    "name": "Underage risk signals",
+    "description": "Two things at once: signs that an account holder is a minor (a safeguarding matter, not an offence) and signs that an adult is signalling sexual interest in minors (which is). Read the severity: 'review' rules are usually about protecting the member who was flagged, 'high' rules are usually about protecting everyone else from them.",
+    "suitableFor": [
+      "general",
+      "all-ages",
+      "18-plus",
+      "lgbtq",
+      "family-friendly",
+      "educational",
+      "gaming",
+      "club",
+      "roleplay",
+      "language-learning"
+    ],
+    "ruleCount": 31,
+    "version": "2026.9.0"
+  }
+]

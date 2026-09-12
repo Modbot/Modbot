@@ -1,11 +1,16 @@
 {
   "id": "modbot_sexual_terms_allages",
   "name": "Sexual content (all-ages and family-friendly)",
-  "description": "A strict list for groups where minors are present by design. Flags explicit language, kink vocabulary, adult-content advertising and innuendo an 18+ venue would never care about. Expect a higher flag rate than the 18+ list -- that is the intent. Do not enable this alongside the 18+ list; pick one.",
+  "description": "A strict list for groups where minors are present by design. Flags explicit language, kink vocabulary, adult-content advertising and innuendo an 18+ venue would never care about. Expect a higher flag rate than the 18+ list -- that is the intent. Do not enable this alongside the 18+ list; pick one. Note what is deliberately absent: stating a sexual orientation or gender identity is not sexual content and no rule here treats it as such -- 'I'm gay' is an identity, 'looking to hook up' is a solicitation.",
   "version": "2026.9.0",
   "source": "modbot",
   "license": "CC0-1.0",
-  "suitableFor": ["all-ages", "family-friendly", "educational", "language-learning"],
+  "suitableFor": [
+    "all-ages",
+    "family-friendly",
+    "educational",
+    "language-learning"
+  ],
   "defaultSeverity": "review",
   "rules": [
     {
@@ -45,8 +50,19 @@
       "type": "combination",
       "severity": "high",
       "category": "sexual",
-      "allOf": ["erp"],
-      "noneOf": ["no erp", "erp dni", "anti erp", "erp free", "not into erp", "enterprise resource", "erp system", "sap erp"],
+      "allOf": [
+        "erp"
+      ],
+      "noneOf": [
+        "no erp",
+        "erp dni",
+        "anti erp",
+        "erp free",
+        "not into erp",
+        "enterprise resource",
+        "erp system",
+        "sap erp"
+      ],
       "note": "Erotic roleplay, the VRChat term. The noneOf list excludes refusals -- 'no ERP' is a boundary, not an offer -- and the business-software meaning, which will come up in any group with working adults in it."
     },
     {
@@ -62,9 +78,31 @@
       "type": "combination",
       "severity": "review",
       "category": "sexual",
-      "anyOf": ["dom", "sub", "switch", "brat", "little", "daddy", "mommy"],
-      "allOf": ["looking for"],
-      "noneOf": ["nintendo switch", "switch friend code", "sub to my", "subscribe", "subreddit", "submarine", "substitute", "dominic", "dom perignon", "sub sandwich", "switch games"],
+      "anyOf": [
+        "dom",
+        "sub",
+        "switch",
+        "brat",
+        "little",
+        "daddy",
+        "mommy"
+      ],
+      "allOf": [
+        "looking for"
+      ],
+      "noneOf": [
+        "nintendo switch",
+        "switch friend code",
+        "sub to my",
+        "subscribe",
+        "subreddit",
+        "submarine",
+        "substitute",
+        "dominic",
+        "dom perignon",
+        "sub sandwich",
+        "switch games"
+      ],
       "withinWords": 6,
       "note": "These words are near-useless alone and this rule shows why the combination type exists. 'Sub' is subscribe, subreddit, substitute and submarine. 'Switch' is a Nintendo console -- in a VRChat group, overwhelmingly so. 'Dom' is short for Dominic and for the DOM in web development. 'Daddy' is a parent. Only the pairing with an explicit solicitation phrase is flagged, and the console and subscription senses are excluded outright. If this rule still generates noise in your group, turn it off rather than tuning it -- the signal is thin."
     },
@@ -97,7 +135,7 @@
       "type": "pattern",
       "severity": "note",
       "category": "sexual-innuendo",
-      "regex": "[\\x{1F346}\\x{1F351}\\x{1F36F}][\\x{1F4A6}\\x{1F4A7}\\x{1F445}\\x{1F444}]",
+      "regex": "[🍆🍑🍯][💦💧👅👄]",
       "note": "Aubergine, peach or honeypot immediately followed by droplets, a tongue or lips. Emoji survive text normalisation untouched, so they are a common way to write innuendo past a word filter. Adjacency is required -- a bio that happens to mention both fruit and water will not match."
     },
     {
@@ -113,9 +151,22 @@
       "type": "combination",
       "severity": "note",
       "category": "sexual-innuendo",
-      "allOf": ["body count"],
-      "anyOf": ["my", "whats your", "high", "low"],
-      "noneOf": ["kill count", "in game", "warzone", "cod", "match"],
+      "allOf": [
+        "body count"
+      ],
+      "anyOf": [
+        "my",
+        "whats your",
+        "high",
+        "low"
+      ],
+      "noneOf": [
+        "kill count",
+        "in game",
+        "warzone",
+        "cod",
+        "match"
+      ],
       "withinWords": 5,
       "note": "Recorded. 'Body count' means number of sexual partners in one usage and number of kills in another, and in a gaming community the second is far more common. The gaming senses are excluded; what is left is still mild enough to only record."
     },
@@ -124,20 +175,25 @@
       "type": "combination",
       "severity": "review",
       "category": "sexual",
-      "anyOf": ["looking for", "lf", "need a", "want a", "seeking", "single and"],
-      "allOf": ["gf"],
-      "noneOf": ["looking for friends", "lf group", "looking for a world", "looking for avatar"],
+      "anyOf": [
+        "looking for",
+        "lf",
+        "need a",
+        "want a",
+        "seeking",
+        "single and"
+      ],
+      "allOf": [
+        "gf"
+      ],
+      "noneOf": [
+        "looking for friends",
+        "lf group",
+        "looking for a world",
+        "looking for avatar"
+      ],
       "withinWords": 6,
       "note": "Partner-seeking in a group that is not for that. Harmless in itself and often just lonely, but in an all-ages space it is the entry point for adults approaching minors, which is why it is worth seeing. The 'gf' trigger also covers 'bf' variants in most matchers; if yours does not, add a sibling rule."
-    },
-    {
-      "id": "allages_sexual_orientation_not_flagged",
-      "type": "combination",
-      "severity": "note",
-      "category": "documentation",
-      "anyOf": ["gay", "lesbian", "bi", "pan", "ace", "asexual", "trans", "nonbinary", "queer"],
-      "allOf": ["never flagged by this list"],
-      "note": "This rule is documentation and will never fire in practice, because no profile contains its allOf phrase. It exists to record a design decision where moderators will see it: stating a sexual orientation or gender identity is NOT sexual content, and nothing in this list treats it as such. 'I'm gay' is not a sexual statement; 'looking to hook up' is. If your group is tempted to add orientation words to this list, that is the line to hold."
     },
     {
       "id": "allages_sex_words_basic",
@@ -160,9 +216,23 @@
       "type": "combination",
       "severity": "review",
       "category": "sexual",
-      "anyOf": ["yiff", "murrsuit", "knot", "heat", "musk", "spooge"],
-      "allOf": ["fursona"],
-      "noneOf": ["sfw only", "sfw fursona", "no yiff", "clean account"],
+      "anyOf": [
+        "yiff",
+        "murrsuit",
+        "knot",
+        "heat",
+        "musk",
+        "spooge"
+      ],
+      "allOf": [
+        "fursona"
+      ],
+      "noneOf": [
+        "sfw only",
+        "sfw fursona",
+        "no yiff",
+        "clean account"
+      ],
       "withinWords": 12,
       "note": "Explicit furry content. The furry fandom is overwhelmingly non-sexual and 'fursona' alone means nothing at all -- flagging it would be both wrong and a good way to lose a large part of your membership. An explicit term must appear alongside it, and self-declared SFW accounts are excluded."
     },
@@ -180,7 +250,10 @@
       "severity": "review",
       "category": "sexual",
       "regex": "\\b(?:moaning|moan|uwu ?daddy|ara ?ara|nyaa+ ?daddy|mating ?press|breeding)\\b",
-      "fields": ["status", "displayName"],
+      "fields": [
+        "status",
+        "displayName"
+      ],
       "note": "Scoped to the nameplate. 'Breeding' is ordinary in farming, animal husbandry and Pokemon, so this is scoped tightly rather than run against bios where those contexts live."
     },
     {
@@ -189,7 +262,9 @@
       "severity": "high",
       "category": "sexual",
       "regex": "\\b(?:slut|whore|hoe|cumslut|fucktoy|breedable|daddysgirl|littlewhore)\\b",
-      "fields": ["displayName"],
+      "fields": [
+        "displayName"
+      ],
       "note": "Display-name scope, no reclaimed-use allowance. In an adult venue 'slut' is reclaimed by plenty of people about themselves; in a family-friendly group it is over a child's head in every screenshot. 'Hoe' is also a garden tool, which is a real if slightly comic dismissal in a gardening world."
     },
     {
@@ -205,9 +280,24 @@
       "type": "combination",
       "severity": "high",
       "category": "sexual",
-      "anyOf": ["dm me", "dms open", "hmu", "message me", "add me"],
-      "allOf": ["fun"],
-      "noneOf": ["fun games", "fun facts", "fun to play", "for fun", "fun group", "funny"],
+      "anyOf": [
+        "dm me",
+        "dms open",
+        "hmu",
+        "message me",
+        "add me"
+      ],
+      "allOf": [
+        "fun"
+      ],
+      "noneOf": [
+        "fun games",
+        "fun facts",
+        "fun to play",
+        "for fun",
+        "fun group",
+        "funny"
+      ],
       "withinWords": 6,
       "note": "'DM me for fun' is the standard euphemism. The noneOf list removes the many innocent uses of 'fun', which is one of the most common words in any bio. Even so, expect this one to need dismissals."
     },
@@ -216,9 +306,21 @@
       "type": "combination",
       "severity": "high",
       "category": "sexual",
-      "anyOf": ["verify", "verification", "prove youre", "18 to enter", "age gate"],
-      "allOf": ["photo"],
-      "noneOf": ["photo id to staff", "official verification", "vrchat support"],
+      "anyOf": [
+        "verify",
+        "verification",
+        "prove youre",
+        "18 to enter",
+        "age gate"
+      ],
+      "allOf": [
+        "photo"
+      ],
+      "noneOf": [
+        "photo id to staff",
+        "official verification",
+        "vrchat support"
+      ],
       "withinWords": 10,
       "note": "Requests for photographic 'age verification' sent person-to-person, which is a standard pretext for obtaining images. Legitimate verification is done by the platform or by group staff through an established process, not by a stranger in a DM."
     },
@@ -243,9 +345,19 @@
       "type": "combination",
       "severity": "high",
       "category": "sexual",
-      "anyOf": ["youre mature for", "mature for your age", "act older than", "old soul"],
-      "allOf": ["age"],
-      "noneOf": ["old soul music", "mature rating"],
+      "anyOf": [
+        "youre mature for",
+        "mature for your age",
+        "act older than",
+        "old soul"
+      ],
+      "allOf": [
+        "age"
+      ],
+      "noneOf": [
+        "old soul music",
+        "mature rating"
+      ],
       "withinWords": 8,
       "note": "Telling a young person they are mature for their age is a documented grooming approach, and in an all-ages group it is worth seeing even when it is meant kindly. Overlaps with the underage-risk list on purpose; enable both in an all-ages group."
     },
@@ -262,9 +374,21 @@
       "type": "combination",
       "severity": "high",
       "category": "sexual",
-      "anyOf": ["rp", "roleplay", "role play"],
-      "allOf": ["nsfw"],
-      "noneOf": ["sfw rp", "sfw only", "no nsfw", "nsfw dni", "keep it sfw"],
+      "anyOf": [
+        "rp",
+        "roleplay",
+        "role play"
+      ],
+      "allOf": [
+        "nsfw"
+      ],
+      "noneOf": [
+        "sfw rp",
+        "sfw only",
+        "no nsfw",
+        "nsfw dni",
+        "keep it sfw"
+      ],
       "withinWords": 6,
       "note": "Advertising explicit roleplay. Roleplay itself is a huge and mostly wholesome part of VRChat, so the explicit marker is required and self-declared SFW accounts are excluded."
     },
@@ -273,9 +397,21 @@
       "type": "combination",
       "severity": "review",
       "category": "sexual",
-      "anyOf": ["private instance", "private world", "just us", "alone together", "my private"],
-      "allOf": ["dm"],
-      "noneOf": ["private instance for events", "staff only", "private practice"],
+      "anyOf": [
+        "private instance",
+        "private world",
+        "just us",
+        "alone together",
+        "my private"
+      ],
+      "allOf": [
+        "dm"
+      ],
+      "noneOf": [
+        "private instance for events",
+        "staff only",
+        "private practice"
+      ],
       "withinWords": 8,
       "note": "Inviting members into private instances. Entirely normal between friends; worth seeing in an all-ages group when it is advertised publicly to strangers, because a private instance has no witnesses. Low confidence, hence review."
     }

@@ -1,0 +1,325 @@
+{
+  "id": "modbot_political_combinations",
+  "name": "Political content (combination rules)",
+  "description": "For groups that want to stay apolitical. Deliberately even-handed: it flags partisan statements from every direction, because the rule is 'not here', not 'not that opinion'. Almost every rule is a combination, because single political words are worthless on their own -- this list is the reference example of how the combination type is meant to be used.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["general", "all-ages", "family-friendly", "educational", "gaming", "club", "language-learning"],
+  "defaultSeverity": "note",
+  "rules": [
+    {
+      "id": "political_free_trump",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "allOf": ["free", "trump"],
+      "anyOf": ["supporter", "maga", "2024", "2028", "president", "again"],
+      "noneOf": ["free trumpet", "trump card", "trumped up", "trumpet lessons"],
+      "withinWords": 6,
+      "note": "'Free Trump' as a campaign slogan, which needs all three parts to mean anything: 'free' and 'trump' both appear constantly in unrelated bios, and it is the third element that makes it partisan. 'Trump card' and 'trumpet' are excluded -- both are common enough to matter. This is the worked example the combination type was designed around."
+    },
+    {
+      "id": "political_did_nothing_wrong",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "allOf": ["did nothing wrong"],
+      "anyOf": ["epstein", "diddy", "kyle", "chauvin", "assange", "snowden", "putin", "luigi"],
+      "withinWords": 8,
+      "note": "The '<name> did nothing wrong' template, applied across the political spectrum. The phrase alone is meaningless -- people say it about fictional characters and their own cats -- so a name is required. Note the names span both directions deliberately; a list that only caught one side would be a political statement in itself."
+    },
+    {
+      "id": "political_epstein_meme",
+      "type": "combination",
+      "severity": "note",
+      "category": "political",
+      "anyOf": ["epstein", "epsteins"],
+      "allOf": ["kill himself"],
+      "withinWords": 6,
+      "note": "Recorded only. 'Epstein didn't kill himself' is so thoroughly a meme that it has been printed on socks and shouted at sporting events, and the overwhelming majority of uses are a joke about how memes propagate rather than a political claim. Enable it if your group wants a fully clean slate; expect it to mean very little."
+    },
+    {
+      "id": "political_voting",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "allOf": ["vote"],
+      "anyOf": ["trump", "biden", "harris", "republican", "democrat", "labour", "tory", "conservative", "afd", "rn", "2026", "2028"],
+      "noneOf": ["vote for your favourite", "vote for your favorite", "vote in the poll", "vote on the next", "vote to skip", "vote kick", "world vote", "vote for the song"],
+      "withinWords": 6,
+      "note": "Electoral advocacy. The noneOf list matters more than usual: VRChat worlds are full of voting mechanics -- vote-kick, vote to skip the video, vote for the next world -- and without those exclusions this rule would be almost pure noise. Parties from several countries are included because these communities are international."
+    },
+    {
+      "id": "political_maga",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "anyOf": ["maga", "make america great again", "lets go brandon", "fjb", "trump 2028"],
+      "allOf": ["maga"],
+      "noneOf": ["magazine", "magatama", "maga is a", "anti maga"],
+      "withinWords": 12,
+      "note": "US right-wing slogans. 'Magatama' is a Japanese bead shape that appears in anime and Shinto contexts and would otherwise match a fragment search, which is why it is excluded explicitly even though whole-word matching should already handle it."
+    },
+    {
+      "id": "political_acab_blm",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "anyOf": ["acab", "1312", "blm", "black lives matter", "blue lives matter", "back the blue", "defund the police"],
+      "allOf": ["police"],
+      "withinWords": 12,
+      "note": "Policing politics from both directions in one rule, which is the point -- a group that flags ACAB but not Blue Lives Matter has taken a side. '1312' is the numeric form of ACAB. Requires 'police' nearby so that the acronyms alone, which have other meanings, do not carry the match by themselves."
+    },
+    {
+      "id": "political_abortion",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "allOf": ["abortion"],
+      "anyOf": ["is murder", "is healthcare", "ban", "rights", "pro life", "pro choice", "roe"],
+      "withinWords": 8,
+      "note": "Abortion advocacy in either direction. The bare word appears in medical and personal contexts that are nobody's business and should not flag, so a position word is required."
+    },
+    {
+      "id": "political_my_body_my_choice",
+      "type": "combination",
+      "severity": "note",
+      "category": "political",
+      "anyOf": ["my body my choice", "my body, my choice"],
+      "allOf": ["choice"],
+      "withinWords": 4,
+      "note": "Recorded. Worth knowing that this slogan has been used by both the reproductive-rights movement and the anti-vaccine-mandate movement, which is a good illustration of why a slogan alone tells you less than people assume."
+    },
+    {
+      "id": "political_second_amendment",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "anyOf": ["2a", "second amendment", "shall not be infringed", "come and take it", "gun control"],
+      "allOf": ["gun"],
+      "noneOf": ["gun game", "nerf gun", "in game", "airsoft", "gundam", "top gun"],
+      "withinWords": 10,
+      "note": "Firearms politics. In a gaming community the word 'gun' is everywhere, so the exclusions are load-bearing -- 'Gundam' in particular will otherwise match a fragment search. Requires an explicit political phrase alongside."
+    },
+    {
+      "id": "political_immigration",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "anyOf": ["build the wall", "illegals", "send them back", "close the border", "open borders", "no one is illegal", "abolish ice", "stop the boats"],
+      "allOf": ["border"],
+      "withinWords": 12,
+      "note": "Immigration slogans from both directions. Note the overlap with the racist-terms list: 'send them back' aimed at a specific person is harassment, and the replacement conspiracy is extremism. This rule is for the policy-slogan tier below those."
+    },
+    {
+      "id": "political_stop_the_steal",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "anyOf": ["stop the steal", "stolen election", "rigged election", "dominion machines", "2000 mules"],
+      "allOf": ["election"],
+      "withinWords": 8,
+      "note": "Election-denial claims. Requires 'election' nearby because 'rigged' and 'stolen' are ordinary words, most often used about video games and lost belongings."
+    },
+    {
+      "id": "political_january_6",
+      "type": "combination",
+      "severity": "note",
+      "category": "political",
+      "anyOf": ["january 6", "jan 6", "j6", "insurrection", "patriots were there"],
+      "allOf": ["6"],
+      "withinWords": 6,
+      "note": "Recorded. Both 'insurrection' and 'patriot' are used by people on opposite sides of this to mean opposite things, which makes the flag useful for reading the room and useless for deciding anything on its own."
+    },
+    {
+      "id": "political_river_to_the_sea",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "anyOf": ["from the river to the sea", "free palestine", "i stand with israel", "stand with israel", "zionist", "intifada", "bring them home"],
+      "allOf": ["palestine"],
+      "withinWords": 15,
+      "note": "Israel-Palestine slogans, deliberately paired in one rule so that the same rule catches both. This is the single most fraught subject in international communities and the one where a moderator is most likely to be accused of bias whichever way they act -- which is exactly why the rule flags rather than acts, and why the slogans sit together. withinWords is set unusually wide because these phrases often appear in long bios with other content between them."
+    },
+    {
+      "id": "political_israel_hostile",
+      "type": "combination",
+      "severity": "high",
+      "category": "political",
+      "anyOf": ["israel", "israeli", "zionist", "zionists"],
+      "allOf": ["gas"],
+      "noneOf": ["gas prices", "natural gas", "gas station", "gas the pedal"],
+      "withinWords": 6,
+      "note": "Where political speech about Israel crosses into eliminationist language about people. This is the line that separates the political list from the extremism list, and it is set at 'high' for that reason. Criticism of a state's policy, however forceful, is not what this rule is looking for -- calls to kill a population are. If a match is clearly the former, dismiss it."
+    },
+    {
+      "id": "political_ukraine_russia",
+      "type": "combination",
+      "severity": "note",
+      "category": "political",
+      "anyOf": ["slava ukraini", "stand with ukraine", "denazification", "special military operation", "nato expansion", "crimea is"],
+      "allOf": ["ukraine"],
+      "withinWords": 12,
+      "note": "Recorded. Both positions appear, and many members are personally affected by this war rather than opining about it. Treat a flag as information about who is in your community, not as a conduct problem."
+    },
+    {
+      "id": "political_taiwan_china",
+      "type": "combination",
+      "severity": "note",
+      "category": "political",
+      "anyOf": ["taiwan is a country", "taiwan number one", "one china", "free hong kong", "free tibet", "ccp", "tiananmen"],
+      "allOf": ["china"],
+      "withinWords": 12,
+      "note": "Recorded, and included mainly because these communities are genuinely international. A statement that is unremarkable in one member's country can put another member at real risk in theirs. That asymmetry is worth a moderator seeing, and is not something the tool can resolve."
+    },
+    {
+      "id": "political_covid",
+      "type": "combination",
+      "severity": "review",
+      "category": "misinformation",
+      "allOf": ["covid"],
+      "anyOf": ["hoax", "plandemic", "scamdemic", "never existed", "was a lie", "lab leak", "bioweapon"],
+      "withinWords": 8,
+      "note": "Pandemic denial. Note that 'lab leak' is included but is a contested empirical question rather than a conspiracy claim -- if that is the whole match, it is probably a dismissal. The rest are not."
+    },
+    {
+      "id": "political_antivax",
+      "type": "combination",
+      "severity": "review",
+      "category": "misinformation",
+      "allOf": ["vaccine"],
+      "anyOf": ["microchip", "5g", "depopulation", "poison", "bill gates", "magnetic", "causes autism", "clot shot"],
+      "noneOf": ["vaccine appointment", "got my vaccine", "vaccine researcher"],
+      "withinWords": 8,
+      "note": "Vaccine conspiracy claims, as distinct from a member's own medical decisions, which are their business and are excluded. 'Causes autism' is also worth flagging on its own terms -- it is an insult to autistic members as well as a false claim."
+    },
+    {
+      "id": "political_qanon",
+      "type": "combination",
+      "severity": "review",
+      "category": "misinformation",
+      "anyOf": ["qanon", "wwg1wga", "where we go one", "the great awakening", "trust the plan", "the storm is coming", "adrenochrome"],
+      "allOf": ["q"],
+      "withinWords": 15,
+      "note": "QAnon vocabulary. 'Adrenochrome' is the tell that distinguishes this from ordinary political frustration -- it is a blood-libel narrative with a new label, which is why some groups will want this at high rather than review."
+    },
+    {
+      "id": "political_flat_earth",
+      "type": "combination",
+      "severity": "note",
+      "category": "misinformation",
+      "anyOf": ["flat earth", "flatearth", "nasa lies", "firmament", "globe earth is"],
+      "allOf": ["earth"],
+      "noneOf": ["flat earth society joke", "flat earth is dumb", "not a flat earther"],
+      "withinWords": 8,
+      "note": "Recorded. Harmless compared with everything else in this list, and included mostly because groups ask for it. Most matches are jokes; the exclusions catch the commonest ones."
+    },
+    {
+      "id": "political_antifa_communist",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "anyOf": ["antifa", "tankie", "anarcho", "communist", "marxist", "socialist", "libertarian", "ancap", "anprim"],
+      "allOf": ["ideology"],
+      "withinWords": 10,
+      "note": "Self-declared political alignment. Requires an explicit framing word so that a history student's bio, or someone reading Marx, does not match. Note the deliberate breadth of the anyOf: every quadrant of the political compass is in there, because a rule that only listed one side would be a statement."
+    },
+    {
+      "id": "political_revolution_violence",
+      "type": "combination",
+      "severity": "high",
+      "category": "political",
+      "anyOf": ["guillotine", "eat the rich", "wall when the revolution", "first against the wall", "helicopter rides", "free helicopter"],
+      "allOf": ["revolution"],
+      "noneOf": ["eat the rich song", "industrial revolution", "revolution game", "eat the rich chocolate"],
+      "withinWords": 10,
+      "note": "Where political speech becomes fantasy about killing political opponents -- and note the entries point in both directions, 'guillotine' from one tradition and 'helicopter rides' (a reference to Pinochet's death flights) from the other. High severity because this is threat-adjacent, not opinion. 'Eat the rich' alone is a very common joke and a Motorhead song, which is why 'revolution' is required."
+    },
+    {
+      "id": "political_conspiracy_general",
+      "type": "combination",
+      "severity": "note",
+      "category": "misinformation",
+      "anyOf": ["do your own research", "wake up sheeple", "sheeple", "they dont want you to know", "mainstream media lies", "msm lies", "false flag"],
+      "allOf": ["research"],
+      "withinWords": 10,
+      "note": "Recorded. 'Do your own research' is a conspiracy-adjacent catchphrase and also a perfectly ordinary thing a teacher says, which is the whole difficulty. Useful only as corroboration."
+    },
+    {
+      "id": "political_climate",
+      "type": "combination",
+      "severity": "note",
+      "category": "political",
+      "allOf": ["climate"],
+      "anyOf": ["hoax", "scam", "emergency", "crisis", "denier", "alarmist", "just stop oil"],
+      "withinWords": 8,
+      "note": "Recorded, both directions. Climate is included because apolitical groups genuinely ask for it, not because the science is contested. If your group considers climate a settled matter rather than a political one, disable this rule -- that is a reasonable position and the list should not override it."
+    },
+    {
+      "id": "political_monarchy_nationalism",
+      "type": "combination",
+      "severity": "note",
+      "category": "political",
+      "anyOf": ["god save the", "rule britannia", "deus vult", "reconquista", "manifest destiny", "empire was good"],
+      "allOf": ["empire"],
+      "withinWords": 10,
+      "note": "Recorded. Nationalist nostalgia sits in an awkward band between patriotism and something worse, and where the line falls varies enormously by country. The 'empire was good' formulation is the one that usually matters."
+    },
+    {
+      "id": "political_party_flags_displayname",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "anyOf": ["maga", "blm", "acab", "trump", "biden", "antifa", "gop", "dnc"],
+      "allOf": ["2028"],
+      "withinWords": 4,
+      "fields": ["displayName", "status"],
+      "note": "Political slogans in the nameplate rather than the bio. A group that tolerates political content in bios often still wants it out of display names, since a nameplate is broadcast to everyone in the instance. Scoped to those two fields for exactly that reason."
+    },
+    {
+      "id": "political_dogwhistle_numbers",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "anyOf": ["1776", "1488", "1312", "6mwe", "6 mwe"],
+      "allOf": ["1776"],
+      "noneOf": ["1776 history", "declaration of independence", "us history", "american revolution"],
+      "withinWords": 6,
+      "note": "Numeric political shorthand. '1776' is genuinely ordinary in American history contexts and is excluded accordingly; it appears here because it is also used as a militia-movement marker. '1488' and '6MWE' are not political shorthand at all -- if those match, use the extremism list, not this one."
+    },
+    {
+      "id": "political_culture_war_shorthand",
+      "type": "combination",
+      "severity": "note",
+      "category": "political",
+      "anyOf": ["woke", "wokeism", "sjw", "snowflake", "libtard", "chud", "boomer", "npc"],
+      "allOf": ["woke"],
+      "noneOf": ["woke up", "i woke", "woke early", "just woke"],
+      "withinWords": 12,
+      "note": "Recorded. Culture-war insults from both directions -- 'libtard' and 'chud' are in the same rule on purpose. The noneOf entries are essential: 'woke' as the past tense of wake is far more common than the political sense and would otherwise dominate every result page. Note that 'libtard' also matches the ableist-slur rule in the harassment list, which is the more serious framing."
+    },
+    {
+      "id": "political_religion_pressure",
+      "type": "combination",
+      "severity": "review",
+      "category": "political",
+      "anyOf": ["repent", "accept jesus", "you will burn", "hell awaits", "convert or", "allah will judge you", "atheists go to hell"],
+      "allOf": ["repent"],
+      "noneOf": ["repentance in the text", "theology class"],
+      "withinWords": 10,
+      "note": "Proselytising directed at other members, as opposed to stating one's own faith -- which is not political, not a problem, and not matched by anything here. The distinction is whether the bio addresses the reader. Religious identity in a bio should never flag; if it does, that is a bug."
+    },
+    {
+      "id": "political_general_partisan",
+      "type": "combination",
+      "severity": "note",
+      "category": "political",
+      "anyOf": ["left wing", "right wing", "far left", "far right", "centrist", "politically", "political compass"],
+      "allOf": ["political"],
+      "noneOf": ["political science", "politically correct joke", "poli sci", "studying politics"],
+      "withinWords": 8,
+      "note": "The catch-all for self-declared political alignment. Recorded rather than flagged because a group that bans stating an alignment at all is a stricter place than most, and the rule should not push them there by default. Political-science students are excluded."
+    }
+  ]
+}

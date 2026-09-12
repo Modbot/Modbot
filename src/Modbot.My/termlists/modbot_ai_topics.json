@@ -1,0 +1,322 @@
+{
+  "id": "modbot_ai_topics",
+  "name": "AI policy topics",
+  "description": "Policies written in plain language for an AI provider to evaluate, for the cases no word list can reach -- implication, tone, novel slang, and languages the term lists do not cover. Topic rules are advisory and can never auto-action. Every topic carries counter-examples, because the failure mode of an AI reviewer is confident over-flagging, and the counter-examples are what hold it back.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["general", "all-ages", "18-plus", "lgbtq", "family-friendly", "educational", "gaming", "club", "roleplay", "language-learning"],
+  "defaultSeverity": "review",
+  "rules": [
+    {
+      "id": "topic_hate_speech",
+      "type": "topic",
+      "severity": "high",
+      "category": "hate-speech",
+      "prompt": "Hate speech: content that attacks, dehumanises or calls for harm against people because of race, ethnicity, nationality, religion, gender, gender identity, sexual orientation or disability. Self-description and reclaimed language by members of the group in question are NOT hate speech.",
+      "examples": [
+        "our kind only, no outsiders in this group",
+        "they're animals and everyone knows it, look at the statistics",
+        "anyone from that country is a thief, change my mind",
+        "I don't hate them I just think they shouldn't be allowed near children"
+      ],
+      "counterExamples": [
+        "black and proud, she/her, BLM",
+        "I'm a disabled trans woman and I mod for a living",
+        "queer artist, commissions open",
+        "I write about the history of racial violence in America",
+        "got called a slur in the last instance, staff please look at the logs",
+        "as a Jewish player I'd rather not be in worlds with Nazi avatars"
+      ],
+      "note": "The hardest distinction for a model to make is between a person using a word about themselves and a person using it about someone else. The counter-examples are all the first kind and the model should return no match for any of them. If this topic starts flagging self-description, it is miscalibrated and should be disabled until it is fixed."
+    },
+    {
+      "id": "topic_political",
+      "type": "topic",
+      "severity": "note",
+      "category": "political",
+      "prompt": "Political statements: partisan advocacy, campaign slogans, election claims, or statements taking a side on a contested political issue. Merely mentioning that politics exists, or stating a personal identity that is politically contested, is not a political statement.",
+      "examples": [
+        "vote them out in November, our country depends on it",
+        "the election was stolen and everyone knows it",
+        "proud member of the resistance, no fascists in my DMs",
+        "one nation under God, back the blue, 2A absolutist"
+      ],
+      "counterExamples": [
+        "poli sci major, ask me about voting systems",
+        "I'm an immigrant and I love it here",
+        "trans rights are human rights",
+        "no politics in this group please, I come here to relax",
+        "history teacher, I cover the Cold War"
+      ],
+      "note": "'Trans rights are human rights' sits in the counter-examples on purpose and groups will disagree about it. The reasoning: a statement that a category of member deserves to exist is an identity statement, not a campaign position, and treating it as partisan tells those members they are a controversy. A group that disagrees should say so in its own policy rather than editing this prompt to be vaguer."
+    },
+    {
+      "id": "topic_sexual_allages",
+      "type": "topic",
+      "severity": "high",
+      "category": "sexual",
+      "prompt": "Sexual content in a space that includes minors: explicit description, solicitation, innuendo, kink vocabulary, or links to adult material. Stating a sexual orientation or gender identity is not sexual content.",
+      "examples": [
+        "dm me if you want to have some fun, 18+ only, my linktree has everything",
+        "switch looking for a dom, be patient with me",
+        "check my bio link for uncensored stuff",
+        "let's go somewhere private and I'll show you"
+      ],
+      "counterExamples": [
+        "gay and taken, he/him",
+        "married 6 years, we play together",
+        "I run a sex education Discord for over-18s, not recruiting here",
+        "asexual, please don't flirt with me",
+        "minors DNI on my other account, this one is clean"
+      ],
+      "note": "For all-ages and family-friendly groups. The last counter-example is the one to watch: an account saying 'minors DNI' is behaving responsibly, and a model that reads the phrase as an adult-content marker will flag exactly the people who are being careful. Use the 18+ variant of this topic in adult venues instead."
+    },
+    {
+      "id": "topic_sexual_18plus",
+      "type": "topic",
+      "severity": "review",
+      "category": "sexual",
+      "prompt": "In a venue where adult content is permitted, flag only sexual content that is non-consensual, involves incapacitation, depicts real animals, is commercial solicitation, or is pushed into a display name or status where other members cannot avoid seeing it. Ordinary explicit description in a bio is NOT a match.",
+      "examples": [
+        "I don't ask about consent, I take what I want",
+        "into girls who are too drunk to say no",
+        "rates in my bio, cashapp for the good stuff, meet ups possible",
+        "display name: CumDumpsterForHire"
+      ],
+      "counterExamples": [
+        "switch, into rope and praise, limits in my carrd, always negotiate first",
+        "CNC is my thing, safeword is red, I will ask you three times",
+        "sex worker, this account is personal, I don't advertise here",
+        "explicit ERP in private instances with friends only, 21+"
+      ],
+      "note": "The counter-examples are all explicit and all fine -- that is the point of an adult venue. What separates them from the examples is consent, negotiation and placement. A model that flags the counter-examples has been given the all-ages policy by mistake; check which topic is enabled."
+    },
+    {
+      "id": "topic_minor_sexualisation",
+      "type": "topic",
+      "severity": "high",
+      "category": "child-safety",
+      "prompt": "Content sexualising minors: sexual interest in children or in child-coded characters, soliciting minors, normalising adult-child contact, or advertising sexual content involving under-18s. Do not match anti-abuse statements, survivor disclosure, or safeguarding discussion.",
+      "examples": [
+        "age is just a number if you're mature enough, dm me",
+        "I prefer them young and inexperienced, hmu privately",
+        "attracted to minors but I'd never act on it, looking for others who understand",
+        "selling content, no age restrictions, don't ask questions"
+      ],
+      "counterExamples": [
+        "pedos DNI, I will report you",
+        "survivor of CSA, I mod for a youth support server",
+        "I'm 15, please don't add me if you're an adult",
+        "my fursona is a cub character but this account is strictly SFW and I'm 24",
+        "I research online grooming patterns for a child safety NGO"
+      ],
+      "note": "The single most consequential topic in this list, in both directions -- a missed match is a child harmed, and a false match is an accusation that can destroy someone's life and is almost impossible to walk back. Note the third counter-example: a minor stating their own age is a safeguarding matter handled by the underage-risk list, not an instance of sexualisation, and must not be flagged here. Never action a match from this topic alone; a topic rule is advisory by design and this is the topic where that matters most."
+    },
+    {
+      "id": "topic_minor_presence",
+      "type": "topic",
+      "severity": "review",
+      "category": "minor-presence",
+      "prompt": "Signals that the account holder is under 18: a stated age or birth year, school year references, or unambiguous life-stage context. Do not match adults reminiscing about school, teachers describing pupils, or protective 'minors DNI' markers written by adults.",
+      "examples": [
+        "14, she/her, I love drawing and my cat",
+        "8th grade, add me, I'm on after homework",
+        "born 2012, don't be weird",
+        "can't voice chat, my mum is asleep and I have school tomorrow"
+      ],
+      "counterExamples": [
+        "27, I teach 8th grade science",
+        "haven't felt this way since high school",
+        "minors DNI, I'm 30 and this account is 18+",
+        "college freshman, 19",
+        "my daughter plays too, she's 12, I supervise"
+      ],
+      "note": "A match here is not misconduct. In an 18+ venue it is a safeguarding obligation and in an all-ages venue it is just useful context. Frame any conversation accordingly -- a teenager who lied about their age to get into an adult world has usually been told to by someone else, and the sensible first question is who."
+    },
+    {
+      "id": "topic_harassment",
+      "type": "topic",
+      "severity": "high",
+      "category": "harassment",
+      "prompt": "Harassment and threats aimed at a specific person: threats of violence, suicide baiting, sustained abuse, or publishing someone's private information. Competitive trash talk about a game is not harassment.",
+      "examples": [
+        "I know what city you live in and I have screenshots",
+        "kill yourself, nobody would notice",
+        "everyone block @user, here's their real name and workplace",
+        "I'll be in every instance you join until you quit"
+      ],
+      "counterExamples": [
+        "I will absolutely destroy you at Rec Room paintball",
+        "get rekt, rematch tomorrow",
+        "someone DMed me a death threat, screenshots attached, who do I send this to",
+        "I block people fast, nothing personal",
+        "my ex is in this community, I'd rather not be in the same instance"
+      ],
+      "note": "The third counter-example is a victim reporting a threat, and it contains the threat verbatim -- a model reading only for keywords will flag the person asking for help. That is the specific failure this topic's counter-examples exist to prevent. Check who is speaking before you act on any match here."
+    },
+    {
+      "id": "topic_extremism",
+      "type": "topic",
+      "severity": "high",
+      "category": "extremism",
+      "prompt": "Violent extremism: affiliation with or glorification of terrorist and violent extremist movements, praise for mass attackers, or calls for political or racial violence. Academic, historical, journalistic and counter-extremism discussion is not a match, and neither is ordinary religious observance.",
+      "examples": [
+        "the saint knew what had to be done, read the manifesto",
+        "accelerate, the system falls either way, get ready",
+        "proud member, our day is coming, 1488",
+        "he had the right idea, just bad execution"
+      ],
+      "counterExamples": [
+        "Muslim, prayers five times a day, inshallah",
+        "I research radicalisation pathways for a university",
+        "Heathen, I wear a Mjolnir and I am not a Nazi before you ask",
+        "history channel, I make videos about WW2 tank design",
+        "my grandfather survived the camps"
+      ],
+      "note": "Two specific miscalibrations to watch for. First, ordinary Muslim devotional language is not extremism and a model that flags 'inshallah' is doing Islamophobia with extra steps. Second, Norse pagans have spent twenty years being mistaken for neo-Nazis because both use the same runes -- the third counter-example is written the way real Heathen bios are written, pre-emptively defensive, and it must not match."
+    },
+    {
+      "id": "topic_anti_lgbtq",
+      "type": "topic",
+      "severity": "high",
+      "category": "transphobia",
+      "prompt": "Anti-LGBTQ+ content: slurs, denial that trans people are the gender they say they are, framing LGBTQ+ people as predators or as mentally ill, or advocating conversion therapy. Members describing their own identity, using reclaimed words about themselves, or stating any pronouns at all are never a match.",
+      "examples": [
+        "there are two genders and no amount of surgery changes that",
+        "keep them away from kids, that's all I'll say",
+        "it's a mental illness and we used to treat it",
+        "I'll use whatever pronouns I feel like, cope"
+      ],
+      "counterExamples": [
+        "trans woman, she/her, HRT 3 years",
+        "certified dyke, my wife thinks it's funny",
+        "xe/xem, please try, I know it's new",
+        "it/its, yes really, thank you for asking",
+        "gender critical friends have blocked me, I'm fine with that",
+        "questioning, please be patient with me"
+      ],
+      "note": "Read counter-examples three and four carefully. Neopronouns and it/its pronouns are real pronoun sets that real people use, and a model trained to associate unusual pronouns with trolling will flag the most vulnerable members in the group. No match may ever be returned for a pronoun field. Counter-example two is a reclaimed slur used self-referentially and is also not a match."
+    },
+    {
+      "id": "topic_advertising",
+      "type": "topic",
+      "severity": "note",
+      "category": "advertising",
+      "prompt": "Advertising and solicitation: promoting another server or community, selling goods or services, asking for money, or driving traffic off-platform. A creator mentioning their work without a sales pitch is not advertising.",
+      "examples": [
+        "join my server, we're better than this one and we pay staff",
+        "avatars from $40, dm for the catalogue, payment upfront",
+        "invest with me, guaranteed 10% weekly, ask how",
+        "follow, sub, and hit the bell for daily VRChat content"
+      ],
+      "counterExamples": [
+        "I make avatars, this is my personal account",
+        "artist, portfolio in bio",
+        "I stream sometimes, no pressure",
+        "looking for a group to play with, not recruiting for anything"
+      ],
+      "note": "Set to note because most groups tolerate some promotion and many exist for it. The line the prompt draws is between mentioning and pitching. In a creative community, raise the threshold or disable this -- VRChat's economy runs on commissions and a group that flags every artist will lose its artists."
+    },
+    {
+      "id": "topic_scam",
+      "type": "topic",
+      "severity": "high",
+      "category": "scam",
+      "prompt": "Scams and phishing: fake giveaways, impersonating platform or group staff, credential harvesting, fraudulent investment or recovery services, or pressure to move a conversation somewhere unmoderated to complete a transaction.",
+      "examples": [
+        "VRChat staff here, your account is flagged, verify at this link",
+        "free Nitro for the first 50, click fast",
+        "I can recover your stolen crypto, 20% fee, proof in my DMs",
+        "I accidentally reported you, talk to this Steam admin to clear it"
+      ],
+      "counterExamples": [
+        "group moderator, my staff role is listed on the group page",
+        "I got scammed last week, here's what the message looked like so you don't fall for it",
+        "I do actual freelance security work, references available",
+        "giving away three avatar commissions to celebrate 1k, comment below"
+      ],
+      "note": "Counter-example two is a member warning others and quoting the scam in full, which keyword matching flags every time. A model should read intent. Also note that scam content often appears on compromised long-standing accounts -- if the flagged member has two years of good history, consider a password conversation before a ban."
+    },
+    {
+      "id": "topic_self_harm",
+      "type": "topic",
+      "severity": "high",
+      "category": "welfare",
+      "prompt": "Self-harm and suicide risk in the account holder: statements of intent, goodbye messages, describing a plan or means, or expressing that others would be better off without them. This is a welfare signal, not a rule violation.",
+      "examples": [
+        "won't be around much longer, thanks for everything",
+        "I have a plan and a date, don't try to talk me out of it",
+        "relapsed again, deeper this time",
+        "nobody would notice if I just stopped logging in"
+      ],
+      "counterExamples": [
+        "recovered, 2 years clean, happy to talk to anyone struggling",
+        "depression sucks but I'm managing, therapy helps",
+        "suicide prevention volunteer, ask me for resources",
+        "this game saved my life honestly",
+        "I'm dead tired, going to sleep"
+      ],
+      "note": "Never treat a match here as misconduct, and never action it automatically -- the correct response is a person reaching out with support resources, and possibly nothing else at all. Counter-example one is someone in recovery offering to help others, which a naive classifier reads as risk; flagging them for their own recovery would be actively harmful. Groups without anyone trained to respond should think hard before enabling this rather than enabling it and letting flags sit unread."
+    },
+    {
+      "id": "topic_impersonation",
+      "type": "topic",
+      "severity": "review",
+      "category": "impersonation",
+      "prompt": "Impersonation: claiming to be platform staff, group staff, a verified account, or a specific real person, when the account is not. Fan accounts and parody accounts that clearly label themselves are not impersonation.",
+      "examples": [
+        "VRChat Moderation Team - Official",
+        "group admin (unofficial but basically staff)",
+        "verified ✓ developer account",
+        "this is my real account, the other one is the fake"
+      ],
+      "counterExamples": [
+        "parody account, not the real person, obviously",
+        "fan account, I just really like their music",
+        "actual group staff, check the group roster",
+        "my main got compromised, this is the backup, staff can verify"
+      ],
+      "note": "Impersonating staff is how most social-engineering attacks in VRChat begin, which is why it is worth catching. Verify against the group roster before acting -- the fourth counter-example is a real member in a bad situation, and treating them as an impersonator compounds it."
+    },
+    {
+      "id": "topic_drugs",
+      "type": "topic",
+      "severity": "review",
+      "category": "drugs",
+      "prompt": "Drug sales or supply: offering to sell, source or ship controlled substances. Recovery discussion, harm-reduction information, references to legal cannabis where the member lives, and mentions of prescribed medication are not matches.",
+      "examples": [
+        "carts and edibles, shipping nationwide, telegram in bio",
+        "got pressies and tabs, dm for menu",
+        "plug for the whole east coast, don't ask twice"
+      ],
+      "counterExamples": [
+        "6 months sober, one day at a time",
+        "420 friendly, legal where I live",
+        "harm reduction volunteer, I carry naloxone",
+        "on ADHD meds, please be patient if I ramble",
+        "we do not allow drug talk in this group, that's the rule"
+      ],
+      "note": "The distinction is supply, not use. Flagging members for being in recovery, for taking prescribed medication, or for legal cannabis use would be intrusive and pointless -- all four appear in the counter-examples. Set to review because the sales cases are usually obvious once a human reads them."
+    },
+    {
+      "id": "topic_gore_shock",
+      "type": "topic",
+      "severity": "review",
+      "category": "shock-content",
+      "prompt": "Gore and shock content: linking to or advertising real-world death, injury or animal cruelty footage, or describing it in detail to disturb people. Horror fiction, special-effects work, medical and veterinary content, and true-crime discussion are not matches.",
+      "examples": [
+        "got the full uncensored version, dm for the link",
+        "collection of real execution footage, ask nicely",
+        "I'll describe it in detail if you want, watch you flinch"
+      ],
+      "counterExamples": [
+        "horror SFX artist, my portfolio is not for the squeamish",
+        "vet nurse, my photos are clinical",
+        "true crime podcast host",
+        "I make Silent Hill avatars"
+      ],
+      "note": "Real footage of real people is the line. Everything in the counter-examples is fictional, clinical or journalistic and should not match. In a horror-themed community this topic will need watching or disabling."
+    }
+  ]
+}

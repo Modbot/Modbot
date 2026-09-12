@@ -1,0 +1,282 @@
+{
+  "id": "modbot_harassment_terms",
+  "name": "Harassment, threats and doxxing",
+  "description": "Targeted abuse aimed at a person rather than a group: threats of violence, suicide baiting, doxxing and swatting signals, ableist slurs, and the VRChat-specific tooling used to grief instances. Most of these are only meaningful when they have a target, so a large share are combination rules.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["general", "all-ages", "18-plus", "lgbtq", "family-friendly", "educational", "gaming", "club", "roleplay", "language-learning"],
+  "defaultSeverity": "review",
+  "rules": [
+    {
+      "id": "harass_kys",
+      "type": "pattern",
+      "severity": "high",
+      "category": "suicide-baiting",
+      "regex": "\\b(?:kys|kill your ?self|kill urself|kill ur ?self|end your ?self|neck your ?self|rope your ?self|go die|hang your ?self|an ?hero)\\b",
+      "note": "Instructions to a person to kill themselves. Treated as high regardless of tone -- 'it was a joke between friends' is the most common defence and it is not a reason to leave it unreviewed, because the tool cannot see which of the two people involved is the friend. 'An hero' is an old imageboard idiom for suicide and is always deliberate. If the account holder is describing abuse they received, that is a support matter, not a sanction."
+    },
+    {
+      "id": "harass_death_threat",
+      "type": "combination",
+      "severity": "high",
+      "category": "threats",
+      "anyOf": ["kill", "murder", "stab", "shoot", "beat", "strangle", "gut"],
+      "allOf": ["you"],
+      "noneOf": ["kill you in game", "kill you in the game", "ill kill you at chess", "killing it", "kill you with kindness", "kill the boss", "gonna kill this run", "kill you in mario", "ttt", "murder mystery", "among us"],
+      "withinWords": 3,
+      "note": "A threat needs a target, so this requires 'you' within three words of the violent verb. The noneOf list is unusually long because gaming trash talk uses identical language constantly -- in VRChat, Murder Mystery and Among Us worlds generate this phrasing by design. Read the matched text and ask whether a game is in view. If your group is heavily competitive, expect this rule to need dismissals and keep it anyway: the cost of missing a real threat is higher."
+    },
+    {
+      "id": "harass_irl_threat",
+      "type": "pattern",
+      "severity": "high",
+      "category": "threats",
+      "regex": "\\b(?:i(?:.?ll|m gonna| will) (?:find|hunt|track) you(?: down)?|i know where you live|i know your address|watch your back|youre dead irl|see you irl)\\b",
+      "note": "Threats that reach out of the platform. The 'irl' marker is what separates these from in-game bravado. These are the ones to escalate to VRChat and, depending on specificity, to law enforcement -- a threat that names a real location is not a moderation problem."
+    },
+    {
+      "id": "harass_doxxing_offer",
+      "type": "pattern",
+      "severity": "high",
+      "category": "doxxing",
+      "regex": "\\b(?:dox+(?:ing|ed|er)?|doxx|drop(?:ping)? (?:his|her|their|your) (?:info|address|ip|dox)|full name and address|got (?:his|her|their) (?:info|address|ip))\\b",
+      "note": "Offering or threatening to publish someone's personal information. Note that the word is also used by people warning each other about doxxing or describing having been doxxed, which is the main false positive -- check who is the subject of the sentence."
+    },
+    {
+      "id": "harass_swatting",
+      "type": "pattern",
+      "severity": "high",
+      "category": "doxxing",
+      "regex": "\\b(?:swat(?:ting|ted)? (?:you|him|her|them)|send(?:ing)? (?:the )?(?:cops|police|swat)|call(?:ing)? in a (?:bomb threat|hostage)|make the call)\\b",
+      "note": "Swatting -- provoking an armed police response to someone's home address. People have been killed by this. Requires a target or an action phrase because 'SWAT' alone is a game mode, a Counter-Strike model and a TV show."
+    },
+    {
+      "id": "harass_ip_address",
+      "type": "pattern",
+      "severity": "review",
+      "category": "doxxing",
+      "regex": "\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b",
+      "note": "A literal IPv4 address in a profile. Almost always either a threat ('I have your IP'), a server advertisement, or a version number that looks like one -- 1.20.4.1 and similar will match. The pattern cannot tell the difference, so read the match. Do not act on a version string."
+    },
+    {
+      "id": "harass_ip_threat",
+      "type": "combination",
+      "severity": "high",
+      "category": "doxxing",
+      "anyOf": ["your ip", "his ip", "her ip", "their ip", "got your ip", "ip logged", "ip grabber"],
+      "allOf": ["ip"],
+      "noneOf": ["ip address of the server", "static ip", "my ip", "ip rating", "intellectual property"],
+      "withinWords": 5,
+      "note": "IP-based intimidation, which in VRChat is usually bluff but is used to frighten people regardless. 'IP' also means intellectual property and is an ingress-protection rating on hardware -- both excluded."
+    },
+    {
+      "id": "harass_personal_info",
+      "type": "combination",
+      "severity": "high",
+      "category": "doxxing",
+      "anyOf": ["real name is", "lives at", "lives in", "works at", "goes to school at", "her school", "his school", "phone number is"],
+      "allOf": ["his"],
+      "withinWords": 8,
+      "note": "Publishing a third party's identifying details. The third-person possessive is required so that a member sharing their own information -- unwise, but their choice -- does not match. If the subject turns out to be the account holder themselves, dismiss and consider a friendly word about what they have published."
+    },
+    {
+      "id": "harass_ableist_slurs",
+      "type": "pattern",
+      "severity": "review",
+      "category": "ableism",
+      "regex": "\\b(?:retard(?:s|ed|o)?|tard|sped|mongoloid|spaz(?:zes|zing)?|cripple|midget|window ?licker)\\b",
+      "note": "Ableist slurs. 'Retarded' has a legitimate technical sense in engineering and music (retarded ignition, ritardando) that almost never appears in a bio. 'Spaz' is much harsher in British English than American. Some autistic and disabled people reclaim 'sped' and 'spaz' about themselves -- if the bio is clearly self-descriptive, dismiss."
+    },
+    {
+      "id": "harass_autistic_as_insult",
+      "type": "combination",
+      "severity": "review",
+      "category": "ableism",
+      "allOf": ["autistic"],
+      "anyOf": ["fucking", "screeching", "chud", "obviously", "typical", "cringe", "sperg"],
+      "noneOf": ["i am autistic", "im autistic", "autistic and proud", "actually autistic", "autism acceptance", "asd"],
+      "withinWords": 5,
+      "note": "'Autistic' used as an insult, as opposed to as a self-description -- and self-description is extremely common in VRChat, which has a large autistic membership. The noneOf list protects that entirely. If someone has been flagged for saying they are autistic, that is a bug; report it."
+    },
+    {
+      "id": "harass_targeted_at_member",
+      "type": "combination",
+      "severity": "high",
+      "category": "harassment",
+      "anyOf": ["is a liar", "is a creep", "is a predator", "is a groomer", "is a pedo", "stay away from", "dont trust", "beware of"],
+      "allOf": ["@"],
+      "withinWords": 8,
+      "note": "Callout posts naming a specific person in a profile. These are genuinely difficult: sometimes the accusation is true and the member is warning people about a real predator, and sometimes it is a harassment campaign against someone innocent. The flag exists so a human decides, not so the tool does. Talk to both parties."
+    },
+    {
+      "id": "harass_rape_threat",
+      "type": "combination",
+      "severity": "high",
+      "category": "threats",
+      "allOf": ["rape"],
+      "anyOf": ["you", "your", "her", "him", "them", "gonna", "will"],
+      "noneOf": ["rape culture", "rape survivor", "raped as a child", "anti rape", "sexual assault awareness", "rape crisis"],
+      "withinWords": 4,
+      "note": "Sexual threats aimed at a person. The noneOf list protects survivors and people discussing the subject seriously, who use the word far more often than attackers do. In gaming slang 'raped' sometimes means beaten badly at a match -- crude and worth a word, but not a threat; read the context."
+    },
+    {
+      "id": "harass_stalking",
+      "type": "pattern",
+      "severity": "high",
+      "category": "harassment",
+      "regex": "\\b(?:following you everywhere|joining every instance|ill keep finding you|you cant escape me|i see everything you|watching you sleep)\\b",
+      "note": "Stalking behaviour described openly. In VRChat, instance-hopping to follow a specific person is a common and effective form of harassment because the platform makes it easy."
+    },
+    {
+      "id": "harass_brigading",
+      "type": "combination",
+      "severity": "high",
+      "category": "harassment",
+      "anyOf": ["raid", "raiding", "brigade", "mass report", "report them all", "dogpile", "crash the"],
+      "allOf": ["instance"],
+      "noneOf": ["raid boss", "raid group", "raid night", "wow raid", "ffxiv raid", "raid shadow legends", "twitch raid"],
+      "withinWords": 8,
+      "note": "Organising a raid on a group's instances. 'Raid' is one of the worst words in this whole rule set for ambiguity -- it is a core MMO activity, a Twitch feature that is friendly by design, and a mobile-game advert. All excluded. The word 'instance' is required to narrow it to VRChat griefing."
+    },
+    {
+      "id": "harass_crasher_tools",
+      "type": "pattern",
+      "severity": "high",
+      "category": "platform-abuse",
+      "regex": "\\b(?:crasher ?avatar|crash ?avatar|avatar ?crasher|client ?user|modded ?client|cheat ?client|melonloader ?cheats?|vrcx ?crash|instance ?crasher|nuke ?instance)\\b",
+      "note": "VRChat-specific griefing tooling: avatars engineered to crash other people's clients, and modified clients used for it. Distinguish carefully from legitimate modding -- VRCX, OSC tools and accessibility mods are widespread and harmless, and 'modded client' alone can mean any of them. The crash-related terms are the ones that matter."
+    },
+    {
+      "id": "harass_ripped_avatars",
+      "type": "combination",
+      "severity": "review",
+      "category": "platform-abuse",
+      "anyOf": ["ripped", "rip", "stolen", "leaked", "free avatars"],
+      "allOf": ["avatar"],
+      "noneOf": ["rip in peace", "rest in peace", "avatar commission", "my own avatar", "avatar the last airbender", "made my avatar"],
+      "withinWords": 6,
+      "note": "Avatar ripping -- extracting and redistributing other people's paid 3D models. It is theft from creators, many of whom are members of these same communities, and it is also a common vector for crasher avatars. 'RIP' as an expression of mourning and 'Avatar' as a film and cartoon title are excluded."
+    },
+    {
+      "id": "harass_mass_report",
+      "type": "combination",
+      "severity": "review",
+      "category": "harassment",
+      "allOf": ["report"],
+      "anyOf": ["everyone", "spam report", "false report", "get them banned", "ban wave", "report bomb"],
+      "noneOf": ["report to staff", "report a bug", "please report", "report problems"],
+      "withinWords": 6,
+      "note": "Weaponised reporting, used to get an innocent account removed automatically. Excluded: members encouraging each other to report genuine problems, which is the behaviour you want."
+    },
+    {
+      "id": "harass_blackmail",
+      "type": "pattern",
+      "severity": "high",
+      "category": "harassment",
+      "regex": "\\b(?:ill (?:leak|expose|tell everyone)|i have (?:screenshots|receipts|your nudes)|pay me or|do what i say or|unless you)\\b",
+      "note": "Extortion phrasing. 'I have receipts' is also ordinary callout-culture language meaning 'I have evidence', which is the main false positive -- the difference is whether a demand follows."
+    },
+    {
+      "id": "harass_racial_targeted",
+      "type": "combination",
+      "severity": "high",
+      "category": "harassment",
+      "anyOf": ["go back to", "deport", "speak english", "not from here", "shouldnt be here"],
+      "allOf": ["your country"],
+      "withinWords": 8,
+      "note": "Xenophobic harassment aimed at an individual. 'Speak English' is worth noting separately: in a language-learning community it is sometimes a genuine request and sometimes abuse, and the difference is entirely tone. Read it."
+    },
+    {
+      "id": "harass_body_shaming",
+      "type": "combination",
+      "severity": "review",
+      "category": "harassment",
+      "anyOf": ["fat", "ugly", "disgusting", "gross", "landwhale", "fatass", "roastie", "hambeast"],
+      "allOf": ["you"],
+      "noneOf": ["you look great", "i feel fat", "im ugly", "fat loot", "fat stacks", "phat"],
+      "withinWords": 4,
+      "note": "Appearance-based abuse aimed at a person. Self-directed statements are excluded -- if a member is describing themselves harshly, that may be a welfare concern rather than a conduct one, and the self-harm list is the better place to look."
+    },
+    {
+      "id": "harass_incel_vocabulary",
+      "type": "pattern",
+      "severity": "review",
+      "category": "harassment",
+      "regex": "\\b(?:roastie|femoid|foid|becky|stacy|chad ?thundercock|hypergamy|it.?s over for|cope ?seethe ?dilate|awalt)\\b",
+      "note": "Incel-subculture vocabulary, which dehumanises women as a class and shows up in harassment campaigns. 'Chad' and 'Stacy' alone are just names and are not matched. 'Dilate' is directed at trans women specifically and also appears in the anti-LGBTQ list."
+    },
+    {
+      "id": "harass_gendered_abuse",
+      "type": "combination",
+      "severity": "high",
+      "category": "harassment",
+      "anyOf": ["bitch", "whore", "slut", "cunt", "hoe"],
+      "allOf": ["you"],
+      "noneOf": ["you know", "you are the best", "love you", "bitch about", "son of a bitch moment", "life is a bitch"],
+      "withinWords": 3,
+      "note": "The same words the profanity list records at 'note', but with a target attached, which changes what they are. This is the rule that matters -- profanity aimed at nobody is rudeness, profanity aimed at a person is abuse. Groups that run the profanity list should also run this."
+    },
+    {
+      "id": "harass_dogpile_invite",
+      "type": "combination",
+      "severity": "review",
+      "category": "harassment",
+      "anyOf": ["everyone block", "block and report", "spread the word", "make sure everyone knows", "share this"],
+      "allOf": ["dni"],
+      "withinWords": 10,
+      "note": "Coordinating a group response against a named individual. Block lists and DNI lists are legitimate self-protection; the line is crossed when a member asks others to act against a specific person. Review rather than high because the underlying grievance is often real."
+    },
+    {
+      "id": "harass_self_harm_encouragement",
+      "type": "combination",
+      "severity": "high",
+      "category": "suicide-baiting",
+      "anyOf": ["cut yourself", "hurt yourself", "starve yourself", "relapse", "do it then", "nobody would miss you", "world would be better without"],
+      "allOf": ["you"],
+      "noneOf": ["dont hurt yourself", "please dont", "im here for you", "you matter", "youre not alone"],
+      "withinWords": 6,
+      "note": "Encouraging self-harm in another person. The exclusions cover supportive messages, which contain nearly identical words in a different order. Escalate a genuine match immediately -- this is the harassment category most likely to cause real, permanent harm."
+    },
+    {
+      "id": "harass_impersonation_taunt",
+      "type": "combination",
+      "severity": "review",
+      "category": "harassment",
+      "anyOf": ["the real", "not the fake", "imposter account", "copying me", "stole my name"],
+      "allOf": ["real"],
+      "withinWords": 8,
+      "note": "Name-impersonation disputes, which usually mean two accounts are fighting over an identity. Useful mainly as a pointer to look at both accounts rather than as a finding about the one that flagged."
+    },
+    {
+      "id": "harass_ddos_threat",
+      "type": "pattern",
+      "severity": "high",
+      "category": "threats",
+      "regex": "\\b(?:ddos(?:ing|ed)? you|boot(?:ing)? you offline|hit you offline|take your (?:wifi|internet) down|packet(?:ing)? you)\\b",
+      "note": "Network attack threats. Usually bluff, occasionally not, and either way intended to frighten. Requires a target, so discussion of DDoS attacks in general does not match."
+    },
+    {
+      "id": "harass_hate_raid_slurs",
+      "type": "combination",
+      "severity": "high",
+      "category": "harassment",
+      "anyOf": ["going to", "gonna", "lets", "time to"],
+      "allOf": ["spam"],
+      "noneOf": ["spam folder", "spam email", "spam attack in game", "spam ping", "dont spam"],
+      "withinWords": 6,
+      "note": "Planning a spam or hate raid. Deliberately narrow -- 'spam' on its own is far too common, including as a complaint about spam. Pair with the brigading rule above; an account tripping both is planning something."
+    },
+    {
+      "id": "harass_grief_bragging",
+      "type": "combination",
+      "severity": "review",
+      "category": "platform-abuse",
+      "anyOf": ["got banned from", "banned from every", "crashed", "griefed", "ruined their"],
+      "allOf": ["lol"],
+      "noneOf": ["banned from my own", "i got griefed", "was crashed by", "someone crashed"],
+      "withinWords": 10,
+      "note": "Boasting about griefing. The exclusions cover victims describing what happened to them, who use exactly the same verbs. A member bragging about past bans is telling you something useful about how they will behave in your group."
+    }
+  ]
+}

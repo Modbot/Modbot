@@ -1,0 +1,122 @@
+{
+  "id": "modbot_selfharm_welfare",
+  "name": "Self-harm and welfare signals",
+  "description": "Signs that the account holder may be at risk of self-harm or suicide, and pro-self-harm community markers. This is a welfare list, not a conduct list: nothing here is a rule a member has broken. Only enable it if someone in your team is willing and able to respond to what it finds -- flags that nobody reads are worse than no flags.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["general", "all-ages", "18-plus", "lgbtq", "family-friendly", "educational", "gaming", "club", "roleplay", "language-learning"],
+  "defaultSeverity": "high",
+  "rules": [
+    {
+      "id": "welfare_intent",
+      "type": "pattern",
+      "severity": "high",
+      "category": "welfare",
+      "regex": "\\b(?:want to die|wanna die|want to kill myself|kms|end it all|end my life|not gonna be here|wont be here (?:much )?longer|ready to go now|tired of being alive)\\b",
+      "note": "Direct statements of suicidal intent. 'KMS' is used casually and hyperbolically by a great many people who mean 'that was embarrassing' -- but the cost of dismissing a real one is absolute, so it stays at high and a human reads every match. Respond with a person and a resource, never with a sanction."
+    },
+    {
+      "id": "welfare_goodbye",
+      "type": "pattern",
+      "severity": "high",
+      "category": "welfare",
+      "regex": "\\b(?:thanks for everything|it.?s been fun everyone|goodbye everyone|last time you.?ll see me|logging off for good|deleting everything|giving away my stuff)\\b",
+      "note": "Farewell and affairs-in-order language, which often appears before anything more explicit does. Most matches will be someone quitting a game or leaving a community for ordinary reasons, and that is fine -- the check costs a message. Giving possessions away is the signal clinicians weight most heavily."
+    },
+    {
+      "id": "welfare_plan_means",
+      "type": "combination",
+      "severity": "high",
+      "category": "welfare",
+      "anyOf": ["i have a plan", "the date is set", "already have the", "wrote the note", "left a note", "my method"],
+      "allOf": ["plan"],
+      "noneOf": ["game plan", "meal plan", "lesson plan", "business plan", "plan to stream", "travel plan"],
+      "withinWords": 8,
+      "note": "Plan and means disclosure, which is the highest-urgency category in any risk framework. The exclusions remove the ordinary uses of 'plan', which are numerous. A genuine match warrants immediate human contact and, where the member's location is known and the risk is imminent, emergency services -- not a moderation queue."
+    },
+    {
+      "id": "welfare_burden",
+      "type": "pattern",
+      "severity": "review",
+      "category": "welfare",
+      "regex": "\\b(?:better off without me|nobody would (?:notice|care|miss)|im a burden|waste of space|everyone would be happier|no one needs me)\\b",
+      "note": "Perceived-burdensomeness statements, which are one of the strongest predictors of suicidal intent and often the only thing a person says out loud. Frequently phrased as self-deprecating humour -- check anyway."
+    },
+    {
+      "id": "welfare_self_harm_active",
+      "type": "pattern",
+      "severity": "high",
+      "category": "welfare",
+      "regex": "\\b(?:cut myself|cutting again|relapsed|fresh cuts|burned myself|hurt myself again|still cutting)\\b",
+      "note": "Active self-harm disclosure. Note that 'relapsed' also refers to substance use and to chronic illness, both of which are welfare matters too even though they are not this one. Nothing here is a rule violation and the member should never be sanctioned for it."
+    },
+    {
+      "id": "welfare_recovery_excluded",
+      "type": "combination",
+      "severity": "note",
+      "category": "welfare",
+      "anyOf": ["clean", "sober", "recovered", "in recovery", "days clean", "months clean", "years clean"],
+      "allOf": ["recovery"],
+      "noneOf": ["relapsed", "struggling again", "not doing well"],
+      "withinWords": 10,
+      "note": "Recorded at the lowest severity and included deliberately so that recovery language is visible as recovery language and not mistaken for risk by the rules above. A member proudly stating a sober count is doing well. If your review queue shows this next to a welfare flag on the same account, read this one first -- it changes the picture."
+    },
+    {
+      "id": "welfare_pro_ana",
+      "type": "pattern",
+      "severity": "high",
+      "category": "eating-disorder",
+      "regex": "\\b(?:pro ?ana|pro ?mia|thinspo|thinspiration|bonespo|meanspo|ana ?buddy|ed ?twt|goal ?weight|ugw|cw ?gw|sfw ?ana)\\b",
+      "note": "Pro-eating-disorder community markers. These accounts actively encourage each other to lose weight dangerously, and 'meanspo' means requesting abuse as motivation. Distinct from someone disclosing that they have an eating disorder, who needs support rather than enforcement. 'UGW' is ultimate goal weight and 'CW' current weight -- the numeric pairing is the tell."
+    },
+    {
+      "id": "welfare_ed_numbers",
+      "type": "pattern",
+      "severity": "review",
+      "category": "eating-disorder",
+      "regex": "\\b(?:cw|gw|ugw|hw|lw) ?:? ?[0-9]{2,3}\\b",
+      "note": "Current, goal, ultimate-goal, highest and lowest weight stated as numbers, the standard bio format in pro-ED spaces. False positives come from fitness accounts using the same shorthand for lifting targets -- check whether the numbers are body weights or lift weights, and whether they are going down."
+    },
+    {
+      "id": "welfare_suicide_baiting_target",
+      "type": "combination",
+      "severity": "high",
+      "category": "welfare",
+      "anyOf": ["do it then", "nobody will stop you", "go ahead", "attention seeking", "youre faking"],
+      "allOf": ["kill"],
+      "withinWords": 8,
+      "note": "Someone else being encouraged, dismissed or accused of faking. This is the one rule in this list that IS a conduct matter, and a serious one -- it also appears in the harassment list. Mocking a person in crisis has killed people."
+    },
+    {
+      "id": "welfare_crisis_resources",
+      "type": "combination",
+      "severity": "note",
+      "category": "welfare",
+      "anyOf": ["988", "samaritans", "crisis line", "crisis text", "hotline", "shout 85258", "lifeline"],
+      "allOf": ["help"],
+      "withinWords": 10,
+      "note": "Recorded so that helpers are visible. A member listing crisis resources in their bio is usually either someone who has been through it or someone volunteering to support others -- both are people worth knowing about when a welfare flag comes in on someone else. This rule exists to build that picture, not to flag anyone."
+    },
+    {
+      "id": "welfare_isolation",
+      "type": "combination",
+      "severity": "review",
+      "category": "welfare",
+      "anyOf": ["no friends", "nobody talks to me", "always alone", "invisible here", "never get invited", "dont matter to anyone"],
+      "allOf": ["alone"],
+      "noneOf": ["alone time", "prefer to be alone", "solo player", "home alone", "leave me alone"],
+      "withinWords": 10,
+      "note": "Isolation and loneliness, which is why a lot of people are in VRChat at three in the morning in the first place. Low urgency on its own and very common; it matters as context when something else fires. The exclusions remove people who simply like their own company, which is not the same thing at all."
+    },
+    {
+      "id": "welfare_self_hatred_displayname",
+      "type": "pattern",
+      "severity": "review",
+      "category": "welfare",
+      "regex": "\\b(?:worthless|unwanted|nobody|hopeless|broken|unloved|waste|empty)\\b",
+      "fields": ["displayName"],
+      "note": "Self-descriptive despair in a display name, which a person chose and looks at every session. High false-positive rate -- these are also just aesthetic edgy names, and plenty of well people pick them -- so it is review and it is scoped to the name only. Treat it as a reason to notice someone, not as a diagnosis."
+    }
+  ]
+}
