@@ -727,7 +727,12 @@ must acquire a token at *every* level it belongs to:
 ```
 
 - **Global** is a backstop, not the model — it exists because an account-wide limit may also apply
-  and we cannot see it.
+  and we cannot see it. **`users.read` is exempt from it** (§4.2.5): that endpoint is observed to be
+  governed separately and far more permissively, and holding it to the group budget would cost days
+  of sync time. The exemption is deliberate and evidence-based, and it is the assumption in §4.2 most
+  worth re-testing — a 429 on `users.read` still applies the decrease to the global bucket, and 429s
+  appearing on *other* classes shortly after user-sync bursts would be the signature that the
+  exemption is wrong.
 - **Endpoint class** groups related operations (`groups.members`, `groups.bans`, `groups.auditlog`,
   `users.read`, `moderation.write`). Each has its own configurable ceiling.
 - **Resource** applies where a limit is observed to be scoped to a specific id. In a single-group
@@ -1692,7 +1697,11 @@ Recorded so they are visible rather than buried, and so they are not relitigated
     current versions are commercially licensed.
 19. **Sync pacing is fixed per type with a 2 req/s global ceiling** (§4.2), configurable downward
     only, with the cap enforced server-side. Headroom below the ceiling is reserved for interactive
-    work, not spent on faster sync.
+    work, not spent on faster sync. **`users.read` is the one exemption** — its own 1 req/s lane
+    outside the ceiling (§4.2.5), because VRChat governs that endpoint separately and laxly. It turns
+    a 150k-member profile sweep from ~8.7 days into ~1.7 days, and a typical group from ~11 hours
+    into ~2.2. Peak total outbound is therefore ~3 req/s: a conscious trade, recorded alongside the
+    signals that would invalidate it.
 20. **Scheduling is never wall-clock aligned** (§4.2.2). Fixed-clock scheduling would make every
     Modbot instance worldwide hit VRChat on the same second -- synchronised spikes that are worse
     for VRChat than the same volume spread out, and traffic indistinguishable from a coordinated
