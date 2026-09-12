@@ -9,6 +9,8 @@
     <Project Path="src/Modbot.VRChat/Modbot.VRChat.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Modbot.Api.Tests/Modbot.Api.Tests.csproj" />
     <Project Path="tests/Modbot.Core.Tests/Modbot.Core.Tests.csproj" />
+    <Project Path="tests/Modbot.TestSupport/Modbot.TestSupport.csproj" />
   </Folder>
 </Solution>

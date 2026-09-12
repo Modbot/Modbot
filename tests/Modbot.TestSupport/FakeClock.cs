@@ -1,6 +1,6 @@
 using Modbot.Core.Time;
 
-namespace Modbot.Core.Tests.Time;
+namespace Modbot.TestSupport;
 
 /// <summary>
 /// Deterministic clock for tests. Every test that needs time uses this, never the system clock.

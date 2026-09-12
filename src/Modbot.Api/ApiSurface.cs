@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Api.Features.Auth.Login;
+using Modbot.Api.Features.Auth.Logout;
+using Modbot.Api.Features.Auth.Me;
 using Modbot.Core;
 
 namespace Modbot.Api;
@@ -68,6 +71,12 @@ public static class ApiSurface
                 + "credentials. Clients compare their own supported range against "
                 + "apiVersionMinimum..apiVersion and use the highest both support.")
             .Produces<VersionResponse>();
+
+        // Feature slices map themselves (spec 2.8); this list is the only place that knows they
+        // all exist, and adding a feature is adding one line here plus one folder.
+        app.MapLogin();
+        app.MapLogout();
+        app.MapMe();
 
         return app;
     }

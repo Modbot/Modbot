@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Modbot.Core.Security;
 using Modbot.Core.Tests.Data;
+using Modbot.TestSupport;
 
 namespace Modbot.Core.Tests.Security;
 

@@ -11,6 +11,8 @@ public class ModbotContext : DbContext
 
     public DbSet<ProtectorKey> ProtectorKeys => Set<ProtectorKey>();
 
+    public DbSet<ModbotUser> Users => Set<ModbotUser>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -57,6 +59,21 @@ public class ModbotContext : DbContext
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
+        });
+
+        builder.Entity<ModbotUser>(entity =>
+        {
+            entity.ToTable("modbot_user");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Username).HasMaxLength(64);
+            entity.Property(e => e.UsernameNormalized).HasMaxLength(64);
+
+            // The uniqueness that matters is on the normalised form: without it "Alice" and
+            // "alice" are two accounts, and which one a login reaches depends on collation.
+            entity.HasIndex(e => e.UsernameNormalized).IsUnique();
         });
 
         base.OnModelCreating(builder);

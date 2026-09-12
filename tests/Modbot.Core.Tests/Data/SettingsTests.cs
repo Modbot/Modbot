@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.TestSupport;
 
 namespace Modbot.Core.Tests.Data;
 
