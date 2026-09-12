@@ -320,6 +320,45 @@ a flag needs to know whose flag it is.
 
 ## 6. The SteamVR overlay
 
+### 6.0 It renders natively, from local state
+
+The overlay is a **native renderer drawing from the client's own local cache** — not a web view, and
+not the Modbot web UI.
+
+An embedded WebView2 loading the web UI was considered and rejected. It looks attractive (one design
+system, one codebase) and fails on three counts:
+
+1. **Which server?** The client is paired to several Modbots (§5.5). There is no single URL to load,
+   and the right one changes as the moderator moves between instances.
+2. **It would fail exactly when it matters most.** The overlay's highest-value moment is *"a flagged
+   user just joined"* — which is also the moment latency and network trouble hurt. §5.3 already has
+   the client buffering through disconnections; an overlay that goes blank in that same window is
+   backwards.
+3. **The shared-codebase saving is small.** The overlay is four or five glanceable screens, not the
+   web app. It deliberately does **not** implement most of what the web UI does, so "build it twice"
+   was never the real comparison.
+
+A fourth, if standalone support is ever revisited: a Quest build could not run WebView2 anyway, so
+the web-view route buys single-UI only for as long as the answer stays PC-only.
+
+#### 6.0.1 Reuse tokens, not components
+
+Design consistency comes from **sharing the design tokens** — the VR density values, colour ramp and
+type scale in `Modbot.Web/src/index.css` — generated into a `DesignTokens` constants file the overlay
+draws with. Same palette, same sizes, same rules; different renderer.
+
+That is the right level of reuse here. Sharing *components* would have coupled a 90 Hz native
+renderer to a DOM, and sharing *nothing* would have let the two surfaces drift apart visually.
+
+#### 6.0.2 Local state, server-synced
+
+The overlay reads what the client already holds: the instance roster from the log, and flag and
+history data the client fetched and cached earlier. Nothing renders from a live request.
+
+So the overlay works with stale data rather than no data when a server is unreachable — and it
+**says** when data is stale, per §4.2.5's rule that freshness is shown rather than implied. A
+moderator seeing "flagged — as of 20 minutes ago" can act on it; one seeing a spinner cannot.
+
 ### 6.1 It is the only channel that exists in-headset
 
 A moderator inside VRChat cannot see email, Discord, or a browser. For the person doing moderation
@@ -709,9 +748,12 @@ These need answers before the plan is written, and at least the first needs hand
 2. **Leave detection on crash.** If VRChat exits uncleanly, is there a leave line at all? If not,
    sessions need a server-side timeout heuristic — and that heuristic must be visible in the data
    (`occurred_before`, foundation §5.3) rather than inventing a precise departure time.
-3. **Overlay rendering approach.** Native OpenVR overlay versus an embedded web view rendered to a
-   texture. The latter reuses the React components from M2.5; the former is lighter and more
-   reliable. This is the single biggest implementation fork in M3.
+3. ~~Overlay rendering approach.~~ **Decided: native** (§6.0). A WebView2 route was rejected --
+   multi-server pairing gives no single URL to load, it would fail precisely when the network is
+   degraded and the overlay matters most, and the overlay implements only a small subset of the web
+   UI so the shared-codebase saving was never large. Remaining sub-question: which 2D renderer --
+   SkiaSharp into a D3D11 texture is the leading candidate, with Avalonia offscreen as the
+   alternative if a full UI framework earns its weight.
 4. **Update mechanism.** Moderators will not manually update. Self-update is near-mandatory for a
    client whose log parser will break when VRChat changes format — but a self-updating background
    binary is exactly the thing §3 asks people to trust. Signed releases and a visible,
