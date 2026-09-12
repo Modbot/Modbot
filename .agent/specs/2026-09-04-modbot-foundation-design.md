@@ -531,6 +531,32 @@ Worth fixing upstream, but **it changes nothing about rate limiting**: VRChat do
 `Retry-After` at all, so there is no header to recover (§4.3). The gate must tolerate the absence
 of both and must not regress if they later become populated.
 
+#### 4.1.1 The gate owns authentication — no convenience helpers
+
+`VRChat.API` ships `LoginAsync` and `TryLoginAsync`. **`IVRChatGate` uses neither.** They exist to get
+a script running in five lines; Modbot is a long-running daemon whose entire rate-limiting design is
+built on reacting to HTTP status codes, and the helpers discard exactly that.
+
+`LoginAsync` returns `null` when the final `GetCurrentUser` is not `200 OK`, keeping no status. So a
+`401` (re-authenticate), a `429` (cold stop, §4.3.1), a `403`, and a Cloudflare WAF block (tell the
+operator, §2.3.1) all arrive as the same bare `null` — and §4.1 requires a different response to each.
+
+The gate therefore drives the flow itself:
+
+```
+  Authentication.GetCurrentUserWithHttpInfoAsync()   → status + body + cookies
+    ├─ 200 and no requiresTwoFactorAuth  → authenticated
+    ├─ 200 and requiresTwoFactorAuth     → Verify2FAWithHttpInfoAsync(TOTP), then re-fetch
+    ├─ 401                               → credentials genuinely rejected; surface to operator
+    ├─ 429                               → cold stop; never retry (§4.3.1)
+    └─ other / WAF                       → classify, surface as health state
+```
+
+This generalises: **nothing in Modbot calls the convenience overloads.** Every call is
+`...WithHttpInfoAsync`, because the status, the headers and the raw body are what the gate is for.
+A plain `await vrchat.Groups.GetGroupAsync(id)` anywhere in the codebase is a review failure, not a
+shortcut.
+
 **Split-ready:** the token bucket and semaphore sit behind an `IRateLimitLease`. The in-process
 implementation is a `SemaphoreSlim`; a future distributed implementation is a Redis lease. Same
 interface, same call sites.
@@ -1792,28 +1818,34 @@ Recorded so they are visible rather than buried, and so they are not relitigated
     a 150k-member profile sweep from ~8.7 days into ~1.7 days, and a typical group from ~11 hours
     into ~2.2. Peak total outbound is therefore ~3 req/s: a conscious trade, recorded alongside the
     signals that would invalidate it.
-20. **Scheduling is never wall-clock aligned** (§4.2.2). Fixed-clock scheduling would make every
+20. **The gate owns authentication; no SDK convenience helpers** (4.1.1). `LoginAsync` and
+    `TryLoginAsync` exist to get a script running quickly and discard the HTTP status, collapsing
+    401, 429, 403 and a WAF block into one bare `null` -- when 4.1 requires a different response to
+    each. Modbot drives `GetCurrentUserWithHttpInfoAsync` and `Verify2FAWithHttpInfoAsync` itself,
+    and calls `...WithHttpInfoAsync` everywhere. A plain convenience-overload call anywhere in the
+    codebase is a review failure.
+21. **Scheduling is never wall-clock aligned** (§4.2.2). Fixed-clock scheduling would make every
     Modbot instance worldwide hit VRChat on the same second -- synchronised spikes that are worse
     for VRChat than the same volume spread out, and traffic indistinguishable from a coordinated
     botnet. Offsets are per-process, per-type, regenerated at start, with per-tick jitter, measured
     from a monotonic source.
-21. **Moderation friction scales with reversibility** (§5.8.1). Kicks and warns take an *optional*
+22. **Moderation friction scales with reversibility** (§5.8.1). Kicks and warns take an *optional*
     one-tap classification; only bans require a report. Requiring a form per kick does not produce
     better records, it produces moderators who abandon the tool or type "troll" five hundred times.
     Togglable to required in settings; default optional.
-22. **Classification is a one-tap enum, never a text box** (§5.8.2) — and it is the *signal* that
+23. **Classification is a one-tap enum, never a text box** (§5.8.2) — and it is the *signal* that
     makes moderator pattern detection possible rather than an accusation generator, not paperwork.
-23. **Accountability surfaces patterns for review; it never accuses or auto-punishes** (§5.8.5).
+24. **Accountability surfaces patterns for review; it never accuses or auto-punishes** (§5.8.5).
     Wrongly flagging a volunteer handling a persistent troll is corrosive in a way a missed
     detection is not, so the thresholds are asymmetric too. Good classification behaviour
     auto-resolves tickets, which is the incentive that makes the optional field actually get used.
-24. **`subject_platform` / `actor_platform` columns** (§5.3), because Discord is a second fact
+25. **`subject_platform` / `actor_platform` columns** (§5.3), because Discord is a second fact
     source (§9.1) and a snowflake must not collide with a `usr_…` in one text column. `actor_id`
     gets its own index for §5.8.5's actor-side queries.
-25. **A counted-only path exists for high-cardinality events** (§5.2.1). Discord message volume
+26. **A counted-only path exists for high-cardinality events** (§5.2.1). Discord message volume
     increments a rollup and writes no fact — too voluminous, individually worthless, and counting
     means there is no social graph to leak. The test: would anyone ever query an individual one?
-26. **Deduplication is windowed (±5 s), not bucketed** (§5.7.1). A `floor(t / bucket)` hash fails
+27. **Deduplication is windowed (±5 s), not bucketed** (§5.7.1). A `floor(t / bucket)` hash fails
     silently at bucket boundaries. The window is bounded below by a genuine 15-second leave-and-
     rejoin and is only narrow enough to fit because of §4.4 — server-time sync is a correctness
     prerequisite for deduplication, not an optimisation.

@@ -53,8 +53,15 @@ For Modbot this matters: §4.1 requires the gate to distinguish a 401 (re-login)
 stop) from a WAF block (tell the operator). A bare `null` cannot drive that.
 
 **Suggested upstream:** throw with the status and body, or return a result type carrying them.
-**Workaround:** call `Authentication.GetCurrentUserWithHttpInfoAsync` and drive the 2FA flow directly,
-which is what `IVRChatGate` will have to do anyway.
+
+**Not a workaround for Modbot -- a decision.** Confirmed with the SDK's maintainer: `LoginAsync` and
+`TryLoginAsync` are convenience helpers for getting started quickly, and Modbot should not use them
+at all. `IVRChatGate` drives `GetCurrentUserWithHttpInfoAsync` and `Verify2FAWithHttpInfoAsync`
+directly so it keeps the status it needs to act on. See foundation section 4.1.1.
+
+This generalises to the whole codebase: Modbot only ever calls the `...WithHttpInfoAsync` variants,
+never the convenience overloads, because status codes, headers and raw bodies are what the gate
+exists to react to.
 
 ## 3. Credential encoding is handled correctly
 
