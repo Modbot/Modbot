@@ -341,7 +341,43 @@ system, one codebase) and fails on three counts:
 A fourth, if standalone support is ever revisited: a Quest build could not run WebView2 anyway, so
 the web-view route buys single-UI only for as long as the answer stays PC-only.
 
-#### 6.0.1 Reuse tokens, not components
+#### 6.0.1 Avalonia, for both the client window and the overlay
+
+**Decided 2026-09-12.** `Modbot.Client`'s tray window and `Modbot.Overlay`'s in-headset surface are
+both **Avalonia**.
+
+The deciding argument is not performance — it is **how many UI stacks the product carries**.
+
+| | Stacks |
+|---|---|
+| WebView2 client + native overlay | React (web) + WebView2 (client) + native (overlay) = **three** |
+| **Avalonia client + Avalonia overlay** | React (web) + Avalonia (desktop and VR) = **two** |
+
+Avalonia renders through SkiaSharp, so the *same* stack draws a normal desktop window and an
+offscreen surface handed to `IVROverlay.SetOverlayTexture`. The client window and the overlay stop
+being two problems and become one renderer with two hosts. That is the same shape as `IVRChatGate`:
+the win is collapsing two things that would otherwise drift into one thing that cannot.
+
+Supporting reasons, in order of weight:
+
+- **Memory, because of where this runs.** The client is resident while VRChat is — which routinely
+  uses 8–12 GB with a busy instance. Avalonia sits around 30–60 MB in one process; a WebView2 window
+  is 150–250 MB across several Edge processes. Lazy creation would largely close that gap, but on a
+  16 GB machine the headroom is worth not spending.
+- **No runtime to troubleshoot** on a volunteer moderator's machine.
+- **The client's UI is local-machine-shaped** — log parser status, pairing, "what I have sent", flag
+  instructions. It renders almost no group data, so React's ecosystem buys little here.
+
+WPF and MAUI were considered and rejected: neither has a supported path from rendered UI to a GPU
+texture. WPF's only offscreen route is `RenderTargetBitmap`, a CPU readback — GPU to CPU to GPU
+every frame, at 90 Hz. Avalonia is the exception precisely because its backend is swappable rather
+than fixed.
+
+**Still to validate:** Avalonia rendering offscreen into a D3D11 texture that OpenVR accepts. That is
+one afternoon's prototype and it settles the whole approach — worth doing before M3 is planned, not
+argued about further.
+
+#### 6.0.2 Reuse tokens, not components
 
 Design consistency comes from **sharing the design tokens** — the VR density values, colour ramp and
 type scale in `Modbot.Web/src/index.css` — generated into a `DesignTokens` constants file the overlay
@@ -350,7 +386,7 @@ draws with. Same palette, same sizes, same rules; different renderer.
 That is the right level of reuse here. Sharing *components* would have coupled a 90 Hz native
 renderer to a DOM, and sharing *nothing* would have let the two surfaces drift apart visually.
 
-#### 6.0.2 Local state, server-synced
+#### 6.0.3 Local state, server-synced
 
 The overlay reads what the client already holds: the instance roster from the log, and flag and
 history data the client fetched and cached earlier. Nothing renders from a live request.
@@ -751,9 +787,9 @@ These need answers before the plan is written, and at least the first needs hand
 3. ~~Overlay rendering approach.~~ **Decided: native** (§6.0). A WebView2 route was rejected --
    multi-server pairing gives no single URL to load, it would fail precisely when the network is
    degraded and the overlay matters most, and the overlay implements only a small subset of the web
-   UI so the shared-codebase saving was never large. Remaining sub-question: which 2D renderer --
-   SkiaSharp into a D3D11 texture is the leading candidate, with Avalonia offscreen as the
-   alternative if a full UI framework earns its weight.
+   UI so the shared-codebase saving was never large. Renderer also decided: **Avalonia** for both the
+   overlay and the client window (6.0.1), which takes the product from three UI stacks to two.
+   Remaining: prototype Avalonia offscreen into a D3D11 texture OpenVR accepts.
 4. **Update mechanism.** Moderators will not manually update. Self-update is near-mandatory for a
    client whose log parser will break when VRChat changes format — but a self-updating background
    binary is exactly the thing §3 asks people to trust. Signed releases and a visible,
