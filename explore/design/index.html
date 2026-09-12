@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-font="plex" data-density="dense">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modbot — design prototype</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:wght@400;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ─────────────────────────────────────────────────────────────────────────
+   TOKENS
+   One set, two densities, three font stacks. Everything downstream reads
+   these — swapping a typeface or theme is one attribute on <html>.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Type stacks — toggled by [data-font] */
+  --f-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --f-serif: "IBM Plex Serif", Georgia, serif;
+
+  /* 4px base unit */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px;
+
+  --r-sm: 4px; --r: 6px; --r-lg: 10px;
+
+  /* Density — the whole point of the dense/comfortable toggle */
+  --row-h: 34px;
+  --btn-h: 30px;
+  --pad-y: 6px;
+  --fs: 13px;
+  --fs-sm: 12px;
+  --fs-xs: 11px;
+
+  /* Dark palette (default) — moderators work at night and in headsets */
+  --bg:        #0d0e12;
+  --surface:   #14161c;
+  --surface-2: #1b1e26;
+  --surface-3: #232733;
+  --border:    #272b36;
+  --border-2:  #343947;
+  --text:      #e6e8ee;
+  --text-dim:  #9aa1b1;
+  --text-faint:#6a7183;
+
+  --accent:     #7c6cf5;
+  --accent-fg:  #ffffff;
+  --accent-dim: #2a2547;
+
+  --danger:  #f0526a;  --danger-dim:  #3a1922;
+  --warn:    #e8a33d;  --warn-dim:    #3a2d16;
+  --ok:      #3fbf8f;  --ok-dim:      #13322a;
+  --info:    #4aa3f0;  --info-dim:    #12283d;
+
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.25);
+}
+
+:root[data-theme="light"] {
+  --bg:        #fafbfc;
+  --surface:   #ffffff;
+  --surface-2: #f3f5f8;
+  --surface-3: #e9ecf1;
+  --border:    #e3e7ee;
+  --border-2:  #cfd5e0;
+  --text:      #16181f;
+  --text-dim:  #5c6475;
+  --text-faint:#878fa1;
+
+  --accent:     #5b4bd6;
+  --accent-fg:  #ffffff;
+  --accent-dim: #eeebfd;
+
+  --danger:  #d8324b;  --danger-dim:  #fdeef1;
+  --warn:    #b87508;  --warn-dim:    #fdf4e3;
+  --ok:      #14865f;  --ok-dim:      #e7f7f1;
+  --info:    #1c72c4;  --info-dim:    #e8f2fd;
+
+  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 8px 24px rgba(16,24,40,.06);
+}
+
+:root[data-font="geist"] {
+  --f-sans: "Geist", system-ui, sans-serif;
+  --f-mono: "Geist Mono", ui-monospace, monospace;
+  --f-serif: "IBM Plex Serif", Georgia, serif;
+}
+:root[data-font="inter"] {
+  --f-sans: "Inter", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, monospace;
+  --f-serif: Georgia, serif;
+}
+
+:root[data-density="comfortable"] {
+  --row-h: 44px; --btn-h: 36px; --pad-y: 10px;
+  --fs: 14px; --fs-sm: 13px; --fs-xs: 12px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--f-sans);
+  font-size: var(--fs);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  /* Tabular figures everywhere. This is the single most load-bearing
+     typographic decision in a tool made of number columns. */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+code, .mono, td.mono { font-family: var(--f-mono); font-size: var(--fs-sm); }
+
+/* ── Controls ───────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  height: var(--btn-h); padding: 0 var(--s3);
+  border: 1px solid var(--border-2); border-radius: var(--r);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: var(--fs-sm); font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  transition: background .12s, border-color .12s;
+}
+.btn:hover { background: var(--surface-3); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-dim); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+/* Destructive: colour is the THIRD signal, after separation and an outline.
+   Red alone fails for colour-blind users and stops registering with use. */
+.btn-danger {
+  background: transparent; border-color: var(--danger); color: var(--danger);
+}
+.btn-danger:hover { background: var(--danger-dim); }
+.btn-sm { height: 24px; padding: 0 var(--s2); font-size: var(--fs-xs); }
+
+.input {
+  height: var(--btn-h); width: 100%;
+  padding: 0 var(--s3);
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border-2); border-radius: var(--r);
+  font: inherit; font-size: var(--fs-sm);
+}
+.input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+label.fld { display: block; margin-bottom: var(--s4); }
+label.fld span { display: block; font-size: var(--fs-sm); color: var(--text-dim); margin-bottom: var(--s1); }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 19px; padding: 0 7px; border-radius: 100px;
+  font-size: var(--fs-xs); font-weight: 500; letter-spacing: .01em;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.pill::before { content:""; width:5px; height:5px; border-radius:50%; background: currentColor; }
+.p-vrc  { background: var(--info-dim);   color: var(--info); }
+.p-mod  { background: var(--accent-dim); color: var(--accent); }
+.p-dis  { background: var(--ok-dim);     color: var(--ok); }
+.p-cli  { background: var(--warn-dim);   color: var(--warn); }
+.p-dang { background: var(--danger-dim); color: var(--danger); }
+.pill.off { background: transparent; border-color: var(--border-2); color: var(--text-faint); }
+
+/* ── Shell ──────────────────────────────────────────────────────────────── */
+.app { display: none; grid-template-columns: 216px 1fr; height: 100vh; }
+.app.on { display: grid; }
+
+aside {
+  background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: var(--s4) var(--s3);
+}
+.brand { display: flex; align-items: center; gap: var(--s2); padding: 0 var(--s2) var(--s5); }
+.mark {
+  width: 26px; height: 26px; border-radius: 7px; flex: none;
+  background: linear-gradient(145deg, var(--accent), #b06cf5);
+  display: grid; place-items: center; color: #fff; font-weight: 600; font-size: 14px;
+}
+.brand b { font-weight: 600; letter-spacing: -.01em; }
+.brand small { display:block; font-size: var(--fs-xs); color: var(--text-faint); font-weight: 400; letter-spacing: 0; }
+
+nav { display: flex; flex-direction: column; gap: 1px; }
+nav a {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px var(--s2); border-radius: var(--r-sm);
+  color: var(--text-dim); text-decoration: none; font-size: var(--fs-sm); font-weight: 500;
+}
+nav a:hover { background: var(--surface-2); color: var(--text); }
+nav a.sel { background: var(--accent-dim); color: var(--accent); }
+nav .grp { font-size: var(--fs-xs); color: var(--text-faint); padding: var(--s4) var(--s2) var(--s1); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+nav .ct { font-family: var(--f-mono); font-size: var(--fs-xs); color: var(--text-faint); }
+
+.side-foot { margin-top: auto; padding-top: var(--s4); border-top: 1px solid var(--border); }
+.health { display:flex; align-items:center; gap: var(--s2); padding: var(--s2); font-size: var(--fs-xs); color: var(--text-dim); }
+.dot { width:6px; height:6px; border-radius:50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-dim); flex:none; }
+
+main { overflow: auto; display: flex; flex-direction: column; }
+header.top {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s3) var(--s5);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+header.top h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+header.top .sub { font-size: var(--fs-xs); color: var(--text-faint); }
+.spacer { flex: 1; }
+.seg { display: flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r); padding: 2px; gap: 2px; }
+.seg button {
+  border: 0; background: transparent; color: var(--text-dim);
+  font: inherit; font-size: var(--fs-xs); font-weight: 500;
+  padding: 3px 8px; border-radius: var(--r-sm); cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
+
+.page { padding: var(--s5); display: none; }
+.page.on { display: block; }
+
+/* ── Table ──────────────────────────────────────────────────────────────── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
+.card-head { display:flex; align-items:center; gap: var(--s3); padding: var(--s3) var(--s4); border-bottom: 1px solid var(--border); }
+.card-head h2 { margin:0; font-size: var(--fs); font-weight: 600; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: var(--s2) var(--s4); border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+td { padding: var(--pad-y) var(--s4); border-bottom: 1px solid var(--border); height: var(--row-h); font-size: var(--fs-sm); }
+tbody tr:hover { background: var(--surface-2); }
+tbody tr:last-child td { border-bottom: 0; }
+td.num { text-align: right; font-family: var(--f-mono); }
+td.dim { color: var(--text-dim); }
+.who { display: flex; align-items: center; gap: var(--s2); }
+.av { width: 22px; height: 22px; border-radius: 5px; flex: none; background: var(--surface-3); display:grid; place-items:center; font-size: 10px; color: var(--text-dim); font-weight: 600; }
+.row-act { visibility: hidden; display: flex; gap: var(--s1); justify-content: flex-end; }
+tr:hover .row-act { visibility: visible; }
+
+/* Destructive separation: a real gap, not just a colour change. */
+.act-sep { width: var(--s5); display: inline-block; }
+
+/* ── Stats / charts ─────────────────────────────────────────────────────── */
+.grid { display: grid; gap: var(--s3); }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+.g2 { grid-template-columns: 1fr 1fr; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--s4); }
+.stat .k { font-size: var(--fs-xs); color: var(--text-faint); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.stat .v { font-family: var(--f-mono); font-size: 24px; font-weight: 500; margin-top: 6px; letter-spacing: -.02em; }
+.stat .d { font-size: var(--fs-xs); margin-top: 2px; }
+.up { color: var(--ok); } .down { color: var(--danger); }
+
+/* ── Wizard ─────────────────────────────────────────────────────────────── */
+.wiz { min-height: 100vh; display: grid; place-items: center; padding: var(--s6); }
+.wiz.off { display: none; }
+.wiz-card { width: 100%; max-width: 520px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.wiz-head { padding: var(--s6) var(--s6) var(--s4); }
+.wiz-head .eyebrow { font-size: var(--fs-xs); color: var(--accent); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.wiz-head h2 { margin: var(--s2) 0 var(--s1); font-size: 19px; font-weight: 600; letter-spacing: -.015em; }
+.wiz-head p { margin: 0; color: var(--text-dim); font-size: var(--fs-sm); }
+.wiz-body { padding: 0 var(--s6) var(--s5); }
+.wiz-foot { display: flex; align-items: center; gap: var(--s2); padding: var(--s4) var(--s6); border-top: 1px solid var(--border); background: var(--surface-2); }
+.steps { display: flex; gap: 5px; padding: 0 var(--s6); }
+.steps i { height: 3px; flex: 1; border-radius: 2px; background: var(--surface-3); }
+.steps i.done { background: var(--accent); }
+.note { background: var(--surface-2); border: 1px solid var(--border); border-left: 2px solid var(--info); border-radius: var(--r); padding: var(--s3); font-size: var(--fs-sm); color: var(--text-dim); }
+.note.warn { border-left-color: var(--warn); }
+.note.ok { border-left-color: var(--ok); }
+.note b { color: var(--text); font-weight: 600; }
+
+.slider-row { display:flex; align-items:center; gap: var(--s3); padding: var(--s2) 0; }
+.slider-row label { flex: 0 0 150px; font-size: var(--fs-sm); color: var(--text-dim); }
+.slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
+.slider-row output { font-family: var(--f-mono); font-size: var(--fs-sm); width: 76px; text-align: right; color: var(--text); }
+
+.serif-demo { font-family: var(--f-serif); font-size: 15px; line-height: 1.6; color: var(--text-dim); max-width: 62ch; }
+.serif-demo h3 { font-family: var(--f-serif); color: var(--text); font-size: 18px; margin: 0 0 var(--s2); font-weight: 600; }
+
+.muted { color: var(--text-dim); }
+.tiny { font-size: var(--fs-xs); color: var(--text-faint); }
+h3.sec { font-size: var(--fs); font-weight: 600; margin: var(--s6) 0 var(--s3); }
+h3.sec:first-child { margin-top: 0; }
+</style>
+</head>
+<body>
+
+<!-- ══ ONBOARDING WIZARD ══════════════════════════════════════════════════ -->
+<div class="wiz" id="wiz">
+  <div style="width:100%;max-width:520px">
+    <div class="brand" style="justify-content:center;padding-bottom:var(--s5)">
+      <div class="mark">M</div><div><b>Modbot</b></div>
+    </div>
+
+    <div class="wiz-card">
+      <div class="steps" style="padding-top:var(--s4)">
+        <i class="done"></i><i id="s2"></i><i id="s3"></i><i id="s4"></i>
+      </div>
+
+      <!-- step 1 -->
+      <div class="wstep" data-step="1">
+        <div class="wiz-head">
+          <div class="eyebrow">Step 1 of 4</div>
+          <h2>Create your administrator account</h2>
+          <p>This is how you'll sign in to Modbot. It's separate from your VRChat account.</p>
+        </div>
+        <div class="wiz-body">
+          <label class="fld"><span>Username</span><input class="input" value="bin" ></label>
+          <label class="fld"><span>Password</span><input class="input" type="password" value="············"></label>
+          <label class="fld" style="margin-bottom:0"><span>Confirm password</span><input class="input" type="password" value="············"></label>
+        </div>
+      </div>
+
+      <!-- step 2 -->
+      <div class="wstep" data-step="2" hidden>
+        <div class="wiz-head">
+          <div class="eyebrow">Step 2 of 4</div>
+          <h2>Connect a VRChat account</h2>
+          <p>Modbot acts as this account. It must be a moderator of the group you want to manage.</p>
+        </div>
+        <div class="wiz-body">
+          <label class="fld"><span>Email or username</span><input class="input" value="modbot@example.com"></label>
+          <label class="fld"><span>Password</span><input class="input" type="password" value="················"></label>
+          <label class="fld"><span>Two-factor secret <span class="tiny">— TOTP, so Modbot can log in unattended</span></span><input class="input mono" value="JBSWY3DPEHPK3PXP"></label>
+          <div class="note">Use a <b>dedicated account</b>, not your personal one. Modbot stores these credentials encrypted in its own database.</div>
+        </div>
+      </div>
+
+      <!-- step 3 -->
+      <div class="wstep" data-step="3" hidden>
+        <div class="wiz-head">
+          <div class="eyebrow">Step 3 of 4</div>
+          <h2>Check the connection</h2>
+          <p>Some networks are blocked by Cloudflare before they ever reach VRChat. Let's find out whether yours is.</p>
+        </div>
+        <div class="wiz-body">
+          <div class="note ok" style="margin-bottom:var(--s4)">
+            <b>Reached VRChat directly.</b> No proxy needed — logged in as <span class="mono">Modbot</span> in 412&nbsp;ms.
+          </div>
+          <details>
+            <summary class="tiny" style="cursor:pointer;color:var(--text-dim)">Using a proxy? Configure one anyway</summary>
+            <div style="padding-top:var(--s3)">
+              <label class="fld"><span>Proxy URL</span><input class="input mono" placeholder="http://proxy.example.com:11202"></label>
+              <p class="tiny" style="margin:0">Blocked networks are common on VPS hosting. It isn't your account — it's the IP range.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <!-- step 4 -->
+      <div class="wstep" data-step="4" hidden>
+        <div class="wiz-head">
+          <div class="eyebrow">Step 4 of 4</div>
+          <h2>Choose the group to manage</h2>
+          <p>These are the groups where your VRChat account holds moderator permissions.</p>
+        </div>
+        <div class="wiz-body">
+          <div class="card">
+            <table>
+              <tbody>
+                <tr><td style="width:28px"><input type="radio" name="grp" checked style="accent-color:var(--accent)"></td>
+                    <td><div class="who"><div class="av">VK</div><div><div style="font-weight:500">VRC Kings</div><div class="mono tiny">grp_2d8cee98-2481-451b-9bb1-e0351f7190a7</div></div></div></td>
+                    <td class="num dim">14,208</td></tr>
+                <tr><td><input type="radio" name="grp" style="accent-color:var(--accent)"></td>
+                    <td><div class="who"><div class="av">TB</div><div><div style="font-weight:500">The Black Cat</div><div class="mono tiny">grp_c7ba8659-4bf5-462f-8a7c-2cc31591f560</div></div></div></td>
+                    <td class="num dim">3,104</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="wiz-foot">
+        <button class="btn btn-ghost" onclick="skip()">Skip setup</button>
+        <div class="spacer"></div>
+        <button class="btn" id="back" onclick="step(-1)" hidden>Back</button>
+        <button class="btn btn-primary" id="next" onclick="step(1)">Continue</button>
+      </div>
+    </div>
+    <p class="tiny" style="text-align:center;margin-top:var(--s4)">Demo only — nothing is saved, no requests are made.</p>
+  </div>
+</div>
+
+<!-- ══ APP ════════════════════════════════════════════════════════════════ -->
+<div class="app" id="app">
+  <aside>
+    <div class="brand">
+      <div class="mark">M</div>
+      <div><b>Modbot</b><small>VRC Kings</small></div>
+    </div>
+    <nav id="nav">
+      <a href="#" data-p="members" class="sel">Members <span class="ct">14,208</span></a>
+      <a href="#" data-p="bans">Bans <span class="ct">187</span></a>
+      <a href="#" data-p="audit">Audit log</a>
+      <div class="grp">Insight</div>
+      <a href="#" data-p="metrics">Metrics</a>
+      <a href="#" data-p="dossier">Dossier</a>
+      <div class="grp">Setup</div>
+      <a href="#" data-p="settings">Settings</a>
+      <a href="#" data-p="type">Type specimen</a>
+    </nav>
+    <div class="side-foot">
+      <div class="health"><span class="dot"></span> VRChat · healthy</div>
+      <div class="health"><span class="dot"></span> 1.45 / 2.00 req&nbsp;s⁻¹</div>
+    </div>
+  </aside>
+
+  <main>
+    <header class="top">
+      <div>
+        <h1 id="ttl">Members</h1>
+        <div class="sub" id="sub">Synced 40 seconds ago</div>
+      </div>
+      <div class="spacer"></div>
+
+      <div class="seg" role="group" aria-label="Typeface">
+        <button onclick="setFont('plex')"  data-f="plex"  aria-pressed="true">Plex</button>
+        <button onclick="setFont('geist')" data-f="geist" aria-pressed="false">Geist</button>
+        <button onclick="setFont('inter')" data-f="inter" aria-pressed="false">Inter</button>
+      </div>
+
+      <div class="seg" role="group" aria-label="Density">
+        <button onclick="setDensity('dense')"       data-d="dense"       aria-pressed="true">Dense</button>
+        <button onclick="setDensity('comfortable')" data-d="comfortable" aria-pressed="false">Comfy</button>
+      </div>
+
+      <button class="btn btn-ghost" onclick="toggleTheme()" id="themeBtn">Light</button>
+    </header>
+
+    <!-- MEMBERS -->
+    <section class="page on" id="p-members">
+      <div style="display:flex;gap:var(--s2);margin-bottom:var(--s3)">
+        <input class="input" style="max-width:320px" placeholder="Search name or user id…">
+        <button class="btn">Role: any</button>
+        <button class="btn">Joined: any</button>
+        <div class="spacer"></div>
+        <button class="btn">Export</button>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Member</th><th>Roles</th><th>Joined</th><th style="text-align:right">In&nbsp;world</th><th style="text-align:right">Actions</th><th></th></tr></thead>
+          <tbody id="mrows"></tbody>
+        </table>
+        <div style="display:flex;align-items:center;padding:var(--s3) var(--s4);border-top:1px solid var(--border)">
+          <span class="tiny">1–12 of 14,208</span><div class="spacer"></div>
+          <button class="btn btn-sm">Previous</button>&nbsp;<button class="btn btn-sm">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- BANS -->
+    <section class="page" id="p-bans">
+      <div class="card">
+        <div class="card-head"><h2>Bans</h2><span class="tiny">187 total · 4 this week</span><div class="spacer"></div>
+          <button class="btn btn-sm">Export</button></div>
+        <table>
+          <thead><tr><th>Member</th><th>Classification</th><th>By</th><th>When</th><th></th></tr></thead>
+          <tbody id="brows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- AUDIT -->
+    <section class="page" id="p-audit">
+      <div style="display:flex;gap:var(--s2);margin-bottom:var(--s3);align-items:center">
+        <span class="tiny" style="margin-right:2px">Source</span>
+        <span class="pill p-vrc">VRChat</span><span class="pill p-mod">Modbot</span>
+        <span class="pill p-dis">Discord</span><span class="pill off">Client</span>
+        <div class="spacer"></div>
+        <span class="tiny">One timeline — the questions people ask span sources.</span>
+      </div>
+      <div class="card"><table>
+        <thead><tr><th style="width:74px">Time</th><th style="width:96px">Source</th><th>Event</th><th>Actor</th></tr></thead>
+        <tbody id="arows"></tbody>
+      </table></div>
+    </section>
+
+    <!-- METRICS -->
+    <section class="page" id="p-metrics">
+      <div class="grid g4" style="margin-bottom:var(--s3)">
+        <div class="stat"><div class="k">Members</div><div class="v">14,208</div><div class="d up">+312 this month</div></div>
+        <div class="stat"><div class="k">Joined 30d</div><div class="v">1,044</div><div class="d up">+8.1%</div></div>
+        <div class="stat"><div class="k">Left 30d</div><div class="v">732</div><div class="d down">+22.4%</div></div>
+        <div class="stat"><div class="k">Bans 30d</div><div class="v">19</div><div class="d muted">−3 vs prior</div></div>
+      </div>
+      <div class="grid g2">
+        <div class="card"><div class="card-head"><h2>Member growth</h2></div><div style="padding:var(--s4)" id="chart1"></div></div>
+        <div class="card"><div class="card-head"><h2>Moderator activity</h2></div><div style="padding:var(--s4)" id="chart2"></div></div>
+      </div>
+    </section>
+
+    <!-- DOSSIER -->
+    <section class="page" id="p-dossier">
+      <div class="card" style="margin-bottom:var(--s3)">
+        <div style="display:flex;gap:var(--s4);padding:var(--s5)">
+          <div class="av" style="width:52px;height:52px;border-radius:10px;font-size:17px">ΛƧ</div>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:var(--s2)">
+              <h2 style="margin:0;font-size:17px;font-weight:600">ΛƧƬΛ</h2>
+              <span class="pill p-dang">3 prior actions</span>
+            </div>
+            <div class="mono tiny" style="margin-top:3px">usr_6d99027a-39f0-40f4-ba2d-ffdce1a4b881</div>
+            <div class="tiny" style="margin-top:var(--s2)">Joined 14 Mar 2025 · Moderator, Events · Discord linked · seen 2 h ago</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:var(--s2)">
+            <button class="btn">Warn</button>
+            <button class="btn">Kick</button>
+            <span class="act-sep"></span>
+            <button class="btn btn-danger">Ban…</button>
+          </div>
+        </div>
+      </div>
+      <div class="note warn" style="margin-bottom:var(--s3)">
+        <b>Fourth kick in 30 days</b>, by three different moderators. Shown before you act, because this is the moment it's worth knowing.
+      </div>
+      <div class="grid g2">
+        <div class="card"><div class="card-head"><h2>Moderation history</h2></div><table><tbody id="drows"></tbody></table></div>
+        <div class="card"><div class="card-head"><h2>Presence</h2><span class="tiny">last 30 days</span></div>
+          <div style="padding:var(--s4)" id="chart3"></div>
+          <table><tbody>
+            <tr><td class="dim">Time in group worlds</td><td class="num">18 h 22 m</td></tr>
+            <tr><td class="dim">Distinct days seen</td><td class="num">14</td></tr>
+            <tr><td class="dim">Sessions</td><td class="num">41</td></tr>
+            <tr><td class="dim">Discord voice</td><td class="num">6 h 05 m</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="page" id="p-settings">
+      <h3 class="sec">Sync rates</h3>
+      <div class="card" style="padding:var(--s4)">
+        <p class="tiny" style="margin:0 0 var(--s3)">These are maximums. You can lower them; you can't raise them past VRChat's safe ceiling.</p>
+        <div id="sliders"></div>
+        <div style="display:flex;align-items:center;gap:var(--s2);margin-top:var(--s4);padding-top:var(--s4);border-top:1px solid var(--border)">
+          <span class="tiny">Total background rate</span><div class="spacer"></div>
+          <span class="mono" id="rateTot" style="font-size:var(--fs)">1.450</span>
+          <span class="tiny">/ 2.000 req s⁻¹ · <span id="rateHead">0.550</span> reserved for interactive</span>
+        </div>
+      </div>
+
+      <h3 class="sec">Danger zone</h3>
+      <div class="card" style="padding:var(--s4);border-color:var(--danger)">
+        <div style="display:flex;align-items:center;gap:var(--s4)">
+          <div><div style="font-weight:600">Purge a user's history</div>
+            <div class="tiny">Erases every recorded fact about one person. Cannot be undone.</div></div>
+          <div class="spacer"></div>
+          <button class="btn btn-danger">Purge user…</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TYPE SPECIMEN -->
+    <section class="page" id="p-type">
+      <div class="grid g2">
+        <div class="card" style="padding:var(--s5)">
+          <h3 class="sec">Interface — sans</h3>
+          <div style="font-size:26px;font-weight:600;letter-spacing:-.02em">Modbot for VRChat</div>
+          <p class="muted" style="font-size:var(--fs-sm)">The quick brown fox jumps over the lazy dog. 0123456789</p>
+          <h3 class="sec">Tabular figures</h3>
+          <table><tbody>
+            <tr><td class="dim">Members</td><td class="num">14,208</td></tr>
+            <tr><td class="dim">Banned</td><td class="num">187</td></tr>
+            <tr><td class="dim">Active (30d)</td><td class="num">3,114</td></tr>
+            <tr><td class="dim">Time in world</td><td class="num">18:22:41</td></tr>
+          </tbody></table>
+          <p class="tiny" style="margin-top:var(--s2)">Digits must align in a column or scanning breaks. This is the deciding constraint.</p>
+          <h3 class="sec">Identifiers — mono</h3>
+          <div class="mono" style="line-height:1.7">usr_f2049d71-e76b-42d2-a8bd-43deec9c004e<br>grp_2d8cee98-2481-451b-9bb1-e0351f7190a7<br>wrld_4cf554b4:85019~group(grp_c7ba…)</div>
+        </div>
+        <div class="card" style="padding:var(--s5)">
+          <h3 class="sec">Documentation — serif</h3>
+          <div class="serif-demo">
+            <h3>Setting up Modbot</h3>
+            <p>Modbot runs as one service plus one PostgreSQL database. It needs exactly two environment variables — <code>PORT</code> and <code>DATABASE_URL</code> — and everything else is configured through a setup wizard the first time you open it.</p>
+            <p>The serif is for reading. The interface never uses it, because the interface is for scanning.</p>
+          </div>
+          <h3 class="sec">Buttons</h3>
+          <div style="display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary">Primary</button>
+            <button class="btn">Default</button>
+            <button class="btn btn-ghost">Ghost</button>
+            <span class="act-sep"></span>
+            <button class="btn btn-danger">Destructive</button>
+          </div>
+          <p class="tiny" style="margin-top:var(--s3)">Destructive sits behind a deliberate gap. Colour is the third signal, after separation and outline — red alone fails for colour-blind users and stops registering with repetition.</p>
+          <h3 class="sec">Status</h3>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span class="pill p-vrc">VRChat</span><span class="pill p-mod">Modbot</span>
+            <span class="pill p-dis">Discord</span><span class="pill p-cli">Client</span>
+            <span class="pill p-dang">Banned</span><span class="pill off">Inactive</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+// ── Wizard ────────────────────────────────────────────────────────────────
+let cur = 1;
+function step(d) {
+  const next = cur + d;
+  if (next > 4) return skip();
+  if (next < 1) return;
+  document.querySelector(`.wstep[data-step="${cur}"]`).hidden = true;
+  cur = next;
+  document.querySelector(`.wstep[data-step="${cur}"]`).hidden = false;
+  for (let i = 2; i <= 4; i++) document.getElementById('s'+i).classList.toggle('done', i <= cur);
+  document.getElementById('back').hidden = cur === 1;
+  document.getElementById('next').textContent = cur === 4 ? 'Finish setup' : 'Continue';
+}
+function skip() {
+  document.getElementById('wiz').classList.add('off');
+  document.getElementById('app').classList.add('on');
+}
+
+// ── Toggles ───────────────────────────────────────────────────────────────
+function setFont(f) {
+  document.documentElement.dataset.font = f;
+  document.querySelectorAll('[data-f]').forEach(b => b.setAttribute('aria-pressed', b.dataset.f === f));
+}
+function setDensity(d) {
+  document.documentElement.dataset.density = d;
+  document.querySelectorAll('[data-d]').forEach(b => b.setAttribute('aria-pressed', b.dataset.d === d));
+}
+function toggleTheme() {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+  document.getElementById('themeBtn').textContent = dark ? 'Dark' : 'Light';
+}
+
+document.getElementById('nav').addEventListener('click', e => {
+  const a = e.target.closest('a'); if (!a) return; e.preventDefault();
+  document.querySelectorAll('#nav a').forEach(x => x.classList.remove('sel'));
+  a.classList.add('sel');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  document.getElementById('p-' + a.dataset.p).classList.add('on');
+  document.getElementById('ttl').textContent = a.childNodes[0].textContent.trim();
+  document.getElementById('sub').textContent = {
+    members:'Synced 40 seconds ago', bans:'Synced 2 minutes ago', audit:'Live — 1 minute behind',
+    metrics:'Rollups rebuilt 04:00', dossier:'Profile refreshed 12 minutes ago',
+    settings:'', type:'Compare typefaces with the toggle above'
+  }[a.dataset.p];
+});
+
+// ── Demo data ─────────────────────────────────────────────────────────────
+const names = [['ΛƧƬΛ','usr_6d99027a-39f0-40f4-ba2d-ffdce1a4b881','Moderator, Events','14 Mar 2025','18h 22m',3],
+ ['-winter~','usr_527e5167-9361-49f7-8358-3c7be9f0a2c1','Member','02 Jan 2026','41h 08m',0],
+ ['BlackIndium','usr_786ac3f2-8e1a-45b6-b8d1-6531f0c9ab47','Member','19 Nov 2025','6h 44m',0],
+ ['Fraiinco2Wavy','usr_f5ca805a-9a90-40a7-89d4-6b2e1c7d5590','Trusted','07 Aug 2025','92h 15m',1],
+ ['CODYYYYYYYYYYYY','usr_f42ff73b-3d4a-45c0-b549-8e0a2d1f3c66','Member','23 Feb 2026','2h 01m',0],
+ ['nicopuppyboy','usr_20dd6117-ee1f-4a5d-af59-0871bb2e4a19','Member','11 Jun 2025','27h 39m',0],
+ ['~ RedZu ~','usr_56f38b9d-713e-4adc-a83c-d49185f2c730','Moderator','30 Apr 2024','214h 52m',0],
+ ['MAR2109HD','usr_8ac41e2b-55d7-4f19-9c3a-1b6e7d820f45','Member','18 Sep 2025','11h 03m',2],
+ ['SubKay_','usr_3f9e27c1-a4b8-4d66-8e21-7c05b93da1e8','Member','04 Dec 2025','3h 57m',0],
+ ['Hawk Echos','usr_b17d6390-2ce5-49a7-bf84-0d3a15e9c722','Member','27 Jul 2025','58h 11m',0],
+ ['-Traceless-','usr_5e2a8c04-91fb-4b73-a6d9-38f1c07e4b55','Member','15 Oct 2025','9h 26m',1],
+ ['hevy1015','usr_c8043f7e-6d21-4a90-b5c7-2e94a1f6038d','Member','08 May 2025','74h 30m',0]];
+
+document.getElementById('mrows').innerHTML = names.map(([n,id,r,j,t,a]) => `
+ <tr><td><div class="who"><div class="av">${n.replace(/[^\p{L}\p{N}]/gu,'').slice(0,2).toUpperCase()||'··'}</div>
+   <div><div style="font-weight:500">${n}</div><div class="mono tiny">${id.slice(0,22)}…</div></div></div></td>
+ <td class="dim">${r}</td><td class="dim">${j}</td><td class="num">${t}</td>
+ <td class="num">${a ? `<span class="pill p-dang" style="display:inline-flex">${a}</span>` : '<span class="tiny">—</span>'}</td>
+ <td><div class="row-act"><button class="btn btn-sm">Dossier</button><span style="width:14px"></span><button class="btn btn-sm btn-danger">Ban</button></div></td></tr>`).join('');
+
+const bans = [['sk1dm4rk','Crasher','~ RedZu ~','2 h ago'],['Nullptr_','Harassment','ΛƧƬΛ','5 h ago'],
+ ['guest_9931','Ban evasion','~ RedZu ~','1 d ago'],['AdBotXX','Advertising','ΛƧƬΛ','2 d ago'],
+ ['—deleted—','NSFW','~ RedZu ~','4 d ago']];
+document.getElementById('brows').innerHTML = bans.map(([n,c,b,w]) => `
+ <tr><td><div class="who"><div class="av">${n.slice(0,2).toUpperCase()}</div><div style="font-weight:500">${n}</div></div></td>
+ <td><span class="pill p-dang">${c}</span></td><td class="dim">${b}</td><td class="dim">${w}</td>
+ <td><div class="row-act"><button class="btn btn-sm">Unban</button></div></td></tr>`).join('');
+
+const audit = [['14:32:07','mod','Banned <b>sk1dm4rk</b> — Crasher','~ RedZu ~'],
+ ['14:32:07','vrc','ModbotBot banned usr_a91f… <span class="tiny">(via Modbot — ~ RedZu ~)</span>','ModbotBot'],
+ ['14:28:51','cli','<b>ΛƧƬΛ</b> joined The Black Cat','—'],
+ ['14:19:03','dis','Role <b>Trusted</b> granted to Fraiinco2Wavy','binn'],
+ ['13:58:44','mod','Warned <b>MAR2109HD</b> — Spam','ΛƧƬΛ'],
+ ['13:40:12','vrc','Member joined — <b>guest_2210</b>','—'],
+ ['13:02:55','mod','Sync rate for <code>groups.members</code> lowered to 0.35','binn'],
+ ['12:47:31','cli','<b>-winter~</b> left VRC Kings Lounge','—'],
+ ['11:15:08','dis','<b>AdBotXX</b> banned in Discord','binn'],
+ ['09:04:12','mod','Accountability ticket opened — repeated actions on one user','system']];
+const srcPill = {vrc:'p-vrc" >VRChat', mod:'p-mod">Modbot', dis:'p-dis">Discord', cli:'p-cli">Client'};
+document.getElementById('arows').innerHTML = audit.map(([t,s,e,a]) => `
+ <tr><td class="mono dim">${t}</td><td><span class="pill ${srcPill[s]}</span></td><td>${e}</td><td class="dim">${a}</td></tr>`).join('');
+
+document.getElementById('drows').innerHTML = [
+ ['Kick','Crasher','~ RedZu ~','2 d ago'],['Kick','Other','~ RedZu ~','9 d ago'],
+ ['Warn','Harassment','binn','17 d ago'],['Kick','Other','~ RedZu ~','24 d ago']]
+ .map(([k,c,b,w]) => `<tr><td style="width:56px"><span class="pill ${k==='Warn'?'p-cli':'p-dang'}">${k}</span></td>
+ <td class="dim">${c}</td><td class="dim">${b}</td><td class="dim" style="text-align:right">${w}</td></tr>`).join('');
+
+// ── Charts (inline SVG, no library) ───────────────────────────────────────
+function spark(el, pts, color, fill) {
+  const w = 460, h = 130, max = Math.max(...pts), min = Math.min(...pts);
+  const x = i => (i / (pts.length - 1)) * w;
+  const y = v => h - ((v - min) / ((max - min) || 1)) * (h - 14) - 7;
+  const d = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;overflow:visible" role="img">
+    ${fill ? `<path d="${d} L${w},${h} L0,${h} Z" fill="${color}" opacity=".10"/>` : ''}
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="1.75" stroke-linejoin="round"/>
+  </svg>`;
+}
+function bars(el, data, color) {
+  const w = 460, h = 130, bw = w / data.length, max = Math.max(...data.map(d => d[1]));
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h + 18}" style="width:100%;height:auto" role="img">
+    ${data.map(([l, v], i) => {
+      const bh = (v / max) * (h - 8);
+      return `<rect x="${i * bw + 5}" y="${h - bh}" width="${bw - 12}" height="${bh}" rx="3" fill="${color}" opacity=".85"/>
+      <text x="${i * bw + bw / 2 - 2}" y="${h + 13}" font-size="9" fill="currentColor" opacity=".5" text-anchor="middle">${l}</text>`;
+    }).join('')}</svg>`;
+}
+const A = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7c6cf5';
+spark(document.getElementById('chart1'), [11800,12040,12310,12290,12680,12950,13120,13380,13410,13760,14020,14208], A, true);
+bars(document.getElementById('chart2'), [['RedZu',31],['ΛƧƬΛ',18],['binn',12],['Kaz',7],['Mio',4]], A);
+spark(document.getElementById('chart3'), [0,2.1,0,1.4,3.2,0,0,4.1,2.8,0,1.9,5.2,0,3.4], A, true);
+
+// ── Rate sliders ──────────────────────────────────────────────────────────
+const caps = [['Group members',0.5],['Group bans',0.5],['Audit log',0.125],
+              ['Instances',0.125],['Group info',0.1],['Group roles',0.1]];
+document.getElementById('sliders').innerHTML = caps.map(([n,c],i) => `
+ <div class="slider-row"><label>${n}</label>
+ <input type="range" min="0" max="${c}" step="0.005" value="${c}" data-i="${i}" oninput="recalc()">
+ <output id="o${i}">${c.toFixed(3)} s⁻¹</output></div>`).join('');
+function recalc() {
+  let t = 0;
+  document.querySelectorAll('#sliders input').forEach((s, i) => {
+    t += +s.value; document.getElementById('o' + i).textContent = (+s.value).toFixed(3) + ' s⁻¹';
+  });
+  document.getElementById('rateTot').textContent = t.toFixed(3);
+  document.getElementById('rateHead').textContent = (2 - t).toFixed(3);
+}
+</script>
+</body>
+</html>
