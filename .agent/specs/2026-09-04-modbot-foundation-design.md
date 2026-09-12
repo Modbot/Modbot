@@ -898,7 +898,9 @@ modbot_event                     -- PARTITION BY RANGE (occurred_at), monthly pa
   subject_id       text         not null   -- usr_... or a Discord snowflake
   actor_platform   smallint     null
   actor_id         text         null       -- who caused it
-  instance_id      text         null
+  world_id         text         null       -- wrld_...
+  instance_id      text         null       -- instance ids are unique per WORLD, not globally,
+                                           -- so both columns are required to identify an instance
   source           smallint     not null   -- AuditLog | SyncDiff | Client | Discord | Manual
   data             jsonb        not null
 
@@ -916,6 +918,18 @@ joinable against the user tables without parsing.
 
 **`actor_id` gets its own index** because §5.8.5 asks actor-side questions — "everything this
 moderator has done" — which the subject-side index cannot answer efficiently.
+
+**Instances need both `world_id` and `instance_id`.** An instance id identifies one session of one
+world and is unique only within that world. It is also **arbitrary user-controlled text** — usually a
+VRChat-assigned number, but settable to any string through the API, which many groups do via VRCX.
+Treat it as hostile input wherever it is displayed (M6 §4.1.1).
+
+The **instance name** — a separate field VRChat added in mid-2026, returned in the instance JSON — is
+**display only**: mutable, often absent, not unique. Nothing is ever keyed on it.
+
+The raw location string is never stored. For non-group instances it carries `~nonce(…)`, the instance
+secret, and Modbot must not persist instance secrets. Facts record the parsed components and the
+non-secret qualifiers only. Grammar: `.agent/research/vrchat-log-format.md`.
 
 **`occurred_before` and `source` are what make the analytics honest.** When the audit log reports a
 ban at 14:32:07, that is exact. When a sync diff notices a member is gone, all that is actually known

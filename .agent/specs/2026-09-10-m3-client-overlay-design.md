@@ -477,10 +477,12 @@ These need answers before the plan is written, and at least the first needs hand
 8. ~~How the client determines which group owns an instance.~~ **Answered** — the owning group is
    carried inside the instance id itself (`~group(grp_…)`), so routing is local string parsing with
    no lookup and no leak. See `.agent/research/vrchat-log-format.md` §1.
-9. **BLOCKING: do the player join/leave log lines carry the VRChat user id, or only the display
-   name?** §3.1 commits to transmitting user ids. If only names are available, then the ingest
-   contract, the deduplication key (§5.1) and the privacy table in §3.1 all change — and keying
-   deduplication on a mutable, non-unique string is a correctness problem rather than an
-   inconvenience. Display names would also be *more* personal data than ids, working against §3.1's
-   minimisation argument. Must be confirmed against a current log before the M3 plan is written.
-   See research §2.1.
+9. ~~Do the player join/leave log lines carry the VRChat user id?~~ **Answered — yes**, alongside
+   the display name. §3.1's privacy table stands, deduplication keys on a stable identity, and no
+   server-side name-to-id resolution is needed. Display names are still captured opportunistically
+   as fact *data* (useful for M4 §7 ban reports and historical name search) but never as identity.
+   Research §2.1.
+10. **Instance id and name handling.** The instance id is arbitrary user-controlled text and the
+    name is a separate mutable field; both are hostile input on display surfaces (M6 §4.1.1), and
+    identity is `worldId` + `instanceId`. Confirm parsing against the real log sample, including a
+    group instance whose id was set to free text via VRCX.

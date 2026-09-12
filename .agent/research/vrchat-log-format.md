@@ -24,30 +24,71 @@ wrld_4b341546-65ff-4607-9d38-5b7f8f405132:39911~group(grp_2d8cee98-2481-451b-9bb
 ### 1.2 Grammar
 
 ```
-  <worldId> ":" <instanceName> ( "~" <qualifier> [ "(" <value> ")" ] )*
+  <worldId> ":" <instanceId> ( "~" <qualifier> [ "(" <value> ")" ] )*
 
-  worldId         wrld_<uuid>
-  instanceName    39911                    arbitrary token; numeric in this sample
-  qualifiers      group(grp_<uuid>)        ← THE OWNING GROUP
-                  groupAccessType(members|plus|public)
-                  region(use|usw|eu|jp|…)
+  worldId       wrld_<uuid>              the world itself -- the Unity package
+  instanceId    39911                    identifies ONE instance of that world
+  qualifiers    group(grp_<uuid>)        the owning group
+                groupAccessType(members|plus|public)
+                region(use|usw|eu|jp|...)
 ```
 
-### 1.3 Why this matters more than it looks
+A world has many instances. The world id identifies the content; the instance id identifies one
+running session of it.
 
-**The owning group is carried in the instance id itself.** The client can determine which group an
-instance belongs to by **string parsing alone** — no API call, no server round-trip, no question
-asked of anybody.
+### 1.3 The instance id is arbitrary, user-controlled text
 
-That is what makes M3 §5.5.1's cross-group boundary implementable as specified. Routing decides
-locally which paired server (if any) should receive an event, so a moderator staffing two communities
-leaks nothing about either to the other. Had the group required a lookup, the client would have had
-to ask *some* server which group an instance belonged to — and asking the wrong one is itself the
-leak the boundary exists to prevent.
+`39911` is an **instance id**, not a name. It is usually a random number assigned by VRChat, but it
+**can be any text**, and groups routinely set it to something readable through the API -- commonly
+via VRCX.
 
-It also makes §3.1's filter exact rather than approximate: **an instance id with no `~group(…)`
-qualifier is not a group instance**, and is dropped before transmission. Public, friends and private
-instances — a moderator's personal VRChat use — are excluded by structure, not by heuristic.
+Three consequences follow, and the second is a security finding.
+
+#### 1.3.1 Identity is `worldId` + `instanceId`, and neither alone
+
+Instance ids are unique within a world, not globally. Anything keyed on an instance must carry both.
+
+#### 1.3.2 It is untrusted input, and it reaches Discord
+
+Because a group can set the instance id to arbitrary text, it may contain Discord mentions
+(`@everyone`), markdown, HTML, zero-width or right-to-left override characters, or be extremely long.
+
+**M6 §4.1 announces new instances into a Discord channel, and M6 §4.2 keeps a live message updated
+with the instance id in it.** Rendering that text unescaped is a mention-injection vector: anyone who
+can open a group instance could ping an entire server, or spoof message formatting.
+
+The instance id must therefore be treated as hostile input everywhere it is displayed:
+
+- **Discord** -- suppress mentions via `allowed_mentions`, escape markdown, cap length.
+- **Web UI** -- escaped as text, never interpreted; capped length; bidi-override characters stripped.
+- **SteamVR overlay** -- length-capped so a long id cannot push the rest of the card off-screen.
+
+This applies to instance *names* (§1.3.3) equally, and for the same reason.
+
+#### 1.3.3 There are now two separate things: id and name
+
+VRChat shipped **instance naming** around July 2026. The instance JSON returned by the API carries a
+distinct, human-facing **name** field, separate from the instance id.
+
+Both conventions are in active use -- groups that adopted the naming feature, and groups still
+encoding a name into the instance id itself via VRCX. Modbot must handle both.
+
+| | Instance id | Instance name |
+|---|---|---|
+| Source | the location string, so **present in the logs** | instance JSON from the API |
+| Stability | fixed for the life of the instance | mutable display text |
+| Role in Modbot | **identity** -- what facts are keyed on | **display only** |
+
+**Display preference:** instance name, falling back to the instance id, falling back to the world
+name. **Never key anything on the name.** It is mutable, may be absent, and is not unique.
+
+#### 1.3.4 Never store instance secrets
+
+Non-group instances carry a `~nonce(...)` qualifier, which is the instance secret. Modbot must
+**never persist it**, and non-group instances are dropped before transmission anyway (§1.4).
+
+Facts should record `world_id`, `instance_id`, and the non-secret qualifiers (group, access type,
+region) -- never the raw location string, which would carry a nonce along with everything else.
 
 ### 1.4 Routing rule
 
@@ -81,31 +122,33 @@ which M1's member cache must handle rather than assume.
 
 ---
 
-## 2. Log events — **open, blocking for M3**
+## 2. Log events
 
 `WorldChange` gives the local user's own instance transitions. Presence tracking needs **other
-players' joins and leaves**, which come from different lines.
+players' joins and leaves**, which come from separate lines -- reported as user-join and user-leave
+events.
 
-### 2.1 The question that has to be answered first
+### 2.1 User ids are present -- RESOLVED
 
-> **Do the player join/leave lines contain the VRChat user id (`usr_…`), or only the display name?**
+> **Confirmed 2026-09-11: the player join/leave lines carry both the display name and the VRChat
+> user id.**
 
-This is not a detail. M3 §3.1 commits to transmitting *"the VRChat user id, the instance id, and a
-timestamp"*. If the log carries only display names, that commitment cannot be met as written, and the
-consequences are serious:
+This unblocks M3. The commitments that depended on it all stand as written:
 
-- Display names are **mutable and not unique** (M4 §3.1 already refuses to act on a name match alone).
-- The client would have to transmit display names, which is *more* personal data than user ids, not
-  less — working against §3.1's minimisation argument.
-- Resolution from name to id would have to happen **server-side** against M1's member cache, and
-  would be ambiguous exactly when it matters: a name collision, a recent rename, or a non-member in a
-  group-public instance who is not in the cache at all.
-- Deduplication (§5.1) keys on subject identity. Keying on a mutable string is a correctness problem,
-  not merely an inconvenience.
+- §3.1's privacy table is accurate -- the client transmits the **user id**, not the display name.
+  Ids are less identifying than names, so the minimisation argument holds rather than inverting.
+- Deduplication (§5.1) keys on a **stable** identity. Had it keyed on display names, a rename
+  mid-session would have split one person into two, and a name collision would have merged two into
+  one -- silently, in exactly the metric giveaways and regulars detection depend on.
+- No server-side name-to-id resolution is needed, which removes the ambiguity that would have bitten
+  hardest for non-members in a `groupAccessType(public)` instance who are absent from M1's cache.
 
-Recent VRChat versions are believed to have added user ids to these lines. **That must be confirmed
-against a current log before the M3 plan is written**, because the answer changes the ingest contract,
-the dedup key, and the privacy table in §3.1.
+**Display names should still be captured opportunistically**, because the pairing of id to name at a
+point in time is useful history -- M4 §7 pre-fills ban reports with prior display names, and a
+moderator searching for a name someone used six months ago should find them. Recorded as fact data
+alongside the id, never as identity.
+
+Exact line shapes pending the real log sample.
 
 ### 2.2 Other events still to characterise
 

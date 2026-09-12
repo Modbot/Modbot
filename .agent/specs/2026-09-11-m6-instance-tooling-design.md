@@ -89,6 +89,38 @@ M3 §5.1 and gets the same test treatment.
 An instance opening posts to a configured channel: world, type, capacity, join link. Closure updates
 or removes it, per configuration.
 
+#### 4.1.1 Instance ids and names are hostile input
+
+**A group can set an instance id to arbitrary text** — usually a VRChat-assigned number, but commonly
+a readable string set through the API via VRCX. VRChat's newer instance *naming* feature adds a
+second free-text field. Both are attacker-influenced and both end up rendered in a Discord message.
+
+An instance id containing `@everyone` would ping the entire server, every time that instance opens
+and on every live-message edit (§4.2). Markdown can spoof formatting; bidi-override characters can
+reorder displayed text; a very long value can blow out the embed.
+
+So, everywhere either value is displayed:
+
+- **Discord** — send with `allowed_mentions` suppressing everything, escape markdown, cap length.
+  Mention suppression is the load-bearing one: escaping alone does not stop `@everyone`.
+- **Web UI** — rendered as text, never interpreted; length-capped; bidi-override characters stripped.
+- **Overlay** — length-capped so one long value cannot push a card off-screen.
+
+This is the only place in Modbot where text controlled by a non-member reaches a broadcast surface
+automatically, which is why it gets called out rather than left to general good practice.
+
+#### 4.1.2 Id is identity, name is display
+
+Modbot keys instances on `worldId` + `instanceId` — instance ids are unique within a world, not
+globally, so neither alone is sufficient.
+
+The **name** (from the instance JSON) is display only: mutable, frequently absent, not unique.
+Display preference is name → instance id → world name, and **nothing is ever keyed on the name.**
+
+Facts record `world_id`, `instance_id` and the non-secret qualifiers. The raw location string is
+never stored, because for non-group instances it carries `~nonce(…)` — the instance secret. Full
+grammar in `.agent/research/vrchat-log-format.md`.
+
 ### 4.2 The live message
 
 One message per instance, edited in place as population changes, so members can see activity without
