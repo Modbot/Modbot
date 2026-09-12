@@ -53,7 +53,10 @@ Log.Information("Authenticating to VRChat as {Email}", Redact(email));
 
 // The builder only CONSTRUCTS the client -- LoginAsync must be called explicitly, and the session
 // is cached between runs so repeated commands do not re-authenticate. See Session.cs.
-var vrchat = await Session.CreateAsync(email, password, totp);
+var vrchat = command is "debug-login" or "debug-auth"
+    ? new VRChat.API.Client.VRChatClientBuilder().WithUsername(email).WithPassword(password)
+        .WithApplication("ModbotExplore", "2026.9.0", "https://github.com/Modbot/Modbot").Build()
+    : await Session.CreateAsync(email, password, totp);
 if (vrchat is null)
 {
     await Log.CloseAndFlushAsync();
@@ -64,6 +67,19 @@ try
 {
     switch (command)
     {
+        case "debug-auth":
+            // Tries the three plausible credential encodings against /auth/user directly.
+            // VRChat's expectation is undocumented; the SDK uses HttpUtility.UrlEncode, which
+            // emits LOWERCASE hex and "+" for space. Uri.EscapeDataString emits uppercase.
+            await DebugAuthEncodingsAsync(email!, password!);
+            break;
+
+        case "debug-login":
+            // Replicates LoginAsync step by step, printing each status and body. LoginAsync
+            // swallows the final status and returns null, which tells us nothing.
+            await DebugLoginAsync(vrchat, totp);
+            break;
+
         case "whoami":
             Dump("GetCurrentUser", await vrchat.Authentication.GetCurrentUserWithHttpInfoAsync());
             break;
@@ -141,6 +157,77 @@ return 0;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+async Task DebugAuthEncodingsAsync(string user, string pass)
+{
+    var variants = new (string Name, string Value)[]
+    {
+        ("raw (no encoding)",             $"{user}:{pass}"),
+        ("HttpUtility.UrlEncode (SDK)",   $"{System.Web.HttpUtility.UrlEncode(user)}:{System.Web.HttpUtility.UrlEncode(pass)}"),
+        ("Uri.EscapeDataString",          $"{Uri.EscapeDataString(user)}:{Uri.EscapeDataString(pass)}"),
+    };
+
+    using var http = new HttpClient();
+    http.DefaultRequestHeaders.UserAgent.ParseAdd("ModbotExplore/2026.9.0 (https://github.com/Modbot/Modbot)");
+
+    foreach (var (name, value) in variants)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, "https://api.vrchat.cloud/api/1/auth/user");
+        req.Headers.TryAddWithoutValidation("Authorization",
+            "Basic " + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(value)));
+
+        var res = await http.SendAsync(req);
+        var body = await res.Content.ReadAsStringAsync();
+        var ok = res.IsSuccessStatusCode;
+
+        Log.Write(ok ? Serilog.Events.LogEventLevel.Information : Serilog.Events.LogEventLevel.Warning,
+            "{Name,-30} -> {Status}", name, (int)res.StatusCode);
+        Console.WriteLine("    " + Truncate(body, 220));
+
+        // Be gentle: these are auth attempts.
+        await Task.Delay(TimeSpan.FromSeconds(4));
+    }
+}
+
+async Task DebugLoginAsync(VRChat.API.Client.IVRChat client, string? totpSecret)
+{
+    Log.Information("STEP 1: GetCurrentUser (Basic auth)");
+    var step1 = await client.Authentication.GetCurrentUserWithHttpInfoAsync();
+    Log.Information("  -> {Status}", (int)step1.StatusCode);
+    Console.WriteLine(Truncate(step1.RawContent ?? step1.ErrorText, 1200));
+
+    var requires = step1.Data?.RequiresTwoFactorAuth;
+    Log.Information("  requiresTwoFactorAuth = {Requires}",
+        requires is null ? "(null)" : string.Join(", ", requires));
+
+    if (requires is null || requires.Count == 0)
+    {
+        Log.Information("No 2FA required -- login should already be complete.");
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(totpSecret))
+    {
+        Log.Warning("2FA required but no TOTP secret configured.");
+        return;
+    }
+
+    Log.Information("STEP 2: Verify2FA with computed TOTP");
+    var code = new OtpNet.Totp(OtpNet.Base32Encoding.ToBytes(totpSecret)).ComputeTotp();
+    Log.Information("  computed code length {Len}", code.Length);
+    var step2 = await client.Authentication.Verify2FAWithHttpInfoAsync(
+        new VRChat.API.Model.TwoFactorAuthCode(code));
+    Log.Information("  -> {Status}", (int)step2.StatusCode);
+    Console.WriteLine(Truncate(step2.RawContent ?? step2.ErrorText, 1200));
+
+    Log.Information("STEP 3: GetCurrentUser again");
+    var step3 = await client.Authentication.GetCurrentUserWithHttpInfoAsync();
+    Log.Information("  -> {Status}", (int)step3.StatusCode);
+    Console.WriteLine(Truncate(step3.RawContent ?? step3.ErrorText, 1500));
+}
+
+static string Truncate(string? text, int max) =>
+    string.IsNullOrEmpty(text) ? "(empty)" : (text.Length <= max ? text : text[..max] + " ...[truncated]");
+
 // Prints the raw body rather than the deserialised object. The SDK's types describe what the spec
 // SAYS is returned; this shows what VRChat actually sent, which is the entire point of this tool.
 void Dump<T>(string label, ApiResponse<T> response)
@@ -208,6 +295,10 @@ static void PrintHelp() => Console.WriteLine("""
       instance <location>     instance detail  -- does it include Users?
       user <usr_id>           full user object -- avatar thumbnail, bio
       search <query>          user search      -- HEAVY RATE LIMIT, 1 req / 3.5s
+
+    Diagnostics
+      debug-login             replay LoginAsync step by step, printing each status
+      debug-auth              try raw / UrlEncode / EscapeDataString credential encodings
 
     Raw bodies print to stdout and are saved under explore/responses/.
     Config comes from explore/.env -- copy .env.example and fill it in.

@@ -70,15 +70,26 @@ public static class Session
 
     private static async Task<bool> LoginWithTotpAsync(IVRChat vrchat, CancellationToken ct)
     {
-        var result = await vrchat.TryLoginAsync(ct);
-        if (result.Success)
+        // NOTE: we deliberately do NOT use TryLoginAsync. As of VRChat.API 2.20.9 it inverts its
+        // own result:
+        //
+        //     return new VRChatLoginResult(user == null, null);
+        //                                  ^^^^^^^^^^^^ this is the `success` parameter
+        //
+        // so a SUCCESSFUL login reports Success == false with a null Exception, which is
+        // indistinguishable from a silent failure. LoginAsync throws on failure and returns the
+        // user on success, which is unambiguous.
+        try
         {
-            Log.Information("Logged in using the stored TOTP secret");
+            var user = await vrchat.LoginAsync(ct);
+            Log.Information("Logged in as {DisplayName} ({UserId})", user.DisplayName, user.Id);
             return true;
         }
-
-        Log.Error(result.Exception, "Login failed");
-        return false;
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Login failed");
+            return false;
+        }
     }
 
     /// <summary>
