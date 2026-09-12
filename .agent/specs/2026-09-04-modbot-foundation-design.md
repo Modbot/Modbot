@@ -527,15 +527,20 @@ full-sync rates: a paged sync of a large group simply spans many intervals.
 | Group instances | 1 per **8 s** | 0.125 | `groups.instances` |
 | Group info | 1 per **10 s** | 0.100 | `groups.read` |
 | Group roles | 1 per **10 s** | 0.100 | `groups.read` |
-| | **Sum** | **1.450** | |
+| **User profiles** | see §4.2.5 | **0.200 floor** | `users.read` |
+| | **Sum** | **1.650** | |
 
 **Global ceiling: 2 requests/second**, enforced by the top bucket of the hierarchy (§4.3.1) and never
 exceeded by any Modbot instance.
 
-The 0.55 req/s of headroom between the sum and the ceiling is not spare capacity to be spent on
-faster sync — it is reserved for **interactive work**: moderation actions, onboarding, and a
-moderator's live queries, which preempt background sync (§4.1). A background scheduler that consumed
-the full ceiling would make every ban wait behind a member page.
+The 0.35 req/s between the sum and the ceiling is not spare capacity to be spent on faster sync — it
+is reserved for **interactive work**: moderation actions, onboarding, and a moderator's live queries,
+which preempt background sync (§4.1). A background scheduler that consumed the full ceiling would
+make every ban wait behind a member page.
+
+User profile sync (§4.2.5) is the one job that deliberately borrows from that headroom, because it is
+the only job that can never finish otherwise. It takes a 0.2 req/s floor and whatever else is idle,
+and yields instantly to anything higher-priority.
 
 #### 4.2.1 These are caps, and they are configurable downward only
 
@@ -594,6 +599,103 @@ sequential database calls per sync.
 
 Mapping from SDK models to entities uses **Riok.Mapperly** (source-generated, compile-time verified),
 not AutoMapper.
+
+#### 4.2.5 User profile sync — the expensive one
+
+`GroupMember` carries membership data but **no profile**: no bio, no status, no avatar, no pronouns.
+Those live on the user object and must be fetched **one user at a time** (`users.read`).
+`Instance.Users` would have returned them in bulk, but VRChat populates it only for VRChat staff and
+world owners (M3 §7.2.1).
+
+So per-user sync is unavoidable, and at real group sizes it is slow:
+
+| Group size | Full sweep at 0.2 req/s | at 0.5 req/s |
+|---|---|---|
+| 8,000 (typical) | ~11 hours | ~4.5 hours |
+| 16,000 (typical upper) | ~22 hours | ~9 hours |
+| 150,000 (largest observed) | **~8.7 days** | ~3.5 days |
+
+**A uniform sweep is therefore the wrong shape.** For a large group it would refresh the least
+relevant members exactly as often as the most relevant, and complete roughly never.
+
+##### Priority tiers
+
+Profiles are refreshed by **relevance, not by row order**:
+
+| Tier | Who | Priority | Freshness |
+|---|---|---|---|
+| **1. On demand** | A moderator opened this dossier; an action is being taken on them | interactive — preempts sync | immediate |
+| **2. Event-driven** | Just joined an instance, joined the group, was actioned, appeared in the audit log | high | minutes |
+| **3. Recently active** | Seen in an instance or Discord voice within the activity window | normal | hours |
+| **4. Long tail** | Everyone else | **lowest — leftover budget only** | days, or never for a 150k group |
+
+Tier 4 never completing is an acceptable outcome, not a failure. A member who has not been in an
+instance for eight months having a stale bio is close to zero risk; the people who matter are the
+people who show up, and tiers 1–3 cover exactly those.
+
+**The fact log already knows who is active** (§5), so the tiering needs no new data source — it is a
+query over last-seen.
+
+##### Budget
+
+`users.read` gets a **floor of 0.2 req/s** so progress is guaranteed, plus **opportunistic use of
+headroom** below the 2 req/s ceiling when interactive work and the other jobs are not using it. It
+yields instantly to anything higher-priority.
+
+This keeps §4.2's total honest: the fixed allocations still sum to 1.45, the floor takes it to 1.65,
+and the remainder is shared between interactive bursts and tier-4 backfill — with interactive always
+winning.
+
+##### Freshness is visible, never implied
+
+Every profile records when it was last refreshed. Anywhere profile-derived data is shown — a bio, an
+avatar, a screening result (§4.2.6) — the UI shows its age, and stale data is labelled stale.
+
+This matters most for the negative case: **"no flags found" on a profile last refreshed in March is
+not the same claim as "no flags found" on one refreshed an hour ago**, and a moderator must be able
+to tell the difference.
+
+#### 4.2.6 Profile screening
+
+Bios, display names, statuses and pronouns are user-authored text, and screening them is a core
+moderation need — trolls who advertise themselves in their profile are a recurring problem in VRChat
+communities, and finding them by hand at 16,000 members is not possible.
+
+Screening runs on **every profile refresh**, so its coverage is exactly the sync coverage above.
+
+##### Term lists are local, matching is normalised
+
+- **Term lists are group-configured.** Modbot ships **no default list**, for the same reason it ships
+  no default group-flag list (M8 §3.2): the project does not decide what a community finds
+  unacceptable. Importable, shareable lists are the mechanism for groups that want to start from
+  someone else's (M8 §3.2).
+- Rules support literal terms, word-boundary matching and regular expressions, each with its own
+  severity.
+- **Matching normalises first, or it does not work.** Evasion is the default state of this problem:
+  leetspeak (`1`/`l`, `3`/`e`), Unicode homoglyphs (Cyrillic `а` for Latin `a`), zero-width joiners,
+  combining marks, fullwidth forms, and inserted spacing or punctuation. Normalise to NFKC, fold
+  confusables, strip zero-width and combining characters, collapse separators — **then** match.
+  A matcher without this catches only people not trying to evade it.
+
+##### Action is the group's decision
+
+A match raises a flag on the dossier and a `Warning` notification (§4.5). Auto-action is **available
+per rule, opt-in, and off by default.**
+
+This differs deliberately from M8 §2's absolute prohibition, and the distinction is real: an M8
+signal is *inherited or inferred* — another group's ban, or a model's judgement. A term match is a
+**first-hand observation of text the user wrote about themselves**, verifiable by any moderator in
+one click. That is direct evidence, and a group is entitled to act on it automatically if it chooses.
+
+It is still off by default, because context defeats literal matching in both directions: quoting a
+slur to condemn it, reclaimed language, and ordinary words that collide with an unfortunate acronym.
+The UI shows **the matched text in context** so a moderator reviews the sentence, not the rule name.
+
+##### It is a fact
+
+Matches, dismissals and rule changes are all recorded (§5.9). Dismissal rates per rule are surfaced,
+so a rule dismissed nine times out of ten is visibly noise rather than quietly ignored — the same
+mechanism as M8 §4.4.
 
 ### 4.3 Rate limiting — an opaque, punitive limit
 

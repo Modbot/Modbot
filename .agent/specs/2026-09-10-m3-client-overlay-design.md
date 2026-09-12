@@ -406,22 +406,25 @@ on the server:
                                           avatar database (§7.3), keyed on file id  →  avtr_…
 ```
 
-#### 7.2.1 Per instance, not per user — and that is the whole ballgame
+#### 7.2.1 `Instance.Users` is not available to us — the cheap path does not exist
 
-`Instance.Users` returns **every occupant with their avatar thumbnail in a single call.** The naive
-alternative — `GET /users/{id}` for each person — is catastrophically more expensive:
+The SDK model carries `Instance.Users` as `List<LimitedUserInstance>`, with avatar thumbnails, `Bio`
+and `Platform` for every occupant in one call. **VRChat only populates it for VRChat staff or the
+world's owner.** For an ordinary group-moderator account it comes back empty.
 
-| Approach | Requests for 30 instances × 80 users | At the §4.2 budget |
-|---|---|---|
-| Per user | ~2,400 | **hours** |
-| **Per instance** | **~31** | **~4 minutes** |
+This is recorded because it is an attractive dead end: the field is right there in the model, it
+would make avatar tracking nearly free, and anyone reading the SDK will find it and assume it works.
+It does not.
 
-Roughly **77× cheaper**, and it rides an endpoint class the scheduler already visits. Avatar tracking
-is therefore close to free rather than budget-dominating, which is the difference between it being a
-feature and being impossible.
+So avatar resolution depends on **per-user profile data**, obtained by the user sync described in
+foundation §4.2.5 — which is expensive, slow, and must be prioritised rather than swept uniformly.
+Avatar identity for someone Modbot has not recently refreshed is simply **unknown**, and the UI says
+so rather than guessing.
 
-**Never resolve avatars by iterating users.** If a future change makes per-user lookup look
-necessary, that is a signal to re-check the instance payload, not to spend the budget.
+The practical consequence for M4 §3.2: "ban everyone wearing this avatar" operates on **users whose
+profiles are currently fresh**, which in practice means the active population. That is the useful
+population anyway — a crasher avatar matters while someone is wearing it in your instance — but the
+limit must be stated in the UI rather than implied away.
 
 #### 7.2.2 Freshness, and a free staleness check
 
