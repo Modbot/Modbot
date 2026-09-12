@@ -230,8 +230,11 @@ Names contain **spaces, tildes, hyphens, superscripts, and non-Latin scripts**. 
 - **Never split on whitespace.** Anchor on the trailing `(usr_<uuid>)` at end of line and take
   everything between the event name and it as the display name.
 - **Match the *last* `(usr_` occurrence**, because a display name could itself contain text shaped
-  like `(usr_00000000-0000-0000-0000-000000000000)`. A greedy first-match parser is spoofable by
-  anyone who can set their own display name.
+  like `(usr_something)`. A greedy first-match parser is spoofable by anyone who can set their own
+  display name.
+- **Do not validate the id's shape.** Legacy VRChat ids follow no format (foundation section 3.1.1),
+  so the id is "everything between the final `(usr_` and the closing `)` at end of line" -- extracted
+  by delimiter, never matched against a UUID pattern.
 - Avatar names are worse — observed with full-width quotes and braces: `＂ Evur ＂ By Kaiylast ｛FT｝`.
 
 ### 5.2 No timezone

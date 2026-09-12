@@ -19,12 +19,20 @@ var env = DotEnv.Load(Path.Combine(AppContext.BaseDirectory, ".env"))
        ?? DotEnv.Load(".env")
        ?? new Dictionary<string, string>();
 
-Log.Logger = Logging.Create(env.GetValueOrDefault("SEQ_URL"));
+// Plain console logging -- this is a scratch tool. Modbot's four-track Serilog setup is
+// specified in foundation section 4.4.1 and belongs there, not here.
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .CreateLogger();
 
 var email = env.GetValueOrDefault("VRCHAT_EMAIL");
 var password = env.GetValueOrDefault("VRCHAT_PASSWORD");
 var totp = env.GetValueOrDefault("VRCHAT_TWO_FACTOR_SECRET");
 var groupId = env.GetValueOrDefault("VRCHAT_GROUP_ID");
+
+Log.Debug("Parsed env: email={EmailLen} chars, password={PwLen} chars, totp={TotpLen} chars, group={GroupLen} chars",
+    email?.Length ?? 0, password?.Length ?? 0, totp?.Length ?? 0, groupId?.Length ?? 0);
 
 var command = args.Length > 0 ? args[0].ToLowerInvariant() : "help";
 var arg1 = args.Length > 1 ? args[1] : null;
@@ -43,13 +51,14 @@ if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
 
 Log.Information("Authenticating to VRChat as {Email}", Redact(email));
 
-IVRChat vrchat = new VRChatClientBuilder()
-    .WithUsername(email)
-    .WithPassword(password)
-    .WithTwoFactorSecret(totp ?? string.Empty)
-    // WithApplication is required -- VRChat rejects requests without a descriptive User-Agent.
-    .WithApplication("ModbotExplore", "2026.9.0", "https://github.com/Modbot/Modbot")
-    .Build();
+// The builder only CONSTRUCTS the client -- LoginAsync must be called explicitly, and the session
+// is cached between runs so repeated commands do not re-authenticate. See Session.cs.
+var vrchat = await Session.CreateAsync(email, password, totp);
+if (vrchat is null)
+{
+    await Log.CloseAndFlushAsync();
+    return 1;
+}
 
 try
 {

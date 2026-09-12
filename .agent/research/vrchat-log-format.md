@@ -26,9 +26,9 @@ wrld_4b341546-65ff-4607-9d38-5b7f8f405132:39911~group(grp_2d8cee98-2481-451b-9bb
 ```
   <worldId> ":" <instanceId> ( "~" <qualifier> [ "(" <value> ")" ] )*
 
-  worldId       wrld_<uuid>              the world itself -- the Unity package
+  worldId       wrld_...                 the world itself -- the Unity package
   instanceId    39911                    identifies ONE instance of that world
-  qualifiers    group(grp_<uuid>)        the owning group
+  qualifiers    group(grp_...)           the owning group
                 groupAccessType(members|plus|public)
                 region(use|usw|eu|jp|...)
 ```
@@ -47,6 +47,10 @@ Three consequences follow, and the second is a security finding.
 #### 1.3.1 Identity is `worldId` + `instanceId`, and neither alone
 
 Instance ids are unique within a world, not globally. Anything keyed on an instance must carry both.
+
+**Ids are opaque.** The `<uuid>` shapes above describe modern ids only -- VRChat changed its format
+years ago and legacy ids follow no structure. Parsing matches the **delimiters** (`group(` ... `)`,
+`:` between world and instance) and never an expected id shape. See foundation section 3.1.1.
 
 #### 1.3.2 It is untrusted input, and it reaches Discord
 

@@ -383,6 +383,27 @@ progress bars, capacity warnings, pagination sizing, presence-buffer allocation 
 bucketing alike. A group that received an exemption must not see Modbot report "80/80 — full" for
 an instance holding 240 people.
 
+### 3.1.1 A standing rule: VRChat ids are opaque — never validate their format
+
+`usr_<uuid>`, `grp_<uuid>`, `wrld_<uuid>` describe *modern* ids. **VRChat changed its id format years
+ago, and legacy ids follow no structured format at all** — they are customised, arbitrary, and still
+in active use by long-standing accounts.
+
+So, everywhere in Modbot:
+
+- **No regex validation of id shape.** Never `usr_[0-9a-f-]{36}`, never a length check, never a UUID
+  parse. An id is an opaque string.
+- **No id generation or normalisation.** Ids are stored and compared exactly as received.
+- **Parsing extracts, it does not validate.** When pulling an id out of a log line or an instance
+  location string, match the *delimiters* — not an expected id shape. `(usr_…)` at end of line;
+  `group(` … `)` inside a location.
+- Database columns are `text`, not `uuid`.
+
+The failure mode is the reason this is a standing rule rather than advice: a format check would work
+perfectly in testing, pass review, and then **silently exclude exactly the oldest and most
+established members of a community** — the founders, the long-time regulars — while appearing to work
+for everyone else.
+
 ### 3.2 A standing rule: the client's source is its privacy policy
 
 The Windows client (M3) runs unattended on a volunteer moderator's personal PC, reads VRChat's log
@@ -945,8 +966,6 @@ queryable later.
 - **Seq is configured in `Settings`**, like everything else (§2.6) — absent config means the sink is
   simply not registered, never a broken logger or a stream of connection errors.
 - Files roll daily with a retention limit, because a self-hosted appliance must not fill its own disk.
-
-A working implementation of exactly this lives in `explore/Logging.cs`, prototyped ahead of M0.
 
 ### 4.5 Notifications — one pipeline, several channels
 
