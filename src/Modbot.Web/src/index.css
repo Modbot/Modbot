@@ -1,0 +1,161 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Serif:wght@400;600&display=swap');
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Modbot design tokens.
+
+   THREE densities from one token set, not three designs:
+     dense        operational default -- scanning 14k-row member lists
+     comfortable  lower information density, easier on long sessions
+     vr           the web UI viewed through a headset (see --vr note below)
+
+   VR is not "comfortable, but more". Headset displays have low effective
+   pixels-per-degree, poor black levels and chromatic fringing, and a laser
+   pointer is far less precise than a mouse. So VR mode raises hit targets past
+   the fat-finger threshold, lifts body text above the mush floor, thickens
+   1px borders that otherwise vanish, and pulls pure black/white back from the
+   extremes because both bloom.
+   ─────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-serif: "IBM Plex Serif", Georgia, serif;
+}
+
+:root {
+  --radius: 0.375rem;
+
+  /* Light */
+  --background: #fafbfc;
+  --foreground: #16181f;
+  --card: #ffffff;
+  --card-foreground: #16181f;
+  --popover: #ffffff;
+  --popover-foreground: #16181f;
+  --primary: #5b4bd6;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f5f8;
+  --secondary-foreground: #16181f;
+  --muted: #f3f5f8;
+  --muted-foreground: #5c6475;
+  --accent: #eeebfd;
+  --accent-foreground: #5b4bd6;
+  --destructive: #d8324b;
+  --destructive-foreground: #ffffff;
+  --border: #e3e7ee;
+  --input: #cfd5e0;
+  --ring: #5b4bd6;
+
+  --warn: #b87508;
+  --ok: #14865f;
+  --info: #1c72c4;
+
+  /* Density — dense is the default */
+  --row-h: 2.125rem;
+  --control-h: 1.875rem;
+  --text-base: 0.8125rem;
+  --text-small: 0.75rem;
+  --hairline: 1px;
+}
+
+.dark {
+  --background: #0d0e12;
+  --foreground: #e6e8ee;
+  --card: #14161c;
+  --card-foreground: #e6e8ee;
+  --popover: #14161c;
+  --popover-foreground: #e6e8ee;
+  --primary: #7c6cf5;
+  --primary-foreground: #ffffff;
+  --secondary: #1b1e26;
+  --secondary-foreground: #e6e8ee;
+  --muted: #1b1e26;
+  --muted-foreground: #9aa1b1;
+  --accent: #2a2547;
+  --accent-foreground: #b6acff;
+  --destructive: #f0526a;
+  --destructive-foreground: #ffffff;
+  --border: #272b36;
+  --input: #343947;
+  --ring: #7c6cf5;
+
+  --warn: #e8a33d;
+  --ok: #3fbf8f;
+  --info: #4aa3f0;
+}
+
+[data-density="comfortable"] {
+  --row-h: 2.75rem;
+  --control-h: 2.25rem;
+  --text-base: 0.875rem;
+  --text-small: 0.8125rem;
+}
+
+/* VR: every number here has a reason, not a multiplier. */
+[data-density="vr"] {
+  --row-h: 3.5rem;        /* laser-pointer targets, not mouse targets */
+  --control-h: 3rem;      /* >= 48px, the fat-finger floor */
+  --text-base: 1.125rem;  /* below ~16px is mush at headset PPD */
+  --text-small: 1rem;
+  --hairline: 2px;        /* 1px borders disappear entirely */
+  --radius: 0.5rem;
+}
+/* Headset panels bloom at the extremes, so pull black and white inward and
+   lift muted text -- low-contrast greys that read fine on a monitor vanish. */
+[data-density="vr"].dark {
+  --background: #15171e;
+  --card: #1c1f28;
+  --foreground: #f2f4f8;
+  --muted-foreground: #b9c0cf;
+  --border: #363c4a;
+}
+[data-density="vr"]:not(.dark) {
+  --background: #f2f4f7;
+  --foreground: #0f1116;
+  --muted-foreground: #4a5261;
+  --border: #c9d0db;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-warn: var(--warn);
+  --color-ok: var(--ok);
+  --color-info: var(--info);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+}
+
+@layer base {
+  * { border-color: var(--border); }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    /* Tabular figures everywhere. Modbot is made of number columns; without
+       this they develop a ragged edge and scanning breaks. */
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+}

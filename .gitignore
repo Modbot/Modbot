@@ -72,3 +72,7 @@ explore/responses/
 [Bb]in/
 [Oo]bj/
 logs/
+
+# Node
+node_modules/
+src/Modbot.Host/wwwroot/
