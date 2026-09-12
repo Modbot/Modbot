@@ -1,0 +1,21 @@
+2026-09-12 17:34:59.250 -05:00 [INF] Modbot starting on port 8097
+2026-09-12 17:34:59.348 -05:00 [INF] Now listening on: http://0.0.0.0:8097
+2026-09-12 17:34:59.350 -05:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-09-12 17:34:59.350 -05:00 [INF] Hosting environment: Production
+2026-09-12 17:34:59.350 -05:00 [INF] Content root path: C:\Users\sarma\source\repos\binn\Modbot\src\Modbot.Host
+2026-09-12 17:35:07.587 -05:00 [INF] Request starting HTTP/1.1 GET http://localhost:8097/api/version - null null
+2026-09-12 17:35:07.644 -05:00 [INF] Executing endpoint 'HTTP: GET /api/version'
+2026-09-12 17:35:07.650 -05:00 [INF] Setting HTTP status code 200.
+2026-09-12 17:35:07.661 -05:00 [INF] Writing value of type 'VersionResponse' as Json.
+2026-09-12 17:35:07.665 -05:00 [INF] Executed endpoint 'HTTP: GET /api/version'
+2026-09-12 17:35:07.666 -05:00 [INF] Request finished HTTP/1.1 GET http://localhost:8097/api/version - 200 null application/json; charset=utf-8 81.1139ms
+2026-09-12 17:35:07.897 -05:00 [INF] Request starting HTTP/1.1 GET http://localhost:8097/api/openapi/v1.json - null null
+2026-09-12 17:35:07.899 -05:00 [INF] Executing endpoint 'HTTP: GET /api/openapi/{documentName}.json'
+2026-09-12 17:35:07.921 -05:00 [INF] No action descriptors found. This may indicate an incorrectly configured application or missing application parts. To learn more, visit https://aka.ms/aspnet/mvc/app-parts
+2026-09-12 17:35:08.017 -05:00 [INF] Executed endpoint 'HTTP: GET /api/openapi/{documentName}.json'
+2026-09-12 17:35:08.017 -05:00 [INF] Request finished HTTP/1.1 GET http://localhost:8097/api/openapi/v1.json - 200 null application/json;charset=utf-8 120.717ms
+2026-09-12 17:35:08.284 -05:00 [INF] Request starting HTTP/1.1 GET http://localhost:8097/api/reference - null null
+2026-09-12 17:35:08.284 -05:00 [INF] Executing endpoint 'HTTP: GET /api/reference/{documentName?}'
+2026-09-12 17:35:08.288 -05:00 [INF] Executing RedirectResult, redirecting to reference/.
+2026-09-12 17:35:08.288 -05:00 [INF] Executed endpoint 'HTTP: GET /api/reference/{documentName?}'
+2026-09-12 17:35:08.289 -05:00 [INF] Request finished HTTP/1.1 GET http://localhost:8097/api/reference - 302 0 null 4.4571ms

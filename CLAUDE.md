@@ -28,6 +28,23 @@ say which one and why.
 | `explore/` | Scratch tool for probing the live VRChat API. Not part of the product. |
 | `libs/`, `old/` | Gitignored reference clones. Never edit; never import from. |
 
+## Running the tests
+
+```
+dotnet run --project tests/Modbot.Core.Tests -c Release
+```
+
+**Not `dotnet test`.** The suites are xUnit v3 on Microsoft.Testing.Platform v2
+(`xunit.v3.mtp-v2`), which SDK 10.0.400's `dotnet test` does not drive: it reports
+*"Zero tests ran"* and exits 5 while the very same assemblies pass when run directly.
+
+That failure mode is worth knowing, because it is easy to misread as "the tests are broken"
+rather than "the runner is wrong". CI runs each suite directly for the same reason.
+
+The data tests need **Docker** — they run against real PostgreSQL via Testcontainers rather
+than a substitute provider, because Modbot depends on table partitioning, `jsonb`, GIN indexes
+and advisory locks, and an in-memory provider implements none of them.
+
 ## Standing rules
 
 These are recorded in the foundation spec and are easy to violate by accident:

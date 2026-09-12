@@ -1,0 +1,15 @@
+2026-09-12 16:38:10.100 -05:00 [INF] Modbot starting on port 8098
+2026-09-12 16:38:10.129 -05:00 [INF] VRChat GET groups.members -> 200 in 184 ms
+2026-09-12 16:38:10.133 -05:00 [DBG] VRChat groups.members limiter state after call
+2026-09-12 16:38:10.134 -05:00 [WRN] VRChat GET groups.members -> 429 in 91 ms
+2026-09-12 16:38:10.134 -05:00 [DBG] VRChat groups.members limiter state after call
+2026-09-12 16:38:10.192 -05:00 [DBG] Hosting starting
+2026-09-12 16:38:10.201 -05:00 [WRN] The WebRootPath was not found: C:\Users\sarma\source\repos\binn\Modbot\src\Modbot.Host\wwwroot. Static files may be unavailable.
+2026-09-12 16:38:10.202 -05:00 [DBG] Middleware configuration started with options: {AllowedHosts = *, AllowEmptyHosts = True, IncludeFailureMessage = True}
+2026-09-12 16:38:10.203 -05:00 [DBG] Wildcard detected, all requests with hosts will be allowed.
+2026-09-12 16:38:10.213 -05:00 [INF] Now listening on: http://0.0.0.0:8098
+2026-09-12 16:38:10.213 -05:00 [DBG] Loaded hosting startup assembly Modbot.Host
+2026-09-12 16:38:10.213 -05:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-09-12 16:38:10.213 -05:00 [INF] Hosting environment: Production
+2026-09-12 16:38:10.213 -05:00 [INF] Content root path: C:\Users\sarma\source\repos\binn\Modbot\src\Modbot.Host
+2026-09-12 16:38:10.213 -05:00 [DBG] Hosting started

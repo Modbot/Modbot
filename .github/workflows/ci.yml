@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      # `dotnet test` does not drive Microsoft.Testing.Platform v2 on SDK 10.0.400 -- it
+      # reports zero tests and exits 5. Run each suite directly instead. Docker is present
+      # on ubuntu-latest, which Testcontainers needs for the real PostgreSQL the data tests
+      # run against.
+      - name: Test
+        run: |
+          set -e
+          for proj in tests/*/; do
+            if [ -f "$proj"*.csproj ] && [ "$(basename "$proj")" != "Modbot.TestSupport" ]; then
+              echo "::group::$(basename "$proj")"
+              dotnet run --project "$proj" --configuration Release --no-build
+              echo "::endgroup::"
+            fi
+          done
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/Modbot.Web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/Modbot.Web/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit -p tsconfig.app.json
+      - run: npm run build

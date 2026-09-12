@@ -1,0 +1,6 @@
+{"@t":"2026-09-12T21:38:10.1006693Z","@mt":"Modbot starting on port {Port}","Port":8098}
+{"@t":"2026-09-12T21:38:10.2014399Z","@mt":"The WebRootPath was not found: {WebRootPath}. Static files may be unavailable.","@l":"Warning","WebRootPath":"C:\\Users\\sarma\\source\\repos\\binn\\Modbot\\src\\Modbot.Host\\wwwroot","EventId":{"Id":16,"Name":"WebRootPathNotFound"},"SourceContext":"Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware"}
+{"@t":"2026-09-12T21:38:10.2131533Z","@mt":"Now listening on: {address}","address":"http://0.0.0.0:8098","EventId":{"Id":14,"Name":"ListeningOnAddress"},"SourceContext":"Microsoft.Hosting.Lifetime"}
+{"@t":"2026-09-12T21:38:10.2136034Z","@mt":"Application started. Press Ctrl+C to shut down.","SourceContext":"Microsoft.Hosting.Lifetime"}
+{"@t":"2026-09-12T21:38:10.2137146Z","@mt":"Hosting environment: {EnvName}","EnvName":"Production","SourceContext":"Microsoft.Hosting.Lifetime"}
+{"@t":"2026-09-12T21:38:10.2137619Z","@mt":"Content root path: {ContentRoot}","ContentRoot":"C:\\Users\\sarma\\source\\repos\\binn\\Modbot\\src\\Modbot.Host","SourceContext":"Microsoft.Hosting.Lifetime"}
