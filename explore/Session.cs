@@ -136,8 +136,25 @@ public static class Session
 
             if (auth is null) return;
 
-            File.WriteAllText(CachePath, JsonSerializer.Serialize(
-                new Cached(auth, twoFactor ?? string.Empty, DateTimeOffset.UtcNow)));
+            // This file holds a live VRChat session cookie -- a credential. Default creation
+            // permissions are world-readable on Linux (umask 022 -> 0644), so create it
+            // owner-only. UnixCreateMode is not supported on Windows, where the user profile's
+            // inherited ACL already restricts access.
+            var options = new FileStreamOptions
+            {
+                Mode = FileMode.Create,
+                Access = FileAccess.Write,
+            };
+
+            if (!OperatingSystem.IsWindows())
+                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+
+            using (var stream = new FileStream(CachePath, options))
+            using (var writer = new StreamWriter(stream))
+            {
+                writer.Write(JsonSerializer.Serialize(
+                    new Cached(auth, twoFactor ?? string.Empty, DateTimeOffset.UtcNow)));
+            }
 
             Log.Debug("Saved session to {Path}", CachePath);
         }
