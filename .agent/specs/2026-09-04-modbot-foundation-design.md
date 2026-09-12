@@ -960,18 +960,47 @@ migration, DST bug) cannot make it believe a penalty has expired.
 Logging is **Serilog**, writing several tracks at once. Two are always on, two are opt-in.
 
 **Console is its own profile.** File logging is **three separate streams**, each answering a
-different question. Seq is optional on top.
+different question, and **each written in both JSONL and plain text**. Seq is optional on top.
 
-| Profile | Destination | Level | Contents |
-|---|---|---|---|
-| **Console** | stdout, rendered text | `Information` | What a human watching a terminal or `railway logs` needs. Concise, no noise. |
-| **Main** | `modbot_log_<MM-dd-yyyy>_<epoch>.jsonl` | `Information` | The application record — syncs, moderation, notifications, config changes. **Excludes HTTP.** |
-| **Debug** | `modbot_log_debug_<MM-dd-yyyy>_<epoch>.jsonl` | `Debug` | Everything, verbose, including HTTP. Off in production unless an operator turns it on. |
-| **HTTP** | `modbot_log_http_<MM-dd-yyyy>_<epoch>.jsonl` | `Information` | VRChat and Discord API traffic **only**: method, endpoint class, status, duration, bucket state, retry-after. |
-| Seq | network | `Debug` | Opt-in, structured browsing during development. |
-| Log server | network | — | A future Modbot-native sink. Not built. |
+| Profile | Level | Contents |
+|---|---|---|
+| **Console** | `Information` | What a human watching a terminal or `railway logs` needs. Concise, no noise. |
+| **Main** | `Information` | The application record — syncs, moderation, notifications, config changes. **Excludes HTTP.** |
+| **Debug** | `Debug` | Everything, verbose, including HTTP. Off in production unless an operator turns it on. |
+| **HTTP** | `Information` | VRChat and Discord API traffic **only**: method, endpoint class, status, duration, bucket state, retry-after. |
+| Seq | `Debug` | Opt-in, structured browsing during development. |
+| Log server | — | A future Modbot-native sink. Not built. |
 
-All file streams are JSONL — one compact JSON object per line.
+Each file stream produces a matched pair:
+
+```
+logs/
+  modbot_log_09-12-2026_1757707200.jsonl          ← queryable
+  modbot_log_09-12-2026_1757707200.txt            ← readable
+  modbot_log_debug_09-12-2026_1757707200.jsonl
+  modbot_log_debug_09-12-2026_1757707200.txt
+  modbot_log_http_09-12-2026_1757707200.jsonl
+  modbot_log_http_09-12-2026_1757707200.txt
+```
+
+#### Why both formats of every stream
+
+They serve different readers, and neither substitutes for the other.
+
+**Text is what a self-hoster opens when something breaks**, at an hour when they are not going to
+install `jq` or learn a query syntax. It has to be legible with `cat`, `tail -f`, or Notepad, and
+pasteable into a GitHub issue.
+
+**JSONL is what survives contact with a real question.** *"Every 429 on `groups.members` in the last
+week, with the bucket state at the time"* is a one-line query against structured properties, and
+completely unanswerable against a rendered sentence that flattened them into prose.
+
+Pairing them per stream rather than picking one removes the choice between being readable now and
+queryable later. The cost is disk, which §retention already bounds, and it is a good trade: the
+moment you need the queryable version is usually the moment it is too late to start writing it.
+
+The text rendering carries the same events and the same correlation ids as its JSONL twin — same
+content, different presentation, never a different filter.
 
 #### Why HTTP gets its own file
 
@@ -999,6 +1028,12 @@ lived four seconds" by looking at filenames is how you spot one.
 
 Streams roll by size within a run, and are pruned by count and age so a self-hosted appliance cannot
 fill its own disk.
+
+**Retention matters more with six files than it would with one.** The Debug stream in particular is
+unbounded by design -- it is the one that records everything -- so its text twin is the largest
+artefact Modbot produces. Defaults are conservative, per-stream, and configurable in `Settings`:
+Debug is **off** unless an operator enables it, and when enabled it is retained for days rather than
+weeks. Main and HTTP are retained longer because they are the ones worth going back to.
 
 #### Routing
 
