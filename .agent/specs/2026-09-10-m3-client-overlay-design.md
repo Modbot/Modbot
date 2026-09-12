@@ -117,6 +117,8 @@ hold one.
   every other moderator's token.
 - **Issued by a short-lived pairing code** shown in the web UI and typed into the client once, so the
   token itself never travels through a chat message or email.
+- **One per server, per device.** A moderator staffing two groups pairs the same client twice and
+  holds two unrelated tokens; neither group's operator learns of the other (5.5.1).
 - **Attributable.** Every fact records which device token submitted it, which makes a compromised or
   misbehaving client identifiable and its facts revocable as a set.
 - Last-seen timestamp and client version surfaced in settings, so an operator can see which
@@ -157,6 +159,56 @@ the "what I have sent" view. Replayed facts carry their original `occurred_at`; 
 Foundation §3.1 applies. Instance capacity is read from the API, never assumed to be 80 — VRChat
 grants exemptions raising it to 200–300, and a group with one must not see "80/80 — full" for an
 instance holding 240 people.
+
+---
+
+### 5.5 One client, many servers
+
+A moderator may be staff in several groups, each running its own Modbot on its own upgrade schedule
+(foundation §2.7.4). The client therefore holds **many server connections**, not one.
+
+```
+                    ┌──────────────┐
+   VRChat log ─────▶│  log reader  │   read ONCE
+                    └──────┬───────┘
+                           │  parsed events, tagged with owning group
+                    ┌──────▼───────┐
+                    │   router     │   which server manages this group?
+                    └──┬────────┬──┘
+                       │        │
+              ┌────────▼──┐  ┌──▼─────────┐
+              │ Server A  │  │ Server B   │   separate device tokens,
+              │ api v6    │  │ api v4     │   separate negotiated versions,
+              └───────────┘  └────────────┘   separate buffers and pause state
+```
+
+- **The log is read once.** Running one client per server would duplicate parsing, duplicate
+  reporting, and give the moderator two tray icons and two updaters for one machine.
+- **Each connection negotiates independently** and uses the protocol implementation matching its own
+  negotiated API version. The rest of the client is unaware which version any given server speaks.
+- **Per-server everything**: device token, pairing, buffer, pause state, health, and "what I have
+  sent" (§3.3). A moderator must be able to pause reporting to one group without pausing the other.
+
+#### 5.5.1 Cross-group leakage is a hard boundary
+
+**Events for one group must never reach another group's server.** Not filtered out on receipt —
+never sent.
+
+This follows directly from §3.1: filtering happens on the moderator's PC, and the whole trust
+argument is "it never left your machine." A moderator staffing two unrelated communities must be able
+to install one client without either group's operator gaining visibility into the other's instances.
+
+Routing is therefore by **owning group**, established before transmission, with events whose group
+cannot be determined dropped rather than broadcast. This is the single most important test in the
+multi-server work, and its failure mode is silent — everything appears to function while one
+community's data quietly accumulates in another's database.
+
+#### 5.5.2 The overlay follows the instance
+
+With multiple servers configured, the overlay shows context from **whichever server manages the
+instance the moderator is currently in**. Flagged-user alerts, history lookups and roster come from
+that group's Modbot, and the overlay makes clear which group it is speaking for — a moderator seeing
+a flag needs to know whose flag it is.
 
 ---
 
@@ -396,6 +448,11 @@ These need answers before the plan is written, and at least the first needs hand
    binary is exactly the thing §3 asks people to trust. Signed releases and a visible,
    consent-gated update prompt are the likely answer.
 5. **Pairing code UX** for a moderator who is already in VR when they install.
+8. **How the client determines which group owns an instance**, which is what routing (5.5) and the
+   cross-group boundary (5.5.1) both depend on. If the log line does not name the owning group, the
+   client must ask a server -- and asking the wrong one is itself a small leak. Likely answer: each
+   paired server declares its managed group id at pairing time, and the client matches locally
+   against that list, asking nobody.
 6. **Signing identity and subject name**, chosen once (§8.2). Reputation accrues to it and resets if
    it changes, so this is effectively irreversible and should be decided before the first public
    release rather than after.

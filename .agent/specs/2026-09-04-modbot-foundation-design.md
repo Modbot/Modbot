@@ -191,36 +191,58 @@ upgrade** — which presents as a broken updater and is very hard to diagnose af
 absence of packing here is the main practical reason this format was chosen over a day-plus-suffix
 scheme.
 
-#### 2.7.3 API version — a plain integer
+#### 2.7.3 API version — a plain integer, and **both sides advertise a range**
 
-The server advertises an **API version**: a single integer, incremented **only on a breaking change**
-to the interfaces the client depends on.
+The API version is a single integer, incremented **only on a breaking change** to the interfaces the
+client depends on. It is deliberately not the calendar version: release versions change constantly,
+API compatibility changes rarely, and a client forced to match a calendar version would break every
+time the server shipped a typo fix.
 
-It is deliberately not the calendar version. Release versions change daily; API compatibility changes
-rarely. A client that had to match a calendar version would be incompatible with a server that merely
-shipped a typo fix.
+**Both sides support a range, not a point.** This is the part that matters, and the reason is §2.7.4:
 
-- The server exposes it on an unauthenticated endpoint, so a client can check compatibility before it
-  has credentials.
-- The client declares the **range** of API versions it supports, not a single value, so one client
-  build works across a span of server releases.
-- Incompatibility is reported as a clear, actionable message naming both versions — never a parse
-  failure or a silent no-op.
+```
+  server advertises   { apiVersionMin: 3, apiVersionMax: 6 }
+  client supports     { apiVersionMin: 4, apiVersionMax: 7 }
+  negotiated          6        highest mutually supported
+```
 
-#### 2.7.4 Matching a client to a server
+- The server exposes its range on an **unauthenticated** endpoint, so a client can negotiate before
+  it holds credentials.
+- Negotiation picks the highest version both sides support. No overlap is a clear, actionable error
+  naming both ranges — never a parse failure, and never a silent no-op.
+- **Deprecation policy:** a server supports the current API version plus **at least the two previous
+  ones**, and never drops a version less than **12 months** old. This is what gives client authors a
+  wide enough window that moderators are not forced to update in lockstep with every server they
+  connect to.
 
-Moderators should not have to work out which client build to install.
+#### 2.7.4 One client, many servers, different versions
 
-1. The client (or the pairing flow) reads the server's API version.
-2. It consults the release manifest, in which **every release declares the API versions it supports**.
-3. It selects the newest client build compatible with that server.
+**A moderator can be staff in more than one group**, each running its own Modbot on its own upgrade
+schedule. One person's client may therefore be talking to a server on API version 4 and another on
+version 6, at the same time.
 
-The manifest is a static file (see the central services spec), so this lookup happens **in the
-client** and needs no server-side logic — which is what keeps `my.modbot.co` and the release host
-free of application code and free of any knowledge of who is asking.
+This rules out the obvious design — "read the server's version, install the matching client" —
+because there is no single server to match. It also rules out installing one client per server: they
+would each tail the same VRChat log, duplicate the same work, and present the moderator with two tray
+icons and two updaters for one machine.
 
-A server ahead of every available client, or behind all of them, is stated plainly with both numbers
-and what to do about it.
+So:
+
+- **The client is version-agnostic by construction.** It implements the protocol once per supported
+  API version behind a single internal interface, and selects the right implementation **per server
+  connection** after negotiating with each.
+- **Installing is just "newest".** Because servers support a range covering the last several versions,
+  the newest client speaks to every reasonably-current server. Client selection needs no knowledge of
+  any particular server, which removes the per-server lookup entirely.
+- **Compatibility is a server obligation, not a client scavenger hunt.** The deprecation window in
+  §2.7.3 is what makes "install the newest client" reliably correct.
+
+The ingest surface is small — presence facts, time sync, pairing, handshake — which is precisely why
+this is affordable. A small API that only ever gains optional fields can stay compatible for years,
+and breaking changes should be rare enough that the two-version window is generous rather than tight.
+
+M3 §5.5 covers the client-side consequences: shared log reading, per-server routing, and the hard
+rule that one group's events must never reach another group's server.
 
 #### 2.7.5 Upgrade risk is metadata, not something you infer from the number
 
