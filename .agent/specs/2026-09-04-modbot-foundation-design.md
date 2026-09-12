@@ -652,6 +652,37 @@ This matters most for the negative case: **"no flags found" on a profile last re
 not the same claim as "no flags found" on one refreshed an hour ago**, and a moderator must be able
 to tell the difference.
 
+#### 4.2.5.1 User search — interactive only, never swept
+
+`users.read` covers users Modbot already knows about. **Finding someone who is not in the group** —
+to ban pre-emptively, or to invite — needs the search endpoint, and that is a different animal.
+
+**Its rate limit is severe: 1 request per 3.5 seconds.** An order of magnitude worse than
+`users.read`, and roughly 25× worse than the group endpoints.
+
+So it gets its own bucket, its own lane, and one hard rule:
+
+> **Search is never called by an automatic sync, a background job, or a scheduled task.**
+> Only ever by a human who typed something and is waiting for the answer.
+
+That is not a guideline to be relaxed later. Any background use — pre-resolving names, enriching a
+list, warming a cache — would consume the entire lane and make interactive search unusable, which is
+the only thing it is for.
+
+Consequences for the UI, since 3.5 seconds is long enough that people will click twice:
+
+- **Debounce and require submission.** No search-as-you-type; a query fires when the user asks for it.
+- **Show the queue.** If a search is waiting behind another, say so, with position. A spinner that
+  might mean three seconds or thirty is worse than a number.
+- Deduplicate identical in-flight queries, and cache recent results briefly so a re-search of the same
+  term is free.
+- **Search the local cache first, always.** Most lookups are for people already in the group, and
+  those are answered instantly from `pg_trgm` (§6.4) with no API call at all. The remote search is the
+  fallback for "not found locally", offered explicitly rather than fired automatically.
+
+That last point is the one that makes the limit tolerable: the expensive path is reached only when
+the cheap one has already failed.
+
 #### 4.2.6 Profile screening
 
 Bios, display names, statuses and pronouns are user-authored text, and screening them is a core
@@ -876,6 +907,46 @@ guarantee it. So in addition:
 
 The gate uses the same clock for its rate-limit windows, so a host clock adjustment (NTP step, VM
 migration, DST bug) cannot make it believe a penalty has expired.
+
+### 4.4.1 Logging — Serilog, four tracks
+
+Logging is **Serilog**, writing several tracks at once. Two are always on, two are opt-in.
+
+| Track | Format | Purpose | Default |
+|---|---|---|---|
+| **Console** | rendered text | someone watching a terminal or `railway logs` | **on** |
+| **JSONL file** | one compact JSON object per line | the queryable record — `jq`, `grep`, later import | **on** |
+| **Text file** | rendered text, rolling daily | the same content on disk, readable without tooling | **on** |
+| **Seq** | Seq sink | structured log browsing during development | **opt-in** |
+| Log server | proprietary | a future Modbot-native sink | **not built yet** |
+
+#### Why both a text file and a JSONL file
+
+They serve different readers and neither substitutes for the other. Text is what a self-hoster opens
+when something breaks, and it has to be legible without installing anything. **JSONL is what survives
+contact with a real question** — "every 429 on `groups.members` in the last week, with the bucket
+state at the time" is a one-line `jq` query against structured properties, and completely
+unanswerable against a rendered sentence that flattened them into prose.
+
+Writing both costs a little disk and removes the choice between being readable now and being
+queryable later.
+
+#### Rules
+
+- **Structured properties, never interpolation.** `Log.Information("Synced {Count} members for {Group}", n, id)` —
+  not `$"Synced {n} members"`. The interpolated version is identical in the console and worthless in
+  the JSONL, which defeats the entire point of having it.
+- **Secrets never reach a sink.** VRChat credentials, auth cookies, device tokens, SMTP passwords,
+  Discord tokens and proxy credentials are redacted at the logging boundary, not trusted to call
+  sites. This pairs with §5.9.3's rule for the audit log, and the same reasoning applies: a log file
+  is something operators are encouraged to read and paste into issues.
+- **Correlation ids** on every request and every sync run, so one operation's lines can be pulled out
+  of an interleaved file.
+- **Seq is configured in `Settings`**, like everything else (§2.6) — absent config means the sink is
+  simply not registered, never a broken logger or a stream of connection errors.
+- Files roll daily with a retention limit, because a self-hosted appliance must not fill its own disk.
+
+A working implementation of exactly this lives in `explore/Logging.cs`, prototyped ahead of M0.
 
 ### 4.5 Notifications — one pipeline, several channels
 

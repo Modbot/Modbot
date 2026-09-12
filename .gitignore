@@ -58,3 +58,7 @@ Thumbs.db
 .remember/
 
 output_log_*.txt
+
+# explore scratch output
+explore/responses/
+explore/logs/
