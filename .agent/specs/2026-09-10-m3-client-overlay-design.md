@@ -42,9 +42,25 @@ it is:
 - **Not a TOS problem.** Reading a file the application wrote for its own diagnostics is categorically
   different from modifying the client, which is what gets people banned.
 
-The cost is real and must be stated plainly: **the log format is undocumented and can change without
-notice.** Parsing is therefore isolated behind one interface with recorded fixture logs, so a format
-break is a contained failure with clear diagnostics — not a silent data stoppage.
+The format is undocumented, but the usual worry about that does not apply here.
+
+**There is only ever one log format in the wild.** VRChat refuses connections from outdated clients,
+so every player is on the current build by force. There is no long tail of old versions to support,
+no format-version detection, no fallback chain, and no compatibility shims. The format has also been
+stable for roughly six years.
+
+So: **one parser, for the current format, and nothing else.** Fixtures exist as regression tests, not
+as a compatibility matrix.
+
+The real risk is not *supporting* a change — it is the **time between a change landing and a fixed
+client reaching moderators**. And forced updates make that risk sharper rather than softer: when
+VRChat changes the format, **every Modbot client breaks at once**, with no gradual rollout to notice
+it happening.
+
+That reframes two other parts of this spec. §2.2's loud-failure alarm is what makes the break
+*visible* quickly, and §9's update mechanism is what makes the fix *arrive* quickly — which is why
+updates are near-mandatory (§9.3) rather than a convenience. Detection speed and delivery speed are
+the entire mitigation.
 
 ### 2.2 Failing loudly
 
@@ -55,6 +71,63 @@ So the client tracks **matched-line rate** and raises a `Critical` notification 
 when VRChat is demonstrably running and producing log output but Modbot has recognised nothing for
 a threshold period. "I can see the log growing and I no longer understand it" is a fault worth
 waking someone for.
+
+### 2.3 Verbose logging is a prerequisite, and it needs a launch flag
+
+The log detail Modbot depends on is only produced when VRChat is started with a **command-line
+flag**. Without it the client runs, reads the log, and silently learns nothing useful.
+
+This makes flag setup a **first-run blocker** for the client, not a settings-page detail.
+
+#### 2.3.1 Detect from the log, not from Steam's configuration
+
+The obvious approach — read Steam's `localconfig.vdf` to see whether the flag is set — is the wrong
+one on three counts:
+
+1. **It does not generalise.** VRChat is also launched from the Oculus store, from a desktop
+   shortcut, and from a non-Steam copy. Steam's config answers the question for one launcher.
+2. **It answers the wrong question.** What matters is whether *the running VRChat* has verbose output,
+   not whether a config file contains a string.
+3. **It reads another application's configuration**, which is squarely the behaviour §8.1 is trying
+   to avoid looking like.
+
+Instead: **detect from the log itself.** The client watches for a sentinel — a line shape that
+appears if and only if verbose logging is on — and concludes the flag is missing when VRChat is
+demonstrably running and writing output but the sentinel never appears.
+
+This works for every launcher, needs no file access outside the log directory, and verifies the thing
+that actually matters. It is also self-verifying after the fix: the user restarts VRChat, the
+sentinel appears, the client confirms it without being asked.
+
+#### 2.3.2 Instruct, verify — do not silently reconfigure
+
+When the flag is missing, the client shows **platform-specific instructions** with the exact flag on a
+copy button: Steam launch options, Oculus, or a desktop shortcut's target. Then it waits, watches, and
+confirms once VRChat is restarted.
+
+**Writing the flag into Steam's configuration automatically is available only as an explicit,
+consented action**, never a default and never silent. If offered at all it must:
+
+- state exactly which file it will modify and what it will add;
+- **require Steam to be closed**, because Steam rewrites `localconfig.vdf` on exit and will discard
+  the change otherwise;
+- back the file up first;
+- handle Steam installed outside the default path, and multiple Steam user profiles.
+
+The reason for the caution is §8.1. Modbot's client already looks like an infostealer to a heuristic
+scanner; software that also **edits another application's configuration without asking** looks like a
+game-hacking tool, and the trust argument in §3 is not compatible with doing it quietly. A moderator
+pasting one flag into a text box is a small cost, and it keeps the client's behaviour inside what
+§3.2's comments can honestly describe.
+
+#### 2.3.3 Ongoing
+
+The flag can be removed later — a Steam reinstall, a shortcut replaced, a second PC. The client
+therefore treats the sentinel as an ongoing health signal rather than a one-time check, and raises the
+missing-flag prompt again rather than reporting nothing forever.
+
+This shares the mechanism with §2.2's format-break alarm; the two conditions are distinguished by
+whether *any* recognised lines are appearing at all.
 
 ---
 
@@ -452,9 +525,9 @@ a stale parser.
 
 These need answers before the plan is written, and at least the first needs hands on a real log file.
 
-1. **Log format specifics.** Exact line shapes for join, leave and avatar change; how instance ids
-   and privacy types appear; behaviour on log rotation and on multiple VRChat sessions. Needs a
-   research pass against real logs, with fixtures recorded into `tests/`.
+1. ~~Log format specifics.~~ **Largely answered** from a real 17k-line sample -- see
+   `.agent/research/vrchat-log-events.md` for the full event catalogue, the phantom-burst problem,
+   and parsing hazards. Log rotation and concurrent sessions remain unverified.
 2. **Leave detection on crash.** If VRChat exits uncleanly, is there a leave line at all? If not,
    sessions need a server-side timeout heuristic — and that heuristic must be visible in the data
    (`occurred_before`, foundation §5.3) rather than inventing a precise departure time.
@@ -486,3 +559,10 @@ These need answers before the plan is written, and at least the first needs hand
     name is a separate mutable field; both are hostile input on display surfaces (M6 §4.1.1), and
     identity is `worldId` + `instanceId`. Confirm parsing against the real log sample, including a
     group instance whose id was set to free text via VRCX.
+11. **The verbose-logging flag itself** (2.3): its exact name, and a **sentinel line shape that
+    appears if and only if it is enabled**. The sentinel is what 2.3.1's detection is built on, so
+    it needs confirming against a log captured WITHOUT the flag -- the sample analysed so far was
+    captured with it on, which shows what is present but not what is missing.
+12. **Whether the instance API exposes occupants' avatar ids.** Avatar ids are absent from the log
+    (research 4), which blocks M4 3.2's ban-by-avatar-id. Worth one focused check before M4 is
+    planned, since it decides whether that feature ships or is withdrawn.
