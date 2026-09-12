@@ -352,7 +352,7 @@ and a disabled overlay notifies nobody.
 | `InstanceJoined` | `Client` | A genuine arrival, observed while already present. Deduplicated across reporting clients. |
 | `InstancePresenceObserved` | `Client` | Present when the local user arrived. **Arrival time unknown and earlier** — see §7.1 |
 | `InstanceLeft` | `Client` | A genuine departure. Session duration derived from the pair. |
-| `AvatarChanged` | `Client` | Avatar **file id** and display name — *not* an avatar id. See §7.2 |
+| `AvatarChanged` | `Client` | Avatar **display name** only, from the log. Resolved to `avtr_…` server-side — see §7.2 |
 
 All carry `subject_platform = VRChat` (foundation §5.3), fall under the **Presence** retention class
 (90 days by default, foundation §5.5), and are covered by purge-user.
@@ -387,11 +387,65 @@ Full evidence: `.agent/research/vrchat-log-events.md` §3.
 ### 7.2 Avatar identity is resolved on the server, never the client
 
 **VRChat deliberately withholds avatar ids from clients** to frustrate avatar ripping. The log gives
-an avatar's *display name* and a **thumbnail file id** (`file_…`); it never gives `avtr_…`, and the
-file id cannot be exchanged for avatar information through VRChat's own API.
+an avatar's *display name* and nothing more — never `avtr_…`, and never a file id.
 
-So the client reports what it legitimately has — **file id and display name** — and the **server**
-resolves identity through a third-party avatar database (§7.3).
+The file id comes from **the API, not the log**, and the resolution is a three-hop chain run entirely
+on the server:
+
+```
+  GET /groups/{groupId}/instances        → live instances   (already scheduled, 1 per 8 s)
+        │
+        └─ GET /instances/{location}     → Instance.Users : LimitedUserInstance[]
+                                             ├─ Id                            usr_…
+                                             ├─ DisplayName
+                                             └─ CurrentAvatarThumbnailImageUrl
+                                                  │
+                                                  │  https://api.vrchat.cloud/api/1/file/file_66fe…/1/file
+                                                  │                                     └── file id ──┘
+                                                  ▼
+                                          avatar database (§7.3), keyed on file id  →  avtr_…
+```
+
+#### 7.2.1 Per instance, not per user — and that is the whole ballgame
+
+`Instance.Users` returns **every occupant with their avatar thumbnail in a single call.** The naive
+alternative — `GET /users/{id}` for each person — is catastrophically more expensive:
+
+| Approach | Requests for 30 instances × 80 users | At the §4.2 budget |
+|---|---|---|
+| Per user | ~2,400 | **hours** |
+| **Per instance** | **~31** | **~4 minutes** |
+
+Roughly **77× cheaper**, and it rides an endpoint class the scheduler already visits. Avatar tracking
+is therefore close to free rather than budget-dominating, which is the difference between it being a
+feature and being impossible.
+
+**Never resolve avatars by iterating users.** If a future change makes per-user lookup look
+necessary, that is a signal to re-check the instance payload, not to spend the budget.
+
+#### 7.2.2 Freshness, and a free staleness check
+
+The API returns whoever's avatar is current **at the moment of the call**, so a slow resolution
+resolves the wrong avatar. Poll interval bounds accuracy, and avatar facts carry their observation
+time rather than implying continuity.
+
+The log provides a free correctness check. `Switching <user> to avatar <name>` gives the avatar's
+**display name** immediately and at no API cost; the database returns a name too. **If they disagree,
+the resolution is stale** — the user changed avatar between the log line and the API call — and the
+resolution is discarded rather than recorded against the wrong avatar.
+
+That is worth having precisely because the failure it catches is otherwise silent: a plausible
+`avtr_…` attached to the wrong moment, which would then feed M4 §3.2's avatar bans.
+
+#### 7.2.3 Why the split is right anyway
+
+Even setting the mechanics aside, resolution belongs on the server:
+
+- The client stays a passive log reader. Resolution needs outbound calls to VRChat *and* to a
+  third-party service the moderator never agreed to talk to.
+- Results are **cached once per deployment** rather than re-fetched by every moderator's client.
+- The privacy decision about a third-party lookup belongs to the group operator, once, in settings —
+  not implicitly to everyone who installs the client.
 
 This split is not a workaround; it is the correct boundary anyway:
 
@@ -686,10 +740,19 @@ These need answers before the plan is written, and at least the first needs hand
 12. ~~Whether the instance API exposes occupants' avatar ids.~~ **Answered -- it does not, by
     design.** VRChat withholds avatar ids from clients to frustrate ripping. Resolution moves
     server-side via a VRCX-compatible third-party database (7.2, 7.3), which unblocks M4 3.2.
-13. **Avatar file id in the log.** 7.2 assumes the client can read a thumbnail `file_...` id per
-    wearer. The sample analysed showed `Switching <user> to avatar <name>` with no file id -- it may
-    appear on a different line, or only under the full flag set of 2.3.0. **Confirm before planning
-    M3**, since without a per-wearer file id the server has only an avatar display name to resolve
-    from, which is much weaker.
+13. ~~Avatar file id in the log.~~ **Moot** — the file id comes from the API, not the log.
+    `Instance.Users` returns `LimitedUserInstance` carrying `CurrentAvatarThumbnailImageUrl`, with the
+    file id embedded in that URL (§7.2). The log supplies only the avatar display name, which §7.2.2
+    uses as a staleness check.
+15. **BLOCKING: is `Instance.Users` actually populated for a group instance the Modbot account is not
+    physically in?** The SDK model carries the field, but VRChat may omit or truncate it for
+    non-occupants — and the entire cost argument in §7.2.1 rests on it. Verify against a live group
+    instance before planning M3 or M6. If it comes back empty, avatar tracking needs another source,
+    because the per-user fallback is prohibitively expensive.
+16. ~~Platform field on instance occupants.~~ **Present** — `LimitedUserInstance` carries `Platform`,
+    `Bio`, `StatusDescription` and `UserIcon` as well as the avatar thumbnail. Subject to §15 being
+    confirmed, this means the instance roster alone supplies PC-vs-Quest breakdown for M2.5 metrics,
+    and **bios for M8 §4's AI profile review without any per-user calls.** Worth checking what else
+    the payload carries before designing anything that iterates users.
 14. **Response shapes of the avatar providers** in 7.3, which differ per provider and are undocumented.
     Needs one sample response from each before an adapter is written.
