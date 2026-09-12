@@ -1,0 +1,75 @@
+namespace Modbot.Core.Configuration;
+
+/// <summary>
+/// The complete set of environment variables Modbot reads. There are three.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Foundation spec section 2.6: configuration lives in the database, not the environment. VRChat
+/// credentials, the managed group, the egress proxy, Discord and SMTP are all entered through the
+/// onboarding wizard and stored in <c>Settings</c>.
+/// </para>
+/// <para>
+/// These three are the exceptions, and each earns it by being needed <em>before</em> the database is
+/// reachable:
+/// </para>
+/// <list type="bullet">
+///   <item><c>PORT</c> — supplied by the host; you cannot serve the wizard without it.</item>
+///   <item><c>DATABASE_URL</c> — how to reach the database that holds everything else.</item>
+///   <item><c>SEQ_URL</c> — optional. It is how you debug a deployment that <em>cannot</em> reach
+///   its database, which is exactly when database-stored config is no help.</item>
+/// </list>
+/// <para><strong>Do not add a fourth without the same justification.</strong></para>
+/// </remarks>
+public sealed class ModbotEnvironment
+{
+    public const string PortVariable = "PORT";
+    public const string DatabaseUrlVariable = "DATABASE_URL";
+    public const string SeqUrlVariable = "SEQ_URL";
+
+    /// <summary>Port to listen on. Defaults to 8080, which is what Railway and most hosts expect.</summary>
+    public int Port { get; init; } = 8080;
+
+    /// <summary>PostgreSQL connection, as a URL or an ADO.NET connection string.</summary>
+    public string? DatabaseUrl { get; init; }
+
+    /// <summary>Optional Seq endpoint. Null means the sink is not registered.</summary>
+    public string? SeqUrl { get; init; }
+
+    /// <summary>True when <c>MODBOT_DEBUG_LOGGING</c> is set truthy — enables the Debug streams.</summary>
+    public bool DebugLogging { get; init; }
+
+    public static ModbotEnvironment Read(IDictionary<string, string?>? source = null)
+    {
+        string? Get(string key) => source is not null
+            ? source.TryGetValue(key, out var v) ? v : null
+            : Environment.GetEnvironmentVariable(key);
+
+        var rawPort = Get(PortVariable);
+
+        return new ModbotEnvironment
+        {
+            Port = int.TryParse(rawPort, out var port) && port is > 0 and <= 65535 ? port : 8080,
+            DatabaseUrl = Blank(Get(DatabaseUrlVariable)),
+            SeqUrl = Blank(Get(SeqUrlVariable)),
+            DebugLogging = Truthy(Get("MODBOT_DEBUG_LOGGING")),
+        };
+
+        static string? Blank(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+        static bool Truthy(string? v) =>
+            v is not null && v.Trim().ToLowerInvariant() is "1" or "true" or "yes" or "on";
+    }
+
+    /// <summary>
+    /// Returns a human-readable problem, or null when the environment is usable.
+    /// </summary>
+    /// <remarks>
+    /// Missing configuration is reported as one clear sentence naming the variable, because the
+    /// person reading it is looking at a Railway dashboard rather than a stack trace.
+    /// </remarks>
+    public string? Validate() => DatabaseUrl is null
+        ? $"{DatabaseUrlVariable} is not set. Modbot needs a PostgreSQL connection string; "
+          + "on Railway, add a Postgres service and reference its connection URL."
+        : null;
+}

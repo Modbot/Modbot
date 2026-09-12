@@ -1,0 +1,320 @@
+{
+  "id": "modbot_racist_terms",
+  "name": "Racial slurs and white-supremacist signalling",
+  "description": "Racial and ethnic slurs, plus the numeric codes and dogwhistles white-supremacist accounts use to signal to each other. Most groups will want this; it is the list with the least legitimate use for the words it contains.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["general", "all-ages", "18-plus", "lgbtq", "family-friendly", "educational", "gaming", "club", "roleplay", "language-learning"],
+  "defaultSeverity": "high",
+  "rules": [
+    {
+      "id": "racist_nword_hard_r",
+      "type": "pattern",
+      "severity": "high",
+      "category": "racism",
+      "regex": "\\bn[il]gg?er(?:s|ish|ed|ing)?\\b",
+      "note": "The hard-r form. There is effectively no in-group reclaimed use of this spelling, so a match is almost always what it looks like. The one real false positive is someone quoting or reporting abuse they received -- check whether the surrounding text is condemning it. The [il] class catches the common 'nilger'/'nlgger' homoglyph substitutions that survive normalisation."
+    },
+    {
+      "id": "racist_nword_a_ending",
+      "type": "pattern",
+      "severity": "note",
+      "category": "racism",
+      "regex": "\\bnigg(?:a|uh|ah)(?:s|z)?\\b",
+      "note": "Deliberately set to 'note', not 'review'. This spelling is in everyday reclaimed use among Black speakers and is extremely common in AAVE, song lyrics and quoted lyrics. Flagging it as abuse is how a moderation tool ends up punishing Black members. It is recorded only so a moderator investigating a specific account has the context; do not action on this alone. Many groups should disable this rule outright."
+    },
+    {
+      "id": "racist_nword_total_death",
+      "type": "pattern",
+      "severity": "high",
+      "category": "white-supremacy",
+      "regex": "\\btotal n[il]gg?er death\\b",
+      "note": "An explicit genocidal slogan from the 'total X death' template. No ambiguity and no reclaimed use."
+    },
+    {
+      "id": "racist_porch_monkey",
+      "type": "pattern",
+      "severity": "high",
+      "category": "racism",
+      "regex": "\\b(?:porch monkey|jigg?aboo|tar ?baby|spear ?chucker)(?:s)?\\b",
+      "note": "Anti-Black slurs with no non-hostile use. 'Tarbaby' appears in the Uncle Remus stories and is occasionally used by folklorists in that literal sense -- if the bio is about folklore, that is your false positive."
+    },
+    {
+      "id": "racist_coon",
+      "type": "pattern",
+      "severity": "review",
+      "category": "racism",
+      "regex": "\\bcoons?\\b",
+      "note": "Anti-Black slur, but a real false-positive source: 'Coon' is a surname, 'coon' is regional slang for raccoon among hunters, and Maine Coon is a cat breed people put in bios. Word boundaries stop 'raccoon' and 'cocoon' matching, but not 'maine coon' -- read the surrounding words before acting."
+    },
+    {
+      "id": "racist_spic",
+      "type": "combination",
+      "severity": "high",
+      "category": "racism",
+      "anyOf": ["spic", "spics", "spick", "spicks"],
+      "noneOf": ["spic and span", "spick and span", "spic n span"],
+      "note": "Anti-Hispanic slur. The noneOf guard exists because 'spick and span' is an ordinary English idiom and a cleaning-product brand; without it, every tidy-bio joke flags."
+    },
+    {
+      "id": "racist_wetback_beaner",
+      "type": "pattern",
+      "severity": "high",
+      "category": "racism",
+      "regex": "\\b(?:wetback|beaner|greaser)(?:s)?\\b",
+      "note": "Anti-Hispanic and anti-Latino slurs. 'Greaser' also names a 1950s American subculture and a rockabilly aesthetic -- if the bio is full of pompadours and hot rods, that is the benign sense."
+    },
+    {
+      "id": "racist_chink",
+      "type": "combination",
+      "severity": "high",
+      "category": "racism",
+      "anyOf": ["chink", "chinks", "chinky"],
+      "noneOf": ["chink in the armor", "chink in the armour", "chink of light", "chink in his armor", "chink in her armor"],
+      "note": "Anti-Chinese and broadly anti-East-Asian slur. 'A chink in the armour' is a common idiom meaning a weak point, so it is excluded explicitly -- that phrase is the single most common false positive for this word."
+    },
+    {
+      "id": "racist_gook_zipperhead",
+      "type": "pattern",
+      "severity": "high",
+      "category": "racism",
+      "regex": "\\b(?:gook|zipperhead|slant ?eye|ching ?chong|yellow ?peril)(?:s)?\\b",
+      "note": "Anti-East-Asian slurs, several of them Vietnam- and Korea-war-era military slang. No reclaimed use worth protecting. A history or war-film discussion is the only plausible innocent context."
+    },
+    {
+      "id": "racist_kike",
+      "type": "pattern",
+      "severity": "high",
+      "category": "antisemitism",
+      "regex": "\\b(?:kike|heeb|hymie|shylock)(?:s)?\\b",
+      "note": "Antisemitic slurs. 'Shylock' is a Shakespeare character, so a theatre bio is a genuine false positive; the others have no such cover."
+    },
+    {
+      "id": "racist_sand_nword",
+      "type": "pattern",
+      "severity": "high",
+      "category": "racism",
+      "regex": "\\bsand ?n[il]gg?er(?:s)?\\b",
+      "note": "Anti-Arab slur built on the n-word. No legitimate use."
+    },
+    {
+      "id": "racist_towelhead",
+      "type": "pattern",
+      "severity": "high",
+      "category": "racism",
+      "regex": "\\b(?:towel ?head|rag ?head|camel ?jockey|dune ?coon)(?:s)?\\b",
+      "note": "Anti-Arab, anti-Sikh and anti-Muslim slurs. These are frequently aimed at Sikhs by people who think they are aiming at Muslims; either way the intent is the same."
+    },
+    {
+      "id": "racist_paki",
+      "type": "pattern",
+      "severity": "review",
+      "category": "racism",
+      "regex": "\\bpaki(?:s)?\\b",
+      "note": "A serious racial slur in the UK, Ireland and Australia, and much less recognised as one in North America -- a member may genuinely not know. Word boundaries prevent 'Pakistani' and 'Pakistan' from matching. Set to review rather than high because the abbreviation is occasionally used innocently by Pakistani people about themselves; read the bio."
+    },
+    {
+      "id": "racist_abo",
+      "type": "pattern",
+      "severity": "review",
+      "category": "racism",
+      "regex": "\\babb?os?\\b",
+      "note": "Anti-Aboriginal-Australian slur. Genuinely ambiguous in short form: 'ABO' is also the blood-group system and an abbreviation used in chemistry and gaming. Review rather than high for that reason, and expect to dismiss this one in medical or science-focused communities."
+    },
+    {
+      "id": "racist_gyppo",
+      "type": "pattern",
+      "severity": "review",
+      "category": "racism",
+      "regex": "\\b(?:gypp?o|gyppos|gyp(?:ped|ping)|pikey)(?:s)?\\b",
+      "note": "Anti-Roma and anti-Traveller slurs, including 'gypped' meaning cheated, which most speakers do not know is an ethnic slur. Note what is deliberately absent: bare 'gypsy' is NOT flagged. Many Romani people use it self-descriptively, and it is also an aesthetic label and a common name for pets, vardos and vintage clothing shops."
+    },
+    {
+      "id": "racist_dindu",
+      "type": "pattern",
+      "severity": "high",
+      "category": "racism",
+      "regex": "\\bdindu(?:s)?(?: nuffin)?\\b",
+      "note": "Mock-AAVE coinage used to caricature Black crime-victims as liars. Originates in and is essentially confined to white-nationalist forums."
+    },
+    {
+      "id": "racist_we_wuz_kangz",
+      "type": "term",
+      "severity": "high",
+      "category": "racism",
+      "match": "we wuz kangz",
+      "wholeWord": true,
+      "note": "Mock-AAVE phrase used to ridicule Afrocentric history. Appears almost exclusively as a racist in-joke."
+    },
+    {
+      "id": "racist_groid",
+      "type": "pattern",
+      "severity": "high",
+      "category": "racism",
+      "regex": "\\bgroid(?:s)?\\b",
+      "note": "Contraction of 'negroid' used as a slur on white-nationalist forums. No other meaning in English."
+    },
+    {
+      "id": "racist_miscegenation_slurs",
+      "type": "pattern",
+      "severity": "high",
+      "category": "white-supremacy",
+      "regex": "\\b(?:mudshark|coal ?burner|race ?traitor|race ?mixer)(?:s)?\\b",
+      "note": "Slurs aimed at white women in relationships with Black men, and at people who oppose racial separatism. These are a strong signal of organised white-nationalist affiliation rather than ordinary prejudice."
+    },
+    {
+      "id": "racist_chimpout",
+      "type": "pattern",
+      "severity": "high",
+      "category": "racism",
+      "regex": "\\bchimp(?:out|outs|ing out)\\b",
+      "note": "Dehumanising term for Black people expressing anger or protesting. 'Chimping' alone is also photographer slang for checking the camera's screen, which is why the regex requires 'out'."
+    },
+    {
+      "id": "racist_14_words",
+      "type": "pattern",
+      "severity": "high",
+      "category": "white-supremacy",
+      "regex": "\\b14 ?words\\b",
+      "note": "Refers to David Lane's fourteen-word white-nationalist slogan. Effectively never used to mean 'a sentence of fourteen words'."
+    },
+    {
+      "id": "racist_14_words_text",
+      "type": "term",
+      "severity": "high",
+      "category": "white-supremacy",
+      "match": "secure the existence of our people",
+      "wholeWord": true,
+      "note": "The opening of the fourteen-word slogan. Matching the text rather than the number catches accounts that avoid the numeral."
+    },
+    {
+      "id": "racist_1488",
+      "type": "pattern",
+      "severity": "high",
+      "category": "white-supremacy",
+      "regex": "\\b(?:1488|14 ?[/\\-] ?88|88 ?[/\\-] ?14)\\b",
+      "note": "14 (the fourteen words) plus 88 (HH, 'Heil Hitler'). The combined form is unambiguous. Be aware 1488 is occasionally a birth-year-plus-number coincidence in a long numeric string, which is why word boundaries are required."
+    },
+    {
+      "id": "racist_88_in_context",
+      "type": "combination",
+      "severity": "review",
+      "category": "white-supremacy",
+      "allOf": ["88"],
+      "anyOf": ["14", "heil", "hh", "white", "aryan", "blood", "honour", "honor", "reich", "wp"],
+      "noneOf": ["1988", "88 keys", "rt88", "olds 88", "route 88", "level 88", "bye bye"],
+      "withinWords": 5,
+      "note": "Bare '88' is not flagged and must not be: it is a birth year, a jersey number, piano keys, a Chinese internet goodbye ('88' = bye-bye), and part of thousands of usernames. Only 88 sitting next to other Nazi vocabulary is a signal. If the match is '1988' or a car model, dismiss it."
+    },
+    {
+      "id": "racist_echo_parentheses",
+      "type": "pattern",
+      "severity": "high",
+      "category": "antisemitism",
+      "regex": "\\({3}[^()]{1,40}\\){3}",
+      "note": "The '(((echo)))' convention, used to mark a name as Jewish. Note that some Jewish users adopted the echo around their own names in solidarity after it was exposed -- if the name inside the brackets is the account's own, that is the reclaimed use, not the attack."
+    },
+    {
+      "id": "racist_crime_stat_dogwhistle",
+      "type": "pattern",
+      "severity": "high",
+      "category": "dogwhistle",
+      "regex": "\\b13 ?[/\\-] ?(?:50|52|53|90)\\b",
+      "note": "A US crime-statistic dogwhistle. The bare numbers carry the entire argument, which is the point of a dogwhistle -- the account can deny it means anything. It has no other common use as a slashed pair."
+    },
+    {
+      "id": "racist_109_countries",
+      "type": "combination",
+      "severity": "high",
+      "category": "antisemitism",
+      "anyOf": ["109", "110"],
+      "allOf": ["countries"],
+      "withinWords": 4,
+      "note": "'Expelled from 109 countries' is a neo-Nazi talking point about Jewish people; '110' is the follow-on threat that the user's own country will be next. Requires the word 'countries' nearby because the bare numbers are meaningless on their own."
+    },
+    {
+      "id": "racist_aryan_context",
+      "type": "combination",
+      "severity": "high",
+      "category": "white-supremacy",
+      "allOf": ["aryan"],
+      "anyOf": ["race", "brotherhood", "nation", "nations", "blood", "pride", "supremacy", "master", "pure", "warrior"],
+      "withinWords": 5,
+      "note": "Aryan is a common given name in India and Iran -- flagging it bare would mean flagging South Asian members for their own names. Only flag it when white-nationalist vocabulary sits beside it. If the match is someone's display name and nothing else, dismiss."
+    },
+    {
+      "id": "racist_master_race",
+      "type": "combination",
+      "severity": "review",
+      "category": "white-supremacy",
+      "allOf": ["master race"],
+      "noneOf": ["pc master race", "pcmr", "glorious pc", "console peasant", "keyboard and mouse"],
+      "note": "'PC master race' is one of the most common gaming jokes on the internet and is explicitly excluded. What remains -- 'master race' next to an ethnicity -- is the Nazi usage. In a gaming community expect the noneOf guard to be doing most of the work."
+    },
+    {
+      "id": "racist_white_genocide",
+      "type": "pattern",
+      "severity": "high",
+      "category": "white-supremacy",
+      "regex": "\\b(?:white genocide|great replacement|grand replacement|kalergi plan|anti[ \\-]?white)\\b",
+      "note": "The replacement-conspiracy family. These are the shared premise of several mass shootings, so they are treated as high even though the words themselves are not slurs. Someone describing and criticising the conspiracy will also match -- check whether the bio is arguing for it or about it."
+    },
+    {
+      "id": "racist_iotbw",
+      "type": "pattern",
+      "severity": "review",
+      "category": "dogwhistle",
+      "regex": "\\bit.{0,2}s ok(?:ay)? to be white\\b",
+      "note": "A phrase engineered to be indefensible to object to -- that is its function as a recruitment device. It originated as a coordinated 4chan campaign. Treated as review rather than high because a member may have picked it up without knowing where it came from; the conversation is usually more useful than the ban."
+    },
+    {
+      "id": "racist_remove_kebab",
+      "type": "pattern",
+      "severity": "review",
+      "category": "dogwhistle",
+      "regex": "\\bremove kebab\\b",
+      "note": "A Serbian ultranationalist meme adopted as anti-Muslim shorthand; it was referenced in the Christchurch attack. Some younger users encounter it purely as a music meme with no idea of the context, hence review rather than high."
+    },
+    {
+      "id": "racist_deus_vult",
+      "type": "term",
+      "severity": "note",
+      "category": "dogwhistle",
+      "match": "deus vult",
+      "wholeWord": true,
+      "note": "Recorded, not flagged. 'Deus vult' is a genuine medieval crusader cry that appears constantly in Crusader Kings players' bios, history enthusiasts' profiles and Catholic accounts, and has separately been adopted by anti-Muslim accounts. On its own it tells you nothing. It is here so that if an account trips other rules in this list, you can see this too."
+    },
+    {
+      "id": "racist_dehumanising_subhuman",
+      "type": "combination",
+      "severity": "high",
+      "category": "racism",
+      "allOf": ["subhuman"],
+      "anyOf": ["blacks", "jews", "mexicans", "arabs", "asians", "muslims", "race", "races", "immigrants", "them"],
+      "withinWords": 8,
+      "note": "Dehumanising language aimed at a group. 'Subhuman' alone is used in fiction, fantasy roleplay and self-deprecating jokes, so a target group must appear near it."
+    },
+    {
+      "id": "racist_jewish_conspiracy",
+      "type": "combination",
+      "severity": "high",
+      "category": "antisemitism",
+      "anyOf": ["jews", "jewish", "zionists", "the jew"],
+      "allOf": ["control"],
+      "noneOf": ["gun control", "birth control", "control group", "controller"],
+      "withinWords": 8,
+      "note": "The 'who controls the media/banks/government' conspiracy, which is the load-bearing claim of modern antisemitism. The noneOf entries exist because 'control' is an extremely common word; without them a bio mentioning Jewish identity and a game controller would flag."
+    },
+    {
+      "id": "racist_oven_jokes",
+      "type": "combination",
+      "severity": "high",
+      "category": "antisemitism",
+      "allOf": ["oven"],
+      "anyOf": ["jews", "jew", "6 million", "six million", "gas", "shower"],
+      "withinWords": 6,
+      "note": "Holocaust 'jokes'. Ovens and gas are ordinary words -- proximity to Jewish people or to six million is what makes the match. A baking bio next to an unrelated mention will not reach within six words."
+    }
+  ]
+}

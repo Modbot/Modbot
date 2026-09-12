@@ -67,3 +67,8 @@ explore/logs/
 
 # Raw API responses contain real user data -- curate fixtures deliberately instead
 explore/responses/
+
+# .NET build output
+[Bb]in/
+[Oo]bj/
+logs/

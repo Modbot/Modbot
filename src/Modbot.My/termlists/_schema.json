@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my.modbot.co/termlists/_schema.json",
+  "title": "Modbot term list",
+  "description": "A shareable set of rules for screening VRChat profile text (bio, display name, status, pronouns). Lists are data, not code: Modbot ships none enabled by default, and a group chooses which to import. See foundation spec 4.2.6.",
+  "type": "object",
+  "required": ["id", "name", "version", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$",
+      "description": "Stable identifier, e.g. modbot_racist_terms. Never changes once published."
+    },
+    "name": { "type": "string", "description": "Human-readable name shown in the picker." },
+    "description": { "type": "string", "description": "One or two sentences: what this list is for and who should enable it." },
+    "version": { "type": "string", "description": "Calendar version, YYYY.M.PATCH." },
+    "source": { "type": "string", "description": "Where this list came from. Official lists use 'modbot'; imported lists record the instance URL they came from." },
+    "license": { "type": "string", "default": "CC0-1.0" },
+
+    "suitableFor": {
+      "type": "array",
+      "description": "Community types this list is appropriate for. Drives the picker's suggestions; never auto-enables anything.",
+      "items": {
+        "enum": ["general", "all-ages", "18-plus", "lgbtq", "family-friendly", "educational", "gaming", "club", "roleplay", "language-learning"]
+      }
+    },
+
+    "defaultSeverity": { "$ref": "#/$defs/severity" },
+
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rule" }
+    }
+  },
+
+  "$defs": {
+    "severity": {
+      "enum": ["note", "review", "high"],
+      "description": "note = record it only. review = flag for a moderator. high = flag prominently and notify. Nothing auto-actions unless a group opts that rule in explicitly."
+    },
+
+    "rule": {
+      "type": "object",
+      "required": ["type", "category"],
+      "properties": {
+        "id": { "type": "string", "description": "Optional stable id so a group can disable one rule without forking the list." },
+        "type": { "enum": ["term", "pattern", "combination", "topic"] },
+        "severity": { "$ref": "#/$defs/severity" },
+        "category": {
+          "type": "string",
+          "description": "Groups rules for reporting and per-category dismissal rates, e.g. racism, transphobia, sexual, profanity, extremism, advertising, harassment, political."
+        },
+        "note": { "type": "string", "description": "Why this rule exists, and what a false positive looks like. Shown to the reviewing moderator." },
+        "fields": {
+          "type": "array",
+          "description": "Which profile fields to check. Defaults to all.",
+          "items": { "enum": ["bio", "displayName", "status", "pronouns"] }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "term" } } },
+          "then": {
+            "required": ["match"],
+            "properties": {
+              "match": { "type": "string", "description": "Literal text. Matched after normalisation (NFKC, confusable folding, zero-width and combining-mark stripping, separator collapsing) so leetspeak and homoglyph evasion still match." },
+              "wholeWord": { "type": "boolean", "default": true, "description": "Require word boundaries. Leave true unless the term is a fragment; false is how you catch substrings but also how you catch Scunthorpe." }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "pattern" } } },
+          "then": {
+            "required": ["regex"],
+            "properties": {
+              "regex": { "type": "string", "description": "RE2-safe regular expression. No backreferences, no lookaround -- these run against untrusted input at sync rate and must not backtrack." }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "combination" } } },
+          "then": {
+            "anyOf": [{ "required": ["allOf"] }, { "required": ["anyOf"] }],
+            "properties": {
+              "allOf": { "type": "array", "items": { "type": "string" }, "description": "Every one of these must be present." },
+              "anyOf": { "type": "array", "items": { "type": "string" }, "description": "At least one of these must be present." },
+              "noneOf": { "type": "array", "items": { "type": "string" }, "description": "Suppress the match if any of these appear -- the escape hatch for quoting, condemning or discussing." },
+              "withinWords": { "type": "integer", "minimum": 1, "default": 12, "description": "All required parts must appear within this many words of each other. Proximity is what separates a phrase from two unrelated words in a long bio." }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "topic" } } },
+          "then": {
+            "required": ["prompt"],
+            "properties": {
+              "prompt": { "type": "string", "description": "A policy stated in plain language, e.g. 'Political campaigning or partisan statements'. Evaluated by the configured AI provider (M8 section 4). Advisory only -- topics can never auto-action." },
+              "examples": { "type": "array", "items": { "type": "string" }, "description": "Illustrative matches, used to steer the model." },
+              "counterExamples": { "type": "array", "items": { "type": "string" }, "description": "Illustrative non-matches. As important as the examples -- this is where false positives get headed off." }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

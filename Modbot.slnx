@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Modbot.Analytics/Modbot.Analytics.csproj" />
+    <Project Path="src/Modbot.Api/Modbot.Api.csproj" />
+    <Project Path="src/Modbot.Core/Modbot.Core.csproj" />
+    <Project Path="src/Modbot.Discord/Modbot.Discord.csproj" />
+    <Project Path="src/Modbot.Host/Modbot.Host.csproj" />
+    <Project Path="src/Modbot.My/Modbot.My.csproj" />
+    <Project Path="src/Modbot.VRChat/Modbot.VRChat.csproj" />
+  </Folder>
+</Solution>
