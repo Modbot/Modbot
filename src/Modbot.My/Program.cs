@@ -1,4 +1,5 @@
 using Modbot.My;
+using Modbot.My.Registry;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modbot.My — my.modbot.co and Modbot Hub.
@@ -18,7 +19,9 @@ var port = Environment.GetEnvironmentVariable("PORT") is { } p && int.TryParse(p
     ? parsed : 8080;
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<TermListCatalog>();
+builder.Services.AddSingleton<IInstanceRegistry, InMemoryInstanceRegistry>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(policy => policy
     // Term lists are public data fetched by self-hosted Modbot deployments at
     // arbitrary origins, so the read surface is open. There is nothing here to
@@ -31,6 +34,38 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.MapGet("/health/live", () => Results.Ok());
+
+// ── Instance registry ────────────────────────────────────────────────────────
+// Deployments register themselves so the project can count them and know which
+// versions are live. Central services spec section 4.
+//
+// There is deliberately NO endpoint that lists instances. A directory of Modbot
+// deployments is a map of VRChat moderation infrastructure, which is precisely
+// what someone probing for a group's moderation server would want (section 4.3).
+
+app.MapPost("/api/instances/register", async (RegisterRequest req, IInstanceRegistry registry, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.InstanceId) || string.IsNullOrWhiteSpace(req.InstanceUrl))
+        return Results.BadRequest(new { error = "instanceId and instanceUrl are required." });
+
+    if (!Uri.TryCreate(req.InstanceUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+        return Results.BadRequest(new { error = "instanceUrl must be an absolute https URL." });
+
+    var record = await registry.RegisterAsync(req.InstanceId, req.InstanceUrl, req.Version, ct);
+    return Results.Ok(new { registered = true, record.InstanceId, record.RegisteredAt });
+});
+
+app.MapPost("/api/instances/{instanceId}/usage", async (
+    string instanceId, UsageReport report, IInstanceRegistry registry, CancellationToken ct) =>
+    await registry.ReportUsageAsync(instanceId, report, ct)
+        ? Results.Accepted()
+        // An unregistered id is 404 rather than an implicit create: usage reporting
+        // should never be the thing that enrols a deployment.
+        : Results.NotFound(new { error = "Unknown instanceId. Register first." }));
+
+// Aggregates only -- never the underlying rows.
+app.MapGet("/api/stats", async (IInstanceRegistry registry, CancellationToken ct) =>
+    Results.Ok(await registry.GetTotalsAsync(ct)));
 
 // ── Modbot Hub ───────────────────────────────────────────────────────────────
 
@@ -50,3 +85,6 @@ app.MapGet("/termlists/_schema.json", (TermListCatalog catalog) =>
         : Results.Content(catalog.Schema, "application/json"));
 
 app.Run();
+
+/// <param name="InstanceId">Random UUID the deployment assigned itself on first boot.</param>
+internal sealed record RegisterRequest(string InstanceId, string InstanceUrl, string? Version);

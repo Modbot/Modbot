@@ -26,20 +26,42 @@ constraint rather than a current state:
 
 Both are in the main repository and both are self-hostable by anyone who wants to run their own.
 
-### 1.1 What the project will never centrally operate
+### 1.1 What the project does and does not centrally operate
 
-Recorded as a boundary, so nobody adds one later reasoning that it is small and useful:
+**Revised 2026-09-12.** An earlier draft of this section forbade any instance registry and any
+telemetry outright. That was a constraint this document invented rather than one the project asked
+for, and it is reversed here. Knowing which versions are live and how many deployments exist is
+ordinary, useful, and how a maintainer decides what to support.
 
-- **No instance registry.** The project does not maintain, and cannot enumerate, a list of Modbot
-  deployments.
-- **No telemetry or phone-home**, including "anonymous usage statistics."
-- **No central authentication.** Accounts live in each deployment.
-- **No central moderation data** of any kind — that is M8's explicit non-goal (M8 §5.1), and it
-  applies here too.
-- **No central error reporting** from deployments.
+**Modbot Hub and the registry do operate centrally:**
 
-If a future feature appears to need one of these, that is a signal the feature is wrong, not that
-this list is.
+- **An instance registry** (§4). Deployments register themselves; the project can enumerate them.
+- **Usage analytics** (§5). Opt-out, default on, disclosed at onboarding.
+- **Term list distribution** — Modbot Hub (foundation §4.2.7).
+- **Client releases** (§3).
+
+**These remain permanently out of scope:**
+
+- **No central authentication.** Accounts live in each deployment, and the registry never holds
+  credentials or sessions.
+- **No central moderation data.** No bans, no member lists, no facts, no profile text. That is M8
+  §5.1's rule and it is unaffected — the registry knows a deployment *exists*, never who is in it.
+- **No public directory.** The registry is not browsable and not enumerable by third parties (§4.3).
+- **No content of any kind from a group's database.**
+
+### 1.2 The governing rule, narrowed
+
+The original rule — *"Modbot must be completely functional with zero contact, forever"* — no longer
+holds literally now that onboarding routes through `my.modbot.co`. The honest version:
+
+> **Modbot must keep running with zero contact.** A deployment that has completed onboarding
+> continues to work indefinitely if every project-operated service disappears: syncing, moderating,
+> recording facts and serving its UI are all local.
+
+What changes is **first-run**, which now has a registration step (§4.1). That step has a skip path —
+required in intent, not in enforcement — because an air-gapped or firewalled deployment must still
+be installable, and because a project that can brick new installs by going down has taken on a
+responsibility it should not want.
 
 ---
 
@@ -69,7 +91,7 @@ A deployment that does not know who you are sends you here to be remembered:
 
 Afterwards, `my.modbot.co` shows your saved instances and you pick one.
 
-### 2.3 The instance URL goes in the fragment, not the query string
+### 2.3 Fragment vs query string — and why registration uses a query string
 
 This is the one detail that matters, and it is easy to get wrong.
 
@@ -78,12 +100,14 @@ analytics. Even with no application code reading it, the project would end up ho
 registry of Modbot deployments as a side effect of hosting a static page — precisely the thing §1.1
 forbids.
 
-A **fragment** (`#instance=…`) is never transmitted. The browser keeps it; only the page's own
-JavaScript can read it. The property becomes structural rather than a promise: **the project cannot
-learn which instances exist, because the data never reaches it.**
+**Superseded 2026-09-12.** Registration now uses a **query string** —
+`my.modbot.co/register?modbotInstanceUrl=…` — precisely *because* the server is meant to see it
+(§4). The fragment technique above is recorded because it remains the right answer for any future
+parameter the project should not receive, and because the reasoning is easy to lose.
 
-Nothing else about the design changes. This is a one-character difference from the obvious
-implementation and it is the difference between a privacy claim and a privacy guarantee.
+The selector still stores the instance list in `localStorage`, so **which instances a given person
+uses** stays in their browser. The registry learns that a deployment exists; it does not learn who
+opens it.
 
 ### 2.4 Behaviour
 
@@ -208,7 +232,101 @@ releases are still exactly where anyone would look for them.
 
 ---
 
-## 4. Operational notes
+## 4. The instance registry
+
+Deployments register themselves with `my.modbot.co` so the project knows how many exist, what
+versions are live, and roughly how they are configured.
+
+### 4.1 Registration happens during onboarding
+
+The first-run wizard sends the operator to:
+
+```
+my.modbot.co/register?modbotInstanceUrl=https://modbot-vrckings.up.railway.app&instanceId=<uuid>
+```
+
+The page records the pairing, saves the instance to `localStorage` so the selector remembers it, and
+returns the operator to their deployment to continue setup.
+
+`instanceId` is a **random UUID the deployment generates for itself** on first boot. It is not
+derived from the URL, the group, the operator, or anything else — so it identifies a deployment
+across URL changes without encoding anything about it.
+
+**The step can be skipped.** It is presented as the expected path and the skip is deliberately plain
+rather than hidden, because a firewalled or air-gapped deployment must still be installable, and
+because a project able to brick new installs by going offline has taken on a responsibility it
+should not want (§1.2).
+
+### 4.2 What registration stores
+
+| Field | Why |
+|---|---|
+| `instanceId` | The identifier. Random, self-assigned. |
+| `instanceUrl` | So the selector can offer it, and so a dead URL can be aged out. |
+| `version` | Which releases are live — the input to deprecation decisions. |
+| `registeredAt`, `lastSeenAt` | Activity, and pruning abandoned registrations. |
+
+Nothing else. No group id, no group name, no member count, no operator identity, no credentials.
+
+### 4.3 The registry is not a directory
+
+**It is never publicly browsable or enumerable.** There is no endpoint that lists deployments, and
+no page that shows them.
+
+A list of every Modbot deployment is a map of VRChat moderation infrastructure — which is exactly
+what someone would want if they were looking for a group's moderation server to attack or probe. The
+registry exists so the *project* can count and support deployments, not so anyone can find them.
+
+Aggregate figures (how many deployments, version distribution) may be published; the underlying rows
+may not.
+
+---
+
+## 5. Usage analytics
+
+### 5.1 Opt-out, default on, disclosed at onboarding
+
+The wizard asks, with the toggle already on, and states plainly what is sent. An operator who turns
+it off gets a working Modbot — see §5.3 for what actually changes.
+
+### 5.2 What is sent
+
+A periodic report carrying:
+
+| | |
+|---|---|
+| `instanceId`, `version` | Which build is running |
+| Feature flags in use | Discord connected, client paired, term lists imported — **which**, never their contents |
+| Scale bucket | Member count as a bucket (`<1k`, `1k-10k`, `10k-50k`, `50k+`), never an exact figure |
+| Paired client count | How many moderators run the Windows client |
+| Health summary | Counts of rate-limit cold stops and WAF blocks |
+
+**Never sent:** group id or name, any member identity, any moderation data, any fact, any profile
+text, any credential, any VRChat instance id, any log content.
+
+That last group is not a promise to be careful — it is the list of things the analytics payload has
+no field for.
+
+The health counters are the ones worth having. §4.3's rate limiter is built on estimates about an
+undocumented system; knowing that cold stops spiked across many deployments after a VRChat change is
+how the project finds out its numbers are wrong, and no single operator can see that pattern.
+
+### 5.3 What declining actually costs
+
+Stated accurately rather than as pressure:
+
+- **Nothing stops working.** Sync, moderation, analytics, the client and term list downloads are all
+  unaffected. Modbot Hub does not check registration.
+- The project cannot tell you about a version-specific problem affecting *your* configuration —
+  general release notes still reach you, targeted warnings do not.
+- The project cannot count you when deciding what to support and prioritise.
+
+Support requests may also be harder to diagnose without the health counters, which is a real cost
+rather than a threat.
+
+---
+
+## 6. Operational notes
 
 - Both services are static and cheap enough to be uninteresting as a cost centre, which matters for a
   non-commercial project that must be able to run them indefinitely.
@@ -220,7 +338,7 @@ releases are still exactly where anyone would look for them.
 
 ---
 
-## 5. Non-goals
+## 7. Non-goals
 
 - Any dynamic behaviour on `my.modbot.co`. If it needs a backend, the feature is wrong.
 - Server-side storage of instance URLs, including "sync your instance list across devices." That is
@@ -233,7 +351,7 @@ releases are still exactly where anyone would look for them.
 
 ---
 
-## 6. Open questions
+## 8. Open questions
 
 1. **Whether `my.modbot.co` should offer an export/import of the saved instance list**, so a user can
    move it between browsers without anything server-side. A downloadable JSON file is probably the
