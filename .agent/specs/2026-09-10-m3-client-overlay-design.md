@@ -203,6 +203,24 @@ cannot be determined dropped rather than broadcast. This is the single most impo
 multi-server work, and its failure mode is silent — everything appears to function while one
 community's data quietly accumulates in another's database.
 
+**This is implementable purely locally**, because VRChat carries the owning group inside the instance
+id:
+
+```
+wrld_4b34…:39911~group(grp_2d8c…)~groupAccessType(members)~region(use)
+                 ^^^^^^^^^^^^^^^^
+```
+
+The client parses the id and matches `grp_…` against the managed group each paired server declared at
+pairing (§4). No API call, no server round-trip, nobody asked. Had ownership required a lookup, the
+client would have had to ask *some* server which group an instance belonged to — and asking the wrong
+one is precisely the leak this boundary exists to prevent.
+
+It also makes §3.1's filter exact rather than heuristic: **an instance id with no `~group(…)`
+qualifier is not a group instance** and is dropped before transmission. A moderator's public,
+friends-only and private VRChat use is excluded by structure. Full grammar in
+`.agent/research/vrchat-log-format.md`.
+
 #### 5.5.2 The overlay follows the instance
 
 With multiple servers configured, the overlay shows context from **whichever server manages the
@@ -448,11 +466,6 @@ These need answers before the plan is written, and at least the first needs hand
    binary is exactly the thing §3 asks people to trust. Signed releases and a visible,
    consent-gated update prompt are the likely answer.
 5. **Pairing code UX** for a moderator who is already in VR when they install.
-8. **How the client determines which group owns an instance**, which is what routing (5.5) and the
-   cross-group boundary (5.5.1) both depend on. If the log line does not name the owning group, the
-   client must ask a server -- and asking the wrong one is itself a small leak. Likely answer: each
-   paired server declares its managed group id at pairing time, and the client matches locally
-   against that list, asking nobody.
 6. **Signing identity and subject name**, chosen once (§8.2). Reputation accrues to it and resets if
    it changes, so this is effectively irreversible and should be decided before the first public
    release rather than after.
@@ -460,3 +473,14 @@ These need answers before the plan is written, and at least the first needs hand
    whether they hold EV certificates, have simply accrued reputation over years, or sidestep
    SmartScreen entirely by shipping through Steam. Steam distribution for the overlay is a real
    option that is worth pricing before committing to the certificate route.
+
+8. ~~How the client determines which group owns an instance.~~ **Answered** — the owning group is
+   carried inside the instance id itself (`~group(grp_…)`), so routing is local string parsing with
+   no lookup and no leak. See `.agent/research/vrchat-log-format.md` §1.
+9. **BLOCKING: do the player join/leave log lines carry the VRChat user id, or only the display
+   name?** §3.1 commits to transmitting user ids. If only names are available, then the ingest
+   contract, the deduplication key (§5.1) and the privacy table in §3.1 all change — and keying
+   deduplication on a mutable, non-unique string is a correctness problem rather than an
+   inconvenience. Display names would also be *more* personal data than ids, working against §3.1's
+   minimisation argument. Must be confirmed against a current log before the M3 plan is written.
+   See research §2.1.
