@@ -64,3 +64,6 @@ explore/responses/
 explore/logs/
 
 .session.json
+
+# Raw API responses contain real user data -- curate fixtures deliberately instead
+explore/responses/
