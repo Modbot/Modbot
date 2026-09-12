@@ -1023,6 +1023,78 @@ own UI — so repeat-offender and moderator-pattern detection work from M2.5 onw
 Only the *capture* side — classification prompts, ban reports, tickets — requires Modbot to be the
 one performing the action, and that is M4.
 
+### 5.9 Modbot's own audit log — one table, merged in the UI
+
+Modbot records what happens *inside Modbot* — logins, settings changes, warns, tickets, sync
+failures — into **the same `modbot_event` table** as everything ingested from VRChat, discriminated
+by `source`.
+
+There is no second audit system. The fact log already is the audit log.
+
+| | `source` | `subject_platform` | `actor_platform` |
+|---|---|---|---|
+| VRChat banned someone | `AuditLog` | `VRChat` | `VRChat` |
+| Modbot banned someone | `Modbot` | `VRChat` | **`Modbot`** |
+| Alice changed a setting | `Modbot` | `Modbot` | `Modbot` |
+| Discord role granted | `Discord` | `Discord` | `Discord` |
+
+`Modbot` is added as a third member of both the `source` and the platform enums (§5.3).
+
+#### 5.9.1 Why merging matters more than it looks
+
+VRChat's audit log attributes **everything Modbot does to Modbot's single VRChat account** (§2.3).
+When Alice bans someone through Modbot, VRChat records "ModbotBot banned user X" — and per-moderator
+attribution, the thing §5.8 accountability is entirely built on, is *destroyed at the VRChat
+boundary*.
+
+Modbot's own entry is the only place that attribution exists.
+
+So the two entries are not redundant. One records **what VRChat believes happened**; the other
+records **who actually did it**. A merged timeline puts them adjacent, and where Modbot can correlate
+a VRChat audit entry with its own originating action it **enriches** the VRChat entry with the real
+actor — turning "ModbotBot banned X" into "ModbotBot banned X *(via Modbot — Alice)*".
+
+Without the merge, a group using Modbot for moderation would have *worse* attribution than one
+clicking buttons in VRChat directly, which would be an absurd outcome for a moderation tool.
+
+#### 5.9.2 What gets recorded
+
+| Category | Examples | Retention class |
+|---|---|---|
+| **Auth** | Login, failed login, password change, API key created/revoked, device token paired/revoked (M3) | Moderation |
+| **Config** | Settings changed, sync rates adjusted, retention changed, classification enum edited | Moderation |
+| **Moderation (Modbot-side)** | Warn issued, note added, watch set, ticket opened/resolved (M4) | Moderation |
+| **System** | Sync failure, rate-limit cold stop, WAF block, migration applied, retention pruned, partition created | **Presence** — operational noise, not history |
+| **Federation** | Peer added/removed, signal published or received (M8) | Moderation |
+
+System events take the short retention class deliberately. "A sync failed last March" is not history
+anyone needs, and letting operational noise accumulate forever alongside moderation records would
+bury the latter.
+
+#### 5.9.3 Secrets are never the payload
+
+A config-change event records **which setting changed and by whom** — and for secret-bearing fields,
+nothing else. No old value, no new value, not even a masked one.
+
+An audit log that records "SMTP password changed from ●●●● to ●●●●" is harmless; one that helpfully
+stores both is a credential history in a table people are encouraged to read. Non-secret settings may
+record before/after, because seeing that someone dropped the audit-log sync rate to its minimum right
+before an incident is exactly what an audit log is for.
+
+#### 5.9.4 Access is separately gated
+
+`ViewAuditLog` and `ViewOperationalLog` are distinct permissions. A moderator who should see bans and
+kicks does not automatically need to see that the owner reconfigured SMTP or which API keys exist.
+
+#### 5.9.5 In the UI
+
+One timeline, with **source filter chips** (VRChat · Modbot · Discord · Client) on by default, so the
+merged view is what you get without asking. Each entry is visually attributed to its source, and
+filtering to a single source gives you the old separate-logs view whenever that is what you want.
+
+The merged default is the right one because the questions people actually ask span sources: *"who
+changed the ban threshold just before these bans?"* is unanswerable in either log alone.
+
 ---
 
 ## 6. Data model
