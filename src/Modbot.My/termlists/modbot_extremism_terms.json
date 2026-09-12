@@ -1,0 +1,306 @@
+{
+  "id": "modbot_extremism_terms",
+  "name": "Extremism and violent-extremist signalling",
+  "description": "Neo-Nazi vocabulary, organised extremist group names, mass-attacker veneration and jihadist recruitment language. Written to catch affiliation, not religion or history: bare religious phrases, runes with legitimate pagan use, and the Buddhist manji are all deliberately excluded.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["general", "all-ages", "18-plus", "lgbtq", "family-friendly", "educational", "gaming", "club", "roleplay", "language-learning"],
+  "defaultSeverity": "high",
+  "rules": [
+    {
+      "id": "extremism_heil",
+      "type": "pattern",
+      "severity": "high",
+      "category": "neo-nazi",
+      "regex": "\\b(?:heil hitler|sieg heil|hail victory|heil mein)\\b",
+      "note": "Nazi salutes in full. 'Heil' alone is not matched -- it is an ordinary German word and appears in surnames and place names."
+    },
+    {
+      "id": "extremism_white_power",
+      "type": "pattern",
+      "severity": "high",
+      "category": "neo-nazi",
+      "regex": "\\b(?:white power|wpww|white pride world ?wide|white ?nationalis[tm]|racial holy war|rahowa)\\b",
+      "note": "Explicit white-nationalist slogans and the RaHoWa ('racial holy war') abbreviation from Creativity Movement material. None of these have an innocent reading."
+    },
+    {
+      "id": "extremism_blood_and_soil",
+      "type": "pattern",
+      "severity": "high",
+      "category": "neo-nazi",
+      "regex": "\\b(?:blood and soil|blut und boden|blood ?& ?soil)\\b",
+      "note": "A Nazi agrarian-nationalist slogan revived at Charlottesville. Occasionally used by historians describing the period -- check whether the bio is describing or declaring."
+    },
+    {
+      "id": "extremism_hitler_praise",
+      "type": "combination",
+      "severity": "high",
+      "category": "neo-nazi",
+      "allOf": ["hitler"],
+      "anyOf": ["did nothing wrong", "was right", "had a point", "best", "goat", "my hero", "based", "should have won", "finish the job"],
+      "noneOf": ["hitler was wrong", "fuck hitler", "anti hitler", "hitler was a monster"],
+      "withinWords": 6,
+      "note": "Praise for Hitler specifically. Bare mentions are not flagged -- history students, film fans and people arguing against Nazis all say the name. Only approval is matched, and explicit disapproval is excluded."
+    },
+    {
+      "id": "extremism_natsoc",
+      "type": "pattern",
+      "severity": "high",
+      "category": "neo-nazi",
+      "regex": "\\b(?:nat ?soc|national ?socialis[tm]|neo ?nazi|fourth reich|1?4th reich|nazbol|national bolshevi[ks])\\b",
+      "note": "Self-descriptive movement labels. 'National socialist' is occasionally used loosely and incorrectly by people who mean social democracy -- rare, but it happens, so read the bio. 'Neo-Nazi' is also used by people condemning them; check the sentence."
+    },
+    {
+      "id": "extremism_ss_insignia",
+      "type": "pattern",
+      "severity": "high",
+      "category": "neo-nazi",
+      "regex": "\\b(?:waffen ?ss|schutzstaffel|totenkopf|sturmabteilung|siegrunen|ss ?bolts)\\b",
+      "note": "SS and SA insignia vocabulary. Militaria collectors and wargamers use these words legitimately and are the main false positive -- look for model kits, Hearts of Iron, or historical reenactment context."
+    },
+    {
+      "id": "extremism_runes_context",
+      "type": "combination",
+      "severity": "review",
+      "category": "neo-nazi",
+      "anyOf": ["sonnenrad", "black sun", "wolfsangel", "othala", "odal rune", "algiz", "tyr rune", "life rune"],
+      "allOf": ["14"],
+      "withinWords": 10,
+      "note": "Germanic runes were appropriated by the SS and are still used by neo-Nazi groups, but they are also genuine religious symbols for Heathens, Asatru and other modern pagans, and ordinary decoration for Norse-mythology fans. Flagging a rune alone would mean flagging a religion. This rule requires explicit white-nationalist numerology nearby. If a match is a pagan's bio, dismiss it -- and do not ask them to justify their religion."
+    },
+    {
+      "id": "extremism_swastika",
+      "type": "pattern",
+      "severity": "review",
+      "category": "neo-nazi",
+      "regex": "[\\x{5350}]",
+      "note": "The right-facing swastika (U+5350). The LEFT-facing manji (U+534D) is deliberately not matched: it is a Buddhist, Hindu and Jain religious symbol, appears on Japanese maps to mark temples, and is used constantly by anime fans. Getting these two the wrong way round is the classic failure of naive filters. Even the right-facing form appears in East Asian religious contexts, so this is review rather than high."
+    },
+    {
+      "id": "extremism_holocaust_denial",
+      "type": "pattern",
+      "severity": "high",
+      "category": "holocaust-denial",
+      "regex": "\\b(?:holohoax|holocaust (?:is|was) a (?:lie|hoax|myth)|holocaust never happened|six million (?:wasn.?t|was not) enough|6 million (?:wasn.?t|was not) enough|didn.?t happen but)\\b",
+      "note": "Holocaust denial and the 'it didn't happen but it should have' formulation. Denial is a criminal offence in several European countries, which some groups will want to weigh. Someone quoting a denier in order to refute them will match -- read the surrounding sentence."
+    },
+    {
+      "id": "extremism_final_solution",
+      "type": "combination",
+      "severity": "high",
+      "category": "neo-nazi",
+      "allOf": ["final solution"],
+      "anyOf": ["jewish", "jews", "question", "needed", "was right", "part 2", "round two"],
+      "noneOf": ["final solution to the problem set", "final solution of the equation"],
+      "withinWords": 6,
+      "note": "'Final solution' is ordinary English in maths, engineering and project work, so a second term is required. With 'the Jewish question' beside it, there is no ambiguity."
+    },
+    {
+      "id": "extremism_jewish_question",
+      "type": "pattern",
+      "severity": "high",
+      "category": "antisemitism",
+      "regex": "\\b(?:the jewish question|jq ?pilled|jq ?aware|zog|zionist occupied government|goyim know|shut it down|early life check)\\b",
+      "note": "The 'JQ' shorthand, ZOG conspiracy and the 'goyim know, shut it down' meme, plus 'early life check' -- the practice of checking a public figure's Wikipedia 'Early life' section for Jewish ancestry. All are in-group vocabulary with no outside use."
+    },
+    {
+      "id": "extremism_day_of_the_rope",
+      "type": "pattern",
+      "severity": "high",
+      "category": "violent-extremism",
+      "regex": "\\b(?:day of the rope|dotr|race war now|boots on the ground soon|there will be blood soon)\\b",
+      "note": "'Day of the rope' comes from The Turner Diaries and refers to the mass hanging of political opponents. It is aspirational violence, not commentary."
+    },
+    {
+      "id": "extremism_siege_accelerationism",
+      "type": "combination",
+      "severity": "high",
+      "category": "violent-extremism",
+      "anyOf": ["siege", "siegepilled", "read siege", "accelerationism", "accelerationist", "terrorgram"],
+      "allOf": ["mason"],
+      "withinWords": 10,
+      "note": "James Mason's 'Siege' is the founding text of militant accelerationism. Requires 'Mason' nearby because 'siege' alone is a medieval-warfare and strategy-game word, and 'accelerationism' also names an unrelated political-philosophy tendency."
+    },
+    {
+      "id": "extremism_accelerate_collapse",
+      "type": "combination",
+      "severity": "high",
+      "category": "violent-extremism",
+      "allOf": ["accelerate"],
+      "anyOf": ["the collapse", "the system", "the fall", "the war", "the purge", "the reset"],
+      "withinWords": 5,
+      "note": "Accelerationist framing without the book title. Note that 'accelerate' is common in unrelated technical and fitness bios, so the second half is required."
+    },
+    {
+      "id": "extremism_org_names_far_right",
+      "type": "pattern",
+      "severity": "high",
+      "category": "extremist-group",
+      "regex": "\\b(?:atomwaffen|awd ?division|feuerkrieg|the base ?movement|combat ?18|c18 ?crew|blood ?tribe|patriot ?front|nordic resistance|national action|hammerskins|aryan brotherhood|proud boys|three percenter|iii ?percent|oath ?keepers)\\b",
+      "note": "Named organisations, several of which are proscribed as terrorist entities in the UK, Canada or Australia. 'The Base' and 'Combat 18' are guarded with extra words because both phrases occur innocently -- a baseball bio, a squad number. Membership claims are the point here, not mentions."
+    },
+    {
+      "id": "extremism_boogaloo",
+      "type": "combination",
+      "severity": "review",
+      "category": "violent-extremism",
+      "anyOf": ["boogaloo", "big igloo", "big luau", "boog", "civil war 2", "civil war two"],
+      "allOf": ["ready"],
+      "noneOf": ["electric boogaloo", "breakin 2", "boogaloo dance", "boogie"],
+      "withinWords": 10,
+      "note": "The 'boogaloo' movement anticipates a second US civil war. The word comes from a 1984 dance-film sequel and 'electric boogaloo' is still an extremely common joke suffix for any sequel, which is why that phrasing is excluded and why a readiness word is required. Expect to dismiss dance and meme matches."
+    },
+    {
+      "id": "extremism_attacker_veneration",
+      "type": "pattern",
+      "severity": "high",
+      "category": "violent-extremism",
+      "regex": "\\b(?:saint ?tarrant|st ?tarrant|brenton tarrant|saint ?breivik|saint ?roof|saint ?bowers|saint ?crusius|saint ?gendron|subscribe to pewdiepie irl)\\b",
+      "note": "Sainthood framing for mass shooters, which is how these networks recruit. A bare surname would be too broad -- the veneration prefix is what makes the match. Treat a hit here as urgent and report it to the platform as well as handling it locally."
+    },
+    {
+      "id": "extremism_high_score",
+      "type": "combination",
+      "severity": "high",
+      "category": "violent-extremism",
+      "allOf": ["high score"],
+      "anyOf": ["beat the", "new record", "body count", "kill count", "tarrant", "breivik", "shooting", "irl"],
+      "noneOf": ["high score on", "leaderboard", "arcade", "speedrun", "pinball", "my high score"],
+      "withinWords": 8,
+      "note": "Mass shootings framed as a leaderboard. This is unavoidably adjacent to ordinary gaming vocabulary, which is why the noneOf list is long and 'irl' is one of the triggers. In a gaming community this rule needs watching -- if it is generating constant dismissals, turn it off rather than ignoring it."
+    },
+    {
+      "id": "extremism_manifesto",
+      "type": "combination",
+      "severity": "high",
+      "category": "violent-extremism",
+      "allOf": ["manifesto"],
+      "anyOf": ["read it", "dm for", "link", "download", "pdf", "based", "he was right", "tarrant", "breivik", "unabomber"],
+      "noneOf": ["communist manifesto", "cluetrain", "agile manifesto", "my manifesto for", "artist manifesto"],
+      "withinWords": 8,
+      "note": "Distributing attacker manifestos. The noneOf list removes the several famous political and professional documents that share the word; what remains is circulation of attack material."
+    },
+    {
+      "id": "extremism_school_shooter",
+      "type": "combination",
+      "severity": "high",
+      "category": "violent-extremism",
+      "anyOf": ["school shooter", "shoot up", "shoot my school", "columbine", "trenchcoat mafia"],
+      "allOf": ["im"],
+      "noneOf": ["school shooter game", "documentary", "survivor of", "lost a friend", "prevent school shootings", "news"],
+      "withinWords": 10,
+      "note": "First-person identification with school shooters. Columbine fandom is a real and documented subculture. The noneOf entries exclude survivors, journalists and people discussing prevention, all of whom use the same words for the opposite reason. A genuine match here is an immediate safety escalation, not a normal moderation queue item."
+    },
+    {
+      "id": "extremism_islamist_org",
+      "type": "pattern",
+      "severity": "high",
+      "category": "extremist-group",
+      "regex": "\\b(?:islamic state|daesh|al ?qaeda|al ?shabaab|boko haram|tehrik ?i ?taliban|hayat tahrir)\\b",
+      "note": "Named proscribed organisations. Mentioning them is not affiliation -- news, history and politics discussion all use these names -- so read the sentence. Note that 'ISIS' alone is deliberately NOT in this pattern: it is an Egyptian goddess, a common company and product name, a woman's given name, and a character in several games."
+    },
+    {
+      "id": "extremism_isis_context",
+      "type": "combination",
+      "severity": "high",
+      "category": "extremist-group",
+      "allOf": ["isis"],
+      "anyOf": ["caliphate", "bayah", "baya", "pledge allegiance", "soldier of", "join the", "khilafah", "dawlah"],
+      "noneOf": ["goddess isis", "isis and osiris", "egyptian", "kemetic", "isis unit", "archer"],
+      "withinWords": 8,
+      "note": "The acronym only when it sits inside jihadist vocabulary. The noneOf guard protects Kemetic pagans and Egyptology fans, for whom Isis is a goddess, and people named Isis. Getting this wrong means accusing a pagan of terrorism, so the guard is not optional."
+    },
+    {
+      "id": "extremism_jihad_violent",
+      "type": "combination",
+      "severity": "high",
+      "category": "violent-extremism",
+      "allOf": ["jihad"],
+      "anyOf": ["armed", "violent", "join the", "wage", "kuffar", "kill the", "martyrdom", "istishhad", "inghimasi"],
+      "noneOf": ["greater jihad", "inner jihad", "jihad of the self", "struggle against my", "jihad means struggle"],
+      "withinWords": 8,
+      "note": "Read this note before acting. 'Jihad' is an ordinary and central religious term meaning struggle, most often personal and spiritual, and it is a common given name. Flagging it bare would mean flagging Muslims for being Muslim. This rule requires explicit violence vocabulary alongside it, and excludes the standard theological phrases for the non-violent sense. The same principle is why 'Allahu akbar', 'inshallah', 'shahada', 'ummah' and 'kafir' appear nowhere in this list: they are everyday devotional words, not extremism."
+    },
+    {
+      "id": "extremism_martyrdom",
+      "type": "pattern",
+      "severity": "high",
+      "category": "violent-extremism",
+      "regex": "\\b(?:martyrdom operation|suicide belt|suicide vest|strap up and|shaheed operation)\\b",
+      "note": "Operational vocabulary rather than devotional vocabulary. 'Shaheed' alone means martyr and is used for anyone who died wrongfully, including in ordinary condolence posts, so only the operational phrasing is matched."
+    },
+    {
+      "id": "extremism_ecofascism",
+      "type": "pattern",
+      "severity": "review",
+      "category": "extremist-ideology",
+      "regex": "\\b(?:eco ?fascis[tm]|ecofash|green nationalism|save the planet kill)\\b",
+      "note": "Ecofascism ties environmental collapse to population and immigration control, and motivated the El Paso and Christchurch attacks. Sometimes used by environmentalists as a self-aware joke about being strict on recycling, which is the false positive to watch for."
+    },
+    {
+      "id": "extremism_weapons_manufacture",
+      "type": "combination",
+      "severity": "high",
+      "category": "violent-extremism",
+      "anyOf": ["3d printed gun", "fgc 9", "ghost gun", "pipe bomb", "tatp", "anfo", "how to make a bomb"],
+      "allOf": ["dm"],
+      "noneOf": ["news article", "documentary", "prop", "airsoft", "in game", "nerf"],
+      "withinWords": 12,
+      "note": "Offering weapon or explosive manufacturing information. Requires a contact word so that news discussion and prop-making do not match. Airsoft and game contexts are excluded. A genuine match is a platform report, not a warning."
+    },
+    {
+      "id": "extremism_gas_the",
+      "type": "combination",
+      "severity": "high",
+      "category": "violent-extremism",
+      "allOf": ["gas the"],
+      "anyOf": ["jews", "kikes", "blacks", "trannies", "gays", "immigrants", "them all"],
+      "withinWords": 5,
+      "note": "Eliminationist phrasing aimed at a group. Deliberately requires a target so that a chemistry or cooking bio does not match."
+    },
+    {
+      "id": "extremism_kill_all_group",
+      "type": "combination",
+      "severity": "high",
+      "category": "violent-extremism",
+      "anyOf": ["kill all", "exterminate all", "round up all", "deport all", "hang all", "purge all"],
+      "allOf": ["all"],
+      "noneOf": ["kill all the bugs", "kill all enemies", "kill all mobs", "kill all processes", "killall"],
+      "withinWords": 4,
+      "note": "Group-directed eliminationist language. The noneOf entries exclude gaming and the Unix 'killall' command, both of which are frequent in these communities. Read what group is named before acting -- the target is the whole point."
+    },
+    {
+      "id": "extremism_terror_praise",
+      "type": "combination",
+      "severity": "high",
+      "category": "violent-extremism",
+      "anyOf": ["9/11", "911 attacks", "christchurch", "utoya", "oklahoma city", "bataclan", "manchester arena"],
+      "allOf": ["based"],
+      "noneOf": ["never forget", "victims", "memorial", "anniversary", "survivor", "tribute"],
+      "withinWords": 8,
+      "note": "Approval of a specific terrorist attack. Requires an approval word because these events are mentioned in memorial and historical contexts constantly, all of which are excluded."
+    },
+    {
+      "id": "extremism_mein_kampf",
+      "type": "combination",
+      "severity": "note",
+      "category": "neo-nazi",
+      "allOf": ["mein kampf"],
+      "anyOf": ["favourite", "favorite", "based", "required reading", "he was right", "truth"],
+      "noneOf": ["studying", "history class", "annotated edition", "critical edition", "for my essay"],
+      "withinWords": 8,
+      "note": "Recorded rather than flagged. Owning or reading the book is not extremism -- it is on university syllabuses and sold in annotated critical editions. Only endorsement is recorded, and academic framing is excluded. Useful as corroboration alongside other rules in this list."
+    },
+    {
+      "id": "extremism_fedpost",
+      "type": "combination",
+      "severity": "review",
+      "category": "violent-extremism",
+      "allOf": ["fedpost"],
+      "anyOf": ["time to", "about to", "gonna", "deleted"],
+      "withinWords": 6,
+      "note": "'Fedposting' is in-group slang for posting something that would attract law-enforcement attention, usually a threat framed as a joke. The word's presence means the account knows the line and is playing with it. Low confidence on its own, which is why it is review."
+    }
+  ]
+}

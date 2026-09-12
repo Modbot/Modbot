@@ -1,0 +1,292 @@
+{
+  "id": "modbot_limited_communities_terms",
+  "name": "Anti-LGBTQ+ content",
+  "description": "Transphobic and homophobic slurs and rhetoric. Named for the communities it protects, not the content it contains. Built so that people describing their own identity are never flagged: reclaimed words are only matched alongside hostile context, and the pronouns field is excluded from every slur rule.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["general", "all-ages", "18-plus", "lgbtq", "family-friendly", "educational", "gaming", "club", "roleplay", "language-learning"],
+  "defaultSeverity": "review",
+  "rules": [
+    {
+      "id": "lgbtq_faggot",
+      "type": "pattern",
+      "severity": "high",
+      "category": "homophobia",
+      "regex": "\\bfagg?ot(?:s|ry)?\\b",
+      "fields": ["bio", "displayName", "status"],
+      "note": "The primary anti-gay slur. It is reclaimed by some gay men, usually with a possessive ('this faggot', 'your local faggot') or alongside other self-identification -- if the bio also says gay, queer, he/him and reads as self-description, that is reclaimed use and should be dismissed. Used at someone else, it is not. The pronouns field is excluded so a self-identifying pronoun entry can never trip this."
+    },
+    {
+      "id": "lgbtq_fag_hostile",
+      "type": "combination",
+      "severity": "high",
+      "category": "homophobia",
+      "allOf": ["fag"],
+      "anyOf": ["kill", "hate", "die", "disgusting", "burn", "hang", "gross", "kys", "degenerate", "hell"],
+      "noneOf": ["fag end", "had a fag", "bummed a fag", "cigarette", "smoke break"],
+      "withinWords": 6,
+      "note": "Three-letter 'fag' is not flagged on its own, deliberately. In British and Irish English it means a cigarette, it is a Harry Potter school-role word, and it is reclaimed as self-description. Only the pairing with a hostility word is flagged. If the bio is a British smoker's, the noneOf guard should have caught it -- if it did not, dismiss."
+    },
+    {
+      "id": "lgbtq_homophobic_slurs",
+      "type": "pattern",
+      "severity": "high",
+      "category": "homophobia",
+      "regex": "\\b(?:fudge ?packer|carpet ?muncher|batty ?boy|bum ?bandit|ankle ?biter|pillow ?biter|rump ?ranger|sodomite)(?:s)?\\b",
+      "fields": ["bio", "displayName", "status"],
+      "note": "Anti-gay slurs with no meaningful reclaimed use. 'Ankle biter' also means a small child in Australian English, which is the one false positive worth watching for."
+    },
+    {
+      "id": "lgbtq_dyke_hostile",
+      "type": "combination",
+      "severity": "high",
+      "category": "homophobia",
+      "allOf": ["dyke"],
+      "anyOf": ["disgusting", "gross", "filthy", "kill", "hate", "die", "kys", "ugly", "nasty", "predator"],
+      "noneOf": ["van dyke", "dyke march", "dyke bar", "baby dyke", "proud dyke", "dike"],
+      "withinWords": 6,
+      "note": "Bare 'dyke' is never flagged. It is widely reclaimed by lesbians, it is Dick Van Dyke's surname, it is a Dutch and English word for a sea wall, and Dyke March is a pride event. Only 'dyke' next to an explicit hostility word is matched. If a lesbian member calls herself a dyke and the flag fired because 'ugly' appeared somewhere in a self-deprecating joke, dismiss it."
+    },
+    {
+      "id": "lgbtq_queer_hostile",
+      "type": "combination",
+      "severity": "high",
+      "category": "homophobia",
+      "allOf": ["queer"],
+      "anyOf": ["groomer", "degenerate", "pedophile", "paedophile", "mental illness", "abomination", "cure", "sin against", "kill all", "gas the"],
+      "withinWords": 8,
+      "note": "'Queer' by itself is an identity term used by a very large number of people, including academically ('queer theory'), and must never be flagged alone. This rule exists only for the case where 'queer' is the target of a slur-grade accusation. If the bio says 'queer and tired' this rule has not fired and should not."
+    },
+    {
+      "id": "lgbtq_homo_hostile",
+      "type": "combination",
+      "severity": "review",
+      "category": "homophobia",
+      "allOf": ["homo"],
+      "anyOf": ["filthy", "disgusting", "cure", "sick", "unnatural", "against god", "die", "kill"],
+      "noneOf": ["homo sapiens", "homologous", "homogeneous", "homo erectus", "no homo"],
+      "withinWords": 6,
+      "note": "'Homo' is a Latin root that appears in ordinary words, and 'no homo' is common (crass, but not a slur at anyone). Only hostile pairings are flagged. Groups that also want to discourage 'no homo' should add it as a separate note-level term rather than widening this rule."
+    },
+    {
+      "id": "lgbtq_god_hates",
+      "type": "pattern",
+      "severity": "high",
+      "category": "homophobia",
+      "regex": "\\bgod hates (?:fags|gays|queers|homos|you)\\b",
+      "note": "The Westboro Baptist slogan. Its only use is as a slogan."
+    },
+    {
+      "id": "lgbtq_adam_and_steve",
+      "type": "pattern",
+      "severity": "review",
+      "category": "homophobia",
+      "regex": "\\badam and eve,? not adam and steve\\b",
+      "note": "A stock anti-same-sex-marriage line. Occasionally quoted ironically by LGBTQ+ people; read the rest of the bio before acting."
+    },
+    {
+      "id": "lgbtq_conversion",
+      "type": "combination",
+      "severity": "high",
+      "category": "homophobia",
+      "anyOf": ["conversion therapy", "pray the gay away", "ex gay", "exgay"],
+      "allOf": ["works"],
+      "withinWords": 6,
+      "note": "Advocating conversion therapy, as distinct from discussing or surviving it. The allOf on 'works' is what separates the advocate from the survivor -- a survivor's bio saying conversion therapy nearly killed them will not match. If a match turns out to be a survivor, dismiss and consider reporting the rule as too broad."
+    },
+    {
+      "id": "lgbtq_tranny",
+      "type": "combination",
+      "severity": "high",
+      "category": "transphobia",
+      "allOf": ["tranny"],
+      "noneOf": ["transmission", "gearbox", "tranny swap", "auto tranny", "rebuild", "torque converter", "drivetrain", "my tranny is"],
+      "fields": ["bio", "displayName", "status"],
+      "note": "An anti-trans slur. Two real false positives: it is car-enthusiast shorthand for a transmission, which the noneOf guard handles, and it is reclaimed by some older trans women about themselves. If the profile is otherwise clearly a trans person's own, treat a self-referential use as reclaimed and dismiss."
+    },
+    {
+      "id": "lgbtq_troon",
+      "type": "pattern",
+      "severity": "high",
+      "category": "transphobia",
+      "regex": "\\btroon(?:s|ing)?\\b",
+      "fields": ["bio", "displayName", "status"],
+      "note": "A slur that originated on hostile imageboards specifically to evade filters for other anti-trans words. It has essentially no reclaimed use. Troon is also a town in Ayrshire, Scotland, and a surname -- a Scottish golf bio is the one innocent match."
+    },
+    {
+      "id": "lgbtq_shemale",
+      "type": "pattern",
+      "severity": "review",
+      "category": "transphobia",
+      "regex": "\\b(?:shemale|she ?male|he ?she|ladyboy|trap ?baby|it ?thing)(?:s)?\\b",
+      "fields": ["bio", "displayName", "status"],
+      "note": "Terms that exist mainly as pornography categories and are dehumanising when applied to a person. Some trans women in adult work use 'shemale' as an industry tag for themselves; in an 18+ venue that is a plausible and legitimate match to dismiss. In an all-ages group it is not."
+    },
+    {
+      "id": "lgbtq_traps",
+      "type": "pattern",
+      "severity": "review",
+      "category": "transphobia",
+      "regex": "\\btraps? (?:are|aren.?t|is|isn.?t) (?:gay|not gay|trans)\\b",
+      "note": "The 'traps' meme frames trans women and feminine-presenting people as deceivers. Bare 'trap' is deliberately not matched -- it is a music genre, a Home Alone reference, a dungeon feature in roleplay, and an ordinary English word. Only the meme phrasing is flagged."
+    },
+    {
+      "id": "lgbtq_attack_helicopter",
+      "type": "combination",
+      "severity": "review",
+      "category": "transphobia",
+      "allOf": ["identify as"],
+      "anyOf": ["attack helicopter", "apache helicopter", "helicopter", "toaster", "microwave", "wifi router"],
+      "withinWords": 6,
+      "note": "The 'I sexually identify as an attack helicopter' joke, which exists to mock people for stating a gender identity. Requires 'identify as' nearby so that a bio simply mentioning helicopters does not match. Occasionally reclaimed as a joke by trans people themselves -- check the rest of the profile."
+    },
+    {
+      "id": "lgbtq_two_genders",
+      "type": "pattern",
+      "severity": "review",
+      "category": "transphobia",
+      "regex": "\\b(?:only|just|there are|there.?s) ?(?:are )?(?:only )?(?:two|2) genders\\b",
+      "note": "The most common compact statement of anti-trans belief. It is almost never a neutral observation about grammar or biology when it appears in a profile. A linguistics bio discussing grammatical gender in French is the plausible false positive."
+    },
+    {
+      "id": "lgbtq_not_real_women_phrase",
+      "type": "pattern",
+      "severity": "high",
+      "category": "transphobia",
+      "regex": "\\btrans ?(?:women|woman|men|man|girls|guys) (?:are|aren.?t|will never be|can never be|are not) ?(?:real )?(?:men|women|male|males|female|females|not women|not men|women|men)\\b",
+      "note": "The core anti-trans assertion in its several common phrasings. This is the rule to enable; the looser combination above is provided only for groups that want to widen it. A trans person writing 'trans women are women' will also match this pattern shape -- read the actual matched text, because affirming and denying statements have the same skeleton."
+    },
+    {
+      "id": "lgbtq_adult_human_female",
+      "type": "combination",
+      "severity": "review",
+      "category": "transphobia",
+      "anyOf": ["adult human female", "adult human male"],
+      "note": "A gender-critical movement slogan that presents as a dictionary definition. Outside that movement almost nobody writes this phrase in a bio. Treat as a signal to read the whole profile rather than as an offence in itself.",
+      "withinWords": 4
+    },
+    {
+      "id": "lgbtq_biological_sex_rhetoric",
+      "type": "combination",
+      "severity": "review",
+      "category": "transphobia",
+      "allOf": ["biological"],
+      "anyOf": ["men in dresses", "men in womens", "mentally ill", "delusion", "delusional", "not a real", "xy chromosomes", "chromosomes dont lie", "facts dont care"],
+      "withinWords": 10,
+      "note": "'Biological sex' has ordinary clinical and educational uses, so the word alone is not flagged. This rule fires only when it is carrying an argument. A biology student's bio should not reach this."
+    },
+    {
+      "id": "lgbtq_mental_illness",
+      "type": "combination",
+      "severity": "high",
+      "category": "transphobia",
+      "anyOf": ["trans", "transgender", "transsexual", "nonbinary", "non binary", "enby"],
+      "allOf": ["mental illness"],
+      "noneOf": ["my mental illness", "i have a mental illness", "mental illness awareness", "destigmatise", "destigmatize"],
+      "withinWords": 8,
+      "note": "Framing being trans as mental illness. The noneOf guard matters a great deal here: many trans people mention their own mental health in the same bio, and that must not flag. If the matched text is the member describing their own diagnosis, dismiss."
+    },
+    {
+      "id": "lgbtq_groomer",
+      "type": "combination",
+      "severity": "high",
+      "category": "transphobia",
+      "allOf": ["groomer"],
+      "anyOf": ["trans", "lgbt", "lgbtq", "gay", "queer", "pride", "drag", "teachers", "rainbow"],
+      "noneOf": ["dog groomer", "pet groomer", "horse groomer", "grooming salon"],
+      "withinWords": 8,
+      "note": "The 'groomer' accusation aimed at LGBTQ+ people as a class. This is a serious safeguarding word being used as a slur, which is why it is high. The noneOf guard removes pet-grooming businesses, which are otherwise a constant false positive. Note that a genuine safeguarding concern about a specific named individual is a different thing entirely and belongs in the underage-risk list, not here."
+    },
+    {
+      "id": "lgbtq_agenda",
+      "type": "combination",
+      "severity": "review",
+      "category": "homophobia",
+      "allOf": ["agenda"],
+      "anyOf": ["gay", "trans", "lgbt", "lgbtq", "homosexual", "rainbow", "woke"],
+      "noneOf": ["meeting agenda", "agenda item", "on the agenda", "todays agenda"],
+      "withinWords": 5,
+      "note": "'The gay agenda' framing treats a group's existence as a conspiracy. Sometimes used sarcastically by LGBTQ+ people themselves ('my gay agenda: nap, coffee') -- that joke is common enough that this is review rather than high."
+    },
+    {
+      "id": "lgbtq_transgenderism",
+      "type": "pattern",
+      "severity": "note",
+      "category": "transphobia",
+      "regex": "\\btransgenderism\\b",
+      "note": "Recorded, not flagged. The '-ism' suffix reframes an identity as an ideology and is characteristic of hostile writing, but it is also used carelessly by people repeating what they have read. On its own it proves nothing; it is useful as corroboration when other rules in this list also fire."
+    },
+    {
+      "id": "lgbtq_mutilation",
+      "type": "combination",
+      "severity": "high",
+      "category": "transphobia",
+      "allOf": ["mutilat"],
+      "anyOf": ["trans", "kids", "children", "surgery", "puberty blockers", "chop", "genitals"],
+      "withinWords": 10,
+      "note": "Describing gender-affirming care as mutilation of children. 'mutilat' is matched as a fragment on purpose, to cover mutilate, mutilation, mutilating and mutilated in one rule -- this is one of the few places fragment matching is worth the risk, and the required second term keeps it tight."
+    },
+    {
+      "id": "lgbtq_deadnaming_threat",
+      "type": "combination",
+      "severity": "high",
+      "category": "transphobia",
+      "allOf": ["real name"],
+      "anyOf": ["his real name", "her real name", "was born a", "used to be a", "before he was", "before she was"],
+      "withinWords": 10,
+      "note": "Deadnaming or outing another person, which in many places is a safety risk and not merely rude. The target is someone other than the account holder -- a member referring to their own former name will usually phrase it as 'my', which this does not match."
+    },
+    {
+      "id": "lgbtq_bathroom_sports",
+      "type": "combination",
+      "severity": "review",
+      "category": "transphobia",
+      "anyOf": ["bathroom", "bathrooms", "locker room", "womens sports", "girls sports"],
+      "allOf": ["keep"],
+      "noneOf": ["keep the bathroom clean", "bathroom break"],
+      "withinWords": 8,
+      "note": "Campaign phrasing around bathroom and sports exclusion. Deliberately narrow and set to review: these are live policy debates and a member mentioning them is not automatically abusing anyone. Groups that do not want any political content at all should use the political list instead of widening this."
+    },
+    {
+      "id": "lgbtq_slur_in_displayname",
+      "type": "pattern",
+      "severity": "high",
+      "category": "transphobia",
+      "regex": "\\b(?:trannie|troon|fagg?ot|dykes?|homo)\\b",
+      "fields": ["displayName"],
+      "note": "The same words again, but scoped to the display name only and without the reclaimed-use allowances made elsewhere in this list. A display name is shown to everyone in the instance who did not choose to read it, including people the word is aimed at, so the bar is lower here than in a bio. A member who reclaims a word for themselves in their bio is making a different choice from one who puts it above their head."
+    },
+    {
+      "id": "lgbtq_neopronoun_mockery",
+      "type": "combination",
+      "severity": "review",
+      "category": "transphobia",
+      "allOf": ["pronouns"],
+      "anyOf": ["attack helicopter", "are stupid", "are dumb", "in bio dni", "i dont care", "not real", "made up", "cringe"],
+      "withinWords": 8,
+      "note": "Mocking the practice of stating pronouns. Read this rule's absence carefully: nothing in this list flags anyone's actual pronouns. Neopronouns (xe/xem, fae/faer), it/its, and any other pronoun set a member chooses are never matched by any rule here, and the pronouns field is excluded from every slur rule. If you ever see a flag caused purely by a member's pronoun entry, that is a bug -- report it."
+    },
+    {
+      "id": "lgbtq_degenerate",
+      "type": "combination",
+      "severity": "review",
+      "category": "homophobia",
+      "allOf": ["degenerate"],
+      "anyOf": ["gay", "trans", "lgbt", "queer", "pride", "furry", "purge", "cleanse"],
+      "noneOf": ["degenerate case", "degenerate matter", "degenerate art history"],
+      "withinWords": 8,
+      "note": "'Degeneracy' framing links directly to fascist rhetoric about art and sexuality. The word has a legitimate technical sense in maths and physics, excluded above. Self-deprecating use ('degenerate gamer') is common and should be dismissed."
+    },
+    {
+      "id": "lgbtq_kill_all",
+      "type": "combination",
+      "severity": "high",
+      "category": "transphobia",
+      "anyOf": ["kill all", "gas all", "hang all", "round up", "exterminate", "purge"],
+      "allOf": ["trans"],
+      "withinWords": 6,
+      "note": "Eliminationist language aimed at trans people. This should be treated as a threat, not as an opinion. The same phrasing aimed at gay people is covered by lgbtq_queer_hostile."
+    }
+  ]
+}

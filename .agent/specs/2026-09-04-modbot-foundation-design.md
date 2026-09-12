@@ -772,6 +772,58 @@ Matches, dismissals and rule changes are all recorded (§5.9). Dismissal rates p
 so a rule dismissed nine times out of ten is visibly noise rather than quietly ignored — the same
 mechanism as M8 §4.4.
 
+#### 4.2.7 Modbot Hub — term list distribution
+
+> **Not built in M0.** The schema and the lists themselves exist
+> (`src/Modbot.My/termlists/`); the download, update and toggle flow described here lands with the
+> moderation work. Recorded now so the schema does not have to change later.
+
+Curated term lists are published by **Modbot Hub**, served as static files by `Modbot.My` alongside
+`my.modbot.co` (central services spec). They are **data, not policy** — Modbot ships none enabled.
+
+##### Acquisition is opt-in, in two places
+
+- **During onboarding**, as a skippable step: *"Select default term lists from Modbot Hub"*, with
+  the picker suggesting lists by community type from each list's `suitableFor`. A group that skips
+  it is not nagged.
+- **From the settings page**, at any time afterwards. Most groups will arrive here rather than at
+  onboarding, because you do not know what you want to screen for until you have been running a
+  while.
+
+##### Updates are checked on a schedule and **never applied silently**
+
+Modbot checks periodically for new versions of the lists a group has imported, and surfaces them as
+an `Info` notification (§4.5.1) — never an interrupt.
+
+**An operator reviews a diff and accepts it explicitly.** This is the part that matters:
+
+A term list update changes *what gets flagged in someone's community*. Auto-applying would mean the
+Modbot project could silently alter moderation behaviour for every group that ever imported a list —
+which is precisely the centralised power that central services §1.1 and M8 §5.1 exist to refuse. The
+same reasoning gates client updates behind consent in M3 §9.2.
+
+So the update flow shows **what changed**: rules added, removed, or re-scoped, with their `note`
+text. A group can take some changes and not others, or stay on their current version indefinitely.
+
+##### Rules toggle individually
+
+Every rule carries an optional stable `id` (`_schema.json`), so a group can **disable one rule
+without forking the list** and keep receiving updates for the rest. Disabled rules stay visible in
+the UI with their `note`, because "we turned this off deliberately" is information a new moderator
+needs — an invisible disabled rule looks like a missing one.
+
+Per-rule dismissal rates (§4.2.6) feed this directly: a rule dismissed nine times in ten is the one
+to turn off, and Modbot says so rather than leaving people to notice.
+
+##### Local and shared lists
+
+A group can write its own lists in the same schema, and **share them by instance URL** — another
+deployment imports from `https://their-modbot/api/termlists/<id>`. Imported lists record their
+`source`, and that attribution survives so an operator can always see where a rule came from.
+
+There is no central registry of community lists, for the same reason there is no central peer
+registry in M8 §5.1.
+
 ### 4.3 Rate limiting — an opaque, punitive limit
 
 VRChat's rate limit does not behave like a normal API limit, and the gate must not treat it like one:

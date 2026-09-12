@@ -1,0 +1,308 @@
+{
+  "id": "modbot_underage_risk",
+  "name": "Underage risk signals",
+  "description": "Two things at once: signs that an account holder is a minor (a safeguarding matter, not an offence) and signs that an adult is signalling sexual interest in minors (which is). Read the severity: 'review' rules are usually about protecting the member who was flagged, 'high' rules are usually about protecting everyone else from them.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["general", "all-ages", "18-plus", "lgbtq", "family-friendly", "educational", "gaming", "club", "roleplay", "language-learning"],
+  "defaultSeverity": "review",
+  "rules": [
+    {
+      "id": "underage_stated_age",
+      "type": "pattern",
+      "severity": "review",
+      "category": "minor-presence",
+      "regex": "\\b(?:i.?m|im|i am|age|aged|turning|just turned)[ :]{0,3}(?:1[0-7]|[89]) ?(?:years? ?old|yrs? ?old|yo|y/o)?\\b",
+      "note": "A stated age under eighteen. Expect false positives from numbers that are not ages -- 'I'm 15 minutes away', 'age 12 dungeon', a level or rank. Read the matched fragment, not just the flag. This is a review flag about the member's own safety in an adult space; treat it as a conversation to have, not a rule they broke."
+    },
+    {
+      "id": "underage_age_field",
+      "type": "pattern",
+      "severity": "review",
+      "category": "minor-presence",
+      "regex": "\\bage ?[:=\\-] ?(?:1[0-7]|[89])\\b",
+      "note": "The explicit 'Age: 14' bio-card format that a lot of younger VRChat users copy from templates. Much more reliable than a bare number because the label is present."
+    },
+    {
+      "id": "underage_birth_year",
+      "type": "pattern",
+      "severity": "review",
+      "category": "minor-presence",
+      "regex": "\\b(?:born|bday|birthday|b\\.?day|dob|est\\.?)[ :.]{0,3}(?:in )?20(?:09|1[0-9]|2[0-6])\\b",
+      "note": "A stated birth year that would make the account holder under eighteen as of 2026. This pattern has a shelf life -- it needs the year range advanced each year, so check the list version before relying on it. 'est. 2012' is also used to mean when a group or OC was founded, which is the main false positive."
+    },
+    {
+      "id": "underage_birth_year_displayname",
+      "type": "pattern",
+      "severity": "review",
+      "category": "minor-presence",
+      "regex": "\\b20(?:1[0-2])\\b",
+      "fields": ["displayName"],
+      "note": "Display names very often end in a birth year. Scoped to displayName only because these four digits mean nothing on their own in a bio. High false-positive rate -- 2010 is also a game release year, a car year and an arbitrary number -- so this is corroboration for other flags rather than a finding by itself. Many groups should leave this one off."
+    },
+    {
+      "id": "underage_discord_agesex",
+      "type": "pattern",
+      "severity": "review",
+      "category": "minor-presence",
+      "regex": "\\b1[0-7] ?[mf]\\b",
+      "note": "The '15f' / '16m' age-and-gender shorthand carried over from Discord and older chat culture. False positives: '16m' as sixteen million or sixteen metres, '17f' as a seat or room number. Check the surrounding words."
+    },
+    {
+      "id": "underage_self_declared_minor",
+      "type": "pattern",
+      "severity": "review",
+      "category": "minor-presence",
+      "regex": "\\b(?:i.?m|im|i am) (?:a )?(?:minor|underage|under ?18|not ?18|still (?:a )?(?:kid|minor))\\b",
+      "note": "An explicit self-declaration. Note carefully what this does NOT match: 'minors DNI', 'mdni', 'no minors', '18+ only' and similar are protective statements by adults and are excluded by requiring a first-person 'I am'. If you see a flag on an 'mdni' bio, that is a bug."
+    },
+    {
+      "id": "underage_school_grade",
+      "type": "pattern",
+      "severity": "review",
+      "category": "minor-presence",
+      "regex": "\\b(?:[5-9]|1[0-2])(?:th|st|nd|rd) ?grader?\\b",
+      "note": "US grade levels, all of which are below eighteen. Reliable because grades are not used for adults. A teacher's bio ('I teach 8th grade') is the false positive worth checking for -- look for 'teach', 'my class' or 'my students'."
+    },
+    {
+      "id": "underage_school_context",
+      "type": "combination",
+      "severity": "review",
+      "category": "minor-presence",
+      "anyOf": ["middle school", "middle schooler", "high school", "highschool", "hs student", "year 9", "year 10", "year 11", "secondary school", "junior high"],
+      "allOf": ["i"],
+      "noneOf": ["i teach", "my students", "my class", "i graduated", "high school dropout", "since high school", "back in high school", "high school sweetheart"],
+      "withinWords": 10,
+      "note": "School references in the first person. The noneOf list is doing most of the work: adults reference their own school days constantly, and teachers reference their pupils. 'Freshman' and 'sophomore' are deliberately absent because they apply equally to university, where members are adults."
+    },
+    {
+      "id": "underage_parental_context",
+      "type": "combination",
+      "severity": "note",
+      "category": "minor-presence",
+      "anyOf": ["my mom wont", "my mum wont", "my parents wont", "grounded", "school tomorrow", "cant vc", "parents took my", "my curfew", "have to do homework"],
+      "allOf": ["my"],
+      "withinWords": 8,
+      "note": "Recorded, not flagged. Living-with-parents and school references are weak on their own -- plenty of adults live with parents, are students, or joke about being grounded. Useful only as corroboration when an age or grade rule has also fired on the same account."
+    },
+    {
+      "id": "underage_minor_attracted",
+      "type": "pattern",
+      "severity": "high",
+      "category": "child-safety",
+      "regex": "\\b(?:minor ?attracted(?: person)?|nomap|no ?map(?: community)?|anti ?contact ?map|nepiophile|nepi)\\b",
+      "note": "Self-identification as a 'minor attracted person', including the 'NOMAP' (non-offending) framing. The full phrase is required rather than the three-letter acronym -- bare 'map' is a map. This is one of the highest-confidence rules in the whole set: nobody writes this phrase by accident."
+    },
+    {
+      "id": "underage_map_acronym",
+      "type": "combination",
+      "severity": "high",
+      "category": "child-safety",
+      "allOf": ["map"],
+      "anyOf": ["nomap", "anti contact", "pro contact", "map flag", "map pride", "maps are valid", "map community", "we are not pedos"],
+      "noneOf": ["world map", "map of", "minimap", "map maker", "sitemap", "map pack", "heat map", "roadmap"],
+      "withinWords": 6,
+      "note": "The acronym version, guarded hard on both sides. Bare 'map' is never flagged -- VRChat bios are full of world maps and map-makers, all excluded above. Only the acronym sitting inside its own subculture's vocabulary matches."
+    },
+    {
+      "id": "underage_pedo_selfid",
+      "type": "combination",
+      "severity": "high",
+      "category": "child-safety",
+      "allOf": ["pedo"],
+      "anyOf": ["proud", "pride", "rights", "is valid", "are valid", "acceptance", "friendly", "positive", "im a", "i am a", "self aware"],
+      "noneOf": ["pedo hunter", "anti pedo", "antipedo", "kill pedos", "fuck pedos", "catch a pedo", "pedos dni", "no pedos", "pedophile hunter", "expose pedo"],
+      "withinWords": 6,
+      "note": "Bare 'pedo' is overwhelmingly used BY people denouncing paedophiles -- 'pedos dni' is one of the most common protective lines in VRChat bios -- so flagging it bare would invert the rule's meaning entirely. The noneOf list removes the denunciations; what is left is affirmation. If a flag here turns out to be an anti-abuse statement the guard missed, dismiss it and tell the list maintainer which phrasing slipped through."
+    },
+    {
+      "id": "underage_lolicon",
+      "type": "pattern",
+      "severity": "high",
+      "category": "child-safety",
+      "regex": "\\b(?:lolicon|shotacon|toddlercon|rorikon)\\b",
+      "note": "The '-con' suffix names the sexual interest specifically, unlike the bare character-type words. Distinct from 'loli' below, which is far more ambiguous."
+    },
+    {
+      "id": "underage_loli_shota",
+      "type": "combination",
+      "severity": "review",
+      "category": "child-safety",
+      "anyOf": ["loli", "lolis", "shota", "shotas"],
+      "allOf": ["nsfw"],
+      "noneOf": ["loli fashion", "lolita fashion", "gothic lolita", "sweet lolita", "egl", "lolita dress"],
+      "withinWords": 10,
+      "note": "Bare 'loli' is a very common anime-avatar descriptor in VRChat and is not evidence of anything by itself; it is also a truncation of Lolita fashion, an unrelated clothing subculture whose wearers get accused of this constantly. Only the pairing with explicit-content vocabulary is flagged. Groups with a stricter line on child-coded avatars should handle that in their own rules rather than widening this one, because the wrong call here is an extremely serious accusation."
+    },
+    {
+      "id": "underage_cub",
+      "type": "combination",
+      "severity": "high",
+      "category": "child-safety",
+      "allOf": ["cub"],
+      "anyOf": ["yiff", "nsfw", "porn", "lewd", "kink", "rp", "18+"],
+      "noneOf": ["bear cub", "lion cub", "wolf cub", "cub scout", "cubs game", "chicago cubs", "tiger cub"],
+      "withinWords": 8,
+      "note": "'Cub' in furry contexts means a child-aged character. The word is otherwise completely ordinary -- baby animals, scouting, a baseball team -- so it is only flagged beside adult-content vocabulary. In a furry community this rule earns its keep; elsewhere it will mostly be dismissed."
+    },
+    {
+      "id": "underage_jailbait",
+      "type": "pattern",
+      "severity": "high",
+      "category": "child-safety",
+      "regex": "\\bjail ?bait\\b",
+      "note": "Describes a minor as sexually desirable but legally risky. There is no innocent reading."
+    },
+    {
+      "id": "underage_boy_girl_lover",
+      "type": "pattern",
+      "severity": "high",
+      "category": "child-safety",
+      "regex": "\\b(?:boy ?lover|girl ?lover|little ?boy ?lover|little ?girl ?lover|childlove|child ?lover)\\b",
+      "note": "Full phrases only. The two-letter abbreviations BL and GL are deliberately not matched: they are the standard names of the Boys' Love and Girls' Love manga genres, read by millions of adults about adults, and flagging them would be both wrong and insulting."
+    },
+    {
+      "id": "underage_cp_trade",
+      "type": "combination",
+      "severity": "high",
+      "category": "child-safety",
+      "allOf": ["cp"],
+      "anyOf": ["trade", "trading", "selling", "buy", "folder", "mega link", "mega.nz", "links", "dm for", "collection"],
+      "noneOf": ["cp violation", "competitive programming", "control panel", "checkpoint", "cp2077", "cyberpunk", "character points", "cost per"],
+      "withinWords": 6,
+      "note": "Trading in child sexual abuse material, using the common abbreviation. Bare 'cp' means a dozen innocent things, all excluded above. A match on this rule is not a moderation matter -- it is a law-enforcement and platform-report matter. Preserve the evidence, report to VRChat and the appropriate authority, and do not tip off the account."
+    },
+    {
+      "id": "underage_adult_seeking_minor",
+      "type": "combination",
+      "severity": "high",
+      "category": "child-safety",
+      "anyOf": ["looking for", "seeking", "want a", "wanting a", "dm me if", "only date", "into"],
+      "allOf": ["young"],
+      "noneOf": ["young at heart", "young adults", "young professionals", "young voice", "young looking avatar", "im young", "young people my age"],
+      "withinWords": 6,
+      "note": "An adult account soliciting young partners. 'Young' has many harmless uses, all excluded above, so the remaining matches are the solicitation shape. Pair this with the account's own stated age if one is available."
+    },
+    {
+      "id": "underage_seeking_teens",
+      "type": "combination",
+      "severity": "high",
+      "category": "child-safety",
+      "anyOf": ["looking for", "seeking", "prefer", "only into", "dm me", "hmu"],
+      "allOf": ["teen"],
+      "noneOf": ["teen titans", "teenage mutant", "my teen years", "as a teen", "teen rated", "rated teen"],
+      "withinWords": 6,
+      "note": "Same shape as the rule above, aimed at the word 'teen'. The noneOf entries remove media titles and the extremely common 'when I was a teen' construction."
+    },
+    {
+      "id": "underage_age_gap_solicitation",
+      "type": "pattern",
+      "severity": "high",
+      "category": "child-safety",
+      "regex": "\\b(?:1[89]|[2-9][0-9]) ?[mf]? ?(?:looking for|seeking|into|want) ?(?:1[0-5]|1[67])\\b",
+      "note": "An explicit adult-age-to-minor-age solicitation written as numbers, e.g. '28m looking for 15'. Narrow by design. The equivalent in words is covered by the two rules above."
+    },
+    {
+      "id": "underage_age_is_a_number",
+      "type": "combination",
+      "severity": "high",
+      "category": "child-safety",
+      "anyOf": ["age is just a number", "age doesnt matter", "age is only a number", "no age limit", "any age"],
+      "allOf": ["dm"],
+      "noneOf": ["age is just a number in gaming", "any age welcome", "all ages welcome"],
+      "withinWords": 10,
+      "note": "The standard grooming preamble. On its own 'age is just a number' is a cliche people use about hobbies and fitness, which is why a solicitation word is required nearby. 'All ages welcome' is explicitly excluded -- that is a group advertising inclusivity, the opposite of this."
+    },
+    {
+      "id": "underage_grooming_secrecy",
+      "type": "pattern",
+      "severity": "high",
+      "category": "child-safety",
+      "regex": "\\b(?:dont tell your (?:mom|mum|parents|dad)|our little secret|keep this between us|delete (?:these|the) messages|dont screenshot this|clear your history)\\b",
+      "note": "Secrecy instructions, which are the defining behaviour of grooming and are what distinguishes it from ordinary friendliness. These phrases have almost no legitimate use in a public profile. If one appears in a bio it is usually quoted -- from someone reporting what was said to them -- so check who is speaking before acting."
+    },
+    {
+      "id": "underage_move_to_private",
+      "type": "combination",
+      "severity": "review",
+      "category": "child-safety",
+      "anyOf": ["add me on snap", "snapchat me", "add my snap", "kik me", "telegram me", "message me privately", "lets talk somewhere else"],
+      "allOf": ["young"],
+      "withinWords": 12,
+      "note": "Moving a young contact onto a platform with no moderation and disappearing messages. Each half is innocuous -- adults swap Snapchat handles all the time -- so both must be present. Treated as review because the combination is suggestive rather than conclusive."
+    },
+    {
+      "id": "underage_send_pics",
+      "type": "combination",
+      "severity": "high",
+      "category": "child-safety",
+      "anyOf": ["send pics", "send me pics", "send nudes", "send me photos", "show me", "pic for pic"],
+      "allOf": ["age"],
+      "noneOf": ["age verification", "must be of age", "18+ only", "age verify"],
+      "withinWords": 10,
+      "note": "Soliciting images while age is under discussion. The noneOf entries exclude legitimate age-verification requests, which use very similar wording and are the opposite behaviour."
+    },
+    {
+      "id": "underage_ageplay_kink",
+      "type": "pattern",
+      "severity": "review",
+      "category": "adult-content-visibility",
+      "regex": "\\b(?:age ?play|ddlg|ddlb|mdlb|mdlg|cglre|cgl(?:re)?|little ?space|caregiver ?little)\\b",
+      "note": "Read this note before acting. These are kinks practised between consenting adults. They are NOT evidence of interest in children and treating them as such is both wrong and cruel to the member. The reason the rule exists is visibility: in an all-ages or family-friendly group, adult kink vocabulary in a public bio is a rules problem in exactly the way any other adult content would be. In an 18+ venue this rule should be disabled. Category is deliberately 'adult-content-visibility', not 'child-safety'."
+    },
+    {
+      "id": "underage_age_regression",
+      "type": "combination",
+      "severity": "review",
+      "category": "adult-content-visibility",
+      "anyOf": ["agere", "age regression", "age regressor", "regressor"],
+      "allOf": ["nsfw"],
+      "noneOf": ["sfw only", "sfw agere", "non sexual", "nonsexual", "no kink", "not a kink", "coping mechanism", "trauma"],
+      "withinWords": 10,
+      "note": "Age regression is overwhelmingly a non-sexual coping practice used by trauma survivors and neurodivergent people, and the community goes to real lengths to say so -- 'SFW agere', 'not a kink', 'coping mechanism'. Those disclaimers are excluded explicitly. Bare 'agere' is never flagged. This rule fires only when the member has themselves attached explicit-content vocabulary to it, which makes it the same visibility question as the rule above."
+    },
+    {
+      "id": "underage_sexualising_school",
+      "type": "combination",
+      "severity": "high",
+      "category": "child-safety",
+      "anyOf": ["schoolgirl", "school girl", "highschool girl", "middle schooler", "8th grader", "freshman girl", "student"],
+      "allOf": ["nsfw"],
+      "noneOf": ["schoolgirl uniform aesthetic", "im a student", "student of", "college student", "uni student", "art student"],
+      "withinWords": 8,
+      "note": "Sexualising school-age framing. Uniform aesthetics are a genuinely mainstream part of anime fashion and are excluded, as is anyone describing themselves as a student. What remains is an adult attaching explicit vocabulary to a school-age subject."
+    },
+    {
+      "id": "underage_minor_dni_absent",
+      "type": "combination",
+      "severity": "note",
+      "category": "minor-presence",
+      "anyOf": ["18+", "nsfw", "adults only", "minors dni", "mdni", "21+"],
+      "allOf": ["i"],
+      "withinWords": 12,
+      "note": "Recorded, never flagged, and included mainly as documentation. Adult-only markers such as 'MDNI' and 'minors DNI' are PROTECTIVE statements -- an adult telling minors to stay away. Nothing in this list treats them as a risk signal, and no rule here flags them. If a moderator ever sees an account flagged for saying 'minors DNI', something has gone wrong and it should be reported as a bug rather than actioned."
+    },
+    {
+      "id": "underage_asking_others_age",
+      "type": "combination",
+      "severity": "review",
+      "category": "child-safety",
+      "anyOf": ["how old are you", "whats your age", "asl", "a/s/l", "age check"],
+      "allOf": ["dm"],
+      "noneOf": ["age check for 18+", "verification", "we age check everyone"],
+      "withinWords": 10,
+      "note": "Age-fishing in DMs. Note that group staff asking for age verification is the same question with the opposite purpose, and is excluded. In practice this rule is most useful on accounts that have already tripped something else."
+    },
+    {
+      "id": "underage_alt_of_banned_minor",
+      "type": "combination",
+      "severity": "review",
+      "category": "minor-presence",
+      "anyOf": ["alt account", "my alt", "got banned", "banned for age", "main got banned"],
+      "allOf": ["age"],
+      "withinWords": 10,
+      "note": "An account describing itself as a replacement for one removed over age. Useful because it is self-reported -- the member has told you the thing you would otherwise have to work out."
+    }
+  ]
+}

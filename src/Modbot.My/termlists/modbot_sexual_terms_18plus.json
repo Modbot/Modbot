@@ -1,0 +1,210 @@
+{
+  "id": "modbot_sexual_terms_18plus",
+  "name": "Sexual content floor (18+ venues)",
+  "description": "A minimum floor for adult venues that permit explicit content but still need limits. Assumes sexual content is allowed: what it flags is content that is non-consensual, illegal or otherwise a platform-ToS problem, commercial solicitation, and explicit text pushed into display names where nobody opted in. Not suitable for all-ages groups -- use the all-ages sexual list for those.",
+  "version": "2026.9.0",
+  "source": "modbot",
+  "license": "CC0-1.0",
+  "suitableFor": ["18-plus", "club", "roleplay"],
+  "defaultSeverity": "review",
+  "rules": [
+    {
+      "id": "sex18_explicit_in_displayname",
+      "type": "pattern",
+      "severity": "review",
+      "category": "sexual",
+      "regex": "\\b(?:cock|dick|pussy|cunt|cum|cumming|anal|blowjob|bj|deepthroat|creampie|fuckmeat|slut|whore|breed ?me|rape)\\b",
+      "fields": ["displayName", "status"],
+      "note": "The same words are unremarkable in an 18+ bio and a problem in a display name, because a display name floats over someone's head for everyone in the instance including people who joined for the music. Scoped to displayName and status only. This rule is about consent to see it, not about the words."
+    },
+    {
+      "id": "sex18_noncon",
+      "type": "combination",
+      "severity": "high",
+      "category": "sexual-nonconsent",
+      "anyOf": ["rape", "raping", "noncon", "non con", "non-consensual", "forced", "unwilling", "resisting"],
+      "allOf": ["rp"],
+      "noneOf": ["cnc", "consensual non consent", "consensual non-consent", "negotiated", "safeword", "safe word", "aftercare", "limits discussed"],
+      "withinWords": 10,
+      "note": "Advertising non-consent roleplay without any of the consent framework that the kink community itself insists on. The noneOf list is the whole point: CNC practised with a safeword and negotiated limits is a consensual adult activity between consenting adults and is excluded. What is left is someone advertising force with no mention of consent at all."
+    },
+    {
+      "id": "sex18_cnc_unguarded",
+      "type": "combination",
+      "severity": "note",
+      "category": "sexual-nonconsent",
+      "allOf": ["cnc"],
+      "anyOf": ["rp", "kink", "into", "dm", "looking for"],
+      "noneOf": ["cnc machine", "cnc mill", "cnc router", "cnc machining", "g code", "fusion 360"],
+      "withinWords": 8,
+      "note": "Recorded only. CNC also means computer numerical control -- machinists, 3D-printing hobbyists and makers use it constantly, and all of that is excluded. The recorded case is adults describing a consensual kink, which an 18+ venue generally permits; it is here so that groups with a stricter policy can raise the severity themselves rather than writing their own rule."
+    },
+    {
+      "id": "sex18_bestiality",
+      "type": "pattern",
+      "severity": "high",
+      "category": "sexual-prohibited",
+      "regex": "\\b(?:bestiality|beastiality|zoophil(?:e|ia)|zoosexual|dog ?fucker|animal ?fucker|knotting irl|feral irl)\\b",
+      "note": "Sexual interest in real animals. Note the 'irl' qualifiers on the last two: 'knotting' and 'feral' are anthropomorphic-fiction terms in furry contexts and refer to drawn characters, which is a different thing and not what this rule is for. Only real-animal framing is matched."
+    },
+    {
+      "id": "sex18_incest",
+      "type": "combination",
+      "severity": "high",
+      "category": "sexual-prohibited",
+      "anyOf": ["incest", "real incest", "incest irl", "my actual sister", "my actual brother", "my real mom", "my real dad"],
+      "allOf": ["irl"],
+      "noneOf": ["step", "fiction", "fictional", "anime", "roleplay only", "not real", "ao3", "fanfic"],
+      "withinWords": 10,
+      "note": "Real-world incest, as distinct from a fiction genre. The noneOf list excludes fictional and roleplay framing, which an 18+ venue generally treats as a taste question rather than a safety one. A match that turns out to be about a fanfic tag should be dismissed."
+    },
+    {
+      "id": "sex18_scat_extreme",
+      "type": "pattern",
+      "severity": "review",
+      "category": "sexual-extreme",
+      "regex": "\\b(?:scat ?play|coprophil|necrophil|vore ?irl|guro|ryona ?irl|snuff)\\b",
+      "note": "Content that many 18+ venues still exclude, usually because it breaks platform ToS or distresses staff. 'Scat' alone is not matched -- it is a jazz singing style and an animal-tracking term. 'Guro' is drawn gore-erotica; whether it is a problem is a venue decision, so this is review, not high."
+    },
+    {
+      "id": "sex18_sex_work_solicitation",
+      "type": "combination",
+      "severity": "review",
+      "category": "sexual-commercial",
+      "anyOf": ["onlyfans", "fansly", "premium snap", "premium snapchat", "my of", "0nlyfans", "linktree", "throne"],
+      "allOf": ["dm"],
+      "noneOf": ["dm for commissions", "art commissions", "vrchat avatar", "3d model"],
+      "withinWords": 12,
+      "note": "Commercial solicitation. Most 18+ VRChat venues restrict advertising rather than adult content as such, which is why this is in the commercial category. The noneOf entries protect avatar and art commissions, which are a legitimate and large part of the VRChat economy and should never be swept up here."
+    },
+    {
+      "id": "sex18_findom",
+      "type": "pattern",
+      "severity": "review",
+      "category": "sexual-commercial",
+      "regex": "\\b(?:findom|find[o0]mme|pay ?pig|cash ?slave|tribute me|drain me|wallet ?drain|sugar (?:daddy|baddie|mommy|momma|baby))\\b",
+      "note": "Financial-domination and sugaring solicitation. Flagged as commercial activity, not as kink -- the concern is members being financially exploited inside a venue, and scam accounts using this framing as a cover. A venue that permits this openly should turn the rule off."
+    },
+    {
+      "id": "sex18_prostitution",
+      "type": "combination",
+      "severity": "high",
+      "category": "sexual-commercial",
+      "anyOf": ["meet irl", "in person", "hookup", "hook up", "outcall", "incall", "hotel"],
+      "allOf": ["paid"],
+      "noneOf": ["paid promotion", "paid actor", "paid off", "paid dlc", "paid mod"],
+      "withinWords": 10,
+      "note": "Arranging paid in-person sex through the platform, which is a legal exposure for the group as well as a ToS problem. Requires both the payment and the in-person element. A paid DJ gig at a real venue is the false positive to watch for."
+    },
+    {
+      "id": "sex18_unsolicited_dms",
+      "type": "combination",
+      "severity": "review",
+      "category": "sexual",
+      "anyOf": ["send nudes", "send noods", "show me your", "pics or", "tits or", "rate my"],
+      "allOf": ["send"],
+      "noneOf": ["send help", "send tweet", "send it"],
+      "withinWords": 6,
+      "note": "Demands for images stated in a public profile. Even in an adult venue, a bio that opens with a demand tends to be a harassment pattern rather than a kink statement."
+    },
+    {
+      "id": "sex18_erp_advertising",
+      "type": "combination",
+      "severity": "note",
+      "category": "sexual",
+      "allOf": ["erp"],
+      "anyOf": ["looking for", "lf", "dm me", "open for", "taking", "available"],
+      "noneOf": ["no erp", "erp dni", "not looking for erp", "erp free", "anti erp"],
+      "withinWords": 8,
+      "note": "ERP is erotic roleplay, the VRChat term of art. Recorded rather than flagged because in an 18+ venue this is ordinary. The noneOf entries matter more than the rule does: 'no ERP' and 'ERP DNI' are refusals, and flagging someone for declining would be the exact opposite of the intent. Groups that restrict solicitation in public spaces can raise this to review."
+    },
+    {
+      "id": "sex18_public_erp_location",
+      "type": "combination",
+      "severity": "review",
+      "category": "sexual",
+      "anyOf": ["erp", "lewd", "nsfw"],
+      "allOf": ["public"],
+      "noneOf": ["private only", "not in public", "private worlds only", "public sfw"],
+      "withinWords": 8,
+      "note": "Advertising explicit activity in public instances, where people who did not consent will see it. This is usually the rule an 18+ venue actually wants -- the content is fine, the venue is not."
+    },
+    {
+      "id": "sex18_drugged",
+      "type": "combination",
+      "severity": "high",
+      "category": "sexual-nonconsent",
+      "anyOf": ["drugged", "passed out", "unconscious", "asleep", "blackout drunk", "roofie"],
+      "allOf": ["kink"],
+      "withinWords": 10,
+      "note": "Incapacitation framing. Distinct from the noncon rule above because these words describe someone who could not consent at all rather than someone playing at refusal. Consent-play vocabulary does not rescue this one."
+    },
+    {
+      "id": "sex18_slur_as_sexual",
+      "type": "combination",
+      "severity": "review",
+      "category": "sexual",
+      "anyOf": ["breeding", "breed me", "broodmother", "fuck toy", "cumdump", "onahole", "fleshlight"],
+      "allOf": ["free use"],
+      "withinWords": 10,
+      "note": "Dehumanising sexual framing. In a kink-literate 18+ venue much of this is negotiated and consensual, which is why it requires the 'free use' framing and sits at review. Read the bio: if it reads as the member describing their own preferences, that is their business."
+    },
+    {
+      "id": "sex18_bodily_fluids_displayname",
+      "type": "pattern",
+      "severity": "review",
+      "category": "sexual",
+      "regex": "\\b(?:cumslut|cumdump|fuckmeat|breedable|semen|squirting)\\b",
+      "fields": ["displayName"],
+      "note": "Display-name scope again. The venue may be adult; the name is still visible in every friend list, join notification and screenshot the member appears in, including other people's."
+    },
+    {
+      "id": "sex18_emoji_solicitation",
+      "type": "pattern",
+      "severity": "note",
+      "category": "sexual",
+      "regex": "[\\x{1F346}\\x{1F351}][\\x{1F4A6}\\x{1F4A7}\\x{1F445}]",
+      "note": "Aubergine or peach immediately followed by droplets or a tongue -- the standard emoji solicitation shorthand, which survives text normalisation because emoji are not folded. Recorded rather than flagged: plenty of people just like fruit. Requires the pair to be adjacent so a food bio does not match."
+    },
+    {
+      "id": "sex18_age_uncertain_partner",
+      "type": "combination",
+      "severity": "high",
+      "category": "sexual",
+      "anyOf": ["no age check", "dont care how old", "dont ask age", "age doesnt matter"],
+      "allOf": ["erp"],
+      "withinWords": 12,
+      "note": "Explicitly declining to check age before explicit roleplay. Even in an adult venue this is the single highest-risk thing an account can advertise, because it invites exactly the situation the venue's 18+ policy exists to prevent. Overlaps with the underage-risk list by design -- enable both."
+    },
+    {
+      "id": "sex18_recording_without_consent",
+      "type": "combination",
+      "severity": "high",
+      "category": "sexual-nonconsent",
+      "anyOf": ["recording", "recorded", "clips", "screenshots", "stream"],
+      "allOf": ["without asking"],
+      "noneOf": ["ask first", "i always ask", "with permission", "consent to record"],
+      "withinWords": 12,
+      "note": "Recording other people's intimate activity without asking. In VRChat this is a live problem because capture is trivial and the footage is identifiable. The exclusions cover members stating the responsible policy, which is the same vocabulary with the opposite meaning."
+    },
+    {
+      "id": "sex18_revenge_content",
+      "type": "combination",
+      "severity": "high",
+      "category": "sexual-nonconsent",
+      "anyOf": ["leaked", "leaks", "exposing", "her nudes", "his nudes", "their nudes"],
+      "allOf": ["dm for"],
+      "withinWords": 10,
+      "note": "Distribution of intimate images without consent, which is a criminal offence in most jurisdictions. Requires a distribution offer so that someone saying their own images were leaked -- a victim -- does not match."
+    },
+    {
+      "id": "sex18_hard_solicitation_status",
+      "type": "pattern",
+      "severity": "review",
+      "category": "sexual",
+      "regex": "\\b(?:looking to fuck|dtf|down to fuck|need a hole|use me|free use|taking loads)\\b",
+      "fields": ["status", "displayName"],
+      "note": "The status line is shown next to a member's name in the nameplate and in friend lists. An 18+ venue that permits this in bios often still wants it out of the nameplate. Bio scope is deliberately omitted."
+    }
+  ]
+}
