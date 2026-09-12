@@ -1,3 +1,4 @@
+using Modbot.Core.Time;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
@@ -69,13 +70,18 @@ public static class ModbotLogging
     private const string ConsoleTemplate =
         "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}";
 
-    public static Logger Create(ModbotLogOptions options)
+    /// <param name="clock">
+    /// Even the log filename comes from <see cref="IModbotClock"/>. The stamp is how an operator
+    /// correlates a log file with an incident, so it must agree with the timestamps on the facts.
+    /// </param>
+    public static Logger Create(ModbotLogOptions options, IModbotClock clock)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(clock);
         System.IO.Directory.CreateDirectory(options.Directory);
 
         // MM-dd-yyyy for a human scanning the directory; epoch so each run is distinct and sortable.
-        var now = DateTimeOffset.UtcNow;
+        var now = clock.UtcNow;
         var stamp = $"{now:MM-dd-yyyy}_{now.ToUnixTimeSeconds()}";
 
         var config = new LoggerConfiguration()

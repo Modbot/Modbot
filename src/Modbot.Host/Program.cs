@@ -3,16 +3,23 @@ using Scalar.AspNetCore;
 using Modbot.Core;
 using Modbot.Core.Configuration;
 using Modbot.Core.Logging;
+using Modbot.Core.Time;
 using Serilog;
 
 var env = ModbotEnvironment.Read();
 
 // Logging comes up before anything else, so a failure during startup is recorded rather than lost.
-Log.Logger = ModbotLogging.Create(new ModbotLogOptions
-{
-    Debug = env.DebugLogging,
-    SeqUrl = env.SeqUrl,
-});
+// The clock is constructed here rather than resolved from DI: logging must exist before the
+// container does, and SystemModbotClock is the only implementation permitted to read the machine.
+var clock = new SystemModbotClock();
+
+Log.Logger = ModbotLogging.Create(
+    new ModbotLogOptions
+    {
+        Debug = env.DebugLogging,
+        SeqUrl = env.SeqUrl,
+    },
+    clock);
 
 try
 {
