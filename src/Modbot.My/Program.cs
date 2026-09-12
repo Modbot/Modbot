@@ -39,8 +39,22 @@ app.MapGet("/health/live", () => Results.Ok());
 // same file for each so a deep link works on first load, not only after
 // navigating from the root.
 var selectorPage = File.ReadAllText(Path.Combine(app.Environment.WebRootPath, "index.html"));
-foreach (var route in new[] { "/register", "/instanceredirect" })
-    app.MapGet(route, () => Results.Content(selectorPage, "text/html; charset=utf-8"));
+app.MapGet("/instanceredirect", () => Results.Content(selectorPage, "text/html; charset=utf-8"));
+
+// The register page records the instance URL server-side as a BACKUP registry, so deployments
+// that never self-register (analytics off, or simply never called) are still counted. It captures
+// the URL and nothing else -- no analytics, no group, no operator.
+app.MapGet("/register", async (string? modbotInstanceUrl, IInstanceRegistry registry, CancellationToken ct) =>
+{
+    if (!string.IsNullOrWhiteSpace(modbotInstanceUrl)
+        && Uri.TryCreate(modbotInstanceUrl, UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttps)
+    {
+        await registry.NoteRegisterPageVisitAsync(uri.GetLeftPart(UriPartial.Authority), ct);
+    }
+
+    return Results.Content(selectorPage, "text/html; charset=utf-8");
+});
 
 // ── Instance registry ────────────────────────────────────────────────────────
 // Deployments register themselves so the project can count them and know which

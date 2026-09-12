@@ -2,7 +2,20 @@ using System.Collections.Concurrent;
 
 namespace Modbot.My.Registry;
 
-/// <summary>One registered Modbot deployment. See central services spec section 4.2.</summary>
+/// <summary>How the project first learned this deployment exists.</summary>
+public enum RegistrationSource
+{
+    /// <summary>The deployment called the API itself, which only happens with analytics enabled.</summary>
+    InstanceApi,
+
+    /// <summary>
+    /// Someone opened the register page for it. Recorded as a backup so deployments that never
+    /// self-register are still counted -- but it carries no analytics, only the URL.
+    /// </summary>
+    RegisterPage,
+}
+
+/// <summary>One registered Modbot deployment. See central services spec section 4.3.</summary>
 /// <remarks>
 /// The absent fields are the point. There is no group id, no group name, no operator identity and
 /// no credential here — not because they are filtered out, but because the record has nowhere to
@@ -14,6 +27,7 @@ public sealed record RegisteredInstance
     public required string InstanceId { get; init; }
 
     public required string InstanceUrl { get; init; }
+    public RegistrationSource Source { get; init; }
     public string? Version { get; init; }
     public DateTimeOffset RegisteredAt { get; init; }
     public DateTimeOffset LastSeenAt { get; init; }
@@ -32,6 +46,12 @@ public sealed record RegisteredInstance
 public interface IInstanceRegistry
 {
     Task<RegisteredInstance> RegisterAsync(string instanceId, string instanceUrl, string? version, CancellationToken ct = default);
+
+    /// <summary>
+    /// Records a deployment seen via the register page. Never overwrites a self-registered record,
+    /// because that one carries analytics and this one does not.
+    /// </summary>
+    Task NoteRegisterPageVisitAsync(string instanceUrl, CancellationToken ct = default);
     Task<bool> ReportUsageAsync(string instanceId, UsageReport report, CancellationToken ct = default);
     Task<RegistryTotals> GetTotalsAsync(CancellationToken ct = default);
 }
@@ -77,6 +97,7 @@ public sealed class InMemoryInstanceRegistry : IInstanceRegistry
                 InstanceId = instanceId,
                 InstanceUrl = instanceUrl,
                 Version = version,
+                Source = RegistrationSource.InstanceApi,
                 RegisteredAt = now,
                 LastSeenAt = now,
             },
@@ -85,6 +106,28 @@ public sealed class InMemoryInstanceRegistry : IInstanceRegistry
             (_, existing) => existing with { InstanceUrl = instanceUrl, Version = version ?? existing.Version, LastSeenAt = now });
 
         return Task.FromResult(record);
+    }
+
+    public Task NoteRegisterPageVisitAsync(string instanceUrl, CancellationToken ct = default)
+    {
+        // Keyed on the URL, since a page visit has no instanceId to work with. A deployment that
+        // later self-registers gets its own row with a real id; this one ages out on its own.
+        var key = "url:" + instanceUrl;
+        var now = _time.GetUtcNow();
+
+        _instances.AddOrUpdate(
+            key,
+            _ => new RegisteredInstance
+            {
+                InstanceId = key,
+                InstanceUrl = instanceUrl,
+                Source = RegistrationSource.RegisterPage,
+                RegisteredAt = now,
+                LastSeenAt = now,
+            },
+            (_, existing) => existing with { LastSeenAt = now });
+
+        return Task.CompletedTask;
     }
 
     public Task<bool> ReportUsageAsync(string instanceId, UsageReport report, CancellationToken ct = default)

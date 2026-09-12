@@ -256,8 +256,15 @@ A **new tab rather than a redirect-and-return**: the deployment never depends on
 completing, so a slow or unreachable `my.modbot.co` cannot stall onboarding. The wizard continues
 behind it.
 
-The instance list lives in that browser and nowhere else. The page has no backend; **which instances
-a given person uses is not something the project learns here.**
+The instance list lives in that browser and nowhere else — **which instances a given person uses**
+stays local, and the selector has no backend for it.
+
+**The instance URL itself is recorded server-side**, as a backup registry. A deployment whose
+operator turned analytics off, or who never got as far as self-registering, is still counted. The
+page visit contributes the URL and nothing else: no analytics, no group, no version, no operator.
+
+Records from a page visit are marked `RegisterPage` and never overwrite a self-registered row
+(`InstanceApi`), because that one carries analytics and this one cannot.
 
 ### 4.2 The register API — server-side, only with analytics enabled
 
