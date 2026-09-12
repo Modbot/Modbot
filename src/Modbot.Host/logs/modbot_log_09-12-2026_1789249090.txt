@@ -1,6 +1,0 @@
-2026-09-12 16:38:10.100 -05:00 [INF] Modbot starting on port 8098
-2026-09-12 16:38:10.201 -05:00 [WRN] The WebRootPath was not found: C:\Users\sarma\source\repos\binn\Modbot\src\Modbot.Host\wwwroot. Static files may be unavailable.
-2026-09-12 16:38:10.213 -05:00 [INF] Now listening on: http://0.0.0.0:8098
-2026-09-12 16:38:10.213 -05:00 [INF] Application started. Press Ctrl+C to shut down.
-2026-09-12 16:38:10.213 -05:00 [INF] Hosting environment: Production
-2026-09-12 16:38:10.213 -05:00 [INF] Content root path: C:\Users\sarma\source\repos\binn\Modbot\src\Modbot.Host

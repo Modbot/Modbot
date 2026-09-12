@@ -1,4 +1,0 @@
-{"@t":"2026-09-12T21:38:10.1292134Z","@mt":"{Service} {Method} {EndpointClass} -> {Status} in {DurationMs:0} ms","@r":["184"],"Service":"VRChat","Method":"GET","EndpointClass":"groups.members","Status":200,"DurationMs":184,"LogArea":"Http"}
-{"@t":"2026-09-12T21:38:10.1339755Z","@mt":"{Service} {EndpointClass} limiter state after call","@l":"Debug","Service":"VRChat","EndpointClass":"groups.members","LogArea":"Http","RetryAfterSeconds":null,"BucketTokens":1.45}
-{"@t":"2026-09-12T21:38:10.1346621Z","@mt":"{Service} {Method} {EndpointClass} -> {Status} in {DurationMs:0} ms","@r":["91"],"@l":"Warning","Service":"VRChat","Method":"GET","EndpointClass":"groups.members","Status":429,"DurationMs":91,"LogArea":"Http"}
-{"@t":"2026-09-12T21:38:10.1347866Z","@mt":"{Service} {EndpointClass} limiter state after call","@l":"Debug","Service":"VRChat","EndpointClass":"groups.members","LogArea":"Http","RetryAfterSeconds":null,"BucketTokens":0}

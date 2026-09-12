@@ -14,14 +14,14 @@ x86/
 *.suo
 *.userprefs
 .vs/
-/artifacts/
+artifacts/
 TestResults/
 *.binlog
 BenchmarkDotNet.Artifacts/
 
 # ---- Node / frontend ----
 node_modules/
-/dist/
+dist/
 /build/
 .next/
 .turbo/
@@ -46,7 +46,7 @@ secrets.json
 # Anchored: an unanchored `data/` also matches src/Modbot.Core/Data and tests/.../Data,
 # which silently swallowed the entire EF Core model.
 /data/
-/logs/
+logs/
 *.log
 
 # ---- Editors / OS ----
@@ -73,7 +73,7 @@ explore/responses/
 # .NET build output
 [Bb]in/
 [Oo]bj/
-/logs/
+logs/
 
 # Node
 node_modules/
