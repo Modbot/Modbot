@@ -527,20 +527,20 @@ full-sync rates: a paged sync of a large group simply spans many intervals.
 | Group instances | 1 per **8 s** | 0.125 | `groups.instances` |
 | Group info | 1 per **10 s** | 0.100 | `groups.read` |
 | Group roles | 1 per **10 s** | 0.100 | `groups.read` |
-| **User profiles** | see §4.2.5 | **0.200 floor** | `users.read` |
-| | **Sum** | **1.650** | |
+| | **Sum** | **1.450** | |
 
-**Global ceiling: 2 requests/second**, enforced by the top bucket of the hierarchy (§4.3.1) and never
-exceeded by any Modbot instance.
+**Global ceiling: 2 requests/second** across the types above.
 
-The 0.35 req/s between the sum and the ceiling is not spare capacity to be spent on faster sync — it
+**`users.read` runs in its own lane at 1 req/s and is *not* counted against that ceiling** — see
+§4.2.5. VRChat rate-limits the user endpoint separately and far more permissively, so constraining it
+to the same budget as the group endpoints would cost days of sync time for no benefit.
+
+The ceiling is enforced by the top bucket of the hierarchy (§4.3.1) and never exceeded.
+
+The 0.55 req/s between the sum and the ceiling is not spare capacity to be spent on faster sync — it
 is reserved for **interactive work**: moderation actions, onboarding, and a moderator's live queries,
 which preempt background sync (§4.1). A background scheduler that consumed the full ceiling would
 make every ban wait behind a member page.
-
-User profile sync (§4.2.5) is the one job that deliberately borrows from that headroom, because it is
-the only job that can never finish otherwise. It takes a 0.2 req/s floor and whatever else is idle,
-and yields instantly to anything higher-priority.
 
 #### 4.2.1 These are caps, and they are configurable downward only
 
@@ -607,44 +607,41 @@ Those live on the user object and must be fetched **one user at a time** (`users
 `Instance.Users` would have returned them in bulk, but VRChat populates it only for VRChat staff and
 world owners (M3 §7.2.1).
 
-So per-user sync is unavoidable, and at real group sizes it is slow:
+So per-user sync is unavoidable. It is, however, **not subject to the global ceiling**: VRChat
+rate-limits `users.read` separately and far more permissively than the group endpoints, so it runs in
+**its own lane at 1 req/s**.
 
-| Group size | Full sweep at 0.2 req/s | at 0.5 req/s |
+That changes the picture substantially:
+
+| Group size | Full sweep @ 1 req/s | (had it shared the group budget, 0.2 req/s) |
 |---|---|---|
-| 8,000 (typical) | ~11 hours | ~4.5 hours |
-| 16,000 (typical upper) | ~22 hours | ~9 hours |
-| 150,000 (largest observed) | **~8.7 days** | ~3.5 days |
+| 8,000 (typical) | **~2.2 hours** | ~11 hours |
+| 16,000 (typical upper) | **~4.4 hours** | ~22 hours |
+| 150,000 (largest observed) | **~1.7 days** | ~8.7 days |
 
-**A uniform sweep is therefore the wrong shape.** For a large group it would refresh the least
-relevant members exactly as often as the most relevant, and complete roughly never.
+A typical group therefore refreshes **every** profile several times a day, and even the 150k outlier
+completes in under two days.
 
-##### Priority tiers
+##### The trade being made
 
-Profiles are refreshed by **relevance, not by row order**:
+Total outbound can now reach roughly **3 req/s** at peak — 2 for the group endpoints plus 1 for
+users — where §4.3.1's global bucket is otherwise the backstop against an unseen account-wide limit.
 
-| Tier | Who | Priority | Freshness |
-|---|---|---|---|
-| **1. On demand** | A moderator opened this dossier; an action is being taken on them | interactive — preempts sync | immediate |
-| **2. Event-driven** | Just joined an instance, joined the group, was actioned, appeared in the audit log | high | minutes |
-| **3. Recently active** | Seen in an instance or Discord voice within the activity window | normal | hours |
-| **4. Long tail** | Everyone else | **lowest — leftover budget only** | days, or never for a 150k group |
+This is a deliberate, evidence-based exemption: the user endpoint is observed to be governed
+separately and laxly. It is also the single assumption in §4.2 most worth re-testing, so:
 
-Tier 4 never completing is an acceptable outcome, not a failure. A member who has not been in an
-instance for eight months having a stale bio is close to zero risk; the people who matter are the
-people who show up, and tiers 1–3 cover exactly those.
+- the users lane is **configurable downward** like every other rate (§4.2.1);
+- a 429 on `users.read` cold-stops that lane **and** applies the multiplicative decrease to the global
+  bucket anyway (§4.3.1), because a limit hit anywhere is evidence the whole model is optimistic;
+- if 429s appear on *other* endpoint classes shortly after user-sync bursts, that is the signature of
+  an account-wide limit and the exemption should be withdrawn. Worth watching for explicitly rather
+  than discovering slowly.
 
-**The fact log already knows who is active** (§5), so the tiering needs no new data source — it is a
-query over last-seen.
+##### Priority still matters
 
-##### Budget
-
-`users.read` gets a **floor of 0.2 req/s** so progress is guaranteed, plus **opportunistic use of
-headroom** below the 2 req/s ceiling when interactive work and the other jobs are not using it. It
-yields instantly to anything higher-priority.
-
-This keeps §4.2's total honest: the fixed allocations still sum to 1.45, the floor takes it to 1.65,
-and the remainder is shared between interactive bursts and tier-4 backfill — with interactive always
-winning.
+Tiering is no longer about a sweep that never finishes — it is about **freshness where it counts**.
+Someone in your instance right now should have a profile refreshed minutes ago, not four hours ago,
+and a 150k group still cannot refresh everyone continuously.
 
 ##### Freshness is visible, never implied
 
