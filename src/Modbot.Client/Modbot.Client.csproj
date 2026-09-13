@@ -1,7 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Modbot.Core\Modbot.Core.csproj" />
+    <ProjectReference Include="..\Modbot.Shared\Modbot.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

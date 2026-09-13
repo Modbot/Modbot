@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The few types both halves of Modbot need: the clock the whole codebase reads time from and the
+    version numbers. No packages, on purpose. The desktop client references this and not
+    Modbot.Core, because Core carries Entity Framework, Npgsql, data protection and the Serilog
+    sinks, a server's dependencies, and a tray application that pulled those in took a minute
+    to restore on a fresh machine for three types it could have had for free.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

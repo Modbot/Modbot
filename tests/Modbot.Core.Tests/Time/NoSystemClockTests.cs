@@ -17,7 +17,7 @@ public class NoSystemClockTests
     public void NoSourceFileReadsTheSystemClock()
     {
         var repoRoot = FindRepoRoot();
-        var allowed = Path.Combine(repoRoot, "src", "Modbot.Core", "Time", "SystemModbotClock.cs");
+        var allowed = Path.Combine(repoRoot, "src", "Modbot.Shared", "Time", "SystemModbotClock.cs");
 
         var offenders = Directory
             .EnumerateFiles(Path.Combine(repoRoot, "src"), "*.cs", SearchOption.AllDirectories)

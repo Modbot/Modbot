@@ -10,6 +10,7 @@
     <Project Path="src/Modbot.Host/Modbot.Host.csproj" />
     <Project Path="src/Modbot.My/Modbot.My.csproj" />
     <Project Path="src/Modbot.Overlay/Modbot.Overlay.csproj" />
+    <Project Path="src/Modbot.Shared/Modbot.Shared.csproj" />
     <Project Path="src/Modbot.VRChat/Modbot.VRChat.csproj" />
   </Folder>
   <Folder Name="/tests/">

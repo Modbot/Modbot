@@ -25,6 +25,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props global.json ./
+COPY src/Modbot.Shared/Modbot.Shared.csproj src/Modbot.Shared/
 COPY src/Modbot.Core/Modbot.Core.csproj src/Modbot.Core/
 COPY src/Modbot.VRChat/Modbot.VRChat.csproj src/Modbot.VRChat/
 COPY src/Modbot.Analytics/Modbot.Analytics.csproj src/Modbot.Analytics/
