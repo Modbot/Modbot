@@ -10,4 +10,15 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <!-- A release build names its version once, as ModbotRelease (YYYY.M.PATCH), and every
+       assembly is stamped from it: the four-part AssemblyVersion is the direct mapping from
+       foundation 2.7.2, and the display version is the calendar string itself. Nothing is set
+       when ModbotRelease is absent, so an ordinary development build is unchanged. -->
+  <PropertyGroup Condition="'$(ModbotRelease)' != ''">
+    <Version>$(ModbotRelease)</Version>
+    <AssemblyVersion>$(ModbotRelease).0</AssemblyVersion>
+    <FileVersion>$(ModbotRelease).0</FileVersion>
+    <InformationalVersion>$(ModbotRelease)</InformationalVersion>
+  </PropertyGroup>
 </Project>

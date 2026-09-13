@@ -12,6 +12,20 @@
     <PackageReference Include="Vortice.Direct3D11" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Valve's OpenVR runtime library, copied beside the exe. OpenVrInterop loads "openvr_api"
+         by name, and the pinned IVROverlay_028 function table it calls through is only right
+         against a dll that speaks that version, so the dll is vendored here, at a known version,
+         rather than picked up from whatever SteamVR happens to be installed. It is Valve's own
+         win64 build from the openvr repository at v2.15.6 (SHA-256
+         bab8ac6ef64e68a9ca53315b0014d131088584b2efdfa6db511d67ec03cfcb4a), redistributed under its
+         BSD 3-clause licence; the licence file travels with it and THIRD-PARTY-NOTICES.md at the
+         repository root records the attribution. The dll is only useful on 64-bit Windows, which
+         is the only place the client runs; it is a harmless extra file everywhere else. -->
+    <None Include="native\win-x64\openvr_api.dll" Link="openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="native\win-x64\openvr_api.LICENSE.txt" Link="openvr_api.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
