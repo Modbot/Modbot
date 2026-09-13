@@ -1,6 +1,6 @@
 # VRChat group audit log — findings from live data
 
-- **Source:** 638 facts written by Modbot's audit-log producer against a real ~4,700-member group,
+- **Source:** 1,241 audit entries (and the group-info producer's facts) written by Modbot's audit-log producer against a real ~4,700-member group,
   pulled from the live database on 2026-09-13 into `.local/live/` (gitignored — never commit it).
 - **Companion:** `vrchat-sdk-findings.md` (SDK landmines), foundation spec §5.9 (the merged log).
 
