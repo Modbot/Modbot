@@ -96,7 +96,11 @@ internal static class OnboardingTestContext
         return JsonDocument.Parse(body).RootElement.Clone();
     }
 
-    public static async Task<Settings> ReadSettingsAsync(PostgresFixture db, CancellationToken ct)
+    // Qualified: a sibling `Features/Settings` test namespace shadows the unqualified name from
+    // inside `Features.Onboarding`, exactly as `Modbot.Api.Features.Settings` already does in the
+    // shipped code. Naming the entity outright is the fix that stays correct either way.
+    public static async Task<Core.Data.Entities.Settings> ReadSettingsAsync(
+        PostgresFixture db, CancellationToken ct)
     {
         await using var context = db.NewContext();
         return await context.GetSettingsAsync(ct);
