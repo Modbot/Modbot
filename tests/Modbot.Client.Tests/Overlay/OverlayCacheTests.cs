@@ -87,7 +87,7 @@ public class OverlayCacheTests
     }
 
     [Fact]
-    public void HoldsDossierSummariesTheSameWay()
+    public void HoldsProfileSummariesTheSameWay()
     {
         var clock = new FakeClock();
         var cache = new OverlayCache(clock);

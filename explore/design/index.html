@@ -393,7 +393,7 @@ h3.sec:first-child { margin-top: 0; }
       <a href="#" data-p="audit">Audit log</a>
       <div class="grp">Insight</div>
       <a href="#" data-p="metrics">Metrics</a>
-      <a href="#" data-p="dossier">Dossier</a>
+      <a href="#" data-p="profile">Profile</a>
       <div class="grp">Setup</div>
       <a href="#" data-p="settings">Settings</a>
       <a href="#" data-p="type">Type specimen</a>
@@ -488,8 +488,8 @@ h3.sec:first-child { margin-top: 0; }
       </div>
     </section>
 
-    <!-- DOSSIER -->
-    <section class="page" id="p-dossier">
+    <!-- PROFILE -->
+    <section class="page" id="p-profile">
       <div class="card" style="margin-bottom:var(--s3)">
         <div style="display:flex;gap:var(--s4);padding:var(--s5)">
           <div class="av" style="width:52px;height:52px;border-radius:10px;font-size:17px">ΛƧ</div>
@@ -639,7 +639,7 @@ document.getElementById('nav').addEventListener('click', e => {
   document.getElementById('ttl').textContent = a.childNodes[0].textContent.trim();
   document.getElementById('sub').textContent = {
     members:'Synced 40 seconds ago', bans:'Synced 2 minutes ago', audit:'Live — 1 minute behind',
-    metrics:'Daily totals rebuilt 04:00', dossier:'Profile refreshed 12 minutes ago',
+    metrics:'Daily totals rebuilt 04:00', profile:'Profile refreshed 12 minutes ago',
     settings:'', type:'Compare typefaces with the toggle above'
   }[a.dataset.p];
 });
@@ -663,7 +663,7 @@ document.getElementById('mrows').innerHTML = names.map(([n,id,r,j,t,a]) => `
    <div><div style="font-weight:500">${n}</div><div class="mono tiny">${id.slice(0,22)}…</div></div></div></td>
  <td class="dim">${r}</td><td class="dim">${j}</td><td class="num">${t}</td>
  <td class="num">${a ? `<span class="pill p-dang" style="display:inline-flex">${a}</span>` : '<span class="tiny">—</span>'}</td>
- <td><div class="row-act"><button class="btn btn-sm">Dossier</button><span style="width:14px"></span><button class="btn btn-sm btn-danger">Ban</button></div></td></tr>`).join('');
+ <td><div class="row-act"><button class="btn btn-sm">Profile</button><span style="width:14px"></span><button class="btn btn-sm btn-danger">Ban</button></div></td></tr>`).join('');
 
 const bans = [['sk1dm4rk','Crasher','~ RedZu ~','2 h ago'],['Nullptr_','Harassment','ΛƧƬΛ','5 h ago'],
  ['guest_9931','Ban evasion','~ RedZu ~','1 d ago'],['AdBotXX','Advertising','ΛƧƬΛ','2 d ago'],

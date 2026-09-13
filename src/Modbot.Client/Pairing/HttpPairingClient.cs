@@ -38,7 +38,7 @@ public readonly record struct PairingAttempt(Uri BaseUri, string Code, string Se
 /// other paired servers, or anything read from the log.</para>
 /// <para><strong>What comes back</strong> is a device token, the group the server manages, and the
 /// server's current time. The token is ingest-scoped — stolen, it can submit presence facts and
-/// nothing else; it cannot read the member list, read a dossier, or ban anybody. The group id is
+/// nothing else; it cannot read the member list, read a profile, or ban anybody. The group id is
 /// what lets the client decide locally which events this server may hear about, so it never has to
 /// ask a server "do you own this instance?" — asking is itself the leak that routing exists to
 /// prevent.</para>

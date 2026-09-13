@@ -8,7 +8,7 @@ namespace Modbot.Client.Ingest;
 /// pairs the same client twice and holds two unrelated tokens; neither group's operator learns of
 /// the other.</para>
 /// <para><strong>The token is ingest-scoped.</strong> Stolen, it can submit presence facts and
-/// nothing else — it cannot read the member list, cannot read a dossier, and cannot ban anyone. A
+/// nothing else — it cannot read the member list, cannot read a profile, and cannot ban anyone. A
 /// moderator acting from the overlay goes through the normal API as themselves.</para>
 /// <para><strong>Nothing here is transmitted except the token</strong>, as a bearer header, to the
 /// one server it belongs to.</para>
@@ -66,7 +66,7 @@ public sealed record ServerPairing
     public Uri ContextEndpoint(string instanceId)
         => new(BaseUri, $"/api/v{ApiVersion}/client/context?instanceId={Uri.EscapeDataString(instanceId)}");
 
-    /// <summary>One person's dossier summary — prior actions, roles, join date, current flags.</summary>
+    /// <summary>One person's profile summary — prior actions, roles, join date, current flags.</summary>
     public Uri UserEndpoint(string subjectId)
         => new(BaseUri, $"/api/v{ApiVersion}/client/user/{Uri.EscapeDataString(subjectId)}");
 

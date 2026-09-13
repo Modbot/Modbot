@@ -145,9 +145,9 @@ public static class ClientApi
 
         client.MapGet("/user/{subjectId}", ContextHandler.UserAsync)
             .WithName("GetClientUserSummary")
-            .WithSummary("Dossier summary for one person, sized for a headset card")
+            .WithSummary("Profile summary for one person, sized for a headset card")
             .WithDescription(
-                "Deliberately not the full web dossier: prior actions, roles, join date and "
+                "Deliberately not the full web profile: prior actions, roles, join date and "
                 + "current flags, and nothing that needs scrolling in a headset.\n\n"
                 + "Somebody with nothing on record is a successful, empty answer rather than a "
                 + "404.")

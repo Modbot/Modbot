@@ -65,7 +65,7 @@ disreputable, which is precisely the politics this design is meant to stay out o
 ### 3.3 Cost
 
 Checking group membership is API traffic, and per foundation §4.3.4 the endpoint's rate limit must be
-confirmed before this is built. It is checked lazily — on dossier view and at the moment of a
+confirmed before this is built. It is checked lazily — on profile view and at the moment of a
 moderation action — never as a background sweep of every member.
 
 ---
@@ -77,7 +77,7 @@ about.
 
 ### 4.1 Advisory, explained, and never acting
 
-An AI flag produces a note on the dossier and, at most, a `Warning` notification. It cannot kick,
+An AI flag produces a note on the profile and, at most, a `Warning` notification. It cannot kick,
 ban, or restrict anyone. It must state **what it flagged and why**, in text, so a moderator evaluates
 the reasoning rather than deferring to a verdict.
 

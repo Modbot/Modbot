@@ -232,7 +232,7 @@ hold one.
 **Device tokens**, distinct from the `ApiKey` used for the read API:
 
 - **Scoped to ingest only.** A stolen device token cannot read the member list, cannot ban, cannot
-  read the dossier. It can submit presence facts and nothing else.
+  read the profile. It can submit presence facts and nothing else.
 - **One per device, individually revocable.** A moderator leaving the team must not require rotating
   every other moderator's token.
 - **Issued by a short-lived pairing code** shown in the web UI and typed into the client once, so the

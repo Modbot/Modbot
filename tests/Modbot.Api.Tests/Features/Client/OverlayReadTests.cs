@@ -212,7 +212,7 @@ public class OverlayReadTests
     }
 
     [Fact]
-    public async Task ADossierSummaryCarriesWhatFitsOnAHeadsetCard()
+    public async Task AProfileSummaryCarriesWhatFitsOnAHeadsetCard()
     {
         var ct = TestContext.Current.CancellationToken;
         var (host, token) = await ReadyAsync(ct);

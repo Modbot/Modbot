@@ -48,13 +48,13 @@ public interface IOverlayReadClient
 }
 
 /// <summary>
-/// The overlay's reads: roster context, one dossier summary, and the flagged-join long poll.
+/// The overlay's reads: roster context, one profile summary, and the flagged-join long poll.
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends.</strong> Three kinds of GET, each to one paired server, each
 /// carrying a bearer token and no body. The context read names the instance the moderator is
 /// standing in — which that server already knows about, because it is that group's own instance
-/// and the client has been reporting presence for it. The dossier read names one VRChat user the
+/// and the client has been reporting presence for it. The profile read names one VRChat user the
 /// moderator chose to look up. The alert poll sends nothing but the token.</para>
 /// <para><strong>What it does not send.</strong> Nothing about the moderator's machine, nothing
 /// from the log, and nothing about instances belonging to any other group. A pairing sees exactly

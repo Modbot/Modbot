@@ -34,8 +34,8 @@ public sealed record UserSummaryDto(
 /// The overlay's two reads: who is in this instance, and what is known about one of them.
 /// </summary>
 /// <remarks>
-/// <para><strong>Small on purpose.</strong> The dossier summary is deliberately not the full web
-/// dossier — an overlay card shows prior actions, roles, join date and current flags, and nothing
+/// <para><strong>Small on purpose.</strong> The profile summary is deliberately not the full web
+/// profile — an overlay card shows prior actions, roles, join date and current flags, and nothing
 /// that needs scrolling in a headset.</para>
 /// <para><strong>Everything here is derived from this deployment's own fact log.</strong> No
 /// VRChat call is made to answer an overlay read: a moderator glancing at a roster must not be

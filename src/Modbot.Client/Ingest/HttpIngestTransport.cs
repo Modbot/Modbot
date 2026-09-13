@@ -39,7 +39,7 @@ public sealed class HttpIngestTransport : IIngestTransport
         using var request = new HttpRequestMessage(HttpMethod.Post, pairing.EventsEndpoint);
 
         // The device token. Ingest-scoped: it can submit presence facts and nothing else -- it
-        // cannot read the member list, read a dossier, or ban anybody.
+        // cannot read the member list, read a profile, or ban anybody.
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", pairing.DeviceToken);
         request.Content = BuildContent(batch);
 

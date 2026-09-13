@@ -162,9 +162,9 @@ retention class, same purge-user coverage. A community that runs events in Disco
 in-world gets the same regulars detection and the same giveaway eligibility (M7) as one running
 instances.
 
-### 5.3 The linked dossier
+### 5.3 The linked profile
 
-Once linked, a dossier answers *"this person"* across both platforms rather than showing two
+Once linked, a profile answers *"this person"* across both platforms rather than showing two
 unrelated records. This is what makes a link worth having: a moderator seeing VRChat kicks alongside
 Discord timeouts is seeing one pattern instead of two halves of one.
 

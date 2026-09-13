@@ -47,7 +47,7 @@ public sealed record InstanceContext(
     [property: JsonPropertyName("members")] IReadOnlyList<RosterMember> Members);
 
 /// <summary>
-/// One person's dossier summary: deliberately not the full web dossier.
+/// One person's profile summary: deliberately not the full web profile.
 /// </summary>
 /// <remarks>
 /// An overlay card shows prior actions, roles, join date and current flags, and nothing that needs

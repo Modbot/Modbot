@@ -27,7 +27,7 @@ public enum ModbotPermissions : long
 
     // --- Reading ---
     ViewMembers = 1L << 0,
-    ViewDossier = 1L << 1,
+    ViewProfile = 1L << 1,
     ViewAnalytics = 1L << 2,
 
     /// <summary>Moderation history: bans, kicks, role changes (spec 5.9.4).</summary>

@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-04
 - **Status:** Draft, awaiting approval
-- **Covers:** M0 (foundation), M1 (group sync), M2 (audit log), M2.5 (dossier + metrics), basic Discord bot
+- **Covers:** M0 (foundation), M1 (group sync), M2 (audit log), M2.5 (profile + metrics), basic Discord bot
 - **Supersedes:** the SaaS-era implementation preserved in `old/` (gitignored reference clone of `Modbot/Modbot`)
 
 ---
@@ -304,7 +304,7 @@ endpoint, request and response types, validation, handler and queries:
     Onboarding/
       CreateAdmin/  VerifyVRChat/  TestConnection/  SelectGroup/
     Members/
-      SearchMembers/  GetMember/  GetDossier/
+      SearchMembers/  GetMember/  GetProfile/
 ```
 
 Not the layered shape the old implementation used — `Controllers/`, `Services/`, `Models/DTO/`,
@@ -803,7 +803,7 @@ Screening runs on **every profile refresh**, so its coverage is exactly the sync
 
 ##### Action is the group's decision
 
-A match raises a flag on the dossier and a `Warning` notification (§4.5). Auto-action is **available
+A match raises a flag on the profile and a `Warning` notification (§4.5). Auto-action is **available
 per rule, opt-in, and off by default.**
 
 This differs deliberately from M8 §2's absolute prohibition, and the distinction is real: an M8
@@ -1370,7 +1370,7 @@ modbot_event                     -- PARTITION BY RANGE (occurred_at), monthly pa
 
 **`subject_platform` exists because Discord is a second fact source** (§9.1), not only a second
 surface. A Discord snowflake and a VRChat `usr_…` must not collide in one text column, and once
-accounts are linked (M5) a dossier needs to query both sides of the same person. Keeping the
+accounts are linked (M5) a profile needs to query both sides of the same person. Keeping the
 platform as its own column rather than namespacing the string (`dc:123…`) keeps the identifier
 joinable against the user tables without parsing.
 
@@ -1563,7 +1563,7 @@ paragraph in `docs/`, stated plainly and without editorialising.
 
 | Surface | In M2.5 | Description |
 |---|---|---|
-| **Dossier** | yes | One user, everything Modbot knows: join date, roles, **full moderation history** (kicks, warns, bans, by whom, with classifications), every audit-log mention, and (from M3) sessions, time spent, avatar history. "Who is this person" is the question staff ask most often. |
+| **Profile** | yes | One user, everything Modbot knows: join date, roles, **full moderation history** (kicks, warns, bans, by whom, with classifications), every audit-log mention, and (from M3) sessions, time spent, avatar history. "Who is this person" is the question staff ask most often. |
 | **Accountability** | yes | Repeat-offender detection and moderator pattern detection (§5.8), both computed from audit-log facts — neither requires Modbot to perform actions. |
 | **Metrics** | yes | Group health over time: member growth, join/leave rate, ban rate, staff action volume, per-moderator activity. |
 | **Segments** | **no — M7** | Queryable cohorts (*"members with >10h in our worlds in the last 30 days, no bans, joined before June"*) → export, bulk action, giveaway draw. Requires presence data to be interesting. |
@@ -1696,7 +1696,7 @@ costly to get wrong and rare enough to afford the cost.
 Subject-side aggregation over facts: prior kicks, warns, mutes and bans, across all moderators and
 all instances, with classifications where present.
 
-Surfaced two ways: passively in the dossier (§5.6), and **proactively at the moment of action** —
+Surfaced two ways: passively in the profile (§5.6), and **proactively at the moment of action** —
 when a moderator is about to kick someone, Modbot shows that this is the user's fourth kick in
 thirty days from three different moderators. That is the moment the information is worth having, and
 it is also the moment it costs nothing to display.
@@ -2046,7 +2046,7 @@ In scope for this spec:
 
 - **Audit log → Discord channels.** Rich embeds per event type, routable to multiple channels with
   per-type filtering.
-- **Lookup commands** — `/user`, `/member`, returning dossier summaries.
+- **Lookup commands** — `/user`, `/member`, returning profile summaries.
 
 Deferred to M5: ban synchronisation in both directions, role synchronisation, VRChat↔Discord account
 linking and auto-invite.
@@ -2068,7 +2068,7 @@ audit log gets — an equivalent activity history, queryable and charted alongsi
 | **Messages sent** | **daily total only** (§5.2.1) | High volume, individually worthless, and content is never stored |
 | Current member count, online count | daily total snapshot | A gauge, not an event |
 
-Facts carry `subject_platform = Discord` (§5.3). Once accounts are linked (M5), a dossier answers
+Facts carry `subject_platform = Discord` (§5.3). Once accounts are linked (M5), a profile answers
 "this person" across both platforms rather than "this VRChat account" and "this Discord account"
 separately — which is what makes a linked account worth having.
 
@@ -2115,7 +2115,7 @@ It carries: identity and profile, membership and roles, **full moderation histor
 classifications and who issued them, that person's own presence analytics, their Discord link, and —
 from M4 — actions on them.
 
-**This replaces the standalone "dossier" page** the milestone table previously listed.
+**This replaces the standalone "profile" page** the milestone table previously listed.
 
 The reason is that moderation is interruption-driven. A moderator scanning an audit log for one thing
 notices a name and wants to know about it *without losing the scan*. A separate page means navigating

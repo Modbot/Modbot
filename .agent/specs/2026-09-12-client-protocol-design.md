@@ -215,10 +215,10 @@ keeps that cache warm.
 
 ```http
 GET /api/v1/client/context?instanceId=…   →  roster with flags, prior-action counts, staff markers
-GET /api/v1/client/user/{subjectId}       →  dossier summary for one person
+GET /api/v1/client/user/{subjectId}       →  profile summary for one person
 ```
 
-Both are **read-only and small**. The dossier summary is deliberately not the full web dossier: an
+Both are **read-only and small**. The profile summary is deliberately not the full web profile: an
 overlay card shows prior actions, roles, join date and current flags, and nothing that needs
 scrolling in a headset.
 

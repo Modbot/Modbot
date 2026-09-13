@@ -3,7 +3,7 @@
 - **Date:** 2026-09-11
 - **Status:** Draft, awaiting review
 - **Covers:** M7 — the segment query builder, saved cohorts, exports, bulk targeting, giveaway draws
-- **Depends on:** M0 (facts, daily totals), M2.5 (dossier, metrics), **M3 (presence data — the reason this is interesting)**, M5 (Discord facts)
+- **Depends on:** M0 (facts, daily totals), M2.5 (profile, metrics), **M3 (presence data — the reason this is interesting)**, M5 (Discord facts)
 
 ---
 
@@ -83,7 +83,7 @@ action.
 
 Weighting a giveaway by time spent in your worlds rewards the people who actually show up, and it is
 impossible without recorded presence history. It is also the single most legible payoff of the fact
-log for a community — most members will never see a dossier, but they will notice that the raffle is
+log for a community — most members will never see a profile, but they will notice that the raffle is
 fair.
 
 ### 4.2 Fairness has to be demonstrable
