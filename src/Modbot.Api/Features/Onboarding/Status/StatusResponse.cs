@@ -1,0 +1,74 @@
+using System.Text.Json.Serialization;
+
+namespace Modbot.Api.Features.Onboarding.Status;
+
+/// <summary>
+/// Which wizard steps a route is allowed to land on.
+/// </summary>
+/// <remarks>
+/// Computed on the server rather than derived in the browser, because "what is configured" is a
+/// database question and because spec 7.1's steps are <em>independently re-runnable</em> — the
+/// wizard is not a one-way sequence with a counter, it is a set of steps with a suggested order.
+/// The SPA resumes at <see cref="OnboardingStatusResponse.NextStep"/> and is free to navigate to
+/// any completed one.
+/// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<OnboardingStep>))]
+public enum OnboardingStep
+{
+    /// <summary>Spec 7.1 step 1 — the first staff account.</summary>
+    Administrator,
+
+    /// <summary>Spec 7.1 step 2 — the VRChat account Modbot acts as.</summary>
+    VRChat,
+
+    /// <summary>Spec 7.1 step 3 / 7.1.1 — can this host reach the API at all.</summary>
+    Connection,
+
+    /// <summary>Spec 7.1 step 4 — which group this deployment manages.</summary>
+    Group,
+
+    /// <summary>Spec 7.1 step 5 — Discord and SMTP, both skippable.</summary>
+    Optional,
+
+    /// <summary>Nothing left to do.</summary>
+    Done,
+}
+
+/// <param name="VerifiedAt">When VRChat last accepted these credentials.</param>
+/// <param name="DisplayName">The account VRChat said they belong to.</param>
+public sealed record VRChatAccountStatus(string? Username, string? DisplayName, DateTimeOffset? VerifiedAt);
+
+/// <param name="ProxyUrl">
+/// The configured egress proxy, or null. The <em>password</em> is never returned — spec 5.9.3 and
+/// 4.4.1 — but the URL and username are, so re-running the step pre-fills instead of asking the
+/// operator to retype something they cannot read back from anywhere.
+/// </param>
+public sealed record ConnectionStatus(
+    DateTimeOffset? CheckedAt, string? ProxyUrl, string? ProxyUsername, bool ProxyPasswordStored);
+
+public sealed record ManagedGroupStatus(string Id, string Name);
+
+/// <param name="DiscordConfigured">Whether a bot token is stored. The token itself never leaves.</param>
+public sealed record IntegrationStatus(
+    bool DiscordConfigured, string? DiscordGuildId, bool SmtpConfigured, string? SmtpHost);
+
+/// <summary>
+/// Everything the wizard needs to decide what to show, and nothing that is a secret.
+/// </summary>
+/// <param name="HasAdministrator">
+/// False only on a genuinely fresh deployment. While it is false the wizard is open to anyone who
+/// can reach the URL, which is exactly what spec 7.1 intends and exactly why it stops being true
+/// the moment the first account exists.
+/// </param>
+/// <param name="Authenticated">Whether the caller currently holds a session.</param>
+/// <param name="OnboardingComplete">Whether the operator has finished the wizard at least once.</param>
+/// <param name="NextStep">Where to resume.</param>
+public sealed record OnboardingStatusResponse(
+    bool HasAdministrator,
+    bool Authenticated,
+    bool OnboardingComplete,
+    OnboardingStep NextStep,
+    VRChatAccountStatus VRChat,
+    ConnectionStatus Connection,
+    ManagedGroupStatus? Group,
+    IntegrationStatus Integrations);

@@ -9,8 +9,12 @@ using Modbot.Api;
 using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Security;
 using Modbot.Core.Time;
+using Modbot.Api.Tests.Fakes;
 using Modbot.TestSupport;
+using Modbot.VRChat;
+using Modbot.VRChat.Scheduling;
 
 namespace Modbot.Api.Tests;
 
@@ -31,28 +35,48 @@ public sealed class ApiTestHost : IAsyncDisposable
 
     private readonly WebApplication _app;
 
-    private ApiTestHost(WebApplication app, HttpClient client, FakeClock clock)
+    private ApiTestHost(WebApplication app, HttpClient client, FakeClock clock, FakeVRChatGate gate)
     {
         _app = app;
         Client = client;
         Clock = clock;
+        VRChat = gate;
     }
 
     public HttpClient Client { get; }
 
     public FakeClock Clock { get; }
 
+    /// <summary>The scripted gate. Nothing in these tests reaches the real VRChat API.</summary>
+    public FakeVRChatGate VRChat { get; }
+
     public IServiceProvider Services => _app.Services;
 
-    public static async Task<ApiTestHost> StartAsync(PostgresFixture db)
+    public static async Task<ApiTestHost> StartAsync(PostgresFixture db, FakeVRChatGate? gate = null)
     {
         var clock = new FakeClock();
+        gate ??= new FakeVRChatGate();
 
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
 
         builder.Services.AddDbContext<ModbotContext>(o => o.UseNpgsql(db.ConnectionString));
         builder.Services.AddSingleton<IModbotClock>(clock);
+
+        // Elapsed time and wall-clock time are different questions (spec 4.4). The connection
+        // check reports how long the attempt took, which is the monotonic one.
+        builder.Services.AddSingleton<IMonotonicClock>(new StopwatchMonotonicClock());
+
+        // The real protector, over the real database: the onboarding slices store encrypted
+        // secrets and a test that substituted a passthrough would not prove they round-trip.
+        builder.Services.AddSingleton<ISecretProtector>(services =>
+        {
+            using var scope = services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            return AesGcmSecretProtector.CreateAsync(context).GetAwaiter().GetResult();
+        });
+
+        builder.Services.AddSingleton<IVRChatGate>(gate);
         builder.Services.AddModbotAuth();
         builder.Services.AddModbotApi();
 
@@ -75,7 +99,26 @@ public sealed class ApiTestHost : IAsyncDisposable
         var client = app.GetTestClient();
         client.BaseAddress = new Uri("https://localhost/");
 
-        return new ApiTestHost(app, client, clock);
+        return new ApiTestHost(app, client, clock, gate);
+    }
+
+    /// <summary>
+    /// Puts the deployment back to "nobody has ever set this up".
+    /// </summary>
+    /// <remarks>
+    /// The settings row is a singleton and the user table is shared by every test in this
+    /// assembly, so onboarding tests -- which are almost entirely about the difference between
+    /// "no staff account exists" and "one does" -- have to establish that difference rather than
+    /// inherit whatever the previous test left. Safe because the whole assembly shares one
+    /// collection and therefore runs serially.
+    /// </remarks>
+    public static async Task ResetDeploymentAsync(PostgresFixture db, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+
+        await using var context = db.NewContext();
+        await context.Users.ExecuteDeleteAsync(ct);
+        await context.Settings.ExecuteDeleteAsync(ct);
     }
 
     /// <summary>Signs in and returns the raw session cookie, ready for a <c>Cookie</c> header.</summary>

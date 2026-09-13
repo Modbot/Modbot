@@ -5,6 +5,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
 using Modbot.Api.Features.Auth.Me;
+using Modbot.Api.Features.Onboarding.Complete;
+using Modbot.Api.Features.Onboarding.CreateAdmin;
+using Modbot.Api.Features.Onboarding.Integrations;
+using Modbot.Api.Features.Onboarding.SelectGroup;
+using Modbot.Api.Features.Onboarding.Status;
+using Modbot.Api.Features.Onboarding.TestConnection;
+using Modbot.Api.Features.Onboarding.VerifyVRChat;
 using Modbot.Core;
 
 namespace Modbot.Api;
@@ -77,6 +84,18 @@ public static class ApiSurface
         app.MapLogin();
         app.MapLogout();
         app.MapMe();
+
+        // Onboarding (spec 7.1). Each step is its own slice because each one is independently
+        // re-runnable from settings later -- they are not stages of a single transaction, and
+        // modelling them as one endpoint with a step counter would make the "re-run just the
+        // connection check" case the awkward one instead of the ordinary one.
+        app.MapOnboardingStatus();
+        app.MapCreateAdmin();
+        app.MapVerifyVRChat();
+        app.MapTestConnection();
+        app.MapSelectGroup();
+        app.MapIntegrations();
+        app.MapCompleteOnboarding();
 
         return app;
     }
