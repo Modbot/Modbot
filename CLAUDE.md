@@ -17,6 +17,21 @@ Explain **why**, not just what. The design specs in `.agent/specs/` carry the re
 commit messages carry the reasoning for changes. If a change reverses or narrows an earlier decision,
 say which one and why.
 
+## Naming — plain words only
+
+**Use names a sixteen-year-old with no technical background would understand.** This applies to
+UI text, API field names, page titles, code identifiers, spec headings and docs alike.
+
+Not `dossier` — **profile**. Not `posture` — **status**. Not `cadence` — **poll rate**. Not
+`sentinel` — **store marker**. Not `latched` — **locked**. Not `commission` — **set up**. Not
+`canary` — **test file**. Not `backfill` — **catch-up**. Not `rollup` — **daily totals**. Not
+`projection` — **estimate**. Not `headroom` — **room left**. Not `evacuate` — **move out**.
+
+The test is simple: if you would have to explain the word to a volunteer moderator, pick a
+different word. Ordinary English words with an ordinary meaning are fine (`fact`, `event`,
+`ban`, `sync`); words borrowed from distributed-systems vocabulary are not, however precise they
+feel. Precision that nobody can read is not precision.
+
 ## Where things live
 
 | Path | Contents |
