@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
 using Modbot.Api.Features.Auth.Me;
+using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
@@ -98,6 +99,7 @@ public static class ApiSurface
         // rather than failing to map.
         app.MapAuditLog();
         app.MapMetrics();
+        app.MapAnalytics();
         app.MapSyncHealth();
         app.MapEvidence();
 
