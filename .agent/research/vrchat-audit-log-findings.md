@@ -1,6 +1,6 @@
 # VRChat group audit log — findings from live data
 
-- **Source:** 638 facts written by Modbot's audit-log producer against a real ~16k-member group,
+- **Source:** 638 facts written by Modbot's audit-log producer against a real ~4,700-member group,
   pulled from the live database on 2026-09-13 into `.local/live/` (gitignored — never commit it).
 - **Companion:** `vrchat-sdk-findings.md` (SDK landmines), foundation spec §5.9 (the merged log).
 
@@ -131,10 +131,12 @@ The 403 body is `{"error":{"message":"You don't have permission․","status_code
 fullwidth full stop. The account in `explore/.env` is the deployment's bot account; those three
 endpoints need group role permissions it has not been granted. Re-run once it has them.
 
-**Open question the members result raises.** The member list ended at 4,739, which should be
-compared with the group's own `memberCount` from the group-info facts before anyone treats
-`/members` as a complete enumeration. If the two differ, `/members` is filtered by something — the
-caller's role visibility, or membership status — and a sweep built on it would silently under-count.
+**`/members` is a complete enumeration — checked.** The list ended at 4,739 items; the group's own
+`memberCount` from the group-info facts was 4,741 at the start of the day and 4,740 at the last
+change, and two people joined or left while the probe ran. So `/members` returns everybody, and a
+sweep built on it does not under-count. The group is therefore too small to observe a 7,500 cap on
+members even if one exists; the finding that survives is narrower: **members did not 400 past the
+end of their data, and the audit log does** — the two endpoints behave differently.
 
 ## 8. VRChat keeps roughly 30 days of audit log
 
