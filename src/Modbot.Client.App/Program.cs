@@ -64,6 +64,13 @@ internal sealed class ModbotClientApp : Application
             // it. Quitting is a deliberate act from the tray menu -- and quitting really does stop
             // reporting, rather than minimising to somewhere less visible.
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+            // Built here and not in a static initializer: the host owns the main window, and a
+            // window can only exist once Avalonia's windowing platform is up. A static
+            // initializer runs on the first touch of any static member of this class -- Main
+            // setting StartupMessage was enough -- which is before Avalonia has started, and the
+            // whole client then died at launch with "Unable to locate IWindowingPlatform".
+            Host = new ClientHost();
             desktop.MainWindow = Host.Window;
             Host.Start(desktop, StartupMessage);
         }
@@ -71,7 +78,7 @@ internal sealed class ModbotClientApp : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    internal static ClientHost Host { get; } = new();
+    internal static ClientHost? Host { get; private set; }
 }
 
 /// <summary>
