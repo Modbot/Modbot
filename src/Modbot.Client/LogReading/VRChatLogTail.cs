@@ -71,6 +71,12 @@ public sealed class VRChatLogTail
     /// </summary>
     public IReadOnlyList<TailedLine> ReadPending()
     {
+        // Whether this is the first look at the folder at all. It flips even when the folder is
+        // empty: if VRChat was not running when Modbot started, the log it writes when it does
+        // start is current events, not history, and must not be discarded as replay.
+        var firstPass = !_primed;
+        _primed = true;
+
         var newest = NewestLog();
         if (newest is null)
             return [];
@@ -79,13 +85,13 @@ public sealed class VRChatLogTail
 
         if (!string.Equals(newest, _currentFile, StringComparison.OrdinalIgnoreCase))
         {
-            // A new log file means VRChat restarted. Its contents are current, not history, so
-            // they are live rather than replay -- unless this is the very first file we have seen,
-            // in which case the client started late and the file really is history.
-            replay = !_primed;
+            // A new log file means VRChat restarted, and its contents are current. Only a file
+            // that was already sitting there when Modbot started is history -- the moderator
+            // launched the client mid-session, and everything before this moment has either been
+            // reported already or was never going to be.
+            replay = firstPass;
             _currentFile = newest;
             _position = 0;
-            _primed = true;
         }
 
         byte[] chunk;

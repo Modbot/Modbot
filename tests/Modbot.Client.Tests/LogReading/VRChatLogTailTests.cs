@@ -129,6 +129,22 @@ public sealed class VRChatLogTailTests : IDisposable
     }
 
     [Fact]
+    public void ALogThatAppearsAfterStartupIsLiveRatherThanHistory()
+    {
+        // The common case: Modbot is in the tray, VRChat is not running, and then it launches.
+        // Everything that log says is happening now, and treating it as history already reported
+        // would silently discard a whole session.
+        var tail = Tail();
+        Assert.Empty(tail.ReadPending());
+
+        Write("output_log_2026-09-03_20-26-45.txt", "the session starts here\n");
+
+        var read = tail.ReadPending();
+        Assert.Equal(["the session starts here"], read.Select(l => l.Text));
+        Assert.All(read, l => Assert.False(l.IsReplay));
+    }
+
+    [Fact]
     public void RereadsFromTheStartIfTheFileIsTruncated()
     {
         // A rotation that reuses the name, or a log cleared in place. Keeping the old offset would
