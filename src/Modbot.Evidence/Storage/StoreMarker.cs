@@ -15,7 +15,7 @@ namespace Modbot.Evidence.Storage;
 /// A human-readable name for the deployment that wrote it, so an operator staring at two buckets
 /// can tell which is which without decoding a GUID.
 /// </param>
-public sealed record StoreSentinel(
+public sealed record StoreMarker(
     [property: JsonPropertyName("storeId")] Guid StoreId,
     [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt,
     [property: JsonPropertyName("deployment")] string? Deployment)
@@ -32,18 +32,18 @@ public sealed record StoreSentinel(
     public byte[] Serialise() => JsonSerializer.SerializeToUtf8Bytes(this, Json);
 
     /// <summary>
-    /// Returns null when the bytes are not a sentinel at all.
+    /// Returns null when the bytes are not a store marker at all.
     /// </summary>
     /// <remarks>
-    /// A malformed sentinel is not treated as "no sentinel". Something wrote a file at Modbot's
+    /// A malformed store marker is not treated as "no store marker". Something wrote a file at Modbot's
     /// well-known key and it is not Modbot's, which is a finding of the same kind as an id that
     /// does not match — see <see cref="StoreProbeOutcome.Malformed"/>.
     /// </remarks>
-    public static StoreSentinel? TryParse(ReadOnlySpan<byte> utf8)
+    public static StoreMarker? TryParse(ReadOnlySpan<byte> utf8)
     {
         try
         {
-            var parsed = JsonSerializer.Deserialize<StoreSentinel>(utf8, Json);
+            var parsed = JsonSerializer.Deserialize<StoreMarker>(utf8, Json);
             return parsed is null || parsed.StoreId == Guid.Empty ? null : parsed;
         }
         catch (JsonException)

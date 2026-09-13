@@ -9,7 +9,7 @@ namespace Modbot.Evidence.Health;
 /// read that returned different bytes than were written — rather than "storage error".
 /// </param>
 /// <param name="Message">What to show the operator.</param>
-/// <param name="StoreId">The sentinel id written, on success.</param>
+/// <param name="StoreId">The store marker id written, on success.</param>
 public sealed record CommissioningResult(bool Succeeded, string? FailedStep, string Message, Guid? StoreId);
 
 /// <summary>
@@ -20,7 +20,7 @@ public sealed record CommissioningResult(bool Succeeded, string? FailedStep, str
 /// This is the cheapest detection there is, and none of the section 8 machinery should ever fire
 /// because this caught the problem first. Saving a storage backend writes a canary object, reads
 /// it back, compares the bytes, promotes it, reads it again at its content-addressed key, deletes
-/// it, and only then writes the sentinel and lets the configuration be persisted. A backend that
+/// it, and only then writes the store marker and lets the configuration be persisted. A backend that
 /// cannot do all of that cannot be chosen.
 /// </para>
 /// <para>
@@ -42,7 +42,7 @@ public sealed class EvidenceStoreCommissioner
 
     /// <param name="store">The store to test, built from the settings the operator just entered.</param>
     /// <param name="storeId">
-    /// The sentinel id. Generated fresh when commissioning a new store; passed back in when
+    /// The store marker id. Generated fresh when commissioning a new store; passed back in when
     /// re-testing one that is already configured, so a re-run does not orphan the old id.
     /// </param>
     /// <param name="deployment">A human-readable deployment name, for an operator with two buckets.</param>
@@ -122,12 +122,12 @@ public sealed class EvidenceStoreCommissioner
 
         try
         {
-            await store.WriteSentinelAsync(
-                new StoreSentinel(storeId, _clock.UtcNow, deployment), ct).ConfigureAwait(false);
+            await store.WriteStoreMarkerAsync(
+                new StoreMarker(storeId, _clock.UtcNow, deployment), ct).ConfigureAwait(false);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            return Failed("sentinel", $"Modbot could not write its store marker to {store.Description}: {e.Message}");
+            return Failed("store-marker", $"Modbot could not write its store marker to {store.Description}: {e.Message}");
         }
 
         return new CommissioningResult(

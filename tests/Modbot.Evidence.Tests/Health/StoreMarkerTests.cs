@@ -8,19 +8,19 @@ using Modbot.TestSupport;
 namespace Modbot.Evidence.Tests.Health;
 
 /// <summary>
-/// Design sections 8.3 and 8.4: the sentinel's four-valued result, the latch, and the difference
+/// Design sections 8.3 and 8.4: the store marker's four-valued result, the latch, and the difference
 /// between a store that said no and a store that said nothing.
 /// </summary>
-public sealed class StoreSentinelTests : IDisposable
+public sealed class StoreMarkerTests : IDisposable
 {
     private readonly string _root =
-        Path.Combine(Path.GetTempPath(), "modbot-sentinel-tests", Guid.NewGuid().ToString("N"));
+        Path.Combine(Path.GetTempPath(), "modbot-store-marker-tests", Guid.NewGuid().ToString("N"));
 
     private readonly FaultInjectingStore _store;
     private readonly FakeClock _clock = new();
     private readonly Guid _storeId = Guid.NewGuid();
 
-    public StoreSentinelTests()
+    public StoreMarkerTests()
     {
         Directory.CreateDirectory(_root);
         _store = new FaultInjectingStore(new FilesystemEvidenceStore(new FilesystemEvidenceOptions { Root = _root }));
@@ -43,10 +43,10 @@ public sealed class StoreSentinelTests : IDisposable
         => new(_store, new EvidenceOptions { StoreId = _storeId, TransientFailuresBeforeAlarm = failuresBeforeAlarm }, _clock);
 
     private Task CommissionAsync() =>
-        _store.WriteSentinelAsync(new StoreSentinel(_storeId, _clock.UtcNow, "test"), Ct);
+        _store.WriteStoreMarkerAsync(new StoreMarker(_storeId, _clock.UtcNow, "test"), Ct);
 
     [Fact]
-    public async Task AMatchingSentinelIsHealthyAndUploadsAreAllowed()
+    public async Task AMatchingStoreMarkerIsHealthyAndUploadsAreAllowed()
     {
         await CommissionAsync();
         var health = await Monitor().CheckAsync(Ct);
@@ -61,7 +61,7 @@ public sealed class StoreSentinelTests : IDisposable
     /// then — which is the only time it can be fixed for free.
     /// </summary>
     [Fact]
-    public async Task AnAbsentSentinelLatchesEvenWhenTheStoreIsEmpty()
+    public async Task AnAbsentStoreMarkerLatchesEvenWhenTheStoreIsEmpty()
     {
         var monitor = Monitor();
         var health = await monitor.CheckAsync(Ct);
@@ -73,10 +73,10 @@ public sealed class StoreSentinelTests : IDisposable
     }
 
     [Fact]
-    public async Task ASentinelBelongingToADifferentStoreLatchesAndNamesBothIds()
+    public async Task AStoreMarkerBelongingToADifferentStoreLatchesAndNamesBothIds()
     {
         var theirs = Guid.NewGuid();
-        await _store.WriteSentinelAsync(new StoreSentinel(theirs, _clock.UtcNow, "somebody else"), Ct);
+        await _store.WriteStoreMarkerAsync(new StoreMarker(theirs, _clock.UtcNow, "somebody else"), Ct);
 
         var health = await Monitor().CheckAsync(Ct);
 
@@ -87,9 +87,9 @@ public sealed class StoreSentinelTests : IDisposable
     }
 
     [Fact]
-    public async Task RubbishAtTheSentinelKeyLatchesLikeAnAbsentOne()
+    public async Task RubbishAtTheStoreMarkerKeyLatchesLikeAnAbsentOne()
     {
-        await File.WriteAllTextAsync(Path.Combine(_root, EvidenceKeys.SentinelKey), "nonsense", Ct);
+        await File.WriteAllTextAsync(Path.Combine(_root, EvidenceKeys.StoreMarkerKey), "nonsense", Ct);
 
         Assert.Equal(EvidenceStoreState.Unavailable, (await Monitor().CheckAsync(Ct)).State);
     }
@@ -154,7 +154,7 @@ public sealed class StoreSentinelTests : IDisposable
     /// an operator concludes the warning was spurious.
     /// </summary>
     [Fact]
-    public async Task TheLatchClearsOnlyWhenTheSentinelReappearsAndTheIncidentSurvives()
+    public async Task TheLatchClearsOnlyWhenTheStoreMarkerReappearsAndTheIncidentSurvives()
     {
         var monitor = Monitor();
         await monitor.CheckAsync(Ct);

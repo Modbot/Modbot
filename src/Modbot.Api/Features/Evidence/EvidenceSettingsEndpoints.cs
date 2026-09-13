@@ -68,7 +68,7 @@ public static class EvidenceSettingsEndpoints
             .WithDescription(
                 "Writes a canary object, reads it back, compares the bytes, promotes it to its "
                 + "content-addressed key, reads it again, deletes it, and writes the store "
-                + "sentinel. Nothing is persisted. Leave secretAccessKey empty to test with the "
+                + "store marker. Nothing is persisted. Leave secretAccessKey empty to test with the "
                 + "credential already on file.")
             .Produces<EvidenceCommissioningResponse>()
             .Produces(StatusCodes.Status403Forbidden);
@@ -131,10 +131,10 @@ public static class EvidenceSettingsEndpoints
                 return Results.Ok(await service.ProbeAsync(ct));
             })
             .WithName("ProbeEvidenceStore")
-            .WithSummary("Re-read the store sentinel now")
+            .WithSummary("Re-read the store marker now")
             .WithDescription(
                 "The same three-valued probe startup takes. A store that answers with somebody "
-                + "else's sentinel, or with none, latches; a store that does not answer at all "
+                + "else's store marker, or with none, latches; a store that does not answer at all "
                 + "does not, because silence is not evidence of loss.")
             .Produces<EvidenceHealthView>()
             .Produces(StatusCodes.Status403Forbidden);

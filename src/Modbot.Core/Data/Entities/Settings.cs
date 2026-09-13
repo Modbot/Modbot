@@ -206,13 +206,13 @@ public class Settings
     public short EvidenceBackend { get; set; }
 
     /// <summary>
-    /// The sentinel written into the store when it was commissioned.
+    /// The store marker written into the store when it was commissioned.
     /// </summary>
     /// <remarks>
     /// This is the memory outside the store that makes §8's detection conclusive.
     /// <c>PersistenceProbe</c> cannot say whether a missing marker means "first run" or "wiped",
     /// because it has nowhere to remember having written one. This column is that memory: if it
-    /// is set and the store has no matching sentinel, the store is <em>wrong</em> — an unmounted
+    /// is set and the store has no matching store marker, the store is <em>wrong</em> — an unmounted
     /// volume, an emptied bucket, or a different bucket entirely — and that is a finding rather
     /// than an ambiguity.
     /// </remarks>

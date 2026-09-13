@@ -56,27 +56,27 @@ public class FilesystemStoreTests : EvidenceStoreConformanceTests
 
     /// <summary>
     /// Nothing under the root carries a filename, an extension, or anything a user chose. The
-    /// sentinel is the one exception and it is Modbot's own name.
+    /// store marker is the one exception and it is Modbot's own name.
     /// </summary>
     [Fact]
-    public async Task EveryPathUnderTheRootIsHexOrTheSentinel()
+    public async Task EveryPathUnderTheRootIsHexOrTheStoreMarker()
     {
         var (uploadId, staged) = await StageAsync(SampleMedia.Jpeg(700));
         await Store.CommitAsync(uploadId, staged.Hash, Ct);
         await StageAsync(SampleMedia.Gif(700));
-        await Store.WriteSentinelAsync(new StoreSentinel(Guid.NewGuid(), DateTimeOffset.UnixEpoch, null), Ct);
+        await Store.WriteStoreMarkerAsync(new StoreMarker(Guid.NewGuid(), DateTimeOffset.UnixEpoch, null), Ct);
 
         foreach (var file in Directory.EnumerateFiles(_roots[0], "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(_roots[0], file).Replace('\\', '/');
 
-            var acceptable = relative == EvidenceKeys.SentinelKey
+            var acceptable = relative == EvidenceKeys.StoreMarkerKey
                              || (relative.StartsWith("sha256/", StringComparison.Ordinal)
                                  && EvidenceKeys.TryReadObjectKey(relative, out _))
                              || (relative.StartsWith("staging/", StringComparison.Ordinal)
                                  && EvidenceUploadId.TryParse(relative["staging/".Length..], out _));
 
-            Assert.True(acceptable, $"'{relative}' is not a hex key or the sentinel.");
+            Assert.True(acceptable, $"'{relative}' is not a hex key or the store marker.");
         }
     }
 
@@ -85,10 +85,10 @@ public class FilesystemStoreTests : EvidenceStoreConformanceTests
     /// on the second would report loss where there is only a permissions problem.
     /// </summary>
     [Fact]
-    public async Task AMangledSentinelIsAFindingOfItsOwn()
+    public async Task AMangledStoreMarkerIsAFindingOfItsOwn()
     {
         await File.WriteAllTextAsync(
-            Path.Combine(_roots[0], EvidenceKeys.SentinelKey), "{ not a sentinel", Ct);
+            Path.Combine(_roots[0], EvidenceKeys.StoreMarkerKey), "{ not a store marker", Ct);
 
         Assert.Equal(StoreProbeOutcome.Malformed, (await Store.ProbeAsync(Ct)).Outcome);
     }
@@ -100,7 +100,7 @@ public class FilesystemStoreTests : EvidenceStoreConformanceTests
     [Fact]
     public async Task AWipedDirectoryProbesAsAbsentEvenAfterCommissioning()
     {
-        await Store.WriteSentinelAsync(new StoreSentinel(Guid.NewGuid(), DateTimeOffset.UnixEpoch, null), Ct);
+        await Store.WriteStoreMarkerAsync(new StoreMarker(Guid.NewGuid(), DateTimeOffset.UnixEpoch, null), Ct);
         Assert.Equal(StoreProbeOutcome.Present, (await Store.ProbeAsync(Ct)).Outcome);
 
         Directory.Delete(_roots[0], recursive: true);

@@ -93,32 +93,32 @@ public class ContentAddressingTests
         => Assert.False(EvidenceKeys.TryReadObjectKey(key, out _));
 
     /// <summary>
-    /// The sentinel is the one key that is not a hash, and it lives outside the object prefix so
+    /// The store marker is the one key that is not a hash, and it lives outside the object prefix so
     /// that "everything under sha256/ is hex" stays literally true.
     /// </summary>
     [Fact]
-    public void TheSentinelLivesOutsideTheObjectPrefix()
-        => Assert.DoesNotContain(EvidenceKeys.ObjectPrefix, EvidenceKeys.SentinelKey, StringComparison.Ordinal);
+    public void TheStoreMarkerLivesOutsideTheObjectPrefix()
+        => Assert.DoesNotContain(EvidenceKeys.ObjectPrefix, EvidenceKeys.StoreMarkerKey, StringComparison.Ordinal);
 
     [Fact]
-    public void ASentinelRoundTripsThroughItsSerialisedForm()
+    public void AStoreMarkerRoundTripsThroughItsSerialisedForm()
     {
-        var sentinel = new StoreSentinel(Guid.NewGuid(), new DateTimeOffset(2026, 3, 4, 21, 14, 0, TimeSpan.Zero), "home");
-        var parsed = StoreSentinel.TryParse(sentinel.Serialise());
+        var marker = new StoreMarker(Guid.NewGuid(), new DateTimeOffset(2026, 3, 4, 21, 14, 0, TimeSpan.Zero), "home");
+        var parsed = StoreMarker.TryParse(marker.Serialise());
 
         Assert.NotNull(parsed);
-        Assert.Equal(sentinel.StoreId, parsed.StoreId);
-        Assert.Equal(sentinel.Deployment, parsed.Deployment);
+        Assert.Equal(marker.StoreId, parsed.StoreId);
+        Assert.Equal(marker.Deployment, parsed.Deployment);
     }
 
     /// <summary>
-    /// Something at the sentinel key that is not a sentinel is a finding of the same kind as a
+    /// Something at the store marker key that is not a store marker is a finding of the same kind as a
     /// foreign one, not the same thing as an empty store.
     /// </summary>
     [Fact]
-    public void RubbishAtTheSentinelKeyDoesNotParseAsASentinel()
+    public void RubbishAtTheStoreMarkerKeyDoesNotParseAsAStoreMarker()
     {
-        Assert.Null(StoreSentinel.TryParse(Encoding.UTF8.GetBytes("not json at all")));
-        Assert.Null(StoreSentinel.TryParse(Encoding.UTF8.GetBytes("""{"storeId":"00000000-0000-0000-0000-000000000000"}""")));
+        Assert.Null(StoreMarker.TryParse(Encoding.UTF8.GetBytes("not json at all")));
+        Assert.Null(StoreMarker.TryParse(Encoding.UTF8.GetBytes("""{"storeId":"00000000-0000-0000-0000-000000000000"}""")));
     }
 }

@@ -128,11 +128,11 @@ public interface IEvidenceStore
         string? contentType = null,
         CancellationToken ct = default);
 
-    /// <summary>Writes the sentinel. Done once, when the backend is commissioned.</summary>
-    Task WriteSentinelAsync(StoreSentinel sentinel, CancellationToken ct = default);
+    /// <summary>Writes the store marker. Done once, when the backend is commissioned.</summary>
+    Task WriteStoreMarkerAsync(StoreMarker marker, CancellationToken ct = default);
 
     /// <summary>
-    /// Reads the sentinel (design section 8.3). Never throws for "absent"; absent is a result.
+    /// Reads the store marker (design section 8.3). Never throws for "absent"; absent is a result.
     /// </summary>
     Task<StoreProbe> ProbeAsync(CancellationToken ct = default);
 }

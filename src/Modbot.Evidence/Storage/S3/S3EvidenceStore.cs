@@ -247,18 +247,18 @@ public sealed class S3EvidenceStore : IEvidenceStore, IDisposable
         return Task.FromResult<Uri?>(new Uri(_client.GetPreSignedURL(request)));
     }
 
-    public async Task WriteSentinelAsync(StoreSentinel sentinel, CancellationToken ct = default)
+    public async Task WriteStoreMarkerAsync(StoreMarker marker, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(sentinel);
+        ArgumentNullException.ThrowIfNull(marker);
 
-        var bytes = sentinel.Serialise();
+        var bytes = marker.Serialise();
         using var body = new MemoryStream(bytes, writable: false);
 
         await _client.PutObjectAsync(
             new PutObjectRequest
             {
                 BucketName = _options.Bucket,
-                Key = _prefix + EvidenceKeys.SentinelKey,
+                Key = _prefix + EvidenceKeys.StoreMarkerKey,
                 InputStream = body,
                 ContentType = "application/json",
             },
@@ -267,7 +267,7 @@ public sealed class S3EvidenceStore : IEvidenceStore, IDisposable
 
     public async Task<StoreProbe> ProbeAsync(CancellationToken ct = default)
     {
-        var key = _prefix + EvidenceKeys.SentinelKey;
+        var key = _prefix + EvidenceKeys.StoreMarkerKey;
 
         try
         {
@@ -278,14 +278,14 @@ public sealed class S3EvidenceStore : IEvidenceStore, IDisposable
             using var buffer = new MemoryStream();
             await response.ResponseStream.CopyToAsync(buffer, ct).ConfigureAwait(false);
 
-            var sentinel = StoreSentinel.TryParse(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
-            return sentinel is null ? StoreProbe.Malformed(Description) : StoreProbe.Present(sentinel, Description);
+            var marker = StoreMarker.TryParse(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+            return marker is null ? StoreProbe.Malformed(Description) : StoreProbe.Present(marker, Description);
         }
         catch (AmazonS3Exception e) when (IsMissing(e))
         {
             // A missing key and a missing bucket are the same finding: this is not the store the
             // configuration describes. A mistyped prefix and a renamed bucket both land here, and
-            // both are exactly what the sentinel exists to catch.
+            // both are exactly what the store marker exists to catch.
             return StoreProbe.Absent(Description);
         }
         catch (Exception e) when (e is AmazonS3Exception or AmazonServiceException or HttpRequestException or IOException)

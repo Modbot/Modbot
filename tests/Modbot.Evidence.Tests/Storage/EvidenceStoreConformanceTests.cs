@@ -9,7 +9,7 @@ namespace Modbot.Evidence.Tests.Storage;
 /// <remarks>
 /// These assert the <em>contract</em> rather than any implementation: content addressing,
 /// idempotent writes, the append-only rule, range reads where the capability is declared, the
-/// capability biconditional, and the sentinel probe's four-valued result — including the transient
+/// capability biconditional, and the store marker probe's four-valued result — including the transient
 /// case, which is the one that is never exercised by accident.
 /// </remarks>
 public abstract class EvidenceStoreConformanceTests : IAsyncLifetime
@@ -239,19 +239,19 @@ public abstract class EvidenceStoreConformanceTests : IAsyncLifetime
         var probe = await Store.ProbeAsync(Ct);
 
         Assert.Equal(StoreProbeOutcome.Absent, probe.Outcome);
-        Assert.Null(probe.Sentinel);
+        Assert.Null(probe.Marker);
     }
 
     [Fact]
-    public async Task AProbeFindsTheSentinelThatWasWritten()
+    public async Task AProbeFindsTheStoreMarkerThatWasWritten()
     {
         var id = Guid.NewGuid();
-        await Store.WriteSentinelAsync(new StoreSentinel(id, DateTimeOffset.UnixEpoch, "test"), Ct);
+        await Store.WriteStoreMarkerAsync(new StoreMarker(id, DateTimeOffset.UnixEpoch, "test"), Ct);
 
         var probe = await Store.ProbeAsync(Ct);
 
         Assert.Equal(StoreProbeOutcome.Present, probe.Outcome);
-        Assert.Equal(id, probe.Sentinel!.StoreId);
+        Assert.Equal(id, probe.Marker!.StoreId);
     }
 
     /// <summary>
@@ -259,18 +259,18 @@ public abstract class EvidenceStoreConformanceTests : IAsyncLifetime
     /// one, and both are distinct from a store that did not answer.
     /// </summary>
     [Fact]
-    public async Task TwoStoresDoNotShareASentinel()
+    public async Task TwoStoresDoNotShareAStoreMarker()
     {
         var mine = Guid.NewGuid();
         var theirs = Guid.NewGuid();
 
-        await Store.WriteSentinelAsync(new StoreSentinel(mine, DateTimeOffset.UnixEpoch, "mine"), Ct);
+        await Store.WriteStoreMarkerAsync(new StoreMarker(mine, DateTimeOffset.UnixEpoch, "mine"), Ct);
 
         var other = await NewStoreAsync();
-        await other.WriteSentinelAsync(new StoreSentinel(theirs, DateTimeOffset.UnixEpoch, "theirs"), Ct);
+        await other.WriteStoreMarkerAsync(new StoreMarker(theirs, DateTimeOffset.UnixEpoch, "theirs"), Ct);
 
-        Assert.Equal(mine, (await Store.ProbeAsync(Ct)).Sentinel!.StoreId);
-        Assert.Equal(theirs, (await other.ProbeAsync(Ct)).Sentinel!.StoreId);
+        Assert.Equal(mine, (await Store.ProbeAsync(Ct)).Marker!.StoreId);
+        Assert.Equal(theirs, (await other.ProbeAsync(Ct)).Marker!.StoreId);
     }
 
     protected async Task<(EvidenceUploadId, StagedObject)> StageAsync(

@@ -292,20 +292,20 @@ public sealed class DatabaseEvidenceStore : IEvidenceStore
         EvidenceUploadId uploadId, TimeSpan ttl, string? contentType = null, CancellationToken ct = default)
         => Task.FromResult<Uri?>(null);
 
-    public async Task WriteSentinelAsync(StoreSentinel sentinel, CancellationToken ct = default)
+    public async Task WriteStoreMarkerAsync(StoreMarker marker, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(sentinel);
+        ArgumentNullException.ThrowIfNull(marker);
 
         await using var connection = await OpenAsync(ct).ConfigureAwait(false);
 
         await ExecuteAsync(
             connection, null,
             $"""
-             INSERT INTO {DatabaseEvidenceSchema.SentinelTable} (id, payload)
+             INSERT INTO {DatabaseEvidenceSchema.StoreMarkerTable} (id, payload)
              VALUES (1, @payload)
              ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload
              """,
-            command => command.Parameters.AddWithValue("payload", NpgsqlDbType.Bytea, sentinel.Serialise()),
+            command => command.Parameters.AddWithValue("payload", NpgsqlDbType.Bytea, marker.Serialise()),
             ct).ConfigureAwait(false);
     }
 
@@ -316,13 +316,13 @@ public sealed class DatabaseEvidenceStore : IEvidenceStore
             await using var connection = await OpenAsync(ct).ConfigureAwait(false);
 
             await using var command = new NpgsqlCommand(
-                $"SELECT payload FROM {DatabaseEvidenceSchema.SentinelTable} WHERE id = 1", connection);
+                $"SELECT payload FROM {DatabaseEvidenceSchema.StoreMarkerTable} WHERE id = 1", connection);
 
             if (await command.ExecuteScalarAsync(ct).ConfigureAwait(false) is not byte[] payload)
                 return StoreProbe.Absent(Description);
 
-            var sentinel = StoreSentinel.TryParse(payload);
-            return sentinel is null ? StoreProbe.Malformed(Description) : StoreProbe.Present(sentinel, Description);
+            var marker = StoreMarker.TryParse(payload);
+            return marker is null ? StoreProbe.Malformed(Description) : StoreProbe.Present(marker, Description);
         }
         catch (Exception e) when (e is NpgsqlException or TimeoutException or IOException)
         {

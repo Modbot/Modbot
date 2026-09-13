@@ -19,7 +19,7 @@ public sealed record EvidenceS3View(
     bool UsePathStyle);
 
 /// <param name="Backend">"None", "S3", "Filesystem" or "Database".</param>
-/// <param name="StoreId">The sentinel written into the store when it was commissioned.</param>
+/// <param name="StoreId">The store marker written into the store when it was commissioned.</param>
 /// <param name="Root">Filesystem backend only.</param>
 /// <param name="SecretStored">
 /// Whether an S3 secret is on file. <strong>The secret itself is never sent back</strong> — it is
@@ -63,7 +63,7 @@ public sealed record EvidenceCapabilitiesView(
 /// <param name="State">"NotConfigured", "Healthy", "Unavailable" or "Unreachable".</param>
 /// <param name="Explanation">One sentence, written by the server. The SPA never composes it.</param>
 /// <param name="Latched">
-/// Whether this is the §8.4 latch. A latch is proof — an absent, foreign or malformed sentinel —
+/// Whether this is the §8.4 latch. A latch is proof — an absent, foreign or malformed store marker —
 /// and it does not clear itself.
 /// </param>
 public sealed record EvidenceHealthView(

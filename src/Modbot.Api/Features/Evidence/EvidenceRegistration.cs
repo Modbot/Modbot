@@ -77,7 +77,7 @@ public static class EvidenceRegistration
     }
 
     /// <summary>
-    /// Reads the stored configuration, rebuilds the store from it, and takes the startup sentinel
+    /// Reads the stored configuration, rebuilds the store from it, and takes the startup store marker
     /// probe of design §8.3.
     /// </summary>
     /// <remarks>

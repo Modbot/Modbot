@@ -25,7 +25,7 @@ internal static class DatabaseEvidenceSchema
 {
     public const string ChunkTable = "modbot_evidence_chunk";
     public const string StagingTable = "modbot_evidence_staging";
-    public const string SentinelTable = "modbot_evidence_store";
+    public const string StoreMarkerTable = "modbot_evidence_store";
 
     /// <summary>"MOD" "EVID" — distinct from the fact log's partition maintenance lock.</summary>
     private const long SchemaLockKey = 0x4D4F44_45564944;
@@ -65,7 +65,7 @@ internal static class DatabaseEvidenceSchema
 
         ALTER TABLE {StagingTable} ALTER COLUMN bytes SET STORAGE EXTERNAL;
 
-        CREATE TABLE IF NOT EXISTS {SentinelTable} (
+        CREATE TABLE IF NOT EXISTS {StoreMarkerTable} (
             id      int   not null PRIMARY KEY,
             payload bytea not null,
             CONSTRAINT ck_modbot_evidence_store_singleton CHECK (id = 1)

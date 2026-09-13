@@ -411,13 +411,13 @@ in the middle of the dispute the evidence existed to settle.
 The S3 variants are the same failure wearing different clothes: a bucket renamed, a prefix typo'd, a
 key rotated to a different account, a staging bucket configured in production.
 
-### 8.2 The store sentinel
+### 8.2 The store marker
 
 Detection by counting — *"the database says 400 objects exist and the store has none"* — works, but it
 is a heuristic with three weaknesses: it needs sampling decisions, it cannot fire before the first
 upload, and it cannot tell "empty store" from "store that is not answering".
 
-So Modbot writes a **sentinel** instead. When a backend is configured and successfully tested, Modbot
+So Modbot writes a **store marker** instead. When a backend is configured and successfully tested, Modbot
 generates a UUID, records it in `Settings`, and writes it to a single well-known key in the store:
 
 ```
@@ -430,7 +430,7 @@ It is the one key in the store that is not a hash. It lives outside the `sha256/
 On every startup, and before every upload after a failure, Modbot reads it. That turns a fuzzy
 question into a three-valued one:
 
-| Sentinel probe | Meaning | Fires when the store is empty? |
+| StoreMarker probe | Meaning | Fires when the store is empty? |
 |---|---|---|
 | Present, id matches | This is the store we configured | yes |
 | **Absent** | **This is not that store** — unmounted volume, fresh bucket, wrong prefix | **yes** |
@@ -438,7 +438,7 @@ question into a three-valued one:
 | Store did not answer | Transient — network, credentials, outage | — |
 
 The critical property is the last column. The trap can be sprung on day one, before any evidence
-exists, and the sentinel catches it **then** — which is the only time it can be fixed for free.
+exists, and the store marker catches it **then** — which is the only time it can be fixed for free.
 
 #### 8.2.1 This is not `PersistenceProbe`, and the difference is the whole point
 
@@ -453,7 +453,7 @@ restart. The two mechanisms are complementary, not duplicates, and the reason is
 That is exactly right, and it is exactly why the log probe answers a different question from this
 one:
 
-| | `PersistenceProbe` | The evidence store sentinel |
+| | `PersistenceProbe` | The evidence store marker |
 |---|---|---|
 | Question | *Will this directory survive a restart?* | *Is this the store we put our evidence in?* |
 | Written | every boot, stamped with a boot id | **once, at configuration time** |
@@ -468,7 +468,7 @@ ambiguity.
 
 Both should run, and for the filesystem backend `PersistenceProbe`'s result is the better message to
 show at **configuration** time (§8.5): "this directory has not been proven to survive a restart" is
-the warning that prevents the mistake, where the sentinel is what detects it after the fact.
+the warning that prevents the mistake, where the store marker is what detects it after the fact.
 
 > **Corrected 2026-09-13.** An earlier version of this paragraph said Modbot should *refuse* to
 > select the filesystem backend on a platform assumed ephemeral, unless overridden. That
@@ -485,8 +485,8 @@ the warning that prevents the mistake, where the sentinel is what detects it aft
 > shown**, stored verbatim. A reworded warning must not retroactively change what somebody agreed
 > to.
 >
-> Note what is *not* softened by this. The sentinel latch (§8.3) still fires on an absent, foreign
-> or malformed sentinel, because those are evidence of real loss or a wrong store rather than a
+> Note what is *not* softened by this. The store marker latch (§8.3) still fires on an absent, foreign
+> or malformed store marker, because those are evidence of real loss or a wrong store rather than a
 > guess about a platform. The distinction this correction draws is exactly that one: **a suspicion
 > never blocks; proof always does.**
 
@@ -495,7 +495,7 @@ the warning that prevents the mistake, where the sentinel is what detects it aft
 ```
   at startup, and on the first upload after any store failure:
 
-    probe the sentinel
+    probe the store marker
       ├─ matches          → healthy. Also sample-check the N most recently stored
       │                     blobs; any missing ones are marked Missing individually
       │                     and reported, but do not latch the store state.
@@ -549,7 +549,7 @@ So the behaviour is a **latched degraded state**, `EvidenceStoreUnavailable`:
   backend, the expected store id, what was found, and the number of blobs the database believes exist.
   Only an `Administrator` can acknowledge it, and acknowledging it does not clear it.
 - **The latch does not clear itself.** If the volume is mounted correctly on the next deploy and the
-  sentinel reappears, the state resolves — but the incident is a fact on the log, permanently, and
+  store marker reappears, the state resolves — but the incident is a fact on the log, permanently, and
   the affected blobs stay marked `Missing` until they are verified present.
 
 That last clause is deliberate. A misconfiguration that fixes itself between two deploys, leaving no
@@ -559,7 +559,7 @@ trace, is how an operator concludes the warning was spurious.
 
 None of the above should ever fire, because the settings page catches it first. Saving a storage
 backend performs a **round trip before the setting is persisted**: write a canary object, read it
-back, compare the bytes, delete it, then write the sentinel. Only then is the configuration saved.
+back, compare the bytes, delete it, then write the store marker. Only then is the configuration saved.
 
 A backend that cannot pass that cannot be selected, and the error says which step failed —
 credentials, endpoint, URL style, permissions, or a read that returned different bytes than were
@@ -1106,7 +1106,7 @@ So, exactly this:
 - **At first boot only**, and **only when no evidence backend is configured**, if all five variables
   are present the storage step arrives **pre-filled**, labelled as coming from the environment, with
   the endpoint and bucket visible and the secret masked.
-- The operator presses **Test and save**, which runs §8.5's round trip and writes the sentinel. Only
+- The operator presses **Test and save**, which runs §8.5's round trip and writes the store marker. Only
   then is anything persisted.
 - **After that the environment is never read again.** A later change to a Railway variable does not
   move the store, does not repoint anything, and does not generate a warning — it is simply ignored,
@@ -1148,7 +1148,7 @@ Tasks, not changes. Nothing here is implemented by this document.
 | 4 | `.railway/railway.ts` | No volume for the stateless profile. A bucket is a separate resource the operator adds; the template may reference it, but nothing becomes required. |
 | 5 | `src/Modbot.Core/Logging/`, `src/Modbot.Core/Configuration/` | Largely **already done**: the file sinks now switch off unless `PersistenceProbe` has evidence the directory survives a restart. What remains is to point the log directory at the same data root the filesystem evidence backend uses, so one mounted volume serves both, and to size it — the worst case at the current caps (64 MB/file; 60 main, 60 http, 6 debug, each in two formats) is ~15–16 GB, which the docs must state so an operator does not mount a 10 GB volume and have evidence and logs compete for it. |
 | 6 | `src/Modbot.Core/Data/Entities/ModbotPermissions.cs` | Three new flags at bits 15–17 (§14), pinned by `ModbotPermissionsTests` like the rest. |
-| 7 | `src/Modbot.Core/Data/Entities/Settings.cs` | Storage backend, its fields, the caps, the store sentinel id, direct-delivery toggle, sweep rate. Secrets encrypted like every other secret column. |
+| 7 | `src/Modbot.Core/Data/Entities/Settings.cs` | Storage backend, its fields, the caps, the store marker id, direct-delivery toggle, sweep rate. Secrets encrypted like every other secret column. |
 | 8 | Host startup | The §8.3 probe, the latch, the `Critical` notification and the banner state. |
 
 ---

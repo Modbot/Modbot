@@ -166,7 +166,7 @@ public class S3StoreTests : EvidenceStoreConformanceTests
     }
 
     /// <summary>
-    /// A prefix lets one bucket hold two deployments, and neither may see the other's sentinel.
+    /// A prefix lets one bucket hold two deployments, and neither may see the other's store marker.
     /// </summary>
     [Fact]
     public async Task TwoPrefixesInOneBucketAreSeparateStores()
@@ -178,7 +178,7 @@ public class S3StoreTests : EvidenceStoreConformanceTests
         using var second = new S3EvidenceStore(_minio.CreateClient(theirs), theirs, LiveClock());
 
         var id = Guid.NewGuid();
-        await first.WriteSentinelAsync(new StoreSentinel(id, DateTimeOffset.UnixEpoch, "one"), Ct);
+        await first.WriteStoreMarkerAsync(new StoreMarker(id, DateTimeOffset.UnixEpoch, "one"), Ct);
 
         Assert.Equal(StoreProbeOutcome.Present, (await first.ProbeAsync(Ct)).Outcome);
         Assert.Equal(StoreProbeOutcome.Absent, (await second.ProbeAsync(Ct)).Outcome);

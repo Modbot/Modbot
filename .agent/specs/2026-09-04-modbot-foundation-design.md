@@ -1446,9 +1446,9 @@ modbot_rollup_daily
   PRIMARY KEY (day, metric, dimension)
 ```
 
-**`dimension` is `NOT NULL` with an empty-string sentinel**, not nullable. An earlier draft of this
+**`dimension` is `NOT NULL` with an empty-string stand-in**, not nullable. An earlier draft of this
 section wrote `dimension text null` inside the primary key, which **PostgreSQL rejects** — no primary
-key column may be nullable. The sentinel is the standard workaround and it has a second benefit:
+key column may be nullable. The store marker is the standard workaround and it has a second benefit:
 `ON CONFLICT (day, metric, dimension)` works, where a nullable column would make every undimensioned
 row conflict with nothing (`NULL != NULL`) and silently accumulate duplicates.
 

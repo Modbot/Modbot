@@ -74,12 +74,12 @@ public sealed class FaultInjectingStore : IEvidenceStore
         EvidenceUploadId uploadId, TimeSpan ttl, string? contentType = null, CancellationToken ct = default)
         => _inner.TryCreatePresignedWriteAsync(uploadId, ttl, contentType, ct);
 
-    public Task WriteSentinelAsync(StoreSentinel sentinel, CancellationToken ct = default)
-        => Fault is null ? _inner.WriteSentinelAsync(sentinel, ct) : Task.FromException(Fault);
+    public Task WriteStoreMarkerAsync(StoreMarker marker, CancellationToken ct = default)
+        => Fault is null ? _inner.WriteStoreMarkerAsync(marker, ct) : Task.FromException(Fault);
 
     /// <summary>
     /// A store that is failing every other call does not answer a probe either — which is exactly
-    /// the "did not answer" case, and must not be mistaken for a missing sentinel.
+    /// the "did not answer" case, and must not be mistaken for a missing store marker.
     /// </summary>
     public Task<StoreProbe> ProbeAsync(CancellationToken ct = default)
     {

@@ -231,7 +231,7 @@ try
     _ = app.Services.GetRequiredService<ISecretProtector>();
 
     // Now that the schema exists and the protector is warm, the stored evidence configuration can
-    // be read and the store built from it, and the store sentinel probed (§8.3). Nothing here can
+    // be read and the store built from it, and the store marker probed (§8.3). Nothing here can
     // stop the host: a deployment whose evidence store is missing still ingests the audit log,
     // still records presence and still syncs bans -- §8.4 is explicit that trading live collection
     // that cannot be filled in later for a gesture about data already lost is the wrong trade.

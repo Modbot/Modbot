@@ -1,6 +1,6 @@
 namespace Modbot.Evidence.Storage;
 
-/// <summary>What reading the sentinel found. Never an exception — absence is a result.</summary>
+/// <summary>What reading the store marker found. Never an exception — absence is a result.</summary>
 /// <remarks>
 /// The separation between <see cref="Absent"/> and <see cref="Unreachable"/> is the load-bearing
 /// one. "The store said no" and "the store said nothing" look similar in a log and mean opposite
@@ -10,16 +10,16 @@ namespace Modbot.Evidence.Storage;
 /// </remarks>
 public enum StoreProbeOutcome
 {
-    /// <summary>A sentinel was read and parsed. Whether it is <em>ours</em> is not this layer's call.</summary>
+    /// <summary>A store marker was read and parsed. Whether it is <em>ours</em> is not this layer's call.</summary>
     Present,
 
     /// <summary>
-    /// The store answered and there is no sentinel: an unmounted volume, a fresh bucket, a
+    /// The store answered and there is no store marker: an unmounted volume, a fresh bucket, a
     /// mistyped prefix.
     /// </summary>
     Absent,
 
-    /// <summary>Something is at the key and it is not a sentinel.</summary>
+    /// <summary>Something is at the key and it is not a store marker.</summary>
     Malformed,
 
     /// <summary>The store did not answer. Says nothing at all about what is in it.</summary>
@@ -27,26 +27,26 @@ public enum StoreProbeOutcome
 }
 
 /// <param name="Outcome">What was found.</param>
-/// <param name="Sentinel">The parsed sentinel, when <see cref="StoreProbeOutcome.Present"/>.</param>
+/// <param name="Marker">The parsed store marker, when <see cref="StoreProbeOutcome.Present"/>.</param>
 /// <param name="Explanation">One sentence, for the log and the diagnostics page.</param>
 /// <param name="Failure">The transport error, when <see cref="StoreProbeOutcome.Unreachable"/>.</param>
 public sealed record StoreProbe(
     StoreProbeOutcome Outcome,
-    StoreSentinel? Sentinel,
+    StoreMarker? Marker,
     string Explanation,
     Exception? Failure = null)
 {
-    public static StoreProbe Present(StoreSentinel sentinel, string where)
-        => new(StoreProbeOutcome.Present, sentinel,
-            $"'{where}' holds a store sentinel for {sentinel.StoreId}.");
+    public static StoreProbe Present(StoreMarker marker, string where)
+        => new(StoreProbeOutcome.Present, marker,
+            $"'{where}' holds a store marker for {marker.StoreId}.");
 
     public static StoreProbe Absent(string where)
         => new(StoreProbeOutcome.Absent, null,
-            $"'{where}' holds no store sentinel, so it is not the store Modbot was configured with.");
+            $"'{where}' holds no store marker, so it is not the store Modbot was configured with.");
 
     public static StoreProbe Malformed(string where)
         => new(StoreProbeOutcome.Malformed, null,
-            $"'{where}' holds something at the sentinel key that is not a Modbot store sentinel.");
+            $"'{where}' holds something at the store marker key that is not a Modbot store marker.");
 
     public static StoreProbe Unreachable(string where, Exception failure)
         => new(StoreProbeOutcome.Unreachable, null,

@@ -45,7 +45,7 @@ public sealed class UploadPipelineTests : IAsyncLifetime
         };
 
         _store = new FaultInjectingStore(new FilesystemEvidenceStore(_options.Filesystem));
-        await _store.WriteSentinelAsync(new StoreSentinel(_storeId, _clock.UtcNow, "test"), Ct);
+        await _store.WriteStoreMarkerAsync(new StoreMarker(_storeId, _clock.UtcNow, "test"), Ct);
 
         _monitor = new EvidenceStoreMonitor(_store, _options, _clock);
         await _monitor.CheckAsync(Ct);
@@ -221,7 +221,7 @@ public sealed class UploadPipelineTests : IAsyncLifetime
 
     /// <summary>
     /// A store that goes away mid-upload leaves nothing attached, and the next attempt re-probes
-    /// the sentinel — design section 8.3's "first upload after any store failure".
+    /// the store marker — design section 8.3's "first upload after any store failure".
     /// </summary>
     [Fact]
     public async Task AStoreThatFailsMidUploadAttachesNothingAndIsReprobed()
@@ -239,7 +239,7 @@ public sealed class UploadPipelineTests : IAsyncLifetime
         Assert.Empty(_metadata.Records);
 
         // The re-probe ran, and it found a store that is not answering rather than one that is
-        // missing its sentinel — so nothing latched on a transport failure.
+        // missing its store marker — so nothing latched on a transport failure.
         Assert.Equal(EvidenceStoreState.Unreachable, _monitor.Current.State);
     }
 
@@ -250,7 +250,7 @@ public sealed class UploadPipelineTests : IAsyncLifetime
     [Fact]
     public async Task UploadsAreRefusedWhileTheStoreIsLatchedUnavailable()
     {
-        File.Delete(Path.Combine(_root, EvidenceKeys.SentinelKey));
+        File.Delete(Path.Combine(_root, EvidenceKeys.StoreMarkerKey));
         await _monitor.CheckAsync(Ct);
 
         await Assert.ThrowsAsync<EvidenceStoreUnavailableException>(
@@ -345,7 +345,7 @@ public sealed class UploadPipelineTests : IAsyncLifetime
 
         _clock.Advance(_options.StagingGrace + TimeSpan.FromMinutes(1));
 
-        File.Delete(Path.Combine(_root, EvidenceKeys.SentinelKey));
+        File.Delete(Path.Combine(_root, EvidenceKeys.StoreMarkerKey));
         await _monitor.CheckAsync(Ct);
 
         var result = await new StagingSweeper(_store, _registry, _monitor, _options, _clock).SweepAsync(Ct);

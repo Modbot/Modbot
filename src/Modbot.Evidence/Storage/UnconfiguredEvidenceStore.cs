@@ -51,7 +51,7 @@ internal sealed class UnconfiguredEvidenceStore : IEvidenceStore
         EvidenceUploadId uploadId, TimeSpan ttl, string? contentType = null, CancellationToken ct = default)
         => Task.FromResult<Uri?>(null);
 
-    public Task WriteSentinelAsync(StoreSentinel sentinel, CancellationToken ct = default)
+    public Task WriteStoreMarkerAsync(StoreMarker marker, CancellationToken ct = default)
         => throw new EvidenceStoreUnavailableException(Message);
 
     public Task<StoreProbe> ProbeAsync(CancellationToken ct = default)

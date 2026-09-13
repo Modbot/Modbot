@@ -4,13 +4,13 @@ using Modbot.Evidence.Storage;
 
 namespace Modbot.Evidence.Health;
 
-/// <summary>What the sentinel probe last concluded about the store.</summary>
+/// <summary>What the store marker probe last concluded about the store.</summary>
 public enum EvidenceStoreState
 {
     /// <summary>No backend has been commissioned. Uploads are refused; nothing is wrong.</summary>
     NotConfigured,
 
-    /// <summary>The sentinel is there and it is ours.</summary>
+    /// <summary>The store marker is there and it is ours.</summary>
     Healthy,
 
     /// <summary>
@@ -57,7 +57,7 @@ public sealed record EvidenceStoreHealth(
 }
 
 /// <param name="DetectedAt">When the latch went on.</param>
-/// <param name="ResolvedAt">When a matching sentinel reappeared, if it ever did.</param>
+/// <param name="ResolvedAt">When a matching store marker reappeared, if it ever did.</param>
 public sealed record EvidenceStoreIncident(
     DateTimeOffset DetectedAt,
     string Explanation,
@@ -66,12 +66,12 @@ public sealed record EvidenceStoreIncident(
     DateTimeOffset? ResolvedAt = null);
 
 /// <summary>
-/// Reads the store sentinel and holds the latched verdict (design sections 8.3 and 8.4).
+/// Reads the store marker and holds the latched verdict (design sections 8.3 and 8.4).
 /// </summary>
 /// <remarks>
 /// <para>
 /// The one thing this class exists to get right is the difference between <em>the store said no</em>
-/// and <em>the store said nothing</em>. An absent or foreign sentinel is evidence that the bytes
+/// and <em>the store said nothing</em>. An absent or foreign store marker is evidence that the bytes
 /// are not where the database says they are — an unmounted volume, a fresh bucket, a mistyped
 /// prefix — and it latches. A store that failed to answer is a network, a credential or an outage,
 /// and it does not. Conflating them either raises a full-width "your evidence is gone" banner
@@ -87,7 +87,7 @@ public sealed record EvidenceStoreIncident(
 /// fix it.
 /// </para>
 /// <para>
-/// <strong>The latch does not clear itself.</strong> It clears when a matching sentinel is read
+/// <strong>The latch does not clear itself.</strong> It clears when a matching store marker is read
 /// again, and the incident stays on the record afterwards. A misconfiguration that quietly fixes
 /// itself between two deploys, leaving no trace, is how an operator concludes the warning was
 /// spurious.
@@ -148,14 +148,14 @@ public sealed class EvidenceStoreMonitor
     }
 
     /// <summary>
-    /// Probes the sentinel and updates the verdict. Run at startup, and before the first upload
+    /// Probes the store marker and updates the verdict. Run at startup, and before the first upload
     /// after any store failure.
     /// </summary>
     public async Task<EvidenceStoreHealth> CheckAsync(CancellationToken ct = default)
     {
         if (_store is null || _options.StoreId is not { } expected)
         {
-            // Nothing has been commissioned, so there is nothing the sentinel could conclude.
+            // Nothing has been commissioned, so there is nothing the store marker could conclude.
             // Absence only means "wrong store" once there is a record of a right one.
             return Set(new EvidenceStoreHealth(
                 EvidenceStoreState.NotConfigured,
@@ -168,16 +168,16 @@ public sealed class EvidenceStoreMonitor
 
         switch (probe.Outcome)
         {
-            case StoreProbeOutcome.Present when probe.Sentinel!.StoreId == expected:
+            case StoreProbeOutcome.Present when probe.Marker!.StoreId == expected:
                 return Resolve(now, probe.Explanation, expected);
 
             case StoreProbeOutcome.Present:
                 return Latch(
                     now,
                     $"This is a different Modbot's evidence store. Expected {expected}, found "
-                    + $"{probe.Sentinel!.StoreId} in {_store.Description}.",
+                    + $"{probe.Marker!.StoreId} in {_store.Description}.",
                     expected,
-                    probe.Sentinel.StoreId);
+                    probe.Marker.StoreId);
 
             case StoreProbeOutcome.Absent:
             case StoreProbeOutcome.Malformed:

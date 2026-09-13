@@ -164,22 +164,22 @@ public sealed class FilesystemEvidenceStore : IEvidenceStore
         EvidenceUploadId uploadId, TimeSpan ttl, string? contentType = null, CancellationToken ct = default)
         => Task.FromResult<Uri?>(null);
 
-    public async Task WriteSentinelAsync(StoreSentinel sentinel, CancellationToken ct = default)
+    public async Task WriteStoreMarkerAsync(StoreMarker marker, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(sentinel);
+        ArgumentNullException.ThrowIfNull(marker);
 
         Directory.CreateDirectory(_root);
 
-        var path = Path.Combine(_root, EvidenceKeys.SentinelKey);
+        var path = Path.Combine(_root, EvidenceKeys.StoreMarkerKey);
         var partial = path + ".partial";
 
-        await File.WriteAllBytesAsync(partial, sentinel.Serialise(), ct).ConfigureAwait(false);
+        await File.WriteAllBytesAsync(partial, marker.Serialise(), ct).ConfigureAwait(false);
         File.Move(partial, path, overwrite: true);
     }
 
     public async Task<StoreProbe> ProbeAsync(CancellationToken ct = default)
     {
-        var path = Path.Combine(_root, EvidenceKeys.SentinelKey);
+        var path = Path.Combine(_root, EvidenceKeys.StoreMarkerKey);
 
         try
         {
@@ -187,9 +187,9 @@ public sealed class FilesystemEvidenceStore : IEvidenceStore
                 return StoreProbe.Absent(_root);
 
             var bytes = await File.ReadAllBytesAsync(path, ct).ConfigureAwait(false);
-            var sentinel = StoreSentinel.TryParse(bytes);
+            var marker = StoreMarker.TryParse(bytes);
 
-            return sentinel is null ? StoreProbe.Malformed(_root) : StoreProbe.Present(sentinel, _root);
+            return marker is null ? StoreProbe.Malformed(_root) : StoreProbe.Present(marker, _root);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

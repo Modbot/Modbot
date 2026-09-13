@@ -765,7 +765,7 @@ function RetentionForm({
  * suspicion** — platform detection can only ever be a suspicion, because Railway, Fly.io and
  * Render all support mountable volumes and the operator is the only party who knows whether they
  * mounted one. The one refusal here is a directory that cannot be written to at all, which is a
- * fact rather than a guess. The store sentinel is a different mechanism entirely and is fatal:
+ * fact rather than a guess. The store marker is a different mechanism entirely and is fatal:
  * absence of it is proof that the bytes are not where Modbot's records say they are.
  */
 function EvidenceTab() {

@@ -41,7 +41,7 @@ public sealed class DestroyTests : IAsyncLifetime
         };
 
         _store = new FaultInjectingStore(new FilesystemEvidenceStore(options.Filesystem));
-        await _store.WriteSentinelAsync(new StoreSentinel(_storeId, _clock.UtcNow, "test"), Ct);
+        await _store.WriteStoreMarkerAsync(new StoreMarker(_storeId, _clock.UtcNow, "test"), Ct);
 
         _monitor = new EvidenceStoreMonitor(_store, options, _clock);
         await _monitor.CheckAsync(Ct);
@@ -156,7 +156,7 @@ public sealed class DestroyTests : IAsyncLifetime
         var hash = await AttachAsync(SampleMedia.Png(1024), "report-1");
         _metadata.Detach(hash, "report-1");
 
-        File.Delete(Path.Combine(_root, EvidenceKeys.SentinelKey));
+        File.Delete(Path.Combine(_root, EvidenceKeys.StoreMarkerKey));
         await _monitor.CheckAsync(Ct);
 
         await Assert.ThrowsAsync<EvidenceStoreUnavailableException>(

@@ -52,7 +52,7 @@ public readonly struct EvidenceHash : IEquatable<EvidenceHash>
         return new EvidenceHash(digest.ToArray());
     }
 
-    /// <summary>Hashes a span outright. For sentinels, canaries and tests — never for evidence.</summary>
+    /// <summary>Hashes a span outright. For store markers, canaries and tests — never for evidence.</summary>
     /// <remarks>
     /// Evidence is hashed while it streams (<see cref="CountingHashStream"/>), because
     /// buffering a hundred megabytes to hash it is the thing design section 9.3 forbids.

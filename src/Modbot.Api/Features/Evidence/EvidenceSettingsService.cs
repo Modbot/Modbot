@@ -18,7 +18,7 @@ namespace Modbot.Api.Features.Evidence;
 /// <para>
 /// <strong>Nothing is persisted that has not been proved.</strong> Saving a backend runs design
 /// §8.5's round trip first — write a canary, read it back, compare the bytes, promote it, read it
-/// again, delete it, then write the sentinel — and only then does the row change. A backend that
+/// again, delete it, then write the store marker — and only then does the row change. A backend that
 /// cannot do all of that cannot be selected, and the error names the step rather than saying
 /// "storage error".
 /// </para>
@@ -27,8 +27,8 @@ namespace Modbot.Api.Features.Evidence;
 /// directory Modbot cannot prove survives a restart produces a warning and a question, never a
 /// refusal — Railway, Fly.io and Render all support mountable volumes, and the operator is the only
 /// party who knows whether they mounted one. A directory that cannot be written to at all is
-/// refused, because that is a fact with nothing to judge. The sentinel latch is untouched by any
-/// of this and stays fatal to uploads: an absent, foreign or malformed sentinel is proof of a lost
+/// refused, because that is a fact with nothing to judge. The store marker latch is untouched by any
+/// of this and stays fatal to uploads: an absent, foreign or malformed store marker is proof of a lost
 /// or wrong store.
 /// </para>
 /// </remarks>
@@ -256,7 +256,7 @@ public sealed class EvidenceSettingsService
             settings.EvidenceDirectDeliveryEnabled), null);
     }
 
-    /// <summary>Re-reads the sentinel (design §8.3) and returns the verdict.</summary>
+    /// <summary>Re-reads the store marker (design §8.3) and returns the verdict.</summary>
     public async Task<EvidenceHealthView> ProbeAsync(CancellationToken ct = default)
         => Describe(await _monitor.CheckAsync(ct), _store.Description);
 
@@ -390,7 +390,7 @@ public sealed class EvidenceSettingsService
         }
 
         // Reusing the id when the target has not moved is what keeps a re-test from rewriting the
-        // sentinel of the store Modbot is already using with an id Settings does not know about —
+        // store marker of the store Modbot is already using with an id Settings does not know about —
         // which would latch the store the instant the operator pressed Test.
         var storeId = sameTarget && settings.EvidenceStoreId is { } existing ? existing : Guid.NewGuid();
 

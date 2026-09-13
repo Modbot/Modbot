@@ -25,7 +25,7 @@ public static class EvidenceKeys
     /// is hex" property stays literally true and a sweep can tell Modbot's own bookkeeping from an
     /// object at a glance.
     /// </remarks>
-    public const string SentinelKey = ".modbot-store";
+    public const string StoreMarkerKey = ".modbot-store";
 
     /// <summary>
     /// <c>sha256/ab/cd/abcdef…</c> — two levels of shard, then the full digest.

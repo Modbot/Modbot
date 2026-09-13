@@ -40,7 +40,7 @@ public class DailyTotal
     /// </summary>
     /// <remarks>
     /// Spec 5.4 writes this column as nullable. It is <c>NOT NULL</c> with an empty-string
-    /// sentinel instead, because PostgreSQL will not accept a NULL in a primary key column and
+    /// store marker instead, because PostgreSQL will not accept a NULL in a primary key column and
     /// the alternative (a surrogate key plus a <c>NULLS NOT DISTINCT</c> unique index) buys
     /// nothing but a second way to say "no dimension".
     /// </remarks>

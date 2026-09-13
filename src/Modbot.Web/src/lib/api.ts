@@ -692,7 +692,7 @@ export const api = {
 
   /**
    * The round trip, without saving. Writes a canary, reads it back, compares the bytes, promotes
-   * it, reads it again, deletes it, and writes the store sentinel.
+   * it, reads it again, deletes it, and writes the store marker.
    */
   testEvidenceStore: (body: EvidenceBackendInput) =>
     post<EvidenceCommissioning>('/api/settings/evidence/test', body),

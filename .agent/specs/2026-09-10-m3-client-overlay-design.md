@@ -100,13 +100,13 @@ one on three counts:
 3. **It reads another application's configuration**, which is squarely the behaviour §8.1 is trying
    to avoid looking like.
 
-Instead: **detect from the log itself.** The client watches for a sentinel — a line shape that
+Instead: **detect from the log itself.** The client watches for a store marker — a line shape that
 appears if and only if verbose logging is on — and concludes the flag is missing when VRChat is
-demonstrably running and writing output but the sentinel never appears.
+demonstrably running and writing output but the store marker never appears.
 
 This works for every launcher, needs no file access outside the log directory, and verifies the thing
 that actually matters. It is also self-verifying after the fix: the user restarts VRChat, the
-sentinel appears, the client confirms it without being asked.
+store marker appears, the client confirms it without being asked.
 
 #### 2.3.2 Instruct, verify — do not silently reconfigure
 
@@ -138,7 +138,7 @@ pasting one flag into a text box is a small cost, and it keeps the client's beha
 #### 2.3.3 Ongoing
 
 The flag can be removed later — a Steam reinstall, a shortcut replaced, a second PC. The client
-therefore treats the sentinel as an ongoing health signal rather than a one-time check, and raises the
+therefore treats the store marker as an ongoing health signal rather than a one-time check, and raises the
 missing-flag prompt again rather than reporting nothing forever.
 
 This shares the mechanism with §2.2's format-break alarm; the two conditions are distinguished by
@@ -873,7 +873,7 @@ These need answers before the plan is written, and at least the first needs hand
     identity is `worldId` + `instanceId`. Confirm parsing against the real log sample, including a
     group instance whose id was set to free text via VRCX.
 11. ~~The verbose-logging flag.~~ **Answered** -- recorded verbatim in 2.3.0. Still needs a
-    **sentinel line shape** confirmed against a log captured WITHOUT the flags, since the sample
+    **store marker line shape** confirmed against a log captured WITHOUT the flags, since the sample
     analysed so far was captured with them on: it shows what is present, not what is missing.
 12. ~~Whether the instance API exposes occupants' avatar ids.~~ **Answered -- it does not, by
     design.** VRChat withholds avatar ids from clients to frustrate ripping. Resolution moves

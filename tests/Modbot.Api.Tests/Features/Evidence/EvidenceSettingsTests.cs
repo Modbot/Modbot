@@ -79,7 +79,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
         Assert.True(saved.Succeeded, saved.Message);
         Assert.NotNull(saved.StoreId);
 
-        // The sentinel is on disk, and it is the id Settings now records. Two copies in two
+        // The store marker is on disk, and it is the id Settings now records. Two copies in two
         // places is the entire mechanism §8.2 rests on.
         Assert.True(File.Exists(Path.Combine(host.Root, ".modbot-store")));
 

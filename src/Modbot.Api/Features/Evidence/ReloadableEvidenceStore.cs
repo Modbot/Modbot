@@ -159,8 +159,8 @@ public sealed class ReloadableEvidenceStore : IEvidenceStore, IDisposable
         CancellationToken ct = default)
         => Inner.TryCreatePresignedWriteAsync(uploadId, ttl, contentType, ct);
 
-    public Task WriteSentinelAsync(StoreSentinel sentinel, CancellationToken ct = default)
-        => Inner.WriteSentinelAsync(sentinel, ct);
+    public Task WriteStoreMarkerAsync(StoreMarker marker, CancellationToken ct = default)
+        => Inner.WriteStoreMarkerAsync(marker, ct);
 
     public Task<StoreProbe> ProbeAsync(CancellationToken ct = default)
         => Inner.ProbeAsync(ct);

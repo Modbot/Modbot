@@ -39,7 +39,7 @@ public sealed class CommissioningTests : IDisposable
     }
 
     [Fact]
-    public async Task AGoodStorePassesAndEndsUpCarryingTheSentinel()
+    public async Task AGoodStorePassesAndEndsUpCarryingTheStoreMarker()
     {
         var id = Guid.NewGuid();
         var result = await _commissioner.CommissionAsync(_store, id, "home server", Ct);
@@ -49,7 +49,7 @@ public sealed class CommissioningTests : IDisposable
 
         var probe = await _store.ProbeAsync(Ct);
         Assert.Equal(StoreProbeOutcome.Present, probe.Outcome);
-        Assert.Equal(id, probe.Sentinel!.StoreId);
+        Assert.Equal(id, probe.Marker!.StoreId);
     }
 
     /// <summary>
@@ -94,7 +94,7 @@ public sealed class CommissioningTests : IDisposable
         Assert.Equal("commit", second.FailedStep);
     }
 
-    /// <summary>Nothing of Modbot's is left in the store except the sentinel.</summary>
+    /// <summary>Nothing of Modbot's is left in the store except the store marker.</summary>
     [Fact]
     public async Task TheCanaryIsCleanedUpAfterwards()
     {
@@ -105,6 +105,6 @@ public sealed class CommissioningTests : IDisposable
             .Select(f => Path.GetRelativePath(_root, f).Replace('\\', '/'))
             .ToList();
 
-        Assert.Equal([EvidenceKeys.SentinelKey], left);
+        Assert.Equal([EvidenceKeys.StoreMarkerKey], left);
     }
 }

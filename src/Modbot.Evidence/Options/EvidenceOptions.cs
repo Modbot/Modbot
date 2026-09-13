@@ -21,7 +21,7 @@ public sealed record EvidenceOptions
     public EvidenceBackend Backend { get; set; } = EvidenceBackend.None;
 
     /// <summary>
-    /// The sentinel id written into the store when it was commissioned (design section 8.2).
+    /// The store marker id written into the store when it was commissioned (design section 8.2).
     /// </summary>
     /// <remarks>
     /// This is the memory <em>outside</em> the store that lets absence be a finding rather than an
