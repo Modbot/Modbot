@@ -102,17 +102,26 @@ public class ClientSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheTwoDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheFourDeclaredPlacesMakeOutboundRequests()
     {
-        // "What does this program send, and where" should have exactly one answer, findable by
-        // somebody who has never seen the codebase.
+        // "What does this program send, and where" should have a short, complete answer findable
+        // by somebody who has never seen the codebase. Four files, each with a remarks block
+        // saying what it sends: one posts observations, one asks the time, one trades a pairing
+        // code for a token, and one reads the overlay's context. Nothing else reaches the network.
         var senders = ClientSources()
-            .Where(f => File.ReadAllText(f).Contains("_http.SendAsync", StringComparison.Ordinal))
+            .Where(f => Regex.IsMatch(File.ReadAllText(f), @"_http\.(SendAsync|GetAsync|PostAsync|PutAsync|DeleteAsync)"))
             .Select(Path.GetFileName)
             .Order()
             .ToList();
 
-        Assert.Equal(["HttpIngestTransport.cs", "HttpServerTimeProbe.cs"], senders);
+        Assert.Equal(
+            [
+                "HttpIngestTransport.cs",
+                "HttpOverlayReadClient.cs",
+                "HttpPairingClient.cs",
+                "HttpServerTimeProbe.cs",
+            ],
+            senders);
     }
 
     [Fact]

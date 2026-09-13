@@ -1,4 +1,5 @@
 using Modbot.Client.Instances;
+using Modbot.Client.Journal;
 using Modbot.Client.Routing;
 using Modbot.Client.Time;
 using Modbot.Core.Time;
@@ -61,6 +62,7 @@ public sealed class ServerConnection : IIngestTarget
     private readonly BackoffPolicy _backoff;
     private readonly string _clientVersion;
     private readonly TimeSpan _batchInterval;
+    private readonly SentJournal? _journal;
 
     private int _batchSize = DefaultBatchSize;
     private int _consecutiveFailures;
@@ -78,7 +80,8 @@ public sealed class ServerConnection : IIngestTarget
         IModbotClock clock,
         string clientVersion,
         BackoffPolicy? backoff = null,
-        TimeSpan? batchInterval = null)
+        TimeSpan? batchInterval = null,
+        SentJournal? journal = null)
     {
         Pairing = pairing;
         _buffer = buffer;
@@ -89,6 +92,7 @@ public sealed class ServerConnection : IIngestTarget
         _clientVersion = clientVersion;
         _backoff = backoff ?? new BackoffPolicy();
         _batchInterval = batchInterval ?? DefaultBatchInterval;
+        _journal = journal;
         _lastSendAttempt = clock.UtcNow;
     }
 
@@ -123,11 +127,22 @@ public sealed class ServerConnection : IIngestTarget
         get => _paused;
         set
         {
+            if (_paused == value)
+                return;
+
             _paused = value;
             if (value)
+            {
                 State = ConnectionState.Paused;
-            else if (State == ConnectionState.Paused)
-                State = ConnectionState.Healthy;
+                _journal?.RecordNote(ServerId, "Paused. Nothing is being captured or sent for this server.");
+            }
+            else
+            {
+                if (State == ConnectionState.Paused)
+                    State = ConnectionState.Healthy;
+
+                _journal?.RecordNote(ServerId, "Resumed reporting.");
+            }
         }
     }
 
@@ -145,9 +160,17 @@ public sealed class ServerConnection : IIngestTarget
     public void Accept(ObservedPresence observation)
     {
         // Paused means this server is told nothing about what happens from now on. Not queued for
-        // later: not captured.
+        // later: not captured. The journal records the refusal, because "nothing was sent" and
+        // "nothing happened" look identical to somebody reading a list of disclosures.
         if (_paused || State is ConnectionState.Stopped)
+        {
+            _journal?.RecordWithheld(
+                ServerId,
+                _paused
+                    ? "Not sent — reporting is paused."
+                    : "Not sent — this pairing has stopped; the server rejected its token.");
             return;
+        }
 
         if (_mapper.Map(observation) is { } clientEvent)
             _buffer.Add(clientEvent);
@@ -225,6 +248,10 @@ public sealed class ServerConnection : IIngestTarget
                 // acceptance is the normal case, not an error.
                 AcceptedTotal += result.Accepted;
                 DeduplicatedTotal += result.Deduplicated;
+
+                // Written before the buffer is cleared, so the record of a disclosure cannot be
+                // lost by a crash between the two.
+                _journal?.RecordSent(ServerId, sent);
                 _buffer.Remove(sent.Select(e => e.ClientEventId));
                 Succeeded();
                 break;
@@ -234,6 +261,9 @@ public sealed class ServerConnection : IIngestTarget
                 // fills up forever and stops reporting anything at all, so these are dropped and
                 // counted loudly instead.
                 MalformedBatches++;
+                _journal?.RecordNote(
+                    ServerId,
+                    $"The server refused a batch of {sent.Count} as malformed. They were dropped, not retried.");
                 _buffer.Remove(sent.Select(e => e.ClientEventId));
                 Succeeded();
                 break;
@@ -242,6 +272,9 @@ public sealed class ServerConnection : IIngestTarget
                 // Terminal for this pairing. The buffer is kept -- the moderator may re-pair -- but
                 // nothing more is sent and the state is surfaced rather than retried quietly.
                 State = ConnectionState.Stopped;
+                _journal?.RecordNote(
+                    ServerId,
+                    "The server rejected this device token. Reporting has stopped and will not be retried.");
                 _inFlightBatchId = null;
                 break;
 
