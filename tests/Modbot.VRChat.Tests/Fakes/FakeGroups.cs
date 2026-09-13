@@ -50,6 +50,28 @@ public sealed class FakeGroups
 
     public IReadOnlyList<GroupAuditLogEntry> Entries => _entries;
 
+    /// <summary>
+    /// The member list, in the order VRChat would page it. Tests add and remove between sweeps;
+    /// the fake pages whatever is here at the moment of each request, which is exactly the
+    /// instability the sweep's page overlap exists for.
+    /// </summary>
+    public List<GroupMember> Members { get; } = [];
+
+    /// <summary>The ban list. The same objects VRChat uses for members, with <c>bannedAt</c> set.</summary>
+    public List<GroupMember> Bans { get; } = [];
+
+    public HttpStatusCode MembersStatus { get; set; } = HttpStatusCode.OK;
+
+    public HttpStatusCode BansStatus { get; set; } = HttpStatusCode.OK;
+
+    public List<PageQuery> MemberQueries { get; } = [];
+
+    public List<PageQuery> BanQueries { get; } = [];
+
+    public int MemberRequests => MemberQueries.Count;
+
+    public int BanRequests => BanQueries.Count;
+
     public FakeGroups Add(params GroupAuditLogEntry[] entries)
     {
         _entries.AddRange(entries);
@@ -59,6 +81,25 @@ public sealed class FakeGroups
     public IGroupsApi Build()
     {
         var groups = Substitute.For<IGroupsApi>();
+
+        groups
+            .GetGroupMembersWithHttpInfoAsync(
+                Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>(),
+                Arg.Any<GroupSearchSort?>(), Arg.Any<string?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(Page(
+                Members, MemberQueries, MembersStatus,
+                call.ArgAt<int?>(1) ?? 60,
+                call.ArgAt<int?>(2) ?? 0)));
+
+        groups
+            .GetGroupBansWithHttpInfoAsync(
+                Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>(),
+                Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(Page(
+                Bans, BanQueries, BansStatus,
+                call.ArgAt<int?>(1) ?? 60,
+                call.ArgAt<int?>(2) ?? 0)));
 
         groups
             .GetGroupAuditLogsWithHttpInfoAsync(
@@ -123,5 +164,30 @@ public sealed class FakeGroups
             HttpStatusCode.OK, new Multimap<string, string>(), body, "{}");
     }
 
+    /// <summary>
+    /// One page of a list by offset, the way the members and bans endpoints serve it: 200 with an
+    /// empty list past the end, never a 400 (audit-log research §7.1), and the JSON body beside
+    /// the typed objects because the sweep keeps the entry as VRChat sent it.
+    /// </summary>
+    private static ApiResponse<List<GroupMember>> Page(
+        List<GroupMember> list,
+        List<PageQuery> queries,
+        HttpStatusCode status,
+        int n,
+        int offset)
+    {
+        queries.Add(new PageQuery(n, offset));
+
+        if (status != HttpStatusCode.OK)
+            return new ApiResponse<List<GroupMember>>(status, new Multimap<string, string>(), null!, "{}");
+
+        var page = list.Skip(offset).Take(n).ToList();
+        var body = "[" + string.Join(",", page.Select(m => m.ToJson())) + "]";
+
+        return new ApiResponse<List<GroupMember>>(HttpStatusCode.OK, new Multimap<string, string>(), page, body);
+    }
+
     public sealed record AuditLogQuery(int PageSize, int Offset, DateTime? StartDate);
+
+    public sealed record PageQuery(int PageSize, int Offset);
 }

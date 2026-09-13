@@ -7,6 +7,7 @@ using Modbot.VRChat.Sync;
 using Modbot.VRChat.Tests.Fakes;
 using Modbot.VRChat.Users;
 using VRChat.API.Model;
+using GroupMember = VRChat.API.Model.GroupMember;
 
 namespace Modbot.VRChat.Tests.Sync;
 
@@ -155,6 +156,126 @@ public abstract class SyncTestBase : IAsyncLifetime
 
         return await sync.RunOnceAsync(housekeeping, Ct);
     }
+
+    /// <summary>The member sweep's options for this test. Unpaced page overlap and size as shipped unless a test says otherwise.</summary>
+    protected GroupMemberSyncOptions MemberOptions { get; set; } = new();
+
+    protected GroupBanSyncOptions BanOptions { get; set; } = new();
+
+    /// <summary>One pass of the member sweep -- one page, or the end of a sweep -- in its own scope.</summary>
+    protected async Task<SweepRunResult> RunMemberSweepAsync()
+    {
+        await using var context = Database.NewContext();
+
+        var sync = new GroupMemberSync(
+            _gate,
+            new FactWriter(context, Clock),
+            new EventPartitionMaintainer(context, Clock),
+            context,
+            ProfilesFor(context),
+            Clock,
+            MemberOptions);
+
+        return await sync.RunOnceAsync(Ct);
+    }
+
+    protected async Task<SweepRunResult> RunBanSweepAsync()
+    {
+        await using var context = Database.NewContext();
+
+        var sync = new GroupBanSync(
+            _gate,
+            new FactWriter(context, Clock),
+            new EventPartitionMaintainer(context, Clock),
+            context,
+            ProfilesFor(context),
+            Clock,
+            BanOptions);
+
+        return await sync.RunOnceAsync(Ct);
+    }
+
+    /// <summary>
+    /// A whole member sweep, page by page, the clock moving on by the page delay between pages
+    /// the way the service would move it. Returns the pass that finished it.
+    /// </summary>
+    protected async Task<SweepRunResult> SweepMembersAsync()
+    {
+        for (var pages = 0; pages < 200; pages++)
+        {
+            var result = await RunMemberSweepAsync();
+
+            if (result.SweepComplete || result.Outcome is SyncOutcome.RateLimited or SyncOutcome.Failed or SyncOutcome.NotConfigured || result.RestUntil is not null)
+                return result;
+
+            Clock.Advance(MemberOptions.Clamped().PageDelay);
+        }
+
+        throw new InvalidOperationException("The member sweep did not finish in 200 pages.");
+    }
+
+    protected async Task<SweepRunResult> SweepBansAsync()
+    {
+        for (var pages = 0; pages < 200; pages++)
+        {
+            var result = await RunBanSweepAsync();
+
+            if (result.SweepComplete || result.Outcome is SyncOutcome.RateLimited or SyncOutcome.Failed or SyncOutcome.NotConfigured || result.RestUntil is not null)
+                return result;
+
+            Clock.Advance(BanOptions.Clamped().PageDelay);
+        }
+
+        throw new InvalidOperationException("The ban sweep did not finish in 200 pages.");
+    }
+
+    /// <summary>Moves the clock past the rest between member sweeps, so the next pass starts a new one.</summary>
+    protected void RestMembers() => Clock.Advance(MemberOptions.Clamped().RestBetweenSweeps + TimeSpan.FromSeconds(1));
+
+    protected void RestBans() => Clock.Advance(BanOptions.Clamped().RestBetweenSweeps + TimeSpan.FromSeconds(1));
+
+    /// <summary>A member list entry, with everything a row needs and nothing a test has to repeat.</summary>
+    protected static GroupMember Member(string userId, DateTimeOffset? joinedAt = null, params string[] roles) => new()
+    {
+        Id = $"gmem_{userId}",
+        GroupId = GroupId,
+        UserId = userId,
+        JoinedAt = (joinedAt ?? Now.AddDays(-30)).UtcDateTime,
+        RoleIds = [.. roles],
+        MRoleIds = [],
+        MembershipStatus = GroupMemberStatus.Member,
+        Visibility = "visible",
+        IsRepresenting = false,
+    };
+
+    /// <summary>A ban list entry.</summary>
+    protected static GroupMember Ban(string userId, DateTimeOffset? bannedAt = null) => new()
+    {
+        Id = $"gmem_{userId}",
+        GroupId = GroupId,
+        UserId = userId,
+        BannedAt = (bannedAt ?? Now.AddDays(-10)).UtcDateTime,
+        RoleIds = [],
+        MRoleIds = [],
+        MembershipStatus = GroupMemberStatus.Banned,
+        Visibility = "hidden",
+        IsRepresenting = false,
+    };
+
+    protected async Task<Core.Data.Entities.GroupMember?> MemberRowAsync(string userId)
+    {
+        await using var context = Database.NewContext();
+        return await context.GroupMembers.AsNoTracking().FirstOrDefaultAsync(m => m.GroupId == GroupId && m.UserId == userId, Ct);
+    }
+
+    protected async Task<Core.Data.Entities.GroupBan?> BanRowAsync(string userId)
+    {
+        await using var context = Database.NewContext();
+        return await context.GroupBans.AsNoTracking().FirstOrDefaultAsync(b => b.GroupId == GroupId && b.UserId == userId, Ct);
+    }
+
+    protected async Task<IReadOnlyList<ModbotEvent>> FactsOfTypeAsync(string type) =>
+        (await FactsAsync()).Where(f => f.Type == type).ToList();
 
     /// <summary>The user-record writer over a context, the way the API and the sync both get it.</summary>
     protected VRChatUserProfiles ProfilesFor(ModbotContext context) => new(

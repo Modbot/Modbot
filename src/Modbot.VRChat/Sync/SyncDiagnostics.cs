@@ -48,6 +48,28 @@ public sealed record UserProfileCounts(
     DateTimeOffset? OldestRefreshedAt,
     DateTimeOffset MeasuredAt);
 
+/// <summary>
+/// Where a member or ban sweep has got to, in this process.
+/// </summary>
+/// <param name="Phase">
+/// A word for an operator: <c>sweeping</c>, <c>resting</c>, <c>cold-stopped</c>, <c>retrying</c>,
+/// <c>idle</c>. A sweep that is deliberately resting for fifteen minutes and one that is stuck look
+/// identical from "last ran 9 minutes ago" alone.
+/// </param>
+/// <param name="PagesWalked">Requests spent on the sweep in progress, or on the last one if none is.</param>
+/// <param name="RowsChanged">Rows inserted, updated or marked gone by that sweep.</param>
+/// <param name="FactsWritten">Inferred facts recorded since this process started.</param>
+/// <param name="FactsDeduplicated">Inferred facts dropped because the audit log got there first, since this process started.</param>
+/// <param name="NextPassAt">When the producer will next do something, on the server's clock.</param>
+public sealed record SweepProgress(
+    string Phase,
+    int PagesWalked,
+    int RowsChanged,
+    int FactsWritten,
+    int FactsDeduplicated,
+    DateTimeOffset? NextPassAt,
+    DateTimeOffset? LastCompletedAt);
+
 /// <summary>The last thing a producer did.</summary>
 public sealed record SyncRunReport(
     SyncOutcome Outcome,
@@ -86,6 +108,10 @@ public sealed class SyncDiagnostics
     private SyncRunReport? _auditLog;
     private SyncRunReport? _groupInfo;
     private SyncRunReport? _userProfile;
+    private SyncRunReport? _memberSweep;
+    private SyncRunReport? _banSweep;
+    private SweepProgress _memberProgress = new("idle", 0, 0, 0, 0, null, null);
+    private SweepProgress _banProgress = new("idle", 0, 0, 0, 0, null, null);
     private UserProfileCounts? _userProfileCounts;
     private DateTimeOffset? _userProfileLastRateLimitedAt;
     private readonly Queue<DateTimeOffset> _refreshTimes = new();
@@ -170,6 +196,87 @@ public sealed class SyncDiagnostics
     public SyncRunReport? LastUserProfileRun
     {
         get { lock (_gate) return _userProfile; }
+    }
+
+    public SyncRunReport? LastMemberSweepRun
+    {
+        get { lock (_gate) return _memberSweep; }
+    }
+
+    public SyncRunReport? LastBanSweepRun
+    {
+        get { lock (_gate) return _banSweep; }
+    }
+
+    /// <summary>Where the member sweep has got to, and what it is doing next.</summary>
+    public SweepProgress MemberSweep
+    {
+        get { lock (_gate) return _memberProgress; }
+    }
+
+    public SweepProgress BanSweep
+    {
+        get { lock (_gate) return _banProgress; }
+    }
+
+    /// <summary>
+    /// Records one pass of the member sweep: the run report, and the running counts for the
+    /// sweep it belongs to. A completed sweep resets the per-sweep counts; the fact counts run
+    /// for the life of the process.
+    /// </summary>
+    public void RecordMemberSweepRun(SyncRunReport report, SweepRunResult result)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        ArgumentNullException.ThrowIfNull(result);
+
+        lock (_gate)
+        {
+            _memberSweep = report;
+            _memberProgress = Advance(_memberProgress, result, report.At);
+        }
+    }
+
+    public void RecordBanSweepRun(SyncRunReport report, SweepRunResult result)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        ArgumentNullException.ThrowIfNull(result);
+
+        lock (_gate)
+        {
+            _banSweep = report;
+            _banProgress = Advance(_banProgress, result, report.At);
+        }
+    }
+
+    /// <summary>What the service decided to do next, so the screen can say when rather than only how long ago.</summary>
+    public void RecordMemberSweepNext(string phase, DateTimeOffset nextPassAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(phase);
+        lock (_gate) _memberProgress = _memberProgress with { Phase = phase, NextPassAt = nextPassAt };
+    }
+
+    public void RecordBanSweepNext(string phase, DateTimeOffset nextPassAt)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(phase);
+        lock (_gate) _banProgress = _banProgress with { Phase = phase, NextPassAt = nextPassAt };
+    }
+
+    private static SweepProgress Advance(SweepProgress progress, SweepRunResult result, DateTimeOffset at)
+    {
+        // A pass that starts a new sweep begins the per-sweep counts again. A completed sweep
+        // keeps its final numbers on screen until the next one starts, so "walked 51 pages" is
+        // readable during the rest rather than flashing to zero.
+        var pages = result.SweepStarted ? 0 : progress.PagesWalked;
+        var rows = result.SweepStarted ? 0 : progress.RowsChanged;
+
+        return progress with
+        {
+            PagesWalked = pages + result.PagesRead,
+            RowsChanged = rows + result.RowsChanged,
+            FactsWritten = progress.FactsWritten + result.FactsWritten,
+            FactsDeduplicated = progress.FactsDeduplicated + result.FactsDeduplicated,
+            LastCompletedAt = result.SweepComplete ? at : progress.LastCompletedAt,
+        };
     }
 
     /// <summary>The table counts as last measured, or null before the first housekeeping pass.</summary>

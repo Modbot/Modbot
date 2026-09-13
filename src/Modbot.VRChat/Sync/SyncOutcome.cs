@@ -119,6 +119,35 @@ public sealed record UserProfileRunResult(
     public IReadOnlyList<string> Changed { get; } = Changed ?? [];
 }
 
+/// <summary>What one page of a member or ban sweep did.</summary>
+/// <param name="PagesRead">Requests spent: one, or none when the pass was a rest or a refusal.</param>
+/// <param name="RowsRead">Entries VRChat returned on the page, duplicates from the overlap included.</param>
+/// <param name="RowsChanged">Rows inserted, updated, or marked gone.</param>
+/// <param name="FactsWritten">Inferred facts recorded this pass, after the audit log had its turn.</param>
+/// <param name="FactsDeduplicated">Inferred facts dropped because the audit log had already recorded the event.</param>
+/// <param name="FactsWaiting">Changes noticed and still waiting for the audit log's next poll.</param>
+/// <param name="MarkedGone">Rows a completed sweep marked as left, or lifted.</param>
+/// <param name="SweepStarted">True when this pass read the first page of a new sweep.</param>
+/// <param name="SweepComplete">True when this pass read the empty page that ends a sweep.</param>
+/// <param name="FirstSweep">True when the completed sweep was the first ever, and wrote a snapshot rather than joins.</param>
+/// <param name="Offset">Where the next page starts. Zero between sweeps.</param>
+/// <param name="RestUntil">Set when the pass did nothing because the last sweep finished less than a rest ago.</param>
+public sealed record SweepRunResult(
+    SyncOutcome Outcome,
+    int PagesRead = 0,
+    int RowsRead = 0,
+    int RowsChanged = 0,
+    int FactsWritten = 0,
+    int FactsDeduplicated = 0,
+    int FactsWaiting = 0,
+    int MarkedGone = 0,
+    bool SweepStarted = false,
+    bool SweepComplete = false,
+    bool FirstSweep = false,
+    int Offset = 0,
+    DateTimeOffset? RestUntil = null,
+    string? Message = null);
+
 /// <summary>What one group-info pass observed.</summary>
 /// <param name="Changed">
 /// The field names that differed from the last recorded snapshot. Empty on a poll that found the

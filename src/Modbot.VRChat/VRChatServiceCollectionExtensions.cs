@@ -91,30 +91,36 @@ public static class VRChatServiceCollectionExtensions
     /// than quietly at the first fact.
     /// </para>
     /// <para>
-    /// Three hosted services, not one, because spec 4.3.1's cold stop is scoped to a bucket: a
+    /// Five hosted services, not one, because spec 4.3.1's cold stop is scoped to a bucket: a
     /// 429 on <c>groups.read</c> must not stop audit-log ingestion, which spec 4.2.3 singles out
-    /// as the one to protect, and a 429 on the users lane must stop profile fetches and nothing
-    /// else. Sharing a loop would silently couple them.
+    /// as the one to protect; a 429 on the users lane must stop profile fetches and nothing
+    /// else; and a 429 on <c>groups.members</c> must stop the member sweep and leave the ban
+    /// sweep running. Sharing a loop would silently couple them.
     /// </para>
     /// </remarks>
     public static IServiceCollection AddModbotVRChatSync(
         this IServiceCollection services,
         AuditLogSyncOptions? auditLog = null,
         GroupInfoSyncOptions? groupInfo = null,
-        UserProfileSyncOptions? userProfile = null)
+        UserProfileSyncOptions? userProfile = null,
+        GroupMemberSyncOptions? memberSweep = null,
+        GroupBanSyncOptions? banSweep = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         var auditLogOptions = (auditLog ?? new AuditLogSyncOptions()).Clamped();
         var groupInfoOptions = (groupInfo ?? new GroupInfoSyncOptions()).Clamped();
         var userProfileOptions = (userProfile ?? new UserProfileSyncOptions()).Clamped();
+        var memberSweepOptions = (memberSweep ?? new GroupMemberSyncOptions()).Clamped();
+        var banSweepOptions = (banSweep ?? new GroupBanSyncOptions()).Clamped();
 
         // The arguments to this method become the baseline the operator's own lowerings sit on
         // top of, so a host that deliberately passed a gentler poll rate keeps it. Registered as a
         // service rather than captured, because AddModbotVRChat may already have registered the
         // provider and the factory has not run yet -- so the later registration is still visible
         // to it.
-        services.AddSingleton(new SyncPacingBaseline(auditLogOptions, groupInfoOptions, userProfileOptions));
+        services.AddSingleton(new SyncPacingBaseline(
+            auditLogOptions, groupInfoOptions, userProfileOptions, memberSweepOptions, banSweepOptions));
 
         // Also registered here, so a host that wires the producers without the gate still has a
         // pacing source rather than silently falling back to the compiled-in pollRate.
@@ -127,6 +133,8 @@ public static class VRChatServiceCollectionExtensions
         services.AddSingleton(auditLogOptions);
         services.AddSingleton(groupInfoOptions);
         services.AddSingleton(userProfileOptions);
+        services.AddSingleton(memberSweepOptions);
+        services.AddSingleton(banSweepOptions);
 
         // Singleton: the unmapped-event counters and the poll rate decision are what an operator
         // reads to tell a quiet producer from a stuck one, and a per-scope copy would reset them
@@ -203,6 +211,43 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<UserRefreshQueue>(),
             provider.GetRequiredService<IMonotonicClock>(),
             userProfileOptions,
+            provider.GetRequiredService<ISyncPacingSource>()));
+
+        // The member and ban sweeps (member and ban sync design). Each reads one page per pass
+        // and records sightings through the same writer the profile sync uses, so everyone on
+        // either list gets a profile fetched in due course without a second fetch path.
+        services.AddScoped<GroupMemberSync>(provider => new GroupMemberSync(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Analytics.Facts.IFactWriter>(),
+            provider.GetRequiredService<Analytics.Facts.EventPartitionMaintainer>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<VRChatUserProfiles>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<ISyncPacingSource>().Snapshot.MemberSweep));
+
+        services.AddScoped<GroupBanSync>(provider => new GroupBanSync(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Analytics.Facts.IFactWriter>(),
+            provider.GetRequiredService<Analytics.Facts.EventPartitionMaintainer>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<VRChatUserProfiles>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<ISyncPacingSource>().Snapshot.BanSweep));
+
+        services.AddHostedService(provider => new GroupMemberSyncService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<SyncDiagnostics>(),
+            provider.GetRequiredService<IMonotonicClock>(),
+            memberSweepOptions,
+            provider.GetRequiredService<ISyncPacingSource>()));
+
+        services.AddHostedService(provider => new GroupBanSyncService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<SyncDiagnostics>(),
+            provider.GetRequiredService<IMonotonicClock>(),
+            banSweepOptions,
             provider.GetRequiredService<ISyncPacingSource>()));
 
         return services;
