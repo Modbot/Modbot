@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.VRChat.RateLimiting;
 using Modbot.VRChat.Scheduling;
 using Modbot.VRChat.Session;
+using Modbot.VRChat.Sync;
 
 namespace Modbot.VRChat;
 
@@ -40,6 +41,78 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<IRateLimiter>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<IMonotonicClock>()));
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the fact producers: the group audit log, and the group's own metadata.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Separate from <see cref="AddModbotVRChat"/> because these two write to the fact log, and
+    /// the gate does not. A host that wants VRChat access without background sync -- a test host,
+    /// a one-shot administrative command -- should not have to start hosted services to get it.
+    /// </para>
+    /// <para>
+    /// <strong>Requires <c>AddModbotAnalytics</c>.</strong> The producers resolve
+    /// <c>IFactWriter</c> and the partition maintainer from it; a producer with nowhere to write
+    /// is the state Modbot has been in until now, and it should fail loudly at startup rather
+    /// than quietly at the first fact.
+    /// </para>
+    /// <para>
+    /// Two hosted services, not one, because spec 4.3.1's cold stop is scoped to a bucket: a 429
+    /// on <c>groups.read</c> must not stop audit-log ingestion, which spec 4.2.3 singles out as
+    /// the one to protect. Sharing a loop would silently couple them.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddModbotVRChatSync(
+        this IServiceCollection services,
+        AuditLogSyncOptions? auditLog = null,
+        GroupInfoSyncOptions? groupInfo = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        var auditLogOptions = (auditLog ?? new AuditLogSyncOptions()).Clamped();
+        var groupInfoOptions = (groupInfo ?? new GroupInfoSyncOptions()).Clamped();
+
+        services.AddSingleton(auditLogOptions);
+        services.AddSingleton(groupInfoOptions);
+
+        // Singleton: the unmapped-event counters and the cadence decision are what an operator
+        // reads to tell a quiet producer from a stuck one, and a per-scope copy would reset them
+        // every poll.
+        services.AddSingleton<SyncDiagnostics>();
+
+        // Scoped, because they hold a ModbotContext for the run and hand it back afterwards.
+        services.AddScoped<GroupAuditLogSync>(provider => new GroupAuditLogSync(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Analytics.Facts.IFactWriter>(),
+            provider.GetRequiredService<Analytics.Facts.EventPartitionMaintainer>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<SyncDiagnostics>(),
+            auditLogOptions));
+
+        services.AddScoped<GroupInfoSync>(provider => new GroupInfoSync(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Analytics.Facts.IFactWriter>(),
+            provider.GetRequiredService<Analytics.Facts.EventPartitionMaintainer>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>()));
+
+        services.AddHostedService(provider => new GroupAuditLogSyncService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<SyncDiagnostics>(),
+            auditLogOptions));
+
+        services.AddHostedService(provider => new GroupInfoSyncService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<SyncDiagnostics>(),
+            provider.GetRequiredService<IMonotonicClock>(),
+            groupInfoOptions));
 
         return services;
     }

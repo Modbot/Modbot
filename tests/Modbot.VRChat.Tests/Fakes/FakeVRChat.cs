@@ -20,6 +20,9 @@ public sealed class FakeVRChat
     private readonly Queue<ApiResponse<CurrentUser>> _currentUser = new();
     private readonly Queue<ApiResponse<Verify2FAResult>> _verify = new();
 
+    /// <summary>Answered whenever the queue runs dry. See <see cref="AlwaysSignedInAs"/>.</summary>
+    private ApiResponse<CurrentUser>? _standingCurrentUser;
+
     public FakeVRChat()
     {
         var authentication = Substitute.For<IAuthenticationApi>();
@@ -36,6 +39,9 @@ public sealed class FakeVRChat
                 if (ThrowOnGetCurrentUser is { } failure)
                     return Task.FromException<ApiResponse<CurrentUser>>(failure);
 
+                if (_currentUser.Count == 0 && _standingCurrentUser is { } standing)
+                    return Task.FromResult(standing);
+
                 return Task.FromResult(Next(_currentUser, "GetCurrentUser"));
             });
 
@@ -48,12 +54,21 @@ public sealed class FakeVRChat
                 return Task.FromResult(Next(_verify, "Verify2FA"));
             });
 
+        // Built before the Returns call, not inside it: configuring one substitute while another
+        // is mid-configuration makes NSubstitute lose track of which call it is answering, and it
+        // fails at the Returns with a message about the wrong substitute entirely.
+        var groups = Groups.Build();
+
         Client = Substitute.For<IVRChat>();
         Client.Authentication.Returns(authentication);
+        Client.Groups.Returns(groups);
         Client.GetCookies().Returns(_ => Cookies);
     }
 
     public IVRChat Client { get; }
+
+    /// <summary>The group endpoints: the audit log and the group object.</summary>
+    public FakeGroups Groups { get; } = new();
 
     /// <summary>When set, every GetCurrentUser fails with this instead of answering.</summary>
     public Exception? ThrowOnGetCurrentUser { get; set; }
@@ -88,6 +103,21 @@ public sealed class FakeVRChat
         Cookies.Add(new Cookie("auth", "authCookieValue", "/", "api.vrchat.cloud"));
 
         return RespondsWith(Ok(new CurrentUser { DisplayName = displayName, Id = id }));
+    }
+
+    /// <summary>
+    /// A signed-in user that answers however many times the gate asks.
+    /// </summary>
+    /// <remarks>
+    /// The gate re-establishes the session whenever its state is not Healthy, and a 429 makes it
+    /// RateLimited -- so every call made while a bucket is cold-stopped re-authenticates first.
+    /// A one-shot script would therefore turn "the producer was refused by its own limiter" into
+    /// "the test ran out of scripted logins", which is a confusing way to fail.
+    /// </remarks>
+    public FakeVRChat AlwaysSignedInAs(string displayName = "Modbot", string id = "usr_fake")
+    {
+        _standingCurrentUser = Ok(new CurrentUser { DisplayName = displayName, Id = id });
+        return SignedInAs(displayName, id);
     }
 
     /// <summary>A login that VRChat answers with a two-factor challenge, then accepts.</summary>
