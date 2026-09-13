@@ -148,25 +148,34 @@ public class PersistenceProbeTests : IDisposable
 
     /// <summary>Evidence beats the platform's guess, in both directions.</summary>
     /// <remarks>
-    /// This is the property that makes the whole design self-correcting. An operator who mounts a
-    /// volume on Railway is told "ephemeral" for exactly one boot and "persistent" from the next
-    /// restart onward, with nothing to configure — and an operator who removes that volume
-    /// reverts the same way.
+    /// This is what makes the warning self-silencing. An operator who mounted a volume on Railway
+    /// is warned once and never again, because the next restart produces evidence that outranks
+    /// the platform's guess — and an operator who removes that volume starts being warned again.
     /// </remarks>
     [Fact]
-    public void ProvenPersistenceOverridesAnEphemeralPlatform()
+    public void ProvenPersistenceOutranksAnEphemeralPlatform()
     {
         var railway = HostPlatform.Detect(k => k == "RAILWAY_ENVIRONMENT" ? "production" : null);
 
-        Assert.False(PersistenceProbe.ShouldPersist(railway, PersistenceEvidence.None));
-        Assert.True(PersistenceProbe.ShouldPersist(railway, PersistenceEvidence.SurvivedRestart));
+        Assert.True(PersistenceProbe.IsRiskyPlacement(railway, PersistenceEvidence.None));
+        Assert.False(PersistenceProbe.IsRiskyPlacement(railway, PersistenceEvidence.SurvivedRestart));
     }
 
-    /// <summary>An unwritable directory is never used, whatever the platform is.</summary>
+    /// <summary>A suspicion is never grounds for withholding files.</summary>
+    /// <remarks>
+    /// The distinction this pins down: "risky" is advice to a human, not a decision Modbot takes
+    /// on their behalf. Only an unwritable directory removes the choice, and it does so because
+    /// there is no choice left — nothing can be written there by anyone.
+    /// </remarks>
     [Fact]
-    public void AnUnwritableDirectoryIsNeverUsed()
+    public void OnlyAnUnwritableDirectoryRemovesTheChoice()
     {
-        Assert.False(PersistenceProbe.ShouldPersist(HostPlatform.SelfHosted, PersistenceEvidence.Unwritable));
+        Assert.True(new PersistenceProbeResult(PersistenceEvidence.Unwritable, "x").IsUnwritable);
+        Assert.False(new PersistenceProbeResult(PersistenceEvidence.None, "x").IsUnwritable);
+
+        // Risky on Fly.io with no evidence — and still entirely the operator's call.
+        var fly = HostPlatform.Detect(k => k == "FLY_APP_NAME" ? "modbot" : null);
+        Assert.True(PersistenceProbe.IsRiskyPlacement(fly, PersistenceEvidence.None));
     }
 
     /// <summary>

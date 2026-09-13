@@ -32,7 +32,13 @@ var platform = HostPlatform.Detect();
 var bootId = Guid.NewGuid().ToString("n");
 
 var persistence = PersistenceProbe.Probe(ModbotLogOptions.DefaultDirectory, bootId);
-var writeLogFiles = PersistenceProbe.ShouldPersist(platform, persistence.Evidence);
+
+// Log files are written regardless of what the probe found. The probe reports; it does not
+// decide. A managed platform is only evidence that the disk *might* be discarded -- Railway,
+// Fly.io and Render all support volumes -- and silently withholding the files from an operator
+// who mounted one takes away the artefact they went looking for, in the situation where they
+// most need it. The warning below is the whole intervention.
+var writeLogFiles = !persistence.IsUnwritable;
 
 Log.Logger = ModbotLogging.Create(
     new ModbotLogOptions
@@ -54,11 +60,20 @@ try
 
     if (!writeLogFiles)
     {
-        // Said once, plainly, because the operator who goes looking for log files after an
-        // incident needs to already know why the directory is empty.
-        Log.Information(
-            "File logging is off: {Directory} is not known to survive a restart on {Platform}. "
-            + "The console is the log here, and your host captures it. {Seq}",
+        Log.Error(
+            "Log files are not being written. {Explanation} Console and Seq are unaffected.",
+            persistence.Explanation);
+    }
+    else if (platform.AssumeEphemeralFilesystem
+             && persistence.Evidence != PersistenceEvidence.SurvivedRestart)
+    {
+        // A warning, never a decision. If a volume is mounted this is a false alarm that the next
+        // restart clears by itself, and the cost of being wrong in this direction is one log
+        // line -- against losing the files entirely in the other.
+        Log.Warning(
+            "Log files are being written to {Directory}, but {Platform} discards the container "
+            + "filesystem on redeploy unless a volume is mounted there. If you have not mounted "
+            + "one, these files will not survive. {Seq}",
             ModbotLogOptions.DefaultDirectory,
             platform.Name,
             env.SeqUrl is null

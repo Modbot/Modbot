@@ -22,7 +22,20 @@ public enum PersistenceEvidence
 
 /// <param name="Evidence">What was found.</param>
 /// <param name="Explanation">One sentence for the log and the diagnostics page.</param>
-public sealed record PersistenceProbeResult(PersistenceEvidence Evidence, string Explanation);
+public sealed record PersistenceProbeResult(PersistenceEvidence Evidence, string Explanation)
+{
+    /// <summary>
+    /// The one finding that is not advisory: a directory that cannot be written to will not hold
+    /// files whatever anybody decides about it.
+    /// </summary>
+    /// <remarks>
+    /// Everything else this probe reports is information for a human. Modbot does not withhold
+    /// log files because a platform <em>might</em> discard them — that judgement belongs to the
+    /// operator, who knows whether they mounted a volume. This is the only case with nothing to
+    /// judge.
+    /// </remarks>
+    public bool IsUnwritable => Evidence is PersistenceEvidence.Unwritable;
+}
 
 /// <summary>
 /// Finds out whether a directory actually persists, by leaving a marker and looking for an older
@@ -119,19 +132,28 @@ public static class PersistenceProbe
     }
 
     /// <summary>
-    /// Whether Modbot should write files it expects to be able to read back later.
+    /// Whether putting files here looks risky enough to warn about — <strong>not</strong> whether
+    /// to allow it.
     /// </summary>
     /// <remarks>
-    /// Evidence beats inference: a directory proven to survive a restart is used whatever the
-    /// platform is assumed to be, and one proven unwritable is never used. Only when there is no
-    /// evidence at all does the platform's default decide — which on a managed platform means
-    /// "no", and on somebody's own Docker host means "yes".
+    /// <para>
+    /// Modbot does not refuse to write files because a platform <em>might</em> discard them.
+    /// Railway, Fly.io and Render all support volumes, so detection can never be more than a
+    /// suspicion, and acting on a suspicion means an operator who mounted a volume loses the
+    /// artefact they went looking for — silently, and in the situation where they most need it.
+    /// The operator knows whether they mounted one; Modbot does not.
+    /// </para>
+    /// <para>
+    /// So the output is a warning and, where there is something to choose, an override the
+    /// operator can take. Evidence still settles it when there is any: a directory proven to
+    /// survive a restart is never warned about, whatever the platform is assumed to be.
+    /// </para>
     /// </remarks>
-    public static bool ShouldPersist(HostPlatform platform, PersistenceEvidence evidence)
+    public static bool IsRiskyPlacement(HostPlatform platform, PersistenceEvidence evidence)
         => evidence switch
         {
-            PersistenceEvidence.SurvivedRestart => true,
-            PersistenceEvidence.Unwritable => false,
-            _ => !platform.AssumeEphemeralFilesystem,
+            PersistenceEvidence.SurvivedRestart => false,
+            PersistenceEvidence.Unwritable => true,
+            _ => platform.AssumeEphemeralFilesystem,
         };
 }
