@@ -343,6 +343,48 @@ public class VRChatGateTests
     private static ApiResponse<T> Response<T>(HttpStatusCode status, T? data = default, string raw = "") =>
         new(status, new Multimap<string, string>(), data!, raw);
 
+    [Fact]
+    public async Task TheSdksOwnTimeoutIsDiagnosed_NotRethrownAsACancellation()
+    {
+        // VRChat.API reports its own HTTP timeout as a TaskCanceledException wrapping a
+        // TimeoutException. Rethrowing every OperationCanceledException let that escape the gate
+        // entirely, so a host whose outbound HTTPS is silently dropped answered spec 7.1.1's
+        // connection check with a 500 and a stack trace instead of a diagnosis -- which is the
+        // one failure mode that step exists to explain.
+        var vrchat = new FakeVRChat
+        {
+            ThrowOnGetCurrentUser = new TaskCanceledException(
+                "[GET] https://api.vrchat.cloud/api/1/auth/user was timeout.",
+                new TimeoutException("A task was canceled.")),
+        };
+
+        var gate = NewGate(vrchat, out _, new FakeConnectionStore());
+
+        var result = await gate.SignInAsync(Ct);
+
+        Assert.False(result.Success);
+        Assert.Equal(VRChatFailureKind.Timeout, result.Kind);
+    }
+
+    [Fact]
+    public async Task TheCallersOwnCancellationStillPropagates()
+    {
+        // The other half of the same decision. A shutdown mid-request is not a network diagnosis,
+        // and reporting it as "your connection timed out" would be a lie told during a deploy.
+        var vrchat = new FakeVRChat
+        {
+            ThrowOnGetCurrentUser = new OperationCanceledException(),
+        };
+
+        var gate = NewGate(vrchat, out _, new FakeConnectionStore());
+
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => gate.SignInAsync(cancelled.Token));
+    }
+
     private static VRChatGate NewGate(
         FakeVRChat vrchat, out FakeClientFactory factory, FakeConnectionStore store) =>
         NewGate(vrchat, out factory, store, out _);

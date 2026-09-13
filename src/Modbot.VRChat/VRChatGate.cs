@@ -143,8 +143,13 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
             {
                 response = await call(client, ct).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                // Only when the *caller* gave up. VRChat.API reports its own HTTP timeout as a
+                // TaskCanceledException wrapping a TimeoutException, and rethrowing that as a
+                // cancellation escapes the gate entirely -- so a host whose egress is silently
+                // dropped answered spec 7.1.1's connection check with a 500 and a stack trace
+                // instead of "the connection timed out, and here is what to check".
                 throw;
             }
             catch (Exception exception)

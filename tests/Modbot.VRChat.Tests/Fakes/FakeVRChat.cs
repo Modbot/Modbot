@@ -29,6 +29,13 @@ public sealed class FakeVRChat
             .Returns(_ =>
             {
                 GetCurrentUserCalls++;
+
+                // A transport failure does not come back as a response: VRChat.API only catches
+                // ApiException, so a DNS failure, a refused connection and its own HTTP timeout
+                // all propagate as live exceptions and the gate has to deal with them.
+                if (ThrowOnGetCurrentUser is { } failure)
+                    return Task.FromException<ApiResponse<CurrentUser>>(failure);
+
                 return Task.FromResult(Next(_currentUser, "GetCurrentUser"));
             });
 
@@ -47,6 +54,9 @@ public sealed class FakeVRChat
     }
 
     public IVRChat Client { get; }
+
+    /// <summary>When set, every GetCurrentUser fails with this instead of answering.</summary>
+    public Exception? ThrowOnGetCurrentUser { get; set; }
 
     public List<Cookie> Cookies { get; } = [];
 
