@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Modbot.Core.Data.Entities;
 
 /// <summary>
@@ -87,6 +89,39 @@ public class Settings
 
     /// <summary>Spec 5.8.1 -- optional by default; groups may opt into requiring it.</summary>
     public bool RequireModerationClassification { get; set; }
+
+    // --- Sync pacing (spec 4.2.1) ---
+
+    /// <summary>
+    /// Every rate, ceiling and interval the operator has moved off spec 4.2's defaults, as a
+    /// sparse JSON document. Null means nothing has been configured.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>One <c>jsonb</c> column rather than a column per rate</strong>, because the set of
+    /// endpoint classes is open by design: spec 4.3.4 makes adding one a decision taken during
+    /// implementation, and two of them (<c>users.groups</c>, <c>groups.auditlog.types</c>)
+    /// arrived after the table in spec 4.2 was written. A typed column per class would make every
+    /// new endpoint class a migration, and would leave a dead column behind whenever one was
+    /// withdrawn.
+    /// </para>
+    /// <para>
+    /// The usual objection — that <c>jsonb</c> is harder to validate — does not buy much here,
+    /// because the validation that matters is not one a column constraint can express. The
+    /// dangerous value is not a negative rate (a <c>CHECK</c> would catch that) but a rate above
+    /// the per-class cap in spec 4.2, and that cap is a C# constant that moves with the spec. So
+    /// the enforcement lives in code and runs twice: once on write, so the stored number is the
+    /// one that runs, and again on read, so a hand-edited row or a restored backup cannot raise a
+    /// rate either. See <c>SyncPacingJson.Clamp</c>.
+    /// </para>
+    /// <para>
+    /// The document is sparse on purpose. An absent field means "use spec 4.2's default", so a
+    /// deployment that never touched a slider picks up a revised default on upgrade, while one
+    /// that deliberately lowered a rate keeps its choice.
+    /// </para>
+    /// </remarks>
+    [Column(TypeName = "jsonb")]
+    public string? SyncPacing { get; set; }
 
     // --- Sync cursors (spec 4.2.4) ---
     //
