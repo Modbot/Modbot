@@ -7,6 +7,7 @@ import { WIZARD_FORM_ID, type StepProps } from './types'
 /** Spec 7.1 step 1. */
 export function AdministratorStep({ eyebrow, run, refresh }: StepProps) {
   const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +26,7 @@ export function AdministratorStep({ eyebrow, run, refresh }: StepProps) {
       }
 
       try {
-        await api.createAdministrator({ username, password, confirmPassword: confirm })
+        await api.createAdministrator({ username, password, confirmPassword: confirm, email })
         await refresh()
         return true
       } catch (e) {
@@ -49,6 +50,20 @@ export function AdministratorStep({ eyebrow, run, refresh }: StepProps) {
             required
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+          />
+        </Field>
+        <Field
+          label="Contact email"
+          hint="VRChat sees this on every request Modbot makes, so they can write to you before they block"
+          htmlFor="admin-email"
+        >
+          <Input
+            id="admin-email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
         </Field>
         <Field label="Password" hint="at least 12 characters" htmlFor="admin-password">

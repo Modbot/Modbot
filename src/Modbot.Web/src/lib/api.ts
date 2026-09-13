@@ -11,6 +11,7 @@ export type OnboardingStep =
   | 'Administrator'
   | 'VRChat'
   | 'Connection'
+  | 'LinkVRChat'
   | 'Group'
   | 'Optional'
   | 'Done'
@@ -49,6 +50,8 @@ export type ConnectionDiagnosis = {
 export type OnboardingStatus = {
   hasAdministrator: boolean
   authenticated: boolean
+  /** Whether the signed-in account has linked its VRChat account. False when nobody is signed in. */
+  vrChatLinked: boolean
   onboardingComplete: boolean
   nextStep: OnboardingStep
   vrChat: { username: string | null; displayName: string | null; verifiedAt: string | null }
@@ -64,8 +67,112 @@ export type OnboardingStatus = {
     discordGuildId: string | null
     smtpConfigured: boolean
     smtpHost: string | null
+    /** The saved public address, or null. The only thing an emailed link is built from. */
+    publicAddress: string | null
+    /** What the platform says it is, for the form to prefill. A person confirms it. */
+    publicAddressSuggestion: string | null
   }
 }
+
+/**
+ * The signed-in account.
+ *
+ * Gate on `permissionNames`, never on `permissions`: the bitfield is 64 bits wide and
+ * Administrator is bit 62, which a JavaScript number cannot carry alongside any other bit.
+ */
+export type CurrentUser = {
+  id: string
+  username: string
+  permissions: number
+  permissionNames: string[]
+  roles: string[]
+  vrChatLinked: boolean
+  vrChatUserId: string | null
+  vrChatDisplayName: string | null
+  email: string | null
+  discordUserId: string | null
+}
+
+export type PermissionInfo = {
+  name: string
+  value: number
+  label: string
+  description: string
+  group: string
+}
+
+export type RoleView = {
+  id: string
+  name: string
+  description: string
+  permissionNames: string[]
+  isBuiltIn: boolean
+  /** Administrator: always everything, nothing editable. */
+  locked: boolean
+  userCount: number
+}
+
+export type RolesResponse = { roles: RoleView[]; permissions: PermissionInfo[] }
+
+export type RoleRef = { id: string; name: string }
+
+export type UserSummary = {
+  id: string
+  username: string
+  roles: RoleRef[]
+  permissionNames: string[]
+  isDisabled: boolean
+  vrChatLinked: boolean
+  vrChatUserId: string | null
+  vrChatDisplayName: string | null
+  email: string | null
+  discordUserId: string | null
+  createdAt: string
+  lastLoginAt: string | null
+}
+
+/**
+ * A link that was just made. Shown once — the server keeps only a hash.
+ *
+ * `url` is null until a public address is saved; the browser then builds it from `path` and its
+ * own origin, which is fine for a link the administrator copies from a page they are already on.
+ */
+export type LinkCreated = { id: string; path: string; url: string | null; expiresAt: string }
+
+export type PendingInvite = {
+  id: string
+  createdBy: string
+  roles: string[]
+  createdAt: string
+  expiresAt: string
+}
+
+export type InviteView = {
+  usable: boolean
+  reason: string | null
+  invitedBy: string | null
+  roles: string[]
+  expiresAt: string | null
+}
+
+export type ResetView = { usable: boolean; reason: string | null; username: string | null }
+
+export type ForgotPasswordWays = { available: boolean; ways: string[]; reason: string | null }
+
+export type PendingLink = { vrChatUserId: string; code: string; expiresAt: string; checksLeft: number }
+
+export type VRChatLinkStatus = {
+  linked: boolean
+  vrChatUserId: string | null
+  vrChatDisplayName: string | null
+  linkedAt: string | null
+  pending: PendingLink | null
+  profileUrl: string
+}
+
+export type LinkCheckResult = { linked: boolean; message: string; status: VRChatLinkStatus }
+
+export type PublicAddressView = { publicAddress: string | null; suggestion: string | null }
 
 export type GroupCandidate = {
   id: string
@@ -82,8 +189,6 @@ export type GroupCandidates = {
   totalGroups: number
   requiredPermissions: string[]
 }
-
-export type CurrentUser = { id: string; username: string; permissions: number }
 
 export type StorageHorizon = {
   months: number
@@ -569,11 +674,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const post = <T>(path: string, body?: unknown): Promise<T> =>
   request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) })
 
+const put = <T>(path: string, body: unknown): Promise<T> =>
+  request<T>(path, { method: 'PUT', body: JSON.stringify(body) })
+
+const del = <T>(path: string): Promise<T> => request<T>(path, { method: 'DELETE' })
+
 export const api = {
   onboardingStatus: () => request<OnboardingStatus>('/api/onboarding/status'),
 
-  createAdministrator: (body: { username: string; password: string; confirmPassword: string }) =>
-    post<CurrentUser>('/api/onboarding/administrator', body),
+  createAdministrator: (body: {
+    username: string
+    password: string
+    confirmPassword: string
+    email: string
+  }) => post<CurrentUser>('/api/onboarding/administrator', body),
 
   verifyVRChat: (body: { username: string; password: string; totpSecret: string | null }) =>
     post<{ displayName: string | null; userId: string | null; verifiedAt: string }>(
@@ -607,7 +721,8 @@ export const api = {
       fromAddress?: string
       useTls?: boolean
     }
-  }) => post<{ discordConfigured: boolean; smtpConfigured: boolean }>(
+    publicAddress?: string
+  }) => post<{ discordConfigured: boolean; smtpConfigured: boolean; publicAddress: string | null }>(
     '/api/onboarding/integrations',
     body,
   ),
@@ -620,6 +735,95 @@ export const api = {
   logout: () => post<void>('/api/auth/logout'),
 
   me: () => request<CurrentUser>('/api/auth/me'),
+
+  // ── The signed-in person's own account ──────────────────────────────────────────────────
+
+  changePassword: (body: { currentPassword: string; newPassword: string; confirmPassword: string }) =>
+    put<void>('/api/auth/password', body),
+
+  changeUsername: (body: { username: string; currentPassword: string }) =>
+    put<CurrentUser>('/api/auth/username', body),
+
+  /** Null leaves a field alone; an empty string clears it. */
+  setOwnContact: (body: { email?: string; discordUserId?: string }) =>
+    put<CurrentUser>('/api/auth/contact', body),
+
+  signOutEverywhere: () => post<void>('/api/auth/sign-out-everywhere'),
+
+  vrchatLink: () => request<VRChatLinkStatus>('/api/auth/vrchat-link'),
+
+  startVRChatLink: (userIdOrUrl: string) =>
+    post<VRChatLinkStatus>('/api/auth/vrchat-link/start', { userIdOrUrl }),
+
+  checkVRChatLink: () => post<LinkCheckResult>('/api/auth/vrchat-link/check'),
+
+  /** Reports what the deployment can do. Nothing about any account. */
+  forgotPasswordWays: () => request<ForgotPasswordWays>('/api/auth/forgot-password'),
+
+  /** Always the same sentence back, whoever asked. */
+  forgotPassword: (username: string) =>
+    post<{ message: string }>('/api/auth/forgot-password', { username }),
+
+  // ── Invite and reset links, from the side of the person holding one ─────────────────────
+
+  invite: (token: string) => request<InviteView>(`/api/join/${encodeURIComponent(token)}`),
+
+  acceptInvite: (token: string, body: { username: string; password: string; confirmPassword: string }) =>
+    post<CurrentUser>(`/api/join/${encodeURIComponent(token)}`, body),
+
+  resetLink: (token: string) => request<ResetView>(`/api/reset/${encodeURIComponent(token)}`),
+
+  useResetLink: (token: string, body: { password: string; confirmPassword: string }) =>
+    post<void>(`/api/reset/${encodeURIComponent(token)}`, body),
+
+  // ── Users and roles ─────────────────────────────────────────────────────────────────────
+
+  users: () => request<UserSummary[]>('/api/users'),
+
+  createUser: (body: {
+    username: string
+    password: string
+    confirmPassword: string
+    roleIds: string[]
+    email?: string
+    discordUserId?: string
+  }) => post<UserSummary>('/api/users', body),
+
+  setUserRoles: (id: string, roleIds: string[]) => put<UserSummary>(`/api/users/${id}/roles`, { roleIds }),
+
+  disableUser: (id: string) => post<UserSummary>(`/api/users/${id}/disable`),
+
+  enableUser: (id: string) => post<UserSummary>(`/api/users/${id}/enable`),
+
+  setUserContact: (id: string, body: { email?: string; discordUserId?: string }) =>
+    put<UserSummary>(`/api/users/${id}/contact`, body),
+
+  createResetLink: (id: string) => post<LinkCreated>(`/api/users/${id}/reset-link`),
+
+  invites: () => request<PendingInvite[]>('/api/invites'),
+
+  createInvite: (roleIds: string[]) => post<LinkCreated>('/api/invites', { roleIds }),
+
+  revokeInvite: (id: string) => del<void>(`/api/invites/${id}`),
+
+  roles: () => request<RolesResponse>('/api/roles'),
+
+  createRole: (body: { name: string; description: string; permissions: string[] }) =>
+    post<RoleView>('/api/roles', body),
+
+  updateRole: (id: string, body: { name: string; description: string; permissions: string[] }) =>
+    put<RoleView>(`/api/roles/${id}`, body),
+
+  deleteRole: (id: string) => del<void>(`/api/roles/${id}`),
+
+  // ── Settings that the accounts layer added ──────────────────────────────────────────────
+
+  publicAddress: () => request<PublicAddressView>('/api/settings/public-address'),
+
+  setPublicAddress: (publicAddress: string) =>
+    put<PublicAddressView>('/api/settings/public-address', { publicAddress }),
+
+  sendTestEmail: (to: string) => post<{ sent: boolean; error: string | null }>('/api/settings/email/test', { to }),
 
   /**
    * Cost and capacity are what-if inputs answered against, never stored — nothing in Modbot

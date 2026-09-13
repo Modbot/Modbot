@@ -497,10 +497,27 @@ function IntegrationsTab({
   const [smtpPassword, setSmtpPassword] = useState('')
   const [fromAddress, setFromAddress] = useState('')
   const [useTls, setUseTls] = useState(true)
+  const [publicAddress, setPublicAddress] = useState(status.integrations.publicAddress ?? '')
 
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [testTo, setTestTo] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ sent: boolean; error: string | null } | null>(null)
+
+  const sendTest = () => {
+    setTesting(true)
+    setTestResult(null)
+    api
+      .sendTestEmail(testTo)
+      .then(setTestResult)
+      .catch((e: unknown) =>
+        setTestResult({ sent: false, error: e instanceof ApiError ? e.message : 'Could not reach the server.' }),
+      )
+      .finally(() => setTesting(false))
+  }
 
   const save = (event: React.FormEvent) => {
     event.preventDefault()
@@ -510,6 +527,8 @@ function IntegrationsTab({
 
     api
       .saveIntegrations({
+        // Sent as typed: empty clears it, which stops reset links being sent until it is set again.
+        publicAddress,
         // Omitted when untouched, sent empty to clear. A blank secret field means "leave it
         // alone", because the alternative is that opening this page and pressing Save silently
         // disconnects Discord.
@@ -540,6 +559,36 @@ function IntegrationsTab({
 
   return (
     <form onSubmit={save} className="flex flex-col gap-4">
+      <Section title="Public address">
+        <Row
+          label="Address"
+          value={status.integrations.publicAddress ?? 'Not set — reset links cannot be sent'}
+        />
+        <p className="mt-1 mb-3 max-w-2xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          The address people use to reach this Modbot. Reset links sent by email or Discord are
+          built from this and from nothing else — never from the address a request came in on,
+          which anyone can forge. Just the start of the address, with no path.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field
+            label="Public address"
+            value={publicAddress}
+            onChange={setPublicAddress}
+            placeholder={status.integrations.publicAddressSuggestion ?? window.location.origin}
+          />
+        </div>
+        {status.integrations.publicAddressSuggestion && !publicAddress && (
+          <button
+            type="button"
+            className="mt-2 text-primary underline-offset-2 hover:underline"
+            style={{ fontSize: 'var(--text-small)' }}
+            onClick={() => setPublicAddress(status.integrations.publicAddressSuggestion ?? '')}
+          >
+            Use {status.integrations.publicAddressSuggestion}, which is what the host says it is
+          </button>
+        )}
+      </Section>
+
       <Section title="Discord">
         <Row
           label="Bot"
@@ -576,6 +625,31 @@ function IntegrationsTab({
           <input type="checkbox" checked={useTls} onChange={(e) => setUseTls(e.target.checked)} />
           Use TLS
         </label>
+
+        {/* Proves the *saved* settings work. Save first, then test: a wrong relay setting should be
+            found here, not by a moderator who cannot get back in. */}
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div className="min-w-[16rem]">
+            <Field label="Send a test message to" value={testTo} onChange={setTestTo} placeholder="you@example.com" />
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={testing || !testTo.trim() || !status.integrations.smtpConfigured}
+            onClick={sendTest}
+          >
+            {testing ? 'Sending…' : 'Send a test email'}
+          </Button>
+          {testResult && (
+            <span
+              className={testResult.sent ? 'text-ok' : 'text-destructive'}
+              style={{ fontSize: 'var(--text-small)' }}
+            >
+              {testResult.sent ? 'Sent. Check the inbox.' : testResult.error}
+            </span>
+          )}
+        </div>
       </Section>
 
       <div className="flex items-center gap-3">

@@ -11,7 +11,13 @@ import { Brand, ErrorText, Field, WizardBody, WizardFooter, WizardHeader } from 
  * screens outside the app shell, and an operator who has just been through one should recognise
  * the other.
  */
-export function Login({ onSignedIn }: { onSignedIn: () => void }) {
+export function Login({
+  onSignedIn,
+  onForgotPassword,
+}: {
+  onSignedIn: () => void
+  onForgotPassword: () => void
+}) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -73,6 +79,14 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
             <ErrorText>{error}</ErrorText>
           </WizardBody>
           <WizardFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onForgotPassword}
+              style={{ height: 'var(--control-h)' }}
+            >
+              Forgot password?
+            </Button>
             <div className="flex-1" />
             <Button type="submit" disabled={busy} style={{ height: 'var(--control-h)' }}>
               {busy ? 'Signing in…' : 'Sign in'}

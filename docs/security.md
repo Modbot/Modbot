@@ -162,14 +162,41 @@ Modbot has its own local accounts rather than ASP.NET Core Identity. Passwords a
 ASP.NET Core's `PasswordHasher` (PBKDF2). Sessions are cookie-based, `HttpOnly`, `Secure` and
 `SameSite=Lax`, and expire after 14 days of inactivity.
 
-Identity and permissions travel in the session cookie as claims, so an authorised request costs no
-database round trip. Two consequences follow, and both matter operationally:
+Identity and permissions travel in the session cookie as claims, and **every request checks the
+account once** — one indexed read — before the claims are trusted. Three things follow:
 
-- **A permission change takes effect at the user's next sign-in**, not immediately.
-- **Disabling an account blocks future sign-ins but does not end a session already open.** The
-  disabled flag is checked when someone logs in, not on every request.
+- **Disabling an account ends its sessions on their very next request.** So does using a reset
+  link, changing your own password (every session but the one you typed it in), and *Sign out
+  everywhere* on the account page.
+- **A role change takes effect on the next request**, not the next sign-in.
+- **Every account must link the VRChat account of the person behind it** before it can do
+  anything but finish the link and sign out. The proof is a code Modbot gives you, placed in your
+  VRChat bio and read back through Modbot's own VRChat connection. This is what lets Modbot say
+  *which person* did something, not merely which username.
 
-To cut someone off **right now**: disable the account, then invalidate the session keys (below).
+Failed sign-ins slow down rather than lock out: after each wrong password the next attempt waits
+longer, up to twenty seconds, counted per username and per address. A correct password always
+works after the wait, so an attacker cannot lock the administrator out by hammering the username.
+Every failed attempt is recorded with the username tried and the address it came from — never the
+password. The sign-in form answers every failure identically, so it cannot be used to find out
+which usernames exist.
+
+### Invite and reset links
+
+People are added with one-time invite links, and passwords are reset with one-time reset links.
+Modbot stores only a hash of each link, so a copy of the database yields no working links. Invites
+last 72 hours and reset links 24; both are spent on first use.
+
+*Forgot password* on the sign-in page sends a reset link by email, or by Discord direct message,
+to the details on the account. **The link is built only from the public address an administrator
+saved in Settings** — never from the address the request came in on, and never from
+`X-Forwarded-*` headers. Anyone can send a forgot-password request for a victim's username with a
+forged host header; if Modbot built the link from that request, the victim's genuine reset email
+would point at the attacker's server and hand over the token when clicked. Until a public address
+is saved, nothing is sent and the sign-in page says so; the links an administrator copies from the
+Users page still work, because the browser showing them knows its own address.
+
+The response to *forgot password* is the same sentence whether or not the username exists.
 
 ### Session keys
 
@@ -182,9 +209,10 @@ behaviour gave you for free, so it is worth stating plainly:
 
 > **Restarting Modbot no longer ends open sessions.**
 
-To force every session to end, delete the rows from the `data_protection_keys` table and restart.
-Modbot generates a fresh key ring and every existing cookie stops validating. That is the emergency
-lever; disabling an account alone does not close a session already open.
+To force every session on the deployment to end at once, delete the rows from the
+`data_protection_keys` table and restart. Modbot generates a fresh key ring and every existing
+cookie stops validating. You should rarely need it: disabling an account, or *Sign out everywhere*
+on your own, ends that account's sessions on their next request.
 
 #### These keys are stored unencrypted, and that is deliberate
 

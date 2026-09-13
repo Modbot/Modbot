@@ -1,33 +1,33 @@
 import { Button } from '@/components/ui/button'
 import { GateIndicator } from '@/components/GateIndicator'
+import type { CurrentUser } from '@/lib/api'
+import { NAV, mayOpen, type NavItem, type PageId } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 import type { Density, Theme } from '@/lib/preferences'
-import { Headset, LogOut, Moon, Rows3, Rows2, Sun } from 'lucide-react'
-
-// No counts beside the labels yet. The prototype shows "14,208" next to Members, and it will
-// again -- but a hardcoded number in a running deployment is indistinguishable from a real one,
-// and a moderator has no way to tell they are looking at a screenshot. Counts return with the
-// member sync that produces them (M1).
-const NAV = [
-  { id: 'members', label: 'Members' },
-  { id: 'bans', label: 'Bans' },
-  { id: 'audit', label: 'Audit log' },
-  { id: 'metrics', label: 'Metrics', group: 'Insight' },
-  { id: 'health', label: 'Sync health', group: 'Setup' },
-  { id: 'settings', label: 'Settings' },
-] as const
-
-export type PageId = (typeof NAV)[number]['id']
+import { Headset, LogOut, Moon, Rows3, Rows2, Sun, UserRound } from 'lucide-react'
 
 export function Sidebar({
   page,
+  me,
   onNavigate,
   groupName,
 }: {
   page: PageId
+  me: CurrentUser
   onNavigate: (p: PageId) => void
   groupName?: string
 }) {
+  const visible = NAV.filter((item) => !('hidden' in item && item.hidden) && mayOpen(me, item.id))
+
+  // A group heading travels with its first *visible* entry, so hiding "Users" does not take the
+  // "Team" heading away from "Roles".
+  const rows = visible.reduce<{ item: NavItem; showGroup: boolean; group?: string }[]>((acc, item) => {
+    const group = 'group' in item ? item.group : undefined
+    const previous = acc.length ? acc[acc.length - 1].group : undefined
+    acc.push({ item, showGroup: group !== undefined && group !== previous, group: group ?? previous })
+    return acc
+  }, [])
+
   return (
     <aside className="flex flex-col gap-px border-r bg-card px-3 py-4" style={{ borderRightWidth: 'var(--hairline)' }}>
       <div className="flex items-center gap-2 px-2 pb-5">
@@ -42,9 +42,9 @@ export function Sidebar({
         </div>
       </div>
 
-      {NAV.map((item) => (
+      {rows.map(({ item, showGroup }) => (
         <div key={item.id}>
-          {'group' in item && item.group && (
+          {showGroup && 'group' in item && (
             <div className="px-2 pb-1 pt-4 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/70">
               {item.group}
             </div>
@@ -79,11 +79,13 @@ export function Sidebar({
 }
 
 export function Topbar({
-  title, subtitle, density, setDensity, theme, setTheme, onSignOut,
+  title, subtitle, density, setDensity, theme, setTheme, username, onAccount, onSignOut,
 }: {
   title: string; subtitle?: string
   density: Density; setDensity: (d: Density) => void
   theme: Theme; setTheme: (t: Theme) => void
+  username?: string
+  onAccount?: () => void
   onSignOut?: () => void
 }) {
   return (
@@ -112,9 +114,17 @@ export function Topbar({
         {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
       </Button>
 
-      {/* Sessions last 14 days and a permission change only takes effect at the next sign-in
-          (docs/security.md), so a moderator handing back a shared machine -- or one who was just
-          granted something -- needs a way out that is not "clear your cookies". */}
+      {/* Your account: username, password, where a reset link reaches you, sign out everywhere. */}
+      {onAccount && (
+        <Button variant="ghost" size="sm" onClick={onAccount} title="Your account">
+          <UserRound className="size-4" />
+          {username && <span className="max-w-[10rem] truncate">{username}</span>}
+        </Button>
+      )}
+
+      {/* Disabling an account or changing its roles now takes effect on the next request, so this
+          is the ordinary way out rather than the emergency one -- but a moderator handing back a
+          shared machine still needs it. */}
       {onSignOut && (
         <Button variant="ghost" size="sm" onClick={onSignOut} title="Sign out">
           <LogOut className="size-4" />

@@ -4,21 +4,25 @@ import { ApiError, api, type OnboardingStatus, type OnboardingStep } from '@/lib
 import { AdministratorStep } from './AdministratorStep'
 import { ConnectionStep } from './ConnectionStep'
 import { GroupStep } from './GroupStep'
+import { LinkVRChatStep } from './LinkVRChatStep'
 import { OptionalStep } from './OptionalStep'
 import { VRChatStep } from './VRChatStep'
 import { Brand, Note, StepIndicator, WizardFooter, WizardHeader } from './WizardChrome'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
 /**
- * Spec 7.1's five steps, in order.
+ * Spec 7.1's five steps, plus the administrator's own VRChat link (accounts and access design
+ * §4.3), in order.
  *
  * Order, not sequence: each step is independently re-runnable later from settings, so this array
- * is what the wizard suggests rather than a state machine anybody is trapped in.
+ * is what the wizard suggests rather than a state machine anybody is trapped in. The link step
+ * sits after the connection check because the proof goes through the gate.
  */
 const STEPS: { key: OnboardingStep; component: (props: StepProps) => React.ReactElement }[] = [
   { key: 'Administrator', component: AdministratorStep },
   { key: 'VRChat', component: VRChatStep },
   { key: 'Connection', component: ConnectionStep },
+  { key: 'LinkVRChat', component: LinkVRChatStep },
   { key: 'Group', component: GroupStep },
   { key: 'Optional', component: OptionalStep },
 ]

@@ -21,6 +21,15 @@ export function OptionalStep({ eyebrow, status, run, refresh }: StepProps) {
   const [smtpFrom, setSmtpFrom] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  // Prefilled from what the platform says, then from the address this page was opened at -- and
+  // saved only when a person presses Continue with it on screen. The server never adopts either
+  // on its own: this is the one thing a reset link is ever built from (design §4.2).
+  const [publicAddress, setPublicAddress] = useState(
+    status.integrations.publicAddress ??
+      status.integrations.publicAddressSuggestion ??
+      window.location.origin,
+  )
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
 
@@ -43,6 +52,7 @@ export function OptionalStep({ eyebrow, status, run, refresh }: StepProps) {
             ...(smtpPassword ? { password: smtpPassword } : {}),
             ...(smtpFrom ? { fromAddress: smtpFrom } : {}),
           },
+          ...(publicAddress.trim() ? { publicAddress: publicAddress.trim() } : {}),
         })
 
         await api.completeOnboarding()
@@ -57,11 +67,32 @@ export function OptionalStep({ eyebrow, status, run, refresh }: StepProps) {
 
   return (
     <form id={WIZARD_FORM_ID} onSubmit={submit}>
-      <WizardHeader eyebrow={eyebrow} title="Discord and email">
-        Both optional. You can skip this and set either up later from settings.
+      <WizardHeader eyebrow={eyebrow} title="Public address, Discord and email">
+        All optional. You can skip this and set any of it up later from settings.
       </WizardHeader>
       <WizardBody>
         <div className="space-y-4">
+          <div className="text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase">
+            Public address
+          </div>
+          <Field
+            label="The address people use to reach this Modbot"
+            hint="reset links sent by email or Discord are built from this, and only this"
+            htmlFor="public-address"
+          >
+            <Input
+              id="public-address"
+              className="font-mono"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="https://modbot.example.com"
+              value={publicAddress}
+              onChange={(e) => setPublicAddress(e.target.value)}
+            />
+          </Field>
+        </div>
+
+        <div className="space-y-4 pt-2">
           <div className="text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase">
             Discord bot
           </div>
