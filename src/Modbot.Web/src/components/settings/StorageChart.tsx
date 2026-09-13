@@ -189,6 +189,19 @@ export function StorageChart({
   const dash =
     storage.confidence === 'Good' ? undefined : storage.confidence === 'Low' ? '6 4' : '2 4'
 
+  // Label placement, in approximate plot pixels. Three labels can end up in one corner when a
+  // small disk sits just above a small database: the disk line, "Full", and "today". The rules
+  // below keep them apart rather than letting whichever drew last win.
+  const PLOT_PX = HEIGHT - 48 // minus top margin and the x-axis strip
+  const heightOf = (v: number) => (v / scale.hi) * PLOT_PX
+  const diskNearFloor = capacityInView && capacityBytes !== null && heightOf(capacityBytes) < 26
+  const diskNearToday =
+    capacityInView && capacityBytes !== null && Math.abs(heightOf(capacityBytes - anchor)) < 22
+  // The disk label sits at whichever end the estimate's own end label is not: the end label is
+  // at top right, so a disk the line crosses early (and then leaves far below) is labelled on
+  // the right, and one the line only reaches late is labelled on the left.
+  const diskLabelRight = crossing !== null && crossing < maxMonths / 2
+
   return (
     <div className="flex flex-col gap-2">
       <Legend spread={spread !== null} disk={capacityInView} />
@@ -259,13 +272,17 @@ export function StorageChart({
             y={capacityBytes}
             stroke={MUTED_TEXT}
             strokeWidth={tokens.hairline}
-            // Labelled at the left end: the right end is where the estimate's own end label
-            // sits, and the two collide whenever the line reaches the disk.
-            label={{
-              value: `Disk · ${bytes(capacityBytes)}`,
-              position: 'insideTopLeft',
-              ...plotLabel(tokens),
-            }}
+            // A line hugging the axis has no room for a label above it that clears the tick
+            // labels; the legend names the line and the caption carries the size.
+            label={
+              diskNearFloor
+                ? undefined
+                : {
+                    value: `Disk · ${bytes(capacityBytes)}`,
+                    position: diskLabelRight ? 'insideTopRight' : 'insideTopLeft',
+                    ...plotLabel(tokens),
+                  }
+            }
           />
         )}
 
@@ -280,7 +297,11 @@ export function StorageChart({
             strokeWidth={2}
             label={dotLabel(
               'Full',
-              crossing > maxMonths * 0.85 ? 'below-left' : 'below-right',
+              diskNearFloor
+                ? 'above-right'
+                : crossing > maxMonths * 0.85
+                  ? 'below-left'
+                  : 'below-right',
               'var(--destructive)',
               tokens.fontSize,
             )}
@@ -295,7 +316,13 @@ export function StorageChart({
           fill={ESTIMATE}
           stroke={SURFACE}
           strokeWidth={2}
-          label={dotLabel(`${bytes(anchor)} today`, 'above-right', TEXT, tokens.fontSize)}
+          // Dropped when the disk line runs through the same spot; the size is in the facts
+          // beside the chart anyway.
+          label={
+            diskNearToday
+              ? undefined
+              : dotLabel(`${bytes(anchor)} today`, 'above-right', TEXT, tokens.fontSize)
+          }
         />
 
         {/* The end value, labelled directly rather than every point. */}
