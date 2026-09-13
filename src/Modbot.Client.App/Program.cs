@@ -165,9 +165,9 @@ internal sealed class ClientHost
     /// <para><strong>One log, read once.</strong> A moderator staffing several groups runs one
     /// client, not one per group; everything after the read is per-server and separate — its own
     /// token, its own queue, its own pause switch.</para>
-    /// <para><strong>The moderator's own timezone is supplied here</strong>, because VRChat's
-    /// timestamps carry no offset at all and something has to say which instant
-    /// <c>20:27:14</c> names. Nothing is asked of any server to work it out.</para>
+    /// <para><strong>It runs whether or not anything is paired.</strong> Nothing is transmitted
+    /// until a server is, but the reading has to be happening for the client to know where the
+    /// moderator is standing the moment they do pair.</para>
     /// </remarks>
     private void StartEngine()
     {
@@ -216,6 +216,10 @@ internal sealed class ClientHost
     /// <para><strong>What it sends, and where.</strong> Those observations, to that one server's
     /// address and nowhere else, and only ever for instances belonging to the group that server
     /// declared it manages.</para>
+    /// <para><strong>The machine's own timezone is supplied here</strong>, because VRChat's
+    /// timestamps carry no offset at all and something has to say which instant <c>20:27:14</c>
+    /// names. It is read from Windows, not asked of any server, and it is applied per server
+    /// alongside that server's separately measured clock offset.</para>
     /// </remarks>
     private void Connect(ServerPairing pairing)
     {
