@@ -22,6 +22,32 @@ namespace Modbot.Client.Pipeline;
 /// </remarks>
 public sealed class PresenceObserver
 {
+    /// <summary>
+    /// How long the log may go completely silent before the client stops believing it knows where
+    /// the moderator is standing.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>The ordinary way a session ends is that the log simply stops.</strong> Users
+    /// close VRChat, VRChat crashes, machines sleep. The observed sample ends with no
+    /// <c>OnLeftRoom</c>, no <c>OnPlayerLeft</c> and no disconnect line of any kind — just two
+    /// teardown lines and then nothing. A client that waited for a clean marker would go on
+    /// believing the moderator was in that instance forever, and the overlay would keep fetching
+    /// and showing a roster for a room nobody is in.</para>
+    /// <para><strong>Why a whole-file signal rather than a <c>[Behaviour]</c> one.</strong>
+    /// <c>[Behaviour]</c> silence proves nothing: in the same sample there is a forty-five minute
+    /// stretch with no <c>[Behaviour]</c> line at all while the moderator was demonstrably still
+    /// present. The <em>file</em>, on the other hand, never goes quiet — VRChat writes an
+    /// <c>[IK Debug Log]</c> frame-rate line roughly every ten seconds while it runs, and across
+    /// the whole post-startup session the largest gap between consecutive lines of any tag is
+    /// eleven seconds. So "the file has stopped growing" is a reliable ten-second-granularity
+    /// liveness signal for VRChat itself, and it is what this measures.</para>
+    /// <para>Two minutes is roughly twelve of those heartbeats: long enough to ride out a hitch, a
+    /// long asset load or a suspended VM, short enough that the overlay stops talking about a room
+    /// the moderator walked out of. Erring long is the safer direction — the cost is a stale
+    /// roster which says it is stale, not a wrong one.</para>
+    /// </remarks>
+    public static readonly TimeSpan InstanceStaleAfter = TimeSpan.FromMinutes(2);
+
     private readonly VRChatLogTail _tail;
     private readonly InstanceSessionTracker _tracker;
     private readonly IModbotClock _clock;
@@ -38,8 +64,28 @@ public sealed class PresenceObserver
         _tracker = tracker ?? new InstanceSessionTracker();
     }
 
-    /// <summary>The instance the moderator is in, as far as the log has said.</summary>
-    public InstanceLocation? CurrentInstance => _tracker.CurrentInstance;
+    /// <summary>
+    /// Whether VRChat is demonstrably still running and writing.
+    /// </summary>
+    /// <remarks>
+    /// Measured from when a line was <em>read</em> rather than from the timestamp inside it,
+    /// because the timestamps in the file are a wall clock with no offset and this question is
+    /// about the here and now.
+    /// </remarks>
+    public bool LogIsLive => _lastLineAt is { } last && _clock.UtcNow - last <= InstanceStaleAfter;
+
+    /// <summary>
+    /// The instance the moderator is standing in, or <c>null</c> when that is not known.
+    /// </summary>
+    /// <remarks>
+    /// Null covers four different situations that all mean the same thing to a caller: VRChat is
+    /// not running, VRChat stopped writing and is presumed gone (see
+    /// <see cref="InstanceStaleAfter"/>), the moderator has left an instance and not yet entered
+    /// another, or the log named a location this client could not read. The overlay treats every
+    /// one of them as "show the idle screen and contact nobody", which is the right answer to all
+    /// four.
+    /// </remarks>
+    public InstanceLocation? CurrentInstance => LogIsLive ? _tracker.CurrentInstance : null;
 
     /// <summary>Who is in it. Used by the overlay, which renders from local state only.</summary>
     public IReadOnlyCollection<string> Roster => _tracker.Roster;
@@ -59,7 +105,21 @@ public sealed class PresenceObserver
     {
         var observations = new List<ObservedPresence>();
 
-        foreach (var line in _tail.ReadPending())
+        var previousFile = _tail.CurrentFile;
+        var pending = _tail.ReadPending();
+
+        // VRChat opens a new log on every launch, so the file changing under us is the one signal
+        // that says plainly "the previous session is over". Everything learned from it is dropped
+        // rather than carried into the new one -- otherwise the client would spend the minute
+        // between VRChat launching and the first world load reporting the moderator as still being
+        // wherever they were last night.
+        if (previousFile is not null
+            && !string.Equals(previousFile, _tail.CurrentFile, StringComparison.OrdinalIgnoreCase))
+        {
+            _tracker.ForgetSession();
+        }
+
+        foreach (var line in pending)
         {
             _lastLineAt = _clock.UtcNow;
 

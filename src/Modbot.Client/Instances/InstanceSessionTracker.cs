@@ -72,6 +72,34 @@ public sealed class InstanceSessionTracker
     public InstanceLocation? CurrentInstance => _phase is Phase.Departed or Phase.Outside ? null : _instance;
 
     /// <summary>
+    /// Drops everything learned about the session so far: which instance, who is in it, what they
+    /// are wearing, and which of them is the moderator.
+    /// </summary>
+    /// <remarks>
+    /// <para>Called when VRChat starts writing a <em>different</em> log file, which is the one
+    /// thing that unambiguously means the previous session ended — VRChat opens a new log on every
+    /// launch. Nothing carries over: the moderator is not standing where they were an hour ago, the
+    /// people who were with them are not there, and even the local identity is re-learned, because
+    /// a restart may be a different VRChat account on the same PC.</para>
+    /// <para>Without this the client would spend the minute or two between VRChat launching and
+    /// the first world load insisting the moderator was still in last night's instance — and the
+    /// overlay would fetch and show that instance's roster, which is both wrong and somebody
+    /// else's data.</para>
+    /// </remarks>
+    public void ForgetSession()
+    {
+        _burst.Clear();
+        _userIdToDisplayName.Clear();
+        _displayNameToUserId.Clear();
+        _userIdToAvatar.Clear();
+
+        _phase = Phase.Outside;
+        _instance = null;
+        LocalUserId = null;
+        LocalDisplayName = null;
+    }
+
+    /// <summary>
     /// Feeds one recognised log event in and gets back whatever facts it completes — usually none,
     /// occasionally a whole buffered roster at once.
     /// </summary>

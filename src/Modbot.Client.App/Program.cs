@@ -2,9 +2,15 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Modbot.Client.Ingest;
+using Modbot.Client.Instances;
+using Modbot.Client.LogReading;
 using Modbot.Client.Pairing;
+using Modbot.Client.Pipeline;
 using Modbot.Client.Presentation;
 using Modbot.Client.Overlay;
+using Modbot.Client.Time;
+using Modbot.Core;
 using Modbot.Core.Time;
 using Modbot.Overlay;
 using Modbot.Overlay.Driving;
@@ -81,23 +87,42 @@ internal sealed class ClientHost
     /// </remarks>
     private readonly DispatcherTimer _overlayLoop = new() { Interval = TimeSpan.FromMilliseconds(250) };
 
+    /// <summary>
+    /// How often the reading half is given a turn.
+    /// </summary>
+    /// <remarks>
+    /// A turn with nothing to do costs one <c>FileStream</c> open on a file whose length has not
+    /// changed. What this rate buys is how soon the overlay learns the moderator has walked into a
+    /// different instance — VRChat writes the transition and the overlay should follow it within a
+    /// second or two, not within a batch interval.
+    /// </remarks>
+    private readonly DispatcherTimer _engineLoop = new() { Interval = TimeSpan.FromSeconds(1) };
+
+    /// <summary>One queue file per paired server, kept so unpairing can delete the right one.</summary>
+    private readonly Dictionary<string, FileEventBuffer> _buffers = new(StringComparer.Ordinal);
+
+    private string _directory = string.Empty;
     private ClientAppState? _state;
     private PairingCoordinator? _pairing;
+    private Journal.SentJournal? _journal;
+    private ClientEngine? _engine;
     private TrayIcon? _tray;
     private HttpClient? _http;
+    private IIngestTransport? _transport;
     private OverlayDriver? _overlay;
     private OverlayHost? _overlayHost;
     private bool _overlayTicking;
+    private bool _engineTicking;
 
     public MainWindow Window { get; } = new();
 
     public void Start(IClassicDesktopStyleApplicationLifetime desktop)
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var directory = Path.Combine(appData, "Modbot");
+        _directory = Path.Combine(appData, "Modbot");
 
-        var journal = new Journal.SentJournal(Path.Combine(directory, "sent.jsonl"), _clock);
-        _state = new ClientAppState(_clock, journal);
+        _journal = new Journal.SentJournal(Path.Combine(_directory, "sent.jsonl"), _clock);
+        _state = new ClientAppState(_clock, _journal);
 
         // Only the token is encrypted; the rest of the file is left readable on purpose, so a
         // suspicious moderator can open it and see exactly which servers this client talks to.
@@ -110,22 +135,124 @@ internal sealed class ClientHost
         // leave from.
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         _pairing = new PairingCoordinator(new HttpPairingClient(_http), store);
+        _transport = new HttpIngestTransport(_http);
+
+        StartEngine();
 
         // A pairing whose token will not decrypt is shown by name rather than retried or hidden.
         // A token encrypted for a different Windows account is DPAPI working, not failing, and the
         // honest answer is "pair this one again".
         foreach (var pairing in store.Load())
         {
-            if (!pairing.IsUsable)
+            if (pairing is { IsUsable: true, Pairing: { } usable })
+                Connect(usable);
+            else
                 _state.UnusablePairings.Add(pairing);
         }
 
-        StartOverlay(store);
+        StartOverlay();
         InstallTray(desktop);
 
         _refresh.Tick += (_, _) => Render();
         _refresh.Start();
         Render();
+    }
+
+    /// <summary>
+    /// Brings up the half that reads VRChat's log and reports what it sees.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>One log, read once.</strong> A moderator staffing several groups runs one
+    /// client, not one per group; everything after the read is per-server and separate — its own
+    /// token, its own queue, its own pause switch.</para>
+    /// <para><strong>The moderator's own timezone is supplied here</strong>, because VRChat's
+    /// timestamps carry no offset at all and something has to say which instant
+    /// <c>20:27:14</c> names. Nothing is asked of any server to work it out.</para>
+    /// </remarks>
+    private void StartEngine()
+    {
+        var observer = new PresenceObserver(new VRChatLogTail(VRChatLogTail.DefaultDirectory), _clock);
+        _engine = new ClientEngine(observer, _clock, timeProbe: new HttpServerTimeProbe(_http!, _clock));
+
+        _engineLoop.Tick += async (_, _) => await EngineTickAsync();
+        _engineLoop.Start();
+    }
+
+    /// <summary>
+    /// One turn of the reading loop, never overlapping itself.
+    /// </summary>
+    /// <remarks>
+    /// A turn can hold an outbound batch open for as long as the network takes, and stacking those
+    /// on a timer would put several copies of the same batch in flight on a machine that is also
+    /// running a game.
+    /// </remarks>
+    private async Task EngineTickAsync()
+    {
+        if (_engine is null || _engineTicking)
+            return;
+
+        _engineTicking = true;
+        try
+        {
+            await _engine.TickAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+        finally
+        {
+            _engineTicking = false;
+        }
+    }
+
+    /// <summary>
+    /// Gives one paired server everything it needs to be reported to, separately from every other.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>What this puts on your disk.</strong> One queue file per server, under your
+    /// own profile folder, holding observations that have not been sent yet. It is bounded by both
+    /// size and age, and unpairing deletes it.</para>
+    /// <para><strong>What it sends, and where.</strong> Those observations, to that one server's
+    /// address and nowhere else, and only ever for instances belonging to the group that server
+    /// declared it manages.</para>
+    /// </remarks>
+    private void Connect(ServerPairing pairing)
+    {
+        if (_engine is null || _state is null)
+            return;
+
+        var serverClock = new ServerClock(_clock);
+        var buffer = new FileEventBuffer(QueuePath(pairing.ServerId), _clock);
+        _buffers[pairing.ServerId] = buffer;
+
+        var connection = new ServerConnection(
+            pairing,
+            buffer,
+            new PresenceEventMapper(new LogTimestampConverter(), serverClock),
+            serverClock,
+            _transport!,
+            _clock,
+            ModbotVersion.Release,
+            journal: _journal);
+
+        _engine.Add(connection);
+        _state.Connections.Add(connection);
+    }
+
+    /// <summary>
+    /// Where one server's unsent observations wait.
+    /// </summary>
+    /// <remarks>
+    /// The server id is the host name the moderator typed, so it is filtered down to characters a
+    /// path can hold rather than trusted — a name is not a file name, and treating one as the other
+    /// is how a typo becomes a write somewhere unintended.
+    /// </remarks>
+    private string QueuePath(string serverId)
+    {
+        var safe = new string([.. serverId.Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '.' ? c : '_')]);
+
+        return Path.Combine(_directory, "queue", $"{safe}.jsonl");
     }
 
     /// <summary>
@@ -140,7 +267,7 @@ internal sealed class ClientHost
     /// it. Reporting presence is the job that cannot be backfilled; the overlay is the one that
     /// can wait for a restart.</para>
     /// </remarks>
-    private void StartOverlay(IPairingStore store)
+    private void StartOverlay()
     {
         try
         {
@@ -155,11 +282,8 @@ internal sealed class ClientHost
 
         _overlay = new OverlayDriver(_overlayHost, new HttpOverlayReadClient(_http!, _clock), _clock);
 
-        foreach (var pairing in store.Load())
-        {
-            if (pairing.IsUsable)
-                _overlay.Add(pairing.Pairing!, pairing.ServerId);
-        }
+        foreach (var connection in _state?.Connections ?? [])
+            _overlay.Add(connection.Pairing, connection.ServerId);
 
         _overlayLoop.Tick += async (_, _) => await OverlayTickAsync();
         _overlayLoop.Start();
@@ -199,11 +323,15 @@ internal sealed class ClientHost
     /// Where the moderator is, as far as the log has said.
     /// </summary>
     /// <remarks>
-    /// Supplied by whatever composes the reading half of the client. Until that is wired, the
-    /// overlay sits on its idle screen and contacts nobody, which is the correct behaviour for a
-    /// moderator who is not in a group instance anyway.
+    /// <para>Read from the engine rather than pushed into it, so there is exactly one answer and
+    /// one place that decides it. Null means "not known", which covers VRChat not running, VRChat
+    /// having stopped writing and being presumed gone, and the moderator standing in a public,
+    /// friends-only or private instance — all of which correctly produce the idle screen and no
+    /// contact with any server.</para>
+    /// <para>Nothing is asked of a server to obtain it. It is the same parse of the same log lines
+    /// the reporting half already made.</para>
     /// </remarks>
-    public Modbot.Client.Instances.InstanceLocation? CurrentInstance { get; set; }
+    public InstanceLocation? CurrentInstance => _engine?.CurrentInstance;
 
     /// <summary>
     /// The tray icon, which is present for the whole life of the process.
@@ -222,6 +350,9 @@ internal sealed class ClientHost
         var quit = new NativeMenuItem("Quit — stops reporting");
         quit.Click += (_, _) =>
         {
+            // Quitting really does stop reporting: the log stops being read at this line, not when
+            // the process eventually exits.
+            _engineLoop.Stop();
             _overlayLoop.Stop();
             _overlay?.Dispose();
             _overlayHost?.Dispose();
@@ -251,6 +382,9 @@ internal sealed class ClientHost
         if (_state is null)
             return;
 
+        if (_engine is not null)
+            _state.LogHealth = _engine.LogHealth;
+
         Window.Render(
             _state.Snapshot(),
             new MainWindowActions(TogglePause, Unpair, PairAsync));
@@ -278,7 +412,14 @@ internal sealed class ClientHost
         // The token, the queued observations and the connection all go together. Unpairing leaves
         // nothing of that group's data behind, and needs nothing from its operator.
         if (_state.Connections.FirstOrDefault(c => c.ServerId == serverId) is { } connection)
+        {
             _state.Connections.Remove(connection);
+
+            if (_engine is not null && _buffers.TryGetValue(serverId, out var buffer))
+                _engine.Remove(connection, buffer);
+
+            _buffers.Remove(serverId);
+        }
 
         _state.UnusablePairings.RemoveAll(p => p.ServerId == serverId);
         Render();
@@ -291,11 +432,14 @@ internal sealed class ClientHost
 
         var result = await _pairing.PairAsync(address, code, deviceName);
 
-        // A server paired mid-session becomes visible to the overlay immediately, so a moderator
-        // who pairs while already standing in that group's instance does not have to restart to
-        // see its roster.
+        // A server paired mid-session starts being reported to and becomes visible to the overlay
+        // immediately, so a moderator who pairs while already standing in that group's instance
+        // does not have to restart to be covered or to see its roster.
         if (result is { Succeeded: true, Pairing: { } pairing })
+        {
+            Connect(pairing);
             _overlay?.Add(pairing, pairing.ServerId);
+        }
 
         Render();
 

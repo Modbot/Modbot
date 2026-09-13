@@ -1,4 +1,5 @@
 using Modbot.Client.Ingest;
+using Modbot.Client.Instances;
 using Modbot.Client.Routing;
 using Modbot.Client.Time;
 using Modbot.Core.Time;
@@ -57,6 +58,21 @@ public sealed class ClientEngine
     public List<ServerConnection> Connections { get; }
 
     public LogHealth LogHealth => _observer.Health;
+
+    /// <summary>
+    /// Where the moderator is standing, as the log last said, or <c>null</c> when that is not
+    /// known.
+    /// </summary>
+    /// <remarks>
+    /// <para>This is the engine's one output that is <em>not</em> about reporting. The overlay
+    /// follows the moderator: whichever paired server manages this instance is the only one it
+    /// reads a roster from or shows a card for, and a moderator who is not in a group instance —
+    /// most of anybody's VRChat use — sees the idle screen while nothing is contacted at
+    /// all.</para>
+    /// <para>Nothing is transmitted to obtain this. It is the same parse of the same log lines the
+    /// reporting half already made, read a second time by a different consumer.</para>
+    /// </remarks>
+    public InstanceLocation? CurrentInstance => _observer.CurrentInstance;
 
     public void Add(ServerConnection connection)
     {
