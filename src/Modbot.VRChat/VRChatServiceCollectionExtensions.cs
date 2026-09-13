@@ -40,7 +40,11 @@ public static class VRChatServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IVRChatClientFactory>(_ => new VRChatClientFactory(clientOptions));
+        // The operator's address comes from the account code, which registers its own
+        // IOperatorContact; until it does, the developer contact stands in (see the factory).
+        services.TryAddSingleton<IOperatorContact, NoOperatorContact>();
+        services.AddSingleton<IVRChatClientFactory>(provider => new VRChatClientFactory(
+            clientOptions, provider.GetRequiredService<IOperatorContact>()));
         services.AddSingleton<IVRChatConnectionStore, SettingsConnectionStore>();
 
         services.AddSingleton<IMonotonicClock, StopwatchMonotonicClock>();

@@ -1,4 +1,5 @@
 using System.Net;
+using Modbot.Core;
 using Modbot.VRChat.Session;
 using Modbot.VRChat.Tests.Fakes;
 using VRChat.API.Client;
@@ -88,22 +89,43 @@ public class SdkContractTests
     }
 
     [Fact]
-    public void TheUserAgentAndContactHeadersIdentifyTheOperator()
+    public void TheUserAgentNamesTheOperatorAndTheHeadersNameTheDeveloper()
     {
-        var client = new VRChatClientFactory(new VRChatClientOptions
-            {
-                ContactEmail = "operator@example.com",
-                ContactUrl = "https://modbot.example",
-            })
+        var client = new VRChatClientFactory(
+                new VRChatClientOptions(),
+                new FixedOperatorContact("admin@example.com"))
             .Create(new VRChatConnection("user", "password"));
 
-        // Being a legible API citizen is a design goal (spec 4.1): VRChat can see what this is
-        // and how to reach whoever runs it. No request is issued -- this client points at the
-        // real API, and a test must not send anything there.
-        Assert.Equal("https://modbot.example", client.Configuration.DefaultHeaders["X-Modbot-Contact-URL"]);
-        Assert.Equal("operator@example.com", client.Configuration.DefaultHeaders["X-Modbot-Contact-Email"]);
-        Assert.Contains("Modbot/", client.Configuration.UserAgent, StringComparison.Ordinal);
-        Assert.Contains("operator@example.com", client.Configuration.UserAgent, StringComparison.Ordinal);
+        // Being a legible API citizen is a design goal (spec 4.1). The operator -- whoever runs
+        // this Modbot -- is the User-Agent contact; the project itself is named in two fixed
+        // headers so VRChat can reach someone even when the operator cannot be. No request is
+        // issued -- this client points at the real API, and a test must not send anything there.
+        Assert.StartsWith(
+            $"Modbot/{ModbotVersion.Release} (admin@example.com)",
+            client.Configuration.UserAgent,
+            StringComparison.Ordinal);
+        Assert.Equal("me@bin.moe", client.Configuration.DefaultHeaders["X-Modbot-Developer-Contact-Email"]);
+        Assert.Equal("https://github.com/binn/Modbot", client.Configuration.DefaultHeaders["X-Modbot-Developer-Contact-URL"]);
+        Assert.DoesNotContain("X-Modbot-Contact-Email", client.Configuration.DefaultHeaders.Keys);
+    }
+
+    [Fact]
+    public void WithoutAnOperatorAddressTheDeveloperIsTheUserAgentContact()
+    {
+        // Before onboarding has produced an administrator there is no operator email. The
+        // User-Agent still has to name somebody: a request with nobody to contact is the kind
+        // VRChat blocks first.
+        var client = new VRChatClientFactory().Create(new VRChatConnection("user", "password"));
+
+        Assert.StartsWith(
+            $"Modbot/{ModbotVersion.Release} (me@bin.moe)",
+            client.Configuration.UserAgent,
+            StringComparison.Ordinal);
+    }
+
+    private sealed class FixedOperatorContact(string? email) : IOperatorContact
+    {
+        public string? Email => email;
     }
 
     /// <summary>

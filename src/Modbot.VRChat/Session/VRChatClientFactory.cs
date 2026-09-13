@@ -6,9 +6,19 @@ namespace Modbot.VRChat.Session;
 
 /// <summary>How Modbot identifies itself to VRChat (spec 4.1).</summary>
 /// <remarks>
+/// <para>
 /// Being a legible API citizen is a design goal, not an afterthought. VRChat rejects requests
 /// without a descriptive User-Agent, and an operator VRChat can contact is an operator VRChat
 /// talks to before it blocks.
+/// </para>
+/// <para>
+/// Two different people are named on every request, because they answer different questions.
+/// The <strong>operator</strong> -- whoever runs this Modbot -- is the contact in the User-Agent,
+/// supplied at run time by <see cref="IOperatorContact"/> from the administrator's account. The
+/// <strong>developer</strong> -- the Modbot project -- rides in two fixed headers, so that when an
+/// operator's address bounces or an install is abandoned, VRChat can still reach someone who can
+/// explain what the traffic is and fix the code that produced it.
+/// </para>
 /// </remarks>
 public sealed record VRChatClientOptions
 {
@@ -16,12 +26,34 @@ public sealed record VRChatClientOptions
 
     public string ApplicationVersion { get; init; } = ModbotVersion.Release;
 
-    /// <summary>Where VRChat can reach whoever runs this instance.</summary>
-    public string ContactUrl { get; init; } = "https://github.com/binnsh/Modbot";
+    /// <summary>Who wrote Modbot. Sent as <c>X-Modbot-Developer-Contact-Email</c>.</summary>
+    public string DeveloperContactEmail { get; init; } = "me@bin.moe";
 
-    public string? ContactEmail { get; init; }
+    /// <summary>Where Modbot lives. Sent as <c>X-Modbot-Developer-Contact-URL</c>.</summary>
+    public string DeveloperContactUrl { get; init; } = "https://github.com/binn/Modbot";
 
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(30);
+}
+
+/// <summary>
+/// The email address of whoever runs this Modbot: the contact VRChat sees in the User-Agent.
+/// </summary>
+/// <remarks>
+/// Read every time a client is built rather than captured at start-up, because the
+/// administrator's address does not exist until onboarding has finished and can change after it.
+/// The implementation lives beside the account code that owns the address; this project only
+/// knows that it may be absent, in which case the developer contact stands in so that VRChat
+/// always has someone to write to.
+/// </remarks>
+public interface IOperatorContact
+{
+    string? Email { get; }
+}
+
+/// <summary>The default until something better is registered: no operator address known.</summary>
+public sealed class NoOperatorContact : IOperatorContact
+{
+    public string? Email => null;
 }
 
 /// <summary>
@@ -29,7 +61,7 @@ public sealed record VRChatClientOptions
 /// </summary>
 /// <remarks>
 /// Spec 4.1: nothing else may ever build one, because a client built elsewhere is a client that
-/// bypasses the rate limiter, the priority queue and the single session — all three of which only
+/// bypasses the rate limiter, the priority queue and the single session -- all three of which only
 /// work if everything goes through them. It is a factory rather than inline construction in the
 /// gate so that the gate can be tested without HTTP, and so this rule stays enforceable by
 /// looking at one file.
@@ -39,9 +71,12 @@ public interface IVRChatClientFactory
     IVRChat Create(VRChatConnection connection);
 }
 
-public sealed class VRChatClientFactory(VRChatClientOptions? options = null) : IVRChatClientFactory
+public sealed class VRChatClientFactory(
+    VRChatClientOptions? options = null,
+    IOperatorContact? operatorContact = null) : IVRChatClientFactory
 {
     private readonly VRChatClientOptions _options = options ?? new VRChatClientOptions();
+    private readonly IOperatorContact _operator = operatorContact ?? new NoOperatorContact();
 
     public IVRChat Create(VRChatConnection connection)
     {
@@ -75,20 +110,23 @@ public sealed class VRChatClientFactory(VRChatClientOptions? options = null) : I
 
         var client = builder.Build();
 
-        // Contact headers ride on every request, not only the User-Agent, so an operator is
-        // reachable from a log line on VRChat's side as well as from a traffic sample.
-        if (!string.IsNullOrWhiteSpace(_options.ContactEmail))
-            client.Configuration.DefaultHeaders["X-Modbot-Contact-Email"] = _options.ContactEmail;
-
-        client.Configuration.DefaultHeaders["X-Modbot-Contact-URL"] = _options.ContactUrl;
+        // The developer is named on every request, not only in the User-Agent, so the project is
+        // reachable from a single log line on VRChat's side even when the operator is not.
+        client.Configuration.DefaultHeaders["X-Modbot-Developer-Contact-Email"] = _options.DeveloperContactEmail;
+        client.Configuration.DefaultHeaders["X-Modbot-Developer-Contact-URL"] = _options.DeveloperContactUrl;
 
         return client;
     }
 
-    private string Contact() =>
-        string.IsNullOrWhiteSpace(_options.ContactEmail)
-            ? _options.ContactUrl
-            : $"{_options.ContactEmail}, {_options.ContactUrl}";
+    /// <summary>
+    /// The User-Agent contact: the operator's email, or the developer's when no operator address
+    /// is known yet. Never empty -- a request with nobody to contact is the kind VRChat blocks.
+    /// </summary>
+    private string Contact()
+    {
+        var email = _operator.Email;
+        return string.IsNullOrWhiteSpace(email) ? _options.DeveloperContactEmail : email.Trim();
+    }
 
     private static WebProxy Proxy(VRChatConnection connection)
     {
