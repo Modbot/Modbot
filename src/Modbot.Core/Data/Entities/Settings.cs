@@ -242,6 +242,48 @@ public class Settings
     /// <summary>When the profile sync last completed a pass, refresh or not. Same reasoning as the audit log's.</summary>
     public DateTimeOffset? UserProfilePolledAt { get; set; }
 
+    // --- Member and ban sweeps (member and ban sync design §3) ---
+    //
+    // A sweep is a walk through VRChat's list a page at a time, and a restart mid-way resumes
+    // from the page it was on rather than from the front. The offset is the resume point; the
+    // start time is what tells a row seen this sweep from a row not seen; the completion time is
+    // what the UI shows as "last synced".
+
+    /// <summary>How far into the current member sweep the walk has got. Zero between sweeps.</summary>
+    public int MemberSweepOffset { get; set; }
+
+    /// <summary>When the sweep now in progress started. Null between sweeps.</summary>
+    public DateTimeOffset? MemberSweepStartedAt { get; set; }
+
+    /// <summary>When the last full member sweep finished. Null until one has.</summary>
+    public DateTimeOffset? MemberSweepCompletedAt { get; set; }
+
+    /// <summary>When the last full sweep started, so a join VRChat dates before it is known to have been missed rather than new.</summary>
+    public DateTimeOffset? MemberSweepPreviousStartedAt { get; set; }
+
+    /// <summary>How many members the last full sweep listed.</summary>
+    public int MemberSweepCount { get; set; }
+
+    /// <summary>How many members the sweep now in progress has listed so far.</summary>
+    public int MemberSweepSeenSoFar { get; set; }
+
+    /// <summary>When the member sweep last completed a pass, successfully or not.</summary>
+    public DateTimeOffset? MemberSweepPolledAt { get; set; }
+
+    public int BanSweepOffset { get; set; }
+
+    public DateTimeOffset? BanSweepStartedAt { get; set; }
+
+    public DateTimeOffset? BanSweepCompletedAt { get; set; }
+
+    public DateTimeOffset? BanSweepPreviousStartedAt { get; set; }
+
+    public int BanSweepCount { get; set; }
+
+    public int BanSweepSeenSoFar { get; set; }
+
+    public DateTimeOffset? BanSweepPolledAt { get; set; }
+
     // ── Evidence storage (evidence design §6, §8) ───────────────────────────────────────────
 
     /// <summary>

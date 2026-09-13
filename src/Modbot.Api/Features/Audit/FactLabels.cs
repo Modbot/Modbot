@@ -31,6 +31,8 @@ public static class FactLabels
         [FactType.RoleRevoked] = "Role revoked",
         [FactType.InviteCreated] = "Invite created",
         [FactType.GroupInfoChanged] = "Group details changed",
+        [FactType.MembersSnapshot] = "Member list first read",
+        [FactType.BansSnapshot] = "Ban list first read",
 
         // VRChat's own wording in the audit log, made plain: "has issued an instance kick for",
         // "requested to join the group", "Calendar Entry created by".

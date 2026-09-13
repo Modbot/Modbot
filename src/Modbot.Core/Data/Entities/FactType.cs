@@ -67,10 +67,24 @@ public static class FactType
     public const string InviteCreated = "vrchat.group.invite.create";
 
     /// <summary>
-    /// The managed group's own metadata changed. The subject is the <em>group</em>, which is the
-    /// only fact type for which that is true.
+    /// The managed group's own metadata changed. The subject is the <em>group</em>, one of the
+    /// three fact types for which that is true.
     /// </summary>
     public const string GroupInfoChanged = "vrchat.group.update";
+
+    /// <summary>
+    /// The first full sweep of the member list: how many members there were, and when. The
+    /// subject is the group.
+    /// </summary>
+    /// <remarks>
+    /// One fact, not one join per member. Recording 4,700 "joined" facts on the first sweep would
+    /// say 4,700 people joined on the day Modbot was installed, which is false and would put a
+    /// spike in every chart forever (member and ban sync design §4).
+    /// </remarks>
+    public const string MembersSnapshot = "vrchat.group.members.snapshot";
+
+    /// <summary>The first full sweep of the ban list. Same reasoning as <see cref="MembersSnapshot"/>.</summary>
+    public const string BansSnapshot = "vrchat.group.bans.snapshot";
 
     // ── VRChat: everything else the group's audit log records ──────────────────────────────
     //
