@@ -52,6 +52,23 @@
   --ok: #14865f;
   --info: #1c72c4;
 
+  /* Chart series. A fixed order, never cycled: a series keeps its hue when a
+     filter removes its neighbours, so "bans are orange" stays learnable.
+     Validated as a set for colour-vision deficiency and for contrast against
+     the card surface in both themes — the ordering is the safety mechanism,
+     not a preference, so do not reorder these without re-validating. Three
+     of the light steps sit under 3:1 on white, which is why every chart that
+     uses them ships visible labels or a table beside it. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+
+  /* Recessive by design: the data is the only thing allowed to be loud. */
+  --chart-grid: #e3e7ee;
+  --chart-stroke: 2px;
+
   /* Density — dense is the default */
   --row-h: 2.125rem;
   --control-h: 1.875rem;
@@ -84,6 +101,16 @@
   --warn: #e8a33d;
   --ok: #3fbf8f;
   --info: #4aa3f0;
+
+  /* The same five hues, stepped for the dark card rather than flipped. All
+     five clear 3:1 against it; an automatic inversion clears nothing. */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+
+  --chart-grid: #272b36;
 }
 
 [data-density="comfortable"] {
@@ -101,6 +128,7 @@
   --text-small: 1rem;
   --hairline: 2px;        /* 1px borders disappear entirely */
   --radius: 0.5rem;
+  --chart-stroke: 3px;    /* a 2px line at headset PPD is a suggestion */
 }
 /* Headset panels bloom at the extremes, so pull black and white inward and
    lift muted text -- low-contrast greys that read fine on a monitor vanish. */
@@ -110,12 +138,14 @@
   --foreground: #f2f4f8;
   --muted-foreground: #b9c0cf;
   --border: #363c4a;
+  --chart-grid: #363c4a;
 }
 [data-density="vr"]:not(.dark) {
   --background: #f2f4f7;
   --foreground: #0f1116;
   --muted-foreground: #4a5261;
   --border: #c9d0db;
+  --chart-grid: #c9d0db;
 }
 
 @theme inline {
