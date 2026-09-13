@@ -48,7 +48,7 @@ public static class SyncHealthEndpoints
             .WithName("GetGateHealth")
             .WithSummary("Whether Modbot is reaching VRChat, and whether that is a problem")
             .WithDescription(
-                "`posture` is the load-bearing field. RateLimited and WafBlocked both stop "
+                "`status` is the load-bearing field. RateLimited and WafBlocked both stop "
                 + "traffic and look identical from outside, and they mean opposite things: a cold "
                 + "stop is spec 4.3.1 working as designed and recovers on its own, while a WAF "
                 + "block needs an egress proxy and will not clear by itself.\n\n"

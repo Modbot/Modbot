@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type GateHealth } from '@/lib/api'
-import { DOT, postureOf, TONE } from '@/lib/gate'
+import { DOT, statusOf, TONE } from '@/lib/gate'
 import { cn } from '@/lib/utils'
 
 /**
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
  * The design prototype has a green "VRChat · healthy" dot here and it was removed rather than
  * ported, because a hardcoded green dot is worse than no dot at all: this is the one place an
  * operator looks to find out that something is wrong. It is back now that a real endpoint answers
- * it — and it reports a *posture* rather than a colour, because "rate limited" and "WAF blocked"
+ * it — and it reports a *status* rather than a colour, because "rate limited" and "WAF blocked"
  * are both "not green" and want opposite responses.
  *
  * A failed fetch shows as unknown, never as healthy. Optimism here is the same lie in a quieter
@@ -54,13 +54,13 @@ export function GateIndicator({ onOpen }: { onOpen?: () => void }) {
     )
   }
 
-  const posture = postureOf(gate.posture)
+  const status = statusOf(gate.status)
 
   return (
     <Shell onOpen={onOpen} title={gate.headline}>
-      <span className={cn('size-1.5 shrink-0 rounded-full', DOT[posture.tone])} />
-      <span className={cn('truncate', posture.tone === 'ok' ? 'text-muted-foreground' : TONE[posture.tone])}>
-        VRChat · {posture.label.toLowerCase()}
+      <span className={cn('size-1.5 shrink-0 rounded-full', DOT[status.tone])} />
+      <span className={cn('truncate', status.tone === 'ok' ? 'text-muted-foreground' : TONE[status.tone])}>
+        VRChat · {status.label.toLowerCase()}
       </span>
     </Shell>
   )

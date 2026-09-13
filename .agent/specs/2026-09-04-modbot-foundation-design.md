@@ -1517,7 +1517,7 @@ a window.
 #### Privacy
 
 Presence data — who was where, for how long, wearing what — is personal information, even though it is
-all data the group could already observe directly. The posture is unchanged by keeping it longer: it
+all data the group could already observe directly. The position is unchanged by keeping it longer: it
 lives on the group's own server, retention is configurable, and **purge-user works regardless of
 retention settings**. A person asking to be erased is not asking about disk space.
 
@@ -1555,7 +1555,7 @@ sub-partition whose failure mode is **silent ingest loss** — the worst shape o
 A **purge-user** action erases every fact for one user on request.
 
 Presence data — who was where, for how long, wearing what — is genuinely personal information, even
-though it is all data the group could already observe directly. The defensible posture is: it lives
+though it is all data the group could already observe directly. The defensible position is: it lives
 on the group's own server, retention is configurable, and deletion works. This is documented in one
 paragraph in `docs/`, stated plainly and without editorialising.
 

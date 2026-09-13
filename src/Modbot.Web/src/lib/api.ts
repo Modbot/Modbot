@@ -283,11 +283,11 @@ export type Metrics = {
  * outside and mean opposite things — one is correct behaviour recovering on its own, the other
  * needs a proxy and never clears — and that judgement should exist once.
  */
-export type GatePosture = 'Working' | 'WaitingOnPurpose' | 'NeedsOperator' | 'NotConfigured'
+export type GateStatus = 'Working' | 'WaitingOnPurpose' | 'NeedsOperator' | 'NotConfigured'
 
 export type GateHealth = {
   state: string
-  posture: GatePosture
+  status: GateStatus
   headline: string
   coldStoppedBuckets: number
   coldStopEndsAt: string | null

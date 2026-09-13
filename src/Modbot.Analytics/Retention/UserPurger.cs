@@ -15,7 +15,7 @@ namespace Modbot.Analytics.Retention;
 /// <remarks>
 /// <para>
 /// Spec 5.5. Presence data -- who was where, for how long, wearing what -- is genuinely personal
-/// information even though the group could have watched it happen, and the defensible posture is
+/// information even though the group could have watched it happen, and the defensible position is
 /// that it lives on the group's own server, retention is configurable, and <em>deletion works</em>.
 /// This is the part that has to actually work.
 /// </para>

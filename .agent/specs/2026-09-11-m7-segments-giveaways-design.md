@@ -127,7 +127,7 @@ rows and a rollup table.
 ## 6. Privacy
 
 Segments are the point where recorded history becomes *actionable targeting*, which is exactly where
-foundation §5.5's posture earns out.
+foundation §5.5's position earns out.
 
 - Segment results respect **purge-user**: a purged user cannot reappear in a segment.
 - Retention limits what can be asked — but only where an operator has set a window, since nothing

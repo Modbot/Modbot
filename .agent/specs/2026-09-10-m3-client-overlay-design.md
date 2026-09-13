@@ -628,7 +628,7 @@ deployment. Therefore:
   deployment identifier. The provider learns that somebody asked about an avatar, not who wore it
   or where.
 
-That last point is what keeps this compatible with foundation §5.5's posture. The lookup is about an
+That last point is what keeps this compatible with foundation §5.5's position. The lookup is about an
 *avatar*, never about a person.
 
 ---

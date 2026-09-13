@@ -29,7 +29,7 @@ public static class GateHealthReader
         {
             // The bucket store reads the database. A health screen that cannot answer because its
             // own diagnostics threw is worse than one that answers without the bucket detail --
-            // the state and the posture below do not depend on it.
+            // the state and the status below do not depend on it.
             raw = [];
         }
 
@@ -53,7 +53,7 @@ public static class GateHealthReader
         return (Describe(gate.State, buckets), buckets);
     }
 
-    /// <summary>The posture decision, as a pure function of the state and the buckets.</summary>
+    /// <summary>The status decision, as a pure function of the state and the buckets.</summary>
     public static GateHealth Describe(VRChatSessionState state, IReadOnlyList<BucketHealth> buckets)
     {
         ArgumentNullException.ThrowIfNull(buckets);
@@ -76,7 +76,7 @@ public static class GateHealthReader
         {
             return new GateHealth(
                 state.ToString(),
-                GatePosture.NeedsOperator,
+                GateStatus.NeedsOperator,
                 $"{Count(alerting, "endpoint class has", "endpoint classes have")} stopped after "
                 + "repeated rate limits and will not resume on its own. Something is wrong that "
                 + "waiting will not fix.",
@@ -89,7 +89,7 @@ public static class GateHealthReader
         {
             VRChatSessionState.Unconfigured => new GateHealth(
                 state.ToString(),
-                GatePosture.NotConfigured,
+                GateStatus.NotConfigured,
                 "No VRChat account is configured, so Modbot is not reading anything from VRChat.",
                 stopped,
                 coldStopEndsAt,
@@ -97,7 +97,7 @@ public static class GateHealthReader
 
             VRChatSessionState.WafBlocked => new GateHealth(
                 state.ToString(),
-                GatePosture.NeedsOperator,
+                GateStatus.NeedsOperator,
                 "Cloudflare is blocking this host's network. Nothing will get through until an "
                 + "egress proxy is configured — this does not clear by itself.",
                 stopped,
@@ -106,7 +106,7 @@ public static class GateHealthReader
 
             VRChatSessionState.RateLimited => new GateHealth(
                 state.ToString(),
-                GatePosture.WaitingOnPurpose,
+                GateStatus.WaitingOnPurpose,
                 stopped > 0
                     ? $"{Count(stopped, "endpoint class is", "endpoint classes are")} cold-stopped "
                       + "and waiting out a rate limit. This is deliberate; retrying during a "
@@ -119,7 +119,7 @@ public static class GateHealthReader
 
             VRChatSessionState.Reauthenticating => new GateHealth(
                 state.ToString(),
-                GatePosture.Working,
+                GateStatus.Working,
                 "Signing back in to VRChat. Requests resume when the session is re-established.",
                 stopped,
                 coldStopEndsAt,
@@ -127,7 +127,7 @@ public static class GateHealthReader
 
             _ when stopped > 0 => new GateHealth(
                 state.ToString(),
-                GatePosture.WaitingOnPurpose,
+                GateStatus.WaitingOnPurpose,
                 $"{Count(stopped, "endpoint class is", "endpoint classes are")} cold-stopped. The "
                 + "rest of Modbot is unaffected — a stop is scoped to the bucket that hit the "
                 + "limit.",
@@ -137,7 +137,7 @@ public static class GateHealthReader
 
             _ => new GateHealth(
                 state.ToString(),
-                GatePosture.Working,
+                GateStatus.Working,
                 "Reading from VRChat normally.",
                 stopped,
                 coldStopEndsAt,

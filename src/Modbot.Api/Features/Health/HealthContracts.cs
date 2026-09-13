@@ -16,13 +16,13 @@ namespace Modbot.Api.Features.Health;
 /// configures a proxy.
 /// </para>
 /// <para>
-/// So the posture is computed once, on the server, and travels beside the state name. Leaving the
+/// So the status is computed once, on the server, and travels beside the state name. Leaving the
 /// SPA to infer it would put that judgement in the layer least able to make it and most likely to
 /// be reimplemented differently on the next screen.
 /// </para>
 /// </remarks>
-[JsonConverter(typeof(JsonStringEnumConverter<GatePosture>))]
-public enum GatePosture
+[JsonConverter(typeof(JsonStringEnumConverter<GateStatus>))]
+public enum GateStatus
 {
     /// <summary>Requests are going out. Nothing to do.</summary>
     Working = 1,
@@ -55,7 +55,7 @@ public enum GatePosture
 /// </param>
 public sealed record GateHealth(
     string State,
-    GatePosture Posture,
+    GateStatus Status,
     string Headline,
     int ColdStoppedBuckets,
     DateTimeOffset? ColdStopEndsAt,

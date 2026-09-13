@@ -12,7 +12,7 @@ namespace Modbot.Api.Tests.Features.Health;
 /// <summary>
 /// The distinction the whole screen exists for: waiting on purpose versus broken.
 /// </summary>
-public class GatePostureTests
+public class GateStatusTests
 {
     private static BucketHealth Bucket(
         bool coldStopped = false, bool alerting = false, DateTimeOffset? until = null) =>
@@ -23,7 +23,7 @@ public class GatePostureTests
     {
         var health = GateHealthReader.Describe(VRChatSessionState.RateLimited, [Bucket(coldStopped: true)]);
 
-        Assert.Equal(GatePosture.WaitingOnPurpose, health.Posture);
+        Assert.Equal(GateStatus.WaitingOnPurpose, health.Status);
         Assert.Equal(1, health.ColdStoppedBuckets);
     }
 
@@ -34,7 +34,7 @@ public class GatePostureTests
         // opposite remedy. A proxy fixes this one and waiting never does.
         var health = GateHealthReader.Describe(VRChatSessionState.WafBlocked, []);
 
-        Assert.Equal(GatePosture.NeedsOperator, health.Posture);
+        Assert.Equal(GateStatus.NeedsOperator, health.Status);
         Assert.Contains("proxy", health.Headline, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -43,7 +43,7 @@ public class GatePostureTests
     {
         var health = GateHealthReader.Describe(VRChatSessionState.Unconfigured, []);
 
-        Assert.Equal(GatePosture.NotConfigured, health.Posture);
+        Assert.Equal(GateStatus.NotConfigured, health.Status);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class GatePostureTests
         var health = GateHealthReader.Describe(
             VRChatSessionState.Healthy, [Bucket(coldStopped: true, alerting: true)]);
 
-        Assert.Equal(GatePosture.NeedsOperator, health.Posture);
+        Assert.Equal(GateStatus.NeedsOperator, health.Status);
         Assert.Equal(1, health.AlertingBuckets);
     }
 
@@ -67,7 +67,7 @@ public class GatePostureTests
         var health = GateHealthReader.Describe(
             VRChatSessionState.Healthy, [Bucket(coldStopped: true, until: until)]);
 
-        Assert.Equal(GatePosture.WaitingOnPurpose, health.Posture);
+        Assert.Equal(GateStatus.WaitingOnPurpose, health.Status);
         Assert.Equal(until, health.ColdStopEndsAt);
     }
 
@@ -76,7 +76,7 @@ public class GatePostureTests
     {
         var health = GateHealthReader.Describe(VRChatSessionState.Healthy, [Bucket()]);
 
-        Assert.Equal(GatePosture.Working, health.Posture);
+        Assert.Equal(GateStatus.Working, health.Status);
         Assert.Null(health.ColdStopEndsAt);
     }
 }
@@ -100,7 +100,7 @@ public class SyncHealthEndpointTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, ct);
         var health = await host.GetJsonAsync<GateHealth>("/api/health/gate", cookie, ct);
 
-        Assert.Equal(GatePosture.Working, health.Posture);
+        Assert.Equal(GateStatus.Working, health.Status);
     }
 
     [Fact]

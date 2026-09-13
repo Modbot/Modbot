@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { postureOf, TONE } from '@/lib/gate'
+import { statusOf, TONE } from '@/lib/gate'
 import { ago, duration, formatDay } from '@/lib/format'
 import { api, ApiError, type SyncHealth } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -68,8 +68,8 @@ export function Health() {
     )
   }
 
-  const posture = postureOf(health.gate.posture)
-  const Icon = posture.icon
+  const status = statusOf(health.gate.status)
+  const Icon = status.icon
 
   return (
     <div className="flex flex-col gap-4">
@@ -80,10 +80,10 @@ export function Health() {
       <Card>
         <CardContent className="py-4">
           <div className="flex items-start gap-3">
-            <Icon className={cn('mt-0.5 size-5 shrink-0', TONE[posture.tone])} />
+            <Icon className={cn('mt-0.5 size-5 shrink-0', TONE[status.tone])} />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-medium">VRChat · {posture.label}</span>
+                <span className="font-medium">VRChat · {status.label}</span>
                 <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                   gate state: {health.gate.state}
                 </span>

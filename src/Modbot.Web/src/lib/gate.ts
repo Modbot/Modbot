@@ -1,18 +1,18 @@
 import { AlertTriangle, CheckCircle2, CircleSlash, PauseCircle } from 'lucide-react'
-import type { GatePosture } from '@/lib/api'
+import type { GateStatus } from '@/lib/api'
 
 export type Tone = 'ok' | 'warn' | 'bad' | 'muted'
 
 /**
- * How each gate posture is presented — one table, read by both the sidebar dot and the health
+ * How each gate status is presented — one table, read by both the sidebar dot and the health
  * screen.
  *
  * The two must never disagree about whether Modbot is broken, and the surest way to guarantee
- * that is for both to read the same table, with the posture itself decided by the server rather
+ * that is for both to read the same table, with the status itself decided by the server rather
  * than by either of them.
  */
-export const POSTURE: Record<
-  GatePosture,
+export const STATUS: Record<
+  GateStatus,
   { label: string; tone: Tone; icon: typeof CheckCircle2 }
 > = {
   Working: { label: 'Working', tone: 'ok', icon: CheckCircle2 },
@@ -37,20 +37,20 @@ export const TONE: Record<Tone, string> = {
 }
 
 /**
- * The posture table, but safe against a value the server knows and this build does not.
+ * The status table, but safe against a value the server knows and this build does not.
  *
- * `Record<GatePosture, …>` is a compile-time claim about a *runtime* value that arrives over
+ * `Record<GateStatus, …>` is a compile-time claim about a *runtime* value that arrives over
  * HTTP, and the two part company the moment a server is newer than the page holding a cached
  * bundle. A miss used to return `undefined`, and the caller read `.tone` off it — which threw
  * during render, and because this indicator sits in the app shell, it took down every screen in
  * Modbot rather than one badge.
  *
- * So an unknown posture renders as unknown, which is both true and survivable.
+ * So an unknown status renders as unknown, which is both true and survivable.
  */
-export function postureOf(posture: string | null | undefined) {
+export function statusOf(status: string | null | undefined) {
   return (
-    POSTURE[posture as GatePosture] ?? {
-      label: posture ? `Unknown (${posture})` : 'Unknown',
+    STATUS[status as GateStatus] ?? {
+      label: status ? `Unknown (${status})` : 'Unknown',
       tone: 'muted' as Tone,
       icon: CircleSlash,
     }
