@@ -158,8 +158,12 @@ public sealed class OverlayDriver : IDisposable
             return new OverlayTick(_presenter.Update(OverlayScreen.Idle), false, false);
         }
 
-        var refreshed = await RefreshContextAsync(server, cancellationToken).ConfigureAwait(false);
-        var raised = await PumpAlertsAsync(server, cancellationToken).ConfigureAwait(false);
+        // No ConfigureAwait(false) on these two, on purpose. What follows them builds Avalonia
+        // controls, and Avalonia allows that only on the thread that owns them. The tick is called
+        // from the UI thread; these awaits are the two places it could come back on a thread-pool
+        // thread instead, and did: "Call from invalid thread" every tick that reached a server.
+        var refreshed = await RefreshContextAsync(server, cancellationToken);
+        var raised = await PumpAlertsAsync(server, cancellationToken);
 
         ExpireAlert();
 

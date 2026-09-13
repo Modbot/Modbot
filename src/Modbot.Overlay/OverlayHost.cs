@@ -81,7 +81,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     /// <summary>
     /// Replaces what the overlay shows. Redraws only if the new state would look different, so a
-    /// caller may hand over the same screen as often as it likes.
+    /// caller may hand over the same screen as often as it likes. <strong>UI thread only:</strong>
+    /// a changed screen is built out of Avalonia controls, which refuse any other thread.
     /// </summary>
     public bool Update(OverlayScreen screen)
     {
