@@ -42,13 +42,13 @@ public sealed class StoreMarkerTests : IDisposable
     private EvidenceStoreMonitor Monitor(int failuresBeforeAlarm = 3)
         => new(_store, new EvidenceOptions { StoreId = _storeId, TransientFailuresBeforeAlarm = failuresBeforeAlarm }, _clock);
 
-    private Task CommissionAsync() =>
+    private Task SetUpAsync() =>
         _store.WriteStoreMarkerAsync(new StoreMarker(_storeId, _clock.UtcNow, "test"), Ct);
 
     [Fact]
     public async Task AMatchingStoreMarkerIsHealthyAndUploadsAreAllowed()
     {
-        await CommissionAsync();
+        await SetUpAsync();
         var health = await Monitor().CheckAsync(Ct);
 
         Assert.Equal(EvidenceStoreState.Healthy, health.State);
@@ -101,7 +101,7 @@ public sealed class StoreMarkerTests : IDisposable
     [Fact]
     public async Task AStoreThatDidNotAnswerDoesNotLockAndDoesNotAlarmOnTheFirstFailure()
     {
-        await CommissionAsync();
+        await SetUpAsync();
 
         var monitor = Monitor(failuresBeforeAlarm: 3);
         await monitor.CheckAsync(Ct);
@@ -161,7 +161,7 @@ public sealed class StoreMarkerTests : IDisposable
         Assert.Equal(EvidenceStoreState.Unavailable, monitor.Current.State);
 
         _clock.Advance(TimeSpan.FromHours(2));
-        await CommissionAsync();
+        await SetUpAsync();
 
         var health = await monitor.CheckAsync(Ct);
 
@@ -189,10 +189,10 @@ public sealed class StoreMarkerTests : IDisposable
 
     /// <summary>
     /// Absence only means "wrong store" once there is a record of a right one. Before
-    /// commissioning there is no such record, so there is nothing to conclude.
+    /// setup there is no such record, so there is nothing to conclude.
     /// </summary>
     [Fact]
-    public async Task AnUncommissionedDeploymentIsNotConfiguredRatherThanBroken()
+    public async Task ADeploymentNotYetSetUpIsNotConfiguredRatherThanBroken()
     {
         var monitor = new EvidenceStoreMonitor(_store, new EvidenceOptions(), _clock);
         var health = await monitor.CheckAsync(Ct);
@@ -213,7 +213,7 @@ public sealed class StoreMarkerTests : IDisposable
         await monitor.CheckAsync(Ct);
         Assert.False(monitor.Current.SweepAllowed);
 
-        await CommissionAsync();
+        await SetUpAsync();
         await monitor.CheckAsync(Ct);
         Assert.True(monitor.Current.SweepAllowed);
     }

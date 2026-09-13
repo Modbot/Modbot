@@ -7,7 +7,7 @@ namespace Modbot.Evidence.Storage;
 /// The one object in the store that says which store this is (design section 8.2).
 /// </summary>
 /// <param name="StoreId">
-/// Generated once, when the backend was commissioned, and recorded in <c>Settings</c> as well as
+/// Generated once, when the backend was set up, and recorded in <c>Settings</c> as well as
 /// here. Two copies in two places is the entire mechanism.
 /// </param>
 /// <param name="CreatedAt">When it was written. Supplied by <c>IModbotClock</c>.</param>

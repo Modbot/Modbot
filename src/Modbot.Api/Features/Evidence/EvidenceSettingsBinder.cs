@@ -83,7 +83,7 @@ public static class EvidenceSettingsBinder
     /// Builds a detached options object from the same row, for a candidate store.
     /// </summary>
     /// <remarks>
-    /// Used by the commissioning round trip (design §8.5), which has to build a store from values
+    /// Used by the setup check (design §8.5), which has to build a store from values
     /// the operator has typed and Modbot has not saved. Detached on purpose: a candidate that
     /// shared the live options would repoint the running store the moment somebody pressed
     /// <em>Test</em>, before the test had said whether the new store works.

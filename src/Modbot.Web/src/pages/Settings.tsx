@@ -10,7 +10,7 @@ import {
   type DataSettings,
   type EvidenceBackendId,
   type EvidenceBackendInput,
-  type EvidenceCommissioning,
+  type EvidenceSetup,
   type EvidenceHealth,
   type EvidenceSettings,
   type OnboardingStatus,
@@ -892,7 +892,7 @@ function BackendForm({ settings, onSaved }: { settings: EvidenceSettings; onSave
   const [acknowledge, setAcknowledge] = useState(false)
 
   const [busy, setBusy] = useState<'test' | 'save' | null>(null)
-  const [result, setResult] = useState<EvidenceCommissioning | null>(null)
+  const [result, setResult] = useState<EvidenceSetup | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
 
   const chosen = settings.backends.find((b) => b.id === backend)

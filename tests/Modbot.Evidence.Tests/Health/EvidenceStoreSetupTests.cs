@@ -11,15 +11,15 @@ namespace Modbot.Evidence.Tests.Health;
 /// Design section 8.5: a backend that cannot pass a full round trip cannot be selected, and the
 /// error names the step that failed rather than saying "storage error".
 /// </summary>
-public sealed class CommissioningTests : IDisposable
+public sealed class EvidenceStoreSetupTests : IDisposable
 {
     private readonly string _root =
-        Path.Combine(Path.GetTempPath(), "modbot-commission-tests", Guid.NewGuid().ToString("N"));
+        Path.Combine(Path.GetTempPath(), "modbot-setup-tests", Guid.NewGuid().ToString("N"));
 
     private readonly FaultInjectingStore _store;
-    private readonly EvidenceStoreCommissioner _commissioner = new(new FakeClock());
+    private readonly EvidenceStoreSetup _setup = new(new FakeClock());
 
-    public CommissioningTests()
+    public EvidenceStoreSetupTests()
     {
         Directory.CreateDirectory(_root);
         _store = new FaultInjectingStore(new FilesystemEvidenceStore(new FilesystemEvidenceOptions { Root = _root }));
@@ -42,7 +42,7 @@ public sealed class CommissioningTests : IDisposable
     public async Task AGoodStorePassesAndEndsUpCarryingTheStoreMarker()
     {
         var id = Guid.NewGuid();
-        var result = await _commissioner.CommissionAsync(_store, id, "home server", Ct);
+        var result = await _setup.SetUpAsync(_store, id, "home server", Ct);
 
         Assert.True(result.Succeeded, result.Message);
         Assert.Equal(id, result.StoreId);
@@ -59,7 +59,7 @@ public sealed class CommissioningTests : IDisposable
     [Fact]
     public async Task SuccessSaysPlainlyThatTheDataIsTheirsToLookAfter()
     {
-        var result = await _commissioner.CommissionAsync(_store, Guid.NewGuid(), null, Ct);
+        var result = await _setup.SetUpAsync(_store, Guid.NewGuid(), null, Ct);
 
         Assert.Contains("no backups", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("cannot be undone", result.Message, StringComparison.OrdinalIgnoreCase);
@@ -70,7 +70,7 @@ public sealed class CommissioningTests : IDisposable
     {
         _store.Fault = new IOException("permission denied");
 
-        var result = await _commissioner.CommissionAsync(_store, Guid.NewGuid(), null, Ct);
+        var result = await _setup.SetUpAsync(_store, Guid.NewGuid(), null, Ct);
 
         Assert.False(result.Succeeded);
         Assert.Equal("write", result.FailedStep);
@@ -83,12 +83,12 @@ public sealed class CommissioningTests : IDisposable
     [Fact]
     public async Task AStoreThatLosesTheObjectFailsRatherThanBeingSelectable()
     {
-        var result = await _commissioner.CommissionAsync(_store, Guid.NewGuid(), null, Ct);
+        var result = await _setup.SetUpAsync(_store, Guid.NewGuid(), null, Ct);
         Assert.True(result.Succeeded);
 
         _store.PretendObjectsAreMissing = true;
 
-        var second = await _commissioner.CommissionAsync(_store, Guid.NewGuid(), null, Ct);
+        var second = await _setup.SetUpAsync(_store, Guid.NewGuid(), null, Ct);
 
         Assert.False(second.Succeeded);
         Assert.Equal("commit", second.FailedStep);
@@ -96,9 +96,9 @@ public sealed class CommissioningTests : IDisposable
 
     /// <summary>Nothing of Modbot's is left in the store except the store marker.</summary>
     [Fact]
-    public async Task TheCanaryIsCleanedUpAfterwards()
+    public async Task TheTestFileIsCleanedUpAfterwards()
     {
-        await _commissioner.CommissionAsync(_store, Guid.NewGuid(), null, Ct);
+        await _setup.SetUpAsync(_store, Guid.NewGuid(), null, Ct);
 
         var left = Directory
             .EnumerateFiles(_root, "*", SearchOption.AllDirectories)

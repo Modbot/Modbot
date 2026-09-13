@@ -98,7 +98,7 @@ public class FilesystemStoreTests : EvidenceStoreConformanceTests
     /// writes to is empty on the next boot.
     /// </summary>
     [Fact]
-    public async Task AWipedDirectoryProbesAsAbsentEvenAfterCommissioning()
+    public async Task AWipedDirectoryProbesAsAbsentEvenAfterSetup()
     {
         await Store.WriteStoreMarkerAsync(new StoreMarker(Guid.NewGuid(), DateTimeOffset.UnixEpoch, null), Ct);
         Assert.Equal(StoreProbeOutcome.Present, (await Store.ProbeAsync(Ct)).Outcome);

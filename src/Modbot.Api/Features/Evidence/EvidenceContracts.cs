@@ -19,7 +19,7 @@ public sealed record EvidenceS3View(
     bool UsePathStyle);
 
 /// <param name="Backend">"None", "S3", "Filesystem" or "Database".</param>
-/// <param name="StoreId">The store marker written into the store when it was commissioned.</param>
+/// <param name="StoreId">The store marker written into the store when it was set up.</param>
 /// <param name="Root">Filesystem backend only.</param>
 /// <param name="SecretStored">
 /// Whether an S3 secret is on file. <strong>The secret itself is never sent back</strong> — it is
@@ -184,7 +184,7 @@ public sealed record EvidenceLimitsRequest(
 /// Whether the only thing standing in the way is an unproven disk the operator has not yet said
 /// "use anyway" to. Never a refusal on Modbot's part; a question.
 /// </param>
-public sealed record EvidenceCommissioningResponse(
+public sealed record EvidenceSetupResponse(
     bool Succeeded,
     string? FailedStep,
     string Message,

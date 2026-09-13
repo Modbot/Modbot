@@ -21,13 +21,13 @@ public sealed record EvidenceOptions
     public EvidenceBackend Backend { get; set; } = EvidenceBackend.None;
 
     /// <summary>
-    /// The store marker id written into the store when it was commissioned (design section 8.2).
+    /// The store marker id written into the store when it was set up (design section 8.2).
     /// </summary>
     /// <remarks>
     /// This is the memory <em>outside</em> the store that lets absence be a finding rather than an
     /// ambiguity, which is the whole difference between this and
     /// <see cref="Core.Configuration.PersistenceProbe"/>. Null means the store has never been
-    /// commissioned, and a probe cannot conclude anything until it has been.
+    /// set up, and a probe cannot conclude anything until it has been.
     /// </remarks>
     public Guid? StoreId { get; set; }
 

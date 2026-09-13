@@ -54,7 +54,7 @@ public static class EvidenceServiceCollectionExtensions
             options,
             provider.GetRequiredService<IModbotClock>()));
 
-        services.AddSingleton<EvidenceStoreCommissioner>();
+        services.AddSingleton<EvidenceStoreSetup>();
         services.AddSingleton<IEvidenceUploadRegistry, InMemoryEvidenceUploadRegistry>();
 
         services.AddScoped<EvidenceUploadService>();
@@ -66,7 +66,7 @@ public static class EvidenceServiceCollectionExtensions
 
     /// <summary>
     /// Builds the configured store. Public so that the settings page can construct a candidate
-    /// store from unsaved values and run the commissioning round trip against it before anything
+    /// store from unsaved values and run the setup check against it before anything
     /// is persisted (design section 8.5).
     /// </summary>
     public static IEvidenceStore CreateStore(EvidenceOptions options, IModbotClock clock)

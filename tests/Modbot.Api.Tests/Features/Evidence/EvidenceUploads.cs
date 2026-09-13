@@ -13,7 +13,7 @@ namespace Modbot.Api.Tests.Features.Evidence;
 /// </remarks>
 internal static class EvidenceUploads
 {
-    /// <summary>Points the deployment at its scratch directory and commissions it.</summary>
+    /// <summary>Points the deployment at its scratch directory and sets it up.</summary>
     public static async Task ConfigureAsync(
         EvidenceApiTestHost host, string cookie, CancellationToken ct)
     {
@@ -23,7 +23,7 @@ internal static class EvidenceUploads
             new { backend = "Filesystem", root = host.Root },
             ct);
 
-        var result = await host.ReadAsync<EvidenceCommissioningResponse>(response, ct);
+        var result = await host.ReadAsync<EvidenceSetupResponse>(response, ct);
 
         Assert.True(result.Succeeded, result.Message);
     }

@@ -17,7 +17,7 @@ namespace Modbot.Api.Features.Evidence;
 /// <remarks>
 /// <para>
 /// <strong>Nothing is persisted that has not been proved.</strong> Saving a backend runs design
-/// §8.5's round trip first — write a canary, read it back, compare the bytes, promote it, read it
+/// §8.5's round trip first — write a test file, read it back, compare the bytes, promote it, read it
 /// again, delete it, then write the store marker — and only then does the row change. A backend that
 /// cannot do all of that cannot be selected, and the error names the step rather than saying
 /// "storage error".
@@ -74,7 +74,7 @@ public sealed class EvidenceSettingsService
     private readonly EvidenceOptions _live;
     private readonly ReloadableEvidenceStore _store;
     private readonly EvidenceStoreMonitor _monitor;
-    private readonly EvidenceStoreCommissioner _commissioner;
+    private readonly EvidenceStoreSetup _setup;
     private readonly IModbotClock _clock;
     private readonly HostPlatform _platform;
     private readonly EvidenceBootId _bootId;
@@ -85,7 +85,7 @@ public sealed class EvidenceSettingsService
         EvidenceOptions live,
         ReloadableEvidenceStore store,
         EvidenceStoreMonitor monitor,
-        EvidenceStoreCommissioner commissioner,
+        EvidenceStoreSetup setup,
         IModbotClock clock,
         HostPlatform platform,
         EvidenceBootId bootId)
@@ -95,7 +95,7 @@ public sealed class EvidenceSettingsService
         ArgumentNullException.ThrowIfNull(live);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(monitor);
-        ArgumentNullException.ThrowIfNull(commissioner);
+        ArgumentNullException.ThrowIfNull(setup);
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(platform);
         ArgumentNullException.ThrowIfNull(bootId);
@@ -105,7 +105,7 @@ public sealed class EvidenceSettingsService
         _live = live;
         _store = store;
         _monitor = monitor;
-        _commissioner = commissioner;
+        _setup = setup;
         _clock = clock;
         _platform = platform;
         _bootId = bootId;
@@ -164,7 +164,7 @@ public sealed class EvidenceSettingsService
     }
 
     /// <summary>Runs the round trip against a candidate store and persists nothing.</summary>
-    public async Task<EvidenceCommissioningResponse> TestAsync(
+    public async Task<EvidenceSetupResponse> TestAsync(
         EvidenceBackendRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -172,14 +172,14 @@ public sealed class EvidenceSettingsService
         var settings = await _db.GetSettingsAsync(ct);
         var prepared = await PrepareAsync(request, settings, ct);
 
-        return prepared.Failure ?? await CommissionAsync(prepared, ct);
+        return prepared.Failure ?? await SetUpAsync(prepared, ct);
     }
 
     /// <summary>
     /// Runs the round trip and, only if it passed, saves the backend and repoints the live store.
     /// </summary>
     /// <param name="actor">Who is saving. Recorded against a durability acknowledgement.</param>
-    public async Task<EvidenceCommissioningResponse> SaveBackendAsync(
+    public async Task<EvidenceSetupResponse> SaveBackendAsync(
         EvidenceBackendRequest request, string actor, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -190,8 +190,8 @@ public sealed class EvidenceSettingsService
         if (prepared.Failure is { } refused)
             return refused;
 
-        // Selecting "None" is the one save with nothing to commission: there is no store to write
-        // a canary into. It is also the only way back out of a misconfiguration that cannot be
+        // Selecting "None" is the one save with nothing to set up: there is no store to write
+        // a test file into. It is also the only way back out of a misconfiguration that cannot be
         // fixed in place, so it must not be gated on a round trip that cannot succeed.
         if (prepared.Options.Backend is EvidenceBackend.None)
         {
@@ -200,7 +200,7 @@ public sealed class EvidenceSettingsService
             await _db.SaveChangesAsync(ct);
             await ApplyAsync(settings, ct);
 
-            return new EvidenceCommissioningResponse(
+            return new EvidenceSetupResponse(
                 true,
                 null,
                 "Evidence storage is switched off. Uploads are refused and nothing else is "
@@ -210,7 +210,7 @@ public sealed class EvidenceSettingsService
                 null);
         }
 
-        var result = await CommissionAsync(prepared, ct);
+        var result = await SetUpAsync(prepared, ct);
         if (!result.Succeeded)
             return result;
 
@@ -379,7 +379,7 @@ public sealed class EvidenceSettingsService
                     options,
                     null,
                     Guid.Empty,
-                    new EvidenceCommissioningResponse(
+                    new EvidenceSetupResponse(
                         false,
                         "durability",
                         assessment.Message,
@@ -397,7 +397,7 @@ public sealed class EvidenceSettingsService
         return new Candidate(options, durability, storeId, null);
     }
 
-    private async Task<EvidenceCommissioningResponse> CommissionAsync(
+    private async Task<EvidenceSetupResponse> SetUpAsync(
         Candidate candidate, CancellationToken ct)
     {
         var store = ReloadableEvidenceStore.Create(
@@ -405,9 +405,9 @@ public sealed class EvidenceSettingsService
 
         try
         {
-            var result = await _commissioner.CommissionAsync(store, candidate.StoreId, null, ct);
+            var result = await _setup.SetUpAsync(store, candidate.StoreId, null, ct);
 
-            return new EvidenceCommissioningResponse(
+            return new EvidenceSetupResponse(
                 result.Succeeded,
                 result.FailedStep,
                 result.Succeeded ? result.Message + " " + DurabilityStatement : result.Message,
@@ -661,10 +661,10 @@ public sealed class EvidenceSettingsService
         EvidenceOptions Options,
         DurabilityAssessment? Durability,
         Guid StoreId,
-        EvidenceCommissioningResponse? Failure)
+        EvidenceSetupResponse? Failure)
     {
         public static Candidate Refused(string step, string message)
             => new(new EvidenceOptions(), null, Guid.Empty,
-                new EvidenceCommissioningResponse(false, step, message, null, false, null));
+                new EvidenceSetupResponse(false, step, message, null, false, null));
     }
 }

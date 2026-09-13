@@ -50,7 +50,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
     }
 
     /// <summary>
-    /// Saving a backend commissions it, and the choice takes effect without a restart.
+    /// Saving a backend sets it up, and the choice takes effect without a restart.
     /// </summary>
     /// <remarks>
     /// This is the whole point of the change. A settings page that needed a redeploy to take
@@ -60,7 +60,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
     /// later is accepted.
     /// </remarks>
     [Fact]
-    public async Task SavingABackendCommissionsItAndTakesEffectWithoutARestart()
+    public async Task SavingABackendSetsItUpAndTakesEffectWithoutARestart()
     {
         await EvidenceApiTestHost.ResetAsync(db, Ct);
         await using var host = await EvidenceApiTestHost.StartAsync(db);
@@ -68,7 +68,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
         var cookie = await host.SignedInAsync(
             ModbotPermissions.ManageSettings | ModbotPermissions.UploadEvidence, Ct);
 
-        var saved = await host.ReadAsync<EvidenceCommissioningResponse>(
+        var saved = await host.ReadAsync<EvidenceSetupResponse>(
             await host.PutAsync(
                 "/api/settings/evidence/backend",
                 cookie,
@@ -118,7 +118,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
 
         try
         {
-            var result = await host.ReadAsync<EvidenceCommissioningResponse>(
+            var result = await host.ReadAsync<EvidenceSetupResponse>(
                 await host.PutAsync(
                     "/api/settings/evidence/backend",
                     cookie,
@@ -160,7 +160,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
-        var asked = await host.ReadAsync<EvidenceCommissioningResponse>(
+        var asked = await host.ReadAsync<EvidenceSetupResponse>(
             await host.PutAsync(
                 "/api/settings/evidence/backend",
                 cookie,
@@ -176,7 +176,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
 
         // Echoing the warning back is the "use anyway", and it is enough. Modbot never had a
         // reason to stop them; it had a reason to tell them.
-        var accepted = await host.ReadAsync<EvidenceCommissioningResponse>(
+        var accepted = await host.ReadAsync<EvidenceSetupResponse>(
             await host.PutAsync(
                 "/api/settings/evidence/backend",
                 cookie,
@@ -246,7 +246,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
-        var result = await host.ReadAsync<EvidenceCommissioningResponse>(
+        var result = await host.ReadAsync<EvidenceSetupResponse>(
             await host.PutAsync(
                 "/api/settings/evidence/backend",
                 cookie,
@@ -280,7 +280,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
 
         var elsewhere = Path.Combine(Path.GetTempPath(), $"modbot-elsewhere-{Guid.NewGuid():N}");
 
-        var result = await host.ReadAsync<EvidenceCommissioningResponse>(
+        var result = await host.ReadAsync<EvidenceSetupResponse>(
             await host.PutAsync(
                 "/api/settings/evidence/backend",
                 cookie,
@@ -294,7 +294,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
 
         // Re-saving the store it is already using is not a switch, so a key rotation or a typo fix
         // is never blocked by evidence the deployment holds.
-        var same = await host.ReadAsync<EvidenceCommissioningResponse>(
+        var same = await host.ReadAsync<EvidenceSetupResponse>(
             await host.PutAsync(
                 "/api/settings/evidence/backend",
                 cookie,

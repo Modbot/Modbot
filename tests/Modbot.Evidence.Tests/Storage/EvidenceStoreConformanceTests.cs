@@ -234,7 +234,7 @@ public abstract class EvidenceStoreConformanceTests : IAsyncLifetime
     /// mistake can be fixed for free.
     /// </summary>
     [Fact]
-    public async Task AnUncommissionedStoreProbesAsAbsent()
+    public async Task AStoreNotYetSetUpProbesAsAbsent()
     {
         var probe = await Store.ProbeAsync(Ct);
 

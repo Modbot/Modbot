@@ -64,13 +64,13 @@ public static class EvidenceSettingsEndpoints
                 return Results.Ok(await service.TestAsync(body, ct));
             })
             .WithName("TestEvidenceStore")
-            .WithSummary("Run the commissioning round trip without saving anything")
+            .WithSummary("Run the setup check without saving anything")
             .WithDescription(
-                "Writes a canary object, reads it back, compares the bytes, promotes it to its "
+                "Writes a test file, reads it back, compares the bytes, promotes it to its "
                 + "content-addressed key, reads it again, deletes it, and writes the store "
                 + "store marker. Nothing is persisted. Leave secretAccessKey empty to test with the "
                 + "credential already on file.")
-            .Produces<EvidenceCommissioningResponse>()
+            .Produces<EvidenceSetupResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapPut("/backend", async (
@@ -95,7 +95,7 @@ public static class EvidenceSettingsEndpoints
                 + "acknowledgeWarning to proceed, and it is recorded verbatim against your name. "
                 + "Switching backends while objects are stored is refused: changing the setting "
                 + "does not move them.")
-            .Produces<EvidenceCommissioningResponse>()
+            .Produces<EvidenceSetupResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapPut("/limits", async (

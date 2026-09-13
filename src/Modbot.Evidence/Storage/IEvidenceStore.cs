@@ -128,7 +128,7 @@ public interface IEvidenceStore
         string? contentType = null,
         CancellationToken ct = default);
 
-    /// <summary>Writes the store marker. Done once, when the backend is commissioned.</summary>
+    /// <summary>Writes the store marker. Done once, when the backend is set up.</summary>
     Task WriteStoreMarkerAsync(StoreMarker marker, CancellationToken ct = default);
 
     /// <summary>

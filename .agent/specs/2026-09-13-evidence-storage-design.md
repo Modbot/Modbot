@@ -558,7 +558,7 @@ trace, is how an operator concludes the warning was spurious.
 ### 8.5 The cheapest detection is the one at configuration time
 
 None of the above should ever fire, because the settings page catches it first. Saving a storage
-backend performs a **round trip before the setting is persisted**: write a canary object, read it
+backend performs a **round trip before the setting is persisted**: write a test file, read it
 back, compare the bytes, delete it, then write the store marker. Only then is the configuration saved.
 
 A backend that cannot pass that cannot be selected, and the error says which step failed —

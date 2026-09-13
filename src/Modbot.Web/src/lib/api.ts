@@ -481,13 +481,13 @@ export type EvidenceSettings = {
 }
 
 /**
- * The result of the commissioning round trip.
+ * The result of the setup check.
  *
  * A failed round trip is a successful diagnosis, so this arrives with a 200 and `succeeded: false`
  * — the whole value of it is the sentence naming which step failed, and an HTTP status cannot
  * carry that.
  */
-export type EvidenceCommissioning = {
+export type EvidenceSetup = {
   succeeded: boolean
   failedStep: string | null
   message: string
@@ -691,18 +691,18 @@ export const api = {
   evidenceSettings: () => request<EvidenceSettings>('/api/settings/evidence'),
 
   /**
-   * The round trip, without saving. Writes a canary, reads it back, compares the bytes, promotes
+   * The round trip, without saving. Writes a test file, reads it back, compares the bytes, promotes
    * it, reads it again, deletes it, and writes the store marker.
    */
   testEvidenceStore: (body: EvidenceBackendInput) =>
-    post<EvidenceCommissioning>('/api/settings/evidence/test', body),
+    post<EvidenceSetup>('/api/settings/evidence/test', body),
 
   /**
    * Saves a backend, and only if it passed the same round trip. Leave `secretAccessKey` out to
    * keep the credential already on file, so fixing a typo in the endpoint does not clear it.
    */
   setEvidenceBackend: (body: EvidenceBackendInput) =>
-    request<EvidenceCommissioning>('/api/settings/evidence/backend', {
+    request<EvidenceSetup>('/api/settings/evidence/backend', {
       method: 'PUT',
       body: JSON.stringify(body),
     }),

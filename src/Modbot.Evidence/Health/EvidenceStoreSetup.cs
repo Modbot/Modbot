@@ -10,7 +10,7 @@ namespace Modbot.Evidence.Health;
 /// </param>
 /// <param name="Message">What to show the operator.</param>
 /// <param name="StoreId">The store marker id written, on success.</param>
-public sealed record CommissioningResult(bool Succeeded, string? FailedStep, string Message, Guid? StoreId);
+public sealed record SetupResult(bool Succeeded, string? FailedStep, string Message, Guid? StoreId);
 
 /// <summary>
 /// The round trip a backend must pass before it can be selected (design section 8.5).
@@ -18,7 +18,7 @@ public sealed record CommissioningResult(bool Succeeded, string? FailedStep, str
 /// <remarks>
 /// <para>
 /// This is the cheapest detection there is, and none of the section 8 machinery should ever fire
-/// because this caught the problem first. Saving a storage backend writes a canary object, reads
+/// because this caught the problem first. Saving a storage backend writes a test file, reads
 /// it back, compares the bytes, promotes it, reads it again at its content-addressed key, deletes
 /// it, and only then writes the store marker and lets the configuration be persisted. A backend that
 /// cannot do all of that cannot be chosen.
@@ -30,11 +30,11 @@ public sealed record CommissioningResult(bool Succeeded, string? FailedStep, str
 /// everything was fine, is precisely the experience this is meant to prevent.
 /// </para>
 /// </remarks>
-public sealed class EvidenceStoreCommissioner
+public sealed class EvidenceStoreSetup
 {
     private readonly IModbotClock _clock;
 
-    public EvidenceStoreCommissioner(IModbotClock clock)
+    public EvidenceStoreSetup(IModbotClock clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
         _clock = clock;
@@ -42,11 +42,11 @@ public sealed class EvidenceStoreCommissioner
 
     /// <param name="store">The store to test, built from the settings the operator just entered.</param>
     /// <param name="storeId">
-    /// The store marker id. Generated fresh when commissioning a new store; passed back in when
+    /// The store marker id. Generated fresh when setting up a new store; passed back in when
     /// re-testing one that is already configured, so a re-run does not orphan the old id.
     /// </param>
     /// <param name="deployment">A human-readable deployment name, for an operator with two buckets.</param>
-    public async Task<CommissioningResult> CommissionAsync(
+    public async Task<SetupResult> SetUpAsync(
         IEvidenceStore store,
         Guid storeId,
         string? deployment = null,
@@ -55,15 +55,15 @@ public sealed class EvidenceStoreCommissioner
         ArgumentNullException.ThrowIfNull(store);
 
         var uploadId = EvidenceUploadId.New();
-        var canary = CanaryBytes(storeId);
-        var expected = EvidenceHash.Compute(canary);
+        var testFile = TestFileBytes(storeId);
+        var expected = EvidenceHash.Compute(testFile);
 
         StagedObject staged;
 
         try
         {
-            await using var body = new MemoryStream(canary, writable: false);
-            staged = await store.StageAsync(uploadId, body, canary.Length + 1, canary.Length, ct)
+            await using var body = new MemoryStream(testFile, writable: false);
+            staged = await store.StageAsync(uploadId, body, testFile.Length + 1, testFile.Length, ct)
                 .ConfigureAwait(false);
         }
         catch (Exception e) when (e is not OperationCanceledException)
@@ -87,7 +87,7 @@ public sealed class EvidenceStoreCommissioner
             if (readBack is null)
                 return Failed("read-back", $"{store.Description} accepted the test object and then could not find it.");
 
-            if (!readBack.AsSpan().SequenceEqual(canary))
+            if (!readBack.AsSpan().SequenceEqual(testFile))
             {
                 return Failed(
                     "compare",
@@ -97,7 +97,7 @@ public sealed class EvidenceStoreCommissioner
             await store.CommitAsync(uploadId, expected, ct).ConfigureAwait(false);
 
             var stat = await store.StatAsync(expected, ct).ConfigureAwait(false);
-            if (stat is null || stat.ByteSize != canary.Length)
+            if (stat is null || stat.ByteSize != testFile.Length)
             {
                 return Failed(
                     "commit",
@@ -108,7 +108,7 @@ public sealed class EvidenceStoreCommissioner
             var final = await ReadAllAsync(await store.OpenReadAsync(expected, null, ct).ConfigureAwait(false), ct)
                 .ConfigureAwait(false);
 
-            if (final is null || !final.AsSpan().SequenceEqual(canary))
+            if (final is null || !final.AsSpan().SequenceEqual(testFile))
                 return Failed("verify", $"{store.Description} did not return the committed test object intact.");
         }
         catch (Exception e) when (e is not OperationCanceledException)
@@ -130,7 +130,7 @@ public sealed class EvidenceStoreCommissioner
             return Failed("store-marker", $"Modbot could not write its store marker to {store.Description}: {e.Message}");
         }
 
-        return new CommissioningResult(
+        return new SetupResult(
             true,
             null,
             $"{store.Description} passed a full write, read, copy and delete round trip, and now carries "
@@ -139,14 +139,14 @@ public sealed class EvidenceStoreCommissioner
             storeId);
     }
 
-    private static CommissioningResult Failed(string step, string message)
+    private static SetupResult Failed(string step, string message)
         => new(false, step, message, null);
 
     /// <summary>
-    /// Distinct per store id, so two deployments commissioning the same bucket cannot accidentally
-    /// read each other's canary and conclude the round trip worked.
+    /// Distinct per store id, so two deployments setting up the same bucket cannot accidentally
+    /// read each other's test file and conclude the round trip worked.
     /// </summary>
-    private byte[] CanaryBytes(Guid storeId)
+    private byte[] TestFileBytes(Guid storeId)
         => System.Text.Encoding.UTF8.GetBytes(
             $"modbot evidence store round trip {storeId:N} at {_clock.UtcNow:O}");
 
@@ -173,7 +173,7 @@ public sealed class EvidenceStoreCommissioner
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            // A canary Modbot could not delete is litter, not a failure of the test that matters.
+            // A test file Modbot could not delete is litter, not a failure of the test that matters.
             // Reporting it as one would stop an operator configuring a store that works.
         }
     }

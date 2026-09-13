@@ -206,7 +206,7 @@ public class Settings
     public short EvidenceBackend { get; set; }
 
     /// <summary>
-    /// The store marker written into the store when it was commissioned.
+    /// The store marker written into the store when it was set up.
     /// </summary>
     /// <remarks>
     /// This is the memory outside the store that makes §8's detection conclusive.

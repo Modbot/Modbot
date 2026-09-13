@@ -7,7 +7,7 @@ namespace Modbot.Evidence.Health;
 /// <summary>What the store marker probe last concluded about the store.</summary>
 public enum EvidenceStoreState
 {
-    /// <summary>No backend has been commissioned. Uploads are refused; nothing is wrong.</summary>
+    /// <summary>No backend has been set up. Uploads are refused; nothing is wrong.</summary>
     NotConfigured,
 
     /// <summary>The store marker is there and it is ours.</summary>
@@ -155,7 +155,7 @@ public sealed class EvidenceStoreMonitor
     {
         if (_store is null || _options.StoreId is not { } expected)
         {
-            // Nothing has been commissioned, so there is nothing the store marker could conclude.
+            // Nothing has been set up, so there is nothing the store marker could conclude.
             // Absence only means "wrong store" once there is a record of a right one.
             return Set(new EvidenceStoreHealth(
                 EvidenceStoreState.NotConfigured,
