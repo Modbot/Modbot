@@ -10,6 +10,7 @@ import { Health } from '@/pages/Health'
 import { Login } from '@/pages/Login'
 import { Members } from '@/pages/Members'
 import { Metrics } from '@/pages/Metrics'
+import { Pair } from '@/pages/Pair'
 import { Settings } from '@/pages/Settings'
 import { Setup } from '@/pages/setup/Setup'
 
@@ -94,12 +95,20 @@ export default function App() {
         // Same ordering, same reason. Somebody who signed in on a deployment that was never
         // finished lands back in the wizard at whichever step is outstanding, rather than in an
         // app shell with no group configured.
+        // A moderator sent to /pair by a link signs in and lands back on /pair, not on the
+        // members list: the link was the errand, and the page it names is where it finishes.
         onSignedIn={() =>
-          void refresh().then((next) => navigate(next.onboardingComplete ? '/' : '/setup'))
+          void refresh().then((next) =>
+            navigate(next.onboardingComplete ? (route === '/pair' ? '/pair' : '/') : '/setup'),
+          )
         }
       />
     )
   }
+
+  // Outside the shell, like sign-in: a landing page a link sends a moderator to, not a section
+  // of the app they navigate around in.
+  if (route === '/pair') return <Pair />
 
   return <Shell status={status} prefs={prefs} route={route} navigate={navigate} />
 }
