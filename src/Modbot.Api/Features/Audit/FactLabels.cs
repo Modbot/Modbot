@@ -1,0 +1,65 @@
+using Modbot.Core.Data.Entities;
+
+namespace Modbot.Api.Features.Audit;
+
+/// <summary>
+/// A short human label for each fact type.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Server-side rather than in the SPA because the type <em>list</em> is server-driven — it is
+/// narrowed by permission before it is sent (spec 5.9.4) — and a browser-side label table would
+/// have to be kept in step with an enum it cannot see. One list, in the same place as the
+/// permission decision.
+/// </para>
+/// <para>
+/// The fallback is the enum name, not a placeholder. A type added without a label reads as
+/// <c>InstanceLeft</c>, which is ugly and correct; anything friendlier would be inventing a
+/// description of something nobody has described.
+/// </para>
+/// </remarks>
+public static class FactLabels
+{
+    private static readonly Dictionary<FactType, string> Labels = new()
+    {
+        [FactType.MemberJoined] = "Joined the group",
+        [FactType.MemberLeft] = "Left the group",
+        [FactType.MemberBanned] = "Banned",
+        [FactType.MemberUnbanned] = "Unbanned",
+        [FactType.MemberKicked] = "Kicked",
+        [FactType.RoleGranted] = "Role granted",
+        [FactType.RoleRevoked] = "Role revoked",
+        [FactType.InviteCreated] = "Invite created",
+        [FactType.GroupInfoChanged] = "Group details changed",
+
+        [FactType.InstanceJoined] = "Joined an instance",
+        [FactType.InstanceLeft] = "Left an instance",
+        [FactType.AvatarChanged] = "Changed avatar",
+        [FactType.InstancePresenceObserved] = "Seen in an instance",
+
+        [FactType.DiscordMemberJoined] = "Joined Discord",
+        [FactType.DiscordMemberLeft] = "Left Discord",
+        [FactType.DiscordVoiceJoined] = "Joined a voice channel",
+        [FactType.DiscordVoiceLeft] = "Left a voice channel",
+        [FactType.DiscordRoleGranted] = "Discord role granted",
+        [FactType.DiscordRoleRevoked] = "Discord role revoked",
+
+        [FactType.Login] = "Signed in",
+        [FactType.LoginFailed] = "Failed sign-in",
+        [FactType.PasswordChanged] = "Password changed",
+        [FactType.ApiKeyCreated] = "API key created",
+        [FactType.ApiKeyRevoked] = "API key revoked",
+        [FactType.SettingsChanged] = "Settings changed",
+
+        [FactType.SyncFailed] = "Sync failed",
+        [FactType.RateLimitColdStop] = "Rate-limit cold stop",
+        [FactType.WafBlocked] = "Blocked by Cloudflare",
+        [FactType.MigrationApplied] = "Migration applied",
+        [FactType.RetentionPruned] = "Retention pruned",
+        [FactType.PartitionCreated] = "Partition created",
+        [FactType.UserPurged] = "User data purged",
+    };
+
+    public static string For(FactType type)
+        => Labels.TryGetValue(type, out var label) ? label : type.ToString();
+}
