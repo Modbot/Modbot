@@ -15,6 +15,7 @@ using Modbot.Core.Time;
 using Modbot.Overlay;
 using Modbot.Overlay.Driving;
 using Modbot.Overlay.OpenVr;
+using Serilog;
 
 namespace Modbot.Client.App;
 
@@ -70,9 +71,19 @@ internal sealed class ModbotClientApp : Application
             // initializer runs on the first touch of any static member of this class -- Main
             // setting StartupMessage was enough -- which is before Avalonia has started, and the
             // whole client then died at launch with "Unable to locate IWindowingPlatform".
-            Host = new ClientHost();
-            desktop.MainWindow = Host.Window;
-            Host.Start(desktop, StartupMessage);
+            CrashGuard.InstallForUi();
+
+            try
+            {
+                Host = new ClientHost();
+                desktop.MainWindow = Host.Window;
+                Host.Start(desktop, StartupMessage);
+            }
+            catch (Exception ex)
+            {
+                Log.Fatal(ex, "The client could not start");
+                throw;
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -133,6 +144,10 @@ internal sealed class ClientHost
     private PairingCoordinator? _pairing;
     private Journal.SentJournal? _journal;
     private ClientEngine? _engine;
+    private VRChatLogTail? _tail;
+    private string? _lastLoggedFile;
+    private long _lastLoggedLines;
+    private int _consecutiveTickFailures;
     private TrayIcon? _tray;
     private HttpClient? _http;
     private IIngestTransport? _transport;
@@ -181,14 +196,14 @@ internal sealed class ClientHost
         InstallTray(desktop);
         ListenForLinks();
 
-        _refresh.Tick += (_, _) => Render();
+        _refresh.Tick += (_, _) => CrashGuard.Run("refreshing the window", Render);
         _refresh.Start();
         Render();
 
         // Started by a browser link: the whole reason this process exists is to pair, so do that
         // now, in front of the moderator, rather than sitting in the tray waiting to be found.
         if (startupMessage is not null)
-            _ = HandleMessageAsync(startupMessage);
+            _ = CrashGuard.RunAsync("handling the pairing link", () => HandleMessageAsync(startupMessage));
     }
 
     /// <summary>
@@ -204,10 +219,13 @@ internal sealed class ClientHost
     /// </remarks>
     private void StartEngine()
     {
-        var observer = new PresenceObserver(new VRChatLogTail(VRChatLogTail.DefaultDirectory), _clock);
+        _tail = new VRChatLogTail(VRChatLogTail.DefaultDirectory);
+        Log.Information("Watching VRChat's log folder {Directory}", VRChatLogTail.DefaultDirectory);
+
+        var observer = new PresenceObserver(_tail, _clock);
         _engine = new ClientEngine(observer, _clock, timeProbe: new HttpServerTimeProbe(_http!, _clock));
 
-        _engineLoop.Tick += async (_, _) => await EngineTickAsync();
+        _engineLoop.Tick += async (_, _) => await CrashGuard.RunAsync("reading VRChat's log", EngineTickAsync);
         _engineLoop.Start();
     }
 
@@ -227,16 +245,85 @@ internal sealed class ClientHost
         _engineTicking = true;
         try
         {
-            await _engine.TickAsync();
+            var tick = await _engine.TickAsync();
+            _consecutiveTickFailures = 0;
+            if (_state is not null)
+                _state.ReadingFault = null;
+
+            DescribeTick(tick);
         }
         catch (OperationCanceledException)
         {
             // Shutting down.
         }
+        catch (Exception ex)
+        {
+            // This used to escape the timer's handler, and an exception that escapes an async
+            // event handler ends the process -- silently, for a windowed program. Now it is
+            // written down with everything known about where the reader was, shown in the window,
+            // and the loop carries on; a fault that repeats stops the reader rather than the client.
+            _consecutiveTickFailures++;
+            var health = _engine.LogHealth;
+
+            Log.Error(
+                ex,
+                "Reading VRChat's log failed (failure {Count} in a row). File {File}; lines read {Lines}; "
+                + "behaviour lines {Behaviour}; recognised events {Recognised}; last line at {LastLine}",
+                _consecutiveTickFailures, _tail?.CurrentFile, health.LinesRead, health.BehaviourLines,
+                health.RecognisedEvents, health.LastLineAt);
+
+            if (_state is not null)
+                _state.ReadingFault = $"{ex.GetType().Name}: {ex.Message}";
+
+            if (_consecutiveTickFailures >= 5)
+            {
+                _engineLoop.Stop();
+                CrashGuard.Report(
+                    new InvalidOperationException(
+                        "Reading VRChat's log failed five times in a row, so the reader has been stopped. "
+                        + "Restart the client once the cause is fixed. Last error: " + ex.Message, ex),
+                    "reading VRChat's log",
+                    fatal: false);
+            }
+        }
         finally
         {
             _engineTicking = false;
         }
+    }
+
+    private void DescribeTick(EngineTick tick)
+    {
+        var file = _tail?.CurrentFile;
+        if (!string.Equals(file, _lastLoggedFile, StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Information("Reading VRChat log {File}", file ?? "(none yet)");
+            _lastLoggedFile = file;
+        }
+
+        var health = _engine!.LogHealth;
+
+        // The first pass over an existing log is history: it produces no observations, and it is
+        // also the pass that reads the most and is likeliest to hit something unexpected. So
+        // lines read is reported on its own whenever it moves, observations or not.
+        if (health.LinesRead != _lastLoggedLines)
+        {
+            Log.Verbose(
+                "Read {Lines} lines from VRChat's log this tick ({Total} so far: {Behaviour} behaviour lines, {Recognised} recognised events)",
+                health.LinesRead - _lastLoggedLines, health.LinesRead, health.BehaviourLines, health.RecognisedEvents);
+            _lastLoggedLines = health.LinesRead;
+        }
+
+        // Quiet ticks are the normal state and are not worth a line each; a tick that did
+        // anything says exactly what.
+        if (tick.Observed == 0 && tick.BatchesSent == 0)
+            return;
+
+        Log.Verbose(
+            "Tick: {Observed} observations, {Routed} routed, {Dropped} dropped, {Sent} sent to servers; "
+            + "totals: {Lines} lines read, {Behaviour} behaviour lines, {Recognised} recognised events",
+            tick.Observed, tick.Routed, tick.Dropped, tick.BatchesSent,
+            health.LinesRead, health.BehaviourLines, health.RecognisedEvents);
     }
 
     /// <summary>
@@ -322,7 +409,7 @@ internal sealed class ClientHost
         foreach (var connection in _state?.Connections ?? [])
             _overlay.Add(connection.Pairing, connection.ServerId);
 
-        _overlayLoop.Tick += async (_, _) => await OverlayTickAsync();
+        _overlayLoop.Tick += async (_, _) => await CrashGuard.RunAsync("drawing the overlay", OverlayTickAsync);
         _overlayLoop.Start();
     }
 
@@ -423,7 +510,7 @@ internal sealed class ClientHost
             UrlSchemeRegistration.Register(executable);
 
         _ = new PairingLinkInbox().ListenAsync(
-            message => Dispatcher.UIThread.InvokeAsync(() => HandleMessageAsync(message)),
+            message => Dispatcher.UIThread.InvokeAsync(() => CrashGuard.RunAsync("handling a pairing link", () => HandleMessageAsync(message))),
             _inboxStop.Token);
     }
 
@@ -592,9 +679,14 @@ internal static class Program
         // Avalonia's business.
         var link = args.FirstOrDefault(PairingToken.LooksLikeLink);
 
+        ClientLog.Start(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+        CrashGuard.Install();
+
         using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var firstCopy);
         if (!firstCopy)
         {
+            Log.Information("Another copy of the client is running; handing it {What} and leaving",
+                link is null ? "a request to show its window" : "the pairing link");
             // Another copy owns the tray icon and the log. Hand it the link -- or, with no link,
             // ask it to show its window, which is what somebody double-clicking the icon again
             // wanted -- and leave. A few tries, because the other copy may still be starting.
@@ -610,9 +702,24 @@ internal static class Program
 
         ModbotClientApp.StartupMessage = link;
 
-        OverlayHost.ConfigureAvalonia<ModbotClientApp>()
-            .UsePlatformDetect()
-            .StartWithClassicDesktopLifetime(args);
+        try
+        {
+            OverlayHost.ConfigureAvalonia<ModbotClientApp>()
+                .UsePlatformDetect()
+                .StartWithClassicDesktopLifetime(args);
+        }
+        catch (Exception ex)
+        {
+            // Reported here, once, rather than rethrown into the runtime's own crash dialog: the
+            // moderator gets one box that names the log file, not two that name nothing.
+            CrashGuard.Report(ex, "while starting", fatal: true);
+            return 1;
+        }
+        finally
+        {
+            Log.Information("Modbot client exiting");
+            ClientLog.Stop();
+        }
 
         return 0;
     }

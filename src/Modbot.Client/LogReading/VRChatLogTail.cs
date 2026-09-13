@@ -33,13 +33,28 @@ public sealed class VRChatLogTail
     /// <summary>VRChat's own naming. Anything else in that folder is not read.</summary>
     public const string LogFilePattern = "output_log_*.txt";
 
+    /// <summary>
+    /// How much of a log is read in one pass. VRChat's log grows to hundreds of megabytes in a long
+    /// session, and the first pass over one used to read all of it into a single array, a single
+    /// string and a single split -- three copies of the file in memory at once. Now a pass takes
+    /// this much and the next pass takes the next slice, from the offset the last one left behind.
+    /// </summary>
+    public const int DefaultMaxBytesPerPass = 8 * 1024 * 1024;
+
     private readonly string _directory;
+    private readonly int _maxBytesPerPass;
 
     private string? _currentFile;
     private long _position;
     private bool _primed;
+    private bool _replaying;
 
-    public VRChatLogTail(string directory) => _directory = directory;
+    public VRChatLogTail(string directory, int maxBytesPerPass = DefaultMaxBytesPerPass)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxBytesPerPass, 1);
+        _directory = directory;
+        _maxBytesPerPass = maxBytesPerPass;
+    }
 
     /// <summary>The log file currently being followed, or <c>null</c> when there is none.</summary>
     public string? CurrentFile => _currentFile;
@@ -81,19 +96,20 @@ public sealed class VRChatLogTail
         if (newest is null)
             return [];
 
-        var replay = false;
-
         if (!string.Equals(newest, _currentFile, StringComparison.OrdinalIgnoreCase))
         {
             // A new log file means VRChat restarted, and its contents are current. Only a file
             // that was already sitting there when Modbot started is history -- the moderator
             // launched the client mid-session, and everything before this moment has either been
-            // reported already or was never going to be.
-            replay = firstPass;
+            // reported already or was never going to be. The flag stays up until the reader has
+            // reached the end of that file, however many passes that takes.
+            _replaying = firstPass;
             _currentFile = newest;
             _position = 0;
         }
 
+        var replay = _replaying;
+        var reachedEnd = false;
         byte[] chunk;
         try
         {
@@ -114,14 +130,23 @@ public sealed class VRChatLogTail
             }
 
             stream.Position = _position;
-            var pending = (int)Math.Min(stream.Length - _position, int.MaxValue);
-            if (pending <= 0)
+            var available = stream.Length - _position;
+            if (available <= 0)
+            {
+                _replaying = false;
                 return [];
+            }
+
+            var pending = (int)Math.Min(available, _maxBytesPerPass);
+            reachedEnd = pending == available;
 
             chunk = new byte[pending];
             var filled = stream.ReadAtLeast(chunk, pending, throwOnEndOfStream: false);
             if (filled < pending)
+            {
                 chunk = chunk[..filled];
+                reachedEnd = false;
+            }
         }
         catch (IOException)
         {
@@ -141,6 +166,12 @@ public sealed class VRChatLogTail
 
         var text = Encoding.UTF8.GetString(chunk, 0, lastNewline + 1);
         _position += lastNewline + 1;
+
+        // Everything that was in the file when the reader got to its end is history; whatever is
+        // appended after this point is live. A slice that stopped short of the end -- or short of
+        // a newline -- leaves the flag up for the next pass.
+        if (reachedEnd && lastNewline == chunk.Length - 1)
+            _replaying = false;
 
         // A byte-order mark, if the file has one, would otherwise ride along on the first line and
         // stop it matching any known shape.

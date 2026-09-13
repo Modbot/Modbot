@@ -390,7 +390,7 @@ public sealed class MainWindow : Window
             open.IsEnabled = false;
             try
             {
-                await _actions.OpenPairingPageAsync();
+                await CrashGuard.RunAsync("opening the pairing page", _actions.OpenPairingPageAsync);
             }
             finally
             {
@@ -404,9 +404,12 @@ public sealed class MainWindow : Window
             use.IsEnabled = false;
             try
             {
-                var result = await _actions.PairAsync(_pasteBox.Text ?? "");
-                if (result.Succeeded)
-                    _pasteBox.Text = "";
+                await CrashGuard.RunAsync("pairing with a token", async () =>
+                {
+                    var result = await _actions.PairAsync(_pasteBox.Text ?? "");
+                    if (result.Succeeded)
+                        _pasteBox.Text = "";
+                });
             }
             finally
             {

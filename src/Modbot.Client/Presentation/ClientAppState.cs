@@ -133,6 +133,12 @@ public sealed class ClientAppState
 
     public LogHealth LogHealth { get; set; } = LogHealth.Empty;
 
+    /// <summary>
+    /// Why the last attempt to read VRChat's log failed, in one line, or null while reading works.
+    /// The full story is in the client's own log file; this is the pointer to it.
+    /// </summary>
+    public string? ReadingFault { get; set; }
+
     public ClientAppSnapshot Snapshot()
     {
         var logStatus = LogHealth.Evaluate(_clock.UtcNow, LogSilenceThreshold);
@@ -152,6 +158,14 @@ public sealed class ClientAppState
 
     private IEnumerable<ClientWarning> Warnings(LogHealthStatus logStatus)
     {
+        if (ReadingFault is { } fault)
+        {
+            yield return new ClientWarning(
+                WarningSeverity.Critical,
+                $"Reading VRChat's log failed: {fault}. Nothing is being recorded until this is fixed. "
+                + "The details are in the client's log file under %APPDATA%\\Modbot\\logs.");
+        }
+
         if (logStatus is LogHealthStatus.NotUnderstood)
         {
             // Critical, because it is the silent-failure case: nothing errors, presence simply

@@ -56,6 +56,39 @@ public sealed class VRChatLogTailTests : IDisposable
     }
 
     [Fact]
+    public void ABigLogIsReadInSlicesAndEverySliceOfItIsReplay()
+    {
+        // The first pass over a large existing log must not read it all at once, and every slice
+        // of that history is still history: only what arrives after the reader reaches the end
+        // is live. Twenty-five lines of ten bytes against a 64-byte slice is four passes.
+        var lines = Enumerable.Range(0, 25).Select(i => $"line-{i:D4}").ToList();
+        Write("output_log_2026-09-13_10-00-00.txt", string.Join("\n", lines) + "\n");
+
+        var tail = new VRChatLogTail(_directory, maxBytesPerPass: 64);
+        var seen = new List<TailedLine>();
+        var passes = 0;
+
+        while (true)
+        {
+            var batch = tail.ReadPending();
+            if (batch.Count == 0)
+                break;
+
+            passes++;
+            seen.AddRange(batch);
+        }
+
+        Assert.True(passes >= 3, $"expected several passes, got {passes}");
+        Assert.Equal(lines, seen.Select(l => l.Text));
+        Assert.All(seen, l => Assert.True(l.IsReplay, $"{l.Text} should be replay"));
+
+        Append("output_log_2026-09-13_10-00-00.txt", "line-live\n");
+        var live = Assert.Single(tail.ReadPending());
+        Assert.Equal("line-live", live.Text);
+        Assert.False(live.IsReplay);
+    }
+
+    [Fact]
     public void LinesAppendedAfterwardsAreLive()
     {
         Write("output_log_2026-09-03_20-26-45.txt", "one\n");
