@@ -131,6 +131,13 @@ try
             Dump("GetUser", await vrchat.Users.GetUserWithHttpInfoAsync(arg1!));
             break;
 
+        case "offset-probe":
+            // Measures the largest offset each paginated group endpoint accepts. Slow on purpose
+            // (3.5 s between requests) and aborts on the first 429.
+            Require(groupId, "VRCHAT_GROUP_ID");
+            await Modbot.Explore.OffsetProbe.RunAsync(vrchat, groupId!);
+            break;
+
         case "search":
             // Heavy rate limits -- 1 req / 3.5 s. Never used on automatic syncs.
             Require(arg1, "<query>");

@@ -1,13 +1,20 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Nullable>enable</Nullable>
     <RootNamespace>Modbot.Explore</RootNamespace>
+
+    <!-- A scratch tool, deliberately outside the repo's central package management so it can pin
+         whatever it needs without touching Directory.Packages.props. Both switches are needed:
+         the first turns CPM off, the second stops Directory.Packages.props being imported at all,
+         which would otherwise turn it back on after this file has been read. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <ImportDirectoryPackagesProps>false</ImportDirectoryPackagesProps>
   </PropertyGroup>
+
   <ItemGroup>
     <None Update=".env" CopyToOutputDirectory="PreserveNewest" Condition="Exists('.env')" />
   </ItemGroup>
