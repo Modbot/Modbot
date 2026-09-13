@@ -148,8 +148,9 @@ function HorizonTable({ horizons }: { horizons: DataSettings['storage']['horizon
       <Button
         type="button"
         variant="ghost"
-        size="xs"
-        className="-ml-2 text-muted-foreground"
+        size="sm"
+        className="-ml-3 text-muted-foreground"
+        style={{ fontSize: 'var(--text-small)' }}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >

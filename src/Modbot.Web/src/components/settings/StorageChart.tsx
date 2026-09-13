@@ -196,7 +196,9 @@ export function StorageChart({
       <ComposedChart
         responsive
         data={points}
-        margin={{ top: 18, right: 16, bottom: 0, left: 0 }}
+        // Right margin fits half of "2 years" at VR type size, where the last tick label is
+        // centred on the plot edge and would otherwise be cut off.
+        margin={{ top: 18, right: 28, bottom: 0, left: 0 }}
         style={{ width: '100%', height: HEIGHT }}
         role="img"
         aria-label={`Estimated database size over the next ${monthsLabel(maxMonths).toLowerCase()}`}
