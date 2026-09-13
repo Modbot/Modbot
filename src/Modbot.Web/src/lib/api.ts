@@ -330,15 +330,6 @@ export type UnmappedEvent = {
   sampleDescription: string | null
 }
 
-export type VocabularyReport = {
-  checkedAt: string
-  declared: string[]
-  unmapped: string[]
-  missingPrimary: string[]
-  unusedAliases: string[]
-  hasProblem: boolean
-}
-
 export type SyncHealth = {
   gate: GateHealth
   buckets: BucketHealth[]
@@ -352,7 +343,6 @@ export type SyncHealth = {
   auditLogSyncedThrough: string | null
   groupConfigured: boolean
   unmappedAuditEvents: UnmappedEvent[]
-  vocabulary: VocabularyReport | null
   now: string
 }
 

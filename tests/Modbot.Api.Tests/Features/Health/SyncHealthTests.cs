@@ -145,27 +145,6 @@ public class SyncHealthEndpointTests
     }
 
     [Fact]
-    public async Task AMisspeltMapping_IsReportedAsMissingPrimary()
-    {
-        var ct = TestContext.Current.CancellationToken;
-        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
-        await host.ResetAsync(ct);
-
-        host.Diagnostics.RecordVocabulary(new AuditLogVocabularyReport(
-            host.Clock.UtcNow,
-            Declared: ["group.member.user.ban"],
-            Unmapped: [],
-            MissingPrimary: ["group.member.user.kick"],
-            UnusedAliases: []));
-
-        var cookie = await host.SignedInAsync(ModbotPermissions.ViewOperationalLog, ct);
-        var health = await host.GetJsonAsync<SyncHealth>("/api/health/sync", cookie, ct);
-
-        Assert.True(health.Vocabulary!.HasProblem);
-        Assert.Equal(["group.member.user.kick"], health.Vocabulary.MissingPrimary);
-    }
-
-    [Fact]
     public async Task UnmappedEvents_AreReportedWithASampleToLookUp()
     {
         var ct = TestContext.Current.CancellationToken;

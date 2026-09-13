@@ -18,7 +18,7 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     [Fact]
     public async Task AnAuditEntryBecomesAFactWithBothTheSubjectAndTheActor()
     {
-        VRChat.Groups.Add(Entry("gaud_1", Now.AddMinutes(-5), GroupAuditLogEvents.MemberBan));
+        VRChat.Groups.Add(Entry("gaud_1", Now.AddMinutes(-5), GroupAuditLogEvents.UserBan));
 
         var run = await RunAuditLogAsync();
 
@@ -50,7 +50,7 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     {
         VRChat.Groups.Add(
             Entry("gaud_1", Now.AddMinutes(-5)),
-            Entry("gaud_2", Now.AddMinutes(-4), GroupAuditLogEvents.MemberUnban));
+            Entry("gaud_2", Now.AddMinutes(-4), GroupAuditLogEvents.UserUnban));
 
         await RunAuditLogAsync();
         var second = await RunAuditLogAsync();
@@ -182,7 +182,7 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
         VRChat.Groups.Add(
             Entry("gaud_1", Now.AddMinutes(-3), "group.post.create"),
             Entry("gaud_2", Now.AddMinutes(-2), "group.post.create"),
-            Entry("gaud_3", Now.AddMinutes(-1), GroupAuditLogEvents.MemberBan));
+            Entry("gaud_3", Now.AddMinutes(-1), GroupAuditLogEvents.UserBan));
 
         var run = await RunAuditLogAsync();
 

@@ -4,15 +4,13 @@ import { statusOf, TONE } from '@/lib/gate'
 import { ago, duration, formatDay } from '@/lib/format'
 import { api, ApiError, type SyncHealth } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { AlertTriangle } from 'lucide-react'
 
 /**
  * What the gate and the producers would tell an operator about themselves (spec 4.2.3, 4.3.3).
  *
- * The screen is ordered by how much somebody has to care, not by subsystem. A mapping defect —
- * an audit-log event type Modbot is waiting for that VRChat does not send — comes first, because
- * it is the one failure here that is otherwise completely silent: facts of that type are being
- * lost right now, the fact log looks healthy, and nothing else in Modbot will ever mention it.
+ * The screen is ordered by how much somebody has to care, not by subsystem: whether VRChat is
+ * reachable, then whether the producers are running, then the budgets, then the event types
+ * Modbot has seen and not understood.
  */
 
 export function Health() {
@@ -73,10 +71,6 @@ export function Health() {
 
   return (
     <div className="flex flex-col gap-4">
-      {health.vocabulary?.hasProblem && (
-        <Defect vocabulary={health.vocabulary} />
-      )}
-
       <Card>
         <CardContent className="py-4">
           <div className="flex items-start gap-3">
@@ -220,50 +214,18 @@ export function Health() {
 
       <Card>
         <CardContent className="py-4">
-          <div className="mb-1 font-medium">Audit-log vocabulary</div>
-          {health.vocabulary ? (
-            <>
-              <p className="mb-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                Checked against VRChat’s own declared list{' '}
-                {ago(health.vocabulary.checkedAt, health.now)}. VRChat declares{' '}
-                {health.vocabulary.declared.length} event types for this group.
-              </p>
-              {health.vocabulary.unmapped.length > 0 ? (
-                <>
-                  <div style={{ fontSize: 'var(--text-small)' }}>
-                    {health.vocabulary.unmapped.length} declared type
-                    {health.vocabulary.unmapped.length === 1 ? '' : 's'} Modbot does not record.
-                    These are things happening in the group that are not becoming facts — a known
-                    gap rather than a fault.
-                  </div>
-                  <ul className="mt-1 flex flex-wrap gap-1.5 font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                    {health.vocabulary.unmapped.map((t) => (
-                      <li key={t} className="rounded border px-1.5" style={{ borderWidth: 'var(--hairline)' }}>
-                        {t}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                !health.vocabulary.hasProblem && (
-                  <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                    Every type VRChat declares is mapped, and every mapping Modbot depends on is
-                    declared.
-                  </p>
-                )
-              )}
-            </>
-          ) : (
+          <div className="mb-1 font-medium">Audit-log event types Modbot does not understand</div>
+          {health.unmappedAuditEvents.length === 0 ? (
             <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              Not checked yet. The check runs shortly after start-up and about daily thereafter;
-              until it has, Modbot’s mapping table is unverified against this group.
+              None seen since this process started. Every audit-log entry VRChat has sent had an
+              event type Modbot has a name for.
             </p>
-          )}
-
-          {health.unmappedAuditEvents.length > 0 && (
-            <div className="mt-4">
+          ) : (
+            <div>
               <div style={{ fontSize: 'var(--text-small)' }}>
-                Event types actually seen and not understood, since this process started:
+                Seen since this process started. Each is still recorded — as an unrecognised event
+                with VRChat’s own wording kept — so nothing is lost; each is also a mapping worth
+                adding.
               </div>
               <table className="mt-1 w-full" style={{ fontSize: 'var(--text-small)' }}>
                 <tbody>
@@ -279,53 +241,13 @@ export function Health() {
                 </tbody>
               </table>
               <p className="mt-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                Each of these is a bug report worth filing: either VRChat has an event type this
-                project has not catalogued, or the name in Modbot’s mapping table is wrong.
+                Each of these is a bug report worth filing: VRChat has an event type this project
+                has not catalogued yet.
               </p>
             </div>
           )}
         </CardContent>
       </Card>
-    </div>
-  )
-}
-
-/**
- * The loudest thing on the screen, and the only one that is otherwise silent.
- *
- * A spelling Modbot treats as real that VRChat does not declare means Modbot is waiting for a
- * string that will never arrive. No event is reported unmapped, no error is logged, the fact log
- * looks healthy — and every event of that type is being dropped. It is a defect with an owner and
- * a fix, so it is presented as one rather than as a statistic.
- */
-function Defect({ vocabulary }: { vocabulary: NonNullable<SyncHealth['vocabulary']> }) {
-  return (
-    <div
-      className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3"
-      style={{ borderWidth: 'var(--hairline)' }}
-    >
-      <div className="flex items-center gap-2 font-medium text-destructive">
-        <AlertTriangle className="size-4 shrink-0" />
-        Facts are being lost right now
-      </div>
-      <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        Modbot is watching for {vocabulary.missingPrimary.length} audit-log event type
-        {vocabulary.missingPrimary.length === 1 ? '' : 's'} that VRChat does not declare for this
-        group. Whatever those map to is not being recorded, and nothing else will tell you: no
-        event is reported as unmapped, because the name Modbot is waiting for is one VRChat never
-        sends.
-      </p>
-      <ul className="mt-2 flex flex-wrap gap-1.5 font-mono" style={{ fontSize: 'var(--text-small)' }}>
-        {vocabulary.missingPrimary.map((t) => (
-          <li key={t} className="rounded border border-destructive/40 px-1.5" style={{ borderWidth: 'var(--hairline)' }}>
-            {t}
-          </li>
-        ))}
-      </ul>
-      <p className="mt-2 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        This is a defect in Modbot, not in your deployment. Report it with the list above and the
-        types VRChat does declare; the fix is one table of constants.
-      </p>
     </div>
   )
 }

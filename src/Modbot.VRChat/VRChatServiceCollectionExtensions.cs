@@ -123,13 +123,6 @@ public static class VRChatServiceCollectionExtensions
         // every poll.
         services.AddSingleton<SyncDiagnostics>();
 
-        // Checks the mapping table against VRChat's own declared event types. Scoped so it shares
-        // the sync's scope and runs after it, on its own endpoint class -- a 429 while verifying
-        // must never cold-stop the history it was verifying (spec 4.3.4.1).
-        services.AddScoped<AuditLogVocabulary>(provider => new AuditLogVocabulary(
-            provider.GetRequiredService<IVRChatGate>(),
-            provider.GetRequiredService<Core.Time.IModbotClock>()));
-
         // Scoped, because they hold a ModbotContext for the run and hand it back afterwards.
         //
         // The poll rate comes from the live snapshot rather than the startup value, and from the

@@ -153,7 +153,7 @@ public abstract class SyncTestBase : IAsyncLifetime
     protected static GroupAuditLogEntry Entry(
         string id,
         DateTimeOffset at,
-        string eventType = GroupAuditLogEvents.MemberBan,
+        string eventType = GroupAuditLogEvents.UserBan,
         string target = "usr_target",
         string actor = "usr_moderator") => new()
         {

@@ -105,22 +105,6 @@ public sealed record UnmappedEvent(
     string? SampleEntryId,
     string? SampleDescription);
 
-/// <param name="MissingPrimary">
-/// <strong>The finding that matters.</strong> Spellings Modbot treats as real that VRChat does not
-/// declare. Non-empty means facts of those types are being lost right now, silently: the fact log
-/// looks healthy because Modbot is waiting for a string VRChat never sends.
-/// </param>
-/// <param name="Unmapped">Declared by VRChat, not recorded by Modbot. A known gap, not a fault.</param>
-/// <param name="UnusedAliases">Speculative spellings VRChat does not use. Expected; listed so the
-/// other two lists are not read as containing them.</param>
-public sealed record VocabularyReport(
-    DateTimeOffset CheckedAt,
-    IReadOnlyList<string> Declared,
-    IReadOnlyList<string> Unmapped,
-    IReadOnlyList<string> MissingPrimary,
-    IReadOnlyList<string> UnusedAliases,
-    bool HasProblem);
-
 /// <param name="SyncRunningInThisProcess">
 /// False when no producer is registered in this host — a diagnostic host, or a deployment where
 /// sync was deliberately left out. Everything else in the response is then empty because nothing
@@ -147,5 +131,4 @@ public sealed record SyncHealth(
     DateTimeOffset? AuditLogSyncedThrough,
     bool GroupConfigured,
     IReadOnlyList<UnmappedEvent> UnmappedAuditEvents,
-    VocabularyReport? Vocabulary,
     DateTimeOffset Now);

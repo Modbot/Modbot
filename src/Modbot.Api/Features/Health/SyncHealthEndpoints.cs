@@ -26,8 +26,8 @@ namespace Modbot.Api.Features.Health;
 /// available to any signed-in account: a moderator whose action did nothing needs to be able to
 /// tell "Modbot is cold-stopped" from "Modbot is broken", and withholding that produces a support
 /// question instead of an informed wait. The detail — per-bucket budgets, poll rate reasoning, the
-/// vocabulary check — is Modbot's operational record and takes <c>ViewOperationalLog</c>, which is
-/// the same line spec 5.9.4 draws for the logs themselves.
+/// audit-log event types Modbot could not map — is Modbot's operational record and takes
+/// <c>ViewOperationalLog</c>, which is the same line spec 5.9.4 draws for the logs themselves.
 /// </para>
 /// </remarks>
 public static class SyncHealthEndpoints
@@ -87,17 +87,15 @@ public static class SyncHealthEndpoints
                             e.EventType, e.Count, e.FirstSeen, e.LastSeen,
                             e.SampleEntryId, e.SampleDescription))
                         .ToList() ?? [],
-                    Vocabulary(diagnostics?.Vocabulary),
                     clock.UtcNow));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
-            .WithSummary("Producer poll rate, last runs, bucket budgets, and the vocabulary check")
+            .WithSummary("Producer poll rate, last runs, bucket budgets, and unmapped audit-log event types")
             .WithDescription(
-                "`vocabulary.missingPrimary` is the loudest thing here. It lists audit-log event "
-                + "types Modbot treats as real that VRChat does not declare, which means facts of "
-                + "those types are being lost right now and nothing else shows it — the fact log "
-                + "looks healthy because Modbot is waiting for a string VRChat never sends.\n\n"
+                "`unmappedAuditEvents` lists audit-log event types VRChat has sent that Modbot has "
+                + "no name for yet. Each is still recorded, as `modbot.unrecognised` with VRChat's "
+                + "own wording kept, so nothing is lost — but each is also a mapping worth adding.\n\n"
                 + "The poll rate carries the producer's own reason for the interval it chose. "
                 + "Without it a deliberately slow poll and a stuck one are indistinguishable "
                 + "(spec 4.2.3).\n\n"
@@ -126,15 +124,4 @@ public static class SyncHealthEndpoints
                 report.At,
                 report.Duration.TotalSeconds,
                 report.Summary);
-
-    private static VocabularyReport? Vocabulary(AuditLogVocabularyReport? report)
-        => report is null
-            ? null
-            : new VocabularyReport(
-                report.CheckedAt,
-                report.Declared,
-                report.Unmapped,
-                report.MissingPrimary,
-                report.UnusedAliases,
-                report.HasProblem);
 }

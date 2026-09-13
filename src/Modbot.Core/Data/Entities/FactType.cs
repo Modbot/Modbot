@@ -20,9 +20,9 @@ namespace Modbot.Core.Data.Entities;
 /// Around that sat the ordinary friction: <c>GroupInfoChanged</c> and
 /// <c>InstancePresenceObserved</c> both had to be appended by hand before a producer could record
 /// anything, one of them shipping for a while as a <c>(FactType)203</c> cast; evidence access had no
-/// member at all and so was not recorded; and the whole vocabulary-check machinery in §4.3.4.2
-/// exists to detect a mapping whose spelling is wrong. Strings remove the translation step that
-/// created all of it.
+/// member at all and so was not recorded; and a whole vocabulary-check machinery (§4.3.4.2, since
+/// withdrawn) existed to detect a mapping whose spelling is wrong. Strings remove the translation
+/// step that created all of it.
 /// </para>
 /// <para>
 /// <strong>Storage was never the real argument.</strong> Measured: a fact costs 326 bytes including
