@@ -1370,8 +1370,10 @@ instances (`instance.create`, `instance.close`, `instance.update`, `instance.ann
 `calendar-event.series.update`, `calendar-event.series.delete`) and `group.update`. The last is also
 written by the group-info producer from its own polling; the two are told apart by `source`, and an
 audit entry's `data` carries VRChat's `auditEntryId`, which is the key the producer deduplicates on.
-The full entry is stored in `data` for every type; `roleId`/`roleName` and the `{old, new}` diff map
-under `changed` are additionally lifted where live data or VRChat's own example shows the shape.
+The full entry is stored in `data` for every type; the scalars live data shows to be stable are
+additionally lifted by type, every top-level `{old, new}` pair is lifted under `changed` for any type,
+and instance events fill `world_id`/`instance_id` from the location string by its delimiters
+(`.agent/research/vrchat-audit-log-findings.md` §6).
 
 **`subject_platform` exists because Discord is a second fact source** (§9.1), not only a second
 surface. A Discord snowflake and a VRChat `usr_…` must not collide in one text column, and once

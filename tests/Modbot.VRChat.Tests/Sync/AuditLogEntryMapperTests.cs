@@ -358,6 +358,95 @@ public class AuditLogEntryMapperTests
         "targetId", "createdAt", "description", "auditData",
     ];
 
+    // ── The diff lift is a shape, not a type list ──────────────────────────────────────────
+
+    /// <summary>
+    /// <c>group.instance.update</c> arrived with <c>calendarEntryId: {old, new}</c> and was not
+    /// on the list of types the lift applied to. The lift is now by shape, so it is.
+    /// </summary>
+    [Fact]
+    public void AnInstanceUpdateLiftsItsDiffUnderChanged()
+    {
+        var data = AuditLogEntryMapper.Map(ShapeSample("gaud_1c9f4e2b-7d3a-4b68-a0e5-6b2d8f7c1a39")).Fact!.Data!;
+
+        var changed = Assert.IsType<JsonObject>(data["changed"]);
+        Assert.Null(changed["calendarEntryId"]!["old"]);
+        Assert.Equal("cal_6f2d9b3e-8a1c-4d57-b9e0-3c7f5a2d1e84", changed["calendarEntryId"]!["new"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// The live shape of a role update is <c>{lastUpdatedByUserId, permissions: {old, new}}</c>.
+    /// The pair is a diff; the scalar beside it is not, and it does not become one for sitting
+    /// next to one.
+    /// </summary>
+    [Fact]
+    public void ARoleUpdateLiftsTheDiffAndLeavesTheScalarBesideIt()
+    {
+        var data = AuditLogEntryMapper.Map(ShapeSample("gaud_d2b7e4a9-3f1c-4e86-a7b0-5c9d8e2f6a13")).Fact!.Data!;
+
+        var changed = Assert.IsType<JsonObject>(data["changed"]);
+        Assert.Equal(["permissions"], changed.Select(p => p.Key));
+        Assert.Equal(2, changed["permissions"]!["new"]!.AsArray().Count);
+
+        // Still in the verbatim copy, where it was.
+        Assert.Equal(
+            "usr_2a323be9-ac4e-4502-af07-357d79c48ccf",
+            data["auditData"]!["lastUpdatedByUserId"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// By shape means for any type -- including one Modbot has never heard of. A type list is
+    /// what left <c>instance.update</c> uncovered; a shape cannot be forgotten.
+    /// </summary>
+    [Theory]
+    [InlineData("group.instance.close")]
+    [InlineData("group.calendarEvent.series.update")]
+    [InlineData("group.something.new")]
+    public void AnyEventTypeLiftsATopLevelOldNewPair(string eventType)
+    {
+        var entry = Entry(eventType);
+        entry.Data = """{"name":{"old":"a","new":"b"},"note":"scalar"}""";
+
+        var data = AuditLogEntryMapper.Map(entry).Fact!.Data!;
+
+        var changed = Assert.IsType<JsonObject>(data["changed"]);
+        Assert.Equal("b", changed["name"]!["new"]!.GetValue<string>());
+        Assert.False(changed.ContainsKey("note"));
+    }
+
+    /// <summary>
+    /// "The fields of this entry that changed" is a statement about the top level. A pair buried
+    /// inside some other object is that object's business, and lifting it would put a key under
+    /// <c>changed</c> that is not a field of the entry.
+    /// </summary>
+    [Fact]
+    public void AnOldNewPairNestedDeeperThanTheTopLevelIsNotLifted()
+    {
+        var entry = Entry("group.update");
+        entry.Data = """{"settings":{"inner":{"old":1,"new":2}},"list":[{"old":1,"new":2}]}""";
+
+        var data = AuditLogEntryMapper.Map(entry).Fact!.Data!;
+
+        Assert.False(data.ContainsKey("changed"));
+        Assert.Equal(1, data["auditData"]!["settings"]!["inner"]!["old"]!.GetValue<int>());
+    }
+
+    /// <summary>
+    /// Exactly <c>old</c> and <c>new</c>. An object that happens to have those two keys among
+    /// others is a different shape, and reading it as a diff would drop whatever else it carried.
+    /// </summary>
+    [Fact]
+    public void AnObjectWithOldAndNewAmongOtherKeysIsNotADiff()
+    {
+        var entry = Entry("group.update");
+        entry.Data = """{"a":{"old":1,"new":2,"reason":"x"},"b":{"old":1},"c":{"old":1,"new":2}}""";
+
+        var data = AuditLogEntryMapper.Map(entry).Fact!.Data!;
+
+        var changed = Assert.IsType<JsonObject>(data["changed"]);
+        Assert.Equal(["c"], changed.Select(p => p.Key));
+    }
+
     // ── Scalars observed stable, lifted beside the copy ────────────────────────────────────
 
     [Theory]

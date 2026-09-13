@@ -233,21 +233,27 @@ public static class AuditLogEntryMapper
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A role event's <c>data</c> is <c>{roleId, roleName}</c>: seen in a real group's log. A
-    /// group update's is <c>{field: {old, new}}</c>, one entry per field changed: VRChat's OpenAPI
-    /// example. Those are lifted -- <c>roleId</c> and <c>roleName</c> to the top of the payload,
-    /// the diff map under <c>changed</c>, which is the key the group-info producer already uses
-    /// for its own diffs so a reader of the timeline meets one shape.
+    /// Two kinds of lift, and they are decided differently.
     /// </para>
     /// <para>
-    /// The re-walk of 1,241 live entries (audit-log research section 6) showed a stable key set
-    /// for every type, and the small scalars that were present in every row of theirs are lifted
-    /// too: <c>groupAccessType</c> on an instance create or close; <c>title</c>/<c>message</c> on
-    /// an announcement; <c>title</c>/<c>text</c>/<c>authorId</c>/<c>visibility</c> on a post;
-    /// <c>title</c>/<c>type</c>/<c>accessType</c> on a calendar event. Nothing is lifted for a
-    /// type whose payload has not been observed, because a field lifted under a guessed name is
-    /// one two producers and a query then depend on; the verbatim copy loses nothing in the
-    /// meantime.
+    /// <strong>The <c>{old, new}</c> diff is a shape, not a type.</strong> Any top-level value of
+    /// <c>auditData</c> that is an object with exactly those two keys goes under <c>changed</c>,
+    /// whatever the event type -- the key the group-info producer already uses for its own diffs,
+    /// so a reader of the timeline meets one shape. It used to be lifted for <c>group.update</c>
+    /// and <c>group.role.update</c> by name, and then <c>group.instance.update</c> arrived with
+    /// <c>calendarEntryId: {old, new}</c> and was not covered. A scalar beside the pairs -- the
+    /// <c>lastUpdatedByUserId</c> next to a role update's <c>permissions</c> -- is not a diff and
+    /// stays out.
+    /// </para>
+    /// <para>
+    /// <strong>Scalars are lifted by type, and only where a real sample showed them.</strong>
+    /// <c>roleId</c>/<c>roleName</c> on role events; <c>groupAccessType</c> on an instance create
+    /// or close; <c>title</c>/<c>message</c> on an announcement; <c>title</c>/<c>text</c>/
+    /// <c>authorId</c>/<c>visibility</c> on a post; <c>title</c>/<c>type</c>/<c>accessType</c> on
+    /// a calendar event. Each of those was present in every row of its type across the live
+    /// re-walk (audit-log research section 6). Nothing is lifted for a type whose payload has not
+    /// been observed, because a field lifted under a guessed name is one two producers and a
+    /// query then depend on; the verbatim copy loses nothing in the meantime.
     /// </para>
     /// <para>
     /// Lifting adds a copy; it never moves anything out of <c>auditData</c>. There is no ban
@@ -260,22 +266,15 @@ public static class AuditLogEntryMapper
         if (data is not JsonObject fields)
             return;
 
+        CopyChanges(fields, payload);
+
         switch (type)
         {
             case FactType.RoleGranted:
             case FactType.RoleRevoked:
-                CopyString(fields, payload, "roleId");
-                CopyString(fields, payload, "roleName");
-                break;
-
             case FactType.RoleUpdated:
                 CopyString(fields, payload, "roleId");
                 CopyString(fields, payload, "roleName");
-                CopyChanges(fields, payload);
-                break;
-
-            case FactType.GroupInfoChanged:
-                CopyChanges(fields, payload);
                 break;
 
             case FactType.GroupInstanceCreated:
@@ -310,8 +309,9 @@ public static class AuditLogEntryMapper
     }
 
     /// <summary>
-    /// Every <c>{old, new}</c> pair in the data, under <c>changed</c>. Nothing else qualifies,
-    /// so a role id sitting beside the pairs stays out of it.
+    /// Every top-level <c>{old, new}</c> pair in the data, under <c>changed</c>. Nothing else
+    /// qualifies: a scalar beside the pairs stays out, and so does a pair nested any deeper,
+    /// because "the fields of this entry that changed" is a statement about the top level.
     /// </summary>
     private static void CopyChanges(JsonObject from, JsonObject to)
     {
@@ -319,13 +319,19 @@ public static class AuditLogEntryMapper
 
         foreach (var (key, value) in from)
         {
-            if (value is JsonObject pair && pair.ContainsKey("old") && pair.ContainsKey("new"))
-                changed[key] = pair.DeepClone();
+            if (IsOldNewPair(value))
+                changed[key] = value!.DeepClone();
         }
 
         if (changed.Count > 0)
             to["changed"] = changed;
     }
+
+    private static bool IsOldNewPair(JsonNode? value)
+        => value is JsonObject pair
+           && pair.Count == 2
+           && pair.ContainsKey("old")
+           && pair.ContainsKey("new");
 
     /// <summary>
     /// Carries VRChat's per-event payload through verbatim.
