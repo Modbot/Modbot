@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Analytics.Retention;
 using Modbot.Analytics.DailyTotals;
+using Modbot.Analytics.Reviews;
 using Modbot.Analytics.Storage;
 
 namespace Modbot.Analytics;
@@ -28,6 +29,12 @@ public static class AnalyticsServiceCollectionExtensions
         services.AddScoped<DailyTotalsJob>();
         services.AddScoped<IDailyTotalCounter, DailyTotalCounter>();
         services.AddHostedService<DailyTotalsService>();
+
+        // Repeat offenders and moderator pattern reviews (spec 5.8). No hosted service of their
+        // own: DailyTotalsService runs the review job after each daily totals run, because the
+        // baselines are summed from the daily totals and must not be a run behind them.
+        services.AddScoped<ReviewFacts>();
+        services.AddScoped<ReviewJob>();
 
         services.AddScoped<RetentionPruner>();
         services.AddScoped<IUserPurger, UserPurger>();
