@@ -1799,8 +1799,65 @@ eligibility as one running instances.
 React + TypeScript + Vite, built into `Modbot.Host/wwwroot` and served by Kestrel. One container,
 no separate frontend deployment.
 
-Screens in this spec: setup wizard, login, members, bans, invites, audit log viewer, user dossier,
-metrics dashboard, settings.
+Screens in this spec: setup wizard, login, members, bans, invites, audit log viewer, the analytics
+sections below, settings — and the **subject pane** (§10.2), which is not a screen.
+
+### 10.1 Analytics is five sections, not one dashboard
+
+A single "metrics" page collapses five unrelated questions into one scroll. They are separated
+because they are asked by different people at different times:
+
+| Section | Answers | Built from |
+|---|---|---|
+| **My Group** | *Is the community growing or shrinking, and what changed?* Member count over time, join and leave rates, net growth, role distribution, tenure spread, invite acceptance. | Member/ban/invite facts (M1), rollups |
+| **My Team** | *Who is doing the moderation work, and when is nobody covering?* Actions per moderator, breakdown by classification, activity over time, and the §5.8 accountability signals. | Audit log + Modbot-side facts (M2) |
+| **Worlds** | *Which of our worlds actually get used?* Time spent per world, unique visitors, popularity over time. | Presence facts (M3) |
+| **Instances** | *When is the community actually active?* Instances opened and closed, concurrent count, peak population, duration, a time-of-day heatmap. | Instance facts (M3, M6) |
+| **Tracked Groups** | *How are we doing compared to groups like ours?* — **later feature, §10.3** | Public group info, polled |
+
+**My Team has one metric worth calling out: coverage gaps.** Cross-referencing moderator presence
+against instance activity answers *"when was the community busy with no moderator present"*, which is
+a scheduling question no group can currently answer and which falls straight out of data Modbot
+already holds. It is also the one analytics figure that suggests an action rather than describing a
+state.
+
+### 10.2 The subject pane — a component, not a page
+
+**Clicking a person anywhere opens a pane over the current view.** From the audit log, the member
+list, the ban list, an instance roster, a search result — the same pane, the same contents.
+
+It carries: identity and profile, membership and roles, **full moderation history** with
+classifications and who issued them, that person's own presence analytics, their Discord link, and —
+from M4 — actions on them.
+
+**This replaces the standalone "dossier" page** the milestone table previously listed.
+
+The reason is that moderation is interruption-driven. A moderator scanning an audit log for one thing
+notices a name and wants to know about it *without losing the scan*. A separate page means navigating
+away, losing scroll position and filters, and navigating back — so in practice people don't check,
+and the information Modbot spent §5.8 collecting goes unread at the moment it would have mattered.
+
+Consequences that follow:
+
+- **The pane is deep-linkable** (`?subject=usr_…`), so it survives a refresh and can be pasted to
+  another moderator. A pane that cannot be linked is a pane nobody shares.
+- **Every list that renders a person is a launcher.** One component, one fetch shape, one place to
+  add anything new about a person.
+- **Repeat-offender context (§5.8.4) lives here**, which is what makes it visible at the moment of
+  action rather than only on a page someone has to think to visit.
+- It must open **fast**, because it is opened speculatively. Summary first, detail as it arrives.
+
+### 10.3 Tracked Groups — recorded, not built
+
+Track other **public** groups by id and chart their member counts alongside your own, so a group can
+tell "we lost 200 members" from "everyone lost members this week".
+
+Deferred, and noted now so the rollup shape accommodates it: it needs `groups.read` budget on a
+schedule (§4.2), and the tracked group's id as a **rollup dimension** rather than a new table.
+
+Only ever public, already-visible information — member counts and group metadata. No member lists,
+no moderation data, nothing that is not on the group's own public page. This is comparison, not
+surveillance of another community.
 
 Live updates via **Server-Sent Events** — one-directional, trivially proxied, no WebSocket
 infrastructure. Charts follow the project's data-visualisation conventions and must be legible in
@@ -1866,7 +1923,7 @@ else depends on it — Modbot must be fully useful whether or not it ever exists
 | **M0** | Foundation: repo, licensing, CI, `IVRChatGate`, `IModbotClock`, auth, onboarding, **fact log + rollups + retention** | this |
 | **M1** | Member/ban/invite sync, search UI, **facts emitted on diff** | this |
 | **M2** | Audit log ingestion, parsing, viewer — **authoritative facts, dedups M1's inferences** | this |
-| **M2.5** | User dossier with moderation history, metrics dashboard, repeat-offender + moderator pattern detection (§5.8) | this |
+| **M2.5** | Subject pane (§10.2), the My Group and My Team analytics sections (§10.1), repeat-offender + moderator pattern detection (§5.8) | this |
 | — | Basic Discord bot: audit log sync, lookup commands | this |
 | **M3** | **Windows client + SteamVR overlay; presence facts, ingest API, client auth** | future |
 | M4 | Moderation actions; one-tap classification, required ban reports, accountability tickets (§5.8) | future |
