@@ -1536,10 +1536,10 @@ So there are three cases per partition:
 | Situation | Action |
 |---|---|
 | Every class in it has expired | `DROP TABLE` |
-| Presence expired, moderation retained, expired rows actually present | **Evacuate** (below) |
+| Presence expired, moderation retained, expired rows actually present | **Move out** (below) |
 | Nothing expired yet | Leave alone |
 
-**Evacuating** is one transaction: detach the partition, attach an empty replacement, copy the
+**Moving out** is one transaction: detach the partition, attach an empty replacement, copy the
 surviving classes back, drop the old table. The volume still dies by `DROP TABLE`; what gets copied
 is the low-volume class the spec sizes at hundreds per day (§5.5), and it happens once per partition
 per boundary rather than continuously.

@@ -65,11 +65,11 @@ public sealed class RetentionService : BackgroundService
 
             // Logged at information because it is irreversible. When someone asks in six months
             // where a partition went, this line is the answer.
-            if (result.Dropped.Count > 0 || result.Evacuated.Count > 0)
+            if (result.Dropped.Count > 0 || result.MovedOut.Count > 0)
                 _log.LogInformation(
-                    "Retention dropped {Dropped} and rebuilt {Evacuated} without expired facts.",
+                    "Retention dropped {Dropped} and rebuilt {MovedOut} without expired facts.",
                     result.Dropped,
-                    result.Evacuated);
+                    result.MovedOut);
 
             return true;
         }

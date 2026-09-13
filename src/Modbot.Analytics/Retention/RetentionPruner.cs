@@ -45,7 +45,7 @@ namespace Modbot.Analytics.Retention;
 /// </item>
 /// <item>
 /// Some class is past retention and another is not, and the partition actually holds rows of the
-/// expired class -- <strong>evacuate</strong>: in one transaction, detach the partition, put an
+/// expired class -- <strong>move out</strong>: in one transaction, detach the partition, put an
 /// empty one in its place, copy the surviving classes across, and drop the old table. The expired
 /// rows -- the volume -- are destroyed by a <c>DROP TABLE</c>, exactly as the design requires;
 /// what is copied is the low-volume class the spec sizes at hundreds a day.
@@ -53,7 +53,7 @@ namespace Modbot.Analytics.Retention;
 /// <item>Otherwise, leave it alone.</item>
 /// </list>
 /// <para>
-/// The evacuation happens once per partition per class boundary: once the presence rows are gone,
+/// The move-out happens once per partition per class boundary: once the presence rows are gone,
 /// the partition holds nothing expired and step 3 skips it forever after. The alternative --
 /// sub-partitioning every month by retention class -- makes the steady state cleaner and was
 /// rejected for M0 because it means a partition key column the writer has to set, a rewrite of the
@@ -101,7 +101,7 @@ public sealed partial class RetentionPruner
             return new RetentionResult([], []);
 
         var dropped = new List<string>();
-        var evacuated = new List<string>();
+        var movedOut = new List<string>();
 
         foreach (var partition in await PartitionsAsync(ct))
         {
@@ -123,13 +123,13 @@ public sealed partial class RetentionPruner
             if (!await ContainsAnyAsync(partition, expiredTypes, ct))
                 continue;
 
-            await EvacuateAsync(partition, expired, ct);
-            evacuated.Add(partition.Name);
+            await MoveOutAsync(partition, expired, ct);
+            movedOut.Add(partition.Name);
         }
 
-        await RecordAsync(dropped, evacuated, ct);
+        await RecordAsync(dropped, movedOut, ct);
 
-        return new RetentionResult(dropped, evacuated);
+        return new RetentionResult(dropped, movedOut);
     }
 
     /// <summary>
@@ -219,7 +219,7 @@ public sealed partial class RetentionPruner
     /// rather than a month of moderation history in a table nobody is looking at. PostgreSQL runs
     /// DDL transactionally, which is what makes this safe to write as five statements.
     /// </remarks>
-    private async Task EvacuateAsync(
+    private async Task MoveOutAsync(
         Partition partition,
         IReadOnlyList<RetentionClass> expired,
         CancellationToken ct)
@@ -229,7 +229,7 @@ public sealed partial class RetentionPruner
             .SelectMany(FactRetention.TypesIn)
             .ToArray();
 
-        var evacuating = partition.Name + "_evacuating";
+        var movingOut = partition.Name + "_moving_out";
         var lower = Bound(partition.LowerBound);
         var upper = Bound(partition.UpperBound);
 
@@ -239,7 +239,7 @@ public sealed partial class RetentionPruner
         try
         {
             await ExecuteAsync($"ALTER TABLE modbot_event DETACH PARTITION {partition.Name}", ct);
-            await ExecuteAsync($"ALTER TABLE {partition.Name} RENAME TO {evacuating}", ct);
+            await ExecuteAsync($"ALTER TABLE {partition.Name} RENAME TO {movingOut}", ct);
 
             await ExecuteAsync(
                 $"""
@@ -250,12 +250,12 @@ public sealed partial class RetentionPruner
                 ct);
 
             await ExecuteAsync(
-                $"INSERT INTO modbot_event SELECT * FROM {evacuating} WHERE type = ANY(@types)",
+                $"INSERT INTO modbot_event SELECT * FROM {movingOut} WHERE type = ANY(@types)",
                 ct,
                 new NpgsqlParameter("types", keptTypes));
 
             // The expired rows die here, with the table, and not one at a time.
-            await ExecuteAsync($"DROP TABLE {evacuating}", ct);
+            await ExecuteAsync($"DROP TABLE {movingOut}", ct);
 
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
@@ -285,10 +285,10 @@ public sealed partial class RetentionPruner
     /// </remarks>
     private async Task RecordAsync(
         IReadOnlyList<string> dropped,
-        IReadOnlyList<string> evacuated,
+        IReadOnlyList<string> movedOut,
         CancellationToken ct)
     {
-        if (dropped.Count == 0 && evacuated.Count == 0)
+        if (dropped.Count == 0 && movedOut.Count == 0)
             return;
 
         await _partitions.EnsureForAsync(_clock.UtcNow, ct);
@@ -304,7 +304,8 @@ public sealed partial class RetentionPruner
                 Data = new System.Text.Json.Nodes.JsonObject
                 {
                     ["dropped"] = string.Join(",", dropped),
-                    ["evacuated"] = string.Join(",", evacuated),
+                    // Key kept as first written: this is fact data already in modbot_event.
+                    ["evacuated"] = string.Join(",", movedOut),
                 },
             },
             ct);
@@ -342,8 +343,8 @@ public sealed partial class RetentionPruner
 }
 
 /// <param name="Dropped">Partitions destroyed outright: everything in them was past retention.</param>
-/// <param name="Evacuated">
+/// <param name="MovedOut">
 /// Partitions rebuilt without their expired classes, because something in them was still in
 /// retention.
 /// </param>
-public sealed record RetentionResult(IReadOnlyList<string> Dropped, IReadOnlyList<string> Evacuated);
+public sealed record RetentionResult(IReadOnlyList<string> Dropped, IReadOnlyList<string> MovedOut);

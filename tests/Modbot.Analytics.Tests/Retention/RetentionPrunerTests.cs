@@ -41,7 +41,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         var result = await NewPruner(context).PruneAsync(Ct);
 
-        Assert.Contains(OldPartition, result.Evacuated);
+        Assert.Contains(OldPartition, result.MovedOut);
         Assert.Empty(result.Dropped);
 
         Assert.Equal(1, await CountAsync(FactType.MemberBanned));
@@ -91,7 +91,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
         var result = await NewPruner(context).PruneAsync(Ct);
 
         Assert.Empty(result.Dropped);
-        Assert.Empty(result.Evacuated);
+        Assert.Empty(result.MovedOut);
         Assert.Equal(1, await CountAsync(FactType.InstanceJoined));
         Assert.Equal(before, await PartitionIdAsync(partition));
     }
@@ -113,7 +113,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
         var result = await NewPruner(context).PruneAsync(Ct);
 
         Assert.Contains(OldPartition, result.Dropped);
-        Assert.Empty(result.Evacuated);
+        Assert.Empty(result.MovedOut);
         Assert.Null(await PartitionIdAsync(OldPartition));
         Assert.Equal(0, await CountAsync(FactType.MemberBanned));
     }
@@ -134,7 +134,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         var result = await NewPruner(context).PruneAsync(Ct);
 
-        Assert.Contains(OldPartition, result.Evacuated);
+        Assert.Contains(OldPartition, result.MovedOut);
         Assert.Equal(1, await CountAsync(FactType.MemberBanned));
         Assert.Equal(0, await CountAsync(FactType.InstanceJoined));
     }
@@ -164,7 +164,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
         var result = await NewPruner(context).PruneAsync(Ct);
 
         Assert.Empty(result.Dropped);
-        Assert.Empty(result.Evacuated);
+        Assert.Empty(result.MovedOut);
         Assert.Equal(1, await CountAsync(FactType.InstanceJoined));
         Assert.Equal(1, await CountAsync(FactType.InstanceLeft));
         Assert.Equal(before, await PartitionIdAsync(OldPartition));
@@ -183,7 +183,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
         var result = await NewPruner(context).PruneAsync(Ct);
 
         Assert.Empty(result.Dropped);
-        Assert.Empty(result.Evacuated);
+        Assert.Empty(result.MovedOut);
         Assert.Equal(1, await CountAsync(FactType.InstanceJoined));
     }
 
@@ -207,7 +207,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
         var second = await NewPruner(context).PruneAsync(Ct);
 
         Assert.Empty(second.Dropped);
-        Assert.Empty(second.Evacuated);
+        Assert.Empty(second.MovedOut);
         Assert.Equal(identity, await PartitionIdAsync(OldPartition));
     }
 
@@ -294,7 +294,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
         var result = await NewPruner(context).PruneAsync(Ct);
 
         Assert.Empty(result.Dropped);
-        Assert.Empty(result.Evacuated);
+        Assert.Empty(result.MovedOut);
         Assert.Equal(1, await CountAsync(FactType.InstanceJoined));
     }
 
