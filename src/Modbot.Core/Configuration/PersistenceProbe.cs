@@ -97,8 +97,17 @@ public static class PersistenceProbe
             Directory.CreateDirectory(directory);
             if (File.Exists(marker)) previous = File.ReadAllText(marker).Trim();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException
+                                      or UnauthorizedAccessException
+                                      or ArgumentException
+                                      or NotSupportedException)
         {
+            // ArgumentException and NotSupportedException are here because the path is not
+            // Modbot's to trust: an operator types it into a settings field, so an empty string,
+            // a bare drive colon or an invalid character all reach this method. Directory
+            // operations reject those before any I/O happens, and the original catch list -- only
+            // the I/O failures -- let them escape a method whose own documentation promises it
+            // never throws. Found when the evidence settings screen probed an unfilled field.
             return new PersistenceProbeResult(
                 PersistenceEvidence.Unwritable,
                 $"'{directory}' cannot be read or created ({ex.GetType().Name}), so nothing "
@@ -109,7 +118,10 @@ public static class PersistenceProbe
         {
             File.WriteAllText(marker, bootId);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException
+                                      or UnauthorizedAccessException
+                                      or ArgumentException
+                                      or NotSupportedException)
         {
             return new PersistenceProbeResult(
                 PersistenceEvidence.Unwritable,

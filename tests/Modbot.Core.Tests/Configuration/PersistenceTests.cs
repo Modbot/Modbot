@@ -179,6 +179,28 @@ public class PersistenceProbeTests : IDisposable
     }
 
     /// <summary>
+    /// A path a person typed is never trusted, including when they typed nothing.
+    /// </summary>
+    /// <remarks>
+    /// The original catch list covered only the I/O failures, so an empty string reached
+    /// <c>Directory.CreateDirectory</c> and came back as an <see cref="ArgumentException"/> —
+    /// escaping a method whose own documentation promises it never throws. Found when the evidence
+    /// settings screen probed a field the operator had not filled in yet, which is the first thing
+    /// that screen does.
+    /// </remarks>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(" invalid")]
+    public void APathAPersonTypedIsReportedRatherThanThrown(string directory)
+    {
+        var result = PersistenceProbe.Probe(directory, "boot-one");
+
+        Assert.Equal(PersistenceEvidence.Unwritable, result.Evidence);
+        Assert.True(result.IsUnwritable);
+    }
+
+    /// <summary>
     /// The probe runs before logging exists, on a path supplied by the environment. It reports a
     /// problem; it never throws one.
     /// </summary>

@@ -6,6 +6,7 @@ using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
 using Modbot.Api.Features.Auth.Me;
 using Modbot.Api.Features.Audit;
+using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Metrics;
 using Modbot.Api.Features.Settings;
@@ -98,6 +99,7 @@ public static class ApiSurface
         app.MapAuditLog();
         app.MapMetrics();
         app.MapSyncHealth();
+        app.MapEvidence();
 
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and
