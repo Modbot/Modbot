@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Modbot.Api.Features.Health;
 
 /// <summary>
@@ -19,6 +21,7 @@ namespace Modbot.Api.Features.Health;
 /// be reimplemented differently on the next screen.
 /// </para>
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<GatePosture>))]
 public enum GatePosture
 {
     /// <summary>Requests are going out. Nothing to do.</summary>

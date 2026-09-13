@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace Modbot.Api.Features.Audit;
 
@@ -11,6 +12,7 @@ namespace Modbot.Api.Features.Audit;
 /// point of <c>occurred_before</c> is that the difference must reach the person reading the
 /// timeline. A window rendered as an instant is an invented precision, and it is invisible.
 /// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<TimePrecision>))]
 public enum TimePrecision
 {
     /// <summary>VRChat said when it happened. <c>OccurredBefore</c> is null.</summary>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type GateHealth } from '@/lib/api'
-import { DOT, POSTURE, TONE } from '@/lib/gate'
+import { DOT, postureOf, TONE } from '@/lib/gate'
 import { cn } from '@/lib/utils'
 
 /**
@@ -54,7 +54,7 @@ export function GateIndicator({ onOpen }: { onOpen?: () => void }) {
     )
   }
 
-  const posture = POSTURE[gate.posture]
+  const posture = postureOf(gate.posture)
 
   return (
     <Shell onOpen={onOpen} title={gate.headline}>

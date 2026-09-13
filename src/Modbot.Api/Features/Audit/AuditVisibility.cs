@@ -1,8 +1,10 @@
 using Modbot.Core.Data.Entities;
+using System.Text.Json.Serialization;
 
 namespace Modbot.Api.Features.Audit;
 
 /// <summary>Which of the two logs a fact type belongs to (spec 5.9.2).</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<AuditCategory>))]
 public enum AuditCategory
 {
     /// <summary>Moderation history: who did what to whom. Gated on <c>ViewAuditLog</c>.</summary>

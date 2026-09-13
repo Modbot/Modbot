@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { POSTURE, TONE } from '@/lib/gate'
+import { postureOf, TONE } from '@/lib/gate'
 import { ago, duration, formatDay } from '@/lib/format'
 import { api, ApiError, type SyncHealth } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -68,7 +68,7 @@ export function Health() {
     )
   }
 
-  const posture = POSTURE[health.gate.posture]
+  const posture = postureOf(health.gate.posture)
   const Icon = posture.icon
 
   return (

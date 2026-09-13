@@ -36,6 +36,27 @@ export const TONE: Record<Tone, string> = {
   muted: 'text-muted-foreground',
 }
 
+/**
+ * The posture table, but safe against a value the server knows and this build does not.
+ *
+ * `Record<GatePosture, …>` is a compile-time claim about a *runtime* value that arrives over
+ * HTTP, and the two part company the moment a server is newer than the page holding a cached
+ * bundle. A miss used to return `undefined`, and the caller read `.tone` off it — which threw
+ * during render, and because this indicator sits in the app shell, it took down every screen in
+ * Modbot rather than one badge.
+ *
+ * So an unknown posture renders as unknown, which is both true and survivable.
+ */
+export function postureOf(posture: string | null | undefined) {
+  return (
+    POSTURE[posture as GatePosture] ?? {
+      label: posture ? `Unknown (${posture})` : 'Unknown',
+      tone: 'muted' as Tone,
+      icon: CircleSlash,
+    }
+  )
+}
+
 export const DOT: Record<Tone, string> = {
   ok: 'bg-ok',
   warn: 'bg-warn',
