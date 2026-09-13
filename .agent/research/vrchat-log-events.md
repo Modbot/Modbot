@@ -1,11 +1,17 @@
 # VRChat log — event catalogue
 
 - **Source:** `output_log_2026-09-03_20-26-45.txt` — 17,123 lines, VRChat on Steam (AppID 438100), server env `Release, bf0942f7`
-- **Analysed:** 2026-09-11
+- **Analysed:** 2026-09-11; **re-verified against the fixture 2026-09-12**
+- **Fixture:** `fixtures/behaviour-only-2026-09-03.log` (the 754 `[Behaviour]` lines)
 - **Companion:** `vrchat-log-format.md` (instance id grammar, routing)
 
 Everything below is **confirmed from a real log**, not inferred. Line shapes marked *unverified* were
 not present in this sample.
+
+> **Revised 2026-09-12.** The first pass got §7 backwards and undercounted the noise in §4. Both are
+> corrected below, and every claim in this file has now been re-checked by grepping the fixture
+> rather than by reading the earlier notes. Where a count appears, the command that produced it
+> should reproduce it.
 
 ---
 
@@ -100,6 +106,26 @@ In observed order:
 | `OnDisconnected: DisconnectByClientLogic` | reason string |
 | `showing disconnect reason` | UI |
 
+> **These lines appear at *startup*, not at exit.** In the fixture both sit at 20:26:56, before the
+> first world was ever loaded — VRChat tearing down a connection it had just made. The session ends
+> 64 minutes later with no disconnect line of any kind. Do not read `Client invoked disconnect.` as
+> "the user quit"; see §7.
+
+### 2.6 Object teardown — undocumented until 2026-09-12
+
+| Line | Count in fixture | Notes |
+|---|---|---|
+| `Destroying <displayName>` | 21 | **name only, no id.** Emitted as a player object is torn down |
+| `Initialized player <displayName>` | 18 | name only; distinct from `Initialized PlayerAPI "<name>"` |
+| `Loading avatar for <displayName>` | 18 | name only; precedes the `Switching` line |
+
+`Destroying` matters out of proportion to how dull it looks: **at an unclean exit it is the only
+departure signal in the log.** The fixture's final two lines are `Destroying -winter~` and
+`Destroying bin¹`, with no `OnPlayerLeft` and no `OnLeftRoom` anywhere near them.
+
+It is not a substitute for `OnPlayerLeft`, because it carries no `usr_` id — and §5.1 forbids keying
+anything on a display name. It is a *liveness* signal, not a presence one.
+
 ---
 
 ## 3. The phantom burst problem — **the most important finding**
@@ -136,9 +162,20 @@ OnLeftRoom                          ← LOCAL USER LEAVES — burst marker
 OnPlayerLeft ΛƧƬΛ  (usr_…)          ← 11 LEAVE events for people who are still there
 OnPlayerLeft BlackIndium (usr_…)
   …
-OnPlayerLeft hevy1015 (usr_…)
+OnPlayerLeft hevy1015 (usr_…)        ← never had an OnPlayerJoined at all
 Unloading scenes
 ```
+
+#### 3.2.1 A departure burst can name someone who never logged an arrival
+
+`hevy1015` appears in the fixture exactly four times — `Loading avatar for` and
+`Initialized player` at 20:45:27, then `OnPlayerLeft` and `Destroying` at 20:45:29. There is **no
+`OnPlayerJoined hevy1015` anywhere in the file.** They entered roughly two seconds before the local
+user left, and the arrival never made it to the log.
+
+**Anything that pairs a leave with a preceding join breaks here**, and breaks silently: a parser
+holding open sessions keyed on join will either drop the leave or, worse, attribute it to whoever
+it does find. The session model has to tolerate a departure for somebody it never saw arrive.
 
 ### 3.3 Why this cannot be ignored
 
@@ -197,6 +234,29 @@ The only `avtr_` ids in this 17k-line sample are the local user's own in the hea
 **This is deliberate on VRChat's part.** Avatar ids are withheld from clients to frustrate avatar
 ripping. It is not an oversight and will not be fixed; no amount of log parsing will produce one.
 
+### 4.0 `Switching … to avatar` is mostly noise — **82% of it, in the fixture**
+
+Neither this document nor its companion said so before 2026-09-12, and the §3.1 excerpt above
+quietly shows it: the "8 avatar lines, one per occupant" inside the arrival burst are **not
+changes**. They are what those people were already wearing.
+
+VRChat also re-emits the *same* line two or three times for a single real change. Classifying each
+of the fixture's 33 `Switching` lines against the wearer's previously-known avatar:
+
+| | Count |
+|---|---|
+| Re-assertion of the avatar already worn | **15** |
+| First sight — the roster's current avatar, arrival-burst or otherwise | **12** |
+| **Genuine changes** | **6** |
+
+Six real events in thirty-three lines. Recording them naively inflates avatar-change counts exactly
+the way §3 inflates join counts, for the same reason, and just as silently.
+
+**The rule:** a `Switching X to avatar Y` is a change only when `Y` differs from the last avatar
+known for `X`. First sight is initial state — the avatar analogue of `InstancePresenceObserved` —
+and a repeat is nothing at all. Per-wearer state, not consecutive-line deduplication: collapsing
+only adjacent duplicates leaves 23 of the 33, still nearly four times the real count.
+
 ### 4.1 What the client *can* see
 
 An avatar **display name**, and a **thumbnail file id** (`file_…`). The file id cannot be exchanged
@@ -227,14 +287,21 @@ Observed in this one sample: `~ RedZu ~`, `ΛƧƬΛ`, `bin¹`, `-winter~`, `Hawk
 
 Names contain **spaces, tildes, hyphens, superscripts, and non-Latin scripts**. So:
 
-- **Never split on whitespace.** Anchor on the trailing `(usr_<uuid>)` at end of line and take
-  everything between the event name and it as the display name.
-- **Match the *last* `(usr_` occurrence**, because a display name could itself contain text shaped
-  like `(usr_something)`. A greedy first-match parser is spoofable by anyone who can set their own
-  display name.
-- **Do not validate the id's shape.** Legacy VRChat ids follow no format (foundation section 3.1.1),
-  so the id is "everything between the final `(usr_` and the closing `)` at end of line" -- extracted
-  by delimiter, never matched against a UUID pattern.
+- **Never split on whitespace.** Anchor on the parenthesised id at end of line and take everything
+  between the event name and it as the display name.
+- **Match the *last* `(`**, because a display name could itself contain parentheses -- and one of
+  the names in this very sample, `~ RedZu ~`, shows how little display names respect delimiters. A
+  greedy first-match parser is spoofable by anyone who can set their own display name.
+- **Do not validate the id's shape, and that includes the `usr_` prefix.** Legacy VRChat ids follow
+  no format at all (foundation §3.1.1), so anchoring on the literal `(usr_` is itself a shape
+  assumption -- it would silently drop a legacy account with no prefix, which is exactly the
+  long-standing member a moderation tool least wants to lose.
+
+  > **Corrected 2026-09-12.** This section previously said to anchor on `(usr_` while, two bullets
+  > later, forbidding shape validation. Both cannot hold. The rule is: the id is everything between
+  > the **last `(`** and a closing `)` that ends the line -- extracted purely by delimiter. That is
+  > strictly more general than the `usr_` anchor and equally spoof-resistant, since both take the
+  > last occurrence.
 - Avatar names are worse — observed with full-width quotes and braces: `＂ Evur ＂ By Kaiylast ｛FT｝`.
 
 ### 5.2 No timezone
@@ -255,7 +322,8 @@ with a timestamp rather than treating them as corrupt.
 | Instance identity and routing | `Destination set:` / `Joining <location>` |
 | Presence | `OnPlayerJoined` / `OnPlayerLeft` |
 | Burst delimiting | `OnLeftRoom`, `Initialized PlayerAPI … is local` |
-| Avatars (weak) | `Switching <user> to avatar <name>` |
+| Avatars (weak) | `Switching <user> to avatar <name>` — **filtered per §4.0; 82% is noise** |
+| Unclean-exit detection | `Destroying <name>` (§2.6) — liveness only, carries no id |
 | Liveness (§2.2 alarm) | any `[Behaviour]` line |
 
 **Ignored entirely:** `[IK Debug Log]`, `[VRCTracking*]`, `[OSC]`, `[API]`, `[String Download]`,
@@ -264,13 +332,48 @@ with a timestamp rather than treating them as corrupt.
 
 ---
 
-## 7. Still unverified
+## 7. Unclean exit — **confirmed, and it is the case this sample ends in**
 
-- **Unclean exit.** This sample ends with a clean `Client invoked disconnect.` Whether a crash
-  produces any leave marker at all is still open (M3 open question 2). Without one, the departure
-  burst rule of §3.4 has no anchor and the session needs a server-side timeout.
+> **Corrected 2026-09-12. The previous version of this section was wrong.** It said "this sample
+> ends with a clean `Client invoked disconnect.`" and filed unclean exit as unverified. The opposite
+> is true, and the evidence was already in the fixture.
+
+The only `Client invoked disconnect.` in the file is at **line 58, 20:26:56** — during startup,
+before the first world was ever loaded (§2.5). The session then runs for just over an hour and the
+log simply **stops**:
+
+```
+2026.09.03 20:45:50  Initialize ThreePoint Avatar VRCPlayer[Remote] 1 False 8
+2026.09.03 21:30:33  Destroying -winter~
+2026.09.03 21:30:33  Destroying bin¹          ← last line in the file
+```
+
+A 45-minute gap, then two teardown lines, then nothing. No `OnLeftRoom`, no `OnPlayerLeft`, no
+disconnect line. The last `OnLeftRoom` is at 20:45:29, four world-changes earlier.
+
+**Three consequences, none of them optional:**
+
+1. **§3.4's departure rule has no anchor here.** It keys on `OnLeftRoom`, which never comes. Every
+   person still present at 21:30:33 has an open session that the log never closes.
+2. **Server-side session timeout is required, not speculative.** M3 open question 2 is answered: the
+   server must close sessions that stop being reported, because the client cannot always know they
+   ended. A tool that waited for a clean marker would carry those sessions forever and count
+   `-winter~` as present for months.
+3. **`Destroying` is the only hint**, and a weak one — no id (§2.6), and it also fires during normal
+   instance changes, so its presence does not by itself mean the session ended.
+
+This is the ordinary case, not an edge case. Users close VRChat, VRChat crashes, machines sleep. A
+clean shutdown is the exception the parser should be surprised by.
+
+---
+
+## 8. Still unverified
+
 - Log rotation and file naming; behaviour across multiple concurrent VRChat sessions.
-- `~hidden(usr_…)` and `~canRequestInvite` qualifiers (not present here; `~private`, `~friends`,
-  `~group` all confirmed).
+- `~hidden(usr_…)`, `~canRequestInvite` and `~nonce(…)` — **none appear in this sample**, including
+  in its two non-group instances, which is itself a finding (see `vrchat-log-format.md` §1.5).
 - Whether `groupAccessType` takes values beyond `public` and `members`.
+- Whether a per-wearer `file_…` id appears anywhere (§4.3) — still open and still blocking for M3.
 - Instance *name* (the mid-2026 API field) does not appear in logs at all — API-only, as expected.
+- **What a genuine clean exit looks like.** Now that §7 has established this sample is not one, no
+  observed sample shows a clean shutdown at all. The clean path is the unverified one.

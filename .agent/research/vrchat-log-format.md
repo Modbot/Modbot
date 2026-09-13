@@ -3,6 +3,8 @@
 - **Started:** 2026-09-11
 - **Purpose:** the empirical basis for M3's log parser (`.agent/specs/2026-09-10-m3-client-overlay-design.md` §2.1)
 - **Status:** partial. Confirmed items are marked; everything else needs verification against real logs.
+- **Fixture:** `fixtures/behaviour-only-2026-09-03.log` — every "confirmed" below is grep-reproducible from it.
+- **Revised:** 2026-09-12 — qualifier statuses corrected (§1.5), valueless qualifiers added to the grammar (§1.2).
 
 VRChat's log format is undocumented and can change without notice (M3 §2.1). This file is the record
 of what has actually been observed, so a format break can be diagnosed against a known baseline
@@ -31,6 +33,18 @@ wrld_4b341546-65ff-4607-9d38-5b7f8f405132:39911~group(grp_2d8cee98-2481-451b-9bb
   qualifiers    group(grp_...)           the owning group
                 groupAccessType(members|plus|public)
                 region(use|usw|eu|jp|...)
+                ageGate                  VALUELESS -- no parentheses at all
+                private(usr_...)         invite-only, owner
+                friends(usr_...)         friends-only, owner
+```
+
+**The value is genuinely optional** -- the `[ ... ]` above is load-bearing. `~ageGate` carries no
+parentheses, and a parser that requires them drops the rest of the location string with it. Observed
+in the fixture's group location:
+
+```
+wrld_4cf554b4-…:85019~group(grp_c7ba8659-…)~groupAccessType(public)~ageGate~region(use)
+                                                                    ^^^^^^^^
 ```
 
 A world has many instances. The world id identifies the content; the instance id identifies one
@@ -88,8 +102,8 @@ name. **Never key anything on the name.** It is mutable, may be absent, and is n
 
 #### 1.3.4 Never store instance secrets
 
-Non-group instances carry a `~nonce(...)` qualifier, which is the instance secret. Modbot must
-**never persist it**, and non-group instances are dropped before transmission anyway (§1.4).
+Non-group instances are widely reported to carry a `~nonce(...)` qualifier, the instance secret —
+though none appears in the only sample observed so far (§1.5.1). Modbot must **never persist it**, and non-group instances are dropped before transmission anyway (§1.4).
 
 Facts should record `world_id`, `instance_id`, and the non-secret qualifiers (group, access type,
 region) -- never the raw location string, which would carry a nonce along with everything else.
@@ -107,17 +121,44 @@ region) -- never the raw location string, which would carry a nonce along with e
 The managed group id is declared by each server at pairing (M3 §4), so step 3 is a local lookup
 against a list the client already holds.
 
-### 1.5 Unverified — needs checking against real logs
+### 1.5 Qualifier status — **updated 2026-09-12 against the fixture**
 
-Expected from community knowledge, **not** confirmed by an observed sample:
+Confirmed means: present in `../research/fixtures/behaviour-only-2026-09-03.log`, counted.
 
-| Qualifier | Expected meaning |
-|---|---|
-| `~private(usr_…)` | invite-only, owner |
-| `~friends(usr_…)` | friends-only |
-| `~hidden(usr_…)` | friends-of-guests |
-| `~canRequestInvite` | invite-plus modifier |
-| `~nonce(…)` | instance secret |
+| Qualifier | Meaning | Status | Count |
+|---|---|---|---|
+| `~region(…)` | server region | **confirmed** | 11 |
+| `~group(grp_…)` | owning group | **confirmed** | 4 |
+| `~groupAccessType(…)` | `public` / `members` observed | **confirmed** | 4 |
+| `~friends(usr_…)` | friends-only, owner | **confirmed** | 4 |
+| `~ageGate` | age-verified instance; **takes no value** | **confirmed** | 4 |
+| `~private(usr_…)` | invite-only, owner | **confirmed** | 3 |
+| `~hidden(usr_…)` | friends-of-guests | unverified | 0 |
+| `~canRequestInvite` | invite-plus modifier | unverified | 0 |
+| `~nonce(…)` | instance secret | **unverified — see below** | 0 |
+
+`~private` and `~friends` were previously listed here as unverified while the companion document
+already recorded them as confirmed. The two documents disagreed; this table is now the one to
+trust, and it is reproducible from the fixture.
+
+#### 1.5.1 `~nonce` did not appear, and that is worth knowing
+
+The fixture contains **two non-group instances** — one `~friends`, one `~private` — and **neither
+carries a nonce**:
+
+```
+wrld_266523e8-…:39047~friends(usr_527e5167-…)~region(use)
+wrld_4432ea9b-…:69955~private(usr_f2049d71-…)~region(use)
+```
+
+This does not disprove `~nonce`; it is widely reported and probably appears when a location arrives
+by invite rather than by the owner's own navigation. But §1.3.4 is written as though every non-group
+location carries one, and in the only sample there is, none does.
+
+**Nothing about the handling changes.** `~nonce` must still never be persisted, and non-group
+instances are dropped before transmission anyway (§1.4) — so the secret never reaches a Modbot
+server whether it is in the string or not. A rule that is load-bearing only in a case never
+observed should be tested against a synthetic fixture, since a real one may be a while coming.
 | *(no qualifier)* | public |
 
 `groupAccessType(public)` is the case to watch: a **group-public** instance where non-members may

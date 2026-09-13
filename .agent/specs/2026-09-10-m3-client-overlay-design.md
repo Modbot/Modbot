@@ -516,6 +516,15 @@ resolution is discarded rather than recorded against the wrong avatar.
 That is worth having precisely because the failure it catches is otherwise silent: a plausible
 `avtr_…` attached to the wrong moment, which would then feed M4 §3.2's avatar bans.
 
+> **Resolve only genuine changes.** `Switching … to avatar …` is 82% noise
+> (`.agent/research/vrchat-log-events.md` §4.0): in the observed sample, 33 lines carried 15 pure
+> re-assertions of the avatar already worn, 12 first-sight observations from an arrival burst, and
+> **6 actual changes**. Resolving each line would multiply third-party avatar-database calls by
+> roughly five for no new information, against a rate limit shared with every other moderator's
+> client, and would inflate avatar-change counts the same way §7.1's phantom joins inflate presence.
+> A line is a change only when the avatar differs from the wearer's last known one; first sight is
+> initial state, and a repeat is nothing.
+
 #### 7.2.3 Why the split is right anyway
 
 Even setting the mechanics aside, resolution belongs on the server:
@@ -782,9 +791,17 @@ These need answers before the plan is written, and at least the first needs hand
 1. ~~Log format specifics.~~ **Largely answered** from a real 17k-line sample -- see
    `.agent/research/vrchat-log-events.md` for the full event catalogue, the phantom-burst problem,
    and parsing hazards. Log rotation and concurrent sessions remain unverified.
-2. **Leave detection on crash.** If VRChat exits uncleanly, is there a leave line at all? If not,
-   sessions need a server-side timeout heuristic — and that heuristic must be visible in the data
-   (`occurred_before`, foundation §5.3) rather than inventing a precise departure time.
+2. ~~Leave detection on crash.~~ **Answered, and the answer is no** — see
+   `.agent/research/vrchat-log-events.md` §7. The observed sample *is* an unclean exit: it ends with
+   two `Destroying <name>` lines and no `OnLeftRoom`, no `OnPlayerLeft`, no disconnect line. The
+   only `Client invoked disconnect.` in the file is at startup.
+
+   So a **server-side session timeout is required**, not a contingency, and it must be visible in
+   the data (`occurred_before`, foundation §5.3) rather than inventing a precise departure time.
+   Two further consequences fall out of the same research: a departure burst can name somebody who
+   never logged an arrival (§3.2.1), so sessions cannot be keyed on a matching join; and
+   `Destroying` carries no `usr_` id, so it is a liveness signal only and can never close a session
+   by itself. What remains open is the opposite case — **no observed sample shows a clean exit**.
 3. ~~Overlay rendering approach.~~ **Decided: native** (§6.0). A WebView2 route was rejected --
    multi-server pairing gives no single URL to load, it would fail precisely when the network is
    degraded and the overlay matters most, and the overlay implements only a small subset of the web
