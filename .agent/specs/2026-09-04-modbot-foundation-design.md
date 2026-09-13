@@ -1894,6 +1894,12 @@ No hosted email provider dependency.
 
 **That is the complete list.** Everything else lives in `Settings` and is set through the wizard.
 
+Still true after the evidence storage design. Railway's injected bucket variables (`BUCKET`,
+`ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `REGION`, `ENDPOINT`) are read **once, at first boot, purely to
+pre-fill a wizard step** and never again — they configure nothing, and none of them is required. See
+`.agent/specs/2026-09-13-evidence-storage-design.md` §16.1 for why re-reading them later would be a
+data-loss bug rather than a convenience.
+
 ### 8.2 Migrations
 
 EF Core migrations applied automatically at startup, as in the old implementation. A self-hosted
@@ -1907,6 +1913,14 @@ credentials) are encrypted at rest with a key generated on first boot and **stor
 No environment variable, no volume, no key-management step. This deliberately protects against
 casual reading of a database dump and **nothing more** — an attacker with full database access has
 the key too.
+
+> **Narrowed 2026-09-13.** "No volume" is a claim about **where the key lives**, not a rule that
+> Modbot may never use persistent storage. The evidence storage design
+> (`.agent/specs/2026-09-13-evidence-storage-design.md` §3) introduces a deployment profile that does
+> mount one, for moderation evidence and logs. The key is unaffected: it remains a row in the
+> database in every profile, because a volume is no safer a home for it and reintroduces exactly the
+> thing-to-lose failure this section rejects. What changes is only that **volume-lessness is a
+> property of the recommended configuration rather than of Modbot itself.**
 
 That is the correct trade for this project. Modbot is run by community groups on managed hosting,
 where in practice nobody touches the database directly, and where Railway already stores environment

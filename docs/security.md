@@ -57,12 +57,55 @@ So the key lives in the database. There is no environment variable to lose, no v
 no key-management step in a setup that is otherwise "click the template, open the URL, follow the
 wizard".
 
+That sentence is about **the encryption key**, and it is worth reading it narrowly, because it is
+easy to mistake for a promise that Modbot never wants a volume at all. It is not. See
+§ *Volumes, and what "no volume to mount" actually claimed* below.
+
 ### If you need real encryption at rest
 
 Encrypt the database. That is the layer where the control belongs, and every managed PostgreSQL
 provider offers it. Full-disk or volume encryption on a self-hosted instance does the same job.
 Modbot's column encryption is a second, weaker layer on top; it was never meant to substitute for
 the first.
+
+## Volumes, and what "no volume to mount" actually claimed
+
+The claim above is that **the encryption key needs no volume**, and that is unchanged and still true.
+It was never an argument that Modbot must not use persistent storage for anything — it was an
+argument about where a key lives, made in a section about keys.
+
+Read as a blanket rule it would be wrong, and once Modbot stores moderation evidence (video and
+screenshots attached to a ban report) it is visibly wrong, because a group that keeps that evidence
+on a local disk obviously needs a disk that outlives the container.
+
+The accurate statement is narrower and more useful:
+
+> **Volume-lessness is a property of a configuration, not of Modbot.** The recommended configuration
+> has no volume. Others do, deliberately.
+
+| | **Stateless** — recommended | **Persistent** |
+|---|---|---|
+| Evidence files | an S3-compatible bucket | a mounted Docker volume |
+| Logs | Seq, and the container's console | files on the same volume |
+| Volume | none | required |
+| What a redeploy costs | nothing | nothing, provided the volume is actually mounted |
+
+Two things follow that are worth knowing before you pick one.
+
+**The secrets argument does not change in either.** The encryption key is a row in the database in
+both configurations. A volume does not become a place to keep a key just because one is present —
+that would reintroduce exactly the "a thing to lose that bricks the install" failure the section
+above rejects.
+
+**An unmounted volume is the failure this design worries about most.** If you choose file storage and
+the volume is not actually mounted, the evidence goes into the container and dies with it — silently,
+and usually discovered months later during the dispute the evidence existed to settle. Modbot
+therefore keeps a marker file in the store and checks it on every start: if the store is not the
+store it was configured against, Modbot **refuses new uploads, raises a critical alert, and shows a
+banner that only an administrator can acknowledge**. It keeps running, because being down does not
+bring back anything that was lost and does stop it recording anything new.
+
+If you are not certain your volume is mounted, use a bucket.
 
 ## Environment variables
 
@@ -83,6 +126,23 @@ secrets to leak, and adding one is deliberately not an option.
 
 `MODBOT_DEBUG_LOGGING` additionally enables the Debug log streams. It is a diagnostic switch, not
 configuration.
+
+### One exception, and it is a prefill rather than a setting
+
+If you deploy on Railway and add one of its buckets, Railway injects `BUCKET`, `ACCESS_KEY_ID`,
+`SECRET_ACCESS_KEY`, `REGION` and `ENDPOINT` into the service. Modbot reads them **once**, at first
+boot, and only to **pre-fill the storage step of the onboarding wizard** so you are not retyping
+values that are already there. You still confirm and save, and Modbot tests the connection before it
+saves anything.
+
+After that they are ignored entirely. Changing one later does not move your evidence and does not
+change any setting — the database remains the only source of truth, exactly as for every other
+credential. That is deliberate: a variable edit that silently repointed the file store at a different
+bucket is precisely the kind of quiet data loss the marker-file check above exists to catch, and it
+would be perverse to introduce it through a convenience feature.
+
+None of these five is ever required. `PORT` and `DATABASE_URL` remain the only variables Modbot
+cannot start without.
 
 ## Logs
 
