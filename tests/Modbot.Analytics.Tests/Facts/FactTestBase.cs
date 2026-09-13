@@ -42,7 +42,7 @@ public abstract class FactTestBase : IAsyncLifetime
         string subjectId,
         DateTimeOffset occurredAt,
         string instanceId = "instance-1",
-        FactType type = FactType.InstanceJoined)
+        string type = FactType.InstanceJoined)
         => new()
         {
             Type = type,

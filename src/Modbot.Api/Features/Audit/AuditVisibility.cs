@@ -43,7 +43,7 @@ public enum AuditCategory
 /// </remarks>
 public static class AuditVisibility
 {
-    private static readonly Dictionary<FactType, AuditCategory> Categories = new()
+    private static readonly Dictionary<string, AuditCategory> Categories = new()
     {
         // Membership and moderation, from VRChat's audit log or inferred from a sync.
         [FactType.MemberJoined] = AuditCategory.Moderation,
@@ -88,6 +88,18 @@ public static class AuditVisibility
         [FactType.RetentionPruned] = AuditCategory.Operational,
         [FactType.PartitionCreated] = AuditCategory.Operational,
         [FactType.UserPurged] = AuditCategory.Operational,
+
+        // Evidence is moderation history, not plumbing: who attached what to a case, who opened
+        // it, and who destroyed it are all part of the accountability record spec 5.8 exists for.
+        [FactType.EvidenceAttached] = AuditCategory.Moderation,
+        [FactType.EvidenceAccessed] = AuditCategory.Moderation,
+        [FactType.EvidenceDestroyed] = AuditCategory.Moderation,
+
+        // An upstream event Modbot has no name for yet. Its TypeRaw comes from the group's own
+        // audit log, which is moderation history by definition -- an instance kick Modbot does
+        // not map is still something a moderator did to somebody. The Operational default exists
+        // for Modbot's internal events, and this is not one of those.
+        [FactType.Unrecognised] = AuditCategory.Moderation,
     };
 
     /// <summary>
@@ -100,7 +112,7 @@ public static class AuditVisibility
     /// should fail in. <c>AuditVisibilityTests</c> pins the table against the enum so the
     /// omission is caught by a test rather than by a person.
     /// </remarks>
-    public static AuditCategory CategoryOf(FactType type)
+    public static AuditCategory CategoryOf(string type)
         => Categories.TryGetValue(type, out var category) ? category : AuditCategory.Operational;
 
     public static bool CanSee(ModbotPermissions held, AuditCategory category)
@@ -114,7 +126,7 @@ public static class AuditVisibility
     }
 
     /// <summary>Every fact type this caller may read. Empty means they may read none.</summary>
-    public static IReadOnlyList<FactType> VisibleTypes(ModbotPermissions held)
+    public static IReadOnlyList<string> VisibleTypes(ModbotPermissions held)
         => Categories
             .Where(pair => CanSee(held, pair.Value))
             .Select(pair => pair.Key)
@@ -128,9 +140,9 @@ public static class AuditVisibility
     /// Null or empty means "whatever I am allowed to see", which is the merged default
     /// timeline of spec 5.9.5.
     /// </param>
-    public static IReadOnlyList<FactType> Resolve(
+    public static IReadOnlyList<string> Resolve(
         ModbotPermissions held,
-        IReadOnlyCollection<FactType>? requested)
+        IReadOnlyCollection<string>? requested)
     {
         var visible = VisibleTypes(held);
 

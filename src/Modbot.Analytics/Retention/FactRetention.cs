@@ -42,60 +42,64 @@ public enum RetentionClass
 /// </remarks>
 public static class FactRetention
 {
-    public static RetentionClass ClassOf(FactType type) => type switch
+    /// <summary>
+    /// Prefixes whose facts are presence: high-volume, and not the moderation record.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A prefix test rather than the member-by-member table this used to be. That table had to be
+    /// updated by hand every time a fact type was added, and the one thing it could not do was
+    /// classify a type nobody had added yet — which, now that an unrecognised upstream event is
+    /// recorded rather than dropped, is a case that genuinely occurs.
+    /// </para>
+    /// <para>
+    /// Operational noise takes the short class deliberately (spec 5.9.2): "a sync failed last
+    /// March" is not history anyone needs, and letting it accumulate alongside the moderation
+    /// record would bury the latter.
+    /// </para>
+    /// </remarks>
+    private static readonly string[] PresencePrefixes =
+    [
+        "vrchat.instance.",
+        "vrchat.avatar.",
+
+        // Discord voice sessions are presence like instance sessions and arrive at the same kind
+        // of rate. Discord membership and roles are membership history, so they are not here.
+        "discord.voice.",
+
+        "modbot.sync.",
+        "modbot.ratelimit.",
+        "modbot.waf.",
+        "modbot.migration.",
+        "modbot.retention.",
+        "modbot.partition.",
+    ];
+
+    /// <summary>
+    /// Which retention class a fact belongs to. Anything unrecognised is kept forever.
+    /// </summary>
+    /// <remarks>
+    /// The default is the safe direction and it is load-bearing. A fact type added without a
+    /// thought about retention, or one Modbot has never seen at all, must not be scheduled for
+    /// deletion on a guess — history cannot be backfilled (§5.1), and the cost of keeping
+    /// something unnecessarily is a few hundred bytes.
+    /// </remarks>
+    public static RetentionClass ClassOf(string type)
     {
-        FactType.MemberJoined => RetentionClass.Moderation,
-        FactType.MemberLeft => RetentionClass.Moderation,
-        FactType.MemberBanned => RetentionClass.Moderation,
-        FactType.MemberUnbanned => RetentionClass.Moderation,
-        FactType.MemberKicked => RetentionClass.Moderation,
-        FactType.RoleGranted => RetentionClass.Moderation,
-        FactType.RoleRevoked => RetentionClass.Moderation,
-        FactType.InviteCreated => RetentionClass.Moderation,
+        if (string.IsNullOrEmpty(type)) return RetentionClass.Moderation;
 
-        // Written only when the group's metadata actually changed, so it does not accumulate the
-        // way operational noise does -- and it is what makes an old role grant readable years
-        // later, once the role has been renamed twice.
-        FactType.GroupInfoChanged => RetentionClass.Moderation,
+        foreach (var prefix in PresencePrefixes)
+        {
+            if (type.StartsWith(prefix, StringComparison.Ordinal))
+                return RetentionClass.Presence;
+        }
 
-        FactType.InstanceJoined => RetentionClass.Presence,
-        FactType.InstanceLeft => RetentionClass.Presence,
-        FactType.AvatarChanged => RetentionClass.Presence,
-        FactType.InstancePresenceObserved => RetentionClass.Presence,
-
-        // Discord membership and roles are membership history like VRChat's; voice sessions are
-        // presence like instance sessions, and arrive at the same kind of rate.
-        FactType.DiscordMemberJoined => RetentionClass.Moderation,
-        FactType.DiscordMemberLeft => RetentionClass.Moderation,
-        FactType.DiscordRoleGranted => RetentionClass.Moderation,
-        FactType.DiscordRoleRevoked => RetentionClass.Moderation,
-        FactType.DiscordVoiceJoined => RetentionClass.Presence,
-        FactType.DiscordVoiceLeft => RetentionClass.Presence,
-
-        FactType.Login => RetentionClass.Moderation,
-        FactType.LoginFailed => RetentionClass.Moderation,
-        FactType.PasswordChanged => RetentionClass.Moderation,
-        FactType.ApiKeyCreated => RetentionClass.Moderation,
-        FactType.ApiKeyRevoked => RetentionClass.Moderation,
-        FactType.SettingsChanged => RetentionClass.Moderation,
-
-        // Operational noise takes the short class deliberately (spec 5.9.2). "A sync failed last
-        // March" is not history anyone needs, and letting it accumulate forever alongside the
-        // moderation record would bury the latter.
-        FactType.SyncFailed => RetentionClass.Presence,
-        FactType.RateLimitColdStop => RetentionClass.Presence,
-        FactType.WafBlocked => RetentionClass.Presence,
-        FactType.MigrationApplied => RetentionClass.Presence,
-        FactType.RetentionPruned => RetentionClass.Presence,
-        FactType.PartitionCreated => RetentionClass.Presence,
-        FactType.UserPurged => RetentionClass.Moderation,
-
-        _ => RetentionClass.Moderation,
-    };
+        return RetentionClass.Moderation;
+    }
 
     /// <summary>Every declared fact type in one class.</summary>
-    public static IReadOnlyList<FactType> TypesIn(RetentionClass retention)
-        => Enum.GetValues<FactType>().Where(t => ClassOf(t) == retention).ToList();
+    public static IReadOnlyList<string> TypesIn(RetentionClass retention)
+        => FactType.All.Where(t => ClassOf(t) == retention).ToList();
 
     public static IReadOnlyList<RetentionClass> All { get; } = Enum.GetValues<RetentionClass>();
 }

@@ -14,7 +14,13 @@ namespace Modbot.Analytics.Facts;
 /// </remarks>
 public sealed record FactRecord
 {
-    public required FactType Type { get; init; }
+    public required string Type { get; init; }
+
+    /// <summary>
+    /// The upstream system's own word for the event, when <see cref="Type"/> is
+    /// <see cref="FactType.Unrecognised"/>. Null when Modbot understood it.
+    /// </summary>
+    public string? TypeRaw { get; init; }
 
     /// <summary>When it happened; the lower bound when the time is not exactly known.</summary>
     public required DateTimeOffset OccurredAt { get; init; }

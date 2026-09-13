@@ -19,7 +19,7 @@ public class AuditVisibilityTests
         // A type added without a line in the table is silently treated as operational. That is
         // the safe direction, and it is still a mistake -- so it fails here rather than becoming
         // an invisible fact type nobody notices for a year.
-        var unclassified = Enum.GetValues<FactType>()
+        var unclassified = FactType.All
             .Where(t => !AuditVisibility.VisibleTypes(ModbotPermissions.ViewAuditLog
                     | ModbotPermissions.ViewOperationalLog)
                 .Contains(t))
@@ -54,7 +54,7 @@ public class AuditVisibilityTests
     {
         var visible = AuditVisibility.VisibleTypes(ModbotPermissions.Administrator);
 
-        Assert.Equal(Enum.GetValues<FactType>().Length, visible.Count);
+        Assert.Equal(FactType.All.Count, visible.Count);
     }
 
     [Fact]
@@ -102,6 +102,6 @@ public class AuditVisibilityTests
     [InlineData(FactType.SettingsChanged, AuditCategory.Operational)]
     [InlineData(FactType.RateLimitColdStop, AuditCategory.Operational)]
     [InlineData(FactType.UserPurged, AuditCategory.Operational)]
-    public void CategoryOf_IsStable(FactType type, AuditCategory expected)
+    public void CategoryOf_IsStable(string type, AuditCategory expected)
         => Assert.Equal(expected, AuditVisibility.CategoryOf(type));
 }

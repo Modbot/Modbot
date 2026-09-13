@@ -45,7 +45,24 @@ public class ModbotEvent
     /// </summary>
     public DateTimeOffset ObservedAt { get; set; }
 
-    public FactType Type { get; set; }
+    /// <summary>What happened. A hierarchical string — see <see cref="FactType"/>.</summary>
+    public string Type { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The upstream system's own word for this event, when Modbot did not translate it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Set whenever <see cref="Type"/> is <see cref="FactType.Unrecognised"/>, and left null when
+    /// Modbot understood the event. It is what makes "record it now, understand it later"
+    /// possible: VRChat's audit log ages out, so an entry Modbot cannot classify today is an entry
+    /// nobody can fetch again tomorrow.
+    /// </para>
+    /// <para>
+    /// Untrusted text, exactly like a display name. It is whatever the upstream system sent.
+    /// </para>
+    /// </remarks>
+    public string? TypeRaw { get; set; }
 
     public FactPlatform SubjectPlatform { get; set; }
 

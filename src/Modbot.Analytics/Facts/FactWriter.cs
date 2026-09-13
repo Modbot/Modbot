@@ -56,6 +56,20 @@ public sealed class FactWriter : IFactWriter
     {
         ArgumentNullException.ThrowIfNull(fact);
 
+        // The one place a fact type is checked. It is checked for shape, never against a list:
+        // a type Modbot has never seen is legitimate and must be storable, but "Banned",
+        // "vrchat..ban" and "VRChat.Ban" are bugs in a producer, and letting them into a log that
+        // is queried by prefix for years would cost far more than refusing them here.
+        if (!FactType.IsWellFormed(fact.Type))
+        {
+            throw new ArgumentException(
+                $"'{fact.Type}' is not a well-formed fact type. Expected lowercase dot-separated "
+                + "segments such as 'vrchat.group.member.ban'; see FactType.",
+                nameof(fact));
+        }
+
+        ArgumentNullException.ThrowIfNull(fact);
+
         if (!FactDeduplication.AppliesTo(fact.Source))
             return new FactWriteResult(await InsertAsync(fact, ct), WasDeduplicated: false);
 
@@ -126,7 +140,7 @@ public sealed class FactWriter : IFactWriter
         KeySeparator,
         (short)fact.SubjectPlatform,
         fact.SubjectId,
-        (short)fact.Type,
+        fact.Type,
         fact.WorldId ?? string.Empty,
         fact.InstanceId ?? string.Empty);
 
@@ -165,6 +179,7 @@ public sealed class FactWriter : IFactWriter
             OccurredBefore = fact.OccurredBefore,
             ObservedAt = _clock.UtcNow,
             Type = fact.Type,
+            TypeRaw = fact.TypeRaw,
             SubjectPlatform = fact.SubjectPlatform,
             SubjectId = fact.SubjectId,
             ActorPlatform = fact.ActorPlatform,

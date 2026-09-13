@@ -186,8 +186,14 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
 
         var run = await RunAuditLogAsync();
 
+        // Still counted as unmapped, so the diagnostics point somebody at the gap -- and now
+        // written too. Three facts, not one: the two unrecognised entries are recorded under
+        // FactType.Unrecognised with VRChat's own wording in TypeRaw.
         Assert.Equal(2, run.Unmapped);
-        Assert.Equal(1, run.FactsWritten);
+        Assert.Equal(3, run.FactsWritten);
+
+        var facts = await FactsAsync();
+        Assert.Equal(2, facts.Count(f => f.Type == FactType.Unrecognised && f.TypeRaw == "group.post.create"));
 
         var unmapped = Assert.Single(Diagnostics.UnmappedAuditEvents);
 
@@ -205,14 +211,19 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     /// something VRChat is entitled to send.
     /// </summary>
     [Fact]
-    public async Task APageOfOnlyUnrecognisedEntriesIsQuietRatherThanFailed()
+    public async Task APageOfOnlyUnrecognisedEntriesIsRecordedRatherThanDropped()
     {
         VRChat.Groups.Add(Entry("gaud_1", Now.AddMinutes(-1), "group.post.create"));
 
         var run = await RunAuditLogAsync();
 
-        Assert.Equal(SyncOutcome.Quiet, run.Outcome);
-        Assert.Empty(await FactsAsync());
+        // Something was written, so this is a productive pass, not a quiet one -- and not a
+        // failed one either. An unknown type is a gap in Modbot's vocabulary, not an error.
+        Assert.Equal(SyncOutcome.Produced, run.Outcome);
+
+        var fact = Assert.Single(await FactsAsync());
+        Assert.Equal(FactType.Unrecognised, fact.Type);
+        Assert.Equal("group.post.create", fact.TypeRaw);
     }
 
     [Fact]

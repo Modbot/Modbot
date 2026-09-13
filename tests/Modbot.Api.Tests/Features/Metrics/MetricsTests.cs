@@ -16,7 +16,7 @@ public class MetricsTests
 
     public MetricsTests(PostgresFixture db) => _db = db;
 
-    private static FactRecord Membership(FactType type, string subject, DateTimeOffset at) => new()
+    private static FactRecord Membership(string type, string subject, DateTimeOffset at) => new()
     {
         Type = type,
         OccurredAt = at,
@@ -170,7 +170,7 @@ public class MetricsTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var metrics = await host.GetJsonAsync<MetricsResponse>("/api/metrics?days=30", cookie, ct);
 
-        decimal Total(FactType type) => metrics.ActionsByType
+        decimal Total(string type) => metrics.ActionsByType
             .Single(s => s.Type == type.ToString()).Total;
 
         Assert.Equal(2m, Total(FactType.MemberBanned));

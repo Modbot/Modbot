@@ -312,7 +312,7 @@ public static class EventsHandler
          : claimed > now + MaxSkewAhead ? now + MaxSkewAhead
          : claimed;
 
-    private static FactType? ToFactType(string? wireType) => wireType switch
+    private static string? ToFactType(string? wireType) => wireType switch
     {
         "InstanceJoined" => FactType.InstanceJoined,
         "InstancePresenceObserved" => FactType.InstancePresenceObserved,

@@ -23,7 +23,7 @@ public enum RollupDimensionKind
 public sealed record FactCountMetric(
     string Name,
     RollupDimensionKind Dimension,
-    IReadOnlyList<FactType> Types);
+    IReadOnlyList<string> Types);
 
 /// <summary>
 /// A running total: yesterday's value plus today's <paramref name="Plus"/> minus today's
@@ -131,6 +131,6 @@ public static class RollupMetrics
         FactCounts.Select(m => m.Name).Concat(Cumulative.Select(m => m.Name)).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Every fact type that feeds a computed metric.</summary>
-    public static IReadOnlyList<FactType> ComputedTypes { get; } =
+    public static IReadOnlyList<string> ComputedTypes { get; } =
         FactCounts.SelectMany(m => m.Types).Distinct().Order().ToList();
 }

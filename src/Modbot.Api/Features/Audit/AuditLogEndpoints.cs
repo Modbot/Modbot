@@ -187,7 +187,17 @@ public static class AuditLogEndpoints
             .ToList();
     }
 
-    private static List<FactType> ParseTypes(string[]? values) => ParseEnums<FactType>(values);
+    /// <summary>
+    /// Fact types arrive as the strings they are stored as. Only well-formed values pass; nothing
+    /// is looked up against a list, because a type this build has never seen is still a real row
+    /// somebody may want to filter on.
+    /// </summary>
+    private static List<string> ParseTypes(string[]? values) =>
+        (values ?? [])
+            .Select(v => v.Trim().ToLowerInvariant())
+            .Where(FactType.IsWellFormed)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
 
     private static List<FactSource> ParseSources(string[]? values) => ParseEnums<FactSource>(values);
 

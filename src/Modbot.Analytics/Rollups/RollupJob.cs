@@ -491,8 +491,7 @@ public sealed class RollupJob
         return $"(CASE s.actor_platform {cases} ELSE 'unknown' END || ':' || s.actor_id)";
     }
 
-    private static short[] TypeValues(IEnumerable<FactType> types)
-        => types.Select(t => (short)t).ToArray();
+    private static string[] TypeValues(IEnumerable<string> types) => types.ToArray();
 
     /// <summary>
     /// UTC midnight beginning <paramref name="day"/>, as a <c>timestamptz</c> bound.

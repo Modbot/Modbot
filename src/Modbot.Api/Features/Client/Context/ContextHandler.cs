@@ -54,7 +54,7 @@ public static class ContextHandler
     public static readonly TimeSpan RosterWindow = TimeSpan.FromHours(12);
 
     /// <summary>The fact types that count as a moderation action against somebody.</summary>
-    private static readonly FactType[] ModerationActions =
+    private static readonly string[] ModerationActions =
         [FactType.MemberKicked, FactType.MemberBanned];
 
     public static async Task<IResult> ContextAsync(

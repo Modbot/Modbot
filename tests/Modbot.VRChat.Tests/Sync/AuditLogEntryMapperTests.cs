@@ -21,7 +21,7 @@ public class AuditLogEntryMapperTests
     [InlineData("group.member.role.assign", FactType.RoleGranted)]
     [InlineData("group.member.role.unassign", FactType.RoleRevoked)]
     [InlineData("group.invite.create", FactType.InviteCreated)]
-    public void EachKnownEventTypeBecomesItsFactType(string eventType, FactType expected)
+    public void EachKnownEventTypeBecomesItsFactType(string eventType, string expected)
     {
         var mapping = AuditLogEntryMapper.Map(Entry(eventType));
 
@@ -141,11 +141,18 @@ public class AuditLogEntryMapperTests
     /// <see cref="GroupAuditLogEvents"/> -- and both have to surface.
     /// </summary>
     [Fact]
-    public void AnUnrecognisedEventTypeIsReportedRatherThanMappedToSomethingPlausible()
+    public void AnUnrecognisedEventTypeIsRecordedAsUnrecognisedAndReported()
     {
         var mapping = AuditLogEntryMapper.Map(Entry("group.post.create"));
 
-        Assert.False(mapping.Mapped);
+        // Recorded -- under Unrecognised, with VRChat's own name kept -- rather than dropped.
+        // The old behaviour was to return no fact at all, and VRChat's audit log ages out, so
+        // every entry handled that way was gone for good.
+        Assert.True(mapping.Mapped);
+        Assert.Equal(FactType.Unrecognised, mapping.Fact!.Type);
+        Assert.Equal("group.post.create", mapping.Fact.TypeRaw);
+
+        // ...and still reported, so somebody adds the mapping.
         Assert.Equal(AuditLogRejection.UnknownEventType, mapping.Rejection);
         Assert.Equal("group.post.create", mapping.EventType);
 

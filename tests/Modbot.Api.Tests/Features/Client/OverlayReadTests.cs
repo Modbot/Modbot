@@ -49,7 +49,7 @@ public class OverlayReadTests
     }
 
     private static FactRecord Fact(
-        FactType type,
+        string type,
         string subject,
         DateTimeOffset at,
         string? displayName = null,

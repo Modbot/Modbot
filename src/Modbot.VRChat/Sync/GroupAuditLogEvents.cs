@@ -49,7 +49,7 @@ public static class GroupAuditLogEvents
     /// to is being lost — which for a ban is the group's moderation history going missing while
     /// everything looks healthy.
     /// </remarks>
-    private static readonly Dictionary<string, FactType> PrimaryTypes = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string> PrimaryTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         [MemberJoin] = FactType.MemberJoined,
         [MemberLeave] = FactType.MemberLeft,
@@ -75,7 +75,7 @@ public static class GroupAuditLogEvents
     /// means nothing. A <em>primary</em> it does not declare is a bug in this file.
     /// </para>
     /// </remarks>
-    private static readonly Dictionary<string, FactType> AliasTypes = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string> AliasTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         ["group.member.ban"] = FactType.MemberBanned,
         ["group.member.unban"] = FactType.MemberUnbanned,
@@ -84,7 +84,7 @@ public static class GroupAuditLogEvents
         ["group.user.unban"] = FactType.MemberUnbanned,
     };
 
-    private static readonly Dictionary<string, FactType> Types =
+    private static readonly Dictionary<string, string> Types =
         PrimaryTypes.Concat(AliasTypes).ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The event types Modbot knows how to record, for tests and for the UI.</summary>
@@ -99,12 +99,15 @@ public static class GroupAuditLogEvents
     /// <summary>
     /// Maps one event type onto a fact type, or reports that Modbot has never heard of it.
     /// </summary>
-    public static bool TryMap(string? eventType, out FactType type)
+    public static bool TryMap(string? eventType, out string type)
     {
-        if (!string.IsNullOrWhiteSpace(eventType))
-            return Types.TryGetValue(eventType, out type);
+        if (!string.IsNullOrWhiteSpace(eventType) && Types.TryGetValue(eventType, out var found))
+        {
+            type = found;
+            return true;
+        }
 
-        type = default;
+        type = string.Empty;
         return false;
     }
 }

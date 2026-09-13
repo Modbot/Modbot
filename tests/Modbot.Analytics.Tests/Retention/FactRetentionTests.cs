@@ -21,7 +21,7 @@ public class FactRetentionTests
     [InlineData(FactType.SettingsChanged)]
     [InlineData(FactType.Login)]
     [InlineData(FactType.UserPurged)]
-    public void ModerationHistoryIsKept(FactType type)
+    public void ModerationHistoryIsKept(string type)
         => Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf(type));
 
     [Theory]
@@ -29,7 +29,7 @@ public class FactRetentionTests
     [InlineData(FactType.InstanceLeft)]
     [InlineData(FactType.AvatarChanged)]
     [InlineData(FactType.DiscordVoiceJoined)]
-    public void PresenceAgesOut(FactType type)
+    public void PresenceAgesOut(string type)
         => Assert.Equal(RetentionClass.Presence, FactRetention.ClassOf(type));
 
     /// <summary>
@@ -42,7 +42,7 @@ public class FactRetentionTests
     [InlineData(FactType.WafBlocked)]
     [InlineData(FactType.RetentionPruned)]
     [InlineData(FactType.PartitionCreated)]
-    public void OperationalNoiseAgesOut(FactType type)
+    public void OperationalNoiseAgesOut(string type)
         => Assert.Equal(RetentionClass.Presence, FactRetention.ClassOf(type));
 
     /// <summary>
@@ -51,14 +51,14 @@ public class FactRetentionTests
     /// </summary>
     [Fact]
     public void AnUnknownTypeIsKeptForever()
-        => Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf((FactType)9999));
+        => Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf("vrchat.something.nobody.declared"));
 
     [Fact]
     public void EveryTypeBelongsToExactlyOneClass()
     {
         var classified = FactRetention.All.SelectMany(FactRetention.TypesIn).ToList();
 
-        Assert.Equal(Enum.GetValues<FactType>().Length, classified.Count);
+        Assert.Equal(FactType.All.Count, classified.Count);
         Assert.Equal(classified.Count, classified.Distinct().Count());
     }
 }

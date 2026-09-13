@@ -63,9 +63,15 @@ public static class AuditLogEntryMapper
         var eventType = entry.EventType ?? string.Empty;
         var entryId = string.IsNullOrWhiteSpace(entry.Id) ? null : entry.Id;
 
-        if (!GroupAuditLogEvents.TryMap(eventType, out var type))
-            return new AuditLogMapping(null, AuditLogRejection.UnknownEventType, entryId, eventType);
+        // An event type Modbot has no name for is still recorded -- as Unrecognised, with VRChat's
+        // own wording kept in TypeRaw -- and reported so somebody adds the mapping. It used to be
+        // dropped. That was the one thing this producer must never do: VRChat's audit log ages
+        // out, so an entry not written today cannot be fetched tomorrow (spec 5.1).
+        var recognised = GroupAuditLogEvents.TryMap(eventType, out var type);
+        if (!recognised)
+            type = FactType.Unrecognised;
 
+        // These two are different: with no subject or no time there is genuinely no fact to write.
         if (string.IsNullOrWhiteSpace(entry.TargetId))
             return new AuditLogMapping(null, AuditLogRejection.MissingTarget, entryId, eventType);
 
@@ -75,6 +81,7 @@ public static class AuditLogEntryMapper
         var fact = new FactRecord
         {
             Type = type,
+            TypeRaw = recognised ? null : eventType,
             OccurredAt = ReadTimestamp(entry.CreatedAt),
 
             // No window. The audit log states when the thing happened, which is exactly the
@@ -92,7 +99,11 @@ public static class AuditLogEntryMapper
             Data = Payload(entry, eventType),
         };
 
-        return new AuditLogMapping(fact, AuditLogRejection.None, entryId, eventType);
+        return new AuditLogMapping(
+            fact,
+            recognised ? AuditLogRejection.None : AuditLogRejection.UnknownEventType,
+            entryId,
+            eventType);
     }
 
     /// <summary>

@@ -63,7 +63,7 @@ public abstract class AnalyticsTestBase : IAsyncLifetime
     }
 
     protected static FactRecord Fact(
-        FactType type,
+        string type,
         DateTimeOffset occurredAt,
         DateTimeOffset? occurredBefore = null,
         string? subjectId = null,

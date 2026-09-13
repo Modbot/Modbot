@@ -1400,6 +1400,39 @@ fine-grained series.
 `SyncDiff` inference and once as an authoritative `AuditLog` fact. Same event, different confidence;
 the authoritative one wins and the inference is superseded.
 
+#### 5.3.1 Fact types are hierarchical strings, not an enum
+
+> **Revised 2026-09-13.** `type` was a `smallint` enum with a "never renumber" rule. It is now a
+> `platform.domain.action` string — `vrchat.group.member.ban`, `modbot.evidence.access` — stored
+> as text, with a `type_raw` column beside it.
+
+The enum's storage saving was real and irrelevant: about 20% on a fact measured at 326 bytes, which
+is 240 MB a year becoming 290 MB for a typical group. What it cost was not.
+
+VRChat's audit log types its events as free-form strings. Modbot translated them into numbers, and
+an event with no number was **counted and not recorded** — the cursor moved on, and because VRChat's
+own log ages out, those entries were gone for good. That is §5.1's failure exactly: history cannot
+be backfilled, and here Modbot was the one discarding it. Around that sat the ordinary friction —
+every new producer had to append an enum member before it could record anything, evidence access
+had no member and so was never recorded at all, and §4.3.4.2's vocabulary check exists only to catch
+a mapping whose spelling is wrong.
+
+Now:
+
+- **An event Modbot has no name for is recorded** under `modbot.unrecognised`, with the upstream
+  system's own wording preserved in `type_raw`. It can be understood later; it can never be fetched
+  again.
+- **Retention is a prefix test.** `vrchat.instance.*`, `vrchat.avatar.*`, `discord.voice.*` and
+  Modbot's operational prefixes are the presence class; everything else — including anything
+  unrecognised — is kept forever. The default is the safe direction and it is load-bearing.
+- **Well-formedness is checked once, at the writer**, for shape and never against a list. A type
+  nobody has seen is legitimate; `"Banned"` is a bug in a producer.
+- **Renaming a type is a data migration**, exactly as renumbering was. Adding one is not.
+
+The constants live in `FactType` as `const string`, so `FactType.MemberBanned` reads as it always
+did and still works in a `switch`. That is why the move cost one rewritten method rather than three
+hundred edits.
+
 ### 5.4 Rollups
 
 ```sql

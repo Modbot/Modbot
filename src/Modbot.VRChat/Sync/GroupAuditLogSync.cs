@@ -378,8 +378,15 @@ public sealed class GroupAuditLogSync
                     break;
 
                 case AuditLogRejection.UnknownEventType:
+                    // Reported so somebody adds a mapping -- AND recorded, under
+                    // FactType.Unrecognised with VRChat's own name kept in TypeRaw. It used to be
+                    // counted and dropped, and the cursor moved on; VRChat's audit log ages out,
+                    // so every one of those was gone for good. Section 5.1's whole argument is
+                    // that history cannot be backfilled, and this was Modbot doing the deleting.
                     totals.Unmapped++;
                     ReportUnmapped(entry, mapping.EventType);
+                    if (mapping.Fact is not null)
+                        mapped.Add(mapping);
                     break;
 
                 default:
@@ -443,7 +450,7 @@ public sealed class GroupAuditLogSync
         // fact log that looks complete and is not: VRChat types eventType as a free-form string,
         // so a type Modbot has never seen is indistinguishable from one whose name is wrong here.
         _log.Warning(
-            "VRChat audit event {EventType} has no fact type, so it is being counted but not recorded. "
+            "VRChat audit event {EventType} has no mapping yet. It is recorded as modbot.unrecognised with the original name kept, and needs one adding. "
             + "Sample entry {EntryId}: {Description}",
             eventType,
             entry.Id ?? "(no id)",
@@ -510,8 +517,8 @@ public sealed class GroupAuditLogSync
     /// </summary>
     private const char KeySeparator = '';
 
-    private static string Shape(FactType type, string subjectId, DateTimeOffset occurredAt) =>
-        string.Join(KeySeparator, (short)type, subjectId, occurredAt.UtcTicks);
+    private static string Shape(string type, string subjectId, DateTimeOffset occurredAt) =>
+        string.Join(KeySeparator, type, subjectId, occurredAt.UtcTicks);
 
     private readonly record struct RecordedFacts(HashSet<string> EntryIds, HashSet<string> Shapes);
 

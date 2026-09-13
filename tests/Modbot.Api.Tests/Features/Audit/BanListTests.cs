@@ -24,7 +24,7 @@ public class BanListTests
 
     private static readonly DateTimeOffset Day = new(2026, 3, 10, 12, 0, 0, TimeSpan.Zero);
 
-    private static FactRecord Fact(FactType type, string subject, DateTimeOffset at) => new()
+    private static FactRecord Fact(string type, string subject, DateTimeOffset at) => new()
     {
         Type = type,
         OccurredAt = at,

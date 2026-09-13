@@ -309,7 +309,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
         await context.SaveChangesAsync(Ct);
     }
 
-    private async Task<int> CountAsync(FactType type)
+    private async Task<int> CountAsync(string type)
     {
         await using var context = Database.NewContext();
         return await context.Events.AsNoTracking().CountAsync(e => e.Type == type, Ct);

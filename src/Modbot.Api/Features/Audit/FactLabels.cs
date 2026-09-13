@@ -20,7 +20,7 @@ namespace Modbot.Api.Features.Audit;
 /// </remarks>
 public static class FactLabels
 {
-    private static readonly Dictionary<FactType, string> Labels = new()
+    private static readonly Dictionary<string, string> Labels = new()
     {
         [FactType.MemberJoined] = "Joined the group",
         [FactType.MemberLeft] = "Left the group",
@@ -60,6 +60,6 @@ public static class FactLabels
         [FactType.UserPurged] = "User data purged",
     };
 
-    public static string For(FactType type)
+    public static string For(string type)
         => Labels.TryGetValue(type, out var label) ? label : type.ToString();
 }

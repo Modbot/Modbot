@@ -197,12 +197,12 @@ public sealed partial class RetentionPruner
 
     private async Task<bool> ContainsAnyAsync(
         Partition partition,
-        IReadOnlyList<FactType> types,
+        IReadOnlyList<string> types,
         CancellationToken ct)
     {
         var found = await QueryAsync<bool>(
             $"SELECT EXISTS (SELECT 1 FROM {partition.Name} WHERE type = ANY(@types)) AS \"Value\"",
-            [new NpgsqlParameter("types", types.Select(t => (short)t).ToArray())],
+            [new NpgsqlParameter("types", types.ToArray())],
             ct);
 
         return found.Count > 0 && found[0];
@@ -227,7 +227,6 @@ public sealed partial class RetentionPruner
         var keptTypes = FactRetention.All
             .Except(expired)
             .SelectMany(FactRetention.TypesIn)
-            .Select(t => (short)t)
             .ToArray();
 
         var evacuating = partition.Name + "_evacuating";

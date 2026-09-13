@@ -214,7 +214,7 @@ public class FactDeduplicationTests : FactTestBase
         DateTimeOffset at,
         CancellationToken ct,
         string instanceId = "instance-1",
-        FactType type = FactType.InstanceJoined)
+        string type = FactType.InstanceJoined)
     {
         await using var context = Db.NewContext();
         var writer = NewWriter(context, new FakeClock(Now));

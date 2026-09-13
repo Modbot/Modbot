@@ -40,7 +40,7 @@ public sealed class MetricsQuery(ModbotContext db)
     public const int MaxModerators = 12;
 
     /// <summary>The action types the per-type breakdown counts, and the order it reports them in.</summary>
-    public static readonly IReadOnlyList<FactType> ActionTypes =
+    public static readonly IReadOnlyList<string> ActionTypes =
     [
         FactType.MemberBanned,
         FactType.MemberUnbanned,
@@ -210,7 +210,7 @@ public sealed class MetricsQuery(ModbotContext db)
                 DateOnly.FromDateTime(reader.GetDateTime(0)),
                 reader.GetDecimal(1)),
             ct,
-            ("type", (short)FactType.GroupInfoChanged),
+            ("type", FactType.GroupInfoChanged),
             ("from", DayStart(from)),
             ("to", DayStart(to.AddDays(1))));
     }
@@ -235,13 +235,16 @@ public sealed class MetricsQuery(ModbotContext db)
         DateOnly to,
         CancellationToken ct)
     {
-        // Built from this class's own constant list -- no value from a request reaches the SQL.
-        var types = string.Join(", ", ActionTypes.Select(t => ((short)t).ToString(CultureInfo.InvariantCulture)));
+        // Bound as a text[] parameter rather than interpolated. The list is this class's own
+        // constants, so interpolation was safe when they were numbers -- but they are strings now,
+        // and a string that is safe only because nobody has typed a quote into it yet is not the
+        // kind of safe this file should depend on.
+        var types = ActionTypes.ToArray();
 
         var sql = $"""
             SELECT (e.occurred_at AT TIME ZONE 'UTC')::date AS day, e.type, COUNT(*)::numeric
             FROM modbot_event e
-            WHERE e.type IN ({types}) AND e.occurred_at >= @from AND e.occurred_at < @to
+            WHERE e.type = ANY(@types) AND e.occurred_at >= @from AND e.occurred_at < @to
             GROUP BY 1, 2
             ORDER BY 1
             """;
@@ -250,9 +253,10 @@ public sealed class MetricsQuery(ModbotContext db)
             sql,
             reader => (
                 Day: DateOnly.FromDateTime(reader.GetDateTime(0)),
-                Type: (FactType)reader.GetInt16(1),
+                Type: reader.GetString(1),
                 Value: reader.GetDecimal(2)),
             ct,
+            ("types", types),
             ("from", DayStart(from)),
             ("to", DayStart(to.AddDays(1))));
 

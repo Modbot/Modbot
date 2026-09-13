@@ -172,6 +172,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.Property(e => e.Data).HasColumnType("jsonb");
 
+            // Hierarchical text rather than the smallint it was until 2026-09-13. The length cap
+            // matches FactType.IsWellFormed, so a malformed value is refused by the writer before
+            // the database has to have an opinion about it.
+            entity.Property(e => e.Type).HasMaxLength(128);
+            entity.Property(e => e.TypeRaw).HasMaxLength(256);
+
             // Ids are opaque (spec 3.1.1): text, never uuid, and no length assumption.
             entity.Property(e => e.SubjectId).HasColumnType("text");
             entity.Property(e => e.ActorId).HasColumnType("text");

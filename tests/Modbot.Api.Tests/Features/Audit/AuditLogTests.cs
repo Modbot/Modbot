@@ -57,7 +57,7 @@ public class AuditLogTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
         var page = await host.GetJsonAsync<AuditPage>("/api/audit", cookie, ct);
 
-        Assert.Equal(["MemberBanned"], page.Entries.Select(e => e.Type));
+        Assert.Equal([FactType.MemberBanned], page.Entries.Select(e => e.Type));
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class AuditLogTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewOperationalLog, ct);
         var page = await host.GetJsonAsync<AuditPage>("/api/audit", cookie, ct);
 
-        Assert.Equal(["SettingsChanged"], page.Entries.Select(e => e.Type));
+        Assert.Equal([FactType.SettingsChanged], page.Entries.Select(e => e.Type));
     }
 
     [Fact]
@@ -246,7 +246,7 @@ public class AuditLogTests
 
         Assert.True(filters.CanViewModeration);
         Assert.False(filters.CanViewOperational);
-        Assert.DoesNotContain(filters.Types, t => t.Value == "SettingsChanged");
+        Assert.DoesNotContain(filters.Types, t => t.Value == FactType.SettingsChanged);
         Assert.Contains(filters.Actors, a => a.Id == "usr_mod" && a.Name == "RedZu");
     }
 

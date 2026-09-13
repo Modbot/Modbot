@@ -7,7 +7,7 @@ namespace Modbot.Api.Features.Audit;
 /// <param name="Types">Already narrowed to what the caller may see. Never empty here.</param>
 /// <param name="Before">Keyset cursor; null for the first page.</param>
 public sealed record AuditRequest(
-    IReadOnlyList<FactType> Types,
+    IReadOnlyList<string> Types,
     IReadOnlyList<FactSource> Sources,
     string? SubjectId,
     FactPlatform? SubjectPlatform,
@@ -90,7 +90,7 @@ public sealed class AuditQuery(ModbotContext db)
     /// the backfill reached. One number for both would be wrong for one of them.
     /// </remarks>
     public async Task<AuditCoverage> CoverageAsync(
-        IReadOnlyList<FactType> types,
+        IReadOnlyList<string> types,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(types);
@@ -120,7 +120,7 @@ public sealed class AuditQuery(ModbotContext db)
 
     /// <summary>Distinct actors in the recent visible history, busiest first.</summary>
     public async Task<IReadOnlyList<AuditActor>> ActorsAsync(
-        IReadOnlyList<FactType> types,
+        IReadOnlyList<string> types,
         DateTimeOffset since,
         CancellationToken ct = default)
     {
@@ -220,7 +220,7 @@ public sealed class AuditQuery(ModbotContext db)
             e.OccurredBefore,
             e.ObservedAt,
             e.OccurredBefore is null ? TimePrecision.Exact : TimePrecision.Window,
-            e.Type.ToString(),
+            e.Type,
             AuditVisibility.CategoryOf(e.Type),
             e.Source.ToString(),
             e.SubjectPlatform.ToString(),
