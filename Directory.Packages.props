@@ -41,6 +41,10 @@
     <PackageVersion Include="Serilog.Formatting.Compact" Version="3.0.0" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageVersion Include="AWSSDK.S3" Version="4.0.16" />
+    <!-- The gateway half of Discord.Net only: slash commands, embeds and one channel to post to
+         need the socket client and the REST client it carries, not the text-command or
+         interaction frameworks the metapackage adds. -->
+    <PackageVersion Include="Discord.Net.WebSocket" Version="3.20.1" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="9.1.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />

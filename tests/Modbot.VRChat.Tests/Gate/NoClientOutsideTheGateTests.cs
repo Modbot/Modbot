@@ -52,11 +52,18 @@ public class NoClientOutsideTheGateTests
         // successful login as a failure with no exception to investigate.
         var helpers = new Regex(@"\b(TryLoginAsync|LoginAsync|LoginWithExternalCodeAsync)\s*\(");
 
+        // The rule is about the VRChat SDK, so only files that bring it into scope are checked.
+        // Discord.Net's socket client has a LoginAsync of its own, and the Discord bot calling
+        // it says nothing about the gate.
+        var sdkInScope = new Regex(@"^\s*using\s+VRChat\.API\b", RegexOptions.Multiline);
+
         var offenders = Directory
             .EnumerateFiles(Path.Combine(repoRoot, "src"), "*.cs", SearchOption.AllDirectories)
             .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
                         && !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
-            .Where(file => helpers.IsMatch(File.ReadAllText(file)))
+            .Select(file => (File: file, Text: File.ReadAllText(file)))
+            .Where(f => sdkInScope.IsMatch(f.Text) && helpers.IsMatch(f.Text))
+            .Select(f => f.File)
             .Select(file => Path.GetRelativePath(repoRoot, file))
             .Order()
             .ToList();

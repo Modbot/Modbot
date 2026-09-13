@@ -39,9 +39,16 @@ public static class StatusHandler
         var deployment = http.RequestServices.GetService(typeof(Modbot.Core.Configuration.DeploymentInfo))
             as Modbot.Core.Configuration.DeploymentInfo;
 
+        var logEvents = Modbot.Core.Discord.ModerationLogEvents.Parse(settings.DiscordLogEventTypes);
+
         var integrations = new IntegrationStatus(
             settings.DiscordBotTokenEncrypted is not null,
             settings.DiscordGuildId,
+            settings.DiscordLogChannelId,
+            Modbot.Core.Discord.ModerationLogEvents.Allowed.Where(logEvents.Contains).ToList(),
+            Modbot.Core.Discord.ModerationLogEvents.Allowed
+                .Select(t => new DiscordLogEventChoice(t, Modbot.Api.Features.Audit.FactLabels.For(t)))
+                .ToList(),
             settings.SmtpHost is { Length: > 0 },
             settings.SmtpHost,
             settings.PublicAddress,

@@ -147,6 +147,11 @@ public static class AuditVisibility
         [FactType.ReviewOpened] = AuditCategory.Moderation,
         [FactType.ReviewClosed] = AuditCategory.Moderation,
 
+        // The Discord bot. Who used a command is an access record, and what it posted is
+        // plumbing; both belong to the operator's log rather than the member timeline.
+        [FactType.DiscordCommandRun] = AuditCategory.Operational,
+        [FactType.DiscordLogPosted] = AuditCategory.Operational,
+
         // Evidence is moderation history, not plumbing: who attached what to a case, who opened
         // it, and who destroyed it are all part of the accountability record spec 5.8 exists for.
         [FactType.EvidenceAttached] = AuditCategory.Moderation,

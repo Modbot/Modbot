@@ -18,6 +18,7 @@
     <Project Path="tests/Modbot.Api.Tests/Modbot.Api.Tests.csproj" />
     <Project Path="tests/Modbot.Client.Tests/Modbot.Client.Tests.csproj" />
     <Project Path="tests/Modbot.Core.Tests/Modbot.Core.Tests.csproj" />
+    <Project Path="tests/Modbot.Discord.Tests/Modbot.Discord.Tests.csproj" />
     <Project Path="tests/Modbot.Overlay.Tests/Modbot.Overlay.Tests.csproj" />
     <Project Path="tests/Modbot.Evidence.Tests/Modbot.Evidence.Tests.csproj" />
     <Project Path="tests/Modbot.TestSupport/Modbot.TestSupport.csproj" />

@@ -178,6 +178,22 @@ public static class FactType
     public const string DiscordRoleGranted = "discord.role.assign";
     public const string DiscordRoleRevoked = "discord.role.unassign";
 
+    // ── Modbot's Discord bot (foundation §9) ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Somebody ran one of the bot's slash commands. Subject is the Discord user; actor is the
+    /// Modbot account it is linked to, when there is one. Payload: the command, whether it was
+    /// answered or refused, and the VRChat user it looked up if any. Kept forever, like evidence
+    /// access: "who looked at whom" is an access record, not noise.
+    /// </summary>
+    public const string DiscordCommandRun = "modbot.discord.command";
+
+    /// <summary>
+    /// The bot posted a batch of moderation events to the log channel. Subject is the channel.
+    /// Payload: how many, and the first and last fact id. Presence class -- it is plumbing.
+    /// </summary>
+    public const string DiscordLogPosted = "modbot.discord.posted";
+
     // ── Modbot's own audit entries (spec 5.9.2) ────────────────────────────────────────────
 
     // Staff accounts (accounts and access design §6). Every one is the "Auth" row of spec

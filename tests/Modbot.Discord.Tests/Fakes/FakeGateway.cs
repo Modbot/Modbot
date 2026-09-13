@@ -1,0 +1,133 @@
+using Modbot.Discord.Gateway;
+
+namespace Modbot.Discord.Tests.Fakes;
+
+/// <summary>
+/// A gateway that records what the bot asked of it and never opens a socket. Tests raise its
+/// events by hand.
+/// </summary>
+public sealed class FakeGateway : IDiscordGateway
+{
+    private readonly Queue<DiscordPostOutcome> _outcomes = new();
+
+    public DiscordGatewayState State { get; set; } = DiscordGatewayState.Disconnected;
+
+    public event Func<Task>? Ready;
+
+    public event Func<DiscordDisconnect, Task>? Disconnected;
+
+    public event Func<DiscordCommandCall, Task>? CommandReceived;
+
+    public List<(string ChannelId, IReadOnlyList<DiscordEmbedContent> Embeds)> Posts { get; } = [];
+
+    public List<string> Tokens { get; } = [];
+
+    public string? RegisteredGuildId { get; private set; }
+
+    public IReadOnlyList<DiscordCommandDefinition> RegisteredCommands { get; private set; } = [];
+
+    public int RegisterCalls { get; private set; }
+
+    public bool Disposed { get; private set; }
+
+    public bool DisconnectCalled { get; private set; }
+
+    /// <summary>Set to make the next <see cref="ConnectAsync"/> throw with this message.</summary>
+    public string? ConnectError { get; set; }
+
+    /// <summary>Set to make <see cref="RegisterGuildCommandsAsync"/> throw.</summary>
+    public string? RegisterError { get; set; }
+
+    /// <summary>Whether <see cref="ConnectAsync"/> moves straight to <c>Ready</c> or waits for the test.</summary>
+    public bool ReadyOnConnect { get; set; }
+
+    public void FailNextPost(string error, bool permanent = false)
+        => _outcomes.Enqueue(DiscordPostOutcome.Failed(error, permanent));
+
+    public Task ConnectAsync(string token, CancellationToken ct)
+    {
+        Tokens.Add(token);
+
+        if (ConnectError is { } error)
+            throw new InvalidOperationException(error);
+
+        State = ReadyOnConnect ? DiscordGatewayState.Ready : DiscordGatewayState.Connecting;
+        return Task.CompletedTask;
+    }
+
+    public Task<int> RegisterGuildCommandsAsync(
+        string guildId, IReadOnlyList<DiscordCommandDefinition> commands, CancellationToken ct)
+    {
+        RegisterCalls++;
+
+        if (RegisterError is { } error)
+            throw new InvalidOperationException(error);
+
+        RegisteredGuildId = guildId;
+        RegisteredCommands = commands;
+        return Task.FromResult(commands.Count);
+    }
+
+    public Task<DiscordPostOutcome> PostAsync(
+        string channelId, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct)
+    {
+        var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : DiscordPostOutcome.Ok;
+
+        if (outcome.Sent)
+            Posts.Add((channelId, embeds));
+
+        return Task.FromResult(outcome);
+    }
+
+    public Task DisconnectAsync()
+    {
+        DisconnectCalled = true;
+        State = DiscordGatewayState.Disconnected;
+        return Task.CompletedTask;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        Disposed = true;
+        State = DiscordGatewayState.Disconnected;
+        return ValueTask.CompletedTask;
+    }
+
+    public Task RaiseReadyAsync()
+    {
+        State = DiscordGatewayState.Ready;
+        return Ready?.Invoke() ?? Task.CompletedTask;
+    }
+
+    public Task RaiseDisconnectedAsync(string reason, bool fatal = false)
+    {
+        State = DiscordGatewayState.Disconnected;
+        return Disconnected?.Invoke(new DiscordDisconnect(reason, fatal)) ?? Task.CompletedTask;
+    }
+
+    public Task RaiseCommandAsync(DiscordCommandCall call)
+        => CommandReceived?.Invoke(call) ?? Task.CompletedTask;
+}
+
+/// <summary>Hands out the gateways a test prepared, in order, and remembers every one it made.</summary>
+public sealed class FakeGatewayFactory : IDiscordGatewayFactory
+{
+    private readonly Queue<FakeGateway> _prepared = new();
+
+    public List<FakeGateway> Created { get; } = [];
+
+    public FakeGateway Next(Action<FakeGateway>? configure = null)
+    {
+        var gateway = new FakeGateway();
+        configure?.Invoke(gateway);
+        _prepared.Enqueue(gateway);
+        return gateway;
+    }
+
+    public IDiscordGateway Create()
+    {
+        var gateway = _prepared.Count > 0 ? _prepared.Dequeue() : new FakeGateway();
+        Created.Add(gateway);
+        return gateway;
+    }
+}

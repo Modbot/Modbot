@@ -65,6 +65,12 @@ export type OnboardingStatus = {
   integrations: {
     discordConfigured: boolean
     discordGuildId: string | null
+    /** The channel moderation events are posted to, or null. */
+    discordLogChannelId: string | null
+    /** The event types posted there now -- the defaults when nothing was chosen. */
+    discordLogEventTypes: string[]
+    /** Everything that can be chosen, in display order, with labels. */
+    discordLogEventChoices: { type: string; label: string }[]
     smtpConfigured: boolean
     smtpHost: string | null
     /** The saved public address, or null. The only thing an emailed link is built from. */
@@ -549,6 +555,21 @@ export type UserProfileHealth = {
   countedAt: string | null
 }
 
+/**
+ * The Discord bot's own account of itself. `NotConfigured` is not a fault: no token is stored.
+ * `lastError` is a sentence and never the token.
+ */
+export type DiscordBotHealth = {
+  state: 'NotConfigured' | 'Connecting' | 'Connected' | 'Disconnected' | 'Failed'
+  connectedSince: string | null
+  lastError: string | null
+  lastErrorAt: string | null
+  commandsRegistered: number
+  logChannelConfigured: boolean
+  lastPostedAt: string | null
+  postedInThisProcess: number
+}
+
 export type SyncHealth = {
   gate: GateHealth
   buckets: BucketHealth[]
@@ -566,6 +587,8 @@ export type SyncHealth = {
   unmappedAuditEvents: UnmappedEvent[]
   auditLogHistoryHorizon: HistoryHorizonReport | null
   userProfiles: UserProfileHealth | null
+  /** Null when no bot is registered in this host at all. */
+  discordBot: DiscordBotHealth | null
   now: string
 }
 
@@ -1001,7 +1024,7 @@ export const api = {
     post<{ groupId: string; name: string }>('/api/onboarding/group', body),
 
   saveIntegrations: (body: {
-    discord?: { botToken?: string; guildId?: string }
+    discord?: { botToken?: string; guildId?: string; logChannelId?: string; logEventTypes?: string[] }
     smtp?: {
       host?: string
       port?: number

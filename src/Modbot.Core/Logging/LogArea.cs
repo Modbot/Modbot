@@ -30,4 +30,7 @@ public static class LogArea
 
     /// <summary>Onboarding, settings, auth.</summary>
     public const string Setup = "Setup";
+
+    /// <summary>The Discord bot: connection, commands, channel posting.</summary>
+    public const string Discord = "Discord";
 }

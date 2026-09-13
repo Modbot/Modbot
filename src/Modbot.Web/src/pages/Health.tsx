@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { statusOf, TONE } from '@/lib/gate'
 import { ago, duration, formatDay } from '@/lib/format'
-import { api, ApiError, type SyncHealth } from '@/lib/api'
+import { api, ApiError, type DiscordBotHealth, type SyncHealth } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /**
@@ -111,6 +111,8 @@ export function Health() {
           group.
         </Note>
       )}
+
+      {health.discordBot && <DiscordBot bot={health.discordBot} now={health.now} />}
 
       <Card>
         <CardContent className="py-4">
@@ -319,6 +321,60 @@ function Producer({
         </p>
       )}
     </div>
+  )
+}
+
+const BOT_STATE: Record<DiscordBotHealth['state'], { label: string; tone: 'ok' | 'warn' | 'problem' | 'muted' }> = {
+  NotConfigured: { label: 'not set up', tone: 'muted' },
+  Connecting: { label: 'connecting', tone: 'warn' },
+  Connected: { label: 'connected', tone: 'ok' },
+  Disconnected: { label: 'reconnecting', tone: 'warn' },
+  Failed: { label: 'stopped — needs you', tone: 'problem' },
+}
+
+const BOT_TONE: Record<'ok' | 'warn' | 'problem' | 'muted', string> = {
+  ok: 'text-ok',
+  warn: 'text-warn',
+  problem: 'text-destructive',
+  muted: 'text-muted-foreground',
+}
+
+/**
+ * The Discord bot (foundation §9). "Not set up" is not a fault: no token is stored and nothing
+ * else about Modbot is affected. "Stopped" means Discord refused the token or the intents, and
+ * the bot waits for the settings to change rather than knocking every thirty seconds.
+ */
+function DiscordBot({ bot, now }: { bot: DiscordBotHealth; now: string }) {
+  const state = BOT_STATE[bot.state]
+
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-medium">Discord bot</span>
+          <span className={BOT_TONE[state.tone]} style={{ fontSize: 'var(--text-small)' }}>
+            {state.label}
+          </span>
+          {bot.state === 'Connected' && bot.connectedSince && (
+            <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              since {ago(bot.connectedSince, now)} · {bot.commandsRegistered} slash commands registered
+            </span>
+          )}
+        </div>
+        <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {bot.state === 'NotConfigured'
+            ? 'No bot token or guild id is stored, so the bot is not running. Add them under Settings → Integrations to turn it on.'
+            : bot.logChannelConfigured
+              ? `Moderation events are posted to the log channel: ${bot.postedInThisProcess} since this process started${bot.lastPostedAt ? `, the last ${ago(bot.lastPostedAt, now)}` : ''}.`
+              : 'No moderation log channel is set, so the bot answers commands and posts nothing.'}
+        </p>
+        {bot.lastError && (
+          <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            Last problem{bot.lastErrorAt ? ` (${ago(bot.lastErrorAt, now)})` : ''}: {bot.lastError}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

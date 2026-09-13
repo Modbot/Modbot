@@ -105,6 +105,9 @@ public static class FactLabels
         [FactType.RetentionPruned] = "Retention pruned",
         [FactType.PartitionCreated] = "Partition created",
         [FactType.UserPurged] = "User data purged",
+
+        [FactType.DiscordCommandRun] = "Discord command used",
+        [FactType.DiscordLogPosted] = "Posted to the Discord log channel",
     };
 
     public static string For(string type)

@@ -64,6 +64,8 @@ public static class SyncHealthEndpoints
                 // and says so, rather than failing to resolve a service at request time.
                 [FromServices] SyncDiagnostics? diagnostics,
                 [FromServices] UserRefreshQueue? queue,
+                // Optional for the same reason: the bot is wired by the host, not by the API.
+                [FromServices] Modbot.Core.Discord.IDiscordBotStatus? discordBot,
                 CancellationToken ct) =>
             {
                 var (health, buckets) = await GateHealthReader.ReadAsync(gate, ct);
@@ -92,6 +94,7 @@ public static class SyncHealthEndpoints
                         .ToList() ?? [],
                     Horizon(diagnostics?.HistoryHorizonReached),
                     Profiles(diagnostics, queue),
+                    discordBot?.Snapshot(),
                     clock.UtcNow));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)

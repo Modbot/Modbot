@@ -1,7 +1,12 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\Modbot.Core\Modbot.Core.csproj" />
+    <ProjectReference Include="..\Modbot.Analytics\Modbot.Analytics.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Discord.Net.WebSocket" />
   </ItemGroup>
 
   <PropertyGroup>
