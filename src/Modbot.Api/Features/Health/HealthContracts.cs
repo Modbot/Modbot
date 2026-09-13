@@ -137,6 +137,36 @@ public sealed record UserProfileHealth(
     DateTimeOffset? LastRateLimitedAt,
     DateTimeOffset? CountedAt);
 
+/// <summary>
+/// Where a member or ban sweep has got to.
+/// </summary>
+/// <param name="Phase"><c>sweeping</c>, <c>resting</c>, <c>cold-stopped</c>, <c>retrying</c> or <c>idle</c>, from the service's last decision.</param>
+/// <param name="LastCompletedAt">When the last full sweep finished, from the settings row so it survives a restart.</param>
+/// <param name="StartedAt">When the sweep in progress started. Null between sweeps.</param>
+/// <param name="Offset">How far into the list the sweep in progress has read.</param>
+/// <param name="Count">How many the last full sweep listed.</param>
+/// <param name="PagesWalked">Requests spent on the sweep in progress, or the last one.</param>
+/// <param name="RowsChanged">Rows that sweep inserted, updated or marked gone.</param>
+/// <param name="FactsWritten">Inferred facts recorded since this process started.</param>
+/// <param name="FactsDeduplicated">Inferred facts dropped because the audit log had already recorded the event.</param>
+/// <param name="NextPassAt">When the service will next do something.</param>
+/// <param name="ColdStopped">Whether this list's bucket is cold-stopped right now.</param>
+/// <param name="PolledAt">When the sweep last completed a pass of any kind.</param>
+public sealed record SweepHealth(
+    string Phase,
+    DateTimeOffset? LastCompletedAt,
+    DateTimeOffset? StartedAt,
+    int Offset,
+    int Count,
+    int PagesWalked,
+    int RowsChanged,
+    int FactsWritten,
+    int FactsDeduplicated,
+    DateTimeOffset? NextPassAt,
+    bool ColdStopped,
+    DateTimeOffset? PolledAt,
+    SyncRunSummary? LastRun);
+
 /// <param name="SyncRunningInThisProcess">
 /// False when no producer is registered in this host — a diagnostic host, or a deployment where
 /// sync was deliberately left out. Everything else in the response is then empty because nothing
@@ -167,4 +197,6 @@ public sealed record SyncHealth(
     IReadOnlyList<UnmappedEvent> UnmappedAuditEvents,
     HistoryHorizonReport? AuditLogHistoryHorizon,
     UserProfileHealth? UserProfiles,
+    SweepHealth? MemberSweep,
+    SweepHealth? BanSweep,
     DateTimeOffset Now);

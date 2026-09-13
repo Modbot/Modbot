@@ -13,6 +13,7 @@ using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
+using Modbot.Api.Features.Members;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
@@ -120,6 +121,10 @@ public static class ApiSurface
         // One VRChat user's stored profile and the 18+ flag (user profile sync design §6). The
         // queue and the record writer resolve optionally, like SyncDiagnostics does above.
         app.MapVRChatUsers();
+
+        // The member list and the ban list as the sweeps last read them (member and ban sync
+        // design §5), with search.
+        app.MapMembers();
 
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and

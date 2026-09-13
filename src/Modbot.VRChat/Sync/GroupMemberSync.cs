@@ -523,7 +523,8 @@ public sealed class GroupMemberSync
                 .OrderBy(r => r, StringComparer.Ordinal)
                 .ToList());
 
-    internal static List<string> RoleIds(string? json)
+    /// <summary>The role ids in a row's <c>roles</c> column. Public because the API resolves them to names.</summary>
+    public static List<string> RoleIds(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
             return [];

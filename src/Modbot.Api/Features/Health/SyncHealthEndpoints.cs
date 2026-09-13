@@ -92,6 +92,34 @@ public static class SyncHealthEndpoints
                         .ToList() ?? [],
                     Horizon(diagnostics?.HistoryHorizonReached),
                     Profiles(diagnostics, queue),
+                    diagnostics is null ? null : new SweepHealth(
+                        diagnostics.MemberSweep.Phase,
+                        settings?.MemberSweepCompletedAt,
+                        settings?.MemberSweepStartedAt,
+                        settings?.MemberSweepOffset ?? 0,
+                        settings?.MemberSweepCount ?? 0,
+                        diagnostics.MemberSweep.PagesWalked,
+                        diagnostics.MemberSweep.RowsChanged,
+                        diagnostics.MemberSweep.FactsWritten,
+                        diagnostics.MemberSweep.FactsDeduplicated,
+                        diagnostics.MemberSweep.NextPassAt,
+                        ColdStopped(buckets, VRChatEndpointClass.GroupsMembers),
+                        settings?.MemberSweepPolledAt,
+                        Run(diagnostics.LastMemberSweepRun)),
+                    diagnostics is null ? null : new SweepHealth(
+                        diagnostics.BanSweep.Phase,
+                        settings?.BanSweepCompletedAt,
+                        settings?.BanSweepStartedAt,
+                        settings?.BanSweepOffset ?? 0,
+                        settings?.BanSweepCount ?? 0,
+                        diagnostics.BanSweep.PagesWalked,
+                        diagnostics.BanSweep.RowsChanged,
+                        diagnostics.BanSweep.FactsWritten,
+                        diagnostics.BanSweep.FactsDeduplicated,
+                        diagnostics.BanSweep.NextPassAt,
+                        ColdStopped(buckets, VRChatEndpointClass.GroupsBans),
+                        settings?.BanSweepPolledAt,
+                        Run(diagnostics.LastBanSweepRun)),
                     clock.UtcNow));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
@@ -129,6 +157,10 @@ public static class SyncHealthEndpoints
                 report.At,
                 report.Duration.TotalSeconds,
                 report.Summary);
+
+    /// <summary>Whether any bucket of this class -- the class bucket or the group's own -- is refusing to send.</summary>
+    private static bool ColdStopped(IReadOnlyList<BucketHealth> buckets, string endpointClass) =>
+        buckets.Any(b => b.IsColdStopped && string.Equals(b.EndpointClass, endpointClass, StringComparison.Ordinal));
 
     private static HistoryHorizonReport? Horizon(HistoryHorizon? horizon)
         => horizon is null

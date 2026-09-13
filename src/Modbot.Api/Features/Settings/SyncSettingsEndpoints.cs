@@ -52,6 +52,19 @@ public sealed record UserProfilePollRateSettings(
     double FreshEnoughWhenSeenInInstanceSeconds,
     double RateLimitedIntervalSeconds);
 
+/// <summary>How a member or ban sweep is paced (member and ban sync design §3).</summary>
+/// <param name="PageDelaySeconds">Time between one page and the next while a sweep runs. Floored at the class cap.</param>
+/// <param name="RestSeconds">Time between the end of one full sweep and the start of the next.</param>
+/// <param name="PacingFloorSeconds">Spec 4.2's cap for the class: one request per 2 seconds.</param>
+public sealed record SweepPollRateSettings(
+    double PageDelaySeconds,
+    double RestSeconds,
+    double RetryIntervalSeconds,
+    double RateLimitedIntervalSeconds,
+    double PacingFloorSeconds,
+    double JitterFraction,
+    int PageSize);
+
 /// <summary>One endpoint class's budget, as configured and as it will actually be issued.</summary>
 /// <param name="HardMaxPerSecond">
 /// Spec 4.2's cap. Read-only: no write raises the rate past it, and the limiter takes the minimum
@@ -126,6 +139,8 @@ public sealed record SyncSettingsResponse(
     AuditLogPollRateSettings AuditLog,
     GroupInfoPollRateSettings GroupInfo,
     UserProfilePollRateSettings UserProfile,
+    SweepPollRateSettings MemberSweep,
+    SweepPollRateSettings BanSweep,
     SyncRateSettings Rates,
     bool Editable,
     string EditableExplanation,
@@ -161,6 +176,15 @@ public sealed record UserProfilePollRateUpdate(
     double? FreshEnoughWhenSeenInInstanceSeconds = null,
     double? RateLimitedIntervalSeconds = null);
 
+/// <summary>Sweep fields to change. Every one optional.</summary>
+public sealed record SweepPollRateUpdate(
+    double? PageDelaySeconds = null,
+    double? RestSeconds = null,
+    double? RetryIntervalSeconds = null,
+    double? RateLimitedIntervalSeconds = null,
+    double? JitterFraction = null,
+    int? PageSize = null);
+
 /// <param name="ClassCeilingsPerSecond">
 /// Estimates of VRChat's limit, keyed by endpoint class. Only the classes named are touched.
 /// </param>
@@ -174,6 +198,8 @@ public sealed record SyncSettingsUpdate(
     AuditLogPollRateUpdate? AuditLog = null,
     GroupInfoPollRateUpdate? GroupInfo = null,
     UserProfilePollRateUpdate? UserProfile = null,
+    SweepPollRateUpdate? MemberSweep = null,
+    SweepPollRateUpdate? BanSweep = null,
     bool Reset = false);
 
 /// <summary>
@@ -392,6 +418,32 @@ public static class SyncSettingsEndpoints
             }
         }
 
+        if (InvalidSweep(body.MemberSweep, "Member sweep") is { } members)
+            return members;
+
+        if (InvalidSweep(body.BanSweep, "Ban sweep") is { } bans)
+            return bans;
+
+        return null;
+    }
+
+    private static string? InvalidSweep(SweepPollRateUpdate? sweep, string name)
+    {
+        if (sweep is null)
+            return null;
+
+        if (Broken(sweep.PageDelaySeconds) || Broken(sweep.RestSeconds)
+            || Broken(sweep.RetryIntervalSeconds) || Broken(sweep.RateLimitedIntervalSeconds))
+        {
+            return $"{name} intervals must be positive numbers of seconds.";
+        }
+
+        if (Negative(sweep.JitterFraction))
+            return "Jitter cannot be negative.";
+
+        if (sweep.PageSize is < 1)
+            return "A page must hold at least 1 entry.";
+
         return null;
     }
 
@@ -428,6 +480,20 @@ public static class SyncSettingsEndpoints
         UserProfileFreshEnoughWhenOpenedSeconds = body.UserProfile?.FreshEnoughWhenOpenedSeconds,
         UserProfileFreshEnoughWhenSeenInInstanceSeconds = body.UserProfile?.FreshEnoughWhenSeenInInstanceSeconds,
         UserProfileRateLimitedIntervalSeconds = body.UserProfile?.RateLimitedIntervalSeconds,
+
+        MemberSweepPageDelaySeconds = body.MemberSweep?.PageDelaySeconds,
+        MemberSweepRestSeconds = body.MemberSweep?.RestSeconds,
+        MemberSweepRetryIntervalSeconds = body.MemberSweep?.RetryIntervalSeconds,
+        MemberSweepRateLimitedIntervalSeconds = body.MemberSweep?.RateLimitedIntervalSeconds,
+        MemberSweepJitterFraction = body.MemberSweep?.JitterFraction,
+        MemberSweepPageSize = body.MemberSweep?.PageSize,
+
+        BanSweepPageDelaySeconds = body.BanSweep?.PageDelaySeconds,
+        BanSweepRestSeconds = body.BanSweep?.RestSeconds,
+        BanSweepRetryIntervalSeconds = body.BanSweep?.RetryIntervalSeconds,
+        BanSweepRateLimitedIntervalSeconds = body.BanSweep?.RateLimitedIntervalSeconds,
+        BanSweepJitterFraction = body.BanSweep?.JitterFraction,
+        BanSweepPageSize = body.BanSweep?.PageSize,
     };
 
     private static SyncSettingsResponse Describe(
@@ -480,6 +546,22 @@ public static class SyncSettingsEndpoints
                 pacing.UserProfile.FreshEnoughWhenOpened.TotalSeconds,
                 pacing.UserProfile.FreshEnoughWhenSeenInInstance.TotalSeconds,
                 pacing.UserProfile.RateLimitedInterval.TotalSeconds),
+            new SweepPollRateSettings(
+                pacing.MemberSweep.PageDelay.TotalSeconds,
+                pacing.MemberSweep.RestBetweenSweeps.TotalSeconds,
+                pacing.MemberSweep.RetryInterval.TotalSeconds,
+                pacing.MemberSweep.RateLimitedInterval.TotalSeconds,
+                GroupMemberSyncOptions.PacingFloor.TotalSeconds,
+                pacing.MemberSweep.JitterFraction,
+                pacing.MemberSweep.PageSize),
+            new SweepPollRateSettings(
+                pacing.BanSweep.PageDelay.TotalSeconds,
+                pacing.BanSweep.RestBetweenSweeps.TotalSeconds,
+                pacing.BanSweep.RetryInterval.TotalSeconds,
+                pacing.BanSweep.RateLimitedInterval.TotalSeconds,
+                GroupBanSyncOptions.PacingFloor.TotalSeconds,
+                pacing.BanSweep.JitterFraction,
+                pacing.BanSweep.PageSize),
             new SyncRateSettings(
                 pacing.BudgetFraction,
                 RateLimitOptions.DefaultFraction,
