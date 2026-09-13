@@ -87,6 +87,8 @@ public static class AuditLogEntryMapper
             return new AuditLogMapping(null, AuditLogRejection.MissingTimestamp, entryId, eventType);
 
         var occurredAt = ReadTimestamp(entry.CreatedAt);
+        var data = ReadEntryData(entry.Data);
+        var instance = InstanceOf(type, entry, data);
 
         var fact = new FactRecord
         {
@@ -101,15 +103,19 @@ public static class AuditLogEntryMapper
 
             SubjectPlatform = FactPlatform.VRChat,
 
-            // Whatever VRChat put in targetId, untouched. For instance events it is probably a
-            // location string; it is never parsed to find out (spec 3.1.1).
+            // Whatever VRChat put in targetId, untouched. For an instance create, close, update
+            // or announcement that is the location string itself, and it stays here whole; the
+            // world and instance columns below are filled beside it, never instead of it.
             SubjectId = entry.TargetId,
 
             ActorPlatform = string.IsNullOrWhiteSpace(entry.ActorId) ? null : FactPlatform.VRChat,
             ActorId = string.IsNullOrWhiteSpace(entry.ActorId) ? null : entry.ActorId,
 
+            WorldId = instance.WorldId,
+            InstanceId = instance.InstanceId,
+
             Source = FactSource.AuditLog,
-            Data = Payload(entry, eventType, type, occurredAt),
+            Data = Payload(entry, eventType, type, occurredAt, data),
         };
 
         return new AuditLogMapping(
@@ -156,10 +162,9 @@ public static class AuditLogEntryMapper
         GroupAuditLogEntry entry,
         string eventType,
         string type,
-        DateTimeOffset occurredAt)
+        DateTimeOffset occurredAt,
+        JsonNode? data)
     {
-        var data = ReadEntryData(entry.Data);
-
         var payload = new JsonObject
         {
             // Kept so a later pass can recognise this entry as one it has already recorded, and
@@ -182,6 +187,47 @@ public static class AuditLogEntryMapper
     }
 
     /// <summary>
+    /// The world and instance an instance event happened in, for the two columns the fact row
+    /// keeps for exactly that. Null for every other event type.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Where the location string sits depends on the event, and both places were observed across
+    /// 531 live rows with the key set stable in every one (audit-log research section 6): a kick
+    /// or a warn names the person in <c>targetId</c> and puts the location in
+    /// <c>auditData.location</c>; a create, close, update or announcement puts the location in
+    /// <c>targetId</c> itself. This is what lets "which instances get the most kicks" be a query
+    /// on two indexed columns instead of a substring match inside <c>jsonb</c>.
+    /// </para>
+    /// <para>
+    /// Split by delimiters only (<see cref="InstanceLocationParts"/>). The string is not checked
+    /// for shape first, because a shape check is how legacy ids get silently dropped (spec 3.1.1).
+    /// </para>
+    /// </remarks>
+    private static InstanceLocationParts InstanceOf(string type, GroupAuditLogEntry entry, JsonNode? data)
+    {
+        switch (type)
+        {
+            case FactType.GroupInstanceKick:
+            case FactType.GroupInstanceWarn:
+                return data is JsonObject fields
+                       && fields["location"] is JsonValue value
+                       && value.TryGetValue<string>(out var location)
+                    ? InstanceLocationParts.Split(location)
+                    : default;
+
+            case FactType.GroupInstanceCreated:
+            case FactType.GroupInstanceClosed:
+            case FactType.GroupInstanceUpdated:
+            case FactType.GroupInstanceAnnouncement:
+                return InstanceLocationParts.Split(entry.TargetId);
+
+            default:
+                return default;
+        }
+    }
+
+    /// <summary>
     /// Copies into first-class fields only what live data or VRChat's own documentation has
     /// shown the shape of.
     /// </summary>
@@ -191,20 +237,22 @@ public static class AuditLogEntryMapper
     /// group update's is <c>{field: {old, new}}</c>, one entry per field changed: VRChat's OpenAPI
     /// example. Those are lifted -- <c>roleId</c> and <c>roleName</c> to the top of the payload,
     /// the diff map under <c>changed</c>, which is the key the group-info producer already uses
-    /// for its own diffs so a reader of the timeline meets one shape. Lifting adds a copy; it
-    /// never moves anything out of <c>auditData</c>.
+    /// for its own diffs so a reader of the timeline meets one shape.
     /// </para>
     /// <para>
-    /// For every other event type nothing is lifted, on purpose. Their payloads have not been
-    /// observed -- live data so far shows <c>{}</c> for joins, leaves, invites and bans, and
-    /// nothing at all for posts, requests, instances or calendar entries -- and a guess about a
-    /// shape is worse than waiting for it: a field lifted under the wrong name is one two
-    /// producers and a query then depend on. The verbatim copy loses nothing in the meantime,
-    /// and a lift can be added the day a real sample exists.
+    /// The re-walk of 1,241 live entries (audit-log research section 6) showed a stable key set
+    /// for every type, and the small scalars that were present in every row of theirs are lifted
+    /// too: <c>groupAccessType</c> on an instance create or close; <c>title</c>/<c>message</c> on
+    /// an announcement; <c>title</c>/<c>text</c>/<c>authorId</c>/<c>visibility</c> on a post;
+    /// <c>title</c>/<c>type</c>/<c>accessType</c> on a calendar event. Nothing is lifted for a
+    /// type whose payload has not been observed, because a field lifted under a guessed name is
+    /// one two producers and a query then depend on; the verbatim copy loses nothing in the
+    /// meantime.
     /// </para>
     /// <para>
-    /// There is no ban reason to lift. VRChat's <c>description</c> for a ban is its own template
-    /// ("User X was preemptively banned by Y.") and carries none.
+    /// Lifting adds a copy; it never moves anything out of <c>auditData</c>. There is no ban
+    /// reason to lift: VRChat's <c>description</c> for a ban is its own template ("User X was
+    /// preemptively banned by Y.") and carries none.
     /// </para>
     /// </remarks>
     private static void Lift(JsonObject payload, string type, JsonNode? data)
@@ -228,6 +276,29 @@ public static class AuditLogEntryMapper
 
             case FactType.GroupInfoChanged:
                 CopyChanges(fields, payload);
+                break;
+
+            case FactType.GroupInstanceCreated:
+            case FactType.GroupInstanceClosed:
+                CopyString(fields, payload, "groupAccessType");
+                break;
+
+            case FactType.GroupInstanceAnnouncement:
+                CopyString(fields, payload, "title");
+                CopyString(fields, payload, "message");
+                break;
+
+            case FactType.GroupPostCreated:
+                CopyString(fields, payload, "title");
+                CopyString(fields, payload, "text");
+                CopyString(fields, payload, "authorId");
+                CopyString(fields, payload, "visibility");
+                break;
+
+            case FactType.CalendarEventCreated:
+                CopyString(fields, payload, "title");
+                CopyString(fields, payload, "type");
+                CopyString(fields, payload, "accessType");
                 break;
         }
     }

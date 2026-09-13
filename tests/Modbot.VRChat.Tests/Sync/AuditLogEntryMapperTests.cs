@@ -12,11 +12,20 @@ namespace Modbot.VRChat.Tests.Sync;
 /// here and nowhere else.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Half of these run against real entries: <c>Fixtures/audit-log-entries-2026-09-13.jsonl</c>
 /// is a pull from a live group with display names replaced and ids kept, deserialised through
 /// Newtonsoft the way the SDK does it. VRChat types <c>eventType</c> as a bare string and
 /// documents <c>data</c> only as "dependent on the event type", so captured samples are the only
 /// evidence there is for either.
+/// </para>
+/// <para>
+/// <c>Fixtures/audit-log-shapes-2026-09-13.jsonl</c> is one row per shape recorded in the
+/// audit-log research, section 6, after the re-walk of 1,241 live entries: the key set of each
+/// row is exactly what every live row of that type carried, and the location string is the
+/// quoted one. Display names, post and announcement text are removed, and the parts of ids the
+/// research elides are filled in -- so the ids are shaped like the live ones without being them.
+/// </para>
 /// </remarks>
 public class AuditLogEntryMapperTests
 {
@@ -313,9 +322,10 @@ public class AuditLogEntryMapperTests
     }
 
     /// <summary>
-    /// Verbatim, nothing invented. These types' payloads have not been observed, and a field
-    /// lifted under a guessed name is one two producers and a query then depend on. Even data
-    /// that looks like a role or a diff stays where VRChat put it until a real sample says so.
+    /// Verbatim, nothing invented. These types' payloads have not been observed -- or, for the
+    /// membership events, were observed empty -- and a field lifted under a guessed name is one
+    /// two producers and a query then depend on. Even data that looks like a role stays where
+    /// VRChat put it until a real sample says so.
     /// </summary>
     [Theory]
     [InlineData("group.member.join")]
@@ -327,33 +337,239 @@ public class AuditLogEntryMapperTests
     [InlineData("group.request.create")]
     [InlineData("group.request.reject")]
     [InlineData("group.request.block")]
-    [InlineData("group.post.create")]
     [InlineData("group.post.delete")]
-    [InlineData("group.instance.create")]
-    [InlineData("group.instance.close")]
-    [InlineData("group.instance.update")]
-    [InlineData("group.instance.announcement")]
-    [InlineData("group.instance.kick")]
-    [InlineData("group.instance.warn")]
-    [InlineData("group.calendarEvent.create")]
     [InlineData("group.calendarEvent.delete")]
     [InlineData("group.calendarEvent.series.update")]
     [InlineData("group.calendarEvent.series.delete")]
-    public void NothingIsLiftedForTypesWhosePayloadHasNotBeenSeen(string eventType)
+    public void NoScalarIsLiftedForTypesWhosePayloadHasNotBeenSeen(string eventType)
     {
         var entry = Entry(eventType);
-        entry.Data = """{"roleId":"grol_9","name":{"old":"a","new":"b"}}""";
+        entry.Data = """{"roleId":"grol_9","title":"looks liftable"}""";
 
         var data = AuditLogEntryMapper.Map(entry).Fact!.Data!;
 
-        string[] expectedKeys =
-        [
-            "auditEntryId", "eventType", "groupId", "actorId", "actorDisplayName",
-            "targetId", "createdAt", "description", "auditData",
-        ];
-
-        Assert.Equal(expectedKeys.Order(StringComparer.Ordinal), data.Select(p => p.Key).Order(StringComparer.Ordinal));
+        Assert.Equal(BaseKeys.Order(StringComparer.Ordinal), data.Select(p => p.Key).Order(StringComparer.Ordinal));
         Assert.Equal("grol_9", data["auditData"]!["roleId"]!.GetValue<string>());
+    }
+
+    private static readonly string[] BaseKeys =
+    [
+        "auditEntryId", "eventType", "groupId", "actorId", "actorDisplayName",
+        "targetId", "createdAt", "description", "auditData",
+    ];
+
+    // ── Scalars observed stable, lifted beside the copy ────────────────────────────────────
+
+    [Theory]
+    [InlineData("gaud_3f7b1d9c-8e2a-4c05-b6d3-4a9e0f2c7b54", "group.instance.create")]
+    [InlineData("gaud_b82e6a4d-5c19-4f7e-9d0b-3e1a7c5f2d96", "group.instance.close")]
+    public void AnInstanceCreateOrCloseLiftsItsAccessTypeAndNothingElse(string entryId, string eventType)
+    {
+        var entry = ShapeSample(entryId);
+        Assert.Equal(eventType, entry.EventType);
+
+        var data = AuditLogEntryMapper.Map(entry).Fact!.Data!;
+
+        Assert.Equal("public", data["groupAccessType"]!.GetValue<string>());
+        Assert.Equal(
+            BaseKeys.Append("groupAccessType").Order(StringComparer.Ordinal),
+            data.Select(p => p.Key).Order(StringComparer.Ordinal));
+        Assert.False(data.ContainsKey("roleIds"));
+    }
+
+    [Fact]
+    public void AnAnnouncementLiftsItsTitleAndMessage()
+    {
+        var data = AuditLogEntryMapper.Map(ShapeSample("gaud_e6c0d3b8-2a7f-4e19-8b5c-9f4d1a6e3c72")).Fact!.Data!;
+
+        Assert.Equal("[announcement title removed]", data["title"]!.GetValue<string>());
+        Assert.Equal("[announcement text removed]", data["message"]!.GetValue<string>());
+        Assert.Equal("[announcement text removed]", data["auditData"]!["message"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// A post's <c>targetId</c> is the notification VRChat sent members, not the post; the post
+    /// itself is in <c>auditData</c>. The four stable scalars come up; the rest of the shape
+    /// (<c>imageId</c>, <c>roleIds</c>, <c>sendNotification</c>) stays in the copy only.
+    /// </summary>
+    [Fact]
+    public void APostLiftsItsTitleTextAuthorAndVisibility()
+    {
+        var entry = ShapeSample("gaud_7e3a9c5d-0b4f-4d21-9f6e-2c8b1d7a4e05");
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+        var data = fact.Data!;
+
+        Assert.Equal("not_4a8d2f6b-9e1c-4b73-a5d0-7f3e6c2b9a18", fact.SubjectId);
+        Assert.Equal("[post title removed]", data["title"]!.GetValue<string>());
+        Assert.Equal("[post text removed]", data["text"]!.GetValue<string>());
+        Assert.Equal("usr_2a323be9-ac4e-4502-af07-357d79c48ccf", data["authorId"]!.GetValue<string>());
+        Assert.Equal("public", data["visibility"]!.GetValue<string>());
+
+        Assert.False(data.ContainsKey("imageId"));
+        Assert.False(data.ContainsKey("roleIds"));
+        Assert.False(data.ContainsKey("sendNotification"));
+        Assert.True(data["auditData"]!["sendNotification"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void ACalendarEventLiftsItsTitleTypeAndAccessType()
+    {
+        var data = AuditLogEntryMapper.Map(ShapeSample("gaud_a5d8f2c1-6e9b-4a07-b3f4-8d1c5e0a7b62")).Fact!.Data!;
+
+        Assert.Equal("[event title removed]", data["title"]!.GetValue<string>());
+        Assert.Equal("event", data["type"]!.GetValue<string>());
+        Assert.Equal("public", data["accessType"]!.GetValue<string>());
+
+        Assert.False(data.ContainsKey("imageId"));
+        Assert.Equal("[event description removed]", data["auditData"]!["description"]!.GetValue<string>());
+    }
+
+    // ── Instance events fill the instance columns ──────────────────────────────────────────
+
+    private const string ShapeWorldId = "wrld_44f4a344-2d1b-4c7e-9a3f-8b5e6d7c0f12";
+    private const string ShapeInstanceId = "93927";
+
+    private const string ShapeLocation =
+        "wrld_44f4a344-2d1b-4c7e-9a3f-8b5e6d7c0f12:93927~group(grp_0a17232e-6ad4-4889-8e1e-6e0c5fa815fd)~groupAccessType(public)~region(us)";
+
+    /// <summary>
+    /// A kick or a warn names the person in <c>targetId</c> and carries the instance in
+    /// <c>auditData.location</c> -- 447 live rows, every one the same. The person stays the
+    /// subject; the instance goes into the two columns that exist for it.
+    /// </summary>
+    [Theory]
+    [InlineData("gaud_5d1e7c0a-3b2f-4e8a-9c41-0f6b2a7d8e13", "group.instance.kick", "usr_7b3f9e21-6c4d-4a58-8e07-1d2c3b4a5f60")]
+    [InlineData("gaud_9a4c2e7f-1d8b-4f36-a52e-7c0b3d9e6a21", "group.instance.warn", "usr_c15e8d3a-9f27-4b06-b3c4-2e7a1d6f9b08")]
+    public void AKickOrWarnTakesTheInstanceFromItsDataAndKeepsThePersonAsTheSubject(
+        string entryId, string eventType, string person)
+    {
+        var entry = ShapeSample(entryId);
+        Assert.Equal(eventType, entry.EventType);
+
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+
+        Assert.Equal(person, fact.SubjectId);
+        Assert.Equal(ShapeWorldId, fact.WorldId);
+        Assert.Equal(ShapeInstanceId, fact.InstanceId);
+
+        // The location is not lifted into the payload: it is in the copy, and in the columns.
+        var data = fact.Data!;
+        Assert.Equal(BaseKeys.Order(StringComparer.Ordinal), data.Select(p => p.Key).Order(StringComparer.Ordinal));
+        Assert.Equal(ShapeLocation, data["auditData"]!["location"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// A create, close, announcement or update puts the location in <c>targetId</c>. The subject
+    /// stays that raw string, byte for byte -- the columns are filled beside it, not from it.
+    /// </summary>
+    [Theory]
+    [InlineData("gaud_3f7b1d9c-8e2a-4c05-b6d3-4a9e0f2c7b54", "group.instance.create")]
+    [InlineData("gaud_b82e6a4d-5c19-4f7e-9d0b-3e1a7c5f2d96", "group.instance.close")]
+    [InlineData("gaud_e6c0d3b8-2a7f-4e19-8b5c-9f4d1a6e3c72", "group.instance.announcement")]
+    [InlineData("gaud_1c9f4e2b-7d3a-4b68-a0e5-6b2d8f7c1a39", "group.instance.update")]
+    public void ACreateCloseAnnouncementOrUpdateTakesTheInstanceFromItsTargetAndKeepsTheTargetWhole(
+        string entryId, string eventType)
+    {
+        var entry = ShapeSample(entryId);
+        Assert.Equal(eventType, entry.EventType);
+
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+
+        Assert.Equal(ShapeLocation, fact.SubjectId);
+        Assert.Equal(ShapeLocation, fact.Data!["targetId"]!.GetValue<string>());
+        Assert.Equal(ShapeWorldId, fact.WorldId);
+        Assert.Equal(ShapeInstanceId, fact.InstanceId);
+    }
+
+    /// <summary>
+    /// Delimiters, not shapes. A world id that does not start with <c>wrld_</c> and an instance
+    /// id that is not a number are both legitimate -- legacy ids follow no structure and groups
+    /// set instance ids to readable text (spec 3.1.1) -- and a check on either would silently
+    /// leave the oldest instances out of every per-instance count.
+    /// </summary>
+    [Fact]
+    public void TheWorldAndInstanceAreNotCheckedForShape()
+    {
+        var entry = Entry("group.instance.create");
+        entry.TargetId = "Old Lobby:VIP Lounge~group(grp_x)";
+
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+
+        Assert.Equal("Old Lobby", fact.WorldId);
+        Assert.Equal("VIP Lounge", fact.InstanceId);
+        Assert.Equal("Old Lobby:VIP Lounge~group(grp_x)", fact.SubjectId);
+    }
+
+    /// <summary>
+    /// No <c>:</c> means the string is not a world-and-instance pair as Modbot reads it. It is
+    /// kept whole as the world rather than guessed at, and nothing is invented for the instance.
+    /// </summary>
+    [Theory]
+    [InlineData("group.instance.create")]
+    [InlineData("group.instance.kick")]
+    public void ALocationWithNoColonKeepsTheWholeStringAsTheWorldAndNoInstance(string eventType)
+    {
+        var entry = Entry(eventType);
+        if (eventType == "group.instance.kick")
+            entry.Data = """{"location":"just-a-world"}""";
+        else
+            entry.TargetId = "just-a-world";
+
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+
+        Assert.Equal("just-a-world", fact.WorldId);
+        Assert.Null(fact.InstanceId);
+    }
+
+    [Fact]
+    public void ALocationWithNoQualifiersStillSplits()
+    {
+        var entry = Entry("group.instance.close");
+        entry.TargetId = "wrld_a:12345";
+
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+
+        Assert.Equal("wrld_a", fact.WorldId);
+        Assert.Equal("12345", fact.InstanceId);
+    }
+
+    /// <summary>
+    /// A kick whose data has no <c>location</c> -- the shape has been stable so far, but VRChat
+    /// documents none of it -- fills nothing. The person is still the subject, the entry is still
+    /// recorded, and nothing throws.
+    /// </summary>
+    [Fact]
+    public void AKickWithNoLocationInItsDataFillsNoInstanceColumns()
+    {
+        var entry = Entry("group.instance.kick");
+        entry.Data = """{}""";
+
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+
+        Assert.Equal("usr_target", fact.SubjectId);
+        Assert.Null(fact.WorldId);
+        Assert.Null(fact.InstanceId);
+    }
+
+    /// <summary>
+    /// Only instance events are read this way. A ban whose target happens to look like a
+    /// location is a ban of whatever that string is, and the columns stay empty.
+    /// </summary>
+    [Theory]
+    [InlineData("group.user.ban")]
+    [InlineData("group.member.join")]
+    [InlineData("group.post.create")]
+    [InlineData("group.something.new")]
+    public void NoOtherEventTypeFillsTheInstanceColumns(string eventType)
+    {
+        var entry = Entry(eventType);
+        entry.TargetId = ShapeLocation;
+        entry.Data = $$$"""{"location":"{{{ShapeLocation}}}"}""";
+
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+
+        Assert.Null(fact.WorldId);
+        Assert.Null(fact.InstanceId);
     }
 
     // ── Targets and unknowns ───────────────────────────────────────────────────────────────
@@ -373,15 +589,19 @@ public class AuditLogEntryMapperTests
     }
 
     /// <summary>
-    /// For instance events <c>targetId</c> is probably a location string. Probably: it is never
-    /// parsed to find out (spec 3.1.1), and it reaches the subject column byte for byte.
+    /// A location-shaped <c>targetId</c> reaches the subject column byte for byte, whatever the
+    /// type. For an instance create it is also split into the world and instance columns; for a
+    /// kick it is not, because a kick's target is the person and its location lives in the data.
+    /// Neither reading changes the subject.
     /// </summary>
-    [Fact]
-    public void ALocationShapedTargetIsCarriedUntouched()
+    [Theory]
+    [InlineData("group.instance.kick")]
+    [InlineData("group.instance.create")]
+    public void ALocationShapedTargetIsCarriedUntouched(string eventType)
     {
         const string location = "wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd:12345~group(grp_x)~groupAccessType(plus)~region(use)";
 
-        var entry = Entry("group.instance.kick");
+        var entry = Entry(eventType);
         entry.TargetId = location;
 
         var fact = AuditLogEntryMapper.Map(entry).Fact!;
@@ -541,12 +761,41 @@ public class AuditLogEntryMapperTests
             fact.OccurredAt.UtcDateTime);
     }
 
+    /// <summary>
+    /// One row per shape in the research, and every one of them maps under its own name with the
+    /// columns filled -- so a shape the research records is a shape the mapper reads.
+    /// </summary>
+    [Fact]
+    public void EveryRecordedShapeMapsToANamedFactType()
+    {
+        var samples = ShapeSamples();
+        Assert.Equal(10, samples.Count);
+
+        Assert.All(samples, entry =>
+        {
+            var mapping = AuditLogEntryMapper.Map(entry);
+
+            Assert.True(mapping.Mapped, entry.EventType);
+            Assert.Equal(AuditLogRejection.None, mapping.Rejection);
+            Assert.NotEqual(FactType.Unrecognised, mapping.Fact!.Type);
+        });
+    }
+
     private static GroupAuditLogEntry LiveSample(string entryId)
         => LiveSamples().Single(e => e.Id == entryId);
 
+    private static GroupAuditLogEntry ShapeSample(string entryId)
+        => ShapeSamples().Single(e => e.Id == entryId);
+
     private static IReadOnlyList<GroupAuditLogEntry> LiveSamples()
+        => Fixture("audit-log-entries-2026-09-13.jsonl");
+
+    private static IReadOnlyList<GroupAuditLogEntry> ShapeSamples()
+        => Fixture("audit-log-shapes-2026-09-13.jsonl");
+
+    private static IReadOnlyList<GroupAuditLogEntry> Fixture(string name)
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "audit-log-entries-2026-09-13.jsonl");
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", name);
 
         return System.IO.File.ReadLines(path)
             .Where(line => !string.IsNullOrWhiteSpace(line))
