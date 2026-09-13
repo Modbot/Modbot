@@ -22,7 +22,7 @@ namespace Modbot.Api.Features.Metrics;
 /// range it actually had (<see cref="MetricsCoverage"/>).
 /// </para>
 /// <para>
-/// <strong><c>members.total</c> is not the group's member count.</strong> The rollup job computes
+/// <strong><c>members.net</c> is not the group's member count.</strong> The rollup job computes
 /// it as the running net of recorded joins and leaves, starting from zero on the fact log's first
 /// day — a group that installs Modbot with 40,000 members watches the series start at zero and
 /// climb. It is exposed here under a label that says so, and the real headcount is
@@ -72,12 +72,12 @@ public sealed class MetricsQuery(ModbotContext db)
             new(RollupMetrics.MembersLeft, "Members left", null, Undimensioned(RollupMetrics.MembersLeft)),
             new(RollupMetrics.BansAdded, "Bans recorded", null, Undimensioned(RollupMetrics.BansAdded)),
             new(
-                RollupMetrics.MembersTotal,
+                RollupMetrics.MembersNet,
                 "Net change since Modbot started recording",
                 "Recorded joins minus recorded leaves, counted from zero on the first day of the "
                 + "fact log. It is not the group's member count — that is the observed headcount "
                 + "series, which comes from the group-info sync.",
-                Undimensioned(RollupMetrics.MembersTotal)),
+                Undimensioned(RollupMetrics.MembersNet)),
         };
 
         var moderators = await ModeratorsAsync(rollups

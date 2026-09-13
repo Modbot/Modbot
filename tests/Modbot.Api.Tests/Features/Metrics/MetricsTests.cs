@@ -85,7 +85,7 @@ public class MetricsTests
     }
 
     [Fact]
-    public async Task MembersTotal_IsLabelledAsNetChange_NotAsTheHeadcount()
+    public async Task MembersNet_IsLabelledAsNetChange_NotAsTheHeadcount()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -98,7 +98,7 @@ public class MetricsTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var metrics = await host.GetJsonAsync<MetricsResponse>("/api/metrics", cookie, ct);
 
-        var series = metrics.Series.Single(s => s.Metric == RollupMetrics.MembersTotal);
+        var series = metrics.Series.Single(s => s.Metric == RollupMetrics.MembersNet);
 
         // The rollup counts from zero on the fact log's first day. A group that installs Modbot
         // with 40,000 members watches this series start at zero and climb -- so it must never be

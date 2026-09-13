@@ -63,7 +63,7 @@ public sealed record MetricsCoverage(
 
 /// <param name="MemberCount">
 /// Observed headcounts, from the group-info sync. Real numbers VRChat reported, not a running
-/// total Modbot accumulated — see the note on <c>members.total</c> in the metrics endpoint.
+/// total Modbot accumulated — see the note on <c>members.net</c> in the metrics endpoint.
 /// </param>
 public sealed record MetricsResponse(
     DateOnly From,

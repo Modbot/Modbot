@@ -94,7 +94,7 @@ public enum FactType : short
     /// </para>
     /// <para>
     /// It is also what lets the member-count series start from a real headcount rather than from
-    /// zero: the rollup job's <c>members.total</c> is the net of recorded joins and leaves, and
+    /// zero: the rollup job's <c>members.net</c> is the net of recorded joins and leaves, and
     /// the baseline it needs was always going to come from a sync (see <c>RollupMetrics</c>).
     /// </para>
     /// </remarks>

@@ -107,10 +107,10 @@ public class UserPurgerTests : AnalyticsTestBase
         await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
 
         Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersJoined));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersTotal));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersNet));
 
         // And the running total after the purged day moves with it.
-        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(1)), RollupMetrics.MembersTotal));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(1)), RollupMetrics.MembersNet));
     }
 
     /// <summary>

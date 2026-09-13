@@ -32,7 +32,7 @@ public class RollupJobTests : AnalyticsTestBase
     }
 
     [Fact]
-    public async Task MembersTotalIsTheRunningNetOfJoinsAndLeaves()
+    public async Task MembersNetIsTheRunningNetOfJoinsAndLeaves()
     {
         await WriteAsync(
             Fact(FactType.MemberJoined, Start),
@@ -44,9 +44,9 @@ public class RollupJobTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(2m, await ValueAsync(DayOf(Start), RollupMetrics.MembersTotal));
-        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(1)), RollupMetrics.MembersTotal));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(2)), RollupMetrics.MembersTotal));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start), RollupMetrics.MembersNet));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(1)), RollupMetrics.MembersNet));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(2)), RollupMetrics.MembersNet));
     }
 
     [Fact]
@@ -153,7 +153,7 @@ public class RollupJobTests : AnalyticsTestBase
         await using (var context = Database.NewContext())
             await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(3m, await ValueAsync(DayOf(Start.AddDays(4)), RollupMetrics.MembersTotal));
+        Assert.Equal(3m, await ValueAsync(DayOf(Start.AddDays(4)), RollupMetrics.MembersNet));
 
         Clock.Advance(TimeSpan.FromHours(1));
         await WriteAsync(Fact(FactType.MemberLeft, Start.AddDays(1)));
@@ -161,10 +161,10 @@ public class RollupJobTests : AnalyticsTestBase
         await using (var context = Database.NewContext())
             await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersTotal));
-        Assert.Equal(0m, await ValueAsync(DayOf(Start.AddDays(1)), RollupMetrics.MembersTotal));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(2)), RollupMetrics.MembersTotal));
-        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(4)), RollupMetrics.MembersTotal));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersNet));
+        Assert.Equal(0m, await ValueAsync(DayOf(Start.AddDays(1)), RollupMetrics.MembersNet));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(2)), RollupMetrics.MembersNet));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(4)), RollupMetrics.MembersNet));
     }
 
     /// <summary>
@@ -198,7 +198,7 @@ public class RollupJobTests : AnalyticsTestBase
         Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(5)), RollupMetrics.MembersJoined));
 
         // And the running total still carries the departed history forward rather than restarting.
-        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(5)), RollupMetrics.MembersTotal));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(5)), RollupMetrics.MembersNet));
     }
 
     [Fact]

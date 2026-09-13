@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
  * a retention window can shorten. Showing one date range over both would claim they were the same,
  * so each panel says what it was computed from and the footer states both extents.
  *
- * The series that is *not* here is as deliberate as the ones that are: `members.total` is a
+ * The series that is *not* here is as deliberate as the ones that are: `members.net` is a
  * running net of recorded joins and leaves from zero, so it is shown as "net change since Modbot
  * started recording" and never as a headcount. The headcount comes from the group-info sync,
  * which is a number VRChat actually reported.
@@ -236,12 +236,12 @@ export function Metrics() {
       </Panel>
 
       <Panel
-        title={series('members.total')?.label ?? 'Net change'}
+        title={series('members.net')?.label ?? 'Net change'}
         source="From rollups"
-        note={series('members.total')?.note ?? null}
+        note={series('members.net')?.note ?? null}
       >
         <TimeSeriesChart
-          points={denseDays(data.from, data.to, series('members.total')?.points ?? [], 'carry')}
+          points={denseDays(data.from, data.to, series('members.net')?.points ?? [], 'carry')}
           series={4}
           valueLabel="net"
         />

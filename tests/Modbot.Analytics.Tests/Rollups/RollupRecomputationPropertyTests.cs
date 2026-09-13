@@ -66,7 +66,7 @@ public class RollupRecomputationPropertyTests : AnalyticsTestBase
 
         // A pair of empty snapshots would satisfy the equality and prove nothing.
         Assert.NotEmpty(incremental);
-        Assert.Contains(incremental, row => row.Contains(RollupMetrics.MembersTotal, StringComparison.Ordinal));
+        Assert.Contains(incremental, row => row.Contains(RollupMetrics.MembersNet, StringComparison.Ordinal));
         Assert.Equal(incremental, rebuilt);
     }
 

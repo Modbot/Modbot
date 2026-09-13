@@ -46,7 +46,17 @@ public sealed record CumulativeMetric(string Name, string Plus, string Minus);
 /// </remarks>
 public static class RollupMetrics
 {
-    public const string MembersTotal = "members.total";
+    /// <summary>
+    /// The running net of recorded joins minus leaves. <strong>Not a headcount.</strong>
+    /// </summary>
+    /// <remarks>
+    /// Named for what it is. It was <c>members.total</c>, which claimed to be the group's member
+    /// count and was not: the series starts at zero on the fact log's first day, so a group that
+    /// installs Modbot with 40,000 members sees it begin at zero and climb. A number that
+    /// plausibly reads as a headcount and is not one is worse than no number, because nothing
+    /// about it looks wrong.
+    /// </remarks>
+    public const string MembersNet = "members.net";
     public const string MembersJoined = "members.joined";
     public const string MembersLeft = "members.left";
     public const string BansAdded = "bans.added";
@@ -91,11 +101,19 @@ public static class RollupMetrics
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <c>members.total</c> is the net of joins and leaves recorded so far, carried forward day by
+    /// <c>members.net</c> is the net of joins and leaves recorded so far, carried forward day by
     /// day. It is a count of what the fact log has seen, not an independently observed headcount:
     /// the log's first day starts from zero, and a group that installs Modbot with 40,000 members
-    /// sees the series start at zero and climb. Seeding it with a one-off baseline fact is a sync
-    /// concern (M1), not this job's.
+    /// sees the series start at zero and climb.
+    /// </para>
+    /// <para>
+    /// The group-info producer now writes an observed member count (<c>GroupInfoChanged</c>), so
+    /// an anchored headcount is finally possible — but it is not this rename, and it is not
+    /// obvious. Backfill walks the audit log backwards from whatever VRChat still retains, so
+    /// joins can arrive that predate the first observation; anchoring naively would count those
+    /// twice and produce a number that is wrong in a way nothing about it looks wrong. Until that
+    /// is worked through, the observed count is read straight from the facts where a headcount is
+    /// wanted, and this series is named for what it actually measures.
     /// </para>
     /// <para>
     /// A row is written only on days something happened. The value on a day with no membership
@@ -105,7 +123,7 @@ public static class RollupMetrics
     /// </remarks>
     public static IReadOnlyList<CumulativeMetric> Cumulative { get; } =
     [
-        new(MembersTotal, Plus: MembersJoined, Minus: MembersLeft),
+        new(MembersNet, Plus: MembersJoined, Minus: MembersLeft),
     ];
 
     /// <summary>Every metric name the rollup job owns and will delete and rewrite at will.</summary>

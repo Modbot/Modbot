@@ -224,7 +224,7 @@ public sealed record GroupInfoSnapshot(
     /// The payload of the first fact ever recorded for this group: the whole snapshot.
     /// </summary>
     /// <remarks>
-    /// This is the baseline the member series is counted forward from. <c>members.total</c> is the
+    /// This is the baseline the member series is counted forward from. <c>members.net</c> is the
     /// net of recorded joins and leaves, so a group that installs Modbot with 40,000 members would
     /// otherwise see its own headcount start at zero and climb -- the rollup code says as much,
     /// and says the baseline is a sync's job.

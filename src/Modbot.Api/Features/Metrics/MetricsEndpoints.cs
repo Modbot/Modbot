@@ -66,7 +66,7 @@ public static class MetricsEndpoints
                 + "log, which a retention window can shorten. `coverage` reports both ranges "
                 + "separately, because a chart may legitimately cover a longer period than the "
                 + "audit log does and a single date picker over both would imply otherwise.\n\n"
-                + "members.total is the running net of recorded joins and leaves from zero — not "
+                + "members.net is the running net of recorded joins and leaves from zero — not "
                 + "the group's headcount. The headcount is `memberCount`, observed by the "
                 + "group-info sync.")
             .Produces<MetricsResponse>()

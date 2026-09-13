@@ -27,7 +27,7 @@ namespace Modbot.VRChat.Sync;
 /// <para>
 /// The first pass is the exception: it writes a baseline fact carrying the whole snapshot, because
 /// there is nothing to compare against and because the member count it records is what the
-/// <c>members.total</c> series is counted forward from.
+/// <c>members.net</c> series is counted forward from.
 /// </para>
 /// </remarks>
 public sealed class GroupInfoSync
