@@ -88,10 +88,11 @@ public class AvaloniaToSharedTextureTests
     [Fact]
     public void AvaloniaRendersOffscreenWithNoWindowAndProducesRealPixels()
     {
-        AvaloniaTestHost.Ensure();
-
-        using var renderer = new AvaloniaFrameRenderer(Size, Size);
-        var pixels = renderer.Render(Sample()).ToArray();
+        var pixels = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(Size, Size);
+            return renderer.Render(Sample()).ToArray();
+        });
 
         Assert.Equal(Size * Size * 4, pixels.Length);
 
@@ -104,12 +105,11 @@ public class AvaloniaToSharedTextureTests
     [Fact]
     public void DifferentContentProducesDifferentPixels()
     {
-        AvaloniaTestHost.Ensure();
-
-        using var renderer = new AvaloniaFrameRenderer(Size, Size);
-
-        var first = renderer.Render(Sample("one")).ToArray();
-        var second = renderer.Render(Sample("two")).ToArray();
+        var (first, second) = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(Size, Size);
+            return (renderer.Render(Sample("one")).ToArray(), renderer.Render(Sample("two")).ToArray());
+        });
 
         Assert.False(first.AsSpan().SequenceEqual(second));
     }
@@ -118,12 +118,14 @@ public class AvaloniaToSharedTextureTests
     public void ThePixelsReachASharedTextureThatASecondDeviceCanOpenAndReadBack()
     {
         Assert.SkipUnless(HasHardware(), "No Direct3D 11 hardware on this machine.");
-        AvaloniaTestHost.Ensure();
 
-        using var renderer = new AvaloniaFrameRenderer(Size, Size);
+        var rendered = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(Size, Size);
+            return renderer.Render(Sample()).ToArray();
+        });
+
         using var surface = D3D11OverlaySurface.Create(Size, Size);
-
-        var rendered = renderer.Render(Sample()).ToArray();
         surface.Upload(rendered);
 
         Assert.NotEqual(0, surface.TextureHandle);

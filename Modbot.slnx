@@ -3,6 +3,7 @@
     <Project Path="src/Modbot.Analytics/Modbot.Analytics.csproj" />
     <Project Path="src/Modbot.Api/Modbot.Api.csproj" />
     <Project Path="src/Modbot.Client/Modbot.Client.csproj" />
+    <Project Path="src/Modbot.Client.App/Modbot.Client.App.csproj" />
     <Project Path="src/Modbot.Core/Modbot.Core.csproj" />
     <Project Path="src/Modbot.Discord/Modbot.Discord.csproj" />
     <Project Path="src/Modbot.Evidence/Modbot.Evidence.csproj" />

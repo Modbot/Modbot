@@ -81,25 +81,48 @@ public static class DesignTokens
     /// </summary>
     public const string FontFamily = "IBM Plex Sans, Segoe UI, system-ui, sans-serif";
 
-    public static IBrush BackgroundBrush { get; } = new SolidColorBrush(Background);
+    // The colours above are plain structs and can be read from anywhere. A brush is an
+    // AvaloniaObject and may only be constructed on the thread Avalonia was initialised on, so
+    // these are built on first use rather than in a static initialiser -- otherwise merely
+    // reading a colour from a background thread would construct every brush and throw.
+    public static IBrush BackgroundBrush => Brush(Background);
 
-    public static IBrush CardBrush { get; } = new SolidColorBrush(Card);
+    public static IBrush CardBrush => Brush(Card);
 
-    public static IBrush ForegroundBrush { get; } = new SolidColorBrush(Foreground);
+    public static IBrush ForegroundBrush => Brush(Foreground);
 
-    public static IBrush MutedForegroundBrush { get; } = new SolidColorBrush(MutedForeground);
+    public static IBrush MutedForegroundBrush => Brush(MutedForeground);
 
-    public static IBrush BorderBrush { get; } = new SolidColorBrush(Border);
+    public static IBrush BorderBrush => Brush(Border);
 
-    public static IBrush DestructiveBrush { get; } = new SolidColorBrush(Destructive);
+    public static IBrush DestructiveBrush => Brush(Destructive);
 
-    public static IBrush WarnBrush { get; } = new SolidColorBrush(Warn);
+    public static IBrush WarnBrush => Brush(Warn);
 
-    public static IBrush OkBrush { get; } = new SolidColorBrush(Ok);
+    public static IBrush OkBrush => Brush(Ok);
 
-    public static IBrush AccentBrush { get; } = new SolidColorBrush(Accent);
+    public static IBrush AccentBrush => Brush(Accent);
 
-    public static IBrush AccentForegroundBrush { get; } = new SolidColorBrush(AccentForeground);
+    public static IBrush AccentForegroundBrush => Brush(AccentForeground);
 
-    public static CornerRadius CornerRadius { get; } = new(Radius);
+    public static CornerRadius CornerRadius => new(Radius);
+
+    private static readonly Dictionary<Color, IBrush> Brushes = [];
+
+    private static readonly Lock Gate = new();
+
+    /// <summary>
+    /// One immutable brush per colour, shared. Brushes are created once and never mutated, so
+    /// sharing them costs nothing and saves an allocation on every row of a roster.
+    /// </summary>
+    private static IBrush Brush(Color colour)
+    {
+        lock (Gate)
+        {
+            if (!Brushes.TryGetValue(colour, out var brush))
+                Brushes[colour] = brush = new SolidColorBrush(colour);
+
+            return brush;
+        }
+    }
 }

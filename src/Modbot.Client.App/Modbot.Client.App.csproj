@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Modbot.Client\Modbot.Client.csproj" />
+    <ProjectReference Include="..\Modbot.Overlay\Modbot.Overlay.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Windows-only by design, not by omission. M3 10: Quest and other standalone headsets
+         cannot expose logs or host a SteamVR overlay at all, and macOS and Linux are not targets.
+         Saying so in the target framework is what makes the compiler check it: DPAPI is
+         Windows-only, and a build that silently compiled for Linux would fail at run time on the
+         one thing holding the device tokens. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>WinExe</OutputType>
+    <!-- Never a single-file publish. .NET's single-file mode extracts to a temp directory and
+         runs from there, which is precisely the dropper pattern antivirus engines score on, and
+         this client already looks enough like one. A normal folder layout, installed to Program
+         Files by the MSI. -->
+    <PublishSingleFile>false</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <!-- Stable across versions, so download reputation accumulates on one identity rather than
+         being spread across many. -->
+    <AssemblyName>Modbot</AssemblyName>
+    <RootNamespace>Modbot.Client.App</RootNamespace>
+  </PropertyGroup>
+
+</Project>

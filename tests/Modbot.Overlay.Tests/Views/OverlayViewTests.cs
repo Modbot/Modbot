@@ -36,12 +36,11 @@ public class OverlayViewTests
             alert,
             health);
 
-    private static byte[] Render(OverlayScreen screen)
+    private static byte[] Render(OverlayScreen screen) => AvaloniaTestHost.Run(() =>
     {
-        AvaloniaTestHost.Ensure();
         using var renderer = new AvaloniaFrameRenderer(Width, Height);
         return renderer.Render(OverlayView.Build(screen)).ToArray();
-    }
+    });
 
     [Fact]
     public void RendersARosterWithoutThrowing()

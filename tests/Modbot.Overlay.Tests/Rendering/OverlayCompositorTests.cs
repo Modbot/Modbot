@@ -44,7 +44,8 @@ public class OverlayCompositorTests
         public void Dispose() { }
     }
 
-    private static Control Root() => new Border();
+    // A Border is an AvaloniaObject, so even an empty one has to be built on Avalonia's thread.
+    private static Control Root() => AvaloniaTestHost.Run(() => (Control)new Border());
 
     [Fact]
     public void DrawsOnceWhenFirstAsked()

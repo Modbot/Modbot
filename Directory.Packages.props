@@ -13,6 +13,8 @@
     <!-- An embedded face, so the overlay never depends on what fonts the machine has and never
          fetches one over the network. -->
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.22" />
+    <PackageVersion Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <!-- Direct3D 11 interop for the shared texture SteamVR's compositor opens. -->
     <PackageVersion Include="Vortice.Direct3D11" Version="3.8.3" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
