@@ -69,7 +69,7 @@ of each.
 | | **Stateless** — recommended | **Persistent** |
 |---|---|---|
 | Evidence | S3-compatible bucket | filesystem under the data root |
-| Logs | Seq (`SEQ_URL`) and console | files under the data root, Seq optional |
+| Logs | Seq (`SEQ_URL`) and console — the file sinks switch themselves off | files under the data root, Seq optional |
 | Docker volume | **none** | **required** |
 | Survives a redeploy | everything, because nothing local matters | everything on the volume; the container is still disposable |
 | Typical host | Railway, Fly, any PaaS | a home server, a NAS, a spare box |
@@ -92,6 +92,11 @@ converts a loud failure into a silent one.
 So the data root is a **documented mount point** (`/app/data`, evidence under `/app/data/evidence`)
 that the operator mounts deliberately, and Modbot detects a missed mount rather than papering over
 it. The detection is what makes this safe, not the directive.
+
+Modbot already takes this position for logs: `PersistenceProbe` decides whether the log directory
+survives a restart from **evidence rather than from platform inference**, because Railway, Fly.io and
+Render all offer mountable volumes and so the platform can only supply a default. Evidence storage
+takes the same position for the same reason, and §8.2.1 sets out where the two mechanisms differ.
 
 ---
 
@@ -434,6 +439,38 @@ question into a three-valued one:
 
 The critical property is the last column. The trap can be sprung on day one, before any evidence
 exists, and the sentinel catches it **then** — which is the only time it can be fixed for free.
+
+#### 8.2.1 This is not `PersistenceProbe`, and the difference is the whole point
+
+`Modbot.Core.Configuration.PersistenceProbe` already exists and already uses a marker file —
+`.modbot-persistence`, stamped with a boot id — to decide whether the log directory survives a
+restart. The two mechanisms are complementary, not duplicates, and the reason is stated in
+`PersistenceProbe`'s own remarks:
+
+> *Absence of a marker is not reported as proof of ephemerality. Proving that needs memory outside
+> the directory being tested.*
+
+That is exactly right, and it is exactly why the log probe answers a different question from this
+one:
+
+| | `PersistenceProbe` | The evidence store sentinel |
+|---|---|---|
+| Question | *Will this directory survive a restart?* | *Is this the store we put our evidence in?* |
+| Written | every boot, stamped with a boot id | **once, at configuration time** |
+| Memory outside the directory | none — hence the refusal to infer | **`Settings` records that the store was configured and its id** |
+| Absence means | first run, or a wipe — indistinguishable | **conclusively the wrong store** |
+| Catches a wrong bucket or prefix | no | yes |
+| Applies to | the filesystem only | all three backends |
+
+So the evidence store has the memory outside the directory that `PersistenceProbe` correctly
+declines to invent, and it therefore gets to make the stronger claim. Absence is a finding, not an
+ambiguity.
+
+Both should run, and for the filesystem backend `PersistenceProbe`'s result is the better message to
+show at **configuration** time (§8.5): "this directory has not been proven to survive a restart" is
+the warning that prevents the mistake, where the sentinel is what detects it after the fact. The
+correct behaviour is to refuse to select the filesystem backend on a platform assumed ephemeral with
+no surviving marker, unless the operator explicitly overrides — and to say what they are overriding.
 
 ### 8.3 The precise rule
 
@@ -1091,7 +1128,7 @@ Tasks, not changes. Nothing here is implemented by this document.
 | 2 | `src/Modbot.Api/` | First file-upload surface in a JSON-only API. Add the three endpoints of §9.1 with a per-endpoint body limit, never a global one. |
 | 3 | `Dockerfile` | Do **not** add `VOLUME` (§3.1). Document `/app/data` as the mount point. Nothing else changes. |
 | 4 | `.railway/railway.ts` | No volume for the stateless profile. A bucket is a separate resource the operator adds; the template may reference it, but nothing becomes required. |
-| 5 | `src/Modbot.Core/Logging/` | `ModbotLogOptions.Directory` already exists and already defaults to `logs`. For the persistent profile it should default under the data root so that logs live on the volume rather than dying with the container — which they do today, since `/app/logs` is chowned but not mounted. Worst case at the current caps is ~15–16 GB, which the volume must be sized for and the docs must say. |
+| 5 | `src/Modbot.Core/Logging/`, `src/Modbot.Core/Configuration/` | Largely **already done**: the file sinks now switch off unless `PersistenceProbe` has evidence the directory survives a restart. What remains is to point the log directory at the same data root the filesystem evidence backend uses, so one mounted volume serves both, and to size it — the worst case at the current caps (64 MB/file; 60 main, 60 http, 6 debug, each in two formats) is ~15–16 GB, which the docs must state so an operator does not mount a 10 GB volume and have evidence and logs compete for it. |
 | 6 | `src/Modbot.Core/Data/Entities/ModbotPermissions.cs` | Three new flags at bits 15–17 (§14), pinned by `ModbotPermissionsTests` like the rest. |
 | 7 | `src/Modbot.Core/Data/Entities/Settings.cs` | Storage backend, its fields, the caps, the store sentinel id, direct-delivery toggle, sweep rate. Secrets encrypted like every other secret column. |
 | 8 | Host startup | The §8.3 probe, the latch, the `Critical` notification and the banner state. |
