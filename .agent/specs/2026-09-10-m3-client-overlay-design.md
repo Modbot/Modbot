@@ -395,7 +395,7 @@ Supporting reasons, in order of weight:
 - **Memory, because of where this runs.** The client is resident while VRChat is — which routinely
   uses 8–12 GB with a busy instance. Avalonia sits around 30–60 MB in one process; a WebView2 window
   is 150–250 MB across several Edge processes. Lazy creation would largely close that gap, but on a
-  16 GB machine the headroom is worth not spending.
+  16 GB machine the room left is worth not spending.
 - **No runtime to troubleshoot** on a volunteer moderator's machine.
 - **The client's UI is local-machine-shaped** — log parser status, pairing, "what I have sent", flag
   instructions. It renders almost no group data, so React's ecosystem buys little here.

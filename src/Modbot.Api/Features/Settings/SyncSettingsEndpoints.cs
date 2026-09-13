@@ -73,7 +73,7 @@ public sealed record EndpointClassRate(
 /// req/s, recomputed from whatever the operator has configured.
 /// </param>
 /// <param name="GlobalCeilingPerSecond">The backstop's effective rate (spec 4.2: 2 req/s).</param>
-/// <param name="InteractiveHeadroomPerSecond">
+/// <param name="InteractiveRoomLeftPerSecond">
 /// What is left under the ceiling for moderation actions, onboarding and a moderator's live
 /// queries. Spec 4.2 is explicit that this is not spare capacity for faster sync.
 /// </param>
@@ -84,7 +84,7 @@ public sealed record SyncRateSettings(
     double ScheduledTotalPerSecond,
     double GlobalCeilingPerSecond,
     double GlobalHardMaxPerSecond,
-    double InteractiveHeadroomPerSecond,
+    double InteractiveRoomLeftPerSecond,
     IReadOnlyList<EndpointClassRate> Classes);
 
 /// <summary>A value that was stored as something other than what was asked for.</summary>

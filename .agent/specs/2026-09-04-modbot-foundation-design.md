@@ -610,7 +610,7 @@ Every rate above, plus the global ceiling, is operator-configurable through a sl
 - Lowering is always allowed and always safe: a group on a constrained host, sharing an account, or
   simply wanting to be gentler can dial any of them down, at the cost of staleness.
 - The settings UI shows the resulting total request rate as sliders move, and shows how far it sits
-  under the global ceiling — so an operator can see the interactive headroom they are leaving.
+  under the global ceiling — so an operator can see how much room they are leaving for interactive requests.
   Both numbers are computed server-side, so the screen never re-derives this table's sum.
 
 ##### 4.2.1.1 Two knobs, not one — what the slider actually writes
@@ -681,7 +681,7 @@ Pacing caps mean a large group's full member sync simply takes longer — 50,000
 page is 500 requests, which at 1 per 2 s is a little under 17 minutes for a complete pass. That is
 the correct behaviour, not a problem to optimise away.
 
-When the global ceiling actually binds, because interactive work is consuming headroom, background
+When the global ceiling actually binds, because interactive work is using up the room left, background
 sync yields in a defined order: full member sweeps stretch first, then instances and roles, then
 bans. **The audit log is protected** — it is cheap and it is the authoritative fact source (§5.3).
 
@@ -2325,7 +2325,7 @@ Recorded so they are visible rather than buried, and so they are not relitigated
     little benefit at one handler per slice, harder call paths for humans and agents alike, and its
     current versions are commercially licensed.
 19. **Sync pacing is fixed per type with a 2 req/s global ceiling** (§4.2), configurable downward
-    only, with the cap enforced server-side. Headroom below the ceiling is reserved for interactive
+    only, with the cap enforced server-side. Room left below the ceiling is reserved for interactive
     work, not spent on faster sync. **`users.read` is the one exemption** — its own 1 req/s lane
     outside the ceiling (§4.2.5), because VRChat governs that endpoint separately and laxly. It turns
     a 150k-member profile sweep from ~8.7 days into ~1.7 days, and a typical group from ~11 hours

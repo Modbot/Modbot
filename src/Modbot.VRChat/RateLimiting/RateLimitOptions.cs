@@ -160,10 +160,10 @@ public static class VRChatRateLimits
     /// </summary>
     /// <remarks>
     /// Exactly the rows spec 4.2 sums to 1.450 req/s, and no others. The settings screen shows
-    /// that sum against the 2 req/s ceiling so an operator can see the interactive headroom they
+    /// that sum against the 2 req/s ceiling so an operator can see how much room they
     /// are leaving (spec 4.2.1) — a figure that would mean nothing if it also counted classes
     /// nothing schedules. <c>moderation.write</c> and <c>groups.invites</c> pass the same backstop
-    /// but are driven by a moderator, so they are what the headroom is <em>for</em>, not part of
+    /// but are driven by a moderator, so they are what the room left is <em>for</em>, not part of
     /// what consumes it; <c>users.read</c> is exempt from the ceiling entirely (spec 4.2.5).
     /// </remarks>
     public static IReadOnlyList<string> Scheduled { get; } =
@@ -220,7 +220,7 @@ public static class VRChatRateLimits
                 ResourceScoped: true),
 
             // Interactive and low-volume. Obeys the global ceiling -- it is what spec 4.2's
-            // 0.55 req/s of reserved headroom is for -- but its own stop is separate, so a cold
+            // 0.55 req/s of reserved room is for -- but its own stop is separate, so a cold
             // members bucket never blocks a ban.
             [VRChatEndpointClass.ModerationWrite] = new(
                 VRChatEndpointClass.ModerationWrite, GroupLane,

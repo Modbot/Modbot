@@ -208,7 +208,7 @@ public class StorageEstimatorTests : AnalyticsTestBase
     {
         await using var context = Database.NewContext();
 
-        // 1 GB used, 10 MB a day arriving, on a 2 GB disk: a little under 100 days of headroom.
+        // 1 GB used, 10 MB a day arriving, on a 2 GB disk: a little under 100 days of room left.
         const long gb = 1024L * 1024 * 1024;
         var measurement = new StorageMeasurement(
             FactBytes: gb,

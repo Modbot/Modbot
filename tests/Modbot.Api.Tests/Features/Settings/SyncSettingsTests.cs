@@ -44,10 +44,10 @@ public class SyncSettingsTests
         Assert.True(settings.Running);
         Assert.Equal(RateLimitOptions.DefaultFraction, settings.Rates.BudgetFraction);
 
-        // The sum spec 4.2 quotes, and the interactive headroom it says is not spare capacity.
+        // The sum spec 4.2 quotes, and the room left for interactive requests, which it says is not spare capacity.
         Assert.Equal(1.45, settings.Rates.ScheduledTotalPerSecond, 6);
         Assert.Equal(2.0, settings.Rates.GlobalCeilingPerSecond, 6);
-        Assert.Equal(0.55, settings.Rates.InteractiveHeadroomPerSecond, 6);
+        Assert.Equal(0.55, settings.Rates.InteractiveRoomLeftPerSecond, 6);
 
         var members = Class(settings, VRChatEndpointClass.GroupsMembers);
         Assert.Equal(0.5, members.EffectiveRatePerSecond, 6);

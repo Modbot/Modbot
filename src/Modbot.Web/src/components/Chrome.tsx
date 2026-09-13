@@ -67,7 +67,7 @@ export function Sidebar({
       {/*
         The gate's health (spec 4.3.3). Real now: it reads /api/health/gate, reports the server's
         status rather than a colour picked here, and shows "unknown" rather than green when the
-        fetch fails. The prototype's second line -- the live request-rate headroom -- is still
+        fetch fails. The prototype's second line -- the live request-rate room left -- is still
         absent, because the effective rates are per bucket and there is no measured total to put
         against the 2 req/s ceiling without inventing one.
       */}

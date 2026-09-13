@@ -106,7 +106,7 @@ public class AdaptivePollRateTests
     }
 
     /// <summary>
-    /// Spec 4.2.2: jitter spreads a fleet, it does not find headroom. A negative swing that took
+    /// Spec 4.2.2: jitter spreads a fleet, it does not find room. A negative swing that took
     /// the producer under the pacing cap would be the schedule quietly overriding the budget.
     /// </summary>
     [Fact]
