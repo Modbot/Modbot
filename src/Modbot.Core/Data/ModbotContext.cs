@@ -23,6 +23,12 @@ public class ModbotContext : DbContext
     public DbSet<RollupState> RollupState => Set<RollupState>();
 
     /// <summary>
+    /// Rate-limit budgets and penalty state (spec 4.3.2). Persisted rather than held in memory so
+    /// that a restart resumes a cold stop instead of walking back into it.
+    /// </summary>
+    public DbSet<RateLimitBucket> RateLimitBuckets => Set<RateLimitBucket>();
+
+    /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
     /// </summary>
@@ -151,6 +157,23 @@ public class ModbotContext : DbContext
             // primary key leads with the day, so it cannot serve that query.
             entity.HasIndex(e => new { e.Metric, e.Day })
                 .HasDatabaseName("ix_modbot_rollup_daily_metric");
+        });
+
+        builder.Entity<RateLimitBucket>(entity =>
+        {
+            entity.ToTable("rate_limit_bucket");
+
+            // The name carries a VRChat id for resource buckets, so it is text with no length
+            // assumption: ids are opaque and are never validated (spec 3.1.1).
+            entity.HasKey(e => e.Name);
+            entity.Property(e => e.Name).HasColumnType("text");
+            entity.Property(e => e.EndpointClass).HasColumnType("text");
+            entity.Property(e => e.ResourceId).HasColumnType("text");
+
+            // "Which buckets are stopped right now" is the gate health query (spec 4.3.3), and it
+            // runs on every dashboard load.
+            entity.HasIndex(e => e.StoppedUntil)
+                .HasDatabaseName("ix_rate_limit_bucket_stopped");
         });
 
         builder.Entity<RollupState>(entity =>
