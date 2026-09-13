@@ -63,6 +63,16 @@ public sealed class DesyncedSchedule
         // Uniform in [0, interval): the whole interval is a valid starting phase, and anything
         // narrower would leave the instances clustered.
         Offset = interval * _random.NextDouble();
+
+        // A schedule built part-way through a process's life -- which is what re-reading a
+        // changed interval produces (spec 4.2.1) -- starts counting from where that process has
+        // already got to. Without this, NextDelay would walk tick by tick from zero to the
+        // present: correct, and on a long-running host, millions of iterations to return one
+        // delay. A schedule built at startup is unaffected, because elapsed is still inside the
+        // first offset.
+        var elapsed = clock.Elapsed;
+        if (elapsed > Offset)
+            _tick = (elapsed - Offset).Ticks / interval.Ticks;
     }
 
     public TimeSpan Interval { get; }

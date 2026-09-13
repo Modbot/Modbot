@@ -32,10 +32,10 @@ namespace Modbot.VRChat.Sync;
 /// </remarks>
 public sealed class AdaptiveCadence
 {
-    private readonly AuditLogSyncOptions _options;
     private readonly IModbotClock _clock;
     private readonly Random _random;
 
+    private AuditLogSyncOptions _options;
     private int _quietPolls;
 
     public AdaptiveCadence(AuditLogSyncOptions options, IModbotClock clock, Random? random = null)
@@ -59,6 +59,44 @@ public sealed class AdaptiveCadence
 
     /// <summary>The interval in force, and why.</summary>
     public CadenceDecision Current { get; private set; }
+
+    /// <summary>The cadence bounds in force. Changing them is spec 4.2.1's whole point.</summary>
+    public AuditLogSyncOptions Options => _options;
+
+    /// <summary>
+    /// Adopts a cadence the operator has changed, without waiting for the next poll to finish.
+    /// </summary>
+    /// <remarks>
+    /// The interval in force is re-seated into the new bounds immediately rather than left to
+    /// drift back over the following polls. An operator who has just widened the maximum because
+    /// a sync is too chatty wants the next wait to be the long one; a cadence that kept the old
+    /// interval until the group happened to go quiet again would look like the setting had not
+    /// taken.
+    /// </remarks>
+    public void Reconfigure(AuditLogSyncOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        var clamped = options.Clamped();
+        if (clamped == _options)
+            return;
+
+        _options = clamped;
+
+        var interval = Current.Interval;
+        if (interval < clamped.MinInterval) interval = clamped.MinInterval;
+        if (interval > clamped.MaxInterval) interval = clamped.MaxInterval;
+
+        if (interval != Current.Interval)
+        {
+            Current = Current with
+            {
+                Interval = interval,
+                Reason = $"{Current.Reason}; adjusted to the newly configured cadence",
+                DecidedAt = _clock.UtcNow,
+            };
+        }
+    }
 
     /// <summary>
     /// Folds one pass's outcome into the cadence and returns the new decision.

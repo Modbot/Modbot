@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
+using Modbot.VRChat.Pacing;
 using Modbot.VRChat.RateLimiting;
 using Modbot.VRChat.Scheduling;
 using Serilog;
@@ -28,10 +29,13 @@ public sealed class GroupInfoSyncService : BackgroundService
     private readonly IServiceScopeFactory _scopes;
     private readonly IModbotClock _clock;
     private readonly SyncDiagnostics _diagnostics;
-    private readonly GroupInfoSyncOptions _options;
-    private readonly DesyncedSchedule _schedule;
+    private readonly IMonotonicClock _elapsed;
+    private readonly ISyncPacingSource? _pacing;
     private readonly IDelayScheduler _delays;
     private readonly ILogger _log;
+
+    private GroupInfoSyncOptions _options;
+    private DesyncedSchedule _schedule;
 
     public GroupInfoSyncService(
         IServiceScopeFactory scopes,
@@ -39,6 +43,7 @@ public sealed class GroupInfoSyncService : BackgroundService
         SyncDiagnostics diagnostics,
         IMonotonicClock? elapsed = null,
         GroupInfoSyncOptions? options = null,
+        ISyncPacingSource? pacing = null,
         IDelayScheduler? delays = null,
         ILogger? log = null)
     {
@@ -49,16 +54,21 @@ public sealed class GroupInfoSyncService : BackgroundService
         _scopes = scopes;
         _clock = clock;
         _diagnostics = diagnostics;
+        _elapsed = elapsed ?? new StopwatchMonotonicClock();
+        _pacing = pacing;
         _options = (options ?? new GroupInfoSyncOptions()).Clamped();
 
         // Spec 4.2.2's desynchronisation, measured on a monotonic source so an NTP step cannot
         // compress the schedule into a burst.
         _schedule = new DesyncedSchedule(
-            _options.Interval, elapsed ?? new StopwatchMonotonicClock(), jitterFraction: _options.JitterFraction);
+            _options.Interval, _elapsed, jitterFraction: _options.JitterFraction);
 
         _delays = delays ?? new RealDelayScheduler();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
     }
+
+    /// <summary>The interval in force, which the operator may have changed since startup.</summary>
+    internal GroupInfoSyncOptions Options => _options;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -66,6 +76,12 @@ public sealed class GroupInfoSyncService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Before the wait, so a changed interval applies to the next poll. This producer runs
+            // every five minutes by default, so it is also the one where a change that needed a
+            // restart would be least obvious and most annoying.
+            if (await RefreshPacingAsync(stoppingToken).ConfigureAwait(false))
+                next = _schedule.NextDelay();
+
             if (!await WaitAsync(next, stoppingToken).ConfigureAwait(false))
                 return;
 
@@ -79,6 +95,50 @@ public sealed class GroupInfoSyncService : BackgroundService
                 SyncOutcome.Failed => _options.RetryInterval,
                 _ => _schedule.NextDelay(),
             };
+        }
+    }
+
+    /// <summary>
+    /// Adopts an interval the operator has changed. Returns true when the schedule was rebuilt.
+    /// </summary>
+    /// <remarks>
+    /// The schedule is replaced rather than adjusted, because <see cref="DesyncedSchedule"/>
+    /// counts ticks from a fixed interval and reinterpreting its history under a new one would
+    /// produce either a burst or a long silence. A new schedule draws a fresh phase, which is
+    /// what spec 4.2.2 wants anyway — and only when the interval actually changed, so an ordinary
+    /// tick does not re-randomise itself into never running.
+    /// </remarks>
+    private async Task<bool> RefreshPacingAsync(CancellationToken ct)
+    {
+        if (_pacing is null)
+            return false;
+
+        try
+        {
+            var pacing = await _pacing.CurrentAsync(ct).ConfigureAwait(false);
+            var options = pacing.GroupInfo;
+
+            if (options == _options)
+                return false;
+
+            var rebuild = options.Interval != _options.Interval
+                || Math.Abs(options.JitterFraction - _options.JitterFraction) > double.Epsilon;
+
+            _options = options;
+
+            if (!rebuild)
+                return false;
+
+            _schedule = new DesyncedSchedule(
+                _options.Interval, _elapsed, jitterFraction: _options.JitterFraction);
+
+            _log.Debug("Group-info interval is now {Interval}", _options.Interval);
+
+            return true;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return false;
         }
     }
 

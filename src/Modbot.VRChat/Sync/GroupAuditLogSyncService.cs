@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Modbot.Core.Data;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
+using Modbot.VRChat.Pacing;
 using Modbot.VRChat.RateLimiting;
 using Serilog;
 
@@ -31,6 +32,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
     private readonly IModbotClock _clock;
     private readonly SyncDiagnostics _diagnostics;
     private readonly AdaptiveCadence _cadence;
+    private readonly ISyncPacingSource? _pacing;
     private readonly IDelayScheduler _delays;
     private readonly ILogger _log;
 
@@ -42,6 +44,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
         IModbotClock clock,
         SyncDiagnostics diagnostics,
         AuditLogSyncOptions? options = null,
+        ISyncPacingSource? pacing = null,
         IDelayScheduler? delays = null,
         ILogger? log = null)
     {
@@ -53,9 +56,13 @@ public sealed class GroupAuditLogSyncService : BackgroundService
         _clock = clock;
         _diagnostics = diagnostics;
         _cadence = new AdaptiveCadence(options ?? new AuditLogSyncOptions(), clock);
+        _pacing = pacing;
         _delays = delays ?? new RealDelayScheduler();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
     }
+
+    /// <summary>The cadence decision in force, for tests and for the health screen.</summary>
+    internal AdaptiveCadence Cadence => _cadence;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -66,6 +73,11 @@ public sealed class GroupAuditLogSyncService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Re-read before the wait is computed, so a rate the operator lowered a second ago
+            // applies to the very next poll rather than to the one after it (spec 4.2.1). One
+            // single-row read per tick, at most once per eight seconds.
+            await RefreshPacingAsync(stoppingToken).ConfigureAwait(false);
+
             if (!await WaitAsync(_cadence.NextDelay(), stoppingToken).ConfigureAwait(false))
                 return;
 
@@ -85,6 +97,30 @@ public sealed class GroupAuditLogSyncService : BackgroundService
                     decision.Interval,
                     decision.Reason);
             }
+        }
+    }
+
+    /// <summary>
+    /// Adopts a cadence the operator has changed. Failures are the provider's to swallow.
+    /// </summary>
+    /// <remarks>
+    /// The scoped <see cref="GroupAuditLogSync"/> this loop creates per run reads the same
+    /// snapshot from the container, so the interval this tick waits and the page size the pass
+    /// uses always came from one read.
+    /// </remarks>
+    private async Task RefreshPacingAsync(CancellationToken ct)
+    {
+        if (_pacing is null)
+            return;
+
+        try
+        {
+            var pacing = await _pacing.CurrentAsync(ct).ConfigureAwait(false);
+            _cadence.Reconfigure(pacing.AuditLog);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Shutting down.
         }
     }
 

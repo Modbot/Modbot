@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Modbot.VRChat.Pacing;
 using Modbot.VRChat.RateLimiting;
 using Modbot.VRChat.Scheduling;
 using Modbot.VRChat.Session;
@@ -16,6 +18,21 @@ namespace Modbot.VRChat;
 /// </remarks>
 public static class VRChatServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers the live view of spec 4.2.1's operator-configured rates, once.
+    /// </summary>
+    /// <remarks>
+    /// Both entry points call it, because both need it and either may be used alone; the
+    /// <c>TryAdd</c> is what makes calling both harmless. A second provider would be a second
+    /// cache, which means two answers to "what is the rate right now" and a limiter and a
+    /// producer that can disagree about it.
+    /// </remarks>
+    private static void AddSyncPacing(IServiceCollection services) =>
+        services.TryAddSingleton<ISyncPacingSource>(provider => new SyncPacingProvider(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetService<SyncPacingBaseline>()));
+
     public static IServiceCollection AddModbotVRChat(
         this IServiceCollection services,
         VRChatClientOptions? clientOptions = null,
@@ -29,11 +46,18 @@ public static class VRChatServiceCollectionExtensions
         services.AddSingleton<IMonotonicClock, StopwatchMonotonicClock>();
         services.AddSingleton<IDelayScheduler, RealDelayScheduler>();
         services.AddSingleton<IRateLimitStore, DatabaseRateLimitStore>();
+
+        // The operator's rates (spec 4.2.1). Registered with the gate rather than with the
+        // producers, because the limiter needs them too and a host may want VRChat access
+        // without background sync.
+        AddSyncPacing(services);
+
         services.AddSingleton<IRateLimiter>(provider => new InProcessRateLimiter(
             provider.GetRequiredService<IRateLimitStore>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<IDelayScheduler>(),
-            rateLimits));
+            rateLimits,
+            provider.GetRequiredService<ISyncPacingSource>()));
 
         services.AddSingleton<IVRChatGate>(provider => new VRChatGate(
             provider.GetRequiredService<IVRChatClientFactory>(),
@@ -76,6 +100,21 @@ public static class VRChatServiceCollectionExtensions
         var auditLogOptions = (auditLog ?? new AuditLogSyncOptions()).Clamped();
         var groupInfoOptions = (groupInfo ?? new GroupInfoSyncOptions()).Clamped();
 
+        // The arguments to this method become the baseline the operator's own lowerings sit on
+        // top of, so a host that deliberately passed a gentler cadence keeps it. Registered as a
+        // service rather than captured, because AddModbotVRChat may already have registered the
+        // provider and the factory has not run yet -- so the later registration is still visible
+        // to it.
+        services.AddSingleton(new SyncPacingBaseline(auditLogOptions, groupInfoOptions));
+
+        // Also registered here, so a host that wires the producers without the gate still has a
+        // pacing source rather than silently falling back to the compiled-in cadence.
+        AddSyncPacing(services);
+
+        // The startup values, which are also the fallback whenever the settings row has nothing
+        // configured. Every consumer below prefers the live snapshot; these are what the snapshot
+        // resolves to when the operator has changed nothing, and what an argument passed to this
+        // method means.
         services.AddSingleton(auditLogOptions);
         services.AddSingleton(groupInfoOptions);
 
@@ -92,6 +131,11 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Time.IModbotClock>()));
 
         // Scoped, because they hold a ModbotContext for the run and hand it back afterwards.
+        //
+        // The cadence comes from the live snapshot rather than the startup value, and from the
+        // snapshot rather than a fresh read: the producer refreshed it immediately before
+        // creating this scope, so the interval the tick waited and the page size this pass uses
+        // came from one read of the settings row.
         services.AddScoped<GroupAuditLogSync>(provider => new GroupAuditLogSync(
             provider.GetRequiredService<IVRChatGate>(),
             provider.GetRequiredService<Analytics.Facts.IFactWriter>(),
@@ -99,7 +143,7 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Data.ModbotContext>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<SyncDiagnostics>(),
-            auditLogOptions));
+            provider.GetRequiredService<ISyncPacingSource>().Snapshot.AuditLog));
 
         services.AddScoped<GroupInfoSync>(provider => new GroupInfoSync(
             provider.GetRequiredService<IVRChatGate>(),
@@ -112,14 +156,16 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<SyncDiagnostics>(),
-            auditLogOptions));
+            auditLogOptions,
+            provider.GetRequiredService<ISyncPacingSource>()));
 
         services.AddHostedService(provider => new GroupInfoSyncService(
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<SyncDiagnostics>(),
             provider.GetRequiredService<IMonotonicClock>(),
-            groupInfoOptions));
+            groupInfoOptions,
+            provider.GetRequiredService<ISyncPacingSource>()));
 
         return services;
     }

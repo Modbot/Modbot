@@ -1,5 +1,6 @@
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
+using Modbot.VRChat.Pacing;
 using Serilog;
 
 namespace Modbot.VRChat.RateLimiting;
@@ -26,6 +27,7 @@ public sealed class InProcessRateLimiter : IRateLimiter
     private readonly IRateLimitStore _store;
     private readonly IModbotClock _clock;
     private readonly IDelayScheduler _delays;
+    private readonly ISyncPacingSource? _pacing;
     private readonly ILogger _logger;
 
     private readonly SemaphoreSlim _state = new(1, 1);
@@ -37,11 +39,18 @@ public sealed class InProcessRateLimiter : IRateLimiter
     private bool _loaded;
     private DateTimeOffset _lastFlush;
 
+    /// <summary>The operator's rates, as last applied to the buckets.</summary>
+    private SyncPacing _applied;
+
+    /// <summary>-1 until the first apply, so configuration is always applied at least once.</summary>
+    private long _appliedVersion = -1;
+
     public InProcessRateLimiter(
         IRateLimitStore store,
         IModbotClock clock,
         IDelayScheduler delays,
         RateLimitOptions? options = null,
+        ISyncPacingSource? pacing = null,
         ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(store);
@@ -52,6 +61,8 @@ public sealed class InProcessRateLimiter : IRateLimiter
         _clock = clock;
         _delays = delays;
         _options = options ?? new RateLimitOptions();
+        _pacing = pacing;
+        _applied = SyncPacing.Resolve(SyncPacingDocument.Empty, _options.Classes);
         _logger = logger ?? Log.Logger;
     }
 
@@ -62,6 +73,7 @@ public sealed class InProcessRateLimiter : IRateLimiter
     {
         var limits = ResolveClass(endpoint.Class);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
+        await EnsureConfiguredAsync(ct).ConfigureAwait(false);
 
         var gate = Lane(limits.Lane);
         var release = await gate.EnterAsync(priority, ct).ConfigureAwait(false);
@@ -135,6 +147,7 @@ public sealed class InProcessRateLimiter : IRateLimiter
     public async Task<IReadOnlyList<RateLimitBucketHealth>> DescribeAsync(CancellationToken ct = default)
     {
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
+        await EnsureConfiguredAsync(ct).ConfigureAwait(false);
         await _state.WaitAsync(ct).ConfigureAwait(false);
         try
         {
@@ -327,6 +340,13 @@ public sealed class InProcessRateLimiter : IRateLimiter
             return bucket;
 
         bucket = new TokenBucket(name, limits, _options, now);
+
+        // Configured as it is created, not only when the operator next writes. A resource bucket
+        // comes into existence the first time its group id is called, which is long after the
+        // rates were set, and a bucket that ran at the default until somebody touched the screen
+        // again would make the setting look like it had not worked.
+        bucket.Configure(_applied.CeilingFor(endpointClass), _applied.BudgetFraction);
+
         _buckets[name] = bucket;
         _identity[name] = (endpointClass, resourceId);
 
@@ -403,6 +423,64 @@ public sealed class InProcessRateLimiter : IRateLimiter
 
             _lastFlush = now;
             _loaded = true;
+        }
+        finally
+        {
+            _state.Release();
+        }
+    }
+
+    /// <summary>
+    /// Picks up a rate the operator has changed, without a restart (spec 4.2.1).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>This must not disturb penalty state.</strong> It moves the ceiling and the
+    /// fraction and nothing else: not <c>StoppedUntil</c>, not the AIMD multiplier, not the probe
+    /// counters. Spec 4.3.2 persists those precisely so that a restart cannot be used to clear a
+    /// cold stop, and a settings page that cleared one by writing a budget would be the same hole
+    /// reopened from the other side — with the difference that anyone could reach it, and that
+    /// clearing a stop is exactly what an operator watching a slow sync would be tempted to try.
+    /// </para>
+    /// <para>
+    /// The version check keeps this off the hot path: an acquisition where nothing has changed
+    /// does one cached read and one integer comparison.
+    /// </para>
+    /// </remarks>
+    private async Task EnsureConfiguredAsync(CancellationToken ct)
+    {
+        if (_pacing is null)
+            return;
+
+        var pacing = await _pacing.CurrentAsync(ct).ConfigureAwait(false);
+        var version = _pacing.Version;
+
+        if (Interlocked.Read(ref _appliedVersion) == version)
+            return;
+
+        await _state.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (Interlocked.Read(ref _appliedVersion) == version)
+                return;
+
+            // Re-resolved against this limiter's own budgets rather than taken as handed over:
+            // the caps a rate is clamped to belong to the RateLimitOptions in force here, and a
+            // test host or a future per-deployment budget table would otherwise be clamped
+            // against somebody else's numbers.
+            _applied = SyncPacing.Resolve(pacing.Document, _options.Classes);
+
+            foreach (var bucket in _buckets.Values)
+            {
+                var (endpointClass, _) = _identity[bucket.Name];
+                bucket.Configure(_applied.CeilingFor(endpointClass), _applied.BudgetFraction);
+            }
+
+            Interlocked.Exchange(ref _appliedVersion, version);
+
+            // Written through, so the rates survive a restart even on a deployment whose settings
+            // row is unreadable at boot.
+            await FlushAsync(force: true, ct).ConfigureAwait(false);
         }
         finally
         {
