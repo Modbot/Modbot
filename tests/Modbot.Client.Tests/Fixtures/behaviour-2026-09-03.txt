@@ -1,0 +1,754 @@
+2026.09.03 20:26:51 Debug      -  [Behaviour] Registering Avatar Interaction
+2026.09.03 20:26:52 Debug      -  [Behaviour] skipping analytic experiment fetch, not logged in yet
+2026.09.03 20:26:52 Debug      -  [Behaviour] waiting for UI Manager
+2026.09.03 20:26:53 Debug      -  [Behaviour] showing disconnect reason
+2026.09.03 20:26:53 Debug      -  [Behaviour] Microphone device changing to 'System Default'
+2026.09.03 20:26:53 Debug      -  [Behaviour] Refreshing RemoteConfig
+2026.09.03 20:26:53 Debug      -  [Behaviour] showing alert
+2026.09.03 20:26:53 Debug      -  [Behaviour] RemoteConfig refresh succeeded
+2026.09.03 20:26:53 Debug      -  [Behaviour] configuring network options
+2026.09.03 20:26:53 Debug      -  [Behaviour] Thread State: Dispatch=True/True
+2026.09.03 20:26:53 Debug      -  [Behaviour] checking min client version
+2026.09.03 20:26:53 Debug      -  [Behaviour] authenticating
+2026.09.03 20:26:53 Debug      -  [Behaviour] Trying to login with vrchat...
+2026.09.03 20:26:54 Debug      -  [Behaviour] running analytic experiment fetch (post first login)
+2026.09.03 20:26:54 Debug      -  [Behaviour] Refreshing analytic experiments
+2026.09.03 20:26:54 Debug      -  [Behaviour] Ok
+2026.09.03 20:26:54 Debug      -  [Behaviour] Authenticated via vrchat
+2026.09.03 20:26:54 Debug      -  [Behaviour] checking for Verified account
+2026.09.03 20:26:54 Debug      -  [Behaviour] Using network server version: Release_1626
+2026.09.03 20:26:54 Debug      -  [Behaviour] Sending token from provider vrchat
+2026.09.03 20:26:54 Debug      -  [Behaviour] Locating best region
+2026.09.03 20:26:54 Debug      -  [Behaviour] Using nameserver host: ns.photonengine.io
+2026.09.03 20:26:54 Debug      -  [Behaviour] checking for account info update
+2026.09.03 20:26:54 Debug      -  [Behaviour] checking terms of service
+2026.09.03 20:26:54 Debug      -  [Behaviour] TOS current version: 12, accepted: 12
+2026.09.03 20:26:54 Debug      -  [Behaviour] checking privacy policy
+2026.09.03 20:26:54 Debug      -  [Behaviour] Privacy Policy current version: 2, accepted: 2
+2026.09.03 20:26:54 Debug      -  [Behaviour] set connect error state
+2026.09.03 20:26:54 Debug      -  [Behaviour] checking for youtube-dl updates
+2026.09.03 20:26:54 Debug      -  [Behaviour] upgrade settings data
+2026.09.03 20:26:54 Debug      -  [Behaviour] final wait for analytic experiments
+2026.09.03 20:26:54 Debug      -  [Behaviour] Has Active Subscription
+2026.09.03 20:26:54 Debug      -  [Behaviour] launching in normal manner
+2026.09.03 20:26:54 Debug      -  [Behaviour] Going to Home Location: wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd
+2026.09.03 20:26:55 Debug      -  [Behaviour] Going to current users Home world
+2026.09.03 20:26:55 Debug      -  [Behaviour] Destination requested: wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd
+2026.09.03 20:26:55 Debug      -  [Behaviour] Fetching world information for wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd
+2026.09.03 20:26:55 Debug      -  [Behaviour] No destination instance provided, will need to fetch: wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd
+2026.09.03 20:26:55 Debug      -  [Behaviour] OnRegionListReceived
+2026.09.03 20:26:55 Debug      -  [Behaviour] Destination fetching: wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd:69955~private(usr_f2049d71-e76b-42d2-a8bd-43deec9c004e)~region(use)
+2026.09.03 20:26:56 Debug      -  [Behaviour] Destination set: wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd:69955~private(usr_f2049d71-e76b-42d2-a8bd-43deec9c004e)~region(use)
+2026.09.03 20:26:56 Debug      -  [Behaviour] Can enter world without flow reset, skipping reset
+2026.09.03 20:26:56 Debug      -  [Behaviour] entering main loop
+2026.09.03 20:26:56 Debug      -  [Behaviour] Beginning room transition
+2026.09.03 20:26:56 Debug      -  [Behaviour] Invoking 1 listeners for BeginBlackFade event
+2026.09.03 20:26:56 Debug      -  [Behaviour] Got best network region: US East
+2026.09.03 20:26:56 Debug      -  [Behaviour] Resetting statistics
+2026.09.03 20:26:56 Debug      -  [Behaviour] Disabling physics
+2026.09.03 20:26:56 Debug      -  [Behaviour] Serialization History Length defaulting to 120
+2026.09.03 20:26:56 Debug      -  [Behaviour] Transitioning to room
+2026.09.03 20:26:56 Debug      -  [Behaviour] Invoking 28 listeners for ExitWorld event
+2026.09.03 20:26:56 Debug      -  [Behaviour] Unloading scenes
+2026.09.03 20:26:56 Debug      -  [Behaviour] Switching to network region us (current state: ConnectedToNameServer)
+2026.09.03 20:26:56 Debug      -  [Behaviour] Requesting join token
+2026.09.03 20:26:56 Debug      -  [Behaviour] Connecting to realtime network
+2026.09.03 20:26:56 Debug      -  [Behaviour] Preparing assets...
+2026.09.03 20:26:56 Debug      -  [Behaviour] OnDisconnected: DisconnectByClientLogic
+2026.09.03 20:26:56 Debug      -  [Behaviour] Client invoked disconnect.
+2026.09.03 20:26:57 Debug      -  [Behaviour] OnCustomAuthenticationResponse
+2026.09.03 20:26:57 Debug      -  [Behaviour] OnConnectedToMaster
+2026.09.03 20:26:57 Debug      -  [Behaviour] Connected to master in us
+2026.09.03 20:27:00 Debug      -  [Behaviour] Entering world
+2026.09.03 20:27:00 Debug      -  [Behaviour] Entering Room: VRChat Home
+2026.09.03 20:27:00 Debug      -  [Behaviour] Joining wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd:69955~private(usr_f2049d71-e76b-42d2-a8bd-43deec9c004e)~region(use)
+2026.09.03 20:27:00 Debug      -  [Behaviour] Joining or Creating Room: VRChat Home
+2026.09.03 20:27:00 Debug      -  [Behaviour] Successfully joined room
+2026.09.03 20:27:00 Debug      -  [Behaviour] Spent 0.001748085s entering world.
+2026.09.03 20:27:00 Debug      -  [Behaviour] Waiting to enter network room.
+2026.09.03 20:27:00 Debug      -  [Behaviour] Destroying VRC_OBJECTS
+2026.09.03 20:27:01 Debug      -  [Behaviour] Configuring Udon
+2026.09.03 20:27:01 Debug      -  [Behaviour] Spent 0.6839733s waiting to enter room.
+2026.09.03 20:27:01 Debug      -  [Behaviour] Waiting to discover master client.
+2026.09.03 20:27:01 Debug      -  [Behaviour] Spent 2.861023E-06s waiting to discover master client.
+2026.09.03 20:27:01 Debug      -  [Behaviour] Waiting for network limits.
+2026.09.03 20:27:03 Debug      -  [Behaviour] Room instantiate took 2.157821s
+2026.09.03 20:27:03 Debug      -  [Behaviour] Instantiating VRC_OBJECTS
+2026.09.03 20:27:03 Debug      -  [Behaviour] Hard max is 32
+2026.09.03 20:27:03 Debug      -  [Behaviour] Spent 0.003480911s initializing VRC Objects
+2026.09.03 20:27:03 Debug      -  [Behaviour] Processing scene objects
+2026.09.03 20:27:03 Debug      -  [Behaviour] Spent 0.05383301s processing scene objects.
+2026.09.03 20:27:03 Debug      -  [Behaviour] Fixing materials
+2026.09.03 20:27:03 Debug      -  [Behaviour] Attaching ComponentHandlers
+2026.09.03 20:27:03 Debug      -  [Behaviour] Spent 0.004405975s attaching initial component handlers.
+2026.09.03 20:27:03 Debug      -  [Behaviour] Finalizing scene
+2026.09.03 20:27:03 Debug      -  [Behaviour] Spent 0.001817703s finalizing scene.
+2026.09.03 20:27:03 Debug      -  [Behaviour] Warming shaders for world mirrors
+2026.09.03 20:27:12 Debug      -  [Behaviour] OnRoomPropertiesUpdate
+2026.09.03 20:27:12 Debug      -  [Behaviour] Spent 10.96797s waiting for network limits.
+2026.09.03 20:27:12 Debug      -  [Behaviour] Waiting for core objects to ready
+2026.09.03 20:27:12 Debug      -  [Behaviour] Configuring Udon
+2026.09.03 20:27:12 Debug      -  [Behaviour] Preloaded 0 Prefabs: 
+2026.09.03 20:27:12 Debug      -  [Behaviour] Spawning players
+2026.09.03 20:27:12 Debug      -  [Behaviour] Microphone device changing to 'System Default'
+2026.09.03 20:27:12 Debug      -  [Behaviour] Finished spawning players.
+2026.09.03 20:27:12 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Local] 20959164 1
+2026.09.03 20:27:13 Debug      -  [Behaviour] Configuring local player VRCPlayer[Local] 20959164 1
+2026.09.03 20:27:13 Debug      -  [Behaviour] Loading avatar for bin¹
+2026.09.03 20:27:13 Debug      -  [Behaviour] Initialized player bin¹
+2026.09.03 20:27:13 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:27:13 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:27:13 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:27:13 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:27:13 Debug      -  [Behaviour] Switching bin¹ to avatar Night's Simple Airi （Public）
+2026.09.03 20:27:13 Debug      -  [Behaviour] Waiting for player persistence objects to be ready
+2026.09.03 20:27:13 Debug      -  [Behaviour] Player persistence object initialization complete
+2026.09.03 20:27:13 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.08, 0.12) scaled:(0.00, 0.07, 0.11)
+2026.09.03 20:27:13 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Local] 1 True 1
+2026.09.03 20:27:13 Debug      -  [Behaviour] Collecting metadata for 1 player objects.
+2026.09.03 20:27:13 Debug      -  [Behaviour] Collecting metadata.
+2026.09.03 20:27:13 Debug      -  [Behaviour] Sending 179 bytes of instance metadata over 1 bunches.
+2026.09.03 20:27:13 Debug      -  [Behaviour] Waiting for players to initialize
+2026.09.03 20:27:13 Debug      -  [Behaviour] Player initialization complete.
+2026.09.03 20:27:13 Debug      -  [Behaviour] Readying scene objects
+2026.09.03 20:27:13 Debug      -  [Behaviour] Waiting for players to network ready
+2026.09.03 20:27:13 Debug      -  [Behaviour] Executing Buffered Events
+2026.09.03 20:27:13 Debug      -  [Behaviour] OnPlayerJoinComplete bin¹
+2026.09.03 20:27:13 Debug      -  [Behaviour] Hiding overlay
+2026.09.03 20:27:13 Debug      -  [Behaviour] Lifting black fade
+2026.09.03 20:27:13 Debug      -  [Behaviour] I am MASTER
+2026.09.03 20:27:13 Debug      -  [Behaviour] All 1 bunches for Player Data Object [1] collected, now restoring.
+2026.09.03 20:27:13 Debug      -  [Behaviour] Finishing room transition.
+2026.09.03 20:27:13 Debug      -  [Behaviour] Invoking 33 listeners for EnterWorld event
+2026.09.03 20:27:14 Debug      -  [Behaviour] Finished entering world.
+2026.09.03 20:27:14 Debug      -  [Behaviour] Enabling physics
+2026.09.03 20:27:14 Debug      -  [Behaviour] <color=red>Dispatching 1 held events.</color>
+2026.09.03 20:27:14 Debug      -  [Behaviour] World download took 4,041.8ms
+2026.09.03 20:27:14 Debug      -  [Behaviour] Spent 0.0ms waiting for GO
+2026.09.03 20:27:14 Debug      -  [Behaviour] World loading took 13,310.6ms
+2026.09.03 20:27:14 Debug      -  [Behaviour] Granular load times:
+2026.09.03 20:27:14 Debug      -  [Behaviour] OnPlayerJoined bin¹ (usr_f2049d71-e76b-42d2-a8bd-43deec9c004e)
+2026.09.03 20:27:14 Debug      -  [Behaviour] Initialized PlayerAPI "bin¹" is local
+2026.09.03 20:27:14 Debug      -  [Behaviour] Restored player 1
+2026.09.03 20:27:15 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:27:15 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:27:15 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:27:15 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:27:15 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.04, 0.07) scaled:(0.00, 0.05, 0.10)
+2026.09.03 20:27:15 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Local] 1 True 8
+2026.09.03 20:30:01 Debug      -  [Behaviour] Microphone device changing to 'System Default'
+2026.09.03 20:30:02 Debug      -  [Behaviour] Microphone device changing to 'System Default'
+2026.09.03 20:31:05 Debug      -  [Behaviour] Switching bin¹ to avatar Night's Simple Airi （Public）
+2026.09.03 20:31:05 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:31:05 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:31:05 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:31:05 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:31:05 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.07, 0.10) scaled:(0.00, 0.07, 0.11)
+2026.09.03 20:31:05 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Local] 1 True 1
+2026.09.03 20:31:05 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:31:05 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:31:05 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:31:05 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:31:05 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.05, 0.09) scaled:(0.00, 0.05, 0.10)
+2026.09.03 20:31:05 Debug      -  [Behaviour] Initialize SixPoint Avatar VRCPlayer[Local] 1 True 8
+2026.09.03 20:32:03 Debug      -  [Behaviour] Destination requested: wrld_4cf554b4-430c-4f8f-b53e-1f294eed230b:85019~group(grp_c7ba8659-4bf5-462f-8a7c-2cc31591f560)~groupAccessType(public)~ageGate~region(use)
+2026.09.03 20:32:03 Debug      -  [Behaviour] Destination fetching: wrld_4cf554b4-430c-4f8f-b53e-1f294eed230b:85019~group(grp_c7ba8659-4bf5-462f-8a7c-2cc31591f560)~groupAccessType(public)~ageGate~region(use)
+2026.09.03 20:32:03 Debug      -  [Behaviour] Destination set: wrld_4cf554b4-430c-4f8f-b53e-1f294eed230b:85019~group(grp_c7ba8659-4bf5-462f-8a7c-2cc31591f560)~groupAccessType(public)~ageGate~region(use)
+2026.09.03 20:32:03 Debug      -  [Behaviour] <color=red>Resetting game flow because "Destination instance set": [SkipLogin, RemainInNetworkRoom]</color>
+2026.09.03 20:32:03 Debug      -  [Behaviour] Refreshing analytic experiments
+2026.09.03 20:32:03 Debug      -  [Behaviour] waiting for UI Manager
+2026.09.03 20:32:03 Debug      -  [Behaviour] showing disconnect reason
+2026.09.03 20:32:03 Debug      -  [Behaviour] showing alert
+2026.09.03 20:32:04 Debug      -  [Behaviour] checking min client version
+2026.09.03 20:32:04 Debug      -  [Behaviour] checking for account info update
+2026.09.03 20:32:04 Debug      -  [Behaviour] checking terms of service
+2026.09.03 20:32:04 Debug      -  [Behaviour] TOS current version: 12, accepted: 12
+2026.09.03 20:32:04 Debug      -  [Behaviour] checking privacy policy
+2026.09.03 20:32:04 Debug      -  [Behaviour] Privacy Policy current version: 2, accepted: 2
+2026.09.03 20:32:04 Debug      -  [Behaviour] set connect error state
+2026.09.03 20:32:04 Debug      -  [Behaviour] checking for youtube-dl updates
+2026.09.03 20:32:04 Debug      -  [Behaviour] launching in normal manner
+2026.09.03 20:32:04 Debug      -  [Behaviour] entering main loop
+2026.09.03 20:32:04 Debug      -  [Behaviour] Beginning room transition
+2026.09.03 20:32:04 Debug      -  [Behaviour] Invoking 1 listeners for BeginBlackFade event
+2026.09.03 20:32:04 Debug      -  [Behaviour] Resetting statistics
+2026.09.03 20:32:04 Debug      -  [Behaviour] Disabling physics
+2026.09.03 20:32:04 Debug      -  [Behaviour] Serialization History Length defaulting to 42
+2026.09.03 20:32:04 Debug      -  [Behaviour] Transitioning to room
+2026.09.03 20:32:04 Debug      -  [Behaviour] OnLeftRoom
+2026.09.03 20:32:04 Debug      -  [Behaviour] Cleaning up held messages
+2026.09.03 20:32:04 Debug      -  [Behaviour] OnPlayerLeft bin¹ (usr_f2049d71-e76b-42d2-a8bd-43deec9c004e)
+2026.09.03 20:32:04 Debug      -  [Behaviour] Destroying bin¹
+2026.09.03 20:32:05 Debug      -  [Behaviour] Invoking 31 listeners for ExitWorld event
+2026.09.03 20:32:05 Debug      -  [Behaviour] Unloading scenes
+2026.09.03 20:32:05 Debug      -  [Behaviour] OnConnectedToMaster
+2026.09.03 20:32:05 Debug      -  [Behaviour] Connected to master in us
+2026.09.03 20:32:05 Debug      -  [Behaviour] Already connected to network region us
+2026.09.03 20:32:05 Debug      -  [Behaviour] Requesting join token
+2026.09.03 20:32:05 Debug      -  [Behaviour] Preparing assets...
+2026.09.03 20:32:08 Debug      -  [Behaviour] Entering world
+2026.09.03 20:32:08 Debug      -  [Behaviour] Entering Room: The Black Cat
+2026.09.03 20:32:08 Debug      -  [Behaviour] Joining wrld_4cf554b4-430c-4f8f-b53e-1f294eed230b:85019~group(grp_c7ba8659-4bf5-462f-8a7c-2cc31591f560)~groupAccessType(public)~ageGate~region(use)
+2026.09.03 20:32:08 Debug      -  [Behaviour] Joining or Creating Room: The Black Cat
+2026.09.03 20:32:08 Debug      -  [Behaviour] Successfully joined room
+2026.09.03 20:32:08 Debug      -  [Behaviour] Spent 0.0007019043s entering world.
+2026.09.03 20:32:08 Debug      -  [Behaviour] Waiting to enter network room.
+2026.09.03 20:32:08 Debug      -  [Behaviour] Destroying VRC_OBJECTS
+2026.09.03 20:32:09 Debug      -  [Behaviour] Spent 0.48703s waiting to enter room.
+2026.09.03 20:32:09 Debug      -  [Behaviour] Waiting to discover master client.
+2026.09.03 20:32:09 Debug      -  [Behaviour] Configuring Udon
+2026.09.03 20:32:11 Debug      -  [Behaviour] Room instantiate took 2.138458s
+2026.09.03 20:32:11 Debug      -  [Behaviour] Instantiating VRC_OBJECTS
+2026.09.03 20:32:11 Debug      -  [Behaviour] Hard max is 80
+2026.09.03 20:32:11 Debug      -  [Behaviour] Spent 0.0004272461s initializing VRC Objects
+2026.09.03 20:32:11 Debug      -  [Behaviour] Processing scene objects
+2026.09.03 20:32:11 Debug      -  [Behaviour] Spent 0.05981445s processing scene objects.
+2026.09.03 20:32:11 Debug      -  [Behaviour] Fixing materials
+2026.09.03 20:32:11 Debug      -  [Behaviour] Attaching ComponentHandlers
+2026.09.03 20:32:11 Debug      -  [Behaviour] Spent 0.02243042s attaching initial component handlers.
+2026.09.03 20:32:11 Debug      -  [Behaviour] Finalizing scene
+2026.09.03 20:32:11 Debug      -  [Behaviour] Spent 0.004882813s finalizing scene.
+2026.09.03 20:32:11 Debug      -  [Behaviour] Warming shaders for world mirrors
+2026.09.03 20:32:17 Debug      -  [Behaviour] OnRoomPropertiesUpdate
+2026.09.03 20:32:17 Debug      -  [Behaviour] Holding recovery payload until all bunches are received.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Holding recovery payload until all bunches are received.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Holding recovery payload until all bunches are received.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Holding recovery payload until all bunches are received.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Spent 8.059967s waiting to discover master client.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for network limits.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Spent 0s waiting for network limits.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for core objects to ready
+2026.09.03 20:32:17 Debug      -  [Behaviour] Configuring Udon
+2026.09.03 20:32:17 Debug      -  [Behaviour] Preloaded 0 Prefabs: 
+2026.09.03 20:32:17 Debug      -  [Behaviour] Spawning players
+2026.09.03 20:32:17 Debug      -  [Behaviour] Microphone device changing to 'System Default'
+2026.09.03 20:32:17 Debug      -  [Behaviour] Finished spawning players.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 17609884 1
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 59808104 39
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 50559603 47
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 87826390 50
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 58540917 53
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 95971400 55
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 95996045 58
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Local] 63120581 59
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for player persistence objects to be ready
+2026.09.03 20:32:17 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 17609884 1
+2026.09.03 20:32:17 Debug      -  [Behaviour] Loading avatar for ΛƧƬΛ
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialized player ΛƧƬΛ
+2026.09.03 20:32:17 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 59808104 39
+2026.09.03 20:32:17 Debug      -  [Behaviour] Loading avatar for -winter~
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialized player -winter~
+2026.09.03 20:32:17 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 50559603 47
+2026.09.03 20:32:17 Debug      -  [Behaviour] Loading avatar for BlackIndium
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialized player BlackIndium
+2026.09.03 20:32:17 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 87826390 50
+2026.09.03 20:32:17 Debug      -  [Behaviour] Loading avatar for Fraiinco2Wavy
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialized player Fraiinco2Wavy
+2026.09.03 20:32:17 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 58540917 53
+2026.09.03 20:32:17 Debug      -  [Behaviour] Loading avatar for CODYYYYYYYYYYYY
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialized player CODYYYYYYYYYYYY
+2026.09.03 20:32:17 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 95971400 55
+2026.09.03 20:32:17 Debug      -  [Behaviour] Loading avatar for nicopuppyboy
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialized player nicopuppyboy
+2026.09.03 20:32:17 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 95996045 58
+2026.09.03 20:32:17 Debug      -  [Behaviour] Loading avatar for ~ RedZu ~
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialized player ~ RedZu ~
+2026.09.03 20:32:17 Debug      -  [Behaviour] Configuring local player VRCPlayer[Local] 63120581 59
+2026.09.03 20:32:17 Debug      -  [Behaviour] Loading avatar for bin¹
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialized player bin¹
+2026.09.03 20:32:17 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:32:17 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:17 Debug      -  [Behaviour] Switching bin¹ to avatar Night's Simple Airi （Public）
+2026.09.03 20:32:17 Debug      -  [Behaviour] Player persistence object initialization complete
+2026.09.03 20:32:17 Debug      -  [Behaviour] Collecting metadata for 1 player objects.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Collecting metadata.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Sending 539 bytes of instance metadata over 1 bunches.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Requesting buffered events
+2026.09.03 20:32:17 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.08, 0.12) scaled:(0.00, 0.07, 0.11)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Local] 59 True 1
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for players to initialize
+2026.09.03 20:32:17 Debug      -  [Behaviour] Switching ΛƧƬΛ to avatar Smol shark
+2026.09.03 20:32:17 Debug      -  [Behaviour] Switching -winter~ to avatar tsuki
+2026.09.03 20:32:17 Debug      -  [Behaviour] Switching BlackIndium to avatar ＂ Evur ＂ By Kaiylast ｛FT｝
+2026.09.03 20:32:17 Debug      -  [Behaviour] Switching Fraiinco2Wavy to avatar ~ Agnes Tachyon ~
+2026.09.03 20:32:17 Debug      -  [Behaviour] Switching CODYYYYYYYYYYYY to avatar Pengus
+2026.09.03 20:32:17 Debug      -  [Behaviour] Switching nicopuppyboy to avatar toxicana
+2026.09.03 20:32:17 Debug      -  [Behaviour] Switching ~ RedZu ~ to avatar why u looking
+2026.09.03 20:32:17 Debug      -  [Behaviour] Player initialization complete.
+2026.09.03 20:32:17 Debug      -  [Behaviour] Readying scene objects
+2026.09.03 20:32:17 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:32:17 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:17 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:32:17 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:17 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:32:17 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:17 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:32:17 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:17 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:32:17 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:17 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:32:17 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:17 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:32:17 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:17 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:17 Debug      -  [Behaviour] Waiting for players to network ready
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 58 False 1
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 55 False 1
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 53 False 1
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 50 False 1
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 47 False 1
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 39 False 1
+2026.09.03 20:32:17 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 1 False 1
+2026.09.03 20:32:17 Debug      -  [Behaviour] Executing Buffered Events
+2026.09.03 20:32:17 Debug      -  [Behaviour] OnPlayerJoinComplete ΛƧƬΛ
+2026.09.03 20:32:17 Debug      -  [Behaviour] OnPlayerJoinComplete -winter~
+2026.09.03 20:32:17 Debug      -  [Behaviour] OnPlayerJoinComplete BlackIndium
+2026.09.03 20:32:17 Debug      -  [Behaviour] OnPlayerJoinComplete Fraiinco2Wavy
+2026.09.03 20:32:17 Debug      -  [Behaviour] OnPlayerJoinComplete CODYYYYYYYYYYYY
+2026.09.03 20:32:17 Debug      -  [Behaviour] OnPlayerJoinComplete nicopuppyboy
+2026.09.03 20:32:17 Debug      -  [Behaviour] OnPlayerJoinComplete ~ RedZu ~
+2026.09.03 20:32:17 Debug      -  [Behaviour] OnPlayerJoinComplete bin¹
+2026.09.03 20:32:18 Debug      -  [Behaviour] Hiding overlay
+2026.09.03 20:32:18 Debug      -  [Behaviour] Lifting black fade
+2026.09.03 20:32:18 Debug      -  [Behaviour] I am *NOT* MASTER
+2026.09.03 20:32:18 Debug      -  [Behaviour] All 1 bunches for Player Data Object [59] collected, now restoring.
+2026.09.03 20:32:18 Debug      -  [Behaviour] All 1 bunches for Player Data Object [1] collected, now restoring.
+2026.09.03 20:32:18 Debug      -  [Behaviour] All 1 bunches for Player Data Object [39] collected, now restoring.
+2026.09.03 20:32:18 Debug      -  [Behaviour] All 1 bunches for Player Data Object [47] collected, now restoring.
+2026.09.03 20:32:18 Debug      -  [Behaviour] All 1 bunches for Player Data Object [50] collected, now restoring.
+2026.09.03 20:32:18 Debug      -  [Behaviour] All 1 bunches for Player Data Object [53] collected, now restoring.
+2026.09.03 20:32:18 Debug      -  [Behaviour] All 1 bunches for Player Data Object [55] collected, now restoring.
+2026.09.03 20:32:18 Debug      -  [Behaviour] All 1 bunches for Player Data Object [58] collected, now restoring.
+2026.09.03 20:32:18 Debug      -  [Behaviour] Finishing room transition.
+2026.09.03 20:32:18 Debug      -  [Behaviour] Invoking 39 listeners for EnterWorld event
+2026.09.03 20:32:18 Debug      -  [Behaviour] Finished entering world.
+2026.09.03 20:32:18 Debug      -  [Behaviour] Enabling physics
+2026.09.03 20:32:18 Debug      -  [Behaviour] <color=red>Dispatching 6 held events.</color>
+2026.09.03 20:32:18 Debug      -  [Behaviour] World download took 3,393.3ms
+2026.09.03 20:32:18 Debug      -  [Behaviour] Spent 0.0ms waiting for GO
+2026.09.03 20:32:18 Debug      -  [Behaviour] World loading took 9,374.4ms
+2026.09.03 20:32:18 Debug      -  [Behaviour] Granular load times:
+2026.09.03 20:32:18 Debug      -  [Behaviour] OnPlayerJoined ΛƧƬΛ (usr_6d99027a-39f0-40f4-ba2d-ffdce1639c72)
+2026.09.03 20:32:18 Debug      -  [Behaviour] OnPlayerJoined -winter~ (usr_527e5167-9361-49f7-8358-3c7be9be3741)
+2026.09.03 20:32:18 Debug      -  [Behaviour] OnPlayerJoined BlackIndium (usr_786ac3f2-8e1a-45b6-b8d1-65306d36a66b)
+2026.09.03 20:32:18 Debug      -  [Behaviour] OnPlayerJoined Fraiinco2Wavy (usr_f5ca805a-9a90-40a7-89d4-62e64d4d35bd)
+2026.09.03 20:32:18 Debug      -  [Behaviour] OnPlayerJoined CODYYYYYYYYYYYY (usr_f42ff73b-3d4a-45c0-b549-249d58206ffe)
+2026.09.03 20:32:18 Debug      -  [Behaviour] OnPlayerJoined nicopuppyboy (usr_20dd6117-ee1f-4a5d-af59-0805b8602b9b)
+2026.09.03 20:32:18 Debug      -  [Behaviour] OnPlayerJoined ~ RedZu ~ (usr_56f38b9d-713e-4adc-a83c-d491811a041a)
+2026.09.03 20:32:18 Debug      -  [Behaviour] OnPlayerJoined bin¹ (usr_f2049d71-e76b-42d2-a8bd-43deec9c004e)
+2026.09.03 20:32:18 Debug      -  [Behaviour] Initialized PlayerAPI "ΛƧƬΛ" is remote
+2026.09.03 20:32:18 Debug      -  [Behaviour] Initialized PlayerAPI "-winter~" is remote
+2026.09.03 20:32:18 Debug      -  [Behaviour] Initialized PlayerAPI "BlackIndium" is remote
+2026.09.03 20:32:18 Debug      -  [Behaviour] Initialized PlayerAPI "Fraiinco2Wavy" is remote
+2026.09.03 20:32:18 Debug      -  [Behaviour] Initialized PlayerAPI "CODYYYYYYYYYYYY" is remote
+2026.09.03 20:32:18 Debug      -  [Behaviour] Initialized PlayerAPI "nicopuppyboy" is remote
+2026.09.03 20:32:18 Debug      -  [Behaviour] Initialized PlayerAPI "~ RedZu ~" is remote
+2026.09.03 20:32:18 Debug      -  [Behaviour] Initialized PlayerAPI "bin¹" is local
+2026.09.03 20:32:18 Debug      -  [Behaviour] Restored player 1
+2026.09.03 20:32:18 Debug      -  [Behaviour] Restored player 39
+2026.09.03 20:32:18 Debug      -  [Behaviour] Restored player 47
+2026.09.03 20:32:18 Debug      -  [Behaviour] Restored player 50
+2026.09.03 20:32:18 Debug      -  [Behaviour] Restored player 53
+2026.09.03 20:32:18 Debug      -  [Behaviour] Restored player 55
+2026.09.03 20:32:18 Debug      -  [Behaviour] Restored player 58
+2026.09.03 20:32:18 Debug      -  [Behaviour] Restored player 59
+2026.09.03 20:32:19 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:32:19 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:32:19 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:32:19 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:19 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.04, 0.07) scaled:(0.00, 0.05, 0.10)
+2026.09.03 20:32:19 Debug      -  [Behaviour] Initialize SixPoint Avatar VRCPlayer[Local] 59 True 8
+2026.09.03 20:32:20 Debug      -  [Behaviour] CacheComponents: ParticleSystems 5, AudioSources 16
+2026.09.03 20:32:20 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:32:20 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:32:20 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:20 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 39 False 8
+2026.09.03 20:32:20 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:32:20 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:20 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:20 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 50 False 8
+2026.09.03 20:32:26 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 1
+2026.09.03 20:32:26 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:26 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:26 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 53 False 8
+2026.09.03 20:32:26 Debug      -  [Behaviour] CacheComponents: ParticleSystems 2, AudioSources 19
+2026.09.03 20:32:26 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:26 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:26 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 58 False 8
+2026.09.03 20:32:27 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:32:27 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:27 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:27 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 55 False 8
+2026.09.03 20:32:27 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:32:27 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:27 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:27 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 1 False 8
+2026.09.03 20:32:30 Debug      -  [Behaviour] CacheComponents: ParticleSystems 2, AudioSources 2
+2026.09.03 20:32:30 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:32:30 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:32:30 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 47 False 8
+2026.09.03 20:33:11 Debug      -  [Behaviour] OnPlayerLeftRoom
+2026.09.03 20:33:11 Debug      -  [Behaviour] OnPlayerLeft -winter~ (usr_527e5167-9361-49f7-8358-3c7be9be3741)
+2026.09.03 20:33:11 Debug      -  [Behaviour] Destroying -winter~
+2026.09.03 20:34:43 Debug      -  [Behaviour] Switching bin¹ to avatar Night's Simple Airi （Public）
+2026.09.03 20:34:43 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:34:43 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:34:43 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:34:43 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:34:43 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.07, 0.10) scaled:(0.00, 0.07, 0.11)
+2026.09.03 20:34:43 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Local] 59 True 1
+2026.09.03 20:34:44 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:34:44 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:34:44 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:34:44 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:34:44 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.05, 0.09) scaled:(0.00, 0.05, 0.10)
+2026.09.03 20:34:44 Debug      -  [Behaviour] Initialize SixPoint Avatar VRCPlayer[Local] 59 True 8
+2026.09.03 20:36:00 Debug      -  [Behaviour] Switching bin¹ to avatar Night's Simple Airi （Public）
+2026.09.03 20:36:00 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:36:00 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:36:00 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:36:00 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:36:00 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.07, 0.10) scaled:(0.00, 0.07, 0.11)
+2026.09.03 20:36:00 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Local] 59 True 1
+2026.09.03 20:36:01 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:36:01 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:36:01 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:36:01 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:36:01 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.05, 0.09) scaled:(0.00, 0.05, 0.10)
+2026.09.03 20:36:01 Debug      -  [Behaviour] Initialize SixPoint Avatar VRCPlayer[Local] 59 True 8
+2026.09.03 20:37:27 Debug      -  [Behaviour] OnPlayerEnteredRoom
+2026.09.03 20:37:27 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 98596645 60
+2026.09.03 20:37:27 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 98596645 60
+2026.09.03 20:37:27 Debug      -  [Behaviour] Loading avatar for -winter~
+2026.09.03 20:37:27 Debug      -  [Behaviour] Initialized player -winter~
+2026.09.03 20:37:28 Debug      -  [Behaviour] All 1 bunches for Player Data Object [60] collected, now restoring.
+2026.09.03 20:37:29 Debug      -  [Behaviour] Switching -winter~ to avatar tsuki
+2026.09.03 20:37:29 Debug      -  [Behaviour] OnPlayerJoinComplete -winter~
+2026.09.03 20:37:29 Debug      -  [Behaviour] OnPlayerJoined -winter~ (usr_527e5167-9361-49f7-8358-3c7be9be3741)
+2026.09.03 20:37:29 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:37:29 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:37:29 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:37:29 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:37:29 Debug      -  [Behaviour] Initialized PlayerAPI "-winter~" is remote
+2026.09.03 20:37:29 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 60 False 1
+2026.09.03 20:37:29 Debug      -  [Behaviour] Restored player 60
+2026.09.03 20:37:30 Debug      -  [Behaviour] CacheComponents: ParticleSystems 5, AudioSources 16
+2026.09.03 20:37:30 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:37:30 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:37:30 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:37:30 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 60 False 8
+2026.09.03 20:38:00 Debug      -  [Behaviour] Switching nicopuppyboy to avatar Alienie
+2026.09.03 20:38:01 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:38:01 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:38:01 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:38:01 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 55 False 1
+2026.09.03 20:38:04 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:38:04 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:38:04 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:38:04 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 55 False 8
+2026.09.03 20:38:19 Debug      -  [Behaviour] Switching nicopuppyboy to avatar Alienie
+2026.09.03 20:38:19 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:38:19 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:38:19 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:38:19 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:38:19 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 55 False 1
+2026.09.03 20:38:20 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:38:20 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:38:20 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:38:20 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:38:20 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 55 False 8
+2026.09.03 20:40:56 Debug      -  [Behaviour] OnPlayerLeftRoom
+2026.09.03 20:40:56 Debug      -  [Behaviour] OnPlayerLeft CODYYYYYYYYYYYY (usr_f42ff73b-3d4a-45c0-b549-249d58206ffe)
+2026.09.03 20:40:56 Debug      -  [Behaviour] Destroying CODYYYYYYYYYYYY
+2026.09.03 20:42:16 Debug      -  [Behaviour] Switching nicopuppyboy to avatar toxicana
+2026.09.03 20:42:16 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:42:16 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:42:16 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:42:16 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:42:16 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 55 False 1
+2026.09.03 20:42:17 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:42:17 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:42:17 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:42:17 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:42:17 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 55 False 8
+2026.09.03 20:42:30 Debug      -  [Behaviour] OnPlayerEnteredRoom
+2026.09.03 20:42:30 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 87636213 61
+2026.09.03 20:42:30 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 87636213 61
+2026.09.03 20:42:30 Debug      -  [Behaviour] Loading avatar for CODYYYYYYYYYYYY
+2026.09.03 20:42:30 Debug      -  [Behaviour] Initialized player CODYYYYYYYYYYYY
+2026.09.03 20:42:31 Debug      -  [Behaviour] All 1 bunches for Player Data Object [61] collected, now restoring.
+2026.09.03 20:42:32 Debug      -  [Behaviour] Switching CODYYYYYYYYYYYY to avatar Pengus
+2026.09.03 20:42:32 Debug      -  [Behaviour] OnPlayerJoinComplete CODYYYYYYYYYYYY
+2026.09.03 20:42:32 Debug      -  [Behaviour] OnPlayerJoined CODYYYYYYYYYYYY (usr_f42ff73b-3d4a-45c0-b549-249d58206ffe)
+2026.09.03 20:42:32 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:42:32 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:42:32 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:42:32 Debug      -  [Behaviour] Initialized PlayerAPI "CODYYYYYYYYYYYY" is remote
+2026.09.03 20:42:32 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 61 False 1
+2026.09.03 20:42:32 Debug      -  [Behaviour] Restored player 61
+2026.09.03 20:42:33 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 1
+2026.09.03 20:42:33 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:42:33 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:42:33 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 61 False 8
+2026.09.03 20:42:40 Debug      -  [Behaviour] OnPlayerEnteredRoom
+2026.09.03 20:42:40 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 67303035 62
+2026.09.03 20:42:40 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 67303035 62
+2026.09.03 20:42:40 Debug      -  [Behaviour] Loading avatar for MAR2109HD
+2026.09.03 20:42:40 Debug      -  [Behaviour] Initialized player MAR2109HD
+2026.09.03 20:42:41 Debug      -  [Behaviour] All 1 bunches for Player Data Object [62] collected, now restoring.
+2026.09.03 20:42:42 Debug      -  [Behaviour] Switching MAR2109HD to avatar Arlo
+2026.09.03 20:42:42 Debug      -  [Behaviour] OnPlayerJoinComplete MAR2109HD
+2026.09.03 20:42:42 Debug      -  [Behaviour] OnPlayerJoined MAR2109HD (usr_8a7a5d18-7a76-4413-838e-d6ad65ac9fc8)
+2026.09.03 20:42:42 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:42:42 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:42:42 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:42:42 Debug      -  [Behaviour] Initialized PlayerAPI "MAR2109HD" is remote
+2026.09.03 20:42:42 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 62 False 4
+2026.09.03 20:42:42 Debug      -  [Behaviour] Restored player 62
+2026.09.03 20:42:55 Debug      -  [Behaviour] Switching MAR2109HD to avatar 2015 Dodge Challenger
+2026.09.03 20:42:56 Debug      -  [Behaviour] Switching MAR2109HD to avatar 2015 Dodge Challenger
+2026.09.03 20:43:01 Debug      -  [Behaviour] Switching MAR2109HD to avatar 2015 Dodge Challenger
+2026.09.03 20:44:06 Debug      -  [Behaviour] OnPlayerLeftRoom
+2026.09.03 20:44:06 Debug      -  [Behaviour] OnPlayerLeft CODYYYYYYYYYYYY (usr_f42ff73b-3d4a-45c0-b549-249d58206ffe)
+2026.09.03 20:44:06 Debug      -  [Behaviour] Destroying CODYYYYYYYYYYYY
+2026.09.03 20:44:20 Debug      -  [Behaviour] OnPlayerEnteredRoom
+2026.09.03 20:44:20 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 39767963 63
+2026.09.03 20:44:20 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 39767963 63
+2026.09.03 20:44:20 Debug      -  [Behaviour] Loading avatar for SubKay_
+2026.09.03 20:44:20 Debug      -  [Behaviour] Initialized player SubKay_
+2026.09.03 20:44:21 Debug      -  [Behaviour] All 1 bunches for Player Data Object [63] collected, now restoring.
+2026.09.03 20:44:24 Debug      -  [Behaviour] Switching SubKay_ to avatar Mr․ Capybara
+2026.09.03 20:44:24 Debug      -  [Behaviour] OnPlayerJoinComplete SubKay_
+2026.09.03 20:44:24 Debug      -  [Behaviour] OnPlayerJoined SubKay_ (usr_4b8e71cc-29ec-4b01-ab9e-e07a77507afa)
+2026.09.03 20:44:24 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:44:24 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:44:24 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:44:24 Debug      -  [Behaviour] Initialized PlayerAPI "SubKay_" is remote
+2026.09.03 20:44:24 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 63 False 4
+2026.09.03 20:44:24 Debug      -  [Behaviour] Restored player 63
+2026.09.03 20:44:25 Debug      -  [Behaviour] OnPlayerEnteredRoom
+2026.09.03 20:44:25 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 78739032 64
+2026.09.03 20:44:25 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 78739032 64
+2026.09.03 20:44:25 Debug      -  [Behaviour] Loading avatar for Hawk Echos
+2026.09.03 20:44:25 Debug      -  [Behaviour] Initialized player Hawk Echos
+2026.09.03 20:44:26 Debug      -  [Behaviour] All 1 bunches for Player Data Object [64] collected, now restoring.
+2026.09.03 20:44:29 Debug      -  [Behaviour] Switching Hawk Echos to avatar Nova-Line ［FT］
+2026.09.03 20:44:29 Debug      -  [Behaviour] OnPlayerJoinComplete Hawk Echos
+2026.09.03 20:44:29 Debug      -  [Behaviour] OnPlayerJoined Hawk Echos (usr_3666a770-a04d-491f-9088-77097eb13089)
+2026.09.03 20:44:29 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:44:29 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:44:29 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:44:29 Debug      -  [Behaviour] Initialized PlayerAPI "Hawk Echos" is remote
+2026.09.03 20:44:29 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 64 False 4
+2026.09.03 20:44:29 Debug      -  [Behaviour] Restored player 64
+2026.09.03 20:44:50 Debug      -  [Behaviour] Switching Hawk Echos to avatar Nova-Line ［FT］
+2026.09.03 20:44:55 Debug      -  [Behaviour] Switching SubKay_ to avatar Capybara kid
+2026.09.03 20:44:55 Debug      -  [Behaviour] OnPlayerEnteredRoom
+2026.09.03 20:44:55 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 13183193 65
+2026.09.03 20:44:55 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 13183193 65
+2026.09.03 20:44:55 Debug      -  [Behaviour] Loading avatar for -Traceless-
+2026.09.03 20:44:55 Debug      -  [Behaviour] Initialized player -Traceless-
+2026.09.03 20:44:57 Debug      -  [Behaviour] Switching SubKay_ to avatar Capybara kid
+2026.09.03 20:45:00 Debug      -  [Behaviour] Switching -Traceless- to avatar Ghostface （Slash Enthusiast）
+2026.09.03 20:45:00 Debug      -  [Behaviour] OnPlayerJoinComplete -Traceless-
+2026.09.03 20:45:00 Debug      -  [Behaviour] OnPlayerJoined -Traceless- (usr_8f8c6ef9-b4ef-4a6a-9304-93f27048aae0)
+2026.09.03 20:45:00 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:45:00 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:45:00 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:45:00 Debug      -  [Behaviour] Initialized PlayerAPI "-Traceless-" is remote
+2026.09.03 20:45:00 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 65 False 4
+2026.09.03 20:45:00 Debug      -  [Behaviour] Restored player 65
+2026.09.03 20:45:13 Debug      -  [Behaviour] Switching MAR2109HD to avatar Cadillac Escalade
+2026.09.03 20:45:14 Debug      -  [Behaviour] Switching MAR2109HD to avatar Cadillac Escalade
+2026.09.03 20:45:20 Debug      -  [Behaviour] Switching -Traceless- to avatar Crow
+2026.09.03 20:45:22 Debug      -  [Behaviour] Switching -Traceless- to avatar Crow
+2026.09.03 20:45:27 Debug      -  [Behaviour] OnPlayerEnteredRoom
+2026.09.03 20:45:27 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 18532779 66
+2026.09.03 20:45:27 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 18532779 66
+2026.09.03 20:45:27 Debug      -  [Behaviour] Loading avatar for hevy1015
+2026.09.03 20:45:27 Debug      -  [Behaviour] Initialized player hevy1015
+2026.09.03 20:45:28 Debug      -  [Behaviour] Destination requested: wrld_266523e8-9161-40da-acd0-6bd82e075833:39047~friends(usr_527e5167-9361-49f7-8358-3c7be9be3741)~region(use)
+2026.09.03 20:45:28 Debug      -  [Behaviour] Destination fetching: wrld_266523e8-9161-40da-acd0-6bd82e075833:39047~friends(usr_527e5167-9361-49f7-8358-3c7be9be3741)~region(use)
+2026.09.03 20:45:28 Debug      -  [Behaviour] Destination set: wrld_266523e8-9161-40da-acd0-6bd82e075833:39047~friends(usr_527e5167-9361-49f7-8358-3c7be9be3741)~region(use)
+2026.09.03 20:45:28 Debug      -  [Behaviour] <color=red>Resetting game flow because "Destination instance set": [SkipLogin, RemainInNetworkRoom]</color>
+2026.09.03 20:45:28 Debug      -  [Behaviour] Refreshing analytic experiments
+2026.09.03 20:45:28 Debug      -  [Behaviour] waiting for UI Manager
+2026.09.03 20:45:28 Debug      -  [Behaviour] showing disconnect reason
+2026.09.03 20:45:28 Debug      -  [Behaviour] showing alert
+2026.09.03 20:45:28 Debug      -  [Behaviour] checking min client version
+2026.09.03 20:45:28 Debug      -  [Behaviour] checking for account info update
+2026.09.03 20:45:28 Debug      -  [Behaviour] checking terms of service
+2026.09.03 20:45:28 Debug      -  [Behaviour] TOS current version: 12, accepted: 12
+2026.09.03 20:45:28 Debug      -  [Behaviour] checking privacy policy
+2026.09.03 20:45:28 Debug      -  [Behaviour] Privacy Policy current version: 2, accepted: 2
+2026.09.03 20:45:28 Debug      -  [Behaviour] set connect error state
+2026.09.03 20:45:28 Debug      -  [Behaviour] checking for youtube-dl updates
+2026.09.03 20:45:28 Debug      -  [Behaviour] launching in normal manner
+2026.09.03 20:45:28 Debug      -  [Behaviour] entering main loop
+2026.09.03 20:45:28 Debug      -  [Behaviour] Beginning room transition
+2026.09.03 20:45:28 Debug      -  [Behaviour] OnPlayerLeftRoom
+2026.09.03 20:45:28 Debug      -  [Behaviour] OnPlayerLeft -winter~ (usr_527e5167-9361-49f7-8358-3c7be9be3741)
+2026.09.03 20:45:28 Debug      -  [Behaviour] Destroying -winter~
+2026.09.03 20:45:28 Debug      -  [Behaviour] Invoking 1 listeners for BeginBlackFade event
+2026.09.03 20:45:29 Debug      -  [Behaviour] Resetting statistics
+2026.09.03 20:45:29 Debug      -  [Behaviour] Disabling physics
+2026.09.03 20:45:29 Debug      -  [Behaviour] Serialization History Length defaulting to 42
+2026.09.03 20:45:29 Debug      -  [Behaviour] Transitioning to room
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnLeftRoom
+2026.09.03 20:45:29 Debug      -  [Behaviour] Cleaning up held messages
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft ΛƧƬΛ (usr_6d99027a-39f0-40f4-ba2d-ffdce1639c72)
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft BlackIndium (usr_786ac3f2-8e1a-45b6-b8d1-65306d36a66b)
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft Fraiinco2Wavy (usr_f5ca805a-9a90-40a7-89d4-62e64d4d35bd)
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft nicopuppyboy (usr_20dd6117-ee1f-4a5d-af59-0805b8602b9b)
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft ~ RedZu ~ (usr_56f38b9d-713e-4adc-a83c-d491811a041a)
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft bin¹ (usr_f2049d71-e76b-42d2-a8bd-43deec9c004e)
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft MAR2109HD (usr_8a7a5d18-7a76-4413-838e-d6ad65ac9fc8)
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft SubKay_ (usr_4b8e71cc-29ec-4b01-ab9e-e07a77507afa)
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft Hawk Echos (usr_3666a770-a04d-491f-9088-77097eb13089)
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft -Traceless- (usr_8f8c6ef9-b4ef-4a6a-9304-93f27048aae0)
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnPlayerLeft hevy1015 (usr_c4ec4f0e-a7d6-489b-b74d-4036e913312d)
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying ΛƧƬΛ
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying BlackIndium
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying Fraiinco2Wavy
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying nicopuppyboy
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying ~ RedZu ~
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying bin¹
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying MAR2109HD
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying SubKay_
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying Hawk Echos
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying -Traceless-
+2026.09.03 20:45:29 Debug      -  [Behaviour] Destroying hevy1015
+2026.09.03 20:45:29 Debug      -  [Behaviour] Invoking 31 listeners for ExitWorld event
+2026.09.03 20:45:29 Debug      -  [Behaviour] Unloading scenes
+2026.09.03 20:45:29 Debug      -  [Behaviour] OnConnectedToMaster
+2026.09.03 20:45:29 Debug      -  [Behaviour] Connected to master in us
+2026.09.03 20:45:30 Debug      -  [Behaviour] Already connected to network region us
+2026.09.03 20:45:30 Debug      -  [Behaviour] Requesting join token
+2026.09.03 20:45:30 Debug      -  [Behaviour] Preparing assets...
+2026.09.03 20:45:37 Debug      -  [Behaviour] Entering world
+2026.09.03 20:45:37 Debug      -  [Behaviour] Entering Room: Popcorn Palace
+2026.09.03 20:45:37 Debug      -  [Behaviour] Joining wrld_266523e8-9161-40da-acd0-6bd82e075833:39047~friends(usr_527e5167-9361-49f7-8358-3c7be9be3741)~region(use)
+2026.09.03 20:45:37 Debug      -  [Behaviour] Joining or Creating Room: Popcorn Palace
+2026.09.03 20:45:37 Debug      -  [Behaviour] Successfully joined room
+2026.09.03 20:45:37 Debug      -  [Behaviour] Spent 0.0006103516s entering world.
+2026.09.03 20:45:37 Debug      -  [Behaviour] Waiting to enter network room.
+2026.09.03 20:45:37 Debug      -  [Behaviour] Destroying VRC_OBJECTS
+2026.09.03 20:45:37 Debug      -  [Behaviour] Spent 0.4544678s waiting to enter room.
+2026.09.03 20:45:37 Debug      -  [Behaviour] Waiting to discover master client.
+2026.09.03 20:45:37 Debug      -  [Behaviour] Configuring Udon
+2026.09.03 20:45:40 Debug      -  [Behaviour] Room instantiate took 3.225098s
+2026.09.03 20:45:40 Debug      -  [Behaviour] Instantiating VRC_OBJECTS
+2026.09.03 20:45:40 Debug      -  [Behaviour] Hard max is 80
+2026.09.03 20:45:40 Debug      -  [Behaviour] Spent 0.0007324219s initializing VRC Objects
+2026.09.03 20:45:40 Debug      -  [Behaviour] Processing scene objects
+2026.09.03 20:45:40 Debug      -  [Behaviour] Spent 0.09594727s processing scene objects.
+2026.09.03 20:45:40 Debug      -  [Behaviour] Fixing materials
+2026.09.03 20:45:41 Debug      -  [Behaviour] Attaching ComponentHandlers
+2026.09.03 20:45:41 Debug      -  [Behaviour] Spent 0.00769043s attaching initial component handlers.
+2026.09.03 20:45:41 Debug      -  [Behaviour] Finalizing scene
+2026.09.03 20:45:41 Debug      -  [Behaviour] Spent 0.001953125s finalizing scene.
+2026.09.03 20:45:41 Debug      -  [Behaviour] Warming shaders for world mirrors
+2026.09.03 20:45:48 Debug      -  [Behaviour] OnRoomPropertiesUpdate
+2026.09.03 20:45:48 Debug      -  [Behaviour] Holding recovery payload until all bunches are received.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Holding recovery payload until all bunches are received.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Holding recovery payload until all bunches are received.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Holding recovery payload until all bunches are received.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Spent 10.67334s waiting to discover master client.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Waiting for network limits.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Spent 0s waiting for network limits.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Waiting for core objects to ready
+2026.09.03 20:45:48 Debug      -  [Behaviour] Configuring Udon
+2026.09.03 20:45:48 Debug      -  [Behaviour] Preloaded 0 Prefabs: 
+2026.09.03 20:45:48 Debug      -  [Behaviour] Spawning players
+2026.09.03 20:45:48 Debug      -  [Behaviour] Microphone device changing to 'System Default'
+2026.09.03 20:45:48 Debug      -  [Behaviour] Finished spawning players.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Remote] 49579779 1
+2026.09.03 20:45:48 Debug      -  [Behaviour] Waiting for Properties for VRCPlayer[Local] 02685746 2
+2026.09.03 20:45:48 Debug      -  [Behaviour] Waiting for player persistence objects to be ready
+2026.09.03 20:45:48 Debug      -  [Behaviour] Configuring remote player VRCPlayer[Remote] 49579779 1
+2026.09.03 20:45:48 Debug      -  [Behaviour] Loading avatar for -winter~
+2026.09.03 20:45:48 Debug      -  [Behaviour] Initialized player -winter~
+2026.09.03 20:45:48 Debug      -  [Behaviour] Configuring local player VRCPlayer[Local] 02685746 2
+2026.09.03 20:45:48 Debug      -  [Behaviour] Loading avatar for bin¹
+2026.09.03 20:45:48 Debug      -  [Behaviour] Initialized player bin¹
+2026.09.03 20:45:48 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:45:48 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:45:48 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:45:48 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:45:48 Debug      -  [Behaviour] Switching bin¹ to avatar Night's Simple Airi （Public）
+2026.09.03 20:45:48 Debug      -  [Behaviour] Player persistence object initialization complete
+2026.09.03 20:45:48 Debug      -  [Behaviour] Collecting metadata for 3 player objects.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Collecting metadata.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Sending 1239 bytes of instance metadata over 2 bunches.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Requesting buffered events
+2026.09.03 20:45:48 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.08, 0.12) scaled:(0.00, 0.07, 0.11)
+2026.09.03 20:45:48 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Local] 2 True 1
+2026.09.03 20:45:48 Debug      -  [Behaviour] Waiting for players to initialize
+2026.09.03 20:45:48 Debug      -  [Behaviour] Switching -winter~ to avatar tsuki
+2026.09.03 20:45:48 Debug      -  [Behaviour] Player initialization complete.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Readying scene objects
+2026.09.03 20:45:48 Debug      -  [Behaviour] CacheComponents: ParticleSystems 1, AudioSources 0
+2026.09.03 20:45:48 Debug      -  [Behaviour] Using default gesture mask (hands)
+2026.09.03 20:45:48 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:45:48 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:45:48 Debug      -  [Behaviour] Initialize Limb Avatar VRCPlayer[Remote] 1 False 1
+2026.09.03 20:45:48 Debug      -  [Behaviour] Waiting for players to network ready
+2026.09.03 20:45:48 Debug      -  [Behaviour] Skipping registration of a video player on 'AVProHQ' with the VideoPlayerOverseer as automatic resync is disabled.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Skipping registration of a video player on 'AVProNonLL' with the VideoPlayerOverseer as automatic resync is disabled.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Skipping registration of a video player on 'UnityVideo' with the VideoPlayerOverseer as automatic resync is disabled.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Executing Buffered Events
+2026.09.03 20:45:48 Debug      -  [Behaviour] OnPlayerJoinComplete -winter~
+2026.09.03 20:45:48 Debug      -  [Behaviour] OnPlayerJoinComplete bin¹
+2026.09.03 20:45:48 Debug      -  [Behaviour] Hiding overlay
+2026.09.03 20:45:48 Debug      -  [Behaviour] Lifting black fade
+2026.09.03 20:45:48 Debug      -  [Behaviour] I am *NOT* MASTER
+2026.09.03 20:45:48 Debug      -  [Behaviour] Holding recovery payload until all bunches are received.
+2026.09.03 20:45:48 Debug      -  [Behaviour] All 1 bunches for Persistence [2] collected, now restoring.
+2026.09.03 20:45:48 Debug      -  [Behaviour] All 3 bunches for Player Data Object [2] collected, now restoring.
+2026.09.03 20:45:48 Debug      -  [Behaviour] All 1 bunches for TVData collected, now restoring.
+2026.09.03 20:45:48 Debug      -  [Behaviour] All 1 bunches for PrivateRoom collected, now restoring.
+2026.09.03 20:45:48 Debug      -  [Behaviour] All 3 bunches for Player Data Object [1] collected, now restoring.
+2026.09.03 20:45:48 Debug      -  [Behaviour] All 1 bunches for Persistence [1] collected, now restoring.
+2026.09.03 20:45:48 Debug      -  [Behaviour] All 1 bunches for EntranceController collected, now restoring.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Finishing room transition.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Invoking 33 listeners for EnterWorld event
+2026.09.03 20:45:48 Debug      -  [Behaviour] Finished entering world.
+2026.09.03 20:45:48 Debug      -  [Behaviour] Enabling physics
+2026.09.03 20:45:48 Debug      -  [Behaviour] <color=red>Dispatching 4 held events.</color>
+2026.09.03 20:45:48 Debug      -  [Behaviour] World download took 6,755.4ms
+2026.09.03 20:45:48 Debug      -  [Behaviour] Spent 0.0ms waiting for GO
+2026.09.03 20:45:48 Debug      -  [Behaviour] World loading took 11,935.1ms
+2026.09.03 20:45:48 Debug      -  [Behaviour] Granular load times:
+2026.09.03 20:45:48 Debug      -  [Behaviour] OnPlayerJoined -winter~ (usr_527e5167-9361-49f7-8358-3c7be9be3741)
+2026.09.03 20:45:48 Debug      -  [Behaviour] OnPlayerJoined bin¹ (usr_f2049d71-e76b-42d2-a8bd-43deec9c004e)
+2026.09.03 20:45:49 Debug      -  [Behaviour] Initialized PlayerAPI "-winter~" is remote
+2026.09.03 20:45:49 Debug      -  [Behaviour] Initialized PlayerAPI "bin¹" is local
+2026.09.03 20:45:49 Debug      -  [Behaviour] Restored player 1
+2026.09.03 20:45:49 Debug      -  [Behaviour] Restored player 2
+2026.09.03 20:45:49 Debug      -  [Behaviour] Sanity check <color=green>passed</color> for ID: 0, Path: 1943
+2026.09.03 20:45:49 Debug      -  [Behaviour] Sanity check <color=green>passed</color> for ID: 1, Path: 2011
+2026.09.03 20:45:49 Debug      -  [Behaviour] Sanity check <color=green>passed</color> for ID: 2, Path: 1936
+2026.09.03 20:45:49 Debug      -  [Behaviour] Sanity check <color=green>passed</color> for ID: 3, Path: 841
+2026.09.03 20:45:49 Debug      -  [Behaviour] Sanity check <color=green>passed</color> for ID: 4, Path: 1929
+2026.09.03 20:45:49 Debug      -  [Behaviour] CacheComponents: ParticleSystems 0, AudioSources 0
+2026.09.03 20:45:49 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:45:49 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:45:49 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:45:49 Debug      -  [Behaviour] eyeToNeck:(0.00, 0.04, 0.07) scaled:(0.00, 0.05, 0.10)
+2026.09.03 20:45:49 Debug      -  [Behaviour] Initialize SixPoint Avatar VRCPlayer[Local] 2 True 8
+2026.09.03 20:45:50 Debug      -  [Behaviour] CacheComponents: ParticleSystems 5, AudioSources 16
+2026.09.03 20:45:50 Debug      -  [Behaviour] Using custom gesture mask from base layer
+2026.09.03 20:45:50 Debug      -  [Behaviour] Using default fx mask (all muscles disabled, all transforms enabled)
+2026.09.03 20:45:50 Debug      -  [Behaviour] Avatar is Ready, Initializing
+2026.09.03 20:45:50 Debug      -  [Behaviour] Initialize ThreePoint Avatar VRCPlayer[Remote] 1 False 8
+2026.09.03 21:30:33 Debug      -  [Behaviour] Destroying -winter~
+2026.09.03 21:30:33 Debug      -  [Behaviour] Destroying bin¹
