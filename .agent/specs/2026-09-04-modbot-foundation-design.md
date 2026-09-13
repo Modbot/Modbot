@@ -481,9 +481,12 @@ The single most important interface in the system. **Nothing else may ever const
 ```csharp
 public interface IVRChatGate
 {
-    // The callback returns ApiResponse<T>, so callers MUST use the
-    // ...WithHttpInfoAsync variants. These never throw (see below).
+    // The endpoint is an explicit parameter, NOT inferred from the callback.
+    // A Func is opaque: the gate cannot see which endpoint a lambda will call,
+    // so it cannot pick a bucket. An unknown endpoint class THROWS rather than
+    // borrowing a neighbour's budget -- see 4.3.4's standing instruction.
     Task<VRChatResult<T>> ExecuteAsync<T>(
+        VRChatEndpoint endpoint,
         Func<IVRChat, CancellationToken, Task<ApiResponse<T>>> call,
         VRChatCallPriority priority = VRChatCallPriority.Background,
         CancellationToken ct = default);
@@ -505,7 +508,9 @@ Responsibilities, all in one place:
 - Owns the one authenticated `IVRChat` instance built from `VRChat.API`, including the optional
   egress proxy (§2.3.1) via `VRChatClientBuilder.WithProxy`.
 - Persists and re-hydrates the auth cookie from the database (never `cookie.txt` on disk).
-- Serialises all calls (`SemaphoreSlim(1)`) behind a token bucket.
+- Serialises all calls behind a token bucket — **not a `SemaphoreSlim`**. A semaphore releases in
+  arrival order, which cannot satisfy the preemption requirement on the next line; a priority gate
+  decides the order at release time instead.
 - **Priority queue**: interactive moderation actions preempt background sync.
 - `401` → transparent re-login (TOTP via the stored 2FA secret), then retry once.
 - `429` → **cold stop, never retry** (§4.3). This is the one place the gate deliberately does not
@@ -523,9 +528,15 @@ Responsibilities, all in one place:
 `GroupsApi.GetGroupMembersWithHttpInfoAsync`.
 
 **Known upstream limitation.** The catch path constructs a fresh `ApiResponse` with
-`new Multimap<string, string>()` and no `RawContent`, so on **error** responses `Headers` is empty
-and the WAF body survives only inside `ErrorText`, formatted as `"Error calling {method}: {body}"` —
-`WafCode` must be extracted by locating the JSON payload within that string.
+`new Multimap<string, string>()`, so **headers are lost** and `Retry-After` is unavailable there.
+
+**Corrected 2026-09-12:** an earlier draft said the WAF body lands in `ErrorText`. It does not. The
+catch path passes `ex.Message` to the constructor's **`rawContent`** parameter, so the body arrives in
+**`RawContent`** and `ErrorText` stays null — formatted as `"Error calling {method}: {body}"`, so
+`WafCode` is still extracted by locating the JSON payload within that string.
+
+Headers are also only lost on the **catch** path. A `429` arriving as an ordinary HTTP response keeps
+them, so the classifier reads both fields and both paths rather than assuming either.
 
 Worth fixing upstream, but **it changes nothing about rate limiting**: VRChat does not send
 `Retry-After` at all, so there is no header to recover (§4.3). The gate must tolerate the absence
@@ -557,8 +568,8 @@ This generalises: **nothing in Modbot calls the convenience overloads.** Every c
 A plain `await vrchat.Groups.GetGroupAsync(id)` anywhere in the codebase is a review failure, not a
 shortcut.
 
-**Split-ready:** the token bucket and semaphore sit behind an `IRateLimitLease`. The in-process
-implementation is a `SemaphoreSlim`; a future distributed implementation is a Redis lease. Same
+**Split-ready:** the token bucket and the priority gate sit behind an `IRateLimitLease`. The
+in-process implementation is local state; a future distributed implementation is a Redis lease. Same
 interface, same call sites.
 
 ### 4.2 Sync jobs — paced per type, capped globally, deliberately desynchronised
@@ -574,6 +585,7 @@ full-sync rates: a paged sync of a large group simply spans many intervals.
 | Group instances | 1 per **8 s** | 0.125 | `groups.instances` |
 | Group info | 1 per **10 s** | 0.100 | `groups.read` |
 | Group roles | 1 per **10 s** | 0.100 | `groups.read` |
+| | *(`groups.read` class total)* | *0.200* | |
 | | **Sum** | **1.450** | |
 
 **Global ceiling: 2 requests/second** across the types above.
@@ -939,8 +951,10 @@ endpoint**. Until then Modbot assumes a **sustained 0.3–1 request/second per e
 > sync feels slow. These numbers are guesses about an undocumented system whose failure mode is
 > opaque and punitive (§4.3); the cost of being wrong is asymmetric.
 
-**The per-type pacing caps and the 2 req/s global ceiling in §4.2 are authoritative.** The table
-below records where those numbers came from -- the pacing the previous implementation actually ran in
+**The per-type pacing caps and the 2 req/s global ceiling in §4.2 are authoritative, and where this
+table disagrees with §4.2, §4.2 wins.** It does disagree: this table's 0.29 req/s for bans and the
+audit log predates §4.2's 0.5 and 0.125. Those older figures are kept as provenance, not as
+configuration. The table below records where the numbers came from -- the pacing the previous implementation actually ran in
 production (`old/Modbot/Consumers/`), which is the best empirical evidence available -- and covers
 endpoint classes §4.2 does not schedule:
 

@@ -100,3 +100,17 @@ Avatar thumbnail URLs embed the file id:
 `https://api.vrchat.cloud/api/1/file/file_<id>/1/file`
 
 `Nonce`, `SecureName` and `ShortName` are instance secrets and must never be persisted.
+
+## 6. `Configuration.BasePath` does not redirect a client — **landmine**
+
+Setting `Configuration.BasePath` after construction has no effect. `ApiClient` captures its base URL
+**at construction time** from `GlobalConfiguration.Instance`.
+
+This was found the expensive way: a draft of the SDK contract tests set `BasePath` to a loopback stub
+and silently sent four unauthenticated requests to the **real** `api.vrchat.cloud`, which answered
+401. Nothing failed, nothing warned — the tests simply tested the wrong server.
+
+Any test that believes it is talking to a stub must **construct `ApiClient` with the base path
+directly** and then assert the stub actually received the request. A test-only `BasePath` knob was
+removed rather than left in place, because a setter that looks like it works and does not is a loaded
+gun pointed at production credentials.
