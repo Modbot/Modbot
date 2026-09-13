@@ -27,7 +27,7 @@ import { Setup } from '@/pages/setup/Setup'
 
 const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
   members: { title: 'Members' },
-  bans: { title: 'Bans', subtitle: 'What Modbot recorded — not the group’s ban list' },
+  bans: { title: 'Bans', subtitle: 'The group’s ban list, and what the audit log recorded' },
   audit: { title: 'Audit log', subtitle: 'One timeline, merged across sources' },
   'analytics-group': { title: 'My Group', subtitle: 'Is the community growing or shrinking, and what changed?' },
   'analytics-team': { title: 'My Team', subtitle: 'Who is doing the moderation work, and when is nobody covering?' },
@@ -209,7 +209,7 @@ function Shell({
           onSignOut={() => void api.logout().finally(() => window.location.assign('/'))}
         />
         <div className="p-5">
-          {page === 'members' && <Members />}
+          {page === 'members' && <Members onOpenSubject={setSubject} />}
           {page === 'bans' && <Bans onOpenSubject={setSubject} />}
           {page === 'audit' && <AuditLog onOpenSubject={setSubject} />}
           {page === 'analytics-group' && <MyGroup />}

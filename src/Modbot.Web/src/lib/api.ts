@@ -335,6 +335,110 @@ export type BanList = {
   coverage: BanCoverage
 }
 
+/** One role the group defines, as last read by the group-info producer. */
+export type RoleOption = { id: string; name: string | null }
+
+/**
+ * One row of the Members page. `displayName` and `avatarThumbnailUrl` come from the stored
+ * profile and are null until the profile sync has fetched one -- the row shows the id then.
+ */
+export type MemberRow = {
+  userId: string
+  displayName: string | null
+  avatarThumbnailUrl: string | null
+  roleIds: string[]
+  roleNames: string[]
+  joinedAt: string | null
+  membershipStatus: string | null
+  visibility: string | null
+  isRepresenting: boolean
+  eighteenPlus: boolean
+  lastSeenAt: string | null
+  profileRefreshedAt: string | null
+  leftAt: string | null
+}
+
+/**
+ * How far the swept list can be trusted. `firstSweepComplete` false means the list is partial:
+ * however many pages the first sweep has read so far, not the group.
+ */
+export type SweepCoverage = {
+  firstSweepComplete: boolean
+  lastSyncedAt: string | null
+  sweepInProgress: boolean
+  now: string
+}
+
+export type MemberListCoverage = SweepCoverage & { memberCount: number }
+
+export type MemberList = {
+  members: MemberRow[]
+  total: number
+  page: number
+  pageSize: number
+  roles: RoleOption[]
+  coverage: MemberListCoverage
+}
+
+export type MemberQuery = {
+  search?: string
+  role?: string
+  status?: 'current' | 'left' | 'all'
+  sort?: 'joined' | 'name' | 'seen'
+  page?: number
+  pageSize?: number
+}
+
+/** One person's membership and ban standing, for the subject pane. `known` false: no sweep has listed them. */
+export type MembershipView = {
+  userId: string
+  known: boolean
+  isMember: boolean
+  roleIds: string[]
+  roleNames: string[]
+  joinedAt: string | null
+  membershipStatus: string | null
+  visibility: string | null
+  isRepresenting: boolean
+  managerNotes: string | null
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  leftAt: string | null
+  banned: boolean
+  bannedAt: string | null
+  banLiftedAt: string | null
+  members: MemberListCoverage
+  bans: GroupBanCoverage
+}
+
+/** One row of the group's ban list, as the ban sweep last read it. */
+export type GroupBanRow = {
+  userId: string
+  displayName: string | null
+  avatarThumbnailUrl: string | null
+  bannedAt: string | null
+  firstSeenAt: string
+  liftedAt: string | null
+  profileRefreshedAt: string | null
+}
+
+export type GroupBanCoverage = SweepCoverage & { banCount: number }
+
+export type GroupBanList = {
+  bans: GroupBanRow[]
+  total: number
+  page: number
+  pageSize: number
+  coverage: GroupBanCoverage
+}
+
+export type GroupBanQuery = {
+  search?: string
+  status?: 'current' | 'lifted' | 'all'
+  page?: number
+  pageSize?: number
+}
+
 export type DayValue = { day: string; value: number }
 
 /**
@@ -549,6 +653,27 @@ export type UserProfileHealth = {
   countedAt: string | null
 }
 
+/**
+ * Where a member or ban sweep has got to. `phase` is the service's own word -- sweeping,
+ * resting, cold-stopped, retrying, idle -- because "last ran 9 minutes ago" cannot tell a
+ * deliberate rest from a stuck producer.
+ */
+export type SweepHealth = {
+  phase: string
+  lastCompletedAt: string | null
+  startedAt: string | null
+  offset: number
+  count: number
+  pagesWalked: number
+  rowsChanged: number
+  factsWritten: number
+  factsDeduplicated: number
+  nextPassAt: string | null
+  coldStopped: boolean
+  polledAt: string | null
+  lastRun: SyncRunSummary | null
+}
+
 export type SyncHealth = {
   gate: GateHealth
   buckets: BucketHealth[]
@@ -566,6 +691,8 @@ export type SyncHealth = {
   unmappedAuditEvents: UnmappedEvent[]
   auditLogHistoryHorizon: HistoryHorizonReport | null
   userProfiles: UserProfileHealth | null
+  memberSweep: SweepHealth | null
+  banSweep: SweepHealth | null
   now: string
 }
 
@@ -636,6 +763,17 @@ export type RefreshRequestResult = {
   explanation: string
 }
 
+/** How a member or ban sweep is paced: one page per `pageDelaySeconds`, then a rest between sweeps. */
+export type SweepSettings = {
+  pageDelaySeconds: number
+  restSeconds: number
+  retryIntervalSeconds: number
+  rateLimitedIntervalSeconds: number
+  pacingFloorSeconds: number
+  jitterFraction: number
+  pageSize: number
+}
+
 export type SyncSettings = {
   auditLog: {
     minIntervalSeconds: number
@@ -665,6 +803,8 @@ export type SyncSettings = {
     freshEnoughWhenSeenInInstanceSeconds: number
     rateLimitedIntervalSeconds: number
   }
+  memberSweep: SweepSettings
+  banSweep: SweepSettings
   editable: boolean
   editableExplanation: string
   running: boolean
@@ -1077,6 +1217,37 @@ export const api = {
     if (query.includeUnbanned === false) q.set('includeUnbanned', 'false')
     const search = q.toString()
     return request<BanList>(`/api/audit/bans${search ? `?${search}` : ''}`)
+  },
+
+  /**
+   * The group's member list as last swept, searched and paged on the server. Names and pictures
+   * are whatever the profile sync has fetched so far.
+   */
+  members: (query: MemberQuery = {}) => {
+    const q = new URLSearchParams()
+    if (query.search) q.set('search', query.search)
+    if (query.role) q.set('role', query.role)
+    if (query.status && query.status !== 'current') q.set('status', query.status)
+    if (query.sort && query.sort !== 'joined') q.set('sort', query.sort)
+    if (query.page && query.page > 1) q.set('page', String(query.page))
+    if (query.pageSize) q.set('pageSize', String(query.pageSize))
+    const search = q.toString()
+    return request<MemberList>(`/api/members${search ? `?${search}` : ''}`)
+  },
+
+  /** One person's membership and ban standing. The id goes in the query string (spec 3.1.1). */
+  membership: (id: string) =>
+    request<MembershipView>(`/api/members/membership?id=${encodeURIComponent(id)}`),
+
+  /** The group's ban list as last swept. Distinct from `bans`, which is what the audit log recorded. */
+  groupBans: (query: GroupBanQuery = {}) => {
+    const q = new URLSearchParams()
+    if (query.search) q.set('search', query.search)
+    if (query.status && query.status !== 'current') q.set('status', query.status)
+    if (query.page && query.page > 1) q.set('page', String(query.page))
+    if (query.pageSize) q.set('pageSize', String(query.pageSize))
+    const search = q.toString()
+    return request<GroupBanList>(`/api/bans${search ? `?${search}` : ''}`)
   },
 
   /**

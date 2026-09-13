@@ -1,27 +1,332 @@
+import { useEffect, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { SubjectLink } from '@/components/facts'
+import { ago, formatDay } from '@/lib/format'
+import { api, ApiError, type MemberList, type MemberQuery } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 /**
- * Members — not built yet.
+ * The group's member list, as the member sweep last read it.
  *
- * This screen used to render a dozen hardcoded names, ids and "hours in world" figures, ported
- * straight from the design prototype. In a prototype that is exactly right; in a running
- * deployment it is a lie that cannot be detected from the inside. A moderator looking at
- * "ΛƧƬΛ · 18h 22m · 3 prior actions" has no way to know they are reading a mockup, and the
- * failure mode is somebody acting on it.
+ * Everything here is real and says how old it is. The list is the swept table; the names and
+ * pictures are whatever the profile sync has fetched so far, and a row it has not reached yet
+ * shows the id rather than a placeholder name. "Last synced" is the end of the last full sweep,
+ * never an implied guarantee (spec 4.2.3), and before the first sweep has finished the page says
+ * plainly that what it shows is partial.
  *
- * The member list arrives with the sync that produces it (M1). Until the data is real the screen
- * says so, which is the only honest thing an empty feature can do.
+ * Search, the role filter and paging all run on the server: a five-thousand-row list is not
+ * something to hand a browser to filter.
  */
-export function Members() {
+
+const PAGE_SIZE = 50
+
+export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
+  const [typed, setTyped] = useState('')
+  const [search, setSearch] = useState('')
+  const [role, setRole] = useState('')
+  const [status, setStatus] = useState<NonNullable<MemberQuery['status']>>('current')
+  const [sort, setSort] = useState<NonNullable<MemberQuery['sort']>>('joined')
+  const [page, setPage] = useState(1)
+  const [list, setList] = useState<MemberList | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // Typing waits a moment before it asks, so a name typed at speed is one request, not nine.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(typed.trim())
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [typed])
+
+  useEffect(() => {
+    let cancelled = false
+
+    api
+      .members({ search, role, status, sort, page, pageSize: PAGE_SIZE })
+      .then((next) => {
+        if (cancelled) return
+        setList(next)
+        setError(null)
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return
+        setError(
+          e instanceof ApiError && e.status === 403
+            ? 'You do not have permission to view members.'
+            : 'Could not load the member list.',
+        )
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [search, role, status, sort, page])
+
+  if (error) return <Empty>{error}</Empty>
+  if (!list) return <Empty>Loading…</Empty>
+
+  const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Freshness coverage={list.coverage} />
+
+      <Card>
+        <CardContent className="p-0">
+          <div
+            className="flex flex-wrap items-center gap-2 border-b px-3 py-2"
+            style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+          >
+            <Input
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder="Search by name or id"
+              className="h-8 w-64"
+              aria-label="Search members"
+            />
+
+            <Select
+              value={role}
+              onChange={(v) => {
+                setRole(v)
+                setPage(1)
+              }}
+              aria-label="Role"
+            >
+              <option value="">Any role</option>
+              {list.roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name ?? r.id}
+                </option>
+              ))}
+            </Select>
+
+            <Select
+              value={status}
+              onChange={(v) => {
+                setStatus(v as typeof status)
+                setPage(1)
+              }}
+              aria-label="Status"
+            >
+              <option value="current">Members</option>
+              <option value="left">People who left</option>
+              <option value="all">Both</option>
+            </Select>
+
+            <Select
+              value={sort}
+              onChange={(v) => {
+                setSort(v as typeof sort)
+                setPage(1)
+              }}
+              aria-label="Sort"
+            >
+              <option value="joined">Newest joiner first</option>
+              <option value="name">By name</option>
+              <option value="seen">Most recently seen first</option>
+            </Select>
+
+            <span className="flex-1" />
+
+            <span className="text-muted-foreground">
+              {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
+            </span>
+          </div>
+
+          {list.members.length === 0 ? (
+            <div className="py-10 text-center text-muted-foreground">
+              <div className="font-medium text-foreground">
+                {search || role ? 'Nobody matches' : 'Nobody listed yet'}
+              </div>
+              <p className="mx-auto mt-1 max-w-md" style={{ fontSize: 'var(--text-small)' }}>
+                {search || role
+                  ? 'Search matches the display name Modbot has stored and the VRChat id. Names arrive as profiles are fetched, so a very new member may only be findable by id for a while.'
+                  : list.coverage.firstSweepComplete
+                    ? 'The last full sweep listed nobody. The bot account itself is never in the list VRChat returns.'
+                    : 'The first sweep of the member list has not read anyone yet. Rows appear as pages come in.'}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+                <thead className="text-muted-foreground">
+                  <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                    <th className="px-3 py-2 text-left font-normal">Person</th>
+                    <th className="px-3 py-2 text-left font-normal">Roles</th>
+                    <th className="px-3 py-2 text-left font-normal">Joined</th>
+                    <th className="px-3 py-2 text-left font-normal">Last seen by Modbot</th>
+                    {status !== 'current' && <th className="px-3 py-2 text-left font-normal">Left</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.members.map((m) => (
+                    <tr
+                      key={m.userId}
+                      className={cn(
+                        'border-b last:border-0 hover:bg-muted/40',
+                        m.leftAt && 'text-muted-foreground',
+                      )}
+                      style={{ borderBottomWidth: 'var(--hairline)' }}
+                    >
+                      <td className="px-3" style={{ height: 'var(--row-h)' }}>
+                        <div className="flex items-center gap-2">
+                          {m.avatarThumbnailUrl ? (
+                            <img
+                              src={m.avatarThumbnailUrl}
+                              alt=""
+                              className="size-7 shrink-0 rounded-full bg-muted object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="size-7 shrink-0 rounded-full bg-muted" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <SubjectLink id={m.userId} name={m.displayName} onOpen={onOpenSubject} />
+                              {m.eighteenPlus && (
+                                <span
+                                  className="inline-flex items-center rounded-full border border-transparent bg-ok/15 px-1.5 py-0 font-medium text-ok"
+                                  style={{ fontSize: '0.6875rem' }}
+                                  title="Seen as 18+ verified on VRChat; this flag stays set until a moderator clears it"
+                                >
+                                  18+
+                                </span>
+                              )}
+                              {m.isRepresenting && (
+                                <span
+                                  className="text-muted-foreground"
+                                  style={{ fontSize: '0.6875rem' }}
+                                  title="Shows this group above their name tag in-game"
+                                >
+                                  representing
+                                </span>
+                              )}
+                            </div>
+                            {m.displayName && (
+                              <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
+                                {m.userId}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3">
+                        <div className="flex flex-wrap gap-1">
+                          {m.roleNames.map((name, i) => (
+                            <Badge key={m.roleIds[i] ?? name} variant="secondary" title={m.roleIds[i]}>
+                              {name}
+                            </Badge>
+                          ))}
+                          {m.roleNames.length === 0 && <span className="text-muted-foreground">—</span>}
+                        </div>
+                      </td>
+                      <td className="px-3 tabular-nums">
+                        {m.joinedAt ? formatDay(m.joinedAt) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-3 text-muted-foreground">
+                        {m.lastSeenAt ? ago(m.lastSeenAt, list.coverage.now) : '—'}
+                      </td>
+                      {status !== 'current' && (
+                        <td className="px-3 tabular-nums">{m.leftAt ? formatDay(m.leftAt) : ''}</td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {pages > 1 && (
+            <div
+              className="flex items-center gap-2 border-t px-3 py-2"
+              style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+            >
+              <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                Previous
+              </Button>
+              <span className="text-muted-foreground">
+                Page {list.page} of {pages}
+              </span>
+              <Button variant="outline" size="xs" disabled={page >= pages} onClick={() => setPage(page + 1)}>
+                Next
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+/**
+ * How old the list is, stated before it. Before the first full sweep the list is partial and
+ * the notice is the warning colour, because a short list shown as the group is the mistake
+ * this page most needs to not make.
+ */
+function Freshness({ coverage }: { coverage: MemberList['coverage'] }) {
+  if (!coverage.firstSweepComplete) {
+    return (
+      <div
+        className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-3"
+        style={{ borderWidth: 'var(--hairline)' }}
+      >
+        <div className="font-medium">Modbot is reading the member list for the first time.</div>
+        <p className="mt-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {coverage.sweepInProgress
+            ? 'The list below is whatever pages have come in so far, not the whole group. It fills in at one page every two seconds and this notice goes away when the first sweep finishes.'
+            : 'The first sweep has not started yet. It begins on its own once a group is configured and VRChat is reachable.'}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+      <span>
+        Last synced {ago(coverage.lastSyncedAt, coverage.now)}
+        {coverage.sweepInProgress ? ' — a new sweep is running now' : ''}.
+      </span>
+      <span>
+        {coverage.memberCount.toLocaleString()} {coverage.memberCount === 1 ? 'member' : 'members'} at the last full
+        sweep, not counting the bot account.
+      </span>
+    </div>
+  )
+}
+
+function Select({
+  value,
+  onChange,
+  children,
+  ...rest
+}: {
+  value: string
+  onChange: (value: string) => void
+  children: React.ReactNode
+  'aria-label': string
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-8 rounded-md border border-input bg-transparent px-2 text-foreground"
+      style={{ fontSize: 'var(--text-small)' }}
+      {...rest}
+    >
+      {children}
+    </select>
+  )
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
   return (
     <Card>
-      <CardContent className="py-10 text-center text-muted-foreground">
-        <div className="font-medium text-foreground">Members</div>
-        <p className="mx-auto mt-1 max-w-md" style={{ fontSize: 'var(--text-small)' }}>
-          Not built yet. Modbot has not synced the group's member list — that lands with member
-          sync, along with search, roles and time in world.
-        </p>
-      </CardContent>
+      <CardContent className="py-10 text-center text-muted-foreground">{children}</CardContent>
     </Card>
   )
 }

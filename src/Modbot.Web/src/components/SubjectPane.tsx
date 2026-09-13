@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { api, ApiError, type AuditEntry, type CurrentUser } from '@/lib/api'
+import { api, ApiError, type AuditEntry, type CurrentUser, type MembershipView } from '@/lib/api'
 import { FactTime, SourceBadge } from '@/components/facts'
 import { UserProfileCard } from '@/components/UserProfileCard'
+import { ago, formatDay } from '@/lib/format'
+import { can } from '@/lib/permissions'
 import { X } from 'lucide-react'
 
 /**
@@ -13,10 +16,11 @@ import { X } from 'lucide-react'
  * the scan* — a separate page costs the scroll position and the filters, so in practice people
  * don't check, and the history Modbot collected goes unread at the moment it mattered.
  *
- * Two things are here: the person's stored VRChat profile, with the age of every field written
- * beside it and the sticky 18+ flag (user profile sync design), and every fact recorded about
- * them. Roles, membership, presence analytics and a Discord link are still absent -- there is no
- * member sync and no Discord bot -- and the pane says so rather than inventing them.
+ * Three things are here: the person's stored VRChat profile, with the age of every field written
+ * beside it and the sticky 18+ flag (user profile sync design); their membership and ban standing
+ * as the sweeps last read them (member and ban sync design); and every fact recorded about them.
+ * Presence analytics and a Discord link are still absent -- there is no Discord bot -- and the
+ * pane says so rather than inventing them.
  */
 export function SubjectPane({
   subjectId,
@@ -98,12 +102,14 @@ export function SubjectPane({
         <div className="flex flex-col gap-3 p-4">
           <UserProfileCard subjectId={subjectId} me={me} />
 
+          {can(me, 'ViewMembers') && <MembershipCard subjectId={subjectId} />}
+
           <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
             Recorded history
           </div>
           <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Roles and time in world are not synced yet. What follows is every fact recorded about
-            this person, newest first.
+            Time in world is not synced yet. What follows is every fact recorded about this
+            person, newest first.
           </p>
 
           {error && (
@@ -152,6 +158,108 @@ export function SubjectPane({
           )}
         </div>
       </aside>
+    </div>
+  )
+}
+
+/**
+ * Membership and ban standing, as the sweeps last read them, with how old that reading is.
+ *
+ * "Not a member" from a list synced an hour ago and "not a member" from a list still being read
+ * for the first time are different claims, so the age travels with the answer.
+ */
+function MembershipCard({ subjectId }: { subjectId: string }) {
+  const [view, setView] = useState<MembershipView | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    api
+      .membership(subjectId)
+      .then((next) => {
+        if (!cancelled) setView(next)
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return
+        setError(
+          e instanceof ApiError && e.status === 403
+            ? 'You do not have permission to view membership.'
+            : 'Could not load membership.',
+        )
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [subjectId])
+
+  return (
+    <div
+      className="rounded-md border px-3 py-2"
+      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+    >
+      <div className="font-medium">Membership</div>
+
+      {error && <p className="mt-1 text-destructive">{error}</p>}
+      {!error && !view && <p className="mt-1 text-muted-foreground">Loading…</p>}
+
+      {view && (
+        <div className="mt-1 flex flex-col gap-1.5">
+          {!view.members.firstSweepComplete ? (
+            <p className="text-warn">
+              The member list is still being read for the first time, so whether this person is a
+              member is not known yet.
+            </p>
+          ) : view.isMember ? (
+            <p>
+              Member{view.joinedAt ? <> since {formatDay(view.joinedAt)}</> : ''}
+              {view.isRepresenting ? ', representing the group' : ''}.
+            </p>
+          ) : view.known ? (
+            <p>
+              Not a member{view.leftAt ? <> — no longer listed as of {formatDay(view.leftAt)}</> : ''}
+              {view.joinedAt ? <>, had joined {formatDay(view.joinedAt)}</> : ''}.
+            </p>
+          ) : (
+            <p className="text-muted-foreground">Not a member as of the last sweep.</p>
+          )}
+
+          {view.roleNames.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-muted-foreground">Roles:</span>
+              {view.roleNames.map((name, i) => (
+                <Badge key={view.roleIds[i] ?? name} variant="secondary" title={view.roleIds[i]}>
+                  {name}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+          {view.managerNotes && (
+            <p className="text-muted-foreground">
+              Manager notes: <span className="whitespace-pre-wrap break-words text-foreground">{view.managerNotes}</span>
+            </p>
+          )}
+
+          {view.banned ? (
+            <p className="text-destructive">
+              On the ban list{view.bannedAt ? <> since {formatDay(view.bannedAt)}</> : ''}.
+            </p>
+          ) : view.banLiftedAt ? (
+            <p className="text-muted-foreground">
+              Was banned{view.bannedAt ? <> on {formatDay(view.bannedAt)}</> : ''}; the ban was lifted by {formatDay(view.banLiftedAt)}.
+            </p>
+          ) : !view.bans.firstSweepComplete ? (
+            <p className="text-muted-foreground">The ban list is still being read for the first time.</p>
+          ) : null}
+
+          <p className="text-muted-foreground">
+            Member list synced {ago(view.members.lastSyncedAt, view.members.now)}; ban list synced{' '}
+            {ago(view.bans.lastSyncedAt, view.bans.now)}.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
