@@ -29,7 +29,9 @@ namespace Modbot.Client.App;
 /// <para><strong>What it writes to your disk.</strong> Its own folder under your user profile,
 /// holding three things: which servers you paired with and their tokens (the tokens encrypted to
 /// your Windows account), observations queued to send, and the plain-English record of what has
-/// been sent. Nothing else on the machine is touched.</para>
+/// been sent. Plus one registry key under your own account saying that <c>modbot-client://</c>
+/// links open this program, which is how pairing from the browser reaches it. Nothing else on the
+/// machine is touched.</para>
 /// <para><strong>What leaves the machine.</strong> Presence observations, to the Modbot servers
 /// you paired with and to nowhere else — and only for instances belonging to the group each of
 /// those servers manages. Never a raw log line, never anything about your private, friends-only or
@@ -42,9 +44,18 @@ namespace Modbot.Client.App;
 /// <para><strong>It is always visible while it runs.</strong> Closing the window leaves a tray
 /// icon; the program never becomes invisible, and pausing stops transmission immediately and shows
 /// that it has.</para>
+/// <para><strong>It runs once.</strong> Starting it again — which is what Windows does when a
+/// browser opens a <c>modbot-client://</c> link — hands the link to the copy already running and
+/// exits. One tray icon, one log reader, one set of queues.</para>
 /// </remarks>
 internal sealed class ModbotClientApp : Application
 {
+    /// <summary>
+    /// What this process was started with, if anything: a pairing link from the browser, or a
+    /// request to show the window. Handled once the host is up.
+    /// </summary>
+    internal static string? StartupMessage { get; set; }
+
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -54,7 +65,7 @@ internal sealed class ModbotClientApp : Application
             // reporting, rather than minimising to somewhere less visible.
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             desktop.MainWindow = Host.Window;
-            Host.Start(desktop);
+            Host.Start(desktop, StartupMessage);
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -74,6 +85,12 @@ internal sealed class ModbotClientApp : Application
 /// </remarks>
 internal sealed class ClientHost
 {
+    /// <summary>
+    /// What a second copy sends when it was started with no link: the person double-clicked the
+    /// icon again, and wants the window.
+    /// </summary>
+    internal const string ShowCommand = "show";
+
     private readonly IModbotClock _clock = new SystemModbotClock();
     private readonly DispatcherTimer _refresh = new() { Interval = TimeSpan.FromSeconds(1) };
 
@@ -101,6 +118,9 @@ internal sealed class ClientHost
     /// <summary>One queue file per paired server, kept so unpairing can delete the right one.</summary>
     private readonly Dictionary<string, FileEventBuffer> _buffers = new(StringComparer.Ordinal);
 
+    /// <summary>Stops the inbox that second copies drop pairing links into, when this copy quits.</summary>
+    private readonly CancellationTokenSource _inboxStop = new();
+
     private string _directory = string.Empty;
     private ClientAppState? _state;
     private PairingCoordinator? _pairing;
@@ -116,13 +136,13 @@ internal sealed class ClientHost
 
     public MainWindow Window { get; } = new();
 
-    public void Start(IClassicDesktopStyleApplicationLifetime desktop)
+    public void Start(IClassicDesktopStyleApplicationLifetime desktop, string? startupMessage)
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         _directory = Path.Combine(appData, "Modbot");
 
         _journal = new Journal.SentJournal(Path.Combine(_directory, "sent.jsonl"), _clock);
-        _state = new ClientAppState(_clock, _journal);
+        _state = new ClientAppState(_clock, _journal, ClientSettings.Load(ClientSettings.DefaultPath(appData)));
 
         // Only the token is encrypted; the rest of the file is left readable on purpose, so a
         // suspicious moderator can open it and see exactly which servers this client talks to.
@@ -152,10 +172,16 @@ internal sealed class ClientHost
 
         StartOverlay();
         InstallTray(desktop);
+        ListenForLinks();
 
         _refresh.Tick += (_, _) => Render();
         _refresh.Start();
         Render();
+
+        // Started by a browser link: the whole reason this process exists is to pair, so do that
+        // now, in front of the moderator, rather than sitting in the tray waiting to be found.
+        if (startupMessage is not null)
+            _ = HandleMessageAsync(startupMessage);
     }
 
     /// <summary>
@@ -248,9 +274,9 @@ internal sealed class ClientHost
     /// Where one server's unsent observations wait.
     /// </summary>
     /// <remarks>
-    /// The server id is the host name the moderator typed, so it is filtered down to characters a
-    /// path can hold rather than trusted — a name is not a file name, and treating one as the other
-    /// is how a typo becomes a write somewhere unintended.
+    /// The server id is the host name from the pairing token, so it is filtered down to characters
+    /// a path can hold rather than trusted — a name is not a file name, and treating one as the
+    /// other is how a stray character becomes a write somewhere unintended.
     /// </remarks>
     private string QueuePath(string serverId)
     {
@@ -358,6 +384,7 @@ internal sealed class ClientHost
             // the process eventually exits.
             _engineLoop.Stop();
             _overlayLoop.Stop();
+            _inboxStop.Cancel();
             _overlay?.Dispose();
             _overlayHost?.Dispose();
             desktop.Shutdown();
@@ -372,6 +399,43 @@ internal sealed class ClientHost
 
         _tray.Clicked += (_, _) => ShowWindow();
         TrayIcon.SetIcons(Application.Current!, [_tray]);
+    }
+
+    /// <summary>
+    /// Makes this the copy that browser links reach.
+    /// </summary>
+    /// <remarks>
+    /// Two steps. The registry key tells Windows that <c>modbot-client://</c> opens this
+    /// executable; the inbox is where the copy Windows then starts drops the link before exiting.
+    /// Either can fail on a locked-down machine, and neither failing stops the client doing its
+    /// job — the moderator pairs by pasting the token instead.
+    /// </remarks>
+    private void ListenForLinks()
+    {
+        if (OperatingSystem.IsWindows() && Environment.ProcessPath is { Length: > 0 } executable)
+            UrlSchemeRegistration.Register(executable);
+
+        _ = new PairingLinkInbox().ListenAsync(
+            message => Dispatcher.UIThread.InvokeAsync(() => HandleMessageAsync(message)),
+            _inboxStop.Token);
+    }
+
+    /// <summary>
+    /// What arrives from a second copy of this program, or from this one's own command line: a
+    /// pairing link, or a request to show the window.
+    /// </summary>
+    /// <remarks>
+    /// Anything that is not the show command is treated as a pairing link and checked as strictly
+    /// as a pasted token — it came from a browser, through Windows, and none of that is trusted.
+    /// </remarks>
+    private async Task HandleMessageAsync(string message)
+    {
+        ShowWindow();
+
+        if (string.Equals(message, ShowCommand, StringComparison.Ordinal))
+            return;
+
+        await PairAsync(message);
     }
 
     private void ShowWindow()
@@ -391,7 +455,7 @@ internal sealed class ClientHost
 
         Window.Render(
             _state.Snapshot(),
-            new MainWindowActions(TogglePause, Unpair, PairAsync));
+            new MainWindowActions(TogglePause, Unpair, PairAsync, OpenPairingPageAsync));
     }
 
     private void TogglePause(string serverId)
@@ -411,10 +475,22 @@ internal sealed class ClientHost
             return;
 
         _pairing.Unpair(serverId);
+        Disconnect(serverId);
+        _state.UnusablePairings.RemoveAll(p => p.ServerId == serverId);
+        Render();
+    }
+
+    /// <summary>
+    /// Takes one server out of the reporting loop: its connection, its queue file and its place in
+    /// the overlay all go together, so nothing of that group's data is left behind.
+    /// </summary>
+    private void Disconnect(string serverId)
+    {
+        if (_state is null)
+            return;
+
         _overlay?.Remove(serverId);
 
-        // The token, the queued observations and the connection all go together. Unpairing leaves
-        // nothing of that group's data behind, and needs nothing from its operator.
         if (_state.Connections.FirstOrDefault(c => c.ServerId == serverId) is { } connection)
         {
             _state.Connections.Remove(connection);
@@ -424,38 +500,113 @@ internal sealed class ClientHost
 
             _buffers.Remove(serverId);
         }
-
-        _state.UnusablePairings.RemoveAll(p => p.ServerId == serverId);
-        Render();
     }
 
-    private async Task<PairingAttemptResult> PairAsync(string address, string code, string deviceName)
+    /// <summary>
+    /// Pairs from a pairing link or a pasted token, and says how it went in the pairing card.
+    /// </summary>
+    /// <remarks>
+    /// The same path whichever way the token arrived, and one request per token — a link is
+    /// single-use, so nothing here retries. Pairing a server this client already has replaces the
+    /// old pairing rather than adding a second one: the new token is the one the operator just
+    /// issued, and two connections to one server would report everything twice.
+    /// </remarks>
+    private async Task<PairingAttemptResult> PairAsync(string linkOrToken)
     {
-        if (_pairing is null)
+        if (_pairing is null || _state is null)
             return new PairingAttemptResult(false, "Not ready yet.");
 
-        var result = await _pairing.PairAsync(address, code, deviceName);
+        _state.LastPairing = new PairingNotice(PairingNoticeKind.Working, "Pairing…");
+        Render();
+
+        var result = await _pairing.PairAsync(linkOrToken);
 
         // A server paired mid-session starts being reported to and becomes visible to the overlay
         // immediately, so a moderator who pairs while already standing in that group's instance
         // does not have to restart to be covered or to see its roster.
         if (result is { Succeeded: true, Pairing: { } pairing })
         {
+            Disconnect(pairing.ServerId);
+            _state.UnusablePairings.RemoveAll(p => p.ServerId == pairing.ServerId);
             Connect(pairing);
             _overlay?.Add(pairing, pairing.ServerId);
         }
 
+        _state.LastPairing = new PairingNotice(
+            result.Succeeded ? PairingNoticeKind.Succeeded : PairingNoticeKind.Failed,
+            result.Message);
         Render();
 
         return result;
+    }
+
+    /// <summary>
+    /// Opens the pairing page in the moderator's browser.
+    /// </summary>
+    /// <remarks>
+    /// Through the UI toolkit's own "open this link" facility, which hands the address to Windows
+    /// the same way clicking a link in any program does. The client does not start, inspect or
+    /// attach to any process itself. If Windows cannot open a browser, the address is shown so the
+    /// moderator can type it.
+    /// </remarks>
+    private async Task OpenPairingPageAsync()
+    {
+        if (_state is null)
+            return;
+
+        var page = _state.Settings.PairingPage;
+        var opened = await Window.Launcher.LaunchUriAsync(page);
+
+        _state.LastPairing = opened
+            ? new PairingNotice(
+                PairingNoticeKind.Working,
+                "Your browser is open. Sign in there, press \"Open in Modbot\", and come back here.")
+            : new PairingNotice(
+                PairingNoticeKind.Failed,
+                $"Could not open your browser. Open {page} yourself, sign in, and press \"Open in Modbot\" "
+                + "— or copy the pairing token from that page and paste it below.");
+        Render();
     }
 }
 
 internal static class Program
 {
+    /// <summary>
+    /// Keeps the client to one running copy per Windows account. Named under <c>Local\</c> so two
+    /// people signed in to the same PC each get their own.
+    /// </summary>
+    private const string SingleInstanceName = @"Local\Modbot.Client";
+
     [STAThread]
-    public static void Main(string[] args)
-        => OverlayHost.ConfigureAvalonia<ModbotClientApp>()
+    public static int Main(string[] args)
+    {
+        // Windows starts a fresh copy of this program to deliver a modbot-client:// link. The
+        // link is the first argument that looks like one; anything else on the command line is
+        // Avalonia's business.
+        var link = args.FirstOrDefault(PairingToken.LooksLikeLink);
+
+        using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var firstCopy);
+        if (!firstCopy)
+        {
+            // Another copy owns the tray icon and the log. Hand it the link -- or, with no link,
+            // ask it to show its window, which is what somebody double-clicking the icon again
+            // wanted -- and leave. A few tries, because the other copy may still be starting.
+            var message = link ?? ClientHost.ShowCommand;
+            for (var attempt = 0; attempt < 5; attempt++)
+            {
+                if (PairingLinkInbox.TrySendAsync(message, timeout: TimeSpan.FromSeconds(1)).GetAwaiter().GetResult())
+                    break;
+            }
+
+            return 0;
+        }
+
+        ModbotClientApp.StartupMessage = link;
+
+        OverlayHost.ConfigureAvalonia<ModbotClientApp>()
             .UsePlatformDetect()
             .StartWithClassicDesktopLifetime(args);
+
+        return 0;
+    }
 }

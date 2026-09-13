@@ -12,13 +12,20 @@ namespace Modbot.Client.Presentation;
 public sealed record PairingAttemptResult(bool Succeeded, string Message, ServerPairing? Pairing = null);
 
 /// <summary>
-/// Pairing, from the window's point of view: type a code, get a server, or get told why not.
+/// Pairing, from the window's point of view: a pairing token arrives, and either a server is added
+/// or the moderator is told why not.
 /// </summary>
 /// <remarks>
+/// <para><strong>Where tokens come from.</strong> The moderator presses "Open in Modbot" on their
+/// group's pairing page and the browser hands this program a <c>modbot-client://</c> link; or they
+/// copy the token from that page and paste it into the window. Both are the same bytes and both
+/// arrive here, through <see cref="PairAsync(string, CancellationToken)"/>. Nothing has to be
+/// typed, which is the point: the old flow asked somebody already in a headset to copy a server
+/// address and an eight-character code from one screen to another.</para>
 /// <para><strong>Separate from the window so the wording can be tested.</strong> What a moderator
 /// is told when pairing fails is the whole of their experience of this feature, and "that did not
 /// work" is not an answer anybody can act on.</para>
-/// <para><strong>One attempt per press. Nothing retries by itself.</strong> Codes are single-use,
+/// <para><strong>One attempt per token. Nothing retries by itself.</strong> Codes are single-use,
 /// so a background retry would burn the moderator's code against a server that already refused it,
 /// and a <c>401</c> means the operator revoked them — which must stop, visibly, rather than
 /// becoming a loop nobody sees.</para>
@@ -37,33 +44,28 @@ public sealed class PairingCoordinator
     }
 
     /// <summary>
-    /// Pairs one server. <paramref name="address"/> is what the moderator typed, which may be a
-    /// bare host name.
+    /// Pairs from a pairing link or a pasted pairing token. Anything wrong with the text is
+    /// explained without a request being made anywhere.
     /// </summary>
-    public async Task<PairingAttemptResult> PairAsync(
-        string address,
-        string code,
-        string deviceName,
-        CancellationToken cancellationToken = default)
+    public Task<PairingAttemptResult> PairAsync(string linkOrToken, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(address))
-            return new PairingAttemptResult(false, "Enter the address of the Modbot server you are pairing with.");
+        if (!PairingToken.TryParse(linkOrToken, out var token, out var problem))
+            return Task.FromResult(new PairingAttemptResult(false, problem));
 
-        if (string.IsNullOrWhiteSpace(code))
-            return new PairingAttemptResult(false, "Enter the pairing code from that group's Modbot settings page.");
+        return PairAsync(token!, cancellationToken);
+    }
 
-        if (!TryNormaliseAddress(address, out var baseUri))
-        {
-            return new PairingAttemptResult(
-                false,
-                $"“{address.Trim()}” is not an address Modbot can reach. It should look like "
-                + "modbot.example.com.");
-        }
+    /// <summary>Pairs one server: trades the token's code for a device token, and stores it.</summary>
+    public async Task<PairingAttemptResult> PairAsync(PairingToken token, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(token);
 
-        var serverId = string.IsNullOrWhiteSpace(deviceName) ? baseUri.Host : baseUri.Host;
+        // The local label is the server's host (and port, when it is not the default), which is
+        // what the moderator will recognise in the list. It is never sent anywhere.
+        var serverId = token.Server.Authority;
 
         var result = await _client.PairAsync(
-            new PairingAttempt(baseUri, code.Trim(), serverId, DeviceLabel(deviceName)),
+            new PairingAttempt(token.Server, token.Code, serverId),
             cancellationToken).ConfigureAwait(false);
 
         if (result is { Outcome: PairingOutcome.Paired, Pairing: { } pairing })
@@ -72,12 +74,12 @@ public sealed class PairingCoordinator
             _store.Save(pairing);
             return new PairingAttemptResult(
                 true,
-                $"Paired with {baseUri.Host}. Modbot will report presence for that group's instances "
+                $"Paired with {serverId}. Modbot will report presence for that group's instances "
                 + "and nothing else.",
                 pairing);
         }
 
-        return new PairingAttemptResult(false, Explain(result, baseUri));
+        return new PairingAttemptResult(false, Explain(result, token.Server));
     }
 
     /// <summary>Removes a pairing, and with it the token and anything queued for that server.</summary>
@@ -94,17 +96,17 @@ public sealed class PairingCoordinator
     /// </summary>
     /// <remarks>
     /// The distinctions here are the ones a moderator can act on, and they are genuinely different
-    /// actions: get a new code, update something, check the address, or wait. Collapsing them into
-    /// one message would make three of the four unfixable.
+    /// actions: get a new link, update something, check where the link came from, or wait.
+    /// Collapsing them into one message would make three of the four unfixable.
     /// </remarks>
-    private static string Explain(PairingResult result, Uri baseUri) => result.Outcome switch
+    private static string Explain(PairingResult result, Uri server) => result.Outcome switch
     {
         PairingOutcome.CodeRejected =>
-            "That pairing code was not accepted. Codes are single-use and expire after a few "
-            + "minutes — generate a fresh one in that group's Modbot settings and try again.",
+            "This pairing link has expired or was already used. Pairing links work once, for a "
+            + "few minutes — open the pairing page again and use the new one.",
 
         PairingOutcome.Unauthorised =>
-            $"{baseUri.Host} refused this pairing. If you have been removed from that group's "
+            $"{server.Authority} refused this pairing. If you have been removed from that group's "
             + "staff, that is expected and there is nothing to fix here.",
 
         PairingOutcome.VersionUnsupported =>
@@ -112,48 +114,10 @@ public sealed class PairingCoordinator
             ?? "This client and that server do not speak a common API version. One of them needs updating.",
 
         PairingOutcome.NotAModbotServer =>
-            $"{baseUri} did not answer like a Modbot server. Check the address — it should be the "
-            + "same one you use to open Modbot in a browser.",
+            $"{server} did not answer like a Modbot server. Check the address — the pairing page "
+            + "should be opened at the same address you use to open Modbot in a browser.",
 
-        _ => $"Could not reach {baseUri.Host}. Check your connection and try again; nothing has "
+        _ => $"Could not reach {server.Authority}. Check your connection and try again; nothing has "
             + "been changed.",
     };
-
-    /// <summary>
-    /// Turns what a moderator typed into an address.
-    /// </summary>
-    /// <remarks>
-    /// <para>A bare host name gets <c>https://</c>, because that is what people type and refusing
-    /// it teaches nothing. Plain <c>http://</c> typed deliberately is refused rather than silently
-    /// upgraded: presence data crossing a café network in clear text is not a thing to fix quietly,
-    /// and a client that rewrote the scheme would be hiding the very decision worth showing.</para>
-    /// </remarks>
-    public static bool TryNormaliseAddress(string typed, out Uri baseUri)
-    {
-        baseUri = null!;
-        var trimmed = typed.Trim().TrimEnd('/');
-
-        if (trimmed.Length == 0)
-            return false;
-
-        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        if (!trimmed.Contains("://", StringComparison.Ordinal))
-            trimmed = "https://" + trimmed;
-
-        return Uri.TryCreate(trimmed, UriKind.Absolute, out baseUri!)
-            && baseUri.Scheme == Uri.UriSchemeHttps
-            && baseUri.Host.Length > 0;
-    }
-
-    /// <summary>
-    /// The name this install is called in the operator's settings page.
-    /// </summary>
-    /// <remarks>
-    /// The moderator types it. The client does not read the machine name and send it unasked:
-    /// a hostname is often a person's real name, and it is not this program's to disclose.
-    /// </remarks>
-    private static string DeviceLabel(string deviceName)
-        => string.IsNullOrWhiteSpace(deviceName) ? "Unnamed device" : deviceName.Trim();
 }

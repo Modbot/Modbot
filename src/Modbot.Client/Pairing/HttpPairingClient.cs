@@ -12,18 +12,16 @@ public interface IPairingClient
     Task<PairingResult> PairAsync(PairingAttempt attempt, CancellationToken cancellationToken);
 }
 
-/// <param name="BaseUri">Where the moderator says their group's Modbot lives. HTTPS only.</param>
+/// <param name="BaseUri">
+/// Where the group's Modbot lives, as the pairing token named it. HTTPS, or plain HTTP only to
+/// this machine (<see cref="ServerAddresses"/>).
+/// </param>
 /// <param name="Code">
-/// The short, single-use, expiring code the operator read off the web UI. It is typed once and
-/// never stored; what is stored is the token it is exchanged for.
+/// The short, single-use, expiring code the pairing page put in the token. It is used once and
+/// never stored; what is stored is the device token it is exchanged for.
 /// </param>
 /// <param name="ServerId">A local label, for the moderator's benefit. Never sent anywhere.</param>
-/// <param name="DeviceName">
-/// What this install should be called in the operator's settings page, so they can tell one
-/// moderator's desktop from their laptop and revoke the right one. Chosen by the moderator: the
-/// client does not read the machine name and send it without being asked.
-/// </param>
-public readonly record struct PairingAttempt(Uri BaseUri, string Code, string ServerId, string DeviceName);
+public readonly record struct PairingAttempt(Uri BaseUri, string Code, string ServerId);
 
 /// <summary>
 /// The pairing exchange: <c>GET /api/version</c> to agree a version, then
@@ -31,11 +29,11 @@ public readonly record struct PairingAttempt(Uri BaseUri, string Code, string Se
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends, and where.</strong> Two requests, both to the one address the
-/// moderator typed. The first is unauthenticated and carries nothing at all. The second carries
-/// four things and no more: the pairing code, the name the moderator gave this device, the
-/// client's own version, and the string <c>windows</c>. It does not send the machine name, the
-/// Windows account name, a hardware identifier, the VRChat account, a list of the moderator's
-/// other paired servers, or anything read from the log.</para>
+/// pairing token named. The first is unauthenticated and carries nothing at all. The second
+/// carries three things and no more: the pairing code, the client's own version, and the string
+/// <c>windows</c>. It does not send the machine name, a name for this device, the Windows account
+/// name, a hardware identifier, the VRChat account, a list of the moderator's other paired
+/// servers, or anything read from the log.</para>
 /// <para><strong>What comes back</strong> is a device token, the group the server manages, and the
 /// server's current time. The token is ingest-scoped — stolen, it can submit presence facts and
 /// nothing else; it cannot read the member list, read a profile, or ban anybody. The group id is
@@ -60,13 +58,11 @@ public sealed class HttpPairingClient : IPairingClient
 
     public async Task<PairingResult> PairAsync(PairingAttempt attempt, CancellationToken cancellationToken)
     {
-        if (!attempt.BaseUri.IsAbsoluteUri || attempt.BaseUri.Scheme != Uri.UriSchemeHttps)
+        if (!ServerAddresses.IsAllowed(attempt.BaseUri))
         {
             // Refused rather than warned about. A warning that can be clicked past is a warning
             // that will be, and presence data in clear text over a café network is not a checkbox.
-            return PairingResult.Failed(
-                PairingOutcome.NotAModbotServer,
-                $"Modbot servers must be reached over HTTPS; '{attempt.BaseUri}' is not.");
+            return PairingResult.Failed(PairingOutcome.NotAModbotServer, ServerAddresses.Refusal(attempt.BaseUri));
         }
 
         var negotiated = await NegotiateAsync(attempt.BaseUri, cancellationToken).ConfigureAwait(false);
@@ -79,7 +75,7 @@ public sealed class HttpPairingClient : IPairingClient
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
         {
             Content = JsonContent.Create(
-                new PairRequestBody(attempt.Code, attempt.DeviceName, Core.ModbotVersion.Release, "windows"),
+                new PairRequestBody(attempt.Code, Core.ModbotVersion.Release, "windows"),
                 options: Json),
         };
 
@@ -227,7 +223,6 @@ public sealed class HttpPairingClient : IPairingClient
 
     private sealed record PairRequestBody(
         [property: JsonPropertyName("code")] string Code,
-        [property: JsonPropertyName("deviceName")] string DeviceName,
         [property: JsonPropertyName("clientVersion")] string ClientVersion,
         [property: JsonPropertyName("platform")] string Platform);
 

@@ -1,3 +1,5 @@
+using Modbot.Client.Pairing;
+
 namespace Modbot.Client.Ingest;
 
 /// <summary>
@@ -22,11 +24,11 @@ public sealed record ServerPairing
         string managedGroupId,
         int apiVersion = 1)
     {
-        // Plain HTTP is refused rather than warned about. Presence data crossing a home network,
-        // a café, or a captive portal in clear text is not a risk worth a checkbox, and a warning
-        // that can be clicked past is a warning that will be.
-        if (!baseUri.IsAbsoluteUri || baseUri.Scheme != Uri.UriSchemeHttps)
-            throw new ArgumentException($"Modbot servers must be reached over HTTPS; got '{baseUri}'.", nameof(baseUri));
+        // Plain HTTP is refused rather than warned about, except to this machine itself. Presence
+        // data crossing a home network, a café, or a captive portal in clear text is not a risk
+        // worth a checkbox, and a warning that can be clicked past is a warning that will be.
+        if (!ServerAddresses.IsAllowed(baseUri))
+            throw new ArgumentException(ServerAddresses.Refusal(baseUri), nameof(baseUri));
 
         ServerId = serverId;
         BaseUri = baseUri;

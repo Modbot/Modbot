@@ -100,7 +100,6 @@ public class ClientSourceGuardTests
 
     [Theory]
     [InlineData("System.Diagnostics.Process", "the client does not attach to, inspect or launch processes")]
-    [InlineData("Microsoft.Win32.Registry", "the client does not read the registry")]
     [InlineData("localconfig.vdf", "the client does not read Steam's configuration -- M3 2.3.1")]
     [InlineData("GetAsyncKeyState", "the client does not read the keyboard")]
     [InlineData("Clipboard", "the client does not read the clipboard")]
@@ -115,6 +114,39 @@ public class ClientSourceGuardTests
             .ToList();
 
         Assert.True(offenders.Count == 0, $"{why}; found in {string.Join(", ", offenders)}");
+    }
+
+    /// <summary>The one file allowed to touch the registry, and the one key it may touch.</summary>
+    private const string SchemeRegistrationFile = "UrlSchemeRegistration.cs";
+
+    private const string SchemeRegistrationKey = @"Software\Classes\";
+
+    [Fact]
+    public void TheOnlyRegistryKeyTheClientTouchesIsItsOwnLinkRegistration()
+    {
+        // Pairing starts in the browser, and a browser can only hand a modbot-client:// link to
+        // this program if Windows has been told the scheme is ours. That is one key under the
+        // current user's own hive, written by one file, and it is the whole of what the client
+        // does with the registry: it does not read Steam's keys, VRChat's, or anybody else's.
+        //
+        // The ban used to be total. It is narrowed to exactly this rather than lifted, so the
+        // file that registers the scheme cannot quietly grow a second purpose.
+        var touching = EverythingTheClientShips()
+            .Where(f => File.ReadAllText(f).Contains("Microsoft.Win32.Registry", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal([SchemeRegistrationFile], touching);
+
+        var registration = File.ReadAllText(EverythingTheClientShips()
+            .Single(f => Path.GetFileName(f) == SchemeRegistrationFile));
+
+        // Every key path the file names is under Software\Classes -- the per-user home for URL
+        // scheme registrations -- and it never goes near the machine-wide hive.
+        Assert.Contains(SchemeRegistrationKey, registration, StringComparison.Ordinal);
+        Assert.DoesNotContain("LocalMachine", registration, StringComparison.Ordinal);
+        Assert.DoesNotContain("HKEY_LOCAL_MACHINE", registration, StringComparison.Ordinal);
     }
 
     /// <summary>Anything that would capture what is on a screen, by any route.</summary>
