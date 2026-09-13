@@ -122,13 +122,11 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         app.UseAuthentication();
         app.UseAuthorization();
 
+        // Maps the read surface too, now that ApiSurface wires it. Mapping the four extensions
+        // again here would register every route twice, and ASP.NET reports that as an ambiguous
+        // match at request time rather than at startup -- so the symptom is every read test
+        // failing, not a clear error where the duplication is.
         app.MapModbotApi();
-
-        // The four extensions the host will wire into ApiSurface.
-        app.MapAuditLog();
-        app.MapMetrics();
-        app.MapSyncHealth();
-        app.MapSyncSettings();
 
         await app.StartAsync();
 

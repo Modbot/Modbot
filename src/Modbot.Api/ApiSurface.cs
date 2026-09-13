@@ -5,6 +5,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
 using Modbot.Api.Features.Auth.Me;
+using Modbot.Api.Features.Audit;
+using Modbot.Api.Features.Health;
+using Modbot.Api.Features.Metrics;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
@@ -86,6 +89,15 @@ public static class ApiSurface
         app.MapLogout();
         app.MapMe();
         app.MapDataSettings();
+        app.MapSyncSettings();
+
+        // The read surface over the fact log and the rollups derived from it. Sync health resolves
+        // SyncDiagnostics optionally, so a host that maps the API without registering the
+        // producers still starts and still answers -- it reports that nothing is syncing here
+        // rather than failing to map.
+        app.MapAuditLog();
+        app.MapMetrics();
+        app.MapSyncHealth();
 
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and
