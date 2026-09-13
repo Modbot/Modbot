@@ -81,3 +81,6 @@ src/Modbot.Host/wwwroot/
 
 # Local scratch: live-data pulls, transcripts, anything that must never be committed.
 /.local/
+
+# Agent worktrees created by Claude Code (each is its own checkout; never part of the product)
+/.claude/worktrees/
