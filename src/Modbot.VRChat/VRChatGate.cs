@@ -132,7 +132,8 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
                 return VRChatResult<T>.Failure(
                     0,
                     $"{denial.Bucket} is rate limited ({denial.Reason}); " +
-                    $"nothing will be sent on it for another {denial.RetryAfter:g}.");
+                    $"nothing will be sent on it for another {denial.RetryAfter:g}.",
+                    kind: VRChatFailureKind.RateLimited);
             }
 
             var started = _elapsed.Elapsed;
@@ -156,7 +157,11 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
 
                 await lease.ReportAsync(0, ct).ConfigureAwait(false);
 
-                return VRChatResult<T>.Failure(0, exception.Message);
+                // The exception is the only place a DNS failure, a timeout and a refused
+                // connection are distinguishable -- by the time this leaves the gate they are all
+                // "no response". Spec 7.1.1 needs them apart, so they are classified here.
+                return VRChatResult<T>.Failure(
+                    0, exception.Message, kind: VRChatTransportFailure.Classify(exception));
             }
 
             var status = (int)response.StatusCode;
@@ -188,7 +193,8 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
             return VRChatResult<T>.Failure(
                 status,
                 $"VRChat rate limited {endpoint}. The bucket is now cold-stopped; nothing will be retried.",
-                rawResponse: response.RawContent);
+                rawResponse: response.RawContent,
+                kind: VRChatFailureKind.RateLimited);
         }
 
         if (WafBlock.TryClassify(status, response.ErrorText, response.RawContent, out var wafCode))
@@ -206,13 +212,17 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
                 "Cloudflare's WAF blocked this request. The VRChat account is fine -- this host's "
                 + "network is not allowed to reach the API. Configure an egress proxy.",
                 wafCode,
-                WafBlock.Payload(response.RawContent ?? response.ErrorText));
+                WafBlock.Payload(response.RawContent ?? response.ErrorText),
+                VRChatFailureKind.WafBlocked);
         }
 
         return VRChatResult<T>.Failure(
             status,
             response.ErrorText ?? $"VRChat returned {status} for {endpoint}.",
-            rawResponse: response.RawContent);
+            rawResponse: response.RawContent,
+            kind: status == (int)HttpStatusCode.Unauthorized
+                ? VRChatFailureKind.CredentialsRejected
+                : VRChatFailureKind.Other);
     }
 
     /// <summary>How much of the session to rebuild.</summary>
@@ -241,7 +251,9 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
             {
                 State = VRChatSessionState.Unconfigured;
                 return SessionResult.Fail(
-                    0, "No VRChat account is configured. Complete onboarding first.");
+                    0,
+                    "No VRChat account is configured. Complete onboarding first.",
+                    kind: VRChatFailureKind.NotConfigured);
             }
 
             // After a 401 the stored session is the thing that failed, so it is discarded rather
@@ -304,14 +316,18 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         if (user is null)
         {
             State = VRChatSessionState.Unconfigured;
-            return SessionResult.Fail(current.StatusCode, "VRChat returned no user for these credentials.");
+            return SessionResult.Fail(
+                current.StatusCode,
+                "VRChat returned no user for these credentials.",
+                kind: VRChatFailureKind.Other);
         }
 
         if (user.RequiresTwoFactorAuth is { Count: > 0 } methods)
         {
             var verified = await VerifyTwoFactorAsync(client, connection, methods, ct).ConfigureAwait(false);
             if (!verified.Success)
-                return SessionResult.Fail(verified.StatusCode, verified.ErrorMessage!, verified.WafCode);
+                return SessionResult.Fail(
+                    verified.StatusCode, verified.ErrorMessage!, verified.WafCode, verified.Kind);
 
             current = await IssueAsync<CurrentUser>(
                     client, endpoint with { Operation = "GetCurrentUser (post-2FA)" },
@@ -342,7 +358,8 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
             return VRChatResult<Verify2FAResult>.Failure(
                 0,
                 "VRChat is asking for a two-factor code (" + string.Join(", ", methods) + ") and no TOTP "
-                + "secret is configured. Modbot is a daemon: it cannot ask anyone for a code.");
+                + "secret is configured. Modbot is a daemon: it cannot ask anyone for a code.",
+                kind: VRChatFailureKind.TwoFactorMissing);
         }
 
         // The code is derived from Modbot's clock, not the machine's, for the same reason every
@@ -370,10 +387,12 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
             State = VRChatSessionState.Unconfigured;
             return SessionResult.Fail(
                 result.StatusCode,
-                $"VRChat rejected the credentials for {connection.Username}. Check the account in settings.");
+                $"VRChat rejected the credentials for {connection.Username}. Check the account in settings.",
+                kind: VRChatFailureKind.CredentialsRejected);
         }
 
-        return SessionResult.Fail(result.StatusCode, result.ErrorMessage ?? "VRChat login failed.", result.WafCode);
+        return SessionResult.Fail(
+            result.StatusCode, result.ErrorMessage ?? "VRChat login failed.", result.WafCode, result.Kind);
     }
 
     private async Task PersistSessionAsync(IVRChat client, CancellationToken ct)
@@ -393,16 +412,26 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
     }
 
     private readonly record struct SessionResult(
-        bool Success, IVRChat? Value, CurrentUser? User, int StatusCode, string? ErrorMessage, int? WafCode)
+        bool Success,
+        IVRChat? Value,
+        CurrentUser? User,
+        int StatusCode,
+        string? ErrorMessage,
+        int? WafCode,
+        VRChatFailureKind Kind = VRChatFailureKind.None)
     {
         public static SessionResult Ok(IVRChat client, CurrentUser? user) =>
             new(true, client, user, 200, null, null);
 
-        public static SessionResult Fail(int statusCode, string errorMessage, int? wafCode = null) =>
-            new(false, null, null, statusCode, errorMessage, wafCode);
+        public static SessionResult Fail(
+            int statusCode,
+            string errorMessage,
+            int? wafCode = null,
+            VRChatFailureKind kind = VRChatFailureKind.Other) =>
+            new(false, null, null, statusCode, errorMessage, wafCode, kind);
 
         /// <summary>Re-types a login failure so a caller waiting on data gets the same reason.</summary>
         public VRChatResult<T> ToFailure<T>() =>
-            VRChatResult<T>.Failure(StatusCode, ErrorMessage ?? "VRChat login failed.", WafCode);
+            VRChatResult<T>.Failure(StatusCode, ErrorMessage ?? "VRChat login failed.", WafCode, kind: Kind);
     }
 }

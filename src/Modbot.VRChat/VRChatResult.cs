@@ -27,13 +27,20 @@ namespace Modbot.VRChat;
 /// (spec 2.3.1, 7.1.1).
 /// </param>
 /// <param name="RawResponse">The body as it arrived, for diagnosis.</param>
+/// <param name="Kind">
+/// Why it failed, at the granularity a remedy differs on. The status code cannot express this:
+/// every transport failure — DNS, timeout, refused connection, a proxy that will not tunnel —
+/// arrives with no response and therefore with <see cref="StatusCode"/> <c>0</c>, and spec 7.1.1
+/// requires the connection check to tell them apart.
+/// </param>
 public readonly record struct VRChatResult<T>(
     bool Success,
     T? Value,
     int StatusCode,
     string? ErrorMessage,
     int? WafCode,
-    string? RawResponse)
+    string? RawResponse,
+    VRChatFailureKind Kind = VRChatFailureKind.None)
 {
     /// <summary>True when VRChat rate limited this call. Never retry it (spec 4.3.1).</summary>
     public bool IsRateLimited => StatusCode == 429;
@@ -48,12 +55,16 @@ public readonly record struct VRChatResult<T>(
         new(true, value, statusCode, null, null, rawResponse);
 
     public static VRChatResult<T> Failure(
-        int statusCode, string errorMessage, int? wafCode = null, string? rawResponse = null) =>
-        new(false, default, statusCode, errorMessage, wafCode, rawResponse);
+        int statusCode,
+        string errorMessage,
+        int? wafCode = null,
+        string? rawResponse = null,
+        VRChatFailureKind kind = VRChatFailureKind.Other) =>
+        new(false, default, statusCode, errorMessage, wafCode, rawResponse, kind);
 
     /// <summary>Re-types a failure so it can be returned from a differently-typed call.</summary>
     public static VRChatResult<T> From<TOther>(VRChatResult<TOther> other) =>
-        new(false, default, other.StatusCode, other.ErrorMessage, other.WafCode, other.RawResponse);
+        new(false, default, other.StatusCode, other.ErrorMessage, other.WafCode, other.RawResponse, other.Kind);
 }
 
 /// <summary>
