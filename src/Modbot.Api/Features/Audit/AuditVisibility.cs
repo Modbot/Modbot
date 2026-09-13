@@ -56,6 +56,11 @@ public static class AuditVisibility
         [FactType.InviteCreated] = AuditCategory.Moderation,
         [FactType.GroupInfoChanged] = AuditCategory.Moderation,
 
+        // The first read of each list: a headcount with a date on it, which is membership
+        // history in the same sense the group-info baseline is.
+        [FactType.MembersSnapshot] = AuditCategory.Moderation,
+        [FactType.BansSnapshot] = AuditCategory.Moderation,
+
         // The rest of the group's audit log. Every one is something a person did in the group --
         // an instance kick is as much moderation as a group kick -- so every one is in the log a
         // moderator may read.

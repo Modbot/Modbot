@@ -73,6 +73,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Where the last detection run got to.</summary>
     public DbSet<ReviewRunState> ReviewRunState => Set<ReviewRunState>();
 
+    /// <summary>The group's member list as last swept. Current state; the history is in <see cref="Events"/>.</summary>
+    public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
+
+    /// <summary>The group's ban list as last swept.</summary>
+    public DbSet<GroupBan> GroupBans => Set<GroupBan>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -286,6 +292,62 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // 150,000-row table asked "who is oldest" once a second must not scan.
             entity.HasIndex(e => e.LastRefreshedAt).HasDatabaseName("ix_vrchat_user_last_refreshed");
             entity.HasIndex(e => e.LastSeenAt).HasDatabaseName("ix_vrchat_user_last_seen");
+        });
+
+        builder.Entity<GroupMember>(entity =>
+        {
+            entity.ToTable("group_member");
+
+            // Both halves of the key are VRChat ids: opaque text, no length (spec 3.1.1).
+            entity.HasKey(e => new { e.GroupId, e.UserId });
+            entity.Property(e => e.GroupId).HasColumnType("text");
+            entity.Property(e => e.UserId).HasColumnType("text");
+            entity.Property(e => e.MembershipId).HasColumnType("text");
+
+            // VRChat's own words, kept as text rather than an enum: a value this build has not
+            // seen is still a real membership.
+            entity.Property(e => e.MembershipStatus).HasMaxLength(32);
+            entity.Property(e => e.Visibility).HasMaxLength(32);
+            entity.Property(e => e.ManagerNotes).HasColumnType("text");
+
+            // The Members page: current members of the group, newest joiners first.
+            entity.HasIndex(e => new { e.GroupId, e.LeftAt, e.JoinedAt })
+                .HasDatabaseName("ix_group_member_current")
+                .IsDescending(false, false, true);
+
+            // The subject pane asks by person, whichever group.
+            entity.HasIndex(e => e.UserId).HasDatabaseName("ix_group_member_user");
+
+            // The role filter is a jsonb containment test, and GIN is what answers one.
+            entity.HasIndex(e => e.Roles)
+                .HasDatabaseName("ix_group_member_roles")
+                .HasMethod("gin");
+
+            // The end of every sweep asks "which rows still have a change waiting", and almost
+            // none do, so the index covers only those.
+            entity.HasIndex(e => e.GroupId)
+                .HasDatabaseName("ix_group_member_waiting")
+                .HasFilter("waiting_facts IS NOT NULL");
+        });
+
+        builder.Entity<GroupBan>(entity =>
+        {
+            entity.ToTable("group_ban");
+
+            entity.HasKey(e => new { e.GroupId, e.UserId });
+            entity.Property(e => e.GroupId).HasColumnType("text");
+            entity.Property(e => e.UserId).HasColumnType("text");
+
+            // The Bans page: bans that stand, newest first.
+            entity.HasIndex(e => new { e.GroupId, e.LiftedAt, e.BannedAt })
+                .HasDatabaseName("ix_group_ban_current")
+                .IsDescending(false, false, true);
+
+            entity.HasIndex(e => e.UserId).HasDatabaseName("ix_group_ban_user");
+
+            entity.HasIndex(e => e.GroupId)
+                .HasDatabaseName("ix_group_ban_waiting")
+                .HasFilter("waiting_facts IS NOT NULL");
         });
 
         builder.Entity<ModbotEvent>(entity =>

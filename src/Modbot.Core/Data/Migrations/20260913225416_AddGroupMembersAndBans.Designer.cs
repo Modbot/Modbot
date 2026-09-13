@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260913225416_AddGroupMembersAndBans")]
+    partial class AddGroupMembersAndBans
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -632,46 +635,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("modbot_user_role", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.ModeratorBaseline", b =>
-                {
-                    b.Property<short>("Platform")
-                        .HasColumnType("smallint")
-                        .HasColumnName("platform");
-
-                    b.Property<string>("ModeratorId")
-                        .HasColumnType("text")
-                        .HasColumnName("moderator_id");
-
-                    b.Property<decimal>("Actions")
-                        .HasColumnType("numeric")
-                        .HasColumnName("actions");
-
-                    b.Property<decimal>("ActionsPerActiveDay")
-                        .HasColumnType("numeric")
-                        .HasColumnName("actions_per_active_day");
-
-                    b.Property<int>("ActiveDays")
-                        .HasColumnType("integer")
-                        .HasColumnName("active_days");
-
-                    b.Property<DateTimeOffset>("ComputedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("computed_at");
-
-                    b.Property<DateOnly?>("FirstDay")
-                        .HasColumnType("date")
-                        .HasColumnName("first_day");
-
-                    b.Property<DateOnly?>("LastDay")
-                        .HasColumnType("date")
-                        .HasColumnName("last_day");
-
-                    b.HasKey("Platform", "ModeratorId")
-                        .HasName("pk_modbot_moderator_baseline");
-
-                    b.ToTable("modbot_moderator_baseline", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.OneTimeLink", b =>
                 {
                     b.Property<Guid>("Id")
@@ -821,219 +784,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("rate_limit_bucket", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.RepeatOffender", b =>
-                {
-                    b.Property<short>("SubjectPlatform")
-                        .HasColumnType("smallint")
-                        .HasColumnName("subject_platform");
-
-                    b.Property<string>("SubjectId")
-                        .HasColumnType("text")
-                        .HasColumnName("subject_id");
-
-                    b.Property<int>("Actions")
-                        .HasColumnType("integer")
-                        .HasColumnName("actions");
-
-                    b.Property<int>("ActionsLast30Days")
-                        .HasColumnType("integer")
-                        .HasColumnName("actions_last_30_days");
-
-                    b.Property<int>("ActionsLast90Days")
-                        .HasColumnType("integer")
-                        .HasColumnName("actions_last_90_days");
-
-                    b.Property<int>("Bans")
-                        .HasColumnType("integer")
-                        .HasColumnName("bans");
-
-                    b.Property<DateTimeOffset>("ComputedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("computed_at");
-
-                    b.Property<DateTimeOffset?>("CountsChangeAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("counts_change_at");
-
-                    b.Property<DateTimeOffset>("FirstActionAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("first_action_at");
-
-                    b.Property<int>("InstanceKicks")
-                        .HasColumnType("integer")
-                        .HasColumnName("instance_kicks");
-
-                    b.Property<DateTimeOffset>("LastActionAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_action_at");
-
-                    b.Property<string>("LastActionType")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("last_action_type");
-
-                    b.Property<string>("LastActorId")
-                        .HasColumnType("text")
-                        .HasColumnName("last_actor_id");
-
-                    b.Property<int>("Moderators")
-                        .HasColumnType("integer")
-                        .HasColumnName("moderators");
-
-                    b.Property<int>("ModeratorsLast90Days")
-                        .HasColumnType("integer")
-                        .HasColumnName("moderators_last_90_days");
-
-                    b.Property<int>("Rejections")
-                        .HasColumnType("integer")
-                        .HasColumnName("rejections");
-
-                    b.Property<int>("Removals")
-                        .HasColumnType("integer")
-                        .HasColumnName("removals");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("status");
-
-                    b.Property<int>("Unbans")
-                        .HasColumnType("integer")
-                        .HasColumnName("unbans");
-
-                    b.Property<int>("Warns")
-                        .HasColumnType("integer")
-                        .HasColumnName("warns");
-
-                    b.HasKey("SubjectPlatform", "SubjectId")
-                        .HasName("pk_modbot_repeat_offender");
-
-                    b.HasIndex("CountsChangeAt")
-                        .HasDatabaseName("ix_modbot_repeat_offender_counts_change");
-
-                    b.HasIndex("LastActionAt")
-                        .IsDescending()
-                        .HasDatabaseName("ix_modbot_repeat_offender_last_action");
-
-                    b.ToTable("modbot_repeat_offender", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.Review", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("About")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("about");
-
-                    b.Property<DateTimeOffset?>("ClosedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("closed_at");
-
-                    b.Property<Guid?>("ClosedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("closed_by_user_id");
-
-                    b.Property<string>("ClosedByUsername")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("closed_by_username");
-
-                    b.Property<string>("Evidence")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("evidence");
-
-                    b.Property<string>("ModeratorId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("moderator_id");
-
-                    b.Property<short>("ModeratorPlatform")
-                        .HasColumnType("smallint")
-                        .HasColumnName("moderator_platform");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("note");
-
-                    b.Property<DateTimeOffset>("OpenedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("opened_at");
-
-                    b.Property<string>("Signal")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("signal");
-
-                    b.Property<short>("State")
-                        .HasColumnType("smallint")
-                        .HasColumnName("state");
-
-                    b.Property<string>("Summary")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("summary");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<DateTimeOffset>("WindowEnd")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("window_end");
-
-                    b.Property<DateTimeOffset>("WindowStart")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("window_start");
-
-                    b.HasKey("Id")
-                        .HasName("pk_modbot_review");
-
-                    b.HasIndex("State", "OpenedAt")
-                        .HasDatabaseName("ix_modbot_review_state");
-
-                    b.HasIndex("ModeratorPlatform", "ModeratorId", "Signal", "About")
-                        .IsUnique()
-                        .HasDatabaseName("ux_modbot_review_open")
-                        .HasFilter("state = 1");
-
-                    b.HasIndex("ModeratorPlatform", "ModeratorId", "Signal", "About", "WindowEnd")
-                        .HasDatabaseName("ix_modbot_review_key");
-
-                    b.ToTable("modbot_review", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.ReviewRunState", b =>
-                {
-                    b.Property<int>("Id")
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset?>("ObservedThrough")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("observed_through");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_modbot_review_run_state");
-
-                    b.ToTable("modbot_review_run_state", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_modbot_review_run_state_singleton", "id = 1");
-                        });
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.Settings", b =>
                 {
                     b.Property<int>("Id")
@@ -1107,18 +857,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("DiscordGuildId")
                         .HasColumnType("text")
                         .HasColumnName("discord_guild_id");
-
-                    b.Property<string>("DiscordLogChannelId")
-                        .HasColumnType("text")
-                        .HasColumnName("discord_log_channel_id");
-
-                    b.Property<string>("DiscordLogEventTypes")
-                        .HasColumnType("text")
-                        .HasColumnName("discord_log_event_types");
-
-                    b.Property<long?>("DiscordLogPostedThrough")
-                        .HasColumnType("bigint")
-                        .HasColumnName("discord_log_posted_through");
 
                     b.Property<short>("EvidenceBackend")
                         .HasColumnType("smallint")
@@ -1267,10 +1005,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("RequireModerationClassification")
                         .HasColumnType("boolean")
                         .HasColumnName("require_moderation_classification");
-
-                    b.Property<string>("ReviewThresholds")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("review_thresholds");
 
                     b.Property<string>("SmtpFromAddress")
                         .HasColumnType("text")

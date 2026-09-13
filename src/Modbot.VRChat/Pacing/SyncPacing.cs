@@ -15,7 +15,9 @@ namespace Modbot.VRChat.Pacing;
 public sealed record SyncPacingBaseline(
     AuditLogSyncOptions AuditLog,
     GroupInfoSyncOptions GroupInfo,
-    UserProfileSyncOptions? UserProfile = null);
+    UserProfileSyncOptions? UserProfile = null,
+    GroupMemberSyncOptions? MemberSweep = null,
+    GroupBanSyncOptions? BanSweep = null);
 
 /// <summary>
 /// The pacing actually in force: spec 4.2's defaults with the operator's lowerings applied.
@@ -55,6 +57,10 @@ public sealed record SyncPacing
 
     public required UserProfileSyncOptions UserProfile { get; init; }
 
+    public required GroupMemberSyncOptions MemberSweep { get; init; }
+
+    public required GroupBanSyncOptions BanSweep { get; init; }
+
     /// <summary>
     /// Resolves a stored document into the pacing that runs, clamping as it goes.
     /// </summary>
@@ -77,6 +83,8 @@ public sealed record SyncPacing
         var audit = baseline?.AuditLog ?? new AuditLogSyncOptions();
         var info = baseline?.GroupInfo ?? new GroupInfoSyncOptions();
         var profile = baseline?.UserProfile ?? new UserProfileSyncOptions();
+        var members = baseline?.MemberSweep ?? new GroupMemberSyncOptions();
+        var bans = baseline?.BanSweep ?? new GroupBanSyncOptions();
 
         return new SyncPacing
         {
@@ -117,6 +125,28 @@ public sealed record SyncPacing
                     Seconds(clamped.UserProfileFreshEnoughWhenSeenInInstanceSeconds) ?? profile.FreshEnoughWhenSeenInInstance,
                 RateLimitedInterval =
                     Seconds(clamped.UserProfileRateLimitedIntervalSeconds) ?? profile.RateLimitedInterval,
+            }).Clamped(),
+
+            MemberSweep = (members with
+            {
+                PageDelay = Seconds(clamped.MemberSweepPageDelaySeconds) ?? members.PageDelay,
+                RestBetweenSweeps = Seconds(clamped.MemberSweepRestSeconds) ?? members.RestBetweenSweeps,
+                RetryInterval = Seconds(clamped.MemberSweepRetryIntervalSeconds) ?? members.RetryInterval,
+                RateLimitedInterval =
+                    Seconds(clamped.MemberSweepRateLimitedIntervalSeconds) ?? members.RateLimitedInterval,
+                JitterFraction = clamped.MemberSweepJitterFraction ?? members.JitterFraction,
+                PageSize = clamped.MemberSweepPageSize ?? members.PageSize,
+            }).Clamped(),
+
+            BanSweep = (bans with
+            {
+                PageDelay = Seconds(clamped.BanSweepPageDelaySeconds) ?? bans.PageDelay,
+                RestBetweenSweeps = Seconds(clamped.BanSweepRestSeconds) ?? bans.RestBetweenSweeps,
+                RetryInterval = Seconds(clamped.BanSweepRetryIntervalSeconds) ?? bans.RetryInterval,
+                RateLimitedInterval =
+                    Seconds(clamped.BanSweepRateLimitedIntervalSeconds) ?? bans.RateLimitedInterval,
+                JitterFraction = clamped.BanSweepJitterFraction ?? bans.JitterFraction,
+                PageSize = clamped.BanSweepPageSize ?? bans.PageSize,
             }).Clamped(),
         };
     }

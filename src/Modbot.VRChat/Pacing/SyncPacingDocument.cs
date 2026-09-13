@@ -92,6 +92,22 @@ public sealed record SyncPacingDocument
     public double? UserProfileFreshEnoughWhenSeenInInstanceSeconds { get; init; }
     public double? UserProfileRateLimitedIntervalSeconds { get; init; }
 
+    // The member and ban sweeps (member and ban sync design §3). The page delay is a rate and is
+    // floored at the class cap; the rest is floored there too, for the reason the options give.
+    public double? MemberSweepPageDelaySeconds { get; init; }
+    public double? MemberSweepRestSeconds { get; init; }
+    public double? MemberSweepRetryIntervalSeconds { get; init; }
+    public double? MemberSweepRateLimitedIntervalSeconds { get; init; }
+    public double? MemberSweepJitterFraction { get; init; }
+    public int? MemberSweepPageSize { get; init; }
+
+    public double? BanSweepPageDelaySeconds { get; init; }
+    public double? BanSweepRestSeconds { get; init; }
+    public double? BanSweepRetryIntervalSeconds { get; init; }
+    public double? BanSweepRateLimitedIntervalSeconds { get; init; }
+    public double? BanSweepJitterFraction { get; init; }
+    public int? BanSweepPageSize { get; init; }
+
     /// <summary>True when nothing at all has been configured.</summary>
     [JsonIgnore]
     public bool IsEmpty =>
@@ -115,7 +131,19 @@ public sealed record SyncPacingDocument
         && UserProfileRecentWindowSeconds is null
         && UserProfileFreshEnoughWhenOpenedSeconds is null
         && UserProfileFreshEnoughWhenSeenInInstanceSeconds is null
-        && UserProfileRateLimitedIntervalSeconds is null;
+        && UserProfileRateLimitedIntervalSeconds is null
+        && MemberSweepPageDelaySeconds is null
+        && MemberSweepRestSeconds is null
+        && MemberSweepRetryIntervalSeconds is null
+        && MemberSweepRateLimitedIntervalSeconds is null
+        && MemberSweepJitterFraction is null
+        && MemberSweepPageSize is null
+        && BanSweepPageDelaySeconds is null
+        && BanSweepRestSeconds is null
+        && BanSweepRetryIntervalSeconds is null
+        && BanSweepRateLimitedIntervalSeconds is null
+        && BanSweepJitterFraction is null
+        && BanSweepPageSize is null;
 
     /// <summary>
     /// Overlays every field <paramref name="change"/> actually sets onto this document.
@@ -172,6 +200,20 @@ public sealed record SyncPacingDocument
                 change.UserProfileFreshEnoughWhenSeenInInstanceSeconds ?? UserProfileFreshEnoughWhenSeenInInstanceSeconds,
             UserProfileRateLimitedIntervalSeconds =
                 change.UserProfileRateLimitedIntervalSeconds ?? UserProfileRateLimitedIntervalSeconds,
+            MemberSweepPageDelaySeconds = change.MemberSweepPageDelaySeconds ?? MemberSweepPageDelaySeconds,
+            MemberSweepRestSeconds = change.MemberSweepRestSeconds ?? MemberSweepRestSeconds,
+            MemberSweepRetryIntervalSeconds = change.MemberSweepRetryIntervalSeconds ?? MemberSweepRetryIntervalSeconds,
+            MemberSweepRateLimitedIntervalSeconds =
+                change.MemberSweepRateLimitedIntervalSeconds ?? MemberSweepRateLimitedIntervalSeconds,
+            MemberSweepJitterFraction = change.MemberSweepJitterFraction ?? MemberSweepJitterFraction,
+            MemberSweepPageSize = change.MemberSweepPageSize ?? MemberSweepPageSize,
+            BanSweepPageDelaySeconds = change.BanSweepPageDelaySeconds ?? BanSweepPageDelaySeconds,
+            BanSweepRestSeconds = change.BanSweepRestSeconds ?? BanSweepRestSeconds,
+            BanSweepRetryIntervalSeconds = change.BanSweepRetryIntervalSeconds ?? BanSweepRetryIntervalSeconds,
+            BanSweepRateLimitedIntervalSeconds =
+                change.BanSweepRateLimitedIntervalSeconds ?? BanSweepRateLimitedIntervalSeconds,
+            BanSweepJitterFraction = change.BanSweepJitterFraction ?? BanSweepJitterFraction,
+            BanSweepPageSize = change.BanSweepPageSize ?? BanSweepPageSize,
         };
     }
 }
@@ -361,6 +403,78 @@ public static class SyncPacingJson
                 "userProfileRateLimitedIntervalSeconds",
                 "polling harder while cold-stopped is what spec 4.3.1 forbids",
                 found),
+
+            MemberSweepPageDelaySeconds = AtLeast(
+                document.MemberSweepPageDelaySeconds,
+                GroupMemberSyncOptions.PacingFloor.TotalSeconds,
+                "memberSweepPageDelaySeconds",
+                "spec 4.2 paces groups.members at one request per 2 seconds",
+                found),
+
+            MemberSweepRestSeconds = AtLeast(
+                document.MemberSweepRestSeconds,
+                GroupMemberSyncOptions.PacingFloor.TotalSeconds,
+                "memberSweepRestSeconds",
+                "the rest between sweeps cannot be shorter than the pacing cap",
+                found),
+
+            MemberSweepRetryIntervalSeconds = AtLeast(
+                document.MemberSweepRetryIntervalSeconds,
+                GroupMemberSyncOptions.PacingFloor.TotalSeconds,
+                "memberSweepRetryIntervalSeconds",
+                "a retry is a request like any other and obeys the same cap",
+                found),
+
+            MemberSweepRateLimitedIntervalSeconds = AtLeast(
+                document.MemberSweepRateLimitedIntervalSeconds,
+                GroupMemberSyncOptions.PacingFloor.TotalSeconds,
+                "memberSweepRateLimitedIntervalSeconds",
+                "polling harder while cold-stopped is what spec 4.3.1 forbids",
+                found),
+
+            MemberSweepJitterFraction = Within(
+                document.MemberSweepJitterFraction, 0, 0.5, "memberSweepJitterFraction",
+                "jitter is a fraction of the interval (spec 4.2.2)", found),
+
+            MemberSweepPageSize = Within(
+                document.MemberSweepPageSize, 1, 100, "memberSweepPageSize",
+                "VRChat caps the member page at 100 entries", found),
+
+            BanSweepPageDelaySeconds = AtLeast(
+                document.BanSweepPageDelaySeconds,
+                GroupBanSyncOptions.PacingFloor.TotalSeconds,
+                "banSweepPageDelaySeconds",
+                "spec 4.2 paces groups.bans at one request per 2 seconds",
+                found),
+
+            BanSweepRestSeconds = AtLeast(
+                document.BanSweepRestSeconds,
+                GroupBanSyncOptions.PacingFloor.TotalSeconds,
+                "banSweepRestSeconds",
+                "the rest between sweeps cannot be shorter than the pacing cap",
+                found),
+
+            BanSweepRetryIntervalSeconds = AtLeast(
+                document.BanSweepRetryIntervalSeconds,
+                GroupBanSyncOptions.PacingFloor.TotalSeconds,
+                "banSweepRetryIntervalSeconds",
+                "a retry is a request like any other and obeys the same cap",
+                found),
+
+            BanSweepRateLimitedIntervalSeconds = AtLeast(
+                document.BanSweepRateLimitedIntervalSeconds,
+                GroupBanSyncOptions.PacingFloor.TotalSeconds,
+                "banSweepRateLimitedIntervalSeconds",
+                "polling harder while cold-stopped is what spec 4.3.1 forbids",
+                found),
+
+            BanSweepJitterFraction = Within(
+                document.BanSweepJitterFraction, 0, 0.5, "banSweepJitterFraction",
+                "jitter is a fraction of the interval (spec 4.2.2)", found),
+
+            BanSweepPageSize = Within(
+                document.BanSweepPageSize, 1, 100, "banSweepPageSize",
+                "VRChat caps the ban page at 100 entries", found),
         };
     }
 

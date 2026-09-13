@@ -14,6 +14,7 @@ using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
+using Modbot.Api.Features.Members;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
@@ -127,6 +128,10 @@ public static class ApiSurface
         // rebuilds; closing a review resolves ReviewFacts optionally, like the sync pieces above.
         app.MapRepeatOffenders();
         app.MapReviews();
+
+        // The member list and the ban list as the sweeps last read them (member and ban sync
+        // design §5), with search.
+        app.MapMembers();
 
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and

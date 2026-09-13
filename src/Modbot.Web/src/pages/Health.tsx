@@ -156,6 +156,22 @@ export function Health() {
             run={health.lastUserProfileRun}
           />
 
+          <Producer
+            name="Member list"
+            polledAt={health.memberSweep?.polledAt ?? null}
+            now={health.now}
+            detail={sweepDetail(health.memberSweep, health.now, 'members')}
+            run={health.memberSweep?.lastRun ?? null}
+          />
+
+          <Producer
+            name="Ban list"
+            polledAt={health.banSweep?.polledAt ?? null}
+            now={health.now}
+            detail={sweepDetail(health.banSweep, health.now, 'bans')}
+            run={health.banSweep?.lastRun ?? null}
+          />
+
           <p className="mt-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {health.auditLogCatchUpComplete
               ? health.auditLogHistoryHorizon
@@ -282,6 +298,46 @@ const REASON_LABEL: [key: string, label: string][] = [
   ['ProfileIsOld', 'old'],
   ['NeverRefreshed', 'never refreshed'],
 ]
+
+/**
+ * One sentence for a sweep. The phase comes first because it is the thing "last ran 9 minutes
+ * ago" cannot say: resting for fifteen minutes on purpose and stuck look the same from the age.
+ */
+function sweepDetail(sweep: SyncHealth['memberSweep'], now: string, what: 'members' | 'bans'): string {
+  if (!sweep) return 'Not running in this process.'
+
+  const phase =
+    sweep.coldStopped
+      ? 'Cold-stopped: VRChat rate limited this list and Modbot is waiting it out without probing.'
+      : sweep.phase === 'sweeping'
+        ? `Sweeping now — ${sweep.pagesWalked} ${sweep.pagesWalked === 1 ? 'page' : 'pages'} read so far, at offset ${sweep.offset.toLocaleString()}.`
+        : sweep.phase === 'resting'
+          ? 'Resting between sweeps.'
+          : sweep.phase === 'retrying'
+            ? 'The last page failed; trying again shortly.'
+            : sweep.phase === 'idle'
+              ? 'Idle: no group is configured.'
+              : `${sweep.phase}.`
+
+  const last = sweep.lastCompletedAt
+    ? ` Last full sweep finished ${ago(sweep.lastCompletedAt, now)} and listed ${sweep.count.toLocaleString()} ${what}${sweep.phase !== 'sweeping' ? ` over ${sweep.pagesWalked} ${sweep.pagesWalked === 1 ? 'page' : 'pages'}` : ''}, changing ${sweep.rowsChanged.toLocaleString()} ${sweep.rowsChanged === 1 ? 'row' : 'rows'}.`
+    : ' No full sweep has finished yet.'
+
+  const facts = ` Since this process started: ${sweep.factsWritten.toLocaleString()} changes recorded from the list, ${sweep.factsDeduplicated.toLocaleString()} left to the audit log because it had them first.`
+
+  const next = sweep.nextPassAt ? ` Next pass ${nextAt(sweep.nextPassAt, now)}.` : ''
+
+  return `${phase}${last}${facts}${next}`
+}
+
+/** "in 12 minutes" or "any moment now", against the server's clock. */
+function nextAt(iso: string, now: string): string {
+  const seconds = Math.round((Date.parse(iso) - Date.parse(now)) / 1000)
+  if (seconds <= 5) return 'any moment now'
+  if (seconds < 60) return `in ${seconds} seconds`
+  if (seconds < 3600) return `in ${Math.round(seconds / 60)} minutes`
+  return `in ${(seconds / 3600).toFixed(1)} hours`
+}
 
 function waitingByReason(counts: Record<string, number>): string {
   const parts = REASON_LABEL.filter(([key]) => (counts[key] ?? 0) > 0).map(

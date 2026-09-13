@@ -174,6 +174,8 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await using var context = _db.NewContext();
         await context.Database.ExecuteSqlRawAsync("DELETE FROM modbot_event", ct);
         await context.VRChatUsers.ExecuteDeleteAsync(ct);
+        await context.GroupMembers.ExecuteDeleteAsync(ct);
+        await context.GroupBans.ExecuteDeleteAsync(ct);
         await context.DailyTotals.ExecuteDeleteAsync(ct);
         await context.DailyTotalsState.ExecuteDeleteAsync(ct);
         await context.Reviews.ExecuteDeleteAsync(ct);

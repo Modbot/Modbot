@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, ApiError, type SyncSettings } from '@/lib/api'
+import { api, ApiError, type SweepSettings, type SyncSettings } from '@/lib/api'
 import { Hint, Notice, Placeholder, Row } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { seconds } from './units'
@@ -84,6 +84,18 @@ export function SyncSection() {
             </div>
           </SettingsCard>
 
+          <SweepCard
+            title="Member list"
+            description="A full sweep of the member list, one page at a time, then a rest."
+            sweep={settings.memberSweep}
+          />
+
+          <SweepCard
+            title="Ban list"
+            description="A full sweep of the ban list. Slower, because a ban list changes far less often."
+            sweep={settings.banSweep}
+          />
+
           <SettingsCard
             title="Group info"
             description="A fixed interval, because the group record changes rarely."
@@ -108,5 +120,32 @@ export function SyncSection() {
         </>
       )}
     </SettingsSection>
+  )
+}
+
+function SweepCard({
+  title,
+  description,
+  sweep,
+}: {
+  title: string
+  description: string
+  sweep: SweepSettings
+}) {
+  return (
+    <SettingsCard title={title} description={description}>
+      <div>
+        <Row label="Time between pages" value={seconds(sweep.pageDelaySeconds)} />
+        <Row label="Rest between sweeps" value={seconds(sweep.restSeconds)} />
+        <Row label="Entries per page" value={String(sweep.pageSize)} />
+        <Row label="After a failure" value={seconds(sweep.retryIntervalSeconds)} />
+        <Row label="While rate limited" value={seconds(sweep.rateLimitedIntervalSeconds)} />
+        <Row
+          label="Pacing floor"
+          value={`${seconds(sweep.pacingFloorSeconds)} — configuration may only ever make this slower`}
+        />
+        <Row label="Jitter" value={`up to ±${Math.round(sweep.jitterFraction * 100)}%`} />
+      </div>
+    </SettingsCard>
   )
 }
