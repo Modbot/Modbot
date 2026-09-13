@@ -100,7 +100,7 @@ public sealed record EvidenceDurabilityView(
     string? WarningShown);
 
 /// <param name="Count">Blobs the database believes exist.</param>
-/// <param name="Bytes">Their total size. Measured from the projection, never by walking a store.</param>
+/// <param name="Bytes">Their total size. Measured from the blob record, never by walking a store.</param>
 /// <param name="DestroyedCount">Blobs whose bytes were deliberately erased. The records remain.</param>
 public sealed record EvidenceStoredView(long Count, long Bytes, long DestroyedCount);
 

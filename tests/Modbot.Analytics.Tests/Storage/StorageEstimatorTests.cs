@@ -11,11 +11,11 @@ namespace Modbot.Analytics.Tests.Storage;
 /// everything actually costs before choosing one is a decision rather than a guess.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
-public class StorageProjectorTests : AnalyticsTestBase
+public class StorageEstimatorTests : AnalyticsTestBase
 {
-    public StorageProjectorTests(PostgresFixture fixture) : base(fixture) { }
+    public StorageEstimatorTests(PostgresFixture fixture) : base(fixture) { }
 
-    private StorageProjector NewProjector(Core.Data.ModbotContext context) => new(context, Clock);
+    private StorageEstimator NewEstimator(Core.Data.ModbotContext context) => new(context, Clock);
 
     /// <summary>
     /// Writes <paramref name="count"/> facts as though they arrived <paramref name="daysAgo"/>
@@ -52,7 +52,7 @@ public class StorageProjectorTests : AnalyticsTestBase
         await WriteAgedAsync(500, daysAgo: 5);
 
         await using var context = Database.NewContext();
-        var measurement = await NewProjector(context).MeasureAsync(Ct);
+        var measurement = await NewEstimator(context).MeasureAsync(Ct);
 
         Assert.Equal(500, measurement.FactCount);
         Assert.True(
@@ -79,13 +79,13 @@ public class StorageProjectorTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         await context.Database.ExecuteSqlRawAsync("ANALYZE modbot_event", Ct);
 
-        var measurement = await NewProjector(context).MeasureAsync(Ct);
+        var measurement = await NewEstimator(context).MeasureAsync(Ct);
 
         Assert.InRange(measurement.FactCount, 4_500, 5_500);
     }
 
     /// <summary>
-    /// The figure the whole projection rests on. It is the reason this is measured rather than
+    /// The figure the whole estimate rests on. It is the reason this is measured rather than
     /// estimated: adding up column widths misses index overhead, row headers and page fill, which
     /// together are most of the real cost.
     /// </summary>
@@ -95,7 +95,7 @@ public class StorageProjectorTests : AnalyticsTestBase
         await WriteAgedAsync(2_000, daysAgo: 5);
 
         await using var context = Database.NewContext();
-        var measurement = await NewProjector(context).MeasureAsync(Ct);
+        var measurement = await NewEstimator(context).MeasureAsync(Ct);
 
         // Bounds, not a target. A fact is a handful of short strings and some fixed-width columns
         // across four indexes, so it cannot plausibly be under a hundred bytes or over four
@@ -118,14 +118,14 @@ public class StorageProjectorTests : AnalyticsTestBase
         await WriteAgedAsync(1_000, daysAgo: 10);
 
         await using var context = Database.NewContext();
-        var measurement = await NewProjector(context).MeasureAsync(Ct);
+        var measurement = await NewEstimator(context).MeasureAsync(Ct);
 
         Assert.Equal(10, measurement.ObservedDays, precision: 1);
         Assert.Equal(100, measurement.FactsPerDay, precision: 0);
     }
 
     /// <summary>
-    /// An install collecting for hours gets no projection at all.
+    /// An install collecting for hours gets no estimate at all.
     /// </summary>
     /// <remarks>
     /// A number on a screen gets believed regardless of the caveat printed next to it, so the
@@ -139,7 +139,7 @@ public class StorageProjectorTests : AnalyticsTestBase
         await WriteAgedAsync(400, daysAgo: 0.2);
 
         await using var context = Database.NewContext();
-        var forecast = await NewProjector(context).ForecastAsync(new StorageBudget(), Ct);
+        var forecast = await NewEstimator(context).ForecastAsync(new StorageBudget(), Ct);
 
         Assert.Equal(ForecastConfidence.Insufficient, forecast.Confidence);
         Assert.Empty(forecast.Horizons);
@@ -162,15 +162,15 @@ public class StorageProjectorTests : AnalyticsTestBase
         await WriteAgedAsync(300, daysAgo: 1);
 
         await using var context = Database.NewContext();
-        var forecast = await NewProjector(context).ForecastAsync(new StorageBudget(), Ct);
+        var forecast = await NewEstimator(context).ForecastAsync(new StorageBudget(), Ct);
 
         Assert.Equal(ForecastConfidence.Good, forecast.Confidence);
         Assert.Equal([6, 12, 24], forecast.Horizons.Select(h => h.Months));
 
         // Monotonic, and strictly growing: a forecast where next year costs the same as this one
         // is not a forecast.
-        Assert.True(forecast.Horizons[0].ProjectedBytes < forecast.Horizons[1].ProjectedBytes);
-        Assert.True(forecast.Horizons[1].ProjectedBytes < forecast.Horizons[2].ProjectedBytes);
+        Assert.True(forecast.Horizons[0].EstimatedBytes < forecast.Horizons[1].EstimatedBytes);
+        Assert.True(forecast.Horizons[1].EstimatedBytes < forecast.Horizons[2].EstimatedBytes);
     }
 
     /// <summary>
@@ -191,10 +191,10 @@ public class StorageProjectorTests : AnalyticsTestBase
             FactsPerDay: 100_000,
             ObservedDays: 10);
 
-        var forecast = NewProjector(context).Project(measurement, new StorageBudget(CostPerGbMonth: 0.25m));
+        var forecast = NewEstimator(context).Estimate(measurement, new StorageBudget(CostPerGbMonth: 0.25m));
 
         var year = forecast.Horizons.Single(h => h.Months == 12);
-        var gb = year.ProjectedBytes / (1024d * 1024 * 1024);
+        var gb = year.EstimatedBytes / (1024d * 1024 * 1024);
 
         Assert.NotNull(year.MonthlyCost);
         Assert.Equal((decimal)gb * 0.25m, year.MonthlyCost.Value, precision: 1);
@@ -218,7 +218,7 @@ public class StorageProjectorTests : AnalyticsTestBase
             FactsPerDay: 1_000_000 / 40d,
             ObservedDays: 40);
 
-        var forecast = NewProjector(context).Project(measurement, new StorageBudget(CapacityBytes: 2 * gb));
+        var forecast = NewEstimator(context).Estimate(measurement, new StorageBudget(CapacityBytes: 2 * gb));
 
         Assert.NotNull(forecast.CapacityExhausted);
         Assert.True(forecast.CapacityExhausted > Clock.UtcNow);
@@ -243,7 +243,7 @@ public class StorageProjectorTests : AnalyticsTestBase
             FactsPerDay: 25,
             ObservedDays: 40);
 
-        var forecast = NewProjector(context).Project(measurement, new StorageBudget(CapacityBytes: 2 * gb));
+        var forecast = NewEstimator(context).Estimate(measurement, new StorageBudget(CapacityBytes: 2 * gb));
 
         Assert.Equal(Clock.UtcNow, forecast.CapacityExhausted);
 
@@ -267,7 +267,7 @@ public class StorageProjectorTests : AnalyticsTestBase
             FactsPerDay: 0,
             ObservedDays: 40);
 
-        var forecast = NewProjector(context).Project(
+        var forecast = NewEstimator(context).Estimate(
             measurement,
             new StorageBudget(CapacityBytes: 1024L * 1024 * 1024));
 
@@ -286,12 +286,12 @@ public class StorageProjectorTests : AnalyticsTestBase
         await WriteAgedAsync(500, daysAgo: 20);
 
         await using var context = Database.NewContext();
-        var forecast = await NewProjector(context).ForecastAsync(new StorageBudget(), Ct);
+        var forecast = await NewEstimator(context).ForecastAsync(new StorageBudget(), Ct);
 
         Assert.NotEmpty(forecast.Horizons);
         Assert.All(forecast.Horizons, h => Assert.Null(h.MonthlyCost));
         Assert.Null(forecast.CapacityExhausted);
-        Assert.All(forecast.Horizons, h => Assert.True(h.ProjectedBytes > 0));
+        Assert.All(forecast.Horizons, h => Assert.True(h.EstimatedBytes > 0));
     }
 
     /// <summary>
@@ -302,7 +302,7 @@ public class StorageProjectorTests : AnalyticsTestBase
     public async Task AnEmptyDatabaseMeasuresCleanly()
     {
         await using var context = Database.NewContext();
-        var forecast = await NewProjector(context).ForecastAsync(
+        var forecast = await NewEstimator(context).ForecastAsync(
             new StorageBudget(CostPerGbMonth: 0.25m, CapacityBytes: 1024L * 1024 * 1024),
             Ct);
 

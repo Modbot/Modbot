@@ -221,7 +221,7 @@ function DataTab() {
 
         {storage.confidence === 'Insufficient' ? (
           <p className="mt-4 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            No projection yet. Modbot will not extrapolate from less than a day of history — the
+            No estimate yet. Modbot will not extrapolate from less than a day of history — the
             answer would be wrong by an order of magnitude in whichever direction today happened
             to go.
           </p>
@@ -239,7 +239,7 @@ function DataTab() {
                 {storage.horizons.map((h) => (
                   <tr key={h.months}>
                     <td className="py-1">In {h.months} months</td>
-                    <td className="py-1 text-right tabular-nums">{bytes(h.projectedBytes)}</td>
+                    <td className="py-1 text-right tabular-nums">{bytes(h.estimatedBytes)}</td>
                     <td className="py-1 text-right tabular-nums">
                       {h.monthlyCost === null ? '—' : `$${h.monthlyCost.toFixed(2)}`}
                     </td>

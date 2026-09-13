@@ -5,7 +5,7 @@ namespace Modbot.Analytics.Storage;
 /// </summary>
 /// <param name="FactBytes">
 /// Every partition of the fact table, with its indexes and TOAST. Summed across the partition
-/// tree, because the parent table holds no rows of its own -- see <see cref="StorageProjector"/>.
+/// tree, because the parent table holds no rows of its own -- see <see cref="StorageEstimator"/>.
 /// </param>
 /// <param name="DailyTotalBytes">The daily totals and their bookkeeping.</param>
 /// <param name="FactCount">Rows in the fact log.</param>
@@ -53,11 +53,11 @@ public enum ForecastConfidence
 }
 
 /// <param name="Months">How far out, from today.</param>
-/// <param name="ProjectedBytes">Total size at that point if the observed rate continues.</param>
+/// <param name="EstimatedBytes">Total size at that point if the observed rate continues.</param>
 /// <param name="MonthlyCost">
 /// Cost of that much storage per month, when the operator has told Modbot their per-GB price.
 /// </param>
-public sealed record StorageHorizon(int Months, long ProjectedBytes, decimal? MonthlyCost);
+public sealed record StorageHorizon(int Months, long EstimatedBytes, decimal? MonthlyCost);
 
 /// <summary>
 /// The answer to "what does keeping everything cost me?", which is the question an operator has to
@@ -75,7 +75,7 @@ public sealed record StorageForecast(
     DateTimeOffset? CapacityExhausted);
 
 /// <summary>
-/// What the operator told Modbot about their hosting, so the projection can be stated in their
+/// What the operator told Modbot about their hosting, so the estimate can be stated in their
 /// terms instead of in gigabytes.
 /// </summary>
 /// <param name="CostPerGbMonth">For hosted deployments, e.g. 0.25m.</param>

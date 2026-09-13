@@ -33,7 +33,7 @@ public sealed record DeploymentSummary(
 /// <param name="BytesPerFact">Measured, not summed from column widths.</param>
 /// <param name="FactsPerDay">Observed arrival rate.</param>
 /// <param name="ObservedDays">How much history that rate came from.</param>
-/// <param name="Confidence">How far to trust the projection.</param>
+/// <param name="Confidence">How far to trust the estimate.</param>
 /// <param name="Horizons">Projected totals, empty when there is too little history.</param>
 /// <param name="CapacityExhausted">When the entered disk fills, if one was entered.</param>
 public sealed record StorageSummary(
@@ -82,7 +82,7 @@ public static class DataSettingsEndpoints
                 // Explicit, because minimal APIs infer a concrete type as the request body --
                 // and on a GET that is not merely wrong, it throws while the route is being
                 // mapped and takes every other endpoint in the host down with it.
-                [FromServices] StorageProjector projector,
+                [FromServices] StorageEstimator estimator,
                 [FromServices] DeploymentInfo deployment,
                 [FromQuery] decimal? costPerGbMonth,
                 [FromQuery] long? capacityBytes,
@@ -93,7 +93,7 @@ public static class DataSettingsEndpoints
                 var settings = await db.Settings.AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Id == 1, ct) ?? new Core.Data.Entities.Settings();
 
-                var forecast = await projector.ForecastAsync(
+                var forecast = await estimator.ForecastAsync(
                     new StorageBudget(costPerGbMonth, capacityBytes), ct);
 
                 var m = forecast.Measurement;

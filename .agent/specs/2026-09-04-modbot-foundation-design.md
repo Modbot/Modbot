@@ -456,7 +456,7 @@ intent from a regex and a `HttpClient.PostAsync`.
                               ┌─────────────┴──────────────┐
                               ▼                            ▼
                     ModbotContext (EF Core)        IFactWriter (append-only)
-                     • projections (current)        • modbot_event
+                     • current-state tables        • modbot_event
                        GroupMember, GroupBan, …     • never mutated, never overwritten
                               │                            │
                               │                            ▼
@@ -1309,7 +1309,7 @@ log ships in M0 even though most of the analytics UI does not.
   VRChat sync ──┐
   Audit log   ──┼──▶ FACTS       append-only, immutable, partitioned
   Win client  ──┘      │
-                       ├──▶ PROJECTIONS  current state (GroupMember, GroupBan) — mutable
+                       ├──▶ CURRENT STATE (GroupMember, GroupBan) — mutable
                        └──▶ DAILY TOTALS aggregates — always recomputable from facts
 ```
 
@@ -1499,7 +1499,7 @@ decision, so Modbot measures and shows:
 - **Current usage** — real bytes, from `pg_total_relation_size` over the fact tables and their
   indexes. Not a row count multiplied by a constant.
 - **Observed growth rate** — facts per day over recent history, from the fact log itself.
-- **Projection** at 6, 12 and 24 months at the current rate, stated as an extrapolation rather than a
+- **Estimate** at 6, 12 and 24 months at the current rate, stated as an extrapolation rather than a
   promise. Growth is not linear: a group that opens more instances generates more facts per member.
 - **What it means in their terms**, from one of two inputs the operator provides:
   - a **per-GB monthly cost**, for hosted deployments → projected monthly spend
@@ -2177,7 +2177,7 @@ Meilisearch, Redis, AutoMapper, Clerk, Svix.
 | `IVRChatGate` | Unit tests with a faked `IVRChat`: 401 re-login, WAF classification from `ErrorText`, priority preemption, serialisation under concurrency, proxy vs. direct egress. |
 | **Rate limiting** (§4.3) | Against a fake VRChat that models the *punitive* limiter — a 429 while penalised extends the penalty. Assert: **at most one probe per waiting period**; no request is issued during a cold stop; budget halves on 429 and recovers only additively; the token bucket never exceeds the configured fraction of the ceiling. A test that passes against a *non*-punitive fake proves nothing, so the fake's penalty-extension behaviour is itself asserted. |
 | **Restart safety** (§4.3.2) | Trip the limit, destroy and recreate the host, assert the new instance resumes the cold wait from persisted state and issues nothing. Then simulate a crash-loop and assert total probes stay bounded — the regression guard against a restart loop escalating a rate limit. |
-| Sync jobs | Fed recorded VRChat payloads; assert both projections **and** emitted facts, including `occurred_before` windows on inferred events. |
+| Sync jobs | Fed recorded VRChat payloads; assert both the current-state tables **and** emitted facts, including `occurred_before` windows on inferred events. |
 | **Ingest deduplication** | Replay the same instance event as reported by six independent clients with jittered timestamps; assert **exactly one** fact is written and time-spent totals match a single-client replay. Must include the **boundary case** that killed the bucketed design (reports at `14:00:04.9` / `14:00:05.1`) and the **floor case** (a genuine rejoin 15 s later yields *two* facts, not one). |
 | **Time provider** (§4.4) | SNTP offset estimation under asymmetric latency; outlier round-trips discarded; a client whose clock is minutes off still produces correctly-ordered facts; a client `occurred_at` beyond plausible transport delay is clamped **and flagged**, not silently accepted or dropped. |
 | Analytics | Property test the core invariant: daily totals recomputed from facts equal daily totals built incrementally. |

@@ -107,7 +107,7 @@ public sealed class UploadPipelineTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Design section 7.2: object first, metadata second. A row in the projection is a claim that
+    /// Design section 7.2: object first, metadata second. A row in the blob record is a claim that
     /// the bytes were confirmed present, and section 8 relies on that claim being true.
     /// </summary>
     [Fact]

@@ -87,7 +87,7 @@ export type CurrentUser = { id: string; username: string; permissions: number }
 
 export type StorageHorizon = {
   months: number
-  projectedBytes: number
+  estimatedBytes: number
   monthlyCost: number | null
 }
 

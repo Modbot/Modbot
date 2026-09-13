@@ -9,7 +9,7 @@ using Modbot.TestSupport;
 namespace Modbot.Api.Tests.Features.Evidence;
 
 /// <summary>
-/// Evidence design §7. The blob projection is what makes three things possible that cannot be done
+/// Evidence design §7. The blob record is what makes three things possible that cannot be done
 /// any other way: detecting a store that has lost its objects, deleting bytes without deleting
 /// somebody else's evidence, and rendering a case file without touching the store at all.
 /// </summary>

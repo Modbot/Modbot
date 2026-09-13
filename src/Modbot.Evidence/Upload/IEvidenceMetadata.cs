@@ -34,12 +34,12 @@ public sealed record EvidenceBlobRecord(
     EvidenceOrigin Origin);
 
 /// <summary>
-/// The Postgres side of evidence: the blob projection and the attachment facts
+/// The Postgres side of evidence: the blob record and the attachment facts
 /// (design section 7).
 /// </summary>
 /// <remarks>
 /// <para>
-/// An interface here because the projection is a table and a table is a migration, and this
+/// An interface here because the blob record is a table and a table is a migration, and this
 /// project deliberately owns no migrations. It is not incidental bookkeeping, though — it is what
 /// makes the section 8 detection possible, what makes refcounted deletion possible, and what lets
 /// an evidence list render without touching the store at all.

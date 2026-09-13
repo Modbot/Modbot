@@ -5,7 +5,7 @@ using Modbot.Evidence.Upload;
 namespace Modbot.Evidence.Tests.Fakes;
 
 /// <summary>
-/// Stands in for the Postgres blob projection, which lives behind a migration this project does
+/// Stands in for the Postgres blob record, which lives behind a migration this project does
 /// not own.
 /// </summary>
 /// <remarks>

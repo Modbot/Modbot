@@ -47,7 +47,7 @@ public static class EvidenceSettingsEndpoints
             .WithName("GetEvidenceSettings")
             .WithSummary("The configured evidence backend, its health, and what it is holding")
             .WithDescription(
-                "Counts and bytes come from the blob projection rather than from listing the "
+                "Counts and bytes come from the blob record rather than from listing the "
                 + "store, because LIST is slow everywhere and billed on some providers. The S3 "
                 + "secret is never returned; secretStored says only whether one is on file.")
             .Produces<EvidenceSettingsResponse>()

@@ -16,13 +16,13 @@ public enum EvidenceOriginKind : short
 /// </summary>
 /// <remarks>
 /// <para>
-/// Evidence design §7. This projection is not incidental bookkeeping — three things depend on it
+/// Evidence design §7. This record is not incidental bookkeeping — three things depend on it
 /// and none of them work without it:
 /// </para>
 /// <list type="bullet">
 ///   <item>
 ///     <strong>Detecting a lost store.</strong> §8's whole scheme rests on being able to say "the
-///     database believes objects exist and the store cannot find them". With no projection there
+///     database believes objects exist and the store cannot find them". With no record there
 ///     is nothing to compare against, and an unmounted volume looks exactly like an empty one.
 ///   </item>
 ///   <item>

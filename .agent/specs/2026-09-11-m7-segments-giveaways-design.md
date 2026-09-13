@@ -32,7 +32,7 @@ It was originally sequenced last. Moving the client to M3 unblocked it five mile
 
 | Dimension | Source | Examples |
 |---|---|---|
-| Membership | projections | joined before/after, current roles, membership status |
+| Membership | current-state tables | joined before/after, current roles, membership status |
 | Moderation | facts | ban count, kick count, classifications, never-actioned |
 | Presence | facts + daily totals (M3) | hours in instances, distinct days seen, last seen, first seen |
 | Discord | facts + daily totals (M5) | voice minutes, message volume, server tenure |

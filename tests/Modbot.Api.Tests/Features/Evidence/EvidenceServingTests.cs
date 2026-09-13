@@ -287,7 +287,7 @@ public class EvidenceServingTests(PostgresFixture db)
 
     /// <summary>The list of what a case file holds is answered without touching the store.</summary>
     [Fact]
-    public async Task ACaseFilesEvidenceIsListedFromTheProjection()
+    public async Task ACaseFilesEvidenceIsListedFromTheBlobRecord()
     {
         await EvidenceApiTestHost.ResetAsync(db, Ct);
         await using var host = await EvidenceApiTestHost.StartAsync(db);

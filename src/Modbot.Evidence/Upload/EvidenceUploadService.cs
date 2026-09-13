@@ -267,7 +267,7 @@ public sealed class EvidenceUploadService
 
         var outcome = await _store.CommitAsync(uploadId, hash, ct).ConfigureAwait(false);
 
-        // A row in the blob projection is a claim that the bytes were confirmed present at least
+        // A row in the blob record is a claim that the bytes were confirmed present at least
         // once, and design section 8 relies on that claim being true. So it is confirmed, here,
         // rather than assumed from a copy that returned without throwing.
         var stat = await _store.StatAsync(hash, ct).ConfigureAwait(false);

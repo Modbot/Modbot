@@ -113,7 +113,7 @@ public sealed class EvidenceApiTestHost : IAsyncDisposable
     /// Puts the deployment back to "nobody has ever configured evidence".
     /// </summary>
     /// <remarks>
-    /// The settings row is a singleton and the blob projection is shared by every test in the
+    /// The settings row is a singleton and the blob record is shared by every test in the
     /// assembly, so a test about an unconfigured store has to establish that rather than inherit
     /// whatever the last one left behind.
     /// </remarks>

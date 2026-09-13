@@ -2,7 +2,7 @@ namespace Modbot.Evidence.Options;
 
 /// <summary>Which of the three stores (design section 4) holds the bytes.</summary>
 /// <remarks>
-/// Numbered explicitly because the value is recorded per object in the blob projection
+/// Numbered explicitly because the value is recorded per object in the blob record
 /// (design section 7.1, <c>backend smallint</c>) so that a deployment which has changed backends
 /// still knows where each object was written. Renumbering one would silently repoint history.
 /// </remarks>

@@ -71,13 +71,13 @@ Under **Settings → Data**, Modbot reports what your own deployment is doing:
 - **Evidence**, counted and sized on its own line, wherever you have chosen to keep it.
 
 Enter either a **per-GB monthly price** (if you pay for hosting) or your **disk size** (if you host
-at home), and the projection is restated as a monthly cost or as the date you would run out of
+at home), and the estimate is restated as a monthly cost or as the date you would run out of
 room.
 
-Two things are worth knowing about those projections. They are a straight line, which real growth
+Two things are worth knowing about those estimates. They are a straight line, which real growth
 is not — a group that opens more instances generates more facts per member — so treat them as an
 order of magnitude rather than a forecast. And Modbot will not extrapolate at all from less than a
-day of history; a brand-new deployment shows its size and its rate, and no projection, until it has
+day of history; a brand-new deployment shows its size and its rate, and no estimate, until it has
 watched for long enough to have something to say.
 
 ## Privacy

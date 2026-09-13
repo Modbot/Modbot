@@ -9,7 +9,7 @@ using Modbot.Evidence.Upload;
 namespace Modbot.Api.Features.Evidence;
 
 /// <summary>
-/// The Postgres side of evidence storage: the blob projection of evidence design §7.
+/// The Postgres side of evidence storage: the blob record of evidence design §7.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -17,7 +17,7 @@ namespace Modbot.Api.Features.Evidence;
 /// <see cref="IEvidenceMetadata"/> and somebody else supplies the table. This is that.
 /// </para>
 /// <para>
-/// The projection is what makes three otherwise impossible things work: §8's detection of a lost
+/// The blob record is what makes three otherwise impossible things work: §8's detection of a lost
 /// store (the database believes objects exist and the store cannot find them), refcounted deletion
 /// (two case files can cite one object, so deleting a report must not delete bytes another report
 /// still needs), and rendering a case file without touching the store at all — which on S3 means

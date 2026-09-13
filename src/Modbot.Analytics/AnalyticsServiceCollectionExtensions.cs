@@ -36,7 +36,7 @@ public static class AnalyticsServiceCollectionExtensions
         // Measured on demand, not on a timer. It runs a handful of catalogue queries and a
         // count, which is cheap when somebody opens the settings page and pure waste every
         // fifteen minutes when nobody is looking at it.
-        services.AddScoped<StorageProjector>();
+        services.AddScoped<StorageEstimator>();
 
         return services;
     }

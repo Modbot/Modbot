@@ -347,16 +347,16 @@ Whatever holds the bytes, **Postgres holds the record of them** — hash, size, 
 filename, who uploaded it, when, and which report it hangs off.
 
 This is not incidental bookkeeping. It is what makes §8's detection possible, what makes refcounted
-deletion possible, what makes the storage projection possible without walking a bucket, and what
+deletion possible, what makes the storage estimate possible without walking a bucket, and what
 makes an evidence list render without touching the store at all.
 
-### 7.1 Facts and projection, in the shapes §5.2 already established
+### 7.1 Facts and the blob record, in the shapes §5.2 already established
 
-Attachment events are **facts**. The blob record is a **projection** — mutable, and recomputable from
+Attachment events are **facts**. The blob record is **derived** — mutable, and recomputable from
 the facts, exactly as foundation §5.2's invariant requires.
 
 ```sql
-modbot_evidence_blob                    -- projection: one row per distinct hash
+modbot_evidence_blob                    -- derived record: one row per distinct hash
   hash            bytea  primary key    -- SHA-256, 32 bytes
   byte_size       bigint not null
   content_type    text   not null       -- from the allowlist, decided by Modbot, never by the client
@@ -1056,11 +1056,11 @@ route, this time with the operator's nominal consent and without their understan
 
 The proposal, flagged as needing a decision (§20): evidence follows the Moderation class, **and**
 setting a moderation retention window shows what it will destroy, in files and in bytes, before it is
-saved — the same treatment §5.5 already gives the storage projection. An operator who genuinely wants
+saved — the same treatment §5.5 already gives the storage estimate. An operator who genuinely wants
 old evidence gone can have it; one who set a window thinking about row counts is told what else it
 reaches.
 
-### 15.4 Blobs dwarf facts, and the projection must say so
+### 15.4 Blobs dwarf facts, and the estimate must say so
 
 326 bytes per fact against tens or hundreds of megabytes per video is not a difference in degree.
 A single 100 MB clip is roughly **320,000 facts** — about five months of the "typical group" row in
@@ -1069,7 +1069,7 @@ imprecise, it is reporting the wrong number by orders of magnitude.
 
 They also grow differently, which matters more than the ratio. Facts arrive at a rate, which is why
 §5.5 extrapolates a line through them. Evidence arrives **per ban**: bursty, lumpy, and driven by
-whether the group had a bad week. Fitting one straight line through both produces a projection that
+whether the group had a bad week. Fitting one straight line through both produces an estimate that
 is wrong in both directions. They are measured and projected separately, and presented separately.
 
 ---
@@ -1087,7 +1087,7 @@ It shows: the durability statement from §8.5, the current blob count and bytes,
 delivery is available on the selected backend (§13.2), and — for the database backend — a standing
 note about `pg_dump`.
 
-Changing backends does **not** move existing objects. The blob projection records which backend held
+Changing backends does **not** move existing objects. The blob record says which backend held
 each object, and a migration between backends is an explicit, resumable job that copies, verifies by
 hash, and only then repoints — never a side effect of saving a setting. Until that job exists,
 switching backends with objects present is refused, with the reason stated.
@@ -1142,7 +1142,7 @@ Tasks, not changes. Nothing here is implemented by this document.
 
 | # | Where | Task |
 |---|---|---|
-| 1 | `src/Modbot.Analytics/Storage/` | `StorageProjector` measures Postgres only. Add a **blob dimension**: `BlobBytes` and `BlobCount` on `StorageMeasurement`, sourced from a running total in the blob projection rather than from a `ListObjects` walk — LIST is slow everywhere and billed on Wasabi and R2 even though it is free on Railway. Project blobs on their own curve (§15.4), never folded into the fact line. |
+| 1 | `src/Modbot.Analytics/Storage/` | `StorageEstimator` measures Postgres only. Add a **blob dimension**: `BlobBytes` and `BlobCount` on `StorageMeasurement`, sourced from a running total in the blob projection rather than from a `ListObjects` walk — LIST is slow everywhere and billed on Wasabi and R2 even though it is free on Railway. Project blobs on their own curve (§15.4), never folded into the fact line. |
 | 2 | `src/Modbot.Api/` | First file-upload surface in a JSON-only API. Add the three endpoints of §9.1 with a per-endpoint body limit, never a global one. |
 | 3 | `Dockerfile` | Do **not** add `VOLUME` (§3.1). Document `/app/data` as the mount point. Nothing else changes. |
 | 4 | `.railway/railway.ts` | No volume for the stateless profile. A bucket is a separate resource the operator adds; the template may reference it, but nothing becomes required. |

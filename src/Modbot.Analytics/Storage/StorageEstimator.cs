@@ -23,9 +23,9 @@ namespace Modbot.Analytics.Storage;
 /// constant baked in today would be wrong for somebody on the day it shipped.
 /// </para>
 /// </remarks>
-public sealed class StorageProjector(ModbotContext db, IModbotClock clock)
+public sealed class StorageEstimator(ModbotContext db, IModbotClock clock)
 {
-    /// <summary>Mean Gregorian month. Projections are monthly; days are what accrue.</summary>
+    /// <summary>Mean Gregorian month. Estimates are monthly; days are what accrue.</summary>
     private const double DaysPerMonth = 30.436875;
 
     /// <summary>Storage is priced and sized in binary gigabytes far more often than decimal ones.</summary>
@@ -43,7 +43,7 @@ public sealed class StorageProjector(ModbotContext db, IModbotClock clock)
     public async Task<StorageForecast> ForecastAsync(StorageBudget budget, CancellationToken ct)
     {
         var measurement = await MeasureAsync(ct);
-        return Project(measurement, budget);
+        return Estimate(measurement, budget);
     }
 
     /// <summary>
@@ -155,10 +155,10 @@ public sealed class StorageProjector(ModbotContext db, IModbotClock clock)
     /// <remarks>
     /// A straight line, on purpose. Growth is not linear -- a group that opens more instances
     /// generates more facts per member -- and a model that pretended otherwise would be
-    /// confidently wrong in a way a straight line is not. The honest thing is a simple projection
+    /// confidently wrong in a way a straight line is not. The honest thing is a simple estimate
     /// carrying its observation period alongside it.
     /// </remarks>
-    public StorageForecast Project(StorageMeasurement measurement, StorageBudget budget)
+    public StorageForecast Estimate(StorageMeasurement measurement, StorageBudget budget)
     {
         var confidence = measurement.ObservedDays switch
         {
@@ -192,7 +192,7 @@ public sealed class StorageProjector(ModbotContext db, IModbotClock clock)
     }
 
     /// <summary>
-    /// Facts and daily totals grow on different clocks, so they are projected on different clocks.
+    /// Facts and daily totals grow on different clocks, so they are estimated on different clocks.
     /// </summary>
     /// <remarks>
     /// Facts accrue per fact. Daily totals accrue per <em>day</em> -- one row per day per dimension,

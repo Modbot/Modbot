@@ -78,7 +78,7 @@ public sealed record BanListResponse(
 /// </para>
 /// <para>
 /// A subject's current state is the later of its newest ban and its newest unban. Derived rather
-/// than stored, because the projection tables spec 5.2 describes do not exist yet and a
+/// than stored, because the current-state tables spec 5.2 describes do not exist yet and a
 /// half-maintained <c>GroupBan</c> table would be a worse answer than a query — it could go stale
 /// silently, where this cannot.
 /// </para>

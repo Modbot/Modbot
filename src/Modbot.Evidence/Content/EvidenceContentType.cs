@@ -43,7 +43,7 @@ public sealed record ContentTypeVerdict(string? ContentType, ContentRejection Re
 /// attacker-chosen. A moderation tool where staff routinely open files uploaded by other staff is
 /// a near-ideal stored-XSS target — the attacker is already authenticated, the audience is exactly
 /// the people with the most permissions, and the delivery mechanism is a feature — so the type
-/// recorded in the blob projection and later echoed to a browser is Modbot's determination and
+/// recorded in the blob record and later echoed to a browser is Modbot's determination and
 /// nobody else's.
 /// </para>
 /// <para>

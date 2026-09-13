@@ -30,7 +30,7 @@ public static class EvidenceServiceCollectionExtensions
     /// </para>
     /// <para>
     /// <see cref="IEvidenceMetadata"/> is <strong>not</strong> registered here. It is the Postgres
-    /// side of evidence — the blob projection and the attachment facts — and it belongs to whoever
+    /// side of evidence — the blob record and the attachment facts — and it belongs to whoever
     /// owns the schema.
     /// </para>
     /// </remarks>

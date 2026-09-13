@@ -64,7 +64,7 @@ public static class EvidenceObjectEndpoints
             .WithName("ListEvidence")
             .WithSummary("What is attached to a case file")
             .WithDescription(
-                "Answered entirely from the blob projection, so listing evidence costs the store "
+                "Answered entirely from the blob record, so listing evidence costs the store "
                 + "no request and no egress. Destroyed items are listed too, because a case file "
                 + "that looks like it never had evidence is indistinguishable from one nobody ever "
                 + "documented.")
@@ -167,11 +167,11 @@ public static class EvidenceObjectEndpoints
                 var body = await store.OpenReadAsync(parsed, slice, ct);
                 if (body is null)
                 {
-                    // The projection says these bytes exist and the store cannot find them. That is
+                    // The blob record says these bytes exist and the store cannot find them. That is
                     // the partial case of §8.3 — an object deleted by hand, a lifecycle rule
                     // somebody added, bit rot — and it is a different failure from wholesale loss.
                     loggers.CreateLogger(LoggerName).LogError(
-                        "Evidence {Hash} is recorded in the blob projection and absent from {Store}.",
+                        "Evidence {Hash} is recorded in the blob record and absent from {Store}.",
                         hash,
                         store.Description);
 
