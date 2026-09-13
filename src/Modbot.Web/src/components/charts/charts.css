@@ -1,0 +1,39 @@
+/*
+  Recharts draws SVG with presentation attributes, and a font size or a fill given as an
+  attribute cannot be a CSS variable. These rules reach past the attributes so every chart
+  follows the theme and density tokens in index.css: axis text at the small size, in the muted
+  colour, grid lines in the recessive grid colour, and nothing dashed.
+*/
+.modbot-chart .recharts-cartesian-axis-tick-value,
+.modbot-chart .recharts-text {
+  font-size: var(--text-small);
+  fill: var(--muted-foreground);
+}
+
+.modbot-chart .recharts-cartesian-axis-line,
+.modbot-chart .recharts-cartesian-axis-tick-line {
+  stroke: var(--chart-grid);
+}
+
+.modbot-chart .recharts-cartesian-grid line {
+  stroke: var(--chart-grid);
+  stroke-width: var(--hairline);
+}
+
+.modbot-chart .recharts-tooltip-cursor {
+  fill: var(--accent);
+  fill-opacity: 0.4;
+  stroke: var(--chart-grid);
+}
+
+.modbot-chart .recharts-legend-item-text {
+  color: var(--muted-foreground) !important;
+  font-size: var(--text-small);
+}
+
+/* The wrapper Recharts uses to measure itself must not be focus-ringed or selectable. */
+.modbot-chart .recharts-wrapper,
+.modbot-chart .recharts-surface {
+  outline: none;
+  user-select: none;
+}
