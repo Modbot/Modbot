@@ -11,6 +11,7 @@ import { Login } from '@/pages/Login'
 import { Members } from '@/pages/Members'
 import { MyGroup } from '@/pages/analytics/MyGroup'
 import { MyTeam } from '@/pages/analytics/MyTeam'
+import { Worlds } from '@/pages/analytics/Worlds'
 import { Settings } from '@/pages/Settings'
 import { Setup } from '@/pages/setup/Setup'
 
@@ -20,6 +21,7 @@ const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
   audit: { title: 'Audit log', subtitle: 'One timeline, merged across sources' },
   'analytics-group': { title: 'My Group', subtitle: 'Is the community growing or shrinking, and what changed?' },
   'analytics-team': { title: 'My Team', subtitle: 'Who is doing the moderation work, and when is nobody covering?' },
+  'analytics-worlds': { title: 'Worlds', subtitle: 'Which of our worlds actually get used?' },
   health: { title: 'Sync health' },
   settings: { title: 'Settings' },
 }
@@ -35,6 +37,7 @@ const PATHS: Record<PageId, string> = {
   audit: '/audit',
   'analytics-group': '/analytics/group',
   'analytics-team': '/analytics/team',
+  'analytics-worlds': '/analytics/worlds',
   health: '/health',
   settings: '/settings',
 }
@@ -143,6 +146,7 @@ function Shell({
           {page === 'audit' && <AuditLog onOpenSubject={setSubject} />}
           {page === 'analytics-group' && <MyGroup />}
           {page === 'analytics-team' && <MyTeam onOpenSubject={setSubject} />}
+          {page === 'analytics-worlds' && <Worlds />}
           {page === 'health' && <Health />}
           {page === 'settings' && <Settings />}
         </div>

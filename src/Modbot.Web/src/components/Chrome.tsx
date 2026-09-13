@@ -17,6 +17,7 @@ const NAV = [
   // feature (spec 10.3) and has no entry until it exists.
   { id: 'analytics-group', label: 'My Group', group: 'Analytics' },
   { id: 'analytics-team', label: 'My Team' },
+  { id: 'analytics-worlds', label: 'Worlds' },
   { id: 'health', label: 'Sync health', group: 'Setup' },
   { id: 'settings', label: 'Settings' },
 ] as const
