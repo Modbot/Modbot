@@ -468,9 +468,27 @@ ambiguity.
 
 Both should run, and for the filesystem backend `PersistenceProbe`'s result is the better message to
 show at **configuration** time (§8.5): "this directory has not been proven to survive a restart" is
-the warning that prevents the mistake, where the sentinel is what detects it after the fact. The
-correct behaviour is to refuse to select the filesystem backend on a platform assumed ephemeral with
-no surviving marker, unless the operator explicitly overrides — and to say what they are overriding.
+the warning that prevents the mistake, where the sentinel is what detects it after the fact.
+
+> **Corrected 2026-09-13.** An earlier version of this paragraph said Modbot should *refuse* to
+> select the filesystem backend on a platform assumed ephemeral, unless overridden. That
+> contradicted this document's own §3 and the rule settled in `f21b2a6`, and it should not be
+> implemented.
+>
+> **Modbot warns; it does not refuse.** Platform detection is a suspicion and can never be more
+> than one — Railway, Fly.io and Render all support mountable volumes, so the operator who mounted
+> one would be told their disk is ephemeral when it is not. They know whether they mounted it;
+> Modbot does not. The settings page says plainly that the directory could not be proven to survive
+> a restart and that object storage is strongly recommended, and offers **Use anyway**.
+>
+> The acknowledgement is recorded — who gave it, when, and **the exact warning text they were
+> shown**, stored verbatim. A reworded warning must not retroactively change what somebody agreed
+> to.
+>
+> Note what is *not* softened by this. The sentinel latch (§8.3) still fires on an absent, foreign
+> or malformed sentinel, because those are evidence of real loss or a wrong store rather than a
+> guess about a platform. The distinction this correction draws is exactly that one: **a suspicion
+> never blocks; proof always does.**
 
 ### 8.3 The precise rule
 
