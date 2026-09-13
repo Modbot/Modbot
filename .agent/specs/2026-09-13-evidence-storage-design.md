@@ -1142,7 +1142,7 @@ Tasks, not changes. Nothing here is implemented by this document.
 
 | # | Where | Task |
 |---|---|---|
-| 1 | `src/Modbot.Analytics/Storage/` | `StorageEstimator` measures Postgres only. Add a **blob dimension**: `BlobBytes` and `BlobCount` on `StorageMeasurement`, sourced from a running total in the blob projection rather than from a `ListObjects` walk — LIST is slow everywhere and billed on Wasabi and R2 even though it is free on Railway. Project blobs on their own curve (§15.4), never folded into the fact line. |
+| 1 | `src/Modbot.Analytics/Storage/` | `StorageEstimator` measures Postgres only. Add a **blob dimension**: `BlobBytes` and `BlobCount` on `StorageMeasurement`, sourced from a running total in the blob record rather than from a `ListObjects` walk — LIST is slow everywhere and billed on Wasabi and R2 even though it is free on Railway. Project blobs on their own curve (§15.4), never folded into the fact line. |
 | 2 | `src/Modbot.Api/` | First file-upload surface in a JSON-only API. Add the three endpoints of §9.1 with a per-endpoint body limit, never a global one. |
 | 3 | `Dockerfile` | Do **not** add `VOLUME` (§3.1). Document `/app/data` as the mount point. Nothing else changes. |
 | 4 | `.railway/railway.ts` | No volume for the stateless profile. A bucket is a separate resource the operator adds; the template may reference it, but nothing becomes required. |

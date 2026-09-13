@@ -990,7 +990,7 @@ endpoint**. Until then Modbot assumes a **sustained 0.3–1 request/second per e
 
 **The per-type pacing caps and the 2 req/s global ceiling in §4.2 are authoritative, and where this
 table disagrees with §4.2, §4.2 wins.** It does disagree: this table's 0.29 req/s for bans and the
-audit log predates §4.2's 0.5 and 0.125. Those older figures are kept as a record of where the numbers came from, not as
+audit log predates §4.2's 0.5 and 0.125. Those older figures are kept for the record, not as
 configuration. The table below records where the numbers came from -- the pacing the previous implementation actually ran in
 production (`old/Modbot/Consumers/`), which is the best empirical evidence available -- and covers
 endpoint classes §4.2 does not schedule:
