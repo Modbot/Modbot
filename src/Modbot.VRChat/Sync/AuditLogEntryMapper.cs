@@ -241,9 +241,10 @@ public static class AuditLogEntryMapper
     /// whatever the event type -- the key the group-info producer already uses for its own diffs,
     /// so a reader of the timeline meets one shape. It used to be lifted for <c>group.update</c>
     /// and <c>group.role.update</c> by name, and then <c>group.instance.update</c> arrived with
-    /// <c>calendarEntryId: {old, new}</c> and was not covered. A scalar beside the pairs -- the
-    /// <c>lastUpdatedByUserId</c> next to a role update's <c>permissions</c> -- is not a diff and
-    /// stays out.
+    /// <c>calendarEntryId: {old, new}</c> and was not covered. A scalar beside the pairs is not a
+    /// diff and stays out. (The real <c>group.role.update</c> row turned out to carry
+    /// <c>lastUpdatedByUserId</c> as a pair too -- <c>{old: null, new: usr_…}</c> -- so it lands
+    /// under <c>changed</c> beside <c>permissions</c>, which is exactly why the lift goes by shape.)
     /// </para>
     /// <para>
     /// <strong>Scalars are lifted by type, and only where a real sample showed them.</strong>

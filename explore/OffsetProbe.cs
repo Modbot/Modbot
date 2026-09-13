@@ -37,8 +37,16 @@ public static class OffsetProbe
     /// <summary>The value the audit log is known to cap at. Probed directly first.</summary>
     private const int KnownCap = 7500;
 
-    /// <summary>How far to look for a cap before concluding there is none. ~17 requests by bisection.</summary>
-    private const int SearchCeiling = 100_000;
+    /// <summary>
+    /// Where the upward climb starts. Below this the first probe already proved pages are empty.
+    /// </summary>
+    private const int ClimbStart = 100_000;
+
+    /// <summary>
+    /// Where the climb gives up. Doubling from 100,000 reaches this in ten steps; a cap beyond it
+    /// is indistinguishable from no cap for any purpose Modbot has.
+    /// </summary>
+    private const int ClimbCeiling = 100_000_000;
 
     private enum Outcome { Ok, Empty, Cap, RateLimited, Other }
 
@@ -95,18 +103,11 @@ public static class OffsetProbe
                 return $"cap = {KnownCap}, enforced even past the end of the data (group has < {KnownCap})";
 
             case (Outcome.Empty, Outcome.Empty):
-                // Fewer items than the cap, and no 400 yet. Empty pages are fine to keep paging
-                // through -- the cap, if there is one, shows up as a 400 further out regardless of
-                // where the data ended. Search upward for the first 400.
-                var beyond = await SearchAsync(call, KnownCap + 1, SearchCeiling, stopOn: Outcome.Cap);
-                return beyond < 0
-                    ? $"no cap found up to {SearchCeiling:N0} (pages past the data are empty, never a 400)"
-                    : $"cap = {beyond - 1} (first 400 at {beyond}; group has fewer items than that)";
-
             case (Outcome.Ok, Outcome.Ok):
-                // Higher than the audit log's. Find where it actually stops.
-                var high = await SearchAsync(call, KnownCap + 1, SearchCeiling, stopOn: Outcome.Cap);
-                return high < 0 ? $"no cap found up to {SearchCeiling:N0}" : $"cap = {high - 1} (first 400 at {high}; higher than the audit log)";
+                // No 400 yet. Empty pages are fine to keep paging through -- a cap, if there is
+                // one, shows up as a 400 further out regardless of where the data ended. Climb by
+                // doubling until something other than 200 comes back, then bisect the gap.
+                return await ClimbThenBisectAsync(call);
 
             case (Outcome.Cap, _):
                 // Lower than the audit log's. Find it.
@@ -116,6 +117,38 @@ public static class OffsetProbe
             default:
                 return $"inconclusive: offset {KnownCap} → {at.Outcome}/{at.Status}, {KnownCap + 1} → {past.Outcome}/{past.Status}";
         }
+    }
+
+
+    /// <summary>
+    /// Doubles the offset from <see cref="ClimbStart"/> until the answer stops being 200, then
+    /// bisects between the last 200 and the first non-200 for the exact boundary.
+    /// </summary>
+    private static async Task<string> ClimbThenBisectAsync(Func<int, Task<ApiResponse<List<GroupMember>>>> call)
+    {
+        var lastFine = KnownCap + 1;
+        var offset = ClimbStart;
+
+        while (offset <= ClimbCeiling)
+        {
+            var p = await OneAsync(call, offset);
+            if (p.Outcome is Outcome.RateLimited) return "ABORTED on 429";
+
+            if (p.Outcome is Outcome.Ok or Outcome.Empty)
+            {
+                lastFine = offset;
+                if (offset == ClimbCeiling) break;
+                offset = (int)Math.Min((long)offset * 2, ClimbCeiling);
+                continue;
+            }
+
+            // First non-200. Bisect (lastFine, offset] for the first offset that answers this way.
+            var first = await SearchAsync(call, lastFine, offset, stopOn: p.Outcome);
+            var what = p.Outcome is Outcome.Cap ? "cap" : $"first non-200 ({p.Status})";
+            return $"{what} = {first - 1} (first {p.Status} at {first:N0}; last 200 at {first - 1:N0})";
+        }
+
+        return $"no cap found up to {ClimbCeiling:N0} (200 with an empty page all the way)";
     }
 
     /// <summary>

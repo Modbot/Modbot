@@ -98,7 +98,7 @@ After the versioned re-walk recovered the dropped entries (§9), every recorded 
 | `group.instance.update` | 1 | `calendarEntryId: {old, new}` | location |
 | `group.post.create` | 19 | `authorId, imageId, roleIds, sendNotification, text, title, visibility` | `not_` — a notification id |
 | `group.calendarEvent.create` | 6 | `accessType, description, imageId, title, type` | `cal_` |
-| `group.role.update` | 1 | `lastUpdatedByUserId, permissions: {old, new}` | `grol_` |
+| `group.role.update` | 1 | `lastUpdatedByUserId: {old, new}, permissions: {old, new}` | `grol_` — the role itself; `data` carries no `roleId`/`roleName` |
 | `group.update` (audit) | 2 | `bannerId: {old, new}` | `grp_` |
 | `group.member.role.unassign` | 1 | `roleId, roleName` | `usr_` |
 | `group.request.create` / `.reject`, `group.invite.create`, `group.member.join` / `.leave`, `group.user.ban` | 680 | *(empty)* | `usr_` |
@@ -113,7 +113,8 @@ never by shape (§3.1.1) — is what makes "which instances get the most kicks" 
 evidence-backed across 531 rows.
 
 **`{old, new}` diffs are a general shape, not a `group.update` special case.** `role.update` and
-`instance.update` use it too. The `changed` lift should apply wherever a value is an `{old, new}`
+`instance.update` use it too — and `role.update` uses it for `lastUpdatedByUserId` as well as `permissions`
+(`{old: null, new: usr_…}`), which the reconstructed fixture had wrong until the real row replaced it. The `changed` lift should apply wherever a value is an `{old, new}`
 object, not to a named list of types.
 
 **A post's `targetId` is the notification, not the post.** `not_…` is the id VRChat notifies members
@@ -127,7 +128,7 @@ Still unobserved: `group.calendarEvent.delete` / `.series.*`, `group.post.delete
 ## 7. The audit log's `offset` is hard-capped at 7,500
 
 Reported by the maintainer, 2026-09-13, **for the audit log — and, as §7.1 measured, for the audit
-log only.** Members, bans, invites and join requests have no offset cap up to 100,000. `offset=7501` on the audit log returns HTTP 400
+log only.** Members, bans, invites and join requests have no offset cap up to 100,000,000. `offset=7501` on the audit log returns HTTP 400
 with this body — note the **fullwidth Unicode punctuation** (`＝`, `․`, `‚`, `＠`), which makes
 string-matching it fragile:
 
@@ -145,19 +146,23 @@ string-matching it fragile:
 
 ### 7.1 Measured: no other group endpoint has the cap
 
-`explore offset-probe`, 2026-09-13, same group, `n=1`, one request per 3.5 s, **72 requests, no
-429**. Each endpoint was asked for offset 7,500 and 7,501, then bisected upward to 100,000 looking
-for the first 400.
+`explore offset-probe`, 2026-09-13, same group, `n=1`, one request per 3.5 s, **52 requests, no
+429**. Each endpoint was asked for offset 7,500 and 7,501; then the offset was doubled from 100,000
+until anything other than 200 came back. Nothing ever did, so every climb ran to its 100,000,000
+ceiling (an earlier run of the same probe had stopped at 100,000 with the same result).
 
-| Endpoint | 7,500 | 7,501 | 99,999 | Reading |
-|---|---|---|---|---|
-| group members | 200, empty | 200, empty | 200, empty | **no cap to 100,000** |
-| group bans | 200, empty | 200, empty | 200, empty | **no cap to 100,000** |
-| group invites | 200, empty | 200, empty | 200, empty | **no cap to 100,000** |
-| group join requests | 200, empty | 200, empty | 200, empty | **no cap to 100,000** |
+| Endpoint | 7,500 | 7,501 | 100,000 | 1,600,000 | 25,600,000 | 100,000,000 | Reading |
+|---|---|---|---|---|---|---|---|
+| group members | 200, empty | 200, empty | 200, empty | 200, empty | 200, empty | 200, empty | **no cap to 10⁸** |
+| group bans | 200, empty | 200, empty | 200, empty | 200, empty | 200, empty | 200, empty | **no cap to 10⁸** |
+| group invites | 200, empty | 200, empty | 200, empty | 200, empty | 200, empty | 200, empty | **no cap to 10⁸** |
+| group join requests | 200, empty | 200, empty | 200, empty | 200, empty | 200, empty | 200, empty | **no cap to 10⁸** |
 
 Past the end of the data every one of them returns 200 with an empty list, all the way up — the
 audit log is the only endpoint that answers 400 there. **The 7,500 cap is the audit log's alone.**
+If a limit exists on these four it is above 10⁸, which is more members than VRChat has users, or it
+is enforced on something other than `offset` (a maximum `n`, say) that this probe did not measure.
+For anything Modbot does it is the same as no cap.
 
 Consequences:
 - M1's member and ban sweeps can page by offset. The obvious design is fine; nothing needs filters
