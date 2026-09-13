@@ -1,3 +1,6 @@
+using Modbot.Core.Data;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using System.Net;
 using Modbot.Api.Features.Auth.VRChatLink;
 using Modbot.Api.Tests.Fakes;
@@ -124,6 +127,17 @@ public class VRChatLinkTests
         var fact = Assert.Single(await host.FactsAsync(FactType.VRChatLinked, user.Id.ToString(), Ct));
         Assert.Contains(vrchatId, fact.Data, StringComparison.Ordinal);
         Assert.Contains("Gunner24", fact.Data, StringComparison.Ordinal);
+
+        // The two profile fetches were sightings too: the person now has a vrchat_user row with
+        // what the check read, so the profile pane and the sticky 18+ rule start from here rather
+        // than from the sync's next pass.
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var row = await db.VRChatUsers.AsNoTracking().SingleAsync(u => u.UserId == vrchatId, Ct);
+            Assert.Equal("Gunner24", row.DisplayName);
+            Assert.NotNull(row.LastRefreshedAt);
+        }
     }
 
     [Fact]

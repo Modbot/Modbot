@@ -12,6 +12,7 @@ using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
 using Modbot.VRChat;
+using Modbot.VRChat.Users;
 using VRChat.API.Model;
 
 namespace Modbot.Api.Features.Auth.VRChatLink;
@@ -131,6 +132,7 @@ public static class VRChatLinkEndpoints
                 [FromServices] UserAccountService accounts,
                 [FromServices] AccountFacts facts,
                 [FromServices] IVRChatGate gate,
+                [FromServices] VRChatUserProfiles profiles,
                 [FromServices] IModbotClock clock,
                 HttpContext http,
                 CancellationToken ct) =>
@@ -179,6 +181,13 @@ public static class VRChatLinkEndpoints
 
                 var profile = result.Value;
                 var bio = profile?.Bio ?? string.Empty;
+
+                // A fetched profile is a sighting, whether or not the code turns out to be in the
+                // bio: the row, the diff facts and the sticky 18+ flag all come from the same
+                // object the sync would have fetched, and paying for the request twice would be
+                // the only thing gained by not recording it here.
+                if (profile is not null)
+                    await profiles.RecordProfileAsync(VRChatUserSnapshot.From(profile), raw: null, ct);
 
                 if (!bio.Contains(user.VRChatLinkCode, StringComparison.OrdinalIgnoreCase))
                 {

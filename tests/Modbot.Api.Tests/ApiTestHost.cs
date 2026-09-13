@@ -15,6 +15,8 @@ using Modbot.Api.Tests.Fakes;
 using Modbot.TestSupport;
 using Modbot.VRChat;
 using Modbot.VRChat.Scheduling;
+using Modbot.VRChat.Sync;
+using Modbot.VRChat.Users;
 
 namespace Modbot.Api.Tests;
 
@@ -89,6 +91,21 @@ public sealed class ApiTestHost : IAsyncDisposable
         // real partitions -- without the hosted maintenance services, which would race the tests.
         builder.Services.AddScoped<Modbot.Analytics.Facts.IFactWriter, Modbot.Analytics.Facts.FactWriter>();
         builder.Services.AddScoped<Modbot.Analytics.Facts.EventPartitionMaintainer>();
+
+        // The one writer of vrchat_user rows, without the hosted sync that would drain its queue:
+        // linking a VRChat account records the fetched profile as a sighting, and the test host
+        // has to be able to resolve the recorder for that endpoint to map.
+        var profileOptions = new UserProfileSyncOptions().Clamped();
+        var refreshQueue = new UserRefreshQueue();
+        builder.Services.AddSingleton(profileOptions);
+        builder.Services.AddSingleton(refreshQueue);
+        builder.Services.AddScoped(sp => new VRChatUserProfiles(
+            sp.GetRequiredService<ModbotContext>(),
+            sp.GetRequiredService<Modbot.Analytics.Facts.IFactWriter>(),
+            sp.GetRequiredService<Modbot.Analytics.Facts.EventPartitionMaintainer>(),
+            sp.GetRequiredService<IModbotClock>(),
+            refreshQueue,
+            profileOptions));
 
         builder.Services.AddModbotAuth();
         builder.Services.AddModbotApi();
