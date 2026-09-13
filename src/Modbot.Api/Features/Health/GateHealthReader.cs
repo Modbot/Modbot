@@ -1,0 +1,150 @@
+using Modbot.VRChat;
+using Modbot.VRChat.RateLimiting;
+
+namespace Modbot.Api.Features.Health;
+
+/// <summary>
+/// Turns the gate's state and its buckets into something an operator can act on.
+/// </summary>
+/// <remarks>
+/// One place, used by both the sidebar indicator and the health screen, so the two can never
+/// disagree about whether Modbot is broken. Two implementations of this judgement is how a
+/// dashboard ends up with a green dot beside a red panel.
+/// </remarks>
+public static class GateHealthReader
+{
+    public static async Task<(GateHealth Gate, IReadOnlyList<BucketHealth> Buckets)> ReadAsync(
+        IVRChatGate gate,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(gate);
+
+        IReadOnlyList<RateLimitBucketHealth> raw;
+
+        try
+        {
+            raw = await gate.DescribeBucketsAsync(ct);
+        }
+        catch (InvalidOperationException)
+        {
+            // The bucket store reads the database. A health screen that cannot answer because its
+            // own diagnostics threw is worse than one that answers without the bucket detail --
+            // the state and the posture below do not depend on it.
+            raw = [];
+        }
+
+        var buckets = raw
+            .Select(b => new BucketHealth(
+                b.Name,
+                b.EndpointClass,
+                b.ResourceId,
+                b.EffectiveRatePerSecond,
+                b.BudgetMultiplier,
+                b.IsColdStopped,
+                b.StoppedUntil,
+                b.Alerting,
+                b.RateLimitHits,
+                b.LastRateLimitedAt))
+            .OrderByDescending(b => b.Alerting)
+            .ThenByDescending(b => b.IsColdStopped)
+            .ThenBy(b => b.Name, StringComparer.Ordinal)
+            .ToList();
+
+        return (Describe(gate.State, buckets), buckets);
+    }
+
+    /// <summary>The posture decision, as a pure function of the state and the buckets.</summary>
+    public static GateHealth Describe(VRChatSessionState state, IReadOnlyList<BucketHealth> buckets)
+    {
+        ArgumentNullException.ThrowIfNull(buckets);
+
+        var stopped = buckets.Count(b => b.IsColdStopped);
+        var alerting = buckets.Count(b => b.Alerting);
+
+        var endsAt = buckets
+            .Where(b => b.IsColdStopped && b.StoppedUntil is not null)
+            .Select(b => b.StoppedUntil!.Value)
+            .DefaultIfEmpty()
+            .Min();
+
+        var coldStopEndsAt = endsAt == default ? (DateTimeOffset?)null : endsAt;
+
+        // Ordered by how much the operator has to care, most first. A bucket that has run out of
+        // probes outranks the session state: a gate reporting Healthy while one class has given up
+        // is still a deployment with a hole in it, and "healthy" is the wrong headline for that.
+        if (alerting > 0)
+        {
+            return new GateHealth(
+                state.ToString(),
+                GatePosture.NeedsOperator,
+                $"{Count(alerting, "endpoint class has", "endpoint classes have")} stopped after "
+                + "repeated rate limits and will not resume on its own. Something is wrong that "
+                + "waiting will not fix.",
+                stopped,
+                coldStopEndsAt,
+                alerting);
+        }
+
+        return state switch
+        {
+            VRChatSessionState.Unconfigured => new GateHealth(
+                state.ToString(),
+                GatePosture.NotConfigured,
+                "No VRChat account is configured, so Modbot is not reading anything from VRChat.",
+                stopped,
+                coldStopEndsAt,
+                alerting),
+
+            VRChatSessionState.WafBlocked => new GateHealth(
+                state.ToString(),
+                GatePosture.NeedsOperator,
+                "Cloudflare is blocking this host's network. Nothing will get through until an "
+                + "egress proxy is configured — this does not clear by itself.",
+                stopped,
+                coldStopEndsAt,
+                alerting),
+
+            VRChatSessionState.RateLimited => new GateHealth(
+                state.ToString(),
+                GatePosture.WaitingOnPurpose,
+                stopped > 0
+                    ? $"{Count(stopped, "endpoint class is", "endpoint classes are")} cold-stopped "
+                      + "and waiting out a rate limit. This is deliberate; retrying during a "
+                      + "penalty extends it."
+                    : "Waiting out a rate limit. This is deliberate; retrying during a penalty "
+                      + "extends it.",
+                stopped,
+                coldStopEndsAt,
+                alerting),
+
+            VRChatSessionState.Reauthenticating => new GateHealth(
+                state.ToString(),
+                GatePosture.Working,
+                "Signing back in to VRChat. Requests resume when the session is re-established.",
+                stopped,
+                coldStopEndsAt,
+                alerting),
+
+            _ when stopped > 0 => new GateHealth(
+                state.ToString(),
+                GatePosture.WaitingOnPurpose,
+                $"{Count(stopped, "endpoint class is", "endpoint classes are")} cold-stopped. The "
+                + "rest of Modbot is unaffected — a stop is scoped to the bucket that hit the "
+                + "limit.",
+                stopped,
+                coldStopEndsAt,
+                alerting),
+
+            _ => new GateHealth(
+                state.ToString(),
+                GatePosture.Working,
+                "Reading from VRChat normally.",
+                stopped,
+                coldStopEndsAt,
+                alerting),
+        };
+    }
+
+    private static string Count(int n, string singular, string plural)
+        => n == 1 ? $"One {singular}" : $"{n} {plural}";
+}
