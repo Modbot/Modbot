@@ -31,10 +31,10 @@ namespace Modbot.Analytics.Retention;
 /// <para>
 /// A partition can only be dropped when <em>every</em> fact in it is past retention. A monthly
 /// partition holds both classes mixed together, so the naive reading of that rule is "governed by
-/// the longest retention of any class present" -- and with moderation set to forever, that means
-/// no partition is ever droppable and presence facts are never pruned at all. The 90-day policy
-/// would be a comment rather than a behaviour. The rule is right; monthly-only partitioning is
-/// what cannot satisfy it.
+/// the longest retention of any class present" -- and with moderation left at forever, that means
+/// no partition is ever droppable and presence facts are never pruned at all. The window an
+/// operator configured would be a comment rather than a behaviour. The rule is right; monthly-only
+/// partitioning is what cannot satisfy it.
 /// </para>
 /// <para>
 /// So a partition is handled in one of three ways, decided from its upper bound:

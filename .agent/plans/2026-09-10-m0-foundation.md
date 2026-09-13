@@ -775,7 +775,7 @@ public class Settings
 
     // --- Retention, tiered per fact class (spec 5.5) ---
     public int ModerationFactRetentionDays { get; set; } = 0;   // 0 = keep forever
-    public int PresenceFactRetentionDays { get; set; } = 90;
+    public int PresenceFactRetentionDays { get; set; }            // 0 = keep forever
 
     /// <summary>
     /// Deduplication half-window for client-reported facts (spec 5.7.1). Bounded above by the

@@ -14,9 +14,10 @@ namespace Modbot.Core.Data.Entities;
 /// is fixed by re-running the job, never by hand-editing a value here.
 /// </para>
 /// <para>
-/// Rollups are kept forever (spec 5.5). They outlive the facts they were computed from: presence
-/// facts age out at 90 days while the charts built on them keep their full history, which is what
-/// makes "who are our regulars over two years" answerable at all.
+/// Rollups are never aged out, whatever retention is set to (spec 5.5). They outlive the facts
+/// they were computed from, so an operator who does configure a window keeps the charts built on
+/// the pruned days -- which is what keeps "who are our regulars over two years" answerable even
+/// then.
 /// </para>
 /// </remarks>
 public class RollupDaily

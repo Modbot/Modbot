@@ -430,7 +430,8 @@ and a disabled overlay notifies nobody.
 | `AvatarChanged` | `Client` | Avatar **display name** only, from the log. Resolved to `avtr_…` server-side — see §7.2 |
 
 All carry `subject_platform = VRChat` (foundation §5.3), fall under the **Presence** retention class
-(90 days by default, foundation §5.5), and are covered by purge-user.
+(kept forever unless an operator configures a window, foundation §5.5), and are covered by
+purge-user.
 
 ### 7.1 Phantom joins and leaves must not be recorded as real
 

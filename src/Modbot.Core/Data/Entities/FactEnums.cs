@@ -59,7 +59,8 @@ public enum FactSource : short
 /// <para>Spec 5.3 and 5.9.2. <strong>Persisted as smallint. Never renumber a member.</strong></para>
 /// <para>
 /// Values are grouped in blocks by retention class (spec 5.5), which is what the retention job
-/// prunes on: moderation facts are kept forever, presence facts for 90 days by default.
+/// prunes on. Neither class is pruned by default -- Modbot keeps everything until an operator
+/// configures a window -- but they are configured separately, so they are numbered separately.
 /// </para>
 /// </remarks>
 public enum FactType : short
@@ -74,7 +75,7 @@ public enum FactType : short
     RoleRevoked = 106,
     InviteCreated = 107,
 
-    // --- Presence (retention: 90 days) ---
+    // --- Presence (retention: configurable, off by default) ---
     InstanceJoined = 200,
     InstanceLeft = 201,
     AvatarChanged = 202,

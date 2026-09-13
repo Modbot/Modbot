@@ -110,9 +110,9 @@ public sealed class RollupJob
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Rows older than the oldest surviving fact are <strong>kept</strong>. Retention drops
-    /// presence facts at 90 days while rollups are kept forever (spec 5.5), so for the days the
-    /// facts have aged out of, the rollup is the only remaining record -- "charts keep their full
+    /// Rows older than the oldest surviving fact are <strong>kept</strong>. Rollups are never
+    /// aged out, while facts can be where an operator has configured a window (spec 5.5), so for
+    /// the days the facts have been pruned out of, the rollup is the only remaining record -- "charts keep their full
     /// history even after the underlying events age out". A rebuild that started from zero would
     /// destroy exactly the history the design promises to preserve.
     /// </para>

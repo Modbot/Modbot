@@ -1315,24 +1315,68 @@ days (§5.4.1).
 A generic metric/dimension shape so new metrics require no migration. Recomputed by `RollupJob`;
 a full rebuild from facts is always available and is the supported fix for any aggregation bug.
 
-### 5.5 Retention and privacy
+### 5.5 Retention — off by default, and the numbers say why
 
-Retention is **tiered by fact class**, because the volume profiles differ by three orders of
-magnitude (§5.7) while the value profiles run the opposite way.
+> **Revised 2026-09-12.** An earlier draft pruned presence facts after 90 days. That contradicted
+> §5.1, which argues history cannot be backfilled and is the reason the fact log exists at all.
+> **Modbot now deletes nothing by default.**
 
-| Fact class | Examples | Volume | Default retention |
+#### Measured, not estimated
+
+One fact costs **326 bytes** including all four indexes — measured by inserting 200,000
+representative rows into the real schema, not guessed from column widths.
+
+| Group | Facts/day | Per year | At ~$0.25/GB/month |
 |---|---|---|---|
-| **Moderation** | bans, kicks, role changes, audit-log entries, membership changes | low — hundreds/day | **forever** |
-| **Presence** | instance join/leave, avatar change, session heartbeats | high — up to ~18k/hour at peak | **90 days** |
-| **Rollups** | all derived aggregates | trivial | **forever** |
+| Typical — 100–10,000 members, 1–2 instances | ~2,000 | **238 MB** | ~$0.06/mo |
+| Busy — 16,000 members, 3–5 instances | ~20,000 | **2.4 GB** | ~$0.60/mo |
+| Extreme — 150,000 members, 30 instances | ~432,000 | **51 GB** | ~$13/mo |
 
-All configurable. Flat 365-day retention was the initial proposal and is wrong: at peak presence
-volume it implies on the order of 10⁸ rows, which is real money in Railway storage for data whose
-individual rows stop being interesting within weeks — while a ban from three years ago is exactly
-the kind of thing a moderator needs. Long-range questions ("who are our regulars over two years")
-are answered from rollups, which are cheap and kept permanently.
+Most groups sit in the first row. Deleting their history saves pennies and costs them the ability to
+answer *"who are our regulars"* about anyone who joined more than three months ago — which is most of
+the value §5.10 exists to deliver.
 
-Charts therefore keep their full history even after the underlying events age out.
+The third row is real money, and that group should be able to set a window. **That is what makes this
+a setting rather than a policy.**
+
+#### There is no default retention window
+
+`ModerationFactRetentionDays` and `PresenceFactRetentionDays` both default to **0 — keep forever**.
+Rollups are kept forever regardless.
+
+The pruning machinery still exists and is tested; it simply does not run unless an operator turns it
+on. That ordering matters: a tool that quietly deletes data and lets you opt out is very different
+from one that keeps everything and lets you opt in, even when both end up configured identically.
+
+#### The settings page shows what it actually costs
+
+An operator asked to choose a retention window with no idea what they are trading cannot make that
+decision, so Modbot measures and shows:
+
+- **Current usage** — real bytes, from `pg_total_relation_size` over the fact tables and their
+  indexes. Not a row count multiplied by a constant.
+- **Observed growth rate** — facts per day over recent history, from the fact log itself.
+- **Projection** at 6, 12 and 24 months at the current rate, stated as an extrapolation rather than a
+  promise. Growth is not linear: a group that opens more instances generates more facts per member.
+- **What it means in their terms**, from one of two inputs the operator provides:
+  - a **per-GB monthly cost**, for hosted deployments → projected monthly spend
+  - a **disk capacity**, for home hosting → the date they would run out
+
+"Keep everything: about 240 MB a year, roughly six cents a month" is a decision someone can make.
+"Choose a retention period" is not.
+
+#### Running fresh over everything
+
+With nothing pruned, rollups and subject profiles (§5.10) recompute across the **entire** history, and
+§5.10.2's caveat about being bounded by surviving facts applies only where an operator has configured
+a window.
+
+#### Privacy
+
+Presence data — who was where, for how long, wearing what — is personal information, even though it is
+all data the group could already observe directly. The posture is unchanged by keeping it longer: it
+lives on the group's own server, retention is configurable, and **purge-user works regardless of
+retention settings**. A person asking to be erased is not asking about disk space.
 
 ##### Pruning: drop partitions, and the case the simple rule misses
 
@@ -1340,9 +1384,9 @@ Pruning is a **`DROP TABLE` on a whole partition**, never a mass `DELETE` — av
 and the vacuum cost is most of why §5.7.2 partitions at all.
 
 The obvious rule — *"drop a partition once everything in it is past retention"* — is correct and, on
-its own, **unsatisfiable under the defaults**. A month's partition mixes both classes, and moderation
-facts are kept forever, so no partition is ever fully expired and the 90-day presence policy quietly
-becomes a comment that never runs.
+its own, **unsatisfiable whenever the two classes are configured differently**. A month's partition
+mixes both, so if moderation is left at forever and only presence has a window, no partition is ever
+fully expired and the presence window quietly becomes a comment that never runs.
 
 So there are three cases per partition:
 
@@ -1437,9 +1481,12 @@ The window is configurable, and a slow-PC join taking 30–60 s to complete does
 moderators observe the join when the user actually enters the instance, not while their client is
 loading.
 
-Sustained peak is therefore ~18k facts/hour ≈ 430k/day, which at the 90-day presence retention of
-§5.5 is roughly 39M live rows — comfortable for partitioned Postgres. Typical groups (100–10,000
-members, one or two instances) sit three orders of magnitude below this.
+Sustained peak is therefore ~18k facts/hour ≈ 430k/day. Since nothing is pruned by default (§5.5),
+that accumulates: ~158M rows and ~51 GB after a year, at a measured 326 bytes per fact including
+indexes. Comfortable for partitioned Postgres, and the one profile where an operator may genuinely
+want a window — which is why §5.5 shows them the number rather than choosing for them. Typical
+groups (100–10,000 members, one or two instances) sit three orders of magnitude below this, at a
+few hundred megabytes a year.
 
 #### 5.7.2 Storage choice
 
@@ -1665,11 +1712,13 @@ Everything here is recomputable from the fact log, which keeps §5.2's invariant
 profile is a re-run. Nothing is ever written to a profile that was not derived from a fact, and no
 query answers from a profile when the fact log disagrees.
 
-The practical constraint is retention (§5.5). Presence facts age out at 90 days by default, so a
-profile can only be rebuilt across the window the facts still cover. Long-range figures therefore
-come from **rollups**, which are kept forever — and a profile that claims a two-year history when
-only 90 days of facts survive would be lying. The rebuild is bounded by what remains, and the UI
-shows the window it actually had.
+**By default there is no constraint**: nothing is pruned (§5.5), so a profile is rebuilt across the
+entire history every time, which is the point of keeping it.
+
+Where an operator *has* configured a window, the rebuild is bounded by the facts that survive it.
+Long-range figures then come from **rollups**, which are never aged out — and a profile that claimed
+a two-year history when only ninety days of facts survived would be lying. The rebuild is bounded by
+what remains, and the UI shows the window it actually had.
 
 #### 5.10.3 "Regular" is a definition, and the group owns it
 
@@ -1867,7 +1916,7 @@ Facts carry `subject_platform = Discord` (§5.3). Once accounts are linked (M5),
 separately — which is what makes a linked account worth having.
 
 **Voice presence is treated exactly like instance presence**: same session model, same time-spent
-rollups, same 90-day retention and same purge-user coverage (§5.5). A community running events in
+rollups, same retention class and same purge-user coverage (§5.5). A community running events in
 Discord voice rather than in-world gets the same regulars detection and the same giveaway
 eligibility as one running instances.
 
@@ -2069,8 +2118,10 @@ Recorded so they are visible rather than buried, and so they are not relitigated
    historical constraint, not a technical one. It has since been modified upstream so
    `...WithHttpInfoAsync` returns a full `ApiResponse<T>` and never throws, which is precisely what
    the gate wants. Two upstream gaps remain, documented in §4.1.
-7. **Retention is tiered** (§5.5) — moderation facts forever, presence facts 90 days, rollups
-   forever. Replaces a flat 365-day default that did not survive contact with real peak volume.
+7. **Nothing is deleted by default** (§5.5) — both fact classes and rollups are kept forever, with
+   retention configurable per class. History cannot be backfilled, and at a measured 326 bytes per
+   fact a typical group costs pennies a year to keep whole. The settings page projects that cost
+   from measured usage so the operator decides against numbers rather than against a guess.
 8. **Client facts are deduplicated at the ingest boundary** (§5.7) via a deterministic event
    identity. Required because 4–6 moderator clients per instance report the same events, a 6×
    amplification that would otherwise corrupt every time-spent metric.

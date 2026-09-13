@@ -16,7 +16,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
 {
     public RetentionPrunerTests(PostgresFixture fixture) : base(fixture) { }
 
-    /// <summary>Comfortably more than the 90-day presence default, and in an earlier month.</summary>
+    /// <summary>Comfortably past any window these tests configure, and in an earlier month.</summary>
     private static DateTimeOffset Old => Start.AddDays(-200);
 
     private RetentionPruner NewPruner(Core.Data.ModbotContext context) => new(
@@ -30,6 +30,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
     [Fact]
     public async Task PresenceFactsAgeOutWhileModerationFactsAreKept()
     {
+        await SetRetentionAsync(moderationDays: 0, presenceDays: 90);
         await WriteAsync(
             Fact(FactType.MemberBanned, Old, actorId: "alice"),
             Fact(FactType.InstanceJoined, Old.AddHours(1)),
@@ -58,6 +59,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
     [Fact]
     public async Task TheReplacementPartitionStillAcceptsFactsForItsMonth()
     {
+        await SetRetentionAsync(moderationDays: 0, presenceDays: 90);
         await WriteAsync(
             Fact(FactType.MemberBanned, Old),
             Fact(FactType.InstanceJoined, Old));
@@ -75,6 +77,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
     [Fact]
     public async Task NothingInsideTheRetentionWindowIsTouched()
     {
+        await SetRetentionAsync(moderationDays: 90, presenceDays: 90);
         var recent = Start.AddDays(-30);
 
         await WriteAsync(
@@ -136,6 +139,37 @@ public class RetentionPrunerTests : AnalyticsTestBase
         Assert.Equal(0, await CountAsync(FactType.InstanceJoined));
     }
 
+    /// <summary>
+    /// Spec 5.5: <b>Modbot has no default retention window.</b> A deployment nobody has configured
+    /// keeps every fact forever.
+    /// </summary>
+    /// <remarks>
+    /// This is the regression guard for the setting itself rather than for the pruner. An earlier
+    /// draft defaulted presence facts to 90 days, which quietly destroyed the history that
+    /// section 5.1 says cannot be backfilled -- and every other test in this file would have gone
+    /// on passing, because they configured their own window anyway. Nothing here is seeded into
+    /// <c>Settings</c> on purpose: this is what a fresh install does.
+    /// </remarks>
+    [Fact]
+    public async Task AnUnconfiguredDeploymentPrunesNothing()
+    {
+        await WriteAsync(
+            Fact(FactType.MemberBanned, Old),
+            Fact(FactType.InstanceJoined, Old),
+            Fact(FactType.InstanceLeft, Old.AddDays(-400)));
+
+        var before = await PartitionIdAsync(OldPartition);
+
+        await using var context = Database.NewContext();
+        var result = await NewPruner(context).PruneAsync(Ct);
+
+        Assert.Empty(result.Dropped);
+        Assert.Empty(result.Evacuated);
+        Assert.Equal(1, await CountAsync(FactType.InstanceJoined));
+        Assert.Equal(1, await CountAsync(FactType.InstanceLeft));
+        Assert.Equal(before, await PartitionIdAsync(OldPartition));
+    }
+
     [Fact]
     public async Task ZeroDaysMeansForever()
     {
@@ -161,6 +195,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
     [Fact]
     public async Task RunningAgainRewritesNothing()
     {
+        await SetRetentionAsync(moderationDays: 0, presenceDays: 90);
         await WriteAsync(
             Fact(FactType.MemberBanned, Old),
             Fact(FactType.InstanceJoined, Old));
@@ -207,6 +242,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
     [Fact]
     public async Task WhatWasDestroyedIsRecordedInTheFactLog()
     {
+        await SetRetentionAsync(moderationDays: 0, presenceDays: 90);
         await WriteAsync(
             Fact(FactType.MemberBanned, Old),
             Fact(FactType.InstanceJoined, Old));
@@ -229,6 +265,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
     [Fact]
     public async Task APartitionNotNamedByTheMaintainerIsLeftAlone()
     {
+        await SetRetentionAsync(moderationDays: 90, presenceDays: 90);
         var month = new DateTimeOffset(2019, 5, 1, 0, 0, 0, TimeSpan.Zero);
 
         await using var context = Database.NewContext();

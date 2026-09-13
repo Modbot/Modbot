@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Analytics.Retention;
 using Modbot.Analytics.Rollups;
+using Modbot.Analytics.Storage;
 
 namespace Modbot.Analytics;
 
@@ -31,6 +32,11 @@ public static class AnalyticsServiceCollectionExtensions
         services.AddScoped<RetentionPruner>();
         services.AddScoped<IUserPurger, UserPurger>();
         services.AddHostedService<RetentionService>();
+
+        // Measured on demand, not on a timer. It runs a handful of catalogue queries and a
+        // count, which is cheap when somebody opens the settings page and pure waste every
+        // fifteen minutes when nobody is looking at it.
+        services.AddScoped<StorageProjector>();
 
         return services;
     }

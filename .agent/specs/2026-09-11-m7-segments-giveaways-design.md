@@ -130,10 +130,12 @@ Segments are the point where recorded history becomes *actionable targeting*, wh
 foundation §5.5's posture earns out.
 
 - Segment results respect **purge-user**: a purged user cannot reappear in a segment.
-- Retention limits what can be asked. A segment over 200 days of presence data is not answerable at
-  the default 90-day presence retention, and Modbot **says so** rather than silently returning a
-  partial answer that looks complete. This is the most likely place for a quiet correctness failure
-  and needs an explicit test.
+- Retention limits what can be asked — but only where an operator has set a window, since nothing
+  is pruned by default (foundation §5.5). A segment reaching further back than the surviving facts
+  is not answerable, and Modbot **says so** rather than silently returning a partial answer that
+  looks complete. This is the most likely place for a quiet correctness failure and needs an
+  explicit test. The default configuration is the one where it cannot happen, which is a reason to
+  test the configured case deliberately rather than to assume it is rare.
 - Exports carry the warning in §3. Once exported, none of the above applies any more.
 
 ---
