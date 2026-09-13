@@ -199,6 +199,86 @@ public class VRChatGateTests
         Assert.Equal(2, calls);
     }
 
+    /// <summary>
+    /// A cold stop must not turn into a stream of logins.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The gate used to reuse its session only while <c>State is Healthy</c>. A 429 sets
+    /// <c>RateLimited</c>, so the very next call fell through to a full re-login -- against the
+    /// <c>auth</c> bucket, and <em>before</em> the limiter got the chance to refuse the call that
+    /// triggered it. With two producers polling through a fifteen-minute cold stop that is a
+    /// steady stream of logins at exactly the moment section 4.3.1 requires silence, and VRChat's
+    /// limiter extends the penalty by 45-80 seconds for the traffic sent to discover it is still
+    /// in force.
+    /// </para>
+    /// <para>
+    /// Being rate-limited says nothing about the cookie. <see cref="VRChatSessionState"/> says as
+    /// much in its own definition -- "not broken, waiting, on purpose" -- and the code disagreed
+    /// with it.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task ACodeStopDoesNotReauthenticate()
+    {
+        var vrchat = new FakeVRChat().SignedInAs();
+        var gate = NewGate(vrchat, out _, new FakeConnectionStore());
+
+        await gate.ExecuteAsync(
+            Members,
+            (_, _) => Task.FromResult(Response<string>(HttpStatusCode.TooManyRequests)),
+            ct: Ct);
+
+        Assert.Equal(VRChatSessionState.RateLimited, gate.State);
+        var loginsAfterTheStop = vrchat.GetCurrentUserCalls;
+
+        // Whatever a paced producer would do next, repeatedly, while it waits.
+        for (var i = 0; i < 5; i++)
+        {
+            var refused = await gate.ExecuteAsync(
+                Members,
+                (_, _) => Task.FromResult(Response(HttpStatusCode.OK, "members")),
+                ct: Ct);
+
+            Assert.True(refused.WasNotSent);
+        }
+
+        Assert.Equal(loginsAfterTheStop, vrchat.GetCurrentUserCalls);
+    }
+
+    /// <summary>
+    /// A WAF block is the network path being refused, not the credentials.
+    /// </summary>
+    /// <remarks>
+    /// Re-logging in would be blocked too, and would spend the auth budget finding that out. The
+    /// remedy is a proxy (spec 2.3.1), which is a configuration change, not something more
+    /// requests can discover.
+    /// </remarks>
+    [Fact]
+    public async Task AWafBlockDoesNotReauthenticateEither()
+    {
+        var vrchat = new FakeVRChat().SignedInAs();
+        var gate = NewGate(vrchat, out _, new FakeConnectionStore());
+
+        await gate.ExecuteAsync(
+            Members,
+            (_, _) => Task.FromResult(Response<string>(
+                HttpStatusCode.Forbidden,
+                raw: "<!DOCTYPE html><html><head><title>Attention Required! | Cloudflare</title>"
+                     + "</head><body><p>Error code: 1020</p></body></html>")),
+            ct: Ct);
+
+        Assert.Equal(VRChatSessionState.WafBlocked, gate.State);
+        var logins = vrchat.GetCurrentUserCalls;
+
+        await gate.ExecuteAsync(
+            Members,
+            (_, _) => Task.FromResult(Response(HttpStatusCode.OK, "members")),
+            ct: Ct);
+
+        Assert.Equal(logins, vrchat.GetCurrentUserCalls);
+    }
+
     [Fact]
     public async Task A429ColdStopsAndTheNextCallIsNeverSent()
     {

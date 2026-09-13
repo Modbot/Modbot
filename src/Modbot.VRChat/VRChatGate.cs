@@ -248,7 +248,24 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         await _session.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (refresh is SessionRefresh.Reuse && _client is not null && State is VRChatSessionState.Healthy)
+            // Reuse unless the session itself is the problem. Being rate-limited or WAF-blocked
+            // says nothing about the cookie -- RateLimited's own definition is "not broken,
+            // waiting, on purpose" -- and rebuilding on either is actively harmful:
+            //
+            //   * A 429 sets RateLimited, so the NEXT call would log in before the limiter got
+            //     the chance to refuse it. With two producers polling through a 15-minute cold
+            //     stop that is a steady stream of logins against the auth bucket, at exactly the
+            //     moment section 4.3.1 requires Modbot to be silent. The penalty is extended by
+            //     the traffic sent to discover it is still in force.
+            //   * A WAF block is the network path being refused, not the credentials. A login
+            //     would be blocked too, and would spend the auth budget finding that out.
+            //
+            // Only Unconfigured (no credentials to reuse) and Reauthenticating (a rebuild already
+            // in flight) mean the stored client cannot be used.
+            var sessionIsUsable = State is not (VRChatSessionState.Unconfigured
+                or VRChatSessionState.Reauthenticating);
+
+            if (refresh is SessionRefresh.Reuse && _client is not null && sessionIsUsable)
                 return SessionResult.Ok(_client, user: null);
 
             var connection = await _connections.ReadAsync(ct).ConfigureAwait(false);
