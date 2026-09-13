@@ -48,7 +48,7 @@ public class IngestTests
 
     private async Task<(ClientApiTestHost Host, string Token)> ReadyAsync(CancellationToken ct)
     {
-        await ClientApiTestHost.ClearFactsAsync(_db, ct);
+        await ClientApiTestHost.ResetAsync(_db, ct);
         var host = await ClientApiTestHost.StartAsync(_db);
         await host.ConfigureGroupAsync(_db, Group, ct);
 

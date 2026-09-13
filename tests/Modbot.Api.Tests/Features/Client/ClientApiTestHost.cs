@@ -44,7 +44,19 @@ public sealed class ClientApiTestHost : IAsyncDisposable
 
     public IServiceProvider Services => _app.Services;
 
-    public IClientDeviceStore Devices => Services.GetRequiredService<IClientDeviceStore>();
+    /// <summary>
+    /// A store over its own scope.
+    /// </summary>
+    /// <remarks>
+    /// The shipping store is scoped, because it holds a <c>ModbotContext</c>. Resolving one from
+    /// the root provider and keeping it would share a change tracker across every test in the
+    /// assembly, so each call gets its own -- which is also what a request does.
+    /// </remarks>
+    public IClientDeviceStore Devices => new DatabaseClientDeviceStore(NewContext());
+
+    private ModbotContext NewContext()
+        => Services.GetRequiredService<IServiceScopeFactory>().CreateScope()
+            .ServiceProvider.GetRequiredService<ModbotContext>();
 
     /// <summary>
     /// The instant these tests pretend it is. Fixed, because the fact log is partitioned by month
@@ -126,11 +138,22 @@ public sealed class ClientApiTestHost : IAsyncDisposable
         return request;
     }
 
-    /// <summary>Clears the fact log so one test's presence does not become another's roster.</summary>
-    public static async Task ClearFactsAsync(PostgresFixture db, CancellationToken ct)
+    /// <summary>
+    /// Puts the deployment back to "nothing has ever been paired and nothing has been reported".
+    /// </summary>
+    /// <remarks>
+    /// Devices and pairing codes live in real tables now rather than in memory per host, so they
+    /// outlive a test the way they outlive a deploy. Without this, a test asserting on "the device
+    /// that was just paired" sees every device every earlier test paired, and a test redeeming a
+    /// fixed code finds it already spent -- both of which are the durable store working, not
+    /// failing.
+    /// </remarks>
+    public static async Task ResetAsync(PostgresFixture db, CancellationToken ct)
     {
         await using var context = db.NewContext();
         await context.Events.ExecuteDeleteAsync(ct);
+        await context.ClientDevices.ExecuteDeleteAsync(ct);
+        await context.ClientPairingCodes.ExecuteDeleteAsync(ct);
     }
 
     public async ValueTask DisposeAsync()

@@ -25,6 +25,7 @@ public class PairingTests
 
     private async Task<(ClientApiTestHost Host, string Code)> ReadyAsync(CancellationToken ct)
     {
+        await ClientApiTestHost.ResetAsync(_db, ct);
         var host = await ClientApiTestHost.StartAsync(_db);
         await host.ConfigureGroupAsync(_db, Group, ct);
 
@@ -132,6 +133,7 @@ public class PairingTests
         // The code is for a person to read off a screen and type. Case, spacing and a missing
         // dash are transcription, not authentication.
         var ct = TestContext.Current.CancellationToken;
+        await ClientApiTestHost.ResetAsync(_db, ct);
         var host = await ClientApiTestHost.StartAsync(_db);
         await using var _ = host;
 
@@ -150,6 +152,7 @@ public class PairingTests
         // 503, so the client backs off and tries later: the operator is mid-setup, and the
         // address is not wrong.
         var ct = TestContext.Current.CancellationToken;
+        await ClientApiTestHost.ResetAsync(_db, ct);
         var host = await ClientApiTestHost.StartAsync(_db);
         await using var _ = host;
 

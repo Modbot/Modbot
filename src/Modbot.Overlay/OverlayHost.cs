@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Headless;
+using Modbot.Overlay.Driving;
 using Modbot.Overlay.OpenVr;
 using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
@@ -18,7 +19,7 @@ namespace Modbot.Overlay;
 /// the compositor still draws into the texture, and nothing fails — which matters because most
 /// machines running the Modbot client are reporting presence from the desktop.</para>
 /// </remarks>
-public sealed class OverlayHost : IDisposable
+public sealed class OverlayHost : IOverlayPresenter, IDisposable
 {
     /// <summary>
     /// Square, and a power of two. Resolution controls sharpness; apparent size in the headset is

@@ -4,8 +4,11 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Modbot.Client.Pairing;
 using Modbot.Client.Presentation;
+using Modbot.Client.Overlay;
 using Modbot.Core.Time;
 using Modbot.Overlay;
+using Modbot.Overlay.Driving;
+using Modbot.Overlay.OpenVr;
 
 namespace Modbot.Client.App;
 
@@ -68,10 +71,23 @@ internal sealed class ClientHost
     private readonly IModbotClock _clock = new SystemModbotClock();
     private readonly DispatcherTimer _refresh = new() { Interval = TimeSpan.FromSeconds(1) };
 
+    /// <summary>
+    /// How often the overlay loop is given a turn.
+    /// </summary>
+    /// <remarks>
+    /// Short, because it is cheap: a turn with nothing to do reads nothing and draws nothing, and
+    /// the reads inside it have their own intervals. What this rate actually buys is how quickly a
+    /// finished long poll becomes a card on screen.
+    /// </remarks>
+    private readonly DispatcherTimer _overlayLoop = new() { Interval = TimeSpan.FromMilliseconds(250) };
+
     private ClientAppState? _state;
     private PairingCoordinator? _pairing;
     private TrayIcon? _tray;
     private HttpClient? _http;
+    private OverlayDriver? _overlay;
+    private OverlayHost? _overlayHost;
+    private bool _overlayTicking;
 
     public MainWindow Window { get; } = new();
 
@@ -104,12 +120,90 @@ internal sealed class ClientHost
                 _state.UnusablePairings.Add(pairing);
         }
 
+        StartOverlay(store);
         InstallTray(desktop);
 
         _refresh.Tick += (_, _) => Render();
         _refresh.Start();
         Render();
     }
+
+    /// <summary>
+    /// Brings up the headset overlay, if this machine has one.
+    /// </summary>
+    /// <remarks>
+    /// <para>No SteamVR is the ordinary case, not a fault: presence coverage comes from moderators
+    /// reporting, and only some of them wear a headset. The loop runs either way -- it keeps the
+    /// local cache warm and costs nothing when there is nothing to draw -- and the runtime simply
+    /// reports that there is no headset to show it on.</para>
+    /// <para>A failure to create the Direct3D surface is not allowed to take the client down with
+    /// it. Reporting presence is the job that cannot be backfilled; the overlay is the one that
+    /// can wait for a restart.</para>
+    /// </remarks>
+    private void StartOverlay(IPairingStore store)
+    {
+        try
+        {
+            _overlayHost = OverlayHost.Create();
+            _overlayHost.Start();
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        {
+            _overlayHost = null;
+            return;
+        }
+
+        _overlay = new OverlayDriver(_overlayHost, new HttpOverlayReadClient(_http!, _clock), _clock);
+
+        foreach (var pairing in store.Load())
+        {
+            if (pairing.IsUsable)
+                _overlay.Add(pairing.Pairing!, pairing.ServerId);
+        }
+
+        _overlayLoop.Tick += async (_, _) => await OverlayTickAsync();
+        _overlayLoop.Start();
+    }
+
+    /// <summary>
+    /// One turn of the overlay loop, never overlapping itself.
+    /// </summary>
+    /// <remarks>
+    /// A turn holds a long poll open across many timer ticks, so without this guard the timer
+    /// would stack requests on a machine that is also running a game.
+    /// </remarks>
+    private async Task OverlayTickAsync()
+    {
+        if (_overlay is null || _overlayTicking)
+            return;
+
+        _overlayTicking = true;
+        try
+        {
+            // The instance the log reader last understood. The overlay follows the moderator: the
+            // server that manages this instance is the only one it reads from or speaks for.
+            _overlay.EnteredInstance(CurrentInstance);
+            await _overlay.TickAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+        finally
+        {
+            _overlayTicking = false;
+        }
+    }
+
+    /// <summary>
+    /// Where the moderator is, as far as the log has said.
+    /// </summary>
+    /// <remarks>
+    /// Supplied by whatever composes the reading half of the client. Until that is wired, the
+    /// overlay sits on its idle screen and contacts nobody, which is the correct behaviour for a
+    /// moderator who is not in a group instance anyway.
+    /// </remarks>
+    public Modbot.Client.Instances.InstanceLocation? CurrentInstance { get; set; }
 
     /// <summary>
     /// The tray icon, which is present for the whole life of the process.
@@ -126,7 +220,13 @@ internal sealed class ClientHost
         open.Click += (_, _) => ShowWindow();
 
         var quit = new NativeMenuItem("Quit — stops reporting");
-        quit.Click += (_, _) => desktop.Shutdown();
+        quit.Click += (_, _) =>
+        {
+            _overlayLoop.Stop();
+            _overlay?.Dispose();
+            _overlayHost?.Dispose();
+            desktop.Shutdown();
+        };
 
         _tray = new TrayIcon
         {
@@ -173,6 +273,7 @@ internal sealed class ClientHost
             return;
 
         _pairing.Unpair(serverId);
+        _overlay?.Remove(serverId);
 
         // The token, the queued observations and the connection all go together. Unpairing leaves
         // nothing of that group's data behind, and needs nothing from its operator.
@@ -189,6 +290,13 @@ internal sealed class ClientHost
             return new PairingAttemptResult(false, "Not ready yet.");
 
         var result = await _pairing.PairAsync(address, code, deviceName);
+
+        // A server paired mid-session becomes visible to the overlay immediately, so a moderator
+        // who pairs while already standing in that group's instance does not have to restart to
+        // see its roster.
+        if (result is { Succeeded: true, Pairing: { } pairing })
+            _overlay?.Add(pairing, pairing.ServerId);
+
         Render();
 
         return result;
