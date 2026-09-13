@@ -14,7 +14,10 @@ import { Join } from '@/pages/Join'
 import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Login } from '@/pages/Login'
 import { Members } from '@/pages/Members'
-import { Metrics } from '@/pages/Metrics'
+import { Instances } from '@/pages/analytics/Instances'
+import { MyGroup } from '@/pages/analytics/MyGroup'
+import { MyTeam } from '@/pages/analytics/MyTeam'
+import { Worlds } from '@/pages/analytics/Worlds'
 import { Pair } from '@/pages/Pair'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { Roles } from '@/pages/Roles'
@@ -26,7 +29,10 @@ const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
   members: { title: 'Members' },
   bans: { title: 'Bans', subtitle: 'What Modbot recorded — not the group’s ban list' },
   audit: { title: 'Audit log', subtitle: 'One timeline, merged across sources' },
-  metrics: { title: 'Metrics' },
+  'analytics-group': { title: 'My Group', subtitle: 'Is the community growing or shrinking, and what changed?' },
+  'analytics-team': { title: 'My Team', subtitle: 'Who is doing the moderation work, and when is nobody covering?' },
+  'analytics-worlds': { title: 'Worlds', subtitle: 'Which of our worlds actually get used?' },
+  'analytics-instances': { title: 'Instances', subtitle: 'When is the community actually active?' },
   users: { title: 'Users', subtitle: 'Who can sign in to this Modbot, and what they can do' },
   roles: { title: 'Roles', subtitle: 'What each role allows' },
   health: { title: 'Sync health' },
@@ -43,7 +49,10 @@ const PATHS: Record<PageId, string> = {
   members: '/',
   bans: '/bans',
   audit: '/audit',
-  metrics: '/metrics',
+  'analytics-group': '/analytics/group',
+  'analytics-team': '/analytics/team',
+  'analytics-worlds': '/analytics/worlds',
+  'analytics-instances': '/analytics/instances',
   users: '/users',
   roles: '/roles',
   health: '/health',
@@ -203,7 +212,10 @@ function Shell({
           {page === 'members' && <Members />}
           {page === 'bans' && <Bans onOpenSubject={setSubject} />}
           {page === 'audit' && <AuditLog onOpenSubject={setSubject} />}
-          {page === 'metrics' && <Metrics />}
+          {page === 'analytics-group' && <MyGroup />}
+          {page === 'analytics-team' && <MyTeam onOpenSubject={setSubject} />}
+          {page === 'analytics-worlds' && <Worlds />}
+          {page === 'analytics-instances' && <Instances />}
           {page === 'users' && <Users me={me} />}
           {page === 'roles' && <Roles me={me} />}
           {page === 'health' && <Health />}

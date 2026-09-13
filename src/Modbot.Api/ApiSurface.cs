@@ -7,12 +7,12 @@ using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
 using Modbot.Api.Features.Auth.Me;
 using Modbot.Api.Features.Auth.VRChatLink;
+using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
-using Modbot.Api.Features.Metrics;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
@@ -113,7 +113,7 @@ public static class ApiSurface
         // producers still starts and still answers -- it reports that nothing is syncing here
         // rather than failing to map.
         app.MapAuditLog();
-        app.MapMetrics();
+        app.MapAnalytics();
         app.MapSyncHealth();
         app.MapEvidence();
 

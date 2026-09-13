@@ -161,7 +161,7 @@ public class UserPurgerTests : AnalyticsTestBase
         await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
 
         var dimension = DailyTotalDimensions.ForUser(FactPlatform.VRChat, Subject);
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorActions, dimension));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorBans, dimension));
     }
 
     /// <summary>

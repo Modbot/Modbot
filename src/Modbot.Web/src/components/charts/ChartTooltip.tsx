@@ -1,17 +1,23 @@
+import { compactNumber } from './format'
+
+export type TooltipRow = { name: string; value: number | string; color?: string }
+
 /**
- * The frame every recharts tooltip renders into, so they all look like the app's popovers
- * rather than like recharts' default white box. Pass one of these from a chart's
- * `<Tooltip content={...}>` with whatever rows that chart wants to show.
+ * The one tooltip every chart uses, drawn in the popover tokens so it matches the rest of the
+ * app in both themes. Recharts' default tooltip ships its own white box and its own font, which
+ * is the first thing that looks foreign on a dark screen.
  *
- * Values are written in text tokens, never in the series colour — a coloured dot beside the
- * label is what carries identity when a chart has more than one series.
+ * Identity never rides on colour alone: each row carries its name in text, and the swatch is a
+ * reminder rather than the label.
  */
-export function ChartTooltipFrame({
+export function ChartTooltip({
   title,
-  children,
+  rows,
+  format = compactNumber,
 }: {
-  title: React.ReactNode
-  children: React.ReactNode
+  title: string
+  rows: TooltipRow[]
+  format?: (value: number) => string
 }) {
   return (
     <div
@@ -19,27 +25,13 @@ export function ChartTooltipFrame({
       style={{ fontSize: 'var(--text-small)', borderWidth: 'var(--hairline)' }}
     >
       <div className="text-muted-foreground">{title}</div>
-      {children}
-    </div>
-  )
-}
-
-/** One labelled value inside the frame. */
-export function ChartTooltipRow({
-  label,
-  value,
-  series,
-}: {
-  label?: React.ReactNode
-  value: React.ReactNode
-  /** Series colour for the identity dot, when the chart has more than one series. */
-  series?: string
-}) {
-  return (
-    <div className="flex items-baseline gap-1.5 tabular-nums">
-      {series && <span className="size-2 shrink-0 rounded-full" style={{ background: series }} />}
-      <span className="font-medium">{value}</span>
-      {label && <span className="text-muted-foreground">{label}</span>}
+      {rows.map((row) => (
+        <div key={row.name} className="flex items-center gap-1.5 tabular-nums">
+          {row.color && <span className="size-2 shrink-0 rounded-full" style={{ background: row.color }} />}
+          <span className="font-medium">{typeof row.value === 'number' ? format(row.value) : row.value}</span>
+          <span className="text-muted-foreground">{row.name}</span>
+        </div>
+      ))}
     </div>
   )
 }

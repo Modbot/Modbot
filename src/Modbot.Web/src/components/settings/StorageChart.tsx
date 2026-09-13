@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { ChartTooltipFrame, ChartTooltipRow } from '@/components/charts/ChartTooltip'
+import { ChartTooltipFrame, ChartTooltipRow } from './StorageTooltip'
 import {
   AXIS,
   GRID_COLOR,
@@ -20,7 +20,7 @@ import {
   plotLabel,
   seriesColor,
   useChartTokens,
-} from '@/components/charts/theme'
+} from './storageChartTheme'
 import type { DataSettings } from '@/lib/api'
 import { bytes } from './units'
 

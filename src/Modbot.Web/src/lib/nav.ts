@@ -13,7 +13,12 @@ export const NAV = [
   { id: 'members', label: 'Members', needs: 'ViewMembers' },
   { id: 'bans', label: 'Bans', needs: 'ViewAuditLog' },
   { id: 'audit', label: 'Audit log', needsAny: ['ViewAuditLog', 'ViewOperationalLog'] },
-  { id: 'metrics', label: 'Metrics', group: 'Insight', needs: 'ViewAnalytics' },
+  // One page per question (spec 10.1), not one "metrics" page. Tracked Groups is a later
+  // feature (spec 10.3) and has no entry until it exists.
+  { id: 'analytics-group', label: 'My Group', group: 'Analytics', needs: 'ViewAnalytics' },
+  { id: 'analytics-team', label: 'My Team', needs: 'ViewAnalytics' },
+  { id: 'analytics-worlds', label: 'Worlds', needs: 'ViewAnalytics' },
+  { id: 'analytics-instances', label: 'Instances', needs: 'ViewAnalytics' },
   { id: 'users', label: 'Users', group: 'Team', needs: 'ManageUsers' },
   { id: 'roles', label: 'Roles', needs: 'ManageRoles' },
   { id: 'health', label: 'Sync health', group: 'Setup', needs: 'ViewOperationalLog' },

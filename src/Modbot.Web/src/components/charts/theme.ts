@@ -1,93 +1,36 @@
-import { useEffect, useState } from 'react'
-
 /**
- * Recharts on Modbot's tokens.
+ * Chart colours and sizes, all read from the CSS tokens in index.css.
  *
- * Every colour, weight and size a chart draws with comes from index.css, so charts move with the
- * theme and with all three densities — VR included, where a 2px line is a suggestion and 11px
- * axis text is mush. Recharts takes CSS `var()` strings happily for colours, but SVG
- * presentation attributes such as `stroke-width` and `font-size` do not resolve `var()`, so
- * those few values are read from the computed style instead and re-read whenever the theme or
- * density class on the root element changes.
+ * Nothing here is a hex value. The five series colours are a fixed, validated order (see the
+ * note on `--series-*` in index.css): a series keeps its hue when a filter removes its
+ * neighbours, so "bans are orange" stays learnable. Callers pick a slot by number, never by
+ * rank, and the theme swaps the actual colour underneath for light, dark and VR.
  *
- * The rules the shapes follow, because they are easy to undo by accident:
- *
- * - Series colours are a fixed order, never cycled by rank. A filter that removes a series must
- *   not repaint the survivors, or a reader who learned "bans are orange" is misled.
- * - Marks are thin, grid lines are hairline and recessive. Dashed strokes carry exactly one
- *   meaning — an estimate, not a measurement — and measured series are never dashed.
- * - Identity never rides on colour alone: every multi-series chart has a legend, and values are
- *   written in text tokens rather than in the series colour.
- * - One axis, always. Two measures of different scale are two charts.
+ * Shared by every chart in the app -- analytics, storage, anything later -- so that a change to
+ * the palette is a change to index.css and nothing else.
  */
 
-export type SeriesIndex = 1 | 2 | 3 | 4 | 5
+export type SeriesSlot = 1 | 2 | 3 | 4 | 5
 
-/** The fill or stroke for a series, as a CSS var recharts passes straight through. */
-export const seriesColor = (series: SeriesIndex): string => `var(--series-${series})`
+export const seriesColor = (slot: SeriesSlot): string => `var(--series-${slot})`
 
-export const GRID_COLOR = 'var(--chart-grid)'
-export const MUTED_TEXT = 'var(--muted-foreground)'
-export const TEXT = 'var(--foreground)'
-/** The card surface, for the ring around a dot that sits on a line. */
-export const SURFACE = 'var(--card)'
+/** The slot after `slot`, wrapping, for callers that lay out an unknown number of series. */
+export const nextSlot = (index: number): SeriesSlot => (((index % 5) + 5) % 5 + 1) as SeriesSlot
 
-export type ChartTokens = {
-  /** Series stroke width in px (`--chart-stroke`). */
-  stroke: number
-  /** Grid and reference line width in px (`--hairline`). */
-  hairline: number
-  /** Axis and label type size in px (`--text-small`). */
-  fontSize: number
-}
+export const chartTheme = {
+  grid: 'var(--chart-grid)',
+  text: 'var(--muted-foreground)',
+  surface: 'var(--card)',
+  strokeWidth: 'var(--chart-stroke)',
+  /** The status colours, for marks that mean something rather than identify a series. */
+  ok: 'var(--ok)',
+  warn: 'var(--warn)',
+  bad: 'var(--destructive)',
+} as const
 
-const DEFAULTS: ChartTokens = { stroke: 2, hairline: 1, fontSize: 12 }
-
-function readTokens(): ChartTokens {
-  if (typeof document === 'undefined') return DEFAULTS
-  const style = getComputedStyle(document.documentElement)
-  const px = (name: string, fallback: number) => {
-    const raw = style.getPropertyValue(name).trim()
-    if (!raw) return fallback
-    // Tokens are declared in rem or px; rem resolves against the root font size.
-    const n = parseFloat(raw)
-    if (Number.isNaN(n)) return fallback
-    return raw.endsWith('rem') ? n * parseFloat(style.fontSize || '16') : n
-  }
-  return {
-    stroke: px('--chart-stroke', DEFAULTS.stroke),
-    hairline: px('--hairline', DEFAULTS.hairline),
-    fontSize: px('--text-small', DEFAULTS.fontSize),
-  }
-}
-
-/**
- * The pixel values recharts needs as numbers, kept current across theme and density switches.
- * Both are applied as attributes on `<html>`, so one MutationObserver covers them.
- */
-export function useChartTokens(): ChartTokens {
-  const [tokens, setTokens] = useState<ChartTokens>(readTokens)
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => setTokens(readTokens()))
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class', 'data-density'],
-    })
-    return () => observer.disconnect()
-  }, [])
-
-  return tokens
-}
-
-/** Props for an axis `tick` so labels use the muted text token at the small size. */
-export const axisTick = (tokens: ChartTokens) => ({ fill: MUTED_TEXT, fontSize: tokens.fontSize })
-
-/** Props shared by every axis: no axis line, no tick marks — the grid is enough. */
-export const AXIS = { axisLine: false, tickLine: false } as const
-
-/** Props for a label drawn inside the plot (reference lines, end values). */
-export const plotLabel = (tokens: ChartTokens, color: string = MUTED_TEXT) => ({
-  fill: color,
-  fontSize: tokens.fontSize,
-})
+/** Default plot heights, in pixels. Small enough that four fit on a screen; tall enough to read. */
+export const chartHeight = {
+  small: 104,
+  regular: 160,
+  tall: 220,
+} as const
