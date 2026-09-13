@@ -54,24 +54,31 @@ public sealed class PairingLinkInbox
     {
         ArgumentNullException.ThrowIfNull(onMessage);
 
-        while (!cancellationToken.IsCancellationRequested)
+        // One server instance for the whole life of the inbox, disconnected between callers rather
+        // than disposed and recreated. On Windows that is merely the ordinary pattern. On Linux and
+        // macOS a named pipe is a Unix socket, and a second copy of the client that connects while
+        // the first message is still being read sits in the listen backlog -- its write even
+        // succeeds -- until the server stream is disposed, which drops the backlog and loses the
+        // link. Disconnect() closes the finished connection and keeps the listening socket.
+        NamedPipeServerStream server;
+        try
         {
-            NamedPipeServerStream server;
-            try
-            {
-                server = new NamedPipeServerStream(
-                    _pipeName,
-                    PipeDirection.In,
-                    maxNumberOfServerInstances: 1,
-                    PipeTransmissionMode.Byte,
-                    PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                return;
-            }
+            server = new NamedPipeServerStream(
+                _pipeName,
+                PipeDirection.In,
+                maxNumberOfServerInstances: 1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Another copy of Modbot owns the pipe. That copy is the one that should be listening.
+            return;
+        }
 
-            await using (server.ConfigureAwait(false))
+        await using (server.ConfigureAwait(false))
+        {
+            while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
@@ -83,20 +90,44 @@ public sealed class PairingLinkInbox
                 }
                 catch (IOException)
                 {
+                    // A caller that vanished between connecting and being accepted. Reset and go
+                    // round again -- after a pause, so a fault that repeats cannot spin hot.
+                    DisconnectQuietly(server);
+                    await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken).ConfigureAwait(false);
                     continue;
                 }
 
-                var message = await ReadOneAsync(server, cancellationToken).ConfigureAwait(false);
-                if (message is { Length: > 0 })
-                    await onMessage(message).ConfigureAwait(false);
+                try
+                {
+                    var message = await ReadOneAsync(server, cancellationToken).ConfigureAwait(false);
+                    if (message is { Length: > 0 })
+                        await onMessage(message).ConfigureAwait(false);
+                }
+                finally
+                {
+                    DisconnectQuietly(server);
+                }
             }
         }
     }
 
-    /// <summary>
-    /// Hands a message to a running copy. False when nobody is listening, or when what is
-    /// listening is not this program run by this Windows account.
-    /// </summary>
+    private static void DisconnectQuietly(NamedPipeServerStream server)
+    {
+        // Not guarded by IsConnected on purpose. When the caller closes its end first -- which is
+        // every send, since TrySendAsync writes and leaves -- the server's last read ends with a
+        // broken pipe and .NET marks the stream Broken, not Connected. Disconnect() is the move
+        // that takes a Broken stream back to listening; skipping it leaves every later
+        // WaitForConnectionAsync throwing "pipe is broken" and the inbox deaf.
+        try
+        {
+            server.Disconnect();
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
+        {
+            // Already disconnected, or never connected; either way the next wait starts clean.
+        }
+    }
+
     public static async Task<bool> TrySendAsync(
         string message,
         string pipeName = DefaultPipeName,
