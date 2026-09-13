@@ -56,11 +56,11 @@ public sealed class DailyTotalCounter : IDailyTotalCounter
         // write. The origin guard in the DO UPDATE means a name that is also computed can never be
         // quietly added to -- the update matches nothing and the check below raises it.
         const string Sql = """
-            INSERT INTO modbot_rollup_daily (day, metric, dimension, value, origin)
+            INSERT INTO modbot_daily_total (day, metric, dimension, value, origin)
             VALUES (@day, @metric, @dimension, @value, @origin)
             ON CONFLICT (day, metric, dimension) DO UPDATE
-                SET value = modbot_rollup_daily.value + EXCLUDED.value
-                WHERE modbot_rollup_daily.origin = @origin
+                SET value = modbot_daily_total.value + EXCLUDED.value
+                WHERE modbot_daily_total.origin = @origin
             """;
 
 #pragma warning disable EF1002 // Constant SQL; every value is a parameter.

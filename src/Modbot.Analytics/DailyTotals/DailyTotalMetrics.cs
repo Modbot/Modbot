@@ -19,7 +19,7 @@ public enum DailyTotalDimensionKind
 /// A metric counted straight from facts: every fact of one of <paramref name="Types"/> contributes
 /// its weight to the day it happened on.
 /// </summary>
-/// <param name="Name">Dotted metric name, stored verbatim in <c>modbot_rollup_daily.metric</c>.</param>
+/// <param name="Name">Dotted metric name, stored verbatim in <c>modbot_daily_total.metric</c>.</param>
 public sealed record FactCountMetric(
     string Name,
     DailyTotalDimensionKind Dimension,

@@ -119,7 +119,7 @@ public sealed class UserPurger : IUserPurger
 
             var dailyTotalsDeleted = await ExecuteAsync(
                 """
-                DELETE FROM modbot_rollup_daily
+                DELETE FROM modbot_daily_total
                 WHERE origin = @origin AND dimension = ANY(@dimensions)
                 """,
                 ct,
@@ -180,7 +180,7 @@ public sealed class UserPurger : IUserPurger
                 {
                     ["facts"] = facts,
                     // Key kept as first written: this is fact data already in modbot_event.
-                    ["countedRollups"] = dailyTotals,
+                    ["countedDailyTotals"] = dailyTotals,
                     ["daysRecomputed"] = days,
                 },
             },

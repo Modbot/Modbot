@@ -61,7 +61,7 @@ public static class MetricsEndpoints
             .WithName("GetMetrics")
             .WithSummary("Daily series, per-moderator totals, and the observed member count")
             .WithDescription(
-                "Daily series come from modbot_rollup_daily, which is never aged out; the "
+                "Daily series come from modbot_daily_total, which is never aged out; the "
                 + "per-type action breakdown and the observed member counts come from the fact "
                 + "log, which a retention window can shorten. `coverage` reports both ranges "
                 + "separately, because a chart may legitimately cover a longer period than the "

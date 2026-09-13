@@ -85,13 +85,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
 
-            // The audit-log cursor columns keep the names they were created with. The C# names
-            // moved to plain words (the one-off walk through existing history is the "catch-up";
-            // the tail poll's unread window is the "backlog"), and renaming live columns to
-            // follow would be a migration against real data for no benefit to anyone.
-            entity.Property(e => e.AuditLogCatchUpOffset).HasColumnName("audit_log_backfill_offset");
-            entity.Property(e => e.AuditLogCatchUpComplete).HasColumnName("audit_log_backfill_complete");
-            entity.Property(e => e.AuditLogBacklogOffset).HasColumnName("audit_log_catch_up_offset");
+            // Plain words in the database as well as in code (PlainNamesInSchema migration). The
+            // one-off walk through existing history is the "catch-up"; the tail poll's unread
+            // window is the "backlog". Somebody reading the table should not need a glossary.
+            entity.Property(e => e.AuditLogCatchUpOffset).HasColumnName("audit_log_catch_up_offset");
+            entity.Property(e => e.AuditLogCatchUpComplete).HasColumnName("audit_log_catch_up_complete");
+            entity.Property(e => e.AuditLogBacklogOffset).HasColumnName("audit_log_backlog_offset");
         });
 
         builder.Entity<ProtectorKey>(entity =>
@@ -218,14 +217,14 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
         builder.Entity<DailyTotal>(entity =>
         {
-            // The entity is DailyTotal in code; the table keeps the name it was created with,
-            // because renaming a live table is a migration against real data for no benefit.
-            entity.ToTable("modbot_rollup_daily");
+            // Named for what it holds, in the database as well as in code -- renamed from
+            // modbot_rollup_daily by the PlainNamesInSchema migration.
+            entity.ToTable("modbot_daily_total");
 
             // Spec 5.4's key exactly, with the empty string standing in for "no dimension":
             // PostgreSQL does not allow NULL in a primary key column.
             entity.HasKey(e => new { e.Day, e.Metric, e.Dimension })
-                .HasName("pk_modbot_rollup_daily");
+                .HasName("pk_modbot_daily_total");
 
             entity.Property(e => e.Metric).HasColumnType("text");
             entity.Property(e => e.Dimension).HasColumnType("text");
@@ -237,7 +236,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // "Everything for this metric over time" is the shape every chart asks for, and the
             // primary key leads with the day, so it cannot serve that query.
             entity.HasIndex(e => new { e.Metric, e.Day })
-                .HasDatabaseName("ix_modbot_rollup_daily_metric");
+                .HasDatabaseName("ix_modbot_daily_total_metric");
         });
 
         builder.Entity<RateLimitBucket>(entity =>
@@ -259,9 +258,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
         builder.Entity<DailyTotalsState>(entity =>
         {
-            // Same as modbot_rollup_daily: the C# name moved to plain words, the table did not.
-            entity.ToTable("modbot_rollup_state", t =>
-                t.HasCheckConstraint("ck_modbot_rollup_state_singleton", "id = 1"));
+            // Same as modbot_daily_total: the C# name moved to plain words, the table did not.
+            entity.ToTable("modbot_daily_totals_state", t =>
+                t.HasCheckConstraint("ck_modbot_daily_totals_state_singleton", "id = 1"));
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();

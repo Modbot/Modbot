@@ -86,8 +86,8 @@ public sealed class StorageEstimator(ModbotContext db, IModbotClock clock)
             SELECT
                 (SELECT coalesce(sum(pg_total_relation_size(relid)), 0)
                    FROM pg_partition_tree('modbot_event'))                     AS fact_bytes,
-                coalesce(pg_total_relation_size(to_regclass('modbot_rollup_daily')), 0)
-                  + coalesce(pg_total_relation_size(to_regclass('modbot_rollup_state')), 0)
+                coalesce(pg_total_relation_size(to_regclass('modbot_daily_total')), 0)
+                  + coalesce(pg_total_relation_size(to_regclass('modbot_daily_totals_state')), 0)
                                                                                AS daily_total_bytes,
                 (SELECT coalesce(sum(greatest(c.reltuples, 0)), 0)
                    FROM pg_partition_tree('modbot_event') t

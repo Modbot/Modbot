@@ -280,7 +280,7 @@ public class SyncPacingTests
         Assert.NotNull(json);
         // The stored key is pinned to its original spelling (see SyncPacingDocument), because
         // this JSON lives in the settings table and existing rows must still be read.
-        Assert.Contains("auditLogBackfill", json, StringComparison.Ordinal);
+        Assert.Contains("auditLogCatchUp", json, StringComparison.Ordinal);
         Assert.DoesNotContain("groupInfoIntervalSeconds", json, StringComparison.Ordinal);
         Assert.DoesNotContain("budgetFraction", json, StringComparison.Ordinal);
     }

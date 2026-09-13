@@ -7,7 +7,7 @@ using Npgsql;
 namespace Modbot.Analytics.DailyTotals;
 
 /// <summary>
-/// Computes <c>modbot_rollup_daily</c> from the fact log.
+/// Computes <c>modbot_daily_total</c> from the fact log.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -169,7 +169,7 @@ public sealed class DailyTotalsJob
             var rows = 0;
 
             await ExecuteAsync(
-                "DELETE FROM modbot_rollup_daily WHERE origin = @origin AND day = ANY(@days)",
+                "DELETE FROM modbot_daily_total WHERE origin = @origin AND day = ANY(@days)",
                 ct,
                 Param("origin", (short)DailyTotalOrigin.Computed),
                 Param("days", ordered));
@@ -297,7 +297,7 @@ public sealed class DailyTotalsJob
                 CROSS JOIN LATERAL generate_series(
                     date_trunc('day', w.lo), date_trunc('day', w.hi), interval '1 day') AS gs
             )
-            INSERT INTO modbot_rollup_daily (day, metric, dimension, value, origin)
+            INSERT INTO modbot_daily_total (day, metric, dimension, value, origin)
             SELECT s.day, @metric, {dimension}, SUM(s.weight), @origin
             FROM spread s
             WHERE s.day = ANY(@days) AND s.weight > 0 {actorFilter}
@@ -336,7 +336,7 @@ public sealed class DailyTotalsJob
         var carried = await QueryAsync<decimal>(
             """
             SELECT value AS "Value"
-            FROM modbot_rollup_daily
+            FROM modbot_daily_total
             WHERE metric = @metric AND dimension = '' AND day < @from
             ORDER BY day DESC
             LIMIT 1
@@ -347,7 +347,7 @@ public sealed class DailyTotalsJob
         // Days that no longer have any movement lose their row; leaving one behind would show a
         // step in the chart that no fact accounts for.
         await ExecuteAsync(
-            "DELETE FROM modbot_rollup_daily WHERE metric = @metric AND day >= @from AND origin = @origin",
+            "DELETE FROM modbot_daily_total WHERE metric = @metric AND day >= @from AND origin = @origin",
             ct,
             Param("metric", metric.Name),
             Param("from", from),
@@ -355,11 +355,11 @@ public sealed class DailyTotalsJob
 
         return await ExecuteAsync(
             """
-            INSERT INTO modbot_rollup_daily (day, metric, dimension, value, origin)
+            INSERT INTO modbot_daily_total (day, metric, dimension, value, origin)
             SELECT d.day, @metric, '', @carried + SUM(d.delta) OVER (ORDER BY d.day), @origin
             FROM (
                 SELECT day, SUM(CASE WHEN metric = @plus THEN value ELSE -value END) AS delta
-                FROM modbot_rollup_daily
+                FROM modbot_daily_total
                 WHERE origin = @origin AND day >= @from AND metric IN (@plus, @minus)
                 GROUP BY day
             ) d

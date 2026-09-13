@@ -1189,7 +1189,7 @@ Written in batches so each stays reviewable. Tasks 1–4 are complete above.
 |---|---|---|---|
 | 5 | `ModbotUser`, password hashing, cookie sessions, `RequiresFlagAttribute` | Login works; permission flags enforced | `PasswordHasher<ModbotUser>` registered standalone from `Microsoft.Extensions.Identity.Core` — **no ASP.NET Core Identity** (spec §7.2). Permissions are a `[Flags]` enum. |
 | 6 | Fact log: `modbot_event`, monthly partitions, `IFactWriter`, ±5 s windowed dedup | Facts append; bucket-boundary and 15 s rejoin cases covered | The hardest task in M0. See design notes below. |
-| 7 | Daily totals: `modbot_rollup_daily`, `DailyTotalsJob`, recompute | Property test: recomputed == incremental | Generic `(day, metric, dimension)` shape so new metrics need no migration (spec §5.4). Include the §5.2.1 counted-only path. |
+| 7 | Daily totals: `modbot_daily_total`, `DailyTotalsJob`, recompute | Property test: recomputed == incremental | Generic `(day, metric, dimension)` shape so new metrics need no migration (spec §5.4). Include the §5.2.1 counted-only path. |
 | 8 | Retention: tiered pruning | Moderation kept, presence pruned at 90 d | Prune by `DROP TABLE` on whole partitions, never mass `DELETE` (spec §5.5). |
 | 9 | Hierarchical token buckets, `IRateLimitLease`, persisted limiter state | Cold stop survives restart; one probe per window | Global → endpoint class → resource (spec §4.3.1). State in the DB (§4.3.2). Fake must *model the punitive limiter* or the tests prove nothing. |
 | 10 | `IVRChatGate` | Non-throwing SDK verified; WAF classified; AIMD | Must include a smoke test asserting `...WithHttpInfoAsync` returns a non-success `ApiResponse` rather than throwing — pins the upstream behaviour this design depends on. |

@@ -305,7 +305,7 @@ public sealed partial class RetentionPruner
                 {
                     ["dropped"] = string.Join(",", dropped),
                     // Key kept as first written: this is fact data already in modbot_event.
-                    ["evacuated"] = string.Join(",", movedOut),
+                    ["movedOut"] = string.Join(",", movedOut),
                 },
             },
             ct);

@@ -1436,7 +1436,7 @@ hundred edits.
 ### 5.4 Daily totals
 
 ```sql
-modbot_rollup_daily
+modbot_daily_total
   day        date      not null
   metric     text      not null   -- 'members.total', 'members.joined', 'bans.added',
                                   -- 'moderator.actions', 'instance.minutes', ...
@@ -1824,7 +1824,7 @@ supports one of them.
 
 | Shape | Question | Supported by |
 |---|---|---|
-| **Time series** — a value per day | "members over time", "what worlds get the most users" | `modbot_rollup_daily` ✅ |
+| **Time series** — a value per day | "members over time", "what worlds get the most users" | `modbot_daily_total` ✅ |
 | **Cyclic** — a distribution over hour-of-week | "when do people come to events" | nothing yet |
 | **Subject profile** — one person's habits | "is X a regular", "where does X go" | nothing yet |
 
@@ -1918,7 +1918,7 @@ every sync diff emits facts.
 | `ModbotUser` | Staff account: username, password hash, permission bitfield, optional Discord link. |
 | `ApiKey` | Tokens for the read API, separate from user session credentials. |
 | `modbot_event` | The fact log (§5.3). |
-| `modbot_rollup_daily` | Aggregates (§5.4). |
+| `modbot_daily_total` | Aggregates (§5.4). |
 
 ### 6.4 Search
 

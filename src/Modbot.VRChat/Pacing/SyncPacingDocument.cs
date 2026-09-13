@@ -72,10 +72,10 @@ public sealed record SyncPacingDocument
     // The two catch-up fields keep the key names they were first stored under. This document
     // is the settings table's sync_pacing column as well as a wire shape, and a renamed key
     // would silently drop a setting an operator had already saved.
-    [JsonPropertyName("auditLogBackfill")]
+    [JsonPropertyName("auditLogCatchUp")]
     public bool? AuditLogCatchUp { get; init; }
 
-    [JsonPropertyName("auditLogMaxBackfillPages")]
+    [JsonPropertyName("auditLogMaxCatchUpPages")]
     public int? AuditLogMaxCatchUpPages { get; init; }
 
     public double? GroupInfoIntervalSeconds { get; init; }

@@ -11,7 +11,7 @@ using Modbot.Core.Data.Entities;
 namespace Modbot.Api.Features.Metrics;
 
 /// <summary>
-/// The charts of spec 5.6, read out of <c>modbot_rollup_daily</c> and the fact log.
+/// The charts of spec 5.6, read out of <c>modbot_daily_total</c> and the fact log.
 /// </summary>
 /// <remarks>
 /// <para>
