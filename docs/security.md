@@ -109,14 +109,35 @@ database round trip. Two consequences follow, and both matter operationally:
 - **Disabling an account blocks future sign-ins but does not end a session already open.** The
   disabled flag is checked when someone logs in, not on every request.
 
-To cut someone off right now: disable the account, then restart Modbot. The restart invalidates
-every session cookie, for the reason in the next section.
+To cut someone off **right now**: disable the account, then invalidate the session keys (below).
 
 ### Session keys
 
-ASP.NET Core's data protection keys — which sign and encrypt the session cookie — are written
-inside the container and are not persisted. Everyone is signed out whenever Modbot restarts or
-redeploys. That is an inconvenience most of the time and a useful lever when you need one.
+ASP.NET Core's data protection keys sign and encrypt session cookies. Modbot **persists them in its
+own database**, so a restart or redeploy no longer signs everyone out.
+
+That is the right default — on a platform that restarts containers routinely, moderators were
+otherwise being logged out for no reason they could see. But it removes something the previous
+behaviour gave you for free, so it is worth stating plainly:
+
+> **Restarting Modbot no longer ends open sessions.**
+
+To force every session to end, delete the rows from the `data_protection_keys` table and restart.
+Modbot generates a fresh key ring and every existing cookie stops validating. That is the emergency
+lever; disabling an account alone does not close a session already open.
+
+#### These keys are stored unencrypted, and that is deliberate
+
+The key ring is written to the database as plain XML. Encrypting it would mean protecting it with
+another key, and the only place to keep that key is the same database — which is the circularity
+§ *Secrets* already describes.
+
+It changes nothing about the threat model, because **anyone who can read this table has already won**.
+The same database holds the encryption key for your VRChat credentials, every staff password hash,
+and every fact Modbot has recorded. A session cookie key is not the prize in that scenario.
+
+What would genuinely help is encrypting the database itself, or restricting who can reach it — both
+of which are properties of your hosting, not of Modbot. See § *Secrets*.
 
 ## Reporting a vulnerability
 
