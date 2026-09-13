@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Analytics.Retention;
-using Modbot.Analytics.Rollups;
+using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
@@ -92,7 +92,7 @@ public class UserPurgerTests : AnalyticsTestBase
     /// Aggregates that still counted the purged facts would make the deletion cosmetic.
     /// </summary>
     [Fact]
-    public async Task RollupsNoLongerCountThePurgedFacts()
+    public async Task DailyTotalsNoLongerCountThePurgedFacts()
     {
         await WriteAsync(
             Fact(FactType.MemberJoined, Start, subjectId: Subject),
@@ -102,15 +102,15 @@ public class UserPurgerTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         await NewJob(context).RebuildAsync(Ct);
 
-        Assert.Equal(2m, await ValueAsync(DayOf(Start), RollupMetrics.MembersJoined));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
 
         await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
 
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersJoined));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersNet));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersNet));
 
         // And the running total after the purged day moves with it.
-        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(1)), RollupMetrics.MembersNet));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(1)), DailyTotalMetrics.MembersNet));
     }
 
     /// <summary>
@@ -122,29 +122,29 @@ public class UserPurgerTests : AnalyticsTestBase
     public async Task PerUserCountsWithNoFactBehindThemAreErased()
     {
         await using var context = Database.NewContext();
-        var counter = new RollupCounter(context, Clock);
+        var counter = new DailyTotalCounter(context, Clock);
 
         await counter.IncrementAsync(
-            RollupMetrics.DiscordMessages,
-            RollupDimensions.ForUser(FactPlatform.VRChat, Subject),
+            DailyTotalMetrics.DiscordMessages,
+            DailyTotalDimensions.ForUser(FactPlatform.VRChat, Subject),
             120m,
             ct: Ct);
 
         await counter.IncrementAsync(
-            RollupMetrics.DiscordMessages,
-            RollupDimensions.ForUser(FactPlatform.VRChat, Bystander),
+            DailyTotalMetrics.DiscordMessages,
+            DailyTotalDimensions.ForUser(FactPlatform.VRChat, Bystander),
             7m,
             ct: Ct);
 
         var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
 
-        Assert.Equal(1, result.CountedRollupsDeleted);
+        Assert.Equal(1, result.CountedDailyTotalsDeleted);
 
         var today = DayOf(Clock.UtcNow);
         Assert.Null(await ValueAsync(
-            today, RollupMetrics.DiscordMessages, RollupDimensions.ForUser(FactPlatform.VRChat, Subject)));
+            today, DailyTotalMetrics.DiscordMessages, DailyTotalDimensions.ForUser(FactPlatform.VRChat, Subject)));
         Assert.Equal(7m, await ValueAsync(
-            today, RollupMetrics.DiscordMessages, RollupDimensions.ForUser(FactPlatform.VRChat, Bystander)));
+            today, DailyTotalMetrics.DiscordMessages, DailyTotalDimensions.ForUser(FactPlatform.VRChat, Bystander)));
     }
 
     /// <summary>
@@ -160,8 +160,8 @@ public class UserPurgerTests : AnalyticsTestBase
         await NewJob(context).RebuildAsync(Ct);
         await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
 
-        var dimension = RollupDimensions.ForUser(FactPlatform.VRChat, Subject);
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.ModeratorActions, dimension));
+        var dimension = DailyTotalDimensions.ForUser(FactPlatform.VRChat, Subject);
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorActions, dimension));
     }
 
     /// <summary>

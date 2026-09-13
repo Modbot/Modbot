@@ -1,7 +1,7 @@
 namespace Modbot.Core.Data.Entities;
 
 /// <summary>
-/// Where the incremental rollup run got to. One row, like <see cref="Settings"/>.
+/// Where the incremental daily totals run got to. One row, like <see cref="Settings"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -11,18 +11,18 @@ namespace Modbot.Core.Data.Entities;
 /// an hour ago. A watermark on <c>occurred_at</c> would skip every one of them silently.
 /// </para>
 /// <para>
-/// Losing this row costs nothing but time: a full rebuild reconstructs every computed rollup from
+/// Losing this row costs nothing but time: a full rebuild reconstructs every computed daily total from
 /// the fact log (spec 5.2).
 /// </para>
 /// </remarks>
-public class RollupState
+public class DailyTotalsState
 {
     /// <summary>Always 1. Enforced by a database check constraint.</summary>
     public int Id { get; set; } = 1;
 
     /// <summary>
-    /// The highest <c>observed_at</c> already folded into the rollups, or null before the first
-    /// run. The next run re-scans a little behind this (see <c>RollupJob</c>).
+    /// The highest <c>observed_at</c> already folded into the daily totals, or null before the first
+    /// run. The next run re-scans a little behind this (see <c>DailyTotalsJob</c>).
     /// </summary>
     public DateTimeOffset? ObservedThrough { get; set; }
 

@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
-using Modbot.Analytics.Rollups;
+using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -32,45 +32,45 @@ public interface IUserPurger
 }
 
 /// <param name="FactsDeleted">Facts erased.</param>
-/// <param name="CountedRollupsDeleted">
-/// Counted-only rollup rows erased -- the per-user aggregates that have no fact behind them and so
+/// <param name="CountedDailyTotalsDeleted">
+/// Counted-only daily total rows erased -- the per-user aggregates that have no fact behind them and so
 /// would otherwise survive the purge (spec 5.2.1).
 /// </param>
-/// <param name="DaysRecomputed">Rollup days rebuilt so that no aggregate still includes the facts.</param>
-public sealed record PurgeResult(int FactsDeleted, int CountedRollupsDeleted, int DaysRecomputed);
+/// <param name="DaysRecomputed">Days rebuilt so that no aggregate still includes the facts.</param>
+public sealed record PurgeResult(int FactsDeleted, int CountedDailyTotalsDeleted, int DaysRecomputed);
 
 /// <inheritdoc />
 public sealed class UserPurger : IUserPurger
 {
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
-    private readonly RollupJob _rollups;
+    private readonly DailyTotalsJob _dailyTotals;
     private readonly IFactWriter _facts;
     private readonly EventPartitionMaintainer _partitions;
 
     public UserPurger(
         ModbotContext db,
         IModbotClock clock,
-        RollupJob rollups,
+        DailyTotalsJob dailyTotals,
         IFactWriter facts,
         EventPartitionMaintainer partitions)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
-        ArgumentNullException.ThrowIfNull(rollups);
+        ArgumentNullException.ThrowIfNull(dailyTotals);
         ArgumentNullException.ThrowIfNull(facts);
         ArgumentNullException.ThrowIfNull(partitions);
 
         _db = db;
         _clock = clock;
-        _rollups = rollups;
+        _dailyTotals = dailyTotals;
         _facts = facts;
         _partitions = partitions;
     }
 
     /// <summary>
     /// Erases the subject's facts, the per-user counts that only exist as aggregates, and rebuilds
-    /// the rollups for the days involved.
+    /// the daily totals for the days involved.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -81,7 +81,7 @@ public sealed class UserPurger : IUserPurger
     /// were in it.
     /// </para>
     /// <para>
-    /// Computed rollups are recomputed rather than deleted. What survives is only what the
+    /// Computed daily totals are recomputed rather than deleted. What survives is only what the
     /// surviving facts still say, which is the invariant (spec 5.2) -- deleting derived rows that
     /// a rebuild would put straight back would be theatre. Counted-only rows dimensioned on this
     /// person <em>are</em> deleted: nothing can recompute them, so they are the only copy, and for
@@ -106,7 +106,7 @@ public sealed class UserPurger : IUserPurger
         try
         {
             // Collected before the delete: afterwards there is nothing left to ask.
-            var days = await _rollups.DaysTouchedBySubjectAsync(platform, subjectId, ct);
+            var days = await _dailyTotals.DaysTouchedBySubjectAsync(platform, subjectId, ct);
 
             var factsDeleted = await ExecuteAsync(
                 """
@@ -117,24 +117,24 @@ public sealed class UserPurger : IUserPurger
                 new NpgsqlParameter("platform", (short)platform),
                 new NpgsqlParameter("subject", subjectId));
 
-            var rollupsDeleted = await ExecuteAsync(
+            var dailyTotalsDeleted = await ExecuteAsync(
                 """
                 DELETE FROM modbot_rollup_daily
                 WHERE origin = @origin AND dimension = ANY(@dimensions)
                 """,
                 ct,
-                new NpgsqlParameter("origin", (short)RollupOrigin.Counted),
+                new NpgsqlParameter("origin", (short)DailyTotalOrigin.Counted),
                 new NpgsqlParameter("dimensions", Dimensions(platform, subjectId)));
 
             if (days.Count > 0)
-                await _rollups.RecomputeDaysAsync(days, ct);
+                await _dailyTotals.RecomputeDaysAsync(days, ct);
 
-            await RecordAsync(factsDeleted, rollupsDeleted, days.Count, ct);
+            await RecordAsync(factsDeleted, dailyTotalsDeleted, days.Count, ct);
 
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
 
-            return new PurgeResult(factsDeleted, rollupsDeleted, days.Count);
+            return new PurgeResult(factsDeleted, dailyTotalsDeleted, days.Count);
         }
         finally
         {
@@ -144,17 +144,17 @@ public sealed class UserPurger : IUserPurger
     }
 
     /// <summary>
-    /// The dimension strings a per-user rollup might have been written under.
+    /// The dimension strings a per-user daily total might have been written under.
     /// </summary>
     /// <remarks>
-    /// The platform-qualified form is what the rollup job produces and what callers of
-    /// <see cref="IRollupCounter"/> should use, so that a Discord snowflake and a VRChat id cannot
+    /// The platform-qualified form is what the daily totals job produces and what callers of
+    /// <see cref="IDailyTotalCounter"/> should use, so that a Discord snowflake and a VRChat id cannot
     /// merge into one person. The bare id is included because a counter somewhere may have written
     /// one, and a purge that missed rows on a formatting technicality would be the worst possible
     /// place to be strict.
     /// </remarks>
     private static string[] Dimensions(FactPlatform platform, string subjectId)
-        => [RollupDimensions.ForUser(platform, subjectId), subjectId];
+        => [DailyTotalDimensions.ForUser(platform, subjectId), subjectId];
 
     /// <summary>
     /// Records that a purge happened -- and deliberately not who it was about.
@@ -164,7 +164,7 @@ public sealed class UserPurger : IUserPurger
     /// that data was destroyed and how much, which is what makes the deletion auditable without
     /// undoing it.
     /// </remarks>
-    private async Task RecordAsync(int facts, int rollups, int days, CancellationToken ct)
+    private async Task RecordAsync(int facts, int dailyTotals, int days, CancellationToken ct)
     {
         await _partitions.EnsureForAsync(_clock.UtcNow, ct);
 
@@ -179,7 +179,8 @@ public sealed class UserPurger : IUserPurger
                 Data = new JsonObject
                 {
                     ["facts"] = facts,
-                    ["countedRollups"] = rollups,
+                    // Key kept as first written: this is fact data already in modbot_event.
+                    ["countedRollups"] = dailyTotals,
                     ["daysRecomputed"] = days,
                 },
             },

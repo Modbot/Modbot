@@ -11,7 +11,7 @@ namespace Modbot.Analytics.Tests;
 /// <remarks>
 /// <para>
 /// The fact-log tests can share one database because each writes facts under ids nobody else
-/// uses. The rollup and retention tests cannot: a rollup is an aggregate <em>over every fact in
+/// uses. The daily totals and retention tests cannot: a daily total is an aggregate <em>over every fact in
 /// the table</em>, and retention drops whole partitions out from under whatever else is running.
 /// Either one, run against the shared database, would be reading and destroying other tests'
 /// data.

@@ -1,18 +1,18 @@
 using Modbot.Analytics.Facts;
-using Modbot.Analytics.Rollups;
+using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
-namespace Modbot.Analytics.Tests.Rollups;
+namespace Modbot.Analytics.Tests.DailyTotals;
 
 /// <summary>
-/// The invariant the whole analytics design rests on: <strong>rollups are always recomputable
+/// The invariant the whole analytics design rests on: <strong>daily totals are always recomputable
 /// from facts</strong> (spec 5.2).
 /// </summary>
 /// <remarks>
 /// <para>
 /// Over randomised fact sequences -- out of order, some imprecise, some straddling midnight,
-/// arriving in unpredictable batches -- the rollups built up incrementally must equal the ones a
+/// arriving in unpredictable batches -- the daily totals built up incrementally must equal the ones a
 /// rebuild from scratch produces, row for row and digit for digit. If that ever stops holding,
 /// then a rebuild is not a fix for an aggregation bug, it is a second bug, and the promise that a
 /// wrong metric is "a re-run, not lost data" is empty.
@@ -24,9 +24,9 @@ namespace Modbot.Analytics.Tests.Rollups;
 /// </para>
 /// </remarks>
 [Collection(nameof(PostgresCollection))]
-public class RollupRecomputationPropertyTests : AnalyticsTestBase
+public class DailyTotalRecomputationPropertyTests : AnalyticsTestBase
 {
-    public RollupRecomputationPropertyTests(PostgresFixture fixture) : base(fixture) { }
+    public DailyTotalRecomputationPropertyTests(PostgresFixture fixture) : base(fixture) { }
 
     [Theory]
     [InlineData(1)]
@@ -66,7 +66,7 @@ public class RollupRecomputationPropertyTests : AnalyticsTestBase
 
         // A pair of empty snapshots would satisfy the equality and prove nothing.
         Assert.NotEmpty(incremental);
-        Assert.Contains(incremental, row => row.Contains(RollupMetrics.MembersNet, StringComparison.Ordinal));
+        Assert.Contains(incremental, row => row.Contains(DailyTotalMetrics.MembersNet, StringComparison.Ordinal));
         Assert.Equal(incremental, rebuilt);
     }
 

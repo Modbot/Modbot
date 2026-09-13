@@ -3,7 +3,7 @@ using System.Data.Common;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
-using Modbot.Analytics.Rollups;
+using Modbot.Analytics.DailyTotals;
 using Modbot.Api.Features.Audit;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -15,19 +15,19 @@ namespace Modbot.Api.Features.Metrics;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Two sources, deliberately kept apart.</strong> The daily series come from the rollups,
+/// <strong>Two sources, deliberately kept apart.</strong> The daily series come from the daily totals,
 /// which are kept forever; the per-type action breakdown and the observed member counts come from
 /// facts, which an operator may have configured a window on. Mixing them into one series would
 /// produce a chart whose left-hand end silently changes meaning, so each is reported with the
 /// range it actually had (<see cref="MetricsCoverage"/>).
 /// </para>
 /// <para>
-/// <strong><c>members.net</c> is not the group's member count.</strong> The rollup job computes
+/// <strong><c>members.net</c> is not the group's member count.</strong> The daily totals job computes
 /// it as the running net of recorded joins and leaves, starting from zero on the fact log's first
 /// day — a group that installs Modbot with 40,000 members watches the series start at zero and
 /// climb. It is exposed here under a label that says so, and the real headcount is
 /// <see cref="MetricsResponse.MemberCount"/>, which is what VRChat reported to the group-info
-/// sync. Charting the rollup as "members" would be the exact failure this screen is supposed to
+/// sync. Charting the daily total as "members" would be the exact failure this screen is supposed to
 /// avoid: a real number that means something other than what it is labelled.
 /// </para>
 /// </remarks>
@@ -55,12 +55,12 @@ public sealed class MetricsQuery(ModbotContext db)
         DateTimeOffset now,
         CancellationToken ct = default)
     {
-        var rollups = await db.RollupDaily.AsNoTracking()
+        var dailyTotals = await db.DailyTotals.AsNoTracking()
             .Where(r => r.Day >= from && r.Day <= to)
             .Select(r => new { r.Day, r.Metric, r.Dimension, r.Value })
             .ToListAsync(ct);
 
-        List<DayValue> Undimensioned(string metric) => rollups
+        List<DayValue> Undimensioned(string metric) => dailyTotals
             .Where(r => r.Metric == metric && r.Dimension.Length == 0)
             .OrderBy(r => r.Day)
             .Select(r => new DayValue(r.Day, r.Value))
@@ -68,20 +68,20 @@ public sealed class MetricsQuery(ModbotContext db)
 
         var series = new List<MetricSeries>
         {
-            new(RollupMetrics.MembersJoined, "Members joined", null, Undimensioned(RollupMetrics.MembersJoined)),
-            new(RollupMetrics.MembersLeft, "Members left", null, Undimensioned(RollupMetrics.MembersLeft)),
-            new(RollupMetrics.BansAdded, "Bans recorded", null, Undimensioned(RollupMetrics.BansAdded)),
+            new(DailyTotalMetrics.MembersJoined, "Members joined", null, Undimensioned(DailyTotalMetrics.MembersJoined)),
+            new(DailyTotalMetrics.MembersLeft, "Members left", null, Undimensioned(DailyTotalMetrics.MembersLeft)),
+            new(DailyTotalMetrics.BansAdded, "Bans recorded", null, Undimensioned(DailyTotalMetrics.BansAdded)),
             new(
-                RollupMetrics.MembersNet,
+                DailyTotalMetrics.MembersNet,
                 "Net change since Modbot started recording",
                 "Recorded joins minus recorded leaves, counted from zero on the first day of the "
                 + "fact log. It is not the group's member count — that is the observed headcount "
                 + "series, which comes from the group-info sync.",
-                Undimensioned(RollupMetrics.MembersNet)),
+                Undimensioned(DailyTotalMetrics.MembersNet)),
         };
 
-        var moderators = await ModeratorsAsync(rollups
-            .Where(r => r.Metric == RollupMetrics.ModeratorActions && r.Dimension.Length > 0)
+        var moderators = await ModeratorsAsync(dailyTotals
+            .Where(r => r.Metric == DailyTotalMetrics.ModeratorActions && r.Dimension.Length > 0)
             .GroupBy(r => r.Dimension)
             .Select(g => (Dimension: g.Key, Actions: g.Sum(r => r.Value)))
             .OrderByDescending(g => g.Actions)
@@ -100,10 +100,10 @@ public sealed class MetricsQuery(ModbotContext db)
     }
 
     /// <summary>
-    /// Puts a name to each rollup dimension, where the fact log recorded one.
+    /// Puts a name to each daily total dimension, where the fact log recorded one.
     /// </summary>
     /// <remarks>
-    /// The dimension is <c>platform:id</c> (see <c>RollupDimensions</c>), and the id half is
+    /// The dimension is <c>platform:id</c> (see <c>DailyTotalDimensions</c>), and the id half is
     /// opaque — split on the first colon and never validate either side (spec 3.1.1).
     /// </remarks>
     private async Task<IReadOnlyList<ModeratorActivity>> ModeratorsAsync(
@@ -167,10 +167,10 @@ public sealed class MetricsQuery(ModbotContext db)
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Read out of <c>GroupInfoChanged</c> facts rather than from a rollup because there is no
-    /// rollup for it: the group-info producer writes a baseline fact carrying the whole snapshot
+    /// Read out of <c>GroupInfoChanged</c> facts rather than from a daily total because there is no
+    /// daily total for it: the group-info producer writes a baseline fact carrying the whole snapshot
     /// and thereafter writes only what changed, and neither shape is something the generic
-    /// fact-count rollup can sum.
+    /// fact-count daily total can sum.
     /// </para>
     /// <para>
     /// <c>DISTINCT ON</c> takes the last observation of each UTC day. A day on which nothing
@@ -220,10 +220,10 @@ public sealed class MetricsQuery(ModbotContext db)
     /// </summary>
     /// <remarks>
     /// <para>
-    /// From facts and not from rollups because no rollup carries it: the registry has
+    /// From facts and not from daily totals because no daily total carries it: the registry has
     /// <c>bans.added</c> and an actor-dimensioned <c>moderator.actions</c>, and neither is a
     /// per-type daily breakdown. That makes this the one series on the screen bounded by the fact
-    /// log rather than by the rollups, which is why the response reports both ranges.
+    /// log rather than by the daily totals, which is why the response reports both ranges.
     /// </para>
     /// <para>
     /// Counted, not apportioned. Every type here comes from VRChat's audit log, which states when
@@ -280,8 +280,8 @@ public sealed class MetricsQuery(ModbotContext db)
 
     private async Task<MetricsCoverage> CoverageAsync(CancellationToken ct)
     {
-        var rollupFirst = await db.RollupDaily.AsNoTracking().MinAsync(r => (DateOnly?)r.Day, ct);
-        var rollupLast = await db.RollupDaily.AsNoTracking().MaxAsync(r => (DateOnly?)r.Day, ct);
+        var dailyTotalsFirst = await db.DailyTotals.AsNoTracking().MinAsync(r => (DateOnly?)r.Day, ct);
+        var dailyTotalsLast = await db.DailyTotals.AsNoTracking().MaxAsync(r => (DateOnly?)r.Day, ct);
 
         var factFirst = await db.Events.AsNoTracking().MinAsync(e => (DateTimeOffset?)e.OccurredAt, ct);
         var factLast = await db.Events.AsNoTracking().MaxAsync(e => (DateTimeOffset?)e.OccurredAt, ct);
@@ -292,8 +292,8 @@ public sealed class MetricsQuery(ModbotContext db)
         var presence = settings?.PresenceFactRetentionDays ?? 0;
 
         return new MetricsCoverage(
-            rollupFirst,
-            rollupLast,
+            dailyTotalsFirst,
+            dailyTotalsLast,
             factFirst is null ? null : DateOnly.FromDateTime(factFirst.Value.UtcDateTime),
             factLast is null ? null : DateOnly.FromDateTime(factLast.Value.UtcDateTime),
             moderation > 0 || presence > 0,

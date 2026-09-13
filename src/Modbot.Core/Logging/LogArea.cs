@@ -25,7 +25,7 @@ public static class LogArea
     /// <summary>Moderation actions and accountability.</summary>
     public const string Moderation = "Moderation";
 
-    /// <summary>Fact writing, rollups, retention.</summary>
+    /// <summary>Fact writing, daily totals, retention.</summary>
     public const string Analytics = "Analytics";
 
     /// <summary>Onboarding, settings, auth.</summary>

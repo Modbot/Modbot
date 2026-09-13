@@ -3,7 +3,7 @@
 - **Date:** 2026-09-11
 - **Status:** Draft, awaiting review
 - **Covers:** M7 — the segment query builder, saved cohorts, exports, bulk targeting, giveaway draws
-- **Depends on:** M0 (facts, rollups), M2.5 (dossier, metrics), **M3 (presence data — the reason this is interesting)**, M5 (Discord facts)
+- **Depends on:** M0 (facts, daily totals), M2.5 (dossier, metrics), **M3 (presence data — the reason this is interesting)**, M5 (Discord facts)
 
 ---
 
@@ -28,15 +28,15 @@ It was originally sequenced last. Moving the client to M3 unblocked it five mile
 
 ## 2. The query model
 
-### 2.1 Predicates over facts and rollups
+### 2.1 Predicates over facts and daily totals
 
 | Dimension | Source | Examples |
 |---|---|---|
 | Membership | projections | joined before/after, current roles, membership status |
 | Moderation | facts | ban count, kick count, classifications, never-actioned |
-| Presence | facts + rollups (M3) | hours in instances, distinct days seen, last seen, first seen |
-| Discord | facts + rollups (M5) | voice minutes, message volume, server tenure |
-| Derived | rollups | active streak, lapsed, new-this-month |
+| Presence | facts + daily totals (M3) | hours in instances, distinct days seen, last seen, first seen |
+| Discord | facts + daily totals (M5) | voice minutes, message volume, server tenure |
+| Derived | daily totals | active streak, lapsed, new-this-month |
 
 Combined with and/or/not, and expressed in a **builder UI first** — not a query language. The
 audience is a community manager, not an analyst. A saved segment may expose its underlying query for
@@ -111,10 +111,10 @@ dedicated person cannot hold most of the probability mass.
 ## 5. Performance
 
 Segment evaluation is the heaviest read in Modbot: predicates spanning millions of partitioned fact
-rows and a rollup table.
+rows and a daily total table.
 
-- Prefer **rollups over raw facts** wherever a rollup answers the question. "Hours in the last 30
-  days" is a rollup sum, not a scan of presence events.
+- Prefer **daily totals over raw facts** wherever a daily total answers the question. "Hours in the last 30
+  days" is a daily total sum, not a scan of presence events.
 - Evaluation is **bounded and cancellable**; a pathological predicate is stopped and reported rather
   than holding a connection until something times out.
 - Results are paged, with the count computed separately so the UI can show a total without
@@ -158,6 +158,6 @@ foundation §5.5's position earns out.
    share useful ones. Attractive, and a way for the project to ship good defaults.
 3. **Draw seed commitment mechanics** — publishing a hash beforehand and the seed afterwards is
    stronger than publishing the seed alone, and costs little. Probably worth it.
-4. **Rollup coverage**: which predicates need new rollups to stay fast, and whether those can be
+4. **Daily totals coverage**: which predicates need new daily totals to stay fast, and whether those can be
    filled in from retained facts at the time M7 is built — they can only be filled in across the window
    the presence retention still covers.

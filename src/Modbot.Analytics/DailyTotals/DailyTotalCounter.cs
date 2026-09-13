@@ -4,15 +4,15 @@ using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
 using Npgsql;
 
-namespace Modbot.Analytics.Rollups;
+namespace Modbot.Analytics.DailyTotals;
 
 /// <inheritdoc />
-public sealed class RollupCounter : IRollupCounter
+public sealed class DailyTotalCounter : IDailyTotalCounter
 {
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
 
-    public RollupCounter(ModbotContext db, IModbotClock clock)
+    public DailyTotalCounter(ModbotContext db, IModbotClock clock)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
@@ -33,7 +33,7 @@ public sealed class RollupCounter : IRollupCounter
         // Refused up front, because the failure is otherwise invisible: the count would be right
         // until the next rebuild silently replaced it with whatever the facts said, which for a
         // metric with no facts behind it is nothing.
-        if (RollupMetrics.Computed.Contains(metric))
+        if (DailyTotalMetrics.Computed.Contains(metric))
         {
             throw new ArgumentException(
                 $"'{metric}' is computed from facts. Counting into it would be overwritten by the "
@@ -49,7 +49,7 @@ public sealed class RollupCounter : IRollupCounter
             new("metric", metric),
             new("dimension", dimension ?? string.Empty),
             new("value", amount),
-            new("origin", (short)RollupOrigin.Counted),
+            new("origin", (short)DailyTotalOrigin.Counted),
         };
 
         // One statement, so concurrent counters cannot lose an increment between a read and a
@@ -70,7 +70,7 @@ public sealed class RollupCounter : IRollupCounter
         if (rows == 0)
         {
             throw new InvalidOperationException(
-                $"Rollup '{metric}' on {target:yyyy-MM-dd} is computed from facts and cannot be "
+                $"Daily total '{metric}' on {target:yyyy-MM-dd} is computed from facts and cannot be "
                 + "counted into.");
         }
     }

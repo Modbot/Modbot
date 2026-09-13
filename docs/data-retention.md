@@ -19,9 +19,9 @@ is most of what Modbot exists to be able to tell you.
 | **Moderation facts** | bans, kicks, role changes, membership changes, audit-log entries, Modbot's own logins and settings changes | forever |
 | **Presence facts** | instance joins and leaves, avatar changes, voice sessions, and Modbot's operational log | forever |
 | **Case files** | the written rationale for a ban, the evidence attached to it, and the snapshot of the subject's profile at the time | forever — **and see the exception below** |
-| **Rollups** | daily aggregates: member counts, join and leave rates, per-moderator action counts | forever |
+| **Daily totals** | daily aggregates: member counts, join and leave rates, per-moderator action counts | forever |
 
-Both fact retentions are configurable if you want a window. Rollups are never aged out, so charts
+Both fact retentions are configurable if you want a window. Daily totals are never aged out, so charts
 keep their full history even where the underlying events have been removed — the aggregate
 survives, the individual rows do not.
 

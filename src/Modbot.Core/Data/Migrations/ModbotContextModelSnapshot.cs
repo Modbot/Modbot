@@ -434,7 +434,7 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("rate_limit_bucket", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.RollupDaily", b =>
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DailyTotals", b =>
                 {
                     b.Property<DateOnly>("Day")
                         .HasColumnType("date")
@@ -465,7 +465,7 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("modbot_rollup_daily", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.RollupState", b =>
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DailyTotalsState", b =>
                 {
                     b.Property<int>("Id")
                         .HasColumnType("integer")

@@ -351,7 +351,7 @@ Modbot/
 ├─ src/
 │  ├─ Modbot.Core/            # entities, ModbotContext, migrations, domain events, facts
 │  ├─ Modbot.VRChat/          # IVRChatGate, rate limiter, session management, sync jobs
-│  ├─ Modbot.Analytics/       # fact emission, rollup engine, retention, segment queries
+│  ├─ Modbot.Analytics/       # fact emission, daily totals engine, retention, segment queries
 │  ├─ Modbot.Discord/         # Discord.Net bot as IHostedService
 │  ├─ Modbot.Api/             # HTTP endpoints, auth, onboarding
 │  ├─ Modbot.Web/             # React + Vite + TS; builds into Modbot.Host/wwwroot
@@ -460,7 +460,7 @@ intent from a regex and a `HttpClient.PostAsync`.
                        GroupMember, GroupBan, …     • never mutated, never overwritten
                               │                            │
                               │                            ▼
-                              │                     RollupJob (recomputable aggregates)
+                              │                     DailyTotalsJob (recomputable aggregates)
                               ▼
                      DomainEvent ──▶ Discord embeds  /  SSE to web UI
 ```
@@ -1095,7 +1095,7 @@ that cannot run is an inconvenience.
 
 Modbot has **one clock**: `IModbotClock`, served by the backend. Nothing anywhere — server, client,
 overlay — reads `DateTime.Now` or `DateTimeOffset.UtcNow` directly for anything that becomes a fact,
-a rollup boundary, or a rate-limit window.
+a daily total boundary, or a rate-limit window.
 
 This exists because analytics correctness depends on timestamps from **many machines that Modbot
 does not control**. A moderator's PC with a clock ten minutes off would otherwise silently corrupt
@@ -1310,10 +1310,10 @@ log ships in M0 even though most of the analytics UI does not.
   Audit log   ──┼──▶ FACTS       append-only, immutable, partitioned
   Win client  ──┘      │
                        ├──▶ PROJECTIONS  current state (GroupMember, GroupBan) — mutable
-                       └──▶ ROLLUPS      aggregates — always recomputable from facts
+                       └──▶ DAILY TOTALS aggregates — always recomputable from facts
 ```
 
-**Invariant: rollups are recomputable from facts; facts are never mutated.** A bug in a metric is a
+**Invariant: daily totals are recomputable from facts; facts are never mutated.** A bug in a metric is a
 re-run, not lost data. A metric invented next year is filled in across all recorded history.
 
 #### 5.2.1 The counted-only path — when *not* to write a fact
@@ -1322,17 +1322,17 @@ One deliberate exception. Some events are **high-cardinality and individually wo
 will ever ask "who sent a Discord message at 14:32:07", only "how many did this person send this
 week". Discord message volume is the canonical case, and a busy server produces thousands a day.
 
-For these, Modbot **increments a rollup directly and writes no fact at all**:
+For these, Modbot **increments a daily total directly and writes no fact at all**:
 
 ```
-  Discord message ──▶ ROLLUPS only     (discord.messages, dimension = user)
+  Discord message ──▶ DAILY TOTALS only (discord.messages, dimension = user)
                       no modbot_event row, no message content ever stored
 ```
 
 Three reasons, and the third is the one that settles it:
 
 1. **Volume** — a fact per message would dwarf every other source combined, for no query anyone runs.
-2. **The invariant still holds** where it matters. These rollups are not recomputable, which is a
+2. **The invariant still holds** where it matters. These daily totals are not recomputable, which is a
    real cost; it is accepted only for metrics where the aggregate *is* the datum.
 3. **Privacy.** Modbot must never store message content, and storing a per-message row with author
    and timestamp is a social graph whether or not the text is attached. Counting sidesteps the
@@ -1393,7 +1393,7 @@ non-secret qualifiers only. Grammar: `.agent/research/vrchat-log-format.md`.
 ban at 14:32:07, that is exact. When a sync diff notices a member is gone, all that is actually known
 is that they left *between the previous sync and this one* — a five-minute window. Collapsing both
 into a single timestamp invents precision and produces fake spikes in hourly charts. Recording the
-window instead lets rollups distribute across the interval or exclude low-precision facts from
+window instead lets daily totals distribute across the interval or exclude low-precision facts from
 fine-grained series.
 
 `source` also drives **deduplication**: the same ban arrives twice, once as a low-confidence
@@ -1433,7 +1433,7 @@ The constants live in `FactType` as `const string`, so `FactType.MemberBanned` r
 did and still works in a `switch`. That is why the move cost one rewritten method rather than three
 hundred edits.
 
-### 5.4 Rollups
+### 5.4 Daily totals
 
 ```sql
 modbot_rollup_daily
@@ -1455,7 +1455,7 @@ row conflict with nothing (`NULL != NULL`) and silently accumulate duplicates.
 **`value` is `numeric`, not an integer**, because imprecise facts are apportioned fractionally across
 days (§5.4.1).
 
-A generic metric/dimension shape so new metrics require no migration. Recomputed by `RollupJob`;
+A generic metric/dimension shape so new metrics require no migration. Recomputed by `DailyTotalsJob`;
 a full rebuild from facts is always available and is the supported fix for any aggregation bug.
 
 ### 5.5 Retention — off by default, and the numbers say why
@@ -1485,7 +1485,7 @@ a setting rather than a policy.**
 #### There is no default retention window
 
 `ModerationFactRetentionDays` and `PresenceFactRetentionDays` both default to **0 — keep forever**.
-Rollups are kept forever regardless.
+Daily totals are kept forever regardless.
 
 The pruning machinery still exists and is tested; it simply does not run unless an operator turns it
 on. That ordering matters: a tool that quietly deletes data and lets you opt out is very different
@@ -1510,7 +1510,7 @@ decision, so Modbot measures and shows:
 
 #### Running fresh over everything
 
-With nothing pruned, rollups and subject profiles (§5.10) recompute across the **entire** history, and
+With nothing pruned, daily totals and subject profiles (§5.10) recompute across the **entire** history, and
 §5.10.2's caveat about being bounded by surviving facts applies only where an operator has configured
 a window.
 
@@ -1828,7 +1828,7 @@ supports one of them.
 | **Cyclic** — a distribution over hour-of-week | "when do people come to events" | nothing yet |
 | **Subject profile** — one person's habits | "is X a regular", "where does X go" | nothing yet |
 
-A daily rollup cannot answer a cyclic question. *"Tuesdays at 8pm are our busiest hour"* is not
+A daily total cannot answer a cyclic question. *"Tuesdays at 8pm are our busiest hour"* is not
 derivable from a series of daily totals — the information was thrown away when the day was summed.
 
 #### 5.10.1 `modbot_subject_profile`
@@ -1859,7 +1859,7 @@ query answers from a profile when the fact log disagrees.
 entire history every time, which is the point of keeping it.
 
 Where an operator *has* configured a window, the rebuild is bounded by the facts that survive it.
-Long-range figures then come from **rollups**, which are never aged out — and a profile that claimed
+Long-range figures then come from **daily totals**, which are never aged out — and a profile that claimed
 a two-year history when only ninety days of facts survived would be lying. The rebuild is bounded by
 what remains, and the UI shows the window it actually had.
 
@@ -2065,15 +2065,15 @@ audit log gets — an equivalent activity history, queryable and charted alongsi
 | Role granted / removed | **fact** | Audit trail; underpins role sync (M5) |
 | Moderation action (Discord ban, kick, timeout) | **fact** | Feeds §5.8 accountability alongside VRChat actions |
 | Voice channel join / leave | **fact** | Sessions and time-spent, exactly like instance presence |
-| **Messages sent** | **rollup only** (§5.2.1) | High volume, individually worthless, and content is never stored |
-| Current member count, online count | rollup snapshot | A gauge, not an event |
+| **Messages sent** | **daily total only** (§5.2.1) | High volume, individually worthless, and content is never stored |
+| Current member count, online count | daily total snapshot | A gauge, not an event |
 
 Facts carry `subject_platform = Discord` (§5.3). Once accounts are linked (M5), a dossier answers
 "this person" across both platforms rather than "this VRChat account" and "this Discord account"
 separately — which is what makes a linked account worth having.
 
 **Voice presence is treated exactly like instance presence**: same session model, same time-spent
-rollups, same retention class and same purge-user coverage (§5.5). A community running events in
+daily totals, same retention class and same purge-user coverage (§5.5). A community running events in
 Discord voice rather than in-world gets the same regulars detection and the same giveaway
 eligibility as one running instances.
 
@@ -2094,7 +2094,7 @@ because they are asked by different people at different times:
 
 | Section | Answers | Built from |
 |---|---|---|
-| **My Group** | *Is the community growing or shrinking, and what changed?* Member count over time, join and leave rates, net growth, role distribution, tenure spread, invite acceptance. | Member/ban/invite facts (M1), rollups |
+| **My Group** | *Is the community growing or shrinking, and what changed?* Member count over time, join and leave rates, net growth, role distribution, tenure spread, invite acceptance. | Member/ban/invite facts (M1), daily totals |
 | **My Team** | *Who is doing the moderation work, and when is nobody covering?* Actions per moderator, breakdown by classification, activity over time, and the §5.8 accountability signals. | Audit log + Modbot-side facts (M2) |
 | **Worlds** | *Which of our worlds actually get used?* Time spent per world, unique visitors, popularity over time. | Presence facts (M3) |
 | **Instances** | *When is the community actually active?* Instances opened and closed, concurrent count, peak population, duration, a time-of-day heatmap. | Instance facts (M3, M6) |
@@ -2137,8 +2137,8 @@ Consequences that follow:
 Track other **public** groups by id and chart their member counts alongside your own, so a group can
 tell "we lost 200 members" from "everyone lost members this week".
 
-Deferred, and noted now so the rollup shape accommodates it: it needs `groups.read` budget on a
-schedule (§4.2), and the tracked group's id as a **rollup dimension** rather than a new table.
+Deferred, and noted now so the daily total shape accommodates it: it needs `groups.read` budget on a
+schedule (§4.2), and the tracked group's id as a **daily total dimension** rather than a new table.
 
 Only ever public, already-visible information — member counts and group metadata. No member lists,
 no moderation data, nothing that is not on the group's own public page. This is comparison, not
@@ -2180,7 +2180,7 @@ Meilisearch, Redis, AutoMapper, Clerk, Svix.
 | Sync jobs | Fed recorded VRChat payloads; assert both projections **and** emitted facts, including `occurred_before` windows on inferred events. |
 | **Ingest deduplication** | Replay the same instance event as reported by six independent clients with jittered timestamps; assert **exactly one** fact is written and time-spent totals match a single-client replay. Must include the **boundary case** that killed the bucketed design (reports at `14:00:04.9` / `14:00:05.1`) and the **floor case** (a genuine rejoin 15 s later yields *two* facts, not one). |
 | **Time provider** (§4.4) | SNTP offset estimation under asymmetric latency; outlier round-trips discarded; a client whose clock is minutes off still produces correctly-ordered facts; a client `occurred_at` beyond plausible transport delay is clamped **and flagged**, not silently accepted or dropped. |
-| Analytics | Property test the core invariant: rollups recomputed from facts equal rollups built incrementally. |
+| Analytics | Property test the core invariant: daily totals recomputed from facts equal daily totals built incrementally. |
 | Capacity handling | An instance reporting a capacity above the usual ceiling (exemption case, §3.1) must render and bucket correctly — regression guard against reintroduced constants. |
 | API | Integration tests against Postgres via Testcontainers. |
 
@@ -2205,7 +2205,7 @@ else depends on it — Modbot must be fully useful whether or not it ever exists
 
 | # | Slice | Spec |
 |---|---|---|
-| **M0** | Foundation: repo, licensing, CI, `IVRChatGate`, `IModbotClock`, auth, onboarding, **fact log + rollups + retention** | this |
+| **M0** | Foundation: repo, licensing, CI, `IVRChatGate`, `IModbotClock`, auth, onboarding, **fact log + daily totals + retention** | this |
 | **M1** | Member/ban/invite sync, search UI, **facts emitted on diff** | this |
 | **M2** | Audit log ingestion, parsing, viewer — **authoritative facts, dedups M1's inferences** | this |
 | **M2.5** | Subject pane (§10.2), the My Group and My Team analytics sections (§10.1), repeat-offender + moderator pattern detection (§5.8) | this |
@@ -2275,7 +2275,7 @@ Recorded so they are visible rather than buried, and so they are not relitigated
    historical constraint, not a technical one. It has since been modified upstream so
    `...WithHttpInfoAsync` returns a full `ApiResponse<T>` and never throws, which is precisely what
    the gate wants. Two upstream gaps remain, documented in §4.1.
-7. **Nothing is deleted by default** (§5.5) — both fact classes and rollups are kept forever, with
+7. **Nothing is deleted by default** (§5.5) — both fact classes and daily totals are kept forever, with
    retention configurable per class. History cannot be filled in later, and at a measured 326 bytes per
    fact a typical group costs pennies a year to keep whole. The settings page projects that cost
    from measured usage so the operator decides against numbers rather than against a guess.
@@ -2300,7 +2300,7 @@ Recorded so they are visible rather than buried, and so they are not relitigated
     model them. A 429 cold-stops only the most specific matching bucket while decreasing every
     ancestor.
 14. **One clock: `IModbotClock`** (§4.4). Nothing reads the local system clock for anything that
-    becomes a fact, a rollup boundary, or a rate-limit window. Clients synchronise to server time
+    becomes a fact, a daily total boundary, or a rate-limit window. Clients synchronise to server time
     (SNTP round-trip estimate) *and* the server independently records `observed_at` and clamps
     implausible client timestamps — corrected and tolerated, not one or the other.
 15. **Rate limits are provisional and endpoint-specific** (§4.3.4). Assume 0.3–1 req/s per endpoint
@@ -2356,7 +2356,7 @@ Recorded so they are visible rather than buried, and so they are not relitigated
     source (§9.1) and a snowflake must not collide with a `usr_…` in one text column. `actor_id`
     gets its own index for §5.8.5's actor-side queries.
 26. **A counted-only path exists for high-cardinality events** (§5.2.1). Discord message volume
-    increments a rollup and writes no fact — too voluminous, individually worthless, and counting
+    increments a daily total and writes no fact — too voluminous, individually worthless, and counting
     means there is no social graph to leak. The test: would anyone ever query an individual one?
 27. **Deduplication is windowed (±5 s), not bucketed** (§5.7.1). A `floor(t / bucket)` hash fails
     silently at bucket boundaries. The window is bounded below by a genuine 15-second leave-and-

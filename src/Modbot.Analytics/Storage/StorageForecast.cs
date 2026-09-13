@@ -7,7 +7,7 @@ namespace Modbot.Analytics.Storage;
 /// Every partition of the fact table, with its indexes and TOAST. Summed across the partition
 /// tree, because the parent table holds no rows of its own -- see <see cref="StorageProjector"/>.
 /// </param>
-/// <param name="RollupBytes">The daily rollups and their bookkeeping.</param>
+/// <param name="DailyTotalBytes">The daily totals and their bookkeeping.</param>
 /// <param name="FactCount">Rows in the fact log.</param>
 /// <param name="OldestFact">When the history starts, or null if there is none.</param>
 /// <param name="FactsPerDay">Observed arrival rate over <paramref name="ObservedDays"/>.</param>
@@ -17,13 +17,13 @@ namespace Modbot.Analytics.Storage;
 /// </param>
 public sealed record StorageMeasurement(
     long FactBytes,
-    long RollupBytes,
+    long DailyTotalBytes,
     long FactCount,
     DateTimeOffset? OldestFact,
     double FactsPerDay,
     double ObservedDays)
 {
-    public long TotalBytes => FactBytes + RollupBytes;
+    public long TotalBytes => FactBytes + DailyTotalBytes;
 
     /// <summary>
     /// Measured cost of one fact, including its share of every index.

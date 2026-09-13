@@ -9,18 +9,18 @@ namespace Modbot.Core.Data.Entities;
 /// invented next year needs no migration -- it needs a registry entry and a rebuild run.
 /// </para>
 /// <para>
-/// <strong>Rollups are derived data and are always recomputable from facts</strong> (spec 5.2) --
-/// with the one exception recorded in <see cref="RollupOrigin.Counted"/>. A bug in an aggregation
+/// <strong>Daily totals are derived data and are always recomputable from facts</strong> (spec 5.2) --
+/// with the one exception recorded in <see cref="DailyTotalOrigin.Counted"/>. A bug in an aggregation
 /// is fixed by re-running the job, never by hand-editing a value here.
 /// </para>
 /// <para>
-/// Rollups are never aged out, whatever retention is set to (spec 5.5). They outlive the facts
+/// Daily totals are never aged out, whatever retention is set to (spec 5.5). They outlive the facts
 /// they were computed from, so an operator who does configure a window keeps the charts built on
 /// the pruned days -- which is what keeps "who are our regulars over two years" answerable even
 /// then.
 /// </para>
 /// </remarks>
-public class RollupDaily
+public class DailyTotal
 {
     /// <summary>
     /// The UTC day being summarised. UTC and not a group-local timezone, because the fact log is
@@ -29,7 +29,7 @@ public class RollupDaily
     public DateOnly Day { get; set; }
 
     /// <summary>
-    /// Dotted name, e.g. <c>members.joined</c>. See <c>RollupMetrics</c> for the ones the rollup
+    /// Dotted name, e.g. <c>members.joined</c>. See <c>DailyTotalMetrics</c> for the ones the daily total
     /// job computes.
     /// </summary>
     public string Metric { get; set; } = string.Empty;
@@ -48,23 +48,23 @@ public class RollupDaily
 
     /// <summary>
     /// <c>numeric</c>, not an integer count, because imprecise facts are apportioned across the
-    /// days their window covers and that apportionment is fractional (see <c>RollupJob</c>).
+    /// days their window covers and that apportionment is fractional (see <c>DailyTotalsJob</c>).
     /// </summary>
     public decimal Value { get; set; }
 
-    public RollupOrigin Origin { get; set; }
+    public DailyTotalOrigin Origin { get; set; }
 }
 
 /// <summary>
-/// Whether a rollup row can be rebuilt from the fact log, or is the only copy of its data.
+/// Whether a daily total row can be rebuilt from the fact log, or is the only copy of its data.
 /// </summary>
 /// <remarks>
 /// <para><strong>Persisted as smallint. Never renumber a member.</strong></para>
 /// </remarks>
-public enum RollupOrigin : short
+public enum DailyTotalOrigin : short
 {
     /// <summary>
-    /// Derived from facts by the rollup job. Safe to delete and recompute at any time; that
+    /// Derived from facts by the daily totals job. Safe to delete and recompute at any time; that
     /// recomputation is the supported fix for every aggregation bug (spec 5.2).
     /// </summary>
     Computed = 1,

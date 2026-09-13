@@ -226,7 +226,7 @@ public sealed record GroupInfoSnapshot(
     /// <remarks>
     /// This is the baseline the member series is counted forward from. <c>members.net</c> is the
     /// net of recorded joins and leaves, so a group that installs Modbot with 40,000 members would
-    /// otherwise see its own headcount start at zero and climb -- the rollup code says as much,
+    /// otherwise see its own headcount start at zero and climb -- the daily totals code says as much,
     /// and says the baseline is a sync's job.
     /// </remarks>
     public JsonObject BaselinePayload() =>

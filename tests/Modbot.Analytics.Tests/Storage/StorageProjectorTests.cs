@@ -185,7 +185,7 @@ public class StorageProjectorTests : AnalyticsTestBase
         // Ten days observed, so the forecast is produced; 2 GB now, growing by 1 GB a month.
         var measurement = new StorageMeasurement(
             FactBytes: 2L * 1024 * 1024 * 1024,
-            RollupBytes: 0,
+            DailyTotalBytes: 0,
             FactCount: 1_000_000,
             OldestFact: Clock.UtcNow.AddDays(-10),
             FactsPerDay: 100_000,
@@ -212,7 +212,7 @@ public class StorageProjectorTests : AnalyticsTestBase
         const long gb = 1024L * 1024 * 1024;
         var measurement = new StorageMeasurement(
             FactBytes: gb,
-            RollupBytes: 0,
+            DailyTotalBytes: 0,
             FactCount: 1_000_000,
             OldestFact: Clock.UtcNow.AddDays(-40),
             FactsPerDay: 1_000_000 / 40d,
@@ -237,7 +237,7 @@ public class StorageProjectorTests : AnalyticsTestBase
         const long gb = 1024L * 1024 * 1024;
         var measurement = new StorageMeasurement(
             FactBytes: 3 * gb,
-            RollupBytes: 0,
+            DailyTotalBytes: 0,
             FactCount: 1_000,
             OldestFact: Clock.UtcNow.AddDays(-40),
             FactsPerDay: 25,
@@ -261,7 +261,7 @@ public class StorageProjectorTests : AnalyticsTestBase
 
         var measurement = new StorageMeasurement(
             FactBytes: 1024,
-            RollupBytes: 0,
+            DailyTotalBytes: 0,
             FactCount: 10,
             OldestFact: Clock.UtcNow.AddDays(-40),
             FactsPerDay: 0,

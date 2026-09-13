@@ -1,18 +1,18 @@
 using Microsoft.EntityFrameworkCore;
-using Modbot.Analytics.Rollups;
+using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
-namespace Modbot.Analytics.Tests.Rollups;
+namespace Modbot.Analytics.Tests.DailyTotals;
 
 /// <summary>
 /// Spec 5.4: daily aggregates over the fact log, and spec 5.3's rule that an imprecise fact must
 /// not be pretended to be an exact one.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
-public class RollupJobTests : AnalyticsTestBase
+public class DailyTotalsJobTests : AnalyticsTestBase
 {
-    public RollupJobTests(PostgresFixture fixture) : base(fixture) { }
+    public DailyTotalsJobTests(PostgresFixture fixture) : base(fixture) { }
 
     [Fact]
     public async Task CountsFactsIntoTheDayTheyHappened()
@@ -26,9 +26,9 @@ public class RollupJobTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(2m, await ValueAsync(DayOf(Start), RollupMetrics.MembersJoined));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(1)), RollupMetrics.MembersJoined));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersLeft));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(1)), DailyTotalMetrics.MembersJoined));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersLeft));
     }
 
     [Fact]
@@ -44,9 +44,9 @@ public class RollupJobTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(2m, await ValueAsync(DayOf(Start), RollupMetrics.MembersNet));
-        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(1)), RollupMetrics.MembersNet));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(2)), RollupMetrics.MembersNet));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersNet));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(1)), DailyTotalMetrics.MembersNet));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(2)), DailyTotalMetrics.MembersNet));
     }
 
     [Fact]
@@ -64,10 +64,10 @@ public class RollupJobTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(3m, await ValueAsync(DayOf(Start), RollupMetrics.BansAdded));
-        Assert.Equal(2m, await ValueAsync(DayOf(Start), RollupMetrics.ModeratorActions, "vrchat:alice"));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.ModeratorActions, "vrchat:bob"));
-        Assert.Null(await ValueAsync(DayOf(Start), RollupMetrics.ModeratorActions));
+        Assert.Equal(3m, await ValueAsync(DayOf(Start), DailyTotalMetrics.BansAdded));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorActions, "vrchat:alice"));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorActions, "vrchat:bob"));
+        Assert.Null(await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorActions));
     }
 
     /// <summary>
@@ -87,7 +87,7 @@ public class RollupJobTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersLeft));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersLeft));
     }
 
     /// <summary>
@@ -110,8 +110,8 @@ public class RollupJobTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(0.75m, await ValueAsync(DayOf(Start), RollupMetrics.MembersLeft));
-        Assert.Equal(0.25m, await ValueAsync(DayOf(midnight), RollupMetrics.MembersLeft));
+        Assert.Equal(0.75m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersLeft));
+        Assert.Equal(0.25m, await ValueAsync(DayOf(midnight), DailyTotalMetrics.MembersLeft));
     }
 
     /// <summary>
@@ -134,8 +134,8 @@ public class RollupJobTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(0.1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersLeft));
-        Assert.Equal(0.9m, await ValueAsync(DayOf(midnight), RollupMetrics.MembersLeft));
+        Assert.Equal(0.1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersLeft));
+        Assert.Equal(0.9m, await ValueAsync(DayOf(midnight), DailyTotalMetrics.MembersLeft));
     }
 
     /// <summary>
@@ -153,7 +153,7 @@ public class RollupJobTests : AnalyticsTestBase
         await using (var context = Database.NewContext())
             await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(3m, await ValueAsync(DayOf(Start.AddDays(4)), RollupMetrics.MembersNet));
+        Assert.Equal(3m, await ValueAsync(DayOf(Start.AddDays(4)), DailyTotalMetrics.MembersNet));
 
         Clock.Advance(TimeSpan.FromHours(1));
         await WriteAsync(Fact(FactType.MemberLeft, Start.AddDays(1)));
@@ -161,14 +161,14 @@ public class RollupJobTests : AnalyticsTestBase
         await using (var context = Database.NewContext())
             await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersNet));
-        Assert.Equal(0m, await ValueAsync(DayOf(Start.AddDays(1)), RollupMetrics.MembersNet));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(2)), RollupMetrics.MembersNet));
-        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(4)), RollupMetrics.MembersNet));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersNet));
+        Assert.Equal(0m, await ValueAsync(DayOf(Start.AddDays(1)), DailyTotalMetrics.MembersNet));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(2)), DailyTotalMetrics.MembersNet));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(4)), DailyTotalMetrics.MembersNet));
     }
 
     /// <summary>
-    /// Spec 5.5: presence facts age out at 90 days, rollups are kept forever, and "charts
+    /// Spec 5.5: presence facts age out at 90 days, daily totals are kept forever, and "charts
     /// therefore keep their full history even after the underlying events age out". A rebuild
     /// that started from zero would delete precisely the history that promise is about.
     /// </summary>
@@ -182,7 +182,7 @@ public class RollupJobTests : AnalyticsTestBase
         await using (var context = Database.NewContext())
             await NewJob(context).RebuildAsync(Ct);
 
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersJoined));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
 
         // Stand in for retention having dropped the older partition.
         await using (var context = Database.NewContext())
@@ -194,11 +194,11 @@ public class RollupJobTests : AnalyticsTestBase
         await using (var context = Database.NewContext())
             await NewJob(context).RebuildAsync(Ct);
 
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersJoined));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(5)), RollupMetrics.MembersJoined));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start.AddDays(5)), DailyTotalMetrics.MembersJoined));
 
         // And the running total still carries the departed history forward rather than restarting.
-        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(5)), RollupMetrics.MembersNet));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start.AddDays(5)), DailyTotalMetrics.MembersNet));
     }
 
     [Fact]
@@ -209,7 +209,7 @@ public class RollupJobTests : AnalyticsTestBase
         await using (var context = Database.NewContext())
             await NewJob(context).RunIncrementalAsync(Ct);
 
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersJoined));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
 
         await using (var context = Database.NewContext())
             await context.Database.ExecuteSqlAsync($"DELETE FROM modbot_event", Ct);
@@ -217,7 +217,7 @@ public class RollupJobTests : AnalyticsTestBase
         await using (var context = Database.NewContext())
             await NewJob(context).RecomputeDaysAsync([DayOf(Start)], Ct);
 
-        Assert.Null(await ValueAsync(DayOf(Start), RollupMetrics.MembersJoined));
+        Assert.Null(await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
     }
 
     [Fact]

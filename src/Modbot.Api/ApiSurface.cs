@@ -92,7 +92,7 @@ public static class ApiSurface
         app.MapDataSettings();
         app.MapSyncSettings();
 
-        // The read surface over the fact log and the rollups derived from it. Sync health resolves
+        // The read surface over the fact log and the daily totals derived from it. Sync health resolves
         // SyncDiagnostics optionally, so a host that maps the API without registering the
         // producers still starts and still answers -- it reports that nothing is syncing here
         // rather than failing to map.

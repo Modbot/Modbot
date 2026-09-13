@@ -20,7 +20,7 @@ namespace Modbot.Api.Features.Metrics;
 /// true.
 /// </para>
 /// <para>
-/// The window is expressed in whole UTC days because the rollups are, and translating between two
+/// The window is expressed in whole UTC days because the daily totals are, and translating between two
 /// day boundaries in one system is spec 5.4's stated bug farm.
 /// </para>
 /// </remarks>

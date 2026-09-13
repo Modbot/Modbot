@@ -1,19 +1,19 @@
-using Modbot.Analytics.Rollups;
+using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
-namespace Modbot.Analytics.Tests.Rollups;
+namespace Modbot.Analytics.Tests.DailyTotals;
 
 /// <summary>
 /// Spec 5.2.1: the counted-only path, for events where the aggregate is the datum and a per-event
 /// fact would be volume and a social graph for a query nobody runs.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
-public class RollupCounterTests : AnalyticsTestBase
+public class DailyTotalCounterTests : AnalyticsTestBase
 {
-    public RollupCounterTests(PostgresFixture fixture) : base(fixture) { }
+    public DailyTotalCounterTests(PostgresFixture fixture) : base(fixture) { }
 
-    private RollupCounter NewCounter(Core.Data.ModbotContext context) => new(context, Clock);
+    private DailyTotalCounter NewCounter(Core.Data.ModbotContext context) => new(context, Clock);
 
     [Fact]
     public async Task IncrementsAccumulateWithoutWritingAnyFact()
@@ -21,14 +21,14 @@ public class RollupCounterTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         var counter = NewCounter(context);
 
-        await counter.IncrementAsync(RollupMetrics.DiscordMessages, "user-1", ct: Ct);
-        await counter.IncrementAsync(RollupMetrics.DiscordMessages, "user-1", ct: Ct);
-        await counter.IncrementAsync(RollupMetrics.DiscordMessages, "user-2", amount: 5m, ct: Ct);
+        await counter.IncrementAsync(DailyTotalMetrics.DiscordMessages, "user-1", ct: Ct);
+        await counter.IncrementAsync(DailyTotalMetrics.DiscordMessages, "user-1", ct: Ct);
+        await counter.IncrementAsync(DailyTotalMetrics.DiscordMessages, "user-2", amount: 5m, ct: Ct);
 
         var today = DayOf(Clock.UtcNow);
 
-        Assert.Equal(2m, await ValueAsync(today, RollupMetrics.DiscordMessages, "user-1"));
-        Assert.Equal(5m, await ValueAsync(today, RollupMetrics.DiscordMessages, "user-2"));
+        Assert.Equal(2m, await ValueAsync(today, DailyTotalMetrics.DiscordMessages, "user-1"));
+        Assert.Equal(5m, await ValueAsync(today, DailyTotalMetrics.DiscordMessages, "user-2"));
 
         // The whole point: nothing was written to the fact log.
         Assert.Empty(context.Events);
@@ -40,14 +40,14 @@ public class RollupCounterTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         var counter = NewCounter(context);
 
-        await counter.IncrementAsync(RollupMetrics.DiscordMessages, ct: Ct);
+        await counter.IncrementAsync(DailyTotalMetrics.DiscordMessages, ct: Ct);
         Clock.Advance(TimeSpan.FromDays(1));
-        await counter.IncrementAsync(RollupMetrics.DiscordMessages, ct: Ct);
-        await counter.IncrementAsync(RollupMetrics.DiscordMessages, day: DayOf(Start).AddDays(-3), ct: Ct);
+        await counter.IncrementAsync(DailyTotalMetrics.DiscordMessages, ct: Ct);
+        await counter.IncrementAsync(DailyTotalMetrics.DiscordMessages, day: DayOf(Start).AddDays(-3), ct: Ct);
 
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.DiscordMessages));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start).AddDays(1), RollupMetrics.DiscordMessages));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start).AddDays(-3), RollupMetrics.DiscordMessages));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.DiscordMessages));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start).AddDays(1), DailyTotalMetrics.DiscordMessages));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start).AddDays(-3), DailyTotalMetrics.DiscordMessages));
     }
 
     /// <summary>
@@ -60,12 +60,12 @@ public class RollupCounterTests : AnalyticsTestBase
         await WriteAsync(Fact(FactType.MemberJoined, Start));
 
         await using var context = Database.NewContext();
-        await NewCounter(context).IncrementAsync(RollupMetrics.DiscordMessages, "user-1", 42m, ct: Ct);
+        await NewCounter(context).IncrementAsync(DailyTotalMetrics.DiscordMessages, "user-1", 42m, ct: Ct);
 
         await NewJob(context).RebuildAsync(Ct);
 
-        Assert.Equal(42m, await ValueAsync(DayOf(Start), RollupMetrics.DiscordMessages, "user-1"));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), RollupMetrics.MembersJoined));
+        Assert.Equal(42m, await ValueAsync(DayOf(Start), DailyTotalMetrics.DiscordMessages, "user-1"));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class RollupCounterTests : AnalyticsTestBase
         var counter = NewCounter(context);
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => counter.IncrementAsync(RollupMetrics.MembersJoined, ct: Ct));
+            () => counter.IncrementAsync(DailyTotalMetrics.MembersJoined, ct: Ct));
     }
 
     /// <summary>
@@ -93,13 +93,13 @@ public class RollupCounterTests : AnalyticsTestBase
         await using (var direct = Database.NewContext())
         {
             // Stand in for a metric that used to be counted and is now computed.
-            direct.RollupDaily.Add(new RollupDaily
+            direct.DailyTotals.Add(new DailyTotal
             {
                 Day = DayOf(Start),
                 Metric = "some.metric",
                 Dimension = string.Empty,
                 Value = 7m,
-                Origin = RollupOrigin.Computed,
+                Origin = DailyTotalOrigin.Computed,
             });
 
             await direct.SaveChangesAsync(Ct);

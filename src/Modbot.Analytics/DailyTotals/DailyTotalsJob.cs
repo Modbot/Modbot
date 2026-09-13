@@ -4,14 +4,14 @@ using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
 using Npgsql;
 
-namespace Modbot.Analytics.Rollups;
+namespace Modbot.Analytics.DailyTotals;
 
 /// <summary>
 /// Computes <c>modbot_rollup_daily</c> from the fact log.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The invariant this class exists to keep: rollups are always recomputable from facts
+/// <strong>The invariant this class exists to keep: daily totals are always recomputable from facts
 /// (spec 5.2).</strong> <see cref="RebuildAsync"/> throws every computed row away and rebuilds it,
 /// and that is the supported fix for any aggregation bug -- a wrong metric is a re-run, not lost
 /// data, and a metric invented next year is filled in across all recorded history. Nothing here may
@@ -21,7 +21,7 @@ namespace Modbot.Analytics.Rollups;
 /// <para>
 /// <strong>Imprecise facts.</strong> A fact carries <c>occurred_at</c> and a nullable
 /// <c>occurred_before</c>; when the second is set, the fact happened somewhere inside that window
-/// and not at its lower bound (spec 5.3). Rollups therefore apportion each fact across the days
+/// and not at its lower bound (spec 5.3). Daily totals therefore apportion each fact across the days
 /// its window covers, weighted by how much of the window falls in each day. An exact fact is a
 /// zero-length window and lands wholly on its own day; a five-minute sync-diff window at 14:00
 /// does too, because it does not cross midnight; only a window that straddles a day boundary
@@ -45,7 +45,7 @@ namespace Modbot.Analytics.Rollups;
 /// two day boundaries would be a bug farm.
 /// </para>
 /// </remarks>
-public sealed class RollupJob
+public sealed class DailyTotalsJob
 {
     /// <summary>
     /// How far behind the watermark an incremental run re-scans.
@@ -60,15 +60,15 @@ public sealed class RollupJob
     public static readonly TimeSpan WatermarkOverlap = TimeSpan.FromMinutes(1);
 
     /// <summary>
-    /// Serialises rollup runs against each other. Two runs recomputing overlapping days would
+    /// Serialises daily totals runs against each other. Two runs recomputing overlapping days would
     /// interleave a delete with the other's insert and leave a day short.
     /// </summary>
-    private const long RollupLockKey = 0x4D4F44_524F4C; // "MOD" "ROL"
+    private const long DailyTotalsLockKey = 0x4D4F44_524F4C; // "MOD" "ROL" -- the value predates the rename and stays
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
 
-    public RollupJob(ModbotContext db, IModbotClock clock)
+    public DailyTotalsJob(ModbotContext db, IModbotClock clock)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
@@ -85,7 +85,7 @@ public sealed class RollupJob
     /// that only looked at recent <em>occurrences</em> would silently skip the sync diff that
     /// dated a departure to yesterday.
     /// </remarks>
-    public async Task<RollupRunResult> RunIncrementalAsync(CancellationToken ct = default)
+    public async Task<DailyTotalsRunResult> RunIncrementalAsync(CancellationToken ct = default)
     {
         var state = await StateAsync(ct);
         var since = state.ObservedThrough - WatermarkOverlap;
@@ -96,7 +96,7 @@ public sealed class RollupJob
         if (days.Count == 0)
         {
             await SaveWatermarkAsync(state, highWater, ct);
-            return new RollupRunResult(0, null, null);
+            return new DailyTotalsRunResult(0, null, null);
         }
 
         var result = await RecomputeDaysAsync(days, ct);
@@ -106,13 +106,13 @@ public sealed class RollupJob
     }
 
     /// <summary>
-    /// Throws away every computed rollup the fact log can still account for, and rebuilds it.
+    /// Throws away every computed daily total the fact log can still account for, and rebuilds it.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Rows older than the oldest surviving fact are <strong>kept</strong>. Rollups are never
+    /// Rows older than the oldest surviving fact are <strong>kept</strong>. Daily totals are never
     /// aged out, while facts can be where an operator has configured a window (spec 5.5), so for
-    /// the days the facts have been pruned out of, the rollup is the only remaining record -- "charts keep their full
+    /// the days the facts have been pruned out of, the daily total is the only remaining record -- "charts keep their full
     /// history even after the underlying events age out". A rebuild that started from zero would
     /// destroy exactly the history the design promises to preserve.
     /// </para>
@@ -120,11 +120,11 @@ public sealed class RollupJob
     /// Counted-only rows (spec 5.2.1) are never touched either: nothing can recompute them.
     /// </para>
     /// </remarks>
-    public async Task<RollupRunResult> RebuildAsync(CancellationToken ct = default)
+    public async Task<DailyTotalsRunResult> RebuildAsync(CancellationToken ct = default)
     {
         var (first, last) = await FactDayRangeAsync(ct);
         if (first is null || last is null)
-            return new RollupRunResult(0, null, null);
+            return new DailyTotalsRunResult(0, null, null);
 
         var days = new List<DateOnly>();
         for (var day = first.Value; day <= last.Value; day = day.AddDays(1))
@@ -143,16 +143,16 @@ public sealed class RollupJob
     /// </summary>
     /// <remarks>
     /// Delete-then-insert per day rather than upsert, so that a day whose facts have gone (a
-    /// purge, spec 5.5) loses its rollup row instead of keeping a stale one.
+    /// purge, spec 5.5) loses its daily total row instead of keeping a stale one.
     /// </remarks>
-    public async Task<RollupRunResult> RecomputeDaysAsync(
+    public async Task<DailyTotalsRunResult> RecomputeDaysAsync(
         IReadOnlyCollection<DateOnly> days,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(days);
 
         if (days.Count == 0)
-            return new RollupRunResult(0, null, null);
+            return new DailyTotalsRunResult(0, null, null);
 
         var ordered = days.Distinct().Order().ToArray();
         var from = ordered[0];
@@ -164,26 +164,26 @@ public sealed class RollupJob
         try
         {
             await _db.Database.ExecuteSqlInterpolatedAsync(
-                $"SELECT pg_advisory_xact_lock({RollupLockKey})", ct);
+                $"SELECT pg_advisory_xact_lock({DailyTotalsLockKey})", ct);
 
             var rows = 0;
 
             await ExecuteAsync(
                 "DELETE FROM modbot_rollup_daily WHERE origin = @origin AND day = ANY(@days)",
                 ct,
-                Param("origin", (short)RollupOrigin.Computed),
+                Param("origin", (short)DailyTotalOrigin.Computed),
                 Param("days", ordered));
 
-            foreach (var metric in RollupMetrics.FactCounts)
+            foreach (var metric in DailyTotalMetrics.FactCounts)
                 rows += await ComputeFactCountAsync(metric, ordered, from, to, ct);
 
-            foreach (var metric in RollupMetrics.Cumulative)
+            foreach (var metric in DailyTotalMetrics.Cumulative)
                 rows += await ComputeCumulativeAsync(metric, from, ct);
 
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
 
-            return new RollupRunResult(rows, from, to);
+            return new DailyTotalsRunResult(rows, from, to);
         }
         finally
         {
@@ -199,7 +199,7 @@ public sealed class RollupJob
         DateTimeOffset? since,
         CancellationToken ct)
     {
-        var parameters = new List<NpgsqlParameter> { Param("types", TypeValues(RollupMetrics.ComputedTypes)) };
+        var parameters = new List<NpgsqlParameter> { Param("types", TypeValues(DailyTotalMetrics.ComputedTypes)) };
         if (since is not null)
             parameters.Add(Param("since", since.Value));
 
@@ -233,7 +233,7 @@ public sealed class RollupJob
         return await QueryAsync<DateOnly>(
             DaysTouchedSql(facts),
             [
-                Param("types", TypeValues(RollupMetrics.ComputedTypes)),
+                Param("types", TypeValues(DailyTotalMetrics.ComputedTypes)),
                 Param("platform", (short)platform),
                 Param("subject", subjectId),
             ],
@@ -258,17 +258,17 @@ public sealed class RollupJob
     {
         var dimension = metric.Dimension switch
         {
-            RollupDimensionKind.Actor => ActorDimensionSql,
+            DailyTotalDimensionKind.Actor => ActorDimensionSql,
             _ => "''",
         };
 
-        var actorFilter = metric.Dimension is RollupDimensionKind.Actor
+        var actorFilter = metric.Dimension is DailyTotalDimensionKind.Actor
             ? "AND s.actor_id IS NOT NULL"
             : string.Empty;
 
         // PostgreSQL rejects a bare string constant in GROUP BY, so the undimensioned metrics
         // group by the day alone -- which is the same grouping, since their dimension is ''.
-        var grouping = metric.Dimension is RollupDimensionKind.Actor
+        var grouping = metric.Dimension is DailyTotalDimensionKind.Actor
             ? $"s.day, {dimension}"
             : "s.day";
 
@@ -311,7 +311,7 @@ public sealed class RollupJob
             Param("types", TypeValues(metric.Types)),
             Param("days", days),
             Param("metric", metric.Name),
-            Param("origin", (short)RollupOrigin.Computed),
+            Param("origin", (short)DailyTotalOrigin.Computed),
             Param("from", DayStart(from)),
             Param("to", DayStart(to.AddDays(1))));
     }
@@ -351,7 +351,7 @@ public sealed class RollupJob
             ct,
             Param("metric", metric.Name),
             Param("from", from),
-            Param("origin", (short)RollupOrigin.Computed));
+            Param("origin", (short)DailyTotalOrigin.Computed));
 
         return await ExecuteAsync(
             """
@@ -369,7 +369,7 @@ public sealed class RollupJob
             Param("plus", metric.Plus),
             Param("minus", metric.Minus),
             Param("carried", carried.Count > 0 ? carried[0] : 0m),
-            Param("origin", (short)RollupOrigin.Computed),
+            Param("origin", (short)DailyTotalOrigin.Computed),
             Param("from", from));
     }
 
@@ -388,7 +388,7 @@ public sealed class RollupJob
             SELECT {aggregate}::date AS "Value"
             FROM ({WindowedFacts("@types", observedSince: false)}) w
             """,
-            [Param("types", TypeValues(RollupMetrics.ComputedTypes))],
+            [Param("types", TypeValues(DailyTotalMetrics.ComputedTypes))],
             ct);
 
         return bound.Count > 0 ? bound[0] : null;
@@ -404,20 +404,20 @@ public sealed class RollupJob
         return max.Count > 0 ? max[0] : null;
     }
 
-    private async Task<RollupState> StateAsync(CancellationToken ct)
+    private async Task<DailyTotalsState> StateAsync(CancellationToken ct)
     {
-        var state = await _db.RollupState.FirstOrDefaultAsync(s => s.Id == 1, ct);
+        var state = await _db.DailyTotalsState.FirstOrDefaultAsync(s => s.Id == 1, ct);
         if (state is not null)
             return state;
 
-        state = new RollupState { Id = 1 };
-        _db.RollupState.Add(state);
+        state = new DailyTotalsState { Id = 1 };
+        _db.DailyTotalsState.Add(state);
 
         return state;
     }
 
     private async Task SaveWatermarkAsync(
-        RollupState state,
+        DailyTotalsState state,
         DateTimeOffset? highWater,
         CancellationToken ct)
     {
@@ -475,7 +475,7 @@ public sealed class RollupJob
     /// The dimension for actor-broken-down metrics, as SQL.
     /// </summary>
     /// <remarks>
-    /// Built from <see cref="RollupDimensions.Label"/> so that the string this query writes and
+    /// Built from <see cref="DailyTotalDimensions.Label"/> so that the string this query writes and
     /// the string C# looks rows up by cannot drift apart -- a purge searching for
     /// <c>vrchat:usr_...</c> while the job wrote something else would silently find nothing.
     /// </remarks>
@@ -486,7 +486,7 @@ public sealed class RollupJob
         var cases = string.Join(
             " ",
             Enum.GetValues<FactPlatform>().Select(p =>
-                $"WHEN {(short)p} THEN '{RollupDimensions.Label(p)}'"));
+                $"WHEN {(short)p} THEN '{DailyTotalDimensions.Label(p)}'"));
 
         return $"(CASE s.actor_platform {cases} ELSE 'unknown' END || ':' || s.actor_id)";
     }
@@ -531,7 +531,7 @@ public sealed class RollupJob
     }
 }
 
-/// <param name="RowsWritten">Rollup rows written, for logging. Not a metric.</param>
+/// <param name="RowsWritten">Daily total rows written, for logging. Not a metric.</param>
 /// <param name="From">First day recomputed, or null when there was nothing to do.</param>
 /// <param name="To">Last day recomputed.</param>
-public readonly record struct RollupRunResult(int RowsWritten, DateOnly? From, DateOnly? To);
+public readonly record struct DailyTotalsRunResult(int RowsWritten, DateOnly? From, DateOnly? To);

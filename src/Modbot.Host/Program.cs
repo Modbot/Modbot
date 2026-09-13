@@ -177,7 +177,7 @@ try
     builder.Services.AddModbotVRChat();
 
     // The producers. Until this line existed, the three maintenance services above -- partitions,
-    // rollups, retention -- kept an empty fact log in perfect order, because nothing in Modbot
+    // daily totals, retention -- kept an empty fact log in perfect order, because nothing in Modbot
     // had ever written a fact.
     //
     // After AddModbotVRChat, because the audit-log and group-info jobs resolve IVRChatGate from

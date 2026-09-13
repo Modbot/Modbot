@@ -250,14 +250,14 @@ export type ActionTypeSeries = {
 /**
  * Two ranges, not one.
  *
- * Rollups are never aged out; facts can be, where an operator set a retention window. Even with
+ * Daily totals are never aged out; facts can be, where an operator set a retention window. Even with
  * nothing pruned the two start in different places, because the audit-log catch-up walks history
- * backwards while the rollup job only folds forward. One date picker shown over both would claim
+ * backwards while the daily totals job only folds forward. One date picker shown over both would claim
  * they were the same range.
  */
 export type MetricsCoverage = {
-  rollupFirstDay: string | null
-  rollupLastDay: string | null
+  dailyTotalsFirstDay: string | null
+  dailyTotalsLastDay: string | null
   factFirstDay: string | null
   factLastDay: string | null
   retentionConfigured: boolean

@@ -68,7 +68,7 @@ export type Point = { day: string; value: number }
 /**
  * Fills in the days a sparse series does not carry a row for.
  *
- * Rollups and group-info facts are both written only on days something happened, so the raw series
+ * Daily totals and group-info facts are both written only on days something happened, so the raw series
  * has holes. `carry` is right for a level — a headcount stays what it was — and `zero` is right for
  * a count: no bans recorded is zero bans, not an unknown.
  */

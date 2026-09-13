@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json.Nodes;
 using Modbot.Analytics.Facts;
-using Modbot.Analytics.Rollups;
+using Modbot.Analytics.DailyTotals;
 using Modbot.Api.Features.Metrics;
 using Modbot.Api.Tests.Features.Audit;
 using Modbot.Core.Data.Entities;
@@ -58,7 +58,7 @@ public class MetricsTests
     };
 
     [Fact]
-    public async Task DailySeries_ComeFromTheRollups()
+    public async Task DailySeries_ComeFromTheDailyTotals()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -70,7 +70,7 @@ public class MetricsTests
         await host.WriteFactAsync(Membership(FactType.MemberJoined, "usr_b", day), ct);
         await host.WriteFactAsync(Membership(FactType.MemberLeft, "usr_c", day), ct);
         await host.WriteFactAsync(Membership(FactType.MemberBanned, "usr_d", day), ct);
-        await host.RebuildRollupsAsync(ct);
+        await host.RebuildDailyTotalsAsync(ct);
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var metrics = await host.GetJsonAsync<MetricsResponse>("/api/metrics?days=30", cookie, ct);
@@ -79,9 +79,9 @@ public class MetricsTests
             .Single(s => s.Metric == metric)
             .Points.Sum(p => p.Value);
 
-        Assert.Equal(2m, Total(RollupMetrics.MembersJoined));
-        Assert.Equal(1m, Total(RollupMetrics.MembersLeft));
-        Assert.Equal(1m, Total(RollupMetrics.BansAdded));
+        Assert.Equal(2m, Total(DailyTotalMetrics.MembersJoined));
+        Assert.Equal(1m, Total(DailyTotalMetrics.MembersLeft));
+        Assert.Equal(1m, Total(DailyTotalMetrics.BansAdded));
     }
 
     [Fact]
@@ -93,14 +93,14 @@ public class MetricsTests
 
         await host.WriteFactAsync(
             Membership(FactType.MemberJoined, "usr_a", host.Clock.UtcNow.AddDays(-1)), ct);
-        await host.RebuildRollupsAsync(ct);
+        await host.RebuildDailyTotalsAsync(ct);
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var metrics = await host.GetJsonAsync<MetricsResponse>("/api/metrics", cookie, ct);
 
-        var series = metrics.Series.Single(s => s.Metric == RollupMetrics.MembersNet);
+        var series = metrics.Series.Single(s => s.Metric == DailyTotalMetrics.MembersNet);
 
-        // The rollup counts from zero on the fact log's first day. A group that installs Modbot
+        // The daily total counts from zero on the fact log's first day. A group that installs Modbot
         // with 40,000 members watches this series start at zero and climb -- so it must never be
         // labelled "members", and the note has to say what it is instead.
         Assert.DoesNotContain("Members", series.Label, StringComparison.Ordinal);
@@ -140,7 +140,7 @@ public class MetricsTests
 
         await host.WriteFactAsync(Membership(FactType.MemberBanned, "usr_a", day), ct);
         await host.WriteFactAsync(Membership(FactType.MemberBanned, "usr_b", day.AddMinutes(1)), ct);
-        await host.RebuildRollupsAsync(ct);
+        await host.RebuildDailyTotalsAsync(ct);
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var metrics = await host.GetJsonAsync<MetricsResponse>("/api/metrics", cookie, ct);
@@ -179,7 +179,7 @@ public class MetricsTests
     }
 
     [Fact]
-    public async Task Coverage_ReportsTheRollupRangeAndTheFactRangeSeparately()
+    public async Task Coverage_ReportsTheDailyTotalsRangeAndTheFactRangeSeparately()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -188,7 +188,7 @@ public class MetricsTests
         var old = host.Clock.UtcNow.AddDays(-400);
 
         await host.WriteFactAsync(Membership(FactType.MemberJoined, "usr_a", old), ct);
-        await host.RebuildRollupsAsync(ct);
+        await host.RebuildDailyTotalsAsync(ct);
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var metrics = await host.GetJsonAsync<MetricsResponse>("/api/metrics?days=30", cookie, ct);
@@ -196,7 +196,7 @@ public class MetricsTests
         // Both are reported even though the requested window covers neither: a chart may
         // legitimately cover a longer period than the fact log does (spec 5.10.2), and one date
         // range shown over both would say they were the same.
-        Assert.Equal(DateOnly.FromDateTime(old.UtcDateTime), metrics.Coverage.RollupFirstDay);
+        Assert.Equal(DateOnly.FromDateTime(old.UtcDateTime), metrics.Coverage.DailyTotalsFirstDay);
         Assert.Equal(DateOnly.FromDateTime(old.UtcDateTime), metrics.Coverage.FactFirstDay);
         Assert.False(metrics.Coverage.RetentionConfigured);
     }

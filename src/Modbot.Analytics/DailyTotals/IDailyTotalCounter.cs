@@ -1,7 +1,7 @@
-namespace Modbot.Analytics.Rollups;
+namespace Modbot.Analytics.DailyTotals;
 
 /// <summary>
-/// Increments a rollup directly, with no fact behind it.
+/// Increments a daily total directly, with no fact behind it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -29,14 +29,14 @@ namespace Modbot.Analytics.Rollups;
 /// accidentally include in an export.
 /// </para>
 /// </remarks>
-public interface IRollupCounter
+public interface IDailyTotalCounter
 {
     /// <summary>
-    /// Adds <paramref name="amount"/> to one daily rollup, creating the row if it is the first of
+    /// Adds <paramref name="amount"/> to one daily total, creating the row if it is the first of
     /// the day.
     /// </summary>
     /// <param name="metric">
-    /// Must not be a metric the rollup job computes: the next rebuild would overwrite it.
+    /// Must not be a metric the daily totals job computes: the next rebuild would overwrite it.
     /// </param>
     /// <param name="dimension">A user id, channel id, or null for the undimensioned series.</param>
     /// <param name="day">

@@ -88,7 +88,7 @@ public sealed class StorageProjector(ModbotContext db, IModbotClock clock)
                    FROM pg_partition_tree('modbot_event'))                     AS fact_bytes,
                 coalesce(pg_total_relation_size(to_regclass('modbot_rollup_daily')), 0)
                   + coalesce(pg_total_relation_size(to_regclass('modbot_rollup_state')), 0)
-                                                                               AS rollup_bytes,
+                                                                               AS daily_total_bytes,
                 (SELECT coalesce(sum(greatest(c.reltuples, 0)), 0)
                    FROM pg_partition_tree('modbot_event') t
                    JOIN pg_class c ON c.oid = t.relid
@@ -103,7 +103,7 @@ public sealed class StorageProjector(ModbotContext db, IModbotClock clock)
         await reader.ReadAsync(ct);
 
         var factBytes = reader.GetInt64(0);
-        var rollupBytes = reader.GetInt64(1);
+        var dailyTotalBytes = reader.GetInt64(1);
         // reltuples is a float, and is -1 on a partition autovacuum has not reached yet -- which
         // on a fresh install is all of them. greatest() in the query floors those at zero, and
         // zero here means "no estimate available", not "no rows".
@@ -127,7 +127,7 @@ public sealed class StorageProjector(ModbotContext db, IModbotClock clock)
 
         return new StorageMeasurement(
             factBytes,
-            rollupBytes,
+            dailyTotalBytes,
             factCount,
             firstObserved,
             factsPerDay,
@@ -192,10 +192,10 @@ public sealed class StorageProjector(ModbotContext db, IModbotClock clock)
     }
 
     /// <summary>
-    /// Facts and rollups grow on different clocks, so they are projected on different clocks.
+    /// Facts and daily totals grow on different clocks, so they are projected on different clocks.
     /// </summary>
     /// <remarks>
-    /// Facts accrue per fact. Rollups accrue per <em>day</em> -- one row per day per dimension,
+    /// Facts accrue per fact. Daily totals accrue per <em>day</em> -- one row per day per dimension,
     /// whether that day saw ten events or ten thousand -- so folding them into a per-fact average
     /// would make a quiet group look like it stores more per fact than a busy one does.
     /// </remarks>
@@ -207,9 +207,9 @@ public sealed class StorageProjector(ModbotContext db, IModbotClock clock)
             ? 0
             : (clock.UtcNow - measurement.OldestFact.Value).TotalDays;
 
-        var rollupGrowth = historyDays >= 1 ? measurement.RollupBytes / historyDays : 0;
+        var dailyTotalGrowth = historyDays >= 1 ? measurement.DailyTotalBytes / historyDays : 0;
 
-        return factGrowth + rollupGrowth;
+        return factGrowth + dailyTotalGrowth;
     }
 
     private static decimal? MonthlyCost(long bytes, decimal? costPerGbMonth)

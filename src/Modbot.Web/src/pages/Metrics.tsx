@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 /**
  * Group health over time (spec 5.6, 10.1).
  *
- * Two sources on one screen, kept visibly apart. The daily series come from the rollups, which are
+ * Two sources on one screen, kept visibly apart. The daily series come from the daily totals, which are
  * never aged out; the per-type breakdown and the observed headcount come from the fact log, which
  * a retention window can shorten. Showing one date range over both would claim they were the same,
  * so each panel says what it was computed from and the footer states both extents.
@@ -153,7 +153,7 @@ export function Metrics() {
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Joins and leaves" source="From rollups" note={null}>
+        <Panel title="Joins and leaves" source="From daily totals" note={null}>
           <Legend
             items={[
               { label: 'Joined', series: 3 },
@@ -178,7 +178,7 @@ export function Metrics() {
 
         <Panel
           title="Moderator activity"
-          source="From rollups, dimensioned by actor"
+          source="From daily totals, dimensioned by actor"
           note={
             'VRChat attributes everything Modbot itself does to Modbot’s own account, so once ' +
             'Modbot performs actions these totals will show that account rather than the person ' +
@@ -202,10 +202,10 @@ export function Metrics() {
 
       <Panel
         title="Moderation actions by type"
-        source="Counted from the fact log, not from rollups"
+        source="Counted from the fact log, not from daily totals"
         note={
-          'No rollup carries a per-type daily breakdown, so this one is bounded by the facts that ' +
-          'survive retention rather than by the rollups. Small multiples rather than one stacked ' +
+          'No daily total carries a per-type daily breakdown, so this one is bounded by the facts that ' +
+          'survive retention rather than by the daily totals. Small multiples rather than one stacked ' +
           'chart: five series on one axis at this scale is unreadable, and these are compared ' +
           'against their own history far more often than against each other.'
         }
@@ -237,7 +237,7 @@ export function Metrics() {
 
       <Panel
         title={series('members.net')?.label ?? 'Net change'}
-        source="From rollups"
+        source="From daily totals"
         note={series('members.net')?.note ?? null}
       >
         <TimeSeriesChart
@@ -316,7 +316,7 @@ function Nothing({ children }: { children: React.ReactNode }) {
 /**
  * The two extents, stated separately.
  *
- * Rollups outlive the facts they came from, so a chart can legitimately cover a longer period
+ * Daily totals outlive the facts they came from, so a chart can legitimately cover a longer period
  * than the audit log does. Stating one range for the screen would make whichever panel it did not
  * describe quietly wrong.
  */
@@ -329,9 +329,9 @@ function Coverage({ data }: { data: MetricsData }) {
         <div className="mb-2 font-medium">What these charts are built from</div>
         <dl className="flex flex-col gap-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           <div className="flex flex-wrap gap-1.5">
-            <dt>Daily rollups cover</dt>
+            <dt>Daily totals cover</dt>
             <dd className="font-medium text-foreground">
-              {day(data.coverage.rollupFirstDay)} – {day(data.coverage.rollupLastDay)}
+              {day(data.coverage.dailyTotalsFirstDay)} – {day(data.coverage.dailyTotalsLastDay)}
             </dd>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -343,8 +343,8 @@ function Coverage({ data }: { data: MetricsData }) {
         </dl>
         <p className="mt-2 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           {data.coverage.retentionConfigured
-            ? `A retention window is configured (moderation ${data.coverage.moderationFactRetentionDays} days, presence ${data.coverage.presenceFactRetentionDays} days), so facts older than it have been destroyed. Rollups are never aged out and keep their full history — which is why the two ranges above differ.`
-            : 'Nothing is being deleted: both retention windows are set to keep forever. The two ranges can still differ, because the audit-log catch-up walks history backwards while the rollup job only folds forward from what it has seen.'}
+            ? `A retention window is configured (moderation ${data.coverage.moderationFactRetentionDays} days, presence ${data.coverage.presenceFactRetentionDays} days), so facts older than it have been destroyed. Daily totals are never aged out and keep their full history — which is why the two ranges above differ.`
+            : 'Nothing is being deleted: both retention windows are set to keep forever. The two ranges can still differ, because the audit-log catch-up walks history backwards while the daily totals job only folds forward from what it has seen.'}
         </p>
       </CardContent>
     </Card>

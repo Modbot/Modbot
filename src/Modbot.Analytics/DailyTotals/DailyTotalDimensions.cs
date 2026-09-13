@@ -1,9 +1,9 @@
 using Modbot.Core.Data.Entities;
 
-namespace Modbot.Analytics.Rollups;
+namespace Modbot.Analytics.DailyTotals;
 
 /// <summary>
-/// How a person is named in a rollup's <c>dimension</c> column.
+/// How a person is named in a daily total's <c>dimension</c> column.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -12,11 +12,11 @@ namespace Modbot.Analytics.Rollups;
 /// never parsed, never validated (spec 3.1.1).
 /// </para>
 /// <para>
-/// Anything counting per user through <see cref="IRollupCounter"/> should dimension with this, so
+/// Anything counting per user through <see cref="IDailyTotalCounter"/> should dimension with this, so
 /// that a purge (spec 5.5) can find the rows again.
 /// </para>
 /// </remarks>
-public static class RollupDimensions
+public static class DailyTotalDimensions
 {
     public static string ForUser(FactPlatform platform, string id)
     {
@@ -26,7 +26,7 @@ public static class RollupDimensions
     }
 
     /// <summary>
-    /// The platform's name in a dimension. <see cref="RollupJob"/> builds the same string in SQL;
+    /// The platform's name in a dimension. <see cref="DailyTotalsJob"/> builds the same string in SQL;
     /// this is the definition both sides answer to.
     /// </summary>
     public static string Label(FactPlatform platform) => platform.ToString().ToLowerInvariant();

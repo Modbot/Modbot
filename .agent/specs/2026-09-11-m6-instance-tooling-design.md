@@ -64,7 +64,7 @@ A polling job under the standard budget-derived scheduler (foundation §4.2), em
 
 A population sample every minute per instance is high-cardinality and individually worthless — nobody
 asks "how many people were in the instance at 14:32". Foundation §5.2.1 applies: these increment a
-rollup and write no fact.
+daily total and write no fact.
 
 Actual join and leave events already come from the client (M3) at far better fidelity than polling
 could achieve. Polling exists to catch instances **no moderator is in**, which is precisely the gap

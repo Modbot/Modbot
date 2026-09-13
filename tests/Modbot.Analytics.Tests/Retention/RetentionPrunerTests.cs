@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Analytics.Retention;
-using Modbot.Analytics.Rollups;
+using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
@@ -213,10 +213,10 @@ public class RetentionPrunerTests : AnalyticsTestBase
 
     /// <summary>
     /// Spec 5.5: "charts therefore keep their full history even after the underlying events age
-    /// out". The rollups are the only copy of that history once the facts are gone.
+    /// out". The daily totals are the only copy of that history once the facts are gone.
     /// </summary>
     [Fact]
-    public async Task RollupsOutliveTheFactsTheyWereComputedFrom()
+    public async Task DailyTotalsOutliveTheFactsTheyWereComputedFrom()
     {
         await WriteAsync(
             Fact(FactType.MemberJoined, Old),

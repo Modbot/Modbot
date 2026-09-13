@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
-using Modbot.Analytics.Rollups;
+using Modbot.Analytics.DailyTotals;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Health;
@@ -100,10 +100,10 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         });
 
         // The analytics pieces these tests write through, without the hosted services -- a test
-        // that started the rollup timer would be racing its own assertions.
+        // that started the daily totals timer would be racing its own assertions.
         builder.Services.AddScoped<IFactWriter, FactWriter>();
         builder.Services.AddScoped<EventPartitionMaintainer>();
-        builder.Services.AddScoped<RollupJob>();
+        builder.Services.AddScoped<DailyTotalsJob>();
 
         var diagnostics = new SyncDiagnostics(clock);
 
@@ -137,7 +137,7 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
     }
 
     /// <summary>
-    /// Clears the fact log, the rollups and the settings row.
+    /// Clears the fact log, the daily totals and the settings row.
     /// </summary>
     /// <remarks>
     /// The whole assembly shares one container and therefore one database, and every coverage
@@ -148,8 +148,8 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
     {
         await using var context = _db.NewContext();
         await context.Database.ExecuteSqlRawAsync("DELETE FROM modbot_event", ct);
-        await context.RollupDaily.ExecuteDeleteAsync(ct);
-        await context.RollupState.ExecuteDeleteAsync(ct);
+        await context.DailyTotals.ExecuteDeleteAsync(ct);
+        await context.DailyTotalsState.ExecuteDeleteAsync(ct);
         await context.Settings.ExecuteDeleteAsync(ct);
     }
 
@@ -211,10 +211,10 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await writer.WriteAsync(fact, ct);
     }
 
-    public async Task RebuildRollupsAsync(CancellationToken ct)
+    public async Task RebuildDailyTotalsAsync(CancellationToken ct)
     {
         using var scope = Services.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<RollupJob>().RebuildAsync(ct);
+        await scope.ServiceProvider.GetRequiredService<DailyTotalsJob>().RebuildAsync(ct);
     }
 
     public async ValueTask DisposeAsync()

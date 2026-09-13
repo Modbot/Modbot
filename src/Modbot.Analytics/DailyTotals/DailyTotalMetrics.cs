@@ -1,9 +1,9 @@
 using Modbot.Core.Data.Entities;
 
-namespace Modbot.Analytics.Rollups;
+namespace Modbot.Analytics.DailyTotals;
 
 /// <summary>How a metric's rows are broken down.</summary>
-public enum RollupDimensionKind
+public enum DailyTotalDimensionKind
 {
     /// <summary>One row per day, dimension <c>''</c>.</summary>
     None,
@@ -22,7 +22,7 @@ public enum RollupDimensionKind
 /// <param name="Name">Dotted metric name, stored verbatim in <c>modbot_rollup_daily.metric</c>.</param>
 public sealed record FactCountMetric(
     string Name,
-    RollupDimensionKind Dimension,
+    DailyTotalDimensionKind Dimension,
     IReadOnlyList<string> Types);
 
 /// <summary>
@@ -34,17 +34,17 @@ public sealed record FactCountMetric(
 public sealed record CumulativeMetric(string Name, string Plus, string Minus);
 
 /// <summary>
-/// The metrics <see cref="RollupJob"/> knows how to compute, and the names reserved for the
+/// The metrics <see cref="DailyTotalsJob"/> knows how to compute, and the names reserved for the
 /// counted-only path.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Spec 5.4 keeps the table generic -- metric and dimension are text -- so that adding a metric is
 /// an entry in this file and a rebuild, never a migration. Everything about a metric that the SQL
-/// needs is declared here; <see cref="RollupJob"/> contains no metric-specific code.
+/// needs is declared here; <see cref="DailyTotalsJob"/> contains no metric-specific code.
 /// </para>
 /// </remarks>
-public static class RollupMetrics
+public static class DailyTotalMetrics
 {
     /// <summary>
     /// The running net of recorded joins minus leaves. <strong>Not a headcount.</strong>
@@ -64,7 +64,7 @@ public static class RollupMetrics
 
     /// <summary>
     /// Discord message volume -- the metric the counted-only path exists for (spec 5.2.1).
-    /// Incremented through <see cref="IRollupCounter"/>; no fact is ever written for a message.
+    /// Incremented through <see cref="IDailyTotalCounter"/>; no fact is ever written for a message.
     /// </summary>
     public const string DiscordMessages = "discord.messages";
 
@@ -78,15 +78,15 @@ public static class RollupMetrics
     /// </remarks>
     public static IReadOnlyList<FactCountMetric> FactCounts { get; } =
     [
-        new(MembersJoined, RollupDimensionKind.None, [FactType.MemberJoined]),
-        new(MembersLeft, RollupDimensionKind.None, [FactType.MemberLeft]),
-        new(BansAdded, RollupDimensionKind.None, [FactType.MemberBanned]),
+        new(MembersJoined, DailyTotalDimensionKind.None, [FactType.MemberJoined]),
+        new(MembersLeft, DailyTotalDimensionKind.None, [FactType.MemberLeft]),
+        new(BansAdded, DailyTotalDimensionKind.None, [FactType.MemberBanned]),
 
         // Everything a moderator did, attributed to whoever did it. VRChat's audit log attributes
         // Modbot's own actions to Modbot's single account (spec 5.9.1), so for those the actor
         // that matters is on Modbot's own fact, not VRChat's -- both are counted here, and the
         // deduplication of the pair is spec 5.9.1's enrichment problem, not this job's.
-        new(ModeratorActions, RollupDimensionKind.Actor,
+        new(ModeratorActions, DailyTotalDimensionKind.Actor,
         [
             FactType.MemberBanned,
             FactType.MemberUnbanned,
@@ -126,7 +126,7 @@ public static class RollupMetrics
         new(MembersNet, Plus: MembersJoined, Minus: MembersLeft),
     ];
 
-    /// <summary>Every metric name the rollup job owns and will delete and rewrite at will.</summary>
+    /// <summary>Every metric name the daily totals job owns and will delete and rewrite at will.</summary>
     public static IReadOnlySet<string> Computed { get; } =
         FactCounts.Select(m => m.Name).Concat(Cumulative.Select(m => m.Name)).ToHashSet(StringComparer.Ordinal);
 

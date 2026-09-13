@@ -18,10 +18,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     public DbSet<ModbotEvent> Events => Set<ModbotEvent>();
 
     /// <summary>Daily aggregates (spec 5.4). Derived from <see cref="Events"/>, kept forever.</summary>
-    public DbSet<RollupDaily> RollupDaily => Set<RollupDaily>();
+    public DbSet<DailyTotal> DailyTotals => Set<DailyTotal>();
 
-    /// <summary>Where the incremental rollup run got to.</summary>
-    public DbSet<RollupState> RollupState => Set<RollupState>();
+    /// <summary>Where the incremental daily totals run got to.</summary>
+    public DbSet<DailyTotalsState> DailyTotalsState => Set<DailyTotalsState>();
 
     /// <summary>
     /// Rate-limit budgets and penalty state (spec 4.3.2). Persisted rather than held in memory so
@@ -216,8 +216,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .HasMethod("gin");
         });
 
-        builder.Entity<RollupDaily>(entity =>
+        builder.Entity<DailyTotal>(entity =>
         {
+            // The entity is DailyTotal in code; the table keeps the name it was created with,
+            // because renaming a live table is a migration against real data for no benefit.
             entity.ToTable("modbot_rollup_daily");
 
             // Spec 5.4's key exactly, with the empty string standing in for "no dimension":
@@ -255,8 +257,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .HasDatabaseName("ix_rate_limit_bucket_stopped");
         });
 
-        builder.Entity<RollupState>(entity =>
+        builder.Entity<DailyTotalsState>(entity =>
         {
+            // Same as modbot_rollup_daily: the C# name moved to plain words, the table did not.
             entity.ToTable("modbot_rollup_state", t =>
                 t.HasCheckConstraint("ck_modbot_rollup_state_singleton", "id = 1"));
 

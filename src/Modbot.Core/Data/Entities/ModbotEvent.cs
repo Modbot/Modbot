@@ -11,7 +11,7 @@ namespace Modbot.Core.Data.Entities;
 /// written down.
 /// </para>
 /// <para>
-/// <strong>Facts are never mutated and never updated in place.</strong> Rollups are recomputable
+/// <strong>Facts are never mutated and never updated in place.</strong> Daily totals are recomputable
 /// from facts, so a bug in a metric is a re-run rather than lost data; that invariant only holds
 /// while nothing edits a row here. A correction is a new fact that supersedes an old one.
 /// </para>

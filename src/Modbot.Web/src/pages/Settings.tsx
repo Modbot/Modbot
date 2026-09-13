@@ -736,7 +736,7 @@ function RetentionForm({
         />
       </div>
       <p className="mt-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        0 keeps forever. Rollups are never aged out, so charts keep their full history even where
+        0 keeps forever. Daily totals are never aged out, so charts keep their full history even where
         the underlying facts have been removed.
       </p>
       {problem && (

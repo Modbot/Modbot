@@ -141,8 +141,8 @@ audit log gets.
 | Role granted / removed | fact | Moderation |
 | Discord ban / kick / timeout | fact — feeds §5.8 accountability | Moderation |
 | Voice channel join / leave | fact — sessions, exactly like instance presence | Presence |
-| **Messages sent** | **rollup only** (foundation §5.2.1) | — |
-| Member count, online count | rollup snapshot | — |
+| **Messages sent** | **daily total only** (foundation §5.2.1) | — |
+| Member count, online count | daily total snapshot | — |
 
 All facts carry `subject_platform = Discord`.
 
@@ -157,7 +157,7 @@ it, that is a separate decision requiring its own justification, not an incremen
 
 ### 5.2 Voice presence is presence
 
-Treated identically to instance presence: same session model, same time-spent rollups, same
+Treated identically to instance presence: same session model, same time-spent daily totals, same
 retention class, same purge-user coverage. A community that runs events in Discord voice rather than
 in-world gets the same regulars detection and the same giveaway eligibility (M7) as one running
 instances.

@@ -14,7 +14,7 @@ namespace Modbot.Analytics.Retention;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Spec 5.5: moderation facts are kept forever by default, presence facts for ninety days, rollups
+/// Spec 5.5: moderation facts are kept forever by default, presence facts for ninety days, daily totals
 /// forever. All three are configurable from <see cref="Settings"/>; a retention of zero days means
 /// "keep forever".
 /// </para>
