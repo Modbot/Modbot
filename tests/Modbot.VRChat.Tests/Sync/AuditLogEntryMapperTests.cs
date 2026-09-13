@@ -20,11 +20,14 @@ namespace Modbot.VRChat.Tests.Sync;
 /// evidence there is for either.
 /// </para>
 /// <para>
-/// <c>Fixtures/audit-log-shapes-2026-09-13.jsonl</c> is one row per shape recorded in the
-/// audit-log research, section 6, after the re-walk of 1,241 live entries: the key set of each
-/// row is exactly what every live row of that type carried, and the location string is the
-/// quoted one. Display names, post and announcement text are removed, and the parts of ids the
-/// research elides are filled in -- so the ids are shaped like the live ones without being them.
+/// <c>Fixtures/audit-log-shapes-2026-09-13.jsonl</c> is real too: one production row per event
+/// type the entries fixture does not already cover, pulled on 2026-09-13 from the same group and
+/// redacted the same way. <c>actorDisplayName</c> is "Moderator A", <c>description</c> is a
+/// placeholder, and every free-text field inside <c>data</c> (<c>title</c>, <c>text</c>,
+/// <c>message</c>, <c>description</c>) is the literal string <c>[redacted]</c>. Ids, timestamps,
+/// locations, ids inside <c>data</c>, permission lists, booleans and enums are as VRChat sent
+/// them. It replaced a reconstructed set whose ids and locations were invented, and several of
+/// the assertions below pin details the reconstruction had wrong.
 /// </para>
 /// </remarks>
 public class AuditLogEntryMapperTests
@@ -362,36 +365,60 @@ public class AuditLogEntryMapperTests
 
     /// <summary>
     /// <c>group.instance.update</c> arrived with <c>calendarEntryId: {old, new}</c> and was not
-    /// on the list of types the lift applied to. The lift is now by shape, so it is.
+    /// on the list of types the lift applied to. The lift is now by shape, so it is. In the real
+    /// row both sides are the same id -- VRChat recorded an update that changed nothing -- and the
+    /// pair is lifted as it is. Whether a diff amounts to anything is a reader's question, not
+    /// the mapper's; dropping it would be interpreting.
     /// </summary>
     [Fact]
-    public void AnInstanceUpdateLiftsItsDiffUnderChanged()
+    public void AnInstanceUpdateLiftsItsDiffUnderChangedEvenWhenOldEqualsNew()
     {
-        var data = AuditLogEntryMapper.Map(ShapeSample("gaud_1c9f4e2b-7d3a-4b68-a0e5-6b2d8f7c1a39")).Fact!.Data!;
+        var data = AuditLogEntryMapper.Map(ShapeSample("gaud_15bc3934-d312-46ad-b811-8353054bd82d")).Fact!.Data!;
 
         var changed = Assert.IsType<JsonObject>(data["changed"]);
-        Assert.Null(changed["calendarEntryId"]!["old"]);
-        Assert.Equal("cal_6f2d9b3e-8a1c-4d57-b9e0-3c7f5a2d1e84", changed["calendarEntryId"]!["new"]!.GetValue<string>());
+        Assert.Equal(["calendarEntryId"], changed.Select(p => p.Key));
+        Assert.Equal("cal_a3a5d7bd-aa89-4b11-acf8-213278488657", changed["calendarEntryId"]!["old"]!.GetValue<string>());
+        Assert.Equal("cal_a3a5d7bd-aa89-4b11-acf8-213278488657", changed["calendarEntryId"]!["new"]!.GetValue<string>());
     }
 
     /// <summary>
-    /// The live shape of a role update is <c>{lastUpdatedByUserId, permissions: {old, new}}</c>.
-    /// The pair is a diff; the scalar beside it is not, and it does not become one for sitting
-    /// next to one.
+    /// The live shape of a role update is <c>{permissions: {old, new}, lastUpdatedByUserId: {old,
+    /// new}}</c> -- two pairs, so two entries under <c>changed</c>. The reconstruction this row
+    /// replaced had <c>lastUpdatedByUserId</c> as a bare scalar; a lift by type list would have
+    /// needed telling about the difference, and a lift by shape did not. The permission lists are
+    /// long and repeat entries exactly as VRChat sent them, so the check is on the shape and on
+    /// one permission visible in the row, not on a count. The role is the target, not a field of
+    /// <c>data</c>, so nothing comes up under <c>roleId</c>.
     /// </summary>
     [Fact]
-    public void ARoleUpdateLiftsTheDiffAndLeavesTheScalarBesideIt()
+    public void ARoleUpdateLiftsEveryPairItCarries()
     {
-        var data = AuditLogEntryMapper.Map(ShapeSample("gaud_d2b7e4a9-3f1c-4e86-a7b0-5c9d8e2f6a13")).Fact!.Data!;
+        var entry = ShapeSample("gaud_7f18287a-7dda-4ab6-85ca-6c4ee2975174");
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+        var data = fact.Data!;
+
+        Assert.Equal("grol_b2488a21-05a7-4bea-95d1-07b25291d28b", fact.SubjectId);
 
         var changed = Assert.IsType<JsonObject>(data["changed"]);
-        Assert.Equal(["permissions"], changed.Select(p => p.Key));
-        Assert.Equal(2, changed["permissions"]!["new"]!.AsArray().Count);
+        Assert.Equal(["permissions", "lastUpdatedByUserId"], changed.Select(p => p.Key));
 
-        // Still in the verbatim copy, where it was.
+        var permissions = changed["permissions"]!;
+        Assert.IsType<JsonArray>(permissions["old"]);
+        Assert.IsType<JsonArray>(permissions["new"]);
+        Assert.Contains("group-audit-view", permissions["new"]!.AsArray().Select(p => p!.GetValue<string>()));
+
+        Assert.Null(changed["lastUpdatedByUserId"]!["old"]);
         Assert.Equal(
-            "usr_2a323be9-ac4e-4502-af07-357d79c48ccf",
-            data["auditData"]!["lastUpdatedByUserId"]!.GetValue<string>());
+            "usr_64dbb478-bcd0-42ad-8b77-ac85b858b9a7",
+            changed["lastUpdatedByUserId"]!["new"]!.GetValue<string>());
+
+        Assert.False(data.ContainsKey("roleId"));
+        Assert.False(data.ContainsKey("roleName"));
+
+        // Both pairs are still in the verbatim copy, where they were.
+        Assert.Equal(
+            "usr_64dbb478-bcd0-42ad-8b77-ac85b858b9a7",
+            data["auditData"]!["lastUpdatedByUserId"]!["new"]!.GetValue<string>());
     }
 
     /// <summary>
@@ -449,77 +476,123 @@ public class AuditLogEntryMapperTests
 
     // ── Scalars observed stable, lifted beside the copy ────────────────────────────────────
 
+    /// <summary>
+    /// <c>groupAccessType</c> comes up; <c>roleIds</c> and <c>calendarEntryId</c> do not. The two
+    /// real rows differ from each other in ways the reconstruction had flattened: the create is a
+    /// <c>plus</c> instance and the close a <c>public</c> one.
+    /// </summary>
     [Theory]
-    [InlineData("gaud_3f7b1d9c-8e2a-4c05-b6d3-4a9e0f2c7b54", "group.instance.create")]
-    [InlineData("gaud_b82e6a4d-5c19-4f7e-9d0b-3e1a7c5f2d96", "group.instance.close")]
-    public void AnInstanceCreateOrCloseLiftsItsAccessTypeAndNothingElse(string entryId, string eventType)
+    [InlineData("gaud_87905023-d926-46dc-a662-5c5d6d1065b9", "group.instance.create", "plus")]
+    [InlineData("gaud_78bda451-9973-4592-9e85-666d40f93929", "group.instance.close", "public")]
+    public void AnInstanceCreateOrCloseLiftsItsAccessTypeAndNothingElse(
+        string entryId, string eventType, string accessType)
     {
         var entry = ShapeSample(entryId);
         Assert.Equal(eventType, entry.EventType);
 
         var data = AuditLogEntryMapper.Map(entry).Fact!.Data!;
 
-        Assert.Equal("public", data["groupAccessType"]!.GetValue<string>());
+        Assert.Equal(accessType, data["groupAccessType"]!.GetValue<string>());
         Assert.Equal(
             BaseKeys.Append("groupAccessType").Order(StringComparer.Ordinal),
             data.Select(p => p.Key).Order(StringComparer.Ordinal));
         Assert.False(data.ContainsKey("roleIds"));
+        Assert.False(data.ContainsKey("calendarEntryId"));
+    }
+
+    /// <summary>
+    /// The same field, two shapes: the real create's <c>roleIds</c> is an empty array and the
+    /// real close's is a null, and only the create carries <c>calendarEntryId</c> at all. Neither
+    /// is normalised towards the other. The copy is what VRChat sent, and here VRChat sent two
+    /// different things for what looks like one field.
+    /// </summary>
+    [Fact]
+    public void TheCreateAndCloseKeepTheirDifferentRoleIdsShapesInTheCopy()
+    {
+        var create = Assert.IsType<JsonObject>(
+            AuditLogEntryMapper.Map(ShapeSample("gaud_87905023-d926-46dc-a662-5c5d6d1065b9")).Fact!.Data!["auditData"]);
+        var close = Assert.IsType<JsonObject>(
+            AuditLogEntryMapper.Map(ShapeSample("gaud_78bda451-9973-4592-9e85-666d40f93929")).Fact!.Data!["auditData"]);
+
+        Assert.Empty(Assert.IsType<JsonArray>(create["roleIds"]));
+        Assert.True(create.ContainsKey("calendarEntryId"));
+        Assert.Null(create["calendarEntryId"]);
+
+        Assert.True(close.ContainsKey("roleIds"));
+        Assert.Null(close["roleIds"]);
+        Assert.False(close.ContainsKey("calendarEntryId"));
     }
 
     [Fact]
     public void AnAnnouncementLiftsItsTitleAndMessage()
     {
-        var data = AuditLogEntryMapper.Map(ShapeSample("gaud_e6c0d3b8-2a7f-4e19-8b5c-9f4d1a6e3c72")).Fact!.Data!;
+        var data = AuditLogEntryMapper.Map(ShapeSample("gaud_d44da8cd-2cdb-4f79-b2f4-0c917be6fe03")).Fact!.Data!;
 
-        Assert.Equal("[announcement title removed]", data["title"]!.GetValue<string>());
-        Assert.Equal("[announcement text removed]", data["message"]!.GetValue<string>());
-        Assert.Equal("[announcement text removed]", data["auditData"]!["message"]!.GetValue<string>());
+        Assert.Equal("[redacted]", data["title"]!.GetValue<string>());
+        Assert.Equal("[redacted]", data["message"]!.GetValue<string>());
+        Assert.Equal("[redacted]", data["auditData"]!["message"]!.GetValue<string>());
     }
 
     /// <summary>
     /// A post's <c>targetId</c> is the notification VRChat sent members, not the post; the post
     /// itself is in <c>auditData</c>. The four stable scalars come up; the rest of the shape
-    /// (<c>imageId</c>, <c>roleIds</c>, <c>sendNotification</c>) stays in the copy only.
+    /// (<c>imageId</c>, <c>roleIds</c>, <c>sendNotification</c>) stays in the copy only. The real
+    /// post is group-visible, has an image, and was written by the moderator who logged it.
     /// </summary>
     [Fact]
     public void APostLiftsItsTitleTextAuthorAndVisibility()
     {
-        var entry = ShapeSample("gaud_7e3a9c5d-0b4f-4d21-9f6e-2c8b1d7a4e05");
+        var entry = ShapeSample("gaud_cc537d0f-2b36-4949-9b36-6054a9511174");
         var fact = AuditLogEntryMapper.Map(entry).Fact!;
         var data = fact.Data!;
 
-        Assert.Equal("not_4a8d2f6b-9e1c-4b73-a5d0-7f3e6c2b9a18", fact.SubjectId);
-        Assert.Equal("[post title removed]", data["title"]!.GetValue<string>());
-        Assert.Equal("[post text removed]", data["text"]!.GetValue<string>());
-        Assert.Equal("usr_2a323be9-ac4e-4502-af07-357d79c48ccf", data["authorId"]!.GetValue<string>());
-        Assert.Equal("public", data["visibility"]!.GetValue<string>());
+        Assert.Equal("not_b0f5582e-4a40-47aa-af4b-299702e88428", fact.SubjectId);
+        Assert.Equal("[redacted]", data["title"]!.GetValue<string>());
+        Assert.Equal("[redacted]", data["text"]!.GetValue<string>());
+        Assert.Equal("usr_64dbb478-bcd0-42ad-8b77-ac85b858b9a7", data["authorId"]!.GetValue<string>());
+        Assert.Equal(fact.ActorId, data["authorId"]!.GetValue<string>());
+        Assert.Equal("group", data["visibility"]!.GetValue<string>());
 
         Assert.False(data.ContainsKey("imageId"));
         Assert.False(data.ContainsKey("roleIds"));
         Assert.False(data.ContainsKey("sendNotification"));
+        Assert.Equal("file_567be062-29ea-47a7-82bc-14146d4f2bb6", data["auditData"]!["imageId"]!.GetValue<string>());
         Assert.True(data["auditData"]!["sendNotification"]!.GetValue<bool>());
     }
 
+    /// <summary>
+    /// The event's own <c>description</c> lives inside <c>data</c> and is not lifted, so it never
+    /// collides with the entry's <c>description</c> at the top of the payload. The fixture makes
+    /// the two distinguishable: one is the redaction placeholder for VRChat's template sentence,
+    /// the other is <c>[redacted]</c>.
+    /// </summary>
     [Fact]
     public void ACalendarEventLiftsItsTitleTypeAndAccessType()
     {
-        var data = AuditLogEntryMapper.Map(ShapeSample("gaud_a5d8f2c1-6e9b-4a07-b3f4-8d1c5e0a7b62")).Fact!.Data!;
+        var entry = ShapeSample("gaud_9cb8ba60-2a01-4150-8f04-6276decd81b7");
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+        var data = fact.Data!;
 
-        Assert.Equal("[event title removed]", data["title"]!.GetValue<string>());
+        Assert.Equal("cal_36dbfdce-518f-4d32-9ad0-f4cb2b5be8e3", fact.SubjectId);
+        Assert.Equal("[redacted]", data["title"]!.GetValue<string>());
         Assert.Equal("event", data["type"]!.GetValue<string>());
         Assert.Equal("public", data["accessType"]!.GetValue<string>());
 
         Assert.False(data.ContainsKey("imageId"));
-        Assert.Equal("[event description removed]", data["auditData"]!["description"]!.GetValue<string>());
+        Assert.Equal("file_2fe613a8-8a32-4253-83f8-63d70c80d59d", data["auditData"]!["imageId"]!.GetValue<string>());
+        Assert.Equal("[redacted]", data["auditData"]!["description"]!.GetValue<string>());
+        Assert.Equal(entry.Description, data["description"]!.GetValue<string>());
+        Assert.NotEqual("[redacted]", data["description"]!.GetValue<string>());
     }
 
     // ── Instance events fill the instance columns ──────────────────────────────────────────
 
-    private const string ShapeWorldId = "wrld_44f4a344-2d1b-4c7e-9a3f-8b5e6d7c0f12";
-    private const string ShapeInstanceId = "93927";
-
-    private const string ShapeLocation =
-        "wrld_44f4a344-2d1b-4c7e-9a3f-8b5e6d7c0f12:93927~group(grp_0a17232e-6ad4-4889-8e1e-6e0c5fa815fd)~groupAccessType(public)~region(us)";
+    /// <summary>
+    /// The instance the real kick, warn and close all happened in: three different moderators,
+    /// one night, one instance. The create, announcement and update are each somewhere else.
+    /// </summary>
+    private const string KickWarnCloseLocation =
+        "wrld_44f4a344-4489-4e11-a54a-86971f16f0e6:93927~group(grp_0a17232e-6ad4-4889-8e1e-6e0c5fa815fd)~groupAccessType(public)~region(us)";
 
     /// <summary>
     /// A kick or a warn names the person in <c>targetId</c> and carries the instance in
@@ -527,8 +600,8 @@ public class AuditLogEntryMapperTests
     /// subject; the instance goes into the two columns that exist for it.
     /// </summary>
     [Theory]
-    [InlineData("gaud_5d1e7c0a-3b2f-4e8a-9c41-0f6b2a7d8e13", "group.instance.kick", "usr_7b3f9e21-6c4d-4a58-8e07-1d2c3b4a5f60")]
-    [InlineData("gaud_9a4c2e7f-1d8b-4f36-a52e-7c0b3d9e6a21", "group.instance.warn", "usr_c15e8d3a-9f27-4b06-b3c4-2e7a1d6f9b08")]
+    [InlineData("gaud_534f534f-f652-42a1-8e88-71d986650528", "group.instance.kick", "usr_45e0370d-c03d-45cc-8aca-5a8dad03c5f0")]
+    [InlineData("gaud_2483b0fa-da6f-4437-9de0-7f4041ada59c", "group.instance.warn", "usr_38d4c925-a8df-4bad-825a-551f7e231baf")]
     public void AKickOrWarnTakesTheInstanceFromItsDataAndKeepsThePersonAsTheSubject(
         string entryId, string eventType, string person)
     {
@@ -538,36 +611,84 @@ public class AuditLogEntryMapperTests
         var fact = AuditLogEntryMapper.Map(entry).Fact!;
 
         Assert.Equal(person, fact.SubjectId);
-        Assert.Equal(ShapeWorldId, fact.WorldId);
-        Assert.Equal(ShapeInstanceId, fact.InstanceId);
+        Assert.Equal("wrld_44f4a344-4489-4e11-a54a-86971f16f0e6", fact.WorldId);
+        Assert.Equal("93927", fact.InstanceId);
 
         // The location is not lifted into the payload: it is in the copy, and in the columns.
         var data = fact.Data!;
         Assert.Equal(BaseKeys.Order(StringComparer.Ordinal), data.Select(p => p.Key).Order(StringComparer.Ordinal));
-        Assert.Equal(ShapeLocation, data["auditData"]!["location"]!.GetValue<string>());
+        Assert.Equal(KickWarnCloseLocation, data["auditData"]!["location"]!.GetValue<string>());
     }
 
     /// <summary>
     /// A create, close, announcement or update puts the location in <c>targetId</c>. The subject
     /// stays that raw string, byte for byte -- the columns are filled beside it, not from it.
+    /// Four real rows, three different worlds; two of the locations carry a grammar case the
+    /// reconstruction never exercised, and each of those has its own test below.
     /// </summary>
     [Theory]
-    [InlineData("gaud_3f7b1d9c-8e2a-4c05-b6d3-4a9e0f2c7b54", "group.instance.create")]
-    [InlineData("gaud_b82e6a4d-5c19-4f7e-9d0b-3e1a7c5f2d96", "group.instance.close")]
-    [InlineData("gaud_e6c0d3b8-2a7f-4e19-8b5c-9f4d1a6e3c72", "group.instance.announcement")]
-    [InlineData("gaud_1c9f4e2b-7d3a-4b68-a0e5-6b2d8f7c1a39", "group.instance.update")]
+    [InlineData(
+        "gaud_87905023-d926-46dc-a662-5c5d6d1065b9", "group.instance.create",
+        "wrld_ebca0ab7-7ea8-46e2-aac6-fc5a67f94924:65688~group(grp_0a17232e-6ad4-4889-8e1e-6e0c5fa815fd)~groupAccessType(plus)~region(us)",
+        "wrld_ebca0ab7-7ea8-46e2-aac6-fc5a67f94924", "65688")]
+    [InlineData(
+        "gaud_78bda451-9973-4592-9e85-666d40f93929", "group.instance.close",
+        KickWarnCloseLocation,
+        "wrld_44f4a344-4489-4e11-a54a-86971f16f0e6", "93927")]
+    [InlineData(
+        "gaud_d44da8cd-2cdb-4f79-b2f4-0c917be6fe03", "group.instance.announcement",
+        "wrld_71ff0336-d86c-4095-b0f7-e628f1da3a02:63944~group(grp_0a17232e-6ad4-4889-8e1e-6e0c5fa815fd)~groupAccessType(public)~ageGate~region(us)",
+        "wrld_71ff0336-d86c-4095-b0f7-e628f1da3a02", "63944")]
+    [InlineData(
+        "gaud_15bc3934-d312-46ad-b811-8353054bd82d", "group.instance.update",
+        "wrld_3c231334-2f20-442f-924c-a504d9f98543:09595~group(grp_0a17232e-6ad4-4889-8e1e-6e0c5fa815fd)~groupAccessType(public)~region(use)",
+        "wrld_3c231334-2f20-442f-924c-a504d9f98543", "09595")]
     public void ACreateCloseAnnouncementOrUpdateTakesTheInstanceFromItsTargetAndKeepsTheTargetWhole(
-        string entryId, string eventType)
+        string entryId, string eventType, string location, string worldId, string instanceId)
     {
         var entry = ShapeSample(entryId);
         Assert.Equal(eventType, entry.EventType);
 
         var fact = AuditLogEntryMapper.Map(entry).Fact!;
 
-        Assert.Equal(ShapeLocation, fact.SubjectId);
-        Assert.Equal(ShapeLocation, fact.Data!["targetId"]!.GetValue<string>());
-        Assert.Equal(ShapeWorldId, fact.WorldId);
-        Assert.Equal(ShapeInstanceId, fact.InstanceId);
+        Assert.Equal(location, fact.SubjectId);
+        Assert.Equal(location, fact.Data!["targetId"]!.GetValue<string>());
+        Assert.Equal(worldId, fact.WorldId);
+        Assert.Equal(instanceId, fact.InstanceId);
+    }
+
+    /// <summary>
+    /// <c>~ageGate</c> is a qualifier with no value and no parentheses (log-format research,
+    /// section 1.2), and a parser that expects <c>name(value)</c> of every qualifier loses the
+    /// rest of the string at it. The real announcement went to an age-gated instance, so the
+    /// fixture carries the case: the split stops at the first <c>~</c> and never reads past it.
+    /// </summary>
+    [Fact]
+    public void AValuelessQualifierInTheLocationDoesNotDisturbTheSplit()
+    {
+        var entry = ShapeSample("gaud_d44da8cd-2cdb-4f79-b2f4-0c917be6fe03");
+        Assert.Contains("~ageGate~", entry.TargetId);
+
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+
+        Assert.Equal("wrld_71ff0336-d86c-4095-b0f7-e628f1da3a02", fact.WorldId);
+        Assert.Equal("63944", fact.InstanceId);
+        Assert.Equal(entry.TargetId, fact.SubjectId);
+    }
+
+    /// <summary>
+    /// The real update's instance id is <c>09595</c>. It is text, not a number -- ids are never
+    /// validated or normalised (foundation 3.1.1), and the id is whatever the creator set
+    /// (log-format research, section 1.3) -- so a reading that arrived at <c>9595</c> would file
+    /// this instance's facts under an id VRChat never issued.
+    /// </summary>
+    [Fact]
+    public void ALeadingZeroInTheInstanceIdIsKept()
+    {
+        var fact = AuditLogEntryMapper.Map(ShapeSample("gaud_15bc3934-d312-46ad-b811-8353054bd82d")).Fact!;
+
+        Assert.Equal("09595", fact.InstanceId);
+        Assert.NotEqual("9595", fact.InstanceId);
     }
 
     /// <summary>
@@ -652,8 +773,8 @@ public class AuditLogEntryMapperTests
     public void NoOtherEventTypeFillsTheInstanceColumns(string eventType)
     {
         var entry = Entry(eventType);
-        entry.TargetId = ShapeLocation;
-        entry.Data = $$$"""{"location":"{{{ShapeLocation}}}"}""";
+        entry.TargetId = KickWarnCloseLocation;
+        entry.Data = $$$"""{"location":"{{{KickWarnCloseLocation}}}"}""";
 
         var fact = AuditLogEntryMapper.Map(entry).Fact!;
 
@@ -851,14 +972,17 @@ public class AuditLogEntryMapperTests
     }
 
     /// <summary>
-    /// One row per shape in the research, and every one of them maps under its own name with the
-    /// columns filled -- so a shape the research records is a shape the mapper reads.
+    /// One real row per event type the entries fixture does not already carry, and every one of
+    /// them maps under its own name -- so between the two fixtures, every type production has
+    /// produced is read by the mapper from a real sample of it.
     /// </summary>
     [Fact]
     public void EveryRecordedShapeMapsToANamedFactType()
     {
         var samples = ShapeSamples();
-        Assert.Equal(10, samples.Count);
+        Assert.Equal(11, samples.Count);
+        Assert.Equal(11, samples.Select(e => e.EventType).Distinct().Count());
+        Assert.Empty(samples.Select(e => e.EventType).Intersect(LiveSamples().Select(e => e.EventType)));
 
         Assert.All(samples, entry =>
         {
@@ -868,6 +992,43 @@ public class AuditLogEntryMapperTests
             Assert.Equal(AuditLogRejection.None, mapping.Rejection);
             Assert.NotEqual(FactType.Unrecognised, mapping.Fact!.Type);
         });
+    }
+
+    /// <summary>
+    /// A rejection arrives with <c>data: {}</c> like the membership events do, and names the
+    /// person turned away in <c>targetId</c>. The empty object is kept as one for the same reason
+    /// as the others: it is what VRChat sent.
+    /// </summary>
+    [Fact]
+    public void TheRealJoinRequestRejectionMapsWithAnEmptyPayload()
+    {
+        var entry = ShapeSample("gaud_b25a3980-6f83-4700-8674-092e1515f706");
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+
+        Assert.Equal("group.request.reject", entry.EventType);
+        Assert.Equal(FactType.JoinRequestRejected, fact.Type);
+        Assert.Equal("usr_7e3e5b38-024b-47ca-be14-a72b3f239cb3", fact.SubjectId);
+        Assert.Equal("usr_2a323be9-ac4e-4502-af07-357d79c48ccf", fact.ActorId);
+        Assert.Empty(Assert.IsType<JsonObject>(fact.Data!["auditData"]));
+    }
+
+    /// <summary>
+    /// The real group update is a banner change: one pair under <c>changed</c>, and the group's
+    /// own id as the subject.
+    /// </summary>
+    [Fact]
+    public void TheRealGroupUpdateLiftsItsBannerChange()
+    {
+        var entry = ShapeSample("gaud_17b03abf-440d-4ecd-8634-68e3017acf51");
+        var fact = AuditLogEntryMapper.Map(entry).Fact!;
+
+        Assert.Equal(FactType.GroupInfoChanged, fact.Type);
+        Assert.Equal(entry.GroupId, fact.SubjectId);
+
+        var changed = Assert.IsType<JsonObject>(fact.Data!["changed"]);
+        Assert.Equal(["bannerId"], changed.Select(p => p.Key));
+        Assert.Equal("file_41422f83-4bef-488a-8a6c-7df782dbb2de", changed["bannerId"]!["old"]!.GetValue<string>());
+        Assert.Equal("file_41b320e5-2b7d-4aa2-9bc6-32af1cea17df", changed["bannerId"]!["new"]!.GetValue<string>());
     }
 
     private static GroupAuditLogEntry LiveSample(string entryId)
