@@ -3,9 +3,13 @@ import { cn } from '@/lib/utils'
 import type { Density, Theme } from '@/lib/preferences'
 import { Headset, Moon, Rows3, Rows2, Sun } from 'lucide-react'
 
+// No counts beside the labels yet. The prototype shows "14,208" next to Members, and it will
+// again -- but a hardcoded number in a running deployment is indistinguishable from a real one,
+// and a moderator has no way to tell they are looking at a screenshot. Counts return with the
+// member sync that produces them (M1).
 const NAV = [
-  { id: 'members', label: 'Members', count: '14,208' },
-  { id: 'bans', label: 'Bans', count: '187' },
+  { id: 'members', label: 'Members' },
+  { id: 'bans', label: 'Bans' },
   { id: 'audit', label: 'Audit log' },
   { id: 'metrics', label: 'Metrics', group: 'Insight' },
   { id: 'settings', label: 'Settings', group: 'Setup' },
@@ -13,14 +17,26 @@ const NAV = [
 
 export type PageId = (typeof NAV)[number]['id']
 
-export function Sidebar({ page, onNavigate }: { page: PageId; onNavigate: (p: PageId) => void }) {
+export function Sidebar({
+  page,
+  onNavigate,
+  groupName,
+}: {
+  page: PageId
+  onNavigate: (p: PageId) => void
+  groupName?: string
+}) {
   return (
     <aside className="flex flex-col gap-px border-r bg-card px-3 py-4" style={{ borderRightWidth: 'var(--hairline)' }}>
       <div className="flex items-center gap-2 px-2 pb-5">
         <div className="grid size-7 shrink-0 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">M</div>
         <div className="leading-tight">
           <div className="font-semibold tracking-tight">Modbot</div>
-          <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>VRC Kings</div>
+          {groupName && (
+            <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              {groupName}
+            </div>
+          )}
         </div>
       </div>
 
@@ -42,22 +58,17 @@ export function Sidebar({ page, onNavigate }: { page: PageId; onNavigate: (p: Pa
             style={{ height: 'var(--control-h)' }}
           >
             <span>{item.label}</span>
-            {'count' in item && item.count && (
-              <span className="font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-small)' }}>{item.count}</span>
-            )}
           </button>
         </div>
       ))}
 
-      <div className="mt-auto border-t pt-4" style={{ borderTopWidth: 'var(--hairline)' }}>
-        <div className="flex items-center gap-2 px-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          <span className="size-1.5 shrink-0 rounded-full bg-[var(--ok)] ring-3 ring-[var(--ok)]/20" />
-          VRChat · healthy
-        </div>
-        <div className="flex items-center gap-2 px-2 pt-1 font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          1.45 / 2.00 req s⁻¹
-        </div>
-      </div>
+      {/*
+        The gate's health and its rate-limit headroom belong here (spec 4.3.3) and the prototype
+        shows both. They are left out rather than faked: a green "VRChat · healthy" dot that is
+        really a hardcoded string is worse than no dot at all, because it is the one place an
+        operator would look to find out that something is wrong.
+      */}
+      <div className="mt-auto" />
     </aside>
   )
 }
