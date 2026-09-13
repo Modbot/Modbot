@@ -9,7 +9,20 @@ namespace Modbot.Api.Features.Onboarding.Integrations;
 /// empty clears it, which is how the bot is turned off.
 /// </param>
 /// <param name="GuildId">The guild the bot serves. An opaque snowflake; never parsed.</param>
-public sealed record DiscordSettings(string? BotToken = null, string? GuildId = null);
+/// <param name="LogChannelId">
+/// The channel moderation events are posted to. Null leaves it alone; empty clears it. Setting
+/// or changing it starts posting from that moment -- the history before it is never replayed.
+/// </param>
+/// <param name="LogEventTypes">
+/// Which event types go to the channel, from <c>ModerationLogEvents.Allowed</c>. Null leaves the
+/// stored choice alone; anything outside the allowed list is dropped, so account and sign-in
+/// facts cannot be sent however the request is shaped.
+/// </param>
+public sealed record DiscordSettings(
+    string? BotToken = null,
+    string? GuildId = null,
+    string? LogChannelId = null,
+    IReadOnlyList<string>? LogEventTypes = null);
 
 /// <param name="Password">Same null-versus-empty rule as the Discord token.</param>
 /// <param name="UseTls">
@@ -80,6 +93,22 @@ public static class IntegrationsHandler
                     ? null
                     : discord.GuildId.Trim();
             }
+
+            if (discord.LogChannelId is not null)
+            {
+                var channel = discord.LogChannelId.Trim().Length == 0 ? null : discord.LogChannelId.Trim();
+
+                // A new channel starts from now. The poster reads null as "jump to the newest
+                // fact and post nothing", so switching channels never replays history into the
+                // new one -- see Settings.DiscordLogPostedThrough.
+                if (!string.Equals(channel, settings.DiscordLogChannelId, StringComparison.Ordinal))
+                    settings.DiscordLogPostedThrough = null;
+
+                settings.DiscordLogChannelId = channel;
+            }
+
+            if (discord.LogEventTypes is not null)
+                settings.DiscordLogEventTypes = Modbot.Core.Discord.ModerationLogEvents.Serialize(discord.LogEventTypes);
         }
 
         if (request?.Smtp is { } smtp)

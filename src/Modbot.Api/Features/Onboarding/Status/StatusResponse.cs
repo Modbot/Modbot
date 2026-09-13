@@ -54,7 +54,13 @@ public sealed record ConnectionStatus(
 
 public sealed record ManagedGroupStatus(string Id, string Name);
 
+/// <summary>One event type the Discord log channel can carry, with its label for the settings page.</summary>
+public sealed record DiscordLogEventChoice(string Type, string Label);
+
 /// <param name="DiscordConfigured">Whether a bot token is stored. The token itself never leaves.</param>
+/// <param name="DiscordLogChannelId">The channel moderation events are posted to, or null.</param>
+/// <param name="DiscordLogEventTypes">The event types currently posted there -- the defaults when nothing was chosen.</param>
+/// <param name="DiscordLogEventChoices">Everything that can be chosen, in display order.</param>
 /// <param name="PublicAddress">The saved public address, or null (accounts and access design §4.2).</param>
 /// <param name="PublicAddressSuggestion">
 /// What the platform says the address is, for the form to prefill. A person confirms it; the
@@ -63,6 +69,9 @@ public sealed record ManagedGroupStatus(string Id, string Name);
 public sealed record IntegrationStatus(
     bool DiscordConfigured,
     string? DiscordGuildId,
+    string? DiscordLogChannelId,
+    IReadOnlyList<string> DiscordLogEventTypes,
+    IReadOnlyList<DiscordLogEventChoice> DiscordLogEventChoices,
     bool SmtpConfigured,
     string? SmtpHost,
     string? PublicAddress,

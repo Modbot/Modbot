@@ -43,6 +43,8 @@ function IntegrationsForm({
 }) {
   const [botToken, setBotToken] = useState('')
   const [guildId, setGuildId] = useState(status.integrations.discordGuildId ?? '')
+  const [logChannelId, setLogChannelId] = useState(status.integrations.discordLogChannelId ?? '')
+  const [logEventTypes, setLogEventTypes] = useState<string[]>(status.integrations.discordLogEventTypes)
   const [host, setHost] = useState(status.integrations.smtpHost ?? '')
   const [port, setPort] = useState('')
   const [smtpUsername, setSmtpUsername] = useState('')
@@ -89,6 +91,8 @@ function IntegrationsForm({
         discord: {
           ...(botToken ? { botToken } : {}),
           guildId,
+          logChannelId,
+          logEventTypes,
         },
         smtp: {
           host,
@@ -130,6 +134,37 @@ function IntegrationsForm({
         <div className="flex max-w-sm flex-col gap-3">
           <PasswordField label="Bot token" value={botToken} onChange={setBotToken} />
           <Field label="Guild id" value={guildId} onChange={setGuildId} placeholder="" />
+          <Field
+            label="Post moderation events to this channel"
+            value={logChannelId}
+            onChange={setLogChannelId}
+            placeholder="Channel id, or blank to post nothing"
+          />
+        </div>
+        <Hint className="mt-2">
+          Posting starts from the moment the channel is saved. Nothing that happened before then
+          is posted, so turning this on never replays the group’s history into Discord. The bot
+          needs View Channel, Send Messages and Embed Links in that channel.
+        </Hint>
+        <div className="mt-3 flex flex-col gap-1">
+          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            Which events to post
+          </span>
+          {status.integrations.discordLogEventChoices.map((choice) => (
+            <Checkbox
+              key={choice.type}
+              checked={logEventTypes.includes(choice.type)}
+              onChange={(checked) =>
+                setLogEventTypes((current) =>
+                  checked
+                    ? [...current.filter((t) => t !== choice.type), choice.type]
+                    : current.filter((t) => t !== choice.type),
+                )
+              }
+            >
+              {choice.label}
+            </Checkbox>
+          ))}
         </div>
       </SettingsCard>
 

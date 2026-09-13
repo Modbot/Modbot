@@ -65,6 +65,12 @@ export type OnboardingStatus = {
   integrations: {
     discordConfigured: boolean
     discordGuildId: string | null
+    /** The channel moderation events are posted to, or null. */
+    discordLogChannelId: string | null
+    /** The event types posted there now -- the defaults when nothing was chosen. */
+    discordLogEventTypes: string[]
+    /** Everything that can be chosen, in display order, with labels. */
+    discordLogEventChoices: { type: string; label: string }[]
     smtpConfigured: boolean
     smtpHost: string | null
     /** The saved public address, or null. The only thing an emailed link is built from. */
@@ -917,7 +923,7 @@ export const api = {
     post<{ groupId: string; name: string }>('/api/onboarding/group', body),
 
   saveIntegrations: (body: {
-    discord?: { botToken?: string; guildId?: string }
+    discord?: { botToken?: string; guildId?: string; logChannelId?: string; logEventTypes?: string[] }
     smtp?: {
       host?: string
       port?: number

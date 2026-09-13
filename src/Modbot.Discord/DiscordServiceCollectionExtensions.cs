@@ -4,6 +4,7 @@ using Modbot.Core.Discord;
 using Modbot.Discord.Bot;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
+using Modbot.Discord.ModerationLog;
 
 namespace Modbot.Discord;
 
@@ -26,6 +27,7 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<IDiscordMessenger, DiscordRestMessenger>();
 
         services.TryAddSingleton<DiscordBotOptions>();
+        services.TryAddSingleton<ModerationLogOptions>();
         services.TryAddSingleton<IDiscordGatewayFactory, DiscordNetGatewayFactory>();
 
         services.AddSingleton<DiscordBotStatus>();
@@ -33,9 +35,11 @@ public static class DiscordServiceCollectionExtensions
 
         services.AddSingleton<DiscordBotService>();
         services.AddHostedService(p => p.GetRequiredService<DiscordBotService>());
+        services.AddHostedService<ModerationLogService>();
 
         services.AddScoped<LookupQuery>();
         services.AddScoped<DiscordCommandHandler>();
+        services.AddScoped<ModerationLogPoster>();
 
         return services;
     }
