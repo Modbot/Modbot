@@ -77,6 +77,11 @@ public sealed class FactWriter : IFactWriter
 
         // Transaction-scoped, so the lock is released by the commit that makes the new fact
         // visible -- the next holder therefore always sees it.
+        // The instant, not the clock reading: the client sends VRChat's local time, and the
+        // window arithmetic below and the row both want UTC. The context converts on the way to
+        // the database as well; this keeps the value the caller gets back consistent with it.
+        fact = fact with { OccurredAt = fact.OccurredAt.ToUniversalTime() };
+
         var ownsTransaction = _db.Database.CurrentTransaction is null;
         var transaction = ownsTransaction
             ? await _db.Database.BeginTransactionAsync(ct)
