@@ -75,6 +75,31 @@ public enum FactType : short
     RoleRevoked = 106,
     InviteCreated = 107,
 
+    /// <summary>
+    /// The managed group's own metadata changed: its name, description, privacy, owner, member
+    /// count, or the definition of one of its roles. The subject is the <em>group</em>, which is
+    /// the only fact type for which that is true.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Appended, not inserted: spec 5.3's list of types was written before there was a producer
+    /// for group metadata, and the group-info sync has nowhere honest to put its observations
+    /// without it. <c>SettingsChanged</c> is Modbot's own configuration and means something else.
+    /// </para>
+    /// <para>
+    /// Moderation retention rather than presence, because it is the answer to "what did this
+    /// group look like when that ban happened" -- a role renamed after the fact is exactly what
+    /// makes an old <see cref="RoleGranted"/> unreadable -- and because it is written only when
+    /// something actually changed, so it does not accumulate the way operational noise does.
+    /// </para>
+    /// <para>
+    /// It is also what lets the member-count series start from a real headcount rather than from
+    /// zero: the rollup job's <c>members.total</c> is the net of recorded joins and leaves, and
+    /// the baseline it needs was always going to come from a sync (see <c>RollupMetrics</c>).
+    /// </para>
+    /// </remarks>
+    GroupInfoChanged = 108,
+
     // --- Presence (retention: configurable, off by default) ---
     InstanceJoined = 200,
     InstanceLeft = 201,

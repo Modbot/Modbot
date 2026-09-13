@@ -53,6 +53,11 @@ public static class FactRetention
         FactType.RoleRevoked => RetentionClass.Moderation,
         FactType.InviteCreated => RetentionClass.Moderation,
 
+        // Written only when the group's metadata actually changed, so it does not accumulate the
+        // way operational noise does -- and it is what makes an old role grant readable years
+        // later, once the role has been renamed twice.
+        FactType.GroupInfoChanged => RetentionClass.Moderation,
+
         FactType.InstanceJoined => RetentionClass.Presence,
         FactType.InstanceLeft => RetentionClass.Presence,
         FactType.AvatarChanged => RetentionClass.Presence,
