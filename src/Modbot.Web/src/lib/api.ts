@@ -85,6 +85,38 @@ export type GroupCandidates = {
 
 export type CurrentUser = { id: string; username: string; permissions: number }
 
+export type StorageHorizon = {
+  months: number
+  projectedBytes: number
+  monthlyCost: number | null
+}
+
+/**
+ * `confidence` is Insufficient / Low / Good. Insufficient means the server declined to
+ * extrapolate and `horizons` is empty — a number on a screen gets believed regardless of the
+ * caveat beside it, so the honest output from a few hours of history is no number.
+ */
+export type DataSettings = {
+  retention: { moderationFactRetentionDays: number; presenceFactRetentionDays: number }
+  storage: {
+    bytes: number
+    facts: number
+    bytesPerFact: number
+    factsPerDay: number
+    observedDays: number
+    confidence: 'Insufficient' | 'Low' | 'Good'
+    horizons: StorageHorizon[]
+    capacityExhausted: string | null
+  }
+  deployment: {
+    version: string
+    platform: string
+    platformEvidence: string | null
+    logFilesWritten: boolean
+    persistenceExplanation: string
+  }
+}
+
 /**
  * A non-2xx response, carrying whatever the server said about it.
  *
@@ -199,4 +231,24 @@ export const api = {
   logout: () => post<void>('/api/auth/logout'),
 
   me: () => request<CurrentUser>('/api/auth/me'),
+
+  /**
+   * Cost and capacity are what-if inputs answered against, never stored — nothing in Modbot
+   * behaves differently for having been told, so the browser owns that state.
+   */
+  dataSettings: (budget?: { costPerGbMonth?: number; capacityBytes?: number }) => {
+    const q = new URLSearchParams()
+    if (budget?.costPerGbMonth) q.set('costPerGbMonth', String(budget.costPerGbMonth))
+    if (budget?.capacityBytes) q.set('capacityBytes', String(budget.capacityBytes))
+    const query = q.toString()
+    return request<DataSettings>(`/api/settings/data${query ? `?${query}` : ''}`)
+  },
+
+  setRetention: (body: {
+    moderationFactRetentionDays: number
+    presenceFactRetentionDays: number
+  }) => request<typeof body>('/api/settings/retention', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  }),
 }

@@ -6,6 +6,7 @@ import { useRoute } from '@/lib/router'
 import { Login } from '@/pages/Login'
 import { Members } from '@/pages/Members'
 import { Placeholder } from '@/pages/Placeholder'
+import { Settings } from '@/pages/Settings'
 import { Setup } from '@/pages/setup/Setup'
 
 const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
@@ -93,9 +94,18 @@ function Shell({
     <div className="grid h-screen grid-cols-[13.5rem_1fr]">
       <Sidebar page={page} onNavigate={setPage} groupName={status.group?.name} />
       <main className="flex flex-col overflow-auto">
-        <Topbar title={title} subtitle={subtitle} {...prefs} />
+        <Topbar
+          title={title}
+          subtitle={subtitle}
+          {...prefs}
+          // A full reload rather than a state change: signing out invalidates the cookie, and
+          // every cached page in memory was rendered for the person who just left.
+          onSignOut={() => void api.logout().finally(() => window.location.assign('/'))}
+        />
         <div className="p-5">
-          {page === 'members' ? <Members /> : <Placeholder name={title} />}
+          {page === 'members' && <Members />}
+          {page === 'settings' && <Settings />}
+          {page !== 'members' && page !== 'settings' && <Placeholder name={title} />}
         </div>
       </main>
     </div>

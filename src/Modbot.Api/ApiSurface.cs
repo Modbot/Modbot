@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
 using Modbot.Api.Features.Auth.Me;
+using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
 using Modbot.Api.Features.Onboarding.Integrations;
@@ -84,6 +85,7 @@ public static class ApiSurface
         app.MapLogin();
         app.MapLogout();
         app.MapMe();
+        app.MapDataSettings();
 
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and

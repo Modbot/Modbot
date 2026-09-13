@@ -92,7 +92,12 @@ try
     // ASP.NET Core narrates four Information lines per request -- and the container's health probe
     // is a request every thirty seconds, which is eleven thousand lines a day of nothing in the
     // stream section 4.4.1 calls "the application record". MODBOT_DEBUG_LOGGING restores them.
-    builder.Logging.ClearProviders();
+    // What startup worked out about its surroundings, so the settings page shows what the process is
+// actually doing rather than re-deriving it and possibly disagreeing.
+builder.Services.AddSingleton(new DeploymentInfo(
+    platform, persistence.Evidence, writeLogFiles, persistence.Explanation));
+
+builder.Logging.ClearProviders();
     builder.Logging.AddSerilog(Log.Logger);
 
     if (!env.DebugLogging)

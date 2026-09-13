@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { Density, Theme } from '@/lib/preferences'
-import { Headset, Moon, Rows3, Rows2, Sun } from 'lucide-react'
+import { Headset, LogOut, Moon, Rows3, Rows2, Sun } from 'lucide-react'
 
 // No counts beside the labels yet. The prototype shows "14,208" next to Members, and it will
 // again -- but a hardcoded number in a running deployment is indistinguishable from a real one,
@@ -74,11 +74,12 @@ export function Sidebar({
 }
 
 export function Topbar({
-  title, subtitle, density, setDensity, theme, setTheme,
+  title, subtitle, density, setDensity, theme, setTheme, onSignOut,
 }: {
   title: string; subtitle?: string
   density: Density; setDensity: (d: Density) => void
   theme: Theme; setTheme: (t: Theme) => void
+  onSignOut?: () => void
 }) {
   return (
     <header
@@ -105,6 +106,15 @@ export function Topbar({
       <Button variant="ghost" size="sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
         {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
       </Button>
+
+      {/* Sessions last 14 days and a permission change only takes effect at the next sign-in
+          (docs/security.md), so a moderator handing back a shared machine -- or one who was just
+          granted something -- needs a way out that is not "clear your cookies". */}
+      {onSignOut && (
+        <Button variant="ghost" size="sm" onClick={onSignOut} title="Sign out">
+          <LogOut className="size-4" />
+        </Button>
+      )}
     </header>
   )
 }
