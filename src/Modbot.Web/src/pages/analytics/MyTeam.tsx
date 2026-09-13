@@ -12,7 +12,14 @@ import { useAnalytics, type Range } from './useAnalytics'
  * one figure on any analytics page that suggests an action rather than describing a state --
  * which is why their limits are printed beside them rather than in a footnote.
  */
-export function MyTeam({ onOpenSubject }: { onOpenSubject?: (subjectId: string) => void }) {
+export function MyTeam({
+  onOpenSubject,
+  onOpenReviews,
+}: {
+  onOpenSubject?: (subjectId: string) => void
+  /** Opens the Reviews page. Passed only when the signed-in person may review. */
+  onOpenReviews?: () => void
+}) {
   const [range, setRange] = useState<Range>(30)
   const [minPeople, setMinPeople] = useState<'1' | '3' | '5' | '10'>('3')
   const load = useCallback((q: string) => api.teamAnalytics(q), [])
@@ -103,6 +110,18 @@ export function MyTeam({ onOpenSubject }: { onOpenSubject?: (subjectId: string) 
             title="Actions per moderator"
             source="From daily totals, one row per kind of action"
             note="VRChat attributes everything Modbot itself does to Modbot's own account, so once Modbot performs actions these totals will show that account rather than the person behind it. Today every action here was performed in VRChat directly."
+            right={
+              onOpenReviews && (
+                <button
+                  type="button"
+                  className="rounded-md border px-2 font-medium text-muted-foreground hover:text-foreground"
+                  style={{ fontSize: 'var(--text-small)', borderWidth: 'var(--hairline)', height: 'calc(var(--control-h) - 8px)' }}
+                  onClick={onOpenReviews}
+                >
+                  Reviews of unusual patterns →
+                </button>
+              )
+            }
           >
             {data.moderators.length === 0 ? (
               <Nothing>No moderation actions recorded in this range.</Nothing>

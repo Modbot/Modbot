@@ -19,6 +19,9 @@ export const NAV = [
   { id: 'analytics-team', label: 'My Team', needs: 'ViewAnalytics' },
   { id: 'analytics-worlds', label: 'Worlds', needs: 'ViewAnalytics' },
   { id: 'analytics-instances', label: 'Instances', needs: 'ViewAnalytics' },
+  // Reviews of a moderator's pattern (spec 5.8.5). Under Team because they are about the team,
+  // and gated on ReviewTickets because the people being reviewed should not be closing them.
+  { id: 'reviews', label: 'Reviews', group: 'Team', needs: 'ReviewTickets' },
   { id: 'users', label: 'Users', group: 'Team', needs: 'ManageUsers' },
   { id: 'roles', label: 'Roles', needs: 'ManageRoles' },
   { id: 'health', label: 'Sync health', group: 'Setup', needs: 'ViewOperationalLog' },

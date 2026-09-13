@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { FactTime, SourceBadge, SubjectLink } from '@/components/facts'
+import { RepeatOffendersTab } from '@/pages/RepeatOffenders'
 import { formatDay } from '@/lib/format'
 import { api, ApiError, type BanCoverage, type BanList } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -17,6 +18,42 @@ import { cn } from '@/lib/utils'
  * notice, because the person who dismisses it is not the person reading the list next week.
  */
 export function Bans({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
+  // Two tabs on one page: the bans Modbot recorded, and the people acted on more than once
+  // (spec 5.8.4). Both answer "who has the group had trouble with", asked by the same person.
+  const [tab, setTab] = useState<'bans' | 'repeat'>('bans')
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div role="tablist" className="flex gap-0.5 self-start rounded-md border bg-secondary p-0.5" style={{ borderWidth: 'var(--hairline)' }}>
+        {(
+          [
+            { id: 'bans', label: 'Bans' },
+            { id: 'repeat', label: 'People acted on more than once' },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              'rounded px-3 font-medium transition-colors',
+              tab === t.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+            style={{ fontSize: 'var(--text-small)', height: 'calc(var(--control-h) - 6px)' }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'bans' ? <RecordedBans onOpenSubject={onOpenSubject} /> : <RepeatOffendersTab onOpenSubject={onOpenSubject} />}
+    </div>
+  )
+}
+
+function RecordedBans({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
   const [list, setList] = useState<BanList | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [includeUnbanned, setIncludeUnbanned] = useState(true)

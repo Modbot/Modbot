@@ -70,6 +70,17 @@ public sealed class DailyTotalsService : BackgroundService
                     result.From,
                     result.To);
 
+            // Repeat offenders and pattern reviews (spec 5.8) run straight after, in the same
+            // scope, because their baselines are summed from the rows just written. Optional so a
+            // host that registers the daily totals without the review job still runs.
+            if (scope.ServiceProvider.GetService<Reviews.ReviewJob>() is { } reviews)
+            {
+                var reviewed = await reviews.RunIncrementalAsync(ct);
+
+                if (reviewed.ReviewsOpened > 0)
+                    _log.LogInformation("Opened {Count} review(s) for a moderator's pattern.", reviewed.ReviewsOpened);
+            }
+
             return true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -78,7 +89,7 @@ public sealed class DailyTotalsService : BackgroundService
         }
         catch (Exception e)
         {
-            _log.LogError(e, "Daily totals run failed. Charts will lag until a run succeeds.");
+            _log.LogError(e, "Daily totals or review run failed. Charts and reviews will lag until a run succeeds.");
             return false;
         }
     }

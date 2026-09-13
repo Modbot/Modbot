@@ -141,6 +141,12 @@ public static class AuditVisibility
         [FactType.PartitionCreated] = AuditCategory.Operational,
         [FactType.UserPurged] = AuditCategory.Operational,
 
+        // A review of a moderator's pattern being opened and closed is moderation history about
+        // that moderator (spec 5.8.5: resolutions are recorded as facts, so "this was reviewed and
+        // found legitimate" is itself history). It belongs in the log the team reads.
+        [FactType.ReviewOpened] = AuditCategory.Moderation,
+        [FactType.ReviewClosed] = AuditCategory.Moderation,
+
         // Evidence is moderation history, not plumbing: who attached what to a case, who opened
         // it, and who destroyed it are all part of the accountability record spec 5.8 exists for.
         [FactType.EvidenceAttached] = AuditCategory.Moderation,

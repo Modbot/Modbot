@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Analytics.DailyTotals;
+using Modbot.Analytics.Reviews;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Health;
@@ -105,6 +106,11 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         builder.Services.AddScoped<EventPartitionMaintainer>();
         builder.Services.AddScoped<DailyTotalsJob>();
 
+        // The review job and the facts it and the close endpoint write, again without the hosted
+        // service: a test runs detection when it wants to assert on the result.
+        builder.Services.AddScoped<ReviewFacts>();
+        builder.Services.AddScoped<ReviewJob>();
+
         var diagnostics = new SyncDiagnostics(clock);
         var queue = new UserRefreshQueue();
 
@@ -170,6 +176,10 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.VRChatUsers.ExecuteDeleteAsync(ct);
         await context.DailyTotals.ExecuteDeleteAsync(ct);
         await context.DailyTotalsState.ExecuteDeleteAsync(ct);
+        await context.Reviews.ExecuteDeleteAsync(ct);
+        await context.RepeatOffenders.ExecuteDeleteAsync(ct);
+        await context.ModeratorBaselines.ExecuteDeleteAsync(ct);
+        await context.ReviewRunState.ExecuteDeleteAsync(ct);
         await context.Settings.ExecuteDeleteAsync(ct);
     }
 
@@ -235,6 +245,23 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
     {
         using var scope = Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<DailyTotalsJob>().RebuildAsync(ct);
+    }
+
+    /// <summary>The daily totals and then the detection run, the way the host sequences them.</summary>
+    public async Task<ReviewRunResult> RunReviewsAsync(CancellationToken ct)
+    {
+        using var scope = Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<DailyTotalsJob>().RunIncrementalAsync(ct);
+        return await scope.ServiceProvider.GetRequiredService<ReviewJob>().RunIncrementalAsync(ct);
+    }
+
+    public async Task<HttpResponseMessage> PostJsonAsync(string path, object? body, string cookie, CancellationToken ct)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, path);
+        request.Headers.Add("Cookie", cookie);
+        if (body is not null)
+            request.Content = JsonContent.Create(body);
+        return await Client.SendAsync(request, ct);
     }
 
     public async ValueTask DisposeAsync()

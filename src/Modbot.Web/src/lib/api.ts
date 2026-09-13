@@ -630,6 +630,107 @@ export type VRChatUserProfile = {
   now: string
 }
 
+/**
+ * One check that can open a review, with its rule in words at the current thresholds. The page
+ * shows the rule beside the reviews, because "looked unusual" alone is a claim to take on trust.
+ */
+export type SignalInfo = { signal: string; label: string; rule: string }
+
+/**
+ * Every number a review was opened on, and the ids of the facts behind them.
+ *
+ * `same-person` reviews carry `places` and `otherModerators`; `far-above-team` reviews carry
+ * `day`, `nextBusiest`, `teamUsualPerDay` and `ownUsualPerDay`. `threshold` is what the numbers
+ * were held against, so the page can show its working rather than a verdict.
+ */
+export type ReviewEvidence = {
+  actions: number
+  byKind: Record<string, number>
+  factIds: number[]
+  firstAt: string
+  lastAt: string
+  threshold: Record<string, number>
+  places?: number
+  otherModerators?: number
+  windowDays?: number
+  day?: string
+  nextBusiest?: { moderatorId: string; actions: number } | null
+  teamUsualPerDay?: number
+  teamDays?: number
+  ownUsualPerDay?: number | null
+  ownActiveDays?: number | null
+}
+
+export type ReviewView = {
+  id: string
+  moderator: Person
+  signal: string
+  signalLabel: string
+  about: string
+  aboutPerson: Person | null
+  windowStart: string
+  windowEnd: string
+  summary: string
+  evidence: ReviewEvidence
+  state: 'Open' | 'Closed'
+  openedAt: string
+  updatedAt: string
+  closedAt: string | null
+  closedByUsername: string | null
+  note: string | null
+}
+
+export type ReviewList = {
+  reviews: ReviewView[]
+  openCount: number
+  signals: SignalInfo[]
+  howUsualIsMeasured: string
+  /** When detection last ran. Null means never -- an empty list then means nothing yet. */
+  lastRunAt: string | null
+  now: string
+}
+
+/** One person's count of being acted on. `status` is decided by the `rule` that travels with it. */
+export type RepeatOffenderView = {
+  who: Person
+  instanceKicks: number
+  warns: number
+  bans: number
+  unbans: number
+  removals: number
+  rejections: number
+  actions: number
+  actionsLast30Days: number
+  actionsLast90Days: number
+  moderators: number
+  moderatorsLast90Days: number
+  firstActionAt: string
+  lastActionAt: string
+  lastActionType: string
+  lastActionLabel: string
+  lastBy: Person | null
+  status: 'once' | 'more-than-once' | 'repeat'
+  computedAt: string
+}
+
+export type RepeatOffenderList = {
+  people: RepeatOffenderView[]
+  total: number
+  offset: number
+  rule: string
+  lastRunAt: string | null
+  now: string
+}
+
+export type SubjectHistory = {
+  subjectId: string
+  known: boolean
+  counts: RepeatOffenderView | null
+  rule: string
+  lastRunAt: string | null
+  now: string
+}
+
 export type RefreshRequestResult = {
   outcome: 'Queued' | 'Promoted' | 'AlreadyQueued' | 'FreshEnough' | 'NotAvailable'
   lastRefreshedAt: string | null
@@ -1138,6 +1239,30 @@ export const api = {
    */
   requestUserRefresh: (id: string) =>
     post<RefreshRequestResult>(`/api/vrchat-users/refresh?id=${encodeURIComponent(id)}`),
+
+  // ── Reviews and repeat offenders (spec 5.8) ─────────────────────────────────────────────
+
+  /** Reviews of a moderator's pattern. Needs ReviewTickets. */
+  reviews: (state: 'open' | 'closed' | 'all' = 'open') => request<ReviewList>(`/api/reviews?state=${state}`),
+
+  openReviewCount: () => request<{ open: number }>('/api/reviews/open-count'),
+
+  /** The note is required: it is kept with the review and recorded as a fact against your account. */
+  closeReview: (id: string, note: string) => post<ReviewView>(`/api/reviews/${encodeURIComponent(id)}/close`, { note }),
+
+  /** People acted on more than once, most recent action first. Needs ViewProfile. */
+  repeatOffenders: (query: { status?: 'all' | 'repeat' | 'more-than-once'; offset?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams()
+    if (query.status && query.status !== 'all') q.set('status', query.status)
+    if (query.offset) q.set('offset', String(query.offset))
+    if (query.limit) q.set('limit', String(query.limit))
+    const search = q.toString()
+    return request<RepeatOffenderList>(`/api/repeat-offenders${search ? `?${search}` : ''}`)
+  },
+
+  /** One person's history block. The id goes in the query string, never the path (spec 3.1.1). */
+  subjectHistory: (id: string) =>
+    request<SubjectHistory>(`/api/repeat-offenders/one?id=${encodeURIComponent(id)}`),
 
   /** Set or clear the sticky 18+ flag by hand. Needs the EditAgeVerification permission. */
   setAgeVerified: (id: string, body: { verified: boolean; reason?: string }) =>

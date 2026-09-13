@@ -109,6 +109,21 @@ public class Settings
     /// <summary>Spec 5.8.1 -- optional by default; groups may opt into requiring it.</summary>
     public bool RequireModerationClassification { get; set; }
 
+    /// <summary>
+    /// The numbers repeat-offender status and the moderator pattern checks are decided on, as a
+    /// sparse JSON document (spec 5.8.5: thresholds are configurable, with conservative defaults).
+    /// Null means every default.
+    /// </summary>
+    /// <remarks>
+    /// One <c>jsonb</c> column rather than a column per number, for the reason
+    /// <see cref="SyncPacing"/> is: the set of checks is open, and each new one would otherwise be
+    /// a migration. Absent fields take the current default, so a deployment that never touched a
+    /// number picks up a revised default on upgrade. See <c>ReviewThresholds</c> in
+    /// <c>Modbot.Analytics</c> for the fields and their bounds.
+    /// </remarks>
+    [Column(TypeName = "jsonb")]
+    public string? ReviewThresholds { get; set; }
+
     // --- Sync pacing (spec 4.2.1) ---
 
     /// <summary>

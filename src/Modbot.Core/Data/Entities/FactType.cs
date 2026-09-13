@@ -219,6 +219,21 @@ public static class FactType
     public const string ApiKeyRevoked = "modbot.apikey.revoke";
     public const string SettingsChanged = "modbot.settings.change";
 
+    // ── Reviews of a moderator's pattern (spec 5.8.5, accountability signals design) ───────
+    //
+    // The subject is the moderator being reviewed, on the VRChat platform, because the review is
+    // about their VRChat actions and shows in their history. Moderation retention: "this was
+    // reviewed and found fine" is itself history (spec 5.8.5).
+
+    /// <summary>
+    /// Detection found a pattern worth a human look and opened a review. No actor: Modbot
+    /// opened it. The payload carries the signal, the summary sentence and the evidence.
+    /// </summary>
+    public const string ReviewOpened = "modbot.review.opened";
+
+    /// <summary>A person closed a review, with a note. The actor is the Modbot account.</summary>
+    public const string ReviewClosed = "modbot.review.closed";
+
     // ── Evidence (evidence design §6, §14.1) ───────────────────────────────────────────────
 
     /// <summary>Evidence was attached to a case file.</summary>

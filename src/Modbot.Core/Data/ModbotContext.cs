@@ -61,6 +61,18 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// </summary>
     public DbSet<VRChatUser> VRChatUsers => Set<VRChatUser>();
 
+    /// <summary>Per-person action counts (spec 5.8.4). Derived from <see cref="Events"/>; a cache.</summary>
+    public DbSet<RepeatOffender> RepeatOffenders => Set<RepeatOffender>();
+
+    /// <summary>Moderator patterns opened for a human look (spec 5.8.5).</summary>
+    public DbSet<Review> Reviews => Set<Review>();
+
+    /// <summary>What each moderator usually does in a day. Derived from <see cref="DailyTotals"/>; a cache.</summary>
+    public DbSet<ModeratorBaseline> ModeratorBaselines => Set<ModeratorBaseline>();
+
+    /// <summary>Where the last detection run got to.</summary>
+    public DbSet<ReviewRunState> ReviewRunState => Set<ReviewRunState>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -374,6 +386,84 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // Same as modbot_daily_total: the C# name moved to plain words, the table did not.
             entity.ToTable("modbot_daily_totals_state", t =>
                 t.HasCheckConstraint("ck_modbot_daily_totals_state_singleton", "id = 1"));
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+        });
+
+        builder.Entity<RepeatOffender>(entity =>
+        {
+            entity.ToTable("modbot_repeat_offender");
+
+            entity.HasKey(e => new { e.SubjectPlatform, e.SubjectId })
+                .HasName("pk_modbot_repeat_offender");
+
+            // Ids are opaque (spec 3.1.1): text, no length assumption.
+            entity.Property(e => e.SubjectId).HasColumnType("text");
+            entity.Property(e => e.LastActorId).HasColumnType("text");
+            entity.Property(e => e.LastActionType).HasMaxLength(128);
+            entity.Property(e => e.Status).HasMaxLength(32);
+
+            // The snake-case convention would write "actions_last30days"; the digits are a word
+            // of their own, as with is_18_plus_verified above.
+            entity.Property(e => e.ActionsLast30Days).HasColumnName("actions_last_30_days");
+            entity.Property(e => e.ActionsLast90Days).HasColumnName("actions_last_90_days");
+            entity.Property(e => e.ModeratorsLast90Days).HasColumnName("moderators_last_90_days");
+
+            // The list is read newest-last-action first, and the job refreshes rows whose
+            // windowed counts are about to change; both must not scan.
+            entity.HasIndex(e => e.LastActionAt)
+                .HasDatabaseName("ix_modbot_repeat_offender_last_action")
+                .IsDescending();
+            entity.HasIndex(e => e.CountsChangeAt)
+                .HasDatabaseName("ix_modbot_repeat_offender_counts_change");
+        });
+
+        builder.Entity<Review>(entity =>
+        {
+            entity.ToTable("modbot_review");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.ModeratorId).HasColumnType("text");
+            entity.Property(e => e.About).HasColumnType("text");
+            entity.Property(e => e.Signal).HasMaxLength(64);
+            entity.Property(e => e.Summary).HasColumnType("text");
+            entity.Property(e => e.ClosedByUsername).HasMaxLength(64);
+            entity.Property(e => e.Note).HasMaxLength(2000);
+
+            // The idempotence rule in the database: at most one open review per moderator,
+            // signal and thing. Two detection runs racing each other then cannot open two.
+            entity.HasIndex(e => new { e.ModeratorPlatform, e.ModeratorId, e.Signal, e.About })
+                .HasDatabaseName("ux_modbot_review_open")
+                .IsUnique()
+                .HasFilter("state = 1");
+
+            // "Every open review" is the page and the nav badge; "reviews about this moderator"
+            // is the detection run deciding whether a closed one already covers the evidence.
+            entity.HasIndex(e => new { e.State, e.OpenedAt })
+                .HasDatabaseName("ix_modbot_review_state");
+            entity.HasIndex(e => new { e.ModeratorPlatform, e.ModeratorId, e.Signal, e.About, e.WindowEnd })
+                .HasDatabaseName("ix_modbot_review_key");
+        });
+
+        builder.Entity<ModeratorBaseline>(entity =>
+        {
+            entity.ToTable("modbot_moderator_baseline");
+
+            entity.HasKey(e => new { e.Platform, e.ModeratorId })
+                .HasName("pk_modbot_moderator_baseline");
+
+            entity.Property(e => e.ModeratorId).HasColumnType("text");
+            entity.Property(e => e.Actions).HasColumnType("numeric");
+            entity.Property(e => e.ActionsPerActiveDay).HasColumnType("numeric");
+        });
+
+        builder.Entity<ReviewRunState>(entity =>
+        {
+            entity.ToTable("modbot_review_run_state", t =>
+                t.HasCheckConstraint("ck_modbot_review_run_state_singleton", "id = 1"));
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();

@@ -94,6 +94,10 @@ public static class FactLabels
         [FactType.ApiKeyRevoked] = "API key revoked",
         [FactType.SettingsChanged] = "Settings changed",
 
+        // Reviews of a moderator's pattern (spec 5.8.5). Both are about the moderator.
+        [FactType.ReviewOpened] = "Review opened",
+        [FactType.ReviewClosed] = "Review closed",
+
         [FactType.SyncFailed] = "Sync failed",
         [FactType.RateLimitColdStop] = "Rate-limit cold stop",
         [FactType.WafBlocked] = "Blocked by Cloudflare",
