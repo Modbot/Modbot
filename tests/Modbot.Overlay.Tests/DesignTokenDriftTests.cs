@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Avalonia.Media;
@@ -5,14 +6,14 @@ using Avalonia.Media;
 namespace Modbot.Overlay.Tests;
 
 /// <summary>
-/// The overlay reuses the web UI's design tokens by value rather than by reference, because a
-/// native renderer cannot read a stylesheet. That makes drift possible, so drift is a test.
+/// The desktop window and the overlay reuse the web UI's design tokens by value rather than by
+/// reference, because neither can read a stylesheet. That makes drift possible, so drift is a test.
 /// </summary>
 /// <remarks>
 /// M3 6.0.2 chose to share tokens rather than components: sharing components would have coupled a
-/// native renderer to a DOM, and sharing nothing would have let the two surfaces grow apart. This
-/// is what makes the middle option hold. If somebody restyles the web UI, this fails and names the
-/// token, rather than the overlay quietly becoming a different-looking product.
+/// native renderer to a DOM, and sharing nothing would have let the surfaces grow apart. This is
+/// what makes the middle option hold. If somebody restyles the web UI, this fails and names the
+/// token, rather than the client quietly becoming a different-looking product.
 /// </remarks>
 public class DesignTokenDriftTests
 {
@@ -25,18 +26,19 @@ public class DesignTokenDriftTests
         return directory?.FullName ?? throw new InvalidOperationException("Could not locate Modbot.slnx.");
     }
 
+    private static string Css() => File.ReadAllText(
+        Path.Combine(FindRepoRoot(), "src", "Modbot.Web", "src", "index.css"));
+
     /// <summary>
-    /// The tokens as the headset sees them: the dark palette, then the VR overrides applied on
-    /// top. That layering is the CSS's own — <c>[data-density="vr"].dark</c> comes after
-    /// <c>.dark</c> — and reproducing it here rather than hard-coding the result is what makes
-    /// this test able to notice a change in either block.
+    /// Applies a run of selectors in the order the CSS itself cascades them, so a token defined in
+    /// one block and overridden in a later one resolves the way a browser would.
     /// </summary>
-    private static Dictionary<string, string> VrDarkTokens()
+    private static Dictionary<string, string> Tokens(params string[] selectors)
     {
-        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "Modbot.Web", "src", "index.css"));
+        var css = Css();
         var tokens = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        foreach (var selector in (string[])[":root", ".dark", "[data-density=\"vr\"]", "[data-density=\"vr\"].dark"])
+        foreach (var selector in selectors)
         {
             foreach (var (name, value) in Declarations(css, selector))
                 tokens[name] = value;
@@ -47,76 +49,165 @@ public class DesignTokenDriftTests
 
     private static IEnumerable<(string Name, string Value)> Declarations(string css, string selector)
     {
-        // Matches the block for exactly this selector: the escape stops "[data-density=\"vr\"]"
-        // also matching "[data-density=\"vr\"].dark", which would apply the wrong overrides.
+        // The escape stops "[data-density=\"vr\"]" also matching "[data-density=\"vr\"].dark",
+        // which would silently apply the wrong overrides and make this test agree with anything.
         var block = Regex.Match(css, $@"(?m)^{Regex.Escape(selector)}\s*\{{(?<body>[^}}]*)\}}");
         if (!block.Success)
             throw new InvalidOperationException($"index.css no longer has a '{selector}' block.");
 
-        foreach (Match declaration in Regex.Matches(block.Groups["body"].Value, @"--(?<name>[\w-]+)\s*:\s*(?<value>[^;]+);"))
+        foreach (Match declaration in Regex.Matches(
+            block.Groups["body"].Value, @"--(?<name>[\w-]+)\s*:\s*(?<value>[^;]+);"))
         {
             yield return (declaration.Groups["name"].Value, declaration.Groups["value"].Value.Trim());
         }
     }
 
-    [Theory]
-    [InlineData("background", nameof(DesignTokens.Background))]
-    [InlineData("card", nameof(DesignTokens.Card))]
-    [InlineData("foreground", nameof(DesignTokens.Foreground))]
-    [InlineData("muted-foreground", nameof(DesignTokens.MutedForeground))]
-    [InlineData("border", nameof(DesignTokens.Border))]
-    [InlineData("primary", nameof(DesignTokens.Primary))]
-    [InlineData("destructive", nameof(DesignTokens.Destructive))]
-    [InlineData("muted", nameof(DesignTokens.Muted))]
-    [InlineData("accent", nameof(DesignTokens.Accent))]
-    [InlineData("accent-foreground", nameof(DesignTokens.AccentForeground))]
-    [InlineData("warn", nameof(DesignTokens.Warn))]
-    [InlineData("ok", nameof(DesignTokens.Ok))]
-    [InlineData("info", nameof(DesignTokens.Info))]
-    public void EveryColourMatchesTheWebUisVrDarkValue(string cssName, string fieldName)
+    private static double Pixels(string raw)
     {
-        var expected = Color.Parse(VrDarkTokens()[cssName]);
-        var actual = (Color)typeof(DesignTokens).GetField(fieldName)!.GetValue(null)!;
+        var trimmed = raw.Trim();
+
+        return trimmed.EndsWith("rem", StringComparison.Ordinal)
+            ? double.Parse(trimmed[..^3], CultureInfo.InvariantCulture) * Density.Rem
+            : double.Parse(trimmed.Replace("px", "", StringComparison.Ordinal), CultureInfo.InvariantCulture);
+    }
+
+    public static TheoryData<string, string> DarkColours() =>
+        new()
+        {
+            { "background", nameof(ModbotPalette.Background) },
+            { "card", nameof(ModbotPalette.Surface) },
+            { "muted", nameof(ModbotPalette.Surface2) },
+            { "foreground", nameof(ModbotPalette.Text) },
+            { "muted-foreground", nameof(ModbotPalette.TextDim) },
+            { "border", nameof(ModbotPalette.Border) },
+            { "input", nameof(ModbotPalette.Border2) },
+            { "primary", nameof(ModbotPalette.Accent) },
+            { "primary-foreground", nameof(ModbotPalette.AccentForeground) },
+            { "accent", nameof(ModbotPalette.AccentDim) },
+            { "destructive", nameof(ModbotPalette.Danger) },
+            { "warn", nameof(ModbotPalette.Warn) },
+            { "ok", nameof(ModbotPalette.Ok) },
+            { "info", nameof(ModbotPalette.Info) },
+        };
+
+    [Theory]
+    [MemberData(nameof(DarkColours))]
+    public void TheDesktopPaletteMatchesTheWebUisDarkValue(string cssName, string property)
+    {
+        var expected = Color.Parse(Tokens(":root", ".dark")[cssName]);
+        var actual = (Color)typeof(ModbotPalette).GetProperty(property)!.GetValue(ModbotPalette.Dark)!;
 
         Assert.True(
             expected == actual,
-            $"--{cssName} is {expected} in index.css but DesignTokens.{fieldName} is {actual}.");
+            $"--{cssName} is {expected} in index.css but ModbotPalette.Dark.{property} is {actual}.");
     }
 
     [Theory]
-    [InlineData("row-h", DesignTokens.RowHeight)]
-    [InlineData("control-h", DesignTokens.ControlHeight)]
-    [InlineData("text-base", DesignTokens.TextBase)]
-    [InlineData("text-small", DesignTokens.TextSmall)]
-    [InlineData("radius", DesignTokens.Radius)]
-    public void EveryDensityValueMatchesTheWebUisVrValue(string cssName, double expectedPixels)
+    [MemberData(nameof(DarkColours))]
+    public void TheHeadsetPaletteMatchesTheWebUisVrDarkValue(string cssName, string property)
     {
-        var raw = VrDarkTokens()[cssName];
-        var rem = double.Parse(raw.Replace("rem", "", StringComparison.Ordinal).Trim(),
-            System.Globalization.CultureInfo.InvariantCulture);
+        var expected = Color.Parse(Tokens(":root", ".dark", "[data-density=\"vr\"]", "[data-density=\"vr\"].dark")[cssName]);
+        var actual = (Color)typeof(ModbotPalette).GetProperty(property)!.GetValue(ModbotPalette.VrDark)!;
 
-        Assert.Equal(rem * DesignTokens.Rem, expectedPixels, 3);
+        Assert.True(
+            expected == actual,
+            $"--{cssName} is {expected} for VR in index.css but ModbotPalette.VrDark.{property} is {actual}.");
     }
 
     [Fact]
-    public void TheHairlineMatchesToo()
+    public void TheHeadsetPaletteIsNotJustTheDesktopOne()
     {
-        // Two pixels, because one-pixel borders disappear entirely in a headset. Spelled in px in
-        // the CSS rather than rem, hence not sharing the conversion above.
-        Assert.Equal("2px", VrDarkTokens()["hairline"]);
-        Assert.Equal(2.0, DesignTokens.Hairline);
-    }
-
-    [Fact]
-    public void TheVrPaletteIsNotJustTheDesktopDarkPalette()
-    {
-        // Guards the reason the VR block exists: headset panels bloom at the extremes, so pure
-        // black and low-contrast greys are pulled back. If somebody deletes the VR overrides, the
+        // Guards the reason the VR block exists at all: headset panels bloom at the extremes, so
+        // pure black and low-contrast greys are pulled back. Delete the VR overrides and the
         // overlay would still compile and would simply look wrong.
-        var css = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "Modbot.Web", "src", "index.css"));
-        var dark = Declarations(css, ".dark").ToDictionary(d => d.Name, d => d.Value, StringComparer.Ordinal);
+        Assert.NotEqual(ModbotPalette.Dark.Background, ModbotPalette.VrDark.Background);
+        Assert.NotEqual(ModbotPalette.Dark.TextDim, ModbotPalette.VrDark.TextDim);
+        Assert.NotEqual(ModbotPalette.Dark.Border, ModbotPalette.VrDark.Border);
 
-        Assert.NotEqual(Color.Parse(dark["background"]), DesignTokens.Background);
-        Assert.NotEqual(Color.Parse(dark["muted-foreground"]), DesignTokens.MutedForeground);
+        // And that it is the same palette underneath, rather than a second design.
+        Assert.Equal(ModbotPalette.Dark.Accent, ModbotPalette.VrDark.Accent);
+        Assert.Equal(ModbotPalette.Dark.Danger, ModbotPalette.VrDark.Danger);
+    }
+
+    public static TheoryData<string, string> DensityValues() =>
+        new()
+        {
+            { "row-h", nameof(Density.RowHeight) },
+            { "control-h", nameof(Density.ControlHeight) },
+            { "text-base", nameof(Density.TextBase) },
+            { "text-small", nameof(Density.TextSmall) },
+            { "radius", nameof(Density.Radius) },
+            { "hairline", nameof(Density.Hairline) },
+        };
+
+    [Theory]
+    [MemberData(nameof(DensityValues))]
+    public void TheDenseScaleMatchesTheWebUisDefault(string cssName, string property)
+    {
+        // Dense is the client window's density: it is a tool for scanning lists, and the whole
+        // point of the default is that more of the list fits on screen at once.
+        Assert.Equal(
+            Pixels(Tokens(":root")[cssName]),
+            (double)typeof(Density).GetProperty(property)!.GetValue(Density.Dense)!,
+            3);
+    }
+
+    [Theory]
+    [MemberData(nameof(DensityValues))]
+    public void TheComfortableScaleMatchesTheWebUis(string cssName, string property)
+    {
+        Assert.Equal(
+            Pixels(Tokens(":root", "[data-density=\"comfortable\"]")[cssName]),
+            (double)typeof(Density).GetProperty(property)!.GetValue(Density.Comfortable)!,
+            3);
+    }
+
+    [Theory]
+    [MemberData(nameof(DensityValues))]
+    public void TheHeadsetScaleMatchesTheWebUis(string cssName, string property)
+    {
+        Assert.Equal(
+            Pixels(Tokens(":root", "[data-density=\"vr\"]")[cssName]),
+            (double)typeof(Density).GetProperty(property)!.GetValue(Density.Vr)!,
+            3);
+    }
+
+    [Fact]
+    public void TheTwoTokenSetsAreTheOnesEachSurfaceActuallyUses()
+    {
+        // A desktop window drawn at headset density would be enormous and a headset panel drawn at
+        // desktop density would be unreadable, and both mistakes are one wrong constant away.
+        Assert.Equal(Density.Dense, DesignTokens.Desktop.Density);
+        Assert.Equal(ModbotPalette.Dark, DesignTokens.Desktop.Palette);
+        Assert.Equal(Density.Vr, DesignTokens.Vr.Density);
+        Assert.Equal(ModbotPalette.VrDark, DesignTokens.Vr.Palette);
+    }
+
+    [Fact]
+    public void TheExtraSurfaceStepsComeFromTheReferencePrototype()
+    {
+        // The stylesheet has no third surface or faint text; the prototype does, and a table needs
+        // them to separate a header from a row from a hover. Checked against the prototype so the
+        // two do not drift either.
+        var prototype = File.ReadAllText(
+            Path.Combine(FindRepoRoot(), "explore", "design", "index.html"));
+
+        foreach (var (token, expected) in ((string, Color)[])
+            [
+                ("surface-2", ModbotPalette.Dark.Surface2),
+                ("surface-3", ModbotPalette.Dark.Surface3),
+                ("border-2", ModbotPalette.Dark.Border2),
+                ("text-faint", ModbotPalette.Dark.TextFaint),
+                ("danger-dim", ModbotPalette.Dark.DangerDim),
+                ("warn-dim", ModbotPalette.Dark.WarnDim),
+                ("ok-dim", ModbotPalette.Dark.OkDim),
+                ("info-dim", ModbotPalette.Dark.InfoDim),
+                ("accent-dim", ModbotPalette.Dark.AccentDim),
+            ])
+        {
+            var match = Regex.Match(prototype, $@"--{Regex.Escape(token)}:\s*(?<value>#[0-9a-fA-F]{{3,8}})");
+            Assert.True(match.Success, $"The prototype no longer defines --{token}.");
+            Assert.Equal(expected, Color.Parse(match.Groups["value"].Value));
+        }
     }
 }

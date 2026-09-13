@@ -58,7 +58,7 @@ public class AvaloniaToSharedTextureTests
     {
         Width = Size,
         Height = Size,
-        Background = DesignTokens.BackgroundBrush,
+        Background = DesignTokens.Vr.BackgroundBrush,
         Child = new StackPanel
         {
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -70,15 +70,15 @@ public class AvaloniaToSharedTextureTests
                 {
                     Width = 120,
                     Height = 48,
-                    Fill = DesignTokens.DestructiveBrush,
-                    RadiusX = DesignTokens.Radius,
-                    RadiusY = DesignTokens.Radius,
+                    Fill = DesignTokens.Vr.DangerBrush,
+                    RadiusX = DesignTokens.Vr.Density.Radius,
+                    RadiusY = DesignTokens.Vr.Density.Radius,
                 },
                 new TextBlock
                 {
                     Text = text,
-                    FontSize = DesignTokens.TextBase,
-                    Foreground = DesignTokens.ForegroundBrush,
+                    FontSize = DesignTokens.Vr.Density.TextBase,
+                    Foreground = DesignTokens.Vr.TextBrush,
                     HorizontalAlignment = HorizontalAlignment.Center,
                 },
             },

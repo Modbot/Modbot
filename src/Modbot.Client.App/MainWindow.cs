@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Modbot.Client.Ingest;
@@ -10,217 +11,530 @@ using Modbot.Overlay;
 
 namespace Modbot.Client.App;
 
+/// <summary>Which page the window is showing.</summary>
+internal enum Page
+{
+    Servers,
+    Sent,
+    Log,
+}
+
 /// <summary>
-/// The tray window: what Modbot is reading, what it has sent, and how to stop it.
+/// The client window: what Modbot is reading, where it reports, and everything it has sent.
 /// </summary>
 /// <remarks>
 /// <para><strong>This window is the trust argument made visible.</strong> A volunteer moderator is
 /// being asked to run background software on a personal machine that watches what they do in
-/// VRChat. Suspicion is the correct response, and the answer cannot be "read the source" for
-/// everybody. So: a list of exactly what was disclosed, in plain English, on demand; a pause
-/// button that stops transmission immediately and shows that it has; and a tray icon that is
-/// always there while the program runs.</para>
-/// <para><strong>The client never runs invisibly.</strong> That is a rule rather than a default,
-/// and it is also — not coincidentally — one of the things that keeps this program from being
-/// scored as hostile by the heuristics it otherwise resembles.</para>
-/// <para>It is built in code rather than markup because it is one window of five panels, and a
-/// reader auditing this program should be able to see what it displays without also learning a
-/// XAML dialect.</para>
+/// VRChat. Suspicion is the correct response. "Read the source" answers it for people who read C#
+/// and for nobody else, so the answer for everybody else is a screen: exactly what left the
+/// machine, in plain English, on demand; a pause that stops transmission immediately and shows it;
+/// and a program that is never invisible while it runs.</para>
+/// <para><strong>What this window does not have, and will not get.</strong> There is no screen
+/// capture, no "attach a screenshot", and nothing that reads VRChat's screenshot folder or any
+/// other folder on the machine. A moderator attaching evidence to a case does it in the web UI, in
+/// a browser, by choosing a file — a human action in an application people already trust with file
+/// dialogs. Putting it here instead would hand this program the one capability that would make its
+/// resemblance to an infostealer complete, and <c>ClientSourceGuardTests</c> fails the build if it
+/// ever appears.</para>
+/// <para>Built in code rather than markup because a reader auditing this program should be able to
+/// see what it displays without also learning a XAML dialect.</para>
 /// </remarks>
 public sealed class MainWindow : Window
 {
-    private readonly StackPanel _servers = new() { Spacing = 10 };
-    private readonly StackPanel _warnings = new() { Spacing = 8 };
-    private readonly StackPanel _journal = new() { Spacing = 2 };
-    private readonly TextBlock _logStatus = Body("");
+    private readonly StackPanel _body = new() { Spacing = 14 };
+    private readonly StackPanel _nav = new() { Spacing = 2 };
+    private readonly TextBlock _healthLine;
+    private readonly Ellipse _healthDot;
+
+    private Page _page = Page.Servers;
+    private ClientAppSnapshot _snapshot = ClientAppSnapshot.Empty;
+    private MainWindowActions _actions = MainWindowActions.None;
 
     public MainWindow()
     {
         Title = "Modbot";
-        Width = 720;
-        Height = 760;
-        Background = DesignTokens.BackgroundBrush;
+        Width = 900;
+        Height = 660;
+        MinWidth = 720;
+        MinHeight = 480;
+        Background = Ui.T.BackgroundBrush;
 
-        Content = new ScrollViewer
+        _healthDot = new Ellipse { Width = 6, Height = 6, VerticalAlignment = VerticalAlignment.Center };
+        _healthLine = Ui.Faint("");
+
+        var main = new ScrollViewer { Padding = new Thickness(20), Content = _body };
+        Grid.SetColumn(main, 1);
+
+        Content = new Grid
         {
-            Padding = new Thickness(20),
-            Content = new StackPanel
-            {
-                Spacing = 18,
-                Children =
-                {
-                    Heading("What Modbot is reading"),
-                    Card(_logStatus),
-                    _warnings,
-                    Heading("Where it reports"),
-                    _servers,
-                    Heading("What it has sent"),
-                    Note(
-                        "Every line below is something this program disclosed about you, in the "
-                        + "order it happened. Nothing is sent that does not appear here."),
-                    Card(_journal),
-                },
-            },
+            ColumnDefinitions = new ColumnDefinitions("216,*"),
+            Children = { Sidebar(), main },
         };
     }
 
-    /// <summary>Called whenever the state changes. Rebuilds only what the snapshot describes.</summary>
-    public void Render(ClientAppSnapshot snapshot, Action<string> onTogglePause)
+    /// <summary>Rebuilds the window from a snapshot. Cheap enough to call on a timer.</summary>
+    public void Render(ClientAppSnapshot snapshot, MainWindowActions actions)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
-        ArgumentNullException.ThrowIfNull(onTogglePause);
+        ArgumentNullException.ThrowIfNull(actions);
 
-        _logStatus.Text = snapshot.LogDetail;
-        _logStatus.Foreground = snapshot.LogStatus switch
-        {
-            LogHealthStatus.NotUnderstood => DesignTokens.WarnBrush,
-            LogHealthStatus.Healthy => DesignTokens.ForegroundBrush,
-            _ => DesignTokens.MutedForegroundBrush,
-        };
+        _snapshot = snapshot;
+        _actions = actions;
 
-        _warnings.Children.Clear();
-        foreach (var warning in snapshot.Warnings)
-            _warnings.Children.Add(Warning(warning));
-
-        _servers.Children.Clear();
-        if (snapshot.Servers.Count == 0)
-        {
-            _servers.Children.Add(Card(Body(
-                "No servers paired. Modbot is reading nothing and sending nothing. Ask the group "
-                + "you moderate for a pairing code.")));
-        }
-        else
-        {
-            foreach (var server in snapshot.Servers)
-                _servers.Children.Add(ServerCard(server, onTogglePause));
-        }
-
-        _journal.Children.Clear();
-        if (snapshot.Journal.Count == 0)
-        {
-            _journal.Children.Add(Body("Nothing has been sent yet."));
-        }
-        else
-        {
-            foreach (var entry in snapshot.Journal)
-                _journal.Children.Add(JournalLine(entry));
-        }
+        RenderHealth();
+        RenderNav();
+        RenderPage();
     }
 
-    private static Control ServerCard(ServerRow server, Action<string> onTogglePause)
+    private Control Sidebar()
     {
-        var pause = new Button
+        var brand = new StackPanel
         {
-            Content = server.IsPaused ? "Resume reporting" : "Pause reporting",
-            MinHeight = 34,
-            HorizontalAlignment = HorizontalAlignment.Left,
-        };
-
-        pause.Click += (_, _) => onTogglePause(server.ServerId);
-
-        var lines = new StackPanel
-        {
-            Spacing = 6,
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Margin = new Thickness(0, 0, 0, 20),
             Children =
             {
-                new TextBlock
+                new Border
                 {
-                    Text = server.ServerId,
-                    FontSize = DesignTokens.TextBase,
-                    FontWeight = FontWeight.SemiBold,
-                    Foreground = DesignTokens.ForegroundBrush,
+                    Width = 22,
+                    Height = 22,
+                    CornerRadius = new CornerRadius(5),
+                    Background = Ui.T.AccentBrush,
+                    Child = Ui.Text("M", 12, Ui.T.AccentForegroundBrush, FontWeight.SemiBold, wrap: false),
                 },
-                Muted($"{server.Address} — group {server.ManagedGroupId}"),
-                new TextBlock
+                new StackPanel
                 {
-                    Text = server.Detail,
-                    FontSize = DesignTokens.TextSmall,
-                    TextWrapping = TextWrapping.Wrap,
-                    Foreground = server.State switch
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Children =
                     {
-                        ConnectionState.Stopped => DesignTokens.DestructiveBrush,
-                        ConnectionState.NeedsRenegotiation => DesignTokens.WarnBrush,
-                        ConnectionState.Paused => DesignTokens.WarnBrush,
-                        _ => DesignTokens.MutedForegroundBrush,
+                        Ui.Text("Modbot", Ui.T.Density.TextBase, Ui.T.TextBrush, FontWeight.SemiBold, wrap: false),
+                        Ui.Faint("client"),
                     },
                 },
-
-                // Stated plainly, because "deduplicated" sounds like a loss and is not: several
-                // moderators in one instance all report the same join, and the server keeping one
-                // of them is the system working.
-                Muted(
-                    $"{server.AcceptedTotal:N0} observations recorded · "
-                    + $"{server.DeduplicatedTotal:N0} already reported by another moderator · "
-                    + $"{server.Pending:N0} queued"),
-                pause,
             },
         };
 
-        return Card(lines);
+        var health = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Margin = new Thickness(0, 14, 0, 0),
+            Children = { _healthDot, _healthLine },
+        };
+
+        var panel = new DockPanel();
+        panel.Children.Add(Dock(brand, Avalonia.Controls.Dock.Top));
+        panel.Children.Add(Dock(_nav, Avalonia.Controls.Dock.Top));
+        panel.Children.Add(Dock(health, Avalonia.Controls.Dock.Bottom));
+        panel.Children.Add(new Panel());
+
+        return new Border
+        {
+            Background = Ui.T.SurfaceBrush,
+            BorderBrush = Ui.T.BorderBrush,
+            BorderThickness = new Thickness(0, 0, Ui.T.Density.Hairline, 0),
+            Padding = new Thickness(14, 16),
+            Child = panel,
+        };
     }
 
-    private static Control JournalLine(JournalEntry entry) => new TextBlock
+    private void RenderHealth()
     {
-        Text = entry.Summary,
-        FontSize = DesignTokens.TextSmall,
-        TextWrapping = TextWrapping.Wrap,
-        Foreground = entry.Kind switch
+        var (colour, line) = _snapshot.LogStatus switch
         {
-            JournalEntryKind.Withheld => DesignTokens.MutedForegroundBrush,
-            JournalEntryKind.Note => DesignTokens.WarnBrush,
-            _ => DesignTokens.ForegroundBrush,
-        },
-    };
+            LogHealthStatus.Healthy => (Ui.T.Palette.Ok, "reading VRChat's log"),
+            LogHealthStatus.NotUnderstood => (Ui.T.Palette.Danger, "log not recognised"),
+            _ => (Ui.T.Palette.TextFaint, "VRChat not running"),
+        };
 
-    private static Control Warning(string message) => new Border
+        _healthDot.Fill = DesignTokens.Brush(colour);
+        _healthLine.Text = line;
+    }
+
+    private void RenderNav()
     {
-        Background = new SolidColorBrush(DesignTokens.Warn, 0.14),
-        BorderBrush = DesignTokens.WarnBrush,
-        BorderThickness = new Thickness(1),
-        CornerRadius = DesignTokens.CornerRadius,
-        Padding = new Thickness(14, 12),
-        Child = new TextBlock
+        _nav.Children.Clear();
+
+        _nav.Children.Add(NavItem(
+            Page.Servers, "Servers", _snapshot.Servers.Count == 0 ? null : $"{_snapshot.Servers.Count}"));
+        _nav.Children.Add(NavItem(
+            Page.Sent, "What I've sent", _snapshot.Journal.Count == 0 ? null : $"{_snapshot.Journal.Count}"));
+        _nav.Children.Add(NavItem(Page.Log, "Log", null));
+    }
+
+    private Control NavItem(Page page, string caption, string? badge)
+    {
+        var selected = _page == page;
+
+        var row = new DockPanel { LastChildFill = false };
+        var label = Ui.Text(
+            caption,
+            Ui.T.Density.TextSmall,
+            selected ? Ui.T.TextBrush : Ui.T.TextDimBrush,
+            selected ? FontWeight.Medium : FontWeight.Normal,
+            wrap: false);
+
+        label.VerticalAlignment = VerticalAlignment.Center;
+        row.Children.Add(Dock(label, Avalonia.Controls.Dock.Left));
+
+        if (badge is not null)
         {
-            Text = message,
-            FontSize = DesignTokens.TextSmall,
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = DesignTokens.WarnBrush,
-        },
-    };
+            var count = Ui.Faint(badge);
+            count.VerticalAlignment = VerticalAlignment.Center;
+            row.Children.Add(Dock(count, Avalonia.Controls.Dock.Right));
+        }
 
-    private static Border Card(Control child) => new()
+        var button = new Button
+        {
+            Content = row,
+            Height = Ui.T.Density.RowHeight,
+            Padding = new Thickness(10, 0),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Background = selected ? Ui.T.Surface3Brush : Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(Ui.T.Density.Radius),
+        };
+
+        button.Click += (_, _) =>
+        {
+            _page = page;
+            RenderNav();
+            RenderPage();
+        };
+
+        return button;
+    }
+
+    private void RenderPage()
     {
-        Background = DesignTokens.CardBrush,
-        BorderBrush = DesignTokens.BorderBrush,
-        BorderThickness = new Thickness(1),
-        CornerRadius = DesignTokens.CornerRadius,
-        Padding = new Thickness(16, 14),
-        Child = child,
-    };
+        _body.Children.Clear();
 
-    private static TextBlock Heading(string text) => new()
+        foreach (var warning in _snapshot.Warnings)
+            _body.Children.Add(Ui.Note(warning.Message, Severity(warning.Severity)));
+
+        switch (_page)
+        {
+            case Page.Sent:
+                RenderSent();
+                break;
+            case Page.Log:
+                RenderLog();
+                break;
+            default:
+                RenderServers();
+                break;
+        }
+    }
+
+    private static Color Severity(WarningSeverity severity) => severity switch
     {
-        Text = text,
-        FontSize = DesignTokens.TextBase * 1.15,
-        FontWeight = FontWeight.SemiBold,
-        Foreground = DesignTokens.ForegroundBrush,
+        WarningSeverity.Critical => Ui.T.Palette.Danger,
+        WarningSeverity.Warning => Ui.T.Palette.Warn,
+        _ => Ui.T.Palette.Info,
     };
 
-    private static TextBlock Body(string text) => new()
+    private void RenderServers()
     {
-        Text = text,
-        FontSize = DesignTokens.TextSmall,
-        TextWrapping = TextWrapping.Wrap,
-        Foreground = DesignTokens.ForegroundBrush,
-    };
+        if (_snapshot.Servers.Count == 0)
+        {
+            _body.Children.Add(Ui.Card(
+                Ui.Dim(
+                    "No servers paired. Modbot is reading nothing and sending nothing. Ask the "
+                    + "group you moderate for a pairing code, then add it below."),
+                "Not reporting anywhere"));
+        }
 
-    private static TextBlock Muted(string text) => new()
+        foreach (var server in _snapshot.Servers)
+            _body.Children.Add(ServerCard(server));
+
+        _body.Children.Add(PairingCard());
+    }
+
+    private Control ServerCard(ServerRow server)
     {
-        Text = text,
-        FontSize = DesignTokens.TextSmall,
-        TextWrapping = TextWrapping.Wrap,
-        Foreground = DesignTokens.MutedForegroundBrush,
+        var pause = Ui.Button(server.IsPaused ? "Resume reporting" : "Pause reporting");
+        pause.Click += (_, _) => _actions.TogglePause(server.ServerId);
+
+        var unpair = Ui.Button("Unpair", danger: true);
+        unpair.Click += (_, _) => _actions.Unpair(server.ServerId);
+
+        var stats = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
+            ColumnSpacing = 10,
+        };
+
+        // "Already known" rather than "deduplicated": the technical word sounds like a loss and is
+        // not. Several moderators in one instance all report the same join, and the server keeping
+        // one of them is the system working exactly as designed.
+        Control[] tiles =
+        [
+            Ui.Stat("recorded", $"{server.AcceptedTotal:N0}"),
+            Ui.Stat("already known", $"{server.DeduplicatedTotal:N0}"),
+            Ui.Stat("queued", $"{server.Pending:N0}", server.Pending > 0 ? Ui.T.WarnBrush : Ui.T.TextBrush),
+        ];
+
+        for (var index = 0; index < tiles.Length; index++)
+        {
+            Grid.SetColumn(tiles[index], index);
+            stats.Children.Add(tiles[index]);
+        }
+
+        var body = new StackPanel
+        {
+            Spacing = 12,
+            Children =
+            {
+                Ui.Dim($"{server.Address}  ·  {server.ManagedGroupId}"),
+                Ui.Text(server.Detail, Ui.T.Density.TextSmall, DetailBrush(server.State)),
+                stats,
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children = { pause, unpair },
+                },
+            },
+        };
+
+        return Ui.Card(body, server.ServerId, StatePill(server));
+    }
+
+    /// <summary>
+    /// The one distinction that must be legible at a glance.
+    /// </summary>
+    /// <remarks>
+    /// "Retrying, will send later" and "stopped, will never send" feel identical to somebody
+    /// looking at a screen that is not moving, and they mean opposite things: one needs nothing
+    /// doing, and the other means this moderator's coverage has silently ended.
+    /// </remarks>
+    private static Control StatePill(ServerRow server) => server.State switch
+    {
+        ConnectionState.Paused => Ui.Pill("Paused", Ui.T.Palette.Warn, Ui.T.Palette.WarnDim),
+        ConnectionState.Stopped => Ui.Pill("Stopped", Ui.T.Palette.Danger, Ui.T.Palette.DangerDim),
+        ConnectionState.NeedsRenegotiation =>
+            Ui.Pill("Needs update", Ui.T.Palette.Danger, Ui.T.Palette.DangerDim),
+        ConnectionState.Waiting => Ui.Pill("Retrying", Ui.T.Palette.Info, Ui.T.Palette.InfoDim),
+        _ => Ui.Pill("Reporting", Ui.T.Palette.Ok, Ui.T.Palette.OkDim),
     };
 
-    private static TextBlock Note(string text) => Muted(text);
+    private static IBrush DetailBrush(ConnectionState state) => state switch
+    {
+        ConnectionState.Stopped or ConnectionState.NeedsRenegotiation => Ui.T.DangerBrush,
+        ConnectionState.Paused => Ui.T.WarnBrush,
+        _ => Ui.T.TextDimBrush,
+    };
+
+    private Control PairingCard()
+    {
+        var address = Ui.Input("modbot.example.com");
+        var code = Ui.Input("ABCD-EFGH");
+        code.FontFamily = Ui.Mono;
+        var deviceName = Ui.Input("This PC");
+
+        var message = Ui.Dim("");
+        message.IsVisible = false;
+
+        var pair = Ui.Button("Pair", primary: true);
+        pair.Click += async (_, _) =>
+        {
+            pair.IsEnabled = false;
+            message.IsVisible = true;
+            message.Text = "Pairing…";
+            message.Foreground = Ui.T.TextDimBrush;
+
+            var result = await _actions.PairAsync(address.Text ?? "", code.Text ?? "", deviceName.Text ?? "");
+
+            message.Text = result.Message;
+            message.Foreground = result.Succeeded ? Ui.T.OkBrush : Ui.T.DangerBrush;
+            pair.IsEnabled = true;
+
+            if (result.Succeeded)
+            {
+                code.Text = "";
+                address.Text = "";
+            }
+        };
+
+        var body = new StackPanel
+        {
+            Spacing = 12,
+            Children =
+            {
+                Ui.Dim(
+                    "A pairing code comes from the group's own Modbot settings page. It is "
+                    + "single-use and expires after a few minutes, so it never has to travel "
+                    + "through a chat message."),
+                Ui.Field("Server address", address),
+                Ui.Field("Pairing code", code),
+
+                // The moderator names their own device. The client does not read the machine name
+                // and send it unasked -- a hostname is frequently somebody's real name.
+                Ui.Field("Name this device (shown to that group's operators)", deviceName),
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children = { pair },
+                },
+                message,
+            },
+        };
+
+        return Ui.Card(body, "Pair another server");
+    }
+
+    private void RenderSent()
+    {
+        _body.Children.Add(Ui.Card(
+            Ui.Dim(
+                "Every line here is something this program disclosed about you, newest first. "
+                + "Nothing is sent that does not appear in this list, and the list is kept on your "
+                + "disk so it is still here tomorrow."),
+            "What Modbot has sent"));
+
+        if (_snapshot.Journal.Count == 0)
+        {
+            _body.Children.Add(Ui.Card(Ui.Dim("Nothing has been sent yet.")));
+            return;
+        }
+
+        var rows = new StackPanel { Spacing = 0 };
+        var first = true;
+
+        foreach (var entry in _snapshot.Journal)
+        {
+            rows.Children.Add(JournalRow(entry, first));
+            first = false;
+        }
+
+        _body.Children.Add(new Border
+        {
+            Background = Ui.T.SurfaceBrush,
+            BorderBrush = Ui.T.BorderBrush,
+            BorderThickness = new Thickness(Ui.T.Density.Hairline),
+            CornerRadius = new CornerRadius(10),
+            ClipToBounds = true,
+            Child = rows,
+        });
+    }
+
+    private static Control JournalRow(JournalEntry entry, bool first)
+    {
+        var (colour, background, word) = entry.Kind switch
+        {
+            JournalEntryKind.Withheld => (Ui.T.Palette.TextFaint, Ui.T.Palette.Surface2, "withheld"),
+            JournalEntryKind.Note => (Ui.T.Palette.Warn, Ui.T.Palette.WarnDim, "note"),
+            _ => (Ui.T.Palette.Ok, Ui.T.Palette.OkDim, "sent"),
+        };
+
+        var pill = Ui.Pill(word, colour, background);
+        pill.HorizontalAlignment = HorizontalAlignment.Left;
+
+        var line = Ui.Text(
+            entry.Summary,
+            Ui.T.Density.TextSmall,
+            entry.Kind == JournalEntryKind.Sent ? Ui.T.TextBrush : Ui.T.TextDimBrush);
+
+        line.VerticalAlignment = VerticalAlignment.Center;
+
+        var server = Ui.Faint(entry.ServerId);
+        server.VerticalAlignment = VerticalAlignment.Center;
+
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("96,*,Auto"),
+            ColumnSpacing = 12,
+        };
+
+        Grid.SetColumn(pill, 0);
+        Grid.SetColumn(line, 1);
+        Grid.SetColumn(server, 2);
+        grid.Children.Add(pill);
+        grid.Children.Add(line);
+        grid.Children.Add(server);
+
+        return new Border
+        {
+            Padding = new Thickness(14, 9),
+            BorderBrush = Ui.T.BorderBrush,
+            BorderThickness = new Thickness(0, first ? 0 : Ui.T.Density.Hairline, 0, 0),
+            Child = grid,
+        };
+    }
+
+    private void RenderLog()
+    {
+        var stats = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
+            ColumnSpacing = 10,
+        };
+
+        Control[] tiles =
+        [
+            Ui.Stat("lines seen", $"{_snapshot.LinesRead:N0}"),
+            Ui.Stat("lines Modbot looks at", $"{_snapshot.BehaviourLines:N0}"),
+            Ui.Stat("recognised", $"{_snapshot.RecognisedEvents:N0}"),
+        ];
+
+        for (var index = 0; index < tiles.Length; index++)
+        {
+            Grid.SetColumn(tiles[index], index);
+            stats.Children.Add(tiles[index]);
+        }
+
+        _body.Children.Add(Ui.Card(
+            new StackPanel
+            {
+                Spacing = 12,
+                Children =
+                {
+                    Ui.Text(_snapshot.LogDetail, Ui.T.Density.TextSmall, Ui.T.TextBrush),
+                    stats,
+
+                    // The ratio is a claim a suspicious moderator can check against the file
+                    // itself, which is the whole reason to state it rather than say "working".
+                    Ui.Dim(
+                        "Modbot reads one tag out of the dozen VRChat writes, and acts on a "
+                        + "handful of line shapes within it. Open the same file in Notepad and "
+                        + "the counts above are checkable."),
+                },
+            },
+            "VRChat's log"));
+
+        _body.Children.Add(Ui.Card(
+            Ui.Dim(
+                "Modbot reads VRChat's log directory and nothing else on this machine. It does "
+                + "not capture the screen, read your screenshots folder, read the clipboard or "
+                + "the keyboard, or look at what other programs are running. Attaching evidence "
+                + "to a case is something you do in Modbot's web interface, in a browser, by "
+                + "choosing a file."),
+            "What it does not read"));
+    }
+
+    private static Control Dock(Control control, Dock side)
+    {
+        DockPanel.SetDock(control, side);
+        return control;
+    }
+}
+
+/// <summary>What the window can ask the application to do.</summary>
+/// <remarks>
+/// A small surface on purpose: pause, unpair, pair. There is nothing here that acts on VRChat or
+/// on a group — the client observes and reports, and a moderator acting on what they have seen
+/// does it through the normal authenticated web interface as themselves.
+/// </remarks>
+public sealed record MainWindowActions(
+    Action<string> TogglePause,
+    Action<string> Unpair,
+    Func<string, string, string, Task<PairingAttemptResult>> PairAsync)
+{
+    public static MainWindowActions None { get; } = new(
+        _ => { },
+        _ => { },
+        (_, _, _) => Task.FromResult(new PairingAttemptResult(false, "Not ready yet.")));
 }

@@ -30,6 +30,9 @@ namespace Modbot.Overlay.Views;
 /// </remarks>
 public static class OverlayView
 {
+    /// <summary>The headset's tokens: the VR palette at the VR density.</summary>
+    private static DesignTokens T => DesignTokens.Vr;
+
     public static Control Build(OverlayScreen screen)
     {
         ArgumentNullException.ThrowIfNull(screen);
@@ -46,7 +49,7 @@ public static class OverlayView
 
         return new Border
         {
-            Background = DesignTokens.BackgroundBrush,
+            Background = T.BackgroundBrush,
             Padding = new Thickness(20),
             Child = stack,
         };
@@ -59,12 +62,12 @@ public static class OverlayView
     /// </summary>
     private static Control HealthBanner(string message) => new Border
     {
-        Background = new SolidColorBrush(DesignTokens.Warn, 0.16),
-        BorderBrush = DesignTokens.WarnBrush,
-        BorderThickness = new Thickness(DesignTokens.Hairline),
-        CornerRadius = DesignTokens.CornerRadius,
+        Background = new SolidColorBrush(T.Palette.Warn, 0.16),
+        BorderBrush = T.WarnBrush,
+        BorderThickness = new Thickness(T.Density.Hairline),
+        CornerRadius = T.CornerRadius,
         Padding = new Thickness(16, 12),
-        Child = Text(message, DesignTokens.TextBase, DesignTokens.WarnBrush, FontWeight.SemiBold),
+        Child = Text(message, T.Density.TextBase, T.WarnBrush, FontWeight.SemiBold),
     };
 
     /// <summary>
@@ -77,37 +80,37 @@ public static class OverlayView
 
         lines.Children.Add(Text(
             groupLabel is null ? "Flagged user joined" : $"Flagged user joined — {groupLabel}",
-            DesignTokens.TextSmall,
-            DesignTokens.MutedForegroundBrush,
+            T.Density.TextSmall,
+            T.TextDimBrush,
             FontWeight.SemiBold));
 
         lines.Children.Add(Text(
             alert.DisplayName ?? alert.SubjectId,
-            DesignTokens.TextBase * 1.4,
-            DesignTokens.ForegroundBrush,
+            T.Density.TextBase * 1.4,
+            T.TextBrush,
             FontWeight.SemiBold));
 
-        lines.Children.Add(Text(alert.Reason, DesignTokens.TextBase, DesignTokens.ForegroundBrush));
+        lines.Children.Add(Text(alert.Reason, T.Density.TextBase, T.TextBrush));
 
         if (alert.PriorActions > 0)
         {
             lines.Children.Add(Text(
                 alert.PriorActions == 1 ? "1 prior action" : $"{alert.PriorActions} prior actions",
-                DesignTokens.TextSmall,
-                DesignTokens.MutedForegroundBrush));
+                T.Density.TextSmall,
+                T.TextDimBrush));
         }
 
         return new Border
         {
-            Background = DesignTokens.CardBrush,
-            BorderBrush = DesignTokens.DestructiveBrush,
+            Background = T.SurfaceBrush,
+            BorderBrush = T.DangerBrush,
 
             // A thicker left edge rather than a full border: the eye finds it at a glance without
             // the card becoming a box inside a box.
-            BorderThickness = new Thickness(6, DesignTokens.Hairline, DesignTokens.Hairline, DesignTokens.Hairline),
-            CornerRadius = DesignTokens.CornerRadius,
+            BorderThickness = new Thickness(6, T.Density.Hairline, T.Density.Hairline, T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
             Padding = new Thickness(18, 14),
-            MinHeight = DesignTokens.RowHeight * 2,
+            MinHeight = T.Density.RowHeight * 2,
             Child = lines,
         };
     }
@@ -123,17 +126,17 @@ public static class OverlayView
             {
                 Dock(Text(
                     screen.GroupLabel is null ? "Not in a group instance" : screen.GroupLabel,
-                    DesignTokens.TextSmall,
-                    DesignTokens.MutedForegroundBrush,
+                    T.Density.TextSmall,
+                    T.TextDimBrush,
                     FontWeight.SemiBold), Avalonia.Controls.Dock.Left),
 
                 // Always stated, on every panel that came from a server.
                 Dock(Text(
                     screen.Roster.Describe(),
-                    DesignTokens.TextSmall,
+                    T.Density.TextSmall,
                     screen.Freshness == Freshness.Fresh
-                        ? DesignTokens.MutedForegroundBrush
-                        : DesignTokens.WarnBrush), Avalonia.Controls.Dock.Right),
+                        ? T.TextDimBrush
+                        : T.WarnBrush), Avalonia.Controls.Dock.Right),
             },
         });
 
@@ -143,8 +146,8 @@ public static class OverlayView
                 screen.Freshness == Freshness.Never
                     ? "No roster loaded for this instance."
                     : "Nobody here.",
-                DesignTokens.TextBase,
-                DesignTokens.MutedForegroundBrush));
+                T.Density.TextBase,
+                T.TextDimBrush));
         }
         else
         {
@@ -156,10 +159,10 @@ public static class OverlayView
 
         return new Border
         {
-            Background = DesignTokens.CardBrush,
-            BorderBrush = DesignTokens.BorderBrush,
-            BorderThickness = new Thickness(DesignTokens.Hairline),
-            CornerRadius = DesignTokens.CornerRadius,
+            Background = T.SurfaceBrush,
+            BorderBrush = T.BorderBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
             Padding = new Thickness(18, 14),
             Child = rows,
         };
@@ -182,19 +185,19 @@ public static class OverlayView
             VerticalAlignment = VerticalAlignment.Center,
             Fill = member.Standing switch
             {
-                RosterStanding.Flagged => DesignTokens.DestructiveBrush,
-                RosterStanding.Staff => DesignTokens.AccentForegroundBrush,
-                RosterStanding.Member => DesignTokens.OkBrush,
-                _ => DesignTokens.BorderBrush,
+                RosterStanding.Flagged => T.DangerBrush,
+                RosterStanding.Staff => T.AccentForegroundBrush,
+                RosterStanding.Member => T.OkBrush,
+                _ => T.BorderBrush,
             },
         };
 
         var name = Text(
             member.DisplayName ?? member.SubjectId,
-            DesignTokens.TextBase,
+            T.Density.TextBase,
             member.Standing == RosterStanding.Flagged
-                ? DesignTokens.ForegroundBrush
-                : DesignTokens.MutedForegroundBrush,
+                ? T.TextBrush
+                : T.TextDimBrush,
             member.Standing == RosterStanding.Flagged ? FontWeight.SemiBold : FontWeight.Normal);
         name.VerticalAlignment = VerticalAlignment.Center;
 
@@ -202,7 +205,7 @@ public static class OverlayView
         {
             Orientation = Orientation.Horizontal,
             Spacing = 12,
-            Height = DesignTokens.RowHeight,
+            Height = T.Density.RowHeight,
             Children = { badge, name },
         };
 
@@ -210,8 +213,8 @@ public static class OverlayView
         {
             line.Children.Add(Text(
                 string.Join(" · ", member.Flags),
-                DesignTokens.TextSmall,
-                DesignTokens.DestructiveBrush));
+                T.Density.TextSmall,
+                T.DangerBrush));
         }
 
         return line;

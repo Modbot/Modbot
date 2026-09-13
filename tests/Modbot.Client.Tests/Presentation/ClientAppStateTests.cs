@@ -101,7 +101,7 @@ public class ClientAppStateTests : IDisposable
         _clock.Advance(ServerConnection.DefaultBatchInterval + TimeSpan.FromSeconds(1));
         await connection.PumpAsync(TestContext.Current.CancellationToken);
 
-        var warning = Assert.Single(state.Snapshot().Warnings);
+        var warning = Assert.Single(state.Snapshot().Warnings).Message;
 
         Assert.Contains("rejected this device", warning);
         Assert.Contains("will not restart on its own", warning);
@@ -119,7 +119,7 @@ public class ClientAppStateTests : IDisposable
         var state = State();
         state.UnusablePairings.Add(new LoadedPairing("cats", null, PairingFault.TokenUndecryptable));
 
-        var warning = Assert.Single(state.Snapshot().Warnings);
+        var warning = Assert.Single(state.Snapshot().Warnings).Message;
 
         Assert.Contains("cats", warning);
         Assert.Contains("cannot be decrypted", warning);
@@ -138,7 +138,7 @@ public class ClientAppStateTests : IDisposable
         var snapshot = state.Snapshot();
 
         Assert.Equal(LogHealthStatus.NotUnderstood, snapshot.LogStatus);
-        var warning = Assert.Single(snapshot.Warnings);
+        var warning = Assert.Single(snapshot.Warnings).Message;
         Assert.Contains("verbose logging flags", warning);
         Assert.Contains("log format has changed", warning);
     }

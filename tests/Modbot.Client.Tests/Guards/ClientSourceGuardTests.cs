@@ -30,9 +30,25 @@ public class ClientSourceGuardTests
         @"leaves the machine|transmit|is sent|sends|What this reads|written to your disk|never stored",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    private static IEnumerable<string> ClientSources()
+    /// <summary>
+    /// The engine: the half that reads the log and reports.
+    /// </summary>
+    private static IEnumerable<string> ClientSources() => SourcesUnder("Modbot.Client");
+
+    /// <summary>
+    /// The engine <em>and</em> the window.
+    /// </summary>
+    /// <remarks>
+    /// The bans below cover both, because a UI project is exactly where somebody would add "attach
+    /// a screenshot" with entirely good intentions. Everything else here is about the engine,
+    /// which is deliberately kept small enough that its claims stay checkable.
+    /// </remarks>
+    private static IEnumerable<string> EverythingTheClientShips()
+        => SourcesUnder("Modbot.Client").Concat(SourcesUnder("Modbot.Client.App"));
+
+    private static IEnumerable<string> SourcesUnder(string project)
     {
-        var root = Path.Combine(FindRepoRoot(), "src", "Modbot.Client");
+        var root = Path.Combine(FindRepoRoot(), "src", project);
 
         return Directory
             .EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
@@ -93,12 +109,80 @@ public class ClientSourceGuardTests
         // The client is, feature for feature, shaped like spyware: it runs unattended on a personal
         // PC, watches a file, and posts what it sees to a server. What separates it is that its
         // behaviour is bounded and checkable. These are the bounds, as a test.
-        var offenders = ClientSources()
+        var offenders = EverythingTheClientShips()
             .Where(f => File.ReadAllText(f).Contains(forbidden, StringComparison.Ordinal))
             .Select(Path.GetFileName)
             .ToList();
 
         Assert.True(offenders.Count == 0, $"{why}; found in {string.Join(", ", offenders)}");
+    }
+
+    /// <summary>Anything that would capture what is on a screen, by any route.</summary>
+    private static readonly Regex ScreenCapture = new(
+        @"\b(CopyFromScreen|BitBlt|PrintWindow|GetDC|GraphicsCaptureItem|GraphicsCapturePicker"
+        + @"|Direct3D11CaptureFrame|DwmGetWindow|RenderTargetBitmap|CaptureScreen|Screenshot)\b",
+        RegexOptions.Compiled);
+
+    /// <summary>Anywhere a screenshot would be sitting on disk waiting to be read.</summary>
+    private static readonly Regex ScreenshotFolders = new(
+        @"(SpecialFolder\s*\.\s*(MyPictures|MyVideos|MyDocuments|Desktop)"
+        + @"|VRChat[\\/]{1,2}Screenshots|VRChat[\\/]{1,2}Pictures|""Screenshots"")",
+        RegexOptions.Compiled);
+
+    [Fact]
+    public void TheGuardsAreActuallyLookingAtSomething()
+    {
+        // A scan over an empty file set passes every ban in this class while proving nothing, and
+        // it would pass silently the day somebody renames a project directory.
+        Assert.True(ClientSources().Count() > 20, "The engine's source files were not found.");
+        Assert.True(EverythingTheClientShips().Count() > ClientSources().Count(),
+            "The window's source files were not found.");
+
+        // And the bans catch what they are aimed at, rather than being regexes that match nothing.
+        Assert.Matches(ScreenCapture, "var bitmap = Graphics.CopyFromScreen(0, 0, 0, 0, size);");
+        Assert.Matches(ScreenshotFolders, @"Path.Combine(pictures, ""VRChat\Screenshots"")");
+        Assert.Matches(ScreenshotFolders, "Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)");
+    }
+
+    [Fact]
+    public void NothingTheClientShipsCanCaptureAScreen()
+    {
+        // M3 3.1.1 draws this line explicitly, and it is the one capability that would make the
+        // client's resemblance to an infostealer complete rather than superficial. Screenshots are
+        // in the never-transmitted column beside chat, keystrokes and the process list.
+        //
+        // Attaching evidence to a moderation case is a real feature -- it just is not this
+        // program's. A moderator does it in the web UI, in a browser, by choosing a file: a
+        // deliberate human action in an application people already trust with a file dialog.
+        // The distinction is the whole point, so it is a test rather than a paragraph.
+        var offenders = EverythingTheClientShips()
+            .Where(f => ScreenCapture.IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "The client must never capture the screen; found capture APIs in "
+            + string.Join(", ", offenders));
+    }
+
+    [Fact]
+    public void NothingTheClientShipsGoesLookingForScreenshotsOnDisk()
+    {
+        // Reading a folder full of screenshots is the same disclosure as taking one, reached by a
+        // different route, and it is the route somebody would take while believing they had
+        // avoided the ban above.
+        var offenders = EverythingTheClientShips()
+            .Where(f => ScreenshotFolders.IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "The client reads VRChat's log directory and nothing else; found picture or screenshot "
+            + "paths in " + string.Join(", ", offenders));
     }
 
     [Fact]
