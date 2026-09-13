@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { GateIndicator } from '@/components/GateIndicator'
 import { cn } from '@/lib/utils'
 import type { Density, Theme } from '@/lib/preferences'
 import { Headset, LogOut, Moon, Rows3, Rows2, Sun } from 'lucide-react'
@@ -12,7 +13,8 @@ const NAV = [
   { id: 'bans', label: 'Bans' },
   { id: 'audit', label: 'Audit log' },
   { id: 'metrics', label: 'Metrics', group: 'Insight' },
-  { id: 'settings', label: 'Settings', group: 'Setup' },
+  { id: 'health', label: 'Sync health', group: 'Setup' },
+  { id: 'settings', label: 'Settings' },
 ] as const
 
 export type PageId = (typeof NAV)[number]['id']
@@ -63,12 +65,15 @@ export function Sidebar({
       ))}
 
       {/*
-        The gate's health and its rate-limit headroom belong here (spec 4.3.3) and the prototype
-        shows both. They are left out rather than faked: a green "VRChat · healthy" dot that is
-        really a hardcoded string is worse than no dot at all, because it is the one place an
-        operator would look to find out that something is wrong.
+        The gate's health (spec 4.3.3). Real now: it reads /api/health/gate, reports the server's
+        posture rather than a colour picked here, and shows "unknown" rather than green when the
+        fetch fails. The prototype's second line -- the live request-rate headroom -- is still
+        absent, because the effective rates are per bucket and there is no measured total to put
+        against the 2 req/s ceiling without inventing one.
       */}
-      <div className="mt-auto" />
+      <div className="mt-auto pt-4">
+        <GateIndicator onOpen={() => onNavigate('health')} />
+      </div>
     </aside>
   )
 }

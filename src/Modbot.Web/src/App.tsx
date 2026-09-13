@@ -1,20 +1,44 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Sidebar, Topbar, type PageId } from '@/components/Chrome'
+import { SubjectPane } from '@/components/SubjectPane'
 import { api, type OnboardingStatus } from '@/lib/api'
 import { usePreferences } from '@/lib/preferences'
-import { useRoute } from '@/lib/router'
+import { useQueryParam, useRoute } from '@/lib/router'
+import { AuditLog } from '@/pages/AuditLog'
+import { Bans } from '@/pages/Bans'
+import { Health } from '@/pages/Health'
 import { Login } from '@/pages/Login'
 import { Members } from '@/pages/Members'
-import { Placeholder } from '@/pages/Placeholder'
+import { Metrics } from '@/pages/Metrics'
 import { Settings } from '@/pages/Settings'
 import { Setup } from '@/pages/setup/Setup'
 
 const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
   members: { title: 'Members' },
-  bans: { title: 'Bans' },
-  audit: { title: 'Audit log' },
+  bans: { title: 'Bans', subtitle: 'What Modbot recorded — not the group’s ban list' },
+  audit: { title: 'Audit log', subtitle: 'One timeline, merged across sources' },
   metrics: { title: 'Metrics' },
+  health: { title: 'Sync health' },
   settings: { title: 'Settings' },
+}
+
+/**
+ * Pages live at real paths so the subject pane's deep link means something: `/audit?subject=usr_…`
+ * survives a refresh and can be pasted to another moderator (spec 10.2). A pane whose URL put you
+ * back on the members list would be a pane nobody shares.
+ */
+const PATHS: Record<PageId, string> = {
+  members: '/',
+  bans: '/bans',
+  audit: '/audit',
+  metrics: '/metrics',
+  health: '/health',
+  settings: '/settings',
+}
+
+function pageFor(path: string): PageId {
+  const match = (Object.keys(PATHS) as PageId[]).find((id) => PATHS[id] === path)
+  return match ?? 'members'
 }
 
 export default function App() {
@@ -77,22 +101,30 @@ export default function App() {
     )
   }
 
-  return <Shell status={status} prefs={prefs} />
+  return <Shell status={status} prefs={prefs} route={route} navigate={navigate} />
 }
 
 function Shell({
   status,
   prefs,
+  route,
+  navigate,
 }: {
   status: OnboardingStatus
   prefs: ReturnType<typeof usePreferences>
+  route: string
+  navigate: (to: string, options?: { replace?: boolean }) => void
 }) {
-  const [page, setPage] = useState<PageId>('members')
+  const page = pageFor(route)
   const { title, subtitle } = TITLES[page]
+
+  // The pane is a query parameter rather than component state, so it is linkable and survives a
+  // refresh. Every list that renders a person opens it the same way (spec 10.2).
+  const [subject, setSubject] = useQueryParam('subject')
 
   return (
     <div className="grid h-screen grid-cols-[13.5rem_1fr]">
-      <Sidebar page={page} onNavigate={setPage} groupName={status.group?.name} />
+      <Sidebar page={page} onNavigate={(p) => navigate(PATHS[p])} groupName={status.group?.name} />
       <main className="flex flex-col overflow-auto">
         <Topbar
           title={title}
@@ -104,10 +136,15 @@ function Shell({
         />
         <div className="p-5">
           {page === 'members' && <Members />}
+          {page === 'bans' && <Bans onOpenSubject={setSubject} />}
+          {page === 'audit' && <AuditLog onOpenSubject={setSubject} />}
+          {page === 'metrics' && <Metrics />}
+          {page === 'health' && <Health />}
           {page === 'settings' && <Settings />}
-          {page !== 'members' && page !== 'settings' && <Placeholder name={title} />}
         </div>
       </main>
+
+      {subject && <SubjectPane key={subject} subjectId={subject} onClose={() => setSubject(null)} />}
     </div>
   )
 }
