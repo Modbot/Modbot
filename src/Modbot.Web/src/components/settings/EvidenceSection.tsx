@@ -461,11 +461,11 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
         </>
       }
     >
-      <div className="grid max-w-sm gap-3 sm:grid-cols-3">
+      <div className="grid max-w-md gap-3 sm:grid-cols-3">
         <Field label="Per file (MB)" value={perFile} placeholder="100" onChange={setPerFile} />
         <Field label="Per report (MB)" value={perReport} placeholder="0" onChange={setPerReport} />
         <Field
-          label="Whole deployment (MB)"
+          label="Deployment (MB)"
           value={perDeployment}
           placeholder="0"
           onChange={setPerDeployment}

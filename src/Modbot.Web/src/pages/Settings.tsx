@@ -73,13 +73,20 @@ function SectionNav() {
   const [active, setActive] = useState<SectionId>(SECTIONS[0].id)
 
   useEffect(() => {
-    // The band is the top third of the viewport below the topbar: whichever section last
-    // entered it is the one being read.
+    // The band is the top third of the viewport below the topbar, and the highlighted section is
+    // the first in page order with anything inside it. Tracked as a set rather than "the last to
+    // enter", because sections grow as their data arrives and a section that was in the band
+    // while the one above it was still a loading placeholder must not stay highlighted after
+    // it has been pushed out.
+    const visible = new Set<string>()
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) setActive(entry.target.id as SectionId)
+          if (entry.isIntersecting) visible.add(entry.target.id)
+          else visible.delete(entry.target.id)
         }
+        const first = SECTIONS.find((s) => visible.has(s.id))
+        if (first) setActive(first.id)
       },
       { rootMargin: '-80px 0px -66% 0px' },
     )

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { api, ApiError, type DataSettings } from '@/lib/api'
 import { Fact, Field, Hint, Outcome, Placeholder, Row } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
+import { StorageChart } from './StorageChart'
 import { GB, bytes, remember, remembered } from './units'
 
 /**
@@ -112,7 +113,7 @@ function StorageCard({
               : 'The arrival rate needs a day of history to measure.'}
           </Hint>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid max-w-sm grid-cols-2 gap-3">
             <Field label="Cost per GB / month" placeholder="0.25" value={cost} onChange={onCost} />
             <Field label="Disk size (GB)" placeholder="500" value={capacity} onChange={onCapacity} />
           </div>
@@ -122,48 +123,61 @@ function StorageCard({
           </Hint>
         </div>
 
-        <div className="min-w-0">
-          {/* Always shown, however little history there is. The confidence label below carries
+        <div className="flex min-w-0 flex-col gap-3">
+          {/* Always shown, however little history there is. The caption under the chart carries
               the caveat; withholding the number was tried and the operator preferred to see it. */}
-          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="text-muted-foreground">
-              <tr>
-                <th className="text-left font-normal">If this rate continues</th>
-                <th className="text-right font-normal">Size</th>
-                <th className="text-right font-normal">Cost / month</th>
-              </tr>
-            </thead>
-            <tbody>
-              {storage.horizons.map((h) => (
-                <tr key={h.months}>
-                  <td className="py-1">In {h.months} months</td>
-                  <td className="py-1 text-right tabular-nums">{bytes(h.estimatedBytes)}</td>
-                  <td className="py-1 text-right tabular-nums">
-                    {h.monthlyCost === null ? '—' : `$${h.monthlyCost.toFixed(2)}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <Hint className="mt-2">
-            A straight line, which real growth is not — a group that opens more instances
-            generates more facts per member. Treat it as an order of magnitude.
-            {storage.confidence === 'Low' &&
-              ' Based on under a month of history, so a single busy weekend still moves it a lot.'}
-            {storage.confidence === 'Insufficient' &&
-              ' Based on less than a day of history — a guess, and one that will change a lot by tomorrow.'}
-          </Hint>
-
-          {storage.capacityExhausted && (
-            <p className="mt-2 text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-              At this rate that disk fills around{' '}
-              {new Date(storage.capacityExhausted).toLocaleDateString()}.
-            </p>
-          )}
+          <StorageChart
+            storage={storage}
+            capacityBytes={Number(capacity) ? Number(capacity) * GB : null}
+          />
+          <HorizonTable horizons={storage.horizons} />
         </div>
       </div>
     </SettingsCard>
+  )
+}
+
+/** The same numbers as the chart, for anyone who wants to copy one out. Folded by default. */
+function HorizonTable({ horizons }: { horizons: DataSettings['storage']['horizons'] }) {
+  const [open, setOpen] = useState(false)
+
+  if (horizons.length === 0) return null
+
+  return (
+    <div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        className="-ml-2 text-muted-foreground"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {open ? 'Hide the numbers' : 'Show the numbers'}
+      </Button>
+      {open && (
+        <table className="mt-1 w-full max-w-md" style={{ fontSize: 'var(--text-small)' }}>
+          <thead className="text-muted-foreground">
+            <tr>
+              <th className="text-left font-normal">If this rate continues</th>
+              <th className="text-right font-normal">Size</th>
+              <th className="text-right font-normal">Cost / month</th>
+            </tr>
+          </thead>
+          <tbody>
+            {horizons.map((h) => (
+              <tr key={h.months}>
+                <td className="py-1">In {h.months} months</td>
+                <td className="py-1 text-right tabular-nums">{bytes(h.estimatedBytes)}</td>
+                <td className="py-1 text-right tabular-nums">
+                  {h.monthlyCost === null ? '—' : `$${h.monthlyCost.toFixed(2)}`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   )
 }
 
