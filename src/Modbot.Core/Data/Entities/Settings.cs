@@ -205,6 +205,24 @@ public class Settings
     /// <summary>When the group-info poll last completed. Same reasoning as the audit log's.</summary>
     public DateTimeOffset? GroupInfoPolledAt { get; set; }
 
+    /// <summary>
+    /// The largest fact id the profile sync has read while looking for people it has not seen
+    /// before. Each pass reads the facts written since, minus a small overlap, rather than
+    /// rescanning the whole log.
+    /// </summary>
+    /// <remarks>
+    /// An id rather than a timestamp because the fact log's primary key leads with it, so "every
+    /// row after this one" is an index range and needs no new index on a table that is already
+    /// the largest in the database. Ids are handed out at insert and committed slightly later,
+    /// so a fact can appear below a cursor that has already moved past it; the overlap the
+    /// producer re-reads covers that, and the cost of missing one anyway is only that the person
+    /// is discovered by their next fact rather than this one.
+    /// </remarks>
+    public long UserProfileEventsReadThrough { get; set; }
+
+    /// <summary>When the profile sync last completed a pass, refresh or not. Same reasoning as the audit log's.</summary>
+    public DateTimeOffset? UserProfilePolledAt { get; set; }
+
     // ── Evidence storage (evidence design §6, §8) ───────────────────────────────────────────
 
     /// <summary>

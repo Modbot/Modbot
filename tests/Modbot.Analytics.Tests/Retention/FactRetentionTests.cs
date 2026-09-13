@@ -44,6 +44,20 @@ public class FactRetentionTests
     public void GroupAuditLogHistoryIsKept(string type)
         => Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf(type));
 
+    /// <summary>
+    /// A profile as it stood when a ban was issued, and the record of who cleared an 18+ flag,
+    /// are both things a dispute months later turns on. Neither ages out.
+    /// </summary>
+    [Theory]
+    [InlineData(FactType.UserProfileFirstSeen)]
+    [InlineData(FactType.UserProfileChanged)]
+    [InlineData(FactType.UserProfileNotFound)]
+    [InlineData(FactType.UserAgeVerified)]
+    [InlineData(FactType.UserAgeFlagSet)]
+    [InlineData(FactType.UserAgeFlagCleared)]
+    public void ProfileHistoryIsKept(string type)
+        => Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf(type));
+
     [Fact]
     public void EverythingFromTheGroupAuditLogIsKeptForever()
     {

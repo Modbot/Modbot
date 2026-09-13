@@ -48,6 +48,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     public DbSet<EvidenceBlob> EvidenceBlobs => Set<EvidenceBlob>();
 
     /// <summary>
+    /// Every VRChat user Modbot has ever seen, with their profile as last fetched. Not derived
+    /// from facts and not rebuildable from them -- see <see cref="VRChatUser"/>.
+    /// </summary>
+    public DbSet<VRChatUser> VRChatUsers => Set<VRChatUser>();
+
+    /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
     /// </summary>
@@ -162,6 +168,41 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // Rendering a case file is "every blob for this report", and it must not scan.
             entity.HasIndex(e => e.ReportId);
+        });
+
+        builder.Entity<VRChatUser>(entity =>
+        {
+            entity.ToTable("vrchat_user");
+
+            // Keyed on VRChat's own id, which is opaque text with no length assumption
+            // (spec 3.1.1): legacy ids follow no structure at all.
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.UserId).HasColumnType("text");
+
+            // User-authored text, and VRChat's own caps on it have moved before. Unbounded text
+            // rather than a guessed varchar that would one day reject a real profile.
+            entity.Property(e => e.DisplayName).HasColumnType("text");
+            entity.Property(e => e.Bio).HasColumnType("text");
+            entity.Property(e => e.StatusDescription).HasColumnType("text");
+            entity.Property(e => e.Pronouns).HasColumnType("text");
+            entity.Property(e => e.Status).HasMaxLength(32);
+            entity.Property(e => e.LastPlatform).HasMaxLength(128);
+            entity.Property(e => e.AgeVerificationStatus).HasMaxLength(32);
+            entity.Property(e => e.Is18PlusVerifiedSource).HasMaxLength(16);
+            entity.Property(e => e.RefreshError).HasMaxLength(512);
+
+            // The snake-case convention would write "is18_plus_verified"; the digit belongs to
+            // the next word, not the previous one, and somebody grepping the schema for the flag
+            // should find it by the name the design uses.
+            entity.Property(e => e.Is18PlusVerified).HasColumnName("is_18_plus_verified");
+            entity.Property(e => e.Is18PlusVerifiedAt).HasColumnName("is_18_plus_verified_at");
+            entity.Property(e => e.Is18PlusVerifiedSource).HasColumnName("is_18_plus_verified_source");
+            entity.Property(e => e.Is18PlusVerifiedByUserId).HasColumnName("is_18_plus_verified_by_user_id");
+
+            // The refresh queue is ordered on these two (user profile sync design §3.2), and a
+            // 150,000-row table asked "who is oldest" once a second must not scan.
+            entity.HasIndex(e => e.LastRefreshedAt).HasDatabaseName("ix_vrchat_user_last_refreshed");
+            entity.HasIndex(e => e.LastSeenAt).HasDatabaseName("ix_vrchat_user_last_seen");
         });
 
         builder.Entity<ModbotEvent>(entity =>

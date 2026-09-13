@@ -92,6 +92,20 @@ public enum ModbotPermissions : long
     /// </remarks>
     DestroyEvidence = 1L << 17,
 
+    // --- VRChat user records (user profile sync design §4) ---
+
+    /// <summary>
+    /// Set or clear the "18+ verified" flag on a VRChat user's record by hand.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ManageUsers"/> (which is about Modbot's own
+    /// accounts) or <see cref="EditClassifications"/>. The flag is sticky: a sync sets it and
+    /// nothing automatic ever clears it, so clearing is a deliberate human decision about a
+    /// person's record, recorded as a fact naming who made it. That deserves to be granted on
+    /// purpose rather than arriving bundled with something else.
+    /// </remarks>
+    EditAgeVerification = 1L << 18,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

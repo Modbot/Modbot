@@ -15,6 +15,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 0, (long)ModbotPermissions.ViewMembers);
         Assert.Equal(1L << 3, (long)ModbotPermissions.ViewAuditLog);
         Assert.Equal(1L << 4, (long)ModbotPermissions.ViewOperationalLog);
+        Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
 
