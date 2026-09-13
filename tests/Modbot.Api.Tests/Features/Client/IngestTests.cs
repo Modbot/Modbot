@@ -159,7 +159,7 @@ public class IngestTests
         await using var context = _db.NewContext();
         var fact = Assert.Single(context.Events.ToList());
 
-        Assert.Equal(EventsHandler.InstancePresenceObserved, fact.Type);
+        Assert.Equal(Core.Data.Entities.FactType.InstancePresenceObserved, fact.Type);
         Assert.NotEqual(Core.Data.Entities.FactType.InstanceJoined, fact.Type);
     }
 
