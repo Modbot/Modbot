@@ -44,6 +44,7 @@ function pageFor(path: string): PageId {
 export default function App() {
   const [route, navigate] = useRoute()
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
+  const [permissions, setPermissions] = useState<number | null>(null)
 
   // Theme and density are applied here rather than inside the app shell, so the wizard and the
   // sign-in page are themed too. An operator who set Modbot to dark and then re-ran a setup step
@@ -62,6 +63,30 @@ export default function App() {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // The signed-in account's permission bits, so a pane can decide which controls to draw. The
+  // server enforces every one of them regardless; this only spares a moderator a 403. Fetched
+  // once per sign-in; while signed out the value is simply not used.
+  const authenticated = status?.authenticated ?? false
+
+  useEffect(() => {
+    if (!authenticated) return
+
+    let cancelled = false
+
+    api
+      .me()
+      .then((me) => {
+        if (!cancelled) setPermissions(me.permissions)
+      })
+      .catch(() => {
+        if (!cancelled) setPermissions(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [authenticated])
 
   // Spec 7.1: with no staff account present, every route leads to the wizard -- there is nobody
   // to authenticate as, so there is nothing else the deployment can usefully show. A signed-in
@@ -101,16 +126,26 @@ export default function App() {
     )
   }
 
-  return <Shell status={status} prefs={prefs} route={route} navigate={navigate} />
+  return (
+    <Shell
+      status={status}
+      permissions={authenticated ? permissions : null}
+      prefs={prefs}
+      route={route}
+      navigate={navigate}
+    />
+  )
 }
 
 function Shell({
   status,
+  permissions,
   prefs,
   route,
   navigate,
 }: {
   status: OnboardingStatus
+  permissions: number | null
   prefs: ReturnType<typeof usePreferences>
   route: string
   navigate: (to: string, options?: { replace?: boolean }) => void
@@ -144,7 +179,14 @@ function Shell({
         </div>
       </main>
 
-      {subject && <SubjectPane key={subject} subjectId={subject} onClose={() => setSubject(null)} />}
+      {subject && (
+        <SubjectPane
+          key={subject}
+          subjectId={subject}
+          permissions={permissions}
+          onClose={() => setSubject(null)}
+        />
+      )}
     </div>
   )
 }

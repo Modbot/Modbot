@@ -335,6 +335,23 @@ export type HistoryHorizonReport = {
   reachedAt: string
 }
 
+/**
+ * What the profile sync is doing. `waitingByReason` is keyed by tier name -- `SeenInInstance`,
+ * `OpenedInModbot`, `SeenInFactLog`, `ProfileIsOld`, `NeverRefreshed` -- highest priority first.
+ */
+export type UserProfileHealth = {
+  knownUsers: number
+  neverRefreshed: number
+  notFound: number
+  oldestRefreshedAt: string | null
+  waiting: number
+  waitingByReason: Record<string, number>
+  refreshingUserId: string | null
+  refreshesInLastHour: number
+  lastRateLimitedAt: string | null
+  countedAt: string | null
+}
+
 export type SyncHealth = {
   gate: GateHealth
   buckets: BucketHealth[]
@@ -342,14 +359,84 @@ export type SyncHealth = {
   auditLogPollRate: PollRateReport | null
   lastAuditLogRun: SyncRunSummary | null
   lastGroupInfoRun: SyncRunSummary | null
+  lastUserProfileRun: SyncRunSummary | null
   auditLogPolledAt: string | null
   groupInfoPolledAt: string | null
+  userProfilePolledAt: string | null
   auditLogCatchUpComplete: boolean
   auditLogSyncedThrough: string | null
   groupConfigured: boolean
   unmappedAuditEvents: UnmappedEvent[]
   auditLogHistoryHorizon: HistoryHorizonReport | null
+  userProfiles: UserProfileHealth | null
   now: string
+}
+
+/**
+ * Modbot's sticky "18+ verified" flag -- what Modbot remembers, not what VRChat shows today.
+ *
+ * `verified` stays true once any refresh has seen the person as 18+ verified. VRChat users can
+ * hide their verification again, so `ageVerificationStatusLastSeen` on the profile can read
+ * `hidden` while this reads true; only a moderator clears it, and `source` / `setByUsername`
+ * say when that happened.
+ */
+export type AgeVerifiedFlag = {
+  verified: boolean
+  since: string | null
+  source: 'vrchat' | 'manual' | null
+  setByUserId: string | null
+  setByUsername: string | null
+}
+
+export type RefreshState = {
+  pending: boolean
+  reason: string | null
+  requestedAt: string | null
+  inProgress: boolean
+  /** A sentence when no refresh will come for a while -- the lane is cold-stopped, or no sync runs here. */
+  blocked: string | null
+}
+
+/**
+ * One person's stored profile, with the age of all of it.
+ *
+ * `known` false means Modbot has no row at all. `lastRefreshedAt` is the time every profile
+ * field was true at; `stale` says it is older than the sync's own threshold. A screen shows
+ * neither a bio nor an avatar without the first, and labels it with the second.
+ */
+export type VRChatUserProfile = {
+  userId: string
+  known: boolean
+  displayName: string | null
+  bio: string | null
+  status: string | null
+  statusDescription: string | null
+  pronouns: string | null
+  avatarImageUrl: string | null
+  avatarThumbnailUrl: string | null
+  profilePictureUrl: string | null
+  dateJoined: string | null
+  tags: string[]
+  lastPlatform: string | null
+  ageVerificationStatusLastSeen: string | null
+  ageVerifiedLastSeen: boolean | null
+  eighteenPlus: AgeVerifiedFlag
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  lastRefreshedAt: string | null
+  stale: boolean
+  staleAfterSeconds: number
+  refreshError: string | null
+  refreshErrorAt: string | null
+  notFoundAt: string | null
+  refresh: RefreshState
+  now: string
+}
+
+export type RefreshRequestResult = {
+  outcome: 'Queued' | 'Promoted' | 'AlreadyQueued' | 'FreshEnough' | 'NotAvailable'
+  lastRefreshedAt: string | null
+  explanation: string
 }
 
 export type SyncSettings = {
@@ -371,6 +458,15 @@ export type SyncSettings = {
     rateLimitedIntervalSeconds: number
     pacingFloorSeconds: number
     jitterFraction: number
+  }
+  userProfile: {
+    intervalSeconds: number
+    pacingFloorSeconds: number
+    staleAfterSeconds: number
+    recentWindowSeconds: number
+    freshEnoughWhenOpenedSeconds: number
+    freshEnoughWhenSeenInInstanceSeconds: number
+    rateLimitedIntervalSeconds: number
   }
   editable: boolean
   editableExplanation: string
@@ -718,4 +814,27 @@ export const api = {
   gateHealth: () => request<GateHealth>('/api/health/gate'),
 
   syncHealth: () => request<SyncHealth>('/api/health/sync'),
+
+  /**
+   * One person's stored profile. The id goes in the query string, never the path: VRChat ids are
+   * opaque and a legacy one can contain anything (spec 3.1.1).
+   */
+  userProfile: (id: string) =>
+    request<VRChatUserProfile>(`/api/vrchat-users/profile?id=${encodeURIComponent(id)}`),
+
+  /**
+   * Asks for a refresh now. Answers immediately; the fetch happens on the users lane at its
+   * own pace, so the caller polls `userProfile` until `lastRefreshedAt` moves. A profile
+   * fetched within the last half minute is answered `FreshEnough` and nothing is queued, which
+   * is what makes calling this on every open safe.
+   */
+  requestUserRefresh: (id: string) =>
+    post<RefreshRequestResult>(`/api/vrchat-users/refresh?id=${encodeURIComponent(id)}`),
+
+  /** Set or clear the sticky 18+ flag by hand. Needs the EditAgeVerification permission. */
+  setAgeVerified: (id: string, body: { verified: boolean; reason?: string }) =>
+    request<VRChatUserProfile>(`/api/vrchat-users/age-verified?id=${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
 }

@@ -136,6 +136,24 @@ export function Health() {
             run={health.lastGroupInfoRun}
           />
 
+          <Producer
+            name="User profiles"
+            polledAt={health.userProfilePolledAt}
+            now={health.now}
+            detail={
+              health.userProfiles
+                ? `${health.userProfiles.knownUsers.toLocaleString()} people known, ${health.userProfiles.neverRefreshed.toLocaleString()} never refreshed, ${health.userProfiles.notFound.toLocaleString()} no longer on VRChat. ${health.userProfiles.waiting.toLocaleString()} waiting right now (${waitingByReason(health.userProfiles.waitingByReason)}); ${health.userProfiles.refreshesInLastHour.toLocaleString()} refreshed in the last hour.` +
+                  (health.userProfiles.oldestRefreshedAt
+                    ? ` Oldest profile: refreshed ${ago(health.userProfiles.oldestRefreshedAt, health.now)}.`
+                    : '') +
+                  (health.userProfiles.lastRateLimitedAt
+                    ? ` Last rate limited ${ago(health.userProfiles.lastRateLimitedAt, health.now)}.`
+                    : '')
+                : 'Fetches one profile at a time on the users lane, people seen in an instance first.'
+            }
+            run={health.lastUserProfileRun}
+          />
+
           <p className="mt-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {health.auditLogCatchUpComplete
               ? health.auditLogHistoryHorizon
@@ -252,6 +270,22 @@ export function Health() {
       </Card>
     </div>
   )
+}
+
+/** The queue's tiers in the design's order, highest first, with plain names. */
+const REASON_LABEL: [key: string, label: string][] = [
+  ['SeenInInstance', 'in an instance'],
+  ['OpenedInModbot', 'opened in Modbot'],
+  ['SeenInFactLog', 'seen in the log'],
+  ['ProfileIsOld', 'old'],
+  ['NeverRefreshed', 'never refreshed'],
+]
+
+function waitingByReason(counts: Record<string, number>): string {
+  const parts = REASON_LABEL.filter(([key]) => (counts[key] ?? 0) > 0).map(
+    ([key, label]) => `${counts[key]} ${label}`,
+  )
+  return parts.length > 0 ? parts.join(', ') : 'nobody'
 }
 
 function Producer({
