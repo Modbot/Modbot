@@ -50,6 +50,9 @@ public sealed class IsolatedDatabase : IAsyncDisposable
         return database;
     }
 
+    /// <summary>For the tests that need to build a container around this database.</summary>
+    public string ConnectionString => _connectionString;
+
     public ModbotContext NewContext()
     {
         var options = new DbContextOptionsBuilder<ModbotContext>()

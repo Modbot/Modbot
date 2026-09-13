@@ -155,6 +155,26 @@ public static class VRChatRateLimits
     /// <summary>Login and re-login, which must not queue behind a group sync.</summary>
     public const string AuthLane = "auth";
 
+    /// <summary>
+    /// The classes spec 4.2's table schedules as background sync, in its order.
+    /// </summary>
+    /// <remarks>
+    /// Exactly the rows spec 4.2 sums to 1.450 req/s, and no others. The settings screen shows
+    /// that sum against the 2 req/s ceiling so an operator can see the interactive headroom they
+    /// are leaving (spec 4.2.1) — a figure that would mean nothing if it also counted classes
+    /// nothing schedules. <c>moderation.write</c> and <c>groups.invites</c> pass the same backstop
+    /// but are driven by a moderator, so they are what the headroom is <em>for</em>, not part of
+    /// what consumes it; <c>users.read</c> is exempt from the ceiling entirely (spec 4.2.5).
+    /// </remarks>
+    public static IReadOnlyList<string> Scheduled { get; } =
+    [
+        VRChatEndpointClass.GroupsMembers,
+        VRChatEndpointClass.GroupsBans,
+        VRChatEndpointClass.GroupsAuditLog,
+        VRChatEndpointClass.GroupsInstances,
+        VRChatEndpointClass.GroupsRead,
+    ];
+
     public static IReadOnlyDictionary<string, RateLimitClassOptions> Defaults { get; } =
         new Dictionary<string, RateLimitClassOptions>(StringComparer.Ordinal)
         {
