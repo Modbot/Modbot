@@ -126,7 +126,6 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Id).ValueGeneratedNever();
 
             entity.Property(e => e.TokenHash).HasMaxLength(128);
-            entity.Property(e => e.DeviceName).HasMaxLength(128);
             entity.Property(e => e.ClientVersion).HasMaxLength(32);
             entity.Property(e => e.Platform).HasMaxLength(32);
 

@@ -111,7 +111,7 @@ public sealed class ClientApiTestHost : IAsyncDisposable
     }
 
     /// <summary>Pairs a device directly, skipping the code exchange the pairing tests cover.</summary>
-    public async Task<string> PairDeviceAsync(string deviceName, CancellationToken ct)
+    public async Task<string> PairDeviceAsync(CancellationToken ct)
     {
         var token = DeviceTokens.NewToken();
 
@@ -119,7 +119,6 @@ public sealed class ClientApiTestHost : IAsyncDisposable
             new ClientDevice(
                 Guid.NewGuid(),
                 DeviceTokens.Hash(token),
-                deviceName,
                 "2026.9.0",
                 "windows",
                 Guid.NewGuid(),

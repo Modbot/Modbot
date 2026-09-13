@@ -52,7 +52,7 @@ public class IngestTests
         var host = await ClientApiTestHost.StartAsync(_db);
         await host.ConfigureGroupAsync(_db, Group, ct);
 
-        return (host, await host.PairDeviceAsync("Rin's desktop", ct));
+        return (host, await host.PairDeviceAsync(ct));
     }
 
     private static async Task<EventBatchResponse> PostAsync(
@@ -95,7 +95,7 @@ public class IngestTests
 
         for (var moderator = 0; moderator < 6; moderator++)
         {
-            var token = await host.PairDeviceAsync($"moderator {moderator}", ct);
+            var token = await host.PairDeviceAsync(ct);
 
             // Each client saw the same arrival a second or two apart, as six clocks would report
             // it. All six are the same event.

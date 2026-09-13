@@ -82,7 +82,6 @@ public sealed class DatabaseClientDeviceStore(ModbotContext db) : IClientDeviceS
         {
             Id = device.Id,
             TokenHash = device.TokenHash,
-            DeviceName = device.DeviceName,
             ClientVersion = device.ClientVersion,
             Platform = device.Platform,
             IssuedToUserId = device.IssuedToUserId,
@@ -154,7 +153,6 @@ public sealed class DatabaseClientDeviceStore(ModbotContext db) : IClientDeviceS
     private static ClientDevice Map(ClientDeviceRecord r) => new(
         r.Id,
         r.TokenHash,
-        r.DeviceName,
         r.ClientVersion,
         r.Platform,
         r.IssuedToUserId,

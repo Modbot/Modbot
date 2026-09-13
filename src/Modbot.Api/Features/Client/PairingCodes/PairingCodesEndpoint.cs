@@ -9,8 +9,9 @@ using Modbot.Core.Time;
 namespace Modbot.Api.Features.Client.PairingCodes;
 
 /// <param name="Code">
-/// Shown once, in the web UI, and never stored in a form anybody can read back. The moderator
-/// types it into their client within minutes.
+/// Handed to the browser once and never stored in a form anybody can read back. The pairing page
+/// wraps it, with this server's address, into a <c>modbot-client://</c> link and a pairing token
+/// the moderator's client redeems within minutes.
 /// </param>
 public sealed record IssuedPairingCode(string Code, DateTimeOffset ExpiresAt);
 
@@ -20,7 +21,6 @@ public sealed record IssuedPairingCode(string Code, DateTimeOffset ExpiresAt);
 /// </param>
 public sealed record PairedDevice(
     Guid Id,
-    string DeviceName,
     string ClientVersion,
     string Platform,
     DateTimeOffset IssuedAt,
@@ -59,7 +59,7 @@ public static class PairingCodesEndpoint
                     return Results.Unauthorized();
 
                 // The code carries the moderator who generated it, so the device it becomes has an
-                // owner that does not depend on the name they typed into the client.
+                // owner.
                 var code = DeviceTokens.NewPairingCode();
                 var issued = await devices.IssueCodeAsync(PairingCodeLifetime.Issue(clock, userId, code), ct);
 
@@ -68,11 +68,14 @@ public static class PairingCodesEndpoint
             .WithName("IssuePairingCode")
             .WithSummary("Generate a one-time code for pairing a Windows client")
             .WithDescription(
-                "Short, single-use, and valid for ten minutes — long enough to walk from this "
-                + "page to the client, short enough that a code left visible in a screenshot or "
-                + "a stream is worthless by the time anybody sees it.\n\n"
-                + "The token it becomes is long and never displayed: a credential a human has to "
-                + "read out or retype ends up pasted into a chat message.")
+                "Short, single-use, and valid for five minutes — long enough to click through "
+                + "from the pairing page to the client, short enough that a code left in a "
+                + "browser history, a screenshot or a stream is worthless by the time anybody "
+                + "sees it.\n\n"
+                + "The pairing page wraps it, with this server's address, into a "
+                + "modbot-client:// link and a pairing token. The device token it becomes is long "
+                + "and never displayed: a credential a human has to read out or retype ends up "
+                + "pasted into a chat message.")
             .Produces<IssuedPairingCode>()
             .RequireAuthorization();
 
@@ -82,7 +85,7 @@ public static class PairingCodesEndpoint
 
                 return Results.Ok(paired
                     .Select(d => new PairedDevice(
-                        d.Id, d.DeviceName, d.ClientVersion, d.Platform, d.IssuedAt, d.LastSeenAt, d.RevokedAt))
+                        d.Id, d.ClientVersion, d.Platform, d.IssuedAt, d.LastSeenAt, d.RevokedAt))
                     .ToList());
             })
             .WithName("ListPairedDevices")

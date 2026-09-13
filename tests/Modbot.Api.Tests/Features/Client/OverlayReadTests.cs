@@ -39,7 +39,7 @@ public class OverlayReadTests
         var host = await ClientApiTestHost.StartAsync(_db);
         await host.ConfigureGroupAsync(_db, Group, ct);
 
-        return (host, await host.PairDeviceAsync("Rin's desktop", ct));
+        return (host, await host.PairDeviceAsync(ct));
     }
 
     private static async Task WriteAsync(ClientApiTestHost host, params FactRecord[] facts)
@@ -273,7 +273,7 @@ public class OverlayReadTests
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
 
-        var watcher = await host.PairDeviceAsync("Mei's headset", ct);
+        var watcher = await host.PairDeviceAsync(ct);
         await StandingInAsync(host, watcher, Instance, ct);
 
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
@@ -302,7 +302,7 @@ public class OverlayReadTests
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
 
-        var elsewhere = await host.PairDeviceAsync("Mei's headset", ct);
+        var elsewhere = await host.PairDeviceAsync(ct);
         await StandingInAsync(host, elsewhere, "77777", ct);
 
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
@@ -321,7 +321,7 @@ public class OverlayReadTests
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
 
-        var idle = await host.PairDeviceAsync("a client nobody is running", ct);
+        var idle = await host.PairDeviceAsync(ct);
 
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
         await ReportJoinAsync(host, reporter, "usr_flag", ct);
@@ -339,7 +339,7 @@ public class OverlayReadTests
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
 
-        var watcher = await host.PairDeviceAsync("Mei's desktop", ct);
+        var watcher = await host.PairDeviceAsync(ct);
         await ReportJoinAsync(host, watcher, "usr_ordinary", ct);
 
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
@@ -355,7 +355,7 @@ public class OverlayReadTests
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
 
-        var wanderer = await host.PairDeviceAsync("Mei's headset", ct);
+        var wanderer = await host.PairDeviceAsync(ct);
         await StandingInAsync(host, wanderer, Instance, ct);
         await StandingInAsync(host, wanderer, "77777", ct);
 
@@ -375,7 +375,7 @@ public class OverlayReadTests
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
 
-        var gone = await host.PairDeviceAsync("Mei's headset", ct);
+        var gone = await host.PairDeviceAsync(ct);
         await StandingInAsync(host, gone, Instance, ct);
 
         host.Clock.Advance(DeviceLocations.RememberedFor + TimeSpan.FromMinutes(1));
@@ -411,7 +411,7 @@ public class OverlayReadTests
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
 
-        var watcher = await host.PairDeviceAsync("Mei's headset", ct);
+        var watcher = await host.PairDeviceAsync(ct);
         await StandingInAsync(host, watcher, Instance, ct);
 
         await ReportJoinAsync(host, reporter, "usr_ordinary", ct);
@@ -429,7 +429,7 @@ public class OverlayReadTests
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
 
-        var watcher = await host.PairDeviceAsync("Mei's headset", ct);
+        var watcher = await host.PairDeviceAsync(ct);
         await StandingInAsync(host, watcher, Instance, ct);
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
 
@@ -454,8 +454,8 @@ public class OverlayReadTests
         var (host, first) = await ReadyAsync(ct);
         await using var _ = host;
 
-        var second = await host.PairDeviceAsync("second reporter", ct);
-        var watcher = await host.PairDeviceAsync("Mei's headset", ct);
+        var second = await host.PairDeviceAsync(ct);
+        var watcher = await host.PairDeviceAsync(ct);
         await StandingInAsync(host, watcher, Instance, ct);
 
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
