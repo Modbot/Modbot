@@ -12,6 +12,10 @@ const NAV = [
   { id: 'members', label: 'Members' },
   { id: 'bans', label: 'Bans' },
   { id: 'audit', label: 'Audit log' },
+
+  // One page per question (spec 10.1), not one "metrics" page. Tracked Groups is a later
+  // feature (spec 10.3) and has no entry until it exists.
+  { id: 'analytics-group', label: 'My Group', group: 'Analytics' },
   { id: 'health', label: 'Sync health', group: 'Setup' },
   { id: 'settings', label: 'Settings' },
 ] as const

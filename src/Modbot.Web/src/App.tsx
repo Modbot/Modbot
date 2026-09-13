@@ -9,6 +9,7 @@ import { Bans } from '@/pages/Bans'
 import { Health } from '@/pages/Health'
 import { Login } from '@/pages/Login'
 import { Members } from '@/pages/Members'
+import { MyGroup } from '@/pages/analytics/MyGroup'
 import { Settings } from '@/pages/Settings'
 import { Setup } from '@/pages/setup/Setup'
 
@@ -16,6 +17,7 @@ const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
   members: { title: 'Members' },
   bans: { title: 'Bans', subtitle: 'What Modbot recorded — not the group’s ban list' },
   audit: { title: 'Audit log', subtitle: 'One timeline, merged across sources' },
+  'analytics-group': { title: 'My Group', subtitle: 'Is the community growing or shrinking, and what changed?' },
   health: { title: 'Sync health' },
   settings: { title: 'Settings' },
 }
@@ -29,6 +31,7 @@ const PATHS: Record<PageId, string> = {
   members: '/',
   bans: '/bans',
   audit: '/audit',
+  'analytics-group': '/analytics/group',
   health: '/health',
   settings: '/settings',
 }
@@ -135,6 +138,7 @@ function Shell({
           {page === 'members' && <Members />}
           {page === 'bans' && <Bans onOpenSubject={setSubject} />}
           {page === 'audit' && <AuditLog onOpenSubject={setSubject} />}
+          {page === 'analytics-group' && <MyGroup />}
           {page === 'health' && <Health />}
           {page === 'settings' && <Settings />}
         </div>
