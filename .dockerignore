@@ -1,0 +1,60 @@
+# The build context is the repository root, so everything not needed to produce the image is
+# excluded here. This is not only about speed: `libs/` is a set of reference-only clones that must
+# never be compiled or shipped, and `logs/` from a local run would otherwise be baked into the
+# image and read as production output.
+
+# Reference-only clones. Never built, never imported from.
+libs/
+old/
+
+# Version control and CI.
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Design documents, plans and agent scratch. Not part of the product.
+.agent/
+.remember/
+explore/
+
+# Tests are not built by the image; the pipeline runs them separately.
+tests/
+TestResults/
+
+# Build output. Copying a host-built bin/ into the image produces an obj/ that disagrees with the
+# container's SDK and fails the restore in ways that look like a code error.
+**/bin/
+**/obj/
+*.binlog
+
+# Node. node_modules is reinstalled from the lockfile inside the web stage, and a Windows-built
+# tree contains native binaries the Linux stage cannot run.
+**/node_modules/
+**/.vite/
+*.tsbuildinfo
+
+# Built SPA. The web stage regenerates it; a stale local copy would silently ship instead.
+src/Modbot.Host/wwwroot/
+
+# Local run artefacts.
+**/logs/
+*.log
+output_log_*.txt
+.env
+.env.*
+appsettings.Development.json
+appsettings.Local.json
+.session.json
+
+# Editors and OS.
+.vs/
+.idea/
+.DS_Store
+Thumbs.db
+
+# The image definition and the deployment descriptors that reference it.
+Dockerfile
+.dockerignore
+.railway/
+railway.json
