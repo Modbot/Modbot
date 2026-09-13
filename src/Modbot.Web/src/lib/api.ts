@@ -225,39 +225,18 @@ export type BanList = {
 
 export type DayValue = { day: string; value: number }
 
-export type MetricSeries = {
-  metric: string
-  label: string
-  note: string | null
-  points: DayValue[]
-}
-
-export type ModeratorActivity = {
-  dimension: string
-  platform: string
-  actorId: string
-  name: string | null
-  actions: number
-}
-
-export type ActionTypeSeries = {
-  type: string
-  label: string
-  total: number
-  points: DayValue[]
-}
-
 /**
  * Two ranges, not one.
  *
  * Daily totals are never aged out; facts can be, where an operator set a retention window. Even with
  * nothing pruned the two start in different places, because the audit-log catch-up walks history
  * backwards while the daily totals job only folds forward. One date picker shown over both would claim
- * they were the same range.
+ * they were the same range. `dailyTotalsUpdatedAt` is how fresh anything served from daily totals is.
  */
-export type MetricsCoverage = {
+export type AnalyticsCoverage = {
   dailyTotalsFirstDay: string | null
   dailyTotalsLastDay: string | null
+  dailyTotalsUpdatedAt: string | null
   factFirstDay: string | null
   factLastDay: string | null
   retentionConfigured: boolean
@@ -265,14 +244,120 @@ export type MetricsCoverage = {
   presenceFactRetentionDays: number
 }
 
-export type Metrics = {
+export type Person = { platform: string; id: string; name: string | null }
+
+export type RoleSummary = {
+  id: string
+  name: string | null
+  isModerationRole: boolean
+  isAddedOnJoin: boolean
+  isSelfAssignable: boolean
+  granted: number
+  revoked: number
+}
+
+export type TenureBucket = { label: string; minDays: number; maxDays: number | null; members: number }
+
+export type InviteFunnel = {
+  invitesSent: number
+  joinedAfterInvite: number
+  followUpDays: number
+  requestsReceived: number
+  requestsApproved: number
+  requestsRejected: number
+}
+
+export type GroupAnalytics = {
   from: string
   to: string
-  series: MetricSeries[]
   memberCount: DayValue[]
-  moderators: ModeratorActivity[]
-  actionsByType: ActionTypeSeries[]
-  coverage: MetricsCoverage
+  joined: DayValue[]
+  left: DayValue[]
+  netChange: DayValue[]
+  invitesSent: DayValue[]
+  requestsReceived: DayValue[]
+  roles: RoleSummary[]
+  rolesKnownAt: string | null
+  tenure: TenureBucket[]
+  membersWithKnownTenure: number
+  invites: InviteFunnel
+  coverage: AnalyticsCoverage
+  generatedAt: string
+}
+
+export type ActionKind = { metric: string; label: string }
+
+export type ModeratorSummary = {
+  who: Person
+  total: number
+  byKind: Record<string, number>
+  lastActiveDay: string | null
+}
+
+export type KindSeries = { metric: string; label: string; total: number; points: DayValue[] }
+
+export type CoverageGap = {
+  worldId: string
+  instanceId: string
+  startedAt: string
+  endedAt: string | null
+  endedBy: 'moderator-arrived' | 'instance-closed' | 'unknown'
+  peopleWhenLastModeratorLeft: number
+  lastModerator: Person | null
+}
+
+export type TeamAnalytics = {
+  from: string
+  to: string
+  kinds: ActionKind[]
+  moderators: ModeratorSummary[]
+  actionsPerDay: DayValue[]
+  actionsPerDayByKind: KindSeries[]
+  coverageGaps: CoverageGap[]
+  moderatorsRecognised: number
+  howModeratorsAreRecognised: string
+  instancesWatched: number
+  instancesOpenedWithoutAnyWatch: number
+  coverage: AnalyticsCoverage
+  generatedAt: string
+}
+
+export type WorldSummary = {
+  worldId: string
+  minutesSeen: number
+  visitors: number
+  visits: number
+  instancesOpened: number
+  lastSeenAt: string | null
+}
+
+export type WorldSeries = { worldId: string; points: DayValue[] }
+
+export type WorldsAnalytics = {
+  from: string
+  to: string
+  worlds: WorldSummary[]
+  visitorsPerDay: WorldSeries[]
+  presenceReports: number
+  coverage: AnalyticsCoverage
+  generatedAt: string
+}
+
+/** 168 buckets, Monday 00:00 UTC first. The page shifts them to the viewer's clock. */
+export type HourOfWeek = { arrivals: number[]; opened: number[] }
+
+export type InstancesAnalytics = {
+  from: string
+  to: string
+  opened: DayValue[]
+  closed: DayValue[]
+  mostOpenAtOnce: DayValue[]
+  mostPeopleInOne: DayValue[]
+  typicalMinutesOpen: number | null
+  instancesWithBothEnds: number
+  instancesOpened: number
+  hourOfWeek: HourOfWeek
+  coverage: AnalyticsCoverage
   generatedAt: string
 }
 
@@ -682,7 +767,14 @@ export const api = {
     return request<BanList>(`/api/audit/bans${search ? `?${search}` : ''}`)
   },
 
-  metrics: (days: number) => request<Metrics>(`/api/metrics?days=${days}`),
+  /**
+   * The Analytics section, one page per question (spec 10.1). `query` is `days=30` or `all=true`,
+   * built by the pages' shared range control so every page means the same thing by a range.
+   */
+  groupAnalytics: (query: string) => request<GroupAnalytics>(`/api/analytics/group?${query}`),
+  teamAnalytics: (query: string) => request<TeamAnalytics>(`/api/analytics/team?${query}`),
+  worldsAnalytics: (query: string) => request<WorldsAnalytics>(`/api/analytics/worlds?${query}`),
+  instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),
 
   evidenceSettings: () => request<EvidenceSettings>('/api/settings/evidence'),
 

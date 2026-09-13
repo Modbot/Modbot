@@ -10,7 +10,6 @@ using Modbot.Analytics.DailyTotals;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Health;
-using Modbot.Api.Features.Metrics;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Tests.Fakes;
 using Modbot.Core.Data;

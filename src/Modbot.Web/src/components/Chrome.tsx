@@ -12,7 +12,6 @@ const NAV = [
   { id: 'members', label: 'Members' },
   { id: 'bans', label: 'Bans' },
   { id: 'audit', label: 'Audit log' },
-  { id: 'metrics', label: 'Metrics', group: 'Insight' },
   { id: 'health', label: 'Sync health', group: 'Setup' },
   { id: 'settings', label: 'Settings' },
 ] as const
