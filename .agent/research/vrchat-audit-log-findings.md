@@ -93,3 +93,56 @@ should be updated from it — not from a guess.
 
 For `group.instance.*`, `targetId` is documented as "typically a UserID, GroupID, GroupRoleID, or
 Location". It is carried through untouched and never parsed (§3.1.1).
+
+## 7. `offset` is hard-capped at 7,500 on every enumerable endpoint
+
+Reported by the maintainer, 2026-09-13. `offset=7501` returns HTTP 400 with this body — note the
+**fullwidth Unicode punctuation** (`＝`, `․`, `‚`, `＠`), which makes string-matching it fragile:
+
+```
+{"error":{"message":"offset＝7501 is above the limit․ if you believe this is too low‚ please contact support＠vrchat․com with details․","status_code":400}}
+```
+
+- It is a **400, not a 429**. It is not a rate limit, it does not extend on retry, and it must not
+  trigger a cold stop. The correct handling is arithmetic: never send an offset above 7,500, and
+  treat reaching it as "the history horizon" — a fact about VRChat, not a failure.
+- A naive "non-2xx → failed pass → retry next tick" loops at offset 7,501 forever. If a 400 arrives
+  on a paginated read, it is terminal for that pass.
+- **M1 inherits this.** A group with more than 7,500 members or bans cannot be enumerated by offset
+  at all. The member and ban sweeps must be designed around filters or sort windows, not offsets.
+  Recorded in foundation §4.2.
+
+## 8. VRChat keeps roughly 30 days of audit log
+
+The live catch-up finished at offset **1,233** with `complete = true`. The oldest entry it found is
+dated **2026-08-13**, 31 days before the pull. This group's audit log simply does not go back
+further — VRChat's own retention ends it, not the 7,500 cap. Everything Modbot has not recorded by
+the time an entry ages out is unrecoverable, which is the operational meaning of §5.1.
+
+## 9. 721 entries were read and dropped before record-not-drop existed
+
+1,233 entries walked; 512 stored. Railway logs from the first producer deployment (04:28Z,
+2026-09-13) name what the rest were — each logged once as *"has no fact type, so it is being
+counted but not recorded"*:
+
+| VRChat event type | `description` template, names redacted |
+|---|---|
+| `group.instance.kick` | `<actor> has issued an instance kick for <name>.` |
+| `group.instance.warn` | `<actor> has issued an instance warn for <name>.` |
+| `group.instance.create` | `Group plus instance created by <actor>.` |
+| `group.instance.close` | `Group instance closed by <actor>.` |
+| `group.instance.announcement` | `Group instance announcement created by <actor>.` |
+| `group.instance.update` | `Group instance linked to event by <actor>.` |
+| `group.request.create` | `User <name> requested to join the group.` |
+| `group.request.reject` | `Member <actor> has rejected <name>'s join request.` |
+| `group.post.create` | `Group post created by <actor>` |
+| `group.calendarEvent.create` | `Calendar Entry created by <actor>` |
+| `group.update` | `Group <group name> updated by <actor>.` |
+
+Two consequences. The catch-up cursor says complete, so **nothing would ever re-read them**; a
+versioned re-walk was added so that every deployment re-imports once after the mapping change, and
+dedup by `auditEntryId` makes the already-stored 512 a no-op. And `group.update` here is a real
+**audit entry**, distinct from the group-info producer's `vrchat.group.update` facts (which carry no
+`auditEntryId`) — both can exist for the same moment, and telling them apart is the entry id's job.
+
+The counts per type are unknown: the logger reports each type once per process, by design.
