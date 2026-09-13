@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type AuditEntry, type CurrentUser } from '@/lib/api'
 import { FactTime, SourceBadge } from '@/components/facts'
+import { SubjectHistory } from '@/components/SubjectHistory'
 import { UserProfileCard } from '@/components/UserProfileCard'
 import { X } from 'lucide-react'
 
@@ -97,6 +98,8 @@ export function SubjectPane({
 
         <div className="flex flex-col gap-3 p-4">
           <UserProfileCard subjectId={subjectId} me={me} />
+
+          <SubjectHistory subjectId={subjectId} />
 
           <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
             Recorded history

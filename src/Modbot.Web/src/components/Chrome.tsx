@@ -11,11 +11,14 @@ export function Sidebar({
   me,
   onNavigate,
   groupName,
+  badges,
 }: {
   page: PageId
   me: CurrentUser
   onNavigate: (p: PageId) => void
   groupName?: string
+  /** A count to show beside an entry -- open reviews beside Reviews. Zero or absent shows nothing. */
+  badges?: Partial<Record<PageId, number>>
 }) {
   const visible = NAV.filter((item) => !('hidden' in item && item.hidden) && mayOpen(me, item.id))
 
@@ -60,6 +63,15 @@ export function Sidebar({
             style={{ height: 'var(--control-h)' }}
           >
             <span>{item.label}</span>
+            {badges?.[item.id] ? (
+              <span
+                className="rounded-full bg-primary px-1.5 font-mono text-primary-foreground"
+                style={{ fontSize: '0.6875rem', lineHeight: '1.25rem' }}
+                aria-label={`${badges[item.id]} waiting`}
+              >
+                {badges[item.id]}
+              </span>
+            ) : null}
           </button>
         </div>
       ))}

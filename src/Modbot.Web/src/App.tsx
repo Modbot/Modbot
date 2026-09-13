@@ -3,6 +3,7 @@ import { Sidebar, Topbar } from '@/components/Chrome'
 import { SubjectPane } from '@/components/SubjectPane'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { NAV, mayOpen, type PageId } from '@/lib/nav'
+import { can } from '@/lib/permissions'
 import { usePreferences } from '@/lib/preferences'
 import { useQueryParam, useRoute } from '@/lib/router'
 import { Account } from '@/pages/Account'
@@ -20,6 +21,7 @@ import { MyTeam } from '@/pages/analytics/MyTeam'
 import { Worlds } from '@/pages/analytics/Worlds'
 import { Pair } from '@/pages/Pair'
 import { ResetPassword } from '@/pages/ResetPassword'
+import { Reviews } from '@/pages/Reviews'
 import { Roles } from '@/pages/Roles'
 import { Settings } from '@/pages/Settings'
 import { Users } from '@/pages/Users'
@@ -33,6 +35,7 @@ const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
   'analytics-team': { title: 'My Team', subtitle: 'Who is doing the moderation work, and when is nobody covering?' },
   'analytics-worlds': { title: 'Worlds', subtitle: 'Which of our worlds actually get used?' },
   'analytics-instances': { title: 'Instances', subtitle: 'When is the community actually active?' },
+  reviews: { title: 'Reviews', subtitle: 'Moderator patterns that looked unusual — a question for a person, never a verdict' },
   users: { title: 'Users', subtitle: 'Who can sign in to this Modbot, and what they can do' },
   roles: { title: 'Roles', subtitle: 'What each role allows' },
   health: { title: 'Sync health' },
@@ -53,6 +56,7 @@ const PATHS: Record<PageId, string> = {
   'analytics-team': '/analytics/team',
   'analytics-worlds': '/analytics/worlds',
   'analytics-instances': '/analytics/instances',
+  reviews: '/reviews',
   users: '/users',
   roles: '/roles',
   health: '/health',
@@ -194,9 +198,29 @@ function Shell({
   // refresh. Every list that renders a person opens it the same way (spec 10.2).
   const [subject, setSubject] = useQueryParam('subject')
 
+  // The number beside "Reviews": how many are waiting for somebody to look. Read when the shell
+  // mounts and whenever the page changes, so closing one on the Reviews page updates it without
+  // a poll; only asked for by people who could open the page.
+  const canReview = can(me, 'ReviewTickets')
+  const [openReviews, setOpenReviews] = useState(0)
+  const refreshReviewCount = useCallback(() => {
+    if (!canReview) return
+    api.openReviewCount().then((c) => setOpenReviews(c.open)).catch(() => undefined)
+  }, [canReview])
+
+  useEffect(() => {
+    refreshReviewCount()
+  }, [refreshReviewCount, page])
+
   return (
     <div className="grid h-screen grid-cols-[13.5rem_1fr]">
-      <Sidebar page={page} me={me} onNavigate={(p) => navigate(PATHS[p])} groupName={status.group?.name} />
+      <Sidebar
+        page={page}
+        me={me}
+        onNavigate={(p) => navigate(PATHS[p])}
+        groupName={status.group?.name}
+        badges={{ reviews: openReviews }}
+      />
       <main className="flex flex-col overflow-auto">
         <Topbar
           title={title}
@@ -213,9 +237,12 @@ function Shell({
           {page === 'bans' && <Bans onOpenSubject={setSubject} />}
           {page === 'audit' && <AuditLog onOpenSubject={setSubject} />}
           {page === 'analytics-group' && <MyGroup />}
-          {page === 'analytics-team' && <MyTeam onOpenSubject={setSubject} />}
+          {page === 'analytics-team' && (
+            <MyTeam onOpenSubject={setSubject} onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined} />
+          )}
           {page === 'analytics-worlds' && <Worlds />}
           {page === 'analytics-instances' && <Instances />}
+          {page === 'reviews' && <Reviews onOpenSubject={setSubject} onChanged={refreshReviewCount} />}
           {page === 'users' && <Users me={me} />}
           {page === 'roles' && <Roles me={me} />}
           {page === 'health' && <Health />}
