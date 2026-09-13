@@ -1,9 +1,10 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data.Entities;
 
 namespace Modbot.Core.Data;
 
-public class ModbotContext : DbContext
+public class ModbotContext : DbContext, IDataProtectionKeyContext
 {
     public ModbotContext(DbContextOptions<ModbotContext> options) : base(options) { }
 
@@ -27,6 +28,21 @@ public class ModbotContext : DbContext
     /// that a restart resumes a cold stop instead of walking back into it.
     /// </summary>
     public DbSet<RateLimitBucket> RateLimitBuckets => Set<RateLimitBucket>();
+
+    /// <summary>
+    /// ASP.NET Core's data protection key ring, persisted rather than held in memory.
+    /// </summary>
+    /// <remarks>
+    /// Without this the keys are regenerated on every start, which invalidates every auth cookie —
+    /// so a redeploy, a crash, or a container restart silently signs out every moderator. On a
+    /// platform that restarts containers routinely that is not an edge case, it is Tuesday.
+    ///
+    /// These keys protect session cookies. They are not the same thing as
+    /// <see cref="Entities.ProtectorKey"/>, which encrypts the secrets in
+    /// <see cref="Entities.Settings"/> (spec section 8.3) — different keys, different jobs, and
+    /// rotating one has nothing to do with the other.
+    /// </remarks>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than

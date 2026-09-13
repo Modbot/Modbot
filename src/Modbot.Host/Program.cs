@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Modbot.Analytics;
+using Microsoft.AspNetCore.DataProtection;
 using Modbot.Api;
 using Modbot.Api.Auth;
 using Modbot.Core.Configuration;
@@ -103,6 +104,14 @@ try
             tags: [DatabaseHealthCheck.ReadyTag]);
 
     builder.Services.AddModbotAuth();
+
+    // Persist the data protection key ring in Postgres. Without this the keys live in memory and
+    // are regenerated on every start, so every redeploy or container restart silently signs out
+    // every moderator -- on a platform that restarts routinely, that is not an edge case.
+    builder.Services
+        .AddDataProtection()
+        .SetApplicationName("Modbot")
+        .PersistKeysToDbContext<ModbotContext>();
     builder.Services.AddModbotAnalytics();
     builder.Services.AddModbotApi();
 

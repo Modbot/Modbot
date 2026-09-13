@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
     <!-- Compile assets are needed: ModbotContextFactory implements IDesignTimeDbContextFactory.
          PrivateAssets keeps it from flowing to downstream projects; nothing loads the factory type
          at runtime. -->
