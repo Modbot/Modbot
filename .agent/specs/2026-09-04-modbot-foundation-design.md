@@ -611,6 +611,43 @@ Every rate above, plus the global ceiling, is operator-configurable through a sl
   simply wanting to be gentler can dial any of them down, at the cost of staleness.
 - The settings UI shows the resulting total request rate as sliders move, and shows how far it sits
   under the global ceiling — so an operator can see the interactive headroom they are leaving.
+  Both numbers are computed server-side, so the screen never re-derives this table's sum.
+
+##### 4.2.1.1 Two knobs, not one — what the slider actually writes
+
+> **Added 2026-09-13, on implementing this section.** It had been written as though a class has one
+> configurable number. It has two, and conflating them produces a control that looks right and is
+> off by the budget fraction.
+
+§4.2's rates are **pacing caps in req/s**. §4.3.1's configurable value is an **estimate of VRChat's
+limit**, which Modbot then runs at a fraction of (0.6 by default). `RateLimitClassOptions` has
+carried both since it was written — `HardMaxPerSecond` and `DefaultCeilingPerSecond` — and the spec
+described only the first.
+
+So, precisely:
+
+| | |
+|---|---|
+| The operator **writes** | `ceilingPerSecond` — the estimate of VRChat's limit |
+| The screen **displays** | `effectiveRatePerSecond` = `min(hardMax, ceiling × budgetFraction)` |
+| The slider's **maximum** | `hardMax / budgetFraction` |
+
+At the default fraction that maximum equals the shipped ceiling, so the control starts at the top of
+its range and can only move left — which is what "configurable downward only" is supposed to feel
+like.
+
+##### 4.2.1.2 Two honest exceptions to "downward only"
+
+**"Group roles" is not independently configurable.** It shares the `groups.read` class with group
+info, and the producer fetches roles through `GetGroup(includeRoles: true)` — one request, not two.
+There is no separate rate for a slider to move.
+
+**The cadence knobs are not req/s and the rule does not literally cover them.** Lowering the
+audit-log *maximum* interval makes the producer poll more often, not less. It is safe — the
+limiter's cap binds whatever the cadence asks for, which is exactly why the two are separate
+mechanisms — but "configuration may only make Modbot gentler" is not true of that field, and
+pretending otherwise would be the kind of claim somebody later discovers by reading the code. Only
+§4.2's pacing floors are enforced on the cadence.
 
 #### 4.2.2 Scheduling must not be wall-clock aligned
 
