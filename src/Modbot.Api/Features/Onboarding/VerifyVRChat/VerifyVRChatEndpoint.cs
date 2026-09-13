@@ -26,7 +26,7 @@ public static class VerifyVRChatEndpoint
             .Produces<VerifyVRChatResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces<ConnectionDiagnosis>(StatusCodes.Status422UnprocessableEntity)
-            .RequiresOnboardingAccess();
+            .RequiresOnboardingAccess(requireVRChatLink: false);
 
         return app;
     }

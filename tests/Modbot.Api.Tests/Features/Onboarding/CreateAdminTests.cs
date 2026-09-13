@@ -21,7 +21,7 @@ public class CreateAdminTests
 
         var response = await host.PostAsync(
             "/api/onboarding/administrator",
-            new { username = "bin", password = "a-long-enough-password" },
+            new { username = "bin", password = "a-long-enough-password", email = "bin@example.com" },
             cookie: null,
             Ct);
 
@@ -45,7 +45,7 @@ public class CreateAdminTests
 
         await host.PostAsync(
             "/api/onboarding/administrator",
-            new { username = "bin", password = "a-long-enough-password" },
+            new { username = "bin", password = "a-long-enough-password", email = "bin@example.com" },
             cookie: null,
             Ct);
 
@@ -153,7 +153,7 @@ public class CreateAdminTests
 
         var response = await host.PostAsync(
             "/api/onboarding/administrator",
-            new { username = "bin", password = "a-very-distinctive-password" },
+            new { username = "bin", password = "a-very-distinctive-password", email = "bin@example.com" },
             cookie: null,
             Ct);
 

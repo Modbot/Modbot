@@ -24,9 +24,17 @@ public sealed record SmtpSettings(
     string? FromAddress = null,
     bool? UseTls = null);
 
-public sealed record IntegrationsRequest(DiscordSettings? Discord = null, SmtpSettings? Smtp = null);
+/// <param name="PublicAddress">
+/// The address people use to reach this Modbot. Null leaves it alone; empty clears it. The only
+/// thing an emailed or messaged link is ever built from, which is why a person confirms it here
+/// rather than the server inferring it from a request (accounts and access design §4.2).
+/// </param>
+public sealed record IntegrationsRequest(
+    DiscordSettings? Discord = null,
+    SmtpSettings? Smtp = null,
+    string? PublicAddress = null);
 
-public sealed record IntegrationsResponse(bool DiscordConfigured, bool SmtpConfigured);
+public sealed record IntegrationsResponse(bool DiscordConfigured, bool SmtpConfigured, string? PublicAddress);
 
 /// <summary>
 /// Spec 7.1 step 5: Discord and SMTP, both genuinely optional.
@@ -112,10 +120,20 @@ public static class IntegrationsHandler
                 settings.SmtpPort = 587;
         }
 
+        if (request?.PublicAddress is { } typed)
+        {
+            var (address, error) = Modbot.Core.Configuration.PublicAddress.Normalize(typed);
+            if (error is not null)
+                return Results.BadRequest(new { error });
+
+            settings.PublicAddress = address;
+        }
+
         await db.SaveChangesAsync(ct);
 
         return Results.Ok(new IntegrationsResponse(
             settings.DiscordBotTokenEncrypted is not null,
-            settings.SmtpHost is { Length: > 0 }));
+            settings.SmtpHost is { Length: > 0 },
+            settings.PublicAddress));
     }
 }

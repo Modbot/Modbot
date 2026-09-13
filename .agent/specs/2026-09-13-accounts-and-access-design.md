@@ -55,7 +55,7 @@ Seeded by the migration with fixed ids, so code and database agree on which row 
 | **Viewer** | view members, profiles, analytics, audit log | description and permissions | No |
 
 Custom roles can be created, renamed, edited and deleted by anyone holding the new
-**`ManageRoles`** permission (`1L << 18`). Deleting a role that people still hold is refused —
+**`ManageRoles`** permission (`1L << 19`; bit 18 is taken by the user-profile work). Deleting a role that people still hold is refused —
 move them first — because silently stripping permissions from three accounts is not what
 anybody pressing Delete on a role expects.
 

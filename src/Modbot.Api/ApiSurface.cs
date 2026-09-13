@@ -2,10 +2,14 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Api.Features.Auth.Account;
 using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
 using Modbot.Api.Features.Auth.Me;
+using Modbot.Api.Features.Auth.VRChatLink;
 using Modbot.Api.Features.Audit;
+using Modbot.Api.Features.Roles;
+using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Metrics;
@@ -89,8 +93,20 @@ public static class ApiSurface
         app.MapLogin();
         app.MapLogout();
         app.MapMe();
+
+        // Accounts and access (design 2026-09-13): the signed-in person's own account, the
+        // required VRChat link, staff management, roles, invite and reset links.
+        app.MapAccount();
+        app.MapVRChatLink();
+        app.MapUsers();
+        app.MapInvites();
+        app.MapResetLinks();
+        app.MapRoles();
+
         app.MapDataSettings();
         app.MapSyncSettings();
+        app.MapPublicAddressSettings();
+        app.MapEmailSettings();
 
         // The read surface over the fact log and the daily totals derived from it. Sync health resolves
         // SyncDiagnostics optionally, so a host that maps the API without registering the

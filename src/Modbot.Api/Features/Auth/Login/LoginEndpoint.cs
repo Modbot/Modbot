@@ -18,7 +18,7 @@ public static class LoginEndpoint
                 "Returns 401 for any failed attempt without saying why. Distinguishing "
                 + "\"no such user\" from \"wrong password\" would turn the login form into a way "
                 + "to enumerate staff accounts.")
-            .Produces<LoginResponse>()
+            .Produces<SessionUser>()
             .Produces(StatusCodes.Status401Unauthorized)
             .AllowAnonymous();
 

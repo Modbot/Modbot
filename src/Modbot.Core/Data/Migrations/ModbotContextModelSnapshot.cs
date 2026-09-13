@@ -343,6 +343,52 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("modbot_event", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsBuiltIn")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_built_in");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NameNormalized")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("name_normalized");
+
+                    b.Property<long>("Permissions")
+                        .HasColumnType("bigint")
+                        .HasColumnName("permissions");
+
+                    b.HasKey("Id")
+                        .HasName("pk_modbot_role");
+
+                    b.HasIndex("NameNormalized")
+                        .IsUnique()
+                        .HasDatabaseName("ix_modbot_role_name_normalized");
+
+                    b.ToTable("modbot_role", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -357,6 +403,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("discord_user_id");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("email");
+
                     b.Property<bool>("IsDisabled")
                         .HasColumnType("boolean")
                         .HasColumnName("is_disabled");
@@ -370,9 +421,9 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("password_hash");
 
-                    b.Property<long>("Permissions")
-                        .HasColumnType("bigint")
-                        .HasColumnName("permissions");
+                    b.Property<DateTimeOffset?>("SessionsValidAfter")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sessions_valid_after");
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -386,6 +437,40 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("username_normalized");
 
+                    b.Property<string>("VRChatDisplayName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("vr_chat_display_name");
+
+                    b.Property<int>("VRChatLinkChecks")
+                        .HasColumnType("integer")
+                        .HasColumnName("vr_chat_link_checks");
+
+                    b.Property<string>("VRChatLinkCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("vr_chat_link_code");
+
+                    b.Property<DateTimeOffset?>("VRChatLinkCodeExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vr_chat_link_code_expires_at");
+
+                    b.Property<DateTimeOffset?>("VRChatLinkLastCheckAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vr_chat_link_last_check_at");
+
+                    b.Property<string>("VRChatLinkPendingUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("vr_chat_link_pending_user_id");
+
+                    b.Property<DateTimeOffset?>("VRChatLinkedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("vr_chat_linked_at");
+
+                    b.Property<string>("VRChatUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("vr_chat_user_id");
+
                     b.HasKey("Id")
                         .HasName("pk_modbot_user");
 
@@ -393,7 +478,87 @@ namespace Modbot.Core.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_modbot_user_username_normalized");
 
+                    b.HasIndex("VRChatUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_modbot_user_vr_chat_user_id");
+
                     b.ToTable("modbot_user", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotUserRole", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("UserId", "RoleId")
+                        .HasName("pk_modbot_user_role");
+
+                    b.HasIndex("RoleId")
+                        .HasDatabaseName("ix_modbot_user_role_role_id");
+
+                    b.ToTable("modbot_user_role", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.OneTimeLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<short>("Kind")
+                        .HasColumnType("smallint")
+                        .HasColumnName("kind");
+
+                    b.PrimitiveCollection<string>("RoleIds")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("role_ids");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_modbot_one_time_link");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("ix_modbot_one_time_link_created_by_user_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_modbot_one_time_link_token_hash");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_modbot_one_time_link_user_id");
+
+                    b.ToTable("modbot_one_time_link", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ProtectorKey", b =>
@@ -646,6 +811,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("proxy_username");
 
+                    b.Property<string>("PublicAddress")
+                        .HasColumnType("text")
+                        .HasColumnName("public_address");
+
                     b.Property<bool>("RequireModerationClassification")
                         .HasColumnType("boolean")
                         .HasColumnName("require_moderation_classification");
@@ -709,6 +878,37 @@ namespace Modbot.Core.Data.Migrations
                         {
                             t.HasCheckConstraint("ck_settings_singleton", "id = 1");
                         });
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotUserRole", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.ModbotRole", "Role")
+                        .WithMany("Users")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_modbot_user_role_modbot_role_role_id");
+
+                    b.HasOne("Modbot.Core.Data.Entities.ModbotUser", "User")
+                        .WithMany("Roles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_modbot_user_role_modbot_user_user_id");
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotRole", b =>
+                {
+                    b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotUser", b =>
+                {
+                    b.Navigation("Roles");
                 });
 #pragma warning restore 612, 618
         }

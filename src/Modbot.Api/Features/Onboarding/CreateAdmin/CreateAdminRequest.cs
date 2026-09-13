@@ -1,5 +1,3 @@
-using Modbot.Core.Data.Entities;
-
 namespace Modbot.Api.Features.Onboarding.CreateAdmin;
 
 /// <param name="Username">How this person signs in. Matched case-insensitively.</param>
@@ -9,14 +7,16 @@ namespace Modbot.Api.Features.Onboarding.CreateAdmin;
 /// exists because a mismatch that slips through creates an account whose password nobody knows,
 /// and the only recovery from that is editing the database by hand.
 /// </param>
-public sealed record CreateAdminRequest(string Username, string Password, string? ConfirmPassword = null);
-
-/// <param name="Id">The account that was created.</param>
-/// <param name="Permissions">
-/// Always <see cref="ModbotPermissions.Administrator"/> for the first account, and returned rather
-/// than assumed so the SPA renders from the server's answer.
+/// <param name="Email">
+/// Required for the first account. It is the contact email VRChat sees in every request's
+/// User-Agent -- the person to write to before blocking -- and it is where this person's reset
+/// link goes. Optional for accounts created through here afterwards.
 /// </param>
-public sealed record CreateAdminResponse(Guid Id, string Username, ModbotPermissions Permissions);
+public sealed record CreateAdminRequest(
+    string Username,
+    string Password,
+    string? ConfirmPassword = null,
+    string? Email = null);
 
 /// <summary>
 /// The rules a password has to satisfy, and the reason there are so few of them.
@@ -31,14 +31,24 @@ public static class PasswordRules
 {
     public const int MinimumLength = 12;
 
+    public const int MaximumUsernameLength = 64;
+
     public static string? Validate(string? username, string? password, string? confirmation)
+        => ValidateUsername(username) ?? ValidatePassword(password, confirmation);
+
+    public static string? ValidateUsername(string? username)
     {
         if (string.IsNullOrWhiteSpace(username))
             return "A username is required.";
 
-        if (username.Trim().Length > 64)
-            return "That username is longer than 64 characters.";
+        if (username.Trim().Length > MaximumUsernameLength)
+            return $"That username is longer than {MaximumUsernameLength} characters.";
 
+        return null;
+    }
+
+    public static string? ValidatePassword(string? password, string? confirmation)
+    {
         if (string.IsNullOrEmpty(password))
             return "A password is required.";
 

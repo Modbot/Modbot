@@ -157,8 +157,8 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         string username, string password, ModbotPermissions permissions, CancellationToken ct)
     {
         using var scope = Services.CreateScope();
-        var accounts = scope.ServiceProvider.GetRequiredService<Core.Users.UserAccountService>();
-        return await accounts.CreateAsync(username, password, permissions, ct);
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        return await TestAccounts.CreateAsync(db, username, password, permissions, linked: true, ct);
     }
 
     /// <summary>Creates an account with exactly these permissions and returns its session cookie.</summary>

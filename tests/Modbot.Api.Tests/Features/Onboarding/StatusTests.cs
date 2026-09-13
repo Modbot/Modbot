@@ -64,6 +64,27 @@ public class StatusTests
     }
 
     [Fact]
+    public async Task AnUnlinkedAdministrator_IsSentToTheLinkStepAfterVRChat()
+    {
+        var gate = new FakeVRChatGate().SignedInAs("ModbotBot");
+        var (host, cookie) = await OnboardingTestContext.SetUpAsync(_db, gate, Ct, linked: false);
+        await using var _host = host;
+
+        await host.PostAsync(
+            "/api/onboarding/vrchat",
+            new { username = "modbot@example.com", password = "a-vrchat-password" },
+            cookie,
+            Ct);
+
+        // After the gate works and before the group: the link is proved through the gate, so it
+        // cannot come earlier, and every step after it requires it (design §4.3).
+        Assert.Equal("LinkVRChat", await NextStepAsync(host, cookie));
+
+        var groups = await host.GetAsync("/api/onboarding/groups", cookie, Ct);
+        Assert.Equal(System.Net.HttpStatusCode.Forbidden, groups.StatusCode);
+    }
+
+    [Fact]
     public async Task AFailedVRChatStepDoesNotAdvance()
     {
         var gate = new FakeVRChatGate();

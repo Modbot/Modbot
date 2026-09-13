@@ -77,6 +77,25 @@ public class Settings
     /// <summary>Defaults on: an SMTP relay that needs it turned off is the unusual one.</summary>
     public bool SmtpUseTls { get; set; } = true;
 
+    /// <summary>
+    /// The address people use to reach this Modbot, e.g. <c>https://modbot.example.com</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The <strong>only</strong> thing a link sent by email or Discord is ever built from
+    /// (accounts and access design §4.2). Building it from the request's host or a forwarded
+    /// header would let anyone who can send a forgot-password request for a victim's username
+    /// choose where the victim's genuine reset link points -- and collect the token when it is
+    /// clicked. A human types this once and confirms it; the server never infers it silently.
+    /// </para>
+    /// <para>
+    /// Null until set. While null, nothing is sent: the login page says so, and the copyable
+    /// links an administrator makes still work, because the browser that shows them knows its
+    /// own address.
+    /// </para>
+    /// </remarks>
+    public string? PublicAddress { get; set; }
+
     // --- Retention, tiered per fact class (spec 5.5) ---
     public int ModerationFactRetentionDays { get; set; }         // 0 = keep forever
     public int PresenceFactRetentionDays { get; set; }            // 0 = keep forever

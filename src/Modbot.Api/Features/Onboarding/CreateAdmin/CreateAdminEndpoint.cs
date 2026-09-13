@@ -18,11 +18,11 @@ public static class CreateAdminEndpoint
                 "The first account created gets Administrator and is signed in immediately, so "
                 + "the wizard can continue into the steps that require authentication.\n\n"
                 + OnboardingAccess.Rule)
-            .Produces<CreateAdminResponse>()
+            .Produces<Modbot.Api.Features.Auth.SessionUser>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status409Conflict)
-            .RequiresOnboardingAccess();
+            .RequiresOnboardingAccess(requireVRChatLink: false);
 
         return app;
     }

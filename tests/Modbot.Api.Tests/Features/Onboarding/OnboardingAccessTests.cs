@@ -30,7 +30,7 @@ public class OnboardingAccessTests
 
         var response = await host.PostAsync(
             "/api/onboarding/administrator",
-            new { username = "first", password = "a-long-enough-password" },
+            new { username = "first", password = "a-long-enough-password", email = "first@example.com" },
             cookie: null,
             Ct);
 

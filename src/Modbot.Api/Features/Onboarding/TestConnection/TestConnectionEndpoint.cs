@@ -27,7 +27,7 @@ public static class TestConnectionEndpoint
                 + OnboardingAccess.Rule)
             .Produces<ConnectionDiagnosis>()
             .Produces(StatusCodes.Status400BadRequest)
-            .RequiresOnboardingAccess();
+            .RequiresOnboardingAccess(requireVRChatLink: false);
 
         return app;
     }

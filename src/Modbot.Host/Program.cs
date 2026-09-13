@@ -10,6 +10,7 @@ using Modbot.Core.Data;
 using Modbot.Api.Features.Client;
 using Modbot.Api.Features.Evidence;
 using Modbot.Core.Logging;
+using Modbot.Discord;
 using Modbot.Evidence;
 using Modbot.Evidence.Upload;
 using Modbot.Core.Security;
@@ -124,8 +125,12 @@ try
 
     // What startup worked out about its surroundings, so the settings page reports what this
     // process is actually doing rather than re-deriving it and possibly disagreeing with it.
+    // The public address is read from the platform once, here, and only ever *suggested*: a
+    // person confirms it on the settings page before any link is built from it (accounts and
+    // access design §4.2). Same rule as the bucket variables in §8.1 -- a prefill, not a setting.
     builder.Services.AddSingleton(new DeploymentInfo(
-        platform, persistence.Evidence, writeLogFiles, persistence.Explanation));
+        platform, persistence.Evidence, writeLogFiles, persistence.Explanation,
+        PublicAddress.Suggest()));
 
     builder.Services.AddDbContext<ModbotContext>(options => options
         .UseNpgsql(connectionString)
@@ -157,6 +162,11 @@ try
         .AddCheck<DatabaseHealthCheck>(
             DatabaseHealthCheck.Name,
             tags: [DatabaseHealthCheck.ReadyTag]);
+
+    // Before AddModbotAuth, whose fallback Discord messenger is a TryAdd: the real one has to be
+    // registered first to win. Today it sends one person a direct message with the stored bot
+    // token, which is all the forgot-password flow needs (accounts and access design §4.2).
+    builder.Services.AddModbotDiscord();
 
     builder.Services.AddModbotAuth();
 

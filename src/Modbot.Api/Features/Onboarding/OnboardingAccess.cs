@@ -31,9 +31,18 @@ namespace Modbot.Api.Features.Onboarding;
 /// changing settings. <see cref="ModbotPermissions.Administrator"/> satisfies it the same way it
 /// does everywhere else (spec 7.3).
 /// </para>
+/// <para>
+/// Steps after "link your VRChat account" also require that link (accounts and access design
+/// §4.3). The steps before it cannot: the link is proved through the gate, and the gate is not
+/// usable until the VRChat account step is done.
+/// </para>
 /// </remarks>
 public sealed class OnboardingAccessFilter : IEndpointFilter
 {
+    private readonly bool _requireVRChatLink;
+
+    public OnboardingAccessFilter(bool requireVRChatLink) => _requireVRChatLink = requireVRChatLink;
+
     public async ValueTask<object?> InvokeAsync(
         EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
@@ -49,13 +58,11 @@ public sealed class OnboardingAccessFilter : IEndpointFilter
         if (http.User.Identity?.IsAuthenticated != true)
             return Results.Unauthorized();
 
-        var held = ModbotAuth.PermissionsOf(http.User);
-
-        if (!held.HasFlag(ModbotPermissions.Administrator)
-            && !held.HasFlag(ModbotPermissions.ManageSettings))
-        {
+        if (!ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageSettings))
             return Results.Forbid();
-        }
+
+        if (_requireVRChatLink && !ModbotAuth.IsVRChatLinked(http.User))
+            return Results.Forbid();
 
         return await next(context).ConfigureAwait(false);
     }
@@ -72,12 +79,16 @@ public static class OnboardingAccess
         + "From the moment one does, it requires a signed-in account holding ManageSettings — "
         + "otherwise the wizard stays an unauthenticated way to re-point a running deployment.";
 
-    public static TBuilder RequiresOnboardingAccess<TBuilder>(this TBuilder builder)
+    /// <param name="requireVRChatLink">
+    /// True for the steps after "link your VRChat account". False for the steps before it, which
+    /// an unlinked administrator has to be able to run to get the gate working.
+    /// </param>
+    public static TBuilder RequiresOnboardingAccess<TBuilder>(this TBuilder builder, bool requireVRChatLink = true)
         where TBuilder : IEndpointConventionBuilder
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.AddEndpointFilter<TBuilder, OnboardingAccessFilter>();
+        builder.AddEndpointFilter(new OnboardingAccessFilter(requireVRChatLink));
         builder.AllowAnonymous();
 
         return builder;

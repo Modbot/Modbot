@@ -92,6 +92,15 @@ public enum ModbotPermissions : long
     /// </remarks>
     DestroyEvidence = 1L << 17,
 
+    // --- Roles (accounts and access design §3) ---
+
+    /// <summary>
+    /// Create, edit and delete roles. Separate from <see cref="ManageUsers"/> because handing
+    /// somebody a role is a smaller decision than deciding what the role means.
+    /// </summary>
+    /// <remarks>Bit 18 belongs to the user-profile work (<c>EditAgeVerification</c>), hence 19.</remarks>
+    ManageRoles = 1L << 19,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

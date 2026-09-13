@@ -87,6 +87,10 @@ public sealed class EvidenceApiTestHost : IAsyncDisposable
             return AesGcmSecretProtector.CreateAsync(context).GetAwaiter().GetResult();
         });
 
+        // Signing in records a fact, so the login endpoint this host maps needs the writer.
+        builder.Services.AddScoped<Modbot.Analytics.Facts.IFactWriter, Modbot.Analytics.Facts.FactWriter>();
+        builder.Services.AddScoped<Modbot.Analytics.Facts.EventPartitionMaintainer>();
+
         builder.Services.AddModbotAuth();
         builder.Services.AddModbotEvidence();
         builder.Services.AddModbotEvidenceSettings();
@@ -134,8 +138,8 @@ public sealed class EvidenceApiTestHost : IAsyncDisposable
 
         using (var scope = Services.CreateScope())
         {
-            var accounts = scope.ServiceProvider.GetRequiredService<Core.Users.UserAccountService>();
-            await accounts.CreateAsync(username, "hunter2", permissions, ct);
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            await TestAccounts.CreateAsync(db, username, "hunter2", permissions, linked: true, ct);
         }
 
         var response = await Client.PostAsync(

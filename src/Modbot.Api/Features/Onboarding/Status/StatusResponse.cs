@@ -24,6 +24,12 @@ public enum OnboardingStep
     /// <summary>Spec 7.1 step 3 / 7.1.1 — can this host reach the API at all.</summary>
     Connection,
 
+    /// <summary>
+    /// Accounts and access design §4.3 — the administrator links their own VRChat account.
+    /// After the connection check because the proof goes through the gate.
+    /// </summary>
+    LinkVRChat,
+
     /// <summary>Spec 7.1 step 4 — which group this deployment manages.</summary>
     Group,
 
@@ -49,8 +55,18 @@ public sealed record ConnectionStatus(
 public sealed record ManagedGroupStatus(string Id, string Name);
 
 /// <param name="DiscordConfigured">Whether a bot token is stored. The token itself never leaves.</param>
+/// <param name="PublicAddress">The saved public address, or null (accounts and access design §4.2).</param>
+/// <param name="PublicAddressSuggestion">
+/// What the platform says the address is, for the form to prefill. A person confirms it; the
+/// server never adopts it on its own.
+/// </param>
 public sealed record IntegrationStatus(
-    bool DiscordConfigured, string? DiscordGuildId, bool SmtpConfigured, string? SmtpHost);
+    bool DiscordConfigured,
+    string? DiscordGuildId,
+    bool SmtpConfigured,
+    string? SmtpHost,
+    string? PublicAddress,
+    string? PublicAddressSuggestion);
 
 /// <summary>
 /// Everything the wizard needs to decide what to show, and nothing that is a secret.
@@ -63,9 +79,14 @@ public sealed record IntegrationStatus(
 /// <param name="Authenticated">Whether the caller currently holds a session.</param>
 /// <param name="OnboardingComplete">Whether the operator has finished the wizard at least once.</param>
 /// <param name="NextStep">Where to resume.</param>
+/// <param name="VRChatLinked">
+/// Whether the signed-in account has linked its VRChat account (design §4.3). False when nobody is
+/// signed in. The wizard's link step is done when this is true.
+/// </param>
 public sealed record OnboardingStatusResponse(
     bool HasAdministrator,
     bool Authenticated,
+    bool VRChatLinked,
     bool OnboardingComplete,
     OnboardingStep NextStep,
     VRChatAccountStatus VRChat,

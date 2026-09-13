@@ -96,6 +96,27 @@ public static class AuditVisibility
         [FactType.Login] = AuditCategory.Operational,
         [FactType.LoginFailed] = AuditCategory.Operational,
         [FactType.PasswordChanged] = AuditCategory.Operational,
+
+        // Staff accounts and roles (accounts and access design §6): the "Auth" row throughout.
+        // Who was given which role and who was disabled is history worth keeping, and it is
+        // administration rather than moderation, so it sits in the log gated on the operational
+        // permission.
+        [FactType.UsernameChanged] = AuditCategory.Operational,
+        [FactType.ContactChanged] = AuditCategory.Operational,
+        [FactType.VRChatLinked] = AuditCategory.Operational,
+        [FactType.UserCreated] = AuditCategory.Operational,
+        [FactType.UserInvited] = AuditCategory.Operational,
+        [FactType.UserInviteUsed] = AuditCategory.Operational,
+        [FactType.UserInviteRevoked] = AuditCategory.Operational,
+        [FactType.UserDisabled] = AuditCategory.Operational,
+        [FactType.UserEnabled] = AuditCategory.Operational,
+        [FactType.UserRolesChanged] = AuditCategory.Operational,
+        [FactType.ResetLinkCreated] = AuditCategory.Operational,
+        [FactType.ResetLinkUsed] = AuditCategory.Operational,
+        [FactType.SignedOutEverywhere] = AuditCategory.Operational,
+        [FactType.RoleCreated] = AuditCategory.Operational,
+        [FactType.RoleChanged] = AuditCategory.Operational,
+        [FactType.RoleDeleted] = AuditCategory.Operational,
         [FactType.ApiKeyCreated] = AuditCategory.Operational,
         [FactType.ApiKeyRevoked] = AuditCategory.Operational,
         [FactType.SettingsChanged] = AuditCategory.Operational,

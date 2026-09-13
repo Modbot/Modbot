@@ -139,9 +139,42 @@ public static class FactType
     public const string DiscordRoleRevoked = "discord.role.unassign";
 
     // ── Modbot's own audit entries (spec 5.9.2) ────────────────────────────────────────────
-    public const string Login = "modbot.auth.login";
-    public const string LoginFailed = "modbot.auth.login.failed";
-    public const string PasswordChanged = "modbot.auth.password.change";
+
+    // Staff accounts (accounts and access design §6). Every one is the "Auth" row of spec
+    // 5.9.2: operational log, moderation retention. The subject is the account; the actor is
+    // whoever did it. These three were modbot.auth.* until 2026-09-13; nothing had written them,
+    // so the rename was not a data migration.
+    public const string Login = "modbot.user.login";
+
+    /// <summary>Records the username attempted and the caller's address. Never the password.</summary>
+    public const string LoginFailed = "modbot.user.login.failed";
+
+    public const string PasswordChanged = "modbot.user.password.change";
+
+    /// <summary>Payload carries the old and new names.</summary>
+    public const string UsernameChanged = "modbot.user.username.change";
+
+    /// <summary>Email or Discord user id set. Payload says which fields changed, not the values.</summary>
+    public const string ContactChanged = "modbot.user.contact.change";
+
+    /// <summary>The person proved which VRChat account is theirs (design §4.3).</summary>
+    public const string VRChatLinked = "modbot.user.vrchat.link";
+
+    public const string UserCreated = "modbot.user.create";
+    public const string UserInvited = "modbot.user.invite.create";
+    public const string UserInviteUsed = "modbot.user.invite.use";
+    public const string UserInviteRevoked = "modbot.user.invite.revoke";
+    public const string UserDisabled = "modbot.user.disable";
+    public const string UserEnabled = "modbot.user.enable";
+    public const string UserRolesChanged = "modbot.user.roles.change";
+    public const string ResetLinkCreated = "modbot.user.password.reset.create";
+    public const string ResetLinkUsed = "modbot.user.password.reset.use";
+    public const string SignedOutEverywhere = "modbot.user.sign-out-everywhere";
+
+    public const string RoleCreated = "modbot.role.create";
+    public const string RoleChanged = "modbot.role.change";
+    public const string RoleDeleted = "modbot.role.delete";
+
     public const string ApiKeyCreated = "modbot.apikey.create";
     public const string ApiKeyRevoked = "modbot.apikey.revoke";
     public const string SettingsChanged = "modbot.settings.change";

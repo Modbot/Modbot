@@ -73,7 +73,12 @@ public class AuditLogTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewOperationalLog, ct);
         var page = await host.GetJsonAsync<AuditPage>("/api/audit", cookie, ct);
 
-        Assert.Equal([FactType.SettingsChanged], page.Entries.Select(e => e.Type));
+        // The operator's own sign-in is in this log too now (accounts and access design §6), so
+        // the assertion is about the split rather than about the exact list.
+        var types = page.Entries.Select(e => e.Type).ToList();
+        Assert.Contains(FactType.SettingsChanged, types);
+        Assert.Contains(FactType.Login, types);
+        Assert.DoesNotContain(FactType.MemberBanned, types);
     }
 
     [Fact]

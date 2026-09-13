@@ -33,8 +33,12 @@ internal static class OnboardingTestContext
     /// A host that has been through step 1, plus the administrator's session cookie — the state
     /// every step after the first one actually runs in.
     /// </summary>
+    /// <param name="linked">
+    /// Whether the administrator's VRChat account is linked directly in the database, skipping
+    /// the bio check. True for every step after the link; the link step's own tests pass false.
+    /// </param>
     public static async Task<(ApiTestHost Host, string Cookie)> SetUpAsync(
-        PostgresFixture db, FakeVRChatGate? gate, CancellationToken ct)
+        PostgresFixture db, FakeVRChatGate? gate, CancellationToken ct, bool linked = true)
     {
         var host = await FreshAsync(db, gate, ct);
 
@@ -45,14 +49,24 @@ internal static class OnboardingTestContext
                 username = AdminUsername,
                 password = AdminPassword,
                 confirmPassword = AdminPassword,
+                email = AdminEmail,
             },
             cookie: null,
             ct);
 
         response.EnsureSuccessStatusCode();
 
+        if (linked)
+        {
+            var id = (await response.ReadJsonAsync(ct)).GetProperty("id").GetGuid();
+            await using var context = db.NewContext();
+            await TestAccounts.LinkAsync(context, id, "usr_owner", ct);
+        }
+
         return (host, ApiTestHost.SessionCookie(response));
     }
+
+    public const string AdminEmail = "owner@example.com";
 
     public static Task<HttpResponseMessage> PostAsync(
         this ApiTestHost host, string path, object? body, string? cookie, CancellationToken ct)

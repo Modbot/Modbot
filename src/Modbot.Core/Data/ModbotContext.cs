@@ -14,6 +14,14 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<ModbotUser> Users => Set<ModbotUser>();
 
+    /// <summary>Named permission sets (accounts and access design §3).</summary>
+    public DbSet<ModbotRole> Roles => Set<ModbotRole>();
+
+    public DbSet<ModbotUserRole> UserRoles => Set<ModbotUserRole>();
+
+    /// <summary>Invite and password reset links, stored as hashes (design §4.1).</summary>
+    public DbSet<OneTimeLink> OneTimeLinks => Set<OneTimeLink>();
+
     /// <summary>The fact log (spec 5.3). Append-only: never update or delete a row here.</summary>
     public DbSet<ModbotEvent> Events => Set<ModbotEvent>();
 
@@ -116,6 +124,70 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // The uniqueness that matters is on the normalised form: without it "Alice" and
             // "alice" are two accounts, and which one a login reaches depends on collation.
             entity.HasIndex(e => e.UsernameNormalized).IsUnique();
+
+            entity.Property(e => e.Email).HasMaxLength(256);
+
+            // VRChat ids are opaque (spec 3.1.1): text, no length assumption. Unique because one
+            // VRChat account is one person, and two Modbot accounts claiming it would make the
+            // attribution the link exists for ambiguous. Nulls do not collide in PostgreSQL.
+            entity.Property(e => e.VRChatUserId).HasColumnType("text");
+            entity.Property(e => e.VRChatLinkPendingUserId).HasColumnType("text");
+            entity.Property(e => e.VRChatDisplayName).HasMaxLength(128);
+            entity.Property(e => e.VRChatLinkCode).HasMaxLength(32);
+            entity.HasIndex(e => e.VRChatUserId).IsUnique();
+        });
+
+        builder.Entity<ModbotRole>(entity =>
+        {
+            entity.ToTable("modbot_role");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(64);
+            entity.Property(e => e.NameNormalized).HasMaxLength(64);
+            entity.Property(e => e.Description).HasMaxLength(256);
+
+            // Same reasoning as usernames: "Moderator" and "moderator" must be one role.
+            entity.HasIndex(e => e.NameNormalized).IsUnique();
+        });
+
+        builder.Entity<ModbotUserRole>(entity =>
+        {
+            entity.ToTable("modbot_user_role");
+
+            entity.HasKey(e => new { e.UserId, e.RoleId });
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Roles)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict, not cascade: deleting a role that people still hold is refused by the
+            // service, and the database agrees rather than quietly stripping their access.
+            entity.HasOne(e => e.Role)
+                .WithMany(r => r.Users)
+                .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<OneTimeLink>(entity =>
+        {
+            entity.ToTable("modbot_one_time_link");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.TokenHash).HasMaxLength(64);
+            entity.Property(e => e.RoleIds).HasColumnType("jsonb");
+
+            // Every use of a link is a lookup by hash, and two links must never share one.
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+
+            // "This account's outstanding reset links" and "who created this invite" are the
+            // other two questions asked of the table.
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.CreatedByUserId);
         });
 
         builder.Entity<ClientDeviceRecord>(entity =>

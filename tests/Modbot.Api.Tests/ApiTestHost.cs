@@ -52,7 +52,14 @@ public sealed class ApiTestHost : IAsyncDisposable
 
     public IServiceProvider Services => _app.Services;
 
-    public static async Task<ApiTestHost> StartAsync(PostgresFixture db, FakeVRChatGate? gate = null)
+    /// <param name="configure">
+    /// Last word on the container, after every registration the host makes: a test substitutes
+    /// the email sender or the delay scheduler here, and the later registration wins.
+    /// </param>
+    public static async Task<ApiTestHost> StartAsync(
+        PostgresFixture db,
+        FakeVRChatGate? gate = null,
+        Action<IServiceCollection>? configure = null)
     {
         var clock = new FakeClock();
         gate ??= new FakeVRChatGate();
@@ -77,8 +84,16 @@ public sealed class ApiTestHost : IAsyncDisposable
         });
 
         builder.Services.AddSingleton<IVRChatGate>(gate);
+
+        // Account events are facts, so the account slices write through the real writer against
+        // real partitions -- without the hosted maintenance services, which would race the tests.
+        builder.Services.AddScoped<Modbot.Analytics.Facts.IFactWriter, Modbot.Analytics.Facts.FactWriter>();
+        builder.Services.AddScoped<Modbot.Analytics.Facts.EventPartitionMaintainer>();
+
         builder.Services.AddModbotAuth();
         builder.Services.AddModbotApi();
+
+        configure?.Invoke(builder.Services);
 
         var app = builder.Build();
 
@@ -148,12 +163,70 @@ public sealed class ApiTestHost : IAsyncDisposable
         return request;
     }
 
-    public async Task<ModbotUser> CreateUserAsync(
-        string username, string password, ModbotPermissions permissions, CancellationToken ct)
+    /// <summary>One request with an optional JSON body and an optional session.</summary>
+    public Task<HttpResponseMessage> SendJsonAsync(
+        HttpMethod method, string path, object? body, string? cookie, CancellationToken ct)
+    {
+        var request = new HttpRequestMessage(method, path);
+
+        if (cookie is not null)
+            request.Headers.Add("Cookie", cookie);
+
+        if (body is not null)
+        {
+            request.Content = new StringContent(
+                System.Text.Json.JsonSerializer.Serialize(body),
+                System.Text.Encoding.UTF8,
+                "application/json");
+        }
+
+        return Client.SendAsync(request, ct);
+    }
+
+    public static async Task<System.Text.Json.JsonElement> BodyOf(HttpResponseMessage response, CancellationToken ct)
+    {
+        var text = await response.Content.ReadAsStringAsync(ct);
+        return System.Text.Json.JsonDocument.Parse(text).RootElement.Clone();
+    }
+
+    /// <summary>
+    /// A fact's payload, parsed. PostgreSQL rewrites jsonb on the way in -- spaces after colons,
+    /// keys reordered -- so asserting on the raw string is asserting on Postgres's formatter.
+    /// </summary>
+    public static System.Text.Json.JsonElement DataOf(ModbotEvent fact)
+        => System.Text.Json.JsonDocument.Parse(fact.Data).RootElement.Clone();
+
+    /// <summary>The facts of one type about one subject, newest first, straight from the log.</summary>
+    public async Task<List<ModbotEvent>> FactsAsync(string type, string subjectId, CancellationToken ct)
     {
         using var scope = Services.CreateScope();
-        var accounts = scope.ServiceProvider.GetRequiredService<Core.Users.UserAccountService>();
-        return await accounts.CreateAsync(username, password, permissions, ct);
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        return await db.Events.AsNoTracking()
+            .Where(e => e.Type == type && e.SubjectId == subjectId)
+            .OrderByDescending(e => e.Id)
+            .ToListAsync(ct);
+    }
+
+    /// <summary>Signs in as a freshly created, linked account holding these permissions.</summary>
+    public async Task<(ModbotUser User, string Cookie)> SignedInAsync(
+        ModbotPermissions permissions, CancellationToken ct, bool linked = true)
+    {
+        var name = $"u_{Guid.NewGuid():N}";
+        var user = await CreateUserAsync(name, TestAccounts.Password, permissions, ct, linked);
+        return (user, await LoginAsync(name, TestAccounts.Password, ct));
+    }
+
+    /// <summary>
+    /// An account holding exactly these permissions, linked to a VRChat account unless a test
+    /// says otherwise -- the link is required everywhere but the link endpoints themselves.
+    /// </summary>
+    public async Task<ModbotUser> CreateUserAsync(
+        string username, string password, ModbotPermissions permissions, CancellationToken ct, bool linked = true)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        return await TestAccounts.CreateAsync(db, username, password, permissions, linked, ct);
     }
 
     public async ValueTask DisposeAsync()

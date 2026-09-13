@@ -34,17 +34,30 @@ public static class StatusHandler
             ? new ManagedGroupStatus(id, settings.ManagedGroupName ?? id)
             : null;
 
+        // Optional: a host that maps the API without describing its deployment simply has no
+        // suggestion to offer.
+        var deployment = http.RequestServices.GetService(typeof(Modbot.Core.Configuration.DeploymentInfo))
+            as Modbot.Core.Configuration.DeploymentInfo;
+
         var integrations = new IntegrationStatus(
             settings.DiscordBotTokenEncrypted is not null,
             settings.DiscordGuildId,
             settings.SmtpHost is { Length: > 0 },
-            settings.SmtpHost);
+            settings.SmtpHost,
+            settings.PublicAddress,
+            deployment?.PublicAddressSuggestion);
+
+        var authenticated = http.User.Identity?.IsAuthenticated == true;
+
+        // From the claim the session check keeps current, so this costs no second read.
+        var linked = authenticated && Modbot.Api.Auth.ModbotAuth.IsVRChatLinked(http.User);
 
         return Results.Ok(new OnboardingStatusResponse(
             hasAdministrator,
-            http.User.Identity?.IsAuthenticated == true,
+            authenticated,
+            linked,
             settings.OnboardingComplete,
-            NextStep(hasAdministrator, vrchat, connection, group, settings.OnboardingComplete),
+            NextStep(hasAdministrator, vrchat, connection, linked, group, settings.OnboardingComplete),
             vrchat,
             connection,
             group,
@@ -65,6 +78,7 @@ public static class StatusHandler
         bool hasAdministrator,
         VRChatAccountStatus vrchat,
         ConnectionStatus connection,
+        bool linked,
         ManagedGroupStatus? group,
         bool complete)
     {
@@ -76,6 +90,11 @@ public static class StatusHandler
 
         if (connection.CheckedAt is null)
             return OnboardingStep.Connection;
+
+        // The administrator's own link (design §4.3). Only reachable once the gate works, which
+        // the two steps above establish.
+        if (!linked)
+            return OnboardingStep.LinkVRChat;
 
         if (group is null)
             return OnboardingStep.Group;
