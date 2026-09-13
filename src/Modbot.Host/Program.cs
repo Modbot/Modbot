@@ -54,7 +54,18 @@ try
     }
 
     var builder = WebApplication.CreateBuilder(args);
-    builder.Host.UseSerilog();
+
+    // Serilog is attached as a logging *provider* rather than through UseSerilog(), which replaces
+    // ILoggerFactory outright and so silently discards every log filter. Without filtering,
+    // ASP.NET Core narrates four Information lines per request -- and the container's health probe
+    // is a request every thirty seconds, which is eleven thousand lines a day of nothing in the
+    // stream section 4.4.1 calls "the application record". MODBOT_DEBUG_LOGGING restores them.
+    builder.Logging.ClearProviders();
+    builder.Logging.AddSerilog(Log.Logger);
+
+    if (!env.DebugLogging)
+        builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
+
     builder.WebHost.UseUrls($"http://0.0.0.0:{env.Port}");
 
     builder.Services.AddSingleton(env);
@@ -62,17 +73,19 @@ try
 
     builder.Services.AddDbContext<ModbotContext>(options => options
         .UseNpgsql(connectionString)
-        // EF logs every statement it runs at Information, and reports the missing
-        // __EFMigrationsHistory table on a first boot as an Error. Both are correct for a
-        // developer and wrong for the operator this log is written for: a successful first deploy
-        // should not open with a red line, and the application record should not be buried under
-        // SQL. Demoted to Debug, which MODBOT_DEBUG_LOGGING turns back on when somebody actually
-        // wants to read the statements. Failures that matter still surface -- as the exception
-        // that follows, reported in Modbot's own words.
+        // EF logs every statement it runs at Information, and reports both the missing
+        // __EFMigrationsHistory table on a first boot and every connection attempt against a
+        // database that is not up yet as an Error. All of it is correct for a developer and wrong
+        // for the operator this log is written for: a successful first deploy should not open with
+        // a red line, a retry that is about to succeed should not look like a failure, and the
+        // application record should not be buried under SQL. Demoted to Debug, which
+        // MODBOT_DEBUG_LOGGING turns back on. Nothing is lost -- whatever actually goes wrong is
+        // reported a line later in Modbot's own words, by DatabaseMigrator.
         .ConfigureWarnings(warnings => warnings
             .Log(
                 (RelationalEventId.CommandExecuted, LogLevel.Debug),
-                (RelationalEventId.CommandError, LogLevel.Debug))));
+                (RelationalEventId.CommandError, LogLevel.Debug),
+                (RelationalEventId.ConnectionError, LogLevel.Debug))));
 
     // The key lives in the database and is created on first boot, so the protector cannot be
     // constructed until the schema exists. Resolution blocks once; the warm-up below makes that
