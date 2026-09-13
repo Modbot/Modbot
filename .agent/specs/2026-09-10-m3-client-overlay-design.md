@@ -235,8 +235,9 @@ hold one.
   read the profile. It can submit presence facts and nothing else.
 - **One per device, individually revocable.** A moderator leaving the team must not require rotating
   every other moderator's token.
-- **Issued by a short-lived pairing code** shown in the web UI and typed into the client once, so the
-  token itself never travels through a chat message or email.
+- **Issued by a short-lived pairing code** that the web UI hands to the client inside a
+  `modbot-client://` link (or a pasted pairing token — protocol spec §3.1), so nothing is typed and
+  the token itself never travels through a chat message or email.
 - **One per server, per device.** A moderator staffing two groups pairs the same client twice and
   holds two unrelated tokens; neither group's operator learns of the other (5.5.1).
 - **Attributable.** Every fact records which device token submitted it, which makes a compromised or
@@ -851,7 +852,10 @@ These need answers before the plan is written, and at least the first needs hand
    client whose log parser will break when VRChat changes format — but a self-updating background
    binary is exactly the thing §3 asks people to trust. Signed releases and a visible,
    consent-gated update prompt are the likely answer.
-5. **Pairing code UX** for a moderator who is already in VR when they install.
+5. ~~**Pairing code UX** for a moderator who is already in VR when they install.~~ Settled by the
+   browser-driven flow (protocol spec §3.1): one button on the group's `/pair` page, nothing typed.
+   What remains open is only whether the overlay should show a "pairing finished" card when a link
+   arrives while the headset is on.
 6. **Signing identity and subject name**, chosen once (§8.2). Reputation accrues to it and resets if
    it changes, so this is effectively irreversible and should be decided before the first public
    release rather than after.
