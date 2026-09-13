@@ -89,6 +89,16 @@ public static class PersistenceProbe
     /// </remarks>
     public static PersistenceProbeResult Probe(string directory, string bootId)
     {
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            // Settled here rather than left to the filesystem, because the filesystem does not
+            // agree with itself: Windows rejects "   " as a path, but Linux happily creates a
+            // directory named three spaces and reports it as a perfectly good persistent one.
+            return new PersistenceProbeResult(
+                PersistenceEvidence.Unwritable,
+                "No directory was given, so there is nowhere for anything to be written.");
+        }
+
         var marker = Path.Combine(directory, MarkerFileName);
 
         string? previous = null;

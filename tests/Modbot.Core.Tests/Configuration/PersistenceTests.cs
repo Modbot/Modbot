@@ -187,6 +187,10 @@ public class PersistenceProbeTests : IDisposable
     /// escaping a method whose own documentation promises it never throws. Found when the evidence
     /// settings screen probed a field the operator had not filled in yet, which is the first thing
     /// that screen does.
+    ///
+    /// The whitespace-only case is a real bug on Linux, not a formality: <c>Directory.CreateDirectory("   ")</c>
+    /// throws on Windows but succeeds on Linux, creating a directory literally named three spaces,
+    /// so without an explicit check the probe reported it as a perfectly good persistent directory.
     /// </remarks>
     [Theory]
     [InlineData("")]
