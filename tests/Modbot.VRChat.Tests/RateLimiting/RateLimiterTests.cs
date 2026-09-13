@@ -105,6 +105,40 @@ public class RateLimiterTests
     }
 
     [Fact]
+    public async Task AColdSyncBucketDoesNotStopAModerationAction()
+    {
+        var harness = new LimiterHarness();
+        await harness.CallAsync(Members, status: 429, ct: Ct);
+
+        var ban = await harness.Limiter.AcquireAsync(
+            new VRChatEndpoint(VRChatEndpointClass.ModerationWrite, "grp_test", "BanGroupMember"),
+            VRChatCallPriority.Interactive,
+            Ct);
+
+        await using (ban)
+        {
+            // Spec 4.3.1: interactive moderation is exempt from other buckets' stops and obeys
+            // only its own. A 429 while syncing members must not mean a moderator cannot act.
+            Assert.True(ban.IsAcquired);
+        }
+
+        // Its own stop still binds, though -- a cold moderation bucket fails the ban fast with an
+        // explanation rather than queueing it into the penalty.
+        await harness.CallAsync(
+            new VRChatEndpoint(VRChatEndpointClass.ModerationWrite, "grp_test"), status: 429, ct: Ct);
+
+        var blocked = await harness.Limiter.AcquireAsync(
+            new VRChatEndpoint(VRChatEndpointClass.ModerationWrite, "grp_test"),
+            VRChatCallPriority.Interactive,
+            Ct);
+
+        await using (blocked)
+        {
+            Assert.False(blocked.IsAcquired);
+        }
+    }
+
+    [Fact]
     public async Task A429HalvesTheBudgetOfEveryAncestor()
     {
         var harness = new LimiterHarness();
