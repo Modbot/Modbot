@@ -62,7 +62,12 @@ public sealed record ConnectionDiagnosis(
     int? WafCode,
     long ElapsedMs)
 {
-    /// <summary>Whether the account can be considered verified.</summary>
+    /// <summary>
+    /// Whether the account can be considered verified. Not serialised: it is
+    /// <c>outcome == "Ok"</c> by definition, and a second field saying the same thing is a second
+    /// field a client can branch on when the two disagree.
+    /// </summary>
+    [JsonIgnore]
     public bool Succeeded => Outcome is ConnectionOutcome.Ok;
 
     /// <summary>
