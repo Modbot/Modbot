@@ -224,9 +224,14 @@ public static class VRChatRateLimits
             // Exempt from the global ceiling, deliberately and on evidence (spec 4.2.5). If 429s
             // start appearing on other classes shortly after user-sync bursts, that is the
             // signature of an account-wide limit and this exemption is what to withdraw.
+            //
+            // 3.5 req/s, not the 1 req/s the foundation spec wrote: the maintainer raised it on
+            // 2026-09-13 (user profile sync design §5). Everything else about the lane stands --
+            // a 429 cold-stops it, is never retried, and still halves the global bucket.
             [VRChatEndpointClass.UsersRead] = new(
                 VRChatEndpointClass.UsersRead, UsersLane,
-                HardMaxPerSecond: 1.0, DefaultCeilingPerSecond: CeilingFor(1.0),
+                HardMaxPerSecond: Sync.UserProfileSyncOptions.RequestsPerSecondCap,
+                DefaultCeilingPerSecond: CeilingFor(Sync.UserProfileSyncOptions.RequestsPerSecondCap),
                 CountsAgainstGlobal: false),
 
             // Unmeasured (spec 4.3.4), so: the most conservative plausible neighbour, its own

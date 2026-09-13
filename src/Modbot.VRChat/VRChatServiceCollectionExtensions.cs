@@ -5,6 +5,7 @@ using Modbot.VRChat.RateLimiting;
 using Modbot.VRChat.Scheduling;
 using Modbot.VRChat.Session;
 using Modbot.VRChat.Sync;
+using Modbot.VRChat.Users;
 
 namespace Modbot.VRChat;
 
@@ -70,7 +71,8 @@ public static class VRChatServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers the fact producers: the group audit log, and the group's own metadata.
+    /// Registers the fact producers: the group audit log, the group's own metadata, and the
+    /// profiles of everyone either of those mentions.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -85,27 +87,30 @@ public static class VRChatServiceCollectionExtensions
     /// than quietly at the first fact.
     /// </para>
     /// <para>
-    /// Two hosted services, not one, because spec 4.3.1's cold stop is scoped to a bucket: a 429
-    /// on <c>groups.read</c> must not stop audit-log ingestion, which spec 4.2.3 singles out as
-    /// the one to protect. Sharing a loop would silently couple them.
+    /// Three hosted services, not one, because spec 4.3.1's cold stop is scoped to a bucket: a
+    /// 429 on <c>groups.read</c> must not stop audit-log ingestion, which spec 4.2.3 singles out
+    /// as the one to protect, and a 429 on the users lane must stop profile fetches and nothing
+    /// else. Sharing a loop would silently couple them.
     /// </para>
     /// </remarks>
     public static IServiceCollection AddModbotVRChatSync(
         this IServiceCollection services,
         AuditLogSyncOptions? auditLog = null,
-        GroupInfoSyncOptions? groupInfo = null)
+        GroupInfoSyncOptions? groupInfo = null,
+        UserProfileSyncOptions? userProfile = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         var auditLogOptions = (auditLog ?? new AuditLogSyncOptions()).Clamped();
         var groupInfoOptions = (groupInfo ?? new GroupInfoSyncOptions()).Clamped();
+        var userProfileOptions = (userProfile ?? new UserProfileSyncOptions()).Clamped();
 
         // The arguments to this method become the baseline the operator's own lowerings sit on
         // top of, so a host that deliberately passed a gentler poll rate keeps it. Registered as a
         // service rather than captured, because AddModbotVRChat may already have registered the
         // provider and the factory has not run yet -- so the later registration is still visible
         // to it.
-        services.AddSingleton(new SyncPacingBaseline(auditLogOptions, groupInfoOptions));
+        services.AddSingleton(new SyncPacingBaseline(auditLogOptions, groupInfoOptions, userProfileOptions));
 
         // Also registered here, so a host that wires the producers without the gate still has a
         // pacing source rather than silently falling back to the compiled-in pollRate.
@@ -117,11 +122,28 @@ public static class VRChatServiceCollectionExtensions
         // method means.
         services.AddSingleton(auditLogOptions);
         services.AddSingleton(groupInfoOptions);
+        services.AddSingleton(userProfileOptions);
 
         // Singleton: the unmapped-event counters and the poll rate decision are what an operator
         // reads to tell a quiet producer from a stuck one, and a per-scope copy would reset them
         // every poll.
         services.AddSingleton<SyncDiagnostics>();
+
+        // One queue for the whole process (user profile sync design §3). The producer takes from
+        // it, its own discovery and the API feed it, and a scoped copy would be a queue nobody
+        // else could see.
+        services.AddSingleton<UserRefreshQueue>();
+
+        // The one writer of vrchat_user rows. Scoped, because it holds a ModbotContext; used by
+        // the profile sync, by the API's manual 18+ flag and refresh endpoints, and by anything
+        // else that fetches a user object and should record having seen it.
+        services.AddScoped<VRChatUserProfiles>(provider => new VRChatUserProfiles(
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Analytics.Facts.IFactWriter>(),
+            provider.GetRequiredService<Analytics.Facts.EventPartitionMaintainer>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<UserRefreshQueue>(),
+            provider.GetRequiredService<ISyncPacingSource>().Snapshot.UserProfile));
 
         // Scoped, because they hold a ModbotContext for the run and hand it back afterwards.
         //
@@ -158,6 +180,25 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<SyncDiagnostics>(),
             provider.GetRequiredService<IMonotonicClock>(),
             groupInfoOptions,
+            provider.GetRequiredService<ISyncPacingSource>()));
+
+        // The third producer: profiles, one user at a time, on the users lane (spec 4.2.5).
+        services.AddScoped<UserProfileSync>(provider => new UserProfileSync(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<VRChatUserProfiles>(),
+            provider.GetRequiredService<UserRefreshQueue>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<SyncDiagnostics>(),
+            provider.GetRequiredService<ISyncPacingSource>().Snapshot.UserProfile));
+
+        services.AddHostedService(provider => new UserProfileSyncService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<SyncDiagnostics>(),
+            provider.GetRequiredService<UserRefreshQueue>(),
+            provider.GetRequiredService<IMonotonicClock>(),
+            userProfileOptions,
             provider.GetRequiredService<ISyncPacingSource>()));
 
         return services;

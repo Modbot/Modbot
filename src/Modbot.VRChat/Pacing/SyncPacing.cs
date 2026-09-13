@@ -12,7 +12,10 @@ namespace Modbot.VRChat.Pacing;
 /// something, and resolving it to the compiled default would quietly overrule a host that had
 /// deliberately passed a gentler one.
 /// </remarks>
-public sealed record SyncPacingBaseline(AuditLogSyncOptions AuditLog, GroupInfoSyncOptions GroupInfo);
+public sealed record SyncPacingBaseline(
+    AuditLogSyncOptions AuditLog,
+    GroupInfoSyncOptions GroupInfo,
+    UserProfileSyncOptions? UserProfile = null);
 
 /// <summary>
 /// The pacing actually in force: spec 4.2's defaults with the operator's lowerings applied.
@@ -50,6 +53,8 @@ public sealed record SyncPacing
 
     public required GroupInfoSyncOptions GroupInfo { get; init; }
 
+    public required UserProfileSyncOptions UserProfile { get; init; }
+
     /// <summary>
     /// Resolves a stored document into the pacing that runs, clamping as it goes.
     /// </summary>
@@ -71,6 +76,7 @@ public sealed record SyncPacing
         var clamped = SyncPacingJson.Clamp(document, out _, classes);
         var audit = baseline?.AuditLog ?? new AuditLogSyncOptions();
         var info = baseline?.GroupInfo ?? new GroupInfoSyncOptions();
+        var profile = baseline?.UserProfile ?? new UserProfileSyncOptions();
 
         return new SyncPacing
         {
@@ -98,6 +104,19 @@ public sealed record SyncPacing
                 RateLimitedInterval =
                     Seconds(clamped.GroupInfoRateLimitedIntervalSeconds) ?? info.RateLimitedInterval,
                 JitterFraction = clamped.GroupInfoJitterFraction ?? info.JitterFraction,
+            }).Clamped(),
+
+            UserProfile = (profile with
+            {
+                Interval = Seconds(clamped.UserProfileIntervalSeconds) ?? profile.Interval,
+                StaleAfter = Seconds(clamped.UserProfileStaleAfterSeconds) ?? profile.StaleAfter,
+                RecentWindow = Seconds(clamped.UserProfileRecentWindowSeconds) ?? profile.RecentWindow,
+                FreshEnoughWhenOpened =
+                    Seconds(clamped.UserProfileFreshEnoughWhenOpenedSeconds) ?? profile.FreshEnoughWhenOpened,
+                FreshEnoughWhenSeenInInstance =
+                    Seconds(clamped.UserProfileFreshEnoughWhenSeenInInstanceSeconds) ?? profile.FreshEnoughWhenSeenInInstance,
+                RateLimitedInterval =
+                    Seconds(clamped.UserProfileRateLimitedIntervalSeconds) ?? profile.RateLimitedInterval,
             }).Clamped(),
         };
     }

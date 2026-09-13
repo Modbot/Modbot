@@ -58,10 +58,12 @@ public sealed class FakeVRChat
         // is mid-configuration makes NSubstitute lose track of which call it is answering, and it
         // fails at the Returns with a message about the wrong substitute entirely.
         var groups = Groups.Build();
+        var users = Users.Build();
 
         Client = Substitute.For<IVRChat>();
         Client.Authentication.Returns(authentication);
         Client.Groups.Returns(groups);
+        Client.Users.Returns(users);
         Client.GetCookies().Returns(_ => Cookies);
     }
 
@@ -69,6 +71,9 @@ public sealed class FakeVRChat
 
     /// <summary>The group endpoints: the audit log and the group object.</summary>
     public FakeGroups Groups { get; } = new();
+
+    /// <summary>The user endpoint: one profile per request.</summary>
+    public FakeUsers Users { get; } = new();
 
     /// <summary>When set, every GetCurrentUser fails with this instead of answering.</summary>
     public Exception? ThrowOnGetCurrentUser { get; set; }

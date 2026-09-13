@@ -5,6 +5,7 @@ using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Modbot.VRChat.Sync;
 using Modbot.VRChat.Tests.Fakes;
+using Modbot.VRChat.Users;
 using VRChat.API.Model;
 
 namespace Modbot.VRChat.Tests.Sync;
@@ -52,6 +53,12 @@ public abstract class SyncTestBase : IAsyncLifetime
     protected LimiterHarness Limiter { get; private set; } = null!;
 
     protected SyncDiagnostics Diagnostics { get; private set; } = null!;
+
+    /// <summary>One queue per test, like one process: the API and the producer would share it.</summary>
+    protected UserRefreshQueue Queue { get; } = new();
+
+    /// <summary>The profile sync's options for this test. Unclamped defaults unless a test says otherwise.</summary>
+    protected UserProfileSyncOptions ProfileOptions { get; set; } = new();
 
     private VRChatGate _gate = null!;
 
@@ -124,6 +131,44 @@ public abstract class SyncTestBase : IAsyncLifetime
             Clock);
 
         return await sync.RunOnceAsync(Ct);
+    }
+
+    /// <summary>
+    /// One profile-sync pass, in its own scope, the way the hosted service runs it.
+    /// </summary>
+    /// <param name="housekeeping">
+    /// On by default, so a test that seeds rows straight into the table and expects them refreshed
+    /// gets the top-up that finds them. Off for tests about the cheap pass.
+    /// </param>
+    protected async Task<UserProfileRunResult> RunUserProfileAsync(bool housekeeping = true)
+    {
+        await using var context = Database.NewContext();
+
+        var sync = new UserProfileSync(
+            _gate,
+            context,
+            ProfilesFor(context),
+            Queue,
+            Clock,
+            Diagnostics,
+            ProfileOptions);
+
+        return await sync.RunOnceAsync(housekeeping, Ct);
+    }
+
+    /// <summary>The user-record writer over a context, the way the API and the sync both get it.</summary>
+    protected VRChatUserProfiles ProfilesFor(ModbotContext context) => new(
+        context,
+        new FactWriter(context, Clock),
+        new EventPartitionMaintainer(context, Clock),
+        Clock,
+        Queue,
+        ProfileOptions);
+
+    protected async Task<VRChatUser?> UserRowAsync(string userId)
+    {
+        await using var context = Database.NewContext();
+        return await context.VRChatUsers.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == userId, Ct);
     }
 
     /// <summary>

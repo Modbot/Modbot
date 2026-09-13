@@ -83,6 +83,15 @@ public sealed record SyncPacingDocument
     public double? GroupInfoRateLimitedIntervalSeconds { get; init; }
     public double? GroupInfoJitterFraction { get; init; }
 
+    // The profile sync (user profile sync design §5). The interval is a rate and is clamped to
+    // the users lane's cap; the windows are not rates and may move either way.
+    public double? UserProfileIntervalSeconds { get; init; }
+    public double? UserProfileStaleAfterSeconds { get; init; }
+    public double? UserProfileRecentWindowSeconds { get; init; }
+    public double? UserProfileFreshEnoughWhenOpenedSeconds { get; init; }
+    public double? UserProfileFreshEnoughWhenSeenInInstanceSeconds { get; init; }
+    public double? UserProfileRateLimitedIntervalSeconds { get; init; }
+
     /// <summary>True when nothing at all has been configured.</summary>
     [JsonIgnore]
     public bool IsEmpty =>
@@ -100,7 +109,13 @@ public sealed record SyncPacingDocument
         && GroupInfoIntervalSeconds is null
         && GroupInfoRetryIntervalSeconds is null
         && GroupInfoRateLimitedIntervalSeconds is null
-        && GroupInfoJitterFraction is null;
+        && GroupInfoJitterFraction is null
+        && UserProfileIntervalSeconds is null
+        && UserProfileStaleAfterSeconds is null
+        && UserProfileRecentWindowSeconds is null
+        && UserProfileFreshEnoughWhenOpenedSeconds is null
+        && UserProfileFreshEnoughWhenSeenInInstanceSeconds is null
+        && UserProfileRateLimitedIntervalSeconds is null;
 
     /// <summary>
     /// Overlays every field <paramref name="change"/> actually sets onto this document.
@@ -148,6 +163,15 @@ public sealed record SyncPacingDocument
             GroupInfoRateLimitedIntervalSeconds =
                 change.GroupInfoRateLimitedIntervalSeconds ?? GroupInfoRateLimitedIntervalSeconds,
             GroupInfoJitterFraction = change.GroupInfoJitterFraction ?? GroupInfoJitterFraction,
+            UserProfileIntervalSeconds = change.UserProfileIntervalSeconds ?? UserProfileIntervalSeconds,
+            UserProfileStaleAfterSeconds = change.UserProfileStaleAfterSeconds ?? UserProfileStaleAfterSeconds,
+            UserProfileRecentWindowSeconds = change.UserProfileRecentWindowSeconds ?? UserProfileRecentWindowSeconds,
+            UserProfileFreshEnoughWhenOpenedSeconds =
+                change.UserProfileFreshEnoughWhenOpenedSeconds ?? UserProfileFreshEnoughWhenOpenedSeconds,
+            UserProfileFreshEnoughWhenSeenInInstanceSeconds =
+                change.UserProfileFreshEnoughWhenSeenInInstanceSeconds ?? UserProfileFreshEnoughWhenSeenInInstanceSeconds,
+            UserProfileRateLimitedIntervalSeconds =
+                change.UserProfileRateLimitedIntervalSeconds ?? UserProfileRateLimitedIntervalSeconds,
         };
     }
 }
@@ -306,6 +330,37 @@ public static class SyncPacingJson
             GroupInfoJitterFraction = Within(
                 document.GroupInfoJitterFraction, 0, 0.5, "groupInfoJitterFraction",
                 "jitter is a fraction of the interval (spec 4.2.2)", found),
+
+            UserProfileIntervalSeconds = AtLeast(
+                document.UserProfileIntervalSeconds,
+                UserProfileSyncOptions.PacingFloor.TotalSeconds,
+                "userProfileIntervalSeconds",
+                "the users lane is capped at 3.5 requests per second (spec 4.2.5, revised 2026-09-13)",
+                found),
+
+            UserProfileStaleAfterSeconds = AtLeast(
+                document.UserProfileStaleAfterSeconds, 60, "userProfileStaleAfterSeconds",
+                "a profile is not old a few seconds after it was fetched", found),
+
+            UserProfileRecentWindowSeconds = AtLeast(
+                document.UserProfileRecentWindowSeconds, 0, "userProfileRecentWindowSeconds",
+                "the recent window cannot be negative", found),
+
+            UserProfileFreshEnoughWhenOpenedSeconds = AtLeast(
+                document.UserProfileFreshEnoughWhenOpenedSeconds, 0, "userProfileFreshEnoughWhenOpenedSeconds",
+                "the fresh-enough gap cannot be negative", found),
+
+            UserProfileFreshEnoughWhenSeenInInstanceSeconds = AtLeast(
+                document.UserProfileFreshEnoughWhenSeenInInstanceSeconds, 0,
+                "userProfileFreshEnoughWhenSeenInInstanceSeconds",
+                "the fresh-enough gap cannot be negative", found),
+
+            UserProfileRateLimitedIntervalSeconds = AtLeast(
+                document.UserProfileRateLimitedIntervalSeconds,
+                UserProfileSyncOptions.PacingFloor.TotalSeconds,
+                "userProfileRateLimitedIntervalSeconds",
+                "polling harder while cold-stopped is what spec 4.3.1 forbids",
+                found),
         };
     }
 
