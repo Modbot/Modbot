@@ -37,6 +37,9 @@ public static class OffsetProbe
     /// <summary>The value the audit log is known to cap at. Probed directly first.</summary>
     private const int KnownCap = 7500;
 
+    /// <summary>How far to look for a cap before concluding there is none. ~17 requests by bisection.</summary>
+    private const int SearchCeiling = 100_000;
+
     private enum Outcome { Ok, Empty, Cap, RateLimited, Other }
 
     private sealed record Probe(int Offset, Outcome Outcome, int Status, int Count, string Body);
@@ -92,15 +95,18 @@ public static class OffsetProbe
                 return $"cap = {KnownCap}, enforced even past the end of the data (group has < {KnownCap})";
 
             case (Outcome.Empty, Outcome.Empty):
-                // Fewer items than the cap and no 400: the cap is not observable from this group.
-                // Find where the data actually ends, since that is at least a useful number.
-                var end = await SearchAsync(call, 0, KnownCap, stopOn: Outcome.Empty);
-                return $"no cap seen up to {KnownCap + 1}; data ends near offset {end} (cap unobservable here)";
+                // Fewer items than the cap, and no 400 yet. Empty pages are fine to keep paging
+                // through -- the cap, if there is one, shows up as a 400 further out regardless of
+                // where the data ended. Search upward for the first 400.
+                var beyond = await SearchAsync(call, KnownCap + 1, SearchCeiling, stopOn: Outcome.Cap);
+                return beyond < 0
+                    ? $"no cap found up to {SearchCeiling:N0} (pages past the data are empty, never a 400)"
+                    : $"cap = {beyond - 1} (first 400 at {beyond}; group has fewer items than that)";
 
             case (Outcome.Ok, Outcome.Ok):
                 // Higher than the audit log's. Find where it actually stops.
-                var high = await SearchAsync(call, KnownCap + 1, 20_000, stopOn: Outcome.Cap);
-                return high < 0 ? "no cap found up to 20,000" : $"cap ≈ {high} (higher than the audit log)";
+                var high = await SearchAsync(call, KnownCap + 1, SearchCeiling, stopOn: Outcome.Cap);
+                return high < 0 ? $"no cap found up to {SearchCeiling:N0}" : $"cap = {high - 1} (first 400 at {high}; higher than the audit log)";
 
             case (Outcome.Cap, _):
                 // Lower than the audit log's. Find it.
