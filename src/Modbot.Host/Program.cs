@@ -172,6 +172,16 @@ builder.Logging.ClearProviders();
     // wizard needs to be able to ask.
     builder.Services.AddModbotVRChat();
 
+    // The producers. Until this line existed, the three maintenance services above -- partitions,
+    // rollups, retention -- kept an empty fact log in perfect order, because nothing in Modbot
+    // had ever written a fact.
+    //
+    // After AddModbotVRChat, because the audit-log and group-info jobs resolve IVRChatGate from
+    // it and IFactWriter from AddModbotAnalytics. Safe on a fresh deployment: both read
+    // Settings.ManagedGroupId, report NotConfigured and issue no requests at all until onboarding
+    // has chosen a group.
+    builder.Services.AddModbotVRChatSync();
+
     builder.Services.AddModbotApi();
 
     var app = builder.Build();
