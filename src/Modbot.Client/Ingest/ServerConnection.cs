@@ -1,0 +1,284 @@
+using Modbot.Client.Instances;
+using Modbot.Client.Routing;
+using Modbot.Client.Time;
+using Modbot.Core.Time;
+
+namespace Modbot.Client.Ingest;
+
+/// <summary>Where one server connection currently stands.</summary>
+public enum ConnectionState
+{
+    /// <summary>Working normally.</summary>
+    Healthy,
+
+    /// <summary>Waiting out a failure or a <c>Retry-After</c>. Still buffering.</summary>
+    Waiting,
+
+    /// <summary>
+    /// The moderator pressed pause. Nothing is captured for this server and nothing is sent.
+    /// </summary>
+    Paused,
+
+    /// <summary>
+    /// The token was rejected. Reporting has stopped and the moderator is told — a revoked
+    /// moderator's client must stop, and be seen to stop, rather than retry quietly forever.
+    /// </summary>
+    Stopped,
+
+    /// <summary>The server's API moved past this client's range; the pairing needs renegotiating.</summary>
+    NeedsRenegotiation,
+}
+
+/// <summary>
+/// Everything to do with one paired server: its token, its buffer, its clock offset, its pause
+/// state, and its share of the observations.
+/// </summary>
+/// <remarks>
+/// <para><strong>One of these per server, and nothing is shared between them</strong> beyond the
+/// log being read once. That separation is the point: a moderator staffing two communities must be
+/// able to pause one without pausing the other, and neither operator gains visibility into the
+/// other's instances.</para>
+/// <para><strong>What it sends.</strong> Batches of <see cref="ClientEvent"/>, to one URL, over
+/// HTTPS, with one bearer token. Nothing else. The server never sends anything back that this
+/// client acts on — there is no command channel, by design, so the client's behaviour stays fully
+/// described by its own source.</para>
+/// <para><strong>What pausing means.</strong> While paused, observations for this server are
+/// discarded rather than queued, and nothing is transmitted. Pausing stops Modbot reporting what
+/// you do; it does not save it up to report later. Anything buffered <em>before</em> the pause is
+/// still owed to the server and is sent when reporting resumes.</para>
+/// </remarks>
+public sealed class ServerConnection : IIngestTarget
+{
+    /// <summary>Protocol 4.4: send at about fifty events or thirty seconds, whichever is first.</summary>
+    public const int DefaultBatchSize = 50;
+
+    public static readonly TimeSpan DefaultBatchInterval = TimeSpan.FromSeconds(30);
+
+    private readonly FileEventBuffer _buffer;
+    private readonly PresenceEventMapper _mapper;
+    private readonly IIngestTransport _transport;
+    private readonly IModbotClock _clock;
+    private readonly BackoffPolicy _backoff;
+    private readonly string _clientVersion;
+    private readonly TimeSpan _batchInterval;
+
+    private int _batchSize = DefaultBatchSize;
+    private int _consecutiveFailures;
+    private DateTimeOffset? _notBefore;
+    private DateTimeOffset _lastSendAttempt;
+    private string? _inFlightBatchId;
+    private bool _paused;
+
+    public ServerConnection(
+        ServerPairing pairing,
+        FileEventBuffer buffer,
+        PresenceEventMapper mapper,
+        ServerClock serverClock,
+        IIngestTransport transport,
+        IModbotClock clock,
+        string clientVersion,
+        BackoffPolicy? backoff = null,
+        TimeSpan? batchInterval = null)
+    {
+        Pairing = pairing;
+        _buffer = buffer;
+        _mapper = mapper;
+        ServerClock = serverClock;
+        _transport = transport;
+        _clock = clock;
+        _clientVersion = clientVersion;
+        _backoff = backoff ?? new BackoffPolicy();
+        _batchInterval = batchInterval ?? DefaultBatchInterval;
+        _lastSendAttempt = clock.UtcNow;
+    }
+
+    public ServerPairing Pairing { get; private set; }
+
+    public ServerClock ServerClock { get; }
+
+    public string ServerId => Pairing.ServerId;
+
+    public string ManagedGroupId => Pairing.ManagedGroupId;
+
+    /// <summary>How many observations are waiting to be sent. Shown to the moderator.</summary>
+    public int Pending => _buffer.Count;
+
+    /// <summary>How many events were accepted over this connection's lifetime.</summary>
+    public int AcceptedTotal { get; private set; }
+
+    /// <summary>How many the server already had from somebody else. Expected, not a fault.</summary>
+    public int DeduplicatedTotal { get; private set; }
+
+    /// <summary>Batches the server called malformed. Non-zero means a bug worth an alarm.</summary>
+    public int MalformedBatches { get; private set; }
+
+    public ConnectionState State { get; private set; } = ConnectionState.Healthy;
+
+    /// <summary>
+    /// The moderator's pause switch. Setting it stops transmission immediately and stops this
+    /// server being told anything new.
+    /// </summary>
+    public bool IsPaused
+    {
+        get => _paused;
+        set
+        {
+            _paused = value;
+            if (value)
+                State = ConnectionState.Paused;
+            else if (State == ConnectionState.Paused)
+                State = ConnectionState.Healthy;
+        }
+    }
+
+    /// <summary>Records a renegotiated API version after a 409.</summary>
+    public void Renegotiated(int apiVersion)
+    {
+        Pairing = Pairing with { ApiVersion = apiVersion };
+        State = ConnectionState.Healthy;
+    }
+
+    /// <summary>
+    /// Takes one observation the router decided this server is entitled to, converts it to the wire
+    /// shape, and puts it on disk.
+    /// </summary>
+    public void Accept(ObservedPresence observation)
+    {
+        // Paused means this server is told nothing about what happens from now on. Not queued for
+        // later: not captured.
+        if (_paused || State is ConnectionState.Stopped)
+            return;
+
+        if (_mapper.Map(observation) is { } clientEvent)
+            _buffer.Add(clientEvent);
+    }
+
+    /// <summary>
+    /// Whether there is something to send and the client is allowed to send it yet.
+    /// </summary>
+    /// <remarks>
+    /// One rule covers both shapes of traffic: walking into a busy instance produces a burst of
+    /// forty observations at once, and sitting in a quiet one produces a trickle. Fifty events or
+    /// thirty seconds, whichever comes first.
+    /// </remarks>
+    public bool IsDueToSend()
+    {
+        if (_paused || State is ConnectionState.Stopped or ConnectionState.NeedsRenegotiation)
+            return false;
+
+        if (_buffer.Count == 0)
+            return false;
+
+        if (_notBefore is { } waitUntil && _clock.UtcNow < waitUntil)
+            return false;
+
+        return _buffer.Count >= _batchSize || _clock.UtcNow - _lastSendAttempt >= _batchInterval;
+    }
+
+    /// <summary>
+    /// Sends one batch if one is due. Returns the server's answer, or <c>null</c> when nothing was
+    /// sent.
+    /// </summary>
+    public async Task<IngestResult?> PumpAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsDueToSend())
+            return null;
+
+        var events = _buffer.Peek(Math.Min(_batchSize, EventBatch.MaxEvents));
+        if (events.Count == 0)
+            return null;
+
+        // The batch id is kept across retries of the same batch, so a server that answered a
+        // request the client never received recognises the repeat.
+        _inFlightBatchId ??= Guid.NewGuid().ToString("n");
+        _lastSendAttempt = _clock.UtcNow;
+
+        var batch = EventBatch.Create(_inFlightBatchId, _clientVersion, ServerClock, events);
+
+        IngestResult result;
+        try
+        {
+            result = await _transport.SendAsync(Pairing, batch, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Any transport fault is a transient one from the buffer's point of view. Nothing is
+            // removed, so nothing is lost; the events go out on the next attempt.
+            result = new IngestResult(IngestOutcome.NetworkFailure);
+        }
+
+        Apply(result, events);
+        return result;
+    }
+
+    private void Apply(IngestResult result, IReadOnlyList<ClientEvent> sent)
+    {
+        switch (result.Outcome)
+        {
+            case IngestOutcome.Accepted:
+                // The server has made a final decision about every event in the batch -- taken,
+                // already known, or refused -- so all of them come out of the buffer. Partial
+                // acceptance is the normal case, not an error.
+                AcceptedTotal += result.Accepted;
+                DeduplicatedTotal += result.Deduplicated;
+                _buffer.Remove(sent.Select(e => e.ClientEventId));
+                Succeeded();
+                break;
+
+            case IngestOutcome.Malformed:
+                // A permanent error. Retrying a batch the server will always refuse is how a buffer
+                // fills up forever and stops reporting anything at all, so these are dropped and
+                // counted loudly instead.
+                MalformedBatches++;
+                _buffer.Remove(sent.Select(e => e.ClientEventId));
+                Succeeded();
+                break;
+
+            case IngestOutcome.Unauthorised:
+                // Terminal for this pairing. The buffer is kept -- the moderator may re-pair -- but
+                // nothing more is sent and the state is surfaced rather than retried quietly.
+                State = ConnectionState.Stopped;
+                _inFlightBatchId = null;
+                break;
+
+            case IngestOutcome.VersionUnsupported:
+                State = ConnectionState.NeedsRenegotiation;
+                _inFlightBatchId = null;
+                break;
+
+            case IngestOutcome.TooLarge:
+                // Halve and try again. Nothing is dropped: the events are still in the buffer.
+                _batchSize = Math.Max(1, _batchSize / 2);
+                _inFlightBatchId = null;
+                State = ConnectionState.Waiting;
+                break;
+
+            case IngestOutcome.RateLimited:
+                // Honour what the server asked for. Modbot sends Retry-After even though VRChat
+                // does not, so there is no guessing to do here.
+                _consecutiveFailures++;
+                _notBefore = _clock.UtcNow + (result.RetryAfter ?? _backoff.Delay(_consecutiveFailures));
+                State = ConnectionState.Waiting;
+                break;
+
+            default:
+                _consecutiveFailures++;
+                _notBefore = _clock.UtcNow + _backoff.Delay(_consecutiveFailures);
+                State = ConnectionState.Waiting;
+                break;
+        }
+    }
+
+    private void Succeeded()
+    {
+        _consecutiveFailures = 0;
+        _notBefore = null;
+        _inFlightBatchId = null;
+        _batchSize = DefaultBatchSize;
+        State = _paused ? ConnectionState.Paused : ConnectionState.Healthy;
+    }
+}
