@@ -83,16 +83,46 @@ audit event type (the OpenAPI example), so both producers can write the same fac
 one carries `auditEntryId` and the producer one does not, which is how they are told apart and why
 dedup must key on that rather than on type alone.
 
-## 6. Still unknown
+## 6. Observed shapes after the re-walk — 1,241 entries, every type's key set stable
 
-No live sample yet for: `group.calendarEvent.*`, `group.instance.*` (announcement, close, create,
-kick, update, warn), `group.post.*`, `group.request.block` / `.reject`, `group.role.update`,
-`group.member.user.unban` / `group.user.unban`. Their `data` shapes are unobserved. They are mapped
-to fact types and stored verbatim; the moment one arrives, its shape is in `auditData` and this file
-should be updated from it — not from a guess.
+After the versioned re-walk recovered the dropped entries (§9), every recorded type has **exactly one
+`auditData` key set across all its rows**. These are real shapes, not one-offs.
 
-For `group.instance.*`, `targetId` is documented as "typically a UserID, GroupID, GroupRoleID, or
-Location". It is carried through untouched and never parsed (§3.1.1).
+| Event | Rows | `auditData` keys | `targetId` is a… |
+|---|---|---|---|
+| `group.instance.kick` | 408 | `location` | `usr_` — the person kicked |
+| `group.instance.warn` | 39 | `location` | `usr_` — the person warned |
+| `group.instance.create` | 34 | `calendarEntryId, groupAccessType, roleIds` | `wrld_…:…~group(…)` — the **location** |
+| `group.instance.close` | 20 | `groupAccessType, roleIds` | location |
+| `group.instance.announcement` | 29 | `message, title` | location |
+| `group.instance.update` | 1 | `calendarEntryId: {old, new}` | location |
+| `group.post.create` | 19 | `authorId, imageId, roleIds, sendNotification, text, title, visibility` | `not_` — a notification id |
+| `group.calendarEvent.create` | 6 | `accessType, description, imageId, title, type` | `cal_` |
+| `group.role.update` | 1 | `lastUpdatedByUserId, permissions: {old, new}` | `grol_` |
+| `group.update` (audit) | 2 | `bannerId: {old, new}` | `grp_` |
+| `group.member.role.unassign` | 1 | `roleId, roleName` | `usr_` |
+| `group.request.create` / `.reject`, `group.invite.create`, `group.member.join` / `.leave`, `group.user.ban` | 680 | *(empty)* | `usr_` |
+
+Three things follow.
+
+**Instance events carry the instance.** Kicks and warns put the full location string in
+`auditData.location`; creates, closes, announcements and updates put it in `targetId`. It is the same
+grammar the client already parses (`vrchat-log-format.md` §1.2), and the fact row already has
+`world_id` / `instance_id` columns that these facts leave null. Lifting it — by delimiters only,
+never by shape (§3.1.1) — is what makes "which instances get the most kicks" answerable, and it is
+evidence-backed across 531 rows.
+
+**`{old, new}` diffs are a general shape, not a `group.update` special case.** `role.update` and
+`instance.update` use it too. The `changed` lift should apply wherever a value is an `{old, new}`
+object, not to a named list of types.
+
+**A post's `targetId` is the notification, not the post.** `not_…` is the id VRChat notifies members
+with; the post's own body is in `auditData` (`title`, `text`, `authorId`). Do not treat that
+`targetId` as a subject anyone can be looked up by.
+
+Still unobserved: `group.calendarEvent.delete` / `.series.*`, `group.post.delete`,
+`group.request.block`, `group.member.user.unban` / `group.user.unban`. Same rule — update from
+`auditData` when one arrives.
 
 ## 7. The audit log's `offset` is hard-capped at 7,500
 
