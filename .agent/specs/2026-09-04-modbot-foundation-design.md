@@ -966,6 +966,7 @@ endpoint classes §4.2 does not schedule:
 | `groups.invites` | **0.29 req/s** | no prior data; matched to the conservative neighbour |
 | `users.read` | **0.33 req/s** | `UserProducer` — 3000 ms |
 | `users.groups` | **0.2 req/s** | **no data at all** — see §4.3.4.1 |
+| `groups.auditlog.types` | **0.2 req/s** | **no data at all** — see §4.3.4.2 |
 | `moderation.write` | **0.3 req/s** | unknown; interactive and low-volume, kept conservative |
 | `auth` | negligible | login and re-login only |
 
@@ -1016,6 +1017,42 @@ Two caveats about that evidence:
    per incident. This is consistent with the penalty-extension behaviour described in §4.3 and is
    most likely how it was discovered. It is the direct reason the cold-stop base is **15 minutes**
    with **one** probe, not 3 minutes with retries.
+
+##### 4.3.4.2 `groups.auditlog.types` — checking the mapping table against VRChat
+
+`GET /groups/{id}/auditLogTypes` returns the event types VRChat declares a group's audit log can
+contain. **Approved for use; no limit measured**, so it follows §4.3.4.1's pattern exactly — its own
+class, its own lane, `groups.read`'s conservative rate, and no global exemption.
+
+Isolation is doing specific work here. This endpoint exists to *check* the audit-log producer, and a
+429 while checking must never cold-stop the producer it was checking on behalf of. Sharing
+`groups.auditlog` would mean a diagnostic could stop the moderation history — the failure being
+diagnosed, caused by the diagnosis.
+
+**Why it earns a request at all.** Modbot maps audit-log entries by matching `eventType` against a
+table of strings. VRChat's OpenAPI schema types that field as a bare `string` with a single example,
+so there is nothing to compile against and the table is a record of observations. The unmapped-event
+reporting catches a type Modbot has never *seen* — but it cannot catch a mapping whose spelling is
+simply **wrong**, because no unknown type ever arrives: Modbot waits for `group.member.user.ban`,
+VRChat emits something else, and the fact log looks healthy while containing no bans at all. That
+failure is silent, indefinite, and exactly the kind §5.1 says cannot be repaired afterwards, since
+the entries have aged out of VRChat's own retention by the time anyone notices.
+
+Asking VRChat directly is the only thing that catches it. The check therefore distinguishes:
+
+| Finding | Meaning |
+|---|---|
+| **Missing primary** | A spelling Modbot treats as real that VRChat does not declare. **A defect** — facts of that type are being lost now. |
+| **Unmapped** | Declared by VRChat, not recorded by Modbot. A known gap and a choice, listed so it stays a choice. |
+| **Unused alias** | A speculative spelling VRChat does not declare. Expected, and reported as nothing. |
+
+Separating the last row from the first is what stops the check crying wolf. The aliases exist
+precisely because they are probably not in use; a check that flagged them on every healthy
+deployment would be ignored within a week, which is how a real warning gets missed.
+
+Run after the sync and never before it, once at startup and roughly daily thereafter — VRChat's
+vocabulary changes with product releases, not with polls. Every failure is swallowed: a diagnostic
+that cannot run is an inconvenience.
 
 ### 4.4 Time — one authority, never the local clock
 

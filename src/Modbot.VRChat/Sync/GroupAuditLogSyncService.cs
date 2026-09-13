@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Modbot.Core.Data;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Modbot.VRChat.RateLimiting;
@@ -32,6 +33,9 @@ public sealed class GroupAuditLogSyncService : BackgroundService
     private readonly AdaptiveCadence _cadence;
     private readonly IDelayScheduler _delays;
     private readonly ILogger _log;
+
+    /// <summary>Null until the first successful check, so the first pass always verifies.</summary>
+    private DateTimeOffset? _vocabularyCheckedAt;
 
     public GroupAuditLogSyncService(
         IServiceScopeFactory scopes,
@@ -96,6 +100,12 @@ public sealed class GroupAuditLogSyncService : BackgroundService
             var result = await sync.RunOnceAsync(ct).ConfigureAwait(false);
             Report(result, started, Describe(result));
 
+            // After the sync, never before it: the vocabulary check is a diagnostic and must not
+            // delay the moderation history by even one pass. It is also skipped entirely when the
+            // deployment has no group yet, which is what NotConfigured means here.
+            if (result.Outcome is not SyncOutcome.NotConfigured)
+                await MaybeVerifyVocabularyAsync(scope, ct).ConfigureAwait(false);
+
             return result;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -113,6 +123,56 @@ public sealed class GroupAuditLogSyncService : BackgroundService
             Report(result, started, e.Message);
 
             return result;
+        }
+    }
+
+    /// <summary>
+    /// Asks VRChat what its audit log can contain, and checks the mapping table against it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>GroupAuditLogEvents</c> is a table of observed strings — VRChat types <c>eventType</c>
+    /// as a bare string, so there is no enum to compile against. Without this check the only way
+    /// to discover a wrong spelling was to wait for a real event to arrive unmapped, which for a
+    /// misspelled type never happens at all: Modbot waits for a name VRChat never emits, and the
+    /// fact log looks healthy while missing every ban.
+    /// </para>
+    /// <para>
+    /// Failures are swallowed. A diagnostic that cannot run is an inconvenience; the audit log
+    /// stopping because a diagnostic failed would be a defect.
+    /// </para>
+    /// </remarks>
+    private async Task MaybeVerifyVocabularyAsync(IServiceScope scope, CancellationToken ct)
+    {
+        if (_vocabularyCheckedAt is { } last
+            && _clock.UtcNow - last < AuditLogVocabulary.RefreshInterval)
+        {
+            return;
+        }
+
+        try
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var settings = await db.GetSettingsAsync(ct).ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(settings.ManagedGroupId)) return;
+
+            var vocabulary = scope.ServiceProvider.GetRequiredService<AuditLogVocabulary>();
+            var report = await vocabulary.CheckAsync(settings.ManagedGroupId, ct).ConfigureAwait(false);
+
+            if (report is null) return;
+
+            vocabulary.Report(report);
+            _diagnostics.RecordVocabulary(report);
+            _vocabularyCheckedAt = _clock.UtcNow;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Shutting down.
+        }
+        catch (Exception e)
+        {
+            _log.Debug(e, "Audit-log vocabulary check failed. Sync is unaffected");
         }
     }
 

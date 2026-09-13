@@ -31,6 +31,25 @@ public static class VRChatEndpointClass
 
     public const string GroupsInvites = "groups.invites";
 
+    /// <summary>
+    /// <c>GET /groups/{id}/auditLogTypes</c> — the vocabulary of audit-log event types VRChat
+    /// declares for a group.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Its own class, on the same reasoning as <see cref="UsersGroups"/> and spec 4.3.4.1: no
+    /// limit has been measured, so it is budgeted conservatively and isolated. Isolation is the
+    /// point. This endpoint exists to <em>check</em> the audit-log mapping table, and a 429 while
+    /// checking must never cold-stop the audit-log sync it was checking on behalf of. The
+    /// diagnostic failing is an inconvenience; the moderation history stopping is not.
+    /// </para>
+    /// <para>
+    /// It is also called very rarely — once at startup and then roughly daily. VRChat's event
+    /// vocabulary changes on the timescale of product releases, not of polls.
+    /// </para>
+    /// </remarks>
+    public const string GroupsAuditLogTypes = "groups.auditlog.types";
+
     /// <summary>Profile fetches. Runs in its own lane, exempt from the global ceiling (spec 4.2.5).</summary>
     public const string UsersRead = "users.read";
 

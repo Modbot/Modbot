@@ -143,6 +143,12 @@ public static class VRChatRateLimits
     /// </summary>
     public const string UsersGroupsLane = "users.groups";
 
+    /// <summary>
+    /// Its own queue, so a vocabulary check never queues ahead of the audit-log poll it exists to
+    /// check.
+    /// </summary>
+    public const string AuditLogTypesLane = "groups.auditlog.types";
+
     /// <summary>Spec 4.2.5.1: interactive search, one request per 3.5 seconds, its own lane.</summary>
     public const string SearchLane = "search";
 
@@ -218,6 +224,13 @@ public static class VRChatRateLimits
                 VRChatEndpointClass.UsersGroups, UsersGroupsLane,
                 HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
                 BurstTokens: 2),
+
+            // Unmeasured (spec 4.3.4), so conservative and isolated. A burst of 1 because there
+            // is only ever one call: the vocabulary is fetched once and cached for a day.
+            [VRChatEndpointClass.GroupsAuditLogTypes] = new(
+                VRChatEndpointClass.GroupsAuditLogTypes, AuditLogTypesLane,
+                HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
+                ResourceScoped: true),
 
             [VRChatEndpointClass.UsersSearch] = new(
                 VRChatEndpointClass.UsersSearch, SearchLane,

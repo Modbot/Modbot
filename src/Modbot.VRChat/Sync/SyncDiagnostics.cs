@@ -64,6 +64,7 @@ public sealed class SyncDiagnostics
     private CadenceDecision? _cadence;
     private SyncRunReport? _auditLog;
     private SyncRunReport? _groupInfo;
+    private AuditLogVocabularyReport? _vocabulary;
 
     public SyncDiagnostics(IModbotClock clock)
     {
@@ -102,6 +103,28 @@ public sealed class SyncDiagnostics
             lock (_gate)
                 return _unmapped.Values.OrderByDescending(e => e.Count).ThenBy(e => e.EventType).ToList();
         }
+    }
+
+    /// <summary>
+    /// The last vocabulary check against VRChat's own declared event types, or null if one has
+    /// not completed yet.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="UnmappedAuditEvents"/> reports types Modbot has <em>seen</em> and not
+    /// understood. This reports types VRChat <em>declares</em>, which catches the failure the
+    /// other cannot: a mapping whose spelling is wrong never produces an unmapped event, because
+    /// the name Modbot is waiting for is one VRChat never sends. The fact log looks healthy and
+    /// is missing everything of that type.
+    /// </remarks>
+    public AuditLogVocabularyReport? Vocabulary
+    {
+        get { lock (_gate) return _vocabulary; }
+    }
+
+    public void RecordVocabulary(AuditLogVocabularyReport report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        lock (_gate) _vocabulary = report;
     }
 
     public void RecordCadence(CadenceDecision decision)
