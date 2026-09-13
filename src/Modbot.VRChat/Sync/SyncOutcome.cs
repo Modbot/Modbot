@@ -91,6 +91,34 @@ public sealed record AuditLogRunResult(
     }
 }
 
+/// <summary>What one profile-sync pass did: who it found, who it refreshed, and what it learned.</summary>
+/// <param name="Discovered">People the fact log mentioned since the last pass. Rows exist for all of them now.</param>
+/// <param name="UserId">Whose profile was fetched, when one was.</param>
+/// <param name="Reason">Why they were next.</param>
+/// <param name="Refreshed">
+/// True when a request was actually spent on somebody -- even one that came back 404 or with a
+/// per-user error. False means the queue was empty, which is what decides the idle interval.
+/// </param>
+/// <param name="Dropped">
+/// Queue entries taken and discarded because the person had been refreshed since they were
+/// queued. Expected and healthy in small numbers -- one person can be seen twice in a minute.
+/// </param>
+public sealed record UserProfileRunResult(
+    SyncOutcome Outcome,
+    int Discovered = 0,
+    string? UserId = null,
+    RefreshReason? Reason = null,
+    bool Refreshed = false,
+    bool FirstSeen = false,
+    IReadOnlyList<string>? Changed = null,
+    bool AgeVerifiedObserved = false,
+    bool NotFound = false,
+    int Dropped = 0,
+    string? Message = null)
+{
+    public IReadOnlyList<string> Changed { get; } = Changed ?? [];
+}
+
 /// <summary>What one group-info pass observed.</summary>
 /// <param name="Changed">
 /// The field names that differed from the last recorded snapshot. Empty on a poll that found the

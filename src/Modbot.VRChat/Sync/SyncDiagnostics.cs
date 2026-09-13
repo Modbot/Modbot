@@ -34,6 +34,20 @@ public sealed record PollRateDecision(
     int ConsecutiveQuietPolls,
     DateTimeOffset DecidedAt);
 
+/// <summary>
+/// The shape of the <c>vrchat_user</c> table, counted once a minute rather than on every pass.
+/// </summary>
+/// <param name="KnownUsers">Rows: everyone Modbot has ever seen.</param>
+/// <param name="NeverRefreshed">Rows whose profile has never been fetched -- the backlog.</param>
+/// <param name="NotFound">Rows VRChat answered 404 for.</param>
+/// <param name="OldestRefreshedAt">The least recent successful refresh among people who have had one.</param>
+public sealed record UserProfileCounts(
+    int KnownUsers,
+    int NeverRefreshed,
+    int NotFound,
+    DateTimeOffset? OldestRefreshedAt,
+    DateTimeOffset MeasuredAt);
+
 /// <summary>The last thing a producer did.</summary>
 public sealed record SyncRunReport(
     SyncOutcome Outcome,
@@ -71,6 +85,10 @@ public sealed class SyncDiagnostics
     private PollRateDecision? _pollRate;
     private SyncRunReport? _auditLog;
     private SyncRunReport? _groupInfo;
+    private SyncRunReport? _userProfile;
+    private UserProfileCounts? _userProfileCounts;
+    private DateTimeOffset? _userProfileLastRateLimitedAt;
+    private readonly Queue<DateTimeOffset> _refreshTimes = new();
     private HistoryHorizon? _historyHorizon;
 
     public SyncDiagnostics(IModbotClock clock)
@@ -147,6 +165,73 @@ public sealed class SyncDiagnostics
     {
         ArgumentNullException.ThrowIfNull(report);
         lock (_gate) _groupInfo = report;
+    }
+
+    public SyncRunReport? LastUserProfileRun
+    {
+        get { lock (_gate) return _userProfile; }
+    }
+
+    /// <summary>The table counts as last measured, or null before the first housekeeping pass.</summary>
+    public UserProfileCounts? UserProfileCounts
+    {
+        get { lock (_gate) return _userProfileCounts; }
+    }
+
+    /// <summary>When the users lane last answered 429, in this process.</summary>
+    public DateTimeOffset? UserProfileLastRateLimitedAt
+    {
+        get { lock (_gate) return _userProfileLastRateLimitedAt; }
+    }
+
+    /// <summary>
+    /// How many profiles were fetched in the last hour -- the number that says whether the lane
+    /// is being used, which "last run: quiet" cannot.
+    /// </summary>
+    public int UserProfileRefreshesInLastHour
+    {
+        get
+        {
+            lock (_gate)
+            {
+                Trim(_clock.UtcNow);
+                return _refreshTimes.Count;
+            }
+        }
+    }
+
+    /// <param name="refreshed">Whether the pass spent a request on somebody.</param>
+    public void RecordUserProfileRun(SyncRunReport report, bool refreshed)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+
+        lock (_gate)
+        {
+            _userProfile = report;
+
+            if (report.Outcome == SyncOutcome.RateLimited)
+                _userProfileLastRateLimitedAt = report.At;
+
+            if (refreshed)
+            {
+                _refreshTimes.Enqueue(report.At);
+                Trim(report.At);
+            }
+        }
+    }
+
+    public void RecordUserProfileCounts(UserProfileCounts counts)
+    {
+        ArgumentNullException.ThrowIfNull(counts);
+        lock (_gate) _userProfileCounts = counts;
+    }
+
+    /// <summary>Drops refresh timestamps older than an hour. The caller holds the lock.</summary>
+    private void Trim(DateTimeOffset now)
+    {
+        var cutoff = now - TimeSpan.FromHours(1);
+        while (_refreshTimes.Count > 0 && _refreshTimes.Peek() < cutoff)
+            _refreshTimes.Dequeue();
     }
 
     /// <summary>

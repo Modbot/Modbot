@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { api, ApiError, type AuditEntry } from '@/lib/api'
+import { api, ApiError, type AuditEntry, type CurrentUser } from '@/lib/api'
 import { FactTime, SourceBadge } from '@/components/facts'
+import { UserProfileCard } from '@/components/UserProfileCard'
 import { X } from 'lucide-react'
 
 /**
@@ -12,17 +13,19 @@ import { X } from 'lucide-react'
  * the scan* — a separate page costs the scroll position and the filters, so in practice people
  * don't check, and the history Modbot collected goes unread at the moment it mattered.
  *
- * <strong>What is here is the fact log and nothing else.</strong> The spec's pane also carries
- * identity, roles, membership, presence analytics and a Discord link. None of those have a
- * producer yet: there is no member sync, no profile fetch, and no Discord bot. Rendering a name
- * and a join date from nowhere is exactly the failure the Members screen was emptied to avoid, so
- * the pane shows the person's recorded history and says plainly what it is missing.
+ * Two things are here: the person's stored VRChat profile, with the age of every field written
+ * beside it and the sticky 18+ flag (user profile sync design), and every fact recorded about
+ * them. Roles, membership, presence analytics and a Discord link are still absent -- there is no
+ * member sync and no Discord bot -- and the pane says so rather than inventing them.
  */
 export function SubjectPane({
   subjectId,
+  me,
   onClose,
 }: {
   subjectId: string
+  /** The signed-in account, so the profile card knows which controls to draw. */
+  me: CurrentUser
   onClose: () => void
 }) {
   const [entries, setEntries] = useState<AuditEntry[] | null>(null)
@@ -79,7 +82,7 @@ export function SubjectPane({
         >
           <div className="min-w-0 flex-1">
             <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              Recorded history
+              Profile and recorded history
             </div>
             {/* The id verbatim and unparsed: VRChat ids are opaque, and a legacy one looks
                 nothing like a modern one (spec 3.1.1). */}
@@ -93,9 +96,14 @@ export function SubjectPane({
         </header>
 
         <div className="flex flex-col gap-3 p-4">
+          <UserProfileCard subjectId={subjectId} me={me} />
+
+          <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
+            Recorded history
+          </div>
           <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Modbot has no display name, join date, roles or time-in-world for this person — none of
-            those are synced yet. What follows is every fact recorded about them, newest first.
+            Roles and time in world are not synced yet. What follows is every fact recorded about
+            this person, newest first.
           </p>
 
           {error && (

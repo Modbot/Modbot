@@ -51,6 +51,14 @@ public static class FactLabels
         [FactType.CalendarEventSeriesUpdated] = "Recurring calendar entry changed",
         [FactType.CalendarEventSeriesDeleted] = "Recurring calendar entry deleted",
 
+        // Profile sync. "18+ verified" is the wording VRChat's own UI uses.
+        [FactType.UserProfileFirstSeen] = "Profile recorded for the first time",
+        [FactType.UserProfileChanged] = "Profile changed",
+        [FactType.UserProfileNotFound] = "Account no longer found on VRChat",
+        [FactType.UserAgeVerified] = "Seen as 18+ verified",
+        [FactType.UserAgeFlagSet] = "Marked 18+ verified by a moderator",
+        [FactType.UserAgeFlagCleared] = "18+ verified flag cleared by a moderator",
+
         [FactType.InstanceJoined] = "Joined an instance",
         [FactType.InstanceLeft] = "Left an instance",
         [FactType.AvatarChanged] = "Changed avatar",

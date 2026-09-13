@@ -112,6 +112,46 @@ public static class FactType
     public const string CalendarEventSeriesUpdated = "vrchat.group.calendar-event.series.update";
     public const string CalendarEventSeriesDeleted = "vrchat.group.calendar-event.series.delete";
 
+    // ── VRChat: user profiles (user profile sync design) ───────────────────────────────────
+    //
+    // Written by the profile sync, which fetches one user at a time from users.read. The subject
+    // is always the VRChat user; there is never an actor, because a profile says what a person
+    // looks like and nothing about who changed it. Kept forever: a bio as it stood when a ban was
+    // issued is exactly the kind of history that cannot be filled in later.
+
+    /// <summary>
+    /// The first time this user's profile was fetched. Carries a small baseline -- display name,
+    /// age verification status, join date -- so the timeline has a starting point to diff from.
+    /// </summary>
+    public const string UserProfileFirstSeen = "vrchat.user.profile.first-seen";
+
+    /// <summary>
+    /// A refresh found something different from last time. The payload is
+    /// <c>{changed: {field: {old, new}}}</c>, the same shape the audit-log mapper lifts under
+    /// <c>changed</c>, so one reader of the timeline meets one diff shape.
+    /// </summary>
+    public const string UserProfileChanged = "vrchat.user.profile.changed";
+
+    /// <summary>VRChat answered 404 for a user it used to know -- usually a deleted account.</summary>
+    public const string UserProfileNotFound = "vrchat.user.profile.not-found";
+
+    /// <summary>
+    /// A refresh saw VRChat report the user as 18+ verified for the first time. Written once per
+    /// user; the flag it sets is sticky and a later "hidden" writes nothing.
+    /// </summary>
+    public const string UserAgeVerified = "vrchat.user.age-verified";
+
+    // ── Modbot: moderator overrides on a VRChat user's record ──────────────────────────────
+
+    /// <summary>A moderator marked the user as 18+ verified by hand. The actor is the moderator.</summary>
+    public const string UserAgeFlagSet = "modbot.user-profile.age-flag.set";
+
+    /// <summary>
+    /// A moderator cleared the 18+ flag. The only way it is ever cleared -- a sync cannot -- so
+    /// this fact is the whole audit trail of that decision, and it always names who made it.
+    /// </summary>
+    public const string UserAgeFlagCleared = "modbot.user-profile.age-flag.cleared";
+
     // ── VRChat: presence ───────────────────────────────────────────────────────────────────
     public const string InstanceJoined = "vrchat.instance.join";
     public const string InstanceLeft = "vrchat.instance.leave";

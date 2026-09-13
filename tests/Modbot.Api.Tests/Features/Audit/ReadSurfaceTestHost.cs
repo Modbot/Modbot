@@ -21,6 +21,7 @@ using Modbot.TestSupport;
 using Modbot.VRChat;
 using Modbot.VRChat.Scheduling;
 using Modbot.VRChat.Sync;
+using Modbot.VRChat.Users;
 
 namespace Modbot.Api.Tests.Features.Audit;
 
@@ -106,12 +107,28 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         builder.Services.AddScoped<DailyTotalsJob>();
 
         var diagnostics = new SyncDiagnostics(clock);
+        var queue = new UserRefreshQueue();
 
         if (withSync)
         {
             builder.Services.AddSingleton(diagnostics);
             builder.Services.AddSingleton(new AuditLogSyncOptions().Clamped());
             builder.Services.AddSingleton(new GroupInfoSyncOptions().Clamped());
+
+            // The profile sync's pieces the API writes through -- the queue a refresh request
+            // lands in and the one writer of vrchat_user rows -- without the hosted service that
+            // would drain the queue. A test asserts on what was queued, not on what a producer
+            // did with it a moment later.
+            var profileOptions = new UserProfileSyncOptions().Clamped();
+            builder.Services.AddSingleton(profileOptions);
+            builder.Services.AddSingleton(queue);
+            builder.Services.AddScoped(sp => new VRChatUserProfiles(
+                sp.GetRequiredService<ModbotContext>(),
+                sp.GetRequiredService<IFactWriter>(),
+                sp.GetRequiredService<EventPartitionMaintainer>(),
+                sp.GetRequiredService<IModbotClock>(),
+                queue,
+                profileOptions));
         }
 
         builder.Services.AddModbotAuth();
@@ -133,8 +150,11 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         var client = app.GetTestClient();
         client.BaseAddress = new Uri("https://localhost/");
 
-        return new ReadSurfaceTestHost(app, client, clock, gate, db) { Diagnostics = diagnostics };
+        return new ReadSurfaceTestHost(app, client, clock, gate, db) { Diagnostics = diagnostics, Queue = queue };
     }
+
+    /// <summary>The refresh queue the API feeds. Empty and unregistered when <c>withSync</c> was false.</summary>
+    public UserRefreshQueue Queue { get; private set; } = null!;
 
     /// <summary>
     /// Clears the fact log, the daily totals and the settings row.
@@ -148,6 +168,7 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
     {
         await using var context = _db.NewContext();
         await context.Database.ExecuteSqlRawAsync("DELETE FROM modbot_event", ct);
+        await context.VRChatUsers.ExecuteDeleteAsync(ct);
         await context.DailyTotals.ExecuteDeleteAsync(ct);
         await context.DailyTotalsState.ExecuteDeleteAsync(ct);
         await context.Settings.ExecuteDeleteAsync(ct);

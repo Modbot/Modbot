@@ -76,6 +76,17 @@ public static class AuditVisibility
         [FactType.CalendarEventSeriesUpdated] = AuditCategory.Moderation,
         [FactType.CalendarEventSeriesDeleted] = AuditCategory.Moderation,
 
+        // A person's profile over time, and what a moderator decided about their 18+ flag. Member
+        // history, read by the same person asking what they were banned for. The manual flag
+        // changes are Modbot's own actions and still belong here: they are moderation decisions
+        // about a member, not plumbing.
+        [FactType.UserProfileFirstSeen] = AuditCategory.Moderation,
+        [FactType.UserProfileChanged] = AuditCategory.Moderation,
+        [FactType.UserProfileNotFound] = AuditCategory.Moderation,
+        [FactType.UserAgeVerified] = AuditCategory.Moderation,
+        [FactType.UserAgeFlagSet] = AuditCategory.Moderation,
+        [FactType.UserAgeFlagCleared] = AuditCategory.Moderation,
+
         // Presence, reported by a moderator's client. It is member history, not operations:
         // "where was this person" is asked by the same person asking "what were they banned for",
         // in the same timeline (spec 5.9.5).

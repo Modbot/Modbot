@@ -212,7 +212,14 @@ function Shell({
         </div>
       </main>
 
-      {subject && <SubjectPane key={subject} subjectId={subject} onClose={() => setSubject(null)} />}
+      {subject && (
+        <SubjectPane
+          key={subject}
+          subjectId={subject}
+          me={me}
+          onClose={() => setSubject(null)}
+        />
+      )}
     </div>
   )
 }

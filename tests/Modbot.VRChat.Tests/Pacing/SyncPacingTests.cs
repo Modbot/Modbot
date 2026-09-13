@@ -30,7 +30,9 @@ public class SyncPacingTests
     [InlineData(VRChatEndpointClass.GroupsAuditLog, 0.125)]
     [InlineData(VRChatEndpointClass.GroupsInstances, 0.125)]
     [InlineData(VRChatEndpointClass.GroupsRead, 0.2)]
-    [InlineData(VRChatEndpointClass.UsersRead, 1.0)]
+    // 3.5, not the 1.0 spec 4.2.5 first wrote: raised by the maintainer on 2026-09-13 (user
+    // profile sync design §5).
+    [InlineData(VRChatEndpointClass.UsersRead, 3.5)]
     [InlineData(VRChatEndpointClass.Global, 2.0)]
     public void WithNothingConfigured_TheRatesAreSpecFourTwos(string endpointClass, double expected)
     {

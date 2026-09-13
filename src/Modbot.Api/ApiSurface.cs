@@ -117,6 +117,10 @@ public static class ApiSurface
         app.MapSyncHealth();
         app.MapEvidence();
 
+        // One VRChat user's stored profile and the 18+ flag (user profile sync design §6). The
+        // queue and the record writer resolve optionally, like SyncDiagnostics does above.
+        app.MapVRChatUsers();
+
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and
         // modelling them as one endpoint with a step counter would make the "re-run just the
