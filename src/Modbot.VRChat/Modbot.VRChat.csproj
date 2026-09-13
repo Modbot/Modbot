@@ -8,6 +8,13 @@
     <PackageReference Include="VRChat.API" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The priority gate is an implementation detail of the limiter, and also the one piece of
+         it whose ordering can only be observed deterministically from the inside: from outside,
+         "which queued call went first" is a race the test would have to sleep on. -->
+    <InternalsVisibleTo Include="Modbot.VRChat.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

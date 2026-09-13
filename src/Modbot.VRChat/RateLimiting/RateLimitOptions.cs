@@ -1,0 +1,219 @@
+namespace Modbot.VRChat.RateLimiting;
+
+/// <summary>
+/// The per-class budget: what Modbot believes VRChat allows, and the fraction of it Modbot uses.
+/// </summary>
+/// <param name="Name">The endpoint class this governs.</param>
+/// <param name="Lane">
+/// Calls in a lane are issued one at a time and share a queue. Lanes exist because
+/// <c>users.read</c> is governed separately and far more permissively (spec 4.2.5): holding it
+/// behind the group queue would make its own 1 req/s allowance unreachable.
+/// </param>
+/// <param name="HardMaxPerSecond">
+/// Spec 4.2's authoritative pacing cap. Configuration may lower the effective rate but never
+/// raise it past this, and the clamp is applied on write rather than in the UI (spec 4.2.1).
+/// </param>
+/// <param name="DefaultCeilingPerSecond">
+/// The operator-configurable estimate of VRChat's real limit. Modbot runs at
+/// <see cref="RateLimitOptions.DefaultFraction"/> of it and never bursts to it (spec 4.3.1).
+/// </param>
+/// <param name="CountsAgainstGlobal">
+/// Whether the global backstop bucket also has to grant a token. False only for
+/// <c>users.read</c> and its neighbours, which spec 4.2.5 exempts deliberately.
+/// </param>
+/// <param name="ResourceScoped">
+/// Whether a third, per-resource bucket applies. Some VRChat limits key on a group or user id
+/// rather than the account, and in a single-group appliance this dimension usually collapses to
+/// one — but the model must keep it, because the appliance assumption must not be baked in.
+/// </param>
+/// <param name="BurstTokens">
+/// Bucket capacity. One almost everywhere, which is what "at most one request per interval"
+/// (spec 4.2) means. Authentication is the exception: a login is a fixed three-call sequence and
+/// pacing it out over half a minute would make every restart feel broken.
+/// </param>
+public sealed record RateLimitClassOptions(
+    string Name,
+    string Lane,
+    double HardMaxPerSecond,
+    double DefaultCeilingPerSecond,
+    bool CountsAgainstGlobal = true,
+    bool ResourceScoped = false,
+    int BurstTokens = 1);
+
+/// <summary>
+/// Everything the limiter is allowed to guess about someone else's undocumented system.
+/// </summary>
+/// <remarks>
+/// Every number here is an estimate about a system with no published limit, no
+/// <c>Retry-After</c>, and a penalty that grows when you retry (spec 4.3). They are therefore all
+/// settings rather than constants, and the asymmetry runs one way: overshooting costs an opaque
+/// multi-minute outage, undershooting costs slightly staler data.
+/// </remarks>
+public sealed record RateLimitOptions
+{
+    /// <summary>Spec 4.3.1's proposed default: run at 60% of the estimated ceiling.</summary>
+    public const double DefaultFraction = 0.6;
+
+    /// <summary>
+    /// How long a cold-stopped bucket issues absolutely nothing before its first probe
+    /// (spec 4.3.1, proposed 15 minutes).
+    /// </summary>
+    /// <remarks>
+    /// Fifteen rather than the old implementation's three. That one waited three minutes and then
+    /// retried through a <c>goto</c>, which against a ~10 minute penalty is three or more
+    /// premature probes at 45–80 s of self-inflicted extension each (spec 4.3.4).
+    /// </remarks>
+    public TimeSpan ColdStopBase { get; init; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// Added to the wait after each failed probe. Linear, not exponential: under a per-probe
+    /// penalty the objective is to minimise the number of probes, not the total wait, and
+    /// exponential backoff optimises for exactly the wrong one.
+    /// </summary>
+    public TimeSpan ColdStopIncrement { get; init; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// After this many consecutive failed probes the bucket stays stopped and the operator is
+    /// alerted. Something is wrong that waiting will not fix.
+    /// </summary>
+    public int MaxProbeFailures { get; init; } = 4;
+
+    /// <summary>Multiplicative decrease on a 429. Halve; the estimate was wrong.</summary>
+    public double DecreaseFactor { get; init; } = 0.5;
+
+    /// <summary>
+    /// Additive increase per hour of sustained success. Recovery is measured in hours because the
+    /// loss signal is far more punishing than a dropped packet.
+    /// </summary>
+    public double IncreasePerHour { get; init; } = 0.1;
+
+    /// <summary>
+    /// Floor for the adapted budget, so a run of 429s cannot drive a bucket to a rate that would
+    /// never recover — an effective rate of zero produces no successes, and only successes
+    /// restore budget.
+    /// </summary>
+    public double MinimumBudgetMultiplier { get; init; } = 1.0 / 16.0;
+
+    /// <summary>
+    /// How stale the persisted token count may get while nothing else is being written. Bounds
+    /// how much allowance a crash can hand back (spec 4.3.2).
+    /// </summary>
+    public TimeSpan StateFlushInterval { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>The per-class budgets, keyed by endpoint class.</summary>
+    public IReadOnlyDictionary<string, RateLimitClassOptions> Classes { get; init; } =
+        VRChatRateLimits.Defaults;
+}
+
+/// <summary>
+/// The default budgets, copied from spec 4.2's table and spec 4.3.4's provisional rates.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The ceilings are expressed as <em>estimates of VRChat's limit</em>, and the effective rate is
+/// the estimate times the fraction. The defaults are therefore the spec 4.2 rate divided by
+/// <see cref="RateLimitOptions.DefaultFraction"/>, so that out of the box Modbot runs at exactly
+/// the pacing spec 4.2 authorises while still having a fraction an operator can turn down.
+/// </para>
+/// <para>
+/// Where spec 4.2 and spec 4.3.4 disagree — bans and the audit log — spec 4.3.4 settles it
+/// explicitly: the spec 4.2 pacing caps and the 2 req/s global ceiling are authoritative, and the
+/// provisional table only covers classes spec 4.2 does not schedule.
+/// </para>
+/// </remarks>
+public static class VRChatRateLimits
+{
+    private const double Fraction = RateLimitOptions.DefaultFraction;
+
+    /// <summary>Requests per second implied by "one request per <paramref name="seconds"/>".</summary>
+    private static double PerSeconds(double seconds) => 1.0 / seconds;
+
+    /// <summary>The estimate whose 60% is <paramref name="rate"/>.</summary>
+    private static double CeilingFor(double rate) => rate / Fraction;
+
+    /// <summary>Calls in this lane pass through the global backstop bucket.</summary>
+    public const string GroupLane = "group";
+
+    /// <summary>Spec 4.2.5's separate 1 req/s lane for profile fetches.</summary>
+    public const string UsersLane = "users";
+
+    /// <summary>Spec 4.2.5.1: interactive search, one request per 3.5 seconds, its own lane.</summary>
+    public const string SearchLane = "search";
+
+    /// <summary>Login and re-login, which must not queue behind a group sync.</summary>
+    public const string AuthLane = "auth";
+
+    public static IReadOnlyDictionary<string, RateLimitClassOptions> Defaults { get; } =
+        new Dictionary<string, RateLimitClassOptions>(StringComparer.Ordinal)
+        {
+            // The backstop. Not the model -- it exists because an account-wide limit may also
+            // apply and Modbot cannot see it (spec 4.3.1).
+            [VRChatEndpointClass.Global] = new(
+                VRChatEndpointClass.Global, GroupLane,
+                HardMaxPerSecond: 2.0, DefaultCeilingPerSecond: CeilingFor(2.0),
+                CountsAgainstGlobal: false),
+
+            [VRChatEndpointClass.GroupsMembers] = new(
+                VRChatEndpointClass.GroupsMembers, GroupLane,
+                HardMaxPerSecond: PerSeconds(2), DefaultCeilingPerSecond: CeilingFor(PerSeconds(2)),
+                ResourceScoped: true),
+
+            [VRChatEndpointClass.GroupsBans] = new(
+                VRChatEndpointClass.GroupsBans, GroupLane,
+                HardMaxPerSecond: PerSeconds(2), DefaultCeilingPerSecond: CeilingFor(PerSeconds(2)),
+                ResourceScoped: true),
+
+            [VRChatEndpointClass.GroupsAuditLog] = new(
+                VRChatEndpointClass.GroupsAuditLog, GroupLane,
+                HardMaxPerSecond: PerSeconds(8), DefaultCeilingPerSecond: CeilingFor(PerSeconds(8)),
+                ResourceScoped: true),
+
+            [VRChatEndpointClass.GroupsInstances] = new(
+                VRChatEndpointClass.GroupsInstances, GroupLane,
+                HardMaxPerSecond: PerSeconds(8), DefaultCeilingPerSecond: CeilingFor(PerSeconds(8)),
+                ResourceScoped: true),
+
+            // Group info and group roles are both spec 4.2's 1-per-10s, and they share this
+            // class, so the class ceiling is the sum of the two. Pacing each type apart from the
+            // other is the scheduler's job, not the bucket's.
+            [VRChatEndpointClass.GroupsRead] = new(
+                VRChatEndpointClass.GroupsRead, GroupLane,
+                HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
+                ResourceScoped: true),
+
+            // No prior data; spec 4.3.4 matches it to the conservative neighbour.
+            [VRChatEndpointClass.GroupsInvites] = new(
+                VRChatEndpointClass.GroupsInvites, GroupLane,
+                HardMaxPerSecond: PerSeconds(3.5), DefaultCeilingPerSecond: CeilingFor(PerSeconds(3.5)),
+                ResourceScoped: true),
+
+            // Interactive and low-volume. Obeys the global ceiling -- it is what spec 4.2's
+            // 0.55 req/s of reserved headroom is for -- but its own stop is separate, so a cold
+            // members bucket never blocks a ban.
+            [VRChatEndpointClass.ModerationWrite] = new(
+                VRChatEndpointClass.ModerationWrite, GroupLane,
+                HardMaxPerSecond: 0.3, DefaultCeilingPerSecond: CeilingFor(0.3),
+                ResourceScoped: true),
+
+            // Exempt from the global ceiling, deliberately and on evidence (spec 4.2.5). If 429s
+            // start appearing on other classes shortly after user-sync bursts, that is the
+            // signature of an account-wide limit and this exemption is what to withdraw.
+            [VRChatEndpointClass.UsersRead] = new(
+                VRChatEndpointClass.UsersRead, UsersLane,
+                HardMaxPerSecond: 1.0, DefaultCeilingPerSecond: CeilingFor(1.0),
+                CountsAgainstGlobal: false),
+
+            [VRChatEndpointClass.UsersSearch] = new(
+                VRChatEndpointClass.UsersSearch, SearchLane,
+                HardMaxPerSecond: PerSeconds(3.5), DefaultCeilingPerSecond: CeilingFor(PerSeconds(3.5)),
+                CountsAgainstGlobal: false),
+
+            // A login is GetCurrentUser, Verify2FA, GetCurrentUser. Pacing that at one per two
+            // seconds would make every restart look like a hang, so this is the one bucket with
+            // a burst -- of exactly the size of the sequence it exists to admit.
+            [VRChatEndpointClass.Auth] = new(
+                VRChatEndpointClass.Auth, AuthLane,
+                HardMaxPerSecond: 0.5, DefaultCeilingPerSecond: CeilingFor(0.5),
+                CountsAgainstGlobal: false, BurstTokens: 3),
+        };
+}
