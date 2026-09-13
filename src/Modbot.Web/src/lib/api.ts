@@ -549,6 +549,21 @@ export type UserProfileHealth = {
   countedAt: string | null
 }
 
+/**
+ * The Discord bot's own account of itself. `NotConfigured` is not a fault: no token is stored.
+ * `lastError` is a sentence and never the token.
+ */
+export type DiscordBotHealth = {
+  state: 'NotConfigured' | 'Connecting' | 'Connected' | 'Disconnected' | 'Failed'
+  connectedSince: string | null
+  lastError: string | null
+  lastErrorAt: string | null
+  commandsRegistered: number
+  logChannelConfigured: boolean
+  lastPostedAt: string | null
+  postedInThisProcess: number
+}
+
 export type SyncHealth = {
   gate: GateHealth
   buckets: BucketHealth[]
@@ -566,6 +581,8 @@ export type SyncHealth = {
   unmappedAuditEvents: UnmappedEvent[]
   auditLogHistoryHorizon: HistoryHorizonReport | null
   userProfiles: UserProfileHealth | null
+  /** Null when no bot is registered in this host at all. */
+  discordBot: DiscordBotHealth | null
   now: string
 }
 

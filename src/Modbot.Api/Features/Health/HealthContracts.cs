@@ -167,4 +167,7 @@ public sealed record SyncHealth(
     IReadOnlyList<UnmappedEvent> UnmappedAuditEvents,
     HistoryHorizonReport? AuditLogHistoryHorizon,
     UserProfileHealth? UserProfiles,
+    // The Discord bot's own account of itself (foundation §9). Null when no bot is registered
+    // in this host; NotConfigured when one is but no token is stored, which is not a fault.
+    Modbot.Core.Discord.DiscordBotSnapshot? DiscordBot,
     DateTimeOffset Now);
