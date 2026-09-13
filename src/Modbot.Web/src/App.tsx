@@ -9,6 +9,7 @@ import { Bans } from '@/pages/Bans'
 import { Health } from '@/pages/Health'
 import { Login } from '@/pages/Login'
 import { Members } from '@/pages/Members'
+import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
 import { MyTeam } from '@/pages/analytics/MyTeam'
 import { Worlds } from '@/pages/analytics/Worlds'
@@ -22,6 +23,7 @@ const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
   'analytics-group': { title: 'My Group', subtitle: 'Is the community growing or shrinking, and what changed?' },
   'analytics-team': { title: 'My Team', subtitle: 'Who is doing the moderation work, and when is nobody covering?' },
   'analytics-worlds': { title: 'Worlds', subtitle: 'Which of our worlds actually get used?' },
+  'analytics-instances': { title: 'Instances', subtitle: 'When is the community actually active?' },
   health: { title: 'Sync health' },
   settings: { title: 'Settings' },
 }
@@ -38,6 +40,7 @@ const PATHS: Record<PageId, string> = {
   'analytics-group': '/analytics/group',
   'analytics-team': '/analytics/team',
   'analytics-worlds': '/analytics/worlds',
+  'analytics-instances': '/analytics/instances',
   health: '/health',
   settings: '/settings',
 }
@@ -147,6 +150,7 @@ function Shell({
           {page === 'analytics-group' && <MyGroup />}
           {page === 'analytics-team' && <MyTeam onOpenSubject={setSubject} />}
           {page === 'analytics-worlds' && <Worlds />}
+          {page === 'analytics-instances' && <Instances />}
           {page === 'health' && <Health />}
           {page === 'settings' && <Settings />}
         </div>

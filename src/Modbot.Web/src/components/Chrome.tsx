@@ -18,6 +18,7 @@ const NAV = [
   { id: 'analytics-group', label: 'My Group', group: 'Analytics' },
   { id: 'analytics-team', label: 'My Team' },
   { id: 'analytics-worlds', label: 'Worlds' },
+  { id: 'analytics-instances', label: 'Instances' },
   { id: 'health', label: 'Sync health', group: 'Setup' },
   { id: 'settings', label: 'Settings' },
 ] as const
