@@ -94,10 +94,13 @@ should be updated from it — not from a guess.
 For `group.instance.*`, `targetId` is documented as "typically a UserID, GroupID, GroupRoleID, or
 Location". It is carried through untouched and never parsed (§3.1.1).
 
-## 7. `offset` is hard-capped at 7,500 on every enumerable endpoint
+## 7. The audit log's `offset` is hard-capped at 7,500
 
-Reported by the maintainer, 2026-09-13. `offset=7501` returns HTTP 400 with this body — note the
-**fullwidth Unicode punctuation** (`＝`, `․`, `‚`, `＠`), which makes string-matching it fragile:
+Reported by the maintainer, 2026-09-13, **for the audit log**. Whether members, bans, invites and
+join requests share the cap is not documented and is being measured (`explore offset-probe`); do not
+assume it either way until the numbers are in §7.1. `offset=7501` on the audit log returns HTTP 400
+with this body — note the **fullwidth Unicode punctuation** (`＝`, `․`, `‚`, `＠`), which makes
+string-matching it fragile:
 
 ```
 {"error":{"message":"offset＝7501 is above the limit․ if you believe this is too low‚ please contact support＠vrchat․com with details․","status_code":400}}
@@ -108,9 +111,30 @@ Reported by the maintainer, 2026-09-13. `offset=7501` returns HTTP 400 with this
   treat reaching it as "the history horizon" — a fact about VRChat, not a failure.
 - A naive "non-2xx → failed pass → retry next tick" loops at offset 7,501 forever. If a 400 arrives
   on a paginated read, it is terminal for that pass.
-- **M1 inherits this.** A group with more than 7,500 members or bans cannot be enumerated by offset
-  at all. The member and ban sweeps must be designed around filters or sort windows, not offsets.
-  Recorded in foundation §4.2.
+- **Do not extend this to other endpoints without measuring.** If members or bans turn out to share
+  it, a group with more than 7,500 of either cannot be enumerated by offset and M1's sweeps need
+  filters or sort windows instead. If they do not, the obvious design is fine. §7.1 will say which.
+
+### 7.1 Measured: which other endpoints share the cap
+
+`explore offset-probe`, 2026-09-13, against the same group, `n=1`, one request per 3.5 s, 21
+requests, no 429. Each endpoint was asked for offset 7,500 and 7,501 first.
+
+| Endpoint | 7,500 | 7,501 | Reading |
+|---|---|---|---|
+| group members | 200, empty | 200, empty | **No 400.** The data ends at offset **4,739** (binary-searched: 4,738 returns an item, 4,739 does not), so a cap beyond the data cannot be observed from this group — but the audit log's cap fires *past the end of the data*, and this one did not. Members do not behave like the audit log. |
+| group bans | 403 | 403 | Not measured: the probing account lacks the group permission. |
+| group invites | 403 | 403 | Not measured: same. |
+| group join requests | 403 | 403 | Not measured: same. |
+
+The 403 body is `{"error":{"message":"You don't have permission․","status_code":403}}` — again with a
+fullwidth full stop. The account in `explore/.env` is the deployment's bot account; those three
+endpoints need group role permissions it has not been granted. Re-run once it has them.
+
+**Open question the members result raises.** The member list ended at 4,739, which should be
+compared with the group's own `memberCount` from the group-info facts before anyone treats
+`/members` as a complete enumeration. If the two differ, `/members` is filtered by something — the
+caller's role visibility, or membership status — and a sweep built on it would silently under-count.
 
 ## 8. VRChat keeps roughly 30 days of audit log
 
