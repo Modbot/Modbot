@@ -13,5 +13,6 @@
     <Project Path="tests/Modbot.Api.Tests/Modbot.Api.Tests.csproj" />
     <Project Path="tests/Modbot.Core.Tests/Modbot.Core.Tests.csproj" />
     <Project Path="tests/Modbot.TestSupport/Modbot.TestSupport.csproj" />
+    <Project Path="tests/Modbot.VRChat.Tests/Modbot.VRChat.Tests.csproj" />
   </Folder>
 </Solution>
