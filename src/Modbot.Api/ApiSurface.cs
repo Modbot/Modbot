@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
 using Modbot.Api.Features.Auth.Me;
+using Modbot.Api.Features.Client;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
@@ -38,6 +39,11 @@ public static class ApiSurface
 
     public static IServiceCollection AddModbotApi(this IServiceCollection services)
     {
+        // The client and overlay surface (M3 §4, client protocol §3-§6): pairing, batched ingest,
+        // overlay reads and the alert long poll. Registered here rather than in the host because
+        // it is part of the API, and it needs IFactWriter and IModbotClock already present.
+        services.AddClientApi();
+
         services.AddOpenApi(DocumentName, options =>
         {
             options.AddDocumentTransformer((document, _, _) =>
@@ -86,6 +92,7 @@ public static class ApiSurface
         app.MapLogout();
         app.MapMe();
         app.MapDataSettings();
+        app.MapClientApi();
 
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and

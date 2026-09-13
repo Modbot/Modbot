@@ -43,6 +43,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// rotating one has nothing to do with the other.
     /// </remarks>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+    public DbSet<ClientDeviceRecord> ClientDevices => Set<ClientDeviceRecord>();
+    public DbSet<ClientPairingCodeRecord> ClientPairingCodes => Set<ClientPairingCodeRecord>();
 
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
@@ -105,6 +107,32 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // The uniqueness that matters is on the normalised form: without it "Alice" and
             // "alice" are two accounts, and which one a login reaches depends on collation.
             entity.HasIndex(e => e.UsernameNormalized).IsUnique();
+        });
+
+        builder.Entity<ClientDeviceRecord>(entity =>
+        {
+            entity.ToTable("client_device");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.TokenHash).HasMaxLength(128);
+            entity.Property(e => e.DeviceName).HasMaxLength(128);
+            entity.Property(e => e.ClientVersion).HasMaxLength(32);
+            entity.Property(e => e.Platform).HasMaxLength(32);
+
+            // Every authenticated client request resolves a device by this hash, so it is the one
+            // index that has to exist. Unique because two devices sharing a token would make
+            // "revoke that install" ambiguous.
+            entity.HasIndex(e => e.TokenHash).IsUnique();
+        });
+
+        builder.Entity<ClientPairingCodeRecord>(entity =>
+        {
+            entity.ToTable("client_pairing_code");
+
+            entity.HasKey(e => e.CodeHash);
+            entity.Property(e => e.CodeHash).HasMaxLength(128);
         });
 
         builder.Entity<ModbotEvent>(entity =>

@@ -105,6 +105,32 @@ public enum FactType : short
     InstanceLeft = 201,
     AvatarChanged = 202,
 
+    /// <summary>
+    /// This person was already here when the reporting client arrived. Their arrival time is
+    /// unknown and earlier.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Not a weaker <see cref="InstanceJoined"/> — a different claim. VRChat's log emits an
+    /// <c>OnPlayerJoined</c> for everyone already present whenever anybody enters, so a client
+    /// that recorded those as arrivals would invent a join for every occupant every time any
+    /// moderator walked in. With four to six moderators cycling through a busy instance the noise
+    /// dwarfs the signal, and it does it silently: nothing errors, the numbers are simply wrong.
+    /// See <c>.agent/research/vrchat-log-events.md</c> §3.
+    /// </para>
+    /// <para>
+    /// Keeping it separate is also what lets deduplication prefer the better source. A moderator
+    /// who was present from the start and watched someone arrive reports an exact
+    /// <see cref="InstanceJoined"/>; one who walked in later reports this. Same event, different
+    /// certainty, and the precise one wins (spec 5.7.1).
+    /// </para>
+    /// <para>
+    /// Carries <c>occurred_before</c> rather than a point in time: the observation bounds the
+    /// arrival from above and says nothing about how much earlier it was (spec 5.3).
+    /// </para>
+    /// </remarks>
+    InstancePresenceObserved = 203,
+
     // --- Discord (M5) ---
     DiscordMemberJoined = 300,
     DiscordMemberLeft = 301,

@@ -61,24 +61,6 @@ public static class EventsHandler
     public const int MaxEventsPerBatch = 500;
 
     /// <summary>
-    /// The fact type for "this person was already here when I arrived".
-    /// </summary>
-    /// <remarks>
-    /// <para><strong>This is a placeholder for a missing enum member.</strong>
-    /// <c>FactType</c> carries <c>InstanceJoined</c>, <c>InstanceLeft</c> and
-    /// <c>AvatarChanged</c> but has no member for presence-observed, even though M3 7's table and
-    /// the client protocol both list it as one of the four things a client reports. It is the type
-    /// that stops VRChat's phantom bursts becoming fake joins, so it cannot simply be mapped onto
-    /// <c>InstanceJoined</c>: doing that would inflate arrivals by the instance population every
-    /// time any moderator walked into a room, which is the exact failure the distinction
-    /// exists to prevent.</para>
-    /// <para>203 continues the presence block. The column is a <c>smallint</c> with no database
-    /// constraint, so adding the member later changes nothing already written — delete this
-    /// constant and use the enum the moment it exists.</para>
-    /// </remarks>
-    public const FactType InstancePresenceObserved = (FactType)203;
-
-    /// <summary>
     /// How far in the past a client may claim something happened.
     /// </summary>
     /// <remarks>
@@ -299,7 +281,7 @@ public static class EventsHandler
     private static FactType? ToFactType(string? wireType) => wireType switch
     {
         "InstanceJoined" => FactType.InstanceJoined,
-        "InstancePresenceObserved" => InstancePresenceObserved,
+        "InstancePresenceObserved" => FactType.InstancePresenceObserved,
         "InstanceLeft" => FactType.InstanceLeft,
         "AvatarChanged" => FactType.AvatarChanged,
         _ => null,

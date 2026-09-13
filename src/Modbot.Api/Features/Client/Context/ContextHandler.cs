@@ -83,7 +83,7 @@ public static class ContextHandler
                      && e.OccurredAt >= since
                      && (e.Type == FactType.InstanceJoined
                       || e.Type == FactType.InstanceLeft
-                      || e.Type == Events.EventsHandler.InstancePresenceObserved))
+                      || e.Type == FactType.InstancePresenceObserved))
             .OrderBy(e => e.OccurredAt)
             .Select(e => new { e.Type, e.SubjectId, e.OccurredAt, e.Data })
             .ToListAsync(ct);

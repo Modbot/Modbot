@@ -61,6 +61,7 @@ public static class FactRetention
         FactType.InstanceJoined => RetentionClass.Presence,
         FactType.InstanceLeft => RetentionClass.Presence,
         FactType.AvatarChanged => RetentionClass.Presence,
+        FactType.InstancePresenceObserved => RetentionClass.Presence,
 
         // Discord membership and roles are membership history like VRChat's; voice sessions are
         // presence like instance sessions, and arrive at the same kind of rate.

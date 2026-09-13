@@ -38,17 +38,22 @@ public static class ClientApi
     /// Registers what the client endpoints need.
     /// </summary>
     /// <remarks>
-    /// <para><strong><see cref="IClientDeviceStore"/> is registered in memory here, and that is
-    /// not good enough to run.</strong> The durable implementation needs a <c>client_device</c>
-    /// table and a migration, which this change does not add. Until it exists, a restart loses
-    /// every pairing and every moderator has to pair again after a deploy. The host should
-    /// override this registration with the durable store the moment there is one.</para>
+    /// <para>
+    /// <see cref="IClientDeviceStore"/> is <see cref="DatabaseClientDeviceStore"/>, backed by
+    /// <c>client_device</c> and <c>client_pairing_code</c>. It replaced an in-memory store that
+    /// was correct and deliberately not durable: with that one every redeploy silently unpaired
+    /// every moderator, and since a client treats <c>401</c> as terminal and stops rather than
+    /// retrying, the symptom was presence data quietly ceasing after each deploy.
+    /// </para>
+    /// <para>
+    /// Scoped rather than singleton, because it holds a <c>ModbotContext</c> for the request.
+    /// </para>
     /// </remarks>
     public static IServiceCollection AddClientApi(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IClientDeviceStore, InMemoryClientDeviceStore>();
+        services.AddScoped<IClientDeviceStore, DatabaseClientDeviceStore>();
 
         // A singleton because a long poll opened against one request must be woken by an ingest
         // batch arriving on another.
