@@ -381,6 +381,135 @@ export type SyncSettings = {
   running: boolean
 }
 
+/** Which store holds evidence bytes. Mirrors Modbot.Evidence's own enum. */
+export type EvidenceBackendId = 'None' | 'S3' | 'Filesystem' | 'Database'
+
+export type EvidenceStoreState = 'NotConfigured' | 'Healthy' | 'Unavailable' | 'Unreachable'
+
+export type EvidenceDurabilityFinding = 'Durable' | 'Unproven' | 'Unwritable'
+
+/**
+ * What the store can do, declared by the server rather than discovered by something failing.
+ *
+ * The browser never infers a capability from a backend name: a filesystem store that presigned
+ * URLs would be indistinguishable from one that did not until an operator hit the path the
+ * developer never ran.
+ */
+export type EvidenceCapabilities = {
+  presignedRead: boolean
+  presignedWrite: boolean
+  rangeRead: boolean
+  serverSideCopy: boolean
+  directDeliveryAvailable: boolean
+  deliveryExplanation: string
+}
+
+export type EvidenceHealth = {
+  state: EvidenceStoreState
+  explanation: string
+  expectedStoreId: string | null
+  foundStoreId: string | null
+  since: string | null
+  consecutiveFailures: number
+  uploadsAllowed: boolean
+  latched: boolean
+  storeDescription: string
+}
+
+/**
+ * What is known about whether a directory survives a restart.
+ *
+ * `isSuspicion` is the field that matters. A suspicion asks and never blocks — Railway, Fly.io and
+ * Render all support mountable volumes, and the operator is the only party who knows whether they
+ * mounted one. Proof blocks: an unwritable directory is a fact with nothing to decide about it.
+ */
+export type EvidenceDurability = {
+  finding: EvidenceDurabilityFinding
+  message: string
+  requiresAcknowledgement: boolean
+  acknowledged: boolean
+  canProceed: boolean
+  isSuspicion: boolean
+  acknowledgedBy: string | null
+  acknowledgedAt: string | null
+  warningShown: string | null
+}
+
+export type EvidenceSettings = {
+  backend: {
+    backend: EvidenceBackendId
+    storeId: string | null
+    root: string | null
+    s3: {
+      bucket: string | null
+      endpoint: string | null
+      accessKeyId: string | null
+      region: string | null
+      prefix: string | null
+      usePathStyle: boolean
+    }
+    /** Whether a secret is on file. The secret itself never leaves the server. */
+    secretStored: boolean
+  }
+  limits: {
+    maxFileBytes: number
+    maxReportBytes: number
+    maxDeploymentBytes: number
+    directDeliveryEnabled: boolean
+  }
+  capabilities: EvidenceCapabilities
+  health: EvidenceHealth
+  durability: EvidenceDurability | null
+  stored: { count: number; bytes: number; destroyedCount: number }
+  acceptedTypes: string[]
+  backends: {
+    id: EvidenceBackendId
+    label: string
+    summary: string
+    recommended: boolean
+    caution: string | null
+  }[]
+  environmentHint: {
+    bucket: string | null
+    endpoint: string | null
+    region: string | null
+    accessKeyId: string | null
+    secretAvailable: boolean
+  } | null
+  durabilityStatement: string
+  switchBlockedReason: string | null
+}
+
+/**
+ * The result of the commissioning round trip.
+ *
+ * A failed round trip is a successful diagnosis, so this arrives with a 200 and `succeeded: false`
+ * — the whole value of it is the sentence naming which step failed, and an HTTP status cannot
+ * carry that.
+ */
+export type EvidenceCommissioning = {
+  succeeded: boolean
+  failedStep: string | null
+  message: string
+  storeId: string | null
+  requiresAcknowledgement: boolean
+  durability: EvidenceDurability | null
+}
+
+export type EvidenceBackendInput = {
+  backend: EvidenceBackendId
+  root?: string
+  bucket?: string
+  endpoint?: string
+  accessKeyId?: string
+  secretAccessKey?: string
+  region?: string
+  prefix?: string
+  usePathStyle?: boolean
+  /** The warning text that was on screen, echoed back as the operator's "use anyway". */
+  acknowledgeWarning?: string
+}
+
 /**
  * A non-2xx response, carrying whatever the server said about it.
  *
@@ -558,6 +687,37 @@ export const api = {
   },
 
   metrics: (days: number) => request<Metrics>(`/api/metrics?days=${days}`),
+
+  evidenceSettings: () => request<EvidenceSettings>('/api/settings/evidence'),
+
+  /**
+   * The round trip, without saving. Writes a canary, reads it back, compares the bytes, promotes
+   * it, reads it again, deletes it, and writes the store sentinel.
+   */
+  testEvidenceStore: (body: EvidenceBackendInput) =>
+    post<EvidenceCommissioning>('/api/settings/evidence/test', body),
+
+  /**
+   * Saves a backend, and only if it passed the same round trip. Leave `secretAccessKey` out to
+   * keep the credential already on file, so fixing a typo in the endpoint does not clear it.
+   */
+  setEvidenceBackend: (body: EvidenceBackendInput) =>
+    request<EvidenceCommissioning>('/api/settings/evidence/backend', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  setEvidenceLimits: (body: {
+    maxFileBytes: number
+    maxReportBytes: number
+    maxDeploymentBytes: number
+    directDeliveryEnabled: boolean
+  }) => request<typeof body>('/api/settings/evidence/limits', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  }),
+
+  probeEvidenceStore: () => post<EvidenceHealth>('/api/settings/evidence/probe'),
 
   gateHealth: () => request<GateHealth>('/api/health/gate'),
 
