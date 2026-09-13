@@ -211,7 +211,7 @@ function CoverageNotice({ coverage }: { coverage: BanCoverage }) {
         <Pair label="Unban events recorded" value={coverage.unbannedCount.toLocaleString()} />
         <Pair
           label="Reading back through VRChat's log"
-          value={coverage.backfillComplete ? 'finished' : 'still running — the window is still growing'}
+          value={coverage.catchUpComplete ? 'finished' : 'still running — the window is still growing'}
         />
       </dl>
     </div>

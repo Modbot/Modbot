@@ -151,7 +151,7 @@ public static class DataSettingsEndpoints
             .WithSummary("Set retention windows, or turn them off")
             .WithDescription(
                 "Zero means keep forever, which is the default for both classes. Turning a window "
-                + "on schedules destruction of data that cannot be recovered or backfilled.")
+                + "on schedules destruction of data that cannot be recovered or filled in later.")
             .Produces<RetentionSettings>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

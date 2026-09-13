@@ -221,7 +221,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
         SyncOutcome.Produced =>
             $"{result.FactsWritten} new, {result.AlreadyRecorded} already recorded, "
             + $"{result.EntriesRead} read over {result.PagesRead} request(s)"
-            + (result.Backfilling ? "; still reading existing history" : string.Empty),
+            + (result.CatchingUp ? "; still reading existing history" : string.Empty),
 
         SyncOutcome.Quiet =>
             $"nothing new; {result.EntriesRead} entries re-read over {result.PagesRead} request(s)",

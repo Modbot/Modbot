@@ -96,7 +96,7 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
         for (var i = 0; i < 10; i++)
             VRChat.Groups.Add(Entry($"gaud_{i}", Now.AddMinutes(-i - 1), target: $"usr_{i}"));
 
-        var options = new AuditLogSyncOptions { Backfill = false, PageSize = 2, MaxPagesPerRun = 2 };
+        var options = new AuditLogSyncOptions { CatchUp = false, PageSize = 2, MaxPagesPerRun = 2 };
         var run = await RunAuditLogAsync(options);
 
         Assert.Equal(2, run.PagesRead);
@@ -116,7 +116,7 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
         for (var i = 0; i < 10; i++)
             VRChat.Groups.Add(Entry($"gaud_{i}", Now.AddMinutes(-i - 1), target: $"usr_{i}"));
 
-        var options = new AuditLogSyncOptions { Backfill = false, PageSize = 2, MaxPagesPerRun = 2 };
+        var options = new AuditLogSyncOptions { CatchUp = false, PageSize = 2, MaxPagesPerRun = 2 };
 
         // Four passes, each "restarting" the producer, until the whole log is drained.
         for (var pass = 0; pass < 4; pass++)
@@ -159,7 +159,7 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     [Fact]
     public async Task AnEntryOlderThanTheOverlapIsOutsideTheWindowThatIsReRead()
     {
-        var options = new AuditLogSyncOptions { Backfill = false, Overlap = TimeSpan.FromMinutes(5) };
+        var options = new AuditLogSyncOptions { CatchUp = false, Overlap = TimeSpan.FromMinutes(5) };
 
         VRChat.Groups.Add(Entry("gaud_1", Now.AddMinutes(-1)));
         await RunAuditLogAsync(options);
@@ -275,67 +275,67 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     /// retrofitted later.
     /// </summary>
     [Fact]
-    public async Task TheBackfillWalksTheExistingLogAPageAtATimeAndThenStops()
+    public async Task TheCatchUpWalksTheExistingLogAPageAtATimeAndThenStops()
     {
         for (var i = 0; i < 5; i++)
             VRChat.Groups.Add(Entry($"gaud_{i}", Now.AddDays(-i - 1), target: $"usr_{i}"));
 
-        var options = new AuditLogSyncOptions { Backfill = true, PageSize = 2 };
+        var options = new AuditLogSyncOptions { CatchUp = true, PageSize = 2 };
 
         // One page per pass, deliberately: a group with a long log must not spend its whole
         // audit-log budget on history while today's bans wait behind it.
         var first = await RunAuditLogAsync(options);
         Assert.Equal(1, first.PagesRead);
-        Assert.True(first.Backfilling);
+        Assert.True(first.CatchingUp);
 
         await RunAuditLogAsync(options);
         var third = await RunAuditLogAsync(options);
 
-        Assert.False(third.Backfilling);
+        Assert.False(third.CatchingUp);
         Assert.Equal(5, (await FactsAsync()).Count);
-        Assert.True((await SettingsAsync()).AuditLogBackfillComplete);
+        Assert.True((await SettingsAsync()).AuditLogCatchUpComplete);
     }
 
     /// <summary>
-    /// History never delays today. A backfill that had priority would walk months of log a page at
+    /// History never delays today. A catch-up that had priority would walk months of log a page at
     /// a time while this afternoon's bans went unrecorded -- nothing lost, since each fact carries
     /// VRChat's own timestamp, but a freshly installed Modbot showing an empty dashboard for hours.
     /// </summary>
     [Fact]
-    public async Task LiveEntriesAreRecordedWhileTheBackfillIsStillWalkingHistory()
+    public async Task LiveEntriesAreRecordedWhileTheCatchUpIsStillWalkingHistory()
     {
         for (var i = 0; i < 6; i++)
             VRChat.Groups.Add(Entry($"gaud_old_{i}", Now.AddDays(-i - 1), target: $"usr_old_{i}"));
 
-        var options = new AuditLogSyncOptions { Backfill = true, PageSize = 2 };
+        var options = new AuditLogSyncOptions { CatchUp = true, PageSize = 2 };
 
-        // One pass to find the head of the log; the backfill still has pages to go after it.
+        // One pass to find the head of the log; the catch-up still has pages to go after it.
         var first = await RunAuditLogAsync(options);
-        Assert.True(first.Backfilling);
+        Assert.True(first.CatchingUp);
 
         // Something happens now, with history still only a third read.
         VRChat.Groups.Add(Entry("gaud_live", Now.AddMinutes(-1), target: "usr_live"));
 
         var next = await RunAuditLogAsync(options);
 
-        Assert.True(next.Backfilling);
+        Assert.True(next.CatchingUp);
         Assert.Contains(await FactsAsync(), f => f.SubjectId == "usr_live");
     }
 
     /// <summary>
-    /// The cursor the backfill leaves behind has to be the newest entry in the whole log, not the
+    /// The cursor the catch-up leaves behind has to be the newest entry in the whole log, not the
     /// newest in the last page it read -- otherwise the first tail poll after it starts hours or
     /// days in the past and re-reads everything.
     /// </summary>
     [Fact]
-    public async Task TheBackfillLeavesTheCursorAtTheHeadOfTheLog()
+    public async Task TheCatchUpLeavesTheCursorAtTheHeadOfTheLog()
     {
         for (var i = 0; i < 4; i++)
             VRChat.Groups.Add(Entry($"gaud_{i}", Now.AddDays(-i - 1), target: $"usr_{i}"));
 
-        var options = new AuditLogSyncOptions { Backfill = true, PageSize = 2 };
+        var options = new AuditLogSyncOptions { CatchUp = true, PageSize = 2 };
 
-        while (!(await SettingsAsync()).AuditLogBackfillComplete)
+        while (!(await SettingsAsync()).AuditLogCatchUpComplete)
             await RunAuditLogAsync(options);
 
         Assert.Equal(Now.AddDays(-1), (await SettingsAsync()).AuditLogSyncedThrough);
@@ -343,15 +343,15 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
 
     /// <summary>
     /// Entries from before the partition maintainer's rolling window have nowhere to land unless
-    /// the producer makes room. Without this the whole backfill fails on its first old page, and
+    /// the producer makes room. Without this the whole catch-up fails on its first old page, and
     /// the failure looks like a database error rather than a missing partition.
     /// </summary>
     [Fact]
-    public async Task BackfilledEntriesFromAnUncoveredMonthAreStillRecorded()
+    public async Task CatchUpEntriesFromAnUncoveredMonthAreStillRecorded()
     {
         VRChat.Groups.Add(Entry("gaud_ancient", Now.AddMonths(-8), target: "usr_ancient"));
 
-        await RunAuditLogAsync(new AuditLogSyncOptions { Backfill = true, PageSize = 10 });
+        await RunAuditLogAsync(new AuditLogSyncOptions { CatchUp = true, PageSize = 10 });
 
         Assert.Contains(await FactsAsync(), f => f.SubjectId == "usr_ancient");
     }

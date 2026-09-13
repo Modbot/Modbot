@@ -6,7 +6,7 @@ namespace Modbot.Core.Data.Entities;
 /// <remarks>
 /// <para>
 /// Spec 5.4. Deliberately generic: a metric is a string and a dimension is a string, so a metric
-/// invented next year needs no migration -- it needs a registry entry and a backfill run.
+/// invented next year needs no migration -- it needs a registry entry and a rebuild run.
 /// </para>
 /// <para>
 /// <strong>Rollups are derived data and are always recomputable from facts</strong> (spec 5.2) --

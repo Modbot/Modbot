@@ -81,7 +81,7 @@ public static class FactRetention
     /// <remarks>
     /// The default is the safe direction and it is load-bearing. A fact type added without a
     /// thought about retention, or one Modbot has never seen at all, must not be scheduled for
-    /// deletion on a guess — history cannot be backfilled (§5.1), and the cost of keeping
+    /// deletion on a guess — history cannot be filled in later (§5.1), and the cost of keeping
     /// something unnecessarily is a few hundred bytes.
     /// </remarks>
     public static RetentionClass ClassOf(string type)

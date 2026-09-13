@@ -107,7 +107,7 @@ public abstract class SyncTestBase : IAsyncLifetime
             context,
             Clock,
             Diagnostics,
-            options ?? NoBackfill());
+            options ?? NoCatchUp());
 
         return await sync.RunOnceAsync(Ct);
     }
@@ -127,10 +127,10 @@ public abstract class SyncTestBase : IAsyncLifetime
     }
 
     /// <summary>
-    /// The default for tests about the tail poll: the backfill is a separate concern with its own
-    /// tests, and leaving it on would make every other test's first pass a backfill page.
+    /// The default for tests about the tail poll: the catch-up is a separate concern with its own
+    /// tests, and leaving it on would make every other test's first pass a catch-up page.
     /// </summary>
-    protected static AuditLogSyncOptions NoBackfill() => new() { Backfill = false };
+    protected static AuditLogSyncOptions NoCatchUp() => new() { CatchUp = false };
 
     protected async Task<IReadOnlyList<ModbotEvent>> FactsAsync()
     {

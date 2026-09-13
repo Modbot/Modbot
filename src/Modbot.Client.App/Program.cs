@@ -268,7 +268,7 @@ internal sealed class ClientHost
     /// local cache warm and costs nothing when there is nothing to draw -- and the runtime simply
     /// reports that there is no headset to show it on.</para>
     /// <para>A failure to create the Direct3D surface is not allowed to take the client down with
-    /// it. Reporting presence is the job that cannot be backfilled; the overlay is the one that
+    /// it. Reporting presence is the job that cannot be filled in later; the overlay is the one that
     /// can wait for a restart.</para>
     /// </remarks>
     private void StartOverlay()

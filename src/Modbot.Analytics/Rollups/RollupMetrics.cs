@@ -109,7 +109,7 @@ public static class RollupMetrics
     /// <para>
     /// The group-info producer now writes an observed member count (<c>GroupInfoChanged</c>), so
     /// an anchored headcount is finally possible — but it is not this rename, and it is not
-    /// obvious. Backfill walks the audit log backwards from whatever VRChat still retains, so
+    /// obvious. The catch-up walks the audit log backwards from whatever VRChat still retains, so
     /// joins can arrive that predate the first observation; anchoring naively would count those
     /// twice and produce a number that is wrong in a way nothing about it looks wrong. Until that
     /// is worked through, the observed count is read straight from the facts where a headcount is

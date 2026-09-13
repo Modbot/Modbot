@@ -44,9 +44,9 @@ public sealed record BanEntry(
 /// <param name="LatestRecord">Newest.</param>
 /// <param name="FirstSyncedAt">
 /// When Modbot first recorded anything from VRChat's audit log. Before this point the list knows
-/// only what the backfill could still reach.
+/// only what the catch-up could still reach.
 /// </param>
-/// <param name="BackfillComplete">
+/// <param name="CatchUpComplete">
 /// Whether the walk back through VRChat's remaining audit log has finished. While false the
 /// coverage window is still growing backwards and the list is not yet at its full extent.
 /// </param>
@@ -55,7 +55,7 @@ public sealed record BanCoverage(
     DateTimeOffset? EarliestRecord,
     DateTimeOffset? LatestRecord,
     DateTimeOffset? FirstSyncedAt,
-    bool BackfillComplete,
+    bool CatchUpComplete,
     DateTimeOffset? LastPolledAt,
     int BannedCount,
     int UnbannedCount);
@@ -233,7 +233,7 @@ public sealed class BanList(ModbotContext db)
             earliest,
             latest,
             firstSynced,
-            settings?.AuditLogBackfillComplete ?? false,
+            settings?.AuditLogCatchUpComplete ?? false,
             settings?.AuditLogPolledAt,
             bannedCount,
             unbannedCount);

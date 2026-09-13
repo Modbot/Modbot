@@ -87,8 +87,8 @@ public sealed record SyncPacing
                 PageSize = clamped.AuditLogPageSize ?? audit.PageSize,
                 MaxPagesPerRun = clamped.AuditLogMaxPagesPerRun ?? audit.MaxPagesPerRun,
                 Overlap = Seconds(clamped.AuditLogOverlapSeconds) ?? audit.Overlap,
-                Backfill = clamped.AuditLogBackfill ?? audit.Backfill,
-                MaxBackfillPages = clamped.AuditLogMaxBackfillPages ?? audit.MaxBackfillPages,
+                CatchUp = clamped.AuditLogCatchUp ?? audit.CatchUp,
+                MaxCatchUpPages = clamped.AuditLogMaxCatchUpPages ?? audit.MaxCatchUpPages,
             }).Clamped(),
 
             GroupInfo = (info with

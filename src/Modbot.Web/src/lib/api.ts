@@ -154,7 +154,7 @@ export type AuditCursor = { occurredAt: string; id: number }
 export type AuditCoverage = {
   oldestFact: string | null
   firstObservedAt: string | null
-  backfillComplete: boolean
+  catchUpComplete: boolean
 }
 
 export type AuditPage = {
@@ -210,7 +210,7 @@ export type BanCoverage = {
   earliestRecord: string | null
   latestRecord: string | null
   firstSyncedAt: string | null
-  backfillComplete: boolean
+  catchUpComplete: boolean
   lastPolledAt: string | null
   bannedCount: number
   unbannedCount: number
@@ -251,7 +251,7 @@ export type ActionTypeSeries = {
  * Two ranges, not one.
  *
  * Rollups are never aged out; facts can be, where an operator set a retention window. Even with
- * nothing pruned the two start in different places, because the audit-log backfill walks history
+ * nothing pruned the two start in different places, because the audit-log catch-up walks history
  * backwards while the rollup job only folds forward. One date picker shown over both would claim
  * they were the same range.
  */
@@ -348,7 +348,7 @@ export type SyncHealth = {
   lastGroupInfoRun: SyncRunSummary | null
   auditLogPolledAt: string | null
   groupInfoPolledAt: string | null
-  auditLogBackfillComplete: boolean
+  auditLogCatchUpComplete: boolean
   auditLogSyncedThrough: string | null
   groupConfigured: boolean
   unmappedAuditEvents: UnmappedEvent[]
@@ -366,8 +366,8 @@ export type SyncSettings = {
     pageSize: number
     maxPagesPerRun: number
     overlapSeconds: number
-    backfill: boolean
-    maxBackfillPages: number
+    catchUp: boolean
+    maxCatchUpPages: number
   }
   groupInfo: {
     intervalSeconds: number

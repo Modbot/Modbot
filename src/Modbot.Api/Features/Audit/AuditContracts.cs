@@ -72,14 +72,14 @@ public sealed record AuditCursor(DateTimeOffset OccurredAt, long Id);
 /// The earliest <c>observed_at</c> on a fact drawn from VRChat's audit log — in practice, when
 /// this deployment first synced.
 /// </param>
-/// <param name="BackfillComplete">
+/// <param name="CatchUpComplete">
 /// Whether the one-off walk back through the audit log VRChat still held has finished. Until it
 /// has, the start of the timeline is still moving backwards.
 /// </param>
 public sealed record AuditCoverage(
     DateTimeOffset? OldestFact,
     DateTimeOffset? FirstObservedAt,
-    bool BackfillComplete);
+    bool CatchUpComplete);
 
 /// <param name="Next">Null when this was the last page.</param>
 public sealed record AuditPage(

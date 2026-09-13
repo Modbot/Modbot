@@ -234,7 +234,7 @@ try
     // be read and the store built from it, and the store sentinel probed (§8.3). Nothing here can
     // stop the host: a deployment whose evidence store is missing still ingests the audit log,
     // still records presence and still syncs bans -- §8.4 is explicit that trading live collection
-    // that cannot be backfilled for a gesture about data already lost is the wrong trade.
+    // that cannot be filled in later for a gesture about data already lost is the wrong trade.
     var evidence = await app.Services.LoadEvidenceSettingsAsync();
     Log.Information("Evidence store: {Explanation}", evidence.Explanation);
 

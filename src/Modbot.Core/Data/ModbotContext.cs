@@ -84,6 +84,14 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
+
+            // The audit-log cursor columns keep the names they were created with. The C# names
+            // moved to plain words (the one-off walk through existing history is the "catch-up";
+            // the tail poll's unread window is the "backlog"), and renaming live columns to
+            // follow would be a migration against real data for no benefit to anyone.
+            entity.Property(e => e.AuditLogCatchUpOffset).HasColumnName("audit_log_backfill_offset");
+            entity.Property(e => e.AuditLogCatchUpComplete).HasColumnName("audit_log_backfill_complete");
+            entity.Property(e => e.AuditLogBacklogOffset).HasColumnName("audit_log_catch_up_offset");
         });
 
         builder.Entity<ProtectorKey>(entity =>

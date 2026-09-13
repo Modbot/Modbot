@@ -141,7 +141,7 @@ public sealed class AdaptivePollRate
                 // entries most worth having quickly are the ones that come in clusters.
                 return new PollRateDecision(
                     _options.MinInterval,
-                    result.Backfilling
+                    result.CatchingUp
                         ? $"reading the group's existing audit log; {result.FactsWritten} new entries in the last page"
                         : $"{result.FactsWritten} new entries on the last poll; staying at the fastest permitted rate",
                     0,

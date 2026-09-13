@@ -145,21 +145,21 @@ public class Settings
 
     /// <summary>
     /// How far the one-off walk back through the group's existing audit log has got, as an
-    /// offset into it. Meaningless once <see cref="AuditLogBackfillComplete"/> is true.
+    /// offset into it. Meaningless once <see cref="AuditLogCatchUpComplete"/> is true.
     /// </summary>
     /// <remarks>
     /// Offsets are safe for this walk in a way they are not in general: the audit log only ever
     /// grows at the head, so entries arriving mid-walk shift the page window toward entries
     /// already seen. That produces duplicates, which are discarded, and never a gap.
     /// </remarks>
-    public int AuditLogBackfillOffset { get; set; }
+    public int AuditLogCatchUpOffset { get; set; }
 
     /// <summary>True once VRChat has no older audit-log entries left to hand over.</summary>
-    public bool AuditLogBackfillComplete { get; set; }
+    public bool AuditLogCatchUpComplete { get; set; }
 
     /// <summary>
-    /// How far into the current catch-up window the poll has read, when a backlog is too large to
-    /// drain in one pass. Zero whenever the window was last drained completely.
+    /// How far into the current backlog the poll has read, when there is more waiting than one
+    /// pass may read. Zero whenever the window was last drained completely.
     /// </summary>
     /// <remarks>
     /// Without this a backlog larger than one pass's page budget never clears: the cursor cannot
@@ -167,7 +167,7 @@ public class Settings
     /// the entries behind them would stay unread forever. The failure would look like a producer
     /// working perfectly on a group that had been offline for a day.
     /// </remarks>
-    public int AuditLogCatchUpOffset { get; set; }
+    public int AuditLogBacklogOffset { get; set; }
 
     /// <summary>
     /// When the audit-log poll last completed, successfully or not.

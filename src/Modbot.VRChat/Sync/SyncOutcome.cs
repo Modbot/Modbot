@@ -44,7 +44,7 @@ public enum SyncOutcome
 /// </param>
 /// <param name="Unmapped">Entries whose event type Modbot has no fact type for (spec 5.3).</param>
 /// <param name="Unusable">Entries missing a target or a timestamp, which cannot become a fact.</param>
-/// <param name="Backfilling">True while the one-off walk through existing history is still running.</param>
+/// <param name="CatchingUp">True while the one-off walk through existing history is still running.</param>
 /// <param name="Drained">
 /// True when the pass read its window to the end. The cursor only moves on a drained pass, and a
 /// pass that was not drained is the signal that there is more to read right now -- which is what
@@ -58,7 +58,7 @@ public sealed record AuditLogRunResult(
     int AlreadyRecorded = 0,
     int Unmapped = 0,
     int Unusable = 0,
-    bool Backfilling = false,
+    bool CatchingUp = false,
     bool Drained = false,
     DateTimeOffset? SyncedThrough = null,
     string? Message = null)
@@ -84,7 +84,7 @@ public sealed record AuditLogRunResult(
             AlreadyRecorded = AlreadyRecorded + other.AlreadyRecorded,
             Unmapped = Unmapped + other.Unmapped,
             Unusable = Unusable + other.Unusable,
-            Backfilling = other.Backfilling,
+            CatchingUp = other.CatchingUp,
             SyncedThrough = other.SyncedThrough ?? SyncedThrough,
             Message = other.Message ?? Message,
         };

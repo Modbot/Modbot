@@ -14,7 +14,7 @@ namespace Modbot.Analytics.Rollups;
 /// <strong>The invariant this class exists to keep: rollups are always recomputable from facts
 /// (spec 5.2).</strong> <see cref="RebuildAsync"/> throws every computed row away and rebuilds it,
 /// and that is the supported fix for any aggregation bug -- a wrong metric is a re-run, not lost
-/// data, and a metric invented next year backfills across all recorded history. Nothing here may
+/// data, and a metric invented next year is filled in across all recorded history. Nothing here may
 /// ever depend on state that only the incremental path produces, because then a rebuild would not
 /// reproduce it. The property test in the test suite is what holds the line.
 /// </para>

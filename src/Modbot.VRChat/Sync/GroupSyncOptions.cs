@@ -71,17 +71,17 @@ public sealed record AuditLogSyncOptions
     /// switch rather than a constant because it is also the one thing a fresh install does that
     /// spends real budget for minutes on end.
     /// </remarks>
-    public bool Backfill { get; init; } = true;
+    public bool CatchUp { get; init; } = true;
 
     /// <summary>
-    /// A stop on the backfill walk, in pages, in case VRChat's <c>hasNext</c> never goes false.
+    /// A stop on the catch-up walk, in pages, in case VRChat's <c>hasNext</c> never goes false.
     /// </summary>
     /// <remarks>
     /// Not a judgement about how much history is worth having -- VRChat's own retention ends the
-    /// walk long before this. It exists so that a paging quirk cannot turn a one-off backfill
+    /// walk long before this. It exists so that a paging quirk cannot turn a one-off catch-up
     /// into a permanent background load nobody notices.
     /// </remarks>
-    public int MaxBackfillPages { get; init; } = 1000;
+    public int MaxCatchUpPages { get; init; } = 1000;
 
     /// <summary>Applies spec 4.2.1: configuration may only make the producer slower.</summary>
     /// <remarks>

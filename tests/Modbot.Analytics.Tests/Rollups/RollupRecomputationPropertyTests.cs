@@ -72,7 +72,7 @@ public class RollupRecomputationPropertyTests : AnalyticsTestBase
 
     /// <summary>
     /// The same, with the fact log built up first and the incremental run only catching up at the
-    /// end -- the shape a backfill or an import takes.
+    /// end -- the shape a catch-up or an import takes.
     /// </summary>
     [Theory]
     [InlineData(3)]

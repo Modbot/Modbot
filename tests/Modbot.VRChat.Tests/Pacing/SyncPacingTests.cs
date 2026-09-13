@@ -236,10 +236,10 @@ public class SyncPacingTests
     }
 
     [Fact]
-    public void TheBackfillCanBeTurnedOff()
+    public void TheCatchUpCanBeTurnedOff()
     {
-        Assert.True(SyncPacing.Defaults.AuditLog.Backfill);
-        Assert.False(Resolve(new() { AuditLogBackfill = false }).AuditLog.Backfill);
+        Assert.True(SyncPacing.Defaults.AuditLog.CatchUp);
+        Assert.False(Resolve(new() { AuditLogCatchUp = false }).AuditLog.CatchUp);
     }
 
     /// <summary>
@@ -275,9 +275,11 @@ public class SyncPacingTests
     [Fact]
     public void OnlyConfiguredFieldsAreStored()
     {
-        var json = SyncPacingJson.Write(new SyncPacingDocument { AuditLogBackfill = false });
+        var json = SyncPacingJson.Write(new SyncPacingDocument { AuditLogCatchUp = false });
 
         Assert.NotNull(json);
+        // The stored key is pinned to its original spelling (see SyncPacingDocument), because
+        // this JSON lives in the settings table and existing rows must still be read.
         Assert.Contains("auditLogBackfill", json, StringComparison.Ordinal);
         Assert.DoesNotContain("groupInfoIntervalSeconds", json, StringComparison.Ordinal);
         Assert.DoesNotContain("budgetFraction", json, StringComparison.Ordinal);
@@ -292,7 +294,7 @@ public class SyncPacingTests
             ClassCeilingsPerSecond = Ceilings((VRChatEndpointClass.GroupsBans, 0.3)),
             AuditLogMaxIntervalSeconds = 900,
             AuditLogPageSize = 40,
-            AuditLogBackfill = false,
+            AuditLogCatchUp = false,
             GroupInfoIntervalSeconds = 600,
         };
 
@@ -305,7 +307,7 @@ public class SyncPacingTests
         Assert.Equal(0.4, read.BudgetFraction);
         Assert.Equal(0.3, read.ClassCeilingsPerSecond![VRChatEndpointClass.GroupsBans]);
         Assert.Equal(40, read.AuditLogPageSize);
-        Assert.False(read.AuditLogBackfill);
+        Assert.False(read.AuditLogCatchUp);
     }
 
     /// <summary>
@@ -337,7 +339,7 @@ public class SyncPacingTests
         {
             BudgetFraction = 0.4,
             ClassCeilingsPerSecond = Ceilings((VRChatEndpointClass.GroupsBans, 0.3)),
-            AuditLogBackfill = false,
+            AuditLogCatchUp = false,
         };
 
         var merged = stored.MergedWith(new SyncPacingDocument
@@ -346,7 +348,7 @@ public class SyncPacingTests
         });
 
         Assert.Equal(0.4, merged.BudgetFraction);
-        Assert.False(merged.AuditLogBackfill);
+        Assert.False(merged.AuditLogCatchUp);
         Assert.Equal(2, merged.ClassCeilingsPerSecond!.Count);
         Assert.Equal(0.3, merged.ClassCeilingsPerSecond[VRChatEndpointClass.GroupsBans]);
     }

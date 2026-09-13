@@ -16,7 +16,7 @@ public enum LogHealthStatus
     /// <remarks>
     /// This is the condition worth waking somebody for. A log parser that silently stops matching
     /// is the worst outcome available — presence history stops accruing, nobody notices for weeks,
-    /// and the gap cannot be backfilled. M3 2.2.
+    /// and the gap cannot be filled in later. M3 2.2.
     /// </remarks>
     NotUnderstood,
 }

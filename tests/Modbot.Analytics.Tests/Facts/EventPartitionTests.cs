@@ -97,7 +97,7 @@ public class EventPartitionTests : FactTestBase
     }
 
     [Fact]
-    public async Task EnsureForAsync_CoversABackfilledMonthOnDemand()
+    public async Task EnsureForAsync_CoversAMonthReachedByTheCatchUpOnDemand()
     {
         var ct = TestContext.Current.CancellationToken;
         var old = new DateTimeOffset(2022, 2, 14, 0, 0, 0, TimeSpan.Zero);

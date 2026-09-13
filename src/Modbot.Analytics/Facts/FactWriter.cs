@@ -162,7 +162,7 @@ public sealed class FactWriter : IFactWriter
                      && e.OccurredAt >= from
                      && e.OccurredAt <= to)
             // Earliest wins: spec 5.7 says whichever report arrives first sets the window, and
-            // ordering by time rather than id keeps that stable if ids are ever backfilled.
+            // ordering by time rather than id keeps that stable if ids are ever filled in later.
             .OrderBy(e => e.OccurredAt)
             .ThenBy(e => e.Id)
             .Select(e => (long?)e.Id)

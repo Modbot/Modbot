@@ -29,7 +29,7 @@ from what Modbot knows. This spec adds the two things that turn a report into a 
 The third is the one people forget to ask for and the one that is unrecoverable. A banned user
 changes their display name and clears their bio within the hour; the screenshot the moderator meant
 to take was never taken. Foundation §5.1's argument applies unchanged — *recorded history is not
-retrofittable* — and it applies with more force here, because a profile is not merely un-backfillable,
+retrofittable* — and it applies with more force here, because a profile is not merely impossible to fill in later,
 it is actively being erased by the person the case is about.
 
 ### 1.1 Why this is a document of its own
@@ -523,7 +523,7 @@ settles it:
 1. **It converts an unrecoverable past loss into an ongoing present loss.** The evidence is already
    gone; nothing about staying down brings it back. But a Modbot that is not running is not ingesting
    the audit log, not recording presence, not syncing bans — and foundation §5.1 is explicit that the
-   history it fails to record while it is down **cannot be backfilled**. Trading live data collection
+   history it fails to record while it is down **cannot be filled in later**. Trading live data collection
    for a dramatic gesture about data already lost is a bad trade in the only direction that matters.
 2. **On the platform this targets, it hides the message.** A container that exits fails its
    healthcheck, and Railway rolls the deployment back and reports "deployment failed". The operator

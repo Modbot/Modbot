@@ -27,8 +27,8 @@ public sealed record AuditLogPollRateSettings(
     int PageSize,
     int MaxPagesPerRun,
     double OverlapSeconds,
-    bool Backfill,
-    int MaxBackfillPages);
+    bool CatchUp,
+    int MaxCatchUpPages);
 
 public sealed record GroupInfoPollRateSettings(
     double IntervalSeconds,
@@ -126,8 +126,8 @@ public sealed record AuditLogPollRateUpdate(
     int? PageSize = null,
     int? MaxPagesPerRun = null,
     double? OverlapSeconds = null,
-    bool? Backfill = null,
-    int? MaxBackfillPages = null);
+    bool? CatchUp = null,
+    int? MaxCatchUpPages = null);
 
 /// <summary>Group-info poll rate fields to change. Every one optional.</summary>
 public sealed record GroupInfoPollRateUpdate(
@@ -333,7 +333,7 @@ public static class SyncSettingsEndpoints
             if (Negative(audit.JitterFraction) || Negative(audit.OverlapSeconds))
                 return "Jitter and the re-read overlap cannot be negative.";
 
-            if (audit.PageSize is < 1 || audit.MaxPagesPerRun is < 1 || audit.MaxBackfillPages is < 1)
+            if (audit.PageSize is < 1 || audit.MaxPagesPerRun is < 1 || audit.MaxCatchUpPages is < 1)
                 return "Page counts must be at least 1.";
         }
 
@@ -372,8 +372,8 @@ public static class SyncSettingsEndpoints
         AuditLogPageSize = body.AuditLog?.PageSize,
         AuditLogMaxPagesPerRun = body.AuditLog?.MaxPagesPerRun,
         AuditLogOverlapSeconds = body.AuditLog?.OverlapSeconds,
-        AuditLogBackfill = body.AuditLog?.Backfill,
-        AuditLogMaxBackfillPages = body.AuditLog?.MaxBackfillPages,
+        AuditLogCatchUp = body.AuditLog?.CatchUp,
+        AuditLogMaxCatchUpPages = body.AuditLog?.MaxCatchUpPages,
 
         GroupInfoIntervalSeconds = body.GroupInfo?.IntervalSeconds,
         GroupInfoRetryIntervalSeconds = body.GroupInfo?.RetryIntervalSeconds,
@@ -415,8 +415,8 @@ public static class SyncSettingsEndpoints
                 pacing.AuditLog.PageSize,
                 pacing.AuditLog.MaxPagesPerRun,
                 pacing.AuditLog.Overlap.TotalSeconds,
-                pacing.AuditLog.Backfill,
-                pacing.AuditLog.MaxBackfillPages),
+                pacing.AuditLog.CatchUp,
+                pacing.AuditLog.MaxCatchUpPages),
             new GroupInfoPollRateSettings(
                 pacing.GroupInfo.Interval.TotalSeconds,
                 pacing.GroupInfo.RetryInterval.TotalSeconds,

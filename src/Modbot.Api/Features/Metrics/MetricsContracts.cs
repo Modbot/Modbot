@@ -48,7 +48,7 @@ public sealed record ActionTypeSeries(
 /// </para>
 /// <para>
 /// The gap is not only about retention. Even with nothing pruned, the rollup series and the fact
-/// log start at different places for a fresh deployment, because the audit-log backfill walks
+/// log start at different places for a fresh deployment, because the audit-log catch-up walks
 /// history backwards while the rollup job only ever folds forward from what it has seen.
 /// </para>
 /// </remarks>

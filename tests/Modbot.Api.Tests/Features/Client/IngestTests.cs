@@ -322,7 +322,7 @@ public class IngestTests
     public async Task AnOversizedBatchIs413SoTheClientHalvesAndRetries()
     {
         // Not a 400: nothing is wrong with the events, and dropping them would lose presence that
-        // cannot be backfilled.
+        // cannot be filled in later.
         var ct = TestContext.Current.CancellationToken;
         var (host, token) = await ReadyAsync(ct);
         await using var _ = host;

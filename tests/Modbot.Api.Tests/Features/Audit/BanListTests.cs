@@ -147,9 +147,9 @@ public class BanListTests
         Assert.Equal(host.Clock.UtcNow, list.Coverage.FirstSyncedAt);
         Assert.Equal(2, list.Coverage.BannedCount);
 
-        // Until the backfill is done the window is still growing backwards, so the list is not
+        // Until the catch-up is done the window is still growing backwards, so the list is not
         // yet at its full extent -- a distinction the screen has to be able to state.
-        Assert.False(list.Coverage.BackfillComplete);
+        Assert.False(list.Coverage.CatchUpComplete);
     }
 
     [Fact]

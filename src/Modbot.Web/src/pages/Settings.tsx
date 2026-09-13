@@ -268,7 +268,7 @@ function DataTab() {
       <Section title="Retention">
         <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           {keepingEverything
-            ? 'Modbot is keeping everything, which is the default. History cannot be backfilled: whatever is deleted is gone, and no amount of API access brings it back.'
+            ? 'Modbot is keeping everything, which is the default. History cannot be filled in later: whatever is deleted is gone, and no amount of API access brings it back.'
             : 'A retention window is set. Facts past it are destroyed permanently.'}
         </p>
         <RetentionForm current={retention} onSaved={load} />
@@ -659,16 +659,16 @@ function SyncTab() {
         <Row label="Back-off per quiet poll" value={`${settings.auditLog.quietBackoff}×`} />
         <Row label="Jitter" value={`up to +${Math.round(settings.auditLog.jitterFraction * 100)}%`} />
         <Row label="Entries per request" value={String(settings.auditLog.pageSize)} />
-        <Row label="Requests per catch-up pass" value={String(settings.auditLog.maxPagesPerRun)} />
+        <Row label="Requests per poll" value={String(settings.auditLog.maxPagesPerRun)} />
         <Row
           label="Re-read window"
           value={`${seconds(settings.auditLog.overlapSeconds)} behind the cursor, so a late entry is not missed`}
         />
         <Row
-          label="Backfill"
+          label="Catch-up"
           value={
-            settings.auditLog.backfill
-              ? `On, up to ${settings.auditLog.maxBackfillPages.toLocaleString()} pages`
+            settings.auditLog.catchUp
+              ? `On, up to ${settings.auditLog.maxCatchUpPages.toLocaleString()} pages`
               : 'Off — only entries from now on are recorded'
           }
         />

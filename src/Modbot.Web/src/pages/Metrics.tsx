@@ -344,7 +344,7 @@ function Coverage({ data }: { data: MetricsData }) {
         <p className="mt-2 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           {data.coverage.retentionConfigured
             ? `A retention window is configured (moderation ${data.coverage.moderationFactRetentionDays} days, presence ${data.coverage.presenceFactRetentionDays} days), so facts older than it have been destroyed. Rollups are never aged out and keep their full history — which is why the two ranges above differ.`
-            : 'Nothing is being deleted: both retention windows are set to keep forever. The two ranges can still differ, because the audit-log backfill walks history backwards while the rollup job only folds forward from what it has seen.'}
+            : 'Nothing is being deleted: both retention windows are set to keep forever. The two ranges can still differ, because the audit-log catch-up walks history backwards while the rollup job only folds forward from what it has seen.'}
         </p>
       </CardContent>
     </Card>

@@ -163,7 +163,7 @@ public static class EventsHandler
     /// A moderator in a different instance cannot act on the card and has no business being told
     /// which room a colleague is in or who just walked into it.</para>
     /// <para>A failure here is swallowed: an alert is a convenience on top of ingest, and losing
-    /// one must never cost a fact that cannot be backfilled.</para>
+    /// one must never cost a fact that cannot be filled in later.</para>
     /// </remarks>
     private static async Task RaiseAlertsAsync(
         IReadOnlyList<ClientEventDto> submitted,

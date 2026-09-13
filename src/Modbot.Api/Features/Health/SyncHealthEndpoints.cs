@@ -79,7 +79,7 @@ public static class SyncHealthEndpoints
                     Run(diagnostics?.LastGroupInfoRun),
                     settings?.AuditLogPolledAt,
                     settings?.GroupInfoPolledAt,
-                    settings?.AuditLogBackfillComplete ?? false,
+                    settings?.AuditLogCatchUpComplete ?? false,
                     settings?.AuditLogSyncedThrough,
                     !string.IsNullOrWhiteSpace(settings?.ManagedGroupId),
                     diagnostics?.UnmappedAuditEvents

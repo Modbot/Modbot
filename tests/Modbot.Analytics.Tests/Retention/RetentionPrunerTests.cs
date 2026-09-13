@@ -146,7 +146,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
     /// <remarks>
     /// This is the regression guard for the setting itself rather than for the pruner. An earlier
     /// draft defaulted presence facts to 90 days, which quietly destroyed the history that
-    /// section 5.1 says cannot be backfilled -- and every other test in this file would have gone
+    /// section 5.1 says cannot be filled in later -- and every other test in this file would have gone
     /// on passing, because they configured their own window anyway. Nothing here is seeded into
     /// <c>Settings</c> on purpose: this is what a fresh install does.
     /// </remarks>

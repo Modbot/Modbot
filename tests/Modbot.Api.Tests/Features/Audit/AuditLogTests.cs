@@ -267,8 +267,8 @@ public class AuditLogTests
         Assert.Equal(old, page.Coverage.OldestFact);
 
         // observed_at is stamped by the server from IModbotClock when the fact is written, so the
-        // backfilled entry from a year ago was still first learned of today.
+        // entry read during the catch-up from a year ago was still first learned of today.
         Assert.Equal(host.Clock.UtcNow, page.Coverage.FirstObservedAt);
-        Assert.False(page.Coverage.BackfillComplete);
+        Assert.False(page.Coverage.CatchUpComplete);
     }
 }

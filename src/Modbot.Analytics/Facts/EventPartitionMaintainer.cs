@@ -86,7 +86,7 @@ public sealed partial class EventPartitionMaintainer
     }
 
     /// <summary>
-    /// Ensures the partition covering one specific instant exists. For backfill and imports,
+    /// Ensures the partition covering one specific instant exists. For the catch-up and imports,
     /// which reach further back than <see cref="EnsureAsync"/> covers.
     /// </summary>
     public Task<bool> EnsureForAsync(DateTimeOffset instant, CancellationToken ct = default)

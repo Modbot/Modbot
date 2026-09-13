@@ -29,7 +29,7 @@ public readonly record struct EventBufferLimits(int MaxEvents, TimeSpan MaxAge)
 /// handed the other's data by accident.</para>
 /// <para><strong>Why it exists at all.</strong> VRChat sessions outlive network blips and a
 /// moderator's home connection is not a datacentre. A dropped connection has to cost latency, not
-/// data — presence history is the one thing in Modbot that cannot be backfilled.</para>
+/// data — presence history is the one thing in Modbot that cannot be filled in later.</para>
 /// <para><strong>It forgets on purpose.</strong> Bounded by count and by age, dropping the oldest
 /// first, so a client left offline for a fortnight does not fill a disk. Drops are counted rather
 /// than silent, because "we quietly lost some" is exactly the failure this subsystem must not

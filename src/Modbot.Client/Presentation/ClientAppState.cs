@@ -33,7 +33,7 @@ public enum WarningSeverity
 
     /// <summary>
     /// Presence is not being recorded and will not start again on its own. This is the one worth
-    /// interrupting somebody for: the gap it creates cannot be backfilled.
+    /// interrupting somebody for: the gap it creates cannot be filled in later.
     /// </summary>
     Critical,
 }
@@ -77,7 +77,7 @@ public sealed class ClientAppState
     /// </summary>
     /// <remarks>
     /// A log parser that silently stops matching is the worst outcome available: presence history
-    /// stops accruing, nobody notices for weeks, and the gap cannot be backfilled. Long enough not
+    /// stops accruing, nobody notices for weeks, and the gap cannot be filled in later. Long enough not
     /// to fire while somebody sits alone in a quiet instance; short enough to catch a format
     /// change within one session.
     /// </remarks>

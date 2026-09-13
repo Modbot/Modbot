@@ -159,5 +159,5 @@ foundation §5.5's position earns out.
 3. **Draw seed commitment mechanics** — publishing a hash beforehand and the seed afterwards is
    stronger than publishing the seed alone, and costs little. Probably worth it.
 4. **Rollup coverage**: which predicates need new rollups to stay fast, and whether those can be
-   backfilled from retained facts at the time M7 is built — they can only backfill across the window
+   filled in from retained facts at the time M7 is built — they can only be filled in across the window
    the presence retention still covers.

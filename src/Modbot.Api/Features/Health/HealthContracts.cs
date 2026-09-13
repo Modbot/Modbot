@@ -143,7 +143,7 @@ public sealed record SyncHealth(
     SyncRunSummary? LastGroupInfoRun,
     DateTimeOffset? AuditLogPolledAt,
     DateTimeOffset? GroupInfoPolledAt,
-    bool AuditLogBackfillComplete,
+    bool AuditLogCatchUpComplete,
     DateTimeOffset? AuditLogSyncedThrough,
     bool GroupConfigured,
     IReadOnlyList<UnmappedEvent> UnmappedAuditEvents,

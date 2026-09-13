@@ -10,7 +10,7 @@
 
 ## 1. Why this is third, not sixth
 
-Presence data is the only thing in Modbot that **cannot be backfilled**. Every week the client does
+Presence data is the only thing in Modbot that **cannot be filled in later**. Every week the client does
 not exist is a week of instance history no future feature can recover — "who are our regulars",
 "who was in the instance when that happened", and every giveaway weighted by time spent are all
 questions whose answers are being destroyed right now, not merely deferred.

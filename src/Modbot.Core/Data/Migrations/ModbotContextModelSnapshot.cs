@@ -494,15 +494,15 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id");
 
-                    b.Property<bool>("AuditLogBackfillComplete")
+                    b.Property<bool>("AuditLogCatchUpComplete")
                         .HasColumnType("boolean")
                         .HasColumnName("audit_log_backfill_complete");
 
-                    b.Property<int>("AuditLogBackfillOffset")
+                    b.Property<int>("AuditLogCatchUpOffset")
                         .HasColumnType("integer")
                         .HasColumnName("audit_log_backfill_offset");
 
-                    b.Property<int>("AuditLogCatchUpOffset")
+                    b.Property<int>("AuditLogBacklogOffset")
                         .HasColumnType("integer")
                         .HasColumnName("audit_log_catch_up_offset");
 

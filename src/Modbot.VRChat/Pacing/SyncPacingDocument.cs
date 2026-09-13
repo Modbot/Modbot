@@ -69,8 +69,14 @@ public sealed record SyncPacingDocument
     public int? AuditLogPageSize { get; init; }
     public int? AuditLogMaxPagesPerRun { get; init; }
     public double? AuditLogOverlapSeconds { get; init; }
-    public bool? AuditLogBackfill { get; init; }
-    public int? AuditLogMaxBackfillPages { get; init; }
+    // The two catch-up fields keep the key names they were first stored under. This document
+    // is the settings table's sync_pacing column as well as a wire shape, and a renamed key
+    // would silently drop a setting an operator had already saved.
+    [JsonPropertyName("auditLogBackfill")]
+    public bool? AuditLogCatchUp { get; init; }
+
+    [JsonPropertyName("auditLogMaxBackfillPages")]
+    public int? AuditLogMaxCatchUpPages { get; init; }
 
     public double? GroupInfoIntervalSeconds { get; init; }
     public double? GroupInfoRetryIntervalSeconds { get; init; }
@@ -89,8 +95,8 @@ public sealed record SyncPacingDocument
         && AuditLogPageSize is null
         && AuditLogMaxPagesPerRun is null
         && AuditLogOverlapSeconds is null
-        && AuditLogBackfill is null
-        && AuditLogMaxBackfillPages is null
+        && AuditLogCatchUp is null
+        && AuditLogMaxCatchUpPages is null
         && GroupInfoIntervalSeconds is null
         && GroupInfoRetryIntervalSeconds is null
         && GroupInfoRateLimitedIntervalSeconds is null
@@ -135,8 +141,8 @@ public sealed record SyncPacingDocument
             AuditLogPageSize = change.AuditLogPageSize ?? AuditLogPageSize,
             AuditLogMaxPagesPerRun = change.AuditLogMaxPagesPerRun ?? AuditLogMaxPagesPerRun,
             AuditLogOverlapSeconds = change.AuditLogOverlapSeconds ?? AuditLogOverlapSeconds,
-            AuditLogBackfill = change.AuditLogBackfill ?? AuditLogBackfill,
-            AuditLogMaxBackfillPages = change.AuditLogMaxBackfillPages ?? AuditLogMaxBackfillPages,
+            AuditLogCatchUp = change.AuditLogCatchUp ?? AuditLogCatchUp,
+            AuditLogMaxCatchUpPages = change.AuditLogMaxCatchUpPages ?? AuditLogMaxCatchUpPages,
             GroupInfoIntervalSeconds = change.GroupInfoIntervalSeconds ?? GroupInfoIntervalSeconds,
             GroupInfoRetryIntervalSeconds = change.GroupInfoRetryIntervalSeconds ?? GroupInfoRetryIntervalSeconds,
             GroupInfoRateLimitedIntervalSeconds =
@@ -272,9 +278,9 @@ public static class SyncPacingJson
                 document.AuditLogOverlapSeconds, 0, "auditLogOverlapSeconds",
                 "the re-read window cannot be negative", found),
 
-            AuditLogMaxBackfillPages = AtLeast(
-                document.AuditLogMaxBackfillPages, 1, "auditLogMaxBackfillPages",
-                "a backfill limited to no pages would never start", found),
+            AuditLogMaxCatchUpPages = AtLeast(
+                document.AuditLogMaxCatchUpPages, 1, "auditLogMaxCatchUpPages",
+                "a catch-up limited to no pages would never start", found),
 
             GroupInfoIntervalSeconds = AtLeast(
                 document.GroupInfoIntervalSeconds,

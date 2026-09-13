@@ -8,7 +8,7 @@ aggregates derived from it. This page says what is kept, for how long, and how t
 There is no default retention period. A deployment nobody has configured keeps every fact forever,
 and that is the intended way to run it.
 
-This is not an oversight to be tidied up later. Group history cannot be backfilled: whatever
+This is not an oversight to be tidied up later. Group history cannot be filled in later: whatever
 Modbot did not record while it was happening is gone, and no amount of API access brings it back.
 A default that quietly destroyed presence history after ninety days would have been deleting the
 answer to "is this person a regular?" for everyone who joined more than three months ago — which

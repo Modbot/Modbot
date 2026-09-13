@@ -81,7 +81,7 @@ public sealed record EvidenceStoreIncident(
 /// <para>
 /// <strong>Latching is not refusing to start.</strong> Modbot keeps running, and everything
 /// unrelated keeps working: bans, audit ingest, Discord, the overlay, analytics. Refusing to start
-/// would trade live data collection — which foundation section 5.1 says cannot be backfilled — for
+/// would trade live data collection — which foundation section 5.1 says cannot be filled in later — for
 /// a gesture about data that is already lost, hide the message behind a platform's
 /// "deployment failed", and lock the operator out of the settings page that is the only place to
 /// fix it.

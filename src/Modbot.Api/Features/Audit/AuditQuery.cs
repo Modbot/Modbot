@@ -87,7 +87,7 @@ public sealed class AuditQuery(ModbotContext db)
     /// <remarks>
     /// Scoped to the types the caller may see, because an operator who can read the operational
     /// log has facts going back to first boot while a moderator's oldest visible fact is whatever
-    /// the backfill reached. One number for both would be wrong for one of them.
+    /// the catch-up reached. One number for both would be wrong for one of them.
     /// </remarks>
     public async Task<AuditCoverage> CoverageAsync(
         IReadOnlyList<string> types,
@@ -99,14 +99,14 @@ public sealed class AuditQuery(ModbotContext db)
             .FirstOrDefaultAsync(s => s.Id == 1, ct);
 
         if (types.Count == 0)
-            return new AuditCoverage(null, null, settings?.AuditLogBackfillComplete ?? false);
+            return new AuditCoverage(null, null, settings?.AuditLogCatchUpComplete ?? false);
 
         var oldest = await db.Events.AsNoTracking()
             .Where(e => types.Contains(e.Type))
             .MinAsync(e => (DateTimeOffset?)e.OccurredAt, ct);
 
         // When Modbot first learned anything from VRChat's own audit log. Not the same as the
-        // oldest fact: the backfill records entries that happened long before this deployment
+        // oldest fact: the catch-up records entries that happened long before this deployment
         // existed, and the gap between the two numbers is the whole of the ban list's caveat.
         var firstObserved = await db.Events.AsNoTracking()
             .Where(e => e.Source == FactSource.AuditLog)
@@ -115,7 +115,7 @@ public sealed class AuditQuery(ModbotContext db)
         return new AuditCoverage(
             oldest,
             firstObserved,
-            settings?.AuditLogBackfillComplete ?? false);
+            settings?.AuditLogCatchUpComplete ?? false);
     }
 
     /// <summary>Distinct actors in the recent visible history, busiest first.</summary>

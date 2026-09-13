@@ -1314,7 +1314,7 @@ log ships in M0 even though most of the analytics UI does not.
 ```
 
 **Invariant: rollups are recomputable from facts; facts are never mutated.** A bug in a metric is a
-re-run, not lost data. A metric invented next year backfills across all recorded history.
+re-run, not lost data. A metric invented next year is filled in across all recorded history.
 
 #### 5.2.1 The counted-only path — when *not* to write a fact
 
@@ -1412,7 +1412,7 @@ is 240 MB a year becoming 290 MB for a typical group. What it cost was not.
 VRChat's audit log types its events as free-form strings. Modbot translated them into numbers, and
 an event with no number was **counted and not recorded** — the cursor moved on, and because VRChat's
 own log ages out, those entries were gone for good. That is §5.1's failure exactly: history cannot
-be backfilled, and here Modbot was the one discarding it. Around that sat the ordinary friction —
+be filled in later, and here Modbot was the one discarding it. Around that sat the ordinary friction —
 every new producer had to append an enum member before it could record anything, evidence access
 had no member and so was never recorded at all, and §4.3.4.2's vocabulary check exists only to catch
 a mapping whose spelling is wrong.
@@ -1461,7 +1461,7 @@ a full rebuild from facts is always available and is the supported fix for any a
 ### 5.5 Retention — off by default, and the numbers say why
 
 > **Revised 2026-09-12.** An earlier draft pruned presence facts after 90 days. That contradicted
-> §5.1, which argues history cannot be backfilled and is the reason the fact log exists at all.
+> §5.1, which argues history cannot be filled in later and is the reason the fact log exists at all.
 > **Modbot now deletes nothing by default.**
 
 #### Measured, not estimated
@@ -2221,7 +2221,7 @@ else depends on it — Modbot must be fully useful whether or not it ever exists
 
 The Windows client was originally sixth. It moved ahead of moderation actions, Discord sync and
 instance tooling for one reason: **presence data is only ever valuable retroactively, and it cannot
-be backfilled.**
+be filled in later.**
 
 This is the same argument as §5.1, applied to a milestone instead of a schema. Every week the client
 does not exist is a week of instance history that no future feature can recover. "Who are our real
@@ -2276,7 +2276,7 @@ Recorded so they are visible rather than buried, and so they are not relitigated
    `...WithHttpInfoAsync` returns a full `ApiResponse<T>` and never throws, which is precisely what
    the gate wants. Two upstream gaps remain, documented in §4.1.
 7. **Nothing is deleted by default** (§5.5) — both fact classes and rollups are kept forever, with
-   retention configurable per class. History cannot be backfilled, and at a measured 326 bytes per
+   retention configurable per class. History cannot be filled in later, and at a measured 326 bytes per
    fact a typical group costs pennies a year to keep whole. The settings page projects that cost
    from measured usage so the operator decides against numbers rather than against a guess.
 8. **Client facts are deduplicated at the ingest boundary** (§5.7) via a deterministic event

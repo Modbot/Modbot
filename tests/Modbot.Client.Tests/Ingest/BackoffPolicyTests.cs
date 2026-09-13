@@ -62,7 +62,7 @@ public class BackoffPolicyTests
         // Foundation 4.3.1 forbids retrying VRChat's 429 -- a cold stop -- because that limiter is
         // punitive and retrying extends the penalty. A Modbot server is ordinary software under the
         // operator's own control, and the cost of giving up is presence history that cannot be
-        // backfilled. The two rules look alike and are opposites.
+        // filled in later. The two rules look alike and are opposites.
         Assert.True(Deterministic().Delay(1) > TimeSpan.Zero);
         Assert.True(Deterministic().Delay(50) <= TimeSpan.FromMinutes(5));
     }

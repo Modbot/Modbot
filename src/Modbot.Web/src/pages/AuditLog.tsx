@@ -226,7 +226,7 @@ function Row({
  * Where the timeline actually starts.
  *
  * Shown always, not on a threshold. The oldest entry on screen looks like the beginning of the
- * history whether or not it is, and while the backfill is still running it is not even stable.
+ * history whether or not it is, and while the catch-up is still running it is not even stable.
  */
 function Coverage({ coverage }: { coverage: AuditPage['coverage'] }) {
   if (!coverage.oldestFact) return null
@@ -234,7 +234,7 @@ function Coverage({ coverage }: { coverage: AuditPage['coverage'] }) {
   return (
     <p className="px-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
       Oldest recorded entry: {formatDay(coverage.oldestFact)}.{' '}
-      {coverage.backfillComplete
+      {coverage.catchUpComplete
         ? 'Modbot has read back as far as VRChat’s own audit log still goes.'
         : 'Modbot is still walking backwards through VRChat’s audit log, so this start date is still moving.'}
     </p>

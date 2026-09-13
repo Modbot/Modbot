@@ -13,7 +13,7 @@ namespace Modbot.Core.Data.Entities;
 /// free-form string — <c>group.member.user.ban</c> — and Modbot translated those into numbers. An
 /// event type with no number was <em>counted and not recorded</em>, and the cursor advanced past it.
 /// VRChat's audit log has its own retention, so those entries were gone for good. §5.1's entire
-/// argument is that history cannot be backfilled; the enum turned "Modbot does not understand this
+/// argument is that history cannot be filled in later; the enum turned "Modbot does not understand this
 /// yet" into "this never happened", which is the one outcome the fact log exists to prevent.
 /// </para>
 /// <para>

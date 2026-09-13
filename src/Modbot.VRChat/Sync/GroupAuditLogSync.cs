@@ -49,7 +49,7 @@ public sealed class GroupAuditLogSync
 
     /// <summary>
     /// Months this run has already made room for. The maintainer is idempotent but not free --
-    /// it asks the catalogue every time -- and a backfill page of sixty entries from one month
+    /// it asks the catalogue every time -- and a catch-up page of sixty entries from one month
     /// would otherwise ask sixty times for the same answer.
     /// </summary>
     private readonly HashSet<string> _ensuredMonths = new(StringComparer.Ordinal);
@@ -105,7 +105,7 @@ public sealed class GroupAuditLogSync
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The ordering matters on exactly the groups where it is hard to see. A backfill that had
+    /// The ordering matters on exactly the groups where it is hard to see. A catch-up that had
     /// priority would walk backwards through months of history a page at a time, and today's bans
     /// would not be recorded until it finished -- which on a large group is hours. Nothing would
     /// be lost, because each fact still carries VRChat's own timestamp, but a freshly installed
@@ -118,19 +118,19 @@ public sealed class GroupAuditLogSync
     /// </remarks>
     private async Task<AuditLogRunResult> ReadAsync(Settings settings, string groupId, CancellationToken ct)
     {
-        var backfilling = _options.Backfill && !settings.AuditLogBackfillComplete;
+        var catchingUp = _options.CatchUp && !settings.AuditLogCatchUpComplete;
 
-        if (backfilling && settings.AuditLogSyncedThrough is null)
-            return await BackfillAsync(settings, groupId, ct).ConfigureAwait(false);
+        if (catchingUp && settings.AuditLogSyncedThrough is null)
+            return await CatchUpAsync(settings, groupId, ct).ConfigureAwait(false);
 
         var tail = await TailAsync(settings, groupId, ct).ConfigureAwait(false);
 
         // Not drained means there is more waiting right now, so history waits too; a cold stop or
         // a failure means the next request would not be sent, or should not be.
-        if (!backfilling || !tail.Drained)
+        if (!catchingUp || !tail.Drained)
             return tail;
 
-        return tail.Plus(await BackfillAsync(settings, groupId, ct).ConfigureAwait(false));
+        return tail.Plus(await CatchUpAsync(settings, groupId, ct).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -151,26 +151,26 @@ public sealed class GroupAuditLogSync
     /// <para>
     /// <see cref="Settings.AuditLogSyncedThrough"/> is advanced to the newest entry seen anywhere
     /// in the walk, so that whichever order VRChat returns pages in, the tail poll that follows
-    /// the backfill starts from the true head.
+    /// the catch-up starts from the true head.
     /// </para>
     /// </remarks>
-    private async Task<AuditLogRunResult> BackfillAsync(
+    private async Task<AuditLogRunResult> CatchUpAsync(
         Settings settings,
         string groupId,
         CancellationToken ct)
     {
-        if (settings.AuditLogBackfillOffset >= _options.MaxBackfillPages * _options.PageSize)
+        if (settings.AuditLogCatchUpOffset >= _options.MaxCatchUpPages * _options.PageSize)
         {
             _log.Warning(
-                "Stopping the audit-log backfill at {Pages} pages: VRChat is still reporting more history. "
+                "Stopping the audit-log catch-up at {Pages} pages: VRChat is still reporting more history. "
                 + "Recent entries are unaffected; older ones will not be recorded",
-                _options.MaxBackfillPages);
+                _options.MaxCatchUpPages);
 
-            settings.AuditLogBackfillComplete = true;
-            return new AuditLogRunResult(SyncOutcome.Quiet, Message: "backfill page limit reached");
+            settings.AuditLogCatchUpComplete = true;
+            return new AuditLogRunResult(SyncOutcome.Quiet, Message: "catch-up page limit reached");
         }
 
-        var page = await FetchAsync(groupId, settings.AuditLogBackfillOffset, startDate: null, ct)
+        var page = await FetchAsync(groupId, settings.AuditLogCatchUpOffset, startDate: null, ct)
             .ConfigureAwait(false);
 
         if (page.Failure is { } failure)
@@ -179,17 +179,17 @@ public sealed class GroupAuditLogSync
         var entries = page.Entries;
         var written = await RecordAsync(entries, ct).ConfigureAwait(false);
 
-        settings.AuditLogBackfillOffset += entries.Count;
+        settings.AuditLogCatchUpOffset += entries.Count;
         settings.AuditLogSyncedThrough = Newest(settings.AuditLogSyncedThrough, entries);
 
         // Short page or no next page: VRChat has nothing older left. An empty page counts as
         // exhausted too -- there is nothing to be gained by asking the same question again.
         if (entries.Count == 0 || entries.Count < _options.PageSize || !page.HasNext)
         {
-            settings.AuditLogBackfillComplete = true;
+            settings.AuditLogCatchUpComplete = true;
             _log.Information(
                 "Finished reading the group's existing audit log: {Entries} entries in total",
-                settings.AuditLogBackfillOffset);
+                settings.AuditLogCatchUpOffset);
         }
 
         return new AuditLogRunResult(
@@ -200,7 +200,7 @@ public sealed class GroupAuditLogSync
             AlreadyRecorded: written.AlreadyRecorded,
             Unmapped: written.Unmapped,
             Unusable: written.Unusable,
-            Backfilling: !settings.AuditLogBackfillComplete,
+            CatchingUp: !settings.AuditLogCatchUpComplete,
             Drained: true,
             SyncedThrough: settings.AuditLogSyncedThrough);
     }
@@ -239,7 +239,7 @@ public sealed class GroupAuditLogSync
         var pages = 0;
         var drained = false;
         DateTimeOffset? newest = settings.AuditLogSyncedThrough;
-        var offset = settings.AuditLogCatchUpOffset;
+        var offset = settings.AuditLogBacklogOffset;
 
         while (pages < _options.MaxPagesPerRun)
         {
@@ -277,11 +277,11 @@ public sealed class GroupAuditLogSync
         if (drained)
         {
             settings.AuditLogSyncedThrough = newest;
-            settings.AuditLogCatchUpOffset = 0;
+            settings.AuditLogBacklogOffset = 0;
         }
         else
         {
-            settings.AuditLogCatchUpOffset = offset;
+            settings.AuditLogBacklogOffset = offset;
         }
 
         return new AuditLogRunResult(
@@ -382,7 +382,7 @@ public sealed class GroupAuditLogSync
                     // FactType.Unrecognised with VRChat's own name kept in TypeRaw. It used to be
                     // counted and dropped, and the cursor moved on; VRChat's audit log ages out,
                     // so every one of those was gone for good. Section 5.1's whole argument is
-                    // that history cannot be backfilled, and this was Modbot doing the deleting.
+                    // that history cannot be filled in later, and this was Modbot doing the deleting.
                     totals.Unmapped++;
                     ReportUnmapped(entry, mapping.EventType);
                     if (mapping.Fact is not null)
@@ -421,7 +421,7 @@ public sealed class GroupAuditLogSync
                 continue;
             }
 
-            // A backfilled entry can predate every partition the maintainer's rolling window
+            // An entry from the catch-up can predate every partition the maintainer's rolling window
             // covers, and an insert with nowhere to land fails the whole page -- including the
             // entries after it, which have done nothing wrong.
             await EnsureRoomForAsync(fact.OccurredAt, ct).ConfigureAwait(false);

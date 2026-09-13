@@ -234,13 +234,13 @@ public class SyncSettingsTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
         var written = await PutAsync(host, cookie, new SyncSettingsUpdate(
-            AuditLog: new AuditLogPollRateUpdate(MaxIntervalSeconds: 3600, Backfill: false),
+            AuditLog: new AuditLogPollRateUpdate(MaxIntervalSeconds: 3600, CatchUp: false),
             GroupInfo: new GroupInfoPollRateUpdate(IntervalSeconds: 3600)));
 
         Assert.Empty(written.Adjustments);
         Assert.Equal(3600, written.AuditLog.MaxIntervalSeconds, 6);
         Assert.Equal(3600, written.GroupInfo.IntervalSeconds, 6);
-        Assert.False(written.AuditLog.Backfill);
+        Assert.False(written.AuditLog.CatchUp);
     }
 
     /// <summary>

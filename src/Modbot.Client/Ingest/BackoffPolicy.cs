@@ -9,7 +9,7 @@ namespace Modbot.Client.Ingest;
 /// all — a cold stop — because VRChat's limiter is punitive and opaque, and retrying <em>extends</em>
 /// the penalty. None of that reasoning applies here. A Modbot server is ordinary software under the
 /// group operator's own control, it sends <c>Retry-After</c> when it wants a pause, and the cost of
-/// not retrying is lost presence history that cannot be backfilled.</para>
+/// not retrying is lost presence history that cannot be filled in later.</para>
 /// <para><strong>Do not copy the cold-stop logic across.</strong> The two rules look similar and
 /// are opposites, and the client sits next to code that implements the other one.</para>
 /// <para>Jitter matters more here than it usually does: several moderators in one instance see the
