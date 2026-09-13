@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Api.Features.Client.Alerts;
 using Modbot.Api.Features.Client.Devices;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -61,6 +62,7 @@ public static class ContextHandler
         string? instanceId,
         HttpContext context,
         DeviceAuthenticator authenticator,
+        DeviceLocations locations,
         ModbotContext database,
         IModbotClock clock,
         CancellationToken ct)
@@ -74,6 +76,15 @@ public static class ContextHandler
 
         if (instanceId is not { Length: > 0 })
             return ClientApiErrors.Malformed("An instanceId is required.");
+
+        // Asking for an instance's roster is a device saying where it is standing, and it is the
+        // steadiest such signal there is -- an overlay re-reads this every twenty seconds whether
+        // or not anything is happening, where a quiet instance produces no ingest batches at all.
+        // It is what keeps a moderator watching a silent room still able to receive the one alert
+        // that matters. No new authority is granted by taking it at face value: this token could
+        // already read any of this deployment's instances, and the only consequence is which of
+        // that group's own alerts it is offered.
+        locations.Record(authentication.Device!.Id, instanceId, clock.UtcNow);
 
         var since = clock.UtcNow - RosterWindow;
 

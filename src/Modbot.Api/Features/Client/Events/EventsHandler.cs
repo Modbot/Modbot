@@ -85,6 +85,7 @@ public static class EventsHandler
         IFactWriter facts,
         IClientDeviceStore devices,
         AlertHub alerts,
+        DeviceLocations locations,
         ModbotContext database,
         IModbotClock clock,
         CancellationToken ct)
@@ -128,6 +129,13 @@ public static class EventsHandler
         if (candidates.Count == 0)
             return Results.Ok(new EventBatchResponse(0, 0, rejected));
 
+        // Where this batch says its reporter is standing, which is what lets a flagged-join alert
+        // go to the moderators who can act on it instead of to every paired device. It is read out
+        // of a request the client was making anyway -- no extra field, no extra call, and nothing
+        // a paused client discloses, because a paused client sends no batches.
+        if (Newest(candidates)?.InstanceId is { Length: > 0 } here)
+            locations.Record(authentication.Device!.Id, here, clock.UtcNow);
+
         var results = await facts.WriteManyAsync(candidates, ct);
 
         await RaiseAlertsAsync(
@@ -150,6 +158,10 @@ public static class EventsHandler
     /// one another client already reported and already alerted on, so alerting again would
     /// interrupt six times for one arrival. An overlay that interrupts constantly gets disabled,
     /// and a disabled overlay notifies nobody.</para>
+    /// <para><strong>Only the moderators in that instance.</strong> Every live device is offered
+    /// to the hub, which keeps for itself the decision about which of them are standing there.
+    /// A moderator in a different instance cannot act on the card and has no business being told
+    /// which room a colleague is in or who just walked into it.</para>
     /// <para>A failure here is swallowed: an alert is a convenience on top of ingest, and losing
     /// one must never cost a fact that cannot be backfilled.</para>
     /// </remarks>
@@ -192,8 +204,30 @@ public static class EventsHandler
             alerts.Raise(
                 AlertHub.ForFlaggedJoin(clock, arrival.SubjectId, name, arrival.InstanceId!, count),
                 reportingDeviceId,
-                recipients);
+                recipients,
+                clock.UtcNow);
         }
+    }
+
+    /// <summary>
+    /// The latest thing in the batch, which is where the reporting moderator was standing when
+    /// they observed it.
+    /// </summary>
+    /// <remarks>
+    /// A batch can span two instances, because a moderator may walk from one into another between
+    /// flushes. The newest event names the one they ended up in; ties break towards the end of the
+    /// list, which is the order the client observed them in.
+    /// </remarks>
+    private static FactRecord? Newest(IReadOnlyList<FactRecord> facts)
+    {
+        FactRecord? newest = null;
+        foreach (var fact in facts)
+        {
+            if (newest is null || fact.OccurredAt >= newest.OccurredAt)
+                newest = fact;
+        }
+
+        return newest;
     }
 
     private static string Reason(ClientEventDto submitted, string managedGroupId)

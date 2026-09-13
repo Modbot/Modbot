@@ -77,6 +77,50 @@ public class OverlayReadTests
         return (await response.Content.ReadFromJsonAsync<T>(ct))!;
     }
 
+    /// <summary>
+    /// Puts a device in an instance, the way a running overlay does.
+    /// </summary>
+    /// <remarks>
+    /// Alerts are scoped to the instance a device is standing in, and a device says where that is
+    /// by reading that instance's roster — which an overlay does every twenty seconds whether or
+    /// not anything is happening. Nothing extra goes on the wire to establish it, which is exactly
+    /// why this is a roster read and not a new call.
+    /// </remarks>
+    private static async Task StandingInAsync(
+        ClientApiTestHost host, string token, string instance, CancellationToken ct)
+    {
+        var response = await host.Client.SendAsync(
+            host.WithToken(HttpMethod.Get, $"/api/v1/client/context?instanceId={instance}", token), ct);
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static async Task ReportJoinAsync(
+        ClientApiTestHost host,
+        string token,
+        string subject,
+        CancellationToken ct,
+        string instance = Instance,
+        string? displayName = null)
+    {
+        var report = host.WithToken(HttpMethod.Post, "/api/v1/client/events", token);
+        report.Content = JsonContent.Create(new EventBatchDto(
+            Guid.NewGuid().ToString("n"), "2026.9.0", 0, "good",
+            [
+                new ClientEventDto(
+                    Guid.NewGuid().ToString("n"), "InstanceJoined", Noon, null, subject,
+                    "wrld_4b34", instance, Group,
+                    displayName is null ? null : new Dictionary<string, string> { ["displayName"] = displayName }),
+            ]));
+
+        var response = await host.Client.SendAsync(report, ct);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private static Task<HttpResponseMessage> PollAsync(
+        ClientApiTestHost host, string token, CancellationToken ct, int wait = 1)
+        => host.Client.SendAsync(host.WithToken(HttpMethod.Get, $"/api/v1/client/alerts?wait={wait}", token), ct);
+
     [Fact]
     public async Task ARosterIsWhoIsStillHere()
     {
@@ -221,31 +265,23 @@ public class OverlayReadTests
         Assert.True(stopwatch.Elapsed >= TimeSpan.FromMilliseconds(800), $"returned after {stopwatch.Elapsed}");
     }
 
+
     [Fact]
-    public async Task AFlaggedUserJoiningWakesTheOtherModeratorsOverlays()
+    public async Task AFlaggedUserJoiningWakesTheOtherModeratorsInThatInstance()
     {
         var ct = TestContext.Current.CancellationToken;
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
 
         var watcher = await host.PairDeviceAsync("Mei's headset", ct);
+        await StandingInAsync(host, watcher, Instance, ct);
 
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
 
         // The watcher is already waiting when the join is reported, which is the real shape of it.
-        var waiting = host.Client.SendAsync(
-            host.WithToken(HttpMethod.Get, "/api/v1/client/alerts?wait=20", watcher), ct);
+        var waiting = PollAsync(host, watcher, ct, wait: 20);
 
-        var report = host.WithToken(HttpMethod.Post, "/api/v1/client/events", reporter);
-        report.Content = JsonContent.Create(new EventBatchDto(
-            "batch", "2026.9.0", 0, "good",
-            [
-                new ClientEventDto(
-                    "e1", "InstanceJoined", Noon, null, "usr_flag", "wrld_4b34", Instance, Group,
-                    new Dictionary<string, string> { ["displayName"] = "Trouble" }),
-            ]));
-
-        (await host.Client.SendAsync(report, ct)).EnsureSuccessStatusCode();
+        await ReportJoinAsync(host, reporter, "usr_flag", ct, displayName: "Trouble");
 
         var response = await waiting;
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -257,6 +293,100 @@ public class OverlayReadTests
     }
 
     [Fact]
+    public async Task AModeratorInADifferentInstanceIsNotToldAboutIt()
+    {
+        // The scoping rule, and it is a data-minimisation one before it is a bandwidth one: a
+        // moderator standing somewhere else cannot act on the card, and telling them anyway hands
+        // their machine a colleague's instance and the name of somebody who just walked into it.
+        var ct = TestContext.Current.CancellationToken;
+        var (host, reporter) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var elsewhere = await host.PairDeviceAsync("Mei's headset", ct);
+        await StandingInAsync(host, elsewhere, "77777", ct);
+
+        await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
+        await ReportJoinAsync(host, reporter, "usr_flag", ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, elsewhere, ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task ADeviceThatHasNotSaidWhereItIsIsToldNothing()
+    {
+        // Fail closed. A device that has not named an instance is one whose VRChat is closed, or
+        // whose client is paused, or which has only just paired -- none of which wants a card, and
+        // all of which would otherwise receive every alert this deployment raises.
+        var ct = TestContext.Current.CancellationToken;
+        var (host, reporter) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var idle = await host.PairDeviceAsync("a client nobody is running", ct);
+
+        await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
+        await ReportJoinAsync(host, reporter, "usr_flag", ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, idle, ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task ReportingPresenceIsEnoughToBePlacedInAnInstance()
+    {
+        // The other way a device says where it is, and the one that needs no overlay running: the
+        // ingest batch already names the instance its observations came from. Neither route adds a
+        // byte to the wire, which is what keeps this from becoming a second presence channel.
+        var ct = TestContext.Current.CancellationToken;
+        var (host, reporter) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var watcher = await host.PairDeviceAsync("Mei's desktop", ct);
+        await ReportJoinAsync(host, watcher, "usr_ordinary", ct);
+
+        await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
+        await ReportJoinAsync(host, reporter, "usr_flag", ct);
+
+        Assert.Equal(HttpStatusCode.OK, (await PollAsync(host, watcher, ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task WalkingIntoAnotherInstanceMovesWhichAlertsAModeratorGets()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, reporter) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var wanderer = await host.PairDeviceAsync("Mei's headset", ct);
+        await StandingInAsync(host, wanderer, Instance, ct);
+        await StandingInAsync(host, wanderer, "77777", ct);
+
+        await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
+        await ReportJoinAsync(host, reporter, "usr_flag", ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, wanderer, ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task ADeviceThatStoppedReportingHoursAgoIsNoLongerCreditedWithAnInstance()
+    {
+        // The ordinary way a session ends is that it stops: VRChat is closed, crashes, or the
+        // machine sleeps, and no client sends a goodbye. A location that never expired would have
+        // this deployment broadcasting to moderators who went to bed last night.
+        var ct = TestContext.Current.CancellationToken;
+        var (host, reporter) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var gone = await host.PairDeviceAsync("Mei's headset", ct);
+        await StandingInAsync(host, gone, Instance, ct);
+
+        host.Clock.Advance(DeviceLocations.RememberedFor + TimeSpan.FromMinutes(1));
+
+        await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
+        await ReportJoinAsync(host, reporter, "usr_flag", ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, gone, ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task TheClientThatReportedTheJoinIsNotAlertedAboutIt()
     {
         // It read the arrival out of its own log a moment ago. Telling it again would put a card
@@ -265,22 +395,11 @@ public class OverlayReadTests
         var (host, reporter) = await ReadyAsync(ct);
         await using var _ = host;
 
+        await StandingInAsync(host, reporter, Instance, ct);
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
+        await ReportJoinAsync(host, reporter, "usr_flag", ct);
 
-        var report = host.WithToken(HttpMethod.Post, "/api/v1/client/events", reporter);
-        report.Content = JsonContent.Create(new EventBatchDto(
-            "batch", "2026.9.0", 0, "good",
-            [
-                new ClientEventDto(
-                    "e1", "InstanceJoined", Noon, null, "usr_flag", "wrld_4b34", Instance, Group, null),
-            ]));
-
-        (await host.Client.SendAsync(report, ct)).EnsureSuccessStatusCode();
-
-        var response = await host.Client.SendAsync(
-            host.WithToken(HttpMethod.Get, "/api/v1/client/alerts?wait=1", reporter), ct);
-
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, reporter, ct)).StatusCode);
     }
 
     [Fact]
@@ -293,21 +412,11 @@ public class OverlayReadTests
         await using var _ = host;
 
         var watcher = await host.PairDeviceAsync("Mei's headset", ct);
+        await StandingInAsync(host, watcher, Instance, ct);
 
-        var report = host.WithToken(HttpMethod.Post, "/api/v1/client/events", reporter);
-        report.Content = JsonContent.Create(new EventBatchDto(
-            "batch", "2026.9.0", 0, "good",
-            [
-                new ClientEventDto(
-                    "e1", "InstanceJoined", Noon, null, "usr_ordinary", "wrld_4b34", Instance, Group, null),
-            ]));
+        await ReportJoinAsync(host, reporter, "usr_ordinary", ct);
 
-        (await host.Client.SendAsync(report, ct)).EnsureSuccessStatusCode();
-
-        var response = await host.Client.SendAsync(
-            host.WithToken(HttpMethod.Get, "/api/v1/client/alerts?wait=1", watcher), ct);
-
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, watcher, ct)).StatusCode);
     }
 
     [Fact]
@@ -321,6 +430,7 @@ public class OverlayReadTests
         await using var _ = host;
 
         var watcher = await host.PairDeviceAsync("Mei's headset", ct);
+        await StandingInAsync(host, watcher, Instance, ct);
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
 
         var report = host.WithToken(HttpMethod.Post, "/api/v1/client/events", reporter);
@@ -333,10 +443,7 @@ public class OverlayReadTests
 
         (await host.Client.SendAsync(report, ct)).EnsureSuccessStatusCode();
 
-        var response = await host.Client.SendAsync(
-            host.WithToken(HttpMethod.Get, "/api/v1/client/alerts?wait=1", watcher), ct);
-
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, watcher, ct)).StatusCode);
     }
 
     [Fact]
@@ -349,31 +456,14 @@ public class OverlayReadTests
 
         var second = await host.PairDeviceAsync("second reporter", ct);
         var watcher = await host.PairDeviceAsync("Mei's headset", ct);
+        await StandingInAsync(host, watcher, Instance, ct);
 
         await WriteAsync(host, Fact(FactType.MemberBanned, "usr_flag", Noon.AddDays(-10), instance: null));
 
         foreach (var token in (string[])[first, second])
-        {
-            var report = host.WithToken(HttpMethod.Post, "/api/v1/client/events", token);
-            report.Content = JsonContent.Create(new EventBatchDto(
-                "batch", "2026.9.0", 0, "good",
-                [
-                    new ClientEventDto(
-                        Guid.NewGuid().ToString("n"), "InstanceJoined", Noon, null,
-                        "usr_flag", "wrld_4b34", Instance, Group, null),
-                ]));
+            await ReportJoinAsync(host, token, "usr_flag", ct);
 
-            (await host.Client.SendAsync(report, ct)).EnsureSuccessStatusCode();
-        }
-
-        Assert.Equal(
-            HttpStatusCode.OK,
-            (await host.Client.SendAsync(
-                host.WithToken(HttpMethod.Get, "/api/v1/client/alerts?wait=1", watcher), ct)).StatusCode);
-
-        Assert.Equal(
-            HttpStatusCode.NoContent,
-            (await host.Client.SendAsync(
-                host.WithToken(HttpMethod.Get, "/api/v1/client/alerts?wait=1", watcher), ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await PollAsync(host, watcher, ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, watcher, ct)).StatusCode);
     }
 }

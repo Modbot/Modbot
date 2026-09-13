@@ -55,8 +55,10 @@ public static class ClientApi
 
         services.AddScoped<IClientDeviceStore, DatabaseClientDeviceStore>();
 
-        // A singleton because a long poll opened against one request must be woken by an ingest
-        // batch arriving on another.
+        // Singletons because a long poll opened against one request must be woken by an ingest
+        // batch arriving on another, and because where each device is standing is shared routing
+        // state for that channel rather than anything belonging to a request.
+        services.AddSingleton<DeviceLocations>();
         services.AddSingleton<AlertHub>();
         services.AddScoped<DeviceAuthenticator>();
 

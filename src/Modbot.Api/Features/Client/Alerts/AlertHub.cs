@@ -29,6 +29,11 @@ public sealed record FlaggedJoinAlertDto(
 /// moment; a backlog of stale ones delivered at once would interrupt a moderator with news from
 /// twenty minutes ago, and an overlay that interrupts constantly gets disabled. A disabled overlay
 /// notifies nobody.</para>
+/// <para><strong>Scoped to the instance, not broadcast.</strong> An alert reaches only the devices
+/// believed to be standing in the instance it names — see <see cref="DeviceLocations"/>. A
+/// moderator elsewhere cannot act on it, so sending it to them would spend a round trip to deliver
+/// something their client discards, and would hand one moderator's instance and its arrivals to
+/// every other moderator's machine for no purpose.</para>
 /// <para><strong>This is still not a command channel.</strong> An alert is information the client
 /// displays. Nothing here tells a client to do anything, and the client has no code that would act
 /// on it if it did.</para>
@@ -41,28 +46,48 @@ public sealed class AlertHub
     /// </summary>
     public const int PerDeviceCapacity = 8;
 
+    private readonly DeviceLocations _locations;
     private readonly Dictionary<Guid, Channel<FlaggedJoinAlertDto>> _queues = [];
     private readonly Lock _gate = new();
 
-    /// <summary>Raises an alert for every paired device except the one that reported it.</summary>
+    public AlertHub(DeviceLocations locations) => _locations = locations;
+
+    /// <summary>
+    /// Raises an alert for the devices in the instance it names, except the one that reported it.
+    /// Returns how many were told.
+    /// </summary>
     /// <remarks>
-    /// The reporting client already knows: it read the join out of its own log a moment ago, and
-    /// telling it again would put a card in front of the one moderator who does not need it.
+    /// <para>The reporting client already knows: it read the join out of its own log a moment ago,
+    /// and telling it again would put a card in front of the one moderator who does not need
+    /// it.</para>
+    /// <para><strong>Everybody else is filtered by where they are.</strong> The decision lives here
+    /// rather than at the call site so there is one place it is made and one place it can be read —
+    /// a second caller of this method must not be able to broadcast by omission. A device that has
+    /// not recently said where it is is told nothing.</para>
     /// </remarks>
-    public void Raise(FlaggedJoinAlertDto alert, Guid reportedByDeviceId, IEnumerable<Guid> deviceIds)
+    public int Raise(
+        FlaggedJoinAlertDto alert,
+        Guid reportedByDeviceId,
+        IEnumerable<Guid> deviceIds,
+        DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(alert);
+
+        var raised = 0;
 
         lock (_gate)
         {
             foreach (var deviceId in deviceIds)
             {
-                if (deviceId == reportedByDeviceId)
+                if (deviceId == reportedByDeviceId || !_locations.IsIn(deviceId, alert.InstanceId, now))
                     continue;
 
                 QueueFor(deviceId).Writer.TryWrite(alert);
+                raised++;
             }
         }
+
+        return raised;
     }
 
     /// <summary>
@@ -95,11 +120,18 @@ public sealed class AlertHub
         }
     }
 
-    /// <summary>Forgets a device's queue. Called when its token is revoked.</summary>
+    /// <summary>Forgets a device's queue and where it was. Called when its token is revoked.</summary>
+    /// <remarks>
+    /// Both halves go together. Leaving the location behind would keep a revoked device on the
+    /// list of places this deployment thinks its staff are standing, which is context about a
+    /// person who is no longer entitled to any.
+    /// </remarks>
     public void Forget(Guid deviceId)
     {
         lock (_gate)
             _queues.Remove(deviceId);
+
+        _locations.Forget(deviceId);
     }
 
     private Channel<FlaggedJoinAlertDto> QueueFor(Guid deviceId)
