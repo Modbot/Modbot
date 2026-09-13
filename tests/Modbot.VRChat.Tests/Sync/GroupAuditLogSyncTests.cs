@@ -180,8 +180,8 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     public async Task AnUnrecognisedEventTypeIsReportedRatherThanDropped()
     {
         VRChat.Groups.Add(
-            Entry("gaud_1", Now.AddMinutes(-3), "group.post.create"),
-            Entry("gaud_2", Now.AddMinutes(-2), "group.post.create"),
+            Entry("gaud_1", Now.AddMinutes(-3), "group.something.new"),
+            Entry("gaud_2", Now.AddMinutes(-2), "group.something.new"),
             Entry("gaud_3", Now.AddMinutes(-1), GroupAuditLogEvents.UserBan));
 
         var run = await RunAuditLogAsync();
@@ -193,11 +193,11 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
         Assert.Equal(3, run.FactsWritten);
 
         var facts = await FactsAsync();
-        Assert.Equal(2, facts.Count(f => f.Type == FactType.Unrecognised && f.TypeRaw == "group.post.create"));
+        Assert.Equal(2, facts.Count(f => f.Type == FactType.Unrecognised && f.TypeRaw == "group.something.new"));
 
         var unmapped = Assert.Single(Diagnostics.UnmappedAuditEvents);
 
-        Assert.Equal("group.post.create", unmapped.EventType);
+        Assert.Equal("group.something.new", unmapped.EventType);
         Assert.Equal(2, unmapped.Count);
 
         // One of them, whichever the page happened to present first. The sample exists so an
@@ -207,13 +207,13 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
 
     /// <summary>
     /// An unmapped type still counts as read, so the poll rate does not treat a group that only
-    /// posts announcements as busy -- and the pass still succeeds rather than failing over
-    /// something VRChat is entitled to send.
+    /// does things Modbot has no name for yet as busy -- and the pass still succeeds rather than
+    /// failing over something VRChat is entitled to send.
     /// </summary>
     [Fact]
     public async Task APageOfOnlyUnrecognisedEntriesIsRecordedRatherThanDropped()
     {
-        VRChat.Groups.Add(Entry("gaud_1", Now.AddMinutes(-1), "group.post.create"));
+        VRChat.Groups.Add(Entry("gaud_1", Now.AddMinutes(-1), "group.something.new"));
 
         var run = await RunAuditLogAsync();
 
@@ -223,7 +223,7 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
 
         var fact = Assert.Single(await FactsAsync());
         Assert.Equal(FactType.Unrecognised, fact.Type);
-        Assert.Equal("group.post.create", fact.TypeRaw);
+        Assert.Equal("group.something.new", fact.TypeRaw);
     }
 
     [Fact]

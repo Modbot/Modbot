@@ -10,7 +10,7 @@ namespace Modbot.VRChat.Sync;
 /// <strong>This list is not authoritative and cannot be.</strong> VRChat publishes
 /// <c>eventType</c> as a free-form string -- the OpenAPI schema types it as <c>string</c> with one
 /// example, not as an enum -- so there is no contract to compile against. Every mapping here is an
-/// observation, and the live data is the only check on it: <c>group.user.ban</c> is what a real
+/// observation, and live data is the only check on it: <c>group.user.ban</c> is what a real
 /// group's log actually says for a ban, a spelling that was for a while listed here as a
 /// speculative alias while the "primary" <c>group.member.user.ban</c> never appeared once.
 /// </para>
@@ -46,7 +46,34 @@ public static class GroupAuditLogEvents
 
     public const string RoleAssign = "group.member.role.assign";
     public const string RoleUnassign = "group.member.role.unassign";
+    public const string RoleUpdate = "group.role.update";
+
     public const string InviteCreate = "group.invite.create";
+    public const string RequestCreate = "group.request.create";
+    public const string RequestReject = "group.request.reject";
+    public const string RequestBlock = "group.request.block";
+
+    public const string PostCreate = "group.post.create";
+    public const string PostDelete = "group.post.delete";
+
+    public const string InstanceCreate = "group.instance.create";
+    public const string InstanceClose = "group.instance.close";
+    public const string InstanceUpdate = "group.instance.update";
+    public const string InstanceAnnouncement = "group.instance.announcement";
+    public const string InstanceKick = "group.instance.kick";
+    public const string InstanceWarn = "group.instance.warn";
+
+    public const string CalendarEventCreate = "group.calendarEvent.create";
+    public const string CalendarEventDelete = "group.calendarEvent.delete";
+    public const string CalendarEventSeriesUpdate = "group.calendarEvent.series.update";
+    public const string CalendarEventSeriesDelete = "group.calendarEvent.series.delete";
+
+    /// <summary>
+    /// The group's own settings changed. Maps onto the same fact type the group-info producer
+    /// writes from its polling; the two are told apart by <c>source</c>, and by the audit entry's
+    /// id in the payload, which the producer's fact does not carry.
+    /// </summary>
+    public const string GroupUpdate = "group.update";
 
     /// <summary>
     /// Every spelling Modbot recognises, and what each one means. Several spellings may share a
@@ -69,7 +96,29 @@ public static class GroupAuditLogEvents
 
         [RoleAssign] = FactType.RoleGranted,
         [RoleUnassign] = FactType.RoleRevoked,
+        [RoleUpdate] = FactType.RoleUpdated,
+
         [InviteCreate] = FactType.InviteCreated,
+        [RequestCreate] = FactType.JoinRequestCreated,
+        [RequestReject] = FactType.JoinRequestRejected,
+        [RequestBlock] = FactType.JoinRequestBlocked,
+
+        [PostCreate] = FactType.GroupPostCreated,
+        [PostDelete] = FactType.GroupPostDeleted,
+
+        [InstanceCreate] = FactType.GroupInstanceCreated,
+        [InstanceClose] = FactType.GroupInstanceClosed,
+        [InstanceUpdate] = FactType.GroupInstanceUpdated,
+        [InstanceAnnouncement] = FactType.GroupInstanceAnnouncement,
+        [InstanceKick] = FactType.GroupInstanceKick,
+        [InstanceWarn] = FactType.GroupInstanceWarn,
+
+        [CalendarEventCreate] = FactType.CalendarEventCreated,
+        [CalendarEventDelete] = FactType.CalendarEventDeleted,
+        [CalendarEventSeriesUpdate] = FactType.CalendarEventSeriesUpdated,
+        [CalendarEventSeriesDelete] = FactType.CalendarEventSeriesDeleted,
+
+        [GroupUpdate] = FactType.GroupInfoChanged,
     };
 
     /// <summary>The event types Modbot knows how to record, for tests and for the UI.</summary>

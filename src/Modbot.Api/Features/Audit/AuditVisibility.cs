@@ -56,6 +56,26 @@ public static class AuditVisibility
         [FactType.InviteCreated] = AuditCategory.Moderation,
         [FactType.GroupInfoChanged] = AuditCategory.Moderation,
 
+        // The rest of the group's audit log. Every one is something a person did in the group --
+        // an instance kick is as much moderation as a group kick -- so every one is in the log a
+        // moderator may read.
+        [FactType.RoleUpdated] = AuditCategory.Moderation,
+        [FactType.JoinRequestCreated] = AuditCategory.Moderation,
+        [FactType.JoinRequestRejected] = AuditCategory.Moderation,
+        [FactType.JoinRequestBlocked] = AuditCategory.Moderation,
+        [FactType.GroupPostCreated] = AuditCategory.Moderation,
+        [FactType.GroupPostDeleted] = AuditCategory.Moderation,
+        [FactType.GroupInstanceCreated] = AuditCategory.Moderation,
+        [FactType.GroupInstanceClosed] = AuditCategory.Moderation,
+        [FactType.GroupInstanceUpdated] = AuditCategory.Moderation,
+        [FactType.GroupInstanceAnnouncement] = AuditCategory.Moderation,
+        [FactType.GroupInstanceKick] = AuditCategory.Moderation,
+        [FactType.GroupInstanceWarn] = AuditCategory.Moderation,
+        [FactType.CalendarEventCreated] = AuditCategory.Moderation,
+        [FactType.CalendarEventDeleted] = AuditCategory.Moderation,
+        [FactType.CalendarEventSeriesUpdated] = AuditCategory.Moderation,
+        [FactType.CalendarEventSeriesDeleted] = AuditCategory.Moderation,
+
         // Presence, reported by a moderator's client. It is member history, not operations:
         // "where was this person" is asked by the same person asking "what were they banned for",
         // in the same timeline (spec 5.9.5).

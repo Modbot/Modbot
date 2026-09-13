@@ -24,6 +24,49 @@ public class FactRetentionTests
     public void ModerationHistoryIsKept(string type)
         => Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf(type));
 
+    /// <summary>
+    /// The rest of VRChat's group audit log: things people did in the group, kept as long as bans
+    /// are. Retention is a prefix test and <c>vrchat.group.</c> is not a presence prefix, which
+    /// is what this pins.
+    /// </summary>
+    [Theory]
+    [InlineData(FactType.GroupInstanceKick)]
+    [InlineData(FactType.GroupInstanceWarn)]
+    [InlineData(FactType.GroupInstanceCreated)]
+    [InlineData(FactType.GroupInstanceAnnouncement)]
+    [InlineData(FactType.JoinRequestCreated)]
+    [InlineData(FactType.JoinRequestRejected)]
+    [InlineData(FactType.GroupPostCreated)]
+    [InlineData(FactType.CalendarEventCreated)]
+    [InlineData(FactType.CalendarEventSeriesDeleted)]
+    [InlineData(FactType.RoleUpdated)]
+    [InlineData(FactType.GroupInfoChanged)]
+    public void GroupAuditLogHistoryIsKept(string type)
+        => Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf(type));
+
+    [Fact]
+    public void EverythingFromTheGroupAuditLogIsKeptForever()
+    {
+        var groupTypes = FactType.All
+            .Where(t => t.StartsWith("vrchat.group.", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.NotEmpty(groupTypes);
+        Assert.All(groupTypes, t => Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf(t)));
+    }
+
+    /// <summary>
+    /// The prefix that matters. A moderator kicking somebody out of a group instance is
+    /// moderation; a client noticing somebody arrive in one is presence. They must not share a
+    /// retention class, and the names are close enough that this is worth a line.
+    /// </summary>
+    [Fact]
+    public void AGroupInstanceKickDoesNotAgeOutLikeAnInstanceJoin()
+    {
+        Assert.Equal(RetentionClass.Presence, FactRetention.ClassOf(FactType.InstanceJoined));
+        Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf(FactType.GroupInstanceKick));
+    }
+
     [Theory]
     [InlineData(FactType.InstanceJoined)]
     [InlineData(FactType.InstanceLeft)]

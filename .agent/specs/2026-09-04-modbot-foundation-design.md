@@ -1338,9 +1338,9 @@ modbot_event                     -- PARTITION BY RANGE (occurred_at), monthly pa
   occurred_at      timestamptz  not null   -- when it happened (lower bound if imprecise)
   occurred_before  timestamptz  null       -- NULL = exact; else upper bound of the window
   observed_at      timestamptz  not null   -- when Modbot learned of it
-  type             smallint     not null   -- MemberJoined | MemberLeft | BanAdded | RoleGranted |
-                                           -- InstanceJoined | InstanceLeft | AvatarChanged |
-                                           -- DiscordMemberJoined | DiscordVoiceJoined | ...
+  type             text         not null   -- vrchat.group.member.ban | vrchat.group.instance.kick |
+                                           -- vrchat.instance.join | discord.voice.join | ... (§5.3.1)
+  type_raw         text         null       -- the source's own wording when type is modbot.unrecognised
   subject_platform smallint     not null   -- VRChat | Discord
   subject_id       text         not null   -- usr_... or a Discord snowflake
   actor_platform   smallint     null
@@ -1356,6 +1356,18 @@ modbot_event                     -- PARTITION BY RANGE (occurred_at), monthly pa
   INDEX (type, occurred_at DESC)
   GIN   (data)
 ```
+
+**Fact types from VRChat's group audit log** are all `vrchat.group.*` and all moderation retention:
+membership (`member.join`, `member.leave`, `member.remove`, `member.ban`, `member.unban`), roles
+(`role.assign`, `role.unassign`, `role.update`), invites and join requests (`invite.create`,
+`request.create`, `request.reject`, `request.block`), posts (`post.create`, `post.delete`), group
+instances (`instance.create`, `instance.close`, `instance.update`, `instance.announcement`,
+`instance.kick`, `instance.warn`), calendar entries (`calendar-event.create`, `calendar-event.delete`,
+`calendar-event.series.update`, `calendar-event.series.delete`) and `group.update`. The last is also
+written by the group-info producer from its own polling; the two are told apart by `source`, and an
+audit entry's `data` carries VRChat's `auditEntryId`, which is the key the producer deduplicates on.
+The full entry is stored in `data` for every type; `roleId`/`roleName` and the `{old, new}` diff map
+under `changed` are additionally lifted where live data or VRChat's own example shows the shape.
 
 **`subject_platform` exists because Discord is a second fact source** (§9.1), not only a second
 surface. A Discord snowflake and a VRChat `usr_…` must not collide in one text column, and once
@@ -1768,6 +1780,7 @@ clicking buttons in VRChat directly, which would be an absurd outcome for a mode
 | **Config** | Settings changed, sync rates adjusted, retention changed, classification enum edited | Moderation |
 | **Moderation (Modbot-side)** | Warn issued, note added, watch set, ticket opened/resolved (M4) | Moderation |
 | **System** | Sync failure, rate-limit cold stop, WAF block, migration applied, retention pruned, partition created | **Presence** — operational noise, not history |
+| **Group (from VRChat's audit log)** | Membership, bans, roles, invites and join requests, posts, group instances including instance kicks and warns, calendar entries, group settings (§5.3) | Moderation |
 | **Federation** | Peer added/removed, signal published or received (M8) | Moderation |
 
 System events take the short retention class deliberately. "A sync failed last March" is not history

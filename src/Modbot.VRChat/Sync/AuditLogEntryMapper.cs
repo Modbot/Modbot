@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Modbot.Analytics.Facts;
@@ -53,6 +54,13 @@ public readonly record struct AuditLogMapping(
 /// <c>actorId</c> is carried onto every fact, and the actor's display name is kept alongside it
 /// in the payload because an id alone is unreadable in a timeline months later.
 /// </para>
+/// <para>
+/// <strong>Every field VRChat sent is kept, for every event type.</strong> The payload carries the
+/// whole entry -- id, type, group, actor, actor's display name, target, time, description and the
+/// per-event <c>data</c> verbatim -- so that a question nobody has asked yet can be answered from
+/// what was recorded rather than from what somebody thought would matter. Fields the producer
+/// understands are lifted <em>in addition</em> to that copy, never instead of it.
+/// </para>
 /// </remarks>
 public static class AuditLogEntryMapper
 {
@@ -78,11 +86,13 @@ public static class AuditLogEntryMapper
         if (entry.CreatedAt == default)
             return new AuditLogMapping(null, AuditLogRejection.MissingTimestamp, entryId, eventType);
 
+        var occurredAt = ReadTimestamp(entry.CreatedAt);
+
         var fact = new FactRecord
         {
             Type = type,
             TypeRaw = recognised ? null : eventType,
-            OccurredAt = ReadTimestamp(entry.CreatedAt),
+            OccurredAt = occurredAt,
 
             // No window. The audit log states when the thing happened, which is exactly the
             // distinction spec 5.3 draws between this source and a sync diff: an inferred
@@ -90,13 +100,16 @@ public static class AuditLogEntryMapper
             OccurredBefore = null,
 
             SubjectPlatform = FactPlatform.VRChat,
+
+            // Whatever VRChat put in targetId, untouched. For instance events it is probably a
+            // location string; it is never parsed to find out (spec 3.1.1).
             SubjectId = entry.TargetId,
 
             ActorPlatform = string.IsNullOrWhiteSpace(entry.ActorId) ? null : FactPlatform.VRChat,
             ActorId = string.IsNullOrWhiteSpace(entry.ActorId) ? null : entry.ActorId,
 
             Source = FactSource.AuditLog,
-            Data = Payload(entry, eventType),
+            Data = Payload(entry, eventType, type, occurredAt),
         };
 
         return new AuditLogMapping(
@@ -124,8 +137,29 @@ public static class AuditLogEntryMapper
         _ => new DateTimeOffset(DateTime.SpecifyKind(createdAt, DateTimeKind.Utc)),
     };
 
-    private static JsonObject Payload(GroupAuditLogEntry entry, string eventType)
+    /// <summary>
+    /// The whole entry as VRChat sent it, plus the few fields there is evidence to lift.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The actor, the target and the time are also columns on the fact. The duplication is
+    /// deliberate: the columns are Modbot's reading of the entry, and the payload is the entry.
+    /// If a later change reinterprets what a column means, the record of what VRChat actually
+    /// said is still here.
+    /// </para>
+    /// <para>
+    /// Nothing is omitted for being blank. A null is written as a null, so a reader can tell
+    /// "VRChat sent nothing" from "Modbot did not keep it".
+    /// </para>
+    /// </remarks>
+    private static JsonObject Payload(
+        GroupAuditLogEntry entry,
+        string eventType,
+        string type,
+        DateTimeOffset occurredAt)
     {
+        var data = ReadEntryData(entry.Data);
+
         var payload = new JsonObject
         {
             // Kept so a later pass can recognise this entry as one it has already recorded, and
@@ -134,18 +168,92 @@ public static class AuditLogEntryMapper
             ["auditEntryId"] = entry.Id,
             ["eventType"] = eventType,
             ["groupId"] = entry.GroupId,
+            ["actorId"] = entry.ActorId,
+            ["actorDisplayName"] = entry.ActorDisplayName,
+            ["targetId"] = entry.TargetId,
+            ["createdAt"] = occurredAt.ToString("O", CultureInfo.InvariantCulture),
+            ["description"] = entry.Description,
+            ["auditData"] = data,
         };
 
-        if (!string.IsNullOrWhiteSpace(entry.ActorDisplayName))
-            payload["actorDisplayName"] = entry.ActorDisplayName;
-
-        if (!string.IsNullOrWhiteSpace(entry.Description))
-            payload["description"] = entry.Description;
-
-        if (ReadEntryData(entry.Data) is { } data)
-            payload["auditData"] = data;
+        Lift(payload, type, data);
 
         return payload;
+    }
+
+    /// <summary>
+    /// Copies into first-class fields only what live data or VRChat's own documentation has
+    /// shown the shape of.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A role event's <c>data</c> is <c>{roleId, roleName}</c>: seen in a real group's log. A
+    /// group update's is <c>{field: {old, new}}</c>, one entry per field changed: VRChat's OpenAPI
+    /// example. Those are lifted -- <c>roleId</c> and <c>roleName</c> to the top of the payload,
+    /// the diff map under <c>changed</c>, which is the key the group-info producer already uses
+    /// for its own diffs so a reader of the timeline meets one shape. Lifting adds a copy; it
+    /// never moves anything out of <c>auditData</c>.
+    /// </para>
+    /// <para>
+    /// For every other event type nothing is lifted, on purpose. Their payloads have not been
+    /// observed -- live data so far shows <c>{}</c> for joins, leaves, invites and bans, and
+    /// nothing at all for posts, requests, instances or calendar entries -- and a guess about a
+    /// shape is worse than waiting for it: a field lifted under the wrong name is one two
+    /// producers and a query then depend on. The verbatim copy loses nothing in the meantime,
+    /// and a lift can be added the day a real sample exists.
+    /// </para>
+    /// <para>
+    /// There is no ban reason to lift. VRChat's <c>description</c> for a ban is its own template
+    /// ("User X was preemptively banned by Y.") and carries none.
+    /// </para>
+    /// </remarks>
+    private static void Lift(JsonObject payload, string type, JsonNode? data)
+    {
+        if (data is not JsonObject fields)
+            return;
+
+        switch (type)
+        {
+            case FactType.RoleGranted:
+            case FactType.RoleRevoked:
+                CopyString(fields, payload, "roleId");
+                CopyString(fields, payload, "roleName");
+                break;
+
+            case FactType.RoleUpdated:
+                CopyString(fields, payload, "roleId");
+                CopyString(fields, payload, "roleName");
+                CopyChanges(fields, payload);
+                break;
+
+            case FactType.GroupInfoChanged:
+                CopyChanges(fields, payload);
+                break;
+        }
+    }
+
+    private static void CopyString(JsonObject from, JsonObject to, string key)
+    {
+        if (from[key] is JsonValue value && value.TryGetValue<string>(out var text))
+            to[key] = text;
+    }
+
+    /// <summary>
+    /// Every <c>{old, new}</c> pair in the data, under <c>changed</c>. Nothing else qualifies,
+    /// so a role id sitting beside the pairs stays out of it.
+    /// </summary>
+    private static void CopyChanges(JsonObject from, JsonObject to)
+    {
+        var changed = new JsonObject();
+
+        foreach (var (key, value) in from)
+        {
+            if (value is JsonObject pair && pair.ContainsKey("old") && pair.ContainsKey("new"))
+                changed[key] = pair.DeepClone();
+        }
+
+        if (changed.Count > 0)
+            to["changed"] = changed;
     }
 
     /// <summary>
@@ -155,9 +263,9 @@ public static class AuditLogEntryMapper
     /// <para>
     /// Untouched and unparsed, because its shape is documented only as "dependent on the event
     /// type" and guessing at it is how a role id ends up in the field meant for a user id. A
-    /// role grant's role, a ban's reason, the old and new value of a renamed group -- all of it
-    /// is in here, and the queries that want it can read it out of <c>jsonb</c> later without
-    /// this producer having had to be right about it in advance.
+    /// role grant's role, the old and new value of a renamed group -- whatever is in here, the
+    /// queries that want it can read it out of <c>jsonb</c> later without this producer having
+    /// had to be right about it in advance.
     /// </para>
     /// <para>
     /// It is also the one place an unrecognised shape cannot cost anything: it is stored, not

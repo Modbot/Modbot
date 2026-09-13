@@ -72,6 +72,46 @@ public static class FactType
     /// </summary>
     public const string GroupInfoChanged = "vrchat.group.update";
 
+    // ── VRChat: everything else the group's audit log records ──────────────────────────────
+    //
+    // All of these are things somebody did in the group, so all are moderation history: kept
+    // forever (retention is a prefix test, and vrchat.group.* is not a presence prefix) and shown
+    // to anyone who may read the audit log. The subject is whatever VRChat put in targetId --
+    // documented only as "typically a UserID, GroupID, GroupRoleID, or Location" -- carried
+    // through untouched and never parsed (spec 3.1.1).
+
+    /// <summary>A role's name, permissions or settings changed. The subject is probably the role.</summary>
+    public const string RoleUpdated = "vrchat.group.role.update";
+
+    public const string JoinRequestCreated = "vrchat.group.request.create";
+    public const string JoinRequestRejected = "vrchat.group.request.reject";
+    public const string JoinRequestBlocked = "vrchat.group.request.block";
+
+    public const string GroupPostCreated = "vrchat.group.post.create";
+    public const string GroupPostDeleted = "vrchat.group.post.delete";
+
+    /// <summary>
+    /// A group instance was opened, closed, changed or announced into. The subject is probably a
+    /// location. <strong>Not</strong> <c>vrchat.instance.*</c>: that prefix is a client's presence
+    /// report and ages out; these are group moderation and do not.
+    /// </summary>
+    public const string GroupInstanceCreated = "vrchat.group.instance.create";
+    public const string GroupInstanceClosed = "vrchat.group.instance.close";
+    public const string GroupInstanceUpdated = "vrchat.group.instance.update";
+    public const string GroupInstanceAnnouncement = "vrchat.group.instance.announcement";
+
+    /// <summary>
+    /// Ejected from a group instance -- separate from <see cref="MemberKicked"/>, which is removal
+    /// from the group. Folding them together would blend two different actions into one count.
+    /// </summary>
+    public const string GroupInstanceKick = "vrchat.group.instance.kick";
+    public const string GroupInstanceWarn = "vrchat.group.instance.warn";
+
+    public const string CalendarEventCreated = "vrchat.group.calendar-event.create";
+    public const string CalendarEventDeleted = "vrchat.group.calendar-event.delete";
+    public const string CalendarEventSeriesUpdated = "vrchat.group.calendar-event.series.update";
+    public const string CalendarEventSeriesDeleted = "vrchat.group.calendar-event.series.delete";
+
     // ── VRChat: presence ───────────────────────────────────────────────────────────────────
     public const string InstanceJoined = "vrchat.instance.join";
     public const string InstanceLeft = "vrchat.instance.leave";
