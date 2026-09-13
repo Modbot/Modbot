@@ -29,7 +29,20 @@ public sealed class MinioFixture : IAsyncLifetime
     private const string AccessKey = "modbotevidence";
     private const string SecretKey = "modbotevidence-secret";
 
-    private readonly IContainer _container = new ContainerBuilder("minio/minio:RELEASE.2025-09-07T16-13-09Z")
+    /// <summary>
+    /// From quay.io, which is MinIO's own registry, and not from Docker Hub.
+    /// </summary>
+    /// <remarks>
+    /// <c>docker.io/minio/minio</c> no longer resolves — Docker Hub answers 404 for the
+    /// repository, and a pull fails with <em>"pull access denied … repository does not exist"</em>,
+    /// which reads like a credentials problem and is not one. The release tag was always correct;
+    /// only the registry was wrong. It passed locally for a while because the image was already in
+    /// the daemon's cache, so the first machine to notice was CI — after five commits of a red
+    /// build that nothing else was failing.
+    /// </remarks>
+    private const string MinioImage = "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z";
+
+    private readonly IContainer _container = new ContainerBuilder(MinioImage)
         .WithEnvironment("MINIO_ROOT_USER", AccessKey)
         .WithEnvironment("MINIO_ROOT_PASSWORD", SecretKey)
         .WithCommand("server", "/data")

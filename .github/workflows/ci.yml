@@ -25,16 +25,24 @@ jobs:
       # reports zero tests and exits 5. Run each suite directly instead. Docker is present
       # on ubuntu-latest, which Testcontainers needs for the real PostgreSQL the data tests
       # run against.
+      # Every suite runs even after one fails, and the job fails at the end. `set -e` stopped at
+      # the first failure, so a single broken suite hid every suite after it -- and the ones it
+      # hid were the two that had never been proven to run on Linux at all.
       - name: Test
         run: |
-          set -e
+          failed=""
           for proj in tests/*/; do
             if [ -f "$proj"*.csproj ] && [ "$(basename "$proj")" != "Modbot.TestSupport" ]; then
-              echo "::group::$(basename "$proj")"
-              dotnet run --project "$proj" --configuration Release --no-build
+              name="$(basename "$proj")"
+              echo "::group::$name"
+              dotnet run --project "$proj" --configuration Release --no-build || failed="$failed $name"
               echo "::endgroup::"
             fi
           done
+          if [ -n "$failed" ]; then
+            echo "::error::Failing suites:$failed"
+            exit 1
+          fi
 
   web:
     runs-on: ubuntu-latest
@@ -51,3 +59,4 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit -p tsconfig.app.json
       - run: npm run build
+      - run: npm run lint
