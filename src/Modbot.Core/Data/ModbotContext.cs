@@ -16,6 +16,12 @@ public class ModbotContext : DbContext
     /// <summary>The fact log (spec 5.3). Append-only: never update or delete a row here.</summary>
     public DbSet<ModbotEvent> Events => Set<ModbotEvent>();
 
+    /// <summary>Daily aggregates (spec 5.4). Derived from <see cref="Events"/>, kept forever.</summary>
+    public DbSet<RollupDaily> RollupDaily => Set<RollupDaily>();
+
+    /// <summary>Where the incremental rollup run got to.</summary>
+    public DbSet<RollupState> RollupState => Set<RollupState>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -123,6 +129,37 @@ public class ModbotContext : DbContext
             entity.HasIndex(e => e.Data)
                 .HasDatabaseName("ix_modbot_event_data")
                 .HasMethod("gin");
+        });
+
+        builder.Entity<RollupDaily>(entity =>
+        {
+            entity.ToTable("modbot_rollup_daily");
+
+            // Spec 5.4's key exactly, with the empty string standing in for "no dimension":
+            // PostgreSQL does not allow NULL in a primary key column.
+            entity.HasKey(e => new { e.Day, e.Metric, e.Dimension })
+                .HasName("pk_modbot_rollup_daily");
+
+            entity.Property(e => e.Metric).HasColumnType("text");
+            entity.Property(e => e.Dimension).HasColumnType("text");
+
+            // Unconstrained numeric: apportioning imprecise facts across days produces fractions,
+            // and a fixed scale chosen now would quietly truncate a metric invented later.
+            entity.Property(e => e.Value).HasColumnType("numeric");
+
+            // "Everything for this metric over time" is the shape every chart asks for, and the
+            // primary key leads with the day, so it cannot serve that query.
+            entity.HasIndex(e => new { e.Metric, e.Day })
+                .HasDatabaseName("ix_modbot_rollup_daily_metric");
+        });
+
+        builder.Entity<RollupState>(entity =>
+        {
+            entity.ToTable("modbot_rollup_state", t =>
+                t.HasCheckConstraint("ck_modbot_rollup_state_singleton", "id = 1"));
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
         });
 
         base.OnModelCreating(builder);
