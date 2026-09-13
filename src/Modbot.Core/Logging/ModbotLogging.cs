@@ -14,8 +14,14 @@ namespace Modbot.Core.Logging;
 /// </summary>
 public sealed class ModbotLogOptions
 {
+    /// <summary>
+    /// Where log files go when they are written at all. Also the directory probed for
+    /// persistence, which is why it is a constant rather than a literal in two places.
+    /// </summary>
+    public const string DefaultDirectory = "logs";
+
     /// <summary>Directory for log files. Created if absent.</summary>
-    public string Directory { get; init; } = "logs";
+    public string Directory { get; init; } = DefaultDirectory;
 
     /// <summary>
     /// Write the Debug streams. Off by default: Debug records everything, so its text twin is the
@@ -34,6 +40,26 @@ public sealed class ModbotLogOptions
 
     /// <summary>Deliberately short — Debug is unbounded by design.</summary>
     public int RetainedDebugFiles { get; init; } = 6;
+
+    /// <summary>
+    /// Write the file streams at all. False leaves the console and Seq sinks only.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Set from <see cref="Modbot.Core.Configuration.PersistenceProbe.ShouldPersist"/>, so that a
+    /// deployment whose container filesystem is discarded on redeploy does not spend up to sixteen
+    /// gigabytes of its own disk writing six log streams nobody can ever read. On those platforms
+    /// the console <em>is</em> the log — Railway, Fly.io and Render all capture stdout — and the
+    /// files are pure cost: they compete for the same disk the application needs, and the operator
+    /// who goes looking for them after an incident finds an empty directory.
+    /// </para>
+    /// <para>
+    /// This is a decision about the destination, never about the content. Every event is still
+    /// emitted at the same level to console and to Seq; nothing is filtered out because the files
+    /// are off.
+    /// </para>
+    /// </remarks>
+    public bool WriteFiles { get; init; } = true;
 }
 
 /// <summary>
@@ -78,7 +104,7 @@ public static class ModbotLogging
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(clock);
-        System.IO.Directory.CreateDirectory(options.Directory);
+        if (options.WriteFiles) System.IO.Directory.CreateDirectory(options.Directory);
 
         // MM-dd-yyyy for a human scanning the directory; epoch so each run is distinct and sortable.
         var now = clock.UtcNow;
@@ -91,6 +117,21 @@ public static class ModbotLogging
                 outputTemplate: ConsoleTemplate,
                 restrictedToMinimumLevel: LogEventLevel.Information);
 
+        if (options.WriteFiles)
+            AddFileStreams(config, options, stamp);
+
+        // ── Seq: absent config means an absent sink, never a broken logger or a stream of
+        //    connection errors. It is also the only durable destination left when the files are
+        //    off, which is why it survives that switch untouched.
+        if (!string.IsNullOrWhiteSpace(options.SeqUrl))
+            config.WriteTo.Seq(options.SeqUrl, restrictedToMinimumLevel: LogEventLevel.Debug);
+
+        return config.CreateLogger();
+    }
+
+    /// <summary>The three file streams, each written twice — JSONL and text.</summary>
+    private static void AddFileStreams(LoggerConfiguration config, ModbotLogOptions options, string stamp)
+    {
         // ── Main: the application record. Excludes Http so it stays readable for an operator
         //    diagnosing a sync problem rather than being buried under API traffic.
         config.WriteTo.Logger(main => main
@@ -146,12 +187,6 @@ public static class ModbotLogging
                     retainedFileCountLimit: options.RetainedDebugFiles));
         }
 
-        // ── Seq: absent config means an absent sink, never a broken logger or a stream of
-        //    connection errors.
-        if (!string.IsNullOrWhiteSpace(options.SeqUrl))
-            config.WriteTo.Seq(options.SeqUrl, restrictedToMinimumLevel: LogEventLevel.Debug);
-
-        return config.CreateLogger();
     }
 
     private static bool IsHttp(LogEvent e) =>

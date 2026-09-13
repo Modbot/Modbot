@@ -24,17 +24,47 @@ var env = ModbotEnvironment.Read();
 // container does, and SystemModbotClock is the only implementation permitted to read the machine.
 var clock = new SystemModbotClock();
 
+// Where the logs would go, and whether anything written there survives a redeploy. The platform
+// supplies a default; the marker file supplies evidence, and evidence wins -- so a volume mounted
+// on a platform assumed ephemeral is treated as ephemeral for exactly one boot and correctly from
+// the next restart onwards. See PersistenceProbe.
+var platform = HostPlatform.Detect();
+var bootId = Guid.NewGuid().ToString("n");
+
+var persistence = PersistenceProbe.Probe(ModbotLogOptions.DefaultDirectory, bootId);
+var writeLogFiles = PersistenceProbe.ShouldPersist(platform, persistence.Evidence);
+
 Log.Logger = ModbotLogging.Create(
     new ModbotLogOptions
     {
         Debug = env.DebugLogging,
         SeqUrl = env.SeqUrl,
+        WriteFiles = writeLogFiles,
     },
     clock);
 
 try
 {
     Log.Information("Modbot starting on port {Port}", env.Port);
+    Log.Information(
+        "Host looks like {Platform}{Evidence}. {Persistence}",
+        platform.Name,
+        platform.Evidence is null ? "" : $" (from {platform.Evidence})",
+        persistence.Explanation);
+
+    if (!writeLogFiles)
+    {
+        // Said once, plainly, because the operator who goes looking for log files after an
+        // incident needs to already know why the directory is empty.
+        Log.Information(
+            "File logging is off: {Directory} is not known to survive a restart on {Platform}. "
+            + "The console is the log here, and your host captures it. {Seq}",
+            ModbotLogOptions.DefaultDirectory,
+            platform.Name,
+            env.SeqUrl is null
+                ? "Set SEQ_URL for a durable copy."
+                : "SEQ_URL is set, so a durable copy is being shipped there.");
+    }
 
     if (env.Validate() is { } problem)
     {
