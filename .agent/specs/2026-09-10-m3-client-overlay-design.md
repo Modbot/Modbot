@@ -163,11 +163,43 @@ left your machine" does not.
 |---|---|---|
 | Instance join/leave lines | VRChat user id, instance id, timestamp | The raw log line |
 | Avatar change lines | Avatar id, timestamp | Anything about the world outside the managed group |
-| — | — | Chat, friends list, DMs, private worlds, screenshots, keystrokes, process list |
+| — | — | Chat, friends list, DMs, private worlds, screenshots, keystrokes, process list (§3.1.1) |
 
 **Instances belonging to other groups, and private or friends-only instances unrelated to the
 managed group, are dropped locally and never reported.** The client is a group moderation tool; it
 has no business observing a moderator's personal VRChat use, and it does not.
+
+#### 3.1.1 "Screenshots" here means capture, not a file a human chose to attach
+
+Modbot stores screenshots and video as moderation evidence — see
+`.agent/specs/2026-09-13-evidence-storage-design.md`. That is not a contradiction of the row above,
+and the line between the two is drawn here explicitly so that a future contributor resolves the
+apparent conflict by reading rather than by deleting one side of it.
+
+| | Screen capture — **forbidden, permanently** | Attached evidence — the evidence spec |
+|---|---|---|
+| Who decides | software, silently, on a schedule or a trigger | a human, once, for one file |
+| Where it happens | the moderator's PC, in the background | the web UI, in a browser, with a file picker |
+| What the moderator knows | nothing, by construction | exactly what they selected, before they confirm it |
+| What is read | the screen, or a folder of images | one file, chosen by hand |
+| Which component | the client and overlay | the server's web UI. **The client is not involved at all.** |
+
+The forbidden thing is **a program that takes images off someone's machine without them choosing
+each one.** That is the capability §8.1 calls, feature for feature, the behavioural signature of an
+infostealer, and it is the single capability most likely to make a volunteer refuse to install the
+client — correctly. Nothing in the evidence design changes that:
+
+- **The client and the overlay have no file-upload path, and never gain one.** They read VRChat's log
+  directory and nothing else on the disk.
+- **VRChat's own screenshot folder is explicitly out of bounds**, even though the client already has
+  the filesystem access to read it and it is the obvious place a well-meaning feature would reach for.
+  "Auto-attach the screenshot you just took" is precisely the design this rule exists to forbid.
+- **No screen, window, or headset-view capture, in any component, for any reason**, including
+  anything framed as a convenience for the moderator.
+- Evidence upload happens where the moderator can see what they are sending: a browser, a file
+  picker, a preview, and a confirm button. §3.3's *"visible, not ambient"* is the same principle —
+  the difference between the two halves of this table is whether the human is in the loop for each
+  item, and that difference is the whole of the client's trust argument.
 
 ### 3.2 Commented source as a first-class deliverable
 
@@ -610,6 +642,10 @@ runs at login, sits in the tray with no main window, and updates itself. **That 
 feature, the behavioural signature of an infostealer.** No amount of good intent changes what the
 heuristics see.
 
+Adding screen or image capture to that list would complete the set, which is a second reason §3.1.1
+forbids it outright and permanently. Evidence attached by hand in the web UI is a server feature and
+touches none of this.
+
 So the approach is not to argue with the classifier. It is to **establish a verifiable identity**
 that makes behaviour a secondary signal, and to avoid the specific behaviours that look like evasion.
 
@@ -769,7 +805,10 @@ a stale parser.
 ## 10. Non-goals
 
 - Any form of game modification, injection, hooking or memory reading.
-- Capturing chat, voice, screenshots, keystrokes, or the process list.
+- Capturing chat, voice, screenshots, keystrokes, or the process list. **This is not narrowed by
+  Modbot storing uploaded evidence** — the client has no upload path and no access to any image on
+  the disk, including VRChat's own screenshot folder. See §3.1.1 for the line and why it is where it
+  is.
 - Observing VRChat activity outside the managed group's instances.
 - Acting on VRChat's API as the moderator's own account — all API traffic goes through the server's
   single account and `IVRChatGate` (foundation §2.3).
