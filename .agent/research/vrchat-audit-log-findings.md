@@ -126,9 +126,8 @@ Still unobserved: `group.calendarEvent.delete` / `.series.*`, `group.post.delete
 
 ## 7. The audit log's `offset` is hard-capped at 7,500
 
-Reported by the maintainer, 2026-09-13, **for the audit log**. Whether members, bans, invites and
-join requests share the cap is not documented and is being measured (`explore offset-probe`); do not
-assume it either way until the numbers are in §7.1. `offset=7501` on the audit log returns HTTP 400
+Reported by the maintainer, 2026-09-13, **for the audit log — and, as §7.1 measured, for the audit
+log only.** Members, bans, invites and join requests have no offset cap up to 100,000. `offset=7501` on the audit log returns HTTP 400
 with this body — note the **fullwidth Unicode punctuation** (`＝`, `․`, `‚`, `＠`), which makes
 string-matching it fragile:
 
@@ -141,32 +140,33 @@ string-matching it fragile:
   treat reaching it as "the history horizon" — a fact about VRChat, not a failure.
 - A naive "non-2xx → failed pass → retry next tick" loops at offset 7,501 forever. If a 400 arrives
   on a paginated read, it is terminal for that pass.
-- **Do not extend this to other endpoints without measuring.** If members or bans turn out to share
-  it, a group with more than 7,500 of either cannot be enumerated by offset and M1's sweeps need
-  filters or sort windows instead. If they do not, the obvious design is fine. §7.1 will say which.
+- It does **not** extend to the other group endpoints (§7.1). A sweep of members or bans can page by
+  offset without special handling.
 
-### 7.1 Measured: which other endpoints share the cap
+### 7.1 Measured: no other group endpoint has the cap
 
-`explore offset-probe`, 2026-09-13, against the same group, `n=1`, one request per 3.5 s, 21
-requests, no 429. Each endpoint was asked for offset 7,500 and 7,501 first.
+`explore offset-probe`, 2026-09-13, same group, `n=1`, one request per 3.5 s, **72 requests, no
+429**. Each endpoint was asked for offset 7,500 and 7,501, then bisected upward to 100,000 looking
+for the first 400.
 
-| Endpoint | 7,500 | 7,501 | Reading |
-|---|---|---|---|
-| group members | 200, empty | 200, empty | **No 400.** The data ends at offset **4,739** (binary-searched: 4,738 returns an item, 4,739 does not), so a cap beyond the data cannot be observed from this group — but the audit log's cap fires *past the end of the data*, and this one did not. Members do not behave like the audit log. |
-| group bans | 403 | 403 | Not measured: the probing account lacks the group permission. |
-| group invites | 403 | 403 | Not measured: same. |
-| group join requests | 403 | 403 | Not measured: same. |
+| Endpoint | 7,500 | 7,501 | 99,999 | Reading |
+|---|---|---|---|---|
+| group members | 200, empty | 200, empty | 200, empty | **no cap to 100,000** |
+| group bans | 200, empty | 200, empty | 200, empty | **no cap to 100,000** |
+| group invites | 200, empty | 200, empty | 200, empty | **no cap to 100,000** |
+| group join requests | 200, empty | 200, empty | 200, empty | **no cap to 100,000** |
 
-The 403 body is `{"error":{"message":"You don't have permission․","status_code":403}}` — again with a
-fullwidth full stop. The account in `explore/.env` is the deployment's bot account; those three
-endpoints need group role permissions it has not been granted. Re-run once it has them.
+Past the end of the data every one of them returns 200 with an empty list, all the way up — the
+audit log is the only endpoint that answers 400 there. **The 7,500 cap is the audit log's alone.**
 
-**`/members` is a complete enumeration — checked.** The list ended at 4,739 items; the group's own
-`memberCount` from the group-info facts was 4,741 at the start of the day and 4,740 at the last
-change, and two people joined or left while the probe ran. So `/members` returns everybody, and a
-sweep built on it does not under-count. The group is therefore too small to observe a 7,500 cap on
-members even if one exists; the finding that survives is narrower: **members did not 400 past the
-end of their data, and the audit log does** — the two endpoints behave differently.
+Consequences:
+- M1's member and ban sweeps can page by offset. The obvious design is fine; nothing needs filters
+  or sort windows on this account.
+- `/members` enumerates the whole group: the list ends at offset 4,739 and the group's own
+  `memberCount` is 4,740–4,741, with two people joining or leaving during the run.
+- The first run of this probe hit 403 on bans, invites and requests: the bot account lacked the
+  group role permissions those endpoints need. Granted, and re-run — the numbers above are from the
+  second run.
 
 ## 8. VRChat keeps roughly 30 days of audit log
 
