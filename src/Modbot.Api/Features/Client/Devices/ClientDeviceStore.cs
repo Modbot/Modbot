@@ -12,8 +12,11 @@ namespace Modbot.Api.Features.Client.Devices;
 /// must not require rotating every other moderator's token.</para>
 /// </remarks>
 /// <param name="TokenHash">The stored hash. The token itself never reaches this deployment's disk.</param>
-/// <param name="DeviceName">What the moderator called this install, so an operator can tell their
-/// desktop from their laptop and revoke the right one.</param>
+/// <param name="IssuedToUserId">
+/// Whose device this is. There is deliberately no device name beside it: a label the moderator
+/// typed told an operator nothing they could act on, and the owner, the platform, the version and
+/// when it last reported answer every question a settings list is asked.
+/// </param>
 /// <param name="RevokedAt">
 /// Set rather than deleted, so the facts this device reported keep a device to point at. A revoked
 /// device is refused at every endpoint from the moment it is set.
@@ -21,7 +24,6 @@ namespace Modbot.Api.Features.Client.Devices;
 public sealed record ClientDevice(
     Guid Id,
     string TokenHash,
-    string DeviceName,
     string ClientVersion,
     string Platform,
     Guid IssuedToUserId,
@@ -36,8 +38,8 @@ public sealed record ClientDevice(
 /// A pairing code, between being shown in the web UI and being redeemed by a client.
 /// </summary>
 /// <param name="IssuedToUserId">
-/// Whose code it is. The device inherits it, so "which moderator's client is this" has an answer
-/// that does not depend on the device name they typed.
+/// Whose code it is. The device inherits it, which is how "which moderator's client is this" is
+/// answered.
 /// </param>
 public sealed record PairingCode(
     string CodeHash,
@@ -179,10 +181,16 @@ public sealed class InMemoryClientDeviceStore : IClientDeviceStore
 public static class PairingCodeLifetime
 {
     /// <summary>
-    /// Long enough to walk from the web UI to the client, short enough that a code left on screen
-    /// in a stream or a screenshot is worthless by the time anybody sees it.
+    /// Long enough to click through from the pairing page to the client, short enough that a code
+    /// left in a browser history, a screenshot or a stream is worthless by the time anybody sees it.
     /// </summary>
-    public static readonly TimeSpan Default = TimeSpan.FromMinutes(10);
+    /// <remarks>
+    /// Was ten minutes when the code was something a person read off a screen and retyped. It now
+    /// travels inside a <c>modbot-client://</c> link, which lands in browser history and in Windows'
+    /// record of protocol launches, so the window it is exposed in is cut to what the flow needs:
+    /// a click, not a walk between screens.
+    /// </remarks>
+    public static readonly TimeSpan Default = TimeSpan.FromMinutes(5);
 
     public static PairingCode Issue(IModbotClock clock, Guid userId, string code)
         => new(DeviceTokens.Hash(code), userId, clock.UtcNow, clock.UtcNow + Default);

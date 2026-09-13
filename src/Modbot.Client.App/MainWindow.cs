@@ -46,6 +46,14 @@ public sealed class MainWindow : Window
     private readonly TextBlock _healthLine;
     private readonly Ellipse _healthDot;
 
+    // Built once and re-attached on every render rather than rebuilt, because the window redraws
+    // on a timer and a paste box that was recreated every second would lose whatever was pasted
+    // into it before the button could be pressed.
+    private readonly Border _pairingCard;
+    private readonly TextBox _pasteBox;
+    private readonly TextBlock _pairingWhere;
+    private readonly TextBlock _pairingMessage;
+
     private Page _page = Page.Servers;
     private ClientAppSnapshot _snapshot = ClientAppSnapshot.Empty;
     private MainWindowActions _actions = MainWindowActions.None;
@@ -61,6 +69,13 @@ public sealed class MainWindow : Window
 
         _healthDot = new Ellipse { Width = 6, Height = 6, VerticalAlignment = VerticalAlignment.Center };
         _healthLine = Ui.Faint("");
+
+        _pasteBox = Ui.Input("Paste the pairing token here");
+        _pasteBox.FontFamily = Ui.Mono;
+        _pairingWhere = Ui.Faint("");
+        _pairingMessage = Ui.Dim("");
+        _pairingMessage.IsVisible = false;
+        _pairingCard = PairingCard();
 
         var main = new ScrollViewer { Padding = new Thickness(20), Content = _body };
         Grid.SetColumn(main, 1);
@@ -241,15 +256,44 @@ public sealed class MainWindow : Window
         {
             _body.Children.Add(Ui.Card(
                 Ui.Dim(
-                    "No servers paired. Modbot is reading nothing and sending nothing. Ask the "
-                    + "group you moderate for a pairing code, then add it below."),
+                    "No servers paired. Modbot is reading nothing and sending nothing. Press "
+                    + "\"Pair with a server\" below to add the group you moderate."),
                 "Not reporting anywhere"));
         }
 
         foreach (var server in _snapshot.Servers)
             _body.Children.Add(ServerCard(server));
 
-        _body.Children.Add(PairingCard());
+        RenderPairingNotice();
+        _body.Children.Add(_pairingCard);
+    }
+
+    /// <summary>
+    /// The pairing card's changing parts: where the button goes, and what the last attempt said.
+    /// </summary>
+    /// <remarks>
+    /// Read from the snapshot rather than kept in the window, so a link that Windows handed to
+    /// the running client while this window was closed still has its answer waiting when the
+    /// window is opened.
+    /// </remarks>
+    private void RenderPairingNotice()
+    {
+        _pairingWhere.Text = $"Opens {_snapshot.PairingPage} in your browser.";
+
+        if (_snapshot.LastPairing is not { } notice)
+        {
+            _pairingMessage.IsVisible = false;
+            return;
+        }
+
+        _pairingMessage.IsVisible = true;
+        _pairingMessage.Text = notice.Message;
+        _pairingMessage.Foreground = notice.Kind switch
+        {
+            PairingNoticeKind.Succeeded => Ui.T.OkBrush,
+            PairingNoticeKind.Failed => Ui.T.DangerBrush,
+            _ => Ui.T.TextDimBrush,
+        };
     }
 
     private Control ServerCard(ServerRow server)
@@ -327,34 +371,46 @@ public sealed class MainWindow : Window
         _ => Ui.T.TextDimBrush,
     };
 
-    private Control PairingCard()
+    /// <summary>
+    /// Pairing: one button that opens the browser, and a paste box for when the browser could not
+    /// hand the link back.
+    /// </summary>
+    /// <remarks>
+    /// There is no server address to type, no code to type and no device name to invent. The
+    /// pairing page in the browser knows the address and mints the code; the client's job is to
+    /// receive them. The paste box takes the same token, for a browser that would not open the
+    /// link -- pasting is the moderator's action in their own window, and nothing here reads what
+    /// they have copied until they press the button.
+    /// </remarks>
+    private Border PairingCard()
     {
-        var address = Ui.Input("modbot.example.com");
-        var code = Ui.Input("ABCD-EFGH");
-        code.FontFamily = Ui.Mono;
-        var deviceName = Ui.Input("This PC");
-
-        var message = Ui.Dim("");
-        message.IsVisible = false;
-
-        var pair = Ui.Button("Pair", primary: true);
-        pair.Click += async (_, _) =>
+        var open = Ui.Button("Pair with a server", primary: true);
+        open.Click += async (_, _) =>
         {
-            pair.IsEnabled = false;
-            message.IsVisible = true;
-            message.Text = "Pairing…";
-            message.Foreground = Ui.T.TextDimBrush;
-
-            var result = await _actions.PairAsync(address.Text ?? "", code.Text ?? "", deviceName.Text ?? "");
-
-            message.Text = result.Message;
-            message.Foreground = result.Succeeded ? Ui.T.OkBrush : Ui.T.DangerBrush;
-            pair.IsEnabled = true;
-
-            if (result.Succeeded)
+            open.IsEnabled = false;
+            try
             {
-                code.Text = "";
-                address.Text = "";
+                await _actions.OpenPairingPageAsync();
+            }
+            finally
+            {
+                open.IsEnabled = true;
+            }
+        };
+
+        var use = Ui.Button("Use pairing token");
+        use.Click += async (_, _) =>
+        {
+            use.IsEnabled = false;
+            try
+            {
+                var result = await _actions.PairAsync(_pasteBox.Text ?? "");
+                if (result.Succeeded)
+                    _pasteBox.Text = "";
+            }
+            finally
+            {
+                use.IsEnabled = true;
             }
         };
 
@@ -364,26 +420,29 @@ public sealed class MainWindow : Window
             Children =
             {
                 Ui.Dim(
-                    "A pairing code comes from the group's own Modbot settings page. It is "
-                    + "single-use and expires after a few minutes, so it never has to travel "
-                    + "through a chat message."),
-                Ui.Field("Server address", address),
-                Ui.Field("Pairing code", code),
-
-                // The moderator names their own device. The client does not read the machine name
-                // and send it unasked -- a hostname is frequently somebody's real name.
-                Ui.Field("Name this device (shown to that group's operators)", deviceName),
+                    "Pairing happens in your browser. Sign in to your group's Modbot, press "
+                    + "\"Open in Modbot\", and this window will show the server. Nothing has to "
+                    + "be typed, and the link only works once, for a few minutes."),
+                new StackPanel
+                {
+                    Spacing = 4,
+                    Children = { open, _pairingWhere },
+                },
+                Ui.Dim(
+                    "If the browser button did nothing, copy the pairing token from that page and "
+                    + "paste it here instead. It is the same thing."),
+                Ui.Field("Pairing token", _pasteBox),
                 new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
                     Spacing = 8,
-                    Children = { pair },
+                    Children = { use },
                 },
-                message,
+                _pairingMessage,
             },
         };
 
-        return Ui.Card(body, "Pair another server");
+        return Ui.Card(body, "Pair with a server");
     }
 
     private void RenderSent()
@@ -524,17 +583,22 @@ public sealed class MainWindow : Window
 
 /// <summary>What the window can ask the application to do.</summary>
 /// <remarks>
-/// A small surface on purpose: pause, unpair, pair. There is nothing here that acts on VRChat or
-/// on a group — the client observes and reports, and a moderator acting on what they have seen
-/// does it through the normal authenticated web interface as themselves.
+/// A small surface on purpose: pause, unpair, pair from a token, open the pairing page. There is
+/// nothing here that acts on VRChat or on a group — the client observes and reports, and a
+/// moderator acting on what they have seen does it through the normal authenticated web interface
+/// as themselves.
 /// </remarks>
+/// <param name="PairAsync">Pairs from a pasted pairing token or link.</param>
+/// <param name="OpenPairingPageAsync">Opens the pairing page in the moderator's browser.</param>
 public sealed record MainWindowActions(
     Action<string> TogglePause,
     Action<string> Unpair,
-    Func<string, string, string, Task<PairingAttemptResult>> PairAsync)
+    Func<string, Task<PairingAttemptResult>> PairAsync,
+    Func<Task> OpenPairingPageAsync)
 {
     public static MainWindowActions None { get; } = new(
         _ => { },
         _ => { },
-        (_, _, _) => Task.FromResult(new PairingAttemptResult(false, "Not ready yet.")));
+        _ => Task.FromResult(new PairingAttemptResult(false, "Not ready yet.")),
+        () => Task.CompletedTask);
 }

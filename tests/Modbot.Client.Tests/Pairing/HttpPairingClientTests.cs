@@ -49,7 +49,7 @@ public class HttpPairingClientTests
         var client = new HttpPairingClient(http, supported);
 
         var result = await client.PairAsync(
-            new PairingAttempt(new Uri(address), "AB12-CD34", "cats", "Rin's desktop"),
+            new PairingAttempt(new Uri(address), "AB12-CD34", "cats"),
             TestContext.Current.CancellationToken);
 
         return (result, handler);
@@ -76,18 +76,19 @@ public class HttpPairingClientTests
     }
 
     [Fact]
-    public async Task SendsTheCodeTheDeviceNameTheVersionAndThePlatformAndNothingElse()
+    public async Task SendsTheCodeTheVersionAndThePlatformAndNothingElse()
     {
         // The whole outbound disclosure of pairing, asserted field by field. Anything added here
-        // later is a change to what the client tells a server about the machine it runs on.
+        // later is a change to what the client tells a server about the machine it runs on. There
+        // is no device name: a label for the moderator's own machine told the operator nothing
+        // they could act on, and was one more thing about a person to hold.
         var (_, handler) = await PairAsync(r => Route(r, Json(HttpStatusCode.OK, GoodPair)));
 
         using var document = System.Text.Json.JsonDocument.Parse(handler.Bodies[^1]);
         var fields = document.RootElement.EnumerateObject().Select(p => p.Name).Order().ToList();
 
-        Assert.Equal(["clientVersion", "code", "deviceName", "platform"], fields);
+        Assert.Equal(["clientVersion", "code", "platform"], fields);
         Assert.Equal("AB12-CD34", document.RootElement.GetProperty("code").GetString());
-        Assert.Equal("Rin's desktop", document.RootElement.GetProperty("deviceName").GetString());
         Assert.Equal("windows", document.RootElement.GetProperty("platform").GetString());
     }
 
@@ -100,6 +101,19 @@ public class HttpPairingClientTests
 
         Assert.Equal(PairingOutcome.NotAModbotServer, result.Outcome);
         Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task PlainHttpToThisMachineIsAllowedSoATesterCanPairLocally()
+    {
+        // Loopback never crosses a network. The rule is "no clear text over a network", not "no
+        // clear text", and a developer's http://localhost is the one place the two differ.
+        var (result, handler) = await PairAsync(
+            r => Route(r, Json(HttpStatusCode.OK, GoodPair)),
+            address: "http://localhost:8080");
+
+        Assert.Equal(PairingOutcome.Paired, result.Outcome);
+        Assert.Equal("http://localhost:8080/api/v1/client/pair", handler.Requests[^1].RequestUri!.ToString());
     }
 
     [Fact]

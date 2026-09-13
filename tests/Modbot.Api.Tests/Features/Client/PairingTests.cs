@@ -21,7 +21,7 @@ public class PairingTests
     private const string Group = "grp_cats";
 
     private static PairRequest Request(string code) =>
-        new(code, "Rin's desktop", "2026.9.0", "windows");
+        new(code, "2026.9.0", "windows");
 
     private async Task<(ClientApiTestHost Host, string Code)> ReadyAsync(CancellationToken ct)
     {
@@ -198,24 +198,42 @@ public class PairingTests
     }
 
     [Fact]
-    public async Task ADeviceNameBuiltToHideInASettingsListIsCleanedRatherThanStored()
+    public async Task APlatformStringBuiltToHideInASettingsListIsCleanedRatherThanStored()
     {
-        // A right-to-left override in a device name makes one device render as another, which is
-        // how a compromised client hides behind a colleague's entry when somebody goes looking
-        // for which one to revoke.
+        // A right-to-left override in a value the settings list shows makes one row render as
+        // another, which is how a compromised client hides behind a colleague's entry when
+        // somebody goes looking for which one to revoke.
         var ct = TestContext.Current.CancellationToken;
         var (host, code) = await ReadyAsync(ct);
         await using var _ = host;
 
         await host.Client.PostAsJsonAsync(
             "/api/v1/client/pair",
-            new PairRequest(code, "desk top\r\n‮", "2026.9.0", "windows"),
+            new PairRequest(code, "2026.9.0", "win dows\r\n‮"),
             ct);
 
         var stored = Assert.Single(await host.Devices.ListDevicesAsync(ct));
 
-        Assert.Equal("desk top", stored.DeviceName);
-        Assert.DoesNotContain('\n', stored.DeviceName);
-        Assert.True(stored.DeviceName.Length <= PairHandler.MaxDeviceNameLength);
+        Assert.Equal("win dows", stored.Platform);
+        Assert.DoesNotContain('\n', stored.Platform);
+        Assert.True(stored.Platform.Length <= PairHandler.MaxFieldLength);
+    }
+
+    [Fact]
+    public async Task ADeviceNameSentByAnOlderClientIsIgnoredNotRefused()
+    {
+        // Device names were dropped: a moderator's own label for their machine told an operator
+        // nothing they could act on. A client built before that still sends one, and must still
+        // pair -- the field is simply not read.
+        var ct = TestContext.Current.CancellationToken;
+        var (host, code) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var response = await host.Client.PostAsJsonAsync(
+            "/api/v1/client/pair",
+            new { code, deviceName = "Rin's desktop", clientVersion = "2026.8.0", platform = "windows" },
+            ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }

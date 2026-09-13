@@ -15,6 +15,7 @@ import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Login } from '@/pages/Login'
 import { Members } from '@/pages/Members'
 import { Metrics } from '@/pages/Metrics'
+import { Pair } from '@/pages/Pair'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { Roles } from '@/pages/Roles'
 import { Settings } from '@/pages/Settings'
@@ -129,8 +130,12 @@ export default function App() {
         // Same ordering, same reason. Somebody who signed in on a deployment that was never
         // finished lands back in the wizard at whichever step is outstanding, rather than in an
         // app shell with no group configured.
+        // A moderator sent to /pair by a link signs in and lands back on /pair, not on the
+        // members list: the link was the errand, and the page it names is where it finishes.
         onSignedIn={() =>
-          void refresh().then((next) => navigate(next.onboardingComplete ? '/' : '/setup'))
+          void refresh().then((next) =>
+            navigate(next.onboardingComplete ? (route === '/pair' ? '/pair' : '/') : '/setup'),
+          )
         }
         onForgotPassword={() => navigate('/forgot-password')}
       />
@@ -141,7 +146,13 @@ export default function App() {
 
   // Signed in, set up, but not yet linked to a VRChat account: the one page they can use
   // (design §4.3). The wizard handles this for the first administrator; this is everybody after.
+  // It comes before the pairing page on purpose: a desktop client reports presence under the
+  // moderator's VRChat identity, so an unlinked account has nothing to pair as yet.
   if (!me.vrChatLinked) return <LinkVRChat me={me} onLinked={() => void refresh()} />
+
+  // Outside the shell, like sign-in: a landing page a link sends a moderator to, not a section
+  // of the app they navigate around in.
+  if (route === '/pair') return <Pair />
 
   return <Shell status={status} me={me} prefs={prefs} route={route} navigate={navigate} refresh={refresh} />
 }

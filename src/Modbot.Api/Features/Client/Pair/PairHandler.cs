@@ -6,14 +6,18 @@ using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Client.Pair;
 
-/// <param name="Code">The short, single-use code the operator generated in the web UI.</param>
-/// <param name="DeviceName">
-/// What the moderator called this install. Shown in settings so an operator can tell one
-/// moderator's desktop from their laptop and revoke the right one.
+/// <param name="Code">
+/// The short, single-use code the moderator's browser handed to the client through the pairing
+/// link, or that they pasted in as a pairing token.
 /// </param>
+/// <remarks>
+/// There is no device name. Older clients still send one and it is ignored: a label the moderator
+/// typed for their own machine told the operator nothing they could act on, and every question a
+/// settings list is asked is answered by whose device it is, its platform, its version and when
+/// it last reported.
+/// </remarks>
 public sealed record PairRequest(
     [property: JsonPropertyName("code")] string? Code,
-    [property: JsonPropertyName("deviceName")] string? DeviceName,
     [property: JsonPropertyName("clientVersion")] string? ClientVersion,
     [property: JsonPropertyName("platform")] string? Platform);
 
@@ -40,14 +44,13 @@ public sealed record PairResponse(
 /// the credential: single-use, minutes-long, and issued only to a signed-in staff account. Every
 /// way it can fail returns the same answer, because distinguishing "expired" from "already used"
 /// from "never existed" helps only somebody guessing.</para>
-/// <para><strong>The device inherits the moderator who issued the code</strong>, so "whose client
-/// is this" has an answer that does not depend on the device name they typed, and revoking a
-/// moderator's access has something to cascade from.</para>
+/// <para><strong>The device inherits the moderator who issued the code</strong>, which is how
+/// "whose client is this" is answered, and what revoking a moderator's access cascades from.</para>
 /// </remarks>
 public static class PairHandler
 {
-    /// <summary>Long enough for any real name, short enough not to be a storage surface.</summary>
-    public const int MaxDeviceNameLength = 64;
+    /// <summary>Long enough for any real version or platform string, short enough not to be a storage surface.</summary>
+    public const int MaxFieldLength = 32;
 
     public static async Task<IResult> HandleAsync(
         int apiVersion,
@@ -90,7 +93,6 @@ public static class PairHandler
             new ClientDevice(
                 Guid.NewGuid(),
                 DeviceTokens.Hash(token),
-                Clean(request?.DeviceName) ?? "Unnamed device",
                 Clean(request?.ClientVersion) ?? "unknown",
                 Clean(request?.Platform) ?? "unknown",
                 code.IssuedToUserId,
@@ -104,11 +106,12 @@ public static class PairHandler
     /// Trims and bounds a caller-supplied string.
     /// </summary>
     /// <remarks>
-    /// The device name is chosen by a moderator and displayed to an operator in a settings list,
-    /// so it is hostile input like any other. Control characters go because they break the list;
-    /// <em>format</em> characters go because a right-to-left override makes one device's name
-    /// render as another's, which is how a compromised client would hide behind a colleague's
-    /// entry when somebody went looking for which one to revoke.
+    /// The version and platform are sent by a client and displayed to an operator in a settings
+    /// list, so they are hostile input like any other. Control characters go because they break
+    /// the list; <em>format</em> characters go because a right-to-left override makes one row
+    /// render as another, which is how a compromised client would hide behind a colleague's entry
+    /// when somebody went looking for which one to revoke. Bounded to the column width so a
+    /// malicious value is truncated rather than turned into a database error.
     /// </remarks>
     private static string? Clean(string? value)
     {
@@ -123,7 +126,7 @@ public static class PairHandler
         return cleaned.Length switch
         {
             0 => null,
-            > MaxDeviceNameLength => cleaned[..MaxDeviceNameLength],
+            > MaxFieldLength => cleaned[..MaxFieldLength],
             _ => cleaned,
         };
     }

@@ -24,20 +24,14 @@ public class ClientDeviceRecord
     /// </summary>
     public string TokenHash { get; set; } = string.Empty;
 
-    /// <summary>
-    /// What the moderator called this install, so an operator can tell a desktop from a laptop
-    /// and revoke the right one. Untrusted display text like any other — it is typed by a person.
-    /// </summary>
-    public string DeviceName { get; set; } = string.Empty;
-
     public string ClientVersion { get; set; } = string.Empty;
 
     public string Platform { get; set; } = string.Empty;
 
     /// <summary>
-    /// Whose client this is, inherited from the pairing code rather than from the device name —
-    /// so "which moderator does this belong to" has an answer that does not depend on what they
-    /// typed.
+    /// Whose client this is, inherited from the pairing code. It is the one thing that identifies
+    /// a device to an operator: there is no device name, because a moderator's own label for their
+    /// machine told the operator nothing they could act on and was one more thing to store.
     /// </summary>
     public Guid IssuedToUserId { get; set; }
 

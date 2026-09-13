@@ -40,7 +40,30 @@ public enum WarningSeverity
 
 public sealed record ClientWarning(WarningSeverity Severity, string Message);
 
+/// <summary>Where the most recent pairing attempt got to.</summary>
+public enum PairingNoticeKind
+{
+    /// <summary>A request is in flight. One, never more.</summary>
+    Working,
+
+    Succeeded,
+
+    Failed,
+}
+
+/// <summary>
+/// The last thing pairing had to say, whichever way the token arrived — pressed in a browser or
+/// pasted into the window.
+/// </summary>
+/// <remarks>
+/// Kept here rather than inside the window so a link that Windows hands to the running client
+/// while the window is closed has somewhere to put its answer, and so the window can be rebuilt
+/// on a timer without losing it.
+/// </remarks>
+public sealed record PairingNotice(PairingNoticeKind Kind, string Message);
+
 /// <summary>What the client window is showing right now.</summary>
+/// <param name="PairingPage">Where "Pair with a server" sends the browser. Shown so nobody has to guess.</param>
 public sealed record ClientAppSnapshot(
     IReadOnlyList<ServerRow> Servers,
     IReadOnlyList<JournalEntry> Journal,
@@ -49,10 +72,12 @@ public sealed record ClientAppSnapshot(
     long LinesRead,
     long BehaviourLines,
     long RecognisedEvents,
-    IReadOnlyList<ClientWarning> Warnings)
+    IReadOnlyList<ClientWarning> Warnings,
+    PairingNotice? LastPairing,
+    string PairingPage)
 {
     public static ClientAppSnapshot Empty { get; } =
-        new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, []);
+        new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, [], null, ClientSettings.DefaultPairingPage);
 }
 
 /// <summary>
@@ -83,15 +108,21 @@ public sealed class ClientAppState
     /// </remarks>
     public static readonly TimeSpan LogSilenceThreshold = TimeSpan.FromMinutes(10);
 
-    public ClientAppState(IModbotClock clock, SentJournal journal)
+    public ClientAppState(IModbotClock clock, SentJournal journal, ClientSettings? settings = null)
     {
         _clock = clock;
         _journal = journal;
+        Settings = settings ?? ClientSettings.Default;
         Connections = [];
         UnusablePairings = [];
     }
 
+    public ClientSettings Settings { get; }
+
     public List<ServerConnection> Connections { get; }
+
+    /// <summary>The last pairing attempt's outcome, or null when there has not been one this run.</summary>
+    public PairingNotice? LastPairing { get; set; }
 
     /// <summary>
     /// Pairings that loaded but cannot be used — almost always a token encrypted for a different
@@ -114,7 +145,9 @@ public sealed class ClientAppState
             LogHealth.LinesRead,
             LogHealth.BehaviourLines,
             LogHealth.RecognisedEvents,
-            [.. Warnings(logStatus)]);
+            [.. Warnings(logStatus)],
+            LastPairing,
+            Settings.PairingPage.ToString());
     }
 
     private IEnumerable<ClientWarning> Warnings(LogHealthStatus logStatus)

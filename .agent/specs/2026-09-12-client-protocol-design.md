@@ -82,20 +82,52 @@ requests in a way the client would read as transient.
 ### 3.1 Pairing
 
 ```
-  operator, in the web UI          client                          server
+  moderator, in a browser          client                          server
   ───────────────────────         ──────                          ──────
-  generates a pairing code   ──▶  POST /api/v1/client/pair
-  (short, one-time, expiring)     { code, deviceName, clientVersion,
-                                    platform }
+  opens <server>/pair, signed in
+  page asks for a code       ─────────────────────────────▶  POST /api/client-devices/pairing-code
+                             ◀─────────────────────────────  { code, expiresAt }   (cookie auth)
+  page builds the pairing token:
+    base64url {"server": origin, "code": code}
+  "Open in Modbot" =
+    modbot-client://pair?token=…  ──▶  Windows starts the client
+                                       with the link; a running copy
+                                       receives it over a local pipe
+                                  client checks the token, then
+                                  POST /api/v1/client/pair
+                                  { code, clientVersion, platform }
                                                             ──▶  validates code
                                                             ◀──  { deviceToken,
-                                                                   instanceId,
                                                                    managedGroupId,
                                                                    serverTime }
 ```
 
-- The **code** is short, single-use and short-lived; the **token** is long and never displayed. A
-  token that a human has to read or retype ends up in a Discord message.
+- The **code** is short, single-use and lives five minutes; the **token** is long and never
+  displayed. A token that a human has to read or retype ends up in a Discord message.
+- **The pairing token is the code plus the address, and nothing longer-lived.** It travels in a
+  URL, and URLs land in browser history, shell logs and Windows' record of protocol launches. A
+  code found there later is worthless; a device token would not be. `server` is the browser's own
+  origin, because the address the moderator reached the page at is one that reaches the server,
+  while a server behind a proxy often does not know its own public name.
+- **The same token has a second route.** "Copy pairing token" on the page and a paste box in the
+  client carry the identical bytes, for a browser that will not hand a `modbot-client://` link to
+  another program. One code path in the client; the link is unwrapped and then treated as a paste.
+- **The client checks the token before any request.** An `https` origin only (plain `http` to
+  loopback is the one exception, for testing on the same PC), no path, query, fragment or user
+  name; a code that looks like a code; a size bound checked before decoding. A link is untrusted
+  input from wherever the browser got it.
+- **There is no device name.** A moderator's own label for their machine told the operator
+  nothing they could act on; whose device it is (from the code), platform, version and last-seen
+  answer every question the settings list is asked. Older clients that still send `deviceName`
+  are not refused — the field is ignored.
+- **Pairing starts from the client too.** "Pair with a server" opens the pairing page, by default
+  `https://my.modbot.co/pair` (central services §2), which forwards a signed-in moderator to their
+  own server's `/pair`. A group can point the button at its own server through the client's
+  optional `settings.json`. The client never needs to know the address; the token carries it.
+- The client is **single-instance**. The copy Windows starts to deliver a link hands it to the
+  running copy over a named pipe (current user only, bounded, one message per connection) and
+  exits. The scheme is registered under `HKCU\Software\Classes\modbot-client` on every start —
+  per-user, no elevation, and the only registry key the client touches.
 - `managedGroupId` comes back at pairing because the client needs it to route events **locally**
   without asking anyone (M3 §5.5.1). Asking a server "do you own this instance?" is itself the leak
   the routing rule exists to prevent.
