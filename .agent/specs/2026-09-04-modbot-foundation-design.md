@@ -965,8 +965,44 @@ endpoint classes §4.2 does not schedule:
 | `groups.auditlog` | **0.29 req/s** | `LogConsumer` — 3500 ms between pages |
 | `groups.invites` | **0.29 req/s** | no prior data; matched to the conservative neighbour |
 | `users.read` | **0.33 req/s** | `UserProducer` — 3000 ms |
+| `users.groups` | **0.2 req/s** | **no data at all** — see §4.3.4.1 |
 | `moderation.write` | **0.3 req/s** | unknown; interactive and low-volume, kept conservative |
 | `auth` | negligible | login and re-login only |
+
+##### 4.3.4.1 `users.groups` — an unmeasured endpoint, isolated rather than guessed at
+
+`GET /users/{id}/groups` and `GET /users/{id}/groups/permissions` are used by exactly one thing:
+picking the managed group during onboarding (§7.1 step 4). Nothing else calls them, and **no limit
+has been measured for either.**
+
+They exist as a pair because the obvious implementation is not viable at §4.2's pacing. "Groups
+where this account holds moderator permissions" needs per-group permissions, and `/groups/{id}` is
+one request per group at `groups.read`'s 0.2 req/s — an account in twenty groups would spend over a
+minute and a half on a wizard step. `/users/{id}/groups/permissions` returns the whole map in one
+call, so the step costs **two requests regardless of group count**.
+
+The standing instruction above forbids inferring a limit from a neighbour, and the first
+implementation did exactly that — it budgeted both under `users.read`, which is not merely a guess
+but the *most permissive* one available, since §4.2.5 exempts that class from the global ceiling on
+evidence these endpoints have none of.
+
+**They now have their own class and their own lane**, which is the answer the per-endpoint model
+(§4.3) is supposed to give when a limit is unknown:
+
+- A 429 here cold-stops **only group selection**. Not profile fetches, not member sync, not the
+  audit log. Isolation is what makes using an unmeasured endpoint acceptable at all — the blast
+  radius is bounded to the one interactive step that needs it.
+- The rate is `groups.read`'s 0.2 req/s: these return group data, so a group-shaped limit is the
+  conservative reading. **The number is a deliberate underestimate, not a finding.**
+- No global exemption. `users.read` has one on evidence (§4.2.5); this class has no evidence, so it
+  gets no exemption.
+- A burst of **2** — exactly the sequence it admits. Pacing a pair of one-off calls five seconds
+  apart would stall a wizard step for nothing, the same reasoning the `auth` bucket already uses.
+
+`BudgetCoverageTests` enforces the shape of this: every declared class has a budget, every budget
+names a declared class, and this class specifically is asserted to be isolated from `users.read`,
+no faster than `groups.read`, and not exempt from the global ceiling. If a real limit is ever
+measured, change the rate here and the test goes on holding the isolation.
 
 Two caveats about that evidence:
 

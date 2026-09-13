@@ -44,7 +44,7 @@ public static class ListGroupsHandler
         }
 
         var groups = await gate.ExecuteAsync<List<LimitedUserGroups>>(
-            new VRChatEndpoint(VRChatEndpointClass.UsersRead, userId, "GetUserGroups"),
+            new VRChatEndpoint(VRChatEndpointClass.UsersGroups, userId, "GetUserGroups"),
             (vrchat, token) => vrchat.Users.GetUserGroupsWithHttpInfoAsync(userId, token),
             // A human is watching a spinner in a setup wizard. Background sync waits.
             VRChatCallPriority.Interactive,
@@ -54,7 +54,7 @@ public static class ListGroupsHandler
             return Failed(groups, elapsed.Elapsed - started);
 
         var permissions = await gate.ExecuteAsync<Dictionary<string, List<GroupPermissions>>>(
-            new VRChatEndpoint(VRChatEndpointClass.UsersRead, userId, "GetUserAllGroupPermissions"),
+            new VRChatEndpoint(VRChatEndpointClass.UsersGroups, userId, "GetUserAllGroupPermissions"),
             (vrchat, token) => vrchat.Users.GetUserAllGroupPermissionsWithHttpInfoAsync(
                 userId, cancellationToken: token),
             VRChatCallPriority.Interactive,

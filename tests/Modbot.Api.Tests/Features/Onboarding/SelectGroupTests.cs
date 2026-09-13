@@ -150,7 +150,12 @@ public class SelectGroupTests
         // pacing of one request per five seconds, would turn this step into minutes of spinner
         // for an account in twenty groups.
         Assert.Equal(2, gate.Calls.Count);
-        Assert.All(gate.Calls, call => Assert.Equal(VRChatEndpointClass.UsersRead, call.Endpoint.Class));
+
+        // Their own class, not users.read. Neither endpoint has a measured limit (spec 4.3.4.1),
+        // and users.read is the most permissive class there is -- it is exempt from the global
+        // ceiling on evidence these two have none of. Isolated, a 429 here stops group selection
+        // and nothing else.
+        Assert.All(gate.Calls, call => Assert.Equal(VRChatEndpointClass.UsersGroups, call.Endpoint.Class));
     }
 
     [Fact]

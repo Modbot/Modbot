@@ -35,6 +35,28 @@ public static class VRChatEndpointClass
     public const string UsersRead = "users.read";
 
     /// <summary>
+    /// Which groups an account belongs to, and what it may do in each —
+    /// <c>/users/{id}/groups</c> and <c>/users/{id}/groups/permissions</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>The limit here is not measured.</strong> These endpoints are used by one
+    /// interactive step — picking the managed group during onboarding — and nothing else calls
+    /// them. Rather than assume they behave like a neighbour, they get their own class, so a 429
+    /// on either cold-stops <em>only</em> group selection: not profile fetches, not member sync,
+    /// not the audit log. That is what spec 4.3's per-endpoint model is for, and what makes an
+    /// unmeasured endpoint safe to use at all.
+    /// </para>
+    /// <para>
+    /// The budget is set to the most conservative plausible neighbour (<c>groups.read</c>, spec
+    /// 4.2) because these return group data. If a real limit is ever measured, change it here —
+    /// and until then, treat the number as a guess that is deliberately too low rather than as a
+    /// finding.
+    /// </para>
+    /// </remarks>
+    public const string UsersGroups = "users.groups";
+
+    /// <summary>
     /// Finding a user Modbot does not already know. Severely limited and interactive-only
     /// (spec 4.2.5.1) — never called by a sync, a background job or a scheduled task.
     /// </summary>

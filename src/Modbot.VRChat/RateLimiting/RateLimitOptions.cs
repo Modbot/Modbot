@@ -137,6 +137,12 @@ public static class VRChatRateLimits
     /// <summary>Spec 4.2.5's separate 1 req/s lane for profile fetches.</summary>
     public const string UsersLane = "users";
 
+    /// <summary>
+    /// Its own queue, so an interactive onboarding step is never held behind a full member sweep
+    /// -- and never holds one up either.
+    /// </summary>
+    public const string UsersGroupsLane = "users.groups";
+
     /// <summary>Spec 4.2.5.1: interactive search, one request per 3.5 seconds, its own lane.</summary>
     public const string SearchLane = "search";
 
@@ -202,6 +208,16 @@ public static class VRChatRateLimits
                 VRChatEndpointClass.UsersRead, UsersLane,
                 HardMaxPerSecond: 1.0, DefaultCeilingPerSecond: CeilingFor(1.0),
                 CountsAgainstGlobal: false),
+
+            // Unmeasured (spec 4.3.4), so: the most conservative plausible neighbour, its own
+            // lane, and counted against the global ceiling. The burst of 2 is the whole point --
+            // group selection is exactly two calls, and pacing them five seconds apart would put
+            // a stall in the middle of a wizard step for no benefit, since the pair is issued
+            // once and never repeated. Same reasoning as the Auth bucket below.
+            [VRChatEndpointClass.UsersGroups] = new(
+                VRChatEndpointClass.UsersGroups, UsersGroupsLane,
+                HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
+                BurstTokens: 2),
 
             [VRChatEndpointClass.UsersSearch] = new(
                 VRChatEndpointClass.UsersSearch, SearchLane,
