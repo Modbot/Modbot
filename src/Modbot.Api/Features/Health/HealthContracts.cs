@@ -111,6 +111,32 @@ public sealed record UnmappedEvent(
 /// </summary>
 public sealed record HistoryHorizonReport(int EntriesRead, DateTimeOffset ReachedAt);
 
+/// <summary>
+/// What the profile sync is doing: how many people it knows, how many are waiting and why, and
+/// how fast the lane is being used.
+/// </summary>
+/// <param name="KnownUsers">Rows in <c>vrchat_user</c>: everyone Modbot has ever seen.</param>
+/// <param name="NeverRefreshed">People whose profile has never been fetched -- the backlog.</param>
+/// <param name="NotFound">People VRChat answered 404 for.</param>
+/// <param name="OldestRefreshedAt">The least recent successful refresh among people who have had one.</param>
+/// <param name="Waiting">Queue entries right now, in this process.</param>
+/// <param name="WaitingByReason">The same, per tier -- <c>SeenInInstance</c>, <c>OpenedInModbot</c>, and so on.</param>
+/// <param name="RefreshingUserId">Whose profile is being fetched at this moment, if anyone's.</param>
+/// <param name="RefreshesInLastHour">Requests spent on the users lane in the last hour.</param>
+/// <param name="LastRateLimitedAt">When the lane last answered 429, in this process.</param>
+/// <param name="CountedAt">When the table counts were last measured; they are refreshed about once a minute, not per request.</param>
+public sealed record UserProfileHealth(
+    int KnownUsers,
+    int NeverRefreshed,
+    int NotFound,
+    DateTimeOffset? OldestRefreshedAt,
+    int Waiting,
+    IReadOnlyDictionary<string, int> WaitingByReason,
+    string? RefreshingUserId,
+    int RefreshesInLastHour,
+    DateTimeOffset? LastRateLimitedAt,
+    DateTimeOffset? CountedAt);
+
 /// <param name="SyncRunningInThisProcess">
 /// False when no producer is registered in this host — a diagnostic host, or a deployment where
 /// sync was deliberately left out. Everything else in the response is then empty because nothing
@@ -131,11 +157,14 @@ public sealed record SyncHealth(
     PollRateReport? AuditLogPollRate,
     SyncRunSummary? LastAuditLogRun,
     SyncRunSummary? LastGroupInfoRun,
+    SyncRunSummary? LastUserProfileRun,
     DateTimeOffset? AuditLogPolledAt,
     DateTimeOffset? GroupInfoPolledAt,
+    DateTimeOffset? UserProfilePolledAt,
     bool AuditLogCatchUpComplete,
     DateTimeOffset? AuditLogSyncedThrough,
     bool GroupConfigured,
     IReadOnlyList<UnmappedEvent> UnmappedAuditEvents,
     HistoryHorizonReport? AuditLogHistoryHorizon,
+    UserProfileHealth? UserProfiles,
     DateTimeOffset Now);

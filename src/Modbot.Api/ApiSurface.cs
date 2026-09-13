@@ -10,6 +10,7 @@ using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Metrics;
 using Modbot.Api.Features.Settings;
+using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
 using Modbot.Api.Features.Onboarding.Integrations;
@@ -100,6 +101,10 @@ public static class ApiSurface
         app.MapMetrics();
         app.MapSyncHealth();
         app.MapEvidence();
+
+        // One VRChat user's stored profile and the 18+ flag (user profile sync design §6). The
+        // queue and the record writer resolve optionally, like SyncDiagnostics does above.
+        app.MapVRChatUsers();
 
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and

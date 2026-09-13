@@ -37,6 +37,21 @@ public sealed record GroupInfoPollRateSettings(
     double PacingFloorSeconds,
     double JitterFraction);
 
+/// <summary>The profile sync's pace and its windows (user profile sync design §5).</summary>
+/// <param name="IntervalSeconds">Time between refreshes while somebody is waiting. Floored at the users lane's cap.</param>
+/// <param name="StaleAfterSeconds">How old a profile is before it is refreshed just for being old.</param>
+/// <param name="RecentWindowSeconds">How long a sighting keeps somebody near the front of the queue.</param>
+/// <param name="FreshEnoughWhenOpenedSeconds">A profile fetched more recently than this is not queued again when opened in Modbot.</param>
+/// <param name="FreshEnoughWhenSeenInInstanceSeconds">The same gap for a presence sighting. Shorter.</param>
+public sealed record UserProfilePollRateSettings(
+    double IntervalSeconds,
+    double PacingFloorSeconds,
+    double StaleAfterSeconds,
+    double RecentWindowSeconds,
+    double FreshEnoughWhenOpenedSeconds,
+    double FreshEnoughWhenSeenInInstanceSeconds,
+    double RateLimitedIntervalSeconds);
+
 /// <summary>One endpoint class's budget, as configured and as it will actually be issued.</summary>
 /// <param name="HardMaxPerSecond">
 /// Spec 4.2's cap. Read-only: no write raises the rate past it, and the limiter takes the minimum
@@ -110,6 +125,7 @@ public sealed record SyncSettingsAdjustment(
 public sealed record SyncSettingsResponse(
     AuditLogPollRateSettings AuditLog,
     GroupInfoPollRateSettings GroupInfo,
+    UserProfilePollRateSettings UserProfile,
     SyncRateSettings Rates,
     bool Editable,
     string EditableExplanation,
@@ -136,6 +152,15 @@ public sealed record GroupInfoPollRateUpdate(
     double? RateLimitedIntervalSeconds = null,
     double? JitterFraction = null);
 
+/// <summary>Profile sync fields to change. Every one optional.</summary>
+public sealed record UserProfilePollRateUpdate(
+    double? IntervalSeconds = null,
+    double? StaleAfterSeconds = null,
+    double? RecentWindowSeconds = null,
+    double? FreshEnoughWhenOpenedSeconds = null,
+    double? FreshEnoughWhenSeenInInstanceSeconds = null,
+    double? RateLimitedIntervalSeconds = null);
+
 /// <param name="ClassCeilingsPerSecond">
 /// Estimates of VRChat's limit, keyed by endpoint class. Only the classes named are touched.
 /// </param>
@@ -148,6 +173,7 @@ public sealed record SyncSettingsUpdate(
     double? BudgetFraction = null,
     AuditLogPollRateUpdate? AuditLog = null,
     GroupInfoPollRateUpdate? GroupInfo = null,
+    UserProfilePollRateUpdate? UserProfile = null,
     bool Reset = false);
 
 /// <summary>
@@ -350,6 +376,22 @@ public static class SyncSettingsEndpoints
                 return "Jitter cannot be negative.";
         }
 
+        if (body.UserProfile is { } profile)
+        {
+            if (Broken(profile.IntervalSeconds) || Broken(profile.RateLimitedIntervalSeconds))
+                return "Profile sync intervals must be positive numbers of seconds.";
+
+            if (Broken(profile.StaleAfterSeconds))
+                return "The stale-after window must be a positive number of seconds.";
+
+            if (Negative(profile.RecentWindowSeconds)
+                || Negative(profile.FreshEnoughWhenOpenedSeconds)
+                || Negative(profile.FreshEnoughWhenSeenInInstanceSeconds))
+            {
+                return "The recent and fresh-enough windows cannot be negative.";
+            }
+        }
+
         return null;
     }
 
@@ -379,6 +421,13 @@ public static class SyncSettingsEndpoints
         GroupInfoRetryIntervalSeconds = body.GroupInfo?.RetryIntervalSeconds,
         GroupInfoRateLimitedIntervalSeconds = body.GroupInfo?.RateLimitedIntervalSeconds,
         GroupInfoJitterFraction = body.GroupInfo?.JitterFraction,
+
+        UserProfileIntervalSeconds = body.UserProfile?.IntervalSeconds,
+        UserProfileStaleAfterSeconds = body.UserProfile?.StaleAfterSeconds,
+        UserProfileRecentWindowSeconds = body.UserProfile?.RecentWindowSeconds,
+        UserProfileFreshEnoughWhenOpenedSeconds = body.UserProfile?.FreshEnoughWhenOpenedSeconds,
+        UserProfileFreshEnoughWhenSeenInInstanceSeconds = body.UserProfile?.FreshEnoughWhenSeenInInstanceSeconds,
+        UserProfileRateLimitedIntervalSeconds = body.UserProfile?.RateLimitedIntervalSeconds,
     };
 
     private static SyncSettingsResponse Describe(
@@ -423,6 +472,14 @@ public static class SyncSettingsEndpoints
                 pacing.GroupInfo.RateLimitedInterval.TotalSeconds,
                 GroupInfoSyncOptions.PacingFloor.TotalSeconds,
                 pacing.GroupInfo.JitterFraction),
+            new UserProfilePollRateSettings(
+                pacing.UserProfile.Interval.TotalSeconds,
+                UserProfileSyncOptions.PacingFloor.TotalSeconds,
+                pacing.UserProfile.StaleAfter.TotalSeconds,
+                pacing.UserProfile.RecentWindow.TotalSeconds,
+                pacing.UserProfile.FreshEnoughWhenOpened.TotalSeconds,
+                pacing.UserProfile.FreshEnoughWhenSeenInInstance.TotalSeconds,
+                pacing.UserProfile.RateLimitedInterval.TotalSeconds),
             new SyncRateSettings(
                 pacing.BudgetFraction,
                 RateLimitOptions.DefaultFraction,

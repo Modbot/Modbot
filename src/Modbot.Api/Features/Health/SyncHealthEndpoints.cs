@@ -63,6 +63,7 @@ public static class SyncHealthEndpoints
                 // Optional: a host that registered the API without the producers still answers,
                 // and says so, rather than failing to resolve a service at request time.
                 [FromServices] SyncDiagnostics? diagnostics,
+                [FromServices] UserRefreshQueue? queue,
                 CancellationToken ct) =>
             {
                 var (health, buckets) = await GateHealthReader.ReadAsync(gate, ct);
@@ -77,8 +78,10 @@ public static class SyncHealthEndpoints
                     PollRate(diagnostics?.AuditLogPollRate),
                     Run(diagnostics?.LastAuditLogRun),
                     Run(diagnostics?.LastGroupInfoRun),
+                    Run(diagnostics?.LastUserProfileRun),
                     settings?.AuditLogPolledAt,
                     settings?.GroupInfoPolledAt,
+                    settings?.UserProfilePolledAt,
                     settings?.AuditLogCatchUpComplete ?? false,
                     settings?.AuditLogSyncedThrough,
                     !string.IsNullOrWhiteSpace(settings?.ManagedGroupId),
@@ -88,6 +91,7 @@ public static class SyncHealthEndpoints
                             e.SampleEntryId, e.SampleDescription))
                         .ToList() ?? [],
                     Horizon(diagnostics?.HistoryHorizonReached),
+                    Profiles(diagnostics, queue),
                     clock.UtcNow));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
@@ -130,4 +134,28 @@ public static class SyncHealthEndpoints
         => horizon is null
             ? null
             : new HistoryHorizonReport(horizon.EntriesRead, horizon.ReachedAt);
+
+    /// <summary>
+    /// The profile sync's own numbers. Null when it is not registered here -- the table counts
+    /// come from its housekeeping pass, and a host with no producer never counts.
+    /// </summary>
+    private static UserProfileHealth? Profiles(SyncDiagnostics? diagnostics, UserRefreshQueue? queue)
+    {
+        if (diagnostics is null || queue is null)
+            return null;
+
+        var counts = diagnostics.UserProfileCounts;
+
+        return new UserProfileHealth(
+            counts?.KnownUsers ?? 0,
+            counts?.NeverRefreshed ?? 0,
+            counts?.NotFound ?? 0,
+            counts?.OldestRefreshedAt,
+            queue.Count,
+            queue.CountByReason().ToDictionary(p => p.Key.ToString(), p => p.Value, StringComparer.Ordinal),
+            queue.InProgress?.UserId,
+            diagnostics.UserProfileRefreshesInLastHour,
+            diagnostics.UserProfileLastRateLimitedAt,
+            counts?.MeasuredAt);
+    }
 }
