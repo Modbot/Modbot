@@ -9,6 +9,7 @@ using Modbot.Api.Features.Auth.Me;
 using Modbot.Api.Features.Auth.VRChatLink;
 using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
+using Modbot.Api.Features.Reviews;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Evidence;
@@ -120,6 +121,12 @@ public static class ApiSurface
         // One VRChat user's stored profile and the 18+ flag (user profile sync design §6). The
         // queue and the record writer resolve optionally, like SyncDiagnostics does above.
         app.MapVRChatUsers();
+
+        // Moderation accountability (spec 5.8): people acted on more than once, and the reviews
+        // that open when a moderator's pattern looks unusual. Read from caches the review job
+        // rebuilds; closing a review resolves ReviewFacts optionally, like the sync pieces above.
+        app.MapRepeatOffenders();
+        app.MapReviews();
 
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and
