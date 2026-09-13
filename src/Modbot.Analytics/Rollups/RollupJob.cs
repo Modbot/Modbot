@@ -199,21 +199,55 @@ public sealed class RollupJob
         DateTimeOffset? since,
         CancellationToken ct)
     {
-        var sql = $"""
-            SELECT DISTINCT (gs)::date AS "Value"
-            FROM (
-                {WindowedFacts("@types", observedSince: since is not null)}
-            ) w
-            CROSS JOIN LATERAL generate_series(
-                date_trunc('day', w.lo), date_trunc('day', w.hi), interval '1 day') AS gs
-            """;
-
         var parameters = new List<NpgsqlParameter> { Param("types", TypeValues(RollupMetrics.ComputedTypes)) };
         if (since is not null)
             parameters.Add(Param("since", since.Value));
 
-        return await QueryAsync<DateOnly>(sql, parameters, ct);
+        return await QueryAsync<DateOnly>(
+            DaysTouchedSql(WindowedFacts("@types", observedSince: since is not null)),
+            parameters,
+            ct);
     }
+
+    /// <summary>
+    /// The days every fact about one subject touches -- what a purge has to recompute once those
+    /// facts are gone (spec 5.5).
+    /// </summary>
+    /// <remarks>
+    /// It lives here rather than in the purger because the day a fact belongs to is this class's
+    /// decision: an imprecise fact belongs to every day its window covers, and two places
+    /// deciding that differently is how a purge leaves a stale row behind.
+    /// </remarks>
+    public async Task<IReadOnlyList<DateOnly>> DaysTouchedBySubjectAsync(
+        FactPlatform platform,
+        string subjectId,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(subjectId);
+
+        var facts = WindowedFacts(
+            "@types",
+            observedSince: false,
+            extraFilter: "AND e.subject_platform = @platform AND e.subject_id = @subject");
+
+        return await QueryAsync<DateOnly>(
+            DaysTouchedSql(facts),
+            [
+                Param("types", TypeValues(RollupMetrics.ComputedTypes)),
+                Param("platform", (short)platform),
+                Param("subject", subjectId),
+            ],
+            ct);
+    }
+
+    private static string DaysTouchedSql(string windowedFacts) => $"""
+        SELECT DISTINCT (gs)::date AS "Value"
+        FROM (
+            {windowedFacts}
+        ) w
+        CROSS JOIN LATERAL generate_series(
+            date_trunc('day', w.lo), date_trunc('day', w.hi), interval '1 day') AS gs
+        """;
 
     private async Task<int> ComputeFactCountAsync(
         FactCountMetric metric,
@@ -413,7 +447,11 @@ public sealed class RollupJob
     /// <c>occurred_at</c> is nonsense, and a negative window would produce negative weights.
     /// </para>
     /// </remarks>
-    private static string WindowedFacts(string types, bool observedSince, bool boundedDays = false)
+    private static string WindowedFacts(
+        string types,
+        bool observedSince,
+        bool boundedDays = false,
+        string extraFilter = "")
     {
         var observed = observedSince ? "AND e.observed_at > @since" : string.Empty;
 
@@ -429,17 +467,17 @@ public sealed class RollupJob
                    (e.occurred_at AT TIME ZONE 'UTC') AS lo,
                    (GREATEST(COALESCE(e.occurred_before, e.occurred_at), e.occurred_at) AT TIME ZONE 'UTC') AS hi
             FROM modbot_event e
-            WHERE e.type = ANY({types}) {observed} {bounded}
+            WHERE e.type = ANY({types}) {observed} {bounded} {extraFilter}
             """;
     }
 
     /// <summary>
-    /// The dimension for actor-broken-down metrics: the platform, then the raw id.
+    /// The dimension for actor-broken-down metrics, as SQL.
     /// </summary>
     /// <remarks>
-    /// Platform-qualified because a Discord snowflake and a VRChat id share one text column and
-    /// must not merge into one moderator (spec 5.3). The id itself is passed through untouched --
-    /// never parsed, never validated (spec 3.1.1).
+    /// Built from <see cref="RollupDimensions.Label"/> so that the string this query writes and
+    /// the string C# looks rows up by cannot drift apart -- a purge searching for
+    /// <c>vrchat:usr_...</c> while the job wrote something else would silently find nothing.
     /// </remarks>
     private static readonly string ActorDimensionSql = BuildActorDimensionSql();
 
@@ -448,7 +486,7 @@ public sealed class RollupJob
         var cases = string.Join(
             " ",
             Enum.GetValues<FactPlatform>().Select(p =>
-                $"WHEN {(short)p} THEN '{p.ToString().ToLowerInvariant()}'"));
+                $"WHEN {(short)p} THEN '{RollupDimensions.Label(p)}'"));
 
         return $"(CASE s.actor_platform {cases} ELSE 'unknown' END || ':' || s.actor_id)";
     }

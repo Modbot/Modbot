@@ -363,7 +363,7 @@ Modbot/
 ├─ libs/                      # GITIGNORED — reference clones of the VRChat SDKs
 ├─ old/                       # GITIGNORED — previous SaaS implementation, reference only
 ├─ LICENSE  CLA.md  TRADEMARK.md
-├─ Dockerfile  railway.json
+├─ Dockerfile  .railway/railway.ts
 ├─ AGENTS.md → CLAUDE.md      # agent instructions
 └─ README.md
 ```

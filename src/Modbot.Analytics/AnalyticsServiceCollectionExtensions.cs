@@ -1,12 +1,13 @@
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
+using Modbot.Analytics.Retention;
 using Modbot.Analytics.Rollups;
 
 namespace Modbot.Analytics;
 
 /// <summary>
-/// Registers the analytics substrate: the fact log, the rollups derived from it, and the jobs
-/// that keep both healthy.
+/// Registers the analytics substrate: the fact log, the rollups derived from it, retention, and
+/// the jobs that keep all three healthy.
 /// </summary>
 public static class AnalyticsServiceCollectionExtensions
 {
@@ -26,6 +27,10 @@ public static class AnalyticsServiceCollectionExtensions
         services.AddScoped<RollupJob>();
         services.AddScoped<IRollupCounter, RollupCounter>();
         services.AddHostedService<RollupService>();
+
+        services.AddScoped<RetentionPruner>();
+        services.AddScoped<IUserPurger, UserPurger>();
+        services.AddHostedService<RetentionService>();
 
         return services;
     }

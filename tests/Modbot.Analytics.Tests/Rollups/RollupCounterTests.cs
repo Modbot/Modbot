@@ -9,7 +9,7 @@ namespace Modbot.Analytics.Tests.Rollups;
 /// fact would be volume and a social graph for a query nobody runs.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
-public class RollupCounterTests : RollupTestBase
+public class RollupCounterTests : AnalyticsTestBase
 {
     public RollupCounterTests(PostgresFixture fixture) : base(fixture) { }
 

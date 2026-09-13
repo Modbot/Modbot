@@ -24,7 +24,7 @@ namespace Modbot.Analytics.Tests.Rollups;
 /// </para>
 /// </remarks>
 [Collection(nameof(PostgresCollection))]
-public class RollupRecomputationPropertyTests : RollupTestBase
+public class RollupRecomputationPropertyTests : AnalyticsTestBase
 {
     public RollupRecomputationPropertyTests(PostgresFixture fixture) : base(fixture) { }
 

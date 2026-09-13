@@ -5,12 +5,16 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
-namespace Modbot.Analytics.Tests.Rollups;
+namespace Modbot.Analytics.Tests;
 
 /// <summary>
 /// A private database, a fake clock, and the shorthand for putting facts into the log.
 /// </summary>
-public abstract class RollupTestBase : IAsyncLifetime
+/// <remarks>
+/// Shared by the rollup and retention suites: both need a database nobody else is writing to --
+/// one aggregates over every fact in the table, the other destroys the tables the facts live in.
+/// </remarks>
+public abstract class AnalyticsTestBase : IAsyncLifetime
 {
     /// <summary>
     /// Fixed, like the fact tests': rollups are keyed by day, and a suite that quietly depends on
@@ -18,7 +22,7 @@ public abstract class RollupTestBase : IAsyncLifetime
     /// </summary>
     protected static readonly DateTimeOffset Start = new(2029, 3, 10, 12, 0, 0, TimeSpan.Zero);
 
-    protected RollupTestBase(PostgresFixture fixture) => Fixture = fixture;
+    protected AnalyticsTestBase(PostgresFixture fixture) => Fixture = fixture;
 
     protected PostgresFixture Fixture { get; }
 

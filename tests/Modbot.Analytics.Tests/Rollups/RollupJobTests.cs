@@ -10,7 +10,7 @@ namespace Modbot.Analytics.Tests.Rollups;
 /// not be pretended to be an exact one.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
-public class RollupJobTests : RollupTestBase
+public class RollupJobTests : AnalyticsTestBase
 {
     public RollupJobTests(PostgresFixture fixture) : base(fixture) { }
 

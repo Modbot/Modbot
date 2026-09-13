@@ -103,4 +103,11 @@ public enum FactType : short
     MigrationApplied = 503,
     RetentionPruned = 504,
     PartitionCreated = 505,
+
+    /// <summary>
+    /// Every fact about one subject was erased on request (spec 5.5). Moderation retention: this
+    /// one is a record of a deletion, and the record of a deletion is the part that must survive.
+    /// It deliberately names no user -- see <c>UserPurger</c>.
+    /// </summary>
+    UserPurged = 506,
 }

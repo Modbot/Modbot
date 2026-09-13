@@ -1195,7 +1195,7 @@ Written in batches so each stays reviewable. Tasks 1–4 are complete above.
 | 10 | `IVRChatGate` | Non-throwing SDK verified; WAF classified; AIMD | Must include a smoke test asserting `...WithHttpInfoAsync` returns a non-success `ApiResponse` rather than throwing — pins the upstream behaviour this design depends on. |
 | 11 | Onboarding API: admin, VRChat login, connection test + proxy, group select | Wizard completable end to end | Connection test must distinguish a WAF block from DNS/timeout/bad-credentials; a proxy fixes only the first (spec §7.1.1). |
 | 12 | React/Vite SPA + setup wizard UI | Served from `wwwroot` | npm, not pnpm (not installed). Vite `build.outDir` → `../../Modbot.Host/wwwroot`. |
-| 13 | Host wiring, health checks, Dockerfile, `railway.json` | One-click deployable | Resolve `PORT` in the entrypoint shell, not an `ENV` line — it is unset at build time. |
+| 13 | Host wiring, health checks, Dockerfile, `.railway/railway.ts` | One-click deployable | Resolve `PORT` in the entrypoint shell, not an `ENV` line — it is unset at build time. |
 
 ### Design notes for Task 6 (fact log)
 
