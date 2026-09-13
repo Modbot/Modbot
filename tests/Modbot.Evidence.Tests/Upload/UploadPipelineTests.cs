@@ -239,7 +239,7 @@ public sealed class UploadPipelineTests : IAsyncLifetime
         Assert.Empty(_metadata.Records);
 
         // The re-probe ran, and it found a store that is not answering rather than one that is
-        // missing its store marker — so nothing latched on a transport failure.
+        // missing its store marker — so nothing locked on a transport failure.
         Assert.Equal(EvidenceStoreState.Unreachable, _monitor.Current.State);
     }
 
@@ -248,7 +248,7 @@ public sealed class UploadPipelineTests : IAsyncLifetime
     /// than refusing it.
     /// </summary>
     [Fact]
-    public async Task UploadsAreRefusedWhileTheStoreIsLatchedUnavailable()
+    public async Task UploadsAreRefusedWhileTheStoreIsLockedUnavailable()
     {
         File.Delete(Path.Combine(_root, EvidenceKeys.StoreMarkerKey));
         await _monitor.CheckAsync(Ct);

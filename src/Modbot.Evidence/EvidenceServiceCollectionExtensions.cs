@@ -10,7 +10,7 @@ using Modbot.Evidence.Upload;
 
 namespace Modbot.Evidence;
 
-/// <summary>Registers the evidence store, its health latch and the upload pipeline.</summary>
+/// <summary>Registers the evidence store, its health lock and the upload pipeline.</summary>
 public static class EvidenceServiceCollectionExtensions
 {
     /// <summary>
@@ -25,7 +25,7 @@ public static class EvidenceServiceCollectionExtensions
     /// </para>
     /// <para>
     /// The store is a singleton because it holds a connection pool and, for S3, an HTTP client.
-    /// The monitor is a singleton because the latch is process state — a scoped latch would clear
+    /// The monitor is a singleton because the lock is process state — a scoped lock would clear
     /// itself on every request, which is the one thing design section 8.4 says it must never do.
     /// </para>
     /// <para>

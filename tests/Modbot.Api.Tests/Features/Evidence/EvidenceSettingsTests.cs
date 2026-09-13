@@ -39,9 +39,9 @@ public class EvidenceSettingsTests(PostgresFixture db)
         Assert.Equal("None", settings.Backend.Backend);
         Assert.False(settings.Health.UploadsAllowed);
 
-        // NotConfigured is not the latch. Nothing is wrong; nothing has been chosen.
+        // NotConfigured is not the lock. Nothing is wrong; nothing has been chosen.
         Assert.Equal(nameof(EvidenceStoreState.NotConfigured), settings.Health.State);
-        Assert.False(settings.Health.Latched);
+        Assert.False(settings.Health.Locked);
 
         var begun = await host.PostAsync(
             "/api/evidence/uploads", cookie, new { fileName = "proof.png" }, Ct);

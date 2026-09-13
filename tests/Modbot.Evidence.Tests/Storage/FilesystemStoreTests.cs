@@ -81,7 +81,7 @@ public class FilesystemStoreTests : EvidenceStoreConformanceTests
     }
 
     /// <summary>
-    /// An unreadable directory is "the store did not answer", not "the store is empty". Latching
+    /// An unreadable directory is "the store did not answer", not "the store is empty". Locking
     /// on the second would report loss where there is only a permissions problem.
     /// </summary>
     [Fact]

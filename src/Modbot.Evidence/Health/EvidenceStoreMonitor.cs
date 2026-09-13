@@ -14,12 +14,12 @@ public enum EvidenceStoreState
     Healthy,
 
     /// <summary>
-    /// <strong>Latched.</strong> The store answered and it is not the store Modbot's metadata
+    /// <strong>Locked.</strong> The store answered and it is not the store Modbot's metadata
     /// describes. Evidence is either gone or was never here.
     /// </summary>
     Unavailable,
 
-    /// <summary>The store did not answer. Transient until proven otherwise; never latches.</summary>
+    /// <summary>The store did not answer. Transient until proven otherwise; never locks.</summary>
     Unreachable,
 }
 
@@ -30,7 +30,7 @@ public enum EvidenceStoreState
 /// <param name="Since">When this state began.</param>
 /// <param name="ConsecutiveFailures">How many probes in a row have failed to get an answer.</param>
 /// <param name="ShouldAlarm">
-/// Whether the operator should be told <em>now</em>. True immediately on a latch; true for an
+/// Whether the operator should be told <em>now</em>. True immediately on a lock; true for an
 /// unreachable store only once it has been unreachable for
 /// <see cref="EvidenceOptions.TransientFailuresBeforeAlarm"/> probes.
 /// </param>
@@ -50,13 +50,13 @@ public sealed record EvidenceStoreHealth(
     public bool UploadsAllowed => State is EvidenceStoreState.Healthy;
 
     /// <summary>
-    /// Whether a sweep may delete anything. Sweeping while the latch is on would be deleting on
+    /// Whether a sweep may delete anything. Sweeping while the lock is on would be deleting on
     /// the authority of a database whose relationship to the store is exactly what is in doubt.
     /// </summary>
     public bool SweepAllowed => State is EvidenceStoreState.Healthy;
 }
 
-/// <param name="DetectedAt">When the latch went on.</param>
+/// <param name="DetectedAt">When the lock went on.</param>
 /// <param name="ResolvedAt">When a matching store marker reappeared, if it ever did.</param>
 public sealed record EvidenceStoreIncident(
     DateTimeOffset DetectedAt,
@@ -66,20 +66,20 @@ public sealed record EvidenceStoreIncident(
     DateTimeOffset? ResolvedAt = null);
 
 /// <summary>
-/// Reads the store marker and holds the latched verdict (design sections 8.3 and 8.4).
+/// Reads the store marker and holds the locked verdict (design sections 8.3 and 8.4).
 /// </summary>
 /// <remarks>
 /// <para>
 /// The one thing this class exists to get right is the difference between <em>the store said no</em>
 /// and <em>the store said nothing</em>. An absent or foreign store marker is evidence that the bytes
 /// are not where the database says they are — an unmounted volume, a fresh bucket, a mistyped
-/// prefix — and it latches. A store that failed to answer is a network, a credential or an outage,
+/// prefix — and it locks. A store that failed to answer is a network, a credential or an outage,
 /// and it does not. Conflating them either raises a full-width "your evidence is gone" banner
 /// every time a bucket hiccups, which teaches operators to dismiss the one banner that matters, or
 /// stays quiet through the failure the banner exists for.
 /// </para>
 /// <para>
-/// <strong>Latching is not refusing to start.</strong> Modbot keeps running, and everything
+/// <strong>Locking is not refusing to start.</strong> Modbot keeps running, and everything
 /// unrelated keeps working: bans, audit ingest, Discord, the overlay, analytics. Refusing to start
 /// would trade live data collection — which foundation section 5.1 says cannot be filled in later — for
 /// a gesture about data that is already lost, hide the message behind a platform's
@@ -87,7 +87,7 @@ public sealed record EvidenceStoreIncident(
 /// fix it.
 /// </para>
 /// <para>
-/// <strong>The latch does not clear itself.</strong> It clears when a matching store marker is read
+/// <strong>The lock does not clear itself.</strong> It clears when a matching store marker is read
 /// again, and the incident stays on the record afterwards. A misconfiguration that quietly fixes
 /// itself between two deploys, leaving no trace, is how an operator concludes the warning was
 /// spurious.
@@ -135,7 +135,7 @@ public sealed class EvidenceStoreMonitor
     }
 
     /// <summary>
-    /// Every latch this process has seen, resolved or not. The host turns these into facts; they
+    /// Every lock this process has seen, resolved or not. The host turns these into facts; they
     /// are kept here so that the banner can name the one that is current.
     /// </summary>
     public IReadOnlyList<EvidenceStoreIncident> Incidents
@@ -172,7 +172,7 @@ public sealed class EvidenceStoreMonitor
                 return Resolve(now, probe.Explanation, expected);
 
             case StoreProbeOutcome.Present:
-                return Latch(
+                return Lock(
                     now,
                     $"This is a different Modbot's evidence store. Expected {expected}, found "
                     + $"{probe.Marker!.StoreId} in {_store.Description}.",
@@ -181,7 +181,7 @@ public sealed class EvidenceStoreMonitor
 
             case StoreProbeOutcome.Absent:
             case StoreProbeOutcome.Malformed:
-                return Latch(now, probe.Explanation, expected, null);
+                return Lock(now, probe.Explanation, expected, null);
 
             default:
                 return Transient(now, probe.Explanation, expected);
@@ -209,15 +209,15 @@ public sealed class EvidenceStoreMonitor
         }
     }
 
-    private EvidenceStoreHealth Latch(DateTimeOffset now, string explanation, Guid expected, Guid? found)
+    private EvidenceStoreHealth Lock(DateTimeOffset now, string explanation, Guid expected, Guid? found)
     {
         lock (_gate)
         {
             _consecutiveFailures = 0;
 
-            var alreadyLatched = _current.State is EvidenceStoreState.Unavailable;
+            var alreadyLocked = _current.State is EvidenceStoreState.Unavailable;
 
-            if (!alreadyLatched)
+            if (!alreadyLocked)
                 _incidents.Add(new EvidenceStoreIncident(now, explanation, expected, found));
 
             _current = new EvidenceStoreHealth(
@@ -225,12 +225,12 @@ public sealed class EvidenceStoreMonitor
                 explanation,
                 expected,
                 found,
-                alreadyLatched ? _current.Since : now,
+                alreadyLocked ? _current.Since : now,
                 0,
 
                 // Immediately, on every channel, the first time. Repeating it on every probe would
                 // be the same mistake as a banner nobody reads.
-                ShouldAlarm: !alreadyLatched);
+                ShouldAlarm: !alreadyLocked);
 
             return _current;
         }
@@ -242,7 +242,7 @@ public sealed class EvidenceStoreMonitor
         {
             _consecutiveFailures++;
 
-            // A latched store that has since stopped answering stays latched. Silence is not
+            // A locked store that has since stopped answering stays locked. Silence is not
             // evidence that the earlier finding was wrong.
             if (_current.State is EvidenceStoreState.Unavailable)
             {

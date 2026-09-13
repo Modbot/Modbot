@@ -485,7 +485,7 @@ the warning that prevents the mistake, where the store marker is what detects it
 > shown**, stored verbatim. A reworded warning must not retroactively change what somebody agreed
 > to.
 >
-> Note what is *not* softened by this. The store marker latch (§8.3) still fires on an absent, foreign
+> Note what is *not* softened by this. The store marker lock (§8.3) still fires on an absent, foreign
 > or malformed store marker, because those are evidence of real loss or a wrong store rather than a
 > guess about a platform. The distinction this correction draws is exactly that one: **a suspicion
 > never blocks; proof always does.**
@@ -498,11 +498,11 @@ the warning that prevents the mistake, where the store marker is what detects it
     probe the store marker
       ├─ matches          → healthy. Also sample-check the N most recently stored
       │                     blobs; any missing ones are marked Missing individually
-      │                     and reported, but do not latch the store state.
+      │                     and reported, but do not lock the store state.
       ├─ absent, or
-      │  id differs       → LATCH EvidenceStoreUnavailable  (§8.4)
+      │  id differs       → LOCK EvidenceStoreUnavailable   (§8.4)
       └─ no answer        → transient. Retry with backoff. Uploads fail with a
-                            "temporarily unavailable" message. Do NOT latch, do NOT
+                            "temporarily unavailable" message. Do NOT lock, do NOT
                             alarm the operator on the first failure.
 ```
 
@@ -533,7 +533,7 @@ settles it:
    and the only way to change the storage backend is the settings page — inside the application that
    is refusing to start.
 
-So the behaviour is a **latched degraded state**, `EvidenceStoreUnavailable`:
+So the behaviour is a **locked degraded state**, `EvidenceStoreUnavailable`:
 
 - **Modbot starts**, and every unrelated function works normally. Bans, audit ingest, Discord, the
   overlay, analytics: untouched.
@@ -548,7 +548,7 @@ So the behaviour is a **latched degraded state**, `EvidenceStoreUnavailable`:
 - **A full-width banner on every page of the web UI**, not a log line and not a toast. It names the
   backend, the expected store id, what was found, and the number of blobs the database believes exist.
   Only an `Administrator` can acknowledge it, and acknowledging it does not clear it.
-- **The latch does not clear itself.** If the volume is mounted correctly on the next deploy and the
+- **The lock does not clear itself.** If the volume is mounted correctly on the next deploy and the
   store marker reappears, the state resolves — but the incident is a fact on the log, permanently, and
   the affected blobs stay marked `Missing` until they are verified present.
 
@@ -663,7 +663,7 @@ There are no lifecycle rules to lean on (§4.1.1). So a scheduled job:
 - deletes staging objects older than a configurable grace period (default 24 hours, long enough that
   a slow upload on a bad connection is never swept out from under itself);
 - deletes final objects with no referencing attachment and a much longer grace period, and **only**
-  when the store is healthy — sweeping while `EvidenceStoreUnavailable` is latched would be deleting
+  when the store is healthy — sweeping while `EvidenceStoreUnavailable` is locked would be deleting
   based on a database whose relationship to the store is exactly what is in doubt.
 
 Both record what they removed. A sweep that deletes an object it should not have kept no record of is
@@ -1149,7 +1149,7 @@ Tasks, not changes. Nothing here is implemented by this document.
 | 5 | `src/Modbot.Core/Logging/`, `src/Modbot.Core/Configuration/` | Largely **already done**: the file sinks now switch off unless `PersistenceProbe` has evidence the directory survives a restart. What remains is to point the log directory at the same data root the filesystem evidence backend uses, so one mounted volume serves both, and to size it — the worst case at the current caps (64 MB/file; 60 main, 60 http, 6 debug, each in two formats) is ~15–16 GB, which the docs must state so an operator does not mount a 10 GB volume and have evidence and logs compete for it. |
 | 6 | `src/Modbot.Core/Data/Entities/ModbotPermissions.cs` | Three new flags at bits 15–17 (§14), pinned by `ModbotPermissionsTests` like the rest. |
 | 7 | `src/Modbot.Core/Data/Entities/Settings.cs` | Storage backend, its fields, the caps, the store marker id, direct-delivery toggle, sweep rate. Secrets encrypted like every other secret column. |
-| 8 | Host startup | The §8.3 probe, the latch, the `Critical` notification and the banner state. |
+| 8 | Host startup | The §8.3 probe, the lock, the `Critical` notification and the banner state. |
 
 ---
 

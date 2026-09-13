@@ -199,7 +199,7 @@ public class S3StoreTests : EvidenceStoreConformanceTests
 
     /// <summary>
     /// An endpoint that is not listening is "did not answer" — the one probe outcome that must
-    /// never latch, because a thirty-second outage is not evidence of loss.
+    /// never lock, because a thirty-second outage is not evidence of loss.
     /// </summary>
     [Fact]
     public async Task AnUnreachableEndpointProbesAsUnreachable()

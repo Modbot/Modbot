@@ -412,7 +412,7 @@ export type EvidenceHealth = {
   since: string | null
   consecutiveFailures: number
   uploadsAllowed: boolean
-  latched: boolean
+  locked: boolean
   storeDescription: string
 }
 

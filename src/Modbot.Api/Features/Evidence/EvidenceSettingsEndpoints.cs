@@ -134,7 +134,7 @@ public static class EvidenceSettingsEndpoints
             .WithSummary("Re-read the store marker now")
             .WithDescription(
                 "The same three-valued probe startup takes. A store that answers with somebody "
-                + "else's store marker, or with none, latches; a store that does not answer at all "
+                + "else's store marker, or with none, locks; a store that does not answer at all "
                 + "does not, because silence is not evidence of loss.")
             .Produces<EvidenceHealthView>()
             .Produces(StatusCodes.Status403Forbidden);

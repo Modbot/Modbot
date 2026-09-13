@@ -8,7 +8,7 @@ using Modbot.TestSupport;
 namespace Modbot.Evidence.Tests.Health;
 
 /// <summary>
-/// Design sections 8.3 and 8.4: the store marker's four-valued result, the latch, and the difference
+/// Design sections 8.3 and 8.4: the store marker's four-valued result, the lock, and the difference
 /// between a store that said no and a store that said nothing.
 /// </summary>
 public sealed class StoreMarkerTests : IDisposable
@@ -61,7 +61,7 @@ public sealed class StoreMarkerTests : IDisposable
     /// then — which is the only time it can be fixed for free.
     /// </summary>
     [Fact]
-    public async Task AnAbsentStoreMarkerLatchesEvenWhenTheStoreIsEmpty()
+    public async Task AnAbsentStoreMarkerLocksEvenWhenTheStoreIsEmpty()
     {
         var monitor = Monitor();
         var health = await monitor.CheckAsync(Ct);
@@ -73,7 +73,7 @@ public sealed class StoreMarkerTests : IDisposable
     }
 
     [Fact]
-    public async Task AStoreMarkerBelongingToADifferentStoreLatchesAndNamesBothIds()
+    public async Task AStoreMarkerBelongingToADifferentStoreLocksAndNamesBothIds()
     {
         var theirs = Guid.NewGuid();
         await _store.WriteStoreMarkerAsync(new StoreMarker(theirs, _clock.UtcNow, "somebody else"), Ct);
@@ -87,7 +87,7 @@ public sealed class StoreMarkerTests : IDisposable
     }
 
     [Fact]
-    public async Task RubbishAtTheStoreMarkerKeyLatchesLikeAnAbsentOne()
+    public async Task RubbishAtTheStoreMarkerKeyLocksLikeAnAbsentOne()
     {
         await File.WriteAllTextAsync(Path.Combine(_root, EvidenceKeys.StoreMarkerKey), "nonsense", Ct);
 
@@ -99,7 +99,7 @@ public sealed class StoreMarkerTests : IDisposable
     /// banner that fires on every bucket blip teaches the operator to dismiss the banner.
     /// </summary>
     [Fact]
-    public async Task AStoreThatDidNotAnswerDoesNotLatchAndDoesNotAlarmOnTheFirstFailure()
+    public async Task AStoreThatDidNotAnswerDoesNotLockAndDoesNotAlarmOnTheFirstFailure()
     {
         await CommissionAsync();
 
@@ -121,7 +121,7 @@ public sealed class StoreMarkerTests : IDisposable
         Assert.Equal(3, third.ConsecutiveFailures);
     }
 
-    /// <summary>Uploads are refused while the store's answer is unknown, but nothing is latched.</summary>
+    /// <summary>Uploads are refused while the store's answer is unknown, but nothing is locked.</summary>
     [Fact]
     public async Task AnUnreachableStoreRefusesUploadsWithoutDeclaringLoss()
     {
@@ -137,7 +137,7 @@ public sealed class StoreMarkerTests : IDisposable
     /// Silence after a finding is not evidence that the finding was wrong.
     /// </summary>
     [Fact]
-    public async Task ALatchedStoreStaysLatchedWhenItLaterStopsAnswering()
+    public async Task ALockedStoreStaysLockedWhenItLaterStopsAnswering()
     {
         var monitor = Monitor();
         await monitor.CheckAsync(Ct);
@@ -149,12 +149,12 @@ public sealed class StoreMarkerTests : IDisposable
     }
 
     /// <summary>
-    /// The latch clears when the volume is mounted correctly on the next deploy — and the incident
+    /// The lock clears when the volume is mounted correctly on the next deploy — and the incident
     /// stays on the record afterwards. A misconfiguration that fixes itself leaving no trace is how
     /// an operator concludes the warning was spurious.
     /// </summary>
     [Fact]
-    public async Task TheLatchClearsOnlyWhenTheStoreMarkerReappearsAndTheIncidentSurvives()
+    public async Task TheLockClearsOnlyWhenTheStoreMarkerReappearsAndTheIncidentSurvives()
     {
         var monitor = Monitor();
         await monitor.CheckAsync(Ct);
@@ -171,11 +171,11 @@ public sealed class StoreMarkerTests : IDisposable
     }
 
     /// <summary>
-    /// One incident per latch, not one per probe. Repeating the alarm every fifteen minutes is the
+    /// One incident per lock, not one per probe. Repeating the alarm every fifteen minutes is the
     /// same mistake as a banner nobody reads.
     /// </summary>
     [Fact]
-    public async Task RepeatedProbesOfALatchedStoreRecordOneIncident()
+    public async Task RepeatedProbesOfALockedStoreRecordOneIncident()
     {
         var monitor = Monitor();
 
@@ -203,7 +203,7 @@ public sealed class StoreMarkerTests : IDisposable
     }
 
     /// <summary>
-    /// Sweeping while the latch is on would be deleting on the authority of a database whose
+    /// Sweeping while the lock is on would be deleting on the authority of a database whose
     /// relationship to the store is exactly what is in doubt.
     /// </summary>
     [Fact]

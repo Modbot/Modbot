@@ -27,7 +27,7 @@ namespace Modbot.Api.Features.Evidence;
 /// directory Modbot cannot prove survives a restart produces a warning and a question, never a
 /// refusal — Railway, Fly.io and Render all support mountable volumes, and the operator is the only
 /// party who knows whether they mounted one. A directory that cannot be written to at all is
-/// refused, because that is a fact with nothing to judge. The store marker latch is untouched by any
+/// refused, because that is a fact with nothing to judge. The store marker lock is untouched by any
 /// of this and stays fatal to uploads: an absent, foreign or malformed store marker is proof of a lost
 /// or wrong store.
 /// </para>
@@ -391,7 +391,7 @@ public sealed class EvidenceSettingsService
 
         // Reusing the id when the target has not moved is what keeps a re-test from rewriting the
         // store marker of the store Modbot is already using with an id Settings does not know about —
-        // which would latch the store the instant the operator pressed Test.
+        // which would lock the store the instant the operator pressed Test.
         var storeId = sameTarget && settings.EvidenceStoreId is { } existing ? existing : Guid.NewGuid();
 
         return new Candidate(options, durability, storeId, null);

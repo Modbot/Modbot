@@ -62,9 +62,10 @@ public sealed record EvidenceCapabilitiesView(
 
 /// <param name="State">"NotConfigured", "Healthy", "Unavailable" or "Unreachable".</param>
 /// <param name="Explanation">One sentence, written by the server. The SPA never composes it.</param>
-/// <param name="Latched">
-/// Whether this is the §8.4 latch. A latch is proof — an absent, foreign or malformed store marker —
-/// and it does not clear itself.
+/// <param name="Locked">
+/// Whether this is the §8.4 lock: proof — an absent, foreign or malformed store marker — that the
+/// store is not the one Modbot's records describe. It does not clear itself; uploads stay refused
+/// until an administrator has checked the store and saved it again.
 /// </param>
 public sealed record EvidenceHealthView(
     string State,
@@ -74,7 +75,7 @@ public sealed record EvidenceHealthView(
     DateTimeOffset? Since,
     int ConsecutiveFailures,
     bool UploadsAllowed,
-    bool Latched,
+    bool Locked,
     string StoreDescription);
 
 /// <param name="Finding">"Durable", "Unproven" or "Unwritable".</param>

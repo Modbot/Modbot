@@ -25,7 +25,7 @@ namespace Modbot.Api.Features.Evidence;
 /// specifically because <em>"the only way to change the storage backend is the settings page —
 /// inside the application that is refusing to start"</em>. A settings page whose changes need a
 /// restart to take effect gives back most of what that reasoning was protecting: the operator
-/// staring at a latched banner fixes the bucket, saves, and nothing happens.
+/// staring at a locked banner fixes the bucket, saves, and nothing happens.
 /// </para>
 /// <para>
 /// So the store behind <see cref="IEvidenceStore"/> is a holder, and <see cref="Reload"/> rebuilds

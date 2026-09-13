@@ -812,7 +812,7 @@ function EvidenceTab() {
 }
 
 /**
- * The latch, and the two states that are not it.
+ * The lock, and the two states that are not it.
  *
  * "The store said no" and "the store said nothing" look similar and mean opposite things. Only the
  * first is shown as a failure: raising the same alarm every time a bucket hiccups is how an
@@ -830,7 +830,7 @@ function StoreHealth({ health, onProbed }: { health: EvidenceHealth; onProbed: (
       .finally(() => setProbing(false))
   }
 
-  const tone = health.latched
+  const tone = health.locked
     ? 'border-destructive/40 bg-destructive/10'
     : health.state === 'Unreachable'
       ? 'border-warn/40 bg-warn/10'
@@ -843,7 +843,7 @@ function StoreHealth({ health, onProbed }: { health: EvidenceHealth; onProbed: (
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="font-medium">
-            {health.latched
+            {health.locked
               ? 'This is not the store Modbot put its evidence in.'
               : health.state === 'Healthy'
                 ? 'The store answered, and it is ours.'
@@ -857,7 +857,7 @@ function StoreHealth({ health, onProbed }: { health: EvidenceHealth; onProbed: (
           >
             {health.explanation}
           </p>
-          {health.latched && (
+          {health.locked && (
             <p
               className="mt-1 max-w-3xl text-muted-foreground"
               style={{ fontSize: 'var(--text-small)' }}

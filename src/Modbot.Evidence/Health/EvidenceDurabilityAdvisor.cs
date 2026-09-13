@@ -60,7 +60,7 @@ public sealed record DurabilityAssessment(
 /// <para>
 /// <strong>What this is not.</strong> This is not the store marker, and the two must not be
 /// confused. The store marker answers "is this the store we put our evidence in?", has memory outside
-/// the directory being tested, and therefore gets to treat absence as conclusive and latch on it
+/// the directory being tested, and therefore gets to treat absence as conclusive and lock on it
 /// (design section 8.2.1). This answers "will this directory survive a restart?", has no memory
 /// outside the directory, and therefore gets to warn and nothing more.
 /// </para>

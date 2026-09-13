@@ -1,14 +1,14 @@
 namespace Modbot.Evidence.Storage;
 
 /// <summary>
-/// The store has demonstrated that it is not the store Modbot's metadata describes, and the latch
+/// The store has demonstrated that it is not the store Modbot's metadata describes, and the lock
 /// is on (design section 8.4).
 /// </summary>
 /// <remarks>
 /// Accepting an upload into a store that has just shown it loses everything is worse than refusing
 /// it, so this is thrown at the beginning of an upload rather than discovered at the end of one.
 /// It is deliberately <em>not</em> thrown by anything unrelated to evidence: bans, audit ingest,
-/// Discord, the overlay and analytics all keep working while this state is latched.
+/// Discord, the overlay and analytics all keep working while this state is locked.
 /// </remarks>
 public sealed class EvidenceStoreUnavailableException : Exception
 {
