@@ -105,6 +105,12 @@ public sealed record UnmappedEvent(
     string? SampleEntryId,
     string? SampleDescription);
 
+/// <summary>
+/// The one-off walk through existing history stopped where VRChat stops paging, not at the end
+/// of the log. "Catch-up complete" then means the most recent entries, not all of them.
+/// </summary>
+public sealed record HistoryHorizonReport(int EntriesRead, DateTimeOffset ReachedAt);
+
 /// <param name="SyncRunningInThisProcess">
 /// False when no producer is registered in this host — a diagnostic host, or a deployment where
 /// sync was deliberately left out. Everything else in the response is then empty because nothing
@@ -131,4 +137,5 @@ public sealed record SyncHealth(
     DateTimeOffset? AuditLogSyncedThrough,
     bool GroupConfigured,
     IReadOnlyList<UnmappedEvent> UnmappedAuditEvents,
+    HistoryHorizonReport? AuditLogHistoryHorizon,
     DateTimeOffset Now);

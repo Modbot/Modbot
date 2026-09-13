@@ -138,7 +138,9 @@ export function Health() {
 
           <p className="mt-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {health.auditLogCatchUpComplete
-              ? 'The one-off walk back through VRChat’s existing audit log has finished.'
+              ? health.auditLogHistoryHorizon
+                ? `The one-off walk back through VRChat’s existing audit log stopped where VRChat stops paging, after ${health.auditLogHistoryHorizon.entriesRead} entries. Anything older stays in VRChat’s own log.`
+                : 'The one-off walk back through VRChat’s existing audit log has finished.'
               : 'Still walking back through the audit log VRChat already held. Until that finishes, the start of Modbot’s history is still moving backwards.'}
             {health.auditLogSyncedThrough &&
               ` Consumed through ${formatDay(health.auditLogSyncedThrough)}.`}

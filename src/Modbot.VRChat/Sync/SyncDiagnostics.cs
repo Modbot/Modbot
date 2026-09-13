@@ -19,6 +19,13 @@ public sealed record UnmappedAuditEvent(
     string? SampleEntryId,
     string? SampleDescription);
 
+/// <summary>
+/// The one-off walk through existing history went as far back as VRChat allows, rather than to
+/// the end of the log.
+/// </summary>
+/// <param name="EntriesRead">How many entries the walk had read when it stopped.</param>
+public sealed record HistoryHorizon(int EntriesRead, DateTimeOffset ReachedAt);
+
 /// <summary>What the poll rate decided, and why.</summary>
 /// <param name="Reason">A sentence for an operator, not a state name.</param>
 public sealed record PollRateDecision(
@@ -64,6 +71,7 @@ public sealed class SyncDiagnostics
     private PollRateDecision? _pollRate;
     private SyncRunReport? _auditLog;
     private SyncRunReport? _groupInfo;
+    private HistoryHorizon? _historyHorizon;
 
     public SyncDiagnostics(IModbotClock clock)
     {
@@ -85,6 +93,25 @@ public sealed class SyncDiagnostics
     public SyncRunReport? LastGroupInfoRun
     {
         get { lock (_gate) return _groupInfo; }
+    }
+
+    /// <summary>
+    /// Set when the catch-up stopped at VRChat's offset cap rather than at the end of the log.
+    /// Null when it has not, or when it ran to the end.
+    /// </summary>
+    /// <remarks>
+    /// Published because an operator looking at "catch-up complete" is entitled to know whether
+    /// that means the whole log or the most recent 7,500 entries of it. They look identical from
+    /// the cursor.
+    /// </remarks>
+    public HistoryHorizon? HistoryHorizonReached
+    {
+        get { lock (_gate) return _historyHorizon; }
+    }
+
+    public void RecordHistoryHorizon(int entriesRead)
+    {
+        lock (_gate) _historyHorizon = new HistoryHorizon(entriesRead, _clock.UtcNow);
     }
 
     /// <summary>

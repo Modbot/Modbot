@@ -596,6 +596,10 @@ to the same budget as the group endpoints would cost days of sync time for no be
 
 The ceiling is enforced by the top bucket of the hierarchy (§4.3.1) and never exceeded.
 
+**The audit log's `offset` is capped at 7,500.** Measured 2026-09-13: `offset=7501` on
+`GET /groups/{id}/auditLog` returns HTTP 400, not 429 — no cold stop, no retry. The audit-log
+producer never sends an offset above it and treats reaching it as the end of readable history.
+
 The 0.55 req/s between the sum and the ceiling is not spare capacity to be spent on faster sync — it
 is reserved for **interactive work**: moderation actions, onboarding, and a moderator's live queries,
 which preempt background sync (§4.1). A background scheduler that consumed the full ceiling would

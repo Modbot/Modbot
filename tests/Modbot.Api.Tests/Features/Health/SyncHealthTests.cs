@@ -144,6 +144,26 @@ public class SyncHealthEndpointTests
         Assert.Equal("Quiet", health.LastAuditLogRun!.Outcome);
     }
 
+    /// <summary>
+    /// "Catch-up complete" can mean the whole log or the most recent 7,500 entries of it, and the
+    /// cursor cannot tell an operator which. The horizon can.
+    /// </summary>
+    [Fact]
+    public async Task TheHistoryHorizon_IsReportedWhenTheWalkStoppedAtTheCap()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        host.Diagnostics.RecordHistoryHorizon(7_600);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewOperationalLog, ct);
+        var health = await host.GetJsonAsync<SyncHealth>("/api/health/sync", cookie, ct);
+
+        Assert.Equal(7_600, health.AuditLogHistoryHorizon!.EntriesRead);
+        Assert.Equal(host.Clock.UtcNow, health.AuditLogHistoryHorizon.ReachedAt);
+    }
+
     [Fact]
     public async Task UnmappedEvents_AreReportedWithASampleToLookUp()
     {

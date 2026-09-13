@@ -34,6 +34,13 @@ public sealed class FakeGroups
 
     public HttpStatusCode GroupStatus { get; set; } = HttpStatusCode.OK;
 
+    /// <summary>
+    /// The largest audit-log <c>offset</c> answered with a page. Anything above it gets the 400
+    /// VRChat really returns, body and all. Lowered by tests that want the refusal to arrive
+    /// early rather than after seven and a half thousand entries.
+    /// </summary>
+    public int OffsetCap { get; set; } = 7_500;
+
     /// <summary>Every audit-log query, so a test can assert on the window that was asked for.</summary>
     public List<AuditLogQuery> AuditLogQueries { get; } = [];
 
@@ -81,6 +88,18 @@ public sealed class FakeGroups
     private ApiResponse<PaginatedGroupAuditLogEntryList> AuditLogs(int n, int offset, DateTime? startDate)
     {
         AuditLogQueries.Add(new AuditLogQuery(n, offset, startDate));
+
+        if (offset > OffsetCap)
+        {
+            // Verbatim, fullwidth punctuation included: the producer must not be string-matching
+            // this, and a fake that tidied it up would let it.
+            var refusal = "{\"error\":{\"message\":\"offset＝" + offset
+                + " is above the limit․ if you believe this is too low‚ please contact support＠vrchat․com with details․\","
+                + "\"status_code\":400}}";
+
+            return new ApiResponse<PaginatedGroupAuditLogEntryList>(
+                HttpStatusCode.BadRequest, new Multimap<string, string>(), null!, refusal);
+        }
 
         if (AuditLogStatus != HttpStatusCode.OK)
         {

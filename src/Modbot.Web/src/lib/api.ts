@@ -330,6 +330,11 @@ export type UnmappedEvent = {
   sampleDescription: string | null
 }
 
+export type HistoryHorizonReport = {
+  entriesRead: number
+  reachedAt: string
+}
+
 export type SyncHealth = {
   gate: GateHealth
   buckets: BucketHealth[]
@@ -343,6 +348,7 @@ export type SyncHealth = {
   auditLogSyncedThrough: string | null
   groupConfigured: boolean
   unmappedAuditEvents: UnmappedEvent[]
+  auditLogHistoryHorizon: HistoryHorizonReport | null
   now: string
 }
 

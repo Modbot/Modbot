@@ -355,4 +355,244 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
 
         Assert.Contains(await FactsAsync(), f => f.SubjectId == "usr_ancient");
     }
+
+    // ── group.update from two producers ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// <c>vrchat.group.update</c> has two writers: the group-info producer, from its own polling,
+    /// and this one, from the audit log. Both facts are real and both are kept. The duplicate
+    /// check keys on VRChat's entry id, which only the audit entry carries, so neither the
+    /// producer's fact nor a re-read of the entry can be mistaken for the other.
+    /// </summary>
+    [Fact]
+    public async Task AGroupUpdateFromTheAuditLogIsKeptBesideTheGroupInfoProducersAndNeitherIsDoubleCounted()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        await RunGroupInfoAsync();
+
+        VRChat.Groups.Add(Entry("gaud_1", Now.AddMinutes(-1), GroupAuditLogEvents.GroupUpdate, target: GroupId));
+
+        var first = await RunAuditLogAsync();
+        var second = await RunAuditLogAsync();
+
+        Assert.Equal(1, first.FactsWritten);
+        Assert.Equal(0, second.FactsWritten);
+        Assert.Equal(1, second.AlreadyRecorded);
+
+        var updates = (await FactsAsync()).Where(f => f.Type == FactType.GroupInfoChanged).ToList();
+
+        Assert.Equal(2, updates.Count);
+        Assert.Contains(updates, f => f.Source == FactSource.SyncDiff);
+        Assert.Contains(updates, f => f.Source == FactSource.AuditLog);
+    }
+
+    // ── The offset cap ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// VRChat refuses audit-log offsets above 7,500 with a 400. The walk must never provoke it:
+    /// the last request it issues is at exactly the cap, and reaching it is recorded as the
+    /// history horizon rather than as anything having gone wrong.
+    /// </summary>
+    [Fact]
+    public async Task TheCatchUpStopsAtTheOffsetCapWithoutAskingPastIt()
+    {
+        // Enough that an uncapped walk would ask for offset 7,600.
+        const int total = GroupAuditLogSync.AuditLogOffsetCap + 150;
+        for (var i = 0; i < total; i++)
+            VRChat.Groups.Add(Entry($"gaud_{i}", Now.AddMinutes(-i - 1), target: $"usr_{i}"));
+
+        var options = new AuditLogSyncOptions { CatchUp = true, PageSize = 100 };
+        var outcomes = new List<SyncOutcome>();
+
+        while (!(await SettingsAsync()).AuditLogCatchUpComplete)
+            outcomes.Add((await RunAuditLogAsync(options)).Outcome);
+
+        var historyOffsets = VRChat.Groups.AuditLogQueries
+            .Where(q => q.StartDate is null)
+            .Select(q => q.Offset)
+            .ToList();
+
+        Assert.Equal(GroupAuditLogSync.AuditLogOffsetCap, historyOffsets.Max());
+        Assert.DoesNotContain(historyOffsets, o => o > GroupAuditLogSync.AuditLogOffsetCap);
+        Assert.DoesNotContain(SyncOutcome.Failed, outcomes);
+        Assert.DoesNotContain(SyncOutcome.RateLimited, outcomes);
+
+        // The page at the cap is read in full, so the horizon is one page past it.
+        const int readable = GroupAuditLogSync.AuditLogOffsetCap + 100;
+        Assert.NotNull(Diagnostics.HistoryHorizonReached);
+        Assert.Equal(readable, Diagnostics.HistoryHorizonReached!.EntriesRead);
+        Assert.Equal(readable, (await FactsAsync()).Count);
+    }
+
+    /// <summary>
+    /// With a page size that does not divide the cap, the last page before it starts at the cap
+    /// exactly, so the entries just behind it are still read. The page after that is not asked for.
+    /// </summary>
+    [Theory]
+    [InlineData(7_400, 100, 7_500)]
+    [InlineData(7_440, 60, 7_500)]
+    [InlineData(7_500, 60, 7_560)]
+    [InlineData(0, 60, 60)]
+    public void TheNextHistoryPageNeverStartsPastTheCap(int offset, int pageLength, int expected)
+        => Assert.Equal(expected, GroupAuditLogSync.NextCatchUpOffset(offset, pageLength));
+
+    /// <summary>
+    /// A 400 on a history page is terminal: the walk is marked complete there, the refusal is
+    /// recorded as the horizon, and the same offset is never asked for again. It is not a rate
+    /// limit -- the next pass still polls the live window. A naive "failed, retry next tick"
+    /// would sit on the refused offset forever.
+    /// </summary>
+    [Fact]
+    public async Task A400OnAHistoryPageEndsTheWalkThereWithoutAColdStopOrARetry()
+    {
+        for (var i = 0; i < 10; i++)
+            VRChat.Groups.Add(Entry($"gaud_{i}", Now.AddDays(-i - 1), target: $"usr_{i}"));
+
+        // Below Modbot's own cap, so the arithmetic guard lets offset 4 through and VRChat refuses it.
+        VRChat.Groups.OffsetCap = 3;
+
+        var options = new AuditLogSyncOptions { CatchUp = true, PageSize = 2 };
+        var outcomes = new List<SyncOutcome>();
+
+        while (!(await SettingsAsync()).AuditLogCatchUpComplete)
+            outcomes.Add((await RunAuditLogAsync(options)).Outcome);
+
+        var historyOffsets = VRChat.Groups.AuditLogQueries
+            .Where(q => q.StartDate is null)
+            .Select(q => q.Offset)
+            .ToList();
+
+        Assert.Equal([0, 2, 4], historyOffsets);
+        Assert.DoesNotContain(SyncOutcome.RateLimited, outcomes);
+        Assert.Equal(4, Diagnostics.HistoryHorizonReached!.EntriesRead);
+        Assert.Equal(4, (await FactsAsync()).Count);
+
+        var before = VRChat.Groups.AuditLogQueries.Count;
+        await RunAuditLogAsync(options);
+        var next = VRChat.Groups.AuditLogQueries.Skip(before).ToList();
+
+        // The live window is still polled -- no cold stop -- and history is not asked for again.
+        Assert.Contains(next, q => q.StartDate is not null);
+        Assert.DoesNotContain(next, q => q.StartDate is null);
+    }
+
+    /// <summary>
+    /// The same refusal while reading the live window ends the pass and sends the next one back
+    /// to the front of the window rather than to the refused offset. The cursor does not move,
+    /// so nothing is skipped; what was recorded before the refusal stays recorded.
+    /// </summary>
+    [Fact]
+    public async Task A400OnTheLiveWindowEndsThePassAndRestartsTheWindowFromTheFront()
+    {
+        for (var i = 0; i < 10; i++)
+            VRChat.Groups.Add(Entry($"gaud_{i}", Now.AddMinutes(-i - 1), target: $"usr_{i}"));
+
+        VRChat.Groups.OffsetCap = 3;
+
+        var options = new AuditLogSyncOptions { CatchUp = false, PageSize = 2, MaxPagesPerRun = 10 };
+
+        var first = await RunAuditLogAsync(options);
+
+        Assert.Equal(SyncOutcome.Failed, first.Outcome);
+        Assert.Equal([0, 2, 4], VRChat.Groups.AuditLogQueries.Select(q => q.Offset).ToList());
+        Assert.Equal(4, (await FactsAsync()).Count);
+
+        var settings = await SettingsAsync();
+        Assert.Equal(0, settings.AuditLogBacklogOffset);
+        Assert.Null(settings.AuditLogSyncedThrough);
+
+        var before = VRChat.Groups.AuditLogQueries.Count;
+        await RunAuditLogAsync(options);
+
+        Assert.Equal(0, VRChat.Groups.AuditLogQueries[before].Offset);
+        Assert.Equal(4, (await FactsAsync()).Count);
+    }
+
+    // ── Re-running the walk ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A stored walk from an older <see cref="GroupAuditLogSync.CatchUpVersion"/> is walked
+    /// again from offset 0. Entries already recorded are recognised by id, so the re-walk writes
+    /// nothing twice and costs only the requests.
+    /// </summary>
+    [Fact]
+    public async Task AWalkFromAnOlderVersionIsRunAgainFromTheStartAndWritesNothingTwice()
+    {
+        for (var i = 0; i < 5; i++)
+            VRChat.Groups.Add(Entry($"gaud_{i}", Now.AddDays(-i - 1), target: $"usr_{i}"));
+
+        var options = new AuditLogSyncOptions { CatchUp = true, PageSize = 2 };
+
+        while (!(await SettingsAsync()).AuditLogCatchUpComplete)
+            await RunAuditLogAsync(options);
+
+        Assert.Equal(5, (await FactsAsync()).Count);
+        Assert.Equal(GroupAuditLogSync.CatchUpVersion, (await SettingsAsync()).AuditLogCatchUpVersion);
+
+        // What a deployment from before this version looks like: finished, and stamped older.
+        await using (var context = Database.NewContext())
+        {
+            var stored = await context.GetSettingsAsync(Ct);
+            stored.AuditLogCatchUpVersion = GroupAuditLogSync.CatchUpVersion - 1;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var before = VRChat.Groups.AuditLogQueries.Count;
+        var written = 0;
+        var alreadyRecorded = 0;
+
+        do
+        {
+            var run = await RunAuditLogAsync(options);
+            written += run.FactsWritten;
+            alreadyRecorded += run.AlreadyRecorded;
+        }
+        while (!(await SettingsAsync()).AuditLogCatchUpComplete);
+
+        var historyOffsets = VRChat.Groups.AuditLogQueries
+            .Skip(before)
+            .Where(q => q.StartDate is null)
+            .Select(q => q.Offset)
+            .ToList();
+
+        Assert.Equal([0, 2, 4], historyOffsets);
+        Assert.Equal(0, written);
+        Assert.True(alreadyRecorded >= 5);
+        Assert.Equal(5, (await FactsAsync()).Count);
+        Assert.Equal(GroupAuditLogSync.CatchUpVersion, (await SettingsAsync()).AuditLogCatchUpVersion);
+    }
+
+    [Fact]
+    public async Task AWalkAtTheCurrentVersionIsNotRunAgain()
+    {
+        for (var i = 0; i < 3; i++)
+            VRChat.Groups.Add(Entry($"gaud_{i}", Now.AddDays(-i - 1), target: $"usr_{i}"));
+
+        var options = new AuditLogSyncOptions { CatchUp = true, PageSize = 2 };
+
+        while (!(await SettingsAsync()).AuditLogCatchUpComplete)
+            await RunAuditLogAsync(options);
+
+        var before = VRChat.Groups.AuditLogQueries.Count;
+        await RunAuditLogAsync(options);
+        await RunAuditLogAsync(options);
+
+        Assert.DoesNotContain(VRChat.Groups.AuditLogQueries.Skip(before), q => q.StartDate is null);
+        Assert.True((await SettingsAsync()).AuditLogCatchUpComplete);
+    }
+
+    /// <summary>
+    /// A host with the catch-up switched off keeps its stored version, so the walk still happens
+    /// the day the catch-up is switched on rather than being stamped done without having run.
+    /// </summary>
+    [Fact]
+    public async Task WithTheCatchUpOffAnOlderVersionIsLeftForLater()
+    {
+        VRChat.Groups.Add(Entry("gaud_1", Now.AddMinutes(-1)));
+
+        await RunAuditLogAsync(NoCatchUp());
+
+        Assert.Equal(0, (await SettingsAsync()).AuditLogCatchUpVersion);
+        Assert.False((await SettingsAsync()).AuditLogCatchUpComplete);
+    }
 }

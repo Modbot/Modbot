@@ -158,6 +158,18 @@ public class Settings
     public bool AuditLogCatchUpComplete { get; set; }
 
     /// <summary>
+    /// Which version of the one-off walk the stored cursor belongs to. Below the version the
+    /// running build expects, the walk starts again from offset 0.
+    /// </summary>
+    /// <remarks>
+    /// Exists so a change in what the walk would record -- a new event type mapped, an entry
+    /// shape kept that used to be dropped -- can re-read what VRChat still holds without anyone
+    /// touching the database by hand. Zero on every deployment from before it existed, which is
+    /// what makes the first bump reach them.
+    /// </remarks>
+    public int AuditLogCatchUpVersion { get; set; }
+
+    /// <summary>
     /// How far into the current backlog the poll has read, when there is more waiting than one
     /// pass may read. Zero whenever the window was last drained completely.
     /// </summary>

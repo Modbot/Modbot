@@ -87,6 +87,7 @@ public static class SyncHealthEndpoints
                             e.EventType, e.Count, e.FirstSeen, e.LastSeen,
                             e.SampleEntryId, e.SampleDescription))
                         .ToList() ?? [],
+                    Horizon(diagnostics?.HistoryHorizonReached),
                     clock.UtcNow));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
@@ -124,4 +125,9 @@ public static class SyncHealthEndpoints
                 report.At,
                 report.Duration.TotalSeconds,
                 report.Summary);
+
+    private static HistoryHorizonReport? Horizon(HistoryHorizon? horizon)
+        => horizon is null
+            ? null
+            : new HistoryHorizonReport(horizon.EntriesRead, horizon.ReachedAt);
 }

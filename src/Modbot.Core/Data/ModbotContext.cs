@@ -90,6 +90,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // window is the "backlog". Somebody reading the table should not need a glossary.
             entity.Property(e => e.AuditLogCatchUpOffset).HasColumnName("audit_log_catch_up_offset");
             entity.Property(e => e.AuditLogCatchUpComplete).HasColumnName("audit_log_catch_up_complete");
+            entity.Property(e => e.AuditLogCatchUpVersion).HasColumnName("audit_log_catch_up_version");
             entity.Property(e => e.AuditLogBacklogOffset).HasColumnName("audit_log_backlog_offset");
         });
 

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,45 @@ namespace Modbot.VRChat.Sync;
 /// </remarks>
 public sealed class GroupAuditLogSync
 {
+    /// <summary>
+    /// The largest <c>offset</c> VRChat accepts on the audit log. Never sent past; reaching it is
+    /// the history horizon, not a failure.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Measured 2026-09-13: <c>offset=7501</c> answers HTTP 400 with the body
+    /// <c>{"error":{"message":"offset＝7501 is above the limit․ if you believe this is too low‚
+    /// please contact support＠vrchat․com with details․","status_code":400}}</c> -- note the
+    /// fullwidth punctuation, which is one reason the body is never string-matched. It is not a
+    /// rate limit: no cold stop, no backoff, no retry.
+    /// </para>
+    /// <para>
+    /// Known for the audit log only. Whether the other paged group endpoints share it is being
+    /// measured separately, and until then nothing else should borrow this number.
+    /// </para>
+    /// </remarks>
+    public const int AuditLogOffsetCap = 7_500;
+
+    /// <summary>
+    /// Which version of the one-off walk through existing history this build expects to have run.
+    /// A stored version below it re-runs the walk from offset 0 on the next pass.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Bump it when a change means entries already walked past would be recorded differently
+    /// today, and the ones VRChat still holds are worth reading again. Duplicates are recognised
+    /// by entry id and discarded, so the only cost of a re-walk is the requests, paced as always.
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description><strong>1</strong> -- 2026-09-13. The first producer deployment
+    /// counted and dropped every entry whose type it had no name for, about 720 of them, before
+    /// unrecognised entries were recorded and before the instance, post, request and calendar
+    /// types were mapped. VRChat keeps roughly thirty days of audit log, so they were recoverable
+    /// only by walking again promptly.</description></item>
+    /// </list>
+    /// </remarks>
+    public const int CatchUpVersion = 1;
+
     private readonly IVRChatGate _gate;
     private readonly IFactWriter _facts;
     private readonly EventPartitionMaintainer _partitions;
@@ -92,12 +132,40 @@ public sealed class GroupAuditLogSync
 
         var groupId = settings.ManagedGroupId;
 
+        RestartCatchUpIfOutOfDate(settings);
+
         var run = await ReadAsync(settings, groupId, ct).ConfigureAwait(false);
 
         settings.AuditLogPolledAt = _clock.UtcNow;
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         return run;
+    }
+
+    /// <summary>
+    /// Sends the one-off walk back to offset 0 when the stored cursor belongs to an older
+    /// <see cref="CatchUpVersion"/>.
+    /// </summary>
+    /// <remarks>
+    /// Only when the walk is enabled at all. A host that turned the catch-up off keeps its stored
+    /// version as it was, so the walk still happens the day the catch-up is turned back on rather
+    /// than being stamped as done without having run.
+    /// </remarks>
+    private void RestartCatchUpIfOutOfDate(Settings settings)
+    {
+        if (!_options.CatchUp || settings.AuditLogCatchUpVersion >= CatchUpVersion)
+            return;
+
+        _log.Information(
+            "Walking the group's existing audit log again: the stored catch-up is version {Stored} and this "
+            + "build expects {Current}. Entries already recorded are recognised by id and skipped; only the "
+            + "requests are spent",
+            settings.AuditLogCatchUpVersion,
+            CatchUpVersion);
+
+        settings.AuditLogCatchUpOffset = 0;
+        settings.AuditLogCatchUpComplete = false;
+        settings.AuditLogCatchUpVersion = CatchUpVersion;
     }
 
     /// <summary>
@@ -173,13 +241,16 @@ public sealed class GroupAuditLogSync
         var page = await FetchAsync(groupId, settings.AuditLogCatchUpOffset, startDate: null, ct)
             .ConfigureAwait(false);
 
+        if (page.Refusal is not OffsetRefusal.None)
+            return ReachHistoryHorizon(settings, page.Refusal);
+
         if (page.Failure is { } failure)
             return failure;
 
         var entries = page.Entries;
         var written = await RecordAsync(entries, ct).ConfigureAwait(false);
 
-        settings.AuditLogCatchUpOffset += entries.Count;
+        settings.AuditLogCatchUpOffset = NextCatchUpOffset(settings.AuditLogCatchUpOffset, entries.Count);
         settings.AuditLogSyncedThrough = Newest(settings.AuditLogSyncedThrough, entries);
 
         // Short page or no next page: VRChat has nothing older left. An empty page counts as
@@ -203,6 +274,61 @@ public sealed class GroupAuditLogSync
             CatchingUp: !settings.AuditLogCatchUpComplete,
             Drained: true,
             SyncedThrough: settings.AuditLogSyncedThrough);
+    }
+
+    /// <summary>
+    /// The offset of the next history page: one page on, clamped so that the last page before
+    /// the cap is still read in full rather than skipped.
+    /// </summary>
+    /// <remarks>
+    /// With a page size that does not divide the cap, the page that would start just past it
+    /// instead starts exactly at it. That re-reads a few entries, which the duplicate check
+    /// discards, and reads the ones behind them, which nothing else would. The page after that
+    /// is past the cap and is never asked for.
+    /// </remarks>
+    internal static int NextCatchUpOffset(int offset, int pageLength)
+    {
+        var next = offset + pageLength;
+        return next > AuditLogOffsetCap && offset < AuditLogOffsetCap ? AuditLogOffsetCap : next;
+    }
+
+    /// <summary>
+    /// The walk has gone as far back as VRChat allows. A fact about VRChat, not a failure.
+    /// </summary>
+    /// <remarks>
+    /// Terminal either way. Past the cap there is nothing to ask for; and a 400 below the cap
+    /// means VRChat's limit has moved, which retrying the same offset every eight seconds would
+    /// never discover -- it would just be the same refusal forever, logged as a failure each time.
+    /// </remarks>
+    private AuditLogRunResult ReachHistoryHorizon(Settings settings, OffsetRefusal refusal)
+    {
+        var entriesRead = settings.AuditLogCatchUpOffset;
+
+        settings.AuditLogCatchUpComplete = true;
+        _diagnostics.RecordHistoryHorizon(entriesRead);
+
+        if (refusal is OffsetRefusal.AboveCap)
+        {
+            _log.Information(
+                "Reached the audit-log history horizon: VRChat pages no further back than offset {Cap}. "
+                + "{Entries} entries were read; anything older stays in VRChat's own log only",
+                AuditLogOffsetCap,
+                entriesRead);
+        }
+        else
+        {
+            _log.Warning(
+                "VRChat refused audit-log offset {Offset} with 400 Bad Request, below the {Cap} Modbot enforces. "
+                + "Treating it as the history horizon; the cap may have changed",
+                entriesRead,
+                AuditLogOffsetCap);
+        }
+
+        return new AuditLogRunResult(
+            SyncOutcome.Quiet,
+            Drained: true,
+            SyncedThrough: settings.AuditLogSyncedThrough,
+            Message: $"history horizon reached after {entriesRead} entries");
     }
 
     /// <summary>
@@ -247,6 +373,20 @@ public sealed class GroupAuditLogSync
 
             if (page.Failure is { } failure)
             {
+                if (page.Refusal is not OffsetRefusal.None)
+                {
+                    // Terminal for this pass and never retried at this offset: the next pass
+                    // starts the window from the front again. The cursor stays where it is, so
+                    // nothing is skipped, and the duplicate check absorbs the re-read.
+                    _log.Warning(
+                        "Audit-log offset {Offset} was refused ({Reason}) while reading the live window. "
+                        + "The next pass restarts the window from the front",
+                        offset,
+                        page.Refusal);
+
+                    settings.AuditLogBacklogOffset = 0;
+                }
+
                 // Whatever was recorded before the failure stays recorded -- facts are never
                 // rolled back -- but the cursor does not move, so the next pass reads it again
                 // and the duplicate check absorbs the overlap.
@@ -305,6 +445,18 @@ public sealed class GroupAuditLogSync
         DateTime? startDate,
         CancellationToken ct)
     {
+        // Enforced here, before any request, because this is the one place requests are made.
+        // VRChat answers an offset past the cap with a 400 (see AuditLogOffsetCap), and provoking
+        // it teaches nothing.
+        if (offset > AuditLogOffsetCap)
+        {
+            return new FetchedPage([], false,
+                new AuditLogRunResult(
+                    SyncOutcome.Failed,
+                    Message: $"offset {offset} is past VRChat's audit-log cap of {AuditLogOffsetCap}"),
+                OffsetRefusal.AboveCap);
+        }
+
         // The endpoint class is named explicitly, and it is resource-scoped on the group, because
         // VRChat's limits are sometimes per-resource (spec 4.3.1). `groups.auditlog` already has
         // a budget -- spec 4.2 gives it one request per 8 seconds -- so no new rate-limit question
@@ -337,6 +489,19 @@ public sealed class GroupAuditLogSync
 
             return new FetchedPage([], false,
                 new AuditLogRunResult(SyncOutcome.RateLimited, Message: result.ErrorMessage));
+        }
+
+        if (result.StatusCode == (int)HttpStatusCode.BadRequest)
+        {
+            // Not a rate limit, and not retried. Seen when an offset passes the cap; treated the
+            // same for any 400 on a paged read, because reading it as "failed, try again next
+            // tick" would ask the same offset forever. The caller decides what terminal means
+            // for its own cursor.
+            return new FetchedPage([], false,
+                new AuditLogRunResult(
+                    SyncOutcome.Failed,
+                    Message: result.ErrorMessage ?? "VRChat rejected the request as malformed"),
+                OffsetRefusal.RejectedByVRChat);
         }
 
         _log.Warning(
@@ -561,10 +726,23 @@ public sealed class GroupAuditLogSync
         return current;
     }
 
+    /// <summary>Why a page was not asked for, or was refused, on account of its offset.</summary>
+    private enum OffsetRefusal
+    {
+        None,
+
+        /// <summary>Past <see cref="AuditLogOffsetCap"/>. No request was sent.</summary>
+        AboveCap,
+
+        /// <summary>VRChat answered 400. Below the cap Modbot knows about, so the cap has moved.</summary>
+        RejectedByVRChat,
+    }
+
     private readonly record struct FetchedPage(
         IReadOnlyList<GroupAuditLogEntry> Entries,
         bool HasNext,
-        AuditLogRunResult? Failure);
+        AuditLogRunResult? Failure,
+        OffsetRefusal Refusal = OffsetRefusal.None);
 
     private struct RecordTotals
     {
