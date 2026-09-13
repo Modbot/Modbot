@@ -259,18 +259,36 @@ public sealed class DailyTotalsJob
         var dimension = metric.Dimension switch
         {
             DailyTotalDimensionKind.Actor => ActorDimensionSql,
+            DailyTotalDimensionKind.World => "s.world_id",
             _ => "''",
         };
 
-        var actorFilter = metric.Dimension is DailyTotalDimensionKind.Actor
-            ? "AND s.actor_id IS NOT NULL"
-            : string.Empty;
+        // A fact with nothing to break it down by contributes nothing to a broken-down metric:
+        // a ban VRChat did not attribute counts as a ban, not as anybody's action.
+        var dimensionFilter = metric.Dimension switch
+        {
+            DailyTotalDimensionKind.Actor => "AND s.actor_id IS NOT NULL",
+            DailyTotalDimensionKind.World => "AND s.world_id IS NOT NULL",
+            _ => string.Empty,
+        };
 
         // PostgreSQL rejects a bare string constant in GROUP BY, so the undimensioned metrics
         // group by the day alone -- which is the same grouping, since their dimension is ''.
-        var grouping = metric.Dimension is DailyTotalDimensionKind.Actor
-            ? $"s.day, {dimension}"
-            : "s.day";
+        var grouping = metric.Dimension is DailyTotalDimensionKind.None
+            ? "s.day"
+            : $"s.day, {dimension}";
+
+        var conditionFilter = metric.Condition switch
+        {
+            FactCondition.ActorIsNotSubject => "AND e.actor_id IS NOT NULL AND e.actor_id <> e.subject_id",
+            _ => string.Empty,
+        };
+
+        // Distinct people are counted, not weighed: a person seen on a day was there, however
+        // many facts say so. The weight still gates which day an imprecise fact lands on.
+        var aggregate = metric.CountDistinctSubjects
+            ? "COUNT(DISTINCT s.subject_id)::numeric"
+            : "SUM(s.weight)";
 
         // The weight of one fact on one day: the fraction of its [occurred_at, occurred_before]
         // window that falls inside that day. Exact facts (hi <= lo) weigh 1 on their own day.
@@ -281,11 +299,13 @@ public sealed class DailyTotalsJob
         // incremental run to the digit.
         var sql = $"""
             WITH windowed AS (
-                {WindowedFacts("@types", observedSince: false, boundedDays: true)}
+                {WindowedFacts("@types", observedSince: false, boundedDays: true, extraFilter: conditionFilter)}
             ),
             spread AS (
                 SELECT w.actor_platform,
                        w.actor_id,
+                       w.subject_id,
+                       w.world_id,
                        (gs)::date AS day,
                        CASE
                            WHEN w.hi <= w.lo THEN 1::numeric
@@ -298,11 +318,11 @@ public sealed class DailyTotalsJob
                     date_trunc('day', w.lo), date_trunc('day', w.hi), interval '1 day') AS gs
             )
             INSERT INTO modbot_daily_total (day, metric, dimension, value, origin)
-            SELECT s.day, @metric, {dimension}, SUM(s.weight), @origin
+            SELECT s.day, @metric, {dimension}, {aggregate}, @origin
             FROM spread s
-            WHERE s.day = ANY(@days) AND s.weight > 0 {actorFilter}
+            WHERE s.day = ANY(@days) AND s.weight > 0 {dimensionFilter}
             GROUP BY {grouping}
-            HAVING SUM(s.weight) <> 0
+            HAVING {aggregate} <> 0
             """;
 
         return await ExecuteAsync(
@@ -464,6 +484,8 @@ public sealed class DailyTotalsJob
         return $"""
             SELECT e.actor_platform,
                    e.actor_id,
+                   e.subject_id,
+                   e.world_id,
                    (e.occurred_at AT TIME ZONE 'UTC') AS lo,
                    (GREATEST(COALESCE(e.occurred_before, e.occurred_at), e.occurred_at) AT TIME ZONE 'UTC') AS hi
             FROM modbot_event e

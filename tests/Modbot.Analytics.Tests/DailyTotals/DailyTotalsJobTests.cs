@@ -65,9 +65,105 @@ public class DailyTotalsJobTests : AnalyticsTestBase
         await NewJob(context).RunIncrementalAsync(Ct);
 
         Assert.Equal(3m, await ValueAsync(DayOf(Start), DailyTotalMetrics.BansAdded));
-        Assert.Equal(2m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorActions, "vrchat:alice"));
-        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorActions, "vrchat:bob"));
-        Assert.Null(await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorActions));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorBans, "vrchat:alice"));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorRemovals, "vrchat:alice"));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorBans, "vrchat:bob"));
+        Assert.Null(await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorBans));
+    }
+
+    /// <summary>
+    /// VRChat writes an approved join request as a member.join whose actor is the moderator, and
+    /// a self-service join as one whose actor is the joiner. Only the first is anybody's work.
+    /// </summary>
+    [Fact]
+    public async Task ApprovalsAreJoinsSomebodyElseCaused()
+    {
+        await WriteAsync(
+            Fact(FactType.MemberJoined, Start, subjectId: "usr_new", actorId: "alice"),
+            Fact(FactType.MemberJoined, Start.AddMinutes(1), subjectId: "usr_self", actorId: "usr_self"),
+            Fact(FactType.MemberJoined, Start.AddMinutes(2), subjectId: "usr_unattributed"));
+
+        await using var context = Database.NewContext();
+        await NewJob(context).RunIncrementalAsync(Ct);
+
+        Assert.Equal(3m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorApprovals, "vrchat:alice"));
+        Assert.Null(await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorApprovals, "vrchat:usr_self"));
+    }
+
+    [Fact]
+    public async Task EveryKindOfModeratorActionHasItsOwnRow()
+    {
+        await WriteAsync(
+            Fact(FactType.GroupInstanceKick, Start, actorId: "alice"),
+            Fact(FactType.GroupInstanceWarn, Start, actorId: "alice"),
+            Fact(FactType.MemberUnbanned, Start, actorId: "alice"),
+            Fact(FactType.InviteCreated, Start, actorId: "alice"),
+            Fact(FactType.JoinRequestRejected, Start, actorId: "alice"),
+            Fact(FactType.JoinRequestBlocked, Start, actorId: "alice"),
+            Fact(FactType.RoleGranted, Start, actorId: "alice"),
+            Fact(FactType.RoleRevoked, Start, actorId: "alice"));
+
+        await using var context = Database.NewContext();
+        await NewJob(context).RunIncrementalAsync(Ct);
+
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorInstanceKicks, "vrchat:alice"));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorWarns, "vrchat:alice"));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorUnbans, "vrchat:alice"));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorInvites, "vrchat:alice"));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorRejections, "vrchat:alice"));
+        Assert.Equal(2m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorRoleChanges, "vrchat:alice"));
+
+        // The undimensioned counterparts still count what the group received.
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.InvitesSent));
+    }
+
+    [Fact]
+    public async Task InstancesAndRequestsAreCountedPerDay()
+    {
+        await WriteAsync(
+            Fact(FactType.GroupInstanceCreated, Start, worldId: "wrld_a", instanceId: "1"),
+            Fact(FactType.GroupInstanceCreated, Start.AddHours(1), worldId: "wrld_a", instanceId: "2"),
+            Fact(FactType.GroupInstanceCreated, Start.AddHours(2), worldId: "wrld_b", instanceId: "3"),
+            Fact(FactType.GroupInstanceClosed, Start.AddHours(3), worldId: "wrld_a", instanceId: "1"),
+            Fact(FactType.JoinRequestCreated, Start));
+
+        await using var context = Database.NewContext();
+        await NewJob(context).RunIncrementalAsync(Ct);
+
+        Assert.Equal(3m, await ValueAsync(DayOf(Start), DailyTotalMetrics.InstancesOpened));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.InstancesClosed));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.RequestsReceived));
+
+        // Per world, keyed by the id exactly as the fact carried it.
+        Assert.Equal(2m, await ValueAsync(DayOf(Start), DailyTotalMetrics.WorldInstances, "wrld_a"));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.WorldInstances, "wrld_b"));
+    }
+
+    /// <summary>
+    /// Two moderators walking into the same room an hour apart each report every occupant, so
+    /// facts per person per day is really facts per watching moderator. People per day is the
+    /// number that means something.
+    /// </summary>
+    [Fact]
+    public async Task WorldVisitorsCountsEachPersonOncePerDay()
+    {
+        await WriteAsync(
+            Fact(FactType.InstanceJoined, Start, subjectId: "usr_a", worldId: "wrld_a", instanceId: "1", source: FactSource.Client),
+            Fact(FactType.InstancePresenceObserved, Start.AddHours(1), subjectId: "usr_a", worldId: "wrld_a", instanceId: "1", source: FactSource.Client),
+            Fact(FactType.InstancePresenceObserved, Start.AddHours(1), subjectId: "usr_b", worldId: "wrld_a", instanceId: "1", source: FactSource.Client),
+            Fact(FactType.InstanceJoined, Start.AddHours(2), subjectId: "usr_a", worldId: "wrld_b", instanceId: "9", source: FactSource.Client),
+
+            // Leaving is not a visit, and a fact with no world has no world row.
+            Fact(FactType.InstanceLeft, Start.AddHours(3), subjectId: "usr_a", worldId: "wrld_a", instanceId: "1", source: FactSource.Client),
+            Fact(FactType.InstanceJoined, Start.AddHours(4), subjectId: "usr_c", source: FactSource.Client));
+
+        await using var context = Database.NewContext();
+        await NewJob(context).RunIncrementalAsync(Ct);
+
+        Assert.Equal(2m, await ValueAsync(DayOf(Start), DailyTotalMetrics.WorldVisitors, "wrld_a"));
+        Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.WorldVisitors, "wrld_b"));
+        Assert.Null(await ValueAsync(DayOf(Start), DailyTotalMetrics.WorldVisitors));
     }
 
     /// <summary>

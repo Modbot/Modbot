@@ -81,7 +81,7 @@ public sealed class MetricsQuery(ModbotContext db)
         };
 
         var moderators = await ModeratorsAsync(dailyTotals
-            .Where(r => r.Metric == DailyTotalMetrics.ModeratorActions && r.Dimension.Length > 0)
+            .Where(r => DailyTotalMetrics.ModeratorActionKinds.Contains(r.Metric) && r.Dimension.Length > 0)
             .GroupBy(r => r.Dimension)
             .Select(g => (Dimension: g.Key, Actions: g.Sum(r => r.Value)))
             .OrderByDescending(g => g.Actions)

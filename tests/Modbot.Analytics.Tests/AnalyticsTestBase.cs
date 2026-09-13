@@ -68,7 +68,9 @@ public abstract class AnalyticsTestBase : IAsyncLifetime
         DateTimeOffset? occurredBefore = null,
         string? subjectId = null,
         string? actorId = null,
-        FactSource source = FactSource.AuditLog)
+        FactSource source = FactSource.AuditLog,
+        string? worldId = null,
+        string? instanceId = null)
         => new()
         {
             Type = type,
@@ -78,6 +80,8 @@ public abstract class AnalyticsTestBase : IAsyncLifetime
             SubjectId = subjectId ?? $"usr_{Guid.NewGuid():N}",
             ActorPlatform = actorId is null ? null : FactPlatform.VRChat,
             ActorId = actorId,
+            WorldId = worldId,
+            InstanceId = instanceId,
             Source = source,
         };
 
