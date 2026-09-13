@@ -1280,13 +1280,23 @@ the authoritative one wins and the inference is superseded.
 
 ```sql
 modbot_rollup_daily
-  day        date
-  metric     text          -- 'members.total', 'members.joined', 'bans.added',
-                           -- 'moderator.actions', 'instance.minutes', ...
-  dimension  text  null    -- optional: user id, moderator id, instance id, role id
-  value      numeric
+  day        date      not null
+  metric     text      not null   -- 'members.total', 'members.joined', 'bans.added',
+                                  -- 'moderator.actions', 'instance.minutes', ...
+  dimension  text      not null   -- '' when the metric has no dimension (see below)
+  value      numeric   not null
+  origin     smallint  not null   -- Computed | Counted (§5.2.1)
   PRIMARY KEY (day, metric, dimension)
 ```
+
+**`dimension` is `NOT NULL` with an empty-string sentinel**, not nullable. An earlier draft of this
+section wrote `dimension text null` inside the primary key, which **PostgreSQL rejects** — no primary
+key column may be nullable. The sentinel is the standard workaround and it has a second benefit:
+`ON CONFLICT (day, metric, dimension)` works, where a nullable column would make every undimensioned
+row conflict with nothing (`NULL != NULL`) and silently accumulate duplicates.
+
+**`value` is `numeric`, not an integer**, because imprecise facts are apportioned fractionally across
+days (§5.4.1).
 
 A generic metric/dimension shape so new metrics require no migration. Recomputed by `RollupJob`;
 a full rebuild from facts is always available and is the supported fix for any aggregation bug.
@@ -1309,6 +1319,37 @@ the kind of thing a moderator needs. Long-range questions ("who are our regulars
 are answered from rollups, which are cheap and kept permanently.
 
 Charts therefore keep their full history even after the underlying events age out.
+
+##### Pruning: drop partitions, and the case the simple rule misses
+
+Pruning is a **`DROP TABLE` on a whole partition**, never a mass `DELETE` — avoiding the dead tuples
+and the vacuum cost is most of why §5.7.2 partitions at all.
+
+The obvious rule — *"drop a partition once everything in it is past retention"* — is correct and, on
+its own, **unsatisfiable under the defaults**. A month's partition mixes both classes, and moderation
+facts are kept forever, so no partition is ever fully expired and the 90-day presence policy quietly
+becomes a comment that never runs.
+
+So there are three cases per partition:
+
+| Situation | Action |
+|---|---|
+| Every class in it has expired | `DROP TABLE` |
+| Presence expired, moderation retained, expired rows actually present | **Evacuate** (below) |
+| Nothing expired yet | Leave alone |
+
+**Evacuating** is one transaction: detach the partition, attach an empty replacement, copy the
+surviving classes back, drop the old table. The volume still dies by `DROP TABLE`; what gets copied
+is the low-volume class the spec sizes at hundreds per day (§5.5), and it happens once per partition
+per boundary rather than continuously.
+
+A partition is only ever acted on **whole** — never when a retention cutoff falls inside it — and
+only when its name matches the one the partition maintainer generates. A hand-attached partition is
+left alone.
+
+The alternative is sub-partitioning by retention class, which makes every drop trivial. It is
+rejected for M0: it needs the class in the partition key, a rewrite of the fact table, and a default
+sub-partition whose failure mode is **silent ingest loss** — the worst shape of bug in this system.
 
 A **purge-user** action erases every fact for one user on request.
 
