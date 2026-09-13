@@ -1619,6 +1619,85 @@ filtering to a single source gives you the old separate-logs view whenever that 
 The merged default is the right one because the questions people actually ask span sources: *"who
 changed the ban threshold just before these bans?"* is unanswerable in either log alone.
 
+### 5.10 Derived profiles — the questions people actually ask
+
+The questions a community manager asks are not the metrics a time series produces:
+
+> *"What worlds get the most users?"*
+> *"Is TrinityMaster58 a regular?"*
+> *"Where does TrinityMaster58 usually turn up?"*
+> *"What time does TrinityMaster58 join events?"*
+> *"When do people actually come to our events?"*
+
+Only the first is a daily time series. The rest are **three different analytical shapes**, and §5.4
+supports one of them.
+
+| Shape | Question | Supported by |
+|---|---|---|
+| **Time series** — a value per day | "members over time", "what worlds get the most users" | `modbot_rollup_daily` ✅ |
+| **Cyclic** — a distribution over hour-of-week | "when do people come to events" | nothing yet |
+| **Subject profile** — one person's habits | "is X a regular", "where does X go" | nothing yet |
+
+A daily rollup cannot answer a cyclic question. *"Tuesdays at 8pm are our busiest hour"* is not
+derivable from a series of daily totals — the information was thrown away when the day was summed.
+
+#### 5.10.1 `modbot_subject_profile`
+
+One row per subject, **entirely derived from facts** and recomputed on a schedule, holding:
+
+| | |
+|---|---|
+| `first_seen`, `last_seen` | recency |
+| `distinct_days_30d`, `distinct_days_90d` | the basis of "regular" |
+| `minutes_30d`, `sessions_30d` | depth of engagement |
+| `top_world_id`, `top_world_share` | "where do they usually turn up" |
+| `activity_hour_of_week` | a 168-bucket histogram, `jsonb` |
+| `regularity` | a computed classification (§5.10.3) |
+
+The hour-of-week histogram is `jsonb` rather than 168 rows per person, because it is always read
+whole and never queried by bucket. A group-level row under a reserved subject id carries the same
+histogram for *"when do people come to our events"* — same shape, same code, one aggregate instead of
+one person.
+
+#### 5.10.2 Profiles are a cache, never a source
+
+Everything here is recomputable from the fact log, which keeps §5.2's invariant intact: a bug in a
+profile is a re-run. Nothing is ever written to a profile that was not derived from a fact, and no
+query answers from a profile when the fact log disagrees.
+
+The practical constraint is retention (§5.5). Presence facts age out at 90 days by default, so a
+profile can only be rebuilt across the window the facts still cover. Long-range figures therefore
+come from **rollups**, which are kept forever — and a profile that claims a two-year history when
+only 90 days of facts survive would be lying. The rebuild is bounded by what remains, and the UI
+shows the window it actually had.
+
+#### 5.10.3 "Regular" is a definition, and the group owns it
+
+Modbot must not silently decide what a regular is. A group running nightly events and one running a
+monthly meetup mean entirely different things by the word, and a hardcoded threshold would be wrong
+for one of them while looking authoritative to both.
+
+So `regularity` is computed from a **stated, configurable rule** — by default something like *seen on
+8 or more distinct days in the last 30* — and **the UI shows the rule next to the answer.** "Regular
+(14 of the last 30 days)" is a claim a moderator can check; "Regular" alone is a claim they have to
+trust.
+
+The classes are deliberately few: **regular, occasional, new, lapsed**. More gradations invite
+arguments about boundaries without improving any decision.
+
+#### 5.10.4 What this unlocks
+
+Subject profiles are the substrate M7's segments and giveaways run on. *"Members with more than ten
+hours in our worlds this month and no bans"* is a query over profiles, not a scan of millions of
+presence facts — which is the difference between a segment that returns in a second and one that
+times out.
+
+It is also the answer to the question this whole section exists for: a small community that cannot
+afford an analyst can still find out when to run its events and who its regulars are, from data it
+already generates.
+
+---
+
 ---
 
 ## 6. Data model
