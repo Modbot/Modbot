@@ -153,6 +153,13 @@ public sealed class FileEventBuffer
         return dropped > 0;
     }
 
+    /// <summary>Creates the buffer's own folder if it is not there. Nothing else is created.</summary>
+    private void EnsureDirectory()
+    {
+        if (Path.GetDirectoryName(_path) is { Length: > 0 } directory)
+            Directory.CreateDirectory(directory);
+    }
+
     private void Load()
     {
         if (!File.Exists(_path))
@@ -178,7 +185,7 @@ public sealed class FileEventBuffer
 
     private void Append(Entry entry)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        EnsureDirectory();
 
         using var stream = new FileStream(_path, FileMode.Append, FileAccess.Write, FileShare.Read);
         using var writer = new StreamWriter(stream, new UTF8Encoding(false));
@@ -187,7 +194,7 @@ public sealed class FileEventBuffer
 
     private void Rewrite()
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        EnsureDirectory();
 
         var lines = _entries.Select(e => JsonSerializer.Serialize(e, Json));
         File.WriteAllLines(_path, lines, new UTF8Encoding(false));
