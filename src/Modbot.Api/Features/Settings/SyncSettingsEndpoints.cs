@@ -18,7 +18,7 @@ namespace Modbot.Api.Features.Settings;
 /// but never lower one below it — spec 4.2.1's rule that configuration may only make Modbot
 /// gentler.
 /// </param>
-public sealed record AuditLogCadenceSettings(
+public sealed record AuditLogPollRateSettings(
     double MinIntervalSeconds,
     double MaxIntervalSeconds,
     double PacingFloorSeconds,
@@ -30,7 +30,7 @@ public sealed record AuditLogCadenceSettings(
     bool Backfill,
     int MaxBackfillPages);
 
-public sealed record GroupInfoCadenceSettings(
+public sealed record GroupInfoPollRateSettings(
     double IntervalSeconds,
     double RetryIntervalSeconds,
     double RateLimitedIntervalSeconds,
@@ -108,8 +108,8 @@ public sealed record SyncSettingsAdjustment(
 /// What the last write changed on the way in. Empty on a read.
 /// </param>
 public sealed record SyncSettingsResponse(
-    AuditLogCadenceSettings AuditLog,
-    GroupInfoCadenceSettings GroupInfo,
+    AuditLogPollRateSettings AuditLog,
+    GroupInfoPollRateSettings GroupInfo,
     SyncRateSettings Rates,
     bool Editable,
     string EditableExplanation,
@@ -117,8 +117,8 @@ public sealed record SyncSettingsResponse(
     bool RestartRequired,
     IReadOnlyList<SyncSettingsAdjustment> Adjustments);
 
-/// <summary>Cadence fields to change. Every one optional; null means "leave alone".</summary>
-public sealed record AuditLogCadenceUpdate(
+/// <summary>Poll rate fields to change. Every one optional; null means "leave alone".</summary>
+public sealed record AuditLogPollRateUpdate(
     double? MinIntervalSeconds = null,
     double? MaxIntervalSeconds = null,
     double? QuietBackoff = null,
@@ -129,8 +129,8 @@ public sealed record AuditLogCadenceUpdate(
     bool? Backfill = null,
     int? MaxBackfillPages = null);
 
-/// <summary>Group-info cadence fields to change. Every one optional.</summary>
-public sealed record GroupInfoCadenceUpdate(
+/// <summary>Group-info poll rate fields to change. Every one optional.</summary>
+public sealed record GroupInfoPollRateUpdate(
     double? IntervalSeconds = null,
     double? RetryIntervalSeconds = null,
     double? RateLimitedIntervalSeconds = null,
@@ -146,12 +146,12 @@ public sealed record GroupInfoCadenceUpdate(
 public sealed record SyncSettingsUpdate(
     IReadOnlyDictionary<string, double>? ClassCeilingsPerSecond = null,
     double? BudgetFraction = null,
-    AuditLogCadenceUpdate? AuditLog = null,
-    GroupInfoCadenceUpdate? GroupInfo = null,
+    AuditLogPollRateUpdate? AuditLog = null,
+    GroupInfoPollRateUpdate? GroupInfo = null,
     bool Reset = false);
 
 /// <summary>
-/// The sync cadence and the per-endpoint budgets: what they are, and how to lower them.
+/// The sync poll rate and the per-endpoint budgets: what they are, and how to lower them.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -177,7 +177,7 @@ public sealed record SyncSettingsUpdate(
 /// edited in the database instead is picked up within <c>SyncPacingProvider.CacheFor</c>.
 /// </para>
 /// <para>
-/// The live cadence <em>decision</em> — the interval in force right now and the producer's reason
+/// The live poll rate <em>decision</em> — the interval in force right now and the producer's reason
 /// for it — is on the health screen rather than here, because it changes every poll and is a
 /// diagnostic, not a setting.
 /// </para>
@@ -406,7 +406,7 @@ public static class SyncSettingsEndpoints
         var global = pacing.EffectiveRatePerSecond(VRChatEndpointClass.Global);
 
         return new SyncSettingsResponse(
-            new AuditLogCadenceSettings(
+            new AuditLogPollRateSettings(
                 pacing.AuditLog.MinInterval.TotalSeconds,
                 pacing.AuditLog.MaxInterval.TotalSeconds,
                 AuditLogSyncOptions.PacingFloor.TotalSeconds,
@@ -417,7 +417,7 @@ public static class SyncSettingsEndpoints
                 pacing.AuditLog.Overlap.TotalSeconds,
                 pacing.AuditLog.Backfill,
                 pacing.AuditLog.MaxBackfillPages),
-            new GroupInfoCadenceSettings(
+            new GroupInfoPollRateSettings(
                 pacing.GroupInfo.Interval.TotalSeconds,
                 pacing.GroupInfo.RetryInterval.TotalSeconds,
                 pacing.GroupInfo.RateLimitedInterval.TotalSeconds,

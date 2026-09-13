@@ -602,7 +602,7 @@ function IntegrationsTab({
 }
 
 /**
- * Sync cadence — read-only, and saying so.
+ * Sync poll rate — read-only, and saying so.
  *
  * Spec 4.2.1 calls for a slider per rate with the cap enforced server-side on write. There is no
  * slider because there is nowhere to write to: the intervals are process configuration fixed at

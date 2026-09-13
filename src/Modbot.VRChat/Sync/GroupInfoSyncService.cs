@@ -16,7 +16,7 @@ namespace Modbot.VRChat.Sync;
 /// <para>
 /// Fixed rather than adaptive, unlike the audit log, because there is nothing to adapt to: a
 /// group's name and roles change a few times a year and a poll that found no change is no
-/// evidence at all about when the next one will come. The audit log's cadence earns its
+/// evidence at all about when the next one will come. The audit log's poll rate earns its
 /// complexity by turning arrival rate into request rate; here there is no arrival rate.
 /// </para>
 /// <para>

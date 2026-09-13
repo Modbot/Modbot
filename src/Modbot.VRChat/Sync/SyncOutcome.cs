@@ -4,7 +4,7 @@ namespace Modbot.VRChat.Sync;
 /// How one pass of a producer ended.
 /// </summary>
 /// <remarks>
-/// The cadence reads this, and every member exists because it implies a different next interval.
+/// The poll rate reads this, and every member exists because it implies a different next interval.
 /// "Nothing happened because the group is quiet" and "nothing happened because the bucket is
 /// cold-stopped" look identical in a count of facts written and could not be more different: one
 /// says poll less often, the other says stop until the penalty expires (spec 4.3.1).
@@ -70,7 +70,7 @@ public sealed record AuditLogRunResult(
 
         return this with
         {
-            // The worse of the two, in the order the cadence cares about: a failure or a cold stop
+            // The worse of the two, in the order the poll rate cares about: a failure or a cold stop
             // on either half is the thing that should decide the next interval, not the half that
             // happened to work.
             Outcome = other.Outcome is SyncOutcome.RateLimited or SyncOutcome.Failed

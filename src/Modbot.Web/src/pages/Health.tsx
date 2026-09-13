@@ -127,9 +127,9 @@ export function Health() {
             polledAt={health.auditLogPolledAt}
             now={health.now}
             detail={
-              health.auditLogCadence
-                ? `Polling every ${duration(health.auditLogCadence.intervalSeconds)} — ${health.auditLogCadence.reason}`
-                : 'No cadence decision published yet.'
+              health.auditLogPollRate
+                ? `Polling every ${duration(health.auditLogPollRate.intervalSeconds)} — ${health.auditLogPollRate.reason}`
+                : 'No poll rate decision published yet.'
             }
             run={health.lastAuditLogRun}
           />

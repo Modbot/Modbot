@@ -206,7 +206,7 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     }
 
     /// <summary>
-    /// An unmapped type still counts as read, so the cadence does not treat a group that only
+    /// An unmapped type still counts as read, so the poll rate does not treat a group that only
     /// posts announcements as busy -- and the pass still succeeds rather than failing over
     /// something VRChat is entitled to send.
     /// </summary>

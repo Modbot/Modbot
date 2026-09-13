@@ -82,7 +82,7 @@ public sealed record BucketHealth(
 /// The producer's own sentence for why it chose this interval. A published interval without one
 /// leaves "quiet group" and "stuck producer" looking identical.
 /// </param>
-public sealed record CadenceReport(
+public sealed record PollRateReport(
     double IntervalSeconds,
     string Reason,
     int ConsecutiveQuietPolls,
@@ -138,7 +138,7 @@ public sealed record SyncHealth(
     GateHealth Gate,
     IReadOnlyList<BucketHealth> Buckets,
     bool SyncRunningInThisProcess,
-    CadenceReport? AuditLogCadence,
+    PollRateReport? AuditLogPollRate,
     SyncRunSummary? LastAuditLogRun,
     SyncRunSummary? LastGroupInfoRun,
     DateTimeOffset? AuditLogPolledAt,

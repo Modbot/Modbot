@@ -101,14 +101,14 @@ public static class VRChatServiceCollectionExtensions
         var groupInfoOptions = (groupInfo ?? new GroupInfoSyncOptions()).Clamped();
 
         // The arguments to this method become the baseline the operator's own lowerings sit on
-        // top of, so a host that deliberately passed a gentler cadence keeps it. Registered as a
+        // top of, so a host that deliberately passed a gentler poll rate keeps it. Registered as a
         // service rather than captured, because AddModbotVRChat may already have registered the
         // provider and the factory has not run yet -- so the later registration is still visible
         // to it.
         services.AddSingleton(new SyncPacingBaseline(auditLogOptions, groupInfoOptions));
 
         // Also registered here, so a host that wires the producers without the gate still has a
-        // pacing source rather than silently falling back to the compiled-in cadence.
+        // pacing source rather than silently falling back to the compiled-in pollRate.
         AddSyncPacing(services);
 
         // The startup values, which are also the fallback whenever the settings row has nothing
@@ -118,7 +118,7 @@ public static class VRChatServiceCollectionExtensions
         services.AddSingleton(auditLogOptions);
         services.AddSingleton(groupInfoOptions);
 
-        // Singleton: the unmapped-event counters and the cadence decision are what an operator
+        // Singleton: the unmapped-event counters and the poll rate decision are what an operator
         // reads to tell a quiet producer from a stuck one, and a per-scope copy would reset them
         // every poll.
         services.AddSingleton<SyncDiagnostics>();
@@ -132,7 +132,7 @@ public static class VRChatServiceCollectionExtensions
 
         // Scoped, because they hold a ModbotContext for the run and hand it back afterwards.
         //
-        // The cadence comes from the live snapshot rather than the startup value, and from the
+        // The poll rate comes from the live snapshot rather than the startup value, and from the
         // snapshot rather than a fresh read: the producer refreshed it immediately before
         // creating this scope, so the interval the tick waited and the page size this pass uses
         // came from one read of the settings row.

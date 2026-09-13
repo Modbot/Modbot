@@ -25,7 +25,7 @@ namespace Modbot.Api.Features.Health;
 /// <strong>Two endpoints, because the two audiences are different.</strong> The gate summary is
 /// available to any signed-in account: a moderator whose action did nothing needs to be able to
 /// tell "Modbot is cold-stopped" from "Modbot is broken", and withholding that produces a support
-/// question instead of an informed wait. The detail — per-bucket budgets, cadence reasoning, the
+/// question instead of an informed wait. The detail — per-bucket budgets, poll rate reasoning, the
 /// vocabulary check — is Modbot's operational record and takes <c>ViewOperationalLog</c>, which is
 /// the same line spec 5.9.4 draws for the logs themselves.
 /// </para>
@@ -74,7 +74,7 @@ public static class SyncHealthEndpoints
                     health,
                     buckets,
                     diagnostics is not null,
-                    Cadence(diagnostics?.AuditLogCadence),
+                    PollRate(diagnostics?.AuditLogPollRate),
                     Run(diagnostics?.LastAuditLogRun),
                     Run(diagnostics?.LastGroupInfoRun),
                     settings?.AuditLogPolledAt,
@@ -92,13 +92,13 @@ public static class SyncHealthEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
-            .WithSummary("Producer cadence, last runs, bucket budgets, and the vocabulary check")
+            .WithSummary("Producer poll rate, last runs, bucket budgets, and the vocabulary check")
             .WithDescription(
                 "`vocabulary.missingPrimary` is the loudest thing here. It lists audit-log event "
                 + "types Modbot treats as real that VRChat does not declare, which means facts of "
                 + "those types are being lost right now and nothing else shows it — the fact log "
                 + "looks healthy because Modbot is waiting for a string VRChat never sends.\n\n"
-                + "The cadence carries the producer's own reason for the interval it chose. "
+                + "The poll rate carries the producer's own reason for the interval it chose. "
                 + "Without it a deliberately slow poll and a stuck one are indistinguishable "
                 + "(spec 4.2.3).\n\n"
                 + "`now` is the server's clock. Ages should be computed against it rather than "
@@ -109,10 +109,10 @@ public static class SyncHealthEndpoints
         return app;
     }
 
-    private static CadenceReport? Cadence(CadenceDecision? decision)
+    private static PollRateReport? PollRate(PollRateDecision? decision)
         => decision is null
             ? null
-            : new CadenceReport(
+            : new PollRateReport(
                 decision.Interval.TotalSeconds,
                 decision.Reason,
                 decision.ConsecutiveQuietPolls,

@@ -7,7 +7,7 @@ namespace Modbot.VRChat.Tests.Sync;
 /// Spec 4.2 paces the audit log at one request per 8 seconds; it does not say to spend that
 /// allowance on a group where nothing is happening.
 /// </summary>
-public class AdaptiveCadenceTests
+public class AdaptivePollRateTests
 {
     private static readonly AuditLogSyncOptions Options = new()
     {
@@ -20,20 +20,20 @@ public class AdaptiveCadenceTests
     [Fact]
     public void ItStartsAtTheFastestPermittedRate()
     {
-        var cadence = New();
+        var pollRate = New();
 
-        Assert.Equal(Options.MinInterval, cadence.Current.Interval);
-        Assert.NotEmpty(cadence.Current.Reason);
+        Assert.Equal(Options.MinInterval, pollRate.Current.Interval);
+        Assert.NotEmpty(pollRate.Current.Reason);
     }
 
     [Fact]
     public void QuietPollsBackOffGeometricallyAndStopAtTheMaximum()
     {
-        var cadence = New();
+        var pollRate = New();
         var intervals = new List<TimeSpan>();
 
         for (var i = 0; i < 12; i++)
-            intervals.Add(cadence.Observe(new AuditLogRunResult(SyncOutcome.Quiet)).Interval);
+            intervals.Add(pollRate.Observe(new AuditLogRunResult(SyncOutcome.Quiet)).Interval);
 
         Assert.Equal(Options.MinInterval, intervals[0]);
         Assert.Equal(Options.MinInterval * 2, intervals[1]);
@@ -53,14 +53,14 @@ public class AdaptiveCadenceTests
     [Fact]
     public void OneProductivePollSnapsStraightBackToTheFastestRate()
     {
-        var cadence = New();
+        var pollRate = New();
 
         for (var i = 0; i < 10; i++)
-            cadence.Observe(new AuditLogRunResult(SyncOutcome.Quiet));
+            pollRate.Observe(new AuditLogRunResult(SyncOutcome.Quiet));
 
-        Assert.Equal(Options.MaxInterval, cadence.Current.Interval);
+        Assert.Equal(Options.MaxInterval, pollRate.Current.Interval);
 
-        var decision = cadence.Observe(new AuditLogRunResult(SyncOutcome.Produced, FactsWritten: 3));
+        var decision = pollRate.Observe(new AuditLogRunResult(SyncOutcome.Produced, FactsWritten: 3));
 
         Assert.Equal(Options.MinInterval, decision.Interval);
         Assert.Equal(0, decision.ConsecutiveQuietPolls);
@@ -74,8 +74,8 @@ public class AdaptiveCadenceTests
     [Fact]
     public void ARateLimitedPollWaitsAsLongAsItIsAllowedTo()
     {
-        var cadence = New();
-        var decision = cadence.Observe(new AuditLogRunResult(SyncOutcome.RateLimited));
+        var pollRate = New();
+        var decision = pollRate.Observe(new AuditLogRunResult(SyncOutcome.RateLimited));
 
         Assert.Equal(Options.MaxInterval, decision.Interval);
         Assert.Contains("rate limited", decision.Reason, StringComparison.OrdinalIgnoreCase);
@@ -88,8 +88,8 @@ public class AdaptiveCadenceTests
     [Fact]
     public void AFailedPollRetriesSoonerThanAQuietOneEventuallyWould()
     {
-        var cadence = New();
-        var decision = cadence.Observe(new AuditLogRunResult(SyncOutcome.Failed, Message: "boom"));
+        var pollRate = New();
+        var decision = pollRate.Observe(new AuditLogRunResult(SyncOutcome.Failed, Message: "boom"));
 
         Assert.InRange(decision.Interval, Options.MinInterval, Options.MaxInterval);
         Assert.True(decision.Interval < Options.MaxInterval);
@@ -99,8 +99,8 @@ public class AdaptiveCadenceTests
     [Fact]
     public void AnUnconfiguredDeploymentIdlesRatherThanPollingNothingEveryEightSeconds()
     {
-        var cadence = New();
-        var decision = cadence.Observe(new AuditLogRunResult(SyncOutcome.NotConfigured));
+        var pollRate = New();
+        var decision = pollRate.Observe(new AuditLogRunResult(SyncOutcome.NotConfigured));
 
         Assert.Equal(Options.MaxInterval, decision.Interval);
     }
@@ -112,8 +112,8 @@ public class AdaptiveCadenceTests
     [Fact]
     public void JitterNeverTakesTheProducerBelowThePacingFloor()
     {
-        var cadence = New(new Random(42));
-        var delays = Enumerable.Range(0, 500).Select(_ => cadence.NextDelay()).ToList();
+        var pollRate = New(new Random(42));
+        var delays = Enumerable.Range(0, 500).Select(_ => pollRate.NextDelay()).ToList();
 
         Assert.All(delays, d => Assert.True(d >= Options.MinInterval, $"{d} is under the floor"));
 
@@ -139,6 +139,6 @@ public class AdaptiveCadenceTests
         Assert.True(reckless.MaxInterval >= reckless.MinInterval);
     }
 
-    private static AdaptiveCadence New(Random? random = null)
+    private static AdaptivePollRate New(Random? random = null)
         => new(Options, new FakeClock(), random ?? new Random(7));
 }

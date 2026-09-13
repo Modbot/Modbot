@@ -307,7 +307,7 @@ export type BucketHealth = {
   lastRateLimitedAt: string | null
 }
 
-export type CadenceReport = {
+export type PollRateReport = {
   intervalSeconds: number
   reason: string
   consecutiveQuietPolls: number
@@ -343,7 +343,7 @@ export type SyncHealth = {
   gate: GateHealth
   buckets: BucketHealth[]
   syncRunningInThisProcess: boolean
-  auditLogCadence: CadenceReport | null
+  auditLogPollRate: PollRateReport | null
   lastAuditLogRun: SyncRunSummary | null
   lastGroupInfoRun: SyncRunSummary | null
   auditLogPolledAt: string | null

@@ -219,7 +219,7 @@ public class SyncSettingsTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
         var written = await PutAsync(host, cookie, new SyncSettingsUpdate(
-            AuditLog: new AuditLogCadenceUpdate(MinIntervalSeconds: 1)));
+            AuditLog: new AuditLogPollRateUpdate(MinIntervalSeconds: 1)));
 
         Assert.Equal(
             AuditLogSyncOptions.PacingFloor.TotalSeconds, written.AuditLog.MinIntervalSeconds, 6);
@@ -234,8 +234,8 @@ public class SyncSettingsTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
         var written = await PutAsync(host, cookie, new SyncSettingsUpdate(
-            AuditLog: new AuditLogCadenceUpdate(MaxIntervalSeconds: 3600, Backfill: false),
-            GroupInfo: new GroupInfoCadenceUpdate(IntervalSeconds: 3600)));
+            AuditLog: new AuditLogPollRateUpdate(MaxIntervalSeconds: 3600, Backfill: false),
+            GroupInfo: new GroupInfoPollRateUpdate(IntervalSeconds: 3600)));
 
         Assert.Empty(written.Adjustments);
         Assert.Equal(3600, written.AuditLog.MaxIntervalSeconds, 6);
@@ -260,7 +260,7 @@ public class SyncSettingsTests
         await PutAsync(host, cookie, new SyncSettingsUpdate(BudgetFraction: 0.3));
 
         var written = await PutAsync(host, cookie, new SyncSettingsUpdate(
-            GroupInfo: new GroupInfoCadenceUpdate(IntervalSeconds: 1800)));
+            GroupInfo: new GroupInfoPollRateUpdate(IntervalSeconds: 1800)));
 
         Assert.Equal(0.3, written.Rates.BudgetFraction, 6);
         Assert.Equal(1800, written.GroupInfo.IntervalSeconds, 6);
@@ -277,7 +277,7 @@ public class SyncSettingsTests
 
         await PutAsync(host, cookie, new SyncSettingsUpdate(
             BudgetFraction: 0.2,
-            AuditLog: new AuditLogCadenceUpdate(MaxIntervalSeconds: 7200)));
+            AuditLog: new AuditLogPollRateUpdate(MaxIntervalSeconds: 7200)));
 
         var reset = await PutAsync(host, cookie, new SyncSettingsUpdate(Reset: true));
 

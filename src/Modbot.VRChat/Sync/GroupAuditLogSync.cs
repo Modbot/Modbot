@@ -31,7 +31,7 @@ namespace Modbot.VRChat.Sync;
 /// </para>
 /// <para>
 /// <strong>Nothing here retries a 429</strong> (spec 4.3.1). A rate-limited pass stops where it
-/// is, leaves the cursor alone, and reports the outcome so the cadence can go as slow as it is
+/// is, leaves the cursor alone, and reports the outcome so the poll rate can go as slow as it is
 /// allowed to. The next pass re-reads from the same place; the overlap is what makes stopping
 /// mid-page safe.
 /// </para>

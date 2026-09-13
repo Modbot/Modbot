@@ -7,7 +7,7 @@ namespace Modbot.VRChat.Pacing;
 /// What an unconfigured field falls back to.
 /// </summary>
 /// <remarks>
-/// Spec 4.2's defaults, unless the host composing Modbot supplied its own cadence. The
+/// Spec 4.2's defaults, unless the host composing Modbot supplied its own pollRate. The
 /// distinction matters because the stored document is sparse: "not configured" has to resolve to
 /// something, and resolving it to the compiled default would quietly overrule a host that had
 /// deliberately passed a gentler one.
@@ -57,7 +57,7 @@ public sealed record SyncPacing
     /// <param name="classes">The budgets to clamp against. Spec 4.2's table by default.</param>
     /// <param name="baseline">
     /// What an unconfigured field falls back to. Normally spec 4.2's defaults; a host that passed
-    /// its own cadence to <c>AddModbotVRChatSync</c> gets that instead, so a code-supplied value
+    /// its own poll rate to <c>AddModbotVRChatSync</c> gets that instead, so a code-supplied value
     /// is a starting point the operator adjusts rather than something a stored document silently
     /// discards.
     /// </param>

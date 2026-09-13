@@ -642,12 +642,12 @@ like.
 info, and the producer fetches roles through `GetGroup(includeRoles: true)` — one request, not two.
 There is no separate rate for a slider to move.
 
-**The cadence knobs are not req/s and the rule does not literally cover them.** Lowering the
+**The poll rate knobs are not req/s and the rule does not literally cover them.** Lowering the
 audit-log *maximum* interval makes the producer poll more often, not less. It is safe — the
-limiter's cap binds whatever the cadence asks for, which is exactly why the two are separate
+limiter's cap binds whatever the poll rate asks for, which is exactly why the two are separate
 mechanisms — but "configuration may only make Modbot gentler" is not true of that field, and
 pretending otherwise would be the kind of claim somebody later discovers by reading the code. Only
-§4.2's pacing floors are enforced on the cadence.
+§4.2's pacing floors are enforced on the pollRate.
 
 #### 4.2.2 Scheduling must not be wall-clock aligned
 

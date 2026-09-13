@@ -11,7 +11,7 @@ namespace Modbot.VRChat.Sync;
 /// every 8 seconds spends the whole budget discovering nothing.
 /// </para>
 /// <para>
-/// So the cadence is adaptive between <see cref="MinInterval"/> and <see cref="MaxInterval"/>,
+/// So the poll rate is adaptive between <see cref="MinInterval"/> and <see cref="MaxInterval"/>,
 /// and every value here can be raised (slower) but never lowered past the pacing floor, which is
 /// spec 4.2.1's rule that configuration may only ever make Modbot gentler.
 /// </para>
@@ -19,7 +19,7 @@ namespace Modbot.VRChat.Sync;
 public sealed record AuditLogSyncOptions
 {
     /// <summary>
-    /// Spec 4.2's cap for <c>groups.auditlog</c>: one request per 8 seconds. The adaptive cadence
+    /// Spec 4.2's cap for <c>groups.auditlog</c>: one request per 8 seconds. The adaptive poll rate
     /// is clamped to this from below; the limiter enforces it independently and would simply make
     /// a faster loop wait, but a loop that spins against a bucket it cannot drain is a bug that
     /// looks like a performance problem.

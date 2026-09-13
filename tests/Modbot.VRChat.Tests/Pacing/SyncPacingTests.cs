@@ -49,7 +49,7 @@ public class SyncPacingTests
     }
 
     [Fact]
-    public void WithNothingConfigured_TheCadenceIsTheProducers()
+    public void WithNothingConfigured_ThePollRateIsTheProducers()
     {
         Assert.Equal(AuditLogSyncOptions.PacingFloor, SyncPacing.Defaults.AuditLog.MinInterval);
         Assert.Equal(new AuditLogSyncOptions().Clamped(), SyncPacing.Defaults.AuditLog);
@@ -243,7 +243,7 @@ public class SyncPacingTests
     }
 
     /// <summary>
-    /// A host that composed Modbot with its own cadence keeps it where the operator has not
+    /// A host that composed Modbot with its own poll rate keeps it where the operator has not
     /// overruled it.
     /// </summary>
     [Fact]

@@ -10,7 +10,7 @@ using Serilog;
 namespace Modbot.VRChat.Sync;
 
 /// <summary>
-/// Runs the audit-log producer on an adaptive cadence.
+/// Runs the audit-log producer on an adaptive pollRate.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,7 +21,7 @@ namespace Modbot.VRChat.Sync;
 /// </para>
 /// <para>
 /// The loop never retries a failed pass immediately. Everything it could do about a failure, the
-/// cadence has already decided (see <see cref="AdaptiveCadence"/>), and a retry inside the loop
+/// poll rate has already decided (see <see cref="AdaptivePollRate"/>), and a retry inside the loop
 /// would be exactly the premature probe spec 4.3.4 attributes 45–80 seconds of self-inflicted
 /// penalty to.
 /// </para>
@@ -31,7 +31,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
     private readonly IServiceScopeFactory _scopes;
     private readonly IModbotClock _clock;
     private readonly SyncDiagnostics _diagnostics;
-    private readonly AdaptiveCadence _cadence;
+    private readonly AdaptivePollRate _pollRate;
     private readonly ISyncPacingSource? _pacing;
     private readonly IDelayScheduler _delays;
     private readonly ILogger _log;
@@ -55,21 +55,21 @@ public sealed class GroupAuditLogSyncService : BackgroundService
         _scopes = scopes;
         _clock = clock;
         _diagnostics = diagnostics;
-        _cadence = new AdaptiveCadence(options ?? new AuditLogSyncOptions(), clock);
+        _pollRate = new AdaptivePollRate(options ?? new AuditLogSyncOptions(), clock);
         _pacing = pacing;
         _delays = delays ?? new RealDelayScheduler();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
     }
 
-    /// <summary>The cadence decision in force, for tests and for the health screen.</summary>
-    internal AdaptiveCadence Cadence => _cadence;
+    /// <summary>The poll rate decision in force, for tests and for the health screen.</summary>
+    internal AdaptivePollRate PollRate => _pollRate;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // The first pass waits, rather than firing the instant the process is up. Spec 4.2.2's
         // whole argument is that a fleet restarting together must re-spread instead of marching
         // in lockstep, and a platform redeploy restarts every instance at once.
-        _diagnostics.RecordCadence(_cadence.Current);
+        _diagnostics.RecordPollRate(_pollRate.Current);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -78,14 +78,14 @@ public sealed class GroupAuditLogSyncService : BackgroundService
             // single-row read per tick, at most once per eight seconds.
             await RefreshPacingAsync(stoppingToken).ConfigureAwait(false);
 
-            if (!await WaitAsync(_cadence.NextDelay(), stoppingToken).ConfigureAwait(false))
+            if (!await WaitAsync(_pollRate.NextDelay(), stoppingToken).ConfigureAwait(false))
                 return;
 
             var result = await RunOnceAsync(stoppingToken).ConfigureAwait(false);
-            var previous = _cadence.Current;
-            var decision = _cadence.Observe(result);
+            var previous = _pollRate.Current;
+            var decision = _pollRate.Observe(result);
 
-            _diagnostics.RecordCadence(decision);
+            _diagnostics.RecordPollRate(decision);
 
             if (decision.Interval != previous.Interval)
             {
@@ -93,7 +93,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
                 // poll every five minutes needs to be able to find out that it decided, and why,
                 // without a line every eight seconds burying it.
                 _log.Debug(
-                    "Audit-log cadence is now {Interval}: {Reason}",
+                    "Audit-log poll rate is now {Interval}: {Reason}",
                     decision.Interval,
                     decision.Reason);
             }
@@ -101,7 +101,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
     }
 
     /// <summary>
-    /// Adopts a cadence the operator has changed. Failures are the provider's to swallow.
+    /// Adopts a poll rate the operator has changed. Failures are the provider's to swallow.
     /// </summary>
     /// <remarks>
     /// The scoped <see cref="GroupAuditLogSync"/> this loop creates per run reads the same
@@ -116,7 +116,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
         try
         {
             var pacing = await _pacing.CurrentAsync(ct).ConfigureAwait(false);
-            _cadence.Reconfigure(pacing.AuditLog);
+            _pollRate.Reconfigure(pacing.AuditLog);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

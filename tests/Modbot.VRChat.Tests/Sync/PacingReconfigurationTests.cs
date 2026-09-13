@@ -130,10 +130,10 @@ public class PacingReconfigurationTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// A cadence changed while the producer is running applies to its very next wait.
+    /// A poll rate changed while the producer is running applies to its very next wait.
     /// </summary>
     [Fact]
-    public async Task AChangedCadenceAppliesToTheNextPollWithoutARestart()
+    public async Task AChangedPollRateAppliesToTheNextPollWithoutARestart()
     {
         var delays = new GatedDelayScheduler();
         var service = AuditLog(delays);
@@ -150,10 +150,10 @@ public class PacingReconfigurationTests : IAsyncLifetime
 
             var next = await delays.HoldNextAsync(Ct);
 
-            // The quiet cadence would have been five minutes. It is 45 seconds because the loop
+            // The quiet poll rate would have been five minutes. It is 45 seconds because the loop
             // re-read the pacing before computing this wait.
             Assert.InRange(next, TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(45) * 1.1);
-            Assert.Equal(TimeSpan.FromSeconds(45), service.Cadence.Options.MaxInterval);
+            Assert.Equal(TimeSpan.FromSeconds(45), service.PollRate.Options.MaxInterval);
 
             delays.Release();
         }
@@ -164,10 +164,10 @@ public class PacingReconfigurationTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// And it is still clamped: a cadence faster than spec 4.2's pacing floor is raised to it.
+    /// And it is still clamped: a poll rate faster than spec 4.2's pacing floor is raised to it.
     /// </summary>
     [Fact]
-    public async Task ACadenceBelowThePacingFloorIsRaisedEvenWhenSetOnARunningProducer()
+    public async Task APollRateBelowThePacingFloorIsRaisedEvenWhenSetOnARunningProducer()
     {
         var delays = new GatedDelayScheduler();
         var service = AuditLog(delays);
@@ -187,7 +187,7 @@ public class PacingReconfigurationTests : IAsyncLifetime
 
             var next = await delays.HoldNextAsync(Ct);
 
-            Assert.Equal(AuditLogSyncOptions.PacingFloor, service.Cadence.Options.MinInterval);
+            Assert.Equal(AuditLogSyncOptions.PacingFloor, service.PollRate.Options.MinInterval);
             Assert.InRange(next, AuditLogSyncOptions.PacingFloor, AuditLogSyncOptions.PacingFloor * 1.1);
 
             delays.Release();

@@ -116,13 +116,13 @@ public class SyncHealthEndpointTests
     }
 
     [Fact]
-    public async Task SyncHealth_CarriesTheCadenceAndItsReason()
+    public async Task SyncHealth_CarriesThePollRateAndItsReason()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
         await host.ResetAsync(ct);
 
-        host.Diagnostics.RecordCadence(new CadenceDecision(
+        host.Diagnostics.RecordPollRate(new PollRateDecision(
             TimeSpan.FromMinutes(5),
             "nothing new for 6 polls; holding at the slowest rate until something happens",
             6,
@@ -135,12 +135,12 @@ public class SyncHealthEndpointTests
         var health = await host.GetJsonAsync<SyncHealth>("/api/health/sync", cookie, ct);
 
         Assert.True(health.SyncRunningInThisProcess);
-        Assert.Equal(300, health.AuditLogCadence!.IntervalSeconds);
-        Assert.Equal(6, health.AuditLogCadence.ConsecutiveQuietPolls);
+        Assert.Equal(300, health.AuditLogPollRate!.IntervalSeconds);
+        Assert.Equal(6, health.AuditLogPollRate.ConsecutiveQuietPolls);
 
         // The reason is the whole point. An interval without one leaves a quiet group and a stuck
         // producer looking identical (spec 4.2.3).
-        Assert.Contains("nothing new", health.AuditLogCadence.Reason, StringComparison.Ordinal);
+        Assert.Contains("nothing new", health.AuditLogPollRate.Reason, StringComparison.Ordinal);
         Assert.Equal("Quiet", health.LastAuditLogRun!.Outcome);
     }
 
@@ -197,7 +197,7 @@ public class SyncHealthEndpointTests
         // "Nothing is running" and "everything is idle" produce the same empty fields and mean
         // different things, so the difference is a field rather than an inference.
         Assert.False(health.SyncRunningInThisProcess);
-        Assert.Null(health.AuditLogCadence);
+        Assert.Null(health.AuditLogPollRate);
     }
 
     [Fact]

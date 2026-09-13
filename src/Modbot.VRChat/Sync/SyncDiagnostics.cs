@@ -19,9 +19,9 @@ public sealed record UnmappedAuditEvent(
     string? SampleEntryId,
     string? SampleDescription);
 
-/// <summary>What the cadence decided, and why.</summary>
+/// <summary>What the poll rate decided, and why.</summary>
 /// <param name="Reason">A sentence for an operator, not a state name.</param>
-public sealed record CadenceDecision(
+public sealed record PollRateDecision(
     TimeSpan Interval,
     string Reason,
     int ConsecutiveQuietPolls,
@@ -41,7 +41,7 @@ public sealed record SyncRunReport(
 /// <para>
 /// Spec 4.2.3 and 4.3.3: the UI shows real last-sync times per data type and per-bucket health,
 /// because an operator has to be able to see that Modbot is deliberately slow rather than broken.
-/// An adaptive cadence makes that worse before it makes it better -- a producer that decided on
+/// An adaptive poll rate makes that worse before it makes it better -- a producer that decided on
 /// its own to poll every five minutes is indistinguishable from a stuck one unless it says so.
 /// So the decision and its reason are published, not merely logged.
 /// </para>
@@ -61,7 +61,7 @@ public sealed class SyncDiagnostics
     private readonly Lock _gate = new();
     private readonly Dictionary<string, UnmappedAuditEvent> _unmapped = new(StringComparer.Ordinal);
 
-    private CadenceDecision? _cadence;
+    private PollRateDecision? _pollRate;
     private SyncRunReport? _auditLog;
     private SyncRunReport? _groupInfo;
     private AuditLogVocabularyReport? _vocabulary;
@@ -73,9 +73,9 @@ public sealed class SyncDiagnostics
     }
 
     /// <summary>The audit-log producer's current interval and the reason it chose it.</summary>
-    public CadenceDecision? AuditLogCadence
+    public PollRateDecision? AuditLogPollRate
     {
-        get { lock (_gate) return _cadence; }
+        get { lock (_gate) return _pollRate; }
     }
 
     public SyncRunReport? LastAuditLogRun
@@ -127,10 +127,10 @@ public sealed class SyncDiagnostics
         lock (_gate) _vocabulary = report;
     }
 
-    public void RecordCadence(CadenceDecision decision)
+    public void RecordPollRate(PollRateDecision decision)
     {
         ArgumentNullException.ThrowIfNull(decision);
-        lock (_gate) _cadence = decision;
+        lock (_gate) _pollRate = decision;
     }
 
     public void RecordAuditLogRun(SyncRunReport report)
