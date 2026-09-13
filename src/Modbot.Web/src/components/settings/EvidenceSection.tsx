@@ -10,7 +10,8 @@ import {
   type EvidenceSettings,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Field, PasswordField, Placeholder, Row, Section } from './fields'
+import { Checkbox, Field, Hint, Notice, Outcome, PasswordField, Placeholder, Row } from './fields'
+import { SettingsCard, SettingsSection } from './SettingsCard'
 import { MB, bytes } from './units'
 
 /**
@@ -56,20 +57,26 @@ export function EvidenceSection() {
     void load()
   }, [load])
 
-  if (error) return <Placeholder>{error}</Placeholder>
-  if (!data) return <Placeholder>Loading…</Placeholder>
-
   return (
-    <div className="flex flex-col gap-4">
-      <StoreHealth health={data.health} onProbed={load} />
-      <BackendForm settings={data} onSaved={load} />
-      <StoreFacts settings={data} />
-      <LimitsForm key={data.backend.storeId ?? 'none'} settings={data} onSaved={load} />
-
-      <p className="max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        {data.durabilityStatement}
-      </p>
-    </div>
+    <SettingsSection
+      id="evidence"
+      title="Evidence"
+      description="Where uploaded evidence is kept, and how much of it is allowed."
+    >
+      {error ? (
+        <Placeholder>{error}</Placeholder>
+      ) : !data ? (
+        <Placeholder>Loading…</Placeholder>
+      ) : (
+        <>
+          <StoreHealth health={data.health} onProbed={load} />
+          <BackendCard settings={data} onSaved={load} />
+          <StoreFactsCard settings={data} />
+          <LimitsCard key={data.backend.storeId ?? 'none'} settings={data} onSaved={load} />
+          <DurabilityCard settings={data} />
+        </>
+      )}
+    </SettingsSection>
   )
 }
 
@@ -93,52 +100,45 @@ function StoreHealth({ health, onProbed }: { health: EvidenceHealth; onProbed: (
   }
 
   const tone = health.locked
-    ? 'border-destructive/40 bg-destructive/10'
+    ? 'danger'
     : health.state === 'Unreachable'
-      ? 'border-warn/40 bg-warn/10'
+      ? 'warn'
       : health.state === 'Healthy'
-        ? 'border-ok/40 bg-ok/10'
-        : 'border-border bg-secondary'
+        ? 'ok'
+        : 'neutral'
 
   return (
-    <div className={cn('rounded-lg border px-4 py-3', tone)} style={{ borderWidth: 'var(--hairline)' }}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="font-medium">
-            {health.locked
-              ? 'This is not the store Modbot put its evidence in.'
-              : health.state === 'Healthy'
-                ? 'The store answered, and it is ours.'
-                : health.state === 'Unreachable'
-                  ? 'The store did not answer.'
-                  : 'No evidence store has been configured.'}
-          </div>
-          <p
-            className="mt-1 max-w-3xl text-muted-foreground"
-            style={{ fontSize: 'var(--text-small)' }}
-          >
-            {health.explanation}
-          </p>
-          {health.locked && (
-            <p
-              className="mt-1 max-w-3xl text-muted-foreground"
-              style={{ fontSize: 'var(--text-small)' }}
-            >
-              Uploads are refused while this is true. Nothing else is affected — bans, audit
-              ingest, Discord, the overlay and analytics are all still running. Fixing the store
-              here and saving clears it; the incident stays on the record either way.
-            </p>
-          )}
-        </div>
+    <Notice
+      tone={tone}
+      className="col-span-12"
+      title={
+        health.locked
+          ? 'This is not the store Modbot put its evidence in.'
+          : health.state === 'Healthy'
+            ? 'The store answered, and it is ours.'
+            : health.state === 'Unreachable'
+              ? 'The store did not answer.'
+              : 'No evidence store has been configured.'
+      }
+      action={
         <Button size="sm" variant="outline" disabled={probing} onClick={probe}>
           {probing ? 'Checking…' : 'Re-check'}
         </Button>
-      </div>
-    </div>
+      }
+    >
+      <p>{health.explanation}</p>
+      {health.locked && (
+        <p>
+          Uploads are refused while this is true. Nothing else is affected — bans, audit ingest,
+          Discord, the overlay and analytics are all still running. Fixing the store here and
+          saving clears it; the incident stays on the record either way.
+        </p>
+      )}
+    </Notice>
   )
 }
 
-function BackendForm({ settings, onSaved }: { settings: EvidenceSettings; onSaved: () => void }) {
+function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved: () => void }) {
   const hint = settings.environmentHint
   const [backend, setBackend] = useState<EvidenceBackendId>(settings.backend.backend)
   const [root, setRoot] = useState(settings.backend.root ?? '/app/data/evidence')
@@ -205,23 +205,33 @@ function BackendForm({ settings, onSaved }: { settings: EvidenceSettings; onSave
   }
 
   return (
-    <Section title="Where evidence is stored">
-      {settings.switchBlockedReason && (
-        <div
-          className="mb-3 rounded-lg border border-warn/40 bg-warn/10 px-4 py-3"
-          style={{ borderWidth: 'var(--hairline)' }}
-        >
-          <div className="font-medium">The backend cannot be changed while objects are stored.</div>
-          <p
-            className="mt-1 max-w-3xl text-muted-foreground"
-            style={{ fontSize: 'var(--text-small)' }}
+    <SettingsCard
+      title="Where evidence is stored"
+      description="Saving writes a test object, reads it back, compares the bytes and deletes it first."
+      footer={
+        <>
+          <Button size="sm" disabled={busy !== null} onClick={() => run('save')}>
+            {busy === 'save' ? 'Testing and saving…' : 'Test and save'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy !== null || backend === 'None'}
+            onClick={() => run('test')}
           >
-            {settings.switchBlockedReason}
-          </p>
-        </div>
+            {busy === 'test' ? 'Testing…' : 'Test only'}
+          </Button>
+          <Outcome tone="problem">{failed}</Outcome>
+        </>
+      }
+    >
+      {settings.switchBlockedReason && (
+        <Notice tone="warn" title="The backend cannot be changed while objects are stored.">
+          <p>{settings.switchBlockedReason}</p>
+        </Notice>
       )}
 
-      <div role="group" className="mb-3 flex flex-wrap gap-1.5">
+      <div role="group" className="flex flex-wrap gap-1.5">
         {settings.backends.map((b) => (
           <button
             key={b.id}
@@ -247,33 +257,33 @@ function BackendForm({ settings, onSaved }: { settings: EvidenceSettings; onSave
       </div>
 
       {chosen && (
-        <p className="mb-3 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <Hint>
           {chosen.summary}
           {chosen.caution && <span className="text-warn"> {chosen.caution}</span>}
-        </p>
+        </Hint>
       )}
 
       {hint && backend === 'S3' && (
-        <p className="mb-3 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <Hint>
           These were pre-filled from this container's environment variables, and the secret is
           already held there too. Nothing is stored until you press save, and the environment is
           never read again afterwards — the database decides from then on.
-        </p>
+        </Hint>
       )}
 
       {backend === 'Filesystem' && (
-        <div className="flex max-w-xl flex-col gap-3">
+        <div className="flex max-w-sm flex-col gap-3">
           <Field label="Directory" value={root} placeholder="/app/data/evidence" onChange={setRoot} />
-          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          <Hint>
             Mount a Docker volume here yourself. Modbot declares no VOLUME in its image on purpose:
             an anonymous volume would make an unconfigured host appear to work and lose everything
             the first time the container was recreated.
-          </p>
+          </Hint>
         </div>
       )}
 
       {backend === 'S3' && (
-        <div className="flex max-w-xl flex-col gap-3">
+        <div className="flex max-w-sm flex-col gap-3">
           <Field label="Bucket" value={bucket} placeholder="modbot-evidence" onChange={setBucket} />
           <Field
             label="Endpoint"
@@ -293,121 +303,94 @@ function BackendForm({ settings, onSaved }: { settings: EvidenceSettings; onSave
           />
           <Field label="Region" value={region} placeholder="us-east-1" onChange={setRegion} />
           <Field label="Key prefix (optional)" value={prefix} placeholder="" onChange={setPrefix} />
-          <label className="flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-            <input
-              type="checkbox"
-              checked={usePathStyle}
-              onChange={(e) => setUsePathStyle(e.target.checked)}
-            />
+          <Checkbox checked={usePathStyle} onChange={setUsePathStyle}>
             Path-style URLs (https://endpoint/bucket/key)
-          </label>
-          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          </Checkbox>
+          <Hint>
             Providers differ, and one provider differs from itself: Railway issues virtual-hosted
             URLs on new buckets and path-style on older ones, and only its credentials tab says
             which. MinIO defaults to path-style. If the round trip fails on the endpoint, this is
             the first thing to try.
-          </p>
+          </Hint>
         </div>
       )}
 
       {backend === 'Database' && (
-        <p className="max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <Hint>
           Nothing to configure — the evidence goes in the database Modbot is already using, in
           chunked rows. There is no second credential and no second service to forget about when
           the deployment is handed to the next volunteer, and that is the whole of the case for it.
-        </p>
+        </Hint>
       )}
 
       {warning && (
-        <div
-          className="mt-3 rounded-lg border border-warn/40 bg-warn/10 px-4 py-3"
-          style={{ borderWidth: 'var(--hairline)' }}
-        >
-          <div className="font-medium">Modbot could not prove this directory persists.</div>
-          <p
-            className="mt-1 max-w-3xl text-muted-foreground"
-            style={{ fontSize: 'var(--text-small)' }}
-          >
-            {warning}
-          </p>
-          <label className="mt-2 flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-            <input
-              type="checkbox"
-              checked={acknowledge}
-              onChange={(e) => setAcknowledge(e.target.checked)}
-            />
+        <Notice tone="warn" title="Modbot could not prove this directory persists.">
+          <p>{warning}</p>
+          <Checkbox checked={acknowledge} onChange={setAcknowledge}>
             Use anyway — recorded against your name, with this warning kept word for word
-          </label>
-        </div>
+          </Checkbox>
+        </Notice>
       )}
 
       {result && !result.requiresAcknowledgement && (
         <p
-          className={cn('mt-3 max-w-3xl', result.succeeded ? 'text-ok' : 'text-destructive')}
+          className={result.succeeded ? 'text-ok' : 'text-destructive'}
           style={{ fontSize: 'var(--text-small)' }}
         >
           {result.failedStep && <span className="font-medium">{result.failedStep}: </span>}
           {result.message}
         </p>
       )}
-
-      {failed && (
-        <p className="mt-3 text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-          {failed}
-        </p>
-      )}
-
-      <div className="mt-3 flex items-center gap-3">
-        <Button size="sm" disabled={busy !== null} onClick={() => run('save')}>
-          {busy === 'save' ? 'Testing and saving…' : 'Test and save'}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy !== null || backend === 'None'}
-          onClick={() => run('test')}
-        >
-          {busy === 'test' ? 'Testing…' : 'Test only'}
-        </Button>
-        <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Saving writes a test object, reads it back, compares the bytes and deletes it first.
-        </span>
-      </div>
-    </Section>
+    </SettingsCard>
   )
 }
 
-function StoreFacts({ settings }: { settings: EvidenceSettings }) {
+function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
+  return (
+    <SettingsCard
+      title="What this store is doing"
+      description="Measured from the store that is configured now."
+    >
+      <div>
+        <Row label="Store marker" value={settings.backend.storeId ?? 'none written yet'} />
+        <Row label="Delivery" value={settings.capabilities.deliveryExplanation} />
+        <Row
+          label="Range reads"
+          value={
+            settings.capabilities.rangeRead
+              ? 'Supported, so video seeks rather than only playing from the start'
+              : 'Not supported by this backend'
+          }
+        />
+        <Row
+          label="Evidence held"
+          value={`${settings.stored.count.toLocaleString()} files, ${bytes(settings.stored.bytes)}`}
+        />
+        <Row
+          label="Destroyed"
+          value={
+            settings.stored.destroyedCount === 0
+              ? 'None'
+              : `${settings.stored.destroyedCount.toLocaleString()} — the records are kept, the bytes are not`
+          }
+        />
+        <Row label="Accepted formats" value={settings.acceptedTypes.join(', ')} />
+      </div>
+    </SettingsCard>
+  )
+}
+
+function DurabilityCard({ settings }: { settings: EvidenceSettings }) {
   const durability = settings.durability
 
   return (
-    <Section title="What this store is doing">
-      <Row label="Store marker" value={settings.backend.storeId ?? 'none written yet'} />
-      <Row label="Delivery" value={settings.capabilities.deliveryExplanation} />
-      <Row
-        label="Range reads"
-        value={
-          settings.capabilities.rangeRead
-            ? 'Supported, so video seeks rather than only playing from the start'
-            : 'Not supported by this backend'
-        }
-      />
-      <Row
-        label="Evidence held"
-        value={`${settings.stored.count.toLocaleString()} files, ${bytes(settings.stored.bytes)}`}
-      />
-      <Row
-        label="Destroyed"
-        value={
-          settings.stored.destroyedCount === 0
-            ? 'None'
-            : `${settings.stored.destroyedCount.toLocaleString()} — the records are kept, the bytes are not`
-        }
-      />
-      <Row label="Accepted formats" value={settings.acceptedTypes.join(', ')} />
-
+    <SettingsCard
+      title="Will it survive a restart"
+      description="Whether the bytes outlive the container they were written from."
+    >
+      <Hint>{settings.durabilityStatement}</Hint>
       {durability && (
-        <p className="mt-3 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <Hint>
           {durability.message}
           {durability.acknowledgedBy && (
             <>
@@ -418,13 +401,13 @@ function StoreFacts({ settings }: { settings: EvidenceSettings }) {
               .
             </>
           )}
-        </p>
+        </Hint>
       )}
-    </Section>
+    </SettingsCard>
   )
 }
 
-function LimitsForm({ settings, onSaved }: { settings: EvidenceSettings; onSaved: () => void }) {
+function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved: () => void }) {
   const current = settings.limits
   const [perFile, setPerFile] = useState(String(Math.round(current.maxFileBytes / MB)))
   const [perReport, setPerReport] = useState(String(Math.round(current.maxReportBytes / MB)))
@@ -465,52 +448,39 @@ function LimitsForm({ settings, onSaved }: { settings: EvidenceSettings; onSaved
   }
 
   return (
-    <Section title="Limits">
-      <div className="flex max-w-xl flex-col gap-3">
+    <SettingsCard
+      title="Limits"
+      description="How much evidence one file, one report and the whole deployment may hold."
+      footer={
+        <>
+          <Button size="sm" disabled={!dirty || saving} onClick={save}>
+            {saving ? 'Saving…' : 'Save limits'}
+          </Button>
+          <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
+          <Outcome tone="problem">{problem}</Outcome>
+        </>
+      }
+    >
+      <div className="grid max-w-sm gap-3 sm:grid-cols-3">
         <Field label="Per file (MB)" value={perFile} placeholder="100" onChange={setPerFile} />
+        <Field label="Per report (MB)" value={perReport} placeholder="0" onChange={setPerReport} />
         <Field
-          label="Per report (MB, 0 for no limit)"
-          value={perReport}
-          placeholder="0"
-          onChange={setPerReport}
-        />
-        <Field
-          label="Across the deployment (MB, 0 for no limit)"
+          label="Whole deployment (MB)"
           value={perDeployment}
           placeholder="0"
           onChange={setPerDeployment}
         />
-
-        <label className="flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-          <input
-            type="checkbox"
-            checked={direct}
-            disabled={!settings.capabilities.presignedRead}
-            onChange={(e) => setDirect(e.target.checked)}
-          />
-          Let the store deliver evidence to the browser directly
-        </label>
-
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {settings.capabilities.deliveryExplanation}
-        </p>
       </div>
+      <Hint>0 means no limit for the report and deployment totals.</Hint>
 
-      <div className="mt-3 flex items-center gap-3">
-        <Button size="sm" disabled={!dirty || saving} onClick={save}>
-          {saving ? 'Saving…' : 'Save limits'}
-        </Button>
-        {saved && (
-          <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>
-            Saved.
-          </span>
-        )}
-        {problem && (
-          <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-            {problem}
-          </span>
-        )}
-      </div>
-    </Section>
+      <Checkbox
+        checked={direct}
+        disabled={!settings.capabilities.presignedRead}
+        onChange={setDirect}
+      >
+        Let the store deliver evidence to the browser directly
+      </Checkbox>
+      <Hint>{settings.capabilities.deliveryExplanation}</Hint>
+    </SettingsCard>
   )
 }

@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type DataSettings } from '@/lib/api'
-import { Field, Placeholder, Row, Section } from './fields'
+import { Fact, Field, Hint, Outcome, Placeholder, Row } from './fields'
+import { SettingsCard, SettingsSection } from './SettingsCard'
 import { GB, bytes, remember, remembered } from './units'
 
+/**
+ * Data: what Modbot is keeping, what it costs, and for how long (spec 5.5).
+ *
+ * Modbot has no default retention window, so the storage card comes first and takes the full
+ * width: "keep everything" is only a defensible default while the operator can see what it costs.
+ */
 export function DataSection() {
   const [data, setData] = useState<DataSettings | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -28,16 +35,142 @@ export function DataSection() {
 
   useEffect(() => load(), [load])
 
-  if (error) return <Placeholder>{error}</Placeholder>
-  if (!data) return <Placeholder>Loading…</Placeholder>
-
-  const { storage, deployment, retention } = data
-  const keepingEverything =
-    retention.moderationFactRetentionDays === 0 && retention.presenceFactRetentionDays === 0
-
   return (
-    <div className="flex flex-col gap-4">
-      <Section title="Deployment">
+    <SettingsSection
+      id="data"
+      title="Data"
+      description="What Modbot is keeping, what it costs, and for how long."
+    >
+      {error ? (
+        <Placeholder>{error}</Placeholder>
+      ) : !data ? (
+        <Placeholder>Loading…</Placeholder>
+      ) : (
+        <>
+          <StorageCard
+            storage={data.storage}
+            cost={cost}
+            capacity={capacity}
+            onCost={(v) => {
+              setCost(v)
+              remember('modbot.costPerGbMonth', v)
+            }}
+            onCapacity={(v) => {
+              setCapacity(v)
+              remember('modbot.capacityGb', v)
+            }}
+          />
+          <RetentionCard current={data.retention} onSaved={load} />
+          <DeploymentCard deployment={data.deployment} />
+        </>
+      )}
+    </SettingsSection>
+  )
+}
+
+function StorageCard({
+  storage,
+  cost,
+  capacity,
+  onCost,
+  onCapacity,
+}: {
+  storage: DataSettings['storage']
+  cost: string
+  capacity: string
+  onCost: (v: string) => void
+  onCapacity: (v: string) => void
+}) {
+  return (
+    <SettingsCard
+      span={12}
+      title="Storage"
+      description="Measured from the database, and where it is heading if facts keep arriving at this rate."
+    >
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <Fact label="Database" value={bytes(storage.bytes)} />
+            <Fact label="Facts recorded" value={storage.facts.toLocaleString()} />
+            <Fact
+              label="Per fact"
+              value={storage.facts > 0 ? `${Math.round(storage.bytesPerFact)} bytes` : '—'}
+            />
+            <Fact
+              label="Arriving"
+              value={
+                storage.observedDays >= 1
+                  ? `${Math.round(storage.factsPerDay).toLocaleString()} facts/day`
+                  : 'Not measurable yet'
+              }
+            />
+          </div>
+          <Hint>
+            Sizes include indexes.{' '}
+            {storage.observedDays >= 1
+              ? `The arrival rate is measured over the last ${Math.round(storage.observedDays)} days.`
+              : 'The arrival rate needs a day of history to measure.'}
+          </Hint>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Cost per GB / month" placeholder="0.25" value={cost} onChange={onCost} />
+            <Field label="Disk size (GB)" placeholder="500" value={capacity} onChange={onCapacity} />
+          </div>
+          <Hint>
+            What-if inputs, remembered by this browser only. Nothing in Modbot changes for having
+            been told them.
+          </Hint>
+        </div>
+
+        <div className="min-w-0">
+          {/* Always shown, however little history there is. The confidence label below carries
+              the caveat; withholding the number was tried and the operator preferred to see it. */}
+          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+            <thead className="text-muted-foreground">
+              <tr>
+                <th className="text-left font-normal">If this rate continues</th>
+                <th className="text-right font-normal">Size</th>
+                <th className="text-right font-normal">Cost / month</th>
+              </tr>
+            </thead>
+            <tbody>
+              {storage.horizons.map((h) => (
+                <tr key={h.months}>
+                  <td className="py-1">In {h.months} months</td>
+                  <td className="py-1 text-right tabular-nums">{bytes(h.estimatedBytes)}</td>
+                  <td className="py-1 text-right tabular-nums">
+                    {h.monthlyCost === null ? '—' : `$${h.monthlyCost.toFixed(2)}`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <Hint className="mt-2">
+            A straight line, which real growth is not — a group that opens more instances
+            generates more facts per member. Treat it as an order of magnitude.
+            {storage.confidence === 'Low' &&
+              ' Based on under a month of history, so a single busy weekend still moves it a lot.'}
+            {storage.confidence === 'Insufficient' &&
+              ' Based on less than a day of history — a guess, and one that will change a lot by tomorrow.'}
+          </Hint>
+
+          {storage.capacityExhausted && (
+            <p className="mt-2 text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+              At this rate that disk fills around{' '}
+              {new Date(storage.capacityExhausted).toLocaleDateString()}.
+            </p>
+          )}
+        </div>
+      </div>
+    </SettingsCard>
+  )
+}
+
+function DeploymentCard({ deployment }: { deployment: DataSettings['deployment'] }) {
+  return (
+    <SettingsCard title="Deployment" description="What this copy of Modbot is running on.">
+      <div>
         <Row label="Version" value={deployment.version} />
         <Row
           label="Host"
@@ -50,102 +183,13 @@ export function DataSection() {
           label="Log files"
           value={deployment.logFilesWritten ? 'Written to disk' : 'Console and Seq only'}
         />
-        <p className="mt-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {deployment.persistenceExplanation}
-        </p>
-      </Section>
-
-      <Section title="Storage">
-        <Row label="Database" value={bytes(storage.bytes)} />
-        <Row label="Facts recorded" value={storage.facts.toLocaleString()} />
-        {storage.facts > 0 && (
-          <Row label="Per fact" value={`${Math.round(storage.bytesPerFact)} bytes, indexes included`} />
-        )}
-        <Row
-          label="Arriving"
-          value={
-            storage.observedDays >= 1
-              ? `${Math.round(storage.factsPerDay).toLocaleString()} facts/day, measured over ${Math.round(storage.observedDays)} days`
-              : 'Not enough history to measure yet'
-          }
-        />
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <Field
-            label="Cost per GB / month"
-            placeholder="0.25"
-            value={cost}
-            onChange={(v) => {
-              setCost(v)
-              remember('modbot.costPerGbMonth', v)
-            }}
-          />
-          <Field
-            label="Disk size (GB)"
-            placeholder="500"
-            value={capacity}
-            onChange={(v) => {
-              setCapacity(v)
-              remember('modbot.capacityGb', v)
-            }}
-          />
-        </div>
-
-        {/* Always shown, however little history there is. The confidence label below carries
-            the caveat; withholding the number was tried and the operator preferred to see it. */}
-        <>
-            <table className="mt-4 w-full" style={{ fontSize: 'var(--text-small)' }}>
-              <thead className="text-muted-foreground">
-                <tr>
-                  <th className="text-left font-normal">If this rate continues</th>
-                  <th className="text-right font-normal">Size</th>
-                  <th className="text-right font-normal">Cost / month</th>
-                </tr>
-              </thead>
-              <tbody>
-                {storage.horizons.map((h) => (
-                  <tr key={h.months}>
-                    <td className="py-1">In {h.months} months</td>
-                    <td className="py-1 text-right tabular-nums">{bytes(h.estimatedBytes)}</td>
-                    <td className="py-1 text-right tabular-nums">
-                      {h.monthlyCost === null ? '—' : `$${h.monthlyCost.toFixed(2)}`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <p className="mt-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              A straight line, which real growth is not — a group that opens more instances
-              generates more facts per member. Treat it as an order of magnitude.
-              {storage.confidence === 'Low' &&
-                ' Based on under a month of history, so a single busy weekend still moves it a lot.'}
-              {storage.confidence === 'Insufficient' &&
-                ' Based on less than a day of history — a guess, and one that will change a lot by tomorrow.'}
-            </p>
-
-            {storage.capacityExhausted && (
-              <p className="mt-2 text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-                At this rate that disk fills around{' '}
-                {new Date(storage.capacityExhausted).toLocaleDateString()}.
-              </p>
-            )}
-        </>
-      </Section>
-
-      <Section title="Retention">
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {keepingEverything
-            ? 'Modbot is keeping everything, which is the default. History cannot be filled in later: whatever is deleted is gone, and no amount of API access brings it back.'
-            : 'A retention window is set. Facts past it are destroyed permanently.'}
-        </p>
-        <RetentionForm current={retention} onSaved={load} />
-      </Section>
-    </div>
+      </div>
+      <Hint>{deployment.persistenceExplanation}</Hint>
+    </SettingsCard>
   )
 }
 
-function RetentionForm({
+function RetentionCard({
   current,
   onSaved,
 }: {
@@ -156,6 +200,9 @@ function RetentionForm({
   const [presence, setPresence] = useState(String(current.presenceFactRetentionDays))
   const [saving, setSaving] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+
+  const keepingEverything =
+    current.moderationFactRetentionDays === 0 && current.presenceFactRetentionDays === 0
 
   const dirty =
     moderation !== String(current.moderationFactRetentionDays) ||
@@ -177,8 +224,24 @@ function RetentionForm({
   }
 
   return (
-    <div className="mt-3">
-      <div className="grid grid-cols-2 gap-3">
+    <SettingsCard
+      title="Retention"
+      description="How long facts are kept before they are destroyed."
+      footer={
+        <>
+          <Button size="sm" disabled={!dirty || saving} onClick={save}>
+            {saving ? 'Saving…' : 'Save retention'}
+          </Button>
+          <Outcome tone="problem">{problem}</Outcome>
+        </>
+      }
+    >
+      <Hint>
+        {keepingEverything
+          ? 'Modbot is keeping everything, which is the default. History cannot be filled in later: whatever is deleted is gone, and no amount of API access brings it back.'
+          : 'A retention window is set. Facts past it are destroyed permanently.'}
+      </Hint>
+      <div className="grid max-w-sm grid-cols-2 gap-3">
         <Field
           label="Moderation facts (days)"
           placeholder="0"
@@ -192,18 +255,10 @@ function RetentionForm({
           onChange={setPresence}
         />
       </div>
-      <p className="mt-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        0 keeps forever. Daily totals are never aged out, so charts keep their full history even where
-        the underlying facts have been removed.
-      </p>
-      {problem && (
-        <p className="mt-2 text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-          {problem}
-        </p>
-      )}
-      <Button className="mt-3" size="sm" disabled={!dirty || saving} onClick={save}>
-        {saving ? 'Saving…' : 'Save retention'}
-      </Button>
-    </div>
+      <Hint>
+        0 keeps forever. Daily totals are never aged out, so charts keep their full history even
+        where the underlying facts have been removed.
+      </Hint>
+    </SettingsCard>
   )
 }

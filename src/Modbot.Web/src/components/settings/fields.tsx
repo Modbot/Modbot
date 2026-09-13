@@ -1,24 +1,29 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
-/** The small furniture every settings section is built from. */
+/** The small furniture every settings card is built from. */
 
-export function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="mb-3 font-medium">{title}</div>
-        {children}
-      </CardContent>
-    </Card>
-  )
-}
-
+/** A label and a value on one line, for lists of read-only facts. */
 export function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4 py-1" style={{ fontSize: 'var(--text-small)' }}>
       <span className="text-muted-foreground">{label}</span>
       <span className="text-right tabular-nums">{value}</span>
+    </div>
+  )
+}
+
+/** A label above a value, for a few facts laid out side by side. */
+export function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        {label}
+      </div>
+      <div className="truncate font-medium tabular-nums" title={value}>
+        {value}
+      </div>
     </div>
   )
 }
@@ -68,10 +73,111 @@ export function PasswordField({
   )
 }
 
-/** "Loading…" and load failures, in the same card shape as the content they stand in for. */
+export function Checkbox({
+  checked,
+  disabled,
+  onChange,
+  children,
+}: {
+  checked: boolean
+  disabled?: boolean
+  onChange: (checked: boolean) => void
+  children: React.ReactNode
+}) {
+  return (
+    <label className="flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      {children}
+    </label>
+  )
+}
+
+/** Muted explanatory text at the small size. */
+export function Hint({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <p className={cn('text-muted-foreground', className)} style={{ fontSize: 'var(--text-small)' }}>
+      {children}
+    </p>
+  )
+}
+
+/** The outcome of a save or a check, beside the button that caused it. */
+export function Outcome({
+  tone,
+  children,
+}: {
+  tone: 'ok' | 'problem'
+  children: React.ReactNode
+}) {
+  if (!children) return null
+
+  return (
+    <span
+      className={tone === 'ok' ? 'text-ok' : 'text-destructive'}
+      style={{ fontSize: 'var(--text-small)' }}
+    >
+      {children}
+    </span>
+  )
+}
+
+/**
+ * A tinted box for something the operator has to read before the controls make sense: a lock, a
+ * warning, a reason a setting cannot be changed. Tone is a hint, never the whole message — the
+ * title says what is wrong in words.
+ */
+export function Notice({
+  tone,
+  title,
+  action,
+  className,
+  children,
+}: {
+  tone: 'ok' | 'warn' | 'danger' | 'neutral'
+  title: string
+  action?: React.ReactNode
+  className?: string
+  children?: React.ReactNode
+}) {
+  const tint = {
+    ok: 'border-ok/40 bg-ok/10',
+    warn: 'border-warn/40 bg-warn/10',
+    danger: 'border-destructive/40 bg-destructive/10',
+    neutral: 'border-border bg-secondary',
+  }[tone]
+
+  return (
+    <div
+      className={cn('rounded-lg border px-4 py-3', tint, className)}
+      style={{ borderWidth: 'var(--hairline)' }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="font-medium">{title}</div>
+          {children && (
+            <div
+              className="mt-1 flex flex-col gap-1 text-muted-foreground"
+              style={{ fontSize: 'var(--text-small)' }}
+            >
+              {children}
+            </div>
+          )}
+        </div>
+        {action}
+      </div>
+    </div>
+  )
+}
+
+/** "Loading…" and load failures, filling the row a section's cards would have taken. */
 export function Placeholder({ children }: { children: React.ReactNode }) {
   return (
-    <Card>
+    <Card className="col-span-12">
       <CardContent className="py-10 text-center text-muted-foreground">{children}</CardContent>
     </Card>
   )

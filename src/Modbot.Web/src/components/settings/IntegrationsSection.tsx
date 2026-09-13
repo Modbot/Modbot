@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type OnboardingStatus } from '@/lib/api'
-import { Field, PasswordField, Row, Section } from './fields'
+import { Checkbox, Fact, Field, Hint, Outcome, PasswordField, Placeholder } from './fields'
+import { SettingsCard, SettingsSection } from './SettingsCard'
 
 /**
  * Discord and SMTP — spec 7.1 step 5, re-run.
@@ -11,6 +12,29 @@ import { Field, PasswordField, Row, Section } from './fields'
  * unrelated to the value being wrong, and neither is worth blocking a settings save on.
  */
 export function IntegrationsSection({
+  status,
+  refresh,
+}: {
+  status: OnboardingStatus | null
+  refresh: () => Promise<void>
+}) {
+  return (
+    <SettingsSection
+      id="integrations"
+      title="Integrations"
+      description="Optional services Modbot can talk to. Both are saved together, and neither is tested by connecting."
+    >
+      {/* Mounted only once the status is in hand -- see VRChatSection for why. */}
+      {status ? (
+        <IntegrationsForm status={status} refresh={refresh} />
+      ) : (
+        <Placeholder>Loading…</Placeholder>
+      )}
+    </SettingsSection>
+  )
+}
+
+function IntegrationsForm({
   status,
   refresh,
 }: {
@@ -66,60 +90,64 @@ export function IntegrationsSection({
       .finally(() => setSaving(false))
   }
 
+  // One form around both cards, because the API saves them as one body. `contents` keeps the
+  // form element out of the layout so the cards stay direct children of the grid.
   return (
-    <form onSubmit={save} className="flex flex-col gap-4">
-      <Section title="Discord">
-        <Row
+    <form onSubmit={save} className="contents">
+      <SettingsCard
+        title="Discord"
+        description="Optional. Without it the bot simply does not start and nothing else about Modbot changes."
+      >
+        <Fact
           label="Bot"
           value={status.integrations.discordConfigured ? 'Token stored' : 'Not configured'}
         />
-        <p className="mt-1 mb-3 max-w-2xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Optional. Without it the bot simply does not start and nothing else about Modbot
-          changes. Secrets are encrypted at rest and never read back, so the field below is blank
-          even when a token is stored — leave it blank to keep the one you have.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <Hint>
+          Secrets are encrypted at rest and never read back, so the token field is blank even when
+          one is stored — leave it blank to keep the one you have.
+        </Hint>
+        <div className="flex max-w-sm flex-col gap-3">
           <PasswordField label="Bot token" value={botToken} onChange={setBotToken} />
           <Field label="Guild id" value={guildId} onChange={setGuildId} placeholder="" />
         </div>
-      </Section>
+      </SettingsCard>
 
-      <Section title="Email (SMTP)">
-        <Row
+      <SettingsCard
+        title="Email (SMTP)"
+        description="Optional. Operator-supplied, with no hosted provider in the middle."
+      >
+        <Fact
           label="Relay"
-          value={status.integrations.smtpConfigured ? (status.integrations.smtpHost ?? 'Configured') : 'Not configured'}
+          value={
+            status.integrations.smtpConfigured
+              ? (status.integrations.smtpHost ?? 'Configured')
+              : 'Not configured'
+          }
         />
-        <p className="mt-1 mb-3 max-w-2xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Operator-supplied, with no hosted provider in the middle. Optional: without it,
-          notifications fall back to the surfaces that remain.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Hint>Without it, notifications fall back to the surfaces that remain.</Hint>
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Host" value={host} onChange={setHost} placeholder="smtp.example.com" />
           <Field label="Port" value={port} onChange={setPort} placeholder="587" />
-          <Field label="From address" value={fromAddress} onChange={setFromAddress} placeholder="modbot@example.com" />
+          <Field
+            label="From address"
+            value={fromAddress}
+            onChange={setFromAddress}
+            placeholder="modbot@example.com"
+          />
           <Field label="Username" value={smtpUsername} onChange={setSmtpUsername} placeholder="" />
           <PasswordField label="Password" value={smtpPassword} onChange={setSmtpPassword} />
         </div>
-        <label className="mt-3 flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-          <input type="checkbox" checked={useTls} onChange={(e) => setUseTls(e.target.checked)} />
+        <Checkbox checked={useTls} onChange={setUseTls}>
           Use TLS
-        </label>
-      </Section>
+        </Checkbox>
+      </SettingsCard>
 
-      <div className="flex items-center gap-3">
+      <div className="col-span-12 flex flex-wrap items-center gap-3">
         <Button type="submit" size="sm" disabled={saving}>
           {saving ? 'Saving…' : 'Save integrations'}
         </Button>
-        {saved && (
-          <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>
-            Saved. Nothing was tested by connecting — see above.
-          </span>
-        )}
-        {error && (
-          <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-            {error}
-          </span>
-        )}
+        <Outcome tone="ok">{saved && 'Saved. Nothing was tested by connecting — see above.'}</Outcome>
+        <Outcome tone="problem">{error}</Outcome>
       </div>
     </form>
   )

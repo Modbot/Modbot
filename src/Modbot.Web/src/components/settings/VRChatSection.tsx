@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DiagnosisNote } from '@/pages/setup/DiagnosisNote'
 import { api, ApiError, type ConnectionDiagnosis, type OnboardingStatus } from '@/lib/api'
-import { Field, PasswordField, Row, Section } from './fields'
+import { Checkbox, Fact, Field, Hint, Outcome, PasswordField, Placeholder } from './fields'
+import { SettingsCard, SettingsSection } from './SettingsCard'
 
 /**
  * The VRChat account and the egress proxy — spec 7.1 steps 2 and 3, re-run.
@@ -16,6 +17,57 @@ export function VRChatSection({
   status,
   refresh,
 }: {
+  status: OnboardingStatus | null
+  refresh: () => Promise<void>
+}) {
+  return (
+    <SettingsSection
+      id="vrchat"
+      title="VRChat account"
+      description="The account Modbot acts as, and how it reaches VRChat."
+    >
+      {/* The cards mount only once the status is in hand, so their fields can be initialised
+          from it directly instead of being written into by an effect one render later -- which
+          is the version that flickers and, worse, clobbers whatever was typed in between. */}
+      {status ? (
+        <>
+          <AccountCard status={status} />
+          <CredentialsCard status={status} refresh={refresh} />
+          <ProxyCard status={status} refresh={refresh} />
+        </>
+      ) : (
+        <Placeholder>Loading…</Placeholder>
+      )}
+    </SettingsSection>
+  )
+}
+
+function AccountCard({ status }: { status: OnboardingStatus }) {
+  return (
+    <SettingsCard
+      span={12}
+      title="Account"
+      description="Modbot acts as this account, and VRChat attributes everything Modbot does to it. Changing it changes whose name appears in the group's own audit log from that point on."
+    >
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Fact label="Username" value={status.vrChat.username ?? 'Not configured'} />
+        <Fact label="Display name" value={status.vrChat.displayName ?? 'Unknown'} />
+        <Fact
+          label="Last accepted by VRChat"
+          value={
+            status.vrChat.verifiedAt ? new Date(status.vrChat.verifiedAt).toLocaleString() : 'Never'
+          }
+        />
+        <Fact label="Managed group" value={status.group ? status.group.name : 'None chosen'} />
+      </div>
+    </SettingsCard>
+  )
+}
+
+function CredentialsCard({
+  status,
+  refresh,
+}: {
   status: OnboardingStatus
   refresh: () => Promise<void>
 }) {
@@ -23,23 +75,15 @@ export function VRChatSection({
   const [password, setPassword] = useState('')
   const [totpSecret, setTotpSecret] = useState('')
   const [verifying, setVerifying] = useState(false)
-  const [verifyDiagnosis, setVerifyDiagnosis] = useState<ConnectionDiagnosis | null>(null)
-  const [verifyError, setVerifyError] = useState<string | null>(null)
+  const [diagnosis, setDiagnosis] = useState<ConnectionDiagnosis | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [verified, setVerified] = useState<string | null>(null)
-
-  const [useProxy, setUseProxy] = useState(status.connection.proxyUrl !== null)
-  const [proxyUrl, setProxyUrl] = useState(status.connection.proxyUrl ?? '')
-  const [proxyUsername, setProxyUsername] = useState(status.connection.proxyUsername ?? '')
-  const [proxyPassword, setProxyPassword] = useState('')
-  const [testing, setTesting] = useState(false)
-  const [testDiagnosis, setTestDiagnosis] = useState<ConnectionDiagnosis | null>(null)
-  const [testError, setTestError] = useState<string | null>(null)
 
   const reverify = (event: React.FormEvent) => {
     event.preventDefault()
     setVerifying(true)
-    setVerifyDiagnosis(null)
-    setVerifyError(null)
+    setDiagnosis(null)
+    setError(null)
     setVerified(null)
 
     api
@@ -51,16 +95,65 @@ export function VRChatSection({
         await refresh()
       })
       .catch((e: unknown) => {
-        if (e instanceof ApiError && e.diagnosis) setVerifyDiagnosis(e.diagnosis)
-        else setVerifyError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.')
+        if (e instanceof ApiError && e.diagnosis) setDiagnosis(e.diagnosis)
+        else setError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.')
       })
       .finally(() => setVerifying(false))
   }
 
+  return (
+    <SettingsCard
+      title="Re-verify credentials"
+      description="Checked against VRChat before anything is stored."
+    >
+      <form id="vrchat-credentials" onSubmit={reverify} className="flex flex-col gap-3">
+        <Hint>
+          A failure here is shown as a full diagnosis rather than "login failed", because the
+          commonest one on a rented host is a Cloudflare block — and that would send you to check
+          a password that was never wrong.
+        </Hint>
+
+        <div className="flex max-w-sm flex-col gap-3">
+          <Field label="Email or username" value={username} onChange={setUsername} placeholder="" />
+          <PasswordField label="Password" value={password} onChange={setPassword} />
+          <PasswordField label="TOTP secret (optional)" value={totpSecret} onChange={setTotpSecret} />
+        </div>
+
+        {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" size="sm" disabled={verifying || !username || !password}>
+            {verifying ? 'Checking with VRChat…' : 'Verify and store'}
+          </Button>
+          <Outcome tone="problem">{error}</Outcome>
+          <Outcome tone="ok">
+            {verified && `VRChat accepted these credentials as ${verified}.`}
+          </Outcome>
+        </div>
+      </form>
+    </SettingsCard>
+  )
+}
+
+function ProxyCard({
+  status,
+  refresh,
+}: {
+  status: OnboardingStatus
+  refresh: () => Promise<void>
+}) {
+  const [useProxy, setUseProxy] = useState(status.connection.proxyUrl !== null)
+  const [proxyUrl, setProxyUrl] = useState(status.connection.proxyUrl ?? '')
+  const [proxyUsername, setProxyUsername] = useState(status.connection.proxyUsername ?? '')
+  const [proxyPassword, setProxyPassword] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [diagnosis, setDiagnosis] = useState<ConnectionDiagnosis | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
   const test = () => {
     setTesting(true)
-    setTestDiagnosis(null)
-    setTestError(null)
+    setDiagnosis(null)
+    setError(null)
 
     api
       .testConnection(
@@ -76,132 +169,66 @@ export function VRChatSection({
           : { useProxy: false },
       )
       .then(async (result) => {
-        setTestDiagnosis(result)
+        setDiagnosis(result)
         if (result.proxyWouldHelp) setUseProxy(true)
         setProxyPassword('')
         await refresh()
       })
       .catch((e: unknown) =>
-        setTestError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.'),
+        setError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.'),
       )
       .finally(() => setTesting(false))
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <Section title="Account">
-        <Row label="Username" value={status.vrChat.username ?? 'Not configured'} />
-        <Row label="Display name" value={status.vrChat.displayName ?? 'Unknown'} />
-        <Row
-          label="Last accepted by VRChat"
-          value={
-            status.vrChat.verifiedAt
-              ? new Date(status.vrChat.verifiedAt).toLocaleString()
-              : 'Never'
-          }
-        />
-        <Row label="Managed group" value={status.group ? status.group.name : 'None chosen'} />
-        <p className="mt-2 max-w-2xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Modbot acts as this account, and VRChat attributes everything Modbot does to it. Changing
-          it changes whose name appears in the group's own audit log from that point on.
-        </p>
-      </Section>
+    <SettingsCard
+      title="Egress proxy"
+      description="Only useful for one failure: Cloudflare blocking this host's network."
+      footer={
+        <>
+          <Button size="sm" variant="outline" disabled={testing} onClick={test}>
+            {testing ? 'Testing…' : 'Test connection'}
+          </Button>
+          <Hint>
+            {status.connection.checkedAt
+              ? `Last passed ${new Date(status.connection.checkedAt).toLocaleString()}`
+              : 'Never passed'}
+          </Hint>
+          <Outcome tone="problem">{error}</Outcome>
+        </>
+      }
+    >
+      <Hint>
+        It fixes nothing else, and configuring one on a working install is a way to break it. The
+        check says plainly which failure you have.
+      </Hint>
 
-      <Section title="Re-verify credentials">
-        <form onSubmit={reverify} className="flex flex-col gap-3">
-          <p className="max-w-2xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Checked against VRChat before anything is stored. A failure here is shown as a full
-            diagnosis rather than "login failed", because the commonest one on a rented host is a
-            Cloudflare block — and that would send you to check a password that was never wrong.
-          </p>
+      <Checkbox checked={useProxy} onChange={setUseProxy}>
+        Route VRChat traffic through a proxy
+      </Checkbox>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="Email or username" value={username} onChange={setUsername} placeholder="" />
-            <PasswordField label="Password" value={password} onChange={setPassword} />
-            <PasswordField
-              label="TOTP secret (optional)"
-              value={totpSecret}
-              onChange={setTotpSecret}
-            />
-          </div>
-
-          {verifyDiagnosis && <DiagnosisNote diagnosis={verifyDiagnosis} />}
-          {verifyError && (
-            <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-              {verifyError}
-            </p>
-          )}
-          {verified && (
-            <p className="text-ok" style={{ fontSize: 'var(--text-small)' }}>
-              VRChat accepted these credentials as {verified}.
-            </p>
-          )}
-
-          <div>
-            <Button type="submit" size="sm" disabled={verifying || !username || !password}>
-              {verifying ? 'Checking with VRChat…' : 'Verify and store'}
-            </Button>
-          </div>
-        </form>
-      </Section>
-
-      <Section title="Egress proxy">
-        <p className="max-w-2xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Only useful for one failure: Cloudflare blocking this host's network. It fixes nothing
-          else, and configuring one on a working install is a way to break it. The check below says
-          plainly which failure you have.
-        </p>
-
-        <div className="mt-3 flex flex-col gap-3">
-          <label className="flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-            <input
-              type="checkbox"
-              checked={useProxy}
-              onChange={(e) => setUseProxy(e.target.checked)}
-            />
-            Route VRChat traffic through a proxy
-          </label>
-
-          {useProxy && (
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field
-                label="Proxy URL"
-                value={proxyUrl}
-                onChange={setProxyUrl}
-                placeholder="http://host:port"
-              />
-              <Field label="Username" value={proxyUsername} onChange={setProxyUsername} placeholder="" />
-              <PasswordField
-                label={
-                  status.connection.proxyPasswordStored
-                    ? 'Password (stored — leave blank to keep)'
-                    : 'Password'
-                }
-                value={proxyPassword}
-                onChange={setProxyPassword}
-              />
-            </div>
-          )}
-
-          {testDiagnosis && <DiagnosisNote diagnosis={testDiagnosis} />}
-          {testError && (
-            <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-              {testError}
-            </p>
-          )}
-
-          <div className="flex items-center gap-3">
-            <Button size="sm" variant="outline" disabled={testing} onClick={test}>
-              {testing ? 'Testing…' : 'Test connection'}
-            </Button>
-            <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {status.connection.checkedAt
-                ? `Last passed ${new Date(status.connection.checkedAt).toLocaleString()}`
-                : 'Never passed'}
-            </span>
-          </div>
+      {useProxy && (
+        <div className="flex max-w-sm flex-col gap-3">
+          <Field
+            label="Proxy URL"
+            value={proxyUrl}
+            onChange={setProxyUrl}
+            placeholder="http://host:port"
+          />
+          <Field label="Username" value={proxyUsername} onChange={setProxyUsername} placeholder="" />
+          <PasswordField
+            label={
+              status.connection.proxyPasswordStored
+                ? 'Password (stored — leave blank to keep)'
+                : 'Password'
+            }
+            value={proxyPassword}
+            onChange={setProxyPassword}
+          />
         </div>
-      </Section>
-    </div>
+      )}
+
+      {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
+    </SettingsCard>
   )
 }

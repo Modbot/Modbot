@@ -2,13 +2,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { DataSection } from '@/components/settings/DataSection'
 import { EvidenceSection } from '@/components/settings/EvidenceSection'
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection'
-import { Placeholder } from '@/components/settings/fields'
 import { SyncSection } from '@/components/settings/SyncSection'
 import { VRChatSection } from '@/components/settings/VRChatSection'
 import { api, type OnboardingStatus } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
-const TABS = [
+/**
+ * The sections, in page order. Each id is also the `<section id>` its component renders, which
+ * is what the nav scrolls to and what `/settings#evidence` lands on. Adding a section means one
+ * entry here and one component in the list below.
+ */
+const SECTIONS = [
   { id: 'data', label: 'Data' },
   { id: 'vrchat', label: 'VRChat account' },
   { id: 'integrations', label: 'Integrations' },
@@ -16,21 +20,24 @@ const TABS = [
   { id: 'sync', label: 'Sync' },
 ] as const
 
-type TabId = (typeof TABS)[number]['id']
+type SectionId = (typeof SECTIONS)[number]['id']
 
 /**
  * Settings.
  *
- * Three of these tabs are the onboarding wizard's own steps, re-run in place. That is not a
+ * One page of sections rather than tabs. Each section is a grid of cards, and a grid with one
+ * or two cards on it — which is what most tabs held — looks emptier than the full-width forms
+ * did. Laid end to end the cards keep each other company, an operator looking for "the proxy
+ * setting" scrolls or clicks rather than guessing which tab it is under, and the next feature
+ * adds a section without deciding whether it deserves a tab.
+ *
+ * Three of the sections are the onboarding wizard's own steps, re-run in place. That is not a
  * convenience — spec 7.1 designed each step as an independently re-runnable slice for exactly this
  * reason, so a deployment whose host became WAF-blocked in March re-runs the connection check
  * rather than the wizard. Duplicating the logic here would give Modbot two implementations of
  * "store a VRChat credential", and the second one would be the one that drifts.
- *
- * Each tab's content lives in its own file under components/settings/.
  */
 export function Settings() {
-  const [tab, setTab] = useState<TabId>('data')
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
 
   const refresh = useCallback(
@@ -43,41 +50,81 @@ export function Settings() {
   }, [refresh])
 
   return (
-    <div className="flex flex-col gap-4">
-      <div role="tablist" className="flex flex-wrap gap-1 border-b pb-2" style={{ borderBottomWidth: 'var(--hairline)' }}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              'rounded-md px-3 font-medium transition-colors',
-              tab === t.id
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-            )}
-            style={{ fontSize: 'var(--text-small)', height: 'var(--control-h)' }}
-          >
-            {t.label}
-          </button>
-        ))}
+    <div className="mx-auto w-full max-w-6xl lg:grid lg:grid-cols-[9rem_minmax(0,1fr)] lg:gap-8">
+      <SectionNav />
+
+      <div className="flex min-w-0 flex-col gap-10">
+        <DataSection />
+        <VRChatSection status={status} refresh={refresh} />
+        <IntegrationsSection status={status} refresh={refresh} />
+        <EvidenceSection />
+        <SyncSection />
       </div>
-
-      {tab === 'data' && <DataSection />}
-
-      {/* The two wizard-backed tabs mount only once the status is in hand, so their fields can be
-          initialised from it directly instead of being written into by an effect one render
-          later -- which is the version that flickers and, worse, clobbers whatever was typed in
-          between. */}
-      {tab === 'vrchat' &&
-        (status ? <VRChatSection status={status} refresh={refresh} /> : <Placeholder>Loading…</Placeholder>)}
-      {tab === 'integrations' &&
-        (status ? <IntegrationsSection status={status} refresh={refresh} /> : <Placeholder>Loading…</Placeholder>)}
-
-      {tab === 'evidence' && <EvidenceSection />}
-
-      {tab === 'sync' && <SyncSection />}
     </div>
+  )
+}
+
+/**
+ * A row of links above the sections on narrow screens, a sticky column beside them on wide
+ * ones. The highlighted entry follows the scroll position, so it doubles as "where am I" on a
+ * page this long.
+ */
+function SectionNav() {
+  const [active, setActive] = useState<SectionId>(SECTIONS[0].id)
+
+  useEffect(() => {
+    // The band is the top third of the viewport below the topbar: whichever section last
+    // entered it is the one being read.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) setActive(entry.target.id as SectionId)
+        }
+      },
+      { rootMargin: '-80px 0px -66% 0px' },
+    )
+
+    for (const s of SECTIONS) {
+      const element = document.getElementById(s.id)
+      if (element) observer.observe(element)
+    }
+
+    // A pasted /settings#evidence lands on the section it names.
+    const wanted = window.location.hash.slice(1)
+    if (SECTIONS.some((s) => s.id === wanted)) {
+      document.getElementById(wanted)?.scrollIntoView()
+    }
+
+    return () => observer.disconnect()
+  }, [])
+
+  const go = (id: SectionId) => {
+    setActive(id)
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  return (
+    <nav
+      aria-label="Settings sections"
+      className="mb-4 flex flex-wrap gap-1 lg:sticky lg:top-20 lg:mb-0 lg:flex-col lg:self-start"
+    >
+      {SECTIONS.map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          aria-current={active === s.id ? 'true' : undefined}
+          onClick={() => go(s.id)}
+          className={cn(
+            'rounded-md px-2.5 text-left font-medium transition-colors',
+            active === s.id
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+          )}
+          style={{ fontSize: 'var(--text-small)', height: 'var(--control-h)' }}
+        >
+          {s.label}
+        </button>
+      ))}
+    </nav>
   )
 }
