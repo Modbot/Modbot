@@ -186,12 +186,19 @@ try
     // has chosen a group.
     builder.Services.AddModbotVRChatSync();
 
-    // Evidence storage (evidence design §6). Registered with its defaults, which means
-    // EvidenceBackend.None: the store is built and tested but there is no settings screen to
-    // configure it from yet, so a deployment has not chosen a backend and the upload pipeline
-    // refuses rather than pretending. Wiring it now keeps the DI graph honest and means the
-    // remaining work is binding Settings onto EvidenceOptions plus the endpoints.
+    // Evidence storage (evidence design §6). AddModbotEvidence resolves its options at
+    // registration, which is before migrations have run and therefore before there is a Settings
+    // row to read -- so it necessarily starts at EvidenceBackend.None.
+    //
+    // AddModbotEvidenceSettings is what makes the choice reachable: it puts the store behind a
+    // holder that can be rebuilt, so LoadEvidenceSettingsAsync below can bind the saved row onto
+    // the same options object after the schema exists, and so a backend chosen on the settings
+    // page takes effect on the next request rather than the next deployment. That last part
+    // matters more than convenience -- §8.4 keeps Modbot running through a lost store precisely
+    // because the settings page is the only place to fix one, and a fix that needed a restart
+    // would give most of that back.
     builder.Services.AddModbotEvidence();
+    builder.Services.AddModbotEvidenceSettings();
 
     // The Postgres side of it (§7). Modbot.Evidence owns no migrations by design, so it declares
     // IEvidenceMetadata and the table lives here.
@@ -222,6 +229,14 @@ try
     }
 
     _ = app.Services.GetRequiredService<ISecretProtector>();
+
+    // Now that the schema exists and the protector is warm, the stored evidence configuration can
+    // be read and the store built from it, and the store sentinel probed (§8.3). Nothing here can
+    // stop the host: a deployment whose evidence store is missing still ingests the audit log,
+    // still records presence and still syncs bans -- §8.4 is explicit that trading live collection
+    // that cannot be backfilled for a gesture about data already lost is the wrong trade.
+    var evidence = await app.Services.LoadEvidenceSettingsAsync();
+    Log.Information("Evidence store: {Explanation}", evidence.Explanation);
 
     app.UseAuthentication();
     app.UseAuthorization();
