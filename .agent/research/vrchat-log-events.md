@@ -33,6 +33,36 @@ not present in this sample.
 > using its own offset and reports in server time, and the server records `observed_at` independently
 > as the ordering authority.
 
+### 1.0 The file has a heartbeat, and it is not `[Behaviour]`
+
+**Measured 2026-09-13 against the full 16,545-line log, not the `[Behaviour]` subset.**
+
+| Largest gap between consecutive lines | |
+|---|---|
+| **Any tag** | **11 seconds** |
+| `[Behaviour]` only | **2,683 seconds — 44.7 minutes** |
+
+A factor of 244, and it is the difference between a liveness check that works and one that cannot.
+
+`[IK Debug Log]` emits a frame-rate line roughly every ten seconds for as long as VRChat is running,
+which is why it is 14,491 of the lines in §1.1's table and why Modbot otherwise ignores every one of
+them. The consequence is worth stating precisely:
+
+- **Silence across all tags means VRChat has stopped.** The file only stops growing when the process
+  does. This is the liveness signal.
+- **`[Behaviour]` silence means nothing at all.** §7's "45-minute gap" is a gap in `[Behaviour]`
+  lines while the moderator was demonstrably still in an instance — the file was being written to
+  continuously throughout it, eight or more lines a minute.
+
+§6 previously listed *"any `[Behaviour]` line"* as the liveness signal. That is wrong, and wrong in a
+way that fails quietly in both directions: a moderator sitting in a quiet instance would be reported
+as a log Modbot no longer understands, and a client that exits uncleanly would never be detected at
+all, because the thing being watched had already been silent for three quarters of an hour.
+
+**Reproduce it:** parse the leading `yyyy.MM.dd HH:mm:ss` off every line of a full log, sort, and
+take the largest delta between consecutive entries — first across all lines, then across
+`[Behaviour]` lines only.
+
 ### 1.1 Tag volume in this sample
 
 | Tag | Lines | Modbot interest |
@@ -323,12 +353,20 @@ with a timestamp rather than treating them as corrupt.
 | Presence | `OnPlayerJoined` / `OnPlayerLeft` |
 | Burst delimiting | `OnLeftRoom`, `Initialized PlayerAPI … is local` |
 | Avatars (weak) | `Switching <user> to avatar <name>` — **filtered per §4.0; 82% is noise** |
-| Unclean-exit detection | `Destroying <name>` (§2.6) — liveness only, carries no id |
-| Liveness (§2.2 alarm) | any `[Behaviour]` line |
+| Unclean-exit detection | `Destroying <name>` (§2.6) — carries no id |
+| **Liveness** | **whether the file is still growing at all.** Not `[Behaviour]` lines, which this table wrongly named until 2026-09-13 — see §1.0 |
 
-**Ignored entirely:** `[IK Debug Log]`, `[VRCTracking*]`, `[OSC]`, `[API]`, `[String Download]`,
-`[Image Download]`, `[EOSManager]`, `[Steam]`, and all of `[AssetBundleDownloadManager]` — about
-96% of the file.
+**Parsed:** `[Behaviour]` only — about 4% of the file.
+
+**Never parsed:** `[IK Debug Log]`, `[VRCTracking*]`, `[OSC]`, `[API]`, `[String Download]`,
+`[Image Download]`, `[EOSManager]`, `[Steam]`, and all of `[AssetBundleDownloadManager]` — the
+other 96%.
+
+Note the distinction §1.0 turns on: **their contents are never read, but the fact that they keep
+arriving is.** `[IK Debug Log]` alone is 14,491 of the lines here and Modbot cares about none of
+them individually — yet it is what keeps the file growing while a moderator sits in a quiet
+instance, and so it is what separates "VRChat is running" from "VRChat has exited". Ignoring what a
+line says is not the same as ignoring that it exists.
 
 ---
 
@@ -350,6 +388,12 @@ log simply **stops**:
 
 A 45-minute gap, then two teardown lines, then nothing. No `OnLeftRoom`, no `OnPlayerLeft`, no
 disconnect line. The last `OnLeftRoom` is at 20:45:29, four world-changes earlier.
+
+> **That gap is `[Behaviour]` silence, not file silence (§1.0).** The log was being written to
+> throughout it — at least eight lines a minute, with no all-tag gap anywhere in the session longer
+> than eleven seconds. Reading this section as "the log went quiet" is the mistake it most invites,
+> and it is what makes "has this session ended?" answerable at all: the file stops growing when
+> VRChat stops, and at no other time.
 
 **Three consequences, none of them optional:**
 
