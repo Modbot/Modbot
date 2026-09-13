@@ -45,6 +45,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
     public DbSet<ClientDeviceRecord> ClientDevices => Set<ClientDeviceRecord>();
     public DbSet<ClientPairingCodeRecord> ClientPairingCodes => Set<ClientPairingCodeRecord>();
+    public DbSet<EvidenceBlob> EvidenceBlobs => Set<EvidenceBlob>();
 
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
@@ -133,6 +134,26 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.HasKey(e => e.CodeHash);
             entity.Property(e => e.CodeHash).HasMaxLength(128);
+        });
+
+        builder.Entity<EvidenceBlob>(entity =>
+        {
+            entity.ToTable("modbot_evidence_blob");
+
+            // Keyed on the hash because the store is content-addressed: the same bytes uploaded
+            // twice are one object and one row, cited by two reports.
+            entity.HasKey(e => e.Hash);
+            entity.Property(e => e.Hash).HasMaxLength(64);
+
+            entity.Property(e => e.ContentType).HasMaxLength(128);
+            entity.Property(e => e.FileName).HasMaxLength(256);
+            entity.Property(e => e.UploaderId).HasMaxLength(128);
+            entity.Property(e => e.ReportId).HasMaxLength(128);
+            entity.Property(e => e.DestroyedBy).HasMaxLength(128);
+            entity.Property(e => e.DestroyedReason).HasMaxLength(512);
+
+            // Rendering a case file is "every blob for this report", and it must not scan.
+            entity.HasIndex(e => e.ReportId);
         });
 
         builder.Entity<ModbotEvent>(entity =>

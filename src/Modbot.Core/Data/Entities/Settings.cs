@@ -157,4 +157,92 @@ public class Settings
 
     /// <summary>When the group-info poll last completed. Same reasoning as the audit log's.</summary>
     public DateTimeOffset? GroupInfoPolledAt { get; set; }
+
+    // ── Evidence storage (evidence design §6, §8) ───────────────────────────────────────────
+
+    /// <summary>
+    /// Which backend holds evidence: 0 none, 1 S3, 2 filesystem, 3 in-database.
+    /// </summary>
+    /// <remarks>
+    /// Stored as the raw value rather than mapped through an enum here, because
+    /// <c>Modbot.Evidence</c> owns that enum and <c>Modbot.Core</c> does not reference it — the
+    /// store is deliberately a leaf the rest of the system does not depend on.
+    /// </remarks>
+    public short EvidenceBackend { get; set; }
+
+    /// <summary>
+    /// The sentinel written into the store when it was commissioned.
+    /// </summary>
+    /// <remarks>
+    /// This is the memory outside the store that makes §8's detection conclusive.
+    /// <c>PersistenceProbe</c> cannot say whether a missing marker means "first run" or "wiped",
+    /// because it has nowhere to remember having written one. This column is that memory: if it
+    /// is set and the store has no matching sentinel, the store is <em>wrong</em> — an unmounted
+    /// volume, an emptied bucket, or a different bucket entirely — and that is a finding rather
+    /// than an ambiguity.
+    /// </remarks>
+    public Guid? EvidenceStoreId { get; set; }
+
+    /// <summary>Filesystem backend: where objects go. Requires a mounted volume to be useful.</summary>
+    public string? EvidenceRoot { get; set; }
+
+    public string? EvidenceS3Bucket { get; set; }
+    public string? EvidenceS3Endpoint { get; set; }
+    public string? EvidenceS3AccessKeyId { get; set; }
+    public string? EvidenceS3Region { get; set; }
+
+    /// <summary>Key prefix, so one bucket can hold more than one deployment's evidence.</summary>
+    public string? EvidenceS3Prefix { get; set; }
+
+    /// <summary>
+    /// Older S3-compatible buckets need path-style URLs; newer Railway buckets are
+    /// virtual-hosted. The bucket's own credentials page says which, so this is asked rather than
+    /// guessed.
+    /// </summary>
+    public bool EvidenceS3UsePathStyle { get; set; }
+
+    /// <summary>Encrypted like every other secret (see <c>ISecretProtector</c>).</summary>
+    public string? EvidenceS3SecretAccessKeyEncrypted { get; set; }
+
+    /// <summary>Per-file cap, enforced while streaming rather than after buffering.</summary>
+    public long EvidenceMaxFileBytes { get; set; } = 100L * 1024 * 1024;
+
+    public long EvidenceMaxReportBytes { get; set; }
+    public long EvidenceMaxDeploymentBytes { get; set; }
+
+    /// <summary>
+    /// Hand the browser a presigned URL rather than proxying bytes through Modbot.
+    /// </summary>
+    /// <remarks>
+    /// Only S3 can do it. On Railway it is also the cheaper path — bucket egress is free and
+    /// service egress is not — so proxying is billed in both directions for no benefit.
+    /// </remarks>
+    public bool EvidenceDirectDeliveryEnabled { get; set; } = true;
+
+    // ── The operator's acknowledgement that a disk may not persist (§8.2) ───────────────────
+
+    /// <summary>
+    /// Set when the operator chose the filesystem backend despite Modbot being unable to prove
+    /// the directory survives a restart.
+    /// </summary>
+    /// <remarks>
+    /// Modbot warns and recommends object storage; it does not refuse. Platform detection is a
+    /// suspicion — Railway, Fly.io and Render all support mountable volumes, and the operator is
+    /// the only party who knows whether they mounted one.
+    /// </remarks>
+    public bool EvidenceDiskAcknowledged { get; set; }
+
+    public string? EvidenceDiskAcknowledgedBy { get; set; }
+
+    public DateTimeOffset? EvidenceDiskAcknowledgedAt { get; set; }
+
+    /// <summary>
+    /// The exact warning text the operator was shown, stored verbatim.
+    /// </summary>
+    /// <remarks>
+    /// Not a reference to the current wording. A reworded warning must not retroactively change
+    /// what somebody agreed to — if this ever has to be pointed at in a dispute, it has to be the
+    /// sentence that was actually on their screen.
+    /// </remarks>
+    public string? EvidenceDiskWarningShown { get; set; }
 }

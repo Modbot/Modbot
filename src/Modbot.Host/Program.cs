@@ -7,7 +7,11 @@ using Modbot.Api;
 using Modbot.Api.Auth;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
+using Modbot.Api.Features.Client;
+using Modbot.Api.Features.Evidence;
 using Modbot.Core.Logging;
+using Modbot.Evidence;
+using Modbot.Evidence.Upload;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
 using Modbot.VRChat;
@@ -107,12 +111,7 @@ try
     // ASP.NET Core narrates four Information lines per request -- and the container's health probe
     // is a request every thirty seconds, which is eleven thousand lines a day of nothing in the
     // stream section 4.4.1 calls "the application record". MODBOT_DEBUG_LOGGING restores them.
-    // What startup worked out about its surroundings, so the settings page shows what the process is
-// actually doing rather than re-deriving it and possibly disagreeing.
-builder.Services.AddSingleton(new DeploymentInfo(
-    platform, persistence.Evidence, writeLogFiles, persistence.Explanation));
-
-builder.Logging.ClearProviders();
+    builder.Logging.ClearProviders();
     builder.Logging.AddSerilog(Log.Logger);
 
     if (!env.DebugLogging)
@@ -122,6 +121,11 @@ builder.Logging.ClearProviders();
 
     builder.Services.AddSingleton(env);
     builder.Services.AddSingleton<IModbotClock>(clock);
+
+    // What startup worked out about its surroundings, so the settings page reports what this
+    // process is actually doing rather than re-deriving it and possibly disagreeing with it.
+    builder.Services.AddSingleton(new DeploymentInfo(
+        platform, persistence.Evidence, writeLogFiles, persistence.Explanation));
 
     builder.Services.AddDbContext<ModbotContext>(options => options
         .UseNpgsql(connectionString)
@@ -182,6 +186,27 @@ builder.Logging.ClearProviders();
     // has chosen a group.
     builder.Services.AddModbotVRChatSync();
 
+    // Evidence storage (evidence design §6). Registered with its defaults, which means
+    // EvidenceBackend.None: the store is built and tested but there is no settings screen to
+    // configure it from yet, so a deployment has not chosen a backend and the upload pipeline
+    // refuses rather than pretending. Wiring it now keeps the DI graph honest and means the
+    // remaining work is binding Settings onto EvidenceOptions plus the endpoints.
+    builder.Services.AddModbotEvidence();
+
+    // The Postgres side of it (§7). Modbot.Evidence owns no migrations by design, so it declares
+    // IEvidenceMetadata and the table lives here.
+    builder.Services.AddScoped<IEvidenceMetadata, DatabaseEvidenceMetadata>();
+
+    // The client and overlay surface (M3 §4, client protocol §3-§6): pairing, batched ingest,
+    // overlay reads and the alert long poll.
+    //
+    // Registered by the host rather than inside AddModbotApi, because it depends on IFactWriter
+    // from AddModbotAnalytics and AddModbotApi cannot guarantee that ordering -- a caller that
+    // wires the API without the analytics substrate gets endpoints whose parameters cannot be
+    // resolved, and minimal APIs report that by throwing while mapping routes, taking every
+    // other endpoint in the host down with it. Composition is the host's job (spec 2.5).
+    builder.Services.AddClientApi();
+
     builder.Services.AddModbotApi();
 
     var app = builder.Build();
@@ -203,6 +228,11 @@ builder.Logging.ClearProviders();
 
     app.MapModbotHealthChecks();
     app.MapModbotApi();
+
+    // Mapped by the host for the same reason it is registered here: these endpoints resolve
+    // IFactWriter, and a caller that maps the API without the analytics substrate would get a
+    // route-mapping exception rather than a missing endpoint.
+    app.MapClientApi();
 
     // The OpenAPI document is generated from the endpoints, so it cannot drift from what is
     // actually served. Scalar renders it for humans; the raw JSON feeds client generation.

@@ -28,6 +28,7 @@ COPY Directory.Build.props Directory.Packages.props global.json ./
 COPY src/Modbot.Core/Modbot.Core.csproj src/Modbot.Core/
 COPY src/Modbot.VRChat/Modbot.VRChat.csproj src/Modbot.VRChat/
 COPY src/Modbot.Analytics/Modbot.Analytics.csproj src/Modbot.Analytics/
+COPY src/Modbot.Evidence/Modbot.Evidence.csproj src/Modbot.Evidence/
 COPY src/Modbot.Discord/Modbot.Discord.csproj src/Modbot.Discord/
 COPY src/Modbot.Api/Modbot.Api.csproj src/Modbot.Api/
 COPY src/Modbot.Host/Modbot.Host.csproj src/Modbot.Host/

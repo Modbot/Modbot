@@ -60,6 +60,38 @@ public enum ModbotPermissions : long
 
     EditClassifications = 1L << 14,
 
+    // --- Evidence (evidence design §14) ---
+
+    /// <summary>
+    /// Open the evidence attached to a case file — the screenshots and video themselves.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="ViewAuditLog"/>, and more restrictive on purpose. The audit log
+    /// says a ban happened and who did it; the evidence may be video of the person it happened
+    /// to. A moderator who should see that a decision was made does not automatically need to
+    /// watch the recording of it, and every access is itself recorded.
+    /// </remarks>
+    ViewEvidence = 1L << 15,
+
+    /// <summary>Attach evidence to a case file.</summary>
+    /// <remarks>
+    /// Held by whoever files ban reports. Uploading is the act that puts somebody else's image on
+    /// this deployment's disk, so it is granted rather than implied.
+    /// </remarks>
+    UploadEvidence = 1L << 16,
+
+    /// <summary>
+    /// Destroy the bytes of a piece of evidence, keeping the record that it existed.
+    /// </summary>
+    /// <remarks>
+    /// The narrowest of the three and the only irreversible one. The store has no versioning and
+    /// no undelete — a destroy is final — and the reason it exists at all is a lawful erasure
+    /// request rather than routine tidying. What survives is "this case had a video and an
+    /// administrator destroyed it on this date", because a case file that looks like it never had
+    /// evidence is indistinguishable from one nobody ever documented.
+    /// </remarks>
+    DestroyEvidence = 1L << 17,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go
