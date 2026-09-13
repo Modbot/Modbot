@@ -31,7 +31,8 @@ password reset, **a fact for every account event**, and the web pages for all of
 | §6.3: `ModbotUser` carries a permission bitfield | **Narrowed.** The bitfield is now computed from roles and no longer stored on the user (§3.3). |
 | `ModbotAuth`: permissions travel in the cookie, so a change takes effect at next sign-in | **Reversed.** Every request checks the account once (§5). The trade was made for a dozen staff who change permissions a few times a year; disabling someone who is mid-incident is exactly the case where "next sign-in" is wrong, and the check is one primary-key read. |
 | §5.9.2: auth events are Modbot-side audit entries, moderation retention | Unchanged, and now actually written — the `Login`/`LoginFailed`/`PasswordChanged` constants existed but nothing produced them. |
-| §7.2: optional Discord OAuth, "require Discord login" setting | **Deferred.** Only the Discord user id link field ships (§4). |
+| §7.2: optional Discord OAuth, "require Discord login" setting | **Deferred.** A typed-in Discord user id ships, used only to deliver reset links (§4.2). |
+| §7.1: five wizard steps | **Extended.** A sixth step, linking the administrator's own VRChat account, sits after the connection check (§4.3). |
 | §6.3: `ApiKey` | Out of scope here. |
 
 ## 3. Roles
@@ -93,7 +94,78 @@ And for the signed-in person, under any authenticated session:
 | Operation | Endpoint |
 |---|---|
 | Change own password | `PUT /api/auth/password` (requires the current password) |
+| Change own username | `PUT /api/auth/username` (requires the current password; same uniqueness rule) |
+| Set own email and Discord user id | `PUT /api/auth/contact` |
 | Sign out everywhere | `POST /api/auth/sign-out-everywhere` |
+| Link a VRChat account | `GET /api/auth/vrchat-link`, `POST …/start`, `POST …/check` (§4.3) |
+
+A username change is recorded with the old and new names, and the session cookie is re-issued so
+the name in it is right. Email and Discord id exist so a reset link can reach the person (§4.2);
+they are contact details, not identity, and nothing is ever sent to them without that person
+asking.
+
+### 4.2 Forgot password
+
+`POST /api/auth/forgot-password` with a username. Modbot creates a reset link (§4.1) and sends it
+**by email if SMTP is configured and the account has an email address; otherwise by Discord
+direct message if a bot token is configured and the account has a Discord user id.** Email wins
+when both would work. If the deployment has neither channel configured, the sign-in page says so
+plainly (from `GET /api/auth/forgot-password`, which reports only what the deployment can do) and
+an administrator-issued reset link remains the way.
+
+**The response never says whether the username exists.** It is the same sentence for a real
+account, an unknown one, a disabled one, and one with no way to be reached. One self-requested
+link per account per ten minutes; repeated requests from one address slow down the way failed
+sign-ins do (§7).
+
+Two small abstractions carry this: `IEmailSender`, with an SMTP implementation reading the
+settings row (host, port, username, encrypted password per §8.3), and `IDiscordMessenger`, with
+an implementation in `Modbot.Discord` that calls Discord's REST API with the stored bot token —
+open a DM channel, post one message. **There was no Discord code to build on**: the project was
+an empty shell holding a token, so two HTTP calls with `HttpClient` are the whole of it, and the
+gateway bot of §9 can replace the implementation behind the same interface later. Settings gains
+a *Send a test email* button so a wrong SMTP setting is discovered on the settings page, not by a
+locked-out moderator.
+
+### 4.3 Linking a VRChat account — required
+
+**Every account must link the VRChat account of the person behind it before it can do anything
+else**, the first administrator included. Attribution (§5.8, §5.9.1) is worth little if "Alice
+in Modbot" cannot be connected to a VRChat user; and the link is what lets a later milestone
+show a moderator's own presence and actions beside their Modbot record.
+
+The flow, exactly:
+
+1. Modbot shows a button that opens `https://vrchat.com/home/user/me` in a new tab.
+2. The person copies their user id or the page's URL and pastes it in. Either is accepted: a URL
+   is split by `/` and the last non-empty segment taken. **The id is never validated** (§3.1.1).
+3. Modbot shows a short code — `modbot-7F3K9Q` — and asks them to put it in their VRChat bio,
+   then press **Check**.
+4. Check fetches that user through `IVRChatGate` on the existing `users.read` class (budgeted at
+   §4.2.5's 1 req/s; its rate-limit question was asked and answered when the class was added),
+   interactive priority, `GetUserWithHttpInfoAsync`. If the bio contains the code the link is
+   confirmed: VRChat user id and display name at link time are stored on the account, a fact is
+   recorded, and the page says the code can come out of the bio now. A 429 is a cold stop and the
+   page says to try later; nothing retries.
+5. Codes last thirty minutes and are good once. **Check is limited** to six presses per code and
+   one every ten seconds per account, so the button cannot be used to hammer the endpoint.
+
+One VRChat account links to one Modbot account. Starting a new link replaces a pending one; a
+linked account may re-link, which replaces the old link and records a fact.
+
+**What an unlinked account can do:** sign out, read `/api/auth/me`, and finish the link. Nothing
+else — every other endpoint's default authorisation policy requires the link, and the session
+check keeps a `modbot:vrchat_linked` claim current so the policy is a claim comparison. The SPA
+sends an unlinked person to the link page before it shows anything, and the policy is the
+backstop.
+
+**Onboarding order** becomes: administrator → VRChat account → connection check → **link your
+VRChat account** → group → optional. The link step can only run once the gate is usable, which is
+why it sits after VRChat verification; the status endpoint reports it as the next step while the
+signed-in account is unlinked, and the wizard steps after it require the link.
+
+The link fields live on `modbot_user`. A separate `vrchat_user` record table is being built in
+another workstream; these two columns are the join key for it, not a second copy of it.
 
 ### 4.1 Invite links and reset links
 
@@ -155,7 +227,10 @@ all moderation retention (the prefix is not a presence prefix), all in the **ope
 | `modbot.user.disable` / `.enable` | |
 | `modbot.user.roles.change` | payload carries before and after role names |
 | `modbot.user.password.change` | own password changed |
-| `modbot.user.password.reset.create` / `.use` | reset link lifecycle |
+| `modbot.user.username.change` | own username changed; payload carries old and new |
+| `modbot.user.contact.change` | email or Discord user id set; payload says which fields, not the values |
+| `modbot.user.vrchat.link` | a VRChat account was linked; payload carries the id and display name |
+| `modbot.user.password.reset.create` / `.use` | reset link lifecycle; `create` says whether an administrator or the person asked, and how it was sent |
 | `modbot.user.login` / `modbot.user.login.failed` | every attempt |
 | `modbot.user.sign-out-everywhere` | |
 | `modbot.role.create` / `.change` / `.delete` | custom and built-in role edits |
@@ -191,8 +266,13 @@ tests can observe it without sleeping. The response for every failure stays a ba
 - **Roles** page (`ManageRoles`): each role's permissions as a checklist. Every permission has a
   plain label and a one-line description supplied by the server, so the words on the page and the
   words in the API are the same words.
-- **Account** page (anyone signed in): change password, sign out everywhere.
-- `/join/<token>` and `/reset/<token>` live outside the app shell, next to the sign-in page.
+- **Account** page (anyone signed in): change username, change password, email and Discord user
+  id for reset links, the linked VRChat account with a *Link a different account* button, and
+  sign out everywhere.
+- `/join/<token>`, `/reset/<token>`, *Forgot password* and *Link your VRChat account* live
+  outside the app shell, next to the sign-in page. The link page is the same component the
+  wizard step uses.
+- Settings → Integrations gains *Send a test email*.
 - Navigation entries are shown only to accounts holding the relevant permission. The API returns
   permissions as **names** as well as the bitfield: the bitfield is a 64-bit integer and
   `Administrator` is bit 62, which JavaScript's number type cannot carry alongside any other bit.
@@ -201,9 +281,11 @@ tests can observe it without sleeping. The response for every failure stays a ba
 
 - Forcing a password change after a temporary password. Wants a per-request flag and a
   redirect; the invite path already avoids the problem, so it waits.
-- Discord OAuth sign-in and "require Discord login" (§7.2).
+- Discord OAuth sign-in and "require Discord login" (§7.2). The Discord user id on an account is
+  typed in, not proven, and is used only to reach the person, never to sign them in.
 - API keys (§6.3, §7.3).
-- Sending invite and reset links by email when SMTP is configured.
+- Sending *invite* links by email or Discord. Reset links go that way (§4.2); invites are still
+  copied by the administrator, because the invitee has no account to hold an address yet.
 
 ## 10. Testing
 
@@ -211,5 +293,9 @@ Role union (pure). Invite lifecycle: once only, expiry, revoked, disabled invite
 once only, expiry, ends sessions. Disable ends an open session on its next request; re-enable does
 not revive it. Role change is visible on the next request. Every new endpoint answers 401 without a
 session and 403 without the permission. Every operation leaves its fact, and a failed login's fact
-contains the username and not the password. All against real PostgreSQL, through the real cookie
-pipeline.
+contains the username and not the password. Forgot-password answers identically for a real and an
+unknown username, picks email over Discord, and sends nothing when neither is configured. The
+VRChat link: a URL and a bare id parse the same, a bio without the code does not link, a bio with
+it does and records the fact, codes expire and are good once, Check is limited, and an unlinked
+session is refused everywhere but the link and sign-out endpoints. All against real PostgreSQL,
+through the real cookie pipeline, with a scripted gate.
