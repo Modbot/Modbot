@@ -134,18 +134,22 @@ public class StorageEstimatorTests : AnalyticsTestBase
     /// happened to go.
     /// </remarks>
     [Fact]
-    public async Task AFreshInstallIsNotExtrapolated()
+    public async Task AFreshInstallIsEstimatedAndLabelledInsufficient()
     {
         await WriteAgedAsync(400, daysAgo: 0.2);
 
         await using var context = Database.NewContext();
         var forecast = await NewEstimator(context).ForecastAsync(new StorageBudget(), Ct);
 
+        // An estimate is produced from whatever history exists -- 400 facts in a fifth of a day
+        // is about 2,000 a day -- and the label says how little that is worth. An earlier version
+        // withheld the number below a day of observation; the operator preferred to see it with
+        // the caveat, so the caveat is the confidence and the number is always there.
         Assert.Equal(ForecastConfidence.Insufficient, forecast.Confidence);
-        Assert.Empty(forecast.Horizons);
-        Assert.Equal(0, forecast.Measurement.FactsPerDay);
+        Assert.Equal([6, 12, 24], forecast.Horizons.Select(h => h.Months));
+        Assert.InRange(forecast.Measurement.FactsPerDay, 1_500, 2_500);
+        Assert.True(forecast.Horizons[0].EstimatedBytes > forecast.Measurement.TotalBytes);
 
-        // The size is still real and still reported -- it is the extrapolation that is withheld.
         Assert.Equal(400, forecast.Measurement.FactCount);
         Assert.True(forecast.Measurement.TotalBytes > 0);
     }
@@ -310,7 +314,11 @@ public class StorageEstimatorTests : AnalyticsTestBase
         Assert.Equal(0, forecast.Measurement.BytesPerFact);
         Assert.Null(forecast.Measurement.OldestFact);
         Assert.Equal(ForecastConfidence.Insufficient, forecast.Confidence);
-        Assert.Empty(forecast.Horizons);
+
+        // Still an estimate, and an honest one: with nothing arriving the size stays exactly
+        // where it is at every horizon, and a disk that is not filling has no fill date.
+        Assert.Equal([6, 12, 24], forecast.Horizons.Select(h => h.Months));
+        Assert.All(forecast.Horizons, h => Assert.Equal(forecast.Measurement.TotalBytes, h.EstimatedBytes));
         Assert.Null(forecast.CapacityExhausted);
     }
 }

@@ -219,14 +219,9 @@ function DataTab() {
           />
         </div>
 
-        {storage.confidence === 'Insufficient' ? (
-          <p className="mt-4 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            No estimate yet. Modbot will not extrapolate from less than a day of history — the
-            answer would be wrong by an order of magnitude in whichever direction today happened
-            to go.
-          </p>
-        ) : (
-          <>
+        {/* Always shown, however little history there is. The confidence label below carries
+            the caveat; withholding the number was tried and the operator preferred to see it. */}
+        <>
             <table className="mt-4 w-full" style={{ fontSize: 'var(--text-small)' }}>
               <thead className="text-muted-foreground">
                 <tr>
@@ -253,6 +248,8 @@ function DataTab() {
               generates more facts per member. Treat it as an order of magnitude.
               {storage.confidence === 'Low' &&
                 ' Based on under a month of history, so a single busy weekend still moves it a lot.'}
+              {storage.confidence === 'Insufficient' &&
+                ' Based on less than a day of history — a guess, and one that will change a lot by tomorrow.'}
             </p>
 
             {storage.capacityExhausted && (
@@ -261,8 +258,7 @@ function DataTab() {
                 {new Date(storage.capacityExhausted).toLocaleDateString()}.
               </p>
             )}
-          </>
-        )}
+        </>
       </Section>
 
       <Section title="Retention">

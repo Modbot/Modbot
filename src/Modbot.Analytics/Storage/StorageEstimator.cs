@@ -123,7 +123,10 @@ public sealed class StorageEstimator(ModbotContext db, IModbotClock clock)
             ? 0
             : (now - (firstObserved.Value > windowStart ? firstObserved.Value : windowStart)).TotalDays;
 
-        var factsPerDay = observedDays >= 1 ? recentCount / observedDays : 0;
+        // Extrapolated from whatever window exists, however short. A deployment two hours old
+        // gets a rate from two hours of facts -- noisy, and labelled as such by the confidence
+        // below, but an estimate the operator asked for rather than a refusal to give one.
+        var factsPerDay = observedDays > 0 ? recentCount / observedDays : 0;
 
         return new StorageMeasurement(
             factBytes,
@@ -167,13 +170,11 @@ public sealed class StorageEstimator(ModbotContext db, IModbotClock clock)
             _ => ForecastConfidence.Good,
         };
 
-        if (confidence is ForecastConfidence.Insufficient)
-        {
-            // No horizons rather than horizons nobody should act on. A number on the screen gets
-            // believed regardless of the label next to it.
-            return new StorageForecast(measurement, confidence, [], CapacityExhausted: null);
-        }
-
+        // An estimate is always produced, however little history there is. An earlier version
+        // withheld it below a day of observation on the grounds that a number on a screen gets
+        // believed whatever the caveat beside it. The operator decided otherwise: they would
+        // rather see the number and the caveat than nothing, so the caveat travels as the
+        // confidence label and the screen is responsible for showing it prominently.
         var bytesPerDay = GrowthPerDay(measurement);
 
         var horizons = HorizonMonths
