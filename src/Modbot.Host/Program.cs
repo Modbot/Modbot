@@ -10,6 +10,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Logging;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
+using Modbot.VRChat;
 using Modbot.Host.Data;
 using Modbot.Host.Health;
 using Modbot.Host.Startup;
@@ -113,6 +114,14 @@ try
         .SetApplicationName("Modbot")
         .PersistKeysToDbContext<ModbotContext>();
     builder.Services.AddModbotAnalytics();
+
+    // The gate and everything it refuses to work without (spec 4.1). Registered here rather than
+    // inside Modbot.Api because composition is the host's job (spec 2.5), and registered
+    // unconditionally because it reads its credentials from the database -- an unconfigured
+    // deployment gets a gate in the Unconfigured state, which is exactly what the onboarding
+    // wizard needs to be able to ask.
+    builder.Services.AddModbotVRChat();
+
     builder.Services.AddModbotApi();
 
     var app = builder.Build();
@@ -145,6 +154,11 @@ try
     // The SPA is built into wwwroot by the Modbot.Web Vite build.
     app.UseDefaultFiles();
     app.UseStaticFiles();
+
+    // Client-side routing needs every non-API path to return the app shell. Without this a
+    // refresh on /setup -- which is where spec 7.1 sends a fresh deployment, so it is the very
+    // first URL anybody sees -- returns a 404 from the static file middleware.
+    app.MapFallbackToFile("index.html");
 
     await app.RunAsync();
     return 0;
