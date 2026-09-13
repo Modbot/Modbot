@@ -3,7 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Modbot.Core\Modbot.Core.csproj" />
     <!-- The sync producers write facts, and the fact log is Modbot.Analytics'. The dependency
-         runs this way round rather than the other because the analytics substrate must not know
+         runs this way round rather than the other because the analytics foundation must not know
          where its facts came from: VRChat, Discord and the Windows client are all just callers of
          IFactWriter, and a reference back would make the log's schema hostage to one of them. -->
     <ProjectReference Include="..\Modbot.Analytics\Modbot.Analytics.csproj" />

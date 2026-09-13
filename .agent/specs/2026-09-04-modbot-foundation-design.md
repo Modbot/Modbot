@@ -990,7 +990,7 @@ endpoint**. Until then Modbot assumes a **sustained 0.3–1 request/second per e
 
 **The per-type pacing caps and the 2 req/s global ceiling in §4.2 are authoritative, and where this
 table disagrees with §4.2, §4.2 wins.** It does disagree: this table's 0.29 req/s for bans and the
-audit log predates §4.2's 0.5 and 0.125. Those older figures are kept as provenance, not as
+audit log predates §4.2's 0.5 and 0.125. Those older figures are kept as a record of where the numbers came from, not as
 configuration. The table below records where the numbers came from -- the pacing the previous implementation actually ran in
 production (`old/Modbot/Consumers/`), which is the best empirical evidence available -- and covers
 endpoint classes §4.2 does not schedule:
@@ -1288,7 +1288,7 @@ on next login, because a Critical alert nobody can receive is the same as no ale
 
 ## 5. Analytics and data engine
 
-This is a **substrate**, not a feature, and it must exist in M0 because it is the only part of the
+This is a **foundation**, not a feature, and it must exist in M0 because it is the only part of the
 design that cannot be retrofitted.
 
 ### 5.1 The one-way door
@@ -1879,7 +1879,7 @@ arguments about boundaries without improving any decision.
 
 #### 5.10.4 What this unlocks
 
-Subject profiles are the substrate M7's segments and giveaways run on. *"Members with more than ten
+Subject profiles are the foundation M7's segments and giveaways run on. *"Members with more than ten
 hours in our worlds this month and no bans"* is a query over profiles, not a scan of millions of
 presence facts — which is the difference between a segment that returns in a second and one that
 times out.
@@ -2248,7 +2248,7 @@ Deferring any of those costs staff time. Deferring the client costs history.
   with a narrow scope — ingest only, revocable per device. `ApiKey` (§6.3) exists but is scoped for
   the read API; whether it extends or a distinct device-token concept is needed is an M3 design
   question.
-- The M0 substrate the client depends on — the fact log, `IModbotClock`, the deduplication window —
+- The M0 foundation the client depends on — the fact log, `IModbotClock`, the deduplication window —
   is **already in the first spec**, so nothing needs pulling forward. This was fortunate rather than
   planned, and is why the move is cheap.
 - **Segments and giveaways (M7) are no longer blocked by anything after M3.** They were sequenced

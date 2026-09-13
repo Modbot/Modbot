@@ -209,7 +209,7 @@ try
     //
     // Registered by the host rather than inside AddModbotApi, because it depends on IFactWriter
     // from AddModbotAnalytics and AddModbotApi cannot guarantee that ordering -- a caller that
-    // wires the API without the analytics substrate gets endpoints whose parameters cannot be
+    // wires the API without the analytics foundation gets endpoints whose parameters cannot be
     // resolved, and minimal APIs report that by throwing while mapping routes, taking every
     // other endpoint in the host down with it. Composition is the host's job (spec 2.5).
     builder.Services.AddClientApi();
@@ -245,7 +245,7 @@ try
     app.MapModbotApi();
 
     // Mapped by the host for the same reason it is registered here: these endpoints resolve
-    // IFactWriter, and a caller that maps the API without the analytics substrate would get a
+    // IFactWriter, and a caller that maps the API without the analytics foundation would get a
     // route-mapping exception rather than a missing endpoint.
     app.MapClientApi();
 

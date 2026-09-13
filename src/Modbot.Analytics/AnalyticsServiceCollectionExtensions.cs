@@ -7,7 +7,7 @@ using Modbot.Analytics.Storage;
 namespace Modbot.Analytics;
 
 /// <summary>
-/// Registers the analytics substrate: the fact log, the daily totals derived from it, retention, and
+/// Registers the analytics foundation: the fact log, the daily totals derived from it, retention, and
 /// the jobs that keep all three healthy.
 /// </summary>
 public static class AnalyticsServiceCollectionExtensions

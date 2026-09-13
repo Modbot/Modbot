@@ -868,7 +868,7 @@ Everything above is text. The avatar and profile images are not, and they are th
 most often changed immediately after a ban — which makes them the part most worth capturing and the
 part Modbot cannot capture from a `jsonb` column.
 
-Captured images are **evidence blobs with a different provenance**: same store, same content
+Captured images are **evidence blobs that came from somewhere different**: same store, same content
 addressing, `origin = Captured` rather than `Uploaded`. The distinction matters because §11's
 never-transcode rule applies to them for a different reason (Modbot did not author them and must not
 appear to have), and because §14's permissions may reasonably treat an avatar thumbnail differently

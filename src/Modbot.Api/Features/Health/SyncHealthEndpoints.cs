@@ -19,7 +19,7 @@ namespace Modbot.Api.Features.Health;
 /// <para>
 /// Spec 4.2.3 and 4.3.3 both require this and nothing surfaced it: <c>SyncDiagnostics</c> has been
 /// populated and readable with no reader, which is the same shape of problem as an analytics
-/// substrate with no producer — the machinery works and nobody can see it.
+/// foundation with no producer — the machinery works and nobody can see it.
 /// </para>
 /// <para>
 /// <strong>Two endpoints, because the two audiences are different.</strong> The gate summary is

@@ -54,7 +54,7 @@ public class ClientDeviceRecord
     /// </summary>
     /// <remarks>
     /// The facts this device reported point at it, and deleting the row would leave a moderation
-    /// record whose provenance cannot be established — which is the opposite of what §5.8's
+    /// record where nobody can say where it came from — which is the opposite of what §5.8's
     /// accountability story needs. A revoked device is refused at every endpoint from the moment
     /// this is set; it just remains explicable.
     /// </remarks>
