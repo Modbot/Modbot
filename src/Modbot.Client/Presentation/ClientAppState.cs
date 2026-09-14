@@ -139,6 +139,13 @@ public sealed class ClientAppState
     /// </summary>
     public string? ReadingFault { get; set; }
 
+    /// <summary>
+    /// The version of Modbot that has been downloaded and is waiting to be installed the next
+    /// time the client starts, or null when there is none. Set by the updater; shown as a line
+    /// in the window, never as a restart.
+    /// </summary>
+    public string? UpdateReady { get; set; }
+
     public ClientAppSnapshot Snapshot()
     {
         var logStatus = LogHealth.Evaluate(_clock.UtcNow, LogSilenceThreshold);
@@ -218,6 +225,17 @@ public sealed class ClientAppState
                 $"“{connection.ServerId}” refused {connection.MalformedBatches:N0} batch(es) as "
                 + "malformed and they were dropped rather than retried. That is a bug worth "
                 + "reporting.");
+        }
+
+        // Informational, and it stays informational: an update is never installed under a
+        // running client, so the moderator chooses the moment by quitting and reopening.
+        if (UpdateReady is { } update)
+        {
+            yield return new ClientWarning(
+                WarningSeverity.Info,
+                $"Modbot {update} has been downloaded and will be installed the next time Modbot "
+                + "starts. Quit from the tray icon and open Modbot again whenever suits you; "
+                + "nothing changes while it is running, and your pairings are kept.");
         }
     }
 

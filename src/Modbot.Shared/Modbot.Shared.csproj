@@ -14,4 +14,48 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    The release version, YYYY.M.PATCH (foundation 2.7.1), becomes ModbotVersion.Release.
+
+    A release build passes it in: `dotnet publish -p:ModbotRelease=2026.9.1`. Left unset, every
+    build is the development default below, which is what `dotnet run` on a laptop reports and
+    what the tests see. The number is written into a generated source file rather than typed into
+    ModbotVersion.cs so that the version a built exe reports and the version its installer, its
+    update feed and its GitHub release carry are the same string from the same place, and cannot
+    drift apart by somebody forgetting to edit a constant.
+  -->
+  <PropertyGroup>
+    <ModbotRelease Condition="'$(ModbotRelease)' == ''">2026.9.0</ModbotRelease>
+  </PropertyGroup>
+
+  <Target Name="WriteModbotVersion" BeforeTargets="CoreCompile">
+    <!-- Year, month without a leading zero, patch. Unpadded components are the rule, because
+         2026.09.1 and 2026.9.1 would otherwise be two spellings of one release. -->
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(ModbotRelease)', '^\d{4}\.(1[0-2]|[1-9])\.\d+$'))"
+           Text="ModbotRelease must look like 2026.9.1 (year.month.patch, no leading zeros); got '$(ModbotRelease)'." />
+
+    <PropertyGroup>
+      <_ModbotVersionFile>$(IntermediateOutputPath)ModbotVersion.g.cs</_ModbotVersionFile>
+      <_ModbotVersionSource>
+// &lt;auto-generated/&gt;
+// Written by the build from the ModbotRelease property. See Modbot.Shared.csproj.
+namespace Modbot.Core%3B
+
+public static partial class ModbotVersion
+{
+    /// &lt;summary&gt;Calendar version, YYYY.M.PATCH. The development default unless the build set ModbotRelease.&lt;/summary&gt;
+    public const string Release = "$(ModbotRelease)"%3B
+}
+      </_ModbotVersionSource>
+    </PropertyGroup>
+
+    <!-- Only touched when the content changes, so an unchanged version does not force a rebuild. -->
+    <WriteLinesToFile File="$(_ModbotVersionFile)" Lines="$(_ModbotVersionSource)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+
+    <ItemGroup>
+      <Compile Include="$(_ModbotVersionFile)" />
+      <FileWrites Include="$(_ModbotVersionFile)" />
+    </ItemGroup>
+  </Target>
+
 </Project>

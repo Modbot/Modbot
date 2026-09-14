@@ -17,6 +17,10 @@
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <!-- Direct3D 11 interop for the shared texture SteamVR's compositor opens. -->
     <PackageVersion Include="Vortice.Direct3D11" Version="3.8.3" />
+    <!-- The desktop client's installer and updater (M3 spec, "Installing and updating"). Per-user,
+         no administrator rights, delta updates, and the maintained successor to Squirrel. Its
+         version is pinned alongside the vpk tool the release workflow installs. -->
+    <PackageVersion Include="Velopack" Version="1.2.0" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />

@@ -187,6 +187,23 @@ public class ClientAppStateTests : IDisposable
         Assert.Contains("Rin", Assert.Single(state.Snapshot().Journal).Summary);
     }
 
+    [Fact]
+    public void ADownloadedUpdateIsAnInformationalLineThatNamesTheVersionAndTheNextStep()
+    {
+        // Never a restart, never a critical warning: an update waits for the moderator to quit
+        // and reopen, and the line has to say that a pairing survives it, because "reinstall"
+        // is the word that makes a volunteer expect to start over.
+        var state = State();
+        state.UpdateReady = "2026.9.2";
+
+        var warning = Assert.Single(state.Snapshot().Warnings);
+
+        Assert.Equal(WarningSeverity.Info, warning.Severity);
+        Assert.Contains("2026.9.2", warning.Message);
+        Assert.Contains("next time Modbot starts", warning.Message);
+        Assert.Contains("pairings are kept", warning.Message);
+    }
+
     private static ObservedPresence Observation()
     {
         Assert.True(InstanceLocation.TryParse(

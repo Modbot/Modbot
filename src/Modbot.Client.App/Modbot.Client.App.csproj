@@ -12,6 +12,20 @@
     <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.File" />
+    <!-- Installer hooks and the update check. Used from Updates.cs and nowhere else; the source
+         guard holds that. -->
+    <PackageReference Include="Velopack" />
+  </ItemGroup>
+
+  <!-- Where an installed client looks for newer versions of itself. The release workflow passes
+       the repository it is publishing to (-p:ModbotUpdateFeed=https://github.com/owner/repo) so
+       the client and the workflow cannot disagree; the default is the project's own repository.
+       Read at run time by Updates.cs from the assembly's metadata. -->
+  <PropertyGroup>
+    <ModbotUpdateFeed Condition="'$(ModbotUpdateFeed)' == ''">https://github.com/binn/Modbot</ModbotUpdateFeed>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="ModbotUpdateFeed" Value="$(ModbotUpdateFeed)" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -26,10 +40,11 @@
     <OutputType>WinExe</OutputType>
     <!-- Never a single-file publish. .NET's single-file mode extracts to a temp directory and
          runs from there, which is precisely the dropper pattern antivirus engines score on, and
-         this client already looks enough like one. A normal folder layout, installed to Program
-         Files by the MSI. -->
+         this client already looks enough like one. A normal folder layout, packaged by Velopack
+         into a per-user installer; the publish settings live in
+         Properties/PublishProfiles/win-x64.pubxml, which is the only way the client is built for
+         other people's machines. -->
     <PublishSingleFile>false</PublishSingleFile>
-    <SelfContained>false</SelfContained>
     <!-- Stable across versions, so download reputation accumulates on one identity rather than
          being spread across many. -->
     <AssemblyName>Modbot</AssemblyName>
