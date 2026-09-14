@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260913235710_AddCaseFiles")]
+    partial class AddCaseFiles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1371,10 +1374,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("group_info_snapshot");
 
-                    b.Property<DateTimeOffset?>("GroupInstancesPolledAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("group_instances_polled_at");
-
                     b.Property<string>("ManagedGroupId")
                         .HasColumnType("text")
                         .HasColumnName("managed_group_id");
@@ -1507,10 +1506,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("vr_chat_verified_at");
 
-                    b.Property<DateTimeOffset?>("WorldSweepPolledAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("world_sweep_polled_at");
-
                     b.HasKey("Id")
                         .HasName("pk_settings");
 
@@ -1518,93 +1513,6 @@ namespace Modbot.Core.Data.Migrations
                         {
                             t.HasCheckConstraint("ck_settings_singleton", "id = 1");
                         });
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.VRChatInstance", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset?>("ClosedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("closed_at");
-
-                    b.Property<string>("ClosedBy")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("closed_by");
-
-                    b.Property<string>("GroupAccessType")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("group_access_type");
-
-                    b.Property<string>("GroupId")
-                        .HasColumnType("text")
-                        .HasColumnName("group_id");
-
-                    b.Property<DateTimeOffset>("LastSeenAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_seen_at");
-
-                    b.Property<int?>("LastUserCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("last_user_count");
-
-                    b.Property<string>("Location")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("location");
-
-                    b.Property<DateTimeOffset>("OpenedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("opened_at");
-
-                    b.Property<int?>("PeakUserCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("peak_user_count");
-
-                    b.Property<string>("Region")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("region");
-
-                    b.Property<bool>("SeenInGroupList")
-                        .HasColumnType("boolean")
-                        .HasColumnName("seen_in_group_list");
-
-                    b.Property<string>("Type")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("type");
-
-                    b.Property<string>("VRChatInstanceId")
-                        .HasColumnType("text")
-                        .HasColumnName("vr_chat_instance_id");
-
-                    b.Property<string>("WorldId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("world_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_vrchat_instance");
-
-                    b.HasIndex("GroupId", "OpenedAt")
-                        .IsDescending(false, true)
-                        .HasDatabaseName("ix_vrchat_instance_group");
-
-                    b.HasIndex("Location", "LastSeenAt")
-                        .HasDatabaseName("ix_vrchat_instance_open")
-                        .HasFilter("closed_at IS NULL");
-
-                    b.HasIndex("WorldId", "OpenedAt")
-                        .IsDescending(false, true)
-                        .HasDatabaseName("ix_vrchat_instance_world");
-
-                    b.ToTable("vrchat_instance", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.VRChatUser", b =>
@@ -1724,88 +1632,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_vrchat_user_last_seen");
 
                     b.ToTable("vrchat_user", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.VRChatWorld", b =>
-                {
-                    b.Property<string>("WorldId")
-                        .HasColumnType("text")
-                        .HasColumnName("world_id");
-
-                    b.Property<string>("AuthorId")
-                        .HasColumnType("text")
-                        .HasColumnName("author_id");
-
-                    b.Property<string>("AuthorName")
-                        .HasColumnType("text")
-                        .HasColumnName("author_name");
-
-                    b.Property<int?>("Capacity")
-                        .HasColumnType("integer")
-                        .HasColumnName("capacity");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text")
-                        .HasColumnName("description");
-
-                    b.Property<DateTimeOffset>("FirstSeenAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("first_seen_at");
-
-                    b.Property<string>("ImageUrl")
-                        .HasColumnType("text")
-                        .HasColumnName("image_url");
-
-                    b.Property<DateTimeOffset?>("LastRefreshedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_refreshed_at");
-
-                    b.Property<DateTimeOffset>("LastSeenAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_seen_at");
-
-                    b.Property<string>("Name")
-                        .HasColumnType("text")
-                        .HasColumnName("name");
-
-                    b.Property<DateTimeOffset?>("PublishedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("published_at");
-
-                    b.Property<int?>("RecommendedCapacity")
-                        .HasColumnType("integer")
-                        .HasColumnName("recommended_capacity");
-
-                    b.Property<string>("RefreshError")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("refresh_error");
-
-                    b.Property<string>("ReleaseStatus")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("release_status");
-
-                    b.Property<string>("Tags")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("tags");
-
-                    b.Property<string>("ThumbnailImageUrl")
-                        .HasColumnType("text")
-                        .HasColumnName("thumbnail_image_url");
-
-                    b.Property<DateTimeOffset?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("WorldId")
-                        .HasName("pk_vrchat_world");
-
-                    b.HasIndex("FirstSeenAt")
-                        .HasDatabaseName("ix_vrchat_world_unnamed")
-                        .HasFilter("last_refreshed_at IS NULL");
-
-                    b.ToTable("vrchat_world", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotUserRole", b =>

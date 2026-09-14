@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { DataSection } from '@/components/settings/DataSection'
 import { EvidenceSection } from '@/components/settings/EvidenceSection'
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection'
+import { ModerationSection } from '@/components/settings/ModerationSection'
 import { SyncSection } from '@/components/settings/SyncSection'
 import { VRChatSection } from '@/components/settings/VRChatSection'
 import { api, type OnboardingStatus } from '@/lib/api'
@@ -16,6 +17,7 @@ const SECTIONS = [
   { id: 'data', label: 'Data' },
   { id: 'vrchat', label: 'VRChat account' },
   { id: 'integrations', label: 'Integrations' },
+  { id: 'moderation', label: 'Moderation' },
   { id: 'evidence', label: 'Evidence' },
   { id: 'sync', label: 'Sync' },
 ] as const
@@ -57,6 +59,7 @@ export function Settings() {
         <DataSection />
         <VRChatSection status={status} refresh={refresh} />
         <IntegrationsSection status={status} refresh={refresh} />
+        <ModerationSection />
         <EvidenceSection />
         <SyncSection />
       </div>

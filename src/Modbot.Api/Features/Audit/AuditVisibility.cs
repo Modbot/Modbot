@@ -157,6 +157,16 @@ public static class AuditVisibility
         [FactType.DiscordCommandRun] = AuditCategory.Operational,
         [FactType.DiscordLogPosted] = AuditCategory.Operational,
 
+        // A case file is the group's written record of why somebody was banned (spec 5.8.3). Its
+        // writing, editing and withdrawal are moderation history about the banned person and sit
+        // beside the ban in the same timeline. The reason list is a setting, and goes with the
+        // other settings changes.
+        [FactType.ReportCreated] = AuditCategory.Moderation,
+        [FactType.ReportUpdated] = AuditCategory.Moderation,
+        [FactType.ReportWithdrawn] = AuditCategory.Moderation,
+        [FactType.ReportSnapshotRecaptured] = AuditCategory.Moderation,
+        [FactType.BanReasonsChanged] = AuditCategory.Operational,
+
         // Evidence is moderation history, not plumbing: who attached what to a case, who opened
         // it, and who destroyed it are all part of the accountability record spec 5.8 exists for.
         [FactType.EvidenceAttached] = AuditCategory.Moderation,

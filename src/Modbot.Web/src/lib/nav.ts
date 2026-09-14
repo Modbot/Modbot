@@ -27,6 +27,9 @@ export const NAV = [
   { id: 'health', label: 'Sync health', group: 'Setup', needs: 'ViewOperationalLog' },
   { id: 'settings', label: 'Settings', needs: 'ManageSettings' },
   { id: 'account', label: 'Your account', hidden: true },
+  // Reached from the Bans page and the subject pane, not from the sidebar. The server gates
+  // reads on ViewProfile and writes on Ban; the page shows the refusal in words.
+  { id: 'cases', label: 'Case files', hidden: true },
 ] as const
 
 export type NavItem = (typeof NAV)[number]

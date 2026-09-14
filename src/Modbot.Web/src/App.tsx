@@ -9,6 +9,7 @@ import { useQueryParam, useRoute } from '@/lib/router'
 import { Account } from '@/pages/Account'
 import { AuditLog } from '@/pages/AuditLog'
 import { Bans } from '@/pages/Bans'
+import { CaseFile } from '@/pages/CaseFile'
 import { ForgotPassword } from '@/pages/ForgotPassword'
 import { Health } from '@/pages/Health'
 import { Join } from '@/pages/Join'
@@ -41,6 +42,7 @@ const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
   health: { title: 'Sync health' },
   settings: { title: 'Settings' },
   account: { title: 'Your account' },
+  cases: { title: 'Case file', subtitle: 'Why somebody was banned, and what the team kept' },
 }
 
 /**
@@ -62,9 +64,22 @@ const PATHS: Record<PageId, string> = {
   health: '/health',
   settings: '/settings',
   account: '/account',
+  cases: '/cases',
+}
+
+/**
+ * A case file lives at `/cases/:id` so it can be pasted to another moderator, the same reason the
+ * subject pane carries its subject in the query string (spec 10.2). It is the only page with an
+ * id in its path, so the router grows one line rather than a route table.
+ */
+function caseFileId(path: string): string | null {
+  const prefix = `${PATHS.cases}/`
+  return path.startsWith(prefix) && path.length > prefix.length ? path.slice(prefix.length) : null
 }
 
 function pageFor(path: string): PageId {
+  if (caseFileId(path)) return 'cases'
+
   const match = (Object.keys(PATHS) as PageId[]).find((id) => PATHS[id] === path)
   return match ?? 'members'
 }
@@ -234,7 +249,17 @@ function Shell({
         />
         <div className="p-5">
           {page === 'members' && <Members onOpenSubject={setSubject} />}
-          {page === 'bans' && <Bans onOpenSubject={setSubject} />}
+          {page === 'bans' && (
+            <Bans me={me} onOpenSubject={setSubject} onOpenCase={(id) => navigate(`${PATHS.cases}/${id}`)} />
+          )}
+          {page === 'cases' && (
+            <CaseFile
+              key={caseFileId(route) ?? ''}
+              caseId={caseFileId(route) ?? ''}
+              onOpenSubject={setSubject}
+              onBack={() => navigate(PATHS.bans)}
+            />
+          )}
           {page === 'audit' && <AuditLog onOpenSubject={setSubject} />}
           {page === 'analytics-group' && <MyGroup />}
           {page === 'analytics-team' && (

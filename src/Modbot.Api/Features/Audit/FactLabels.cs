@@ -100,6 +100,13 @@ public static class FactLabels
         [FactType.ReviewOpened] = "Review opened",
         [FactType.ReviewClosed] = "Review closed",
 
+        // Case files (spec 5.8.3). About the person who was banned.
+        [FactType.ReportCreated] = "Case file written",
+        [FactType.ReportUpdated] = "Case file edited",
+        [FactType.ReportWithdrawn] = "Case file withdrawn",
+        [FactType.ReportSnapshotRecaptured] = "Case file profile snapshot taken again",
+        [FactType.BanReasonsChanged] = "Ban reason list changed",
+
         [FactType.SyncFailed] = "Sync failed",
         [FactType.RateLimitColdStop] = "Rate-limit cold stop",
         [FactType.WafBlocked] = "Blocked by Cloudflare",

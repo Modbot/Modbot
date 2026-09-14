@@ -74,6 +74,12 @@ kept up to date; it does not multiply.
 
 The number beside **Reviews** in the sidebar is how many are waiting.
 
+## Bans with no written reason
+
+The one reason that already exists is the one on a ban: see [Case files](case-files.md). The Bans
+page counts the bans nobody has written up, which is the first thing to look at when a ban is
+questioned and nobody can remember what happened.
+
 ## What these screens cannot see yet
 
 Moderation done *through* Modbot arrives later (M4). Until then, everything here comes from actions
