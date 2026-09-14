@@ -2,7 +2,6 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -20,12 +19,10 @@ import { cn } from '@/lib/utils'
 export function SettingsSection({
   id,
   title,
-  description,
   children,
 }: {
   id: string
   title: string
-  description?: string
   children: React.ReactNode
 }) {
   return (
@@ -39,11 +36,6 @@ export function SettingsSection({
         >
           {title}
         </h2>
-        {description && (
-          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {description}
-          </p>
-        )}
       </div>
       <div className="grid grid-cols-12 gap-4">{children}</div>
     </section>
@@ -60,7 +52,6 @@ export function SettingsSection({
  */
 export function SettingsCard({
   title,
-  description,
   action,
   footer,
   span = 6,
@@ -68,7 +59,6 @@ export function SettingsCard({
   children,
 }: {
   title: string
-  description?: string
   /** Something small in the top-right corner, such as a re-check button. */
   action?: React.ReactNode
   footer?: React.ReactNode
@@ -86,9 +76,6 @@ export function SettingsCard({
     >
       <CardHeader className="gap-1 px-5">
         <CardTitle className="font-medium">{title}</CardTitle>
-        {description && (
-          <CardDescription style={{ fontSize: 'var(--text-small)' }}>{description}</CardDescription>
-        )}
         {action && <CardAction>{action}</CardAction>}
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-3 px-5">{children}</CardContent>

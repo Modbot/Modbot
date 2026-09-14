@@ -187,7 +187,6 @@ function RetentionCard({
   return (
     <SettingsCard
       title="Retention"
-      description="How long facts are kept before they are destroyed."
       footer={
         <>
           <Button size="sm" disabled={!dirty || saving} onClick={save}>
