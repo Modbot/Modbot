@@ -74,6 +74,16 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     public DbSet<ReviewRunState> ReviewRunState => Set<ReviewRunState>();
 
     /// <summary>The group's member list as last swept. Current state; the history is in <see cref="Events"/>.</summary>
+    /// <summary>
+    /// Worlds Modbot has seen somebody in, so a place can be shown by name instead of by id.
+    /// </summary>
+    public DbSet<VRChatWorld> VRChatWorlds => Set<VRChatWorld>();
+
+    /// <summary>
+    /// Rooms, each with an id of Modbot's own because VRChat reissues instance numbers.
+    /// </summary>
+    public DbSet<VRChatInstance> VRChatInstances => Set<VRChatInstance>();
+
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
 
     /// <summary>The group's ban list as last swept.</summary>
@@ -307,6 +317,66 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // 150,000-row table asked "who is oldest" once a second must not scan.
             entity.HasIndex(e => e.LastRefreshedAt).HasDatabaseName("ix_vrchat_user_last_refreshed");
             entity.HasIndex(e => e.LastSeenAt).HasDatabaseName("ix_vrchat_user_last_seen");
+        });
+
+        builder.Entity<VRChatWorld>(entity =>
+        {
+            entity.ToTable("vrchat_world");
+
+            // VRChat's id, opaque text with no length assumption (spec 3.1.1).
+            entity.HasKey(e => e.WorldId);
+            entity.Property(e => e.WorldId).HasColumnType("text");
+
+            // Author-written, and VRChat's caps on these have moved before.
+            entity.Property(e => e.Name).HasColumnType("text");
+            entity.Property(e => e.Description).HasColumnType("text");
+            entity.Property(e => e.AuthorId).HasColumnType("text");
+            entity.Property(e => e.AuthorName).HasColumnType("text");
+            entity.Property(e => e.ImageUrl).HasColumnType("text");
+            entity.Property(e => e.ThumbnailImageUrl).HasColumnType("text");
+            entity.Property(e => e.ReleaseStatus).HasMaxLength(32);
+            entity.Property(e => e.RefreshError).HasMaxLength(512);
+
+            // The sweep asks "which worlds still have no name", and once a group has settled
+            // almost none do, so the index covers only those.
+            entity.HasIndex(e => e.FirstSeenAt)
+                .HasDatabaseName("ix_vrchat_world_unnamed")
+                .HasFilter("last_refreshed_at IS NULL");
+        });
+
+        builder.Entity<VRChatInstance>(entity =>
+        {
+            entity.ToTable("vrchat_instance");
+
+            // Modbot's own id, because VRChat's instance numbers are reissued (see the entity).
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Location).HasColumnType("text");
+            entity.Property(e => e.WorldId).HasColumnType("text");
+            entity.Property(e => e.VRChatInstanceId).HasColumnType("text");
+            entity.Property(e => e.GroupId).HasColumnType("text");
+            entity.Property(e => e.Type).HasMaxLength(32);
+            entity.Property(e => e.GroupAccessType).HasMaxLength(32);
+            entity.Property(e => e.Region).HasMaxLength(32);
+            entity.Property(e => e.ClosedBy).HasMaxLength(16);
+
+            // The question asked on every single presence report, thousands of times an hour:
+            // "is there an open room at this location?" It must be an index seek, and because
+            // open rooms are a tiny fraction of all rooms ever, the filter keeps it that way.
+            entity.HasIndex(e => new { e.Location, e.LastSeenAt })
+                .HasDatabaseName("ix_vrchat_instance_open")
+                .HasFilter("closed_at IS NULL");
+
+            // "Which rooms did this world have, newest first" -- the world's own history page.
+            entity.HasIndex(e => new { e.WorldId, e.OpenedAt })
+                .HasDatabaseName("ix_vrchat_instance_world")
+                .IsDescending(false, true);
+
+            // "What has the group had open lately", and the sweep that closes rooms the live
+            // list stopped carrying.
+            entity.HasIndex(e => new { e.GroupId, e.OpenedAt })
+                .HasDatabaseName("ix_vrchat_instance_group")
+                .IsDescending(false, true);
         });
 
         builder.Entity<GroupMember>(entity =>

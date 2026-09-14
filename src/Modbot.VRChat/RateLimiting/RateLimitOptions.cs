@@ -150,6 +150,12 @@ public static class VRChatRateLimits
     public const string AuthLane = "auth";
 
     /// <summary>
+    /// Worlds and instances -- the places a person can be, as opposed to the people. Its own
+    /// queue so that naming a world a moderator is looking at never waits behind a member sweep.
+    /// </summary>
+    public const string PlacesLane = "places";
+
+    /// <summary>
     /// The classes spec 4.2's table schedules as background sync, in its order.
     /// </summary>
     /// <remarks>
@@ -194,9 +200,13 @@ public static class VRChatRateLimits
                 HardMaxPerSecond: PerSeconds(8), DefaultCeilingPerSecond: CeilingFor(PerSeconds(8)),
                 ResourceScoped: true),
 
+            // One per ten seconds, measured by the maintainer on 2026-09-13 -- slower than the
+            // 1-per-8s this originally guessed. Every open instance is in one response, so the
+            // poll rate is what decides how quickly Modbot notices an instance opening or
+            // closing, and ten seconds is close enough for a room that lives for hours.
             [VRChatEndpointClass.GroupsInstances] = new(
                 VRChatEndpointClass.GroupsInstances, GroupLane,
-                HardMaxPerSecond: PerSeconds(8), DefaultCeilingPerSecond: CeilingFor(PerSeconds(8)),
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
                 ResourceScoped: true),
 
             // Group info and group roles are both spec 4.2's 1-per-10s, and they share this
@@ -243,6 +253,20 @@ public static class VRChatRateLimits
                 VRChatEndpointClass.UsersGroups, UsersGroupsLane,
                 HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
                 BurstTokens: 2),
+
+            // Measured at 1 req/s by the maintainer on 2026-09-13, so these are findings rather
+            // than spec 4.3.4 guesses -- but they still count against the global backstop, which
+            // exists for the account-wide limit Modbot cannot see (spec 4.3.1). Neither is a
+            // steady consumer: a world is read once and then never again, and an instance only
+            // when a client reports one the group's own list does not carry. They are therefore
+            // deliberately absent from `Scheduled` below.
+            [VRChatEndpointClass.WorldsRead] = new(
+                VRChatEndpointClass.WorldsRead, PlacesLane,
+                HardMaxPerSecond: 1.0, DefaultCeilingPerSecond: CeilingFor(1.0)),
+
+            [VRChatEndpointClass.InstancesRead] = new(
+                VRChatEndpointClass.InstancesRead, PlacesLane,
+                HardMaxPerSecond: 1.0, DefaultCeilingPerSecond: CeilingFor(1.0)),
 
             [VRChatEndpointClass.UsersSearch] = new(
                 VRChatEndpointClass.UsersSearch, SearchLane,

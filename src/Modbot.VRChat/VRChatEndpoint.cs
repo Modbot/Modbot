@@ -24,12 +24,37 @@ public static class VRChatEndpointClass
     public const string GroupsMembers = "groups.members";
     public const string GroupsBans = "groups.bans";
     public const string GroupsAuditLog = "groups.auditlog";
+    /// <summary>
+    /// Which instances the managed group has open right now -- <c>/groups/{groupId}/instances</c>.
+    /// Measured at one request per ten seconds by the maintainer on 2026-09-13.
+    /// </summary>
     public const string GroupsInstances = "groups.instances";
 
     /// <summary>Group info and group roles both land here (spec 4.2).</summary>
     public const string GroupsRead = "groups.read";
 
     public const string GroupsInvites = "groups.invites";
+
+    /// <summary>
+    /// A world's own page -- <c>/worlds/{worldId}</c>. Read to learn a world's name, its author
+    /// and how many people it holds, so a timeline can say "The Black Cat" instead of
+    /// <c>wrld_4cf554b4-430c-4f8f-b53e-1f294eed230b</c>.
+    /// </summary>
+    /// <remarks>
+    /// Measured at one request per second by the maintainer on 2026-09-13. That is a finding, not
+    /// a guess -- but it is still its own class, so a 429 here stops world names and nothing else.
+    /// </remarks>
+    public const string WorldsRead = "worlds.read";
+
+    /// <summary>
+    /// One instance by its location -- <c>/instances/{location}</c>. Read for instances Modbot
+    /// learns about from a client rather than from the group's own list.
+    /// </summary>
+    /// <remarks>
+    /// Measured at one request per second by the maintainer on 2026-09-13, same as
+    /// <see cref="WorldsRead"/>, and budgeted separately for the same reason.
+    /// </remarks>
+    public const string InstancesRead = "instances.read";
 
     /// <summary>Profile fetches. Runs in its own lane, exempt from the global ceiling (spec 4.2.5).</summary>
     public const string UsersRead = "users.read";
