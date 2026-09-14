@@ -99,7 +99,7 @@ public class ClientSourceGuardTests
     }
 
     [Theory]
-    [InlineData("System.Diagnostics.Process", "the client does not attach to, inspect or launch processes")]
+    [InlineData("System.Diagnostics.Process", "the client does not attach to, inspect or launch processes itself -- the installer's own updater is started by Velopack, from Updates.cs only (see TheOnlyFileThatTalksToTheInstallerIsUpdatesCs)")]
     [InlineData("localconfig.vdf", "the client does not read Steam's configuration -- M3 2.3.1")]
     [InlineData("GetAsyncKeyState", "the client does not read the keyboard")]
     [InlineData("Clipboard", "the client does not read the clipboard")]
@@ -147,6 +147,36 @@ public class ClientSourceGuardTests
         Assert.Contains(SchemeRegistrationKey, registration, StringComparison.Ordinal);
         Assert.DoesNotContain("LocalMachine", registration, StringComparison.Ordinal);
         Assert.DoesNotContain("HKEY_LOCAL_MACHINE", registration, StringComparison.Ordinal);
+    }
+
+    /// <summary>The one file allowed to talk to the installer and updater.</summary>
+    private const string UpdatesFile = "Updates.cs";
+
+    [Fact]
+    public void TheOnlyFileThatTalksToTheInstallerIsUpdatesCs()
+    {
+        // The client ships inside Velopack's installer, and Velopack is how it learns about and
+        // downloads newer versions of itself. That library is also the one thing in the client
+        // that starts another program: its own Update.exe, from Modbot's install folder, to swap
+        // the files while Modbot is not running. The ban on System.Diagnostics.Process above still
+        // covers every file the client ships -- including this one -- so the client's own code
+        // never launches anything; and the library that does is reachable from exactly one file,
+        // which has to carry the plain-language disclosure of what it reads, downloads and never
+        // does (M3 9.2: updates are visible, never forced, and can be turned off).
+        var touching = EverythingTheClientShips()
+            .Where(f => File.ReadAllText(f).Contains("Velopack", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal([UpdatesFile], touching);
+
+        var updates = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == UpdatesFile));
+
+        Assert.Contains("<remarks>", updates, StringComparison.Ordinal);
+        Assert.Matches(Discloses, updates);
+        Assert.Contains("never restarts Modbot while Modbot is running", updates, StringComparison.Ordinal);
+        Assert.Contains("SetAutoApplyOnStartup(false)", updates, StringComparison.Ordinal);
     }
 
     /// <summary>Anything that would capture what is on a screen, by any route.</summary>

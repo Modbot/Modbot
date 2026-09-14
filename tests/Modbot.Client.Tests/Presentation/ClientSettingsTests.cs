@@ -65,4 +65,30 @@ public class ClientSettingsTests : IDisposable
 
         Assert.Equal(ClientSettings.Default, ClientSettings.Load(Path_));
     }
+
+    [Fact]
+    public void UpdateChecksAreOnUnlessTheFileSaysOtherwise()
+    {
+        // M3 9.2: a tool that is genuinely self-hostable must let a group pin a version and never
+        // have the client call out on its own. Off is a deliberate word in the file, never a
+        // default and never the result of a typo.
+        Assert.True(ClientSettings.Load(Path_).CheckForUpdates);
+
+        Write("""{ "checkForUpdates": false }""");
+        Assert.False(ClientSettings.Load(Path_).CheckForUpdates);
+
+        Write("""{ "checkForUpdates": "no" }""");
+        Assert.True(ClientSettings.Load(Path_).CheckForUpdates);
+    }
+
+    [Fact]
+    public void TurningUpdatesOffDoesNotDisturbThePairingPage()
+    {
+        Write("""{ "pairingPage": "https://modbot.example/pair", "checkForUpdates": false }""");
+
+        var settings = ClientSettings.Load(Path_);
+
+        Assert.Equal(new Uri("https://modbot.example/pair"), settings.PairingPage);
+        Assert.False(settings.CheckForUpdates);
+    }
 }

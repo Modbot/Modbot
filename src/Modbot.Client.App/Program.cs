@@ -153,6 +153,7 @@ internal sealed class ClientHost
     private IIngestTransport? _transport;
     private OverlayDriver? _overlay;
     private OverlayHost? _overlayHost;
+    private Updates? _updates;
     private bool _overlayTicking;
     private bool _engineTicking;
 
@@ -195,6 +196,7 @@ internal sealed class ClientHost
         StartOverlay();
         InstallTray(desktop);
         ListenForLinks();
+        StartUpdateChecks();
 
         _refresh.Tick += (_, _) => CrashGuard.Run("refreshing the window", Render);
         _refresh.Start();
@@ -478,6 +480,7 @@ internal sealed class ClientHost
             // the process eventually exits.
             _engineLoop.Stop();
             _overlayLoop.Stop();
+            _updates?.Stop();
             _inboxStop.Cancel();
             _overlay?.Dispose();
             _overlayHost?.Dispose();
@@ -493,6 +496,23 @@ internal sealed class ClientHost
 
         _tray.Clicked += (_, _) => ShowWindow();
         TrayIcon.SetIcons(Application.Current!, [_tray]);
+    }
+
+    /// <summary>
+    /// Starts asking the release feed for newer versions, unless the moderator has turned that
+    /// off. What arrives is downloaded and announced in the window; it is installed at the next
+    /// start and never underneath a running session.
+    /// </summary>
+    private void StartUpdateChecks()
+    {
+        if (_state?.Settings.CheckForUpdates is not true)
+        {
+            Log.Information("Update checks are turned off in settings.json; this client will not look for newer versions");
+            return;
+        }
+
+        _updates = new Updates(_state);
+        _updates.Start();
     }
 
     /// <summary>
@@ -674,6 +694,11 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // First, before the log or the single-instance check: the installer starts this exe with
+        // a flag while installing, updating or uninstalling, and this does what the flag asks and
+        // exits. An ordinary start comes straight back.
+        Updates.RunInstallerHooks(args);
+
         // Windows starts a fresh copy of this program to deliver a modbot-client:// link. The
         // link is the first argument that looks like one; anything else on the command line is
         // Avalonia's business.
@@ -699,6 +724,11 @@ internal static class Program
 
             return 0;
         }
+
+        // Only the copy that will own the tray icon installs a waiting update, and only here,
+        // before the window exists: nothing is being recorded yet, so the restart costs nothing,
+        // and a second copy started by a browser link never swaps the files under the first.
+        Updates.InstallDownloadedUpdate(args);
 
         ModbotClientApp.StartupMessage = link;
 

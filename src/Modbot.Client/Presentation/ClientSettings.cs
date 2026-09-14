@@ -5,24 +5,29 @@ using Modbot.Client.Pairing;
 namespace Modbot.Client.Presentation;
 
 /// <summary>
-/// The one thing a moderator can change about the client itself: which page "Pair with a server"
-/// opens.
+/// The two things a moderator can change about the client itself: which page "Pair with a server"
+/// opens, and whether it checks for newer versions of itself.
 /// </summary>
 /// <remarks>
 /// <para><strong>What this reads.</strong> One optional file, <c>settings.json</c>, in Modbot's own
-/// folder under your user profile — beside <c>pairings.json</c>. It is plain JSON with one field,
-/// <c>pairingPage</c>, and if it is missing, unreadable or names an address the client would not
-/// talk to, the default is used and nothing is written. The client never creates this file; a
-/// person who wants the override creates it.</para>
+/// folder under your user profile — beside <c>pairings.json</c>. It is plain JSON with two optional
+/// fields, <c>pairingPage</c> and <c>checkForUpdates</c>, and if it is missing, unreadable or names
+/// an address the client would not talk to, the defaults are used and nothing is written. The
+/// client never creates this file; a person who wants an override creates it.</para>
 /// <para><strong>Nothing here leaves the machine.</strong> The address is what the client opens in
 /// your browser when you press the button; it is not sent anywhere, and no server is told what it
 /// is.</para>
-/// <para><strong>Why it exists.</strong> The default is the project's own page, which forwards a
+/// <para><strong>Why it exists.</strong> The default page is the project's own, which forwards a
 /// signed-in moderator to their group's server. A tester with only their own server, or a group
 /// that would rather not go through the project's page at all, points the button at
-/// <c>https://their-server/pair</c> directly.</para>
+/// <c>https://their-server/pair</c> directly. The update switch is for a group whose policy is to
+/// pin a version and never have software call out for new versions on its own (M3 9.2).</para>
 /// </remarks>
-public sealed record ClientSettings(Uri PairingPage)
+/// <param name="CheckForUpdates">
+/// Whether an installed client asks the release feed for newer versions. On unless
+/// <c>"checkForUpdates": false</c> is in the file.
+/// </param>
+public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true)
 {
     /// <summary>The project's pairing page, which sends a signed-in moderator on to their own server's.</summary>
     public const string DefaultPairingPage = "https://my.modbot.co/pair";
@@ -54,7 +59,7 @@ public sealed record ClientSettings(Uri PairingPage)
             return Default;
         }
 
-        return FromPairingPage(shape?.PairingPage);
+        return FromPairingPage(shape?.PairingPage) with { CheckForUpdates = shape?.CheckForUpdates ?? true };
     }
 
     /// <summary>
@@ -72,5 +77,7 @@ public sealed record ClientSettings(Uri PairingPage)
             : Default;
     }
 
-    private sealed record FileShape([property: JsonPropertyName("pairingPage")] string? PairingPage);
+    private sealed record FileShape(
+        [property: JsonPropertyName("pairingPage")] string? PairingPage,
+        [property: JsonPropertyName("checkForUpdates")] bool? CheckForUpdates);
 }

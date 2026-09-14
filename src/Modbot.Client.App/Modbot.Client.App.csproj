@@ -12,6 +12,20 @@
     <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.File" />
+    <!-- Installer hooks and the update check. Used from Updates.cs and nowhere else; the source
+         guard holds that. -->
+    <PackageReference Include="Velopack" />
+  </ItemGroup>
+
+  <!-- Where an installed client looks for newer versions of itself. The release workflow passes
+       the repository it is publishing to (-p:ModbotUpdateFeed=https://github.com/owner/repo) so
+       the client and the workflow cannot disagree; the default is the project's own repository.
+       Read at run time by Updates.cs from the assembly's metadata. -->
+  <PropertyGroup>
+    <ModbotUpdateFeed Condition="'$(ModbotUpdateFeed)' == ''">https://github.com/binn/Modbot</ModbotUpdateFeed>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="ModbotUpdateFeed" Value="$(ModbotUpdateFeed)" />
   </ItemGroup>
 
   <PropertyGroup>
