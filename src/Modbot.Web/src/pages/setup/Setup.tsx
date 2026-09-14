@@ -96,9 +96,7 @@ export function Setup({ onFinished }: { onFinished: () => void }) {
   if (status.hasAdministrator && !status.authenticated) {
     return (
       <Shell>
-        <WizardHeader eyebrow="Setup" title="Sign in to change setup">
-          Modbot has already been set up on this deployment, so its settings are behind a login.
-        </WizardHeader>
+        <WizardHeader eyebrow="Setup" title="Sign in to change setup" />
         <div className="px-6 pb-6">
           <Button type="button" onClick={onFinished} style={{ height: 'var(--control-h)' }}>
             Go to sign in

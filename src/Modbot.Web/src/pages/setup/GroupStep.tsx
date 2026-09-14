@@ -71,13 +71,11 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
 
   return (
     <form id={WIZARD_FORM_ID} onSubmit={submit}>
-      <WizardHeader eyebrow={eyebrow} title="Choose the group to manage">
-        These are the groups where your VRChat account holds moderator permissions.
-      </WizardHeader>
+      <WizardHeader eyebrow={eyebrow} title="Choose the group to manage" />
       <WizardBody>
         {loading && (
           <p className="m-0 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Asking VRChat which groups you can moderate…
+            Loading groups…
           </p>
         )}
 
@@ -139,14 +137,15 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
         {candidates && candidates.groups.length === 0 && (
           // Spec 7.1 step 4: say so explicitly and explain the required permissions. An empty
           // list on its own leaves the operator with nothing to act on.
-          <Note tone="warn" title="None of your groups qualify.">
-            {candidates.totalGroups === 0
-              ? 'This VRChat account is not a member of any group.'
-              : `This account is in ${candidates.totalGroups} group${candidates.totalGroups === 1 ? '' : 's'}, but holds none of the moderator permissions Modbot needs in any of them.`}
-            <br />
-            <span className="mt-1 inline-block">
-              Grant it at least one of these in the group's roles, then test again:
-            </span>
+          <Note
+            tone="warn"
+            title={
+              candidates.totalGroups === 0
+                ? 'This account is not in any group.'
+                : 'None of your groups qualify.'
+            }
+          >
+            Needs one of these permissions:
             <ul className="mt-1 ml-4 list-disc font-mono">
               {candidates.requiredPermissions.map((permission) => (
                 <li key={permission}>{permission}</li>
@@ -157,8 +156,7 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
 
         {candidates && filteredOut > 0 && candidates.groups.length > 0 && (
           <p className="m-0 text-muted-foreground/70" style={{ fontSize: 'var(--text-small)' }}>
-            {filteredOut} other group{filteredOut === 1 ? '' : 's'} hidden — this account holds no
-            moderator permissions there.
+            {filteredOut} other group{filteredOut === 1 ? '' : 's'} hidden: no moderator permissions
           </p>
         )}
 

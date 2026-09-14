@@ -10,11 +10,7 @@ import { SettingsSection } from './SettingsCard'
  */
 export function ModerationSection() {
   return (
-    <SettingsSection
-      id="moderation"
-      title="Moderation"
-      description="What moderators are asked for when they act."
-    >
+    <SettingsSection id="moderation" title="Moderation">
       <BanReasonsCard />
     </SettingsSection>
   )

@@ -13,10 +13,7 @@ export function LinkVRChat({ me, onLinked }: { me: CurrentUser; onLinked: () => 
       <div className="w-full max-w-[520px]">
         <Brand />
         <div className="overflow-hidden rounded-xl border bg-card shadow-lg">
-          <WizardHeader eyebrow={`Signed in as ${me.username}`} title="Link your VRChat account">
-            Everything Modbot records is attributed to a person. Before you can use it, show which
-            VRChat account is yours.
-          </WizardHeader>
+          <WizardHeader eyebrow={`Signed in as ${me.username}`} title="Link your VRChat account" />
           <WizardBody>
             <VRChatLinkPanel compact onLinked={onLinked} />
           </WizardBody>

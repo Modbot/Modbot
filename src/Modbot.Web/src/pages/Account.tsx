@@ -165,7 +165,7 @@ function ChangePassword() {
             </Button>
             {done && (
               <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>
-                Changed. Every other place you were signed in has been signed out.
+                Changed. Other sessions signed out.
               </span>
             )}
           </div>
@@ -201,15 +201,11 @@ function Contact({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) 
     <Card>
       <CardContent>
         <form onSubmit={submit} className="space-y-3">
-          <div className="font-semibold">If you forget your password</div>
-          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            A reset link can be sent to you by email, or by Discord direct message if this Modbot
-            has a bot. Nothing else is ever sent to either.
-          </p>
+          <div className="font-semibold">Password reset</div>
           <Field label="Email" htmlFor="acct-email">
             <Input id="acct-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Field label="Discord user id" hint="Discord → your profile → Copy User ID" htmlFor="acct-discord">
+          <Field label="Discord user id" htmlFor="acct-discord">
             <Input id="acct-discord" className="font-mono" autoComplete="off" value={discord} onChange={(e) => setDiscord(e.target.value)} />
           </Field>
           <ErrorText>{error}</ErrorText>
@@ -232,10 +228,7 @@ function SignOutEverywhere() {
     <Card>
       <CardContent className="space-y-3">
         <div className="font-semibold">Sign out everywhere</div>
-        <Note>
-          Ends every session this account has — other browsers, other machines, and this one. Use
-          it if you left yourself signed in somewhere you should not have.
-        </Note>
+        <Note>Includes this browser.</Note>
         <Button
           size="sm"
           variant="destructive"

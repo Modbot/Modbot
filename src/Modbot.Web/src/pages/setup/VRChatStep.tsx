@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type ConnectionDiagnosis } from '@/lib/api'
 import { DiagnosisNote } from './DiagnosisNote'
-import { ErrorText, Field, Note, WizardBody, WizardHeader } from './WizardChrome'
+import { ErrorText, Field, WizardBody, WizardHeader } from './WizardChrome'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
 /**
@@ -44,9 +44,7 @@ export function VRChatStep({ eyebrow, status, run, refresh }: StepProps) {
 
   return (
     <form id={WIZARD_FORM_ID} onSubmit={submit}>
-      <WizardHeader eyebrow={eyebrow} title="Connect a VRChat account">
-        Modbot acts as this account. It must be a moderator of the group you want to manage.
-      </WizardHeader>
+      <WizardHeader eyebrow={eyebrow} title="Connect a VRChat account" />
       <WizardBody>
         <Field label="Email or username" htmlFor="vrc-username">
           <Input
@@ -68,11 +66,7 @@ export function VRChatStep({ eyebrow, status, run, refresh }: StepProps) {
             onChange={(e) => setPassword(e.target.value)}
           />
         </Field>
-        <Field
-          label="Two-factor secret"
-          hint="TOTP, so Modbot can log in unattended"
-          htmlFor="vrc-totp"
-        >
+        <Field label="Two-factor secret" htmlFor="vrc-totp">
           <Input
             id="vrc-totp"
             className="font-mono"
@@ -83,11 +77,6 @@ export function VRChatStep({ eyebrow, status, run, refresh }: StepProps) {
             onChange={(e) => setTotpSecret(e.target.value)}
           />
         </Field>
-
-        <Note title="Use a dedicated account, not your personal one.">
-          Modbot stores these credentials encrypted in its own database, and signs in as this
-          account continuously.
-        </Note>
 
         {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
         <ErrorText>{error}</ErrorText>

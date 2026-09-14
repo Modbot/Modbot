@@ -19,10 +19,7 @@ export function IntegrationsSection({
   refresh: () => Promise<void>
 }) {
   return (
-    <SettingsSection
-      id="integrations"
-      title="Integrations"
-    >
+    <SettingsSection id="integrations" title="Integrations">
       {/* Mounted only once the status is in hand -- see VRChatSection for why. */}
       {status ? (
         <IntegrationsForm status={status} refresh={refresh} />
@@ -126,9 +123,7 @@ function IntegrationsForm({
   // form element out of the layout so the cards stay direct children of the grid.
   return (
     <form onSubmit={save} className="contents">
-      <SettingsCard
-        title="Discord"
-      >
+      <SettingsCard title="Discord">
         <Fact
           label="Bot"
           value={status.integrations.discordConfigured ? 'Token stored' : 'Not configured'}
@@ -140,7 +135,7 @@ function IntegrationsForm({
             label="Post moderation events to this channel"
             value={logChannelId}
             onChange={setLogChannelId}
-            placeholder="Channel id, or blank to post nothing"
+            placeholder=""
           />
         </div>
         <div className="mt-3 flex flex-col gap-1">
@@ -165,16 +160,13 @@ function IntegrationsForm({
         </div>
       </SettingsCard>
 
-      <SettingsCard
-        title="Instance announcements"
-        description="Optional. Tells a channel when the group opens a room, and keeps that message up to date."
-      >
+      <SettingsCard title="Instance announcements">
         <div className="flex max-w-lg flex-col gap-3">
           <Field
             label="Announce open instances in this channel"
             value={instanceChannelId}
             onChange={setInstanceChannelId}
-            placeholder="Channel id, or blank to announce nothing"
+            placeholder=""
           />
           <LongField
             label="Message above each announcement"
@@ -185,9 +177,7 @@ function IntegrationsForm({
         </div>
       </SettingsCard>
 
-      <SettingsCard
-        title="Email (SMTP)"
-      >
+      <SettingsCard title="Email (SMTP)">
         <Fact
           label="Relay"
           value={
@@ -224,18 +214,15 @@ function IntegrationsForm({
           >
             {testing ? 'Sending…' : 'Send a test email'}
           </Button>
-          <Outcome tone="ok">{testResult?.sent && 'Sent. Check the inbox.'}</Outcome>
+          <Outcome tone="ok">{testResult?.sent && 'Sent.'}</Outcome>
           <Outcome tone="problem">{testResult && !testResult.sent ? testResult.error : null}</Outcome>
         </div>
       </SettingsCard>
 
-      <SettingsCard
-        title="Public address"
-        description="The address people use to reach this Modbot."
-      >
+      <SettingsCard title="Public address">
         <Fact
           label="Address"
-          value={status.integrations.publicAddress ?? 'Not set — reset links cannot be sent'}
+          value={status.integrations.publicAddress ?? 'Not set'}
         />
         <div className="max-w-lg">
           <Field
@@ -252,7 +239,7 @@ function IntegrationsForm({
             style={{ fontSize: 'var(--text-small)' }}
             onClick={() => setPublicAddress(status.integrations.publicAddressSuggestion ?? '')}
           >
-            Use {status.integrations.publicAddressSuggestion}, which is what the host says it is
+            Use {status.integrations.publicAddressSuggestion}
           </button>
         )}
       </SettingsCard>
@@ -261,7 +248,7 @@ function IntegrationsForm({
         <Button type="submit" size="sm" disabled={saving}>
           {saving ? 'Saving…' : 'Save integrations'}
         </Button>
-        <Outcome tone="ok">{saved && 'Saved. Nothing was tested by connecting — see above.'}</Outcome>
+        <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
         <Outcome tone="problem">{error}</Outcome>
       </div>
     </form>

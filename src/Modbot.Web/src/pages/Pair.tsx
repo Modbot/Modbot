@@ -88,10 +88,7 @@ export function Pair() {
       <div className="w-full max-w-[460px]">
         <Brand subtitle="desktop client" />
         <div className="overflow-hidden rounded-xl border bg-card shadow-lg">
-          <WizardHeader eyebrow="Pair" title="Pair this computer">
-            The Modbot desktop client reports which of this group's instances you are in. Pairing
-            gives your copy of it a token for this server, and nothing else.
-          </WizardHeader>
+          <WizardHeader eyebrow="Pair" title="Pair this computer" />
 
           <WizardBody>
             {error && <ErrorText>{error}</ErrorText>}
@@ -102,12 +99,6 @@ export function Pair() {
                   <a href={issued.link}>Open in Modbot</a>
                 </Button>
 
-                <p className="m-0 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                  Your browser will ask to open Modbot. Say yes, and the client window shows
-                  "Paired". Nothing happened? Copy the pairing token below and paste it into the
-                  client's Servers page instead.
-                </p>
-
                 <div className="flex gap-2">
                   <Input readOnly value={issued.token} aria-label="Pairing token" className="font-mono" />
                   <Button variant="secondary" onClick={copy} style={{ height: 'var(--control-h)' }}>
@@ -116,17 +107,13 @@ export function Pair() {
                 </div>
 
                 {copied === 'no' && (
-                  <Note tone="warn">
-                    Your browser would not copy it. Select the token above and copy it yourself.
-                  </Note>
+                  <Note tone="warn">Could not copy.</Note>
                 )}
               </>
             )}
 
             {issued && expired && (
-              <Note tone="warn" title="This link has expired.">
-                A pairing link works for five minutes and once. Get a new one and try again.
-              </Note>
+              <Note tone="warn" title="This link has expired." />
             )}
 
             {!issued && !error && (
@@ -139,7 +126,7 @@ export function Pair() {
           <WizardFooter>
             <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               {issued && !expired && secondsLeft !== null
-                ? `Works once, for the next ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`
+                ? `Expires in ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`
                 : ' '}
             </span>
             <div className="flex-1" />
@@ -153,10 +140,6 @@ export function Pair() {
             </Button>
           </WizardFooter>
         </div>
-
-        <p className="mt-4 text-center text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Do not have the client yet? Install it first, run it once, then come back to this page.
-        </p>
       </div>
     </div>
   )
