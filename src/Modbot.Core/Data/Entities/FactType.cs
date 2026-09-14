@@ -264,6 +264,31 @@ public static class FactType
     /// <summary>A person closed a review, with a note. The actor is the Modbot account.</summary>
     public const string ReviewClosed = "modbot.review.closed";
 
+    // ── Case files (spec 5.8.3, ban case files design) ─────────────────────────────────────
+    //
+    // The subject is the person who was banned, on the VRChat platform, so the case file shows in
+    // their history next to the ban itself. The actor is always the Modbot account that did it
+    // (spec 5.9.1: attribution lives here and nowhere else). Every one carries the case file id
+    // and enough of the content that the edit history can be read back from the log alone.
+
+    /// <summary>A moderator wrote up a ban. Payload: reasons, the written reason, and when the snapshot was taken.</summary>
+    public const string ReportCreated = "modbot.report.created";
+
+    /// <summary>The reasons or the written reason changed. Payload: before and after.</summary>
+    public const string ReportUpdated = "modbot.report.updated";
+
+    /// <summary>The case file was marked withdrawn, with a note. The row stays.</summary>
+    public const string ReportWithdrawn = "modbot.report.withdrawn";
+
+    /// <summary>
+    /// The profile snapshot was taken again after a fresher profile arrived. Payload carries the
+    /// snapshot it replaced in full, so the first capture is never lost.
+    /// </summary>
+    public const string ReportSnapshotRecaptured = "modbot.report.snapshot.recaptured";
+
+    /// <summary>The ban reason list changed: a reason added, reworded, switched off or reordered.</summary>
+    public const string BanReasonsChanged = "modbot.ban-reasons.change";
+
     // ── Evidence (evidence design §6, §14.1) ───────────────────────────────────────────────
 
     /// <summary>Evidence was attached to a case file.</summary>

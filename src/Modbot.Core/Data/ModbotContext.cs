@@ -79,6 +79,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The group's ban list as last swept.</summary>
     public DbSet<GroupBan> GroupBans => Set<GroupBan>();
 
+    /// <summary>The reasons a moderator picks from when writing up a ban (spec 5.8.2).</summary>
+    public DbSet<BanReason> BanReasons => Set<BanReason>();
+
+    /// <summary>The write-up of each ban: reasons, the moderator's words, the profile at the time (spec 5.8.3).</summary>
+    public DbSet<CaseFile> CaseFiles => Set<CaseFile>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -363,6 +369,59 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.GroupId)
                 .HasDatabaseName("ix_group_ban_waiting")
                 .HasFilter("waiting_facts IS NOT NULL");
+        });
+
+        builder.Entity<BanReason>(entity =>
+        {
+            entity.ToTable("ban_reason");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Label).HasMaxLength(64);
+            entity.Property(e => e.Description).HasMaxLength(256);
+
+            // The buttons are drawn in this order, every time a ban is written up.
+            entity.HasIndex(e => e.SortOrder).HasDatabaseName("ix_ban_reason_order");
+        });
+
+        builder.Entity<CaseFile>(entity =>
+        {
+            entity.ToTable("case_file");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            // VRChat ids are opaque text with no length assumption (spec 3.1.1). The audit entry
+            // id is VRChat's too.
+            entity.Property(e => e.UserId).HasColumnType("text");
+            entity.Property(e => e.GroupId).HasColumnType("text");
+            entity.Property(e => e.AuditEntryId).HasColumnType("text");
+
+            entity.Property(e => e.AuthorUsername).HasMaxLength(64);
+            entity.Property(e => e.UpdatedByUsername).HasMaxLength(64);
+            entity.Property(e => e.WithdrawnByUsername).HasMaxLength(64);
+            entity.Property(e => e.WithdrawnNote).HasMaxLength(2000);
+
+            // A moderator's own words, at whatever length they need. Bounded by the API, not by
+            // a varchar that would one day cut a real write-up short.
+            entity.Property(e => e.WrittenReason).HasColumnType("text");
+
+            // The subject pane and the ban list both ask "this person's case files, newest first".
+            entity.HasIndex(e => new { e.UserId, e.CreatedAt })
+                .HasDatabaseName("ix_case_file_user")
+                .IsDescending(false, true);
+
+            // "Which case file is about this ban" is how the audit-log rows find their badge and
+            // how the unwritten list decides a ban is covered. Only rows that know their entry.
+            entity.HasIndex(e => e.AuditEntryId)
+                .HasDatabaseName("ix_case_file_audit_entry")
+                .HasFilter("audit_entry_id IS NOT NULL");
+
+            // The case file list, newest first.
+            entity.HasIndex(e => e.CreatedAt)
+                .HasDatabaseName("ix_case_file_created")
+                .IsDescending();
         });
 
         builder.Entity<ModbotEvent>(entity =>
