@@ -127,7 +127,9 @@ requests in a way the client would read as transient.
 - The client is **single-instance**. The copy Windows starts to deliver a link hands it to the
   running copy over a named pipe (current user only, bounded, one message per connection) and
   exits. The scheme is registered under `HKCU\Software\Classes\modbot-client` on every start —
-  per-user, no elevation, and the only registry key the client touches.
+  per-user, no elevation, and the only registry key the client touches. **Confirmed working on
+  Windows 11 on 2026-09-14**: a `modbot-client://` link from a browser reaches a running client,
+  which is the one part of this design that could not be proved by a test and had to be tried.
 - `managedGroupId` comes back at pairing because the client needs it to route events **locally**
   without asking anyone (M3 §5.5.1). Asking a server "do you own this instance?" is itself the leak
   the routing rule exists to prevent.
