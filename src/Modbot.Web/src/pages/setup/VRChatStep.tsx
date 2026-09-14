@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type ConnectionDiagnosis } from '@/lib/api'
 import { DiagnosisNote } from './DiagnosisNote'
-import { ErrorText, Field, WizardBody, WizardHeader } from './WizardChrome'
+import { ErrorText, Field, Note, WizardBody, WizardHeader } from './WizardChrome'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
 /**
@@ -77,6 +77,8 @@ export function VRChatStep({ eyebrow, status, run, refresh }: StepProps) {
             onChange={(e) => setTotpSecret(e.target.value)}
           />
         </Field>
+
+        <Note tone="warn" title="Use a dedicated account, not your personal one." />
 
         {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
         <ErrorText>{error}</ErrorText>

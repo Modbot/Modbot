@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
 import { ApiError, api, type CurrentUser } from '@/lib/api'
+import { registerLink } from '@/lib/myModbot'
 import { ErrorText, Field, Note } from '@/pages/setup/WizardChrome'
 
 /**
@@ -58,6 +59,20 @@ export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => v
               <VRChatLinkPanel compact onLinked={onChanged} />
             </div>
           </details>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-3">
+          <div className="font-semibold">my.modbot.co</div>
+          <a
+            href={registerLink()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            Add to my.modbot.co
+          </a>
         </CardContent>
       </Card>
 

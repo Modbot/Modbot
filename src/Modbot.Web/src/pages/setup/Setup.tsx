@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ApiError, api, type OnboardingStatus, type OnboardingStep } from '@/lib/api'
+import { openRegisterOnce } from '@/lib/myModbot'
 import { AdministratorStep } from './AdministratorStep'
 import { ConnectionStep } from './ConnectionStep'
 import { GroupStep } from './GroupStep'
@@ -135,6 +136,7 @@ export function Setup({ onFinished }: { onFinished: () => void }) {
             variant="ghost"
             disabled={busy}
             onClick={() => {
+              if (!status.onboardingComplete) openRegisterOnce()
               setBusy(true)
               api
                 .completeOnboarding()

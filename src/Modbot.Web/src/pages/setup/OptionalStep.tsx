@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { ApiError, api } from '@/lib/api'
+import { openRegisterOnce } from '@/lib/myModbot'
 import { ErrorText, Field, WizardBody, WizardHeader } from './WizardChrome'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
@@ -32,6 +33,9 @@ export function OptionalStep({ eyebrow, status, run, refresh }: StepProps) {
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
+
+    // Straight from the submit, before anything is awaited, or the browser blocks the tab.
+    if (!status.onboardingComplete) openRegisterOnce()
 
     run(async () => {
       setError(null)

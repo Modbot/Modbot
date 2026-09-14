@@ -265,6 +265,12 @@ my.modbot.co/register?url=https://modbot-vrckings.up.railway.app
 
 The page saves that URL into the browser's `localStorage` and confirms. That is all it does.
 
+> **Built 2026-09-14.** The tab opens from a click people already make: "Finish setup" or "Skip
+> this step" at the end of setup, and "Create account" on an invite. A browser blocks a new tab that
+> is not opened directly by a click, so it cannot open later on its own. It opens once per page load,
+> and not when setup is re-run on a deployment that is already set up. Afterwards, anyone can use
+> **Add to my.modbot.co** on their Account page. The address sent is the one the browser is on.
+
 **This is for the operator, not for the project.** It is what makes `my.modbot.co` a usable jumping-off
 point — someone who runs Modbot for two groups, or who arrives from the documentation site, picks
 their instance from a list instead of hunting for a Railway URL.

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type InviteView } from '@/lib/api'
+import { openRegisterOnce } from '@/lib/myModbot'
 import { Brand, ErrorText, Field, Note, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
 
 /**
@@ -29,6 +30,8 @@ export function Join({ token, onJoined }: { token: string; onJoined: () => void 
       setError('The passwords do not match.')
       return
     }
+    // Straight from the submit, before anything is awaited, or the browser blocks the tab.
+    openRegisterOnce()
     setBusy(true)
     setError(null)
     api
