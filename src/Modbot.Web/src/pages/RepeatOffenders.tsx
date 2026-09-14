@@ -66,12 +66,9 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
         className="rounded-lg border bg-muted/40 px-4 py-3 text-muted-foreground"
         style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
       >
-        <div className="font-medium text-foreground">Counted from the recorded history, by any moderator, in any instance.</div>
-        <p className="mt-1">{list.rule}</p>
+        <p>{list.rule}</p>
         <p className="mt-1">
-          {list.lastRunAt
-            ? `Counts rebuilt ${ago(list.lastRunAt, list.now)}. They catch up with the audit log every fifteen minutes.`
-            : 'The counts have not been built yet — they are built a few minutes after Modbot starts.'}
+          {list.lastRunAt ? `Counts rebuilt ${ago(list.lastRunAt, list.now)}.` : 'Counts not built yet.'}
         </p>
       </div>
 
@@ -112,11 +109,6 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
           {list.people.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground">
               <div className="font-medium text-foreground">Nobody yet</div>
-              <p className="mx-auto mt-1 max-w-md" style={{ fontSize: 'var(--text-small)' }}>
-                {status === 'repeat'
-                  ? 'Nobody meets the repeat rule right now.'
-                  : 'Nobody in the recorded history has been acted on more than once.'}
-              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">

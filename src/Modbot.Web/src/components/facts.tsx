@@ -61,7 +61,7 @@ export function FactTime({ entry }: { entry: Pick<AuditEntry, 'occurredAt' | 'oc
   return (
     <span
       className="tabular-nums text-muted-foreground"
-      title={`Sometime between ${dateTime(entry.occurredAt)} and ${dateTime(entry.occurredBefore)} — Modbot inferred this from a change between two syncs and cannot know when inside that window it happened.`}
+      title={`Between ${dateTime(entry.occurredAt)} and ${dateTime(entry.occurredBefore)}`}
     >
       ~{time(entry.occurredAt)}–{time(entry.occurredBefore)}
     </span>

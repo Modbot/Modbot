@@ -92,9 +92,7 @@ export function UserProfileCard({
 
             if (timedOut) {
               setRefreshing(false)
-              setRefreshNote(
-                'Still waiting for the refresh — the queue is busy. Showing what Modbot has stored.',
-              )
+              setRefreshNote('Refresh still waiting.')
               return
             }
 
@@ -165,9 +163,7 @@ export function UserProfileCard({
         <Profile profile={profile} />
       ) : (
         <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {profile.known
-            ? 'Modbot has seen this id in its history but has not fetched the profile yet.'
-            : 'Modbot has never seen this id before now.'}
+          {profile.known ? 'Profile not fetched yet.' : 'Not seen before.'}
         </p>
       )}
 
@@ -221,8 +217,7 @@ function Freshness({
       {note && <div className="mt-1 text-muted-foreground">{note}</div>}
       {profile.notFoundAt && (
         <div className="mt-1 text-muted-foreground">
-          VRChat had no account with this id when last asked ({formatDay(profile.notFoundAt)}) —
-          usually a deleted account. What is shown is the last profile Modbot saw.
+          No VRChat account with this id as of {formatDay(profile.notFoundAt)}.
         </div>
       )}
     </div>
@@ -370,25 +365,20 @@ function AgeVerified({
         VRChat shows this person as{' '}
         <span className="font-mono">{profile.ageVerificationStatusLastSeen ?? 'unknown'}</span>
         {profile.lastRefreshedAt ? ` as of ${ago(profile.lastRefreshedAt, profile.now)}` : ''}.
-        {flag.verified && profile.ageVerificationStatusLastSeen === 'hidden' && (
-          <> They have hidden it since Modbot saw it; the flag stays until a moderator clears it.</>
-        )}
       </p>
 
       {editing !== null && (
         <div className="mt-2 flex flex-col gap-2">
           <label className="flex flex-col gap-1">
             <span className="text-muted-foreground">
-              {editing
-                ? 'Why are you marking this person 18+ verified?'
-                : 'Why are you clearing the flag? This is recorded against your account.'}
+              {editing ? 'Why are you marking this person 18+ verified?' : 'Why are you clearing the flag?'}
             </span>
             <input
               className="rounded-md border bg-background px-2 py-1"
               style={{ borderWidth: 'var(--hairline)' }}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Reason (kept with the record)"
+              placeholder="Reason"
               maxLength={500}
             />
           </label>

@@ -52,11 +52,7 @@ export function Markdown({
         <span
           className="inline-block rounded border px-1.5 py-0.5 text-muted-foreground"
           style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-          title={
-            match
-              ? 'This refers to evidence that is not attached to this case file, or that you may not view.'
-              : 'Only evidence attached to this case file can be shown. Other image links are never fetched.'
-          }
+          title={match ? 'Evidence not available' : 'External image not shown'}
         >
           [image{alt ? `: ${alt}` : ''}]
         </span>

@@ -27,7 +27,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
 
   if (!allowed) {
     return (
-      <PopupFrame title="Instance" lead={lead} left={<Note>Instances are part of Analytics, which your account cannot open.</Note>}>
+      <PopupFrame title="Instance" lead={lead} left={<Note>You do not have permission to see instances.</Note>}>
         <span />
       </PopupFrame>
     )
@@ -55,20 +55,14 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
       >
         {data && !data.canSeeWhoWasThere && (
           <Panel title={tab === 'people' ? 'People' : 'Logs'}>
-            <Note>
-              Who was in a room and what was done to them is moderation history, which needs permission to read
-              the audit log. Your account can see the room itself, on the left.
-            </Note>
+            <Note>You do not have permission to see this.</Note>
           </Panel>
         )}
         {data?.canSeeWhoWasThere && tab === 'people' && <People view={data} />}
         {data?.canSeeWhoWasThere && tab === 'logs' && (
-          <Panel
-            title="What happened in this instance"
-            note="Every fact recorded here while the room was open, newest first."
-          >
-            <FactList entries={data.log} empty="Nothing was recorded in this room." />
-            {data.logTruncated && <Note>Showing the newest {data.log.length}; more happened here.</Note>}
+          <Panel title="What happened in this instance">
+            <FactList entries={data.log} empty="Nothing recorded yet." />
+            {data.logTruncated && <Note>Showing the newest {data.log.length}.</Note>}
           </Panel>
         )}
       </Tabs>
@@ -102,7 +96,7 @@ function Identity({ view }: { view: InstanceView }) {
       <Field label="Opened">{dateTime(room.openedAt)}</Field>
       <Field label={room.closedAt ? 'Closed' : 'Still open'}>
         {room.closedAt
-          ? `${dateTime(room.closedAt)}${room.closedBy === 'time' ? ' — it went quiet, rather than leaving the group’s list' : ''}`
+          ? `${dateTime(room.closedAt)}${room.closedBy === 'time' ? ' · went quiet' : ''}`
           : `last seen ${dateTime(view.lastSeenAt)}`}
       </Field>
       <Field label={room.closedAt ? 'Ran for' : 'Open for'}>{openFor}</Field>
@@ -114,15 +108,8 @@ function Identity({ view }: { view: InstanceView }) {
         <Field label="Seen by a moderator's client">
           {view.counts.visitors > 0
             ? `${compactNumber(view.counts.visitors)} people, ${minutes(view.counts.minutesSeen)} of people-time`
-            : 'nobody — no client was in this room'}
+            : 'nobody'}
         </Field>
-      )}
-
-      {!view.seenInGroupList && (
-        <Note>
-          This room was never on the group's own instance list, so its end was judged by it going quiet rather
-          than read from the list.
-        </Note>
       )}
     </>
   )
@@ -130,12 +117,9 @@ function Identity({ view }: { view: InstanceView }) {
 
 function People({ view }: { view: InstanceView }) {
   return (
-    <Panel
-      title="Who was seen in this instance"
-      note="From the desktop client's presence reports, so only people a moderator's client saw while it was in the room. Longest first."
-    >
+    <Panel title="Who was seen in this instance">
       {view.people.length === 0 ? (
-        <Note>No moderator's client was in this room, so nobody was seen.</Note>
+        <Note>Nobody seen.</Note>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>

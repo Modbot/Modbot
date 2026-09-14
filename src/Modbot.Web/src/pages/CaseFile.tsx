@@ -59,7 +59,7 @@ export function CaseFile({
             e instanceof ApiError && e.status === 403
               ? 'You do not have permission to read case files.'
               : e instanceof ApiError && e.status === 404
-                ? 'There is no case file with that link. It may never have existed — case files are never deleted, so one that was written is still here.'
+                ? 'There is no case file with that link.'
                 : 'Could not load this case file.',
           ),
         ),
@@ -110,9 +110,6 @@ export function CaseFile({
             {view.withdrawnByUsername ?? 'Somebody'} withdrew it
             {view.withdrawnAt ? ` on ${formatDay(view.withdrawnAt)}` : ''}: {view.withdrawnNote}
           </p>
-          <p className="mt-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            It stays here to read, and its ban counts as unwritten again. Nothing is ever deleted.
-          </p>
         </div>
       )}
 
@@ -123,7 +120,7 @@ export function CaseFile({
           <>
             <div className="flex flex-wrap items-center gap-1.5">
               {view.reasons.map((reason) => (
-                <Badge key={reason.id} variant={reason.isActive ? 'default' : 'secondary'} title={reason.isActive ? undefined : 'This reason has since been switched off.'}>
+                <Badge key={reason.id} variant={reason.isActive ? 'default' : 'secondary'} title={reason.isActive ? undefined : 'Switched off'}>
                   {reason.label}
                 </Badge>
               ))}
@@ -154,14 +151,7 @@ export function CaseFile({
         )}
       </Section>
 
-      <Section
-        title="Evidence"
-        subtitle={
-          view.canViewEvidence
-            ? 'Screenshots and video attached to this case.'
-            : undefined
-        }
-      >
+      <Section title="Evidence">
         {view.canViewEvidence && view.evidence ? (
           <EvidenceGallery
             caseId={view.id}
@@ -173,9 +163,7 @@ export function CaseFile({
           />
         ) : (
           <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            You do not have permission to view evidence. Whether any is attached is not shown here
-            either — evidence about a person is more sensitive than the line of audit log it hangs
-            off, and the two are separate permissions on purpose.
+            You do not have permission to view evidence.
           </p>
         )}
       </Section>
@@ -227,26 +215,11 @@ function Header({
   )
 }
 
-function Section({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string
-  subtitle?: string
-  children: React.ReactNode
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-2 px-5">
-        <div>
-          <div className="font-medium">{title}</div>
-          {subtitle && (
-            <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {subtitle}
-            </div>
-          )}
-        </div>
+        <div className="font-medium">{title}</div>
         {children}
       </CardContent>
     </Card>
@@ -304,10 +277,6 @@ function EditReport({
           </span>
         )}
       </div>
-      <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        Every edit is recorded against your account, with what it changed. The profile snapshot and
-        the evidence are not touched by this.
-      </p>
     </div>
   )
 }
@@ -352,7 +321,7 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
             {busy ? 'Capturing…' : 'Refresh and capture again'}
           </Button>
           <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Once only. What is here now is kept in the record either way.
+            Once only.
           </span>
         </div>
       )}
@@ -517,8 +486,7 @@ function Withdraw({ view, onWithdrawn }: { view: CaseFileView; onWithdrawn: (nex
         >
           <div className="font-medium">Why are you withdrawing it?</div>
           <p className="mt-1 text-muted-foreground">
-            The case file stays and stays readable. Its ban counts as unwritten again, and it can no
-            longer be edited — write a new one instead.
+            It can no longer be edited after this.
           </p>
           <textarea
             className="mt-2 w-full rounded-md border bg-background px-2 py-1"

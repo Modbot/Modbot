@@ -70,12 +70,7 @@ export function UnwrittenCaseFiles({
           </span>
         </div>
 
-        {list.total === 0 ? (
-          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Counted over the bans Modbot watched happen. Bans from before this deployment started
-            syncing are not in the count either way.
-          </p>
-        ) : (
+        {list.total > 0 && (
           <>
             <ul className="flex flex-col gap-1">
               {list.bans.map((ban) => (
