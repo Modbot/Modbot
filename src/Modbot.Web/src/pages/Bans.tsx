@@ -186,12 +186,11 @@ function GroupBans({
         </div>
       ) : (
         <div className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-3" style={{ borderWidth: 'var(--hairline)' }}>
-          <div className="font-medium">Modbot is reading the ban list for the first time.</div>
-          <p className="mt-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          <div className="font-medium">
             {list.coverage.sweepInProgress
-              ? 'The list below is whatever pages have come in so far. Until the first sweep finishes, not finding somebody here does not mean they are not banned.'
-              : 'The first sweep has not started yet. Until it finishes, not finding somebody here does not mean they are not banned.'}
-          </p>
+              ? 'Reading the ban list for the first time.'
+              : 'The ban list has not been read yet.'}
+          </div>
         </div>
       )}
 
@@ -231,13 +230,6 @@ function GroupBans({
           {list.bans.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground">
               <div className="font-medium text-foreground">{search ? 'Nobody matches' : 'No bans listed'}</div>
-              <p className="mx-auto mt-1 max-w-md" style={{ fontSize: 'var(--text-small)' }}>
-                {search
-                  ? 'Search matches the display name Modbot has stored and the VRChat id.'
-                  : list.coverage.firstSweepComplete
-                    ? 'The last full sweep of the ban list found nobody banned.'
-                    : 'Nothing has been read yet.'}
-              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -325,10 +317,6 @@ function GroupBans({
           )}
         </CardContent>
       </Card>
-
-      <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        Who issued each ban, and why, is on the other tab: the ban list says only that a ban stands.
-      </p>
     </>
   )
 }
@@ -410,10 +398,6 @@ function RecordedBans({
           {list.bans.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground">
               <div className="font-medium text-foreground">No bans recorded</div>
-              <p className="mx-auto mt-1 max-w-md" style={{ fontSize: 'var(--text-small)' }}>
-                Modbot has not seen a ban happen in the audit log since it started syncing. The
-                ban list on the other tab is the place to check whether somebody is banned.
-              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -523,24 +507,15 @@ function CoverageNotice({ coverage }: { coverage: BanCoverage }) {
       className="rounded-lg border bg-muted/40 px-4 py-3"
       style={{ borderWidth: 'var(--hairline)' }}
     >
-      <div className="font-medium">These are the bans Modbot watched happen, with who issued them.</div>
-      <p className="mt-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        They are read from VRChat's group audit log, so the list starts when this deployment first
-        synced{coverage.firstSyncedAt ? ` (${formatDay(coverage.firstSyncedAt)})` : ''} and reaches
-        back only as far as VRChat's own audit-log retention still held at that moment. Bans issued
-        before that are absent here; the ban list on the other tab has them.
-      </p>
       <dl
-        className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground"
+        className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground"
         style={{ fontSize: 'var(--text-small)' }}
       >
         <Pair label="Records cover" value={window ?? 'nothing recorded yet'} />
+        {coverage.firstSyncedAt && <Pair label="First synced" value={formatDay(coverage.firstSyncedAt)} />}
         <Pair label="Ban events recorded" value={coverage.bannedCount.toLocaleString()} />
         <Pair label="Unban events recorded" value={coverage.unbannedCount.toLocaleString()} />
-        <Pair
-          label="Reading back through VRChat's log"
-          value={coverage.catchUpComplete ? 'finished' : 'still running — the window is still growing'}
-        />
+        <Pair label="Catch-up" value={coverage.catchUpComplete ? 'finished' : 'still running'} />
       </dl>
     </div>
   )

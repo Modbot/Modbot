@@ -28,41 +28,35 @@ export function ReasonButtons({
   if (reasons.length === 0) {
     return (
       <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        No reasons are on the list. Somebody who can edit the reason list needs to add one first.
+        No reasons on the list.
       </p>
     )
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div role="group" aria-label="Reasons" className="flex flex-wrap gap-1.5">
-        {reasons.map((reason) => (
-          <button
-            key={reason.id}
-            type="button"
-            aria-pressed={picked.includes(reason.id)}
-            title={reason.description}
-            onClick={() => toggle(reason.id)}
-            className={cn(
-              'inline-flex items-center rounded-full border px-2.5 font-medium transition-colors',
-              picked.includes(reason.id)
-                ? 'border-transparent bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-            style={{
-              fontSize: 'var(--text-small)',
-              borderWidth: 'var(--hairline)',
-              height: 'calc(var(--control-h) - 6px)',
-            }}
-          >
-            {reason.label}
-          </button>
-        ))}
-      </div>
-      <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        Pick as many as fit. This is what the accountability checks read, so it is worth the second
-        it costs.
-      </p>
+    <div role="group" aria-label="Reasons" className="flex flex-wrap gap-1.5">
+      {reasons.map((reason) => (
+        <button
+          key={reason.id}
+          type="button"
+          aria-pressed={picked.includes(reason.id)}
+          title={reason.description}
+          onClick={() => toggle(reason.id)}
+          className={cn(
+            'inline-flex items-center rounded-full border px-2.5 font-medium transition-colors',
+            picked.includes(reason.id)
+              ? 'border-transparent bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+          style={{
+            fontSize: 'var(--text-small)',
+            borderWidth: 'var(--hairline)',
+            height: 'calc(var(--control-h) - 6px)',
+          }}
+        >
+          {reason.label}
+        </button>
+      ))}
     </div>
   )
 }
@@ -86,8 +80,8 @@ export function WrittenReasonBox({
   return (
     <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
       <span className="text-muted-foreground">
-        What happened, in your words
-        {requiredBy.length > 0 ? ` — required, because you picked ${requiredBy[0].label}` : ' (optional)'}
+        What happened
+        {requiredBy.length > 0 ? ' (required)' : ' (optional)'}
       </span>
       <textarea
         className="w-full rounded-md border bg-background px-2 py-1 font-mono"
@@ -95,12 +89,8 @@ export function WrittenReasonBox({
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={'Followed two members between instances shouting slurs.\n\nMarkdown works: **bold**, lists, > quotes.'}
+        placeholder="Followed two members between instances shouting slurs."
       />
-      <span className="text-muted-foreground/70">
-        Markdown. Raw HTML is never shown, and an image can only point at evidence attached to this
-        case file — write ![what it shows](evidence:&lt;the sha256 under a file&gt;).
-      </span>
     </label>
   )
 }
@@ -203,12 +193,6 @@ export function WriteCaseFile({
           </Button>
         )}
       </div>
-
-      <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        Saving copies this person's profile, membership and ban list entry as Modbot holds them
-        right now, and then asks VRChat for a fresher profile. Evidence is attached on the case
-        file itself, once it exists.
-      </p>
     </div>
   )
 }

@@ -68,8 +68,7 @@ function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash
       {item.destroyed ? (
         <div className="rounded bg-muted/60 px-3 py-6 text-center text-muted-foreground">
           The file was destroyed{item.destroyedAt ? ` on ${formatDay(item.destroyedAt)}` : ''}
-          {item.destroyedBy ? ` by ${item.destroyedBy}` : ''}.{item.destroyedReason ? ` ${item.destroyedReason}` : ''}{' '}
-          The record that it existed stays.
+          {item.destroyedBy ? ` by ${item.destroyedBy}` : ''}.{item.destroyedReason ? ` ${item.destroyedReason}` : ''}
         </div>
       ) : item.contentType.startsWith('video/') ? (
         <video controls preload="metadata" src={api.evidenceUrl(item.hash)} className="max-h-80 w-full rounded bg-black" />
@@ -145,7 +144,7 @@ function Picture({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (h
       <div className="rounded bg-muted/60 px-3 py-6 text-center text-muted-foreground">
         Could not show this image: {problem}{' '}
         <a href={api.evidenceUrl(item.hash)} className="underline underline-offset-2">
-          Try downloading it instead.
+          Download
         </a>
       </div>
     )
@@ -266,9 +265,9 @@ function ProgressLine({ progress }: { progress: Progress }) {
 
   switch (progress.phase) {
     case 'hashing':
-      return <p className="text-muted-foreground" style={small}>Working out the file's fingerprint…</p>
+      return <p className="text-muted-foreground" style={small}>Checking the file…</p>
     case 'starting':
-      return <p className="text-muted-foreground" style={small}>Asking where the bytes go…</p>
+      return <p className="text-muted-foreground" style={small}>Starting…</p>
     case 'sending': {
       const fraction = progress.total > 0 ? progress.sent / progress.total : 0
       const rate = progress.bytesPerSecond
@@ -285,7 +284,7 @@ function ProgressLine({ progress }: { progress: Progress }) {
       )
     }
     case 'committing':
-      return <p className="text-muted-foreground" style={small}>Modbot is reading the file back, checking what it is, and attaching it…</p>
+      return <p className="text-muted-foreground" style={small}>Attaching…</p>
     case 'done':
       return <p className="text-ok" style={small}>Attached {progress.name}.</p>
     case 'failed':
@@ -325,7 +324,7 @@ function transfer(
 
     xhr.upload.onprogress = (e) =>
       onProgress(e.loaded, e.lengthComputable ? e.total : file.size, rate(e.loaded))
-    xhr.onerror = () => reject(new Error('The connection dropped while sending the file. Try again; the same upload can be retried.'))
+    xhr.onerror = () => reject(new Error('The connection dropped. Try again.'))
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         onProgress(file.size, file.size, rate(file.size))

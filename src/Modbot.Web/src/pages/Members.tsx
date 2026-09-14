@@ -143,13 +143,6 @@ export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void
               <div className="font-medium text-foreground">
                 {search || role ? 'Nobody matches' : 'Nobody listed yet'}
               </div>
-              <p className="mx-auto mt-1 max-w-md" style={{ fontSize: 'var(--text-small)' }}>
-                {search || role
-                  ? 'Search matches the display name Modbot has stored and the VRChat id. Names arrive as profiles are fetched, so a very new member may only be findable by id for a while.'
-                  : list.coverage.firstSweepComplete
-                    ? 'The last full sweep listed nobody. The bot account itself is never in the list VRChat returns.'
-                    : 'The first sweep of the member list has not read anyone yet. Rows appear as pages come in.'}
-              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -192,7 +185,7 @@ export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void
                                 <span
                                   className="inline-flex items-center rounded-full border border-transparent bg-ok/15 px-1.5 py-0 font-medium text-ok"
                                   style={{ fontSize: '0.6875rem' }}
-                                  title="Seen as 18+ verified on VRChat; this flag stays set until a moderator clears it"
+                                  title="18+ verified"
                                 >
                                   18+
                                 </span>
@@ -201,7 +194,6 @@ export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void
                                 <span
                                   className="text-muted-foreground"
                                   style={{ fontSize: '0.6875rem' }}
-                                  title="Shows this group above their name tag in-game"
                                 >
                                   representing
                                 </span>
@@ -275,12 +267,11 @@ function Freshness({ coverage }: { coverage: MemberList['coverage'] }) {
         className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-3"
         style={{ borderWidth: 'var(--hairline)' }}
       >
-        <div className="font-medium">Modbot is reading the member list for the first time.</div>
-        <p className="mt-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <div className="font-medium">
           {coverage.sweepInProgress
-            ? 'The list below is whatever pages have come in so far, not the whole group. It fills in at one page every two seconds and this notice goes away when the first sweep finishes.'
-            : 'The first sweep has not started yet. It begins on its own once a group is configured and VRChat is reachable.'}
-        </p>
+            ? 'Reading the member list for the first time.'
+            : 'The member list has not been read yet.'}
+        </div>
       </div>
     )
   }
@@ -293,7 +284,7 @@ function Freshness({ coverage }: { coverage: MemberList['coverage'] }) {
       </span>
       <span>
         {coverage.memberCount.toLocaleString()} {coverage.memberCount === 1 ? 'member' : 'members'} at the last full
-        sweep, not counting the bot account.
+        sweep.
       </span>
     </div>
   )

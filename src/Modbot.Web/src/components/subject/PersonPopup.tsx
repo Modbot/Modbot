@@ -66,13 +66,10 @@ function Logs({ id }: { id: string }) {
       <SubjectHistory subjectId={id} />
 
       <div className="font-medium">Everything recorded about this person</div>
-      <Note>Newest first. Every name in a line opens its own popup on top of this one.</Note>
 
       {error && <Note className="text-destructive">{error}</Note>}
       {!error && !data && <Note>Loading…</Note>}
-      {data && (
-        <FactList entries={data.entries} empty="Nothing recorded about this person in the history Modbot holds." />
-      )}
+      {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
     </div>
   )
 }
@@ -94,19 +91,16 @@ function Metrics({ id }: { id: string }) {
   const c = data.counts
 
   return (
-    <Panel
-      title="Time in world"
-      note="From the desktop client's presence reports. This only counts time a moderator running the client was in the same room, so somebody who has never shared a room with one reads as nothing here — which is not the same as never having been anywhere."
-    >
+    <Panel title="Time in world">
       {!data.known ? (
-        <Note>No moderator's client has seen this person in a room yet.</Note>
+        <Note>Not seen in an instance yet.</Note>
       ) : (
         <>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            <Figure label="Time seen" value={minutes(c.minutesSeen)} note="while a client was watching" />
+            <Figure label="Time seen" value={minutes(c.minutesSeen)} />
             <Figure label="Instances visited" value={compactNumber(c.rooms)} />
             <Figure label="Worlds visited" value={compactNumber(c.worlds)} />
-            <Figure label="Arrivals" value={compactNumber(c.arrivals)} note="walking in, or already there" />
+            <Figure label="Arrivals" value={compactNumber(c.arrivals)} />
             <Figure
               label="Last seen"
               value={c.lastSeenAt ? ago(c.lastSeenAt, data.now) : '—'}
@@ -117,10 +111,7 @@ function Metrics({ id }: { id: string }) {
 
           <div className="mt-2 font-medium">Instances they were seen in</div>
           {data.recentRooms.length === 0 ? (
-            <Note>
-              None that Modbot has a row for. The rooms they were seen in were never on the group's own
-              instance list, so there is nothing to open.
-            </Note>
+            <Note>No instances yet.</Note>
           ) : (
             <RoomTable rooms={data.recentRooms} />
           )}
@@ -153,10 +144,7 @@ function MembershipCard({ subjectId }: { subjectId: string }) {
       {view && (
         <div className="mt-1 flex flex-col gap-1.5">
           {!view.members.firstSweepComplete ? (
-            <p className="text-warn">
-              The member list is still being read for the first time, so whether this person is a
-              member is not known yet.
-            </p>
+            <p className="text-warn">Member list not read yet.</p>
           ) : view.isMember ? (
             <p>
               Member{view.joinedAt ? <> since {formatDay(view.joinedAt)}</> : ''}
@@ -164,11 +152,11 @@ function MembershipCard({ subjectId }: { subjectId: string }) {
             </p>
           ) : view.known ? (
             <p>
-              Not a member{view.leftAt ? <> — no longer listed as of {formatDay(view.leftAt)}</> : ''}
+              Not a member{view.leftAt ? <> — left {formatDay(view.leftAt)}</> : ''}
               {view.joinedAt ? <>, had joined {formatDay(view.joinedAt)}</> : ''}.
             </p>
           ) : (
-            <p className="text-muted-foreground">Not a member as of the last sweep.</p>
+            <p className="text-muted-foreground">Not a member.</p>
           )}
 
           {view.roleNames.length > 0 && (
@@ -195,11 +183,11 @@ function MembershipCard({ subjectId }: { subjectId: string }) {
             </p>
           ) : view.banLiftedAt ? (
             <p className="text-muted-foreground">
-              Was banned{view.bannedAt ? <> on {formatDay(view.bannedAt)}</> : ''}; the ban was lifted by{' '}
+              Was banned{view.bannedAt ? <> on {formatDay(view.bannedAt)}</> : ''}; lifted by{' '}
               {formatDay(view.banLiftedAt)}.
             </p>
           ) : !view.bans.firstSweepComplete ? (
-            <p className="text-muted-foreground">The ban list is still being read for the first time.</p>
+            <p className="text-muted-foreground">Ban list not read yet.</p>
           ) : null}
 
           <p className="text-muted-foreground">

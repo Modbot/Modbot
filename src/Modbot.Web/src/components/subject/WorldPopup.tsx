@@ -30,7 +30,7 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
     return (
       <PopupFrame title="World" subtitle={<Id id={id} />} lead={lead} left={<Id id={id} />}>
         <Panel title="World">
-          <Note>Worlds are part of Analytics, which your account cannot open.</Note>
+          <Note>You do not have permission to see worlds.</Note>
         </Panel>
       </PopupFrame>
     )
@@ -52,12 +52,9 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
         ]}
       >
         {data && tab === 'instances' && (
-          <Panel
-            title="Instances in this world"
-            note="Newest first, from the group's own instance list. A room open in a world the group does not run appears only if a moderator's client was in it."
-          >
+          <Panel title="Instances in this world">
             {data.rooms.length === 0 ? (
-              <Note>No instance in this world has been recorded.</Note>
+              <Note>No instances yet.</Note>
             ) : (
               <>
                 <RoomTable rooms={data.rooms} showWorld={false} />
@@ -97,16 +94,11 @@ function Identity({ world }: { world: WorldView }) {
         <div className="text-lg font-semibold tracking-tight">
           {world.name ?? <span className="text-muted-foreground">Name not read yet</span>}
         </div>
-        {!world.name && (
-          // Ordinary, not an error: the world sweep reads a page shortly after the id is first
-          // seen, and a private or deleted world never gets a name at all.
-          <Note>
-            {world.readError
-              ? `Modbot tried to read this world's page and VRChat said: ${world.readError}`
-              : world.known
-                ? 'Modbot has seen this world but has not read its page yet. The name appears once it has.'
-                : 'Modbot has only ever seen this id. Nothing else about the world is known.'}
-          </Note>
+        {/* A missing name is ordinary, not an error: the world sweep reads a page shortly after
+            the id is first seen, and a private or deleted world never gets a name at all. Only a
+            failed read has anything to say. */}
+        {!world.name && world.readError && (
+          <Note className="text-destructive">Couldn't read this world: {world.readError}</Note>
         )}
       </div>
 
@@ -156,13 +148,10 @@ function Metrics({ world }: { world: WorldView }) {
   const to = series[series.length - 1]
 
   return (
-    <Panel
-      title="How busy this world has been"
-      note="Time and visitors come from the desktop client's presence reports, so they only count rooms a moderator's client was in. Instances opened come from the group's own list and are complete."
-    >
+    <Panel title="How busy this world has been">
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        <Figure label="Time seen" value={minutes(c.minutesSeen)} note="people-time, while a client was watching" />
-        <Figure label="Visitors" value={compactNumber(c.visitors)} note="distinct people" />
+        <Figure label="Time seen" value={minutes(c.minutesSeen)} />
+        <Figure label="Visitors" value={compactNumber(c.visitors)} />
         <Figure label="Instances opened" value={compactNumber(world.roomsTotal)} note={`${world.roomsOpenNow} open now`} />
         <Figure label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
       </div>
@@ -174,19 +163,18 @@ function Metrics({ world }: { world: WorldView }) {
             from={from}
             to={to}
             series={[{ key: 'visitors', label: 'visitors', points: world.visitorsPerDay, slot: 1 }]}
-            emptyText="No visitors recorded in the daily totals yet."
+            emptyText="No visitors yet."
           />
           <div className="mt-2 font-medium">Instances opened per day</div>
           <DailyBars
             from={from}
             to={to}
             series={[{ key: 'rooms', label: 'instances opened', points: world.roomsPerDay, slot: 4 }]}
-            emptyText="No instances opened in the daily totals yet."
+            emptyText="No instances yet."
           />
-          <Note>From the daily totals, which are about fifteen minutes behind.</Note>
         </>
       ) : (
-        <Note>Nothing about this world has reached the daily totals yet.</Note>
+        <Note>Nothing recorded yet.</Note>
       )}
     </Panel>
   )

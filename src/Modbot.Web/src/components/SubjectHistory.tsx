@@ -43,10 +43,7 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
       className="rounded-md border px-3 py-2"
       style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
     >
-      <div className="flex items-baseline gap-2">
-        <span className="font-medium">History</span>
-        <span className="text-muted-foreground">actions against this person, by anybody, anywhere</span>
-      </div>
+      <div className="font-medium">History</div>
 
       {error && <p className="mt-1 text-destructive">{error}</p>}
 
@@ -54,8 +51,7 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
 
       {history && !history.known && (
         <p className="mt-1 text-muted-foreground">
-          Nobody has acted on this person in the history Modbot holds.
-          {history.lastRunAt === null && ' The counts have not been built yet.'}
+          {history.lastRunAt === null ? 'Counts not built yet.' : 'No actions recorded.'}
         </p>
       )}
 

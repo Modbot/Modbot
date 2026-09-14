@@ -501,7 +501,7 @@ const SENTENCES: Record<string, Sentence> = {
 
   'modbot.evidence.destroy': (p) => (
     <>
-      {p.actor} destroyed {p.text('fileName') ?? 'a piece of evidence'}. The record that it existed stays.
+      {p.actor} destroyed {p.text('fileName') ?? 'a piece of evidence'}.
     </>
   ),
 
@@ -546,8 +546,7 @@ const SENTENCES: Record<string, Sentence> = {
     return (
       <>
         Every fact about one person was erased on request
-        {typeof facts === 'number' ? <> — {facts.toLocaleString()} of them</> : null}. Nobody is named,
-        deliberately.
+        {typeof facts === 'number' ? <> — {facts.toLocaleString()} of them</> : null}.
       </>
     )
   },

@@ -53,11 +53,10 @@ export function Note({ children, className }: { children: React.ReactNode; class
   )
 }
 
-export function Panel({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+export function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-2 p-4">
       <div className="font-medium">{title}</div>
-      {note && <Note>{note}</Note>}
       {children}
     </section>
   )
