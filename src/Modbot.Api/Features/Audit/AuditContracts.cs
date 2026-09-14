@@ -26,6 +26,37 @@ public enum TimePrecision
     Window = 2,
 }
 
+/// <summary>
+/// What a fact's subject is, so that clicking it opens the right thing.
+/// </summary>
+/// <remarks>
+/// The subject column holds whatever the source put there, and for VRChat's audit log that is
+/// documented only as "typically a UserID, GroupID, GroupRoleID, or Location". The id itself is
+/// never parsed to find out which (spec 3.1.1) — the fact's <em>type</em> says what its subject
+/// is, and this carries that answer to the screen.
+/// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<SubjectKind>))]
+public enum SubjectKind
+{
+    /// <summary>A VRChat or Discord person. The ordinary case.</summary>
+    Person = 1,
+
+    /// <summary>A room: the subject is the location string the event happened at.</summary>
+    Instance = 2,
+
+    /// <summary>The managed group itself.</summary>
+    Group = 3,
+
+    /// <summary>One of the group's roles.</summary>
+    Role = 4,
+
+    /// <summary>A Modbot account — the subject of Modbot's own record of what happened in Modbot.</summary>
+    Account = 5,
+
+    /// <summary>Something else: a case file, an invite link, a Discord channel, a partition name.</summary>
+    Other = 6,
+}
+
 /// <param name="Id">The fact's id. Also the second half of the paging cursor.</param>
 /// <param name="OccurredBefore">Null when the time is exact; otherwise the end of the window.</param>
 /// <param name="ObservedAt">When Modbot learned of it, which is not when it happened.</param>
@@ -38,6 +69,25 @@ public enum TimePrecision
 /// The actor's display name as it was recorded <em>at the time</em>, from the fact's payload.
 /// Absent rather than substituted when the payload did not carry one.
 /// </param>
+/// <param name="TypeRaw">
+/// The source's own word for the event, kept when Modbot had no name for it. Never null for a
+/// <c>modbot.unrecognised</c> fact, and the thing that makes such a fact readable later: a screen
+/// that learns the word renders every old row correctly without anything being rewritten.
+/// </param>
+/// <param name="SubjectKind">What the subject is, so a screen knows what clicking it should open.</param>
+/// <param name="SubjectName">
+/// The name stored for the subject now — a VRChat display name, a Modbot username. Looked up once
+/// per page of entries, never once per row. Null when nothing is stored, and never substituted
+/// with the id dressed up as a name.
+/// </param>
+/// <param name="WorldName">
+/// What the world is called, from <c>vrchat_world</c>. Null when Modbot has only ever seen the id.
+/// </param>
+/// <param name="RoomId">
+/// Modbot's own id for the room this happened in, where one could be matched. The fact log keys a
+/// room on the world and VRChat's number, which is handed out again after a room closes, so the
+/// match is made on the fact's time falling inside a room's own open and close times.
+/// </param>
 /// <param name="Data">
 /// The fact's own payload, verbatim. Secrets are never in it by construction (spec 5.9.3).
 /// </param>
@@ -48,15 +98,20 @@ public sealed record AuditEntry(
     DateTimeOffset ObservedAt,
     TimePrecision Precision,
     string Type,
+    string? TypeRaw,
     AuditCategory Category,
     string Source,
     string SubjectPlatform,
     string SubjectId,
+    SubjectKind SubjectKind,
+    string? SubjectName,
     string? ActorPlatform,
     string? ActorId,
     string? ActorName,
     string? WorldId,
+    string? WorldName,
     string? InstanceId,
+    Guid? RoomId,
     string? Description,
     JsonNode? Data);
 

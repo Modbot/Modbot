@@ -72,7 +72,9 @@ public sealed class AuditQuery(ModbotContext db)
         if (hasMore)
             rows.RemoveAt(rows.Count - 1);
 
-        var entries = rows.Select(Project).ToList();
+        // Names for the whole page in three queries, not three per row. A timeline that prints
+        // ids is a timeline nobody reads.
+        var entries = await AuditNaming.ResolveAsync(db, rows.Select(Project).ToList(), ct);
 
         var next = hasMore && rows.Count > 0
             ? new AuditCursor(rows[^1].OccurredAt, rows[^1].Id)
@@ -221,15 +223,22 @@ public sealed class AuditQuery(ModbotContext db)
             e.ObservedAt,
             e.OccurredBefore is null ? TimePrecision.Exact : TimePrecision.Window,
             e.Type,
+            e.TypeRaw,
             AuditVisibility.CategoryOf(e.Type),
             e.Source.ToString(),
             e.SubjectPlatform.ToString(),
             e.SubjectId,
+            FactSubjects.For(e.Type),
+            // Names and the room are filled in for the whole page at once by AuditNaming, which
+            // is the only way they can be looked up without a query per row.
+            SubjectName: null,
             e.ActorPlatform?.ToString(),
             e.ActorId,
             AuditJson.Text(data, "actorDisplayName"),
             e.WorldId,
+            WorldName: null,
             e.InstanceId,
+            RoomId: null,
             AuditJson.Text(data, "description"),
             data);
     }

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { DailyBars, RankedList, compactNumber, dateTime, minutes } from '@/components/charts'
+import { WorldLink } from '@/components/facts'
 import { api, type CoverageGap } from '@/lib/api'
 import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, Toggle } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
@@ -231,9 +232,11 @@ function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id:
       </td>
       <td className="py-1 pr-3 text-muted-foreground">{endedBecause}</td>
       {/* Instance ids are user-controlled text (spec 5.3): rendered as text, never as markup. */}
-      <td className="py-1 font-mono text-muted-foreground" title={`${gap.worldId}:${gap.instanceId}`}>
+      <td className="py-1 text-muted-foreground" title={`${gap.worldId}:${gap.instanceId}`}>
+        {/* The world opens its popup. The gap carries no world name, so the id is the label rather
+            than a "not read yet" nobody checked. */}
         <span className="inline-block max-w-56 truncate align-bottom">
-          {gap.worldId}:{gap.instanceId}
+          <WorldLink id={gap.worldId} unnamed="id" /> <span className="font-mono">#{gap.instanceId}</span>
         </span>
       </td>
     </tr>

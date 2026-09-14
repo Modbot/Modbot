@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { DailyLine, Legend, compactNumber, dateTime, minutes, nextSlot } from '@/components/charts'
+import { WorldLink } from '@/components/facts'
 import { api } from '@/lib/api'
 import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
@@ -15,8 +16,8 @@ const THIN = 200
  * however busy it was, and the page says so rather than letting a zero pass as a measurement.
  * Instances opened per world come from the audit log and are complete.
  *
- * Worlds are shown by id: no fact carries a world name yet. That is stated rather than hidden
- * behind a lookup that would cost VRChat API budget on every page load (spec 4.3.4).
+ * Worlds are shown by the name the world sweep stored, with the id underneath, and each opens its
+ * own popup. Nothing here asks VRChat for a name on page load (spec 4.3.4).
  */
 export function Worlds() {
   const [range, setRange] = useState<Range>(30)
@@ -101,7 +102,10 @@ export function Worlds() {
                               />
                             )}
                             <div className="min-w-0">
-                              <div className="truncate font-medium">{w.name ?? 'Not read yet'}</div>
+                              <div className="truncate">
+                                {/* Opens the world, so the table is not a dead end showing ids. */}
+                                <WorldLink id={w.worldId} name={w.name} />
+                              </div>
                               <div
                                 className="truncate font-mono text-muted-foreground"
                                 style={{ fontSize: 'var(--text-tiny, 11px)' }}

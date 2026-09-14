@@ -2093,7 +2093,7 @@ React + TypeScript + Vite, built into `Modbot.Host/wwwroot` and served by Kestre
 no separate frontend deployment.
 
 Screens in this spec: setup wizard, login, members, bans, invites, audit log viewer, the analytics
-sections below, settings — and the **subject pane** (§10.2), which is not a screen.
+sections below, settings — and the **subject popup** (§10.2), which is not a screen.
 
 ### 10.1 Analytics is five sections, not one dashboard
 
@@ -2114,31 +2114,107 @@ a scheduling question no group can currently answer and which falls straight out
 already holds. It is also the one analytics figure that suggests an action rather than describing a
 state.
 
-### 10.2 The subject pane — a component, not a page
+### 10.2 The subject popup — a component, not a page
 
-**Clicking a person anywhere opens a pane over the current view.** From the audit log, the member
-list, the ban list, an instance roster, a search result — the same pane, the same contents.
+**Clicking a person, a world or an instance anywhere opens a popup over the current view.** From the
+audit log, the member list, the ban list, the Worlds and Instances pages, another popup — the same
+popup for the same kind of thing.
 
-It carries: identity and profile, membership and roles, **full moderation history** with
-classifications and who issued them, that person's own presence analytics, their Discord link, and —
-from M4 — actions on them.
+**This replaces the standalone "profile" page** the milestone table previously listed, and, since
+2026-09-14, the right-hand pane this section first described.
 
-**This replaces the standalone "profile" page** the milestone table previously listed.
+#### Why over the page and not instead of it
 
-The reason is that moderation is interruption-driven. A moderator scanning an audit log for one thing
-notices a name and wants to know about it *without losing the scan*. A separate page means navigating
-away, losing scroll position and filters, and navigating back — so in practice people don't check,
-and the information Modbot spent §5.8 collecting goes unread at the moment it would have mattered.
+Moderation is interruption-driven. A moderator scanning an audit log for one thing notices a name and
+wants to know about it *without losing the scan*. A separate page means navigating away, losing
+scroll position and filters, and navigating back — so in practice people don't check, and the
+information Modbot spent §5.8 collecting goes unread at the moment it would have mattered.
 
-Consequences that follow:
+**That reason is unchanged, and the popup keeps it.** The page behind stays mounted — its scroll
+position, its filters and its loaded rows — and closing the popup puts the moderator exactly back
+where they were.
 
-- **The pane is deep-linkable** (`?subject=usr_…`), so it survives a refresh and can be pasted to
-  another moderator. A pane that cannot be linked is a pane nobody shares.
-- **Every list that renders a person is a launcher.** One component, one fetch shape, one place to
-  add anything new about a person.
-- **Repeat-offender context (§5.8.4) lives here**, which is what makes it visible at the moment of
-  action rather than only on a page someone has to think to visit.
-- It must open **fast**, because it is opened speculatively. Summary first, detail as it arrives.
+#### What changed from the pane, and why
+
+- **A centre popup rather than a right-hand pane.** Every kind now lays out the same way: who or what
+  it is on the left, tabs on the right. A narrow pane had room for one column, and the person's
+  history, case files and presence figures were one long scroll.
+- **Three kinds rather than one.** A person, a world and an instance, because each names the others:
+  an instance has a world and people, a world has instances, a person was seen in instances. When
+  only a person could be opened, every world and instance id on screen was a dead end that merely
+  displayed an id.
+- **Popups stack.** A world opened from inside an instance popup opens *on top of* it, and closing it
+  returns to the instance. Only the top popup is drawn — a second dimmed layer under the first is
+  unreadable and makes Escape ambiguous — and the one underneath is named in a "Back to the …"
+  control in the header.
+
+| Kind | Left | Tabs |
+|---|---|---|
+| Person | Their stored VRChat profile; membership and roles | **Logs** (history counts and every fact about them), **Cases**, **Metrics** (time seen, instances and worlds visited, arrivals, last seen) |
+| World | Name, author, picture, capacity, who can find it, when first seen | **Instances** (newest first), **Metrics** (time seen, visitors, instances opened per day) |
+| Instance | World (a link), instance number, who can join, region, opened and closed, people now, most at once, how long it ran | **People** (who a moderator's client saw there), **Logs** (facts recorded there while it was open) |
+
+Everything in all three comes from Modbot's own tables. Opening a popup asks VRChat for nothing, so
+it costs no API budget however often a moderator does it (§4.3.4). An instance is opened by Modbot's
+own id for it, never VRChat's number, which VRChat hands out again once a room closes.
+
+#### The link carries the whole stack
+
+`?subject=` repeated, in the order things were opened:
+
+- `?subject=usr_…` — one person. **The link this section always specified**, so every link already
+  pasted somewhere opens the same thing.
+- `?subject=world:wrld_…` — one world.
+- `?subject=usr_…&subject=instance:<id>` — a person, then an instance opened from inside it.
+
+A repeated parameter rather than one separated list, because each value is encoded on its own and a
+separator could not be told apart from the same character inside an id — VRChat ids are arbitrary
+text (§3.1.1). The `world:` and `instance:` prefixes are Modbot's own labels on a value Modbot wrote,
+not a reading of the id's shape; anything unprefixed is a person.
+
+Opening pushes a browser history entry. So **Escape, the close button, the back control and the
+browser's back button all do the same thing: close one popup.** A stack somebody was sent as a link
+has no history of ours behind it, so closing there rewrites the address instead — otherwise the first
+Escape would leave Modbot.
+
+#### Consequences that still follow
+
+- **The popup is deep-linkable**, so it survives a refresh and can be pasted to another moderator. A
+  popup that cannot be linked is a popup nobody shares.
+- **Every list that renders a person, a world or an instance is a launcher.** One component per kind,
+  one fetch shape, one place to add anything new.
+- **Repeat-offender context (§5.8.4) lives on the person's Logs tab**, which is what makes it visible
+  at the moment of action rather than only on a page someone has to think to visit.
+- It must open **fast**, because it is opened speculatively. Identity first, tabs as they arrive.
+
+#### Facts read as sentences, written when the page is drawn
+
+A log row that reads `vrchat.group.instance.kick`, followed by two ids, is a row a volunteer cannot
+use. Every fact type has a sentence — *Mira kicked Ada out of instance 39047 in The Black Cat* — and
+every name in it opens its own popup. What a fact's subject *is* (a person, an instance, the group, a
+role, a Modbot account) comes from the fact's type, never from the shape of its id.
+
+Names are looked up against `vrchat_user` and `vrchat_world` **once per page of rows, never once per
+row**, and the instance a fact happened in is matched by its time falling inside an instance's own
+open and close times. The name recorded at the time stays in the payload beside the name as it is now.
+
+**The sentence is built when the page is drawn and never stored.** Facts are never mutated (§5.2),
+and nothing needs rewriting anyway: the audit-log producer keeps VRChat's whole entry in the payload,
+and an event Modbot has no name for is stored as `modbot.unrecognised` with VRChat's own word in
+`type_raw`. Sentences are looked up by `type_raw` as well as by `type`, so a row recorded before
+Modbot understood an event reads correctly the moment a sentence for it is written. **That is the
+catch-up, and there is no job:** improving the wording improves all of recorded history the next
+time somebody opens the page. Until then, the row says *"Modbot doesn't recognise this event yet"*
+and shows VRChat's `eventType` and the payload underneath, so the moderator can still read what
+happened.
+
+Two limits, stated rather than papered over:
+
+- **A sentence can only say what the stored event captured.** Where a producer did not keep a field,
+  old rows stay thinner however good the wording gets — VRChat's audit log ages out and the entry
+  cannot be fetched again. Fixing a producer to keep more helps only facts recorded afterwards.
+- **Charts do not catch up this way.** If a newly understood event type should count towards a daily
+  total, that needs the existing recompute from facts (§5.2); drawing a sentence changes no number.
 
 ### 10.3 Tracked Groups — recorded, not built
 

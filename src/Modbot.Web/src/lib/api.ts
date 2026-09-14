@@ -249,6 +249,14 @@ export type TimePrecision = 'Exact' | 'Window'
 /** Which of the two separately-gated logs an entry belongs to. */
 export type AuditCategory = 'Moderation' | 'Operational'
 
+/**
+ * What a fact is about, so a row knows what clicking its subject should open.
+ *
+ * Decided by the server from the fact's type, never by looking at the shape of the id: VRChat
+ * documents its own target only as "typically a UserID, GroupID, GroupRoleID, or Location".
+ */
+export type SubjectKind = 'Person' | 'Instance' | 'Group' | 'Role' | 'Account' | 'Other'
+
 export type AuditEntry = {
   id: number
   occurredAt: string
@@ -256,17 +264,25 @@ export type AuditEntry = {
   observedAt: string
   precision: TimePrecision
   type: string
+  /** The source's own word for an event Modbot had no name for when it was recorded. */
+  typeRaw: string | null
   category: AuditCategory
   source: string
   subjectPlatform: string
   subjectId: string
+  subjectKind: SubjectKind
+  /** The name stored for the subject now, or null. Never the id dressed up as a name. */
+  subjectName: string | null
   actorPlatform: string | null
   actorId: string | null
   actorName: string | null
   worldId: string | null
+  worldName: string | null
   instanceId: string | null
+  /** Modbot's own id for the room this happened in, where one matched. Opens the room popup. */
+  roomId: string | null
   description: string | null
-  data: unknown
+  data: Record<string, unknown> | null
 }
 
 export type AuditCursor = { occurredAt: string; id: number }
@@ -609,6 +625,93 @@ export type InstancesAnalytics = {
   hourOfWeek: HourOfWeek
   coverage: AnalyticsCoverage
   generatedAt: string
+}
+
+/** What presence reports say about a place. Bounded by who was watching. */
+export type PlaceCounts = {
+  /** People-time, summed across everybody — not wall-clock. */
+  minutesSeen: number
+  visitors: number
+  arrivals: number
+  lastSeenAt: string | null
+}
+
+/** One person's own presence figures, over all of recorded history. */
+export type PersonCounts = {
+  minutesSeen: number
+  worlds: number
+  rooms: number
+  arrivals: number
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+}
+
+export type PersonSeen = {
+  userId: string
+  displayName: string | null
+  minutesSeen: number
+  arrivals: number
+  firstSeenAt: string
+  lastSeenAt: string
+}
+
+/** One world, its rooms and how busy it was. `known` is false when only the id was ever seen. */
+export type WorldView = {
+  worldId: string
+  known: boolean
+  name: string | null
+  description: string | null
+  authorId: string | null
+  authorName: string | null
+  imageUrl: string | null
+  thumbnailImageUrl: string | null
+  capacity: number | null
+  recommendedCapacity: number | null
+  tags: string[]
+  releaseStatus: string | null
+  publishedAt: string | null
+  updatedAt: string | null
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  /** When the world page was last read. Null means never — the name is still unknown. */
+  lastReadAt: string | null
+  readError: string | null
+  counts: PlaceCounts
+  rooms: InstanceRow[]
+  roomsTotal: number
+  roomsOpenNow: number
+  visitorsPerDay: DayValue[]
+  roomsPerDay: DayValue[]
+  now: string
+}
+
+/** One room, with who was in it and what happened there. */
+export type InstanceView = {
+  room: InstanceRow
+  known: boolean
+  worldAuthorName: string | null
+  worldImageUrl: string | null
+  worldCapacity: number | null
+  type: string | null
+  groupId: string | null
+  lastSeenAt: string
+  seenInGroupList: boolean
+  counts: PlaceCounts
+  /** False without ViewAuditLog: who was in a room is moderation history, the room itself is not. */
+  canSeeWhoWasThere: boolean
+  people: PersonSeen[]
+  log: AuditEntry[]
+  logTruncated: boolean
+  now: string
+}
+
+export type PersonMetrics = {
+  userId: string
+  /** False when no presence report has ever mentioned them. Not the same as never having been anywhere. */
+  known: boolean
+  counts: PersonCounts
+  recentRooms: InstanceRow[]
+  now: string
 }
 
 /**
@@ -1615,6 +1718,15 @@ export const api = {
   teamAnalytics: (query: string) => request<TeamAnalytics>(`/api/analytics/team?${query}`),
   worldsAnalytics: (query: string) => request<WorldsAnalytics>(`/api/analytics/worlds?${query}`),
   instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),
+
+  // One world and one room, for the popup. Read from Modbot's own tables; neither costs VRChat
+  // budget, so a popup may be opened as often as a moderator likes.
+  world: (id: string) => request<WorldView>(`/api/worlds?id=${encodeURIComponent(id)}`),
+
+  instance: (id: string) => request<InstanceView>(`/api/instances/${encodeURIComponent(id)}`),
+
+  userMetrics: (id: string) =>
+    request<PersonMetrics>(`/api/vrchat-users/metrics?id=${encodeURIComponent(id)}`),
 
   evidenceSettings: () => request<EvidenceSettings>('/api/settings/evidence'),
 

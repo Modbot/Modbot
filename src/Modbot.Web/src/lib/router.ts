@@ -61,9 +61,14 @@ export function useLocation(): [
  * entry and then raising that event wakes all of them at once, the shell included. Calling one
  * component's `navigate` from another would update that component and nothing else.
  */
-export function go(to: string) {
-  if (to === currentLocation()) return
-  window.history.pushState(null, '', to)
+export function go(to: string, options?: { replace?: boolean; state?: unknown }) {
+  if (to === currentLocation() && !options?.replace) return
+
+  const state = options?.state ?? null
+
+  if (options?.replace) window.history.replaceState(state, '', to)
+  else window.history.pushState(state, '', to)
+
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 

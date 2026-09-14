@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { sourceLabel } from '@/lib/format'
+import { openInstance, openPerson, openWorld } from '@/lib/subject'
 import type { AuditEntry } from '@/lib/api'
 
 /**
@@ -81,21 +82,95 @@ export function SubjectLink({
 }: {
   id: string
   name?: string | null
-  onOpen: (id: string) => void
+  /** Defaults to opening this person's popup, which is what every caller wants. */
+  onOpen?: (id: string) => void
   className?: string
 }) {
   return (
     <button
       type="button"
-      onClick={() => onOpen(id)}
+      onClick={() => (onOpen ?? openPerson)(id)}
       title={id}
       className={cn(
         'max-w-[18rem] truncate rounded text-left hover:underline focus-visible:outline-2 focus-visible:outline-ring',
         name ? 'font-medium' : 'font-mono',
         className,
       )}
+      style={{ display: 'inline' }}
     >
       {name ?? id}
+    </button>
+  )
+}
+
+/** Shared look for every id that opens something. Inline, so it sits inside a sentence. */
+const linkClass =
+  'rounded text-left font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring'
+
+/**
+ * A world, as a launcher for its popup.
+ *
+ * A world Modbot has not read the page of yet has no name, which is ordinary rather than an
+ * error: it says so and still opens, because the popup can show the rooms and the time even when
+ * the name is unknown.
+ */
+export function WorldLink({
+  id,
+  name,
+  unnamed = 'not read yet',
+  className,
+}: {
+  id: string
+  name?: string | null
+  /**
+   * What to show with no name: `not read yet` where the caller looked the name up and there was
+   * none, `id` where nobody looked — saying "not read yet" there would be a claim nobody checked.
+   */
+  unnamed?: 'not read yet' | 'id'
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => openWorld(id)}
+      title={id}
+      className={cn(linkClass, !name && 'text-muted-foreground', !name && unnamed === 'id' && 'font-mono', className)}
+      style={{ display: 'inline' }}
+    >
+      {name ?? (unnamed === 'id' ? id : 'a world Modbot has not read yet')}
+    </button>
+  )
+}
+
+/**
+ * A room, as a launcher for its popup.
+ *
+ * `roomId` is Modbot's own id and is what makes the room one room; VRChat's number is what a
+ * moderator sees in game, so the number is the label. With no room id matched — the fact happened
+ * outside every room Modbot has a row for — the number is shown as plain text rather than as a
+ * link to somebody else's evening.
+ */
+export function RoomLink({
+  roomId,
+  number,
+  className,
+}: {
+  roomId?: string | null
+  number?: string | null
+  className?: string
+}) {
+  const label = number ? `room ${number}` : 'a room'
+
+  if (!roomId) return <span className={cn('text-muted-foreground', className)}>{label}</span>
+
+  return (
+    <button
+      type="button"
+      onClick={() => openInstance(roomId)}
+      className={cn(linkClass, className)}
+      style={{ display: 'inline' }}
+    >
+      {label}
     </button>
   )
 }
