@@ -38,6 +38,12 @@ each one. VRChat's audit log only reaches back about a month, and Modbot only st
 when it was installed, so this tab does not go back further than that — it says so at the top,
 every time. But it is the only one of the two that knows *who* banned somebody.
 
+## Why somebody was banned
+
+Neither list knows. VRChat's audit log has nowhere to put a reason, so the group has to write one
+itself — see [Case files](case-files.md). Both lists show whether a ban has one, and the card above
+them counts the ones nobody has written up yet.
+
 ## How changes are recorded
 
 When somebody joins, leaves, gets a role, or is banned or unbanned, Modbot records it in the
