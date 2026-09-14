@@ -21,10 +21,7 @@ export function VRChatSection({
   refresh: () => Promise<void>
 }) {
   return (
-    <SettingsSection
-      id="vrchat"
-      title="VRChat Service Account"
-    >
+    <SettingsSection id="vrchat" title="VRChat Service Account">
       {/* The cards mount only once the status is in hand, so their fields can be initialised
           from it directly instead of being written into by an effect one render later -- which
           is the version that flickers and, worse, clobbers whatever was typed in between. */}
@@ -43,10 +40,7 @@ export function VRChatSection({
 
 function AccountCard({ status }: { status: OnboardingStatus }) {
   return (
-    <SettingsCard
-      span={12}
-      title="Service Account"
-    >
+    <SettingsCard span={12} title="Service Account">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Fact label="Username" value={status.vrChat.username ?? 'Not configured'} />
         <Fact label="Display name" value={status.vrChat.displayName ?? 'Unknown'} />
@@ -200,11 +194,7 @@ function ProxyCard({
           />
           <Field label="Username" value={proxyUsername} onChange={setProxyUsername} placeholder="" />
           <PasswordField
-            label={
-              status.connection.proxyPasswordStored
-                ? 'Password (stored — leave blank to keep)'
-                : 'Password'
-            }
+            label={status.connection.proxyPasswordStored ? 'Password (stored)' : 'Password'}
             value={proxyPassword}
             onChange={setProxyPassword}
           />

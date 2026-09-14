@@ -70,9 +70,11 @@ export function ConnectionStep({ eyebrow, status, run, refresh, busy }: StepProp
       // and "why can't I click this?" is the question this whole step exists to answer.
       if (!diagnosis || diagnosis.outcome !== 'Ok') {
         setError(
-          diagnosis?.proxyWouldHelp
-            ? 'Modbot cannot reach VRChat from this host. Add a proxy above and test again — setup cannot continue until this passes.'
-            : 'Modbot cannot reach VRChat yet. Fix the problem above and test again before continuing.',
+          !diagnosis
+            ? 'Test the connection first.'
+            : diagnosis.proxyWouldHelp
+              ? 'Modbot cannot reach VRChat from this host. Add a proxy and test again.'
+              : 'Modbot cannot reach VRChat. Test again once it is fixed.',
         )
         return false
       }
@@ -83,22 +85,8 @@ export function ConnectionStep({ eyebrow, status, run, refresh, busy }: StepProp
 
   return (
     <form id={WIZARD_FORM_ID} onSubmit={submit}>
-      <WizardHeader eyebrow={eyebrow} title="Check the connection">
-        Some networks are blocked by Cloudflare before they ever reach VRChat. Let's find out
-        whether yours is.
-      </WizardHeader>
+      <WizardHeader eyebrow={eyebrow} title="Check the connection" />
       <WizardBody>
-        {!diagnosis && (
-          // Spec 7.1.1's own words. Behind a press rather than fired on arrival, because the
-          // request costs rate-limit budget and this step is re-runnable from settings -- an
-          // operator opening it to change a proxy should not spend a login just by looking.
-          <p className="m-0 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {testing
-              ? 'Trying to reach the VRChat API…'
-              : 'Modbot will try to reach the VRChat API from this host.'}
-          </p>
-        )}
-
         {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
         <ErrorText>{error}</ErrorText>
 
@@ -115,7 +103,7 @@ export function ConnectionStep({ eyebrow, status, run, refresh, busy }: StepProp
               className="cursor-pointer text-muted-foreground marker:text-muted-foreground/50"
               style={{ fontSize: 'var(--text-small)' }}
             >
-              Using a proxy? Configure one anyway
+              Use a proxy
             </summary>
             <div className="pt-3">
               <ProxyFields
@@ -145,6 +133,9 @@ export function ConnectionStep({ eyebrow, status, run, refresh, busy }: StepProp
         )}
 
         <div className="flex items-center gap-2">
+          {/* Behind a press rather than fired on arrival, because the request costs rate-limit
+              budget and this step is re-runnable from settings -- an operator opening it to change
+              a proxy should not spend a login just by looking. */}
           <Button
             type="button"
             variant="outline"
@@ -217,7 +208,7 @@ function ProxyFields({
         </Field>
         <Field
           label="Password"
-          hint={passwordStored ? 'stored — leave blank to keep' : undefined}
+          hint={passwordStored ? 'stored' : undefined}
           htmlFor="proxy-password"
         >
           <Input

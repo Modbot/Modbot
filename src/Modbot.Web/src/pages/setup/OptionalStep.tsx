@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { ApiError, api } from '@/lib/api'
-import { ErrorText, Field, Note, WizardBody, WizardHeader } from './WizardChrome'
+import { ErrorText, Field, WizardBody, WizardHeader } from './WizardChrome'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
 /**
@@ -67,19 +67,13 @@ export function OptionalStep({ eyebrow, status, run, refresh }: StepProps) {
 
   return (
     <form id={WIZARD_FORM_ID} onSubmit={submit}>
-      <WizardHeader eyebrow={eyebrow} title="Public address, Discord and email">
-        All optional. You can skip this and set any of it up later from settings.
-      </WizardHeader>
+      <WizardHeader eyebrow={eyebrow} title="Public address, Discord and email" />
       <WizardBody>
         <div className="space-y-4">
           <div className="text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase">
             Public address
           </div>
-          <Field
-            label="The address people use to reach this Modbot"
-            hint="reset links sent by email or Discord are built from this, and only this"
-            htmlFor="public-address"
-          >
+          <Field label="Address" htmlFor="public-address">
             <Input
               id="public-address"
               className="font-mono"
@@ -98,7 +92,7 @@ export function OptionalStep({ eyebrow, status, run, refresh }: StepProps) {
           </div>
           <Field
             label="Bot token"
-            hint={status.integrations.discordConfigured ? 'stored — leave blank to keep' : undefined}
+            hint={status.integrations.discordConfigured ? 'stored' : undefined}
             htmlFor="discord-token"
           >
             <Input
@@ -176,11 +170,6 @@ export function OptionalStep({ eyebrow, status, run, refresh }: StepProps) {
             />
           </Field>
         </div>
-
-        <Note>
-          Modbot sends through your own SMTP server. There is no hosted email provider and nothing
-          leaves your deployment.
-        </Note>
 
         <ErrorText>{error}</ErrorText>
       </WizardBody>

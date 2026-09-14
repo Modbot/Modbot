@@ -10,7 +10,7 @@ import { WIZARD_FORM_ID, type StepProps } from './types'
  * The panel does the work with its own buttons; the footer's Continue only moves on once the
  * server says the link is there.
  */
-export function LinkVRChatStep({ eyebrow, status, run, refresh }: StepProps) {
+export function LinkVRChatStep({ eyebrow, run, refresh }: StepProps) {
   const [error, setError] = useState<string | null>(null)
 
   const submit = (event: React.FormEvent) => {
@@ -21,18 +21,14 @@ export function LinkVRChatStep({ eyebrow, status, run, refresh }: StepProps) {
       const fresh = await refresh()
       if (fresh.vrChatLinked) return true
 
-      setError('Link your VRChat account first — paste your user id, put the code in your bio, and press Check.')
+      setError('Link your VRChat account first.')
       return false
     })
   }
 
   return (
     <form id={WIZARD_FORM_ID} onSubmit={submit}>
-      <WizardHeader eyebrow={eyebrow} title="Link your VRChat account">
-        {status.vrChatLinked
-          ? 'Done. Press Continue.'
-          : 'Everything Modbot records is attributed to a person. Show which VRChat account is yours.'}
-      </WizardHeader>
+      <WizardHeader eyebrow={eyebrow} title="Link your VRChat account" />
       <WizardBody>
         <VRChatLinkPanel onLinked={() => void refresh()} />
         <ErrorText>{error}</ErrorText>

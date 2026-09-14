@@ -45,7 +45,7 @@ export function Join({ token, onJoined }: { token: string; onJoined: () => void 
         <form onSubmit={submit} className="overflow-hidden rounded-xl border bg-card shadow-lg">
           <WizardHeader eyebrow="You're invited" title="Create your Modbot account">
             {invite?.usable
-              ? `${invite.invitedBy ?? 'Somebody'} invited you${invite.roles.length ? ` as ${invite.roles.join(', ')}` : ''}. Choose how you'll sign in.`
+              ? `${invite.invitedBy ?? 'Somebody'} invited you${invite.roles.length ? ` as ${invite.roles.join(', ')}` : ''}.`
               : 'Checking the invite…'}
           </WizardHeader>
           <WizardBody>
@@ -62,7 +62,6 @@ export function Join({ token, onJoined }: { token: string; onJoined: () => void 
                 <Field label="Confirm password" htmlFor="join-confirm">
                   <Input id="join-confirm" type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
                 </Field>
-                <Note>Next you will link your VRChat account. Have your VRChat profile handy.</Note>
                 <ErrorText>{error}</ErrorText>
               </>
             )}

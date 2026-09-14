@@ -45,10 +45,7 @@ export function ResetPassword({ token }: { token: string }) {
           </WizardHeader>
           <WizardBody>
             {done ? (
-              <Note tone="ok">
-                Every place this account was signed in has been signed out. Sign in with the new
-                password.
-              </Note>
+              <Note tone="ok">Every session was signed out.</Note>
             ) : view && !view.usable ? (
               <Note tone="warn">{view.reason}</Note>
             ) : view ? (

@@ -38,9 +38,7 @@ export function AdministratorStep({ eyebrow, run, refresh }: StepProps) {
 
   return (
     <form id={WIZARD_FORM_ID} onSubmit={submit}>
-      <WizardHeader eyebrow={eyebrow} title="Create your administrator account">
-        This is how you'll sign in to Modbot. It's separate from your VRChat account.
-      </WizardHeader>
+      <WizardHeader eyebrow={eyebrow} title="Create your administrator account" />
       <WizardBody>
         <Field label="Username" htmlFor="admin-username">
           <Input
@@ -52,11 +50,7 @@ export function AdministratorStep({ eyebrow, run, refresh }: StepProps) {
             onChange={(e) => setUsername(e.target.value)}
           />
         </Field>
-        <Field
-          label="Contact email"
-          hint="VRChat sees this on every request Modbot makes, so they can write to you before they block"
-          htmlFor="admin-email"
-        >
+        <Field label="Contact email" htmlFor="admin-email">
           <Input
             id="admin-email"
             type="email"

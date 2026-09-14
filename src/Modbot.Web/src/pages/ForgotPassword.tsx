@@ -30,30 +30,18 @@ export function ForgotPassword({ onBack }: { onBack: () => void }) {
       .finally(() => setBusy(false))
   }
 
-  const how =
-    ways?.ways.length === 2
-      ? 'by email, or by Discord direct message if your account has no email'
-      : ways?.ways[0] === 'email'
-        ? 'by email'
-        : 'by Discord direct message';
-
   return (
     <div className="grid min-h-screen place-items-center bg-background p-6">
       <div className="w-full max-w-[420px]">
         <Brand />
         <form onSubmit={submit} className="overflow-hidden rounded-xl border bg-card shadow-lg">
-          <WizardHeader eyebrow="Forgot password" title="Get a reset link">
-            {ways?.available
-              ? `Modbot will send a reset link ${how}, to the details on your account.`
-              : undefined}
-          </WizardHeader>
+          <WizardHeader eyebrow="Forgot password" title="Get a reset link" />
           <WizardBody>
             {!ways ? (
               <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Checking…</div>
             ) : !ways.available ? (
               <Note tone="warn">
-                {ways.reason ??
-                  'This Modbot has no way to send reset links — neither email nor a Discord bot is set up. Ask an administrator for a reset link instead.'}
+                {ways.reason ?? 'This Modbot cannot send reset links. Ask an administrator.'}
               </Note>
             ) : message ? (
               <Note tone="ok">{message}</Note>

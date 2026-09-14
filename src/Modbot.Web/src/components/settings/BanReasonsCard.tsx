@@ -72,7 +72,6 @@ export function BanReasonsCard() {
     <SettingsCard
       span={12}
       title="Ban reasons"
-      description="The buttons a moderator taps when writing up a ban."
       footer={
         canEdit ? (
           <>
@@ -160,13 +159,13 @@ export function BanReasonsCard() {
                 <Input value={label} placeholder="Doxxing" onChange={(e) => setLabel(e.target.value)} maxLength={64} />
                 <Input
                   value={description}
-                  placeholder="What it covers, in one line."
+                  placeholder="Sharing someone's real-life details"
                   onChange={(e) => setDescription(e.target.value)}
                   maxLength={256}
                 />
               </div>
               <Checkbox checked={needsWrittenReason} onChange={setNeedsWrittenReason}>
-                Picking this one means the written reason cannot be left empty
+                Needs a written reason
               </Checkbox>
               <div>
                 <Button
@@ -190,12 +189,6 @@ export function BanReasonsCard() {
               </div>
             </div>
           )}
-
-          <Hint>
-            {canEdit
-              ? 'There is no delete. Case files name the reason they were given, so one that disappeared would take that classification with it — switch it off instead, and it stays on the case files that picked it.'
-              : 'Changing this list needs the “Edit the reason list” permission.'}
-          </Hint>
         </>
       )}
     </SettingsCard>

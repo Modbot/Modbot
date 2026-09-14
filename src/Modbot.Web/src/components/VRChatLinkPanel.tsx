@@ -95,19 +95,10 @@ export function VRChatLinkPanel({
     return (
       <form onSubmit={start} className="space-y-4">
         {status.linked && !compact && (
-          <Note tone="ok" title="Linked.">
-            This account is {status.vrChatDisplayName ?? status.vrChatUserId}. You can link a
-            different one below.
+          <Note tone="ok" title="Linked to">
+            {status.vrChatDisplayName ?? status.vrChatUserId}
           </Note>
         )}
-
-        <ol className="list-decimal space-y-2 pl-5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          <li>
-            Open your VRChat profile in a new tab and copy your user id, or the address of the page.
-          </li>
-          <li>Paste it here. Modbot will give you a short code.</li>
-          <li>Put the code in your VRChat bio, save, and press Check.</li>
-        </ol>
 
         <div>
           <Button asChild type="button" variant="outline" size="sm">
@@ -142,9 +133,8 @@ export function VRChatLinkPanel({
   return (
     <div className="space-y-4">
       <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        Put this code anywhere in the bio of{' '}
-        <span className="font-mono text-foreground">{pending.vrChatUserId}</span>, save your
-        profile, then press Check. You can take it out again once you are linked.
+        Put this code in the bio of{' '}
+        <span className="font-mono text-foreground">{pending.vrChatUserId}</span>, then press Check.
       </div>
 
       <div className="flex items-center gap-2">

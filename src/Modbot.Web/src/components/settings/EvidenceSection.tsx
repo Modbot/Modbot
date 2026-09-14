@@ -58,11 +58,7 @@ export function EvidenceSection() {
   }, [load])
 
   return (
-    <SettingsSection
-      id="evidence"
-      title="Evidence"
-      description="Where uploaded evidence is kept, and how much of it is allowed."
-    >
+    <SettingsSection id="evidence" title="Evidence">
       {error ? (
         <Placeholder>{error}</Placeholder>
       ) : !data ? (
@@ -126,13 +122,7 @@ function StoreHealth({ health, onProbed }: { health: EvidenceHealth; onProbed: (
       }
     >
       <p>{health.explanation}</p>
-      {health.locked && (
-        <p>
-          Uploads are refused while this is true. Nothing else is affected — bans, audit ingest,
-          Discord, the overlay and analytics are all still running. Fixing the store here and
-          saving clears it; the incident stays on the record either way.
-        </p>
-      )}
+      {health.locked && <p>Uploads are blocked.</p>}
     </Notice>
   )
 }
@@ -256,22 +246,9 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
 
       {chosen?.caution && <Hint className="text-warn">{chosen.caution}</Hint>}
 
-      {hint && backend === 'S3' && (
-        <Hint>
-          These were pre-filled from this container's environment variables, and the secret is
-          already held there too. Nothing is stored until you press save, and the environment is
-          never read again afterwards — the database decides from then on.
-        </Hint>
-      )}
-
       {backend === 'Filesystem' && (
         <div className="flex max-w-lg flex-col gap-3">
           <Field label="Directory" value={root} placeholder="/app/data/evidence" onChange={setRoot} />
-          <Hint>
-            Mount a Docker volume here yourself. Modbot declares no VOLUME in its image on purpose:
-            an anonymous volume would make an unconfigured host appear to work and lose everything
-            the first time the container was recreated.
-          </Hint>
         </div>
       )}
 
@@ -288,7 +265,7 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
           <PasswordField
             label={
               settings.backend.secretStored
-                ? 'Secret access key (leave blank to keep the stored one)'
+                ? 'Secret access key (stored)'
                 : 'Secret access key'
             }
             value={secret}
@@ -297,24 +274,16 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
           <Field label="Region" value={region} placeholder="us-east-1" onChange={setRegion} />
           <Field label="Key prefix (optional)" value={prefix} placeholder="" onChange={setPrefix} />
           <Checkbox checked={usePathStyle} onChange={setUsePathStyle}>
-            Path-style URLs (https://endpoint/bucket/key)
+            Path-style URLs
           </Checkbox>
         </div>
-      )}
-
-      {backend === 'Database' && (
-        <Hint>
-          Nothing to configure — the evidence goes in the database Modbot is already using, in
-          chunked rows. There is no second credential and no second service to forget about when
-          the deployment is handed to the next volunteer, and that is the whole of the case for it.
-        </Hint>
       )}
 
       {warning && (
         <Notice tone="warn" title="Modbot could not prove this directory persists.">
           <p>{warning}</p>
           <Checkbox checked={acknowledge} onChange={setAcknowledge}>
-            Use anyway — recorded against your name, with this warning kept word for word
+            Use anyway
           </Checkbox>
         </Notice>
       )}
@@ -334,10 +303,7 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
 
 function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
   return (
-    <SettingsCard
-      title="What this store is doing"
-      description="Measured from the store that is configured now."
-    >
+    <SettingsCard title="What this store is doing">
       <div>
         <Row label="Store marker" value={settings.backend.storeId ?? 'none written yet'} />
         <Row
@@ -348,11 +314,7 @@ function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
         />
         <Row
           label="Range reads"
-          value={
-            settings.capabilities.rangeRead
-              ? 'Supported, so video seeks rather than only playing from the start'
-              : 'Not supported by this backend'
-          }
+          value={settings.capabilities.rangeRead ? 'Supported' : 'Not supported'}
         />
         <Row
           label="Evidence held"
@@ -363,7 +325,7 @@ function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
           value={
             settings.stored.destroyedCount === 0
               ? 'None'
-              : `${settings.stored.destroyedCount.toLocaleString()} — the records are kept, the bytes are not`
+              : settings.stored.destroyedCount.toLocaleString()
           }
         />
         <Row label="Accepted formats" value={settings.acceptedTypes.join(', ')} />
@@ -432,7 +394,7 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
           onChange={setPerDeployment}
         />
       </div>
-      <Hint>0 means no limit for the report and deployment totals.</Hint>
+      <Hint>Per report and deployment: 0 means no limit.</Hint>
     </SettingsCard>
   )
 }
