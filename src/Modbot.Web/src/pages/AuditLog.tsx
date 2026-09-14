@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { FactTime, SourceBadge, SubjectLink } from '@/components/facts'
+import { FactSentence } from '@/components/factSentence'
+import { FactTime, SourceBadge } from '@/components/facts'
 import { formatDay, sourceLabel } from '@/lib/format'
 import { api, ApiError, type AuditEntry, type AuditFilters, type AuditPage } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -21,7 +22,7 @@ import { cn } from '@/lib/utils'
 
 const SOURCES = ['AuditLog', 'SyncDiff', 'Client', 'Discord', 'Manual', 'Modbot']
 
-export function AuditLog({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
+export function AuditLog() {
   const [filters, setFilters] = useState<AuditFilters | null>(null)
   const [pages, setPages] = useState<AuditPage[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -146,14 +147,12 @@ export function AuditLog({ onOpenSubject }: { onOpenSubject: (id: string) => voi
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
                     <th className="px-3 py-2 text-left font-normal">When</th>
                     <th className="px-3 py-2 text-left font-normal">Source</th>
-                    <th className="px-3 py-2 text-left font-normal">Event</th>
-                    <th className="px-3 py-2 text-left font-normal">Subject</th>
-                    <th className="px-3 py-2 text-left font-normal">Actor</th>
+                    <th className="px-3 py-2 text-left font-normal">What happened</th>
                   </tr>
                 </thead>
                 <tbody>
                   {entries.map((entry) => (
-                    <Row key={entry.id} entry={entry} onOpenSubject={onOpenSubject} />
+                    <Row key={entry.id} entry={entry} />
                   ))}
                 </tbody>
               </table>
@@ -180,43 +179,29 @@ export function AuditLog({ onOpenSubject }: { onOpenSubject: (id: string) => voi
   )
 }
 
-function Row({
-  entry,
-  onOpenSubject,
-}: {
-  entry: AuditEntry
-  onOpenSubject: (id: string) => void
-}) {
+/**
+ * One fact, as a sentence.
+ *
+ * It used to print the raw type and then the subject and the actor as ids in two more columns,
+ * which is three things to read and none of them words. The sentence names who did what to whom
+ * and where, and every name in it opens its own popup (see components/factSentence.tsx).
+ */
+function Row({ entry }: { entry: AuditEntry }) {
   return (
     <tr className="border-b last:border-0 hover:bg-muted/40" style={{ borderBottomWidth: 'var(--hairline)' }}>
-      <td className="whitespace-nowrap px-3" style={{ height: 'var(--row-h)' }}>
-        <div className="flex flex-col leading-tight">
+      <td className="whitespace-nowrap px-3 align-top" style={{ height: 'var(--row-h)' }}>
+        <div className="flex flex-col py-1 leading-tight">
           <FactTime entry={entry} />
           <span className="text-muted-foreground/70">{formatDay(entry.occurredAt)}</span>
         </div>
       </td>
-      <td className="px-3">
+      <td className="px-3 py-1 align-top">
         <SourceBadge source={entry.source} />
       </td>
-      <td className="px-3">
-        <div className="font-medium">{entry.type}</div>
-        {/* VRChat's own prose for the entry. Rendered as text, never as markup: instance names
-            and descriptions are user-controlled input (spec 5.3). */}
-        {entry.description && (
-          <div className="max-w-lg truncate text-muted-foreground" title={entry.description}>
-            {entry.description}
-          </div>
-        )}
-      </td>
-      <td className="px-3">
-        <SubjectLink id={entry.subjectId} onOpen={onOpenSubject} />
-      </td>
-      <td className="px-3 text-muted-foreground">
-        {entry.actorId ? (
-          <SubjectLink id={entry.actorId} name={entry.actorName} onOpen={onOpenSubject} />
-        ) : (
-          '—'
-        )}
+      <td className="max-w-3xl px-3 py-1.5 align-top" title={entry.type}>
+        {/* Payload text is user-controlled (spec 5.3). The sentence renders it as text, never as
+            markup. */}
+        <FactSentence entry={entry} />
       </td>
     </tr>
   )

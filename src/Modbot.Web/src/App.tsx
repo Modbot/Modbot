@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Sidebar, Topbar } from '@/components/Chrome'
-import { SubjectPane } from '@/components/SubjectPane'
+import { SubjectPopup } from '@/components/subject/SubjectPopup'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { NAV, mayOpen, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { usePreferences } from '@/lib/preferences'
-import { useQueryParam, useRoute } from '@/lib/router'
+import { useRoute } from '@/lib/router'
+import { openPerson } from '@/lib/subject'
 import { Account } from '@/pages/Account'
 import { AuditLog } from '@/pages/AuditLog'
 import { Bans } from '@/pages/Bans'
@@ -46,9 +47,9 @@ const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
 }
 
 /**
- * Pages live at real paths so the subject pane's deep link means something: `/audit?subject=usr_…`
- * survives a refresh and can be pasted to another moderator (spec 10.2). A pane whose URL put you
- * back on the members list would be a pane nobody shares.
+ * Pages live at real paths so the popup's link means something: `/audit?subject=usr_…` survives a
+ * refresh and can be pasted to another moderator (spec 10.2). A popup whose URL put you back on the
+ * members list would be a popup nobody shares.
  */
 const PATHS: Record<PageId, string> = {
   members: '/',
@@ -209,9 +210,10 @@ function Shell({
     : (NAV.find((n) => !('hidden' in n && n.hidden) && mayOpen(me, n.id))?.id ?? 'account')
   const { title, subtitle } = TITLES[page]
 
-  // The pane is a query parameter rather than component state, so it is linkable and survives a
-  // refresh. Every list that renders a person opens it the same way (spec 10.2).
-  const [subject, setSubject] = useQueryParam('subject')
+  // The popup lives in the query string rather than in component state, so it is linkable, survives
+  // a refresh, and stacks (spec 10.2, lib/subject.ts). Every list that renders a person opens it the
+  // same way; worlds and rooms open themselves through the same module.
+  const setSubject = openPerson
 
   // The number beside "Reviews": how many are waiting for somebody to look. Read when the shell
   // mounts and whenever the page changes, so closing one on the Reviews page updates it without
@@ -260,7 +262,7 @@ function Shell({
               onBack={() => navigate(PATHS.bans)}
             />
           )}
-          {page === 'audit' && <AuditLog onOpenSubject={setSubject} />}
+          {page === 'audit' && <AuditLog />}
           {page === 'analytics-group' && <MyGroup />}
           {page === 'analytics-team' && (
             <MyTeam onOpenSubject={setSubject} onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined} />
@@ -276,14 +278,9 @@ function Shell({
         </div>
       </main>
 
-      {subject && (
-        <SubjectPane
-          key={subject}
-          subjectId={subject}
-          me={me}
-          onClose={() => setSubject(null)}
-        />
-      )}
+      {/* Over the page, never instead of it: the page stays mounted with its scroll position and
+          filters, so closing the popup puts the moderator back exactly where they were. */}
+      <SubjectPopup me={me} />
     </div>
   )
 }
