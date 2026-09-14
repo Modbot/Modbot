@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type AuditEntry, type CurrentUser, type MembershipView } from '@/lib/api'
 import { FactTime, SourceBadge } from '@/components/facts'
+import { SubjectCaseFiles } from '@/components/SubjectCaseFiles'
 import { SubjectHistory } from '@/components/SubjectHistory'
 import { UserProfileCard } from '@/components/UserProfileCard'
 import { ago, formatDay } from '@/lib/format'
@@ -104,6 +105,7 @@ export function SubjectPane({
           <UserProfileCard subjectId={subjectId} me={me} />
 
           <SubjectHistory subjectId={subjectId} />
+          {can(me, 'ViewProfile') && <SubjectCaseFiles subjectId={subjectId} />}
           {can(me, 'ViewMembers') && <MembershipCard subjectId={subjectId} />}
 
           <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>

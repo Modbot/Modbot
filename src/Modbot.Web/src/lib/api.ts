@@ -1063,6 +1063,201 @@ export type EvidenceBackendInput = {
   acknowledgeWarning?: string
 }
 
+// ── Ban case files (spec 5.8.3, ban case files design) ─────────────────────────────────────
+
+/** One reason on the list moderators pick from. `needsWrittenReason`: "Other" cannot stand alone. */
+export type BanReasonView = {
+  id: string
+  label: string
+  description: string
+  sortOrder: number
+  isActive: boolean
+  needsWrittenReason: boolean
+}
+
+export type BanReasonList = { reasons: BanReasonView[]; canEdit: boolean }
+
+/** A reason as picked on a case file, with its current label. `isActive` false: since switched off. */
+export type CaseFileReason = { id: string; label: string; isActive: boolean }
+
+export type CaseFileSummary = {
+  id: string
+  userId: string
+  displayName: string | null
+  bannedAt: string | null
+  auditEntryId: string | null
+  authorUsername: string
+  reasons: CaseFileReason[]
+  createdAt: string
+  updatedAt: string
+  withdrawn: boolean
+  evidenceCount: number
+}
+
+export type CaseFileList = { cases: CaseFileSummary[]; total: number; offset: number; now: string }
+
+/** The person's stored profile as it stood when the case file was written. Every field may be null. */
+export type ProfileAtBan = {
+  userId: string
+  displayName: string | null
+  bio: string | null
+  status: string | null
+  statusDescription: string | null
+  pronouns: string | null
+  avatarImageUrl: string | null
+  avatarThumbnailUrl: string | null
+  profilePictureUrl: string | null
+  dateJoined: string | null
+  tags: string[]
+  lastPlatform: string | null
+  ageVerificationStatus: string | null
+  ageVerified: boolean | null
+  eighteenPlus: { verified: boolean; since: string | null; source: string | null }
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  lastRefreshedAt: string | null
+  notFoundAt: string | null
+  raw: unknown
+}
+
+export type MembershipAtBan = {
+  isMember: boolean
+  membershipId: string | null
+  roleIds: string[]
+  joinedAt: string | null
+  membershipStatus: string | null
+  visibility: string | null
+  isRepresenting: boolean
+  managerNotes: string | null
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  leftAt: string | null
+  raw: unknown
+}
+
+export type BanListEntryAtBan = {
+  bannedAt: string | null
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+  liftedAt: string | null
+  raw: unknown
+}
+
+/**
+ * The snapshot, and the one thing that can happen to it.
+ *
+ * It never changes after capture, except that `canCaptureAgain` offers a single recapture when
+ * VRChat has answered with a newer profile since -- the first snapshot is then kept in the fact
+ * log. `explanation` is the server's sentence: "This is how the profile looked on …".
+ */
+export type CaseSnapshot = {
+  profile: ProfileAtBan | null
+  membership: MembershipAtBan | null
+  banListEntry: BanListEntryAtBan | null
+  takenAt: string
+  profileRefreshedAt: string | null
+  profileAgeSecondsAtCapture: number | null
+  recapturedAt: string | null
+  profileRefreshedNow: string | null
+  canCaptureAgain: boolean
+  explanation: string
+}
+
+/** One piece of evidence as the blob record knows it. `destroyed`: the bytes are gone, the record is not. */
+export type EvidenceItem = {
+  hash: string
+  byteSize: number
+  contentType: string
+  fileName: string | null
+  uploaderId: string | null
+  reportId: string | null
+  origin: 'Uploaded' | 'Captured'
+  firstStoredAt: string
+  destroyed: boolean
+  destroyedAt: string | null
+  destroyedBy: string | null
+  destroyedReason: string | null
+}
+
+/** How evidence bytes travel, in the Settings evidence card's own words, so the two never disagree. */
+export type EvidenceDelivery = {
+  configured: boolean
+  uploadsAllowed: boolean
+  storeExplanation: string
+  directDelivery: boolean
+  deliveryExplanation: string
+  maxFileBytes: number
+  acceptedTypes: string[]
+}
+
+export type CaseFileView = {
+  id: string
+  userId: string
+  displayName: string | null
+  groupId: string | null
+  auditEntryId: string | null
+  banFactId: number | null
+  bannedAt: string | null
+  bannedBy: Person | null
+  authorUserId: string
+  authorUsername: string
+  createdAt: string
+  updatedAt: string
+  updatedByUsername: string | null
+  reasons: CaseFileReason[]
+  writtenReason: string
+  withdrawn: boolean
+  withdrawnAt: string | null
+  withdrawnByUsername: string | null
+  withdrawnNote: string | null
+  snapshot: CaseSnapshot
+  /** Null when the signed-in person may not view evidence. */
+  evidence: EvidenceItem[] | null
+  evidenceDelivery: EvidenceDelivery
+  canEdit: boolean
+  canAttach: boolean
+  canViewEvidence: boolean
+  now: string
+}
+
+export type CaseFileCreated = {
+  case: CaseFileView
+  refreshOutcome: 'Queued' | 'Promoted' | 'AlreadyQueued' | 'FreshEnough' | 'NotAvailable'
+  refreshExplanation: string
+}
+
+export type UnwrittenBan = {
+  userId: string
+  displayName: string | null
+  bannedAt: string
+  bannedBefore: string | null
+  auditEntryId: string | null
+  factId: number
+  bannedBy: Person | null
+  liftedAt: string | null
+}
+
+export type UnwrittenBanList = {
+  bans: UnwrittenBan[]
+  total: number
+  days: number
+  since: string
+  now: string
+}
+
+export type CaseFileLookup = { userId: string; caseId: string | null; count: number }
+
+/** Phase 1 of an evidence upload: where the bytes go. `presigned`: straight to the bucket, not through Modbot. */
+export type EvidenceUploadTicket = {
+  uploadId: string
+  maxBytes: number
+  acceptedTypes: string[]
+  transferUrl: string
+  presigned: boolean
+}
+
+export type EvidenceCommitted = { hash: string; byteSize: number; contentType: string }
+
 /**
  * A non-2xx response, carrying whatever the server said about it.
  *
@@ -1074,12 +1269,15 @@ export type EvidenceBackendInput = {
 export class ApiError extends Error {
   readonly status: number
   readonly diagnosis: ConnectionDiagnosis | null
+  /** The parsed body, for the few answers that carry more than a sentence -- a 409 naming the case file that already exists. */
+  readonly detail: unknown
 
-  constructor(status: number, message: string, diagnosis: ConnectionDiagnosis | null) {
+  constructor(status: number, message: string, diagnosis: ConnectionDiagnosis | null, detail: unknown = null) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.diagnosis = diagnosis
+    this.detail = detail
   }
 }
 
@@ -1120,7 +1318,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ? String((body as { error: unknown }).error)
       : `The server answered ${response.status}.`
 
-  throw new ApiError(response.status, message, null)
+  throw new ApiError(response.status, message, null, body)
 }
 
 const post = <T>(path: string, body?: unknown): Promise<T> =>
@@ -1464,4 +1662,78 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+
+  // ── Ban case files (spec 5.8.3) ─────────────────────────────────────────────────────────
+
+  /** The reason buttons. Anyone signed in may read; `canEdit` says whether this person may change them. */
+  banReasons: () => request<BanReasonList>('/api/settings/ban-reasons'),
+
+  createBanReason: (body: { label: string; description: string; needsWrittenReason: boolean }) =>
+    post<BanReasonView>('/api/settings/ban-reasons', body),
+
+  updateBanReason: (
+    id: string,
+    body: { label: string; description: string; needsWrittenReason: boolean; isActive: boolean },
+  ) => put<BanReasonView>(`/api/settings/ban-reasons/${encodeURIComponent(id)}`, body),
+
+  reorderBanReasons: (ids: string[]) => put<BanReasonList>('/api/settings/ban-reasons/order', { ids }),
+
+  /** Case files, newest first. `userId` narrows to one person; the id goes in the query (spec 3.1.1). */
+  cases: (query: { userId?: string; includeWithdrawn?: boolean; offset?: number; limit?: number } = {}) => {
+    const q = new URLSearchParams()
+    if (query.userId) q.set('userId', query.userId)
+    if (query.includeWithdrawn) q.set('includeWithdrawn', 'true')
+    if (query.offset) q.set('offset', String(query.offset))
+    if (query.limit) q.set('limit', String(query.limit))
+    const search = q.toString()
+    return request<CaseFileList>(`/api/cases${search ? `?${search}` : ''}`)
+  },
+
+  /** Bans in the last `days` with no case file, newest first. Needs ViewProfile. */
+  unwrittenCases: (days?: number, limit?: number) => {
+    const q = new URLSearchParams()
+    if (days) q.set('days', String(days))
+    if (limit) q.set('limit', String(limit))
+    const search = q.toString()
+    return request<UnwrittenBanList>(`/api/cases/missing${search ? `?${search}` : ''}`)
+  },
+
+  /** Whether each of these people has a case file -- the badge on a ban list. */
+  caseLookup: (userIds: string[]) => {
+    const q = new URLSearchParams()
+    userIds.forEach((id) => q.append('userId', id))
+    return request<CaseFileLookup[]>(`/api/cases/lookup?${q.toString()}`)
+  },
+
+  caseFile: (id: string) => request<CaseFileView>(`/api/cases/${encodeURIComponent(id)}`),
+
+  /** Writes the case file. A 409 carries `detail.caseId`, the one that already exists for this ban. */
+  createCaseFile: (body: {
+    userId: string
+    auditEntryId?: string | null
+    reasonIds: string[]
+    writtenReason: string
+  }) => post<CaseFileCreated>('/api/cases', body),
+
+  updateCaseFile: (id: string, body: { reasonIds: string[]; writtenReason: string }) =>
+    put<CaseFileView>(`/api/cases/${encodeURIComponent(id)}`, body),
+
+  withdrawCaseFile: (id: string, note: string) =>
+    post<CaseFileView>(`/api/cases/${encodeURIComponent(id)}/withdraw`, { note }),
+
+  captureCaseFileAgain: (id: string) => post<CaseFileView>(`/api/cases/${encodeURIComponent(id)}/capture-again`),
+
+  // ── Evidence uploads (evidence design §9.1). Phase 2, the bytes, is an XMLHttpRequest in the
+  //    gallery so it can report progress; it is not here. ────────────────────────────────────
+
+  beginEvidenceUpload: (body: { fileName: string; contentType: string; length: number; reportId: string }) =>
+    post<EvidenceUploadTicket>('/api/evidence/uploads', body),
+
+  commitEvidenceUpload: (uploadId: string, expectedHash: string | null) =>
+    post<EvidenceCommitted>(`/api/evidence/uploads/${encodeURIComponent(uploadId)}/commit`, {
+      expectedHash,
+    }),
+
+  /** Where the bytes of a piece of evidence are served from. Same-origin, authenticated by the cookie. */
+  evidenceUrl: (hash: string) => `/api/evidence/${encodeURIComponent(hash)}`,
 }

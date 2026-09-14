@@ -2,14 +2,19 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { CaseFileCell } from '@/components/CaseFileCell'
+import { UnwrittenCaseFiles } from '@/components/UnwrittenCaseFiles'
 import { FactTime, SourceBadge, SubjectLink } from '@/components/facts'
 import { RepeatOffendersTab } from '@/pages/RepeatOffenders'
+import { useCaseFiles } from '@/lib/caseFiles'
 import { ago, formatDay } from '@/lib/format'
+import { can } from '@/lib/permissions'
 import {
   api,
   ApiError,
   type BanCoverage,
   type BanList,
+  type CurrentUser,
   type GroupBanList,
   type GroupBanQuery,
 } from '@/lib/api'
@@ -25,14 +30,36 @@ import { cn } from '@/lib/utils'
  * them and when. It reaches back only as far as the audit log did when Modbot first synced, and
  * it says so permanently -- but it is the only one of the two that knows who did the banning.
  */
-export function Bans({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
+export function Bans({
+  me,
+  onOpenSubject,
+  onOpenCase,
+}: {
+  me: CurrentUser
+  onOpenSubject: (id: string) => void
+  onOpenCase: (caseId: string) => void
+}) {
   // Three tabs, one question: who has the group had trouble with. The ban list as VRChat holds
   // it, what the audit log recorded about bans (with who and when), and the people acted on
   // more than once (spec 5.8.4).
   const [tab, setTab] = useState<'list' | 'recorded' | 'repeat'>('list')
 
+  // Bumped whenever a case file is written, so both lists redraw their badges without a reload.
+  const [written, setWritten] = useState(0)
+
   return (
     <div className="flex flex-col gap-3">
+      {/* Above the tabs, because it is the one thing on this page that is about what is missing
+          rather than about what happened. Only shown to people who may read case files. */}
+      {can(me, 'ViewProfile') && (
+        <UnwrittenCaseFiles
+          key={written}
+          me={me}
+          onOpenSubject={onOpenSubject}
+          onOpenCase={onOpenCase}
+        />
+      )}
+
       <div
         role="tablist"
         className="flex w-fit gap-1 rounded-md border bg-secondary p-0.5"
@@ -61,17 +88,43 @@ export function Bans({ onOpenSubject }: { onOpenSubject: (id: string) => void })
         ))}
       </div>
 
-      {tab === 'list' && <GroupBans onOpenSubject={onOpenSubject} />}
-      {tab === 'recorded' && <RecordedBans onOpenSubject={onOpenSubject} />}
+      {tab === 'list' && (
+        <GroupBans
+          me={me}
+          onOpenSubject={onOpenSubject}
+          onOpenCase={onOpenCase}
+          onWritten={() => setWritten((n) => n + 1)}
+        />
+      )}
+      {tab === 'recorded' && (
+        <RecordedBans
+          me={me}
+          onOpenSubject={onOpenSubject}
+          onOpenCase={onOpenCase}
+          onWritten={() => setWritten((n) => n + 1)}
+        />
+      )}
       {tab === 'repeat' && <RepeatOffendersTab onOpenSubject={onOpenSubject} />}
     </div>
   )
 }
 
+/** What both ban tables need to draw their case file column. */
+type CaseColumn = {
+  me: CurrentUser
+  onOpenCase: (caseId: string) => void
+  onWritten: () => void
+}
+
 const PAGE_SIZE = 50
 
 /** The group's ban list, as the ban sweep last read it. */
-function GroupBans({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
+function GroupBans({
+  me,
+  onOpenSubject,
+  onOpenCase,
+  onWritten,
+}: CaseColumn & { onOpenSubject: (id: string) => void }) {
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<NonNullable<GroupBanQuery['status']>>('current')
@@ -111,10 +164,13 @@ function GroupBans({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
     }
   }, [search, status, page])
 
+  const cases = useCaseFiles(list?.bans.map((b) => b.userId) ?? [], can(me, 'ViewProfile'))
+
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
+  const showCases = can(me, 'ViewProfile')
 
   return (
     <>
@@ -192,6 +248,7 @@ function GroupBans({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
                     <th className="px-3 py-2 text-left font-normal">Banned on</th>
                     <th className="px-3 py-2 text-left font-normal">Modbot first saw it</th>
                     {status !== 'current' && <th className="px-3 py-2 text-left font-normal">Lifted</th>}
+                    {showCases && <th className="px-3 py-2 text-left font-normal">Case file</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -229,6 +286,19 @@ function GroupBans({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
                       <td className="px-3 text-muted-foreground tabular-nums">{formatDay(ban.firstSeenAt)}</td>
                       {status !== 'current' && (
                         <td className="px-3 tabular-nums">{ban.liftedAt ? formatDay(ban.liftedAt) : ''}</td>
+                      )}
+                      {showCases && (
+                        <td className="px-3">
+                          <CaseFileCell
+                            userId={ban.userId}
+                            displayName={ban.displayName}
+                            bannedAt={ban.bannedAt}
+                            lookup={cases.get(ban.userId)}
+                            canWrite={can(me, 'Ban')}
+                            onOpenCase={onOpenCase}
+                            onWritten={onWritten}
+                          />
+                        </td>
                       )}
                     </tr>
                   ))}
@@ -271,7 +341,12 @@ function GroupBans({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
  * Nothing in a table of real rows signals that, so the window is stated permanently, at the top,
  * before the data.
  */
-function RecordedBans({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
+function RecordedBans({
+  me,
+  onOpenSubject,
+  onOpenCase,
+  onWritten,
+}: CaseColumn & { onOpenSubject: (id: string) => void }) {
   const [list, setList] = useState<BanList | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [includeUnbanned, setIncludeUnbanned] = useState(true)
@@ -301,8 +376,12 @@ function RecordedBans({ onOpenSubject }: { onOpenSubject: (id: string) => void }
     }
   }, [includeUnbanned])
 
+  const cases = useCaseFiles(list?.bans.map((b) => b.subjectId) ?? [], can(me, 'ViewProfile'))
+
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
+
+  const showCases = can(me, 'ViewProfile')
 
   return (
     <>
@@ -346,6 +425,7 @@ function RecordedBans({ onOpenSubject }: { onOpenSubject: (id: string) => void }
                     <th className="px-3 py-2 text-left font-normal">When</th>
                     <th className="px-3 py-2 text-left font-normal">By</th>
                     <th className="px-3 py-2 text-left font-normal">Recorded from</th>
+                    {showCases && <th className="px-3 py-2 text-left font-normal">Case file</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -402,6 +482,19 @@ function RecordedBans({ onOpenSubject }: { onOpenSubject: (id: string) => void }
                       <td className="px-3">
                         {ban.source ? <SourceBadge source={ban.source} /> : '—'}
                       </td>
+                      {showCases && (
+                        <td className="px-3">
+                          <CaseFileCell
+                            userId={ban.subjectId}
+                            displayName={null}
+                            bannedAt={ban.bannedAt}
+                            lookup={cases.get(ban.subjectId)}
+                            canWrite={can(me, 'Ban')}
+                            onOpenCase={onOpenCase}
+                            onWritten={onWritten}
+                          />
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

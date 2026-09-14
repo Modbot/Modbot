@@ -54,6 +54,19 @@ export function useLocation(): [
   return [location, navigate]
 }
 
+/**
+ * Navigates from somewhere that has no `navigate` of its own -- a card inside the subject pane.
+ *
+ * Every `useLocation` keeps its own copy of the URL and listens for `popstate`, so pushing the
+ * entry and then raising that event wakes all of them at once, the shell included. Calling one
+ * component's `navigate` from another would update that component and nothing else.
+ */
+export function go(to: string) {
+  if (to === currentLocation()) return
+  window.history.pushState(null, '', to)
+  window.dispatchEvent(new PopStateEvent('popstate'))
+}
+
 /** The path alone, for callers that do not care about the query string. */
 export function useRoute(): [string, (to: string, options?: { replace?: boolean }) => void] {
   const [location, navigate] = useLocation()
