@@ -44,10 +44,13 @@ public class SyncSettingsTests
         Assert.True(settings.Running);
         Assert.Equal(RateLimitOptions.DefaultFraction, settings.Rates.BudgetFraction);
 
-        // The sum spec 4.2 quotes, and the room left for interactive requests, which it says is not spare capacity.
-        Assert.Equal(1.45, settings.Rates.ScheduledTotalPerSecond, 6);
+        // The sum spec 4.2 quotes, and the room left for interactive requests, which it says is not
+        // spare capacity. 1.425 rather than the spec's original 1.450, and 0.575 rather than
+        // 0.550: groups.instances was measured at 1 per 10s rather than the 1 per 8s the spec
+        // guessed (research: vrchat-instance-findings.md), which leaves 0.025 more room.
+        Assert.Equal(1.425, settings.Rates.ScheduledTotalPerSecond, 6);
         Assert.Equal(2.0, settings.Rates.GlobalCeilingPerSecond, 6);
-        Assert.Equal(0.55, settings.Rates.InteractiveRoomLeftPerSecond, 6);
+        Assert.Equal(0.575, settings.Rates.InteractiveRoomLeftPerSecond, 6);
 
         var members = Class(settings, VRChatEndpointClass.GroupsMembers);
         Assert.Equal(0.5, members.EffectiveRatePerSecond, 6);
@@ -128,7 +131,7 @@ public class SyncSettingsTests
         Assert.Equal(0.12, Class(read, VRChatEndpointClass.GroupsMembers).EffectiveRatePerSecond, 6);
 
         // The sum the screen shows moves with it, so an operator can see what they bought.
-        Assert.Equal(1.45 - 0.5 + 0.12, read.Rates.ScheduledTotalPerSecond, 6);
+        Assert.Equal(1.425 - 0.5 + 0.12, read.Rates.ScheduledTotalPerSecond, 6);
     }
 
     /// <summary>
@@ -283,7 +286,7 @@ public class SyncSettingsTests
 
         Assert.Equal(RateLimitOptions.DefaultFraction, reset.Rates.BudgetFraction);
         Assert.Equal(300, reset.AuditLog.MaxIntervalSeconds, 6);
-        Assert.Equal(1.45, reset.Rates.ScheduledTotalPerSecond, 6);
+        Assert.Equal(1.425, reset.Rates.ScheduledTotalPerSecond, 6);
 
         // And the column is back to null rather than to a document full of this release's
         // defaults, so an untouched deployment goes on tracking the spec.
