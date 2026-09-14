@@ -76,6 +76,11 @@ in the browser's `localStorage` and lets you pick one.
 **No backend. No database. No accounts. No server-side state of any kind.** It is HTML, CSS and
 JavaScript on a CDN.
 
+> **Revised 2026-09-14.** The page is still static and still keeps each person's instance list in
+> their own browser, but the service that serves it now has a PostgreSQL database for the instance
+> registry (§4). It is built as `src/Modbot.My`, one folder per feature under `Features/`, and needs
+> `DATABASE_URL`. See §6.
+
 ### 2.2 The flow
 
 A deployment that does not know who you are sends you here to be remembered:
@@ -91,6 +96,10 @@ A deployment that does not know who you are sends you here to be remembered:
 ```
 
 Afterwards, `my.modbot.co` shows your saved instances and you pick one.
+
+**Pairing the desktop client** starts at `my.modbot.co/pair` (M3, client protocol §3.1). The page
+lists the saved instances and sends the browser to the chosen instance's own `/pair`, going straight
+there when only one is saved. `my.modbot.co` never sees a pairing code; the instance issues it.
 
 ### 2.3 Fragment vs query string — and why registration uses a query string
 
@@ -263,8 +272,11 @@ stays local, and the selector has no backend for it.
 operator turned analytics off, or who never got as far as self-registering, is still counted. The
 page visit contributes the URL and nothing else: no analytics, no group, no version, no operator.
 
-Records from a page visit are marked `RegisterPage` and never overwrite a self-registered row
-(`InstanceApi`), because that one carries analytics and this one cannot.
+**Revised 2026-09-14.** Page visits are kept in a table of their own, `register_page_instance` —
+the instance's origin, when it was first and last seen, and how many visits — apart from
+`registered_instance`, which holds what deployments sent about themselves. A page visit therefore
+cannot overwrite a self-registered row, and the two can still be compared by URL: both store only the
+origin of an absolute `https` address, and a URL carrying a username or password is refused.
 
 ### 4.2 The register API — server-side, only with analytics enabled
 
@@ -296,6 +308,12 @@ registry exists so the *project* can count and support deployments, not so anyon
 
 Aggregate figures (how many deployments, version distribution) may be published; the underlying rows
 may not.
+
+> **Revised 2026-09-14.** The rows can now be read, but only by the project: `GET /api/instances`,
+> `GET /api/instances/{instanceId}`, `GET /api/register-page-instances` and `GET /api/stats` all
+> require `Authorization: Bearer <ROOT_API_KEY>`. With no key set, all four refuse everyone. A
+> missing key, a wrong key and an unset key get the same 401. Nothing that reads the registry is
+> public, and registering and usage reporting stay open because a deployment has no key.
 
 ---
 
@@ -352,6 +370,12 @@ rather than a threat.
   design: manual bookmarks, GitHub Releases, and a configurable feed URL.
 - Neither service is in the critical path of any deployment's operation. A Modbot instance never
   contacts either one; only browsers and clients do.
+- `my.modbot.co` needs `DATABASE_URL` (a `postgres://` URL or a keyword string) and refuses to start
+  without it, then applies its migrations before serving. `ROOT_API_KEY` unlocks reading the
+  registry. `/health/ready` answers only while the database is reachable.
+- Its image builds from the repository root, because package versions are pinned in
+  `Directory.Packages.props`: `docker build -f src/Modbot.My/Dockerfile .`. On Railway, leave the
+  Root Directory empty and set `RAILWAY_DOCKERFILE_PATH=src/Modbot.My/Dockerfile`.
 
 ---
 

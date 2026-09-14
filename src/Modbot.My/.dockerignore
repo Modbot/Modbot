@@ -1,9 +1,0 @@
-# Host build output disagrees with the container's SDK and breaks the restore.
-bin/
-obj/
-
-# Local-only settings and the image definition itself.
-appsettings.Development.json
-Properties/launchSettings.json
-Dockerfile
-.dockerignore

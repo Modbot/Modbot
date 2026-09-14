@@ -21,6 +21,7 @@
     <Project Path="tests/Modbot.Discord.Tests/Modbot.Discord.Tests.csproj" />
     <Project Path="tests/Modbot.Overlay.Tests/Modbot.Overlay.Tests.csproj" />
     <Project Path="tests/Modbot.Evidence.Tests/Modbot.Evidence.Tests.csproj" />
+    <Project Path="tests/Modbot.My.Tests/Modbot.My.Tests.csproj" />
     <Project Path="tests/Modbot.TestSupport/Modbot.TestSupport.csproj" />
     <Project Path="tests/Modbot.VRChat.Tests/Modbot.VRChat.Tests.csproj" />
   </Folder>
