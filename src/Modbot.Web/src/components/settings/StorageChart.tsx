@@ -22,23 +22,22 @@ import {
   useChartTokens,
 } from './storageChartTheme'
 import type { DataSettings } from '@/lib/api'
-import { bytes } from './units'
+import { DAY_MS, GB, bytes, gigabytes, hasPlentyOfStorage } from './units'
 
 /**
- * The storage estimate, drawn.
+ * Storage over time: the past year as recorded, today as measured, and the year ahead as an
+ * estimate.
  *
- * The one measured value, today's size, is the solid dot the line starts from; everything to
- * the right of it is arithmetic. How much to trust that arithmetic is shown three ways, because
- * it is the whole point of the chart:
+ * Today sits in the middle once there is a year of recorded days. Before that, the left side
+ * narrows to the days that exist, so no width is spent on time before recording began and today
+ * moves left in proportion.
  *
- * - the stroke: solid on a month or more of data, dashed under a month, dotted under a day.
- *   Dashed carries exactly one meaning on this page — "not measured";
- * - a shaded wedge for the two lower grades, spanning the same line at a slower and a faster
- *   rate — the widths are fixed per grade and named in the caption, not computed intervals;
- * - the caption, which says in words how many days the estimate rests on.
+ * Recorded days are solid and the estimate is dashed, which is the one meaning dashes carry on
+ * this page. Under a month of data the estimate also gets a shaded wedge: the same line at a
+ * slower and a faster rate, with fixed widths per grade rather than computed intervals.
  *
- * The server does the arithmetic. Every number here is read off the horizons it sent, so the
- * chart and the table beneath it cannot disagree.
+ * When a per-GB cost is typed, the estimate is priced and drawn as a second line on its own axis
+ * on the right.
  */
 
 type Storage = DataSettings['storage']
@@ -51,7 +50,14 @@ const SPREAD: Record<Storage['confidence'], [number, number] | null> = {
 }
 
 const HEIGHT = 224
-const ESTIMATE = seriesColor(1)
+const SIZE = seriesColor(1)
+const COST = seriesColor(2)
+
+/** Mean Gregorian month, so estimate points land a whole month apart. */
+const DAYS_PER_MONTH = 30.436875
+
+/** Each side of today reaches a year: twelve of those months. */
+const YEAR_DAYS = 12 * DAYS_PER_MONTH
 
 const UNITS = [
   { label: 'TB', size: 1024 ** 4 },
@@ -61,23 +67,29 @@ const UNITS = [
   { label: 'B', size: 1 },
 ]
 
+/** The smallest 1, 2, 2.5 or 5 step at or above the rough one, at its power of ten. */
+function niceStep(rough: number): number {
+  const magnitude = 10 ** Math.floor(Math.log10(rough))
+  return [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= rough) ?? magnitude * 10
+}
+
+type Scale = { values: number[]; hi: number; label: (v: number) => string }
+
 /**
  * Axis ticks in whichever unit keeps the labels short.
  *
  * Computed in the display unit rather than in bytes, because 1, 2, 5 steps in bytes land on
  * values like 500,000,000 — which is 477 MB, and reads as a mistake.
  */
-function byteTicks(max: number): { values: number[]; hi: number; label: (v: number) => string } {
+function byteTicks(max: number): Scale {
   const unit = UNITS.find((u) => max >= u.size) ?? UNITS[UNITS.length - 1]
   const top = Math.max(max / unit.size, 1e-9)
-  const rough = top / 4
-  const magnitude = 10 ** Math.floor(Math.log10(rough))
-  const step =
-    [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= rough) ?? magnitude * 10
+  const step = niceStep(top / 4)
   const hi = Math.ceil(top / step) * step
 
   const values: number[] = []
-  for (let v = 0; v <= hi + step / 2 && values.length < 12; v += step) values.push(v * unit.size)
+  for (let i = 0; i * step <= hi + step / 2 && values.length < 12; i++)
+    values.push(i * step * unit.size)
 
   return {
     values,
@@ -89,26 +101,37 @@ function byteTicks(max: number): { values: number[]; hi: number; label: (v: numb
   }
 }
 
-function monthsLabel(months: number): string {
-  if (months === 0) return 'Today'
-  if (months % 12 === 0) return months === 12 ? '1 year' : `${months / 12} years`
-  return `${months} months`
+/** Dollar ticks for the cost axis, down to tenths of a cent for a small database. */
+function costTicks(max: number): Scale {
+  const top = Math.max(max, 0.001)
+  const step = niceStep(top / 4)
+  const hi = Math.ceil(top / step) * step
+  const decimals = step < 0.01 ? 3 : Number.isInteger(step) ? 0 : 2
+
+  const values: number[] = []
+  for (let i = 0; i * step <= hi + step / 2 && values.length < 12; i++) values.push(i * step)
+
+  return { values, hi, label: (v) => `$${v.toFixed(decimals)}` }
 }
 
-function inMonths(months: number): string {
-  if (months < 0.5) return 'Today'
-  const m = Math.round(months)
+function inMonths(days: number): string {
+  const m = Math.round(days / DAYS_PER_MONTH)
   if (m % 12 === 0) return m === 12 ? 'In 1 year' : `In ${m / 12} years`
   return m === 1 ? 'In 1 month' : `In ${m} months`
 }
 
-function daysLabel(days: number): string {
-  if (days < 1) return 'less than a day'
-  const d = Math.round(days)
-  return d === 1 ? '1 day' : `${d} days`
+function dayIndex(ms: number): number {
+  return Math.floor(ms / DAY_MS)
 }
 
-type Point = { months: number; estimate: number; range?: [number, number] }
+type Point = {
+  /** Days from today: negative is recorded history, positive is the estimate. */
+  x: number
+  measured?: number
+  estimate?: number
+  range?: [number, number]
+  cost?: number
+}
 
 /**
  * A label beside a reference dot, offset diagonally so it clears the line the dot sits on.
@@ -146,48 +169,64 @@ function dotLabel(
 export function StorageChart({
   storage,
   capacityBytes,
+  costPerGbMonth,
 }: {
   storage: Storage
   /** The disk size the operator typed, in bytes, or null when the field is empty. */
   capacityBytes: number | null
+  /** The price the operator typed per GB per month, or null when the field is empty. */
+  costPerGbMonth: number | null
 }) {
   const tokens = useChartTokens()
 
-  const horizons = [...storage.horizons].sort((a, b) => a.months - b.months)
-  const last = horizons[horizons.length - 1]
   const anchor = storage.bytes
-  const maxMonths = last?.months ?? 12
-  const perMonth = last ? (last.estimatedBytes - anchor) / last.months : 0
-  const growing = perMonth > 0
+  const perDay = storage.bytesPerDay
+  const growing = perDay > 0
   const spread = growing ? SPREAD[storage.confidence] : null
-  const costPerByte =
-    last && last.monthlyCost !== null && last.estimatedBytes > 0
-      ? last.monthlyCost / last.estimatedBytes
-      : null
 
-  const at = (months: number, rate = 1) => anchor + perMonth * rate * months
-  const topEstimate = at(maxMonths, spread ? spread[1] : 1)
+  const measuredMs = Date.parse(storage.measuredAt)
+  const today = dayIndex(measuredMs)
+
+  // Today's own row, if it has been recorded yet, is replaced by the live measurement at x = 0.
+  const past: Point[] = storage.history
+    .map((d) => ({ x: dayIndex(Date.parse(`${d.day}T00:00:00Z`)) - today, measured: d.bytes }))
+    .filter((p) => p.x < 0 && p.x >= -YEAR_DAYS)
+  const pastDays = past.length > 0 ? -Math.min(...past.map((p) => p.x)) : 0
+
+  const at = (days: number, rate = 1) => anchor + perDay * rate * days
+  const costOf = (size: number) =>
+    costPerGbMonth === null ? undefined : (size / GB) * costPerGbMonth
+
+  // One estimate point per month, so the hover snaps to whole months and reads "In 9 months".
+  const future: Point[] = Array.from({ length: 13 }, (_, m) => {
+    const x = m * DAYS_PER_MONTH
+    return {
+      x,
+      estimate: at(x),
+      cost: costOf(at(x)),
+      ...(spread ? { range: [at(x, spread[0]), at(x, spread[1])] as [number, number] } : {}),
+    }
+  })
+  future[0].measured = anchor
+
+  const points = [...past, ...future]
+
+  const topEstimate = at(YEAR_DAYS, spread ? spread[1] : 1)
+  const topPast = Math.max(0, ...past.map((p) => p.measured ?? 0))
+  const topData = Math.max(topEstimate, anchor, topPast)
 
   // The disk line joins the plot only if it is within reach; a 500 GB line above a 2 GB history
-  // would flatten the history into the axis and say nothing the room-left figure does not.
-  const capacityInView =
-    capacityBytes !== null && capacityBytes <= Math.max(topEstimate, anchor) * 3
-  const scale = byteTicks(Math.max(topEstimate, anchor, capacityInView ? capacityBytes : 0, 1))
-
-  // One point per month, so the hover snaps to whole months and reads "In 9 months".
-  const points: Point[] = Array.from({ length: maxMonths + 1 }, (_, m) => ({
-    months: m,
-    estimate: at(m),
-    ...(spread ? { range: [at(m, spread[0]), at(m, spread[1])] as [number, number] } : {}),
-  }))
+  // would flatten the history into the axis and say nothing the storage-left figure does not.
+  const capacityInView = capacityBytes !== null && capacityBytes <= topData * 3
+  const scale = byteTicks(Math.max(topData, capacityInView ? capacityBytes : 0, 1))
+  const costScale = costPerGbMonth === null ? null : costTicks(costOf(at(YEAR_DAYS)) ?? 0)
 
   const crossing =
     capacityBytes !== null && growing && capacityBytes > anchor
-      ? (capacityBytes - anchor) / perMonth
+      ? (capacityBytes - anchor) / perDay
       : null
 
-  const dash =
-    storage.confidence === 'Good' ? undefined : storage.confidence === 'Low' ? '6 4' : '2 4'
+  const dash = storage.confidence === 'Insufficient' ? '2 4' : '6 4'
 
   // Label placement, in approximate plot pixels. Three labels can end up in one corner when a
   // small disk sits just above a small database: the disk line, "Full", and "today". The rules
@@ -200,47 +239,88 @@ export function StorageChart({
   // The disk label sits at whichever end the estimate's own end label is not: the end label is
   // at top right, so a disk the line crosses early (and then leaves far below) is labelled on
   // the right, and one the line only reaches late is labelled on the left.
-  const diskLabelRight = crossing !== null && crossing < maxMonths / 2
+  const diskLabelRight = crossing !== null && crossing < YEAR_DAYS / 2
+
+  // A tick every three months, both sides of today, dated rather than counted.
+  const ticks: number[] = []
+  for (let k = -12; k <= 12; k += 3) {
+    const x = k * DAYS_PER_MONTH
+    if (x >= -pastDays - 0.5) ticks.push(x)
+  }
+  const dateOf = (x: number, options: Intl.DateTimeFormatOptions) =>
+    new Date(measuredMs + x * DAY_MS).toLocaleDateString(undefined, options)
+  const tickLabel = (x: number) =>
+    x === 0 ? 'Today' : dateOf(x, { month: 'short', year: 'numeric' })
 
   return (
     <div className="flex flex-col gap-2">
-      <Legend spread={spread !== null} disk={capacityInView} />
+      <Legend
+        measured={past.length > 0}
+        spread={spread !== null}
+        disk={capacityInView}
+        cost={costScale !== null}
+      />
 
       <ComposedChart
         responsive
         data={points}
-        // Right margin fits half of "2 years" at VR type size, where the last tick label is
+        // Without a cost axis, the right margin fits half of the last date label, which is
         // centred on the plot edge and would otherwise be cut off.
-        margin={{ top: 18, right: 28, bottom: 0, left: 0 }}
+        margin={{ top: 18, right: costScale ? 8 : 28, bottom: 0, left: 0 }}
         style={{ width: '100%', height: HEIGHT }}
         role="img"
-        aria-label={`Estimated database size over the next ${monthsLabel(maxMonths).toLowerCase()}`}
+        aria-label={
+          past.length > 0
+            ? `Database size over the past ${pastDays} days, and estimated over the next year`
+            : 'Estimated database size over the next year'
+        }
       >
-        <CartesianGrid vertical={false} stroke={GRID_COLOR} strokeWidth={tokens.hairline} />
+        <CartesianGrid
+          yAxisId="size"
+          vertical={false}
+          stroke={GRID_COLOR}
+          strokeWidth={tokens.hairline}
+        />
         <XAxis
           {...AXIS}
-          dataKey="months"
+          dataKey="x"
           type="number"
-          domain={[0, maxMonths]}
-          ticks={[0, ...horizons.map((h) => h.months)]}
-          tickFormatter={monthsLabel}
+          domain={[-pastDays, YEAR_DAYS]}
+          ticks={ticks}
+          interval="preserveStartEnd"
+          minTickGap={16}
+          tickFormatter={tickLabel}
           tick={axisTick(tokens)}
         />
         <YAxis
           {...AXIS}
+          yAxisId="size"
           domain={[0, scale.hi]}
           ticks={scale.values}
           tickFormatter={scale.label}
           tick={axisTick(tokens)}
           width="auto"
         />
+        {costScale && (
+          <YAxis
+            {...AXIS}
+            yAxisId="cost"
+            orientation="right"
+            domain={[0, costScale.hi]}
+            ticks={costScale.values}
+            tickFormatter={costScale.label}
+            tick={axisTick(tokens)}
+            width="auto"
+          />
+        )}
 
         {/* The wedge: the same straight line at a slower and a faster rate. */}
         {spread && (
           <Area
+            yAxisId="size"
             dataKey="range"
             stroke="none"
-            fill={ESTIMATE}
+            fill={SIZE}
             fillOpacity={0.14}
             activeDot={false}
             isAnimationActive={false}
@@ -249,31 +329,76 @@ export function StorageChart({
 
         {/* The wash runs to zero: the distance from zero is the message. */}
         <Area
+          yAxisId="size"
+          dataKey="measured"
+          stroke="none"
+          fill={SIZE}
+          fillOpacity={0.08}
+          activeDot={false}
+          isAnimationActive={false}
+        />
+        <Area
+          yAxisId="size"
           dataKey="estimate"
           stroke="none"
-          fill={ESTIMATE}
+          fill={SIZE}
           fillOpacity={0.08}
           activeDot={false}
           isAnimationActive={false}
         />
         <Line
+          yAxisId="size"
+          dataKey="measured"
+          stroke={SIZE}
+          strokeWidth={tokens.stroke}
+          strokeLinecap="round"
+          dot={false}
+          activeDot={{ r: 4, fill: SIZE, stroke: SURFACE, strokeWidth: 2 }}
+          isAnimationActive={false}
+        />
+        <Line
+          yAxisId="size"
           dataKey="estimate"
-          stroke={ESTIMATE}
+          stroke={SIZE}
           strokeWidth={tokens.stroke}
           strokeDasharray={dash}
           strokeLinecap="round"
           dot={false}
-          activeDot={{ r: 4, fill: ESTIMATE, stroke: SURFACE, strokeWidth: 2 }}
+          activeDot={{ r: 4, fill: SIZE, stroke: SURFACE, strokeWidth: 2 }}
           isAnimationActive={false}
         />
+        {costScale && (
+          <Line
+            yAxisId="cost"
+            dataKey="cost"
+            stroke={COST}
+            strokeWidth={tokens.stroke}
+            strokeDasharray={dash}
+            strokeLinecap="round"
+            dot={false}
+            activeDot={{ r: 4, fill: COST, stroke: SURFACE, strokeWidth: 2 }}
+            isAnimationActive={false}
+          />
+        )}
+
+        {/* Where recorded history ends and the estimate begins. */}
+        {past.length > 0 && (
+          <ReferenceLine
+            yAxisId="size"
+            x={0}
+            stroke={GRID_COLOR}
+            strokeWidth={tokens.hairline}
+          />
+        )}
 
         {capacityInView && (
           <ReferenceLine
+            yAxisId="size"
             y={capacityBytes}
             stroke={MUTED_TEXT}
             strokeWidth={tokens.hairline}
             // A line hugging the axis has no room for a label above it that clears the tick
-            // labels; the legend names the line and the caption carries the size.
+            // labels; the legend names the line.
             label={
               diskNearFloor
                 ? undefined
@@ -287,8 +412,9 @@ export function StorageChart({
         )}
 
         {/* Where the line meets the disk, if it does inside the window. */}
-        {crossing !== null && crossing <= maxMonths && capacityBytes !== null && (
+        {crossing !== null && crossing <= YEAR_DAYS && capacityBytes !== null && (
           <ReferenceDot
+            yAxisId="size"
             x={crossing}
             y={capacityBytes}
             r={4.5}
@@ -299,7 +425,7 @@ export function StorageChart({
               'Full',
               diskNearFloor
                 ? 'above-right'
-                : crossing > maxMonths * 0.85
+                : crossing > YEAR_DAYS * 0.85
                   ? 'below-left'
                   : 'below-right',
               'var(--destructive)',
@@ -308,12 +434,13 @@ export function StorageChart({
           />
         )}
 
-        {/* Today: the one measured point, with a surface ring so it reads over the line. */}
+        {/* Today: the one live measurement, with a surface ring so it reads over the line. */}
         <ReferenceDot
+          yAxisId="size"
           x={0}
           y={anchor}
           r={4.5}
-          fill={ESTIMATE}
+          fill={SIZE}
           stroke={SURFACE}
           strokeWidth={2}
           // Dropped when the disk line runs through the same spot; the size is in the facts
@@ -328,12 +455,13 @@ export function StorageChart({
         {/* The end value, labelled directly rather than every point. */}
         {growing && (
           <ReferenceDot
-            x={maxMonths}
-            y={at(maxMonths)}
+            yAxisId="size"
+            x={YEAR_DAYS}
+            y={at(YEAR_DAYS)}
             r={3}
-            fill={ESTIMATE}
+            fill={SIZE}
             stroke="none"
-            label={dotLabel(bytes(at(maxMonths)), 'above-left', TEXT, tokens.fontSize)}
+            label={dotLabel(bytes(at(YEAR_DAYS)), 'above-left', TEXT, tokens.fontSize)}
           />
         )}
 
@@ -343,19 +471,28 @@ export function StorageChart({
           content={({ active, payload }) => {
             const point = payload?.[0]?.payload as Point | undefined
             if (!active || !point) return null
+            const size = point.measured ?? point.estimate
+            if (size === undefined) return null
             return (
-              <ChartTooltipFrame title={inMonths(point.months)}>
+              <ChartTooltipFrame
+                title={
+                  point.x === 0
+                    ? 'Today'
+                    : point.x < 0
+                      ? dateOf(point.x, { month: 'short', day: 'numeric', year: 'numeric' })
+                      : inMonths(point.x)
+                }
+              >
                 <ChartTooltipRow
-                  value={`${point.months === 0 ? '' : '~'}${bytes(point.estimate)}`}
-                  label={
-                    costPerByte !== null
-                      ? `· $${(point.estimate * costPerByte).toFixed(2)}/month`
-                      : undefined
-                  }
+                  series={costScale ? SIZE : undefined}
+                  value={`${point.measured === undefined ? '~' : ''}${bytes(size)}`}
                 />
-                {point.range && point.months > 0 && (
+                {point.cost !== undefined && (
+                  <ChartTooltipRow series={COST} value={`$${point.cost.toFixed(2)}/mo`} />
+                )}
+                {point.range && point.x > 0 && (
                   <div className="text-muted-foreground tabular-nums">
-                    could be {bytes(point.range[0])} – {bytes(point.range[1])}
+                    {bytes(point.range[0])} – {bytes(point.range[1])}
                   </div>
                 )}
               </ChartTooltipFrame>
@@ -364,33 +501,56 @@ export function StorageChart({
         />
       </ComposedChart>
 
-      <Caption
-        storage={storage}
-        growing={growing}
-        capacityBytes={capacityBytes}
-        capacityInView={capacityInView}
-      />
+      <Caption storage={storage} capacityBytes={capacityBytes} />
     </div>
   )
 }
 
-function Legend({ spread, disk }: { spread: boolean; disk: boolean }) {
+function Legend({
+  measured,
+  spread,
+  disk,
+  cost,
+}: {
+  measured: boolean
+  spread: boolean
+  disk: boolean
+  cost: boolean
+}) {
   return (
     <div
       className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground"
       style={{ fontSize: 'var(--text-small)' }}
     >
+      {measured && (
+        <span className="flex items-center gap-1.5">
+          <span className="h-0.5 w-4 shrink-0 rounded-full" style={{ background: SIZE }} />
+          Recorded
+        </span>
+      )}
       <span className="flex items-center gap-1.5">
-        <span className="size-2.5 shrink-0 rounded-full" style={{ background: ESTIMATE }} />
+        <span
+          className="w-4 shrink-0 border-t-2 border-dashed"
+          style={{ borderColor: SIZE }}
+        />
         Estimate
       </span>
       {spread && (
         <span className="flex items-center gap-1.5">
           <span
             className="h-2.5 w-4 shrink-0 rounded-sm"
-            style={{ background: ESTIMATE, opacity: 0.25 }}
+            style={{ background: SIZE, opacity: 0.25 }}
           />
           Slower or faster than measured
+        </span>
+      )}
+      {cost && (
+        <span className="flex items-center gap-1.5">
+          <span
+            className="w-4 shrink-0 border-t-2 border-dashed"
+            style={{ borderColor: COST }}
+          />
+          Cost per month
         </span>
       )}
       {disk && (
@@ -403,46 +563,19 @@ function Legend({ spread, disk }: { spread: boolean; disk: boolean }) {
   )
 }
 
-/**
- * What the line rests on, in words. This is the part that is not allowed to be subtle: an
- * estimate from two hours of history is still shown, and the sentence beside it is what keeps
- * the number from being believed more than it deserves.
- */
-function Caption({
-  storage,
-  growing,
-  capacityBytes,
-  capacityInView,
-}: {
-  storage: Storage
-  growing: boolean
-  capacityBytes: number | null
-  capacityInView: boolean
-}) {
-  const days = daysLabel(storage.observedDays)
-
-  let basis: string
-  if (!growing) {
-    basis =
-      storage.observedDays < 1
-        ? 'Nothing has arrived yet, so the line is flat. The estimate starts moving with the first day of facts.'
-        : `Nothing arrived in the last ${days}, so the line is flat.`
-  } else if (storage.confidence === 'Good') {
-    basis = `Estimate is based on ${days} of data. It is a straight line, which real growth is not — a group that opens more instances generates more facts per member — so treat it as an order of magnitude.`
-  } else if (storage.confidence === 'Low') {
-    basis = `Estimate is based on ${days} of data — treat it as rough. The shaded area is the same line at three-quarters and one-and-a-half times the measured rate; a single busy weekend still moves it that much.`
-  } else {
-    basis = `Estimate is based on ${days} of data — a guess, and one that will change a lot by tomorrow. The shaded area is the same line at half and double the measured rate.`
-  }
-
+function Caption({ storage, capacityBytes }: { storage: Storage; capacityBytes: number | null }) {
+  const days = Math.round(storage.observedDays)
   const over = capacityBytes !== null && storage.bytes >= capacityBytes
+  const plenty = hasPlentyOfStorage(storage, capacityBytes)
 
   return (
     <div
       className="flex flex-col gap-1 text-muted-foreground"
       style={{ fontSize: 'var(--text-small)' }}
     >
-      <p>{basis}</p>
+      <p>
+        This estimate is based on {days} {days === 1 ? 'day' : 'days'} of data.
+      </p>
       {capacityBytes !== null && (
         <p>
           {over ? (
@@ -453,14 +586,13 @@ function Caption({
           ) : (
             <>
               <span className="font-medium text-foreground">
-                Room left: {bytes(capacityBytes - storage.bytes)}
+                Storage left: {gigabytes(capacityBytes - storage.bytes)} GB
               </span>{' '}
-              of {bytes(capacityBytes)}.
-              {!capacityInView && ' The disk is well above the top of this chart.'}
+              of {Number(gigabytes(capacityBytes))} GB.
               {storage.capacityExhausted && (
-                <span className="text-destructive">
+                <span className={plenty ? undefined : 'text-destructive'}>
                   {' '}
-                  At this rate it fills around{' '}
+                  At the current rate, it fills around{' '}
                   {new Date(storage.capacityExhausted).toLocaleDateString(undefined, {
                     year: 'numeric',
                     month: 'short',
