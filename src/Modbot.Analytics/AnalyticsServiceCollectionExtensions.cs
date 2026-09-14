@@ -40,10 +40,12 @@ public static class AnalyticsServiceCollectionExtensions
         services.AddScoped<IUserPurger, UserPurger>();
         services.AddHostedService<RetentionService>();
 
-        // Measured on demand, not on a timer. It runs a handful of catalogue queries and a
-        // count, which is cheap when somebody opens the settings page and pure waste every
-        // fifteen minutes when nobody is looking at it.
+        // Measured on demand when somebody opens the settings page, plus once a day for the
+        // storage chart's history. More often would be a handful of catalogue queries and a
+        // count, every time, for a line drawn one point per day.
         services.AddScoped<StorageEstimator>();
+        services.AddScoped<StorageHistory>();
+        services.AddHostedService<StorageHistoryService>();
 
         return services;
     }
