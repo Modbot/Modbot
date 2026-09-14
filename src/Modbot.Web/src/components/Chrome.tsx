@@ -91,9 +91,9 @@ export function Sidebar({
 }
 
 export function Topbar({
-  title, subtitle, density, setDensity, theme, setTheme, username, onAccount, onSignOut,
+  title, density, setDensity, theme, setTheme, username, onAccount, onSignOut,
 }: {
-  title: string; subtitle?: string
+  title: string
   density: Density; setDensity: (d: Density) => void
   theme: Theme; setTheme: (t: Theme) => void
   username?: string
@@ -105,10 +105,7 @@ export function Topbar({
       className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background/85 px-5 py-3 backdrop-blur"
       style={{ borderBottomWidth: 'var(--hairline)' }}
     >
-      <div>
-        <h1 className="font-semibold tracking-tight" style={{ fontSize: 'calc(var(--text-base) + 2px)' }}>{title}</h1>
-        {subtitle && <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>{subtitle}</div>}
-      </div>
+      <h1 className="font-semibold tracking-tight" style={{ fontSize: 'calc(var(--text-base) + 2px)' }}>{title}</h1>
       <div className="flex-1" />
 
       <Segmented

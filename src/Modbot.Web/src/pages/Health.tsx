@@ -33,7 +33,7 @@ export function Health() {
           if (cancelled) return
           setError(
             e instanceof ApiError && e.status === 403
-              ? 'Reading Modbot’s operational record is a separate permission, and this account does not hold it.'
+              ? 'You do not have permission to read sync health.'
               : 'Could not load sync health.',
           )
         })
@@ -87,9 +87,7 @@ export function Health() {
               </p>
               {health.gate.coldStopEndsAt && (
                 <p className="mt-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                  Next probe no earlier than{' '}
-                  {new Date(health.gate.coldStopEndsAt).toLocaleTimeString()}. Modbot sends exactly
-                  one, because a probe issued during a penalty extends it.
+                  Next probe no earlier than {new Date(health.gate.coldStopEndsAt).toLocaleTimeString()}
                 </p>
               )}
             </div>
@@ -97,20 +95,7 @@ export function Health() {
         </CardContent>
       </Card>
 
-      {!health.groupConfigured && (
-        <Note>
-          No managed group is configured, so both producers are idle by design. Finish the setup
-          wizard and they start on their own.
-        </Note>
-      )}
-
-      {!health.syncRunningInThisProcess && (
-        <Note>
-          The sync producers are not registered in this process. Nothing below is running — which
-          is different from everything being idle, and is a deployment problem rather than a quiet
-          group.
-        </Note>
-      )}
+      {!health.syncRunningInThisProcess && <Note>Sync is not running in this process.</Note>}
 
       {health.discordBot && <DiscordBot bot={health.discordBot} now={health.now} />}
 
@@ -125,7 +110,7 @@ export function Health() {
             detail={
               health.auditLogPollRate
                 ? `Polling every ${duration(health.auditLogPollRate.intervalSeconds)} — ${health.auditLogPollRate.reason}`
-                : 'No poll rate decision published yet.'
+                : undefined
             }
             run={health.lastAuditLogRun}
           />
@@ -134,7 +119,6 @@ export function Health() {
             name="Group info"
             polledAt={health.groupInfoPolledAt}
             now={health.now}
-            detail="Re-reads the group's name, roles and member counts, and writes a fact only when something changed."
             run={health.lastGroupInfoRun}
           />
 
@@ -142,17 +126,7 @@ export function Health() {
             name="User profiles"
             polledAt={health.userProfilePolledAt}
             now={health.now}
-            detail={
-              health.userProfiles
-                ? `${health.userProfiles.knownUsers.toLocaleString()} people known, ${health.userProfiles.neverRefreshed.toLocaleString()} never refreshed, ${health.userProfiles.notFound.toLocaleString()} no longer on VRChat. ${health.userProfiles.waiting.toLocaleString()} waiting right now (${waitingByReason(health.userProfiles.waitingByReason)}); ${health.userProfiles.refreshesInLastHour.toLocaleString()} refreshed in the last hour.` +
-                  (health.userProfiles.oldestRefreshedAt
-                    ? ` Oldest profile: refreshed ${ago(health.userProfiles.oldestRefreshedAt, health.now)}.`
-                    : '') +
-                  (health.userProfiles.lastRateLimitedAt
-                    ? ` Last rate limited ${ago(health.userProfiles.lastRateLimitedAt, health.now)}.`
-                    : '')
-                : 'Fetches one profile at a time on the users lane, people seen in an instance first.'
-            }
+            detail={health.userProfiles ? profileDetail(health.userProfiles, health.now) : undefined}
             run={health.lastUserProfileRun}
           />
 
@@ -175,27 +149,21 @@ export function Health() {
           <p className="mt-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {health.auditLogCatchUpComplete
               ? health.auditLogHistoryHorizon
-                ? `The one-off walk back through VRChat’s existing audit log stopped where VRChat stops paging, after ${health.auditLogHistoryHorizon.entriesRead} entries. Anything older stays in VRChat’s own log.`
-                : 'The one-off walk back through VRChat’s existing audit log has finished.'
-              : 'Still walking back through the audit log VRChat already held. Until that finishes, the start of Modbot’s history is still moving backwards.'}
-            {health.auditLogSyncedThrough &&
-              ` Consumed through ${formatDay(health.auditLogSyncedThrough)}.`}
+                ? `Audit log catch-up finished · ${health.auditLogHistoryHorizon.entriesRead} entries read`
+                : 'Audit log catch-up finished'
+              : 'Audit log catch-up running'}
+            {health.auditLogSyncedThrough && ` · synced through ${formatDay(health.auditLogSyncedThrough)}`}
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardContent className="py-4">
-          <div className="mb-1 font-medium">Rate-limit budgets</div>
-          <p className="mb-3 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            One budget per endpoint class. A limit hit on one stops only that one — which is why
-            a cold-stopped member sweep does not stop the audit log. A multiplier below 1.00 means
-            a 429 halved that budget and it is recovering by a small step per hour.
-          </p>
+          <div className="mb-3 font-medium">Rate-limit budgets</div>
 
           {health.buckets.length === 0 ? (
             <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              No bucket has been used yet, so there is nothing to report.
+              None used yet.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -255,34 +223,22 @@ export function Health() {
           <div className="mb-1 font-medium">Audit-log event types Modbot does not understand</div>
           {health.unmappedAuditEvents.length === 0 ? (
             <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              None seen since this process started. Every audit-log entry VRChat has sent had an
-              event type Modbot has a name for.
+              None seen.
             </p>
           ) : (
-            <div>
-              <div style={{ fontSize: 'var(--text-small)' }}>
-                Seen since this process started. Each is still recorded — as an unrecognised event
-                with VRChat’s own wording kept — so nothing is lost; each is also a mapping worth
-                adding.
-              </div>
-              <table className="mt-1 w-full" style={{ fontSize: 'var(--text-small)' }}>
-                <tbody>
-                  {health.unmappedAuditEvents.map((e) => (
-                    <tr key={e.eventType}>
-                      <td className="py-1 pr-3 font-mono">{e.eventType}</td>
-                      <td className="py-1 pr-3 tabular-nums text-muted-foreground">{e.count}×</td>
-                      <td className="py-1 text-muted-foreground">
-                        {e.sampleDescription ?? e.sampleEntryId ?? ''}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="mt-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                Each of these is a bug report worth filing: VRChat has an event type this project
-                has not catalogued yet.
-              </p>
-            </div>
+            <table className="mt-1 w-full" style={{ fontSize: 'var(--text-small)' }}>
+              <tbody>
+                {health.unmappedAuditEvents.map((e) => (
+                  <tr key={e.eventType}>
+                    <td className="py-1 pr-3 font-mono">{e.eventType}</td>
+                    <td className="py-1 pr-3 tabular-nums text-muted-foreground">{e.count}×</td>
+                    <td className="py-1 text-muted-foreground">
+                      {e.sampleDescription ?? e.sampleEntryId ?? ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </CardContent>
       </Card>
@@ -300,34 +256,55 @@ const REASON_LABEL: [key: string, label: string][] = [
 ]
 
 /**
- * One sentence for a sweep. The phase comes first because it is the thing "last ran 9 minutes
+ * One line for a sweep. The phase comes first because it is the thing "last ran 9 minutes
  * ago" cannot say: resting for fifteen minutes on purpose and stuck look the same from the age.
  */
 function sweepDetail(sweep: SyncHealth['memberSweep'], now: string, what: 'members' | 'bans'): string {
-  if (!sweep) return 'Not running in this process.'
+  if (!sweep) return 'Not running'
+
+  const pages = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`
 
   const phase =
     sweep.coldStopped
-      ? 'Cold-stopped: VRChat rate limited this list and Modbot is waiting it out without probing.'
+      ? 'Cold-stopped'
       : sweep.phase === 'sweeping'
-        ? `Sweeping now — ${sweep.pagesWalked} ${sweep.pagesWalked === 1 ? 'page' : 'pages'} read so far, at offset ${sweep.offset.toLocaleString()}.`
+        ? `Sweeping · ${pages(sweep.pagesWalked)} read · offset ${sweep.offset.toLocaleString()}`
         : sweep.phase === 'resting'
-          ? 'Resting between sweeps.'
+          ? 'Resting'
           : sweep.phase === 'retrying'
-            ? 'The last page failed; trying again shortly.'
+            ? 'Retrying'
             : sweep.phase === 'idle'
-              ? 'Idle: no group is configured.'
-              : `${sweep.phase}.`
+              ? 'Idle'
+              : sweep.phase
 
   const last = sweep.lastCompletedAt
-    ? ` Last full sweep finished ${ago(sweep.lastCompletedAt, now)} and listed ${sweep.count.toLocaleString()} ${what}${sweep.phase !== 'sweeping' ? ` over ${sweep.pagesWalked} ${sweep.pagesWalked === 1 ? 'page' : 'pages'}` : ''}, changing ${sweep.rowsChanged.toLocaleString()} ${sweep.rowsChanged === 1 ? 'row' : 'rows'}.`
-    : ' No full sweep has finished yet.'
+    ? `last full sweep ${ago(sweep.lastCompletedAt, now)}: ${sweep.count.toLocaleString()} ${what}${sweep.phase !== 'sweeping' ? `, ${pages(sweep.pagesWalked)}` : ''}, ${sweep.rowsChanged.toLocaleString()} ${sweep.rowsChanged === 1 ? 'row' : 'rows'} changed`
+    : 'no full sweep yet'
 
-  const facts = ` Since this process started: ${sweep.factsWritten.toLocaleString()} changes recorded from the list, ${sweep.factsDeduplicated.toLocaleString()} left to the audit log because it had them first.`
+  // Counted since this process started. "Already in the audit log" is a change the list saw that
+  // the audit log had recorded first, so the list left it alone.
+  const facts = `${sweep.factsWritten.toLocaleString()} changes recorded · ${sweep.factsDeduplicated.toLocaleString()} already in the audit log`
 
-  const next = sweep.nextPassAt ? ` Next pass ${nextAt(sweep.nextPassAt, now)}.` : ''
+  const next = sweep.nextPassAt ? `next pass ${nextAt(sweep.nextPassAt, now)}` : null
 
-  return `${phase}${last}${facts}${next}`
+  return [phase, last, facts, next].filter(Boolean).join(' · ')
+}
+
+/** The profile queue's numbers, as one line. */
+function profileDetail(p: NonNullable<SyncHealth['userProfiles']>, now: string): string {
+  const reasons = waitingByReason(p.waitingByReason)
+
+  return [
+    `${p.knownUsers.toLocaleString()} known`,
+    `${p.neverRefreshed.toLocaleString()} never refreshed`,
+    `${p.notFound.toLocaleString()} no longer on VRChat`,
+    `${p.waiting.toLocaleString()} waiting${reasons ? ` (${reasons})` : ''}`,
+    `${p.refreshesInLastHour.toLocaleString()} refreshed in the last hour`,
+    p.oldestRefreshedAt ? `oldest refreshed ${ago(p.oldestRefreshedAt, now)}` : null,
+    p.lastRateLimitedAt ? `last rate limited ${ago(p.lastRateLimitedAt, now)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 /** "in 12 minutes" or "any moment now", against the server's clock. */
@@ -343,7 +320,7 @@ function waitingByReason(counts: Record<string, number>): string {
   const parts = REASON_LABEL.filter(([key]) => (counts[key] ?? 0) > 0).map(
     ([key, label]) => `${counts[key]} ${label}`,
   )
-  return parts.length > 0 ? parts.join(', ') : 'nobody'
+  return parts.join(', ')
 }
 
 function Producer({
@@ -356,7 +333,7 @@ function Producer({
   name: string
   polledAt: string | null
   now: string
-  detail: string
+  detail?: string
   run: SyncHealth['lastAuditLogRun']
 }) {
   return (
@@ -367,13 +344,15 @@ function Producer({
           last completed a pass {ago(polledAt, now)}
         </span>
       </div>
-      <p className="mt-0.5 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        {detail}
-      </p>
+      {detail && (
+        <p className="mt-0.5 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {detail}
+        </p>
+      )}
       {run && (
         <p className="mt-0.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Last run in this process: {run.outcome.toLowerCase()} — {run.summary} (
-          {run.durationSeconds.toFixed(1)}s, {ago(run.at, now)})
+          Last run: {run.outcome.toLowerCase()} — {run.summary} ({run.durationSeconds.toFixed(1)}s,{' '}
+          {ago(run.at, now)})
         </p>
       )}
     </div>
@@ -425,13 +404,13 @@ function DiscordBot({ bot, now }: { bot: DiscordBotHealth; now: string }) {
             </span>
           )}
         </div>
-        <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {bot.state === 'NotConfigured'
-            ? 'No bot token or guild id is stored, so the bot is not running. Add them under Settings → Integrations to turn it on.'
-            : bot.logChannelConfigured
-              ? `Moderation events are posted to the log channel: ${bot.postedInThisProcess} since this process started${bot.lastPostedAt ? `, the last ${ago(bot.lastPostedAt, now)}` : ''}.`
-              : 'No moderation log channel is set, so the bot answers commands and posts nothing.'}
-        </p>
+        {bot.state !== 'NotConfigured' && (
+          <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {bot.logChannelConfigured
+              ? `Posted to the log channel: ${bot.postedInThisProcess}${bot.lastPostedAt ? `, last ${ago(bot.lastPostedAt, now)}` : ''}`
+              : 'No log channel set'}
+          </p>
+        )}
         {bot.lastError && (
           <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             Last problem{bot.lastErrorAt ? ` (${ago(bot.lastErrorAt, now)})` : ''}: {bot.lastError}

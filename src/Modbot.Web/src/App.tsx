@@ -29,21 +29,21 @@ import { Settings } from '@/pages/Settings'
 import { Users } from '@/pages/Users'
 import { Setup } from '@/pages/setup/Setup'
 
-const TITLES: Record<PageId, { title: string; subtitle?: string }> = {
-  members: { title: 'Members' },
-  bans: { title: 'Bans', subtitle: 'The group’s ban list, and what the audit log recorded' },
-  audit: { title: 'Audit log', subtitle: 'One timeline, merged across sources' },
-  'analytics-group': { title: 'My Group', subtitle: 'Is the community growing or shrinking, and what changed?' },
-  'analytics-team': { title: 'My Team', subtitle: 'Who is doing the moderation work, and when is nobody covering?' },
-  'analytics-worlds': { title: 'Worlds', subtitle: 'Which of our worlds actually get used?' },
-  'analytics-instances': { title: 'Instances', subtitle: 'When is the community actually active?' },
-  reviews: { title: 'Reviews', subtitle: 'Moderator patterns that looked unusual — a question for a person, never a verdict' },
-  users: { title: 'Users', subtitle: 'Who can sign in to this Modbot, and what they can do' },
-  roles: { title: 'Roles', subtitle: 'What each role allows' },
-  health: { title: 'Sync health' },
-  settings: { title: 'Settings' },
-  account: { title: 'Your account' },
-  cases: { title: 'Case file', subtitle: 'Why somebody was banned, and what the team kept' },
+const TITLES: Record<PageId, string> = {
+  members: 'Members',
+  bans: 'Bans',
+  audit: 'Audit log',
+  'analytics-group': 'My Group',
+  'analytics-team': 'My Team',
+  'analytics-worlds': 'Worlds',
+  'analytics-instances': 'Instances',
+  reviews: 'Reviews',
+  users: 'Users',
+  roles: 'Roles',
+  health: 'Sync health',
+  settings: 'Settings',
+  account: 'Your account',
+  cases: 'Case file',
 }
 
 /**
@@ -208,7 +208,7 @@ function Shell({
   const page = mayOpen(me, requested)
     ? requested
     : (NAV.find((n) => !('hidden' in n && n.hidden) && mayOpen(me, n.id))?.id ?? 'account')
-  const { title, subtitle } = TITLES[page]
+  const title = TITLES[page]
 
   // The popup lives in the query string rather than in component state, so it is linkable, survives
   // a refresh, and stacks (spec 10.2, lib/subject.ts). Every list that renders a person opens it the
@@ -241,7 +241,6 @@ function Shell({
       <main className="flex flex-col overflow-auto">
         <Topbar
           title={title}
-          subtitle={subtitle}
           {...prefs}
           username={me.username}
           onAccount={() => navigate(PATHS.account)}

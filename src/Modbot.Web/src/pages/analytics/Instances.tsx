@@ -36,18 +36,13 @@ export function Instances() {
       {data && (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Opened" value={compactNumber(sum(data.opened))} note="group instances, in this range" />
-            <Stat label="Closed" value={compactNumber(sum(data.closed))} note="closed by a moderator — VRChat records no other kind" />
+            <Stat label="Opened" value={compactNumber(sum(data.opened))} />
+            <Stat label="Closed" value={compactNumber(sum(data.closed))} />
             <Stat
               label="Typical time open"
               value={data.typicalMinutesOpen === null ? '—' : minutes(data.typicalMinutesOpen)}
-              note={
-                data.instancesWithBothEnds === 0
-                  ? 'needs instances with both an open and a close'
-                  : `middle value over ${compactNumber(data.instancesWithBothEnds)} with both ends recorded`
-              }
             />
-            <Stat label="Most open at once" value={compactNumber(max(data.mostOpenAtOnce))} note="on the busiest day in this range" />
+            <Stat label="Most open at once" value={compactNumber(max(data.mostOpenAtOnce))} />
           </div>
 
           {/*
@@ -56,34 +51,17 @@ export function Instances() {
             page usually came with -- and a page of numbers with no rooms on it cannot answer it.
           */}
           {data.openNow.length > 0 && (
-            <Panel
-              title="Open right now"
-              source="From the group's own instance list"
-              note="Polled every ten seconds, so this includes rooms nobody from the moderation team is standing in. Not filtered by the date range above: a room that opened before it is still open now."
-            >
+            <Panel title="Open right now">
               <RoomTable rooms={data.openNow} />
             </Panel>
           )}
 
-          <Panel
-            title="Recent instances"
-            source="From the group's own instance list"
-            note="Newest first. A room ends exactly when it leaves the group's live list; one marked “went quiet” merely stopped being seen for long enough to count as finished, which is a weaker claim."
-          >
-            {data.recent.length === 0 ? (
-              <Nothing>
-                Rooms appear here once the group opens one. Modbot polls the group's instance list
-                every ten seconds, so it sees them whether or not anybody is in them.
-              </Nothing>
-            ) : (
-              <RoomTable rooms={data.recent} />
-            )}
+          <Panel title="Recent instances">
+            {data.recent.length === 0 ? <Nothing>No instances yet.</Nothing> : <RoomTable rooms={data.recent} />}
           </Panel>
 
           <Panel
-            title="When the community is active"
-            source={layer === 'arrivals' ? 'From the fact log — arrivals seen by the desktop client' : 'From the fact log — instances opened, per the audit log'}
-            note={`Every hour of every day of the week in this range, laid over each other. Shown in your own time zone (${zoneLabel()}), rounded to the hour. Arrivals are only seen while a moderator's client is in the instance; openings come from the audit log and are complete.`}
+            title={`When the community is active (${zoneLabel()})`}
             right={
               <Toggle
                 value={layer}
@@ -97,9 +75,7 @@ export function Instances() {
           >
             {sum(toPoints(data.hourOfWeek[layer])) === 0 ? (
               <Nothing>
-                {layer === 'arrivals'
-                  ? 'No arrivals seen in this range. This fills in once a moderator runs the desktop client in a group instance.'
-                  : 'No instances opened in this range.'}
+                {layer === 'arrivals' ? 'No arrivals seen in this range.' : 'No instances opened in this range.'}
               </Nothing>
             ) : (
               <Heatmap
@@ -113,7 +89,7 @@ export function Instances() {
           </Panel>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <Panel title="Opened and closed per day" source="From daily totals">
+            <Panel title="Opened and closed per day">
               <Legend items={[{ label: 'Opened', slot: 1 }, { label: 'Closed', slot: 2 }]} />
               <div className="mt-2">
                 <DailyBars
@@ -123,35 +99,24 @@ export function Instances() {
                     { key: 'opened', label: 'opened', points: data.opened, slot: 1 },
                     { key: 'closed', label: 'closed', points: data.closed, slot: 2 },
                   ]}
-                  emptyText="Instances appear here as the audit log records them being opened and closed."
                 />
               </div>
             </Panel>
 
-            <Panel
-              title="Most open at once, per day"
-              source="From the fact log"
-              note="An instance with no close on record counts as open until the last thing Modbot saw happen in it — VRChat only records a close when a moderator closes the instance."
-            >
+            <Panel title="Most open at once, per day">
               <DailyBars
                 from={data.from}
                 to={data.to}
                 series={[{ key: 'open', label: 'open at once', points: data.mostOpenAtOnce, slot: 4 }]}
-                emptyText="This fills in as instances are opened."
               />
             </Panel>
           </div>
 
-          <Panel
-            title="Most people in one instance, per day"
-            source="From the fact log — the desktop client's presence reports"
-            note="The biggest population known in any single instance that day. Only instances a moderator's client was in are counted, so a full instance nobody with the client visited reads as nothing."
-          >
+          <Panel title="Most people in one instance, per day">
             <DailyBars
               from={data.from}
               to={data.to}
               series={[{ key: 'people', label: 'people', points: data.mostPeopleInOne, slot: 3 }]}
-              emptyText="This fills in once a moderator runs the desktop client in a group instance."
             />
           </Panel>
 

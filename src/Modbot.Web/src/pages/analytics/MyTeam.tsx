@@ -41,24 +41,18 @@ export function MyTeam({
       {data && (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Moderators active" value={compactNumber(data.moderators.length)} note="did something in this range" />
-            <Stat label="Actions" value={compactNumber(totalActions)} note="in this range" />
-            <Stat
-              label="Coverage gaps"
-              value={compactNumber(data.coverageGaps.length)}
-              note="times the last moderator left people behind"
-            />
+            <Stat label="Moderators active" value={compactNumber(data.moderators.length)} />
+            <Stat label="Actions" value={compactNumber(totalActions)} />
+            <Stat label="Coverage gaps" value={compactNumber(data.coverageGaps.length)} />
             <Stat
               label="Instances nobody watched"
               value={compactNumber(data.instancesOpenedWithoutAnyWatch)}
-              note={`of ${compactNumber(data.instancesOpenedWithoutAnyWatch + data.instancesWatched)} opened, no client ever reported from`}
+              note={`of ${compactNumber(data.instancesOpenedWithoutAnyWatch + data.instancesWatched)} opened`}
             />
           </div>
 
           <Panel
             title="Coverage gaps"
-            source="From the fact log — the desktop client's presence reports"
-            note="A gap starts when the last moderator's presence ends while people are still in the instance, and ends when a moderator is seen again or the instance is closed. Based on the desktop client's presence reports: moderators without the client don't count yet, and an instance no client entered has no population at all — those are counted above as instances nobody watched."
             right={
               <Toggle
                 value={minPeople}
@@ -74,12 +68,10 @@ export function MyTeam({
           >
             {data.coverageGaps.length === 0 ? (
               <Nothing>
-                {data.instancesWatched === 0
-                  ? 'No presence reports in this range. Gaps appear once a moderator runs the desktop client in a group instance.'
-                  : 'No gaps: every time a moderator left an instance in this range, nobody was left behind or another moderator was still there.'}
+                {data.instancesWatched === 0 ? 'No presence reports in this range.' : 'No gaps in this range.'}
               </Nothing>
             ) : shownGaps.length === 0 ? (
-              <Nothing>No gaps with that many people. Lower the threshold to see smaller ones.</Nothing>
+              <Nothing>No gaps with that many people.</Nothing>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
@@ -102,15 +94,13 @@ export function MyTeam({
               </div>
             )}
             <p className="mt-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              Who counts as a moderator: {data.howModeratorsAreRecognised} Currently {compactNumber(data.moderatorsRecognised)}{' '}
-              people match. Any paired desktop client reporting from an instance also counts as a moderator being there.
+              Who counts as a moderator: {data.howModeratorsAreRecognised} {compactNumber(data.moderatorsRecognised)} people
+              match.
             </p>
           </Panel>
 
           <Panel
             title="Actions per moderator"
-            source="From daily totals, one row per kind of action"
-            note="VRChat attributes everything Modbot itself does to Modbot's own account, so once Modbot performs actions these totals will show that account rather than the person behind it. Today every action here was performed in VRChat directly."
             right={
               onOpenReviews && (
                 <button
@@ -169,16 +159,15 @@ export function MyTeam({
           </Panel>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <Panel title="Actions per day" source="From daily totals" note="Every kind of action, by everybody, per day.">
+            <Panel title="Actions per day">
               <DailyBars
                 from={data.from}
                 to={data.to}
                 series={[{ key: 'actions', label: 'actions', points: data.actionsPerDay, slot: 1 }]}
-                emptyText="Moderation actions appear here as the audit log records them."
               />
             </Panel>
 
-            <Panel title="What kind of actions" source="From daily totals" note="Totals for this range, across everybody.">
+            <Panel title="What kind of actions">
               {totalActions === 0 ? (
                 <Nothing>Nothing yet.</Nothing>
               ) : (

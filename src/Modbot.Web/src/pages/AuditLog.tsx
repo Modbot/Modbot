@@ -133,13 +133,7 @@ export function AuditLog() {
       <Card>
         <CardContent className="p-0">
           {entries.length === 0 && !loading ? (
-            <div className="py-10 text-center text-muted-foreground">
-              <div className="font-medium text-foreground">Nothing to show</div>
-              <p className="mx-auto mt-1 max-w-md" style={{ fontSize: 'var(--text-small)' }}>
-                No recorded fact matches these filters. That is not the same as nothing having
-                happened — Modbot only holds what it has synced.
-              </p>
-            </div>
+            <div className="py-10 text-center text-muted-foreground">No entries match these filters.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
@@ -218,10 +212,8 @@ function Coverage({ coverage }: { coverage: AuditPage['coverage'] }) {
 
   return (
     <p className="px-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      Oldest recorded entry: {formatDay(coverage.oldestFact)}.{' '}
-      {coverage.catchUpComplete
-        ? 'Modbot has read back as far as VRChat’s own audit log still goes.'
-        : 'Modbot is still walking backwards through VRChat’s audit log, so this start date is still moving.'}
+      Oldest recorded entry: {formatDay(coverage.oldestFact)}
+      {coverage.catchUpComplete ? '' : ' · catch-up still running'}
     </p>
   )
 }
@@ -269,12 +261,6 @@ function Filters(props: {
           </Button>
         </div>
 
-        {props.sources.length === 0 && (
-          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            All sources, merged. The questions people ask span them.
-          </p>
-        )}
-
         {open && (
           <div className="flex flex-col gap-3 border-t pt-3" style={{ borderTopWidth: 'var(--hairline)' }}>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -320,15 +306,12 @@ function Filters(props: {
 
             {filters && !filters.canViewOperational && (
               <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                This account can read moderation history but not Modbot’s operational record —
-                logins, settings changes and sync failures are a separate permission, and none of
-                them appear above.
+                Hidden from this account: logins, settings changes and sync failures.
               </p>
             )}
             {filters && !filters.canViewModeration && (
               <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                This account can read Modbot’s operational record but not moderation history, so no
-                bans, kicks or role changes appear above.
+                Hidden from this account: bans, kicks and role changes.
               </p>
             )}
           </div>
