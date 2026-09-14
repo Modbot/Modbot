@@ -385,7 +385,7 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Assert.NotNull(row);
         Assert.Equal(Now, row.NotFoundAt);
         Assert.Null(row.LastRefreshedAt);
-        Assert.Contains("404", row.RefreshError);
+        Assert.Contains("no account with this id", row.RefreshError);
 
         Assert.Single(await FactsAsync(), f => f.Type == FactType.UserProfileNotFound);
 
