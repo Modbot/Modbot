@@ -110,8 +110,7 @@ public static class EvidenceObjectEndpoints
                         new
                         {
                             error = $"These bytes were destroyed on {row.DestroyedAt:u} by "
-                                + $"{row.DestroyedBy}: {row.DestroyedReason}. The record that this "
-                                + "evidence existed is kept; the file itself is gone permanently.",
+                                + $"{row.DestroyedBy}: {row.DestroyedReason}.",
                         },
                         statusCode: StatusCodes.Status410Gone);
                 }
@@ -178,9 +177,7 @@ public static class EvidenceObjectEndpoints
                     return Results.Json(
                         new
                         {
-                            error = "Modbot's records say this evidence is stored and the store "
-                                + "cannot find it. Nothing has been destroyed; something is wrong "
-                                + "with the store. This has been logged for the operator.",
+                            error = "The store cannot find this evidence.",
                         },
                         statusCode: StatusCodes.Status503ServiceUnavailable);
                 }
@@ -267,9 +264,7 @@ public static class EvidenceObjectEndpoints
                 {
                     return Results.BadRequest(new
                     {
-                        error = "A reason is required. It is recorded permanently, alongside who "
-                            + "destroyed the evidence and when, and it is the only account that "
-                            + "will survive the bytes.",
+                        error = "A reason is required.",
                     });
                 }
 
@@ -309,8 +304,7 @@ public static class EvidenceObjectEndpoints
 
     private static IResult NeverExisted() => Results.NotFound(new
     {
-        error = "No evidence with that content address has ever been stored here. That is not the "
-            + "same as destroyed, and not the same as a store Modbot cannot reach.",
+        error = "No evidence with that content address has been stored here.",
     });
 
     private static EvidenceObjectView Describe(EvidenceBlob blob) => new(

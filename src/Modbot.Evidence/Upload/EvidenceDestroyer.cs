@@ -83,12 +83,9 @@ public sealed class EvidenceDestroyer
                 false,
                 references,
                 references.Count == 1
-                    ? $"This file is still attached to report {references[0]}. Detach it there first; "
-                      + "destroying the bytes cannot be undone."
+                    ? $"This file is still attached to report {references[0]}."
                     : $"This file is attached to {references.Count} reports "
-                      + $"({string.Join(", ", references)}). Destroying the bytes would remove the "
-                      + "evidence from all of them, and it cannot be undone. Detach it from each "
-                      + "report first.");
+                      + $"({string.Join(", ", references)}).");
         }
 
         await _store.DeleteAsync(hash, ct).ConfigureAwait(false);
@@ -97,7 +94,6 @@ public sealed class EvidenceDestroyer
         return new DestroyResult(
             true,
             [],
-            "The bytes are gone permanently. The record that this evidence existed, and that it was "
-            + "destroyed, is kept.");
+            "The bytes were destroyed.");
     }
 }

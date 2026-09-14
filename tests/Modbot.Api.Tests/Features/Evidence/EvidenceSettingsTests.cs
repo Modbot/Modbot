@@ -290,7 +290,7 @@ public class EvidenceSettingsTests(PostgresFixture db)
 
         Assert.False(result.Succeeded);
         Assert.Equal("switch", result.FailedStep);
-        Assert.Contains("does not move it", result.Message, StringComparison.Ordinal);
+        Assert.Equal(EvidenceSettingsService.SwitchBlocked, result.Message);
 
         // Re-saving the store it is already using is not a switch, so a key rotation or a typo fix
         // is never blocked by evidence the deployment holds.

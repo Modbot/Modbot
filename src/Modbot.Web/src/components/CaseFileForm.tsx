@@ -114,7 +114,7 @@ export function WriteCaseFile({
    * the ban predates Modbot's audit-log window -- the server then finds the ban itself.
    */
   ban: { userId: string; displayName: string | null; bannedAt: string | null; auditEntryId: string | null }
-  onWritten: (caseId: string, refreshExplanation: string) => void
+  onWritten: (caseId: string) => void
   onCancel: () => void
 }) {
   const [reasons, setReasons] = useState<BanReasonView[] | null>(null)
@@ -143,7 +143,7 @@ export function WriteCaseFile({
         reasonIds: picked,
         writtenReason: text,
       })
-      .then((created) => onWritten(created.case.id, created.refreshExplanation))
+      .then((created) => onWritten(created.case.id))
       .catch((e: unknown) => {
         if (e instanceof ApiError && e.status === 409) {
           const detail = e.detail as { caseId?: string } | null
@@ -188,7 +188,7 @@ export function WriteCaseFile({
           </span>
         )}
         {existing && (
-          <Button variant="outline" size="xs" onClick={() => onWritten(existing, '')}>
+          <Button variant="outline" size="xs" onClick={() => onWritten(existing)}>
             Open the one that exists
           </Button>
         )}

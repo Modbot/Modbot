@@ -96,7 +96,7 @@ public static class PersistenceProbe
             // directory named three spaces and reports it as a perfectly good persistent one.
             return new PersistenceProbeResult(
                 PersistenceEvidence.Unwritable,
-                "No directory was given, so there is nowhere for anything to be written.");
+                "No directory was given.");
         }
 
         var marker = Path.Combine(directory, MarkerFileName);
@@ -120,8 +120,7 @@ public static class PersistenceProbe
             // never throws. Found when the evidence settings screen probed an unfilled field.
             return new PersistenceProbeResult(
                 PersistenceEvidence.Unwritable,
-                $"'{directory}' cannot be read or created ({ex.GetType().Name}), so nothing "
-                + "written there will survive — or arrive at all.");
+                $"'{directory}' cannot be read or created ({ex.GetType().Name}).");
         }
 
         try
@@ -143,14 +142,12 @@ public static class PersistenceProbe
         {
             return new PersistenceProbeResult(
                 PersistenceEvidence.SurvivedRestart,
-                $"'{directory}' survived a restart — a marker from an earlier run was found, so "
-                + "this directory persists.");
+                $"'{directory}' survived a restart.");
         }
 
         return new PersistenceProbeResult(
             PersistenceEvidence.None,
-            $"'{directory}' holds no marker from an earlier run. Either this is the first start, "
-            + "or the directory does not survive restarts; the next restart will distinguish them.");
+            $"'{directory}' has not been through a restart yet.");
     }
 
     /// <summary>

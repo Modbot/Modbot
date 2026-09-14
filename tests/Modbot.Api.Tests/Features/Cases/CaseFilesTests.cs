@@ -216,7 +216,7 @@ public class CaseFilesTests
         Assert.Equal(TimeSpan.FromHours(2).Add(TimeSpan.FromMinutes(5)).TotalSeconds, snapshot.ProfileAgeSecondsAtCapture);
         Assert.Null(snapshot.RecapturedAt);
         Assert.False(snapshot.CanCaptureAgain);
-        Assert.Contains("This is how the profile looked on 10 Mar 2026 12:05 UTC", snapshot.Explanation);
+        Assert.Contains("Taken 10 Mar 2026 12:05 UTC", snapshot.Explanation);
 
         var profile = snapshot.Profile!.Value;
         Assert.Equal("GayHater59", profile.GetProperty("displayName").GetString());
@@ -341,7 +341,7 @@ public class CaseFilesTests
         Assert.Null(view.Snapshot.Profile);
         Assert.Null(view.Snapshot.Membership);
         Assert.Null(view.Snapshot.ProfileRefreshedAt);
-        Assert.Contains("never fetched", view.Snapshot.Explanation);
+        Assert.Contains("No profile had been fetched", view.Snapshot.Explanation);
 
         // Asking for the refresh created the row, so the sync will get to them.
         using var scope = host.Services.CreateScope();
@@ -554,7 +554,6 @@ public class CaseFilesTests
         Assert.True(written.EvidenceDelivery.Configured);
         Assert.True(written.EvidenceDelivery.UploadsAllowed);
         Assert.False(written.EvidenceDelivery.DirectDelivery);
-        Assert.Contains("streamed through Modbot", written.EvidenceDelivery.DeliveryExplanation);
         Assert.Contains("image/png", written.EvidenceDelivery.AcceptedTypes);
 
         // The three-phase upload, citing the case file.

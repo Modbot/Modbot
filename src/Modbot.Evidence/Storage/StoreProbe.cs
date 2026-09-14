@@ -42,11 +42,11 @@ public sealed record StoreProbe(
 
     public static StoreProbe Absent(string where)
         => new(StoreProbeOutcome.Absent, null,
-            $"'{where}' holds no store marker, so it is not the store Modbot was configured with.");
+            $"'{where}' holds no store marker.");
 
     public static StoreProbe Malformed(string where)
         => new(StoreProbeOutcome.Malformed, null,
-            $"'{where}' holds something at the store marker key that is not a Modbot store marker.");
+            $"'{where}' holds a store marker Modbot cannot read.");
 
     public static StoreProbe Unreachable(string where, Exception failure)
         => new(StoreProbeOutcome.Unreachable, null,

@@ -41,7 +41,6 @@ public class DurabilityAdvisorTests
         Assert.True(assessment.RequiresAcknowledgement);
         Assert.False(assessment.CanProceed);
         Assert.Contains("could not confirm", assessment.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Object storage is strongly recommended", assessment.Message, StringComparison.Ordinal);
     }
 
     /// <summary>

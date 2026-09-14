@@ -67,7 +67,7 @@ public sealed record CaseFileListResponse(
 /// <param name="RecapturedAt">Set once the one permitted recapture has been used.</param>
 /// <param name="ProfileRefreshedNow">When VRChat was last asked about the person, right now -- for telling whether a newer profile has arrived.</param>
 /// <param name="CanCaptureAgain">Whether the caller may press "refresh and capture again": a newer profile exists, it has not been done before, and the caller may edit.</param>
-/// <param name="Explanation">"This is how the profile looked on …", written by the server.</param>
+/// <param name="Explanation">When it was taken, and whether a newer profile exists, written by the server.</param>
 public sealed record CaseSnapshotView(
     JsonElement? Profile,
     JsonElement? Membership,
@@ -88,13 +88,11 @@ public sealed record CaseSnapshotView(
 /// <param name="UploadsAllowed">False while the store is locked or unreachable.</param>
 /// <param name="StoreExplanation">The store's own one-sentence state.</param>
 /// <param name="DirectDelivery">Whether the store hands the browser the bytes itself.</param>
-/// <param name="DeliveryExplanation">Which way bytes travel, and why.</param>
 public sealed record EvidenceDeliveryView(
     bool Configured,
     bool UploadsAllowed,
     string StoreExplanation,
     bool DirectDelivery,
-    string DeliveryExplanation,
     long MaxFileBytes,
     IReadOnlyList<string> AcceptedTypes);
 
@@ -130,11 +128,9 @@ public sealed record CaseFileView(
     DateTimeOffset Now);
 
 /// <param name="RefreshOutcome">What asking VRChat for a fresher profile came back with: Queued, Promoted, AlreadyQueued, FreshEnough or NotAvailable.</param>
-/// <param name="RefreshExplanation">The same, in a sentence.</param>
 public sealed record CaseFileCreatedResponse(
     CaseFileView Case,
-    string RefreshOutcome,
-    string RefreshExplanation);
+    string RefreshOutcome);
 
 /// <param name="UserId">The person who was banned. Opaque; never validated.</param>
 /// <param name="AuditEntryId">The audit-log entry the ban came from, when writing from the recorded list. Optional.</param>

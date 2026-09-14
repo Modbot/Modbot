@@ -232,7 +232,6 @@ export type DataSettings = {
     platform: string
     platformEvidence: string | null
     logFilesWritten: boolean
-    persistenceExplanation: string
   }
 }
 
@@ -1084,7 +1083,6 @@ export type EvidenceCapabilities = {
   rangeRead: boolean
   serverSideCopy: boolean
   directDeliveryAvailable: boolean
-  deliveryExplanation: string
 }
 
 export type EvidenceHealth = {
@@ -1147,9 +1145,7 @@ export type EvidenceSettings = {
   backends: {
     id: EvidenceBackendId
     label: string
-    summary: string
     recommended: boolean
-    caution: string | null
   }[]
   environmentHint: {
     bucket: string | null
@@ -1158,7 +1154,6 @@ export type EvidenceSettings = {
     accessKeyId: string | null
     secretAvailable: boolean
   } | null
-  durabilityStatement: string
   switchBlockedReason: string | null
 }
 
@@ -1277,7 +1272,7 @@ export type BanListEntryAtBan = {
  *
  * It never changes after capture, except that `canCaptureAgain` offers a single recapture when
  * VRChat has answered with a newer profile since -- the first snapshot is then kept in the fact
- * log. `explanation` is the server's sentence: "This is how the profile looked on …".
+ * log. `explanation` is the server's short line: "Taken 10 Mar 2026 12:05 UTC."
  */
 export type CaseSnapshot = {
   profile: ProfileAtBan | null
@@ -1314,7 +1309,6 @@ export type EvidenceDelivery = {
   uploadsAllowed: boolean
   storeExplanation: string
   directDelivery: boolean
-  deliveryExplanation: string
   maxFileBytes: number
   acceptedTypes: string[]
 }
@@ -1352,7 +1346,6 @@ export type CaseFileView = {
 export type CaseFileCreated = {
   case: CaseFileView
   refreshOutcome: 'Queued' | 'Promoted' | 'AlreadyQueued' | 'FreshEnough' | 'NotAvailable'
-  refreshExplanation: string
 }
 
 export type UnwrittenBan = {

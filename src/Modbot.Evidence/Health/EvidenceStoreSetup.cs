@@ -133,9 +133,7 @@ public sealed class EvidenceStoreSetup
         return new SetupResult(
             true,
             null,
-            $"{store.Description} passed a full write, read, copy and delete round trip, and now carries "
-            + $"Modbot's store marker ({storeId}). This store has no backups unless you arranged them, "
-            + "and deletions from it cannot be undone — this data is yours to look after.",
+            $"{store.Description} passed. Store marker {storeId}.",
             storeId);
     }
 

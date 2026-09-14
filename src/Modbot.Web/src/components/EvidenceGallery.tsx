@@ -52,10 +52,6 @@ export function EvidenceGallery({
       )}
 
       {canAttach && <Attach caseId={caseId} delivery={delivery} onChanged={onChanged} />}
-
-      <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        {delivery.deliveryExplanation}
-      </p>
     </div>
   )
 }
