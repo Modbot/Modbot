@@ -84,7 +84,7 @@ of that file is left readable on purpose so you can see exactly which servers th
 
 ## For testers and self-hosters: pointing the button at your own server
 
-**Pair with a server** opens `https://my.modbot.co/pair` by default, which sends a signed-in
+**Pair with a server** opens `https://my.modbot.co/go?redir=/pair` by default, which sends a signed-in
 moderator on to their own group's Modbot. If you would rather it opened your server's page
 directly, create `%APPDATA%\Modbot\settings.json` containing:
 

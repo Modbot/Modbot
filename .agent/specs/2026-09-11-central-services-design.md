@@ -97,9 +97,17 @@ A deployment that does not know who you are sends you here to be remembered:
 
 Afterwards, `my.modbot.co` shows your saved instances and you pick one.
 
-**Pairing the desktop client** starts at `my.modbot.co/pair` (M3, client protocol §3.1). The page
-lists the saved instances and sends the browser to the chosen instance's own `/pair`, going straight
-there when only one is saved. `my.modbot.co` never sees a pairing code; the instance issues it.
+**Going to a page on your instance** is `my.modbot.co/go?redir=<path>`. The page lists the saved
+instances and sends the browser to that path on the chosen one, going straight there when only one is
+saved. `redir` must be a plain path on the instance; anything that could send the browser elsewhere is
+refused.
+
+It is the only redirect route. The desktop client's "Pair with a server" opens
+`my.modbot.co/go?redir=/pair` (client protocol §3.1), and documentation links use the same route for
+any other page. `my.modbot.co` never sees a pairing code; the instance issues it.
+
+> **Revised 2026-09-14.** `/go?redir=` replaced `/instanceredirect?path=` and a separate `/pair`
+> route, and `/register` takes `url` rather than `modbotInstanceUrl`.
 
 ### 2.3 Fragment vs query string — and why registration uses a query string
 
@@ -111,7 +119,7 @@ registry of Modbot deployments as a side effect of hosting a static page — pre
 forbids.
 
 **Superseded 2026-09-12.** Registration now uses a **query string** —
-`my.modbot.co/register?modbotInstanceUrl=…` — precisely *because* the server is meant to see it
+`my.modbot.co/register?url=…` — precisely *because* the server is meant to see it
 (§4). The fragment technique above is recorded because it remains the right answer for any future
 parameter the project should not receive, and because the reasoning is easy to lose.
 
@@ -252,7 +260,7 @@ versions are live, and roughly how they are configured.
 During onboarding (and from settings afterwards) Modbot offers a button that opens a **new tab**:
 
 ```
-my.modbot.co/register?modbotInstanceUrl=https://modbot-vrckings.up.railway.app
+my.modbot.co/register?url=https://modbot-vrckings.up.railway.app
 ```
 
 The page saves that URL into the browser's `localStorage` and confirms. That is all it does.

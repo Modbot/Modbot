@@ -121,7 +121,7 @@ requests in a way the client would read as transient.
   answer every question the settings list is asked. Older clients that still send `deviceName`
   are not refused — the field is ignored.
 - **Pairing starts from the client too.** "Pair with a server" opens the pairing page, by default
-  `https://my.modbot.co/pair` (central services §2), which forwards a signed-in moderator to their
+  `https://my.modbot.co/go?redir=/pair` (central services §2), which forwards a signed-in moderator to their
   own server's `/pair`. A group can point the button at its own server through the client's
   optional `settings.json`. The client never needs to know the address; the token carries it.
 - The client is **single-instance**. The copy Windows starts to deliver a link hands it to the

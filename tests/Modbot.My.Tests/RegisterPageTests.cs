@@ -14,7 +14,7 @@ public class RegisterPageTests(PostgresFixture db)
     {
         await using var host = await MyTestHost.StartAsync(db);
 
-        var response = await host.GetAsync("/register?modbotInstanceUrl=https%3A%2F%2Fmodbot.example%2Fsetup");
+        var response = await host.GetAsync("/register?url=https%3A%2F%2Fmodbot.example%2Fsetup");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
@@ -31,10 +31,10 @@ public class RegisterPageTests(PostgresFixture db)
     {
         await using var host = await MyTestHost.StartAsync(db);
 
-        await host.GetAsync("/register?modbotInstanceUrl=https://modbot.example");
+        await host.GetAsync("/register?url=https://modbot.example");
         var first = host.Time.GetUtcNow();
         host.Time.Advance(TimeSpan.FromDays(2));
-        await host.GetAsync("/register?modbotInstanceUrl=https://modbot.example");
+        await host.GetAsync("/register?url=https://modbot.example");
 
         await using var context = db.NewContext();
         var noted = Assert.Single(await context.RegisterPageInstances.ToListAsync(Ct));
@@ -45,8 +45,8 @@ public class RegisterPageTests(PostgresFixture db)
 
     [Theory]
     [InlineData("/register")]
-    [InlineData("/register?modbotInstanceUrl=http://modbot.example")]
-    [InlineData("/register?modbotInstanceUrl=not-a-url")]
+    [InlineData("/register?url=http://modbot.example")]
+    [InlineData("/register?url=not-a-url")]
     public async Task AMissingOrUnsafeUrlNotesNothingButStillServesThePage(string path)
     {
         await using var host = await MyTestHost.StartAsync(db);
@@ -63,8 +63,8 @@ public class RegisterPageTests(PostgresFixture db)
     {
         await using var host = await MyTestHost.StartAsync(db);
 
-        await host.GetAsync("/register?modbotInstanceUrl=https://both.example");
-        await host.GetAsync("/register?modbotInstanceUrl=https://page-only.example");
+        await host.GetAsync("/register?url=https://both.example");
+        await host.GetAsync("/register?url=https://page-only.example");
         await host.PostJsonAsync("/api/instances/register", new
         {
             instanceId = "both",

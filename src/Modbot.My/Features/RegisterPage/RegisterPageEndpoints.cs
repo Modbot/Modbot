@@ -8,8 +8,8 @@ using Modbot.My.Features.Pages;
 namespace Modbot.My.Features.RegisterPage;
 
 /// <summary>
-/// <c>/register</c>: serves the selector page, which saves the instance in the browser, and notes
-/// the instance URL in its own table (central services spec 4.1).
+/// <c>/register?url=</c>: serves the selector page, which saves the instance in the browser, and
+/// notes the instance URL in its own table (central services spec 4.1).
 /// </summary>
 public static class RegisterPageEndpoints
 {
@@ -21,25 +21,25 @@ public static class RegisterPageEndpoints
     }
 
     internal static async Task<IResult> RegisterAsync(
-        [FromQuery] string? modbotInstanceUrl,
+        [FromQuery] string? url,
         [FromServices] MyContext db,
         [FromServices] TimeProvider time,
         [FromServices] SelectorPage page,
         [FromServices] ILoggerFactory logs,
         CancellationToken ct)
     {
-        if (InstanceUrl.TryNormalise(modbotInstanceUrl, out var url))
+        if (InstanceUrl.TryNormalise(url, out var origin))
         {
             try
             {
-                await NoteAsync(db, url, time.GetUtcNow(), ct);
+                await NoteAsync(db, origin, time.GetUtcNow(), ct);
             }
             catch (Exception e) when (e is DbUpdateException or Npgsql.NpgsqlException)
             {
                 // The page still has to work: saving the instance in the browser is what the person
                 // came for, and the server-side note is only a backup count.
                 logs.CreateLogger(typeof(RegisterPageEndpoints))
-                    .LogWarning(e, "Could not note a register page visit for {InstanceUrl}", url);
+                    .LogWarning(e, "Could not note a register page visit for {InstanceUrl}", origin);
             }
         }
 

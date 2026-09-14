@@ -30,7 +30,7 @@ public class ClientSettingsTests : IDisposable
     [Fact]
     public void TheDefaultIsTheProjectsPairingPage()
     {
-        Assert.Equal(new Uri("https://my.modbot.co/pair"), ClientSettings.Load(Path_).PairingPage);
+        Assert.Equal(new Uri("https://my.modbot.co/go?redir=/pair"), ClientSettings.Load(Path_).PairingPage);
         Assert.Equal(ClientSettings.Default, ClientSettings.Load(Path_));
     }
 

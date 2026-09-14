@@ -14,11 +14,9 @@ public static class PageEndpoints
 {
     public static IEndpointRouteBuilder MapPages(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/instanceredirect", ([FromServices] SelectorPage page) => page.Serve());
-
-        // The desktop client opens my.modbot.co/pair. The page picks a saved instance and sends the
-        // browser on to that instance's own /pair.
-        app.MapGet("/pair", ([FromServices] SelectorPage page) => page.Serve());
+        // The one route that sends a browser to a page on a saved instance: /go?redir=/pair picks an
+        // instance and opens its /pair. The desktop client and documentation links both use it.
+        app.MapGet("/go", ([FromServices] SelectorPage page) => page.Serve());
 
         return app;
     }

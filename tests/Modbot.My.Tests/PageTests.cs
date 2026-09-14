@@ -7,8 +7,8 @@ public class PageTests(PostgresFixture db)
 {
     [Theory]
     [InlineData("/")]
-    [InlineData("/pair")]
-    [InlineData("/instanceredirect?path=/audit")]
+    [InlineData("/go")]
+    [InlineData("/go?redir=/pair")]
     public async Task EachSelectorRouteServesThePageOnFirstLoad(string path)
     {
         await using var host = await MyTestHost.StartAsync(db);
@@ -19,13 +19,25 @@ public class PageTests(PostgresFixture db)
     }
 
     [Fact]
-    public async Task ThePageHandlesThePairRoute()
+    public async Task ThePageHandlesTheGoRoute()
     {
         await using var host = await MyTestHost.StartAsync(db);
 
-        var html = await host.GetStringAsync("/pair");
+        var html = await host.GetStringAsync("/go?redir=/pair");
 
-        Assert.Contains("route === '/pair'", html, StringComparison.Ordinal);
+        Assert.Contains("route === '/go'", html, StringComparison.Ordinal);
+        Assert.Contains("q.get('redir')", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>/go replaced both; one route redirects to an instance, not three.</summary>
+    [Theory]
+    [InlineData("/pair")]
+    [InlineData("/instanceredirect?path=/audit")]
+    public async Task TheOldRedirectRoutesAreGone(string path)
+    {
+        await using var host = await MyTestHost.StartAsync(db);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await host.GetAsync(path)).StatusCode);
     }
 
     [Fact]

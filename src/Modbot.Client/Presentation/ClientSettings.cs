@@ -29,8 +29,11 @@ namespace Modbot.Client.Presentation;
 /// </param>
 public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true)
 {
-    /// <summary>The project's pairing page, which sends a signed-in moderator on to their own server's.</summary>
-    public const string DefaultPairingPage = "https://my.modbot.co/pair";
+    /// <summary>
+    /// my.modbot.co's redirect route, pointed at <c>/pair</c>: it picks one of the moderator's saved
+    /// servers and opens that server's own pairing page.
+    /// </summary>
+    public const string DefaultPairingPage = "https://my.modbot.co/go?redir=/pair";
 
     public static ClientSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
