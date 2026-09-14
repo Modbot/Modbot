@@ -549,7 +549,11 @@ public sealed class EvidenceSettingsService
             health.State is EvidenceStoreState.Unavailable,
             description);
 
-    private static EvidenceCapabilitiesView Describe(
+    /// <remarks>
+    /// Internal so the case file page can say the same sentence about delivery as this screen
+    /// does: two wordings of "who hands the browser the bytes" would be two things to drift.
+    /// </remarks>
+    internal static EvidenceCapabilitiesView Describe(
         EvidenceStoreCapabilities capabilities, bool directDeliveryEnabled)
     {
         var canPresign = capabilities.HasFlag(EvidenceStoreCapabilities.PresignedRead);

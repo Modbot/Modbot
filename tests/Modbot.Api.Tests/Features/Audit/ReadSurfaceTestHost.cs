@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
@@ -10,13 +11,17 @@ using Modbot.Analytics.DailyTotals;
 using Modbot.Analytics.Reviews;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Audit;
+using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Tests.Fakes;
+using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
+using Modbot.Evidence;
+using Modbot.Evidence.Upload;
 using Modbot.TestSupport;
 using Modbot.VRChat;
 using Modbot.VRChat.Scheduling;
@@ -136,6 +141,14 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
                 profileOptions));
         }
 
+        // Evidence, the way the host wires it, so a case file test can attach a real upload to a
+        // case file through the real endpoints. Points at a scratch directory once a test asks.
+        var evidenceRoot = Path.Combine(Path.GetTempPath(), "modbot-case-file-tests", Guid.NewGuid().ToString("n"));
+        builder.Services.AddSingleton(HostPlatform.SelfHosted);
+        builder.Services.AddModbotEvidence();
+        builder.Services.AddModbotEvidenceSettings();
+        builder.Services.AddScoped<IEvidenceMetadata, DatabaseEvidenceMetadata>();
+
         builder.Services.AddModbotAuth();
         builder.Services.AddModbotApi();
 
@@ -151,15 +164,24 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         app.MapModbotApi();
 
         await app.StartAsync();
+        await app.Services.LoadEvidenceSettingsAsync(TestContext.Current.CancellationToken);
 
         var client = app.GetTestClient();
         client.BaseAddress = new Uri("https://localhost/");
 
-        return new ReadSurfaceTestHost(app, client, clock, gate, db) { Diagnostics = diagnostics, Queue = queue };
+        return new ReadSurfaceTestHost(app, client, clock, gate, db)
+        {
+            Diagnostics = diagnostics,
+            Queue = queue,
+            EvidenceRoot = evidenceRoot,
+        };
     }
 
     /// <summary>The refresh queue the API feeds. Empty and unregistered when <c>withSync</c> was false.</summary>
     public UserRefreshQueue Queue { get; private set; } = null!;
+
+    /// <summary>A scratch directory the filesystem evidence backend can be pointed at.</summary>
+    public string EvidenceRoot { get; private set; } = string.Empty;
 
     /// <summary>
     /// Clears the fact log, the daily totals and the settings row.
@@ -182,6 +204,9 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.RepeatOffenders.ExecuteDeleteAsync(ct);
         await context.ModeratorBaselines.ExecuteDeleteAsync(ct);
         await context.ReviewRunState.ExecuteDeleteAsync(ct);
+        await context.CaseFiles.ExecuteDeleteAsync(ct);
+        await context.BanReasons.ExecuteDeleteAsync(ct);
+        await context.EvidenceBlobs.ExecuteDeleteAsync(ct);
         await context.Settings.ExecuteDeleteAsync(ct);
     }
 
@@ -266,10 +291,40 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         return await Client.SendAsync(request, ct);
     }
 
+    public async Task<HttpResponseMessage> PutJsonAsync(string path, object? body, string cookie, CancellationToken ct)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, path);
+        request.Headers.Add("Cookie", cookie);
+        if (body is not null)
+            request.Content = JsonContent.Create(body);
+        return await Client.SendAsync(request, ct);
+    }
+
+    /// <summary>The evidence transfer phase: the file as a raw body, no form encoding.</summary>
+    public async Task<HttpResponseMessage> PutBytesAsync(string path, byte[] bytes, string cookie, CancellationToken ct)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, path);
+        request.Headers.Add("Cookie", cookie);
+        request.Content = new ByteArrayContent(bytes);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        return await Client.SendAsync(request, ct);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _app.StopAsync();
         Client.Dispose();
         await _app.DisposeAsync();
+
+        try
+        {
+            if (Directory.Exists(EvidenceRoot))
+                Directory.Delete(EvidenceRoot, recursive: true);
+        }
+        catch (IOException)
+        {
+            // A scratch directory that could not be removed is litter in the temp folder, not a
+            // failed test.
+        }
     }
 }

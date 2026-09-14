@@ -9,6 +9,7 @@ using Modbot.Api.Features.Auth.Me;
 using Modbot.Api.Features.Auth.VRChatLink;
 using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
+using Modbot.Api.Features.Cases;
 using Modbot.Api.Features.Reviews;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
@@ -132,6 +133,12 @@ public static class ApiSurface
         // The member list and the ban list as the sweeps last read them (member and ban sync
         // design §5), with search.
         app.MapMembers();
+
+        // Ban case files (spec 5.8.3): the write-up of each ban, and the reason list moderators
+        // pick from. The fact writer and the profile sync's recorder resolve optionally, like
+        // the review close does; a host without them reads case files and refuses to write one.
+        app.MapBanReasons();
+        app.MapCaseFiles();
 
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and
