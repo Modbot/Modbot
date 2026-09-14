@@ -55,8 +55,7 @@ public static class TestConnectionHandler
                 {
                     return Results.BadRequest(new
                     {
-                        error = "That proxy URL is not usable. It needs a scheme and a port, "
-                            + "like http://proxy.example.com:11202.",
+                        error = "That proxy URL needs a scheme and a port.",
                     });
                 }
 

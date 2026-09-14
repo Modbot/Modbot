@@ -150,10 +150,10 @@ public static class VRChatLinkEndpoints
                 }
 
                 if (now >= expires)
-                    return Results.BadRequest(new { error = "That code has expired. Start again to get a new one." });
+                    return Results.BadRequest(new { error = "That code has expired." });
 
                 if (user.VRChatLinkChecks >= MaxChecksPerCode)
-                    return Results.BadRequest(new { error = "That code has been checked too many times. Start again to get a new one." });
+                    return Results.BadRequest(new { error = "That code has been checked too many times." });
 
                 if (user.VRChatLinkLastCheckAt is { } last && now - last < MinimumGapBetweenChecks)
                 {
@@ -193,8 +193,7 @@ public static class VRChatLinkEndpoints
                 {
                     return Results.Ok(new LinkCheckResult(
                         false,
-                        $"The code is not in that account's bio yet. Add {user.VRChatLinkCode} to the bio, save, and check again. "
-                        + "VRChat can take a minute to show a bio change.",
+                        $"{user.VRChatLinkCode} is not in that account's bio yet.",
                         StatusOf(user, now)));
                 }
 
@@ -207,7 +206,7 @@ public static class VRChatLinkEndpoints
                 {
                     return Results.Ok(new LinkCheckResult(
                         false,
-                        $"That VRChat account is already linked to the Modbot account \"{takenBy}\". One VRChat account links to one Modbot account.",
+                        $"That VRChat account is already linked to \"{takenBy}\".",
                         StatusOf(user, now)));
                 }
 
@@ -241,7 +240,7 @@ public static class VRChatLinkEndpoints
 
                 return Results.Ok(new LinkCheckResult(
                     true,
-                    $"Linked to {profile?.DisplayName ?? pendingId}. You can take the code out of your bio now.",
+                    $"Linked to {profile?.DisplayName ?? pendingId}.",
                     StatusOf(user, now)));
             })
             .WithName("CheckVRChatLink")
@@ -321,13 +320,13 @@ public static class VRChatLinkEndpoints
     private static string Explain<T>(VRChatResult<T> result) => result.Kind switch
     {
         VRChatFailureKind.NotConfigured =>
-            "Modbot's own VRChat account is not set up yet, so it cannot read profiles. Finish that step first.",
+            "Modbot's own VRChat account is not set up yet.",
         VRChatFailureKind.RateLimited =>
-            "VRChat is rate limiting Modbot right now. Try again in a few minutes.",
+            "VRChat is rate limiting Modbot.",
         VRChatFailureKind.WafBlocked =>
-            "Cloudflare is blocking Modbot's connection to VRChat. An administrator needs to look at the connection settings.",
+            "Cloudflare is blocking Modbot's connection to VRChat.",
         _ when result.StatusCode == 404 =>
-            "VRChat does not know that user id. Check what you pasted and start again.",
-        _ => $"Modbot could not read that profile: {result.ErrorMessage ?? "no answer from VRChat"}. Try again in a moment.",
+            "VRChat does not know that user id.",
+        _ => $"Modbot could not read that profile: {result.ErrorMessage ?? "no answer from VRChat"}.",
     };
 }

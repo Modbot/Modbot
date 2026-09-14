@@ -333,7 +333,7 @@ public static class UserEndpoints
     }
 
     internal const string LastAdministrator =
-        "That would leave nobody who can administer Modbot. Give somebody else the Administrator role first.";
+        "That would leave nobody who can administer Modbot.";
 
     /// <summary>
     /// Sets the contact fields from a request, recording which changed. False when the email is

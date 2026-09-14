@@ -118,7 +118,7 @@ public static class VRChatUserEndpoints
                 {
                     return Results.Ok(new RefreshRequestResult(
                         "NotAvailable", null,
-                        "The profile sync is not running in this process, so nothing can be refreshed from here."));
+                        "Profile sync is not running."));
                 }
 
                 var asked = await profiles.RequestRefreshAsync(id, RefreshReason.OpenedInModbot, ct);
@@ -128,11 +128,10 @@ public static class VRChatUserEndpoints
                     asked.LastRefreshedAt,
                     asked.Outcome switch
                     {
-                        RefreshRequestOutcome.FreshEnough =>
-                            "Fresh enough: this profile was fetched a moment ago, so it is shown as stored.",
+                        RefreshRequestOutcome.FreshEnough => "Fresh enough.",
                         RefreshRequestOutcome.AlreadyQueued => "Already waiting for a refresh.",
                         RefreshRequestOutcome.Promoted => "Moved up the queue.",
-                        _ => "Queued. The profile is refreshed as soon as the users lane gets to it.",
+                        _ => "Queued.",
                     }));
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
@@ -343,7 +342,7 @@ public static class VRChatUserEndpoints
         {
             return new RefreshState(
                 false, null, null, false,
-                "The profile sync is not running in this process, so nothing here is refreshed.");
+                "Profile sync is not running.");
         }
 
         var pending = queue.PendingFor(id);
@@ -358,9 +357,9 @@ public static class VRChatUserEndpoints
         if (lane is { IsColdStopped: true })
         {
             blocked = lane.Alerting
-                ? "VRChat has rate limited Modbot's profile fetches repeatedly; nothing is fetched until an operator looks at it."
-                : "VRChat is rate limiting Modbot right now. Profiles are not being fetched until the cold stop lifts"
-                  + (lane.StoppedUntil is { } until ? $" (next try no earlier than {until:HH:mm} UTC)." : ".");
+                ? "VRChat has rate limited profile fetches repeatedly."
+                : "VRChat is rate limiting Modbot"
+                  + (lane.StoppedUntil is { } until ? $" until {until:HH:mm} UTC." : ".");
         }
 
         return new RefreshState(
