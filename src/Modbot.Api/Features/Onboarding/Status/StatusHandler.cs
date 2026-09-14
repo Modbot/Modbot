@@ -49,6 +49,8 @@ public static class StatusHandler
             Modbot.Core.Discord.ModerationLogEvents.Allowed
                 .Select(t => new DiscordLogEventChoice(t, Modbot.Api.Features.Audit.FactLabels.For(t)))
                 .ToList(),
+            settings.DiscordInstanceChannelId,
+            settings.DiscordInstanceMessage,
             settings.SmtpHost is { Length: > 0 },
             settings.SmtpHost,
             settings.PublicAddress,

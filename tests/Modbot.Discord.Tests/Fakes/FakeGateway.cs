@@ -20,6 +20,14 @@ public sealed class FakeGateway : IDiscordGateway
 
     public List<(string ChannelId, IReadOnlyList<DiscordEmbedContent> Embeds)> Posts { get; } = [];
 
+    /// <summary>Every message posted with a line of text above it, in order, with its id.</summary>
+    public List<(string ChannelId, string MessageId, string? Text, IReadOnlyList<DiscordEmbedContent> Embeds)> Messages { get; } = [];
+
+    /// <summary>Every rewrite, in order. The message id says which card was changed.</summary>
+    public List<(string ChannelId, string MessageId, string? Text, IReadOnlyList<DiscordEmbedContent> Embeds)> Edits { get; } = [];
+
+    private int _nextMessageId = 1000;
+
     public List<string> Tokens { get; } = [];
 
     public string? RegisteredGuildId { get; private set; }
@@ -43,6 +51,12 @@ public sealed class FakeGateway : IDiscordGateway
 
     public void FailNextPost(string error, bool permanent = false)
         => _outcomes.Enqueue(DiscordPostOutcome.Failed(error, permanent));
+
+    /// <summary>Makes the next rewrite fail. Separate queue: posting and editing fail apart.</summary>
+    public void FailNextEdit(string error, bool permanent = false)
+        => _editOutcomes.Enqueue(DiscordPostOutcome.Failed(error, permanent));
+
+    private readonly Queue<DiscordPostOutcome> _editOutcomes = new();
 
     public Task ConnectAsync(string token, CancellationToken ct)
     {
@@ -77,6 +91,38 @@ public sealed class FakeGateway : IDiscordGateway
             Posts.Add((channelId, embeds));
 
         return Task.FromResult(outcome);
+    }
+
+    public Task<DiscordPostOutcome> PostAsync(
+        string channelId, string? text, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct)
+    {
+        var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : null;
+
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        var messageId = (_nextMessageId++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        Posts.Add((channelId, embeds));
+        Messages.Add((channelId, messageId, text, embeds));
+
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
+    }
+
+    public Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        CancellationToken ct)
+    {
+        var outcome = _editOutcomes.Count > 0 ? _editOutcomes.Dequeue() : null;
+
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        Edits.Add((channelId, messageId, text, embeds));
+        return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
 
     public Task DisconnectAsync()

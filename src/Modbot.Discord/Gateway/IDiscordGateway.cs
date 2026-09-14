@@ -101,9 +101,17 @@ public sealed class DiscordCommandCall
 /// same way until an operator changes something, so the poster should stop and say so rather
 /// than retry every few seconds.
 /// </param>
-public sealed record DiscordPostOutcome(bool Sent, string? Error, bool Permanent)
+/// <param name="MessageId">
+/// Discord's id for the message that was sent, when it is known. Kept so a message can be found
+/// again and rewritten -- an instance announcement is one message that keeps being brought up to
+/// date, not a new message every minute. Null on a failure, and null for a send whose id nobody
+/// asked for.
+/// </param>
+public sealed record DiscordPostOutcome(bool Sent, string? Error, bool Permanent, string? MessageId = null)
 {
     public static DiscordPostOutcome Ok { get; } = new(true, null, false);
+
+    public static DiscordPostOutcome Posted(string messageId) => new(true, null, false, messageId);
 
     public static DiscordPostOutcome Failed(string error, bool permanent = false) => new(false, error, permanent);
 }
@@ -137,6 +145,31 @@ public interface IDiscordGateway : IAsyncDisposable
     Task<int> RegisterGuildCommandsAsync(string guildId, IReadOnlyList<DiscordCommandDefinition> commands, CancellationToken ct);
 
     Task<DiscordPostOutcome> PostAsync(string channelId, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct);
+
+    /// <summary>
+    /// Posts a message and says what its id is, so it can be rewritten later.
+    /// </summary>
+    /// <param name="text">
+    /// A line above the embed, or null for none. This is the operator's own words, so it is sent
+    /// with mentions disabled: a message written months ago must not be able to ping a channel
+    /// every time a room opens.
+    /// </param>
+    Task<DiscordPostOutcome> PostAsync(
+        string channelId, string? text, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct);
+
+    /// <summary>
+    /// Rewrites a message the bot posted earlier.
+    /// </summary>
+    /// <remarks>
+    /// A message somebody deleted comes back as a permanent failure, which is the caller's signal
+    /// to forget the id rather than to keep trying.
+    /// </remarks>
+    Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        CancellationToken ct);
 
     Task DisconnectAsync();
 }

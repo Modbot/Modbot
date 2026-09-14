@@ -71,6 +71,8 @@ export type OnboardingStatus = {
     discordLogEventTypes: string[]
     /** Everything that can be chosen, in display order, with labels. */
     discordLogEventChoices: { type: string; label: string }[]
+    discordInstanceChannelId: string | null
+    discordInstanceMessage: string | null
     smtpConfigured: boolean
     smtpHost: string | null
     /** The saved public address, or null. The only thing an emailed link is built from. */
@@ -1362,7 +1364,14 @@ export const api = {
     post<{ groupId: string; name: string }>('/api/onboarding/group', body),
 
   saveIntegrations: (body: {
-    discord?: { botToken?: string; guildId?: string; logChannelId?: string; logEventTypes?: string[] }
+    discord?: {
+      botToken?: string
+      guildId?: string
+      logChannelId?: string
+      logEventTypes?: string[]
+      instanceChannelId?: string
+      instanceMessage?: string
+    }
     smtp?: {
       host?: string
       port?: number

@@ -366,6 +366,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Region).HasMaxLength(32);
             entity.Property(e => e.ClosedBy).HasMaxLength(16);
 
+            // Discord ids are long numbers Modbot never does arithmetic on, so they are text --
+            // the same choice the moderation log channel setting already makes.
+            entity.Property(e => e.AnnouncementMessageId).HasColumnType("text");
+            entity.Property(e => e.AnnouncementChannelId).HasColumnType("text");
+
             // The question asked on every single presence report, thousands of times an hour:
             // "is there an open room at this location?" It must be an index seek, and because
             // open rooms are a tiny fraction of all rooms ever, the filter keeps it that way.
@@ -383,6 +388,13 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => new { e.GroupId, e.OpenedAt })
                 .HasDatabaseName("ix_vrchat_instance_group")
                 .IsDescending(false, true);
+
+            // The announcer asks twice a minute "which rooms need their message written or
+            // brought up to date", and the answer is almost always none. The filter keeps that
+            // question off every finished room Modbot has ever seen.
+            entity.HasIndex(e => e.AnnouncementUpdatedAt)
+                .HasDatabaseName("ix_vrchat_instance_announcing")
+                .HasFilter("announcement_finished = false");
         });
 
         builder.Entity<GroupMember>(entity =>

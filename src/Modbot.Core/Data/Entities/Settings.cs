@@ -98,6 +98,27 @@ public class Settings
     /// </remarks>
     public long? DiscordLogPostedThrough { get; set; }
 
+    /// <summary>
+    /// The Discord channel that open instances are announced in. Null means no announcements,
+    /// which is the default and is not a fault.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="DiscordLogChannelId"/> on purpose. The moderation log is a record
+    /// for the team and reads like a ledger; this is a notice board for members, saying "we are
+    /// in here right now", and the two want different channels and usually different audiences.
+    /// </remarks>
+    public string? DiscordInstanceChannelId { get; set; }
+
+    /// <summary>
+    /// The operator's own line, posted above the card -- "Come hang out!", a set of rules, a
+    /// ping-free reminder. Null or empty posts the card on its own.
+    /// </summary>
+    /// <remarks>
+    /// Sent with mentions disabled, always. A line written once and posted automatically every
+    /// time a room opens must not be able to ping a server at four in the morning.
+    /// </remarks>
+    public string? DiscordInstanceMessage { get; set; }
+
     // --- Operator-supplied SMTP (spec 7.4) ---
     public string? SmtpHost { get; set; }
     public int? SmtpPort { get; set; }

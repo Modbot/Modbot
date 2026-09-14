@@ -132,4 +132,32 @@ public class VRChatInstance
     /// the list is the authority on when it ends and the time rule is never applied to it.
     /// </summary>
     public bool SeenInGroupList { get; set; }
+
+    // ── The Discord announcement, when there is one ───────────────────────────────────────
+
+    /// <summary>
+    /// The Discord message announcing this room, or null if none was posted.
+    /// </summary>
+    /// <remarks>
+    /// Kept on the room rather than in a table of its own because there is exactly one message
+    /// per room and it lives and dies with it. Holding the id is what makes the announcement a
+    /// single message that keeps being brought up to date rather than a new message every minute.
+    /// </remarks>
+    public string? AnnouncementMessageId { get; set; }
+
+    /// <summary>
+    /// The channel the announcement went to. Stored beside the id because an operator can change
+    /// the channel setting, and a message can only be edited in the channel it is actually in.
+    /// </summary>
+    public string? AnnouncementChannelId { get; set; }
+
+    /// <summary>When the announcement was last written or rewritten.</summary>
+    public DateTimeOffset? AnnouncementUpdatedAt { get; set; }
+
+    /// <summary>
+    /// Whether the announcement has had its last word -- the edit that says the room has closed.
+    /// Once true nothing touches the message again, so a finished night stops costing Discord
+    /// calls forever.
+    /// </summary>
+    public bool AnnouncementFinished { get; set; }
 }

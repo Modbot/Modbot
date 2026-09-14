@@ -108,11 +108,79 @@ public sealed class DiscordNetGateway : IDiscordGateway
         return registered.Count;
     }
 
-    public async Task<DiscordPostOutcome> PostAsync(
-        string channelId, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct)
+    public Task<DiscordPostOutcome> PostAsync(
+        string channelId, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct) =>
+        PostAsync(channelId, text: null, embeds, ct);
+
+    public Task<DiscordPostOutcome> PostAsync(
+        string channelId, string? text, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(embeds);
 
+        return InChannelAsync(channelId, async channel =>
+        {
+            // Names inside an embed never ping anybody, even one that happens to read like @here,
+            // and neither does the operator's own line above it.
+            var sent = await channel.SendMessageAsync(
+                    text: text,
+                    embeds: embeds.Select(ToEmbed).ToArray(),
+                    allowedMentions: AllowedMentions.None)
+                .ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(
+                sent.Id.ToString(CultureInfo.InvariantCulture));
+        });
+    }
+
+    public Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(embeds);
+
+        if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
+        {
+            return Task.FromResult(DiscordPostOutcome.Failed(
+                "That is not a Discord message id.", permanent: true));
+        }
+
+        return InChannelAsync(channelId, async channel =>
+        {
+            // Only messages the bot itself sent can be edited, which is what this is for; anything
+            // else comes back as a permanent failure and the caller forgets the id.
+            if (await channel.GetMessageAsync(message).ConfigureAwait(false) is not IUserMessage mine)
+            {
+                return DiscordPostOutcome.Failed(
+                    "That message is gone, or was not posted by the bot.", permanent: true);
+            }
+
+            await mine.ModifyAsync(m =>
+            {
+                m.Content = text;
+                m.Embeds = embeds.Select(ToEmbed).ToArray();
+                m.AllowedMentions = AllowedMentions.None;
+            }).ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(messageId);
+        });
+    }
+
+    /// <summary>
+    /// Finds the channel and runs one piece of work against it, turning every way Discord can say
+    /// no into a <see cref="DiscordPostOutcome"/> rather than an exception.
+    /// </summary>
+    /// <remarks>
+    /// Shared by posting and editing because the failures are identical and the difference between
+    /// "try again in a minute" and "stop and tell the operator" is the only thing either caller
+    /// acts on. A 403 or a 404 is permanent: the bot has been removed from the channel, or the
+    /// channel is gone, and retrying is just noise in the log until somebody changes a setting.
+    /// </remarks>
+    private async Task<DiscordPostOutcome> InChannelAsync(
+        string channelId, Func<IMessageChannel, Task<DiscordPostOutcome>> work)
+    {
         if (!ulong.TryParse(channelId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
         {
             return DiscordPostOutcome.Failed(
@@ -131,13 +199,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
                     + "the bot's access to the channel.", permanent: true);
             }
 
-            // Names inside an embed never ping anybody, even one that happens to read like @here.
-            await channel.SendMessageAsync(
-                    embeds: embeds.Select(ToEmbed).ToArray(),
-                    allowedMentions: AllowedMentions.None)
-                .ConfigureAwait(false);
-
-            return DiscordPostOutcome.Ok;
+            return await work(channel).ConfigureAwait(false);
         }
         catch (HttpException e)
         {

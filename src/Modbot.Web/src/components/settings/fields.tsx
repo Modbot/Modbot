@@ -51,6 +51,38 @@ export function Field({
   )
 }
 
+/** A field for something longer than one line -- a message, a note. */
+export function LongField({
+  label,
+  value,
+  placeholder,
+  rows = 3,
+  onChange,
+}: {
+  label: string
+  value: string
+  placeholder: string
+  rows?: number
+  onChange: (v: string) => void
+}) {
+  return (
+    <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+      <span className="text-muted-foreground">{label}</span>
+      <textarea
+        className={cn(
+          'border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50',
+          'dark:bg-input/30 flex w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs',
+          'transition-[color,box-shadow] outline-none focus-visible:ring-[3px] md:text-sm',
+        )}
+        rows={rows}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  )
+}
+
 export function PasswordField({
   label,
   value,

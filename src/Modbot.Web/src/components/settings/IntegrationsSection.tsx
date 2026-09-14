@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type OnboardingStatus } from '@/lib/api'
-import { Checkbox, Fact, Field, Hint, Outcome, PasswordField, Placeholder } from './fields'
+import { Checkbox, Fact, Field, Hint, LongField, Outcome, PasswordField, Placeholder } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 
 /**
@@ -45,6 +45,12 @@ function IntegrationsForm({
   const [guildId, setGuildId] = useState(status.integrations.discordGuildId ?? '')
   const [logChannelId, setLogChannelId] = useState(status.integrations.discordLogChannelId ?? '')
   const [logEventTypes, setLogEventTypes] = useState<string[]>(status.integrations.discordLogEventTypes)
+  const [instanceChannelId, setInstanceChannelId] = useState(
+    status.integrations.discordInstanceChannelId ?? '',
+  )
+  const [instanceMessage, setInstanceMessage] = useState(
+    status.integrations.discordInstanceMessage ?? '',
+  )
   const [host, setHost] = useState(status.integrations.smtpHost ?? '')
   const [port, setPort] = useState('')
   const [smtpUsername, setSmtpUsername] = useState('')
@@ -93,6 +99,8 @@ function IntegrationsForm({
           guildId,
           logChannelId,
           logEventTypes,
+          instanceChannelId,
+          instanceMessage,
         },
         smtp: {
           host,
@@ -166,6 +174,32 @@ function IntegrationsForm({
             </Checkbox>
           ))}
         </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Instance announcements"
+        description="Optional. Tells a channel when the group opens a room, and keeps that message up to date."
+      >
+        <div className="flex max-w-sm flex-col gap-3">
+          <Field
+            label="Announce open instances in this channel"
+            value={instanceChannelId}
+            onChange={setInstanceChannelId}
+            placeholder="Channel id, or blank to announce nothing"
+          />
+          <LongField
+            label="Message above each announcement"
+            value={instanceMessage}
+            onChange={setInstanceMessage}
+            placeholder="Come and join us!"
+          />
+        </div>
+        <Hint className="mt-2">
+          One message per instance, posted when it opens and edited as people come and go, with a
+          last edit when it closes. Only instances the group itself is running are announced —
+          never a world a moderator happens to be in — and no names are ever posted, only how many
+          people are there. Rooms already open when you save this are left alone.
+        </Hint>
       </SettingsCard>
 
       <SettingsCard

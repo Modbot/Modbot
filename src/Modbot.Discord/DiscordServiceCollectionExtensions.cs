@@ -4,6 +4,7 @@ using Modbot.Core.Discord;
 using Modbot.Discord.Bot;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
+using Modbot.Discord.Instances;
 using Modbot.Discord.ModerationLog;
 
 namespace Modbot.Discord;
@@ -37,9 +38,14 @@ public static class DiscordServiceCollectionExtensions
         services.AddHostedService(p => p.GetRequiredService<DiscordBotService>());
         services.AddHostedService<ModerationLogService>();
 
+        // Its own loop: a deleted announcements channel must not hold up the
+        // moderation log, which is the record rather than a notice board.
+        services.AddHostedService<InstanceAnnounceService>();
+
         services.AddScoped<LookupQuery>();
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
+        services.AddScoped<InstanceAnnouncer>();
 
         return services;
     }

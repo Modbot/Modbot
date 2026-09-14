@@ -18,11 +18,22 @@ namespace Modbot.Api.Features.Onboarding.Integrations;
 /// stored choice alone; anything outside the allowed list is dropped, so account and sign-in
 /// facts cannot be sent however the request is shaped.
 /// </param>
+/// <param name="InstanceChannelId">
+/// The channel open instances are announced in, which is a notice board for members rather than a
+/// record for the team -- so it is usually a different channel from
+/// <paramref name="LogChannelId"/>. Null leaves it alone; empty clears it and stops announcing.
+/// </param>
+/// <param name="InstanceMessage">
+/// The operator's own line, posted above each card. Null leaves it alone; empty clears it and
+/// posts the card on its own. Always sent with mentions disabled.
+/// </param>
 public sealed record DiscordSettings(
     string? BotToken = null,
     string? GuildId = null,
     string? LogChannelId = null,
-    IReadOnlyList<string>? LogEventTypes = null);
+    IReadOnlyList<string>? LogEventTypes = null,
+    string? InstanceChannelId = null,
+    string? InstanceMessage = null);
 
 /// <param name="Password">Same null-versus-empty rule as the Discord token.</param>
 /// <param name="UseTls">
@@ -109,6 +120,29 @@ public static class IntegrationsHandler
 
             if (discord.LogEventTypes is not null)
                 settings.DiscordLogEventTypes = Modbot.Core.Discord.ModerationLogEvents.Serialize(discord.LogEventTypes);
+
+            if (discord.InstanceChannelId is not null)
+            {
+                settings.DiscordInstanceChannelId =
+                    discord.InstanceChannelId.Trim().Length == 0 ? null : discord.InstanceChannelId.Trim();
+            }
+
+            if (discord.InstanceMessage is not null)
+            {
+                var message = discord.InstanceMessage.Trim();
+
+                // Discord refuses a message body over 2,000 characters, and the refusal would
+                // arrive in a log twenty minutes later rather than under the box being typed in.
+                if (message.Length > 2000)
+                {
+                    return Results.BadRequest(new
+                    {
+                        error = "That message is too long for Discord. Keep it under 2,000 characters.",
+                    });
+                }
+
+                settings.DiscordInstanceMessage = message.Length == 0 ? null : message;
+            }
         }
 
         if (request?.Smtp is { } smtp)

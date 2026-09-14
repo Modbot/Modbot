@@ -61,6 +61,8 @@ public sealed record DiscordLogEventChoice(string Type, string Label);
 /// <param name="DiscordLogChannelId">The channel moderation events are posted to, or null.</param>
 /// <param name="DiscordLogEventTypes">The event types currently posted there -- the defaults when nothing was chosen.</param>
 /// <param name="DiscordLogEventChoices">Everything that can be chosen, in display order.</param>
+/// <param name="DiscordInstanceChannelId">The channel open instances are announced in, or null.</param>
+/// <param name="DiscordInstanceMessage">The line posted above each instance card, or null.</param>
 /// <param name="PublicAddress">The saved public address, or null (accounts and access design §4.2).</param>
 /// <param name="PublicAddressSuggestion">
 /// What the platform says the address is, for the form to prefill. A person confirms it; the
@@ -72,6 +74,8 @@ public sealed record IntegrationStatus(
     string? DiscordLogChannelId,
     IReadOnlyList<string> DiscordLogEventTypes,
     IReadOnlyList<DiscordLogEventChoice> DiscordLogEventChoices,
+    string? DiscordInstanceChannelId,
+    string? DiscordInstanceMessage,
     bool SmtpConfigured,
     string? SmtpHost,
     string? PublicAddress,
