@@ -10,8 +10,9 @@ code, or a name for your computer.
 
 ## Before you start
 
-- Install the client and run it once. It sits in the tray (the icons near the clock). Running it
-  once is what tells Windows that Modbot pairing links open this program.
+- Install the client ([how](installing-the-desktop-client.md)) and run it once. It sits in the
+  tray (the icons near the clock). Running it once is what tells Windows that Modbot pairing links
+  open this program.
 - Have a staff account on your group's Modbot. Pairing is done signed in as you, and the server
   remembers that this client is yours.
 
