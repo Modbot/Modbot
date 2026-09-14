@@ -92,10 +92,6 @@ export function MyTeam({
                 </table>
               </div>
             )}
-            <p className="mt-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              Who counts as a moderator: {data.howModeratorsAreRecognised} {compactNumber(data.moderatorsRecognised)} people
-              match.
-            </p>
           </Panel>
 
           <Panel

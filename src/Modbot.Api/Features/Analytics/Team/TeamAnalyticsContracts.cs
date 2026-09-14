@@ -38,7 +38,6 @@ public sealed record CoverageGap(
     Person? LastModerator);
 
 /// <param name="ModeratorsRecognised">How many people the moderator test currently matches.</param>
-/// <param name="HowModeratorsAreRecognised">The rule, in words, so the page can show it beside the number.</param>
 /// <param name="InstancesWatched">Instances in the window with at least one moderator presence report.</param>
 /// <param name="InstancesOpenedWithoutAnyWatch">
 /// Instances the audit log saw opened in the window that no client ever reported from. Nothing is
@@ -53,7 +52,6 @@ public sealed record TeamAnalytics(
     IReadOnlyList<KindSeries> ActionsPerDayByKind,
     IReadOnlyList<CoverageGap> CoverageGaps,
     int ModeratorsRecognised,
-    string HowModeratorsAreRecognised,
     int InstancesWatched,
     int InstancesOpenedWithoutAnyWatch,
     AnalyticsCoverage Coverage,

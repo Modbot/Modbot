@@ -553,7 +553,6 @@ export type TeamAnalytics = {
   actionsPerDayByKind: KindSeries[]
   coverageGaps: CoverageGap[]
   moderatorsRecognised: number
-  howModeratorsAreRecognised: string
   instancesWatched: number
   instancesOpenedWithoutAnyWatch: number
   coverage: AnalyticsCoverage
@@ -910,12 +909,6 @@ export type VRChatUserProfile = {
 }
 
 /**
- * One check that can open a review, with its rule in words at the current thresholds. The page
- * shows the rule beside the reviews, because "looked unusual" alone is a claim to take on trust.
- */
-export type SignalInfo = { signal: string; label: string; rule: string }
-
-/**
  * Every number a review was opened on, and the ids of the facts behind them.
  *
  * `same-person` reviews carry `places` and `otherModerators`; `far-above-team` reviews carry
@@ -962,8 +955,6 @@ export type ReviewView = {
 export type ReviewList = {
   reviews: ReviewView[]
   openCount: number
-  signals: SignalInfo[]
-  howUsualIsMeasured: string
   /** When detection last ran. Null means never -- an empty list then means nothing yet. */
   lastRunAt: string | null
   now: string
@@ -1059,7 +1050,6 @@ export type SyncSettings = {
   memberSweep: SweepSettings
   banSweep: SweepSettings
   editable: boolean
-  editableExplanation: string
   running: boolean
 }
 
@@ -1629,10 +1619,7 @@ export const api = {
     body: JSON.stringify(body),
   }),
 
-  /**
-   * Read-only in this build. The endpoint says why in `editableExplanation` rather than the SPA
-   * deciding — a control whose value is silently discarded is worse than no control.
-   */
+  /** Read-only in this build: a control whose value is silently discarded is worse than no control. */
   syncSettings: () => request<SyncSettings>('/api/settings/sync'),
 
   /**

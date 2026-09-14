@@ -143,7 +143,6 @@ public sealed record SyncSettingsResponse(
     SweepPollRateSettings BanSweep,
     SyncRateSettings Rates,
     bool Editable,
-    string EditableExplanation,
     bool Running,
     bool RestartRequired,
     IReadOnlyList<SyncSettingsAdjustment> Adjustments);
@@ -236,13 +235,6 @@ public sealed record SyncSettingsUpdate(
 /// </remarks>
 public static class SyncSettingsEndpoints
 {
-    /// <summary>What the screen says about when a change takes effect.</summary>
-    public const string HowChangesTakeEffect =
-        "Rates may be lowered but never raised: spec 4.2's pacing caps are applied on write, and "
-        + "anything above one is stored at the cap with the adjustment listed. Changes take effect "
-        + "without a restart — the producers re-read the pacing before each poll, so a lowered "
-        + "rate applies from the next one.";
-
     public static IEndpointRouteBuilder MapSyncSettings(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -361,9 +353,7 @@ public static class SyncSettingsEndpoints
             {
                 if (!VRChatRateLimits.Defaults.ContainsKey(name))
                 {
-                    return $"'{name}' is not an endpoint class Modbot budgets. Adding one is a "
-                        + "decision taken in code, after asking what VRChat's limit for it is "
-                        + "(spec 4.3.4) — not something a settings write can invent.";
+                    return $"'{name}' is not an endpoint class Modbot budgets.";
                 }
 
                 if (Broken(value))
@@ -572,7 +562,6 @@ public static class SyncSettingsEndpoints
                 global - scheduledTotal,
                 classes),
             Editable: true,
-            HowChangesTakeEffect,
             running,
             RestartRequired: false,
             adjustments);

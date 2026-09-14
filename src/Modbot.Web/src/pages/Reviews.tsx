@@ -10,9 +10,8 @@ import { cn } from '@/lib/utils'
  * Reviews of a moderator's pattern (spec 5.8.5).
  *
  * Every review here is a question, and the page is built to keep it one. The evidence is shown
- * in words with the numbers in them -- "14 kicks in a day; their usual is 3" -- and the rule each
- * check follows is printed at the bottom, so a reader can see how the question came to be asked
- * and disagree with it. Closing needs a note, because "looked at it, it was fine" is the record
+ * in words with the numbers in them -- "14 kicks in a day; their usual is 3" -- so a reader can
+ * see how the question came to be asked and disagree with it. Closing needs a note, because "looked at it, it was fine" is the record
  * the spec wants kept; the note is recorded as a fact against the account that wrote it.
  */
 export function Reviews({
@@ -118,26 +117,6 @@ export function Reviews({
           }}
         />
       ))}
-
-      {list && (
-        <Card>
-          <CardContent className="py-4">
-            <div className="mb-2 font-medium">How a review opens</div>
-            <dl className="flex flex-col gap-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {list.signals.map((s) => (
-                <div key={s.signal}>
-                  <dt className="font-medium text-foreground">{s.label}</dt>
-                  <dd>{s.rule}</dd>
-                </div>
-              ))}
-              <div>
-                <dt className="font-medium text-foreground">What “usual” means</dt>
-                <dd>{list.howUsualIsMeasured}</dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }
