@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -73,9 +74,102 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
             typical,
             withBothEnds.Count,
             lives.Count(l => l.OpenedAt >= AnalyticsSql.DayStart(from)),
+            await RoomsAsync(openOnly: true, from, to, now, ct),
+            await RoomsAsync(openOnly: false, from, to, now, ct),
             await HourOfWeekAsync(from, to, ct),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
+    }
+
+    /// <summary>How many rooms the "recent" list carries. Enough to read, not a log.</summary>
+    public const int RecentRooms = 25;
+
+    /// <summary>
+    /// The rooms themselves, from <c>vrchat_instance</c> and named from <c>vrchat_world</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Not from the fact log, and that is the point. The fact log keys an instance on
+    /// <c>(world_id, instance_id)</c>, and VRChat hands the same instance number out again after
+    /// a room closes -- so the fact log cannot tell last Tuesday's room from tonight's, while
+    /// this table gives every room an id of its own and can.
+    /// </para>
+    /// <para>
+    /// Open rooms ignore the window entirely. A room that opened before the range a moderator
+    /// happens to be looking at is still open now, and leaving it out of "open right now" to
+    /// honour a date filter would answer a question nobody asked.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<InstanceRow>> RoomsAsync(
+        bool openOnly,
+        DateOnly from,
+        DateOnly to,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var rooms = db.VRChatInstances.AsNoTracking();
+
+        rooms = openOnly
+            ? rooms.Where(i => i.ClosedAt == null).OrderByDescending(i => i.LastUserCount).ThenByDescending(i => i.OpenedAt)
+            : rooms
+                .Where(i => i.OpenedAt >= AnalyticsSql.DayStart(from) && i.OpenedAt < AnalyticsSql.DayEnd(to))
+                .OrderByDescending(i => i.OpenedAt);
+
+        var page = await rooms
+            .Take(RecentRooms)
+            .Select(i => new
+            {
+                i.Id,
+                i.Location,
+                i.WorldId,
+                i.VRChatInstanceId,
+                i.GroupAccessType,
+                i.Region,
+                i.OpenedAt,
+                i.ClosedAt,
+                i.ClosedBy,
+                i.LastUserCount,
+                i.PeakUserCount,
+                i.LastSeenAt,
+            })
+            .ToListAsync(ct);
+
+        var worldIds = page.Select(r => r.WorldId).Distinct(StringComparer.Ordinal).ToList();
+
+        var named = await db.VRChatWorlds
+            .AsNoTracking()
+            .Where(w => worldIds.Contains(w.WorldId))
+            .Select(w => new { w.WorldId, w.Name, w.ThumbnailImageUrl })
+            .ToDictionaryAsync(w => w.WorldId, w => w, StringComparer.Ordinal, ct);
+
+        return page
+            .Select(r =>
+            {
+                var world = named.GetValueOrDefault(r.WorldId);
+
+                // An open room counts to now; a closed one to when it closed. Never past `now`,
+                // because a clock that disagrees with a stored time should not produce a room
+                // that has been open for minus four minutes.
+                var until = r.ClosedAt ?? now;
+                var minutes = until <= r.OpenedAt ? 0m : (decimal)(until - r.OpenedAt).TotalMinutes;
+
+                return new InstanceRow(
+                    r.Id,
+                    r.Location,
+                    r.WorldId,
+                    world?.Name,
+                    world?.ThumbnailImageUrl,
+                    r.VRChatInstanceId,
+                    r.GroupAccessType,
+                    r.Region,
+                    r.OpenedAt,
+                    r.ClosedAt,
+                    r.ClosedBy,
+                    r.LastUserCount,
+                    r.PeakUserCount,
+                    Math.Round(minutes, 1));
+            })
+            .ToList();
     }
 
     private sealed record Lifetime(string WorldId, string InstanceId, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt, DateTimeOffset EndsAt);

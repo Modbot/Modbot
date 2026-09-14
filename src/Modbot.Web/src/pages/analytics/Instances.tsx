@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
-import { DailyBars, Heatmap, Legend, compactNumber, minutes } from '@/components/charts'
-import { api, type HourOfWeek } from '@/lib/api'
+import { DailyBars, Heatmap, Legend, compactNumber, dateTime, minutes } from '@/components/charts'
+import { api, type HourOfWeek, type InstanceRow } from '@/lib/api'
 import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, Toggle } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 
@@ -48,6 +48,36 @@ export function Instances() {
             />
             <Stat label="Most open at once" value={compactNumber(max(data.mostOpenAtOnce))} note="on the busiest day in this range" />
           </div>
+
+          {/*
+            Before the charts, deliberately. The counts answer "is the community active"; this
+            answers "what actually ran last night", which is the question a moderator opening the
+            page usually came with -- and a page of numbers with no rooms on it cannot answer it.
+          */}
+          {data.openNow.length > 0 && (
+            <Panel
+              title="Open right now"
+              source="From the group's own instance list"
+              note="Polled every ten seconds, so this includes rooms nobody from the moderation team is standing in. Not filtered by the date range above: a room that opened before it is still open now."
+            >
+              <Rooms rooms={data.openNow} />
+            </Panel>
+          )}
+
+          <Panel
+            title="Recent instances"
+            source="From the group's own instance list"
+            note="Newest first. A room ends exactly when it leaves the group's live list; one marked “went quiet” merely stopped being seen for long enough to count as finished, which is a weaker claim."
+          >
+            {data.recent.length === 0 ? (
+              <Nothing>
+                Rooms appear here once the group opens one. Modbot polls the group's instance list
+                every ten seconds, so it sees them whether or not anybody is in them.
+              </Nothing>
+            ) : (
+              <Rooms rooms={data.recent} />
+            )}
+          </Panel>
 
           <Panel
             title="When the community is active"
@@ -158,4 +188,91 @@ function zoneLabel(): string {
   const h = Math.floor(Math.abs(offset) / 60)
   const m = Math.abs(offset) % 60
   return `UTC${sign}${h}${m ? `:${String(m).padStart(2, '0')}` : ''}`
+}
+
+/** How open a room is, in a word a member would use. */
+function access(groupAccessType: string | null): string | null {
+  if (!groupAccessType) return null
+
+  // A word this build has not seen is shown as VRChat wrote it. It is still the real answer, and
+  // showing it beats replacing it with "unknown".
+  return (
+    { members: 'Group members', plus: 'Members and friends', public: 'Anyone' }[groupAccessType] ??
+    groupAccessType
+  )
+}
+
+/**
+ * A table of actual rooms: where, when, how busy, and how it ended.
+ *
+ * Shared by "open right now" and "recent" because they differ only in which rows they hold. The
+ * world's name leads and its id sits underneath rather than replacing it -- a moderator matching
+ * a row against what they see in game needs the number, and a world Modbot has not read yet has
+ * nothing but the id to show.
+ */
+function Rooms({ rooms }: { rooms: InstanceRow[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+        <thead className="text-left text-muted-foreground">
+          <tr>
+            <th className="py-1 pr-3 font-medium">World</th>
+            <th className="py-1 pr-3 font-medium">Instance</th>
+            <th className="py-1 pr-3 text-right font-medium">People</th>
+            <th className="py-1 pr-3 text-right font-medium">Most at once</th>
+            <th className="py-1 pr-3 text-right font-medium">Open for</th>
+            <th className="py-1 font-medium">Started</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rooms.map((r) => (
+            <tr key={r.id} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
+              <td className="py-1 pr-3" title={r.location}>
+                <div className="flex items-center gap-2">
+                  {r.worldThumbnailImageUrl && (
+                    <img
+                      src={r.worldThumbnailImageUrl}
+                      alt=""
+                      loading="lazy"
+                      className="size-8 shrink-0 rounded object-cover"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{r.worldName ?? 'Not read yet'}</div>
+                    <div
+                      className="truncate font-mono text-muted-foreground"
+                      style={{ fontSize: 'var(--text-tiny, 11px)' }}
+                    >
+                      {r.worldId}
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td className="py-1 pr-3">
+                <div className="font-mono">{r.vrChatInstanceId ?? '—'}</div>
+                <div className="text-muted-foreground" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
+                  {[access(r.groupAccessType), r.region?.toUpperCase()].filter(Boolean).join(' · ') || '—'}
+                </div>
+              </td>
+              <td className="py-1 pr-3 text-right tabular-nums">
+                {r.closedAt ? '—' : (r.peopleNow ?? 0)}
+              </td>
+              <td className="py-1 pr-3 text-right tabular-nums">{r.peakPeople ?? '—'}</td>
+              <td className="py-1 pr-3 text-right tabular-nums">{minutes(r.minutesOpen)}</td>
+              <td className="py-1 text-muted-foreground">
+                <div>{dateTime(r.openedAt)}</div>
+                <div style={{ fontSize: 'var(--text-tiny, 11px)' }}>
+                  {!r.closedAt
+                    ? 'open now'
+                    : r.closedBy === 'time'
+                      ? 'went quiet'
+                      : `closed ${dateTime(r.closedAt)}`}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 }

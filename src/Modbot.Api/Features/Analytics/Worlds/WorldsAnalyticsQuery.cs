@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -43,14 +44,28 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
             .GroupBy(r => r.Dimension, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.Sum(r => r.Value), StringComparer.Ordinal);
 
-        var worldIds = seen.Keys.Concat(instancesByWorld.Keys).Distinct(StringComparer.Ordinal);
+        var worldIds = seen.Keys.Concat(instancesByWorld.Keys).Distinct(StringComparer.Ordinal).ToList();
+
+        // The names, in one round trip. A world Modbot has only ever seen as an id has no row
+        // here yet and keeps its id on screen, which is the truth about what is known.
+        var named = await db.VRChatWorlds
+            .AsNoTracking()
+            .Where(w => worldIds.Contains(w.WorldId))
+            .Select(w => new { w.WorldId, w.Name, w.AuthorName, w.ThumbnailImageUrl, w.Capacity })
+            .ToDictionaryAsync(w => w.WorldId, w => w, StringComparer.Ordinal, ct);
 
         var worlds = worldIds
             .Select(id =>
             {
                 var s = seen.GetValueOrDefault(id);
+                var world = named.GetValueOrDefault(id);
+
                 return new WorldSummary(
                     id,
+                    world?.Name,
+                    world?.AuthorName,
+                    world?.ThumbnailImageUrl,
+                    world?.Capacity,
                     s.Minutes,
                     s.Visitors,
                     s.Visits,
@@ -60,7 +75,7 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
             .OrderByDescending(w => w.MinutesSeen)
             .ThenByDescending(w => w.Visitors)
             .ThenByDescending(w => w.InstancesOpened)
-            .ThenBy(w => w.WorldId, StringComparer.Ordinal)
+            .ThenBy(w => w.Name ?? w.WorldId, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         // The busiest worlds by people seen over the window get a line each; the rest are in

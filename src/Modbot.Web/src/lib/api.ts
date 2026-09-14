@@ -548,6 +548,11 @@ export type TeamAnalytics = {
 
 export type WorldSummary = {
   worldId: string
+  /** Null while Modbot has only ever seen the id -- ordinary, not a fault. */
+  name: string | null
+  authorName: string | null
+  thumbnailImageUrl: string | null
+  capacity: number | null
   minutesSeen: number
   visitors: number
   visits: number
@@ -570,6 +575,25 @@ export type WorldsAnalytics = {
 /** 168 buckets, Monday 00:00 UTC first. The page shifts them to the viewer's clock. */
 export type HourOfWeek = { arrivals: number[]; opened: number[] }
 
+/** One room, as it happened. */
+export type InstanceRow = {
+  id: string
+  location: string
+  worldId: string
+  worldName: string | null
+  worldThumbnailImageUrl: string | null
+  vrChatInstanceId: string | null
+  groupAccessType: string | null
+  region: string | null
+  openedAt: string
+  closedAt: string | null
+  /** `list` (exact) or `time` (it merely went quiet). Null while still open. */
+  closedBy: string | null
+  peopleNow: number | null
+  peakPeople: number | null
+  minutesOpen: number
+}
+
 export type InstancesAnalytics = {
   from: string
   to: string
@@ -580,6 +604,8 @@ export type InstancesAnalytics = {
   typicalMinutesOpen: number | null
   instancesWithBothEnds: number
   instancesOpened: number
+  openNow: InstanceRow[]
+  recent: InstanceRow[]
   hourOfWeek: HourOfWeek
   coverage: AnalyticsCoverage
   generatedAt: string

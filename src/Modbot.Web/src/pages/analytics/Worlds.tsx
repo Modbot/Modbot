@@ -74,6 +74,7 @@ export function Worlds() {
                   <thead className="text-left text-muted-foreground">
                     <tr>
                       <th className="py-1 pr-3 font-medium">World</th>
+                      <th className="py-1 pr-3 text-right font-medium">Holds</th>
                       <th className="py-1 pr-3 text-right font-medium">Time seen</th>
                       <th className="py-1 pr-3 text-right font-medium">Visitors</th>
                       <th className="py-1 pr-3 text-right font-medium">Arrivals seen</th>
@@ -84,8 +85,35 @@ export function Worlds() {
                   <tbody>
                     {data.worlds.map((w) => (
                       <tr key={w.worldId} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
-                        <td className="py-1 pr-3 font-mono" title={w.worldId}>
-                          <span className="inline-block max-w-72 truncate align-bottom">{w.worldId}</span>
+                        {/*
+                          The name where there is one, with the id underneath rather than instead:
+                          a moderator matching this against what they see in game needs the id, and
+                          a world Modbot has not read yet has nothing else to show.
+                        */}
+                        <td className="py-1 pr-3" title={w.worldId}>
+                          <div className="flex items-center gap-2">
+                            {w.thumbnailImageUrl && (
+                              <img
+                                src={w.thumbnailImageUrl}
+                                alt=""
+                                loading="lazy"
+                                className="size-8 shrink-0 rounded object-cover"
+                              />
+                            )}
+                            <div className="min-w-0">
+                              <div className="truncate font-medium">{w.name ?? 'Not read yet'}</div>
+                              <div
+                                className="truncate font-mono text-muted-foreground"
+                                style={{ fontSize: 'var(--text-tiny, 11px)' }}
+                              >
+                                {w.authorName ? `by ${w.authorName} · ` : ''}
+                                {w.worldId}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-1 pr-3 text-right tabular-nums text-muted-foreground">
+                          {w.capacity ?? '—'}
                         </td>
                         <td className="py-1 pr-3 text-right tabular-nums">{w.minutesSeen > 0 ? minutes(w.minutesSeen) : '—'}</td>
                         <td className="py-1 pr-3 text-right tabular-nums">{compactNumber(w.visitors)}</td>
@@ -109,13 +137,13 @@ export function Worlds() {
               <Nothing>This fills in from presence reports once the daily totals have folded them in.</Nothing>
             ) : (
               <>
-                <Legend items={data.visitorsPerDay.map((s, i) => ({ label: s.worldId, slot: nextSlot(i) }))} />
+                <Legend items={data.visitorsPerDay.map((s, i) => ({ label: worldLabel(data.worlds, s.worldId), slot: nextSlot(i) }))} />
                 <div className="mt-2">
                   <DailyLine
                     from={data.from}
                     to={data.to}
                     mode="zero"
-                    series={data.visitorsPerDay.map((s, i) => ({ key: s.worldId, label: s.worldId, points: s.points, slot: nextSlot(i) }))}
+                    series={data.visitorsPerDay.map((s, i) => ({ key: s.worldId, label: worldLabel(data.worlds, s.worldId), points: s.points, slot: nextSlot(i) }))}
                   />
                 </div>
               </>
@@ -127,4 +155,16 @@ export function Worlds() {
       )}
     </div>
   )
+}
+
+/**
+ * What to call a world on a chart.
+ *
+ * Reads the name out of the same table the rows are drawn from, rather than fetching it a second
+ * way, so the legend and the table can never disagree about which world is which. An unnamed
+ * world keeps its id, shortened -- a legend is too narrow for the whole thing.
+ */
+function worldLabel(worlds: { worldId: string; name: string | null }[], worldId: string): string {
+  const named = worlds.find((w) => w.worldId === worldId)?.name
+  return named ?? (worldId.length > 18 ? `${worldId.slice(0, 18)}…` : worldId)
 }
