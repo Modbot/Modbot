@@ -28,7 +28,9 @@ public class SyncPacingTests
     [InlineData(VRChatEndpointClass.GroupsMembers, 0.5)]
     [InlineData(VRChatEndpointClass.GroupsBans, 0.5)]
     [InlineData(VRChatEndpointClass.GroupsAuditLog, 0.125)]
-    [InlineData(VRChatEndpointClass.GroupsInstances, 0.125)]
+    // 1 per 10s, not the 1 per 8s originally guessed: measured by the maintainer on 2026-09-13
+    // (research: vrchat-instance-findings.md).
+    [InlineData(VRChatEndpointClass.GroupsInstances, 0.1)]
     [InlineData(VRChatEndpointClass.GroupsRead, 0.2)]
     // 3.5, not the 1.0 spec 4.2.5 first wrote: raised by the maintainer on 2026-09-13 (user
     // profile sync design §5).
@@ -46,7 +48,9 @@ public class SyncPacingTests
     {
         var total = VRChatRateLimits.Scheduled.Sum(SyncPacing.Defaults.EffectiveRatePerSecond);
 
-        Assert.Equal(1.45, total, 6);
+        // 1.425, not spec 4.2's original 1.450: groups.instances was measured at 1 per 10s rather
+        // than the 1 per 8s the spec guessed, which takes 0.025 off the total.
+        Assert.Equal(1.425, total, 6);
         Assert.True(total < SyncPacing.Defaults.EffectiveRatePerSecond(VRChatEndpointClass.Global));
     }
 

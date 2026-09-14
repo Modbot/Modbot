@@ -242,6 +242,33 @@ public static class VRChatServiceCollectionExtensions
             memberSweepOptions,
             provider.GetRequiredService<ISyncPacingSource>()));
 
+        // Places: which rooms the group has open, and what the worlds they are in are called.
+        //
+        // The instance poll is the only way Modbot sees a room nobody from the moderation team is
+        // standing in -- a group event nobody has joined yet is otherwise invisible, and so is the
+        // hour before the first moderator arrives. Its own bucket and its own service, so a cold
+        // stop on worlds.read cannot take it down.
+        services.AddScoped<Core.Data.PlaceStore>();
+
+        services.AddScoped<GroupInstanceSync>(provider => new GroupInstanceSync(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.PlaceStore>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>()));
+
+        services.AddScoped<WorldSync>(provider => new WorldSync(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>()));
+
+        services.AddHostedService(provider => new GroupInstanceSyncService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<IMonotonicClock>()));
+
+        services.AddHostedService(provider => new WorldSyncService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<IMonotonicClock>()));
+
         services.AddHostedService(provider => new GroupBanSyncService(
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),

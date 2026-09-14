@@ -1,6 +1,6 @@
-using Modbot.VRChat.Sync;
+using Modbot.Core.Data;
 
-namespace Modbot.VRChat.Tests.Sync;
+namespace Modbot.Core.Tests.Data;
 
 /// <summary>
 /// The split is by delimiters and nothing else (spec 3.1.1). Each case here is a string the

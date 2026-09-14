@@ -330,6 +330,18 @@ public class Settings
 
     public DateTimeOffset? BanSweepPolledAt { get; set; }
 
+    // ── Places: which rooms the group has open, and which worlds still need a name ──────────
+
+    /// <summary>
+    /// When the group's live instance list was last read. This is the only view Modbot has of a
+    /// room nobody running the client is standing in, so how fresh it is decides how quickly an
+    /// unattended event shows up at all.
+    /// </summary>
+    public DateTimeOffset? GroupInstancesPolledAt { get; set; }
+
+    /// <summary>When the sweep that puts names to worlds last ran.</summary>
+    public DateTimeOffset? WorldSweepPolledAt { get; set; }
+
     // ── Evidence storage (evidence design §6, §8) ───────────────────────────────────────────
 
     /// <summary>

@@ -366,9 +366,16 @@ public class RateLimiterTests
 
         // Spec 4.3.4 is a standing instruction to ask before using a new endpoint. Inferring a
         // limit from a neighbour is exactly what must not happen silently.
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => harness.Limiter.AcquireAsync(new VRChatEndpoint("worlds.read"), ct: Ct));
+        //
+        // A made-up name rather than a real endpoint class, deliberately. This test used to name
+        // worlds.read, and then worlds.read was measured and given a budget -- at which point the
+        // test failed for a reason that had nothing to do with what it is checking. A name nobody
+        // will ever budget keeps it testing the rule instead of the roster.
+        const string neverBudgeted = "made.up.for.this.test";
 
-        Assert.Contains("worlds.read", error.Message, StringComparison.Ordinal);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => harness.Limiter.AcquireAsync(new VRChatEndpoint(neverBudgeted), ct: Ct));
+
+        Assert.Contains(neverBudgeted, error.Message, StringComparison.Ordinal);
     }
 }

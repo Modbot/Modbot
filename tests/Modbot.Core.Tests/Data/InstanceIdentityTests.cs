@@ -89,11 +89,53 @@ public class InstanceIdentityTests
     }
 
     [Fact]
-    public void AClosedRoomIsNeverMatched()
+    public void ARoomClosedByTimeIsNeverMatchedAgain()
     {
         var room = Room(Evening, closedAt: Evening.AddHours(1));
+        room.ClosedBy = "time";
 
         Assert.Null(InstanceIdentity.Match([room], Evening.AddHours(2)));
+    }
+
+    /// <summary>
+    /// The case the probe on 2026-09-13 could not settle: it is not known whether an empty room
+    /// stays in the group's list. If it does not, a quiet stretch would look like a close followed
+    /// by a new room, and every figure about how long rooms run would be wrong. Coming straight
+    /// back means it was the same room all along.
+    /// </summary>
+    [Fact]
+    public void ARoomTheListDroppedAndCarriedAgainMinutesLaterIsTheSameRoom()
+    {
+        var room = Room(Evening, seenInGroupList: true, closedAt: Evening.AddMinutes(30));
+        room.ClosedBy = "list";
+
+        var backAgain = Evening.AddMinutes(32);
+
+        Assert.Same(room, InstanceIdentity.Match([room], backAgain));
+    }
+
+    [Fact]
+    public void ARoomTheListDroppedLongAgoIsANewRoom()
+    {
+        var room = Room(Evening, seenInGroupList: true, closedAt: Evening.AddMinutes(30));
+        room.ClosedBy = "list";
+
+        var muchLater = Evening.AddMinutes(30) + InstanceIdentity.ReopensWithin;
+
+        Assert.Null(InstanceIdentity.Match([room], muchLater));
+    }
+
+    /// <summary>
+    /// Reopening is only ever an undo of the list's own close. A room closed by the time rule has
+    /// been quiet for three days, and letting it reopen would undo the split that rule exists for.
+    /// </summary>
+    [Fact]
+    public void OnlyTheListsOwnCloseCanBeUndone()
+    {
+        var room = Room(Evening, closedAt: Evening.AddMinutes(30));
+        room.ClosedBy = "time";
+
+        Assert.Null(InstanceIdentity.Match([room], Evening.AddMinutes(32)));
     }
 
     /// <summary>

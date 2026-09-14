@@ -5,6 +5,8 @@ using Modbot.Analytics.Facts;
 using Modbot.Core.Data.Entities;
 using VRChat.API.Model;
 
+using Modbot.Core.Data;
+
 namespace Modbot.VRChat.Sync;
 
 /// <summary>Why an audit entry did not become a fact.</summary>

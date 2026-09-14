@@ -17,26 +17,45 @@ namespace Modbot.Core.Data;
 public static class InstanceIdentity
 {
     /// <summary>
+    /// How soon a room the group's list stopped carrying can come back and still be the same room.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Absence from the group's live list is how a room is known to have ended, and it is the
+    /// best signal there is -- but it rests on an assumption that has not been checked: that a
+    /// room with nobody in it drops off the list only when it has actually shut down. No empty
+    /// group instance existed when the API was probed, so whether an empty room stays listed is
+    /// genuinely unknown (research: vrchat-instance-findings.md section 2.1).
+    /// </para>
+    /// <para>
+    /// This window makes the question cost little either way. If the room really had ended, an
+    /// instance number handed out again within minutes is rare, and the price of being wrong is
+    /// two short sessions recorded as one. If the room had merely emptied, the row stays
+    /// continuous, which is the truth. Being wrong in the other direction -- splitting every
+    /// quiet stretch into a new room -- would corrupt every figure about how long rooms run.
+    /// </para>
+    /// </remarks>
+    public static readonly TimeSpan ReopensWithin = TimeSpan.FromMinutes(10);
+
+    /// <summary>
     /// Picks the open room a sighting belongs to, or null when the sighting starts a new one.
     /// </summary>
-    /// <param name="openAtLocation">
-    /// Every row at this location that has no <c>ClosedAt</c>. Normally none or one; more than one
-    /// only where an earlier close was missed, and then the most recently seen wins, because it is
-    /// the only one that could still be running.
+    /// <param name="atLocation">
+    /// The rows at this location worth considering: those still open, plus any closed recently
+    /// enough to be reopened. Normally none or one; more than one only where an earlier close was
+    /// missed, and then the most recently seen wins, because it is the only one that could still
+    /// be running.
     /// </param>
     /// <param name="seenAt">When the sighting happened.</param>
     /// <returns>The room to record against, or null to open a new one.</returns>
-    public static VRChatInstance? Match(IEnumerable<VRChatInstance> openAtLocation, DateTimeOffset seenAt)
+    public static VRChatInstance? Match(IEnumerable<VRChatInstance> atLocation, DateTimeOffset seenAt)
     {
-        ArgumentNullException.ThrowIfNull(openAtLocation);
+        ArgumentNullException.ThrowIfNull(atLocation);
 
         VRChatInstance? best = null;
 
-        foreach (var candidate in openAtLocation)
+        foreach (var candidate in atLocation)
         {
-            if (candidate.ClosedAt is not null)
-                continue;
-
             if (!IsStillTheSameRoom(candidate, seenAt))
                 continue;
 
@@ -46,6 +65,20 @@ public static class InstanceIdentity
 
         return best;
     }
+
+    /// <summary>
+    /// Whether a room the group's list closed has come back soon enough to be the same room.
+    /// </summary>
+    /// <remarks>
+    /// Only rooms the list itself closed are eligible. A room closed by the time rule has been
+    /// quiet for three days and is not coming back; reopening one would undo the split the rule
+    /// exists to make.
+    /// </remarks>
+    private static bool CanReopen(VRChatInstance candidate, DateTimeOffset seenAt) =>
+        candidate.ClosedBy == "list"
+        && candidate.ClosedAt is { } closedAt
+        && seenAt >= closedAt
+        && seenAt - closedAt < ReopensWithin;
 
     /// <summary>
     /// Whether an open row can still be the room being seen now.
@@ -70,6 +103,9 @@ public static class InstanceIdentity
     /// </remarks>
     private static bool IsStillTheSameRoom(VRChatInstance candidate, DateTimeOffset seenAt)
     {
+        if (candidate.ClosedAt is not null)
+            return CanReopen(candidate, seenAt);
+
         if (candidate.SeenInGroupList)
             return true;
 
