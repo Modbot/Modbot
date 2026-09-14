@@ -11,7 +11,7 @@
  * - Identity is never colour alone: every multi-series chart has a legend, and values are
  *   labelled in text.
  * - One axis, always. Two measures of different scale are two charts.
- * - Every chart has an empty state that says what would fill it.
+ * - Every chart has an empty state, kept to a short statement.
  */
 export { ChartFrame } from './ChartFrame'
 export { ChartTooltip, type TooltipRow } from './ChartTooltip'

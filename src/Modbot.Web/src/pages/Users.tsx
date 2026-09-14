@@ -57,11 +57,7 @@ export function Users({ me }: { me: CurrentUser }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Accounts are never deleted, only disabled — history refers to them.
-        </p>
-        <div className="flex-1" />
+      <div className="flex justify-end">
         <Button size="sm" onClick={() => setAdding(true)}>
           Add someone
         </Button>
@@ -143,9 +139,6 @@ export function Users({ me }: { me: CurrentUser }) {
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              The links themselves cannot be shown again — Modbot keeps only a fingerprint of each.
-            </p>
           </CardContent>
         </Card>
       )}
@@ -221,8 +214,7 @@ function AddSomeone({
     return (
       <div className="space-y-3">
         <Note tone="ok" title="Invite link made.">
-          Send it to the person. It works once and expires in 72 hours. You will not be able to see
-          it again after closing this.
+          It will not be shown again.
         </Note>
         <CopyBox text={fullUrl(made)} />
       </div>
@@ -230,12 +222,7 @@ function AddSomeone({
   }
 
   if (created) {
-    return (
-      <Note tone="ok" title={`${created} can sign in now.`}>
-        Tell them the temporary password in person, and ask them to change it from their Account
-        page. Until they do, this is an account two people know the password to.
-      </Note>
-    )
+    return <Note tone="ok" title={`${created} can sign in now.`} />
   }
 
   return (
@@ -263,12 +250,7 @@ function AddSomeone({
         ))}
       </div>
 
-      {way === 'link' ? (
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          They pick their own username and password, so nobody else ever knows it. This is the
-          better way.
-        </p>
-      ) : (
+      {way === 'password' && (
         <div className="space-y-3">
           <Field label="Username" htmlFor="new-username">
             <Input id="new-username" required autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />
@@ -415,11 +397,10 @@ function UserDrawer({
           >
             {busy === 'roles' ? 'Saving…' : 'Save roles'}
           </Button>
-          <p className="text-muted-foreground">Takes effect on their next request, not their next sign-in.</p>
         </section>
 
         <section className="space-y-2">
-          <div className="font-semibold">Where a reset link can reach them</div>
+          <div className="font-semibold">Contact details</div>
           <Field label="Email" htmlFor={`email-${user.id}`}>
             <Input id={`email-${user.id}`} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
@@ -440,9 +421,7 @@ function UserDrawer({
           <div className="font-semibold">Password</div>
           {resetLink ? (
             <>
-              <Note tone="ok" title="Reset link made.">
-                Give it to them. It works once, for 24 hours, and ends every session they have.
-              </Note>
+              <Note tone="ok" title="Reset link made." />
               <CopyBox text={fullUrl(resetLink)} />
             </>
           ) : (
@@ -476,9 +455,7 @@ function UserDrawer({
               {busy === 'disable' ? 'Working…' : 'Disable this account'}
             </Button>
           )}
-          <p className="text-muted-foreground">
-            Disabling ends their sessions straight away. Nothing they did is removed from history.
-          </p>
+          {!user.isDisabled && <p className="text-muted-foreground">Disabling ends their sessions straight away.</p>}
         </section>
 
         <ErrorText>{error}</ErrorText>

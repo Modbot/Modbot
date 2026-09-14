@@ -42,11 +42,7 @@ export function Roles({ me }: { me: CurrentUser }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          A person's permissions are everything their roles allow, added together.
-        </p>
-        <div className="flex-1" />
+      <div className="flex justify-end">
         <Button size="sm" onClick={() => setCreating(true)} disabled={creating}>
           New role
         </Button>
@@ -171,10 +167,7 @@ function RoleEditor({
         {open && (
           <div className="mt-4 space-y-4" style={{ fontSize: 'var(--text-small)' }}>
             {locked ? (
-              <Note>
-                Administrator always means everything, including things added in future versions, so
-                there is nothing to change here.
-              </Note>
+              <Note>Allows everything. Cannot be changed.</Note>
             ) : (
               <>
                 <div className="grid gap-3 sm:grid-cols-[1fr_2fr]">

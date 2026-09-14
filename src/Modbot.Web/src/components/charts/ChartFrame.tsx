@@ -7,13 +7,13 @@ import { chartHeight } from './theme'
  * height measures as zero), the theme hooks from charts.css, and one honest empty state.
  *
  * `empty` is decided by the caller, because only the caller knows what "nothing" means for its
- * data -- an empty series and a series of zeros are different answers. The text says what would
- * fill the chart, not merely that it is empty; "No data" teaches nobody anything.
+ * data -- an empty series and a series of zeros are different answers. The empty text is a short
+ * statement, not an explanation of what would fill the chart (CLAUDE.md, "UI text").
  */
 export function ChartFrame({
   height = chartHeight.regular,
   empty = false,
-  emptyText = 'Nothing recorded in this window.',
+  emptyText = 'Nothing recorded in this range.',
   children,
 }: {
   height?: number

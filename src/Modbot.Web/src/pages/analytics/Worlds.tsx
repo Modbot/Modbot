@@ -38,37 +38,21 @@ export function Worlds() {
       {data && (
         <>
           {data.presenceReports === 0 ? (
-            <PageMessage>
-              <div className="font-medium text-foreground">No presence reports in this range</div>
-              <p className="mx-auto mt-1 max-w-md" style={{ fontSize: 'var(--text-small)' }}>
-                Time in worlds and visitors come from the desktop client. They fill in once a moderator runs it in one of
-                the group's instances. Instances opened per world still come from the audit log, below.
-              </p>
-            </PageMessage>
+            <PageMessage>No presence reports in this range.</PageMessage>
           ) : data.presenceReports < THIN ? (
-            <PageMessage>
-              <div className="font-medium text-foreground">Thin data</div>
-              <p className="mx-auto mt-1 max-w-md" style={{ fontSize: 'var(--text-small)' }}>
-                Only {compactNumber(data.presenceReports)} presence reports in this range. The numbers below are real
-                but cover little; they firm up as moderators spend more time in instances with the client running.
-              </p>
-            </PageMessage>
+            <PageMessage>Only {compactNumber(data.presenceReports)} presence reports in this range.</PageMessage>
           ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Stat label="Worlds" value={compactNumber(data.worlds.length)} note="with anything recorded in this range" />
-            <Stat label="Time seen" value={minutes(totalMinutes)} note="people-time while a client was watching" />
-            <Stat label="Visitors" value={compactNumber(totalVisitors)} note="distinct people per world, summed" />
-            <Stat label="Presence reports" value={compactNumber(data.presenceReports)} note="from the desktop client" />
+            <Stat label="Worlds" value={compactNumber(data.worlds.length)} />
+            <Stat label="Time seen" value={minutes(totalMinutes)} />
+            <Stat label="Visitors" value={compactNumber(totalVisitors)} />
+            <Stat label="Presence reports" value={compactNumber(data.presenceReports)} />
           </div>
 
-          <Panel
-            title="Worlds, by time people were seen in them"
-            source="Time and visitors from the fact log; instances opened from daily totals"
-            note="A person's time runs from when a client first saw them to when it saw them leave — or to the last report from that instance, when nobody saw them leave. Time nobody was watching is not counted. World names are not recorded yet, so worlds are shown by id."
-          >
+          <Panel title="Worlds, by time people were seen in them">
             {data.worlds.length === 0 ? (
-              <Nothing>Worlds appear here once an instance is opened in one, or somebody with the client visits one.</Nothing>
+              <Nothing>No worlds in this range.</Nothing>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
@@ -132,13 +116,9 @@ export function Worlds() {
             )}
           </Panel>
 
-          <Panel
-            title="Visitors per day, busiest worlds"
-            source="From daily totals"
-            note="Distinct people seen in each world per day, for the worlds with the most visitors in this range. Counts people, not reports: two moderators in the same room do not double it."
-          >
+          <Panel title="Visitors per day, busiest worlds">
             {data.visitorsPerDay.length === 0 ? (
-              <Nothing>This fills in from presence reports once the daily totals have folded them in.</Nothing>
+              <Nothing>No data yet.</Nothing>
             ) : (
               <>
                 <Legend items={data.visitorsPerDay.map((s, i) => ({ label: worldLabel(data.worlds, s.worldId), slot: nextSlot(i) }))} />

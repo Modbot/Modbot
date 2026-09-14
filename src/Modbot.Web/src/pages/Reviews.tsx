@@ -101,14 +101,7 @@ export function Reviews({
       {list && list.reviews.length === 0 && (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            <div className="font-medium text-foreground">
-              {state === 'open' ? 'Nothing waiting' : 'Nothing closed yet'}
-            </div>
-            <p className="mx-auto mt-1 max-w-md" style={{ fontSize: 'var(--text-small)' }}>
-              {state === 'open'
-                ? 'No moderator’s recent pattern met either rule below. That is the usual state of things.'
-                : 'Reviews that have been looked at and closed will be listed here, with the note.'}
-            </p>
+            {state === 'open' ? 'Nothing waiting.' : 'Nothing closed yet.'}
           </CardContent>
         </Card>
       )}
@@ -142,11 +135,6 @@ export function Reviews({
                 <dd>{list.howUsualIsMeasured}</dd>
               </div>
             </dl>
-            <p className="mt-3 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              A review never judges anybody and never does anything to a moderator. It asks a person
-              to look. Closing one records who looked and what they concluded; detection will not ask
-              the same question again about the same actions, only about new ones.
-            </p>
           </CardContent>
         </Card>
       )}
@@ -172,7 +160,7 @@ function ReviewCard({
 
   const close = () => {
     if (!note.trim()) {
-      setProblem('Write a short note first: what did you conclude?')
+      setProblem('Write a note first.')
       return
     }
     setBusy(true)
@@ -241,15 +229,12 @@ function ReviewCard({
         ) : (
           <div className="mt-3 flex flex-col gap-2">
             <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-              <span className="text-muted-foreground">
-                What did you conclude? Kept with the review and recorded against your account.
-              </span>
+              <span className="text-muted-foreground">What did you conclude?</span>
               <textarea
                 className="min-h-16 rounded-md border bg-background px-2 py-1"
                 style={{ borderWidth: 'var(--hairline)' }}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="For example: asked them — a crasher kept coming back under new accounts."
                 maxLength={2000}
               />
             </label>

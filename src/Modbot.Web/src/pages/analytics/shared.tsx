@@ -73,40 +73,28 @@ export function Stat({ label, value, note }: { label: string; value: string; not
 }
 
 /**
- * One chart or table with its title, where it came from, and what it does not say.
+ * One chart or table with its title.
  *
- * `source` is mandatory. Every panel on these pages is either from daily totals (kept forever,
- * fifteen minutes behind) or from the fact log (live, shortened by any retention window), and a
- * reader has to be able to tell which without reading the code.
+ * Every panel on these pages is either from daily totals (kept forever, fifteen minutes behind)
+ * or from the fact log (live, shortened by any retention window). The panels no longer say which
+ * on screen; the page code and spec 10.1 do.
  */
 export function Panel({
   title,
-  source,
-  note,
   right,
   children,
 }: {
   title: string
-  source: string
-  note?: string | null
   right?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <Card>
       <CardContent className="py-4">
-        <div className="mb-1 flex flex-wrap items-baseline gap-x-3">
+        <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
           <span className="font-medium">{title}</span>
-          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {source}
-          </span>
           {right && <span className="ml-auto">{right}</span>}
         </div>
-        {note && (
-          <p className="mb-3 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {note}
-          </p>
-        )}
         {children}
       </CardContent>
     </Card>
@@ -170,11 +158,12 @@ export function Toggle<T extends string>({
  */
 export function CoverageNote({ coverage, generatedAt }: { coverage: AnalyticsCoverage; generatedAt: string }) {
   const day = (d: string | null) => (d ? longDay(d) : 'nothing recorded')
+  const kept = (days: number) => (days > 0 ? `${days} days` : 'forever')
 
   return (
     <Card>
       <CardContent className="py-4">
-        <div className="mb-2 font-medium">What this page is built from</div>
+        <div className="mb-2 font-medium">Data covered</div>
         <dl className="flex flex-col gap-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           <div className="flex flex-wrap gap-1.5">
             <dt>Daily totals cover</dt>
@@ -194,12 +183,15 @@ export function CoverageNote({ coverage, generatedAt }: { coverage: AnalyticsCov
               {day(coverage.factFirstDay)} – {day(coverage.factLastDay)}
             </dd>
           </div>
+          <div className="flex flex-wrap gap-1.5">
+            <dt>Facts kept for</dt>
+            <dd className="font-medium text-foreground">
+              {coverage.retentionConfigured
+                ? `moderation ${kept(coverage.moderationFactRetentionDays)} · presence ${kept(coverage.presenceFactRetentionDays)}`
+                : 'forever'}
+            </dd>
+          </div>
         </dl>
-        <p className="mt-2 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {coverage.retentionConfigured
-            ? `A retention window is set (moderation ${coverage.moderationFactRetentionDays} days, presence ${coverage.presenceFactRetentionDays} days), so facts older than that have been deleted. Daily totals are never deleted and keep their full history — which is why the two ranges above can differ.`
-            : 'Nothing is being deleted: both retention windows are set to keep forever. The two ranges can still differ, because the audit-log catch-up walks history backwards while the daily totals only fold forward from what they have seen.'}
-        </p>
       </CardContent>
     </Card>
   )
