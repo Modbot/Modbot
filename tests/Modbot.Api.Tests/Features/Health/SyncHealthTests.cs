@@ -124,7 +124,7 @@ public class SyncHealthEndpointTests
 
         host.Diagnostics.RecordPollRate(new PollRateDecision(
             TimeSpan.FromMinutes(5),
-            "nothing new for 6 polls; holding at the slowest rate until something happens",
+            "nothing new for 6 polls; slowest rate",
             6,
             host.Clock.UtcNow));
 

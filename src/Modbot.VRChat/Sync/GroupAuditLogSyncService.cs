@@ -159,12 +159,11 @@ public sealed class GroupAuditLogSyncService : BackgroundService
     private static string Describe(AuditLogRunResult result) => result.Outcome switch
     {
         SyncOutcome.Produced =>
-            $"{result.FactsWritten} new, {result.AlreadyRecorded} already recorded, "
-            + $"{result.EntriesRead} read over {result.PagesRead} request(s)"
-            + (result.CatchingUp ? "; still reading existing history" : string.Empty),
+            $"{result.FactsWritten} new, {result.AlreadyRecorded} already recorded"
+            + (result.CatchingUp ? "; reading existing history" : string.Empty),
 
         SyncOutcome.Quiet =>
-            $"nothing new; {result.EntriesRead} entries re-read over {result.PagesRead} request(s)",
+            "nothing new",
 
         _ => result.Message ?? result.Outcome.ToString(),
     };

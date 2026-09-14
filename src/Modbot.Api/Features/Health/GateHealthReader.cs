@@ -78,8 +78,7 @@ public static class GateHealthReader
                 state.ToString(),
                 GateStatus.NeedsOperator,
                 $"{Count(alerting, "endpoint class has", "endpoint classes have")} stopped after "
-                + "repeated rate limits and will not resume on its own. Something is wrong that "
-                + "waiting will not fix.",
+                + "repeated rate limits.",
                 stopped,
                 coldStopEndsAt,
                 alerting);
@@ -90,7 +89,7 @@ public static class GateHealthReader
             VRChatSessionState.Unconfigured => new GateHealth(
                 state.ToString(),
                 GateStatus.NotConfigured,
-                "No VRChat account is configured, so Modbot is not reading anything from VRChat.",
+                "No VRChat account is configured.",
                 stopped,
                 coldStopEndsAt,
                 alerting),
@@ -98,8 +97,7 @@ public static class GateHealthReader
             VRChatSessionState.WafBlocked => new GateHealth(
                 state.ToString(),
                 GateStatus.NeedsOperator,
-                "Cloudflare is blocking this host's network. Nothing will get through until an "
-                + "egress proxy is configured — this does not clear by itself.",
+                "Cloudflare is blocking this host. An egress proxy is needed.",
                 stopped,
                 coldStopEndsAt,
                 alerting),
@@ -108,11 +106,8 @@ public static class GateHealthReader
                 state.ToString(),
                 GateStatus.WaitingOnPurpose,
                 stopped > 0
-                    ? $"{Count(stopped, "endpoint class is", "endpoint classes are")} cold-stopped "
-                      + "and waiting out a rate limit. This is deliberate; retrying during a "
-                      + "penalty extends it."
-                    : "Waiting out a rate limit. This is deliberate; retrying during a penalty "
-                      + "extends it.",
+                    ? $"{Count(stopped, "endpoint class is", "endpoint classes are")} waiting out a rate limit."
+                    : "Waiting out a rate limit.",
                 stopped,
                 coldStopEndsAt,
                 alerting),
@@ -120,7 +115,7 @@ public static class GateHealthReader
             VRChatSessionState.Reauthenticating => new GateHealth(
                 state.ToString(),
                 GateStatus.Working,
-                "Signing back in to VRChat. Requests resume when the session is re-established.",
+                "Signing back in to VRChat.",
                 stopped,
                 coldStopEndsAt,
                 alerting),
@@ -128,9 +123,7 @@ public static class GateHealthReader
             _ when stopped > 0 => new GateHealth(
                 state.ToString(),
                 GateStatus.WaitingOnPurpose,
-                $"{Count(stopped, "endpoint class is", "endpoint classes are")} cold-stopped. The "
-                + "rest of Modbot is unaffected — a stop is scoped to the bucket that hit the "
-                + "limit.",
+                $"{Count(stopped, "endpoint class is", "endpoint classes are")} waiting out a rate limit.",
                 stopped,
                 coldStopEndsAt,
                 alerting),

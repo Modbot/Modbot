@@ -436,7 +436,7 @@ public sealed class GroupAuditLogSync
             SyncedThrough: settings.AuditLogSyncedThrough,
             Message: drained
                 ? null
-                : $"page budget reached; resuming at offset {offset} with the cursor unmoved");
+                : "page budget reached");
     }
 
     private async Task<FetchedPage> FetchAsync(

@@ -52,7 +52,7 @@ public sealed class AdaptivePollRate
 
         Current = new PollRateDecision(
             _options.MinInterval,
-            "starting up; polling at the fastest permitted rate until the group's rhythm is known",
+            "starting up",
             0,
             _clock.UtcNow);
     }
@@ -92,7 +92,7 @@ public sealed class AdaptivePollRate
             Current = Current with
             {
                 Interval = interval,
-                Reason = $"{Current.Reason}; adjusted to the newly configured poll rate",
+                Reason = $"{Current.Reason}; poll rate changed",
                 DecidedAt = _clock.UtcNow,
             };
         }
@@ -142,8 +142,8 @@ public sealed class AdaptivePollRate
                 return new PollRateDecision(
                     _options.MinInterval,
                     result.CatchingUp
-                        ? $"reading the group's existing audit log; {result.FactsWritten} new entries in the last page"
-                        : $"{result.FactsWritten} new entries on the last poll; staying at the fastest permitted rate",
+                        ? $"reading existing history; {result.FactsWritten} new"
+                        : $"{result.FactsWritten} new",
                     0,
                     now);
 
@@ -154,8 +154,8 @@ public sealed class AdaptivePollRate
                 return new PollRateDecision(
                     interval,
                     interval >= _options.MaxInterval
-                        ? $"nothing new for {_quietPolls} polls; holding at the slowest rate until something happens"
-                        : $"nothing new for {_quietPolls} polls; backing off",
+                        ? $"nothing new for {_quietPolls} polls; slowest rate"
+                        : $"nothing new for {_quietPolls} polls",
                     _quietPolls,
                     now);
 
@@ -165,14 +165,14 @@ public sealed class AdaptivePollRate
                 // refusals and tell nobody anything the bucket health does not already say.
                 return new PollRateDecision(
                     _options.MaxInterval,
-                    "rate limited; waiting out the cold stop without probing",
+                    "rate limited",
                     _quietPolls,
                     now);
 
             case SyncOutcome.NotConfigured:
                 return new PollRateDecision(
                     _options.MaxInterval,
-                    "no managed group configured yet; idling until onboarding finishes",
+                    "no group set up yet",
                     _quietPolls,
                     now);
 
@@ -184,7 +184,7 @@ public sealed class AdaptivePollRate
 
                 return new PollRateDecision(
                     retry,
-                    $"last poll failed ({result.Message ?? "no detail"}); retrying at a reduced rate",
+                    $"last poll failed ({result.Message ?? "no detail"})",
                     _quietPolls,
                     now);
         }

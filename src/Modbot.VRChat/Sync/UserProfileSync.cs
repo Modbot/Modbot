@@ -312,7 +312,7 @@ public sealed class UserProfileSync
         }
 
         return new UserProfileRunResult(
-            SyncOutcome.Quiet, Dropped: dropped, Message: "the front of the queue was already refreshed; trying again next pass");
+            SyncOutcome.Quiet, Dropped: dropped, Message: "already refreshed");
     }
 
     private async Task<UserProfileRunResult> FetchAsync(RefreshRequest request, CancellationToken ct)
@@ -395,7 +395,7 @@ public sealed class UserProfileSync
         {
             // A fact about the person, not a failure of the pass: the account is gone, or the id
             // never named one. Marked, recorded once, and left alone for a long while.
-            const string detail = "VRChat answered 404: no account with this id (deleted, or the id is wrong)";
+            const string detail = "VRChat has no account with this id.";
 
             await _profiles.RecordNotFoundAsync(userId, detail, ct).ConfigureAwait(false);
             _queue.Finish(request);
