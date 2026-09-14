@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.DailyTotals;
+using Modbot.Api.Features.Places;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 
@@ -37,7 +38,8 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
         var totals = await _sql.DailyTotalsAsync(from, to,
             [DailyTotalMetrics.WorldInstances, DailyTotalMetrics.WorldVisitors], ct);
 
-        var seen = await TimeSeenAsync(from, to, ct);
+        var counts = new PresenceCounts(db);
+        var seen = await counts.PerWorldAsync(from, to, ct);
 
         var instancesByWorld = totals
             .Where(r => r.Metric == DailyTotalMetrics.WorldInstances)
@@ -57,7 +59,7 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
         var worlds = worldIds
             .Select(id =>
             {
-                var s = seen.GetValueOrDefault(id);
+                var s = seen.GetValueOrDefault(id) ?? PlaceCounts.Nothing;
                 var world = named.GetValueOrDefault(id);
 
                 return new WorldSummary(
@@ -66,9 +68,9 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
                     world?.AuthorName,
                     world?.ThumbnailImageUrl,
                     world?.Capacity,
-                    s.Minutes,
+                    s.MinutesSeen,
                     s.Visitors,
-                    s.Visits,
+                    s.Arrivals,
                     instancesByWorld.GetValueOrDefault(id),
                     s.LastSeenAt);
             })
@@ -96,93 +98,8 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
             to,
             worlds,
             charted,
-            await PresenceReportsAsync(from, to, ct),
+            await counts.ReportsAsync(from, to, ct),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
-    }
-
-    /// <summary>
-    /// Minutes seen, distinct people and arrivals per world, from presence sessions.
-    /// </summary>
-    /// <remarks>
-    /// A person's presence in an instance is the last thing said about them there — arrival makes
-    /// them present, a leave absent, repeats change nothing — so each arrival that changes state
-    /// opens a session and the next state change closes it. A session nobody saw the end of
-    /// closes at the last report from that instance, which is the last moment anything is known.
-    /// </remarks>
-    private async Task<Dictionary<string, (decimal Minutes, int Visitors, int Visits, DateTimeOffset? LastSeenAt)>> TimeSeenAsync(
-        DateOnly from,
-        DateOnly to,
-        CancellationToken ct)
-    {
-        const string Sql = """
-            WITH p AS (
-                SELECT e.world_id, e.instance_id, e.subject_id, e.occurred_at, e.id,
-                       CASE WHEN e.type = @leave THEN 0 ELSE 1 END AS here
-                FROM modbot_event e
-                WHERE e.type = ANY(@presence)
-                  AND e.occurred_at >= @from AND e.occurred_at < @to
-                  AND e.world_id IS NOT NULL AND e.instance_id IS NOT NULL
-            ),
-            changes AS (
-                SELECT p.*,
-                       p.here - COALESCE(LAG(p.here) OVER (
-                           PARTITION BY p.world_id, p.instance_id, p.subject_id
-                           ORDER BY p.occurred_at, p.id), 0) AS change,
-                       MAX(p.occurred_at) OVER (PARTITION BY p.world_id, p.instance_id) AS last_report
-                FROM p
-            ),
-            sessions AS (
-                SELECT world_id, instance_id, subject_id, change,
-                       occurred_at AS started,
-                       COALESCE(LEAD(occurred_at) OVER (
-                           PARTITION BY world_id, instance_id, subject_id
-                           ORDER BY occurred_at, id), last_report) AS ended
-                FROM changes
-                WHERE change <> 0
-            )
-            SELECT world_id,
-                   (SUM(EXTRACT(EPOCH FROM (ended - started))) / 60.0)::numeric AS minutes,
-                   COUNT(DISTINCT subject_id)::int AS visitors,
-                   COUNT(*)::int AS visits,
-                   MAX(ended) AS last_seen_at
-            FROM sessions
-            WHERE change = 1
-            GROUP BY world_id
-            """;
-
-        var rows = await _sql.ReadAsync(
-            Sql,
-            r => (
-                WorldId: r.GetString(0),
-                Minutes: r.GetDecimal(1),
-                Visitors: r.GetInt32(2),
-                Visits: r.GetInt32(3),
-                LastSeenAt: AnalyticsSql.InstantOrNull(r, 4)),
-            ct,
-            ("leave", FactType.InstanceLeft),
-            ("presence", AnalyticsSql.PresenceTypes),
-            ("from", AnalyticsSql.DayStart(from)),
-            ("to", AnalyticsSql.DayEnd(to)));
-
-        return rows.ToDictionary(
-            r => r.WorldId,
-            r => (Math.Round(r.Minutes, 1), r.Visitors, r.Visits, r.LastSeenAt),
-            StringComparer.Ordinal);
-    }
-
-    private async Task<long> PresenceReportsAsync(DateOnly from, DateOnly to, CancellationToken ct)
-    {
-        const string Sql = """
-            SELECT COUNT(*) FROM modbot_event e
-            WHERE e.type = ANY(@presence) AND e.occurred_at >= @from AND e.occurred_at < @to
-            """;
-
-        var rows = await _sql.ReadAsync(Sql, r => r.GetInt64(0), ct,
-            ("presence", AnalyticsSql.PresenceTypes),
-            ("from", AnalyticsSql.DayStart(from)),
-            ("to", AnalyticsSql.DayEnd(to)));
-
-        return rows.Count > 0 ? rows[0] : 0;
     }
 }

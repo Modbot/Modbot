@@ -17,6 +17,7 @@ using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Members;
 using Modbot.Api.Features.Settings;
+using Modbot.Api.Features.Places;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
 using Modbot.Api.Features.Onboarding.Integrations;
@@ -123,6 +124,11 @@ public static class ApiSurface
         // One VRChat user's stored profile and the 18+ flag (user profile sync design §6). The
         // queue and the record writer resolve optionally, like SyncDiagnostics does above.
         app.MapVRChatUsers();
+
+        // One world and one room, for the popup that opens when somebody clicks either (spec
+        // 10.2). Read entirely from Modbot's own tables -- opening a popup costs no VRChat
+        // budget, however often a moderator does it.
+        app.MapPlaces();
 
         // Moderation accountability (spec 5.8): people acted on more than once, and the reviews
         // that open when a moderator's pattern looks unusual. Read from caches the review job

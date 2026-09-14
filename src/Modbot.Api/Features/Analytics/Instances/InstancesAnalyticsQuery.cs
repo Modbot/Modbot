@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.DailyTotals;
+using Modbot.Api.Features.Places;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 
@@ -115,61 +116,10 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
                 .Where(i => i.OpenedAt >= AnalyticsSql.DayStart(from) && i.OpenedAt < AnalyticsSql.DayEnd(to))
                 .OrderByDescending(i => i.OpenedAt);
 
-        var page = await rooms
-            .Take(RecentRooms)
-            .Select(i => new
-            {
-                i.Id,
-                i.Location,
-                i.WorldId,
-                i.VRChatInstanceId,
-                i.GroupAccessType,
-                i.Region,
-                i.OpenedAt,
-                i.ClosedAt,
-                i.ClosedBy,
-                i.LastUserCount,
-                i.PeakUserCount,
-                i.LastSeenAt,
-            })
-            .ToListAsync(ct);
-
-        var worldIds = page.Select(r => r.WorldId).Distinct(StringComparer.Ordinal).ToList();
-
-        var named = await db.VRChatWorlds
-            .AsNoTracking()
-            .Where(w => worldIds.Contains(w.WorldId))
-            .Select(w => new { w.WorldId, w.Name, w.ThumbnailImageUrl })
-            .ToDictionaryAsync(w => w.WorldId, w => w, StringComparer.Ordinal, ct);
-
-        return page
-            .Select(r =>
-            {
-                var world = named.GetValueOrDefault(r.WorldId);
-
-                // An open room counts to now; a closed one to when it closed. Never past `now`,
-                // because a clock that disagrees with a stored time should not produce a room
-                // that has been open for minus four minutes.
-                var until = r.ClosedAt ?? now;
-                var minutes = until <= r.OpenedAt ? 0m : (decimal)(until - r.OpenedAt).TotalMinutes;
-
-                return new InstanceRow(
-                    r.Id,
-                    r.Location,
-                    r.WorldId,
-                    world?.Name,
-                    world?.ThumbnailImageUrl,
-                    r.VRChatInstanceId,
-                    r.GroupAccessType,
-                    r.Region,
-                    r.OpenedAt,
-                    r.ClosedAt,
-                    r.ClosedBy,
-                    r.LastUserCount,
-                    r.PeakUserCount,
-                    Math.Round(minutes, 1));
-            })
-            .ToList();
+        // The row shape itself is built in one place (RoomRows), because the world popup and a
+        // person's own rooms list the same row and all three must agree about how long a room has
+        // been open.
+        return await RoomRows.ReadAsync(db, rooms.Take(RecentRooms), now, ct);
     }
 
     private sealed record Lifetime(string WorldId, string InstanceId, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt, DateTimeOffset EndsAt);

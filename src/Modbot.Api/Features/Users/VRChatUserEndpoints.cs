@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Analytics;
+using Modbot.Api.Features.Analytics.Instances;
+using Modbot.Api.Features.Places;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -68,6 +71,38 @@ public static class VRChatUserEndpoints
                 + "the point. `refresh.pending` is true while a refresh is queued or in flight; "
                 + "poll this endpoint until `lastRefreshedAt` moves or `refresh.pending` clears.")
             .Produces<VRChatUserProfile>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        group.MapGet("/metrics", async (
+                [FromQuery] string id,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                if (string.IsNullOrWhiteSpace(id))
+                    return Results.BadRequest(new { error = "id is required." });
+
+                var now = clock.UtcNow;
+                var counts = await new PresenceCounts(db).ForPersonAsync(id, ct);
+
+                // The rooms they were seen in, newest first. Matched on the room's own open and
+                // close times rather than on VRChat's number alone, which is handed out again.
+                var rooms = await RoomsSeenInAsync(db, id, now, ct);
+
+                return Results.Ok(new PersonMetrics(id, counts.Arrivals > 0, counts, rooms, now));
+            })
+            .RequiresFlag(ModbotPermissions.ViewProfile)
+            .WithName("GetVRChatUserMetrics")
+            .WithSummary("How long this person has been seen in world, where, and how often")
+            .WithDescription(
+                "Computed from the desktop client's presence reports, so it only covers time a "
+                + "moderator's client was in the same room. Somebody who has never shared a room "
+                + "with the client reads as nothing here, which is not the same as never having "
+                + "been in one — and the screen says so.\n\n"
+                + "Gated on ViewProfile rather than ViewAnalytics: this is one person's own record "
+                + "rather than an aggregate, and it sits beside the rest of their profile.")
+            .Produces<PersonMetrics>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -153,6 +188,75 @@ public static class VRChatUserEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         return app;
+    }
+
+    /// <summary>How many rooms a person's Metrics tab lists.</summary>
+    public const int RoomsListed = 25;
+
+    /// <summary>
+    /// The rooms this person was seen in, newest first.
+    /// </summary>
+    /// <remarks>
+    /// Two steps rather than a join, because the fact log and the room table do not share a key:
+    /// facts record the world and VRChat's room number, which is handed out again after a room
+    /// closes, so the room is the one whose own life overlaps the stretch this person was seen
+    /// there. A person seen under a number outside every room's life gets no row rather than
+    /// somebody else's evening.
+    /// </remarks>
+    private static async Task<IReadOnlyList<InstanceRow>> RoomsSeenInAsync(
+        ModbotContext db,
+        string userId,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var seen = await db.Events.AsNoTracking()
+            .Where(e => e.SubjectId == userId
+                && AnalyticsSql.PresenceTypes.Contains(e.Type)
+                && e.WorldId != null
+                && e.InstanceId != null)
+            .GroupBy(e => new { e.WorldId, e.InstanceId })
+            .Select(g => new
+            {
+                g.Key.WorldId,
+                g.Key.InstanceId,
+                First = g.Min(e => e.OccurredAt),
+                Last = g.Max(e => e.OccurredAt),
+            })
+            .ToListAsync(ct);
+
+        if (seen.Count == 0)
+            return [];
+
+        var worldIds = seen.Select(s => s.WorldId!).Distinct(StringComparer.Ordinal).ToList();
+        var numbers = seen.Select(s => s.InstanceId!).Distinct(StringComparer.Ordinal).ToList();
+
+        var candidates = await db.VRChatInstances.AsNoTracking()
+            .Where(i => worldIds.Contains(i.WorldId)
+                && i.VRChatInstanceId != null
+                && numbers.Contains(i.VRChatInstanceId))
+            .Select(i => new { i.Id, i.WorldId, i.VRChatInstanceId, i.OpenedAt, i.ClosedAt, i.LastSeenAt })
+            .ToListAsync(ct);
+
+        var ids = candidates
+            .Where(c => seen.Any(s =>
+                string.Equals(s.WorldId, c.WorldId, StringComparison.Ordinal)
+                && string.Equals(s.InstanceId, c.VRChatInstanceId, StringComparison.Ordinal)
+                && s.First <= (c.ClosedAt ?? c.LastSeenAt)
+                && s.Last >= c.OpenedAt))
+            .Select(c => c.Id)
+            .ToList();
+
+        if (ids.Count == 0)
+            return [];
+
+        return await RoomRows.ReadAsync(
+            db,
+            db.VRChatInstances.AsNoTracking()
+                .Where(i => ids.Contains(i.Id))
+                .OrderByDescending(i => i.OpenedAt)
+                .Take(RoomsListed),
+            now,
+            ct);
     }
 
     private static async Task<VRChatUserProfile> ProfileAsync(
