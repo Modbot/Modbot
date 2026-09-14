@@ -9,6 +9,7 @@ using Modbot.Core;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Settings;
 
@@ -34,8 +35,10 @@ public sealed record DeploymentSummary(
 /// <param name="FactsPerDay">Observed arrival rate.</param>
 /// <param name="ObservedDays">How much history that rate came from.</param>
 /// <param name="Confidence">How far to trust the estimate.</param>
-/// <param name="Horizons">Projected totals, empty when there is too little history.</param>
+/// <param name="BytesPerDay">Growth at the measured rate; the estimate is a straight line at this slope.</param>
 /// <param name="CapacityExhausted">When the entered disk fills, if one was entered.</param>
+/// <param name="MeasuredAt">When <paramref name="Bytes"/> was measured: "today" on the chart.</param>
+/// <param name="History">One recorded size per day over the past year, oldest first. Starts at the first recorded day.</param>
 public sealed record StorageSummary(
     long Bytes,
     long Facts,
@@ -43,8 +46,14 @@ public sealed record StorageSummary(
     double FactsPerDay,
     double ObservedDays,
     string Confidence,
-    IReadOnlyList<StorageHorizon> Horizons,
-    DateTimeOffset? CapacityExhausted);
+    double BytesPerDay,
+    DateTimeOffset? CapacityExhausted,
+    DateTimeOffset MeasuredAt,
+    IReadOnlyList<StorageDayReport> History);
+
+/// <param name="Day">The UTC day.</param>
+/// <param name="Bytes">The size measured that day, counted the same way as <see cref="StorageSummary.Bytes"/>.</param>
+public sealed record StorageDayReport(DateOnly Day, long Bytes);
 
 public sealed record DataSettingsResponse(
     RetentionSettings Retention,
@@ -61,11 +70,12 @@ public sealed record DataSettingsResponse(
 /// endpoints are what makes "keep everything" a decision rather than an accident.
 /// </para>
 /// <para>
-/// <strong>The cost and capacity inputs are query parameters, not stored settings.</strong> They
-/// are a what-if calculator: an operator tries "what if I pay $0.25/GB" and "what if this disk is
-/// 500 GB" and reads off the answers. Nothing in Modbot behaves differently for having been told,
-/// so persisting them would add a column and a migration to change a number on a screen. The
-/// browser remembers the last values so they survive a reload, which is where that state belongs.
+/// <strong>The disk size is a query parameter, not a stored setting.</strong> It is a what-if
+/// input: an operator tries "what if this disk is 500 GB" and reads off the date it fills. Nothing
+/// in Modbot behaves differently for having been told, so persisting it would add a column and a
+/// migration to change a number on a screen. The browser remembers the last value so it survives
+/// a reload, which is where that state belongs. A per-GB cost is the same kind of input, and is
+/// never sent at all: it only multiplies sizes the response already carries.
 /// </para>
 /// </remarks>
 public static class DataSettingsEndpoints
@@ -83,8 +93,9 @@ public static class DataSettingsEndpoints
                 // and on a GET that is not merely wrong, it throws while the route is being
                 // mapped and takes every other endpoint in the host down with it.
                 [FromServices] StorageEstimator estimator,
+                [FromServices] StorageHistory history,
+                [FromServices] IModbotClock clock,
                 [FromServices] DeploymentInfo deployment,
-                [FromQuery] decimal? costPerGbMonth,
                 [FromQuery] long? capacityBytes,
                 CancellationToken ct) =>
             {
@@ -93,8 +104,12 @@ public static class DataSettingsEndpoints
                 var settings = await db.Settings.AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Id == 1, ct) ?? new Core.Data.Entities.Settings();
 
-                var forecast = await estimator.ForecastAsync(
-                    new StorageBudget(costPerGbMonth, capacityBytes), ct);
+                var measuredAt = clock.UtcNow;
+                var forecast = await estimator.ForecastAsync(new StorageBudget(capacityBytes), ct);
+
+                // A year back, so the chart can put a year of history left of today. Fewer rows
+                // than that is a deployment younger than a year, and the chart narrows to fit.
+                var days = await history.SinceAsync(history.Today.AddDays(-365), ct);
 
                 var m = forecast.Measurement;
 
@@ -109,8 +124,10 @@ public static class DataSettingsEndpoints
                         m.FactsPerDay,
                         m.ObservedDays,
                         forecast.Confidence.ToString(),
-                        forecast.Horizons,
-                        forecast.CapacityExhausted),
+                        forecast.BytesPerDay,
+                        forecast.CapacityExhausted,
+                        measuredAt,
+                        days.Select(d => new StorageDayReport(d.Day, d.Bytes)).ToArray()),
                     new DeploymentSummary(
                         ModbotVersion.Release,
                         deployment.Platform.Name,
@@ -121,9 +138,9 @@ public static class DataSettingsEndpoints
             .WithName("GetDataSettings")
             .WithSummary("Retention, measured storage, and what this deployment is running on")
             .WithDescription(
-                "costPerGbMonth and capacityBytes are optional what-if inputs. They are not "
-                + "stored: nothing in Modbot behaves differently for having been told, so they "
-                + "are answered against rather than persisted.")
+                "capacityBytes is an optional what-if input. It is not stored: nothing in "
+                + "Modbot behaves differently for having been told, so it is answered against "
+                + "rather than persisted.")
             .Produces<DataSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 

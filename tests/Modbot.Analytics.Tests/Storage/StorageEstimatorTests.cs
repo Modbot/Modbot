@@ -146,9 +146,8 @@ public class StorageEstimatorTests : AnalyticsTestBase
         // withheld the number below a day of observation; the operator preferred to see it with
         // the caveat, so the caveat is the confidence and the number is always there.
         Assert.Equal(ForecastConfidence.Insufficient, forecast.Confidence);
-        Assert.Equal([6, 12, 24], forecast.Horizons.Select(h => h.Months));
         Assert.InRange(forecast.Measurement.FactsPerDay, 1_500, 2_500);
-        Assert.True(forecast.Horizons[0].EstimatedBytes > forecast.Measurement.TotalBytes);
+        Assert.True(forecast.BytesPerDay > 0);
 
         Assert.Equal(400, forecast.Measurement.FactCount);
         Assert.True(forecast.Measurement.TotalBytes > 0);
@@ -169,24 +168,22 @@ public class StorageEstimatorTests : AnalyticsTestBase
         var forecast = await NewEstimator(context).ForecastAsync(new StorageBudget(), Ct);
 
         Assert.Equal(ForecastConfidence.Good, forecast.Confidence);
-        Assert.Equal([6, 12, 24], forecast.Horizons.Select(h => h.Months));
 
-        // Monotonic, and strictly growing: a forecast where next year costs the same as this one
-        // is not a forecast.
-        Assert.True(forecast.Horizons[0].EstimatedBytes < forecast.Horizons[1].EstimatedBytes);
-        Assert.True(forecast.Horizons[1].EstimatedBytes < forecast.Horizons[2].EstimatedBytes);
+        // Strictly growing: a forecast where next year costs the same as this one is not a
+        // forecast.
+        Assert.True(forecast.BytesPerDay > 0);
     }
 
     /// <summary>
-    /// The hosted operator's input: a per-GB price, turned into the number they are actually
-    /// deciding about.
+    /// The slope the screen draws the estimate at, and prices when a per-GB cost is typed:
+    /// measured bytes per fact times facts arriving per day.
     /// </summary>
     [Fact]
-    public async Task APerGbPriceBecomesAMonthlyCost()
+    public async Task GrowthIsBytesPerFactTimesFactsPerDay()
     {
         await using var context = Database.NewContext();
 
-        // Ten days observed, so the forecast is produced; 2 GB now, growing by 1 GB a month.
+        // 2 GB over a million facts is 2,147.48 bytes a fact; 100,000 a day of those.
         var measurement = new StorageMeasurement(
             FactBytes: 2L * 1024 * 1024 * 1024,
             DailyTotalBytes: 0,
@@ -195,13 +192,9 @@ public class StorageEstimatorTests : AnalyticsTestBase
             FactsPerDay: 100_000,
             ObservedDays: 10);
 
-        var forecast = NewEstimator(context).Estimate(measurement, new StorageBudget(CostPerGbMonth: 0.25m));
+        var forecast = NewEstimator(context).Estimate(measurement, new StorageBudget());
 
-        var year = forecast.Horizons.Single(h => h.Months == 12);
-        var gb = year.EstimatedBytes / (1024d * 1024 * 1024);
-
-        Assert.NotNull(year.MonthlyCost);
-        Assert.Equal((decimal)gb * 0.25m, year.MonthlyCost.Value, precision: 1);
+        Assert.Equal(measurement.BytesPerFact * 100_000, forecast.BytesPerDay, precision: 3);
 
         await Task.CompletedTask;
     }
@@ -292,10 +285,9 @@ public class StorageEstimatorTests : AnalyticsTestBase
         await using var context = Database.NewContext();
         var forecast = await NewEstimator(context).ForecastAsync(new StorageBudget(), Ct);
 
-        Assert.NotEmpty(forecast.Horizons);
-        Assert.All(forecast.Horizons, h => Assert.Null(h.MonthlyCost));
+        Assert.True(forecast.Measurement.TotalBytes > 0);
+        Assert.True(forecast.BytesPerDay > 0);
         Assert.Null(forecast.CapacityExhausted);
-        Assert.All(forecast.Horizons, h => Assert.True(h.EstimatedBytes > 0));
     }
 
     /// <summary>
@@ -307,7 +299,7 @@ public class StorageEstimatorTests : AnalyticsTestBase
     {
         await using var context = Database.NewContext();
         var forecast = await NewEstimator(context).ForecastAsync(
-            new StorageBudget(CostPerGbMonth: 0.25m, CapacityBytes: 1024L * 1024 * 1024),
+            new StorageBudget(CapacityBytes: 1024L * 1024 * 1024),
             Ct);
 
         Assert.Equal(0, forecast.Measurement.FactCount);
@@ -315,10 +307,9 @@ public class StorageEstimatorTests : AnalyticsTestBase
         Assert.Null(forecast.Measurement.OldestFact);
         Assert.Equal(ForecastConfidence.Insufficient, forecast.Confidence);
 
-        // Still an estimate, and an honest one: with nothing arriving the size stays exactly
-        // where it is at every horizon, and a disk that is not filling has no fill date.
-        Assert.Equal([6, 12, 24], forecast.Horizons.Select(h => h.Months));
-        Assert.All(forecast.Horizons, h => Assert.Equal(forecast.Measurement.TotalBytes, h.EstimatedBytes));
+        // Still an estimate, and an honest one: with nothing arriving the line is flat, and a
+        // disk that is not filling has no fill date.
+        Assert.Equal(0, forecast.BytesPerDay);
         Assert.Null(forecast.CapacityExhausted);
     }
 }
