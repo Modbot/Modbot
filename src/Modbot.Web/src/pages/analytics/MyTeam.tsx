@@ -10,8 +10,7 @@ import { useAnalytics, type Range } from './useAnalytics'
  *
  * The per-moderator numbers come from the daily totals, one metric per kind of action. Coverage
  * gaps come from the fact log, because they are about minutes rather than days, and they are the
- * one figure on any analytics page that suggests an action rather than describing a state --
- * which is why their limits are printed beside them rather than in a footnote.
+ * one figure on any analytics page that suggests an action rather than describing a state.
  */
 export function MyTeam({
   onOpenSubject,
