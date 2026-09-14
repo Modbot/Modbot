@@ -11,7 +11,6 @@ namespace Modbot.Core.Configuration;
 /// this is the record of it — otherwise the settings page would have to re-derive it and could
 /// disagree with what the process is really doing.
 /// </param>
-/// <param name="PersistenceExplanation">The probe's own sentence, shown verbatim.</param>
 /// <param name="PublicAddressSuggestion">
 /// The public address the platform says this service has, if it says so (Railway's
 /// <c>RAILWAY_PUBLIC_DOMAIN</c>). A suggestion for the operator to confirm, never used on its own:
@@ -26,5 +25,4 @@ public sealed record DeploymentInfo(
     HostPlatform Platform,
     PersistenceEvidence Persistence,
     bool LogFilesWritten,
-    string PersistenceExplanation,
     string? PublicAddressSuggestion = null);

@@ -163,7 +163,7 @@ public static class RoleEndpoints
                     return Results.NotFound();
 
                 if (role.Id == BuiltInRoles.AdministratorId)
-                    return Results.BadRequest(new { error = "The Administrator role always means everything and cannot be edited." });
+                    return Results.BadRequest(new { error = "The Administrator role cannot be edited." });
 
                 if (Validate(http, body, out var permissions) is { } problem)
                     return Results.BadRequest(new { error = problem });
@@ -171,7 +171,7 @@ public static class RoleEndpoints
                 var normalized = ModbotRole.Normalize(body.Name);
 
                 if (role.IsBuiltIn && normalized != role.NameNormalized)
-                    return Results.BadRequest(new { error = "Built-in roles keep their names. You can change what they allow." });
+                    return Results.BadRequest(new { error = "Built-in roles cannot be renamed." });
 
                 if (normalized != role.NameNormalized
                     && await db.Roles.AnyAsync(r => r.NameNormalized == normalized && r.Id != id, ct))
@@ -242,8 +242,8 @@ public static class RoleEndpoints
                     return Results.Conflict(new
                     {
                         error = holders == 1
-                            ? "One person holds this role. Move them to another role first."
-                            : $"{holders} people hold this role. Move them to other roles first.",
+                            ? "One person holds this role."
+                            : $"{holders} people hold this role.",
                     });
                 }
 

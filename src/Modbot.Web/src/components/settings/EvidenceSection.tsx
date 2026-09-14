@@ -146,7 +146,6 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
   const [result, setResult] = useState<EvidenceSetup | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
 
-  const chosen = settings.backends.find((b) => b.id === backend)
 
   // The warning to echo back is whatever the server last put on screen, never a copy kept here.
   // What is recorded has to be the sentence the operator actually read.
@@ -214,9 +213,7 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
       }
     >
       {settings.switchBlockedReason && (
-        <Notice tone="warn" title="The backend cannot be changed while objects are stored.">
-          <p>{settings.switchBlockedReason}</p>
-        </Notice>
+        <Notice tone="warn" title={settings.switchBlockedReason} />
       )}
 
       <div role="group" className="flex flex-wrap gap-1.5">
@@ -243,8 +240,6 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
           </button>
         ))}
       </div>
-
-      {chosen?.caution && <Hint className="text-warn">{chosen.caution}</Hint>}
 
       {backend === 'Filesystem' && (
         <div className="flex max-w-lg flex-col gap-3">
@@ -280,8 +275,7 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
       )}
 
       {warning && (
-        <Notice tone="warn" title="Modbot could not prove this directory persists.">
-          <p>{warning}</p>
+        <Notice tone="warn" title={warning}>
           <Checkbox checked={acknowledge} onChange={setAcknowledge}>
             Use anyway
           </Checkbox>

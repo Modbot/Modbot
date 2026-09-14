@@ -120,13 +120,4 @@ public static class ModeratorBaselines
             teamDays,
             baselines);
     }
-
-    /// <summary>
-    /// How "usual" is measured, in words, for the page to show beside the number. Names the five
-    /// kinds rather than the whole family in <see cref="DailyTotalMetrics.ModeratorActionKinds"/>.
-    /// </summary>
-    public static string Rule(ReviewThresholds thresholds)
-        => "Instance kicks, warns, bans, removals from the group and join requests turned away, "
-           + $"averaged over the days each moderator did any of those in the last {thresholds.BaselineDays} days "
-           + "up to yesterday. Invites, approvals, unbans and role changes are not counted.";
 }

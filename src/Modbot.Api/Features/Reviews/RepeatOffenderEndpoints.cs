@@ -123,9 +123,7 @@ public static class RepeatOffenderEndpoints
 
     /// <summary>The status rule in words, so a screen can show it beside the word (spec 5.10.3).</summary>
     public static string Rule(ReviewThresholds thresholds)
-        => $"Repeat: {thresholds.RepeatOffenderActionsIn30Days} or more actions in the last 30 days. "
-           + "Actions are instance kicks, warns, bans, removals from the group and join requests turned "
-           + "away, by any moderator, in any instance. Unbans are shown but not counted.";
+        => $"Repeat: {thresholds.RepeatOffenderActionsIn30Days} or more actions in the last 30 days.";
 
     private static async Task<DateTimeOffset?> LastRunAsync(ModbotContext db, CancellationToken ct)
         => await db.ReviewRunState.AsNoTracking().Select(s => s.UpdatedAt).FirstOrDefaultAsync(ct);

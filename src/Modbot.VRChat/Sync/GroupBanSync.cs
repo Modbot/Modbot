@@ -275,7 +275,7 @@ public sealed class GroupBanSync
             return await RecordPollAsync(
                 settings,
                 new SweepRunResult(SyncOutcome.Failed, PagesRead: 1, SweepStarted: started,
-                    Message: $"listed nobody where the last sweep listed {settings.BanSweepCount}; not marking any ban as lifted"),
+                    Message: $"listed nobody where the last sweep listed {settings.BanSweepCount}"),
                 ct).ConfigureAwait(false);
         }
 

@@ -37,8 +37,7 @@ public static class ResetEndpoints
     public static readonly TimeSpan SelfRequestGap = TimeSpan.FromMinutes(10);
 
     public const string NoPublicAddress =
-        "The owner has not set this server's public address yet, so reset links cannot be sent. "
-        + "Ask an administrator for a reset link instead.";
+        "This server's public address is not set.";
 
     public static IEndpointRouteBuilder MapResetLinks(this IEndpointRouteBuilder app)
     {
@@ -215,13 +214,13 @@ public static class ResetEndpoints
     {
         var link = await links.FindAsync(token, OneTimeLinkKind.PasswordReset, ct);
         if (link is null)
-            return (null, null, "This reset link is not valid. Ask an administrator for a new one.");
+            return (null, null, "This reset link is not valid.");
 
         if (link.UsedAt is not null)
             return (link, null, "This reset link has already been used.");
 
         if (clock.UtcNow >= link.ExpiresAt)
-            return (link, null, "This reset link has expired. Ask for a new one.");
+            return (link, null, "This reset link has expired.");
 
         var user = link.UserId is { } id
             ? await db.Users.Include(u => u.Roles).ThenInclude(r => r.Role).FirstOrDefaultAsync(u => u.Id == id, ct)

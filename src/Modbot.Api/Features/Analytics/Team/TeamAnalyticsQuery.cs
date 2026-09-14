@@ -47,10 +47,6 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
         new(DailyTotalMetrics.ModeratorRoleChanges, "Role changes"),
     ];
 
-    public const string ModeratorRule =
-        "Anyone holding a group role with a moderation permission (instance moderate, remove "
-        + "members, manage bans), anyone who has taken a moderation action, and the group owner.";
-
     /// <summary>The actions that mark somebody as a moderator, whatever roles they hold.</summary>
     private static readonly string[] ModerationActionTypes =
     [
@@ -101,7 +97,6 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
             byKind,
             gaps,
             roster.Count,
-            ModeratorRule,
             watched,
             unwatched,
             await AnalyticsCoverageQuery.RunAsync(db, ct),

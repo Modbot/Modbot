@@ -93,7 +93,6 @@ public class SyncSettingsTests
 
         Assert.True(settings.Editable);
         Assert.False(settings.RestartRequired);
-        Assert.Equal(SyncSettingsEndpoints.HowChangesTakeEffect, settings.EditableExplanation);
         Assert.Empty(settings.Adjustments);
     }
 

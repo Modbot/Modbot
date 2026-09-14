@@ -45,14 +45,12 @@ public sealed record EvidenceLimitsView(
 /// <param name="DirectDeliveryAvailable">
 /// Whether the store hands the browser a link. There is no switch for it: a store that can, does.
 /// </param>
-/// <param name="DeliveryExplanation">One sentence saying which way bytes travel, and why.</param>
 public sealed record EvidenceCapabilitiesView(
     bool PresignedRead,
     bool PresignedWrite,
     bool RangeRead,
     bool ServerSideCopy,
-    bool DirectDeliveryAvailable,
-    string DeliveryExplanation);
+    bool DirectDeliveryAvailable);
 
 /// <param name="State">"NotConfigured", "Healthy", "Unavailable" or "Unreachable".</param>
 /// <param name="Explanation">One sentence, written by the server. The SPA never composes it.</param>
@@ -100,12 +98,7 @@ public sealed record EvidenceDurabilityView(
 public sealed record EvidenceStoredView(long Count, long Bytes, long DestroyedCount);
 
 /// <param name="Id">The wire value to send back.</param>
-/// <param name="Caution">
-/// What the operator should know before choosing this one, at the moment of choosing rather than
-/// in a footnote.
-/// </param>
-public sealed record EvidenceBackendOption(
-    string Id, string Label, string Summary, bool Recommended, string? Caution);
+public sealed record EvidenceBackendOption(string Id, string Label, bool Recommended);
 
 /// <summary>
 /// Values found in the environment, offered as a pre-fill and nothing more (design §16.1).
@@ -120,10 +113,6 @@ public sealed record EvidenceEnvironmentHint(
     string? Bucket, string? Endpoint, string? Region, string? AccessKeyId, bool SecretAvailable);
 
 /// <param name="Durability">Null unless the filesystem backend is selected.</param>
-/// <param name="DurabilityStatement">
-/// What design §8.5 requires be said at the moment of choosing: whether the store has backups,
-/// whether deletes are recoverable, and whose data this is.
-/// </param>
 /// <param name="SwitchBlockedReason">
 /// Why the backend cannot be changed, when it cannot. Changing backends does not move objects, and
 /// until a migration job exists switching with objects present is refused rather than silently
@@ -139,7 +128,6 @@ public sealed record EvidenceSettingsResponse(
     IReadOnlyList<string> AcceptedTypes,
     IReadOnlyList<EvidenceBackendOption> Backends,
     EvidenceEnvironmentHint? EnvironmentHint,
-    string DurabilityStatement,
     string? SwitchBlockedReason);
 
 /// <param name="Backend">"None", "S3", "Filesystem" or "Database".</param>

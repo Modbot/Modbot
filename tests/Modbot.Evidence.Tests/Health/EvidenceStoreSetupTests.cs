@@ -52,19 +52,6 @@ public sealed class EvidenceStoreSetupTests : IDisposable
         Assert.Equal(id, probe.Marker!.StoreId);
     }
 
-    /// <summary>
-    /// The operator is making a decision at this moment, so this is where the durability
-    /// properties get stated: no backups unless they arranged them, and no undo on a delete.
-    /// </summary>
-    [Fact]
-    public async Task SuccessSaysPlainlyThatTheDataIsTheirsToLookAfter()
-    {
-        var result = await _setup.SetUpAsync(_store, Guid.NewGuid(), null, Ct);
-
-        Assert.Contains("no backups", result.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("cannot be undone", result.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
     [Fact]
     public async Task AStoreThatCannotBeWrittenToFailsAtTheWriteStep()
     {

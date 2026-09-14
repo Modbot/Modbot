@@ -12,8 +12,7 @@ namespace Modbot.Evidence.Storage;
 internal sealed class UnconfiguredEvidenceStore : IEvidenceStore
 {
     private const string Message =
-        "No evidence store has been configured. Choose one under Settings → Data before attaching "
-        + "evidence to a report.";
+        "No evidence store has been configured.";
 
     public EvidenceStoreCapabilities Capabilities => EvidenceStoreCapabilities.None;
 

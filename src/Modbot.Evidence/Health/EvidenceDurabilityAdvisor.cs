@@ -72,12 +72,7 @@ public static class EvidenceDurabilityAdvisor
     /// what they were shown.
     /// </summary>
     public const string UnprovenWarning =
-        "Modbot could not confirm that this directory survives a restart. Evidence stored here may "
-        + "be lost the next time the container is recreated, and there would be no error when it "
-        + "happens — the reports would still list their attachments. Object storage is strongly "
-        + "recommended. If you have mounted a volume here, Modbot cannot see that from inside the "
-        + "container: choose \"use anyway\" and this warning will stop by itself once a restart has "
-        + "proven the directory persists.";
+        "Modbot could not confirm that this directory survives a restart.";
 
     /// <summary>Runs the persistence probe and judges the result.</summary>
     /// <param name="options">Carries the directory and the operator's acknowledgement, if any.</param>
@@ -108,7 +103,7 @@ public static class EvidenceDurabilityAdvisor
             // a fact, not on an inference about the platform.
             return new DurabilityAssessment(
                 DurabilityFinding.Unwritable,
-                probe.Explanation + " Evidence cannot be stored here at all, whatever the platform is.",
+                probe.Explanation,
                 RequiresAcknowledgement: false,
                 Acknowledged: acknowledged,
                 CanProceed: false);

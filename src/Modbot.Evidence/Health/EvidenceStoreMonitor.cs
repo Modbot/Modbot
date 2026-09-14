@@ -159,7 +159,7 @@ public sealed class EvidenceStoreMonitor
             // Absence only means "wrong store" once there is a record of a right one.
             return Set(new EvidenceStoreHealth(
                 EvidenceStoreState.NotConfigured,
-                "No evidence store has been configured yet, so uploads are unavailable.",
+                "No evidence store has been configured yet.",
                 _options.StoreId, null, null, 0, ShouldAlarm: false));
         }
 

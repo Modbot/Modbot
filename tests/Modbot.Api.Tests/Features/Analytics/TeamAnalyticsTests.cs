@@ -92,7 +92,6 @@ public class TeamAnalyticsTests
 
         Assert.Equal(1, page.InstancesWatched);
         Assert.Equal(1, page.ModeratorsRecognised);
-        Assert.False(string.IsNullOrWhiteSpace(page.HowModeratorsAreRecognised));
     }
 
     [Fact]

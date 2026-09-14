@@ -233,7 +233,7 @@ public static class InviteEndpoints
                 {
                     return Results.BadRequest(new
                     {
-                        error = "A role on this invite no longer exists. Ask for a new invite link.",
+                        error = "A role on this invite no longer exists.",
                     });
                 }
 
@@ -282,13 +282,13 @@ public static class InviteEndpoints
     {
         var link = await links.FindAsync(token, OneTimeLinkKind.Invite, ct);
         if (link is null)
-            return (null, "This invite link is not valid. Ask whoever sent it for a new one.");
+            return (null, "This invite link is not valid.");
 
         if (link.UsedAt is not null)
             return (link, "This invite link has already been used.");
 
         if (clock.UtcNow >= link.ExpiresAt)
-            return (link, "This invite link has expired. Ask whoever sent it for a new one.");
+            return (link, "This invite link has expired.");
 
         var inviterEnabled = await db.Users.AsNoTracking()
             .Where(u => u.Id == link.CreatedByUserId)
@@ -296,7 +296,7 @@ public static class InviteEndpoints
             .FirstOrDefaultAsync(ct);
 
         if (!inviterEnabled)
-            return (link, "The account that made this invite link has been disabled, so the link no longer works.");
+            return (link, "The account that made this invite link has been disabled.");
 
         return (link, null);
     }

@@ -69,7 +69,7 @@ public class RepeatOffendersApiTests
         Assert.Equal(2, page.Total);
         Assert.Equal(["usr_three", "usr_twice"], page.People.Select(p => p.Who.Id).ToArray());
         Assert.NotNull(page.LastRunAt);
-        Assert.Contains("30 days", page.Rule);
+        Assert.Equal("Repeat: 3 or more actions in the last 30 days.", page.Rule);
 
         var three = page.People[0];
         Assert.Equal(3, three.Actions);

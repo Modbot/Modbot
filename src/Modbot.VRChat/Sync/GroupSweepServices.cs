@@ -220,12 +220,11 @@ public abstract class GroupSweepService : BackgroundService
     private static string Describe(SweepRunResult result) => result switch
     {
         { RestUntil: not null } => "resting between sweeps",
-        { SweepComplete: true, FirstSweep: true } => "first sweep finished; recorded a snapshot",
+        { SweepComplete: true, FirstSweep: true } => "first sweep finished",
         { SweepComplete: true } =>
-            $"sweep finished: {result.MarkedGone} no longer listed, {result.FactsWritten} recorded, "
-            + $"{result.FactsDeduplicated} already in the audit log, {result.FactsWaiting} waiting",
+            $"sweep finished: {result.MarkedGone} no longer listed, {result.FactsWritten} recorded",
         { Outcome: SyncOutcome.Produced or SyncOutcome.Quiet } =>
-            $"page read: {result.RowsRead} listed, {result.RowsChanged} changed, {result.FactsWaiting} waiting; next offset {result.Offset}",
+            $"page read: {result.RowsRead} listed, {result.RowsChanged} changed",
         _ => result.Message ?? result.Outcome.ToString(),
     };
 

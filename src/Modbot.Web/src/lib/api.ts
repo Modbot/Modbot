@@ -232,7 +232,6 @@ export type DataSettings = {
     platform: string
     platformEvidence: string | null
     logFilesWritten: boolean
-    persistenceExplanation: string
   }
 }
 
@@ -554,7 +553,6 @@ export type TeamAnalytics = {
   actionsPerDayByKind: KindSeries[]
   coverageGaps: CoverageGap[]
   moderatorsRecognised: number
-  howModeratorsAreRecognised: string
   instancesWatched: number
   instancesOpenedWithoutAnyWatch: number
   coverage: AnalyticsCoverage
@@ -911,12 +909,6 @@ export type VRChatUserProfile = {
 }
 
 /**
- * One check that can open a review, with its rule in words at the current thresholds. The page
- * shows the rule beside the reviews, because "looked unusual" alone is a claim to take on trust.
- */
-export type SignalInfo = { signal: string; label: string; rule: string }
-
-/**
  * Every number a review was opened on, and the ids of the facts behind them.
  *
  * `same-person` reviews carry `places` and `otherModerators`; `far-above-team` reviews carry
@@ -963,8 +955,6 @@ export type ReviewView = {
 export type ReviewList = {
   reviews: ReviewView[]
   openCount: number
-  signals: SignalInfo[]
-  howUsualIsMeasured: string
   /** When detection last ran. Null means never -- an empty list then means nothing yet. */
   lastRunAt: string | null
   now: string
@@ -1060,7 +1050,6 @@ export type SyncSettings = {
   memberSweep: SweepSettings
   banSweep: SweepSettings
   editable: boolean
-  editableExplanation: string
   running: boolean
 }
 
@@ -1084,7 +1073,6 @@ export type EvidenceCapabilities = {
   rangeRead: boolean
   serverSideCopy: boolean
   directDeliveryAvailable: boolean
-  deliveryExplanation: string
 }
 
 export type EvidenceHealth = {
@@ -1147,9 +1135,7 @@ export type EvidenceSettings = {
   backends: {
     id: EvidenceBackendId
     label: string
-    summary: string
     recommended: boolean
-    caution: string | null
   }[]
   environmentHint: {
     bucket: string | null
@@ -1158,7 +1144,6 @@ export type EvidenceSettings = {
     accessKeyId: string | null
     secretAvailable: boolean
   } | null
-  durabilityStatement: string
   switchBlockedReason: string | null
 }
 
@@ -1277,7 +1262,7 @@ export type BanListEntryAtBan = {
  *
  * It never changes after capture, except that `canCaptureAgain` offers a single recapture when
  * VRChat has answered with a newer profile since -- the first snapshot is then kept in the fact
- * log. `explanation` is the server's sentence: "This is how the profile looked on …".
+ * log. `explanation` is the server's short line: "Taken 10 Mar 2026 12:05 UTC."
  */
 export type CaseSnapshot = {
   profile: ProfileAtBan | null
@@ -1314,7 +1299,6 @@ export type EvidenceDelivery = {
   uploadsAllowed: boolean
   storeExplanation: string
   directDelivery: boolean
-  deliveryExplanation: string
   maxFileBytes: number
   acceptedTypes: string[]
 }
@@ -1352,7 +1336,6 @@ export type CaseFileView = {
 export type CaseFileCreated = {
   case: CaseFileView
   refreshOutcome: 'Queued' | 'Promoted' | 'AlreadyQueued' | 'FreshEnough' | 'NotAvailable'
-  refreshExplanation: string
 }
 
 export type UnwrittenBan = {
@@ -1636,10 +1619,7 @@ export const api = {
     body: JSON.stringify(body),
   }),
 
-  /**
-   * Read-only in this build. The endpoint says why in `editableExplanation` rather than the SPA
-   * deciding — a control whose value is silently discarded is worse than no control.
-   */
+  /** Read-only in this build: a control whose value is silently discarded is worse than no control. */
   syncSettings: () => request<SyncSettings>('/api/settings/sync'),
 
   /**

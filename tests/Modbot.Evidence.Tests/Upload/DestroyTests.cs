@@ -136,15 +136,6 @@ public sealed class DestroyTests : IAsyncLifetime
         Assert.Single(_metadata.Records);
     }
 
-    [Fact]
-    public async Task TheMessageSaysThereIsNoUndo()
-    {
-        var content = SampleMedia.Mp4(size: 512);
-        var hash = await AttachAsync(content, "report-1");
-
-        var blocked = await _destroyer.DestroyAsync(hash, "Administrator", "cleanup", Ct);
-        Assert.Contains("cannot be undone", blocked.Message, StringComparison.OrdinalIgnoreCase);
-    }
 
     /// <summary>
     /// Deleting on the authority of a database whose relationship to the store is in doubt is how

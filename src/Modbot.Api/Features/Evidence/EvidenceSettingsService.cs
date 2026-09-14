@@ -34,39 +34,15 @@ namespace Modbot.Api.Features.Evidence;
 /// </remarks>
 public sealed class EvidenceSettingsService
 {
-    /// <summary>
-    /// Said at the moment of choosing, because that is when the operator is making the decision.
-    /// </summary>
-    /// <remarks>
-    /// Design §8.5 and §4.1.1: an operator who believes their hosting provider keeps copies of
-    /// their evidence is wrong, and finding that out during a dispute is the worst possible moment.
-    /// Railway Buckets has no backups and no object versioning; a filesystem unlink is an unlink.
-    /// </remarks>
-    public const string DurabilityStatement =
-        "Modbot does not back this store up and cannot undo a deletion from it. Object storage "
-        + "providers differ: Railway Buckets keeps no backups and supports no object versioning, "
-        + "Cloudflare R2 and Wasabi version objects only if you enable it, and a deleted file on "
-        + "disk is simply gone. This data is yours to look after.";
+    /// <summary>Why a save that would change the backend is refused while evidence is stored.</summary>
+    public const string SwitchBlocked = "The backend cannot be changed while evidence is stored.";
 
     private static readonly IReadOnlyList<EvidenceBackendOption> BackendOptions =
     [
-        new("S3", "S3-compatible object storage", "Wasabi, Railway Buckets, Cloudflare R2, MinIO or "
-            + "AWS. Survives losing the container, hands the browser the bytes directly, and needs "
-            + "no volume.", Recommended: true, Caution: null),
-        new("Filesystem", "A directory on disk", "For a machine in somebody's house, where the disk "
-            + "is right there. Needs a Docker volume you mounted yourself; Modbot declares none.",
-            Recommended: false,
-            Caution: "Evidence here is lost when the container is recreated unless a volume is "
-                + "mounted at this path, and nothing errors when that happens."),
-        new("Database", "Inside PostgreSQL", "Supported, and not recommended. One backup covers "
-            + "everything, which is a real virtue for a small group.",
-            Recommended: false,
-            Caution: "Every byte lands in pg_dump, in the WAL, and on any replica. A 240 MB "
-                + "database becomes a 20 GB dump the first time somebody attaches a dozen clips, "
-                + "and a restore that takes four hours is not a restore you can perform during an "
-                + "incident."),
-        new("None", "Not configured", "Evidence cannot be attached to a report. Nothing else is "
-            + "affected.", Recommended: false, Caution: null),
+        new("S3", "S3-compatible object storage", Recommended: true),
+        new("Filesystem", "A directory on disk", Recommended: false),
+        new("Database", "Inside PostgreSQL", Recommended: false),
+        new("None", "Not configured", Recommended: false),
     ];
 
     private readonly ModbotContext _db;
@@ -153,13 +129,7 @@ public sealed class EvidenceSettingsService
             EvidenceContentType.Allowed,
             BackendOptions,
             backend is EvidenceBackend.None ? ReadEnvironmentHint() : null,
-            DurabilityStatement,
-            (present?.Count ?? 0) > 0
-                ? "Changing the backend does not move objects that are already stored. Until a "
-                  + "migration job exists — one that copies, verifies every hash and only then "
-                  + "repoints — switching would strand the evidence this deployment already holds. "
-                  + "Destroy it deliberately, or keep this backend."
-                : null);
+            (present?.Count ?? 0) > 0 ? SwitchBlocked : null);
     }
 
     /// <summary>Runs the round trip against a candidate store and persists nothing.</summary>
@@ -202,8 +172,7 @@ public sealed class EvidenceSettingsService
             return new EvidenceSetupResponse(
                 true,
                 null,
-                "Evidence storage is switched off. Uploads are refused and nothing else is "
-                + "affected; anything already stored is still where it was.",
+                "Evidence storage is switched off.",
                 null,
                 false,
                 null);
@@ -234,8 +203,7 @@ public sealed class EvidenceSettingsService
 
         if (request.MaxReportBytes > 0 && request.MaxReportBytes < request.MaxFileBytes)
         {
-            return (null, "The per-report total is below the per-file cap, so no file that passed "
-                + "the first check could ever be attached.");
+            return (null, "The per-report total is below the per-file cap.");
         }
 
         var settings = await _db.GetSettingsAsync(ct);
@@ -292,12 +260,7 @@ public sealed class EvidenceSettingsService
         if (!sameTarget
             && await _db.EvidenceBlobs.AnyAsync(b => b.DestroyedAt == null, ct))
         {
-            return Candidate.Refused(
-                "switch",
-                "This deployment already holds evidence in the store it is configured with, and "
-                + "changing the backend does not move it. A migration between backends copies every "
-                + "object, verifies it by hash and only then repoints — it is an explicit job, never "
-                + "a side effect of saving a setting, and it does not exist yet.");
+            return Candidate.Refused("switch", SwitchBlocked);
         }
 
         switch (backend)
@@ -333,7 +296,7 @@ public sealed class EvidenceSettingsService
                 {
                     return Candidate.Refused(
                         "credentials",
-                        "A secret access key is required. Modbot has none on file for this bucket.");
+                        "A secret access key is required.");
                 }
 
                 options.S3.Bucket = request.Bucket.Trim();
@@ -350,8 +313,7 @@ public sealed class EvidenceSettingsService
                 {
                     return Candidate.Refused(
                         "connection",
-                        "Modbot could not work out its own database connection, so it cannot store "
-                        + "evidence in it.");
+                        "Modbot could not find its own database connection.");
                 }
 
                 break;
@@ -407,7 +369,7 @@ public sealed class EvidenceSettingsService
             return new EvidenceSetupResponse(
                 result.Succeeded,
                 result.FailedStep,
-                result.Succeeded ? result.Message + " " + DurabilityStatement : result.Message,
+                result.Message,
                 result.StoreId,
                 RequiresAcknowledgement: false,
                 Durability: candidate.Durability is { } d ? ToView(d, null, null, null) : null);
@@ -560,14 +522,7 @@ public sealed class EvidenceSettingsService
             capabilities.HasFlag(EvidenceStoreCapabilities.PresignedWrite),
             capabilities.HasFlag(EvidenceStoreCapabilities.RangeRead),
             capabilities.HasFlag(EvidenceStoreCapabilities.ServerSideCopy),
-            direct,
-            direct
-                ? "Evidence is delivered by the store straight to the browser, on a link that lasts "
-                  + "five minutes. Modbot never sees those bytes, so it cannot re-hash them on the "
-                  + "way past and cannot add its own response headers — the format allowlist is "
-                  + "doing that work instead."
-                : "This backend cannot hand the browser a link, so every byte is streamed through "
-                  + "Modbot and re-hashed on the way past.");
+            direct);
     }
 
     /// <summary>

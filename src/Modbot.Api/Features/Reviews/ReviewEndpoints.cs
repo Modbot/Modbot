@@ -61,7 +61,6 @@ public static class ReviewEndpoints
                     : await query.OrderBy(r => r.State).ThenBy(r => r.OpenedAt).ThenBy(r => r.Id).Take(500).ToListAsync(ct);
 
                 var openCount = await db.Reviews.AsNoTracking().CountAsync(r => r.State == ReviewState.Open, ct);
-                var thresholds = await ThresholdsAsync(db, ct);
                 var lastRun = await db.ReviewRunState.AsNoTracking().Select(s => s.UpdatedAt).FirstOrDefaultAsync(ct);
 
                 var ids = rows.Select(r => r.ModeratorId)
@@ -72,8 +71,6 @@ public static class ReviewEndpoints
                 return Results.Ok(new ReviewListResponse(
                     rows.Select(r => View(r, names)).ToList(),
                     openCount,
-                    ReviewSignals.Describe(thresholds),
-                    ModeratorBaselines.Rule(thresholds),
                     lastRun,
                     clock.UtcNow));
             })

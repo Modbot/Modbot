@@ -137,7 +137,7 @@ public static class IntegrationsHandler
                 {
                     return Results.BadRequest(new
                     {
-                        error = "That message is too long for Discord. Keep it under 2,000 characters.",
+                        error = "That message is over Discord's 2,000-character limit.",
                     });
                 }
 

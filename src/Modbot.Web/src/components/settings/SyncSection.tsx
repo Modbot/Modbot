@@ -33,9 +33,7 @@ export function SyncSection() {
         <Placeholder>Loading…</Placeholder>
       ) : (
         <>
-          <Notice tone="warn" title="These cannot be changed here yet." className="col-span-12">
-            <p>{settings.editableExplanation}</p>
-          </Notice>
+          <Notice tone="warn" title="These cannot be changed here yet." className="col-span-12" />
 
           {!settings.running && (
             <Notice tone="neutral" title="Sync is not running." className="col-span-12" />

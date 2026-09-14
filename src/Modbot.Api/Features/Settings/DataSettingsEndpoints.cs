@@ -21,13 +21,11 @@ public sealed record RetentionSettings(int ModerationFactRetentionDays, int Pres
 /// <param name="Platform">Detected host, e.g. "Railway" or "self-hosted".</param>
 /// <param name="PlatformEvidence">The variable that produced the match, or null.</param>
 /// <param name="LogFilesWritten">Whether the six file streams are being written at all.</param>
-/// <param name="PersistenceExplanation">Why, in one sentence.</param>
 public sealed record DeploymentSummary(
     string Version,
     string Platform,
     string? PlatformEvidence,
-    bool LogFilesWritten,
-    string PersistenceExplanation);
+    bool LogFilesWritten);
 
 /// <param name="Bytes">Measured, including indexes.</param>
 /// <param name="Facts">Row count — the planner's estimate once one exists.</param>
@@ -132,8 +130,7 @@ public static class DataSettingsEndpoints
                         ModbotVersion.Release,
                         deployment.Platform.Name,
                         deployment.Platform.Evidence,
-                        deployment.LogFilesWritten,
-                        deployment.PersistenceExplanation)));
+                        deployment.LogFilesWritten)));
             })
             .WithName("GetDataSettings")
             .WithSummary("Retention, measured storage, and what this deployment is running on")

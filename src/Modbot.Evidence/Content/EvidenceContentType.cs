@@ -131,8 +131,7 @@ public static class EvidenceContentType
             return new ContentTypeVerdict(
                 null,
                 ContentRejection.ScriptableMarkup,
-                $"This file is {what}, whatever it is named. Markup and vector formats can carry "
-                + "script and are never accepted as evidence.");
+                $"This file is {what}, which is not accepted.");
         }
 
         if (prefix.Length < 12)
@@ -140,14 +139,13 @@ public static class EvidenceContentType
             return new ContentTypeVerdict(
                 null,
                 ContentRejection.Truncated,
-                "The file is too short to be any of the accepted formats — it was probably truncated in transit.");
+                "The file is too short to be an accepted format.");
         }
 
         return new ContentTypeVerdict(
             null,
             ContentRejection.NotAllowed,
-            "The file is not a PNG, JPEG, WebP, GIF, MP4 or WebM. Evidence is limited to those six "
-            + "formats, decided from the file's own bytes rather than its name.");
+            "The file is not a PNG, JPEG, WebP, GIF, MP4 or WebM.");
     }
 
     /// <summary>
@@ -174,15 +172,13 @@ public static class EvidenceContentType
             return new ContentTypeVerdict(
                 null,
                 ContentRejection.NotAllowed,
-                $"This is an ISO media file with brand '{brand}' — HEIC and AVIF among them — which "
-                + "browsers do not decode uniformly and which is not on the accepted list.");
+                $"This is an ISO media file with brand '{brand}', which is not accepted.");
         }
 
         return new ContentTypeVerdict(
             null,
             ContentRejection.NotAllowed,
-            $"This is an ISO media file with an unrecognised brand ('{brand}'). Only MP4 is accepted "
-            + "from that family.");
+            $"This is an ISO media file with an unrecognised brand ('{brand}'). Only MP4 is accepted.");
     }
 
     private static ContentTypeVerdict SniffEbml(ReadOnlySpan<byte> prefix)

@@ -85,8 +85,6 @@ public class ReviewsApiTests
         Assert.Equal(3, review.Evidence.GetProperty("actions").GetInt32());
         Assert.Equal(3, review.Evidence.GetProperty("factIds").GetArrayLength());
 
-        Assert.Equal(2, page.Signals.Count);
-        Assert.All(page.Signals, s => Assert.False(string.IsNullOrWhiteSpace(s.Rule)));
         Assert.NotNull(page.LastRunAt);
 
         var count = await host.GetJsonAsync<OpenReviewCount>("/api/reviews/open-count", cookie, ct);

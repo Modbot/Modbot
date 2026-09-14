@@ -349,7 +349,7 @@ public sealed class GroupMemberSync
             return await RecordPollAsync(
                 settings,
                 new SweepRunResult(SyncOutcome.Failed, PagesRead: 1, SweepStarted: started,
-                    Message: $"listed nobody where the last sweep listed {settings.MemberSweepCount}; not marking anyone as left"),
+                    Message: $"listed nobody where the last sweep listed {settings.MemberSweepCount}"),
                 ct).ConfigureAwait(false);
         }
 

@@ -167,9 +167,9 @@ public sealed class CaseFileService
         // snapshot is what Modbot held at the moment of writing; if a newer profile lands, the
         // moderator can capture it again once. Never before the write, never blocking it
         // (evidence design §12.2: the write-up must not wait on a lookup).
-        var (outcome, explanation) = await RequestRefreshAsync(userId, ct);
+        var outcome = await RequestRefreshAsync(userId, ct);
 
-        return new CaseFileCreatedResponse(await ViewAsync(row.Id, caller, ct) ?? throw new InvalidOperationException(), outcome, explanation);
+        return new CaseFileCreatedResponse(await ViewAsync(row.Id, caller, ct) ?? throw new InvalidOperationException(), outcome);
     }
 
     public async Task<CaseFileView> UpdateAsync(
@@ -669,35 +669,22 @@ public sealed class CaseFileService
         {
             throw new CaseFileRefused(
                 409,
-                "This ban already has a case file. Open it and edit it rather than writing a second one.",
+                "This ban already has a case file.",
                 existing.Id);
         }
     }
 
-    private async Task<(string Outcome, string Explanation)> RequestRefreshAsync(string userId, CancellationToken ct)
+    private async Task<string> RequestRefreshAsync(string userId, CancellationToken ct)
     {
         if (_profiles is null)
-        {
-            return ("NotAvailable",
-                "The profile sync is not running in this process, so no fresher profile was asked for. "
-                + "The snapshot is what Modbot had stored.");
-        }
+            return "NotAvailable";
 
         // The "opened in Modbot" tier: behind only people a client is seeing in an instance right
         // now, which is the tier the profile card already uses when the write-up form is opened.
         // Tier 1 is reserved for instance sightings and would misreport on the sync health page.
         var asked = await _profiles.RequestRefreshAsync(userId, RefreshReason.OpenedInModbot, ct);
 
-        return (asked.Outcome.ToString(), asked.Outcome switch
-        {
-            RefreshRequestOutcome.FreshEnough =>
-                "The stored profile was fetched a moment ago, so the snapshot is as fresh as VRChat allows.",
-            RefreshRequestOutcome.AlreadyQueued =>
-                "A refresh was already waiting. When it lands you can capture the profile again once.",
-            RefreshRequestOutcome.Promoted =>
-                "A refresh was moved up the queue. When it lands you can capture the profile again once.",
-            _ => "A refresh was asked for. When it lands you can capture the profile again once.",
-        });
+        return asked.Outcome.ToString();
     }
 
     private async Task RecordAsync(CaseFile row, Caller caller, string type, JsonObject data, CancellationToken ct)
@@ -775,7 +762,6 @@ public sealed class CaseFileService
                 false, false,
                 "Evidence storage is not running in this process.",
                 false,
-                "Nothing can be attached or opened from here.",
                 0,
                 EvidenceContentType.Allowed);
         }
@@ -788,7 +774,6 @@ public sealed class CaseFileService
             health.UploadsAllowed,
             health.Explanation,
             capabilities.DirectDeliveryAvailable,
-            capabilities.DeliveryExplanation,
             _evidenceOptions.MaxFileBytes,
             EvidenceContentType.Allowed);
     }
@@ -800,24 +785,24 @@ public sealed class CaseFileService
     {
         var taken = row.SnapshotTakenAt.ToString("d MMM yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture);
 
+        var offerNewer = newer && canEdit && row.SnapshotRecapturedAt is null;
+
         if (row.ProfileAtBan is null)
         {
-            var none = $"Modbot had never fetched this person's profile when the snapshot was taken on {taken}, so there is no profile to show.";
-            return newer && canEdit && row.SnapshotRecapturedAt is null
-                ? none + " A profile has arrived since; you can capture it once."
-                : none;
+            var none = $"No profile had been fetched as of {taken}.";
+            return offerNewer ? none + " A newer profile is available." : none;
         }
 
         var refreshed = row.ProfileRefreshedAt is { } at
-            ? $" It was fetched from VRChat {Age(row.SnapshotTakenAt - at)} before that."
+            ? $" Profile fetched {Age(row.SnapshotTakenAt - at)} earlier."
             : string.Empty;
 
         var sentence = row.SnapshotRecapturedAt is { } again
-            ? $"This is how the profile looked on {taken}, captured again on {again.ToString("d MMM yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture)}.{refreshed} The first snapshot is kept in the fact log."
-            : $"This is how the profile looked on {taken}.{refreshed}";
+            ? $"Taken {taken}, captured again {again.ToString("d MMM yyyy HH:mm 'UTC'", CultureInfo.InvariantCulture)}.{refreshed}"
+            : $"Taken {taken}.{refreshed}";
 
-        if (newer && canEdit && row.SnapshotRecapturedAt is null)
-            sentence += " VRChat has since answered with a newer profile; you can capture it again once.";
+        if (offerNewer)
+            sentence += " A newer profile is available.";
 
         return sentence;
     }

@@ -129,7 +129,7 @@ try
     // person confirms it on the settings page before any link is built from it (accounts and
     // access design §4.2). Same rule as the bucket variables in §8.1 -- a prefill, not a setting.
     builder.Services.AddSingleton(new DeploymentInfo(
-        platform, persistence.Evidence, writeLogFiles, persistence.Explanation,
+        platform, persistence.Evidence, writeLogFiles,
         PublicAddress.Suggest()));
 
     builder.Services.AddDbContext<ModbotContext>(options => options

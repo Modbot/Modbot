@@ -216,7 +216,7 @@ public class UsersTests
             Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("Administrator", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Contains("nobody who can administer Modbot", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
     }
 
     [Fact]
