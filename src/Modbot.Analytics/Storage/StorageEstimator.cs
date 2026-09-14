@@ -25,20 +25,12 @@ namespace Modbot.Analytics.Storage;
 /// </remarks>
 public sealed class StorageEstimator(ModbotContext db, IModbotClock clock)
 {
-    /// <summary>Mean Gregorian month. Estimates are monthly; days are what accrue.</summary>
-    private const double DaysPerMonth = 30.436875;
-
-    /// <summary>Storage is priced and sized in binary gigabytes far more often than decimal ones.</summary>
-    private const double BytesPerGb = 1024d * 1024d * 1024d;
-
     /// <summary>
     /// How far back the arrival rate is measured. Long enough to span the weekly rhythm of a
     /// VRChat group -- weekends are not like Tuesdays -- and short enough that a group which has
     /// grown recently is projected from what it is now rather than from what it was.
     /// </summary>
     private static readonly TimeSpan RateWindow = TimeSpan.FromDays(30);
-
-    private static readonly int[] HorizonMonths = [6, 12, 24];
 
     public async Task<StorageForecast> ForecastAsync(StorageBudget budget, CancellationToken ct)
     {
@@ -177,18 +169,10 @@ public sealed class StorageEstimator(ModbotContext db, IModbotClock clock)
         // confidence label and the screen is responsible for showing it prominently.
         var bytesPerDay = GrowthPerDay(measurement);
 
-        var horizons = HorizonMonths
-            .Select(months =>
-            {
-                var bytes = measurement.TotalBytes + (long)(bytesPerDay * months * DaysPerMonth);
-                return new StorageHorizon(months, bytes, MonthlyCost(bytes, budget.CostPerGbMonth));
-            })
-            .ToArray();
-
         return new StorageForecast(
             measurement,
             confidence,
-            horizons,
+            bytesPerDay,
             Exhaustion(measurement, bytesPerDay, budget));
     }
 
@@ -212,11 +196,6 @@ public sealed class StorageEstimator(ModbotContext db, IModbotClock clock)
 
         return factGrowth + dailyTotalGrowth;
     }
-
-    private static decimal? MonthlyCost(long bytes, decimal? costPerGbMonth)
-        => costPerGbMonth is null
-            ? null
-            : Math.Round((decimal)(bytes / BytesPerGb) * costPerGbMonth.Value, 2);
 
     private DateTimeOffset? Exhaustion(
         StorageMeasurement measurement,

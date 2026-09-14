@@ -73,6 +73,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Where the last detection run got to.</summary>
     public DbSet<ReviewRunState> ReviewRunState => Set<ReviewRunState>();
 
+    /// <summary>How big the data was, one row per day, for the storage chart.</summary>
+    public DbSet<StorageDay> StorageDays => Set<StorageDay>();
+
     /// <summary>The group's member list as last swept. Current state; the history is in <see cref="Events"/>.</summary>
     /// <summary>
     /// Worlds Modbot has seen somebody in, so a place can be shown by name instead of by id.
@@ -685,6 +688,14 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
+        });
+
+        builder.Entity<StorageDay>(entity =>
+        {
+            entity.ToTable("modbot_storage_day");
+
+            // The day is the key, so recording a day a second time can only ever update it.
+            entity.HasKey(e => e.Day).HasName("pk_modbot_storage_day");
         });
 
         base.OnModelCreating(builder);

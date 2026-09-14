@@ -4,7 +4,8 @@ import { api, ApiError, type DataSettings } from '@/lib/api'
 import { Fact, Field, Hint, Outcome, Placeholder, Row } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { StorageChart } from './StorageChart'
-import { GB, bytes, remember, remembered } from './units'
+import { CheckCircle2 } from 'lucide-react'
+import { GB, bytes, hasPlentyOfStorage, remember, remembered } from './units'
 
 /**
  * Data: what Modbot is keeping, what it costs, and for how long (spec 5.5).
@@ -18,9 +19,10 @@ export function DataSection() {
   const [cost, setCost] = useState(() => remembered('modbot.costPerGbMonth'))
   const [capacity, setCapacity] = useState(() => remembered('modbot.capacityGb'))
 
+  // Only the disk size goes to the server, for the fill date. The cost is applied in the chart,
+  // so typing a price does not refetch.
   const load = useCallback(() => {
     const budget = {
-      costPerGbMonth: Number(cost) || undefined,
       capacityBytes: Number(capacity) ? Number(capacity) * GB : undefined,
     }
     api
@@ -32,7 +34,7 @@ export function DataSection() {
       .catch((e: unknown) =>
         setError(e instanceof ApiError ? e.message : 'Could not load settings.'),
       )
-  }, [cost, capacity])
+  }, [capacity])
 
   useEffect(() => load(), [load])
 
@@ -81,12 +83,10 @@ function StorageCard({
   onCost: (v: string) => void
   onCapacity: (v: string) => void
 }) {
+  const capacityBytes = Number(capacity) ? Number(capacity) * GB : null
+
   return (
-    <SettingsCard
-      span={12}
-      title="Storage"
-      description="Measured from the database, and where it is heading if facts keep arriving at this rate."
-    >
+    <SettingsCard span={12} title="Storage">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
@@ -105,79 +105,33 @@ function StorageCard({
               }
             />
           </div>
-          <Hint>
-            Sizes include indexes.{' '}
-            {storage.observedDays >= 1
-              ? `The arrival rate is measured over the last ${Math.round(storage.observedDays)} days.`
-              : 'The arrival rate needs a day of history to measure.'}
-          </Hint>
 
-          <div className="grid max-w-sm grid-cols-2 gap-3">
-            <Field label="Cost per GB / month" placeholder="0.25" value={cost} onChange={onCost} />
+          {/* items-end: a label that wraps grows upward, and the two inputs stay on one line. */}
+          <div className="grid max-w-sm grid-cols-2 items-end gap-3">
+            <Field label="Cost per GB/mo" placeholder="0.25" value={cost} onChange={onCost} />
             <Field label="Disk size (GB)" placeholder="500" value={capacity} onChange={onCapacity} />
           </div>
-          <Hint>
-            What-if inputs, remembered by this browser only. Nothing in Modbot changes for having
-            been told them.
-          </Hint>
+
+          {hasPlentyOfStorage(storage, capacityBytes) && (
+            <div
+              className="flex items-center gap-2 rounded-lg border border-ok/40 bg-ok/10 px-4 py-3"
+              style={{ borderWidth: 'var(--hairline)' }}
+            >
+              <CheckCircle2 className="size-4 shrink-0 text-ok" aria-hidden />
+              <span className="font-medium">You have plenty of storage for the foreseeable future</span>
+            </div>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-col gap-3">
-          {/* Always shown, however little history there is. The caption under the chart carries
-              the caveat; withholding the number was tried and the operator preferred to see it. */}
           <StorageChart
             storage={storage}
-            capacityBytes={Number(capacity) ? Number(capacity) * GB : null}
+            capacityBytes={capacityBytes}
+            costPerGbMonth={Number(cost) || null}
           />
-          <HorizonTable horizons={storage.horizons} />
         </div>
       </div>
     </SettingsCard>
-  )
-}
-
-/** The same numbers as the chart, for anyone who wants to copy one out. Folded by default. */
-function HorizonTable({ horizons }: { horizons: DataSettings['storage']['horizons'] }) {
-  const [open, setOpen] = useState(false)
-
-  if (horizons.length === 0) return null
-
-  return (
-    <div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="-ml-3 text-muted-foreground"
-        style={{ fontSize: 'var(--text-small)' }}
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        {open ? 'Hide the numbers' : 'Show the numbers'}
-      </Button>
-      {open && (
-        <table className="mt-1 w-full max-w-md" style={{ fontSize: 'var(--text-small)' }}>
-          <thead className="text-muted-foreground">
-            <tr>
-              <th className="text-left font-normal">If this rate continues</th>
-              <th className="text-right font-normal">Size</th>
-              <th className="text-right font-normal">Cost / month</th>
-            </tr>
-          </thead>
-          <tbody>
-            {horizons.map((h) => (
-              <tr key={h.months}>
-                <td className="py-1">In {h.months} months</td>
-                <td className="py-1 text-right tabular-nums">{bytes(h.estimatedBytes)}</td>
-                <td className="py-1 text-right tabular-nums">
-                  {h.monthlyCost === null ? '—' : `$${h.monthlyCost.toFixed(2)}`}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
   )
 }
 

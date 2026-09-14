@@ -205,16 +205,13 @@ export type GroupCandidates = {
  */
 export type IssuedPairingCode = { code: string; expiresAt: string }
 
-export type StorageHorizon = {
-  months: number
-  estimatedBytes: number
-  monthlyCost: number | null
-}
+/** One recorded size per UTC day. `day` is `yyyy-mm-dd`. */
+export type StorageDay = { day: string; bytes: number }
 
 /**
- * `confidence` is Insufficient / Low / Good. Insufficient means the server declined to
- * extrapolate and `horizons` is empty — a number on a screen gets believed regardless of the
- * caveat beside it, so the honest output from a few hours of history is no number.
+ * `confidence` is Insufficient (under a day of data) / Low (under a month) / Good. The estimate
+ * is a straight line from `bytes` at `measuredAt`, rising `bytesPerDay`. `history` is the past
+ * year of recorded days and starts wherever recording started.
  */
 export type DataSettings = {
   retention: { moderationFactRetentionDays: number; presenceFactRetentionDays: number }
@@ -225,8 +222,10 @@ export type DataSettings = {
     factsPerDay: number
     observedDays: number
     confidence: 'Insufficient' | 'Low' | 'Good'
-    horizons: StorageHorizon[]
+    bytesPerDay: number
     capacityExhausted: string | null
+    measuredAt: string
+    history: StorageDay[]
   }
   deployment: {
     version: string
@@ -1618,12 +1617,12 @@ export const api = {
   issuePairingCode: () => post<IssuedPairingCode>('/api/client-devices/pairing-code'),
 
   /**
-   * Cost and capacity are what-if inputs answered against, never stored — nothing in Modbot
-   * behaves differently for having been told, so the browser owns that state.
+   * Capacity is a what-if input answered against, never stored — nothing in Modbot behaves
+   * differently for having been told, so the browser owns that state. A per-GB cost never leaves
+   * the browser at all: the chart multiplies the sizes it already has.
    */
-  dataSettings: (budget?: { costPerGbMonth?: number; capacityBytes?: number }) => {
+  dataSettings: (budget?: { capacityBytes?: number }) => {
     const q = new URLSearchParams()
-    if (budget?.costPerGbMonth) q.set('costPerGbMonth', String(budget.costPerGbMonth))
     if (budget?.capacityBytes) q.set('capacityBytes', String(budget.capacityBytes))
     const query = q.toString()
     return request<DataSettings>(`/api/settings/data${query ? `?${query}` : ''}`)

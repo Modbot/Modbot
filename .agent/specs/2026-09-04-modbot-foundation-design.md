@@ -1508,6 +1508,13 @@ decision, so Modbot measures and shows:
 - **Observed growth rate** — facts per day over recent history, from the fact log itself.
 - **Estimate** at 6, 12 and 24 months at the current rate, stated as an extrapolation rather than a
   promise. Growth is not linear: a group that opens more instances generates more facts per member.
+
+  > **Revised 2026-09-14.** The three fixed points and their table are gone. The chart now shows
+  > the past year of recorded sizes, today in the middle, and a year of estimate to the right,
+  > drawn from a growth rate the server sends. PostgreSQL keeps no record of past sizes, so
+  > Modbot records one row per day in `modbot_storage_day`. History starts at the first recorded
+  > day and cannot be filled in. The per-GB cost is now applied in the browser rather than sent
+  > to the server.
 - **What it means in their terms**, from one of two inputs the operator provides:
   - a **per-GB monthly cost**, for hosted deployments → projected monthly spend
   - a **disk capacity**, for home hosting → the date they would run out

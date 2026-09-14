@@ -42,7 +42,7 @@ public sealed record StorageMeasurement(
 /// </summary>
 public enum ForecastConfidence
 {
-    /// <summary>Too little history to extrapolate. No horizons are produced at all.</summary>
+    /// <summary>Under a day of history. An estimate is still produced, but it is little more than a guess.</summary>
     Insufficient,
 
     /// <summary>Enough to be indicative. A single busy weekend still moves it a lot.</summary>
@@ -52,18 +52,15 @@ public enum ForecastConfidence
     Good,
 }
 
-/// <param name="Months">How far out, from today.</param>
-/// <param name="EstimatedBytes">Total size at that point if the observed rate continues.</param>
-/// <param name="MonthlyCost">
-/// Cost of that much storage per month, when the operator has told Modbot their per-GB price.
-/// </param>
-public sealed record StorageHorizon(int Months, long EstimatedBytes, decimal? MonthlyCost);
-
 /// <summary>
 /// The answer to "what does keeping everything cost me?", which is the question an operator has to
 /// be able to answer before choosing a retention window is a decision rather than a guess
 /// (spec 5.5).
 /// </summary>
+/// <param name="BytesPerDay">
+/// How fast the data grows at the measured rate. The estimate is this straight line from today's
+/// size; the screen draws it, and prices it when the operator has typed a per-GB cost.
+/// </param>
 /// <param name="CapacityExhausted">
 /// When the operator's disk fills at the current rate. Null when they gave no capacity, or when
 /// the rate is too low to ever reach it.
@@ -71,17 +68,17 @@ public sealed record StorageHorizon(int Months, long EstimatedBytes, decimal? Mo
 public sealed record StorageForecast(
     StorageMeasurement Measurement,
     ForecastConfidence Confidence,
-    IReadOnlyList<StorageHorizon> Horizons,
+    double BytesPerDay,
     DateTimeOffset? CapacityExhausted);
 
 /// <summary>
 /// What the operator told Modbot about their hosting, so the estimate can be stated in their
 /// terms instead of in gigabytes.
 /// </summary>
-/// <param name="CostPerGbMonth">For hosted deployments, e.g. 0.25m.</param>
 /// <param name="CapacityBytes">For home hosting: the disk it has to fit on.</param>
 /// <remarks>
-/// Both optional and independent. An operator who provides neither still gets sizes, which is the
-/// most important number on the page.
+/// Optional. An operator who provides nothing still gets sizes, which are the most important
+/// numbers on the page. A per-GB cost is not asked for here: it multiplies sizes the screen
+/// already has, so the browser does that arithmetic itself.
 /// </remarks>
-public sealed record StorageBudget(decimal? CostPerGbMonth = null, long? CapacityBytes = null);
+public sealed record StorageBudget(long? CapacityBytes = null);
