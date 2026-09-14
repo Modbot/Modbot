@@ -1,6 +1,15 @@
 namespace Modbot.Core.Discord;
 
 /// <summary>Where the bot is in its life: the one word the Health page leads with.</summary>
+/// <remarks>
+/// <strong>Written as its name, not its number.</strong> Without the converter below
+/// System.Text.Json sends <c>1</c> where the Health page expects <c>"NotConfigured"</c>, its
+/// lookup misses, and reading a field off the miss throws during render -- which takes out the
+/// whole screen rather than one card. <c>GateStatus</c> beside it on the same payload carries the
+/// same attribute for the same reason.
+/// </remarks>
+[System.Text.Json.Serialization.JsonConverter(
+    typeof(System.Text.Json.Serialization.JsonStringEnumConverter<DiscordBotState>))]
 public enum DiscordBotState
 {
     /// <summary>No token or no guild id stored. Not a fault (foundation §9).</summary>

@@ -401,7 +401,15 @@ const BOT_TONE: Record<'ok' | 'warn' | 'problem' | 'muted', string> = {
  * the bot waits for the settings to change rather than knocking every thirty seconds.
  */
 function DiscordBot({ bot, now }: { bot: DiscordBotHealth; now: string }) {
-  const state = BOT_STATE[bot.state]
+  // Not BOT_STATE[bot.state] directly. That Record is a compile-time claim about a value which
+  // arrives over HTTP, and the two part company whenever the server sends something this build
+  // does not know -- an added state, or an enum written as its number. A miss returned undefined
+  // and the next line read `.tone` off it, which threw during render and took the whole screen
+  // down over one card. Exactly the failure `statusOf` in lib/gate.ts was hardened against.
+  const state = BOT_STATE[bot.state] ?? {
+    label: bot.state ? `unknown (${String(bot.state)})` : 'unknown',
+    tone: 'muted' as const,
+  }
 
   return (
     <Card>

@@ -214,3 +214,66 @@ public class SyncHealthEndpointTests
         Assert.Equal(host.Clock.UtcNow, health.Now);
     }
 }
+
+/// <summary>
+/// Every enum on the health payload is written as its name, not its number.
+/// </summary>
+/// <remarks>
+/// <para>
+/// This is a regression test for a screen that crashed on load. <c>DiscordBotState</c> had no
+/// string converter, so the payload carried <c>"state": 1</c> where the page's lookup table is
+/// keyed on <c>"NotConfigured"</c>. The lookup missed, the next line read a field off the miss,
+/// and the whole Health screen threw during render over one card.
+/// </para>
+/// <para>
+/// The page has since been hardened to survive a value it does not know, but that is the second
+/// line of defence. This is the first: an enum that reaches a browser is part of the contract,
+/// and a number is not the contract. The test covers the whole payload rather than the one enum
+/// that broke, because the next one added would fail the same way and for the same reason.
+/// </para>
+/// </remarks>
+public class HealthPayloadEnumTests
+{
+    private static readonly System.Text.Json.JsonSerializerOptions Web =
+        new(System.Text.Json.JsonSerializerDefaults.Web);
+
+    [Fact]
+    public void TheDiscordBotStateIsWrittenAsItsName()
+    {
+        var snapshot = new Modbot.Core.Discord.DiscordBotSnapshot(
+            Modbot.Core.Discord.DiscordBotState.NotConfigured,
+            ConnectedSince: null,
+            LastError: null,
+            LastErrorAt: null,
+            CommandsRegistered: 0,
+            LogChannelConfigured: false,
+            LastPostedAt: null,
+            PostedInThisProcess: 0);
+
+        var json = System.Text.Json.JsonSerializer.Serialize(snapshot, Web);
+
+        Assert.Contains("\"state\":\"NotConfigured\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"state\":1", json, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(Modbot.Core.Discord.DiscordBotState.Connecting, "Connecting")]
+    [InlineData(Modbot.Core.Discord.DiscordBotState.Connected, "Connected")]
+    [InlineData(Modbot.Core.Discord.DiscordBotState.Disconnected, "Disconnected")]
+    [InlineData(Modbot.Core.Discord.DiscordBotState.Failed, "Failed")]
+    public void EveryBotStateHasTheNameTheScreenLooksUp(
+        Modbot.Core.Discord.DiscordBotState state, string expected)
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(state, Web);
+
+        Assert.Equal($"\"{expected}\"", json);
+    }
+
+    [Fact]
+    public void TheGateStatusIsWrittenAsItsName()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(GateStatus.NotConfigured, Web);
+
+        Assert.Equal("\"NotConfigured\"", json);
+    }
+}
