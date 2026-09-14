@@ -25,7 +25,7 @@ export function SettingsSection({
 }: {
   id: string
   title: string
-  description: string
+  description?: string
   children: React.ReactNode
 }) {
   return (
@@ -39,9 +39,11 @@ export function SettingsSection({
         >
           {title}
         </h2>
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {description}
-        </p>
+        {description && (
+          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {description}
+          </p>
+        )}
       </div>
       <div className="grid grid-cols-12 gap-4">{children}</div>
     </section>

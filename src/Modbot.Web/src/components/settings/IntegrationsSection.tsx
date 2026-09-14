@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type OnboardingStatus } from '@/lib/api'
-import { Checkbox, Fact, Field, Hint, LongField, Outcome, PasswordField, Placeholder } from './fields'
+import { Checkbox, Fact, Field, LongField, Outcome, PasswordField, Placeholder } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 
 /**
@@ -22,7 +22,6 @@ export function IntegrationsSection({
     <SettingsSection
       id="integrations"
       title="Integrations"
-      description="Optional services Modbot can talk to, and the address they send people back to. All saved together; nothing is tested by connecting."
     >
       {/* Mounted only once the status is in hand -- see VRChatSection for why. */}
       {status ? (
@@ -129,17 +128,12 @@ function IntegrationsForm({
     <form onSubmit={save} className="contents">
       <SettingsCard
         title="Discord"
-        description="Optional. Without it the bot simply does not start and nothing else about Modbot changes."
       >
         <Fact
           label="Bot"
           value={status.integrations.discordConfigured ? 'Token stored' : 'Not configured'}
         />
-        <Hint>
-          Secrets are encrypted at rest and never read back, so the token field is blank even when
-          one is stored — leave it blank to keep the one you have.
-        </Hint>
-        <div className="flex max-w-sm flex-col gap-3">
+        <div className="flex max-w-lg flex-col gap-3">
           <PasswordField label="Bot token" value={botToken} onChange={setBotToken} />
           <Field label="Guild id" value={guildId} onChange={setGuildId} placeholder="" />
           <Field
@@ -149,11 +143,6 @@ function IntegrationsForm({
             placeholder="Channel id, or blank to post nothing"
           />
         </div>
-        <Hint className="mt-2">
-          Posting starts from the moment the channel is saved. Nothing that happened before then
-          is posted, so turning this on never replays the group’s history into Discord. The bot
-          needs View Channel, Send Messages and Embed Links in that channel.
-        </Hint>
         <div className="mt-3 flex flex-col gap-1">
           <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             Which events to post
@@ -180,7 +169,7 @@ function IntegrationsForm({
         title="Instance announcements"
         description="Optional. Tells a channel when the group opens a room, and keeps that message up to date."
       >
-        <div className="flex max-w-sm flex-col gap-3">
+        <div className="flex max-w-lg flex-col gap-3">
           <Field
             label="Announce open instances in this channel"
             value={instanceChannelId}
@@ -194,17 +183,10 @@ function IntegrationsForm({
             placeholder="Come and join us!"
           />
         </div>
-        <Hint className="mt-2">
-          One message per instance, posted when it opens and edited as people come and go, with a
-          last edit when it closes. Only instances the group itself is running are announced —
-          never a world a moderator happens to be in — and no names are ever posted, only how many
-          people are there. Rooms already open when you save this are left alone.
-        </Hint>
       </SettingsCard>
 
       <SettingsCard
         title="Email (SMTP)"
-        description="Optional. Operator-supplied, with no hosted provider in the middle."
       >
         <Fact
           label="Relay"
@@ -214,7 +196,6 @@ function IntegrationsForm({
               : 'Not configured'
           }
         />
-        <Hint>Without it, notifications fall back to the surfaces that remain.</Hint>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Host" value={host} onChange={setHost} placeholder="smtp.example.com" />
           <Field label="Port" value={port} onChange={setPort} placeholder="587" />
@@ -256,12 +237,7 @@ function IntegrationsForm({
           label="Address"
           value={status.integrations.publicAddress ?? 'Not set — reset links cannot be sent'}
         />
-        <Hint>
-          Reset links sent by email or Discord are built from this and from nothing else — never
-          from the address a request came in on, which anyone can forge. Just the start of the
-          address, with no path.
-        </Hint>
-        <div className="max-w-sm">
+        <div className="max-w-lg">
           <Field
             label="Public address"
             value={publicAddress}

@@ -73,7 +73,6 @@ export function EvidenceSection() {
           <BackendCard settings={data} onSaved={load} />
           <StoreFactsCard settings={data} />
           <LimitsCard key={data.backend.storeId ?? 'none'} settings={data} onSaved={load} />
-          <DurabilityCard settings={data} />
         </>
       )}
     </SettingsSection>
@@ -207,7 +206,6 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
   return (
     <SettingsCard
       title="Where evidence is stored"
-      description="Saving writes a test object, reads it back, compares the bytes and deletes it first."
       footer={
         <>
           <Button size="sm" disabled={busy !== null} onClick={() => run('save')}>
@@ -256,12 +254,7 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
         ))}
       </div>
 
-      {chosen && (
-        <Hint>
-          {chosen.summary}
-          {chosen.caution && <span className="text-warn"> {chosen.caution}</span>}
-        </Hint>
-      )}
+      {chosen?.caution && <Hint className="text-warn">{chosen.caution}</Hint>}
 
       {hint && backend === 'S3' && (
         <Hint>
@@ -272,7 +265,7 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
       )}
 
       {backend === 'Filesystem' && (
-        <div className="flex max-w-sm flex-col gap-3">
+        <div className="flex max-w-lg flex-col gap-3">
           <Field label="Directory" value={root} placeholder="/app/data/evidence" onChange={setRoot} />
           <Hint>
             Mount a Docker volume here yourself. Modbot declares no VOLUME in its image on purpose:
@@ -283,7 +276,7 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
       )}
 
       {backend === 'S3' && (
-        <div className="flex max-w-sm flex-col gap-3">
+        <div className="flex max-w-lg flex-col gap-3">
           <Field label="Bucket" value={bucket} placeholder="modbot-evidence" onChange={setBucket} />
           <Field
             label="Endpoint"
@@ -306,12 +299,6 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
           <Checkbox checked={usePathStyle} onChange={setUsePathStyle}>
             Path-style URLs (https://endpoint/bucket/key)
           </Checkbox>
-          <Hint>
-            Providers differ, and one provider differs from itself: Railway issues virtual-hosted
-            URLs on new buckets and path-style on older ones, and only its credentials tab says
-            which. MinIO defaults to path-style. If the round trip fails on the endpoint, this is
-            the first thing to try.
-          </Hint>
         </div>
       )}
 
@@ -353,7 +340,12 @@ function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
     >
       <div>
         <Row label="Store marker" value={settings.backend.storeId ?? 'none written yet'} />
-        <Row label="Delivery" value={settings.capabilities.deliveryExplanation} />
+        <Row
+          label="Delivery"
+          value={
+            settings.capabilities.directDeliveryAvailable ? 'Straight from the store' : 'Through Modbot'
+          }
+        />
         <Row
           label="Range reads"
           value={
@@ -380,33 +372,6 @@ function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
   )
 }
 
-function DurabilityCard({ settings }: { settings: EvidenceSettings }) {
-  const durability = settings.durability
-
-  return (
-    <SettingsCard
-      title="Will it survive a restart"
-      description="Whether the bytes outlive the container they were written from."
-    >
-      <Hint>{settings.durabilityStatement}</Hint>
-      {durability && (
-        <Hint>
-          {durability.message}
-          {durability.acknowledgedBy && (
-            <>
-              {' '}
-              Acknowledged by {durability.acknowledgedBy}
-              {durability.acknowledgedAt &&
-                ` on ${new Date(durability.acknowledgedAt).toLocaleString()}`}
-              .
-            </>
-          )}
-        </Hint>
-      )}
-    </SettingsCard>
-  )
-}
-
 function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved: () => void }) {
   const current = settings.limits
   const [perFile, setPerFile] = useState(String(Math.round(current.maxFileBytes / MB)))
@@ -414,7 +379,6 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
   const [perDeployment, setPerDeployment] = useState(
     String(Math.round(current.maxDeploymentBytes / MB)),
   )
-  const [direct, setDirect] = useState(current.directDeliveryEnabled)
   const [saving, setSaving] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -422,8 +386,7 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
   const dirty =
     perFile !== String(Math.round(current.maxFileBytes / MB)) ||
     perReport !== String(Math.round(current.maxReportBytes / MB)) ||
-    perDeployment !== String(Math.round(current.maxDeploymentBytes / MB)) ||
-    direct !== current.directDeliveryEnabled
+    perDeployment !== String(Math.round(current.maxDeploymentBytes / MB))
 
   const save = () => {
     setSaving(true)
@@ -435,7 +398,6 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
         maxFileBytes: Number(perFile) * MB,
         maxReportBytes: Number(perReport) * MB,
         maxDeploymentBytes: Number(perDeployment) * MB,
-        directDeliveryEnabled: direct,
       })
       .then(() => {
         setSaved(true)
@@ -449,8 +411,7 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
 
   return (
     <SettingsCard
-      title="Limits"
-      description="How much evidence one file, one report and the whole deployment may hold."
+      title="File Upload Limits"
       footer={
         <>
           <Button size="sm" disabled={!dirty || saving} onClick={save}>
@@ -472,15 +433,6 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
         />
       </div>
       <Hint>0 means no limit for the report and deployment totals.</Hint>
-
-      <Checkbox
-        checked={direct}
-        disabled={!settings.capabilities.presignedRead}
-        onChange={setDirect}
-      >
-        Let the store deliver evidence to the browser directly
-      </Checkbox>
-      <Hint>{settings.capabilities.deliveryExplanation}</Hint>
     </SettingsCard>
   )
 }

@@ -129,7 +129,48 @@ export function Checkbox({
   )
 }
 
-/** Muted explanatory text at the small size. */
+/** An on/off switch with its label beside it. */
+export function Switch({
+  checked,
+  disabled,
+  onChange,
+  children,
+}: {
+  checked: boolean
+  disabled?: boolean
+  onChange: (checked: boolean) => void
+  children: React.ReactNode
+}) {
+  return (
+    <label
+      className={cn('flex w-fit items-center gap-3', disabled ? 'opacity-50' : 'cursor-pointer')}
+      style={{ fontSize: 'var(--text-small)' }}
+    >
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          checked ? 'bg-primary' : 'bg-input',
+        )}
+      >
+        <span
+          className={cn(
+            'inline-block size-4 rounded-full bg-background shadow-sm transition-transform',
+            checked ? 'translate-x-[18px]' : 'translate-x-[2px]',
+          )}
+        />
+      </button>
+      <span className="font-medium">{children}</span>
+    </label>
+  )
+}
+
+/** Muted text at the small size. */
 export function Hint({ className, children }: { className?: string; children: React.ReactNode }) {
   return (
     <p className={cn('text-muted-foreground', className)} style={{ fontSize: 'var(--text-small)' }}>

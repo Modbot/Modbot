@@ -56,7 +56,8 @@ public static class EvidenceSettingsBinder
         target.MaxFileBytes = settings.EvidenceMaxFileBytes;
         target.MaxReportBytes = settings.EvidenceMaxReportBytes;
         target.MaxDeploymentBytes = settings.EvidenceMaxDeploymentBytes;
-        target.DirectDeliveryEnabled = settings.EvidenceDirectDeliveryEnabled;
+        // Always on. A store that can hand the browser a link does; the stored column is no longer read.
+        target.DirectDeliveryEnabled = true;
 
         target.Filesystem.Root = settings.EvidenceRoot ?? string.Empty;
         target.Filesystem.Durability.UseAnyway = settings.EvidenceDiskAcknowledged;

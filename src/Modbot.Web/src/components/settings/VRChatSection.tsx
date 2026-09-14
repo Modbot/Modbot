@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DiagnosisNote } from '@/pages/setup/DiagnosisNote'
 import { api, ApiError, type ConnectionDiagnosis, type OnboardingStatus } from '@/lib/api'
-import { Checkbox, Fact, Field, Hint, Outcome, PasswordField, Placeholder } from './fields'
+import { Fact, Field, Hint, Outcome, PasswordField, Placeholder, Switch } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 
 /**
@@ -23,8 +23,7 @@ export function VRChatSection({
   return (
     <SettingsSection
       id="vrchat"
-      title="VRChat account"
-      description="The account Modbot acts as, and how it reaches VRChat."
+      title="VRChat Service Account"
     >
       {/* The cards mount only once the status is in hand, so their fields can be initialised
           from it directly instead of being written into by an effect one render later -- which
@@ -46,8 +45,7 @@ function AccountCard({ status }: { status: OnboardingStatus }) {
   return (
     <SettingsCard
       span={12}
-      title="Account"
-      description="Modbot acts as this account, and VRChat attributes everything Modbot does to it. Changing it changes whose name appears in the group's own audit log from that point on."
+      title="Service Account"
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Fact label="Username" value={status.vrChat.username ?? 'Not configured'} />
@@ -102,18 +100,9 @@ function CredentialsCard({
   }
 
   return (
-    <SettingsCard
-      title="Re-verify credentials"
-      description="Checked against VRChat before anything is stored."
-    >
+    <SettingsCard title="Update Service Account">
       <form id="vrchat-credentials" onSubmit={reverify} className="flex flex-col gap-3">
-        <Hint>
-          A failure here is shown as a full diagnosis rather than "login failed", because the
-          commonest one on a rented host is a Cloudflare block — and that would send you to check
-          a password that was never wrong.
-        </Hint>
-
-        <div className="flex max-w-sm flex-col gap-3">
+        <div className="flex max-w-lg flex-col gap-3">
           <Field label="Email or username" value={username} onChange={setUsername} placeholder="" />
           <PasswordField label="Password" value={password} onChange={setPassword} />
           <PasswordField label="TOTP secret (optional)" value={totpSecret} onChange={setTotpSecret} />
@@ -183,7 +172,6 @@ function ProxyCard({
   return (
     <SettingsCard
       title="Egress proxy"
-      description="Only useful for one failure: Cloudflare blocking this host's network."
       footer={
         <>
           <Button size="sm" variant="outline" disabled={testing} onClick={test}>
@@ -198,22 +186,17 @@ function ProxyCard({
         </>
       }
     >
-      <Hint>
-        It fixes nothing else, and configuring one on a working install is a way to break it. The
-        check says plainly which failure you have.
-      </Hint>
-
-      <Checkbox checked={useProxy} onChange={setUseProxy}>
-        Route VRChat traffic through a proxy
-      </Checkbox>
+      <Switch checked={useProxy} onChange={setUseProxy}>
+        Enable egress SOCKS5 proxy
+      </Switch>
 
       {useProxy && (
-        <div className="flex max-w-sm flex-col gap-3">
+        <div className="flex max-w-lg flex-col gap-3">
           <Field
             label="Proxy URL"
             value={proxyUrl}
             onChange={setProxyUrl}
-            placeholder="http://host:port"
+            placeholder="socks5://host:port"
           />
           <Field label="Username" value={proxyUsername} onChange={setProxyUsername} placeholder="" />
           <PasswordField

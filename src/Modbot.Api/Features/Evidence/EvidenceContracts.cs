@@ -36,20 +36,14 @@ public sealed record EvidenceBackendView(
 /// <param name="MaxFileBytes">Per file. Enforced three times (design §9.3).</param>
 /// <param name="MaxReportBytes">Per report. Zero means no limit.</param>
 /// <param name="MaxDeploymentBytes">Across the deployment. Zero means no limit.</param>
-/// <param name="DirectDeliveryEnabled">
-/// Whether a capable store may hand the browser a presigned URL rather than streaming every byte
-/// through Modbot.
-/// </param>
 public sealed record EvidenceLimitsView(
     long MaxFileBytes,
     long MaxReportBytes,
-    long MaxDeploymentBytes,
-    bool DirectDeliveryEnabled);
+    long MaxDeploymentBytes);
 
 /// <summary>What the selected store can actually do, declared rather than discovered (§13.2).</summary>
 /// <param name="DirectDeliveryAvailable">
-/// Both capable and enabled. The settings page shows this because the difference is visible to an
-/// operator as bandwidth and as latency, and they should be able to see why.
+/// Whether the store hands the browser a link. There is no switch for it: a store that can, does.
 /// </param>
 /// <param name="DeliveryExplanation">One sentence saying which way bytes travel, and why.</param>
 public sealed record EvidenceCapabilitiesView(
@@ -172,8 +166,7 @@ public sealed record EvidenceBackendRequest(
 public sealed record EvidenceLimitsRequest(
     long MaxFileBytes,
     long MaxReportBytes,
-    long MaxDeploymentBytes,
-    bool DirectDeliveryEnabled);
+    long MaxDeploymentBytes);
 
 /// <param name="FailedStep">
 /// Which step of the round trip failed — credentials, endpoint, URL style, permissions, or a read

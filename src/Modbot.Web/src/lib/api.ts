@@ -1139,7 +1139,6 @@ export type EvidenceSettings = {
     maxFileBytes: number
     maxReportBytes: number
     maxDeploymentBytes: number
-    directDeliveryEnabled: boolean
   }
   capabilities: EvidenceCapabilities
   health: EvidenceHealth
@@ -1751,7 +1750,6 @@ export const api = {
     maxFileBytes: number
     maxReportBytes: number
     maxDeploymentBytes: number
-    directDeliveryEnabled: boolean
   }) => request<typeof body>('/api/settings/evidence/limits', {
     method: 'PUT',
     body: JSON.stringify(body),

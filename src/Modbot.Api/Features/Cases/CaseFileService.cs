@@ -781,7 +781,7 @@ public sealed class CaseFileService
         }
 
         var health = _monitor.Current;
-        var capabilities = EvidenceSettingsService.Describe(_store.Capabilities, _evidenceOptions.DirectDeliveryEnabled);
+        var capabilities = EvidenceSettingsService.Describe(_store.Capabilities);
 
         return new EvidenceDeliveryView(
             _evidenceOptions.Backend is not EvidenceBackend.None,

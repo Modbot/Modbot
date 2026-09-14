@@ -32,6 +32,16 @@ different word. Ordinary English words with an ordinary meaning are fine (`fact`
 `ban`, `sync`); words borrowed from distributed-systems vocabulary are not, however precise they
 feel. Precision that nobody can read is not precision.
 
+## UI text — controls, not explanations
+
+**Never add explanatory text to the UI unless someone explicitly asks for it.** No card
+descriptions, hints, captions, footnotes or asides that explain how a feature works, why it was
+designed that way, or what could go wrong. A label names a control; a heading names a section;
+an error message says what failed. That is all the text a screen needs.
+
+The reasoning behind a design belongs in `.agent/specs/` and in code comments, not in front of a
+moderator. If a screen seems to need a paragraph to be understood, fix the screen.
+
 ## Where things live
 
 | Path | Contents |

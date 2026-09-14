@@ -40,7 +40,6 @@ export function DataSection() {
     <SettingsSection
       id="data"
       title="Data"
-      description="What Modbot is keeping, what it costs, and for how long."
     >
       {error ? (
         <Placeholder>{error}</Placeholder>
@@ -184,22 +183,15 @@ function HorizonTable({ horizons }: { horizons: DataSettings['storage']['horizon
 
 function DeploymentCard({ deployment }: { deployment: DataSettings['deployment'] }) {
   return (
-    <SettingsCard title="Deployment" description="What this copy of Modbot is running on.">
+    <SettingsCard title="Deployment">
       <div>
         <Row label="Version" value={deployment.version} />
-        <Row
-          label="Host"
-          value={
-            deployment.platform +
-            (deployment.platformEvidence ? ` (detected from ${deployment.platformEvidence})` : '')
-          }
-        />
+        <Row label="Host" value={deployment.platform} />
         <Row
           label="Log files"
           value={deployment.logFilesWritten ? 'Written to disk' : 'Console and Seq only'}
         />
       </div>
-      <Hint>{deployment.persistenceExplanation}</Hint>
     </SettingsCard>
   )
 }
@@ -251,11 +243,7 @@ function RetentionCard({
         </>
       }
     >
-      <Hint>
-        {keepingEverything
-          ? 'Modbot is keeping everything, which is the default. History cannot be filled in later: whatever is deleted is gone, and no amount of API access brings it back.'
-          : 'A retention window is set. Facts past it are destroyed permanently.'}
-      </Hint>
+      {!keepingEverything && <Hint>Facts past the retention window are destroyed permanently.</Hint>}
       <div className="grid max-w-sm grid-cols-2 gap-3">
         <Field
           label="Moderation facts (days)"
@@ -270,10 +258,7 @@ function RetentionCard({
           onChange={setPresence}
         />
       </div>
-      <Hint>
-        0 keeps forever. Daily totals are never aged out, so charts keep their full history even
-        where the underlying facts have been removed.
-      </Hint>
+      <Hint>0 keeps forever.</Hint>
     </SettingsCard>
   )
 }

@@ -145,9 +145,8 @@ public sealed class EvidenceSettingsService
             new EvidenceLimitsView(
                 settings.EvidenceMaxFileBytes,
                 settings.EvidenceMaxReportBytes,
-                settings.EvidenceMaxDeploymentBytes,
-                settings.EvidenceDirectDeliveryEnabled),
-            Describe(capabilities, settings.EvidenceDirectDeliveryEnabled),
+                settings.EvidenceMaxDeploymentBytes),
+            Describe(capabilities),
             Describe(health, _store.Description),
             backend is EvidenceBackend.Filesystem ? DescribeDurability(_live.Filesystem) : null,
             new EvidenceStoredView(present?.Count ?? 0, present?.Bytes ?? 0, destroyed),
@@ -244,7 +243,6 @@ public sealed class EvidenceSettingsService
         settings.EvidenceMaxFileBytes = request.MaxFileBytes;
         settings.EvidenceMaxReportBytes = request.MaxReportBytes;
         settings.EvidenceMaxDeploymentBytes = request.MaxDeploymentBytes;
-        settings.EvidenceDirectDeliveryEnabled = request.DirectDeliveryEnabled;
 
         await _db.SaveChangesAsync(ct);
         await ApplyAsync(settings, ct);
@@ -252,8 +250,7 @@ public sealed class EvidenceSettingsService
         return (new EvidenceLimitsView(
             settings.EvidenceMaxFileBytes,
             settings.EvidenceMaxReportBytes,
-            settings.EvidenceMaxDeploymentBytes,
-            settings.EvidenceDirectDeliveryEnabled), null);
+            settings.EvidenceMaxDeploymentBytes), null);
     }
 
     /// <summary>Re-reads the store marker (design §8.3) and returns the verdict.</summary>
@@ -284,7 +281,7 @@ public sealed class EvidenceSettingsService
             MaxFileBytes = settings.EvidenceMaxFileBytes,
             MaxReportBytes = settings.EvidenceMaxReportBytes,
             MaxDeploymentBytes = settings.EvidenceMaxDeploymentBytes,
-            DirectDeliveryEnabled = settings.EvidenceDirectDeliveryEnabled,
+            DirectDeliveryEnabled = true,
         };
 
         options.Database.ConnectionString = _db.Database.GetConnectionString();
@@ -553,14 +550,13 @@ public sealed class EvidenceSettingsService
     /// Internal so the case file page can say the same sentence about delivery as this screen
     /// does: two wordings of "who hands the browser the bytes" would be two things to drift.
     /// </remarks>
-    internal static EvidenceCapabilitiesView Describe(
-        EvidenceStoreCapabilities capabilities, bool directDeliveryEnabled)
+    internal static EvidenceCapabilitiesView Describe(EvidenceStoreCapabilities capabilities)
     {
-        var canPresign = capabilities.HasFlag(EvidenceStoreCapabilities.PresignedRead);
-        var direct = canPresign && directDeliveryEnabled;
+        // A store that can hand the browser a link always does; there is no setting to refuse it.
+        var direct = capabilities.HasFlag(EvidenceStoreCapabilities.PresignedRead);
 
         return new EvidenceCapabilitiesView(
-            canPresign,
+            direct,
             capabilities.HasFlag(EvidenceStoreCapabilities.PresignedWrite),
             capabilities.HasFlag(EvidenceStoreCapabilities.RangeRead),
             capabilities.HasFlag(EvidenceStoreCapabilities.ServerSideCopy),
@@ -570,12 +566,8 @@ public sealed class EvidenceSettingsService
                   + "five minutes. Modbot never sees those bytes, so it cannot re-hash them on the "
                   + "way past and cannot add its own response headers — the format allowlist is "
                   + "doing that work instead."
-                : canPresign
-                    ? "Direct delivery is switched off, so every byte is streamed through Modbot and "
-                      + "re-hashed on the way past. That costs egress and latency and buys a verified "
-                      + "read and stricter response headers."
-                    : "This backend cannot hand the browser a link, so every byte is streamed through "
-                      + "Modbot and re-hashed on the way past.");
+                : "This backend cannot hand the browser a link, so every byte is streamed through "
+                  + "Modbot and re-hashed on the way past.");
     }
 
     /// <summary>

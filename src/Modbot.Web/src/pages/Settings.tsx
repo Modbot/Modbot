@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
  */
 const SECTIONS = [
   { id: 'data', label: 'Data' },
-  { id: 'vrchat', label: 'VRChat account' },
+  { id: 'vrchat', label: 'VRChat Service Account' },
   { id: 'integrations', label: 'Integrations' },
   { id: 'moderation', label: 'Moderation' },
   { id: 'evidence', label: 'Evidence' },
@@ -52,7 +52,7 @@ export function Settings() {
   }, [refresh])
 
   return (
-    <div className="mx-auto w-full max-w-6xl lg:grid lg:grid-cols-[9rem_minmax(0,1fr)] lg:gap-8">
+    <div className="w-full max-w-[112rem] lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:gap-6">
       <SectionNav />
 
       <div className="flex min-w-0 flex-col gap-10">
