@@ -1789,6 +1789,83 @@ export type AiInsightsSettingsInput = {
   kinds: Omit<InsightKindSettings, 'label' | 'last'>[]
 }
 
+/** One API key as the list shows it. Never the key itself. */
+export type ApiKeyView = {
+  id: string
+  name: string
+  /** The first characters of the key. */
+  start: string
+  permissionNames: string[]
+  ownerId: string
+  ownerName: string | null
+  createdAt: string
+  expiresAt: string | null
+  lastUsedAt: string | null
+  revokedAt: string | null
+  state: 'active' | 'expired' | 'revoked'
+}
+
+/** `grantable` is what the signed-in person may put on a new key: what they hold. */
+export type ApiKeysResponse = { keys: ApiKeyView[]; grantable: PermissionInfo[] }
+
+/** `key` is shown once. */
+export type CreatedApiKey = { apiKey: ApiKeyView; key: string }
+
+export type EventTypeOption = { type: string; label: string; category: 'moderation' | 'operational' }
+
+export type WebhookState = 'working' | 'failing' | 'stopped' | 'off'
+
+export type WebhookView = {
+  id: string
+  name: string
+  url: string
+  eventTypes: string[]
+  subjectIds: string[]
+  enabled: boolean
+  ownerId: string
+  ownerName: string | null
+  /** Only the person who set it up, or an administrator, may change it or send a test. */
+  canEdit: boolean
+  createdAt: string
+  lastSuccessAt: string | null
+  failingSince: string | null
+  lastError: string | null
+  nextAttemptAt: string | null
+  disabledAt: string | null
+  disabledReason: string | null
+  state: WebhookState
+}
+
+export type WebhooksResponse = {
+  webhooks: WebhookView[]
+  allowPrivateAddresses: boolean
+  canChangeAllowPrivateAddresses: boolean
+}
+
+export type WebhookInput = {
+  name: string
+  url: string
+  eventTypes: string[]
+  subjectIds: string[]
+  enabled: boolean
+}
+
+/** `secret` is shown once. */
+export type CreatedWebhook = { webhook: WebhookView; secret: string }
+
+export type WebhookDeliveryView = {
+  id: number
+  eventId: string
+  eventType: string
+  attemptedAt: string
+  attempt: number
+  statusCode: number | null
+  durationMs: number
+  error: string | null
+  test: boolean
+  outcome: 'delivered' | 'retrying' | 'skipped'
+}
+
 /**
  * A non-2xx response, carrying whatever the server said about it.
  *
@@ -2154,6 +2231,48 @@ export const api = {
   deleteChatConversation: (id: string) => del<void>(`/api/chat/conversations/${encodeURIComponent(id)}`),
 
   sendChatMessage,
+
+  // ── API keys, live events and webhooks (API keys design) ────────────────────────────────
+
+  apiKeys: () => request<ApiKeysResponse>('/api/api-keys'),
+
+  createApiKey: (body: { name: string; permissions: string[]; expiresAt: string | null }) =>
+    post<CreatedApiKey>('/api/api-keys', body),
+
+  revokeApiKey: (id: string) => del<void>(`/api/api-keys/${encodeURIComponent(id)}`),
+
+  eventTypes: () => request<EventTypeOption[]>('/api/events/types'),
+
+  /**
+   * A one-use ticket for the event WebSocket. With `key`, the ticket stands for that key rather
+   * than the signed-in session.
+   */
+  eventTicket: (key?: string) =>
+    request<{ ticket: string; expiresAt: string }>('/api/events/tickets', {
+      method: 'POST',
+      headers: key ? { authorization: `Bearer ${key}` } : undefined,
+    }),
+
+  webhooks: () => request<WebhooksResponse>('/api/webhooks'),
+
+  createWebhook: (body: WebhookInput) => post<CreatedWebhook>('/api/webhooks', body),
+
+  updateWebhook: (id: string, body: WebhookInput) =>
+    put<WebhookView>(`/api/webhooks/${encodeURIComponent(id)}`, body),
+
+  deleteWebhook: (id: string) => del<void>(`/api/webhooks/${encodeURIComponent(id)}`),
+
+  rollWebhookSecret: (id: string) =>
+    post<{ secret: string }>(`/api/webhooks/${encodeURIComponent(id)}/secret`),
+
+  testWebhook: (id: string) =>
+    post<WebhookDeliveryView>(`/api/webhooks/${encodeURIComponent(id)}/test`),
+
+  webhookDeliveries: (id: string) =>
+    request<WebhookDeliveryView[]>(`/api/webhooks/${encodeURIComponent(id)}/deliveries`),
+
+  setWebhookSettings: (body: { allowPrivateAddresses: boolean }) =>
+    put<{ allowPrivateAddresses: boolean }>('/api/settings/webhooks', body),
 
   // ── Desktop client ──────────────────────────────────────────────────────────────────────
 

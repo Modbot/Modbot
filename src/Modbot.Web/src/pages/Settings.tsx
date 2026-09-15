@@ -7,6 +7,7 @@ import { ModerationSection } from '@/components/settings/ModerationSection'
 import { SyncSection } from '@/components/settings/SyncSection'
 import { VRChatSection } from '@/components/settings/VRChatSection'
 import { AiSection } from '@/components/settings/ai/AiSection'
+import { ApiSection } from '@/components/settings/api/ApiSection'
 import { Tabs } from '@/components/ui/tabs'
 import { api, type OnboardingStatus } from '@/lib/api'
 
@@ -23,6 +24,7 @@ const TABS = [
   { value: 'evidence', label: 'Evidence' },
   { value: 'sync', label: 'Sync' },
   { value: 'ai', label: 'AI' },
+  { value: 'api', label: 'API' },
 ] as const
 
 type TabId = (typeof TABS)[number]['value']
@@ -105,5 +107,7 @@ function Panel({
       return <SyncSection />
     case 'ai':
       return <AiSection />
+    case 'api':
+      return <ApiSection />
   }
 }

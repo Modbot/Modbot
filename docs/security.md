@@ -14,7 +14,12 @@ Modbot stores several secrets on your behalf:
 - your egress proxy's credentials, if you use one
 - your AI provider's API key, if you set one
 
-These live in the `settings` table, encrypted with AES-256-GCM.
+These live in the `settings` table, encrypted with AES-256-GCM. Webhook signing secrets are
+encrypted the same way, in `api_webhook`, because Modbot has to read them back to sign each
+delivery.
+
+API keys are different: Modbot stores only a SHA-256 fingerprint of each key, so a database dump
+contains no working key. See [the API page](api.md).
 
 **The encryption key is generated on first boot and stored in the same database.**
 
