@@ -102,7 +102,7 @@ export function CaseFile({
 
       {view.withdrawn && (
         <div
-          className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-3"
+          className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3"
           style={{ borderWidth: 'var(--hairline)' }}
         >
           <div className="font-medium">This case file has been withdrawn.</div>

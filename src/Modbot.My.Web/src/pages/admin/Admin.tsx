@@ -96,5 +96,5 @@ function AdminPage({ path }: { path: string }) {
   if (path.startsWith('/admin/instances/'))
     return <InstanceDetail instanceId={decodeURIComponent(path.slice('/admin/instances/'.length))} />
   if (path === '/admin/register-page') return <RegisterPageInstances />
-  return <h1 className="text-lg font-semibold">Page not found</h1>
+  return <h1 className="text-lg font-display">Page not found</h1>
 }

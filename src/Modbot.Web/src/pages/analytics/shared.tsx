@@ -136,7 +136,7 @@ export function Toggle<T extends string>({
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            'rounded px-2 font-medium transition-colors',
+            'rounded-md px-2 font-medium transition-colors',
             value === o.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
           )}
           style={{ fontSize: 'var(--text-small)', height: 'calc(var(--control-h) - 8px)' }}

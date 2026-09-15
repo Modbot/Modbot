@@ -23,7 +23,7 @@ export function Register({ url }: { url: string | null }) {
     return (
       <Shell>
         <Card className="gap-4 px-6">
-          <h1 className="text-base font-semibold">Invalid link</h1>
+          <h1 className="text-base font-display">Invalid link</h1>
           <div>
             <Button asChild variant="outline">
               <Link href="/">Your instances</Link>
@@ -38,7 +38,7 @@ export function Register({ url }: { url: string | null }) {
     <Shell>
       <Card className="gap-4 px-6">
         <div className="flex flex-col gap-1">
-          <h1 className="text-base font-semibold">Instance saved</h1>
+          <h1 className="text-base font-display">Instance saved</h1>
           <p className="break-all font-mono text-muted-foreground">{origin}</p>
         </div>
         <div>
@@ -49,7 +49,7 @@ export function Register({ url }: { url: string | null }) {
       </Card>
 
       <Card className="gap-0 overflow-hidden py-0">
-        <h2 className="border-b px-6 py-4 text-base font-semibold">Your instances</h2>
+        <h2 className="border-b px-6 py-4 text-base font-display">Your instances</h2>
         <InstanceList
           instances={known.instances}
           onOpen={(u) => recordUse(u, '/', 'open')}

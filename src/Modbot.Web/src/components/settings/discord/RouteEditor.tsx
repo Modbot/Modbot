@@ -395,7 +395,7 @@ function PeoplePicker({
               key={personKey(person.platform, person.id)}
               type="button"
               onClick={() => add(person)}
-              className="flex items-center gap-2 rounded-sm px-2 py-1 text-left hover:bg-accent"
+              className="flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
             >
               {person.pictureUrl ? (
                 <img src={person.pictureUrl} alt="" className="size-5 shrink-0 rounded-full object-cover" />
@@ -412,7 +412,7 @@ function PeoplePicker({
               key={personKey(person.platform, 'typed')}
               type="button"
               onClick={() => add(person)}
-              className="rounded-sm px-2 py-1 text-left hover:bg-accent"
+              className="rounded-md px-2 py-1 text-left hover:bg-accent"
             >
               Use {person.id} as a {PLATFORM_LABEL[person.platform]} id
             </button>

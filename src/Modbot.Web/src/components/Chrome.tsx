@@ -36,9 +36,9 @@ export function Sidebar({
   return (
     <aside className="flex flex-col gap-px border-r bg-card px-3 py-4" style={{ borderRightWidth: 'var(--hairline)' }}>
       <div className="flex items-center gap-2 px-2 pb-5">
-        <div className="grid size-7 shrink-0 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">M</div>
+        <img src="/icon-512.png" alt="" width={28} height={28} className="size-7 shrink-0" />
         <div className="leading-tight">
-          <div className="font-semibold tracking-tight">Modbot</div>
+          <div className="font-display text-[0.9375rem] leading-none">Modbot</div>
           {groupName && (
             <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               {groupName}
@@ -107,7 +107,7 @@ export function Topbar({
       className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background/85 px-5 py-3 backdrop-blur"
       style={{ borderBottomWidth: 'var(--hairline)' }}
     >
-      <h1 className="font-semibold tracking-tight" style={{ fontSize: 'calc(var(--text-base) + 2px)' }}>{title}</h1>
+      <h1 className="font-display" style={{ fontSize: 'calc(var(--text-base) + 3px)' }}>{title}</h1>
       <div className="flex-1" />
 
       <Segmented
@@ -176,7 +176,7 @@ function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
           className={cn(
-            'flex items-center gap-1.5 rounded px-2 font-medium transition-colors',
+            'flex items-center gap-1.5 rounded-md px-2 font-medium transition-colors',
             value === o.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
           )}
           style={{ fontSize: 'var(--text-small)', height: 'calc(var(--control-h) - 6px)' }}

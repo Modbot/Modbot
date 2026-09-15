@@ -43,7 +43,7 @@ export function ReasonButtons({
           title={reason.description}
           onClick={() => toggle(reason.id)}
           className={cn(
-            'inline-flex items-center rounded-full border px-2.5 font-medium transition-colors',
+            'inline-flex items-center rounded-md border px-2.5 font-medium transition-colors',
             picked.includes(reason.id)
               ? 'border-transparent bg-accent text-accent-foreground'
               : 'text-muted-foreground hover:text-foreground',

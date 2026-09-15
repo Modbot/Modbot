@@ -40,7 +40,7 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
 
   return (
     <div
-      className="rounded-md border px-3 py-2"
+      className="rounded-xl border px-3 py-2"
       style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
     >
       <div className="font-medium">History</div>

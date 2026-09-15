@@ -25,7 +25,7 @@ export function InstanceDetail({ instanceId }: { instanceId: string }) {
     return (
       <>
         {back}
-        <h1 className="text-lg font-semibold">Instance not found</h1>
+        <h1 className="text-lg font-display">Instance not found</h1>
       </>
     )
   }
@@ -36,7 +36,7 @@ export function InstanceDetail({ instanceId }: { instanceId: string }) {
   if (!data) return <p className="text-muted-foreground">Loading</p>
 
   const fields: [string, ReactNode][] = [
-    ['URL', <a key="url" href={data.instanceUrl} className="font-mono text-primary hover:underline">{data.instanceUrl}</a>],
+    ['URL', <a key="url" href={data.instanceUrl} className="font-mono text-link hover:underline">{data.instanceUrl}</a>],
     ['Version', <span key="version" className="font-mono">{data.version ?? '—'}</span>],
     ['Registered', when(data.registeredAt)],
     ['Last seen', when(data.lastSeenAt)],
@@ -55,7 +55,7 @@ export function InstanceDetail({ instanceId }: { instanceId: string }) {
     <>
       {back}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="break-all font-mono text-lg font-semibold">{data.instanceId}</h1>
+        <h1 className="break-all font-mono text-lg font-display">{data.instanceId}</h1>
         <DeleteButton
           onConfirm={async () => {
             await api.deleteInstance(data.instanceId)

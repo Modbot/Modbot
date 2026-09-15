@@ -41,7 +41,7 @@ export function InstallDetail({ installId }: { installId: string }) {
       </div>
 
       <Card className="gap-0 py-0">
-        <h2 className="border-b px-4 py-3 font-semibold">Recent events</h2>
+        <h2 className="font-display border-b px-4 py-3">Recent events</h2>
         {events.error && events.error.status !== 401 ? (
           <p className="px-4 py-6 text-destructive">{events.error.message}</p>
         ) : !events.data ? (

@@ -241,7 +241,7 @@ function AddSomeone({
             aria-selected={way === id}
             onClick={() => setWay(id)}
             className={cn(
-              'flex-1 rounded px-2 py-1 font-medium transition-colors',
+              'flex-1 rounded-md px-2 py-1 font-medium transition-colors',
               way === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             )}
           >

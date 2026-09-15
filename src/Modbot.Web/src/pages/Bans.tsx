@@ -79,7 +79,7 @@ export function Bans({
             aria-selected={tab === id}
             onClick={() => setTab(id)}
             className={cn(
-              'rounded px-3 py-1 font-medium transition-colors',
+              'rounded-md px-3 py-1 font-medium transition-colors',
               tab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
             )}
           >
@@ -185,7 +185,7 @@ function GroupBans({
           </span>
         </div>
       ) : (
-        <div className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-3" style={{ borderWidth: 'var(--hairline)' }}>
+        <div className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3" style={{ borderWidth: 'var(--hairline)' }}>
           <div className="font-medium">
             {list.coverage.sweepInProgress
               ? 'Reading the ban list for the first time.'
@@ -504,7 +504,7 @@ function CoverageNotice({ coverage }: { coverage: BanCoverage }) {
 
   return (
     <div
-      className="rounded-lg border bg-muted/40 px-4 py-3"
+      className="rounded-xl border bg-muted/40 px-4 py-3"
       style={{ borderWidth: 'var(--hairline)' }}
     >
       <dl

@@ -43,7 +43,7 @@ export function SubjectCaseFiles({ subjectId }: { subjectId: string }) {
 
   return (
     <div
-      className="rounded-md border px-3 py-2"
+      className="rounded-xl border px-3 py-2"
       style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
     >
       <div className="font-medium">Case files</div>
@@ -57,7 +57,7 @@ export function SubjectCaseFiles({ subjectId }: { subjectId: string }) {
               <button
                 type="button"
                 onClick={() => go(`/cases/${file.id}`)}
-                className="rounded text-left font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                className="rounded-md text-left font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {file.reasons.map((r) => r.label).join(', ') || 'No reason recorded'}
               </button>

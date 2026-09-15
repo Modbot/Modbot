@@ -133,7 +133,7 @@ export function AppMock({
           style={{ borderRightWidth: 'var(--hairline)' }}
         >
           <div className="flex items-center gap-2 px-2 pb-4">
-            <div className="grid size-7 shrink-0 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">M</div>
+            <img src="/icon-512.png" alt="" width={28} height={28} className="size-7 shrink-0" />
             <div className="min-w-0 leading-tight">
               <div className="font-semibold tracking-tight">Modbot</div>
               <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>{GROUP_NAME}</div>
@@ -237,7 +237,7 @@ function RoomCard({ room, lastArrival, onOpen }: { room: RoomState; lastArrival:
   const [a, b] = world.picture
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 text-card-foreground" style={{ borderWidth: 'var(--hairline)' }}>
+    <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 text-card-foreground" style={{ borderWidth: 'var(--hairline)' }}>
       <div className="flex items-start gap-3">
         <button
           type="button"

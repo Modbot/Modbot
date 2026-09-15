@@ -18,7 +18,7 @@ export function ChatMock() {
       </div>
 
       <div className="flex flex-col gap-4 p-5" style={{ fontSize: '0.875rem' }}>
-        <div className="ml-auto max-w-[85%] rounded-lg bg-secondary px-3.5 py-2.5">
+        <div className="ml-auto max-w-[85%] rounded-xl bg-secondary px-3.5 py-2.5">
           Has TeaSpoon been in trouble here before? They just joined Lantern Harbor.
         </div>
 

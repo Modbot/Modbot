@@ -24,7 +24,7 @@ export function ChartFrame({
   if (empty) {
     return (
       <div
-        className="grid rounded-md border border-dashed text-muted-foreground"
+        className="grid rounded-xl border border-dashed text-muted-foreground"
         style={{ height, placeItems: 'center', fontSize: 'var(--text-small)', borderWidth: 'var(--hairline)' }}
       >
         <p className="max-w-md px-4 text-center">{emptyText}</p>

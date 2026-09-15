@@ -114,7 +114,7 @@ function RoomCard({ room }: { room: LiveRoom }) {
               <button
                 type="button"
                 onClick={() => openInstance(room.id)}
-                className="rounded font-mono font-medium text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                className="rounded-md font-mono font-medium text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {room.vrChatInstanceId ?? 'Instance'}
               </button>
@@ -191,8 +191,8 @@ function Standing({ standing }: { standing: string }) {
     <span
       className={
         standing === 'Flagged'
-          ? 'rounded bg-destructive/10 px-1.5 font-medium text-destructive'
-          : 'rounded bg-secondary px-1.5 text-muted-foreground'
+          ? 'rounded-md bg-destructive/10 px-1.5 font-medium text-destructive'
+          : 'rounded-md bg-secondary px-1.5 text-muted-foreground'
       }
       style={{ fontSize: 'var(--text-tiny, 11px)' }}
     >

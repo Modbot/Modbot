@@ -77,7 +77,7 @@ function Identity({ view }: { view: InstanceView }) {
 
   return (
     <>
-      {picture && <img src={picture} alt="" className="aspect-[4/3] w-full rounded-md object-cover" loading="lazy" />}
+      {picture && <img src={picture} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />}
 
       <Field label="World" title={room.worldId}>
         <WorldLink id={room.worldId} name={room.worldName} />

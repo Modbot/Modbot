@@ -653,7 +653,7 @@ function Unrecognised({ parts: p }: { parts: Parts }) {
           VRChat called it{' '}
           <span className="font-mono">{eventType ?? 'nothing at all'}</span> — show what it sent
         </summary>
-        <pre className="mt-1 max-h-64 overflow-auto rounded-md bg-secondary px-2 py-1 whitespace-pre-wrap break-all">
+        <pre className="mt-1 max-h-64 overflow-auto rounded-xl bg-secondary px-2 py-1 whitespace-pre-wrap break-all">
           {JSON.stringify(payload ?? {}, null, 2)}
         </pre>
       </details>

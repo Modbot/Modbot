@@ -1,8 +1,9 @@
 # Modbot brand kit (draft, September 2026)
 
 Everything in this folder was made for the landing page redesign in `explore/design/`. The
-product does not use any of it yet. `explore/` is scratch space, so this is the place to
-iterate before anything moves into `src/Modbot.Landing/Web/public/` or `src/Modbot.Web`.
+rules are written up in `.agent/specs/2026-09-16-brand-design.md`, and the icon set is copied
+into each web project's `public/` folder. This folder is where a new asset is generated and
+checked before it is copied over.
 
 ## Files
 

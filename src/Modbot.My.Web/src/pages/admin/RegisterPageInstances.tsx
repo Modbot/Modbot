@@ -14,7 +14,7 @@ export function RegisterPageInstances() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-lg font-display">
           Register page{data ? <span className="ml-2 text-muted-foreground">{data.total}</span> : null}
         </h1>
         <Input

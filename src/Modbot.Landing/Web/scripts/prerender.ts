@@ -28,7 +28,7 @@ const marker = '<!--app-->'
 // first paint, and at about 12 KB compressed it costs less than the request did. The headline's font
 // is preloaded so the fallback face is swapped out as early as it can be.
 const assets = await readdir(path.join(out, 'assets'))
-const headlineFont = assets.find((f) => /^ibm-plex-sans-condensed-latin-600-normal-.*\.woff2$/.test(f))
+const headlineFont = assets.find((f) => /^bricolage-grotesque-latin-wght-normal-.*\.woff2$/.test(f))
 const stylesheet = /<link rel="stylesheet" crossorigin href="\/assets\/([^"]+\.css)">/
 
 async function fill(file: string, html: string, attributes = '') {

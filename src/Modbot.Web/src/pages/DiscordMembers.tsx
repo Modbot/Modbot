@@ -271,7 +271,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
 
 function Warning({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-3 font-medium" style={{ borderWidth: 'var(--hairline)' }}>
+    <div className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 font-medium" style={{ borderWidth: 'var(--hairline)' }}>
       {children}
     </div>
   )

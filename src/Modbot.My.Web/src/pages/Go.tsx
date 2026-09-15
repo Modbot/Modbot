@@ -22,7 +22,7 @@ export function Go({ redir }: { redir: string | null }) {
       <Shell>
         <Card className="gap-4 px-6">
           <div className="flex flex-col gap-1">
-            <h1 className="text-base font-semibold">Link refused</h1>
+            <h1 className="text-base font-display">Link refused</h1>
             <p className="break-all font-mono text-muted-foreground">{redir}</p>
           </div>
           <div>
@@ -39,7 +39,7 @@ export function Go({ redir }: { redir: string | null }) {
     return (
       <Shell>
         <Card className="gap-1 px-6">
-          <h1 className="text-base font-semibold">Loading</h1>
+          <h1 className="text-base font-display">Loading</h1>
         </Card>
       </Shell>
     )
@@ -51,7 +51,7 @@ export function Go({ redir }: { redir: string | null }) {
     <Shell>
       <Card className="gap-0 overflow-hidden py-0">
         <div className="flex flex-col gap-1 border-b px-6 py-4">
-          <h1 className="text-base font-semibold">Choose an instance</h1>
+          <h1 className="text-base font-display">Choose an instance</h1>
           <p className="break-all font-mono text-muted-foreground">{path}</p>
         </div>
         <InstanceList instances={known.instances} path={path} onOpen={open} onRemove={known.remove} />

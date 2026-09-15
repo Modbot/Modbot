@@ -5,52 +5,55 @@
 @import "@fontsource/ibm-plex-sans/400.css";
 @import "@fontsource/ibm-plex-sans/500.css";
 @import "@fontsource/ibm-plex-sans/600.css";
-@import "@fontsource/ibm-plex-sans-condensed/600.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource-variable/bricolage-grotesque";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
-  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Malgun Gothic", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
-   Modbot's design tokens: the same values as src/Modbot.Web/src/index.css, so the product shown on
-   this page is the product people get. --ground and --ink-soft are the page's own additions.
+   Modbot's design tokens (.agent/specs/2026-09-16-brand-design.md): the same values as
+   src/Modbot.Web/src/index.css, so the product shown on this page is the product people get. The
+   violet is flat everywhere; the only gradient on the page is inside the mascot artwork.
    ─────────────────────────────────────────────────────────────────────────── */
 :root {
   --radius: 0.375rem;
 
-  --ground: #f3f4f8;
-  --background: #fafbfc;
-  --foreground: #16181f;
+  --ground: #f7f6fb;
+  --background: #f7f6fb;
+  --foreground: #111113;
   --card: #ffffff;
-  --card-foreground: #16181f;
+  --card-foreground: #111113;
   --primary: #5b4bd6;
   --primary-foreground: #ffffff;
-  --secondary: #f3f5f8;
-  --secondary-foreground: #16181f;
-  --muted: #f3f5f8;
+  --secondary: #f1eff8;
+  --secondary-foreground: #111113;
+  --muted: #f1eff8;
   --muted-foreground: #5c6475;
-  --accent: #eeebfd;
-  --accent-foreground: #5b4bd6;
-  --destructive: #d8324b;
-  --border: #e3e7ee;
-  --input: #cfd5e0;
+  --accent: #edebff;
+  --accent-foreground: #4a3cc2;
+  --destructive: #dc2626;
+  --border: #e4e2ee;
+  --input: #cfcbe0;
   --ring: #5b4bd6;
-  --warn: #b87508;
-  --ok: #14865f;
-  --info: #1c72c4;
+  --link: #5b4bd6;
+  --warn: #b45309;
+  --ok: #15803d;
+  --info: #0369a1;
+  --shadow: 0 30px 80px -40px rgb(30 24 70 / 0.35);
 
   --series-1: #2a78d6;
   --series-2: #eb6834;
   --series-3: #1baf7a;
   --series-4: #eda100;
   --series-5: #e87ba4;
-  --chart-grid: #e3e7ee;
+  --chart-grid: #e4e2ee;
 
   --row-h: 2.125rem;
   --control-h: 1.875rem;
@@ -62,35 +65,36 @@
 }
 
 .dark {
-  --ground: #0a0b0f;
-  --background: #0d0e12;
-  --foreground: #e6e8ee;
-  --card: #14161c;
-  --card-foreground: #e6e8ee;
-  /* One step deeper than the app's #7c6cf5: white text on #7c6cf5 is 3.9:1, under the 4.5:1 a
-     button label needs; on #6d5cf0 it is 4.7:1. */
+  --ground: #0f0e15;
+  --background: #0f0e15;
+  --foreground: #e6e6eb;
+  --card: #17151f;
+  --card-foreground: #e6e6eb;
   --primary: #6d5cf0;
   --primary-foreground: #ffffff;
-  --secondary: #1b1e26;
-  --secondary-foreground: #e6e8ee;
-  --muted: #1b1e26;
-  --muted-foreground: #9aa1b1;
+  --secondary: #1e1b29;
+  --secondary-foreground: #e6e6eb;
+  --muted: #1e1b29;
+  --muted-foreground: #a5a3b8;
   --accent: #2a2547;
   --accent-foreground: #b6acff;
   --destructive: #f0526a;
-  --border: #272b36;
-  --input: #343947;
+  --border: #2a2738;
+  --input: #3a3650;
   --ring: #8f82ff;
-  --warn: #e8a33d;
-  --ok: #3fbf8f;
-  --info: #4aa3f0;
+  /* The fill colour is 4.15:1 as text on the dark ground, so links get a lighter tint. */
+  --link: #a78bfa;
+  --warn: #fbbf24;
+  --ok: #4ade80;
+  --info: #38bdf8;
+  --shadow: 0 30px 80px -40px rgb(0 0 0 / 0.7);
 
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
   --series-4: #c98500;
   --series-5: #d55181;
-  --chart-grid: #272b36;
+  --chart-grid: #2a2738;
 
   color-scheme: dark;
 }
@@ -129,6 +133,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-link: var(--link);
   --color-warn: var(--warn);
   --color-ok: var(--ok);
   --color-info: var(--info);
@@ -153,7 +158,6 @@
     font-family: var(--font-sans);
     font-size: 1.0625rem;
     line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
@@ -163,15 +167,17 @@
   }
 
   ::selection {
-    background: color-mix(in oklab, var(--primary) 30%, transparent);
+    background: color-mix(in oklab, var(--primary) 28%, transparent);
   }
 }
 
 @layer components {
   .display {
     font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: -0.012em;
+    font-weight: 640;
+    font-variation-settings: "wdth" 96;
+    font-optical-sizing: auto;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
 
@@ -179,6 +185,11 @@
     font-size: var(--text-base);
     line-height: 1.45;
     font-variant-numeric: tabular-nums;
+  }
+
+  /* The soft shadow every product window on this page carries. */
+  .window-shadow {
+    box-shadow: var(--shadow);
   }
 }
 
@@ -188,14 +199,14 @@
 
 /* The privacy policy, written in markdown. */
 .policy { line-height: 1.7; }
-.policy h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(2.5rem, 7vw, 3.75rem); line-height: 1; letter-spacing: -0.012em; margin-bottom: 1.5rem; }
-.policy h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.75rem; line-height: 1.15; margin: 2.5rem 0 0.75rem; }
+.policy h1 { font-family: var(--font-display); font-weight: 640; font-variation-settings: "wdth" 96; font-size: clamp(2.5rem, 7vw, 3.75rem); line-height: 1; letter-spacing: -0.02em; margin-bottom: 1.5rem; }
+.policy h2 { font-family: var(--font-display); font-weight: 640; font-variation-settings: "wdth" 96; font-size: 1.75rem; line-height: 1.15; margin: 2.5rem 0 0.75rem; }
 .policy h3 { font-weight: 600; font-size: 1.125rem; margin: 1.75rem 0 0.5rem; }
 .policy p, .policy ul, .policy ol, .policy table, .policy blockquote { margin: 0 0 1rem; }
 .policy ul { list-style: disc; padding-left: 1.25rem; }
 .policy ol { list-style: decimal; padding-left: 1.25rem; }
 .policy li { margin: 0.25rem 0; }
-.policy a { color: var(--accent-foreground); text-decoration: underline; text-underline-offset: 2px; }
+.policy a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
 .policy code { font-family: var(--font-mono); font-size: 0.9em; }
 .policy blockquote { border-left: 3px solid var(--border); padding-left: 1rem; color: var(--muted-foreground); }
 .policy table { display: block; overflow-x: auto; border-collapse: collapse; }

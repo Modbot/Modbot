@@ -192,7 +192,7 @@ function Freshness({
   return (
     <div
       className={cn(
-        'rounded-md border px-3 py-2',
+        'rounded-xl border px-3 py-2',
         profile.stale ? 'border-warn/40 bg-warn/10' : 'bg-muted/40',
       )}
       style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
@@ -233,11 +233,11 @@ function Profile({ profile }: { profile: VRChatUserProfile }) {
         <img
           src={picture}
           alt=""
-          className="size-16 shrink-0 rounded-md bg-muted object-cover"
+          className="size-16 shrink-0 rounded-full bg-muted object-cover"
           referrerPolicy="no-referrer"
         />
       ) : (
-        <div className="size-16 shrink-0 rounded-md bg-muted" />
+        <div className="size-16 shrink-0 rounded-full bg-muted" />
       )}
 
       <div className="min-w-0 flex-1" style={{ fontSize: 'var(--text-small)' }}>
@@ -326,7 +326,7 @@ function AgeVerified({
 
   return (
     <div
-      className="rounded-md border px-3 py-2"
+      className="rounded-xl border px-3 py-2"
       style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
     >
       <div className="flex flex-wrap items-center gap-2">

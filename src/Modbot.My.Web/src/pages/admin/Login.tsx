@@ -36,7 +36,7 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
     <Shell>
       <Card className="px-6">
         <form onSubmit={submit} className="flex flex-col gap-4">
-          <h1 className="text-base font-semibold">Admin</h1>
+          <h1 className="text-base font-display">Admin</h1>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="root-key" className="font-medium">
               Root API key

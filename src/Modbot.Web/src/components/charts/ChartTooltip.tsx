@@ -21,7 +21,7 @@ export function ChartTooltip({
 }) {
   return (
     <div
-      className="rounded-md border bg-popover px-2 py-1 text-popover-foreground shadow-md"
+      className="rounded-xl border bg-popover px-2 py-1 text-popover-foreground shadow-md"
       style={{ fontSize: 'var(--text-small)', borderWidth: 'var(--hairline)' }}
     >
       <div className="text-muted-foreground">{title}</div>

@@ -14,7 +14,7 @@ export function Instances() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold">
+        <h1 className="text-lg font-display">
           Instances{data ? <span className="ml-2 text-muted-foreground">{data.total}</span> : null}
         </h1>
         <Input
@@ -51,7 +51,7 @@ export function Instances() {
                   <TableCell className="px-4 font-mono">
                     <Link
                       href={`/admin/instances/${encodeURIComponent(instance.instanceId)}`}
-                      className="text-primary hover:underline"
+                      className="text-link hover:underline"
                     >
                       {instance.instanceId}
                     </Link>

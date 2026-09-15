@@ -44,7 +44,7 @@ export function EvidenceGallery({
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {items.map((item) => (
-            <li key={item.hash} className="rounded-md border p-2" style={{ borderWidth: 'var(--hairline)' }}>
+            <li key={item.hash} className="rounded-xl border p-2" style={{ borderWidth: 'var(--hairline)' }}>
               <Item item={item} onImageReady={onImageReady} />
             </li>
           ))}
@@ -62,12 +62,12 @@ function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash
   return (
     <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
       {item.destroyed ? (
-        <div className="rounded bg-muted/60 px-3 py-6 text-center text-muted-foreground">
+        <div className="rounded-xl bg-muted/60 px-3 py-6 text-center text-muted-foreground">
           The file was destroyed{item.destroyedAt ? ` on ${formatDay(item.destroyedAt)}` : ''}
           {item.destroyedBy ? ` by ${item.destroyedBy}` : ''}.{item.destroyedReason ? ` ${item.destroyedReason}` : ''}
         </div>
       ) : item.contentType.startsWith('video/') ? (
-        <video controls preload="metadata" src={api.evidenceUrl(item.hash)} className="max-h-80 w-full rounded bg-black" />
+        <video controls preload="metadata" src={api.evidenceUrl(item.hash)} className="max-h-80 w-full rounded-xl bg-black" />
       ) : (
         <Picture item={item} onImageReady={onImageReady} />
       )}
@@ -137,7 +137,7 @@ function Picture({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (h
 
   if (problem) {
     return (
-      <div className="rounded bg-muted/60 px-3 py-6 text-center text-muted-foreground">
+      <div className="rounded-xl bg-muted/60 px-3 py-6 text-center text-muted-foreground">
         Could not show this image: {problem}{' '}
         <a href={api.evidenceUrl(item.hash)} className="underline underline-offset-2">
           Download
@@ -146,11 +146,11 @@ function Picture({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (h
     )
   }
 
-  if (!url) return <div className="h-40 animate-pulse rounded bg-muted" aria-label="Loading image" />
+  if (!url) return <div className="h-40 animate-pulse rounded-xl bg-muted" aria-label="Loading image" />
 
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" title="Open full size in a new tab">
-      <img src={url} alt={item.fileName ?? ''} className="max-h-80 w-full rounded object-contain" />
+      <img src={url} alt={item.fileName ?? ''} className="max-h-80 w-full rounded-xl object-contain" />
     </a>
   )
 }
@@ -218,7 +218,7 @@ function Attach({ caseId, delivery, onChanged }: { caseId: string; delivery: Evi
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border border-dashed p-3" style={{ borderWidth: 'var(--hairline)' }}>
+    <div className="flex flex-col gap-2 rounded-xl border border-dashed p-3" style={{ borderWidth: 'var(--hairline)' }}>
       <div className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
         <input
           ref={input}

@@ -21,7 +21,7 @@ export function Stats() {
 
   return (
     <>
-      <h1 className="text-lg font-semibold">Stats</h1>
+      <h1 className="text-lg font-display">Stats</h1>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {tiles.map((tile) => (

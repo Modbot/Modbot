@@ -11,7 +11,7 @@ export function Home() {
   return (
     <Shell>
       <Card className="gap-0 overflow-hidden py-0">
-        <h1 className="border-b px-6 py-4 text-base font-semibold">Your instances</h1>
+        <h1 className="border-b px-6 py-4 text-base font-display">Your instances</h1>
         {known.loaded || known.instances.length > 0 ? (
           <InstanceList
             instances={known.instances}

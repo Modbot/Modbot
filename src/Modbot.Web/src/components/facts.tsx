@@ -92,7 +92,7 @@ export function SubjectLink({
       onClick={() => (onOpen ?? openPerson)(id)}
       title={id}
       className={cn(
-        'max-w-[18rem] truncate rounded text-left hover:underline focus-visible:outline-2 focus-visible:outline-ring',
+        'max-w-[18rem] truncate rounded-md text-left hover:underline focus-visible:outline-2 focus-visible:outline-ring',
         name ? 'font-medium' : 'font-mono',
         className,
       )}
@@ -140,7 +140,7 @@ export function PersonLink({
 
 /** Shared look for every id that opens something. Inline, so it sits inside a sentence. */
 const linkClass =
-  'rounded text-left font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring'
+  'rounded-md text-left font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring'
 
 /**
  * A world, as a launcher for its popup.

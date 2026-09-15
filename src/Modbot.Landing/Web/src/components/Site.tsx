@@ -5,14 +5,17 @@ import { DOCS, MY_MODBOT, OPEN_MY_SERVER, SELF_HOSTING_GUIDE } from '@/lib/links
 import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
+/** The head-only mark, next to the word. The brand design (2026-09-16) sets both. */
 export function Mark({ className }: { className?: string }) {
+  return <img src="/icon-512.png" alt="" width={28} height={28} className={cn('size-7 shrink-0', className)} />
+}
+
+export function Wordmark({ className }: { className?: string }) {
   return (
-    <span
-      aria-hidden="true"
-      className={cn('grid size-7 shrink-0 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground', className)}
-    >
-      M
-    </span>
+    <a href="/#top" className={cn('display flex items-center gap-2 rounded-md text-xl tracking-[-0.01em]', className)}>
+      <Mark />
+      Modbot
+    </a>
   )
 }
 
@@ -24,24 +27,26 @@ const SECTIONS = [
   { href: '/#self-host', label: 'Self-host' },
 ]
 
+/**
+ * The header carries the returning-user path ("Open my server") and, past phone width, the primary
+ * call to action. The hero speaks to the owner who installs once; the header serves the moderator
+ * who comes back every night.
+ */
 export function SiteHeader() {
   const [theme, toggle] = useTheme()
 
   return (
     <header className="sticky top-0 z-40 border-b bg-ground/80 backdrop-blur-md supports-[backdrop-filter]:bg-ground/70">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 sm:px-6">
-        <a href="#top" className="flex items-center gap-2 rounded-md font-semibold tracking-tight">
-          <Mark />
-          Modbot
-        </a>
-        <nav aria-label="Sections" className="hidden flex-1 items-center justify-center gap-1 md:flex">
+        <Wordmark />
+        <nav aria-label="Sections" className="hidden flex-1 items-center justify-center gap-0.5 md:flex">
           {SECTIONS.map((s) => (
             <a key={s.href} href={s.href} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
               {s.label}
             </a>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-1 md:ml-0">
+        <div className="ml-auto flex items-center gap-1.5 md:ml-0">
           <button
             type="button"
             onClick={toggle}
@@ -51,8 +56,11 @@ export function SiteHeader() {
             <Sun className="hidden size-4 dark:block" aria-hidden="true" />
             <Moon className="size-4 dark:hidden" aria-hidden="true" />
           </button>
-          <a href={OPEN_MY_SERVER} className={buttonVariants({ size: 'sm' })}>
+          <a href={OPEN_MY_SERVER} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
             Open my server
+          </a>
+          <a href={SELF_HOSTING_GUIDE} className={cn(buttonVariants({ size: 'sm' }), 'hidden sm:inline-flex')}>
+            Host your own
           </a>
         </div>
       </div>
@@ -90,7 +98,7 @@ export function Feature({
               <SourceBadge key={s} source={s} className="bg-card" />
             ))}
           </div>
-          <h2 id={`${id}-title`} className="display mt-5 text-[2.5rem] leading-[1.02] sm:text-[3.25rem]">
+          <h2 id={`${id}-title`} className="display mt-5 text-[2.25rem] leading-[1.04] sm:text-[2.875rem]">
             {title}
           </h2>
           <p className="mt-4 max-w-[34rem] text-lg text-pretty text-muted-foreground">{lead}</p>
@@ -117,10 +125,7 @@ export function SiteFooter({ privacy = false }: { privacy?: boolean }) {
     <footer className="border-t">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 text-sm text-muted-foreground sm:px-6 md:grid-cols-[1fr_auto]">
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 font-semibold text-foreground">
-            <Mark className="size-6 text-xs" />
-            Modbot
-          </div>
+          <Wordmark className="w-fit text-[1.0625rem] text-foreground" />
           <p className="max-w-[40rem] text-pretty">Open source under AGPL-3.0.</p>
           {/* Every mark this site names. Add to it when a new one appears on the page. */}
           <p className="max-w-[40rem] text-pretty">

@@ -309,7 +309,7 @@ function Freshness({ coverage }: { coverage: MemberList['coverage'] }) {
   if (!coverage.firstSweepComplete) {
     return (
       <div
-        className="rounded-lg border border-warn/40 bg-warn/10 px-4 py-3"
+        className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3"
         style={{ borderWidth: 'var(--hairline)' }}
       >
         <div className="font-medium">

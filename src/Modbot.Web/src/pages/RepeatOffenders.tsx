@@ -63,7 +63,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
   return (
     <div className="flex flex-col gap-3">
       <div
-        className="rounded-lg border bg-muted/40 px-4 py-3 text-muted-foreground"
+        className="rounded-xl border bg-muted/40 px-4 py-3 text-muted-foreground"
         style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
       >
         <p>{list.rule}</p>
@@ -95,7 +95,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
                   aria-pressed={status === o.value}
                   onClick={() => setStatus(o.value)}
                   className={cn(
-                    'rounded px-2 font-medium transition-colors',
+                    'rounded-md px-2 font-medium transition-colors',
                     status === o.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
                   )}
                   style={{ height: 'calc(var(--control-h) - 8px)' }}

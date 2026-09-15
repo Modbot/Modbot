@@ -14,11 +14,9 @@ import { cn } from '@/lib/utils'
 export function Brand({ subtitle }: { subtitle?: string }) {
   return (
     <div className="flex items-center justify-center gap-2 pb-5">
-      <div className="grid size-7 shrink-0 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-        M
-      </div>
+      <img src="/icon-512.png" alt="" width={28} height={28} className="size-7 shrink-0" />
       <div className="leading-tight">
-        <div className="font-semibold tracking-tight">Modbot</div>
+        <div className="font-display text-[0.9375rem] leading-none">Modbot</div>
         {subtitle && (
           <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {subtitle}

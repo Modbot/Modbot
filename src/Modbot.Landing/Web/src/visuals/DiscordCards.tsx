@@ -78,8 +78,8 @@ export function DiscordCards() {
 function Message({ time, children }: { time: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-3">
-      <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
-        M
+      <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-accent">
+        <img src="/icon-512.png" alt="" width={26} height={26} className="size-[1.625rem]" />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2">

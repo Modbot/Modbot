@@ -290,7 +290,7 @@ function Messages({ messages }: { messages: ChatMessage[] }) {
 
         if (m.role === 'user') {
           return (
-            <div key={m.id} className="ml-auto max-w-[85%] rounded-lg bg-secondary px-3 py-2 whitespace-pre-wrap">
+            <div key={m.id} className="ml-auto max-w-[85%] rounded-xl bg-secondary px-3 py-2 whitespace-pre-wrap">
               {m.content}
             </div>
           )

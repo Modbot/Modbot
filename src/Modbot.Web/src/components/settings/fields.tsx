@@ -226,7 +226,7 @@ export function Notice({
 
   return (
     <div
-      className={cn('rounded-lg border px-4 py-3', tint, className)}
+      className={cn('rounded-xl border px-4 py-3', tint, className)}
       style={{ borderWidth: 'var(--hairline)' }}
     >
       <div className="flex items-start justify-between gap-4">

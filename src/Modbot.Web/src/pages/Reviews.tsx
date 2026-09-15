@@ -72,7 +72,7 @@ export function Reviews({
               aria-pressed={state === o.value}
               onClick={() => setState(o.value)}
               className={cn(
-                'rounded px-3 font-medium transition-colors',
+                'rounded-md px-3 font-medium transition-colors',
                 state === o.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
               )}
               style={{ fontSize: 'var(--text-small)', height: 'calc(var(--control-h) - 6px)' }}

@@ -196,7 +196,7 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
 
   return (
     <div className="overflow-x-auto">
-      <div className="grid min-w-[720px] grid-cols-7 overflow-hidden rounded-lg border" style={{ borderWidth: 'var(--hairline)' }}>
+      <div className="grid min-w-[720px] grid-cols-7 overflow-hidden rounded-xl border" style={{ borderWidth: 'var(--hairline)' }}>
         {WEEKDAYS.map((d) => (
           <div
             key={d}
@@ -233,7 +233,7 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
                     type="button"
                     onClick={() => onOpen(entry.event.id)}
                     className={cn(
-                      'truncate rounded px-1 text-left hover:bg-secondary',
+                      'truncate rounded-md px-1 text-left hover:bg-secondary',
                       entry.event.state === 'cancelled' && 'line-through text-muted-foreground',
                       entry.event.state === 'open' && 'text-ok',
                     )}

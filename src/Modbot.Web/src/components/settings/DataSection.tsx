@@ -113,7 +113,7 @@ function StorageCard({
 
           {hasPlentyOfStorage(storage, capacityBytes) && (
             <div
-              className="flex items-center gap-2 rounded-lg border border-ok/40 bg-ok/10 px-4 py-3"
+              className="flex items-center gap-2 rounded-xl border border-ok/40 bg-ok/10 px-4 py-3"
               style={{ borderWidth: 'var(--hairline)' }}
             >
               <CheckCircle2 className="size-4 shrink-0 text-ok" aria-hidden />
@@ -308,7 +308,7 @@ function PublicAddressCard() {
         {suggestion && !value && (
           <button
             type="button"
-            className="self-start text-primary underline-offset-2 hover:underline"
+            className="self-start text-link underline-offset-2 hover:underline"
             style={{ fontSize: 'var(--text-small)' }}
             onClick={() => setValue(suggestion)}
           >

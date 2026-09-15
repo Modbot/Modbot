@@ -68,7 +68,7 @@ export function RoomTable({
                 <button
                   type="button"
                   onClick={() => openInstance(r.id)}
-                  className="rounded font-mono font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                  className="rounded-md font-mono font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                 >
                   {r.vrChatInstanceId ?? 'this room'}
                 </button>

@@ -120,7 +120,7 @@ export function Picker({
           <Popover.Content
             align="start"
             sideOffset={4}
-            className="z-50 w-(--radix-popover-trigger-width) min-w-[18rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+            className="z-50 w-(--radix-popover-trigger-width) min-w-[18rem] rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
           >
             <Input
               autoFocus
@@ -189,7 +189,7 @@ function Option({
       aria-selected={selected}
       onClick={onSelect}
       className={cn(
-        'flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-1.5 text-left outline-none',
+        'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none',
         'hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground',
         selected && 'bg-secondary font-medium',
       )}

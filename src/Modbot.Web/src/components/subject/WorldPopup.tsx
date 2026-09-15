@@ -87,11 +87,11 @@ function Identity({ world }: { world: WorldView }) {
   return (
     <>
       {picture && (
-        <img src={picture} alt="" className="aspect-[4/3] w-full rounded-md object-cover" loading="lazy" />
+        <img src={picture} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />
       )}
 
       <div>
-        <div className="text-lg font-semibold tracking-tight">
+        <div className="font-display text-lg">
           {world.name ?? <span className="text-muted-foreground">Name not read yet</span>}
         </div>
         {/* A missing name is ordinary, not an error: the world sweep reads a page shortly after

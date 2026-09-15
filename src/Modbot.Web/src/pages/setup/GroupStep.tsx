@@ -84,7 +84,7 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
 
         {candidates && candidates.groups.length > 0 && (
           <div
-            className="overflow-hidden rounded-lg border bg-card"
+            className="overflow-hidden rounded-xl border bg-card"
             role="radiogroup"
             aria-label="Groups"
           >
@@ -105,7 +105,7 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
                   checked={selected === group.id}
                   onChange={() => setSelected(group.id)}
                 />
-                <div className="grid size-7 shrink-0 place-items-center overflow-hidden rounded bg-secondary text-[0.625rem] font-semibold text-muted-foreground">
+                <div className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-[0.625rem] font-semibold text-muted-foreground">
                   {group.iconUrl ? (
                     <img src={group.iconUrl} alt="" className="size-full object-cover" />
                   ) : (
@@ -121,7 +121,7 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
                     {group.id}
                   </div>
                   {group.missingPermissions.length > 0 && (
-                    <div className="mt-0.5 text-[var(--warn)]" style={{ fontSize: 'var(--text-small)' }}>
+                    <div className="mt-0.5 text-warn" style={{ fontSize: 'var(--text-small)' }}>
                       Missing {group.missingPermissions.join(', ')}
                     </div>
                   )}

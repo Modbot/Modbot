@@ -94,5 +94,5 @@ function AdminPage({ path }: { path: string }) {
   if (path.startsWith('/admin/installs/'))
     return <InstallDetail installId={decodeURIComponent(path.slice('/admin/installs/'.length))} />
   if (path === '/admin/settings') return <Settings />
-  return <h1 className="text-lg font-semibold">Page not found</h1>
+  return <h1 className="font-display text-lg">Page not found</h1>
 }

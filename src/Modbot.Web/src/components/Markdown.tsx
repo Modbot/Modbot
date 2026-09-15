@@ -45,12 +45,12 @@ export function Markdown({
       const url = match ? images?.get(match[1]) : undefined
 
       if (url) {
-        return <img src={url} alt={alt ?? ''} className="my-2 max-h-96 max-w-full rounded-md border" />
+        return <img src={url} alt={alt ?? ''} className="my-2 max-h-96 max-w-full rounded-xl border" />
       }
 
       return (
         <span
-          className="inline-block rounded border px-1.5 py-0.5 text-muted-foreground"
+          className="inline-block rounded-md border px-1.5 py-0.5 text-muted-foreground"
           style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
           title={match ? 'Evidence not available' : 'External image not shown'}
         >
@@ -67,7 +67,7 @@ export function Markdown({
         '[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-[0.9em]',
         '[&_h1]:mt-3 [&_h1]:mb-1 [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:font-medium',
         '[&_hr]:my-3 [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-1.5 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5',
-        '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0',
+        '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0',
         '[&_table]:my-2 [&_table]:border-collapse [&_td]:border [&_td]:px-2 [&_td]:py-0.5 [&_th]:border [&_th]:px-2 [&_th]:py-0.5 [&_th]:text-left',
         className,
       )}

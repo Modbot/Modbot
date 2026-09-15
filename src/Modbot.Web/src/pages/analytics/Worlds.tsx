@@ -82,7 +82,7 @@ export function Worlds() {
                                 src={w.thumbnailImageUrl}
                                 alt=""
                                 loading="lazy"
-                                className="size-8 shrink-0 rounded object-cover"
+                                className="size-8 shrink-0 rounded-xl object-cover"
                               />
                             )}
                             <div className="min-w-0">
