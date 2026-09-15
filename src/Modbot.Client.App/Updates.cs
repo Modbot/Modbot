@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using Modbot.Client.Presentation;
 using Serilog;
 using Velopack;
+using Velopack.Locators;
 using Velopack.Sources;
 
 namespace Modbot.Client.App;
@@ -87,7 +88,48 @@ internal sealed class Updates
         => VelopackApp.Build()
             .SetArgs(args)
             .SetAutoApplyOnStartup(false)
+            // Uninstalling takes the start-with-Windows entry with it, so nothing is left starting a
+            // program that is gone.
+            .OnBeforeUninstallFastCallback(_ =>
+            {
+                if (OperatingSystem.IsWindows())
+                    StartupRegistration.Remove();
+            })
             .Run();
+
+    /// <summary>
+    /// Where Windows should start an installed copy from, or null when this copy is not installed.
+    /// </summary>
+    /// <remarks>
+    /// Velopack's own answer, never a guess from the path: a copy run from source, a build folder or
+    /// a copied folder is not installed, and gets no start-with-Windows switch. The path is the
+    /// installer's <c>current</c> folder, which updates replace in place, so it does not change
+    /// from one version to the next.
+    /// </remarks>
+    public static string? InstalledLauncherPath()
+    {
+        try
+        {
+            var manager = CreateManager();
+            if (manager is null || !manager.IsInstalled)
+                return null;
+
+            // The portable zip also counts as installed to Velopack, but it can be unzipped anywhere
+            // and moved or deleted at will, which is what a startup entry must not point at.
+            var locator = VelopackLocator.Current;
+            if (locator.IsPortable)
+                return null;
+
+            return locator.AppContentDir is { Length: > 0 } content && locator.ThisExeRelativePath is { Length: > 0 } exe
+                ? Path.Combine(content, exe)
+                : null;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not tell whether this copy is installed; treating it as not installed");
+            return null;
+        }
+    }
 
     /// <summary>
     /// Installs an update that was downloaded on an earlier run, and reopens the client. Called

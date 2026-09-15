@@ -116,37 +116,52 @@ public class ClientSourceGuardTests
         Assert.True(offenders.Count == 0, $"{why}; found in {string.Join(", ", offenders)}");
     }
 
-    /// <summary>The one file allowed to touch the registry, and the one key it may touch.</summary>
+    /// <summary>The two files allowed to touch the registry, and the keys each may touch.</summary>
     private const string SchemeRegistrationFile = "UrlSchemeRegistration.cs";
 
     private const string SchemeRegistrationKey = @"Software\Classes\";
 
+    private const string StartupRegistrationFile = "StartupRegistration.cs";
+
     [Fact]
-    public void TheOnlyRegistryKeyTheClientTouchesIsItsOwnLinkRegistration()
+    public void TheOnlyRegistryKeysTheClientTouchesAreItsLinkRegistrationAndItsStartupEntry()
     {
         // Pairing starts in the browser, and a browser can only hand a modbot-client:// link to
-        // this program if Windows has been told the scheme is ours. That is one key under the
-        // current user's own hive, written by one file, and it is the whole of what the client
-        // does with the registry: it does not read Steam's keys, VRChat's, or anybody else's.
+        // this program if Windows has been told the scheme is ours: one key under Software\Classes.
+        // Starting with Windows is one value in the current user's own Run key, plus reading
+        // Task Manager's record of whether the user turned it off. That is the whole of what the
+        // client does with the registry: it does not read Steam's keys, VRChat's, or anybody else's.
         //
-        // The ban used to be total. It is narrowed to exactly this rather than lifted, so the
-        // file that registers the scheme cannot quietly grow a second purpose.
+        // The ban used to be total, then narrowed to the link registration; it is widened by exactly
+        // one file for the startup entry, so neither file can quietly grow a second purpose.
         var touching = EverythingTheClientShips()
             .Where(f => File.ReadAllText(f).Contains("Microsoft.Win32.Registry", StringComparison.Ordinal))
             .Select(Path.GetFileName)
             .Order()
             .ToList();
 
-        Assert.Equal([SchemeRegistrationFile], touching);
+        Assert.Equal([StartupRegistrationFile, SchemeRegistrationFile], touching);
 
         var registration = File.ReadAllText(EverythingTheClientShips()
             .Single(f => Path.GetFileName(f) == SchemeRegistrationFile));
 
-        // Every key path the file names is under Software\Classes -- the per-user home for URL
-        // scheme registrations -- and it never goes near the machine-wide hive.
         Assert.Contains(SchemeRegistrationKey, registration, StringComparison.Ordinal);
-        Assert.DoesNotContain("LocalMachine", registration, StringComparison.Ordinal);
-        Assert.DoesNotContain("HKEY_LOCAL_MACHINE", registration, StringComparison.Ordinal);
+
+        var startup = File.ReadAllText(EverythingTheClientShips()
+            .Single(f => Path.GetFileName(f) == StartupRegistrationFile));
+
+        Assert.Contains(@"Software\Microsoft\Windows\CurrentVersion\Run", startup, StringComparison.Ordinal);
+
+        // Task Manager's record is read and never written: the one write-capable call in that file
+        // opens the Run key, not StartupApproved.
+        Assert.DoesNotContain("ApprovedKeyPath, writable", startup, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateSubKey(ApprovedKeyPath", startup, StringComparison.Ordinal);
+
+        foreach (var source in new[] { registration, startup })
+        {
+            Assert.DoesNotContain("LocalMachine", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("HKEY_LOCAL_MACHINE", source, StringComparison.Ordinal);
+        }
     }
 
     /// <summary>The one file allowed to talk to the installer and updater.</summary>

@@ -45,8 +45,11 @@ and this page tells you exactly what it touches.
 The client opens its window and puts an icon in the tray (the icons near the clock). Closing the
 window leaves it running in the tray; **Quit** in the tray menu stops it.
 
-Running it once is also what tells Windows that Modbot pairing links open this program. Nothing
-else on the machine is changed.
+Running it once is also what tells Windows that Modbot pairing links open this program. An installed
+copy also adds itself to your own Windows startup list, so it starts in the tray when you sign in;
+turn that off under **Settings** in the client, or in *Task Manager → Startup apps*, which Modbot
+respects. The portable zip, a plain folder or a build from source does not. Nothing else on the machine is
+changed.
 
 It is not yet reporting to anybody. To connect it to your group's Modbot, follow
 [Pairing the desktop client](pairing-the-desktop-client.md). Pairing takes about ten seconds and
@@ -114,8 +117,8 @@ removes the program, its Start Menu entry and everything under `%LOCALAPPDATA%\M
 
 It **leaves `%APPDATA%\Modbot`** — your pairings, the log files, and the record of what has been
 sent — so that reinstalling picks up where you left off and a tester trying a new build does not
-have to pair again every time. To remove every trace, delete that folder too. The one registry
-key the client made, `HKEY_CURRENT_USER\Software\Classes\modbot-client`, is left pointing at a
+have to pair again every time. To remove every trace, delete that folder too. Uninstalling removes
+the startup entry. The link registry key the client made, `HKEY_CURRENT_USER\Software\Classes\modbot-client`, is left pointing at a
 file that no longer exists; that is harmless, and deleting it is safe at any time.
 
 Unpairing before you uninstall is polite but not required: the group's operator can also revoke

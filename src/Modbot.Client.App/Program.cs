@@ -9,6 +9,7 @@ using Modbot.Client.LogReading;
 using Modbot.Client.Pairing;
 using Modbot.Client.Pipeline;
 using Modbot.Client.Presentation;
+using Modbot.Client.Startup;
 using Modbot.Client.Overlay;
 using Modbot.Client.Time;
 using Modbot.Core;
@@ -32,8 +33,9 @@ namespace Modbot.Client.App;
 /// holding three things: which servers you paired with and their tokens (the tokens encrypted to
 /// your Windows account), observations queued to send, and the plain-English record of what has
 /// been sent. Plus one registry key under your own account saying that <c>modbot-client://</c>
-/// links open this program, which is how pairing from the browser reaches it. Nothing else on the
-/// machine is touched.</para>
+/// links open this program, which is how pairing from the browser reaches it, and — in an installed
+/// copy, unless you turn it off — one value under your own account's startup list so Modbot starts
+/// in the tray when you sign in. Nothing else on the machine is touched.</para>
 /// <para><strong>What leaves the machine.</strong> Presence observations, to the Modbot servers
 /// you paired with — and only for instances belonging to the group each of those servers manages;
 /// a server is never sent a raw log line or anything about your private, friends-only or public
@@ -59,6 +61,9 @@ internal sealed class ModbotClientApp : Application
     /// </summary>
     internal static string? StartupMessage { get; set; }
 
+    /// <summary>Started by Windows at sign-in: stay in the tray and open no window.</summary>
+    internal static bool StartHidden { get; set; }
+
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -78,7 +83,11 @@ internal sealed class ModbotClientApp : Application
             try
             {
                 Host = new ClientHost();
-                desktop.MainWindow = Host.Window;
+
+                // The lifetime shows its main window at start. A start from the startup entry has none,
+                // so the client sits in the tray until the icon is clicked.
+                if (!StartHidden)
+                    desktop.MainWindow = Host.Window;
                 Host.Start(desktop, StartupMessage);
             }
             catch (Exception ex)
@@ -206,6 +215,7 @@ internal sealed class ClientHost
         InstallTray(desktop);
         ListenForLinks();
         StartUpdateChecks();
+        ApplyStartWithWindows();
 
         _refresh.Tick += (_, _) => CrashGuard.Run("refreshing the window", Render);
         _refresh.Start();
@@ -251,6 +261,41 @@ internal sealed class ClientHost
             ex => Log.Warning(ex, "The log backup to Modbot Cloud hit a problem; it carries on")));
 
         Log.Information("Log backup to Modbot Cloud is {State}", _state.Settings.SendLogsToCloud ? "on" : "off");
+    }
+
+    /// <summary>
+    /// Makes Windows' startup entry match "Start Modbot Client when my computer starts".
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>Only an installed copy does anything.</strong> The installer (asked in Updates.cs) says whether this copy was
+    /// installed; one run from source or a plain folder shows no switch and never reads or writes
+    /// the registry. See <see cref="StartWithWindows"/> for the rules and
+    /// <see cref="StartupRegistration"/> for the one key it writes.</para>
+    /// <para>Run on every start, so the first run after install turns it on, and a stale entry left
+    /// by an earlier copy is rewritten.</para>
+    /// </remarks>
+    private void ApplyStartWithWindows()
+    {
+        if (_state is null || !OperatingSystem.IsWindows())
+            return;
+
+        var launcher = Updates.InstalledLauncherPath();
+        _state.Startup = new StartWithWindows(new StartupRegistration())
+            .Apply(launcher is not null, launcher, _state.Settings.StartWithWindows);
+    }
+
+    private void SetStartWithWindows(bool on)
+    {
+        if (_state is null || _state.Settings.StartWithWindows == on && _state.Startup.On == on)
+            return;
+
+        _state.Settings = _state.Settings with { StartWithWindows = on };
+
+        if (!ClientSettings.SaveSwitch(_settingsPath, ClientSettings.StartWithWindowsField, on))
+            Log.Warning("Could not save the start-with-Windows switch to {Path}", _settingsPath);
+
+        ApplyStartWithWindows();
+        Render();
     }
 
     private void SetCloudBackup(bool on)
@@ -636,7 +681,7 @@ internal sealed class ClientHost
 
         Window.Render(
             _state.Snapshot(),
-            new MainWindowActions(TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetCloudBackup));
+            new MainWindowActions(TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetCloudBackup, SetStartWithWindows));
     }
 
     private void TogglePause(string serverId)
@@ -770,6 +815,7 @@ internal static class Program
         // link is the first argument that looks like one; anything else on the command line is
         // Avalonia's business.
         var link = args.FirstOrDefault(PairingToken.LooksLikeLink);
+        var startHidden = StartWithWindows.StartsHidden(args);
 
         ClientLog.Start(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
         CrashGuard.Install();
@@ -777,6 +823,10 @@ internal static class Program
         using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var firstCopy);
         if (!firstCopy)
         {
+            // Windows starting a second copy at sign-in wants nothing from the first one.
+            if (startHidden && link is null)
+                return 0;
+
             Log.Information("Another copy of the client is running; handing it {What} and leaving",
                 link is null ? "a request to show its window" : "the pairing link");
             // Another copy owns the tray icon and the log. Hand it the link -- or, with no link,
@@ -798,6 +848,7 @@ internal static class Program
         Updates.InstallDownloadedUpdate(args);
 
         ModbotClientApp.StartupMessage = link;
+        ModbotClientApp.StartHidden = startHidden && link is null;
 
         try
         {

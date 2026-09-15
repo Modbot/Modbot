@@ -14,7 +14,7 @@ namespace Modbot.Client.Presentation;
 /// <remarks>
 /// <para><strong>What this reads and writes.</strong> One file, <c>settings.json</c>, in Modbot's own
 /// folder under your user profile — beside <c>pairings.json</c>. It is plain JSON with optional fields:
-/// <c>pairingPage</c>, <c>checkForUpdates</c> and <c>sendLogsToCloud</c>. If it is missing or
+/// <c>pairingPage</c>, <c>checkForUpdates</c>, <c>sendLogsToCloud</c> and <c>startWithWindows</c>. If it is missing or
 /// unreadable the defaults are used. The client writes it only when a switch on the settings screen
 /// is changed, and then changes only that switch's field, leaving anything else in the file as it
 /// was.</para>
@@ -34,7 +34,11 @@ namespace Modbot.Client.Presentation;
 /// <param name="SendLogsToCloud">
 /// "Send all logging to Modbot Cloud as backup". On unless <c>"sendLogsToCloud": false</c> is in the file.
 /// </param>
-public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true, bool SendLogsToCloud = true)
+/// <param name="StartWithWindows">
+/// "Start Modbot Client when my computer starts". On unless <c>"startWithWindows": false</c> is in the file,
+/// and only acted on by an installed copy.
+/// </param>
+public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true, bool SendLogsToCloud = true, bool StartWithWindows = true)
 {
     /// <summary>
     /// my.modbot.co's redirect route, pointed at <c>/pair</c>: it picks one of the moderator's saved
@@ -43,6 +47,8 @@ public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true
     public const string DefaultPairingPage = "https://my.modbot.co/go?redir=/pair";
 
     public const string SendLogsToCloudField = "sendLogsToCloud";
+
+    public const string StartWithWindowsField = "startWithWindows";
 
     public static ClientSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -75,6 +81,7 @@ public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true
         {
             CheckForUpdates = shape?.CheckForUpdates ?? true,
             SendLogsToCloud = shape?.SendLogsToCloud ?? true,
+            StartWithWindows = shape?.StartWithWindows ?? true,
         };
     }
 
@@ -134,5 +141,6 @@ public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true
     private sealed record FileShape(
         [property: JsonPropertyName("pairingPage")] string? PairingPage,
         [property: JsonPropertyName("checkForUpdates")] bool? CheckForUpdates,
-        [property: JsonPropertyName("sendLogsToCloud")] bool? SendLogsToCloud);
+        [property: JsonPropertyName("sendLogsToCloud")] bool? SendLogsToCloud,
+        [property: JsonPropertyName("startWithWindows")] bool? StartWithWindows);
 }

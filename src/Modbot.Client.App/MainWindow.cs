@@ -59,6 +59,7 @@ public sealed class MainWindow : Window
     // Built once for the same reason: a switch rebuilt every second can lose the click on it.
     private readonly CheckBox _cloudBackupBox;
     private readonly TextBlock _cloudBackupState;
+    private readonly CheckBox _startupBox;
     private bool _renderingSwitches;
 
     private Page _page = Page.Servers;
@@ -91,6 +92,13 @@ public sealed class MainWindow : Window
                 _actions.SetCloudBackup(_cloudBackupBox.IsChecked == true);
         };
         _cloudBackupState = Ui.Faint("");
+
+        _startupBox = new CheckBox { Content = Ui.Text("Start Modbot Client when my computer starts", Ui.T.Density.TextSmall, Ui.T.TextBrush) };
+        _startupBox.IsCheckedChanged += (_, _) =>
+        {
+            if (!_renderingSwitches)
+                _actions.SetStartWithWindows(_startupBox.IsChecked == true);
+        };
 
         var main = new ScrollViewer { Padding = new Thickness(20), Content = _body };
         Grid.SetColumn(main, 1);
@@ -603,6 +611,13 @@ public sealed class MainWindow : Window
             _cloudBackupBox.IsChecked = backup is not null && backup.State is not CloudBackupState.Off;
             _cloudBackupBox.IsEnabled = backup is not null;
             _cloudBackupState.Text = backup is null ? "" : CloudBackupLabel(backup);
+
+            // Shown only in an installed copy. Turned off in Windows' own Startup apps list shows off,
+            // and cannot be turned back on from here.
+            var startup = _snapshot.Startup;
+            _startupBox.IsVisible = startup is { Visible: true };
+            _startupBox.IsChecked = startup is { On: true };
+            _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
         }
         finally
         {
@@ -611,9 +626,10 @@ public sealed class MainWindow : Window
 
         DetachFromParent(_cloudBackupBox);
         DetachFromParent(_cloudBackupState);
+        DetachFromParent(_startupBox);
 
         _body.Children.Add(Ui.Card(
-            new StackPanel { Spacing = 6, Children = { _cloudBackupBox, _cloudBackupState } },
+            new StackPanel { Spacing = 6, Children = { _cloudBackupBox, _cloudBackupState, _startupBox } },
             "Settings"));
     }
 
@@ -661,12 +677,14 @@ public sealed record MainWindowActions(
     Action<string> Unpair,
     Func<string, Task<PairingAttemptResult>> PairAsync,
     Func<Task> OpenPairingPageAsync,
-    Action<bool> SetCloudBackup)
+    Action<bool> SetCloudBackup,
+    Action<bool> SetStartWithWindows)
 {
     public static MainWindowActions None { get; } = new(
         _ => { },
         _ => { },
         _ => Task.FromResult(new PairingAttemptResult(false, "Not ready yet.")),
         () => Task.CompletedTask,
+        _ => { },
         _ => { });
 }

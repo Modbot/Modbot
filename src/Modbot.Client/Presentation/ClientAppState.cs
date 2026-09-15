@@ -3,6 +3,7 @@ using Modbot.Client.Ingest;
 using Modbot.Client.Journal;
 using Modbot.Client.Pairing;
 using Modbot.Client.Pipeline;
+using Modbot.Client.Startup;
 using Modbot.Core.Time;
 
 namespace Modbot.Client.Presentation;
@@ -76,7 +77,8 @@ public sealed record ClientAppSnapshot(
     IReadOnlyList<ClientWarning> Warnings,
     PairingNotice? LastPairing,
     string PairingPage,
-    CloudBackupStatus? CloudBackup = null)
+    CloudBackupStatus? CloudBackup = null,
+    StartupState? Startup = null)
 {
     public static ClientAppSnapshot Empty { get; } =
         new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, [], null, ClientSettings.DefaultPairingPage);
@@ -124,6 +126,9 @@ public sealed class ClientAppState
     /// <summary>The log backup to Modbot Cloud, once the host has made it. Its status is shown on the settings page.</summary>
     public CloudLogBackup? CloudBackup { get; set; }
 
+    /// <summary>How the start-with-Windows switch should look; hidden unless this copy is installed.</summary>
+    public StartupState Startup { get; set; } = StartupState.Hidden;
+
     public List<ServerConnection> Connections { get; }
 
     /// <summary>The last pairing attempt's outcome, or null when there has not been one this run.</summary>
@@ -166,7 +171,8 @@ public sealed class ClientAppState
             [.. Warnings(logStatus)],
             LastPairing,
             Settings.PairingPage.ToString(),
-            CloudBackup?.Status);
+            CloudBackup?.Status,
+            Startup);
     }
 
     private IEnumerable<ClientWarning> Warnings(LogHealthStatus logStatus)
