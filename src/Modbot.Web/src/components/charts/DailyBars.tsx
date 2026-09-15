@@ -20,6 +20,7 @@ export function DailyBars({
   stacked = false,
   height = chartHeight.regular,
   emptyText,
+  format,
 }: {
   from: string
   to: string
@@ -27,6 +28,8 @@ export function DailyBars({
   stacked?: boolean
   height?: number
   emptyText?: string
+  /** How a value is written on the axis and in the tooltip, for something that is not a count -- money. */
+  format?: (value: number) => string
 }) {
   const rows = mergeDays(from, to, series, 'zero')
   const days = rows.map((r) => String(r.day))
@@ -38,8 +41,14 @@ export function DailyBars({
       <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }} barCategoryGap="20%">
         <CartesianGrid vertical={false} />
         <XAxis dataKey="day" ticks={tickDays(days)} tickFormatter={shortDay} tickLine={false} axisLine={false} minTickGap={16} />
-        <YAxis width={40} allowDecimals={false} tickFormatter={compactNumber} tickLine={false} axisLine={false} />
-        <Tooltip content={rechartsTooltip(longDay, names)} cursor={{ fill: 'var(--accent)', fillOpacity: 0.4 }} />
+        <YAxis
+          width={format ? 56 : 40}
+          allowDecimals={format !== undefined}
+          tickFormatter={format ?? compactNumber}
+          tickLine={false}
+          axisLine={false}
+        />
+        <Tooltip content={rechartsTooltip(longDay, names, format)} cursor={{ fill: 'var(--accent)', fillOpacity: 0.4 }} />
         {series.map((s) => (
           <Bar
             key={s.key}

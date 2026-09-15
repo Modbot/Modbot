@@ -208,10 +208,8 @@ public class InsightEndpointsTests
             settings.AiEndpoint = "https://llm.test/v1";
             settings.AiModel = "base-model";
 
-            await context.AiUsage.Where(u => u.Feature == AiFeatures.Insights).ExecuteDeleteAsync(Ct);
-            await context.AiFeatureLimits.Where(l => l.Feature == AiFeatures.Insights).ExecuteDeleteAsync(Ct);
-
-            context.AiFeatureLimits.Add(new AiFeatureLimit { Feature = AiFeatures.Insights, MonthlyTokenLimit = 10 });
+            context.AiModelPrices.Add(new AiModelPrice { Model = "base-model", InputPerMillion = 100_000m, OutputPerMillion = 100_000m, UpdatedAt = host.Clock.UtcNow });
+            context.AiSpendLimits.Add(new AiSpendLimit { AppliesTo = AiSpendLimit.ForFeature, Feature = AiFeatures.Insights, PerDay = 1m, UpdatedAt = host.Clock.UtcNow });
             context.AiUsage.Add(new AiUsage { At = host.Clock.UtcNow, Feature = AiFeatures.Insights, Model = "base-model", InputTokens = 8, OutputTokens = 2 });
             await context.SaveChangesAsync(Ct);
         }
@@ -221,16 +219,13 @@ public class InsightEndpointsTests
             var response = await host.SendJsonAsync(HttpMethod.Post, Generate, null, cookie, Ct);
 
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-            Assert.Equal("The AI spend limit for insights is reached.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+            Assert.Equal("The daily AI spend limit for Insights is reached.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
 
             await using var read = _db.NewContext();
             Assert.False(await read.Insights.AnyAsync(Ct));
         }
         finally
         {
-            await using var cleanup = _db.NewContext();
-            await cleanup.AiUsage.Where(u => u.Feature == AiFeatures.Insights).ExecuteDeleteAsync(Ct);
-            await cleanup.AiFeatureLimits.Where(l => l.Feature == AiFeatures.Insights).ExecuteDeleteAsync(Ct);
             await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         }
     }

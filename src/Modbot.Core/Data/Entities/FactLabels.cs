@@ -146,6 +146,7 @@ public static class FactLabels
         [FactType.MigrationApplied] = "Migration applied",
         [FactType.RetentionPruned] = "Retention pruned",
         [FactType.PartitionCreated] = "Partition created",
+        [FactType.AiLimitReached] = "AI spend limit reached",
         [FactType.UserPurged] = "User data purged",
         [FactType.Unrecognised] = "Event Modbot has no name for yet",
 

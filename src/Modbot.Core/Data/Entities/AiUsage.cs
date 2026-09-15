@@ -29,15 +29,22 @@ public class AiUsage
 
     /// <summary>Input tokens the provider served from its cache. Included in <see cref="InputTokens"/>.</summary>
     public int CachedInputTokens { get; set; }
+
+    /// <summary>
+    /// What the provider said the request cost, in US dollars, when it said. Only OpenRouter does;
+    /// every other row is priced from the price list when it is read.
+    /// </summary>
+    public decimal? ReportedCost { get; set; }
 }
 
 /// <summary>
-/// A feature's spend limit. No row, or a null limit, means no limit.
+/// A feature's monthly limit in tokens, from before Modbot had prices. No row, or a null limit,
+/// means no limit.
 /// </summary>
 /// <remarks>
-/// Counted in tokens per UTC calendar month for now, because Modbot has no price list yet. The
-/// settings screen for limits comes later; every feature already asks through
-/// <c>IAiUsage.LimitReachedAsync</c>, so changing how a limit is counted changes one place.
+/// Limits are money now (<see cref="AiSpendLimit"/>). A token limit is changed into a money limit
+/// once the feature's model has a price; until then it is kept, still counted, and shown as a
+/// token limit (AI chat design §10.5). Nothing makes new ones.
 /// </remarks>
 public class AiFeatureLimit
 {

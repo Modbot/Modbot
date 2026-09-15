@@ -239,10 +239,10 @@ public sealed class ModerationEngine : IModerationChecker
 
         foreach (var (target, text, topics) in forAi)
         {
-            // The spend limit is the feature's share of the AI bill; the daily call limit is this
-            // screen's own brake. Either one stops AI topics, and term lists carry on.
-            if (await _usage.LimitReachedAsync(AiFeatures.Moderation, ct).ConfigureAwait(false))
-                return (matches, "The AI spend limit for moderation is reached.");
+            // The spend limits are moderation's share of the AI bill and the bill as a whole; the daily
+            // call limit is this screen's own brake. Any of them stops AI topics, and term lists carry on.
+            if (await _usage.LimitReachedAsync(AiFeatures.Moderation, ct).ConfigureAwait(false) is { } reached)
+                return (matches, reached.Message);
 
             if (!await AiCallAllowance.TryUseAsync(_db, _clock.UtcNow, ct).ConfigureAwait(false))
                 return (matches, "The daily AI call limit is reached.");

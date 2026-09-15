@@ -97,6 +97,7 @@ public static class TopicClassifier
             MaxOutputTokenCount = MaxOutputTokens,
             ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat("moderation_check", Schema, jsonSchemaIsStrict: true),
         };
+        Usage.AiReportedCost.AskFor(options, chat.Provider);
 
         string reply;
         ChatTokenUsage? usage;

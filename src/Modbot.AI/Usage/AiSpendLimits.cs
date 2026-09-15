@@ -5,188 +5,203 @@ using Modbot.Core.Time;
 
 namespace Modbot.AI.Usage;
 
-/// <summary>Money and tokens spent over one stretch of time.</summary>
-/// <param name="Cost">Priced from <c>ai_model_price</c>; tokens of a model with no price add nothing.</param>
-public sealed record AiSpent(decimal Cost, long InputTokens, long CachedInputTokens, long OutputTokens)
+/// <summary>What a limit is counted in.</summary>
+public static class AiLimitUnits
 {
-    public static AiSpent None { get; } = new(0m, 0, 0, 0);
+    /// <summary>US dollars.</summary>
+    public const string Money = "money";
+
+    /// <summary>Input plus output tokens. Only the token limits kept from before prices.</summary>
+    public const string Tokens = "tokens";
 }
 
-/// <summary>A spend limit somebody has reached.</summary>
+/// <summary>A spend limit something has reached.</summary>
+/// <param name="Key">Which limit, for whom and which period, e.g. <c>feature:moderation:month</c>. Unique per period.</param>
+/// <param name="AppliesTo"><c>everyone</c>, <c>feature</c>, <c>role</c>, <c>user</c> or <c>tokens</c>.</param>
+/// <param name="Feature">The feature the stopped call was for.</param>
+/// <param name="Name">The role's name, for a role limit.</param>
 /// <param name="Period"><c>day</c> or <c>month</c>.</param>
+/// <param name="PeriodStart">The start of the UTC day or month.</param>
+/// <param name="Unit"><see cref="AiLimitUnits.Money"/> or <see cref="AiLimitUnits.Tokens"/>.</param>
 /// <param name="Message">The short sentence to show, naming the limit.</param>
-public sealed record AiLimitReached(string AppliesTo, string? Name, string Period, decimal Limit, decimal Spent, string Message);
-
-public static class AiPrices
+public sealed record AiLimitReached(
+    string Key,
+    string AppliesTo,
+    string Feature,
+    Guid? UserId,
+    string? Name,
+    string Period,
+    DateTimeOffset PeriodStart,
+    string Unit,
+    decimal Limit,
+    decimal Spent,
+    string Message)
 {
-    private const decimal Million = 1_000_000m;
-
-    /// <summary>
-    /// What some tokens of one model cost, or null when no price is saved for it.
-    /// </summary>
-    /// <remarks>
-    /// Providers count cached tokens inside the input count, so the cached ones are taken out of
-    /// the input price and charged at the cached price instead -- or at the input price when no
-    /// cached price was entered.
-    /// </remarks>
-    public static decimal? CostOf(AiModelPrice? price, long inputTokens, long cachedInputTokens, long outputTokens)
-    {
-        if (price is null)
-            return null;
-
-        var cached = Math.Clamp(cachedInputTokens, 0, Math.Max(0, inputTokens));
-
-        return ((inputTokens - cached) * price.InputPerMillion
-                + cached * (price.CachedInputPerMillion ?? price.InputPerMillion)
-                + outputTokens * price.OutputPerMillion) / Million;
-    }
+    public const string TokenLimit = "tokens";
 }
 
 /// <summary>
-/// Whether a person may start another AI call, by the spend limits in money that apply to them
-/// (AI chat design §10).
+/// Whether an AI call may go ahead, by every spend limit that applies to it (AI chat design §10).
 /// </summary>
 /// <remarks>
 /// <para>
-/// A person is stopped by the tightest limit that applies: one set on them, one set on any role
-/// they hold, or the one for everyone. A limit on a person or a role is compared with that
-/// person's own spend; the limit for everyone with everyone's.
+/// A call is stopped by the tightest limit that applies: the one for everyone (every feature's
+/// spend together), the feature's own, a token limit kept from before prices, and -- for Chat only --
+/// one set on the person or on any role they hold, compared with their own Chat spend.
 /// </para>
 /// <para>
-/// <see cref="ModbotPermissions.UseAiPastLimits"/> takes the person and role limits away and
-/// leaves the one for everyone, which is the operator's ceiling on the bill.
+/// <see cref="ModbotPermissions.UseAiPastLimits"/> takes the person and role limits away and leaves
+/// the others: the limit for everyone is the operator's ceiling on the bill, and a feature limit is
+/// the operator's share of it for that feature.
 /// </para>
 /// <para>
-/// Spend is <c>ai_usage</c>'s token counts priced with today's <c>ai_model_price</c>, so a price
-/// entered today also prices what was used earlier this month. Days and months are UTC, from
+/// Spend is priced when it is read (<see cref="AiSpending"/>). Days and months are UTC, from
 /// <see cref="IModbotClock"/>. The check runs before a call, so a call that starts just under a
-/// limit can finish a little over it; the next one is refused.
+/// limit can finish a little over it; the next one is refused. Spend of a model with no price is
+/// unknown and cannot reach a money limit.
 /// </para>
 /// </remarks>
 public sealed class AiSpendLimits
 {
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
+    private readonly AiLimitNotices _notices;
 
-    public AiSpendLimits(ModbotContext db, IModbotClock clock)
+    public AiSpendLimits(ModbotContext db, IModbotClock clock, AiLimitNotices notices)
     {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(notices);
+
         _db = db;
         _clock = clock;
+        _notices = notices;
     }
 
     /// <summary>The start of today and of this month, in UTC.</summary>
     public static (DateTimeOffset Day, DateTimeOffset Month) PeriodsAt(DateTimeOffset now)
-    {
-        var utc = now.ToUniversalTime();
-        return (new DateTimeOffset(utc.Year, utc.Month, utc.Day, 0, 0, 0, TimeSpan.Zero),
-                new DateTimeOffset(utc.Year, utc.Month, 1, 0, 0, 0, TimeSpan.Zero));
-    }
+        => (AiPeriods.DayOf(now), AiPeriods.MonthOf(now));
 
-    /// <summary>The limit this person has reached, or null when they may go on.</summary>
-    public async Task<AiLimitReached?> CheckAsync(Guid userId, ModbotPermissions held, CancellationToken ct)
+    /// <summary>
+    /// The limit that stops a call for <paramref name="feature"/>, or null when it may go ahead.
+    /// Reaching a limit is recorded the first time it stops a call in its day or month.
+    /// </summary>
+    /// <param name="userId">The person the call is for, when their own limits apply.</param>
+    /// <param name="held">That person's permissions.</param>
+    public async Task<AiLimitReached?> CheckAsync(string feature, Guid? userId, ModbotPermissions held, CancellationToken ct)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(feature);
+
         var limits = await _db.AiSpendLimits.AsNoTracking()
-            .Select(l => new { l.AppliesTo, l.RoleId, l.UserId, l.PerDay, l.PerMonth, RoleName = l.RoleRow == null ? null : l.RoleRow.Name })
-            .ToListAsync(ct);
+            .Select(l => new
+            {
+                l.AppliesTo,
+                l.Feature,
+                l.RoleId,
+                l.UserId,
+                l.PerDay,
+                l.PerMonth,
+                RoleName = l.RoleRow == null ? null : l.RoleRow.Name,
+            })
+            .ToListAsync(ct).ConfigureAwait(false);
 
-        if (limits.Count == 0)
+        var tokenLimit = await _db.AiFeatureLimits.AsNoTracking()
+            .Where(l => l.Feature == feature && l.MonthlyTokenLimit != null)
+            .Select(l => l.MonthlyTokenLimit)
+            .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+        if (limits.Count == 0 && tokenLimit is null)
             return null;
 
-        var pastPersonalLimits = held.HasFlag(ModbotPermissions.Administrator) || held.HasFlag(ModbotPermissions.UseAiPastLimits);
+        var personal = userId is not null
+                       && AiFeatures.HasPersonLimits(feature)
+                       && !held.HasFlag(ModbotPermissions.Administrator)
+                       && !held.HasFlag(ModbotPermissions.UseAiPastLimits);
 
-        var roles = pastPersonalLimits
-            ? []
-            : await _db.UserRoles.AsNoTracking().Where(r => r.UserId == userId).Select(r => r.RoleId).ToListAsync(ct);
+        var roles = personal && limits.Any(l => l.AppliesTo == AiSpendLimit.Role)
+            ? await _db.UserRoles.AsNoTracking().Where(r => r.UserId == userId).Select(r => r.RoleId).ToListAsync(ct).ConfigureAwait(false)
+            : [];
 
         var applicable = limits.Where(l => l.AppliesTo switch
         {
             AiSpendLimit.Everyone => true,
-            AiSpendLimit.User => !pastPersonalLimits && l.UserId == userId,
-            AiSpendLimit.Role => !pastPersonalLimits && l.RoleId is { } role && roles.Contains(role),
+            AiSpendLimit.ForFeature => l.Feature == feature,
+            AiSpendLimit.User => personal && l.UserId == userId,
+            AiSpendLimit.Role => personal && l.RoleId is { } role && roles.Contains(role),
             _ => false,
         }).ToList();
 
-        if (applicable.Count == 0)
+        if (applicable.Count == 0 && tokenLimit is null)
             return null;
+
+        var now = _clock.UtcNow;
+        var (day, month) = PeriodsAt(now);
 
         var everyone = applicable.Any(l => l.AppliesTo == AiSpendLimit.Everyone)
-            ? await SpentAsync(null, ct)
+            ? await AiSpending.TodayAndMonthAsync(_db, now, null, null, ct).ConfigureAwait(false)
             : (AiSpent.None, AiSpent.None);
 
-        var mine = applicable.Any(l => l.AppliesTo != AiSpendLimit.Everyone)
-            ? await SpentAsync(userId, ct)
+        var ofFeature = applicable.Any(l => l.AppliesTo == AiSpendLimit.ForFeature) || tokenLimit is not null
+            ? await AiSpending.TodayAndMonthAsync(_db, now, feature, null, ct).ConfigureAwait(false)
             : (AiSpent.None, AiSpent.None);
 
-        var reached = applicable
-            .SelectMany(l =>
-            {
-                var (today, month) = l.AppliesTo == AiSpendLimit.Everyone ? everyone : mine;
-                return new[]
-                {
-                    (Limit: l, Period: "day", Amount: l.PerDay, Spent: today.Cost),
-                    (Limit: l, Period: "month", Amount: l.PerMonth, Spent: month.Cost),
-                };
-            })
-            .Where(c => c.Amount is { } amount && c.Spent >= amount)
-            .OrderBy(c => c.Amount)
-            .FirstOrDefault();
+        var mine = applicable.Any(l => l.AppliesTo is AiSpendLimit.User or AiSpendLimit.Role)
+            ? await AiSpending.TodayAndMonthAsync(_db, now, feature, userId, ct).ConfigureAwait(false)
+            : (AiSpent.None, AiSpent.None);
 
-        if (reached.Limit is null)
-            return null;
+        var label = AiFeatures.LabelOf(feature);
+        var candidates = new List<AiLimitReached>();
 
-        var l = reached.Limit;
-        var every = reached.Period == "day" ? "daily" : "monthly";
-
-        var message = l.AppliesTo switch
+        foreach (var l in applicable)
         {
-            AiSpendLimit.User => $"Your {every} AI spend limit is reached.",
-            AiSpendLimit.Role => $"The {l.RoleName} role's {every} AI spend limit is reached.",
-            _ => $"This Modbot's {every} AI spend limit is reached.",
-        };
-
-        return new AiLimitReached(l.AppliesTo, l.RoleName, reached.Period, reached.Amount!.Value, reached.Spent, message);
-    }
-
-    /// <summary>Spend today and this month, for one account or, with null, for everyone.</summary>
-    public async Task<(AiSpent Today, AiSpent Month)> SpentAsync(Guid? userId, CancellationToken ct)
-    {
-        var (day, month) = PeriodsAt(_clock.UtcNow);
-
-        var query = _db.AiUsage.AsNoTracking().Where(u => u.At >= month);
-        if (userId is { } id)
-            query = query.Where(u => u.UserId == id);
-
-        // One row per model and part of the month, so each model is priced with its own price.
-        var rows = await query
-            .GroupBy(u => new { u.Model, Today = u.At >= day })
-            .Select(g => new
+            var (today, thisMonth) = l.AppliesTo switch
             {
-                g.Key.Model,
-                g.Key.Today,
-                Input = g.Sum(u => (long)u.InputTokens),
-                Cached = g.Sum(u => (long)u.CachedInputTokens),
-                Output = g.Sum(u => (long)u.OutputTokens),
-            })
-            .ToListAsync(ct);
+                AiSpendLimit.Everyone => everyone,
+                AiSpendLimit.ForFeature => ofFeature,
+                _ => mine,
+            };
 
-        if (rows.Count == 0)
-            return (AiSpent.None, AiSpent.None);
+            var who = l.AppliesTo switch
+            {
+                AiSpendLimit.Everyone => "everyone",
+                AiSpendLimit.ForFeature => $"feature:{feature}",
+                AiSpendLimit.User => $"user:{userId}",
+                _ => $"role:{l.RoleId}:user:{userId}",
+            };
 
-        var models = rows.Select(r => r.Model).Distinct().ToList();
-        var prices = await _db.AiModelPrices.AsNoTracking()
-            .Where(p => models.Contains(p.Model))
-            .ToDictionaryAsync(p => p.Model, StringComparer.Ordinal, ct);
+            foreach (var (period, start, amount, spent) in new[] { ("day", day, l.PerDay, today.Cost), ("month", month, l.PerMonth, thisMonth.Cost) })
+            {
+                if (amount is not { } limit || spent < limit)
+                    continue;
 
-        AiSpent Sum(IEnumerable<(string Model, long Input, long Cached, long Output)> part) =>
-            part.Aggregate(AiSpent.None, (total, r) => new AiSpent(
-                total.Cost + (AiPrices.CostOf(prices.GetValueOrDefault(r.Model), r.Input, r.Cached, r.Output) ?? 0m),
-                total.InputTokens + r.Input,
-                total.CachedInputTokens + r.Cached,
-                total.OutputTokens + r.Output));
+                var every = period == "day" ? "daily" : "monthly";
+                var message = l.AppliesTo switch
+                {
+                    AiSpendLimit.User => $"Your {every} AI spend limit is reached.",
+                    AiSpendLimit.Role => $"The {l.RoleName} role's {every} AI spend limit is reached.",
+                    AiSpendLimit.ForFeature => $"The {every} AI spend limit for {label} is reached.",
+                    _ => $"This Modbot's {every} AI spend limit is reached.",
+                };
 
-        var all = rows.Select(r => (r.Model, r.Input, r.Cached, r.Output)).ToList();
-        var today = rows.Where(r => r.Today).Select(r => (r.Model, r.Input, r.Cached, r.Output));
+                candidates.Add(new AiLimitReached(
+                    $"{who}:{period}", l.AppliesTo, feature, l.AppliesTo is AiSpendLimit.User or AiSpendLimit.Role ? userId : null,
+                    l.RoleName, period, start, AiLimitUnits.Money, limit, spent, message));
+            }
+        }
 
-        return (Sum(today), Sum(all));
+        // The tightest money limit first; a token limit only when no money limit is reached.
+        var reached = candidates.OrderBy(c => c.Limit).FirstOrDefault();
+
+        if (reached is null && tokenLimit is { } tokens && ofFeature.Item2.Tokens >= tokens)
+        {
+            reached = new AiLimitReached(
+                $"tokens:{feature}:month", AiLimitReached.TokenLimit, feature, null, null, "month", month, AiLimitUnits.Tokens,
+                tokens, ofFeature.Item2.Tokens, $"The monthly AI token limit for {label} is reached.");
+        }
+
+        if (reached is not null)
+            await _notices.RecordOnceAsync(reached, ct).ConfigureAwait(false);
+
+        return reached;
     }
 }

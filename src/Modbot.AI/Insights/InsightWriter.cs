@@ -18,12 +18,11 @@ public sealed record InsightStart(string StartedBy, Guid? UserId = null, string?
 
 /// <summary>What came of asking for one insight.</summary>
 /// <param name="Insight">The stored insight -- with its text, or with the error when the call failed.</param>
-/// <param name="NotAsked">Why the model was not asked at all: AI is off, or the spend limit is reached.
-/// Nothing is stored then.</param>
+/// <param name="NotAsked">Why the model was not asked at all: AI is off, or a spend limit is reached,
+/// in which case it is that limit's sentence. Nothing is stored then.</param>
 public sealed record InsightAttempt(Insight? Insight, string? NotAsked)
 {
     public const string AiOff = "AI is off. Turn it on under Base.";
-    public const string LimitReached = "The AI spend limit for insights is reached.";
 }
 
 /// <summary>
@@ -54,10 +53,10 @@ public sealed class InsightWriter(ModbotContext db, IAiClients ai, IAiUsage usag
         if (chat is null)
             return new InsightAttempt(null, InsightAttempt.AiOff);
 
-        // Read through the shared place every AI feature asks, so the limit settings built for all
-        // of them apply here without this class knowing how a limit is counted (design §6).
-        if (await usage.LimitReachedAsync(AiFeatures.Insights, ct))
-            return new InsightAttempt(null, InsightAttempt.LimitReached);
+        // Read through the shared place every AI feature asks: the limit for everyone and the one for
+        // insights (design §6).
+        if (await usage.LimitReachedAsync(AiFeatures.Insights, ct) is { } reached)
+            return new InsightAttempt(null, reached.Message);
 
         var settings = await db.InsightSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var model = string.IsNullOrWhiteSpace(settings?.Model) ? chat.Model : settings.Model.Trim();
@@ -81,12 +80,15 @@ public sealed class InsightWriter(ModbotContext db, IAiClients ai, IAiUsage usag
 
         try
         {
+            var options = new ChatCompletionOptions { MaxOutputTokenCount = MaxOutputTokens };
+            AiReportedCost.AskFor(options, chat.Provider);
+
             ChatCompletion completion = await client.CompleteChatAsync(
                 [
                     new SystemChatMessage(InsightPrompt.Instructions(kind)),
                     new UserChatMessage(InsightPrompt.Figures(figures)),
                 ],
-                new ChatCompletionOptions { MaxOutputTokenCount = MaxOutputTokens },
+                options,
                 ct);
 
             var text = string.Concat(completion.Content

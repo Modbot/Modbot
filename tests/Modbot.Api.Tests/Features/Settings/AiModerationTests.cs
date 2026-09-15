@@ -305,8 +305,10 @@ public class AiModerationTests
         Assert.Equal(100, usage.CachedInputTokens);
     }
 
-    [Fact]
-    public async Task AtTheModerationSpendLimitAiTopicsStop_ButTermListsKeepRunning()
+    [Theory]
+    [InlineData("feature", "The monthly AI spend limit for Moderation is reached.")]
+    [InlineData("everyone", "This Modbot's monthly AI spend limit is reached.")]
+    public async Task AtTheModerationOrEveryoneSpendLimitAiTopicsStop_ButTermListsKeepRunning(string appliesTo, string message)
     {
         var requests = 0;
         var ai = new FakeAi(_ =>
@@ -333,11 +335,19 @@ public class AiModerationTests
 
         await using (var db = _db.NewContext())
         {
-            db.AiFeatureLimits.Add(new AiFeatureLimit { Feature = "moderation", MonthlyTokenLimit = 100 });
+            // $1 per token, so 100 tokens is $100. For everyone, the spend is another feature's.
+            db.AiModelPrices.Add(new AiModelPrice { Model = "m", InputPerMillion = 1_000_000m, OutputPerMillion = 1_000_000m, UpdatedAt = host.Clock.UtcNow });
+            db.AiSpendLimits.Add(new AiSpendLimit
+            {
+                AppliesTo = appliesTo,
+                Feature = appliesTo == "feature" ? "moderation" : null,
+                PerMonth = 100m,
+                UpdatedAt = host.Clock.UtcNow,
+            });
             db.AiUsage.Add(new AiUsage
             {
                 At = host.Clock.UtcNow,
-                Feature = "moderation",
+                Feature = appliesTo == "feature" ? "moderation" : "chat",
                 Model = "m",
                 InputTokens = 80,
                 OutputTokens = 20,
@@ -346,7 +356,7 @@ public class AiModerationTests
         }
 
         var outcome = await CheckAsync(host, Message("m1", "a", "hello there"));
-        Assert.Equal("The AI spend limit for moderation is reached.", outcome.AiSkipped);
+        Assert.Equal(message, outcome.AiSkipped);
         Assert.Equal(0, requests);
 
         var byList = await CheckAsync(host, Message("m2", "a", "spam"));

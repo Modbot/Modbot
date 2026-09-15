@@ -81,6 +81,7 @@ public sealed record ChatFinishedEvent(ChatOutcome Outcome, string? Error, int T
 /// <param name="ConversationId">For the log line only.</param>
 /// <param name="ProviderAddress">For error messages: which host refused.</param>
 /// <param name="Model">The model id <paramref name="Chat"/> was made for, which usage is recorded under.</param>
+/// <param name="Provider">The provider preset, so OpenRouter can be asked what each round cost.</param>
 public sealed record ChatRequest(
     ChatClient Chat,
     string SystemPrompt,
@@ -90,7 +91,8 @@ public sealed record ChatRequest(
     ChatToolContext Context,
     Guid? ConversationId = null,
     Uri? ProviderAddress = null,
-    string Model = "");
+    string Model = "",
+    string? Provider = null);
 
 /// <summary>
 /// Writes one reply: asks the model, runs the tools it asks for, and asks again until it answers
@@ -152,6 +154,7 @@ public sealed class ChatLoop
             {
                 var toolsAllowed = offered.Count > 0 && toolCalls < request.Limits.MaxToolCalls;
                 var options = new ChatCompletionOptions { MaxOutputTokenCount = request.Limits.MaxReplyTokens };
+                Usage.AiReportedCost.AskFor(options, request.Provider);
 
                 if (toolsAllowed)
                 {

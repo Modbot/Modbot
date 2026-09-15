@@ -180,7 +180,7 @@ public class InsightSchedulerTests : InsightTestBase
         Assert.Equal(0, await RunAtAsync(Monday9));
 
         await using (var context = NewContext())
-            await context.AiFeatureLimits.ExecuteDeleteAsync(Ct);
+            await context.AiSpendLimits.ExecuteDeleteAsync(Ct);
 
         Assert.Equal(0, await RunAtAsync(Monday9.AddMinutes(1)));
         Assert.Empty(Model.Requests);

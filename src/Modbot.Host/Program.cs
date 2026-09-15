@@ -179,6 +179,9 @@ try
     // of insight is switched on.
     builder.Services.AddModbotAiInsightSchedule();
 
+    // Model prices from OpenRouter, once a day while AI is on and set to OpenRouter (AI chat design §10).
+    builder.Services.AddModbotAiPriceFetch();
+
     builder.Services.AddModbotAuth();
 
     // Persist the data protection key ring in Postgres. Without this the keys live in memory and

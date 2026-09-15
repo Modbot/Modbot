@@ -150,14 +150,20 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Token counts of every AI request, by feature, for spend limits and cost estimates.</summary>
     public DbSet<AiUsage> AiUsage => Set<AiUsage>();
 
-    /// <summary>Each AI feature's spend limit. No row means no limit.</summary>
+    /// <summary>Monthly token limits kept from before prices, until the feature's model has a price.</summary>
     public DbSet<AiFeatureLimit> AiFeatureLimits => Set<AiFeatureLimit>();
 
     /// <summary>What each model costs per million tokens, as the operator entered it.</summary>
     public DbSet<AiModelPrice> AiModelPrices => Set<AiModelPrice>();
 
-    /// <summary>Daily and monthly caps on AI spend, for everyone, a role or one account (AI chat design §10).</summary>
+    /// <summary>What each model costs per million tokens, as fetched from OpenRouter.</summary>
+    public DbSet<AiFetchedPrice> AiFetchedPrices => Set<AiFetchedPrice>();
+
+    /// <summary>Daily and monthly caps on AI spend, for everyone, a feature, a role or one account (AI chat design §10).</summary>
     public DbSet<AiSpendLimit> AiSpendLimits => Set<AiSpendLimit>();
+
+    /// <summary>Which spend limits were reached in which day or month, so each is recorded once.</summary>
+    public DbSet<AiLimitReachedRecord> AiLimitsReached => Set<AiLimitReachedRecord>();
 
     /// <summary>Discord and VRChat accounts proved to be the same person. Ended links are kept.</summary>
     public DbSet<DiscordAccountLink> DiscordAccountLinks => Set<DiscordAccountLink>();
@@ -1075,6 +1081,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Feature).HasMaxLength(32);
             entity.Property(e => e.Model).HasMaxLength(200);
             entity.Property(e => e.Provider).HasMaxLength(32);
+            entity.Property(e => e.ReportedCost).HasPrecision(18, 8);
 
             // "How much has this feature used this month", asked before each request.
             entity.HasIndex(e => new { e.Feature, e.At })
@@ -1241,6 +1248,25 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.OutputPerMillion).HasPrecision(18, 6);
         });
 
+        builder.Entity<AiFetchedPrice>(entity =>
+        {
+            entity.ToTable("ai_fetched_price");
+
+            entity.HasKey(e => e.Model);
+            entity.Property(e => e.Model).HasMaxLength(200);
+            entity.Property(e => e.InputPerMillion).HasPrecision(18, 6);
+            entity.Property(e => e.CachedInputPerMillion).HasPrecision(18, 6);
+            entity.Property(e => e.OutputPerMillion).HasPrecision(18, 6);
+        });
+
+        builder.Entity<AiLimitReachedRecord>(entity =>
+        {
+            entity.ToTable("ai_limit_reached");
+
+            entity.HasKey(e => new { e.Key, e.PeriodStart });
+            entity.Property(e => e.Key).HasMaxLength(200);
+        });
+
         builder.Entity<AiSpendLimit>(entity =>
         {
             entity.ToTable("ai_spend_limit");
@@ -1248,6 +1274,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.AppliesTo).HasMaxLength(16);
+            entity.Property(e => e.Feature).HasMaxLength(32);
             entity.Property(e => e.PerDay).HasPrecision(18, 6);
             entity.Property(e => e.PerMonth).HasPrecision(18, 6);
 

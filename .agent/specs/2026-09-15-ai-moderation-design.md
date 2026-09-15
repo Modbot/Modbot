@@ -87,12 +87,15 @@ people type to get past a filter, not all of Unicode.
 - **Daily AI call limit.** One setting, counted per UTC day from `IModbotClock`, incremented in the
   same statement that checks it. At the limit, AI topics stop until the next day; term lists keep
   running. The "Try it" box counts towards the limit, because it costs the same.
-- **Usage and the spend limit (added 2026-09-15).** Every AI topic call records its input, output
-  and cached token counts and the model in the shared `ai_usage` table (`Modbot.AI/Usage`), under
-  feature `moderation` with no user. Before each call the engine asks `IAiUsage.LimitReachedAsync`;
-  once the moderation spend limit is reached, AI topics stop and term lists keep running. The limit
-  lives in `ai_feature_limit` and is counted in tokens per UTC month until Modbot has prices. Its
-  settings screen is built separately, for every AI feature at once.
+- **Usage and spend limits (added 2026-09-15).** Every AI topic call records its input, output
+  and cached token counts, the model, and OpenRouter's reported cost where there is one, in the
+  shared `ai_usage` table (`Modbot.AI/Usage`), under feature `moderation` with no user. Before each
+  call the engine asks `IAiUsage.LimitReachedAsync`, which checks the limit for everyone and
+  moderation's own daily and monthly limits, both in money (AI chat design §10.3). At either, AI
+  topics stop, the limit's sentence is the reason AI was skipped, and term lists keep running.
+  Moderation first shipped with a monthly token limit because Modbot had no prices; that becomes a
+  money limit once the model has a price, and until then it is kept and counted (AI chat design
+  §10.5). Limits are set on Settings → AI → Limits.
 
 ## 5. Flags and dismissals
 
@@ -182,4 +185,3 @@ counting towards the daily limit.
 - Notifications for flags.
 - Checking every stored profile on demand.
 - Per-channel rules (a list for one channel only).
-- The settings screen for AI spend limits and cost estimates (shared by every AI feature).

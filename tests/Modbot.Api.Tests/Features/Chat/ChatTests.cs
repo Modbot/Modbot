@@ -343,8 +343,9 @@ public class ChatTests
         Assert.Empty(provider.Bodies);
     }
 
+    /// <summary>Chat's own limit is the operator's share of the bill for Chat, so the permission does not lift it.</summary>
     [Fact]
-    public async Task ChatsOwnFeatureLimit_IsHonouredToo()
+    public async Task ChatsOwnFeatureLimit_IsHonouredEvenPastPersonalLimits()
     {
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         var provider = new ScriptedProvider();
@@ -352,6 +353,24 @@ public class ChatTests
 
         var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.UseAiPastLimits, Ct);
         await SpendAsync(host, user.Id, 1m);
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.ForFeature, Feature = "chat", PerMonth = 1m });
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "hi" }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Equal("The monthly AI spend limit for Chat is reached.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+        Assert.Empty(provider.Bodies);
+    }
+
+    [Fact]
+    public async Task ATokenLimitKeptFromBeforePrices_StillStopsChat()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        var provider = new ScriptedProvider();
+        await using var host = await StartWithProviderAsync(provider);
+
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+        await SpendAsync(host, user.Id, 0.001m);
 
         await using (var context = _db.NewContext())
         {
@@ -362,6 +381,7 @@ public class ChatTests
         var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "hi" }, cookie, Ct);
 
         Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Equal("The monthly AI token limit for Chat is reached.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
         Assert.Empty(provider.Bodies);
     }
 

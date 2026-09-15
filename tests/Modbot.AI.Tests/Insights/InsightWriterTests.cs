@@ -190,7 +190,7 @@ public class InsightWriterTests : InsightTestBase
         {
             var attempt = await NewWriter(context).WriteAsync(InsightKinds.Group, InsightKinds.EveryWeek, Today, InsightStart.Button(Guid.NewGuid(), "sam"), Ct);
             Assert.Null(attempt.Insight);
-            Assert.Equal("The AI spend limit for insights is reached.", attempt.NotAsked);
+            Assert.Equal("The monthly AI spend limit for Insights is reached.", attempt.NotAsked);
         }
 
         Assert.Empty(Model.Requests);

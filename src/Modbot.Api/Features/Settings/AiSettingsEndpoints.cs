@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Modbot.AI;
+using Modbot.AI.Usage;
 using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -122,10 +123,12 @@ public static class AiSettingsEndpoints
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
         group.MapPost("/test", async (
+                HttpContext http,
                 [FromBody] AiConnectionCheck body,
                 [FromServices] ModbotContext db,
                 [FromServices] ISecretProtector protector,
                 [FromServices] IAiClients ai,
+                [FromServices] IAiUsage usage,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -134,7 +137,13 @@ public static class AiSettingsEndpoints
                 if (connection is null)
                     return Results.BadRequest(new { error });
 
+                // A test is a real call, so it is counted and limited like any feature (AI chat design §10).
+                if (await usage.LimitReachedAsync(AiFeatures.Test, ct) is { } reached)
+                    return Results.Ok(new AiTestResponse(false, reached.Message));
+
                 var result = await ai.TestAsync(connection, ct);
+                await usage.RecordAsync(AiFeatures.Test, ModbotAuth.UserIdOf(http.User), connection.Model, connection.Provider, result.Usage, ct);
+
                 return Results.Ok(new AiTestResponse(result.Worked, result.Message));
             })
             .WithName("TestAiSettings")

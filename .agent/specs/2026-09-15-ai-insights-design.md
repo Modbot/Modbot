@@ -113,13 +113,19 @@ Added 2026-09-15 at the maintainer's request that every AI feature has spend lim
 broken down by feature.
 
 - Every insight call records one row in the shared AI usage table (`src/Modbot.AI/Usage`): the input,
-  output and cached tokens the provider reported, the model asked for, feature `insights`, and the
-  person only when somebody pressed Generate now. A scheduled insight has no person.
+  output and cached tokens the provider reported, OpenRouter's reported cost where there is one, the
+  model asked for, feature `insights`, and the person only when somebody pressed Generate now. A
+  scheduled insight has no person.
 - A failed call that the provider never counted records nothing.
-- Before a call, the limit is read through the same shared place. When a limit is reached, a scheduled
-  insight is skipped (its moment still counts as handled, so it is not written late once the limit
-  resets) and Generate now answers with the limit's short message.
-- The limit settings themselves are built later, on their own screen, for every feature at once.
+- Before a call, the limits are read through the same shared place: the limit for everyone and
+  insights' own daily and monthly limits, both in money (AI chat design §10.3). Person and role limits
+  are Chat's and do not apply, even to Generate now. When a limit is reached, a scheduled insight is
+  skipped (its moment still counts as handled, so it is not written late once the limit resets) and
+  Generate now answers 409 with the limit's sentence, such as "The monthly AI spend limit for Insights
+  is reached."
+- Insights first shipped with a monthly token limit because Modbot had no prices; that becomes a money
+  limit once the model has a price, and until then it is kept and counted (AI chat design §10.5).
+- Limits, spend by feature and the month-end estimate are on Settings → AI → Limits.
 
 ## 7. Not in this version
 

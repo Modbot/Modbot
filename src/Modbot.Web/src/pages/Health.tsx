@@ -2,7 +2,16 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { statusOf, TONE } from '@/lib/gate'
 import { ago, duration, formatDay } from '@/lib/format'
-import { api, ApiError, type DiscordBotHealth, type DiscordChannelProblem, type DiscordReadBackHealth, type SyncHealth } from '@/lib/api'
+import { amountText, share } from '@/lib/aiSpend'
+import {
+  api,
+  ApiError,
+  type AiSpendWarning,
+  type DiscordBotHealth,
+  type DiscordChannelProblem,
+  type DiscordReadBackHealth,
+  type SyncHealth,
+} from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /**
@@ -117,6 +126,8 @@ export function Health() {
       </Card>
 
       {!health.syncRunningInThisProcess && <Note>Sync is not running in this process.</Note>}
+
+      {health.aiSpend && health.aiSpend.length > 0 && <AiSpend warnings={health.aiSpend} />}
 
       {health.discordBot && (
         <DiscordBot
@@ -482,6 +493,41 @@ function DiscordBot({
             Last problem{bot.lastErrorAt ? ` (${ago(bot.lastErrorAt, now)})` : ''}: {bot.lastError}
           </p>
         )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * AI spend limits for everyone or a feature that are at 80%, estimated to be passed this month, or
+ * reached (AI chat design §10.7). Shown only when there is one, in the Discord bot card's line
+ * format: amber while close, red once reached.
+ */
+function AiSpend({ warnings }: { warnings: AiSpendWarning[] }) {
+  const reached = warnings.some((w) => w.reached)
+
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-medium">AI spend</span>
+          <span className={reached ? 'text-destructive' : 'text-warn'} style={{ fontSize: 'var(--text-small)' }}>
+            {reached ? 'limit reached' : 'close to a limit'}
+          </span>
+        </div>
+        {warnings.map((w) => (
+          <p
+            key={`${w.appliesTo}:${w.feature ?? ''}:${w.period}`}
+            className={cn('mt-1 max-w-3xl tabular-nums', w.reached ? 'text-destructive' : 'text-warn')}
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            {w.appliesTo === 'everyone' ? 'Everyone' : (w.label ?? w.feature)}
+            {` · ${w.period === 'day' ? 'daily' : 'monthly'} ${w.unit === 'tokens' ? 'token ' : ''}limit`}
+            {` · ${amountText(w.spent, w.unit)} of ${amountText(w.limit, w.unit)} (${share(w.spent, w.limit)})`}
+            {w.partUnknown && ' + unknown'}
+            {w.estimate !== null && ` · estimate ${amountText(w.estimate, w.unit)} (${share(w.estimate, w.limit)})`}
+          </p>
+        ))}
       </CardContent>
     </Card>
   )

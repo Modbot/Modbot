@@ -22,7 +22,8 @@ public sealed record AiChat(ChatClient Chat, OpenAIClient Client, string Model, 
 
 /// <summary>The Test button's answer.</summary>
 /// <param name="Message">What the model said on success, or the provider's error in its own words.</param>
-public sealed record AiTestResult(bool Worked, string Message);
+/// <param name="Usage">The provider's token counts, when it answered with any, for the usage ledger.</param>
+public sealed record AiTestResult(bool Worked, string Message, ChatTokenUsage? Usage = null);
 
 /// <summary>The model ids the endpoint listed, or why it did not.</summary>
 public sealed record AiModelList(IReadOnlyList<string> Models, string? Error);

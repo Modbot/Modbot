@@ -1209,6 +1209,8 @@ export type SyncHealth = {
   memberSweep: SweepHealth | null
   banSweep: SweepHealth | null
   discordReadBack: DiscordReadBackHealth | null
+  /** AI spend limits close to being reached, or reached. */
+  aiSpend?: AiSpendWarning[] | null
   now: string
 }
 
@@ -1784,8 +1786,17 @@ export type AiChatSettingsInput = {
   tools: Record<string, boolean>
 }
 
-/** Money and tokens spent over a day or a month. */
-export type AiSpent = { cost: number; inputTokens: number; cachedInputTokens: number; outputTokens: number }
+/**
+ * Money and tokens spent over a stretch of time. `unpricedTokens` are tokens of models with no
+ * price: their cost is unknown and is not in `cost`, so a figure with any is only part of the spend.
+ */
+export type AiSpent = {
+  cost: number
+  inputTokens: number
+  cachedInputTokens: number
+  outputTokens: number
+  unpricedTokens: number
+}
 
 /** Per million tokens. A null cached price means cached input costs the same as other input. */
 export type AiPrice = {
@@ -1795,10 +1806,21 @@ export type AiPrice = {
   outputPerMillion: number
 }
 
-export type AiLimitAppliesTo = 'everyone' | 'role' | 'user'
+export type AiFetchedPrice = {
+  inputPerMillion: number
+  cachedInputPerMillion: number | null
+  outputPerMillion: number
+  fetchedAt: string
+}
+
+/** A model in use, set in settings or priced. The entered price wins over the fetched one. */
+export type AiModelPrices = { model: string; entered: AiPrice | null; fetched: AiFetchedPrice | null }
+
+export type AiLimitAppliesTo = 'everyone' | 'feature' | 'role' | 'user'
 
 export type AiLimit = {
   appliesTo: AiLimitAppliesTo
+  feature: string | null
   roleId: string | null
   userId: string | null
   name: string | null
@@ -1807,24 +1829,67 @@ export type AiLimit = {
   /** What the limit is compared with. Null for a role limit, which counts each member separately. */
   today: AiSpent | null
   month: AiSpent | null
+  /** The month-end estimate, for a limit for everyone or a feature. */
+  estimate: AiSpent | null
+}
+
+/** A monthly token limit kept from before prices. */
+export type AiTokenLimit = { feature: string; monthlyTokens: number; month: AiSpent; estimate: AiSpent }
+
+export type AiFeatureSpend = {
+  feature: string
+  label: string
+  today: AiSpent
+  week: AiSpent
+  month: AiSpent
+  lastMonth: AiSpent
+  estimate: AiSpent
 }
 
 export type AiLimits = {
+  now: string
   today: AiSpent
   month: AiSpent
-  prices: AiPrice[]
-  modelsUsed: string[]
+  spend: AiFeatureSpend[]
+  total: AiFeatureSpend
+  firstDay: string
+  lastDay: string
+  days: { day: string; feature: string; cost: number; tokens: number; unpricedTokens: number }[]
   limits: AiLimit[]
+  tokenLimits: AiTokenLimit[]
+  topChatUsers: { userId: string; username: string | null; month: AiSpent }[]
+  prices: AiPrice[]
+  models: AiModelPrices[]
+  pricesFetchedAt: string | null
+  modelsUsed: string[]
+  features: { id: string; label: string }[]
   roles: { id: string; name: string }[]
   users: { id: string; name: string }[]
 }
 
 export type AiLimitInput = {
   appliesTo: AiLimitAppliesTo
+  feature: string | null
   roleId: string | null
   userId: string | null
   perDay: number | null
   perMonth: number | null
+}
+
+export type AiTokenLimitInput = { feature: string; monthlyTokens: number }
+
+/** A limit for everyone or a feature at 80% or more, estimated over, or reached. */
+export type AiSpendWarning = {
+  appliesTo: 'everyone' | 'feature' | 'tokens'
+  feature: string | null
+  label: string | null
+  period: 'day' | 'month'
+  unit: 'money' | 'tokens'
+  limit: number
+  spent: number
+  estimate: number | null
+  reached: boolean
+  partUnknown: boolean
 }
 
 /** Something a tool result named that opens a popup. */
@@ -2369,11 +2434,15 @@ export const api = {
 
   aiLimits: () => request<AiLimits>('/api/settings/ai/limits'),
 
-  /** Replaces every limit. */
-  setAiLimits: (limits: AiLimitInput[]) => put<AiLimits>('/api/settings/ai/limits', { limits }),
+  /** Replaces every money limit, and every token limit when `tokenLimits` is given. */
+  setAiLimits: (limits: AiLimitInput[], tokenLimits?: AiTokenLimitInput[]) =>
+    put<AiLimits>('/api/settings/ai/limits', { limits, tokenLimits: tokenLimits ?? null }),
 
-  /** Replaces every price. Usage already recorded keeps the cost it was given. */
+  /** Replaces every entered price. Usage is priced when it is read, so this reprices earlier usage too. */
   setAiPrices: (prices: AiPrice[]) => put<AiLimits>('/api/settings/ai/prices', { prices }),
+
+  /** Fetches OpenRouter's prices now. 502 with the reason when it fails. */
+  fetchAiPrices: () => post<AiLimits>('/api/settings/ai/prices/fetch'),
 
   setAiChatSettings: (body: AiChatSettingsInput) => put<AiChatSettings>('/api/settings/ai/chat', body),
 

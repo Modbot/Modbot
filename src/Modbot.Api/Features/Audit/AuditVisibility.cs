@@ -174,6 +174,7 @@ public static class AuditVisibility
         [FactType.MigrationApplied] = AuditCategory.Operational,
         [FactType.RetentionPruned] = AuditCategory.Operational,
         [FactType.PartitionCreated] = AuditCategory.Operational,
+        [FactType.AiLimitReached] = AuditCategory.Operational,
         [FactType.UserPurged] = AuditCategory.Operational,
 
         // A review of a moderator's pattern being opened and closed is moderation history about

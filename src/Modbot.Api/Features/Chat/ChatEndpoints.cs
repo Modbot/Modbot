@@ -213,13 +213,9 @@ public static class ChatEndpoints
         if (chat is null)
             return Results.Conflict(new { error = "AI is not set up." });
 
-        // Checked before the turn starts, never in the middle of one (AI chat design §10). The
-        // feature's own token limit is the shared one every AI feature asks; the spend limits in
-        // money are the ones set for everyone, a role or an account.
-        if (await usage.LimitReachedAsync(AiFeatures.Chat, ct))
-            return Results.Json(new { error = "Chat's monthly AI limit is reached." }, statusCode: StatusCodes.Status429TooManyRequests);
-
-        if (await limits.CheckAsync(userId, held, ct) is { } reached)
+        // Checked before the turn starts, never in the middle of one (AI chat design §10): the limit
+        // for everyone, Chat's own, and the ones set on this person or their roles.
+        if (await limits.CheckAsync(AiFeatures.Chat, userId, held, ct) is { } reached)
             return Results.Json(new { error = reached.Message }, statusCode: StatusCodes.Status429TooManyRequests);
 
         var now = clock.UtcNow;
@@ -247,7 +243,8 @@ public static class ChatEndpoints
             new ChatToolContext(userId, held, http.RequestServices),
             conversation.Id,
             Uri.TryCreate(settings.AiEndpoint, UriKind.Absolute, out var address) ? address : null,
-            model);
+            model,
+            chat.Provider);
 
         var json = jsonOptions.Value.SerializerOptions;
 

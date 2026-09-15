@@ -599,6 +599,8 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  'modbot.ai.limit.reached': (p) => <>{p.text('message') ?? 'An AI spend limit was reached.'}</>,
+
   'modbot.partition.created': (p) => (
     <>
       A new month of the fact log was created{p.text('name') ? <>: {p.text('name')}</> : null}.

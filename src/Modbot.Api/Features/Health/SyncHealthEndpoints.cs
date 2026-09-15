@@ -66,6 +66,8 @@ public static class SyncHealthEndpoints
                 [FromServices] UserRefreshQueue? queue,
                 // Optional for the same reason: the bot is wired by the host, not by the API.
                 [FromServices] Modbot.Core.Discord.IDiscordBotStatus? discordBot,
+                // Optional like the rest: a host without AI registered has no spend to warn about.
+                [FromServices] Modbot.AI.Usage.AiSpendReport? aiSpend,
                 CancellationToken ct) =>
             {
                 var (health, buckets) = await GateHealthReader.ReadAsync(gate, ct);
@@ -125,7 +127,20 @@ public static class SyncHealthEndpoints
                         Run(diagnostics.LastBanSweepRun)),
                     clock.UtcNow,
                     await DiscordChannelProblemsAsync(db, ct),
-                    await ReadBackAsync(db, settings?.DiscordGuildId, ct)));
+                    await ReadBackAsync(db, settings?.DiscordGuildId, ct),
+                    aiSpend is null
+                        ? []
+                        : [.. (await aiSpend.WarningsAsync(ct)).Select(w => new AiSpendWarningView(
+                            w.AppliesTo,
+                            w.Feature,
+                            w.Feature is null ? null : Modbot.AI.Usage.AiFeatures.LabelOf(w.Feature),
+                            w.Period,
+                            w.Unit,
+                            w.Limit,
+                            w.Spent,
+                            w.Estimate,
+                            w.Reached,
+                            w.PartUnknown))]));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")

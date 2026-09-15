@@ -233,7 +233,29 @@ public sealed record SyncHealth(
     // Channels an enabled route sends to that cannot be posted in (Discord event routes design §6).
     // Empty when every channel is fine or none is set.
     IReadOnlyList<DiscordChannelProblem>? DiscordChannelProblems = null,
-    DiscordReadBackHealth? DiscordReadBack = null);
+    DiscordReadBackHealth? DiscordReadBack = null,
+    // Spend limits for everyone or a feature at 80% or more, estimated to be passed this month, or
+    // reached (AI chat design §10.7). Empty when none is.
+    IReadOnlyList<AiSpendWarningView>? AiSpend = null);
+
+/// <summary>A limit for everyone or for one AI feature that is close to being reached, or reached.</summary>
+/// <param name="AppliesTo"><c>everyone</c>, <c>feature</c>, or <c>tokens</c> for a token limit kept from before prices.</param>
+/// <param name="Period"><c>day</c> or <c>month</c>.</param>
+/// <param name="Unit"><c>money</c> (US dollars) or <c>tokens</c>.</param>
+/// <param name="Estimate">The month-end estimate, for a monthly limit.</param>
+/// <param name="Reached">Spent is at or over the limit.</param>
+/// <param name="PartUnknown">Some of the spend is of a model with no price, so the real figure is higher.</param>
+public sealed record AiSpendWarningView(
+    string AppliesTo,
+    string? Feature,
+    string? Label,
+    string Period,
+    string Unit,
+    decimal Limit,
+    decimal Spent,
+    decimal? Estimate,
+    bool Reached,
+    bool PartUnknown);
 
 /// <summary>
 /// A channel events are sent to that has something wrong with it.

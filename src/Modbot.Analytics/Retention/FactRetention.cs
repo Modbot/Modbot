@@ -73,6 +73,7 @@ public static class FactRetention
         "modbot.migration.",
         "modbot.retention.",
         "modbot.partition.",
+        "modbot.ai.limit.",
 
         // The bot's "I posted a batch" markers are plumbing. Its command records are not listed
         // here on purpose: who looked up whom through Discord is an access record, kept forever

@@ -157,6 +157,15 @@ public sealed class ApiTestHost : IAsyncDisposable
         await using var context = db.NewContext();
         await context.Users.ExecuteDeleteAsync(ct);
         await context.Settings.ExecuteDeleteAsync(ct);
+
+        // AI spend limits apply to every feature, so one test's limit for everyone would stop the
+        // next test's AI call in a different feature.
+        await context.AiSpendLimits.ExecuteDeleteAsync(ct);
+        await context.AiFeatureLimits.ExecuteDeleteAsync(ct);
+        await context.AiUsage.ExecuteDeleteAsync(ct);
+        await context.AiModelPrices.ExecuteDeleteAsync(ct);
+        await context.AiFetchedPrices.ExecuteDeleteAsync(ct);
+        await context.AiLimitsReached.ExecuteDeleteAsync(ct);
     }
 
     /// <summary>Signs in and returns the raw session cookie, ready for a <c>Cookie</c> header.</summary>

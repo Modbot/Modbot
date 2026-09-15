@@ -148,58 +148,147 @@ duration. Message text and tool arguments are never logged.
 
 ## 10. Usage and spend limits
 
-Added 2026-09-15 at the maintainer's request. Usage is recorded through the shared ledger in
-`Modbot.AI/Usage` (`IAiUsage`, table `ai_usage`) that AI moderation introduced and every AI feature
-writes to; the money limits and prices below sit beside it in the same folder. A separate piece of
-work builds the shared cost pieces on top of them.
+Added 2026-09-15 at the maintainer's request: spend limits and cost estimates for every AI feature,
+broken down by feature, with Chat's limits customisable by user, role or for the whole deployment,
+and a permission to go past them. Everything below lives in `Modbot.AI/Usage` and is shared by every
+feature that calls the AI: `moderation`, `insights`, `chat`, and `test` (the Test button on Settings →
+AI → Base, which is a real call and is counted and limited like the others).
 
 ### 10.1 What is recorded
 
 Every call to the provider writes one `ai_usage` row through `IAiUsage.RecordAsync`: when, the
-feature (`chat`), the account (null for a call nobody asked for, such as a scheduled insight), the
-model id that was asked for, the provider, and the input, cached input and output tokens the
-provider reported. Chat asks for usage on every streamed request, so a round with tool calls is
-recorded like a final answer.
+feature, the account (null for a call nobody asked for, such as a scheduled insight or an AI topic
+check), the model id that was asked for, the provider, and the input, cached input and output tokens
+the provider reported. Chat asks for usage on every streamed request, so a round with tool calls is
+recorded like a final answer. A call the provider never counted records nothing.
 
-Money comes from prices the operator enters per model in `ai_model_price`, per million input,
-cached input and output tokens; OpenAI-compatible providers do not send a price back. Providers
-count cached tokens inside the input count, so those are charged at the cached price. Usage is
-priced **when it is read**: the ledger stores tokens only, so a price entered today also prices what
-was used earlier in the month, and a model with no price counts as nothing towards a money limit.
-Settings → AI → Limits shows tokens beside the money so an unpriced model is still visible.
+For OpenRouter only, each request also asks for usage accounting (`"usage": {"include": true}`) and
+the cost OpenRouter reports at `usage.cost`, in US dollars, is stored in `ai_usage.reported_cost`. It
+is read through the OpenAI SDK's store of fields it has no property for (`ChatTokenUsage.Patch`). The
+field is not sent to other providers, because OpenAI refuses a request with a field it does not
+know, and another server's `cost` is not believed.
 
-Chat also honours the ledger's own per-feature monthly token limit (`ai_feature_limit`), the one
-every AI feature asks before a request; when it is reached Chat answers "Chat's monthly AI limit is
-reached."
+### 10.2 Prices
 
-### 10.2 Limits
+A row with a reported cost costs exactly that. Every other row is priced **when it is read**, from
+the price of its model:
 
-A limit is a daily and/or monthly amount of money, set for:
+1. **An entered price** (`ai_model_price`): typed in by the operator on the price list, per million
+   input, cached input and output tokens. Always wins.
+2. **A fetched price** (`ai_fetched_price`): from OpenRouter's public model list,
+   `GET https://openrouter.ai/api/v1/models`, which needs no key and gives `pricing.prompt`,
+   `pricing.completion` and usually `pricing.input_cache_read` in US dollars per token, as strings.
+   Stored per million with when it was fetched. A price of `-1` (a router whose price depends on the
+   model it picks) is left out, and so are the time-of-day `overrides` a few models have; their
+   reported cost covers them. A model OpenRouter stops listing keeps its last fetched price.
+3. **No price.** Its spend is **unknown, never zero**: every figure carries the unpriced tokens
+   beside the money, the page writes "$1.20 + unknown" or "Unknown", and an estimate built on them
+   says the same. Unknown spend cannot reach a money limit.
 
-| Applies to | Compared with |
-|---|---|
-| Everyone | everyone's spend together |
-| A role | the spend of each person holding the role, separately — not a pot the role shares |
-| A user | that person's spend |
+Providers count cached tokens inside the input count, so those are charged at the cached price, or
+the input price when there is none. Because pricing happens on read, a price entered today also
+prices what was used earlier in the month.
 
-Days and months are UTC. **A person is stopped by the tightest limit that applies to them**: their
-own, any of their roles', or the one for everyone. When one is reached, Chat refuses new turns with
-HTTP 429 and a short sentence naming it — "Your daily AI spend limit is reached.", "The Moderator
-role's monthly AI spend limit is reached.", "This Modbot's daily AI spend limit is reached." The
-provider is not called.
+Fetched prices match a model id exactly, whichever provider the usage went through. The fetch runs
+once a day while AI is on and set to OpenRouter (an hourly check; a deployment on a local model server
+never calls openrouter.ai on its own), and whenever the operator presses Fetch prices. It has its own
+`HttpClient`, never the VRChat one or its proxy, and is not retried: a failure waits for the next
+hourly check, and a 429 waits a day.
 
-### 10.3 `UseAiPastLimits`
+### 10.3 Limits
 
-Takes away the limits on the person and on their roles. **The limit for everyone still applies**,
-Administrator included. It is the operator's ceiling on what the deployment's AI key may cost; a
-permission that could spend past it would turn the ceiling into a suggestion, and no case came up
-where going past it is what an operator would want from a single account.
+A limit is a daily and/or monthly amount of money (UTC days and months, from `IModbotClock`), set for:
 
-The check runs before a turn starts. A turn that starts just under a limit can finish a little over
-it; the next one is refused.
+| Applies to | Compared with | Stops |
+|---|---|---|
+| Everyone | every feature's spend together | every feature |
+| A feature | that feature's spend | that feature |
+| A role | the Chat spend of each person holding the role, separately — not a pot the role shares | Chat |
+| A user | that person's Chat spend | Chat |
 
-### 10.4 Settings → AI → Limits
+**A call is stopped by the tightest limit that applies to it.** Person and role limits are Chat's
+only: Chat is the one feature a person drives call after call, and the others that name a person do
+so for one button press. The check runs before a call, never during one; a call that starts just
+under a limit can finish a little over it, and the next is refused. The provider is not called.
 
-Needs `ManageSettings`. Shows what AI cost today and this month (money and tokens), the spend limits
-with what each is compared with today and this month, and the price list. Limits and prices are
-each saved as a whole list.
+At a limit:
+
+- **Chat** refuses new turns with HTTP 429 and a sentence naming the limit — "Your daily AI spend
+  limit is reached.", "The Moderator role's monthly AI spend limit is reached.", "The monthly AI spend
+  limit for Chat is reached.", "This Modbot's daily AI spend limit is reached."
+- **Moderation** stops its AI topic checks and reports the sentence as the reason AI was skipped;
+  term lists keep running (AI moderation design §4).
+- **Insights** skips scheduled runs, and Generate now answers 409 with the sentence (AI insights
+  design §6).
+- **The Test button** answers "did not work" with the sentence.
+
+### 10.4 `UseAiPastLimits`
+
+"Use AI in excess of usage limits" takes away the limits on the person and on their roles.
+**The limit for everyone and the feature limits still apply**, Administrator included. The limit for
+everyone is the operator's ceiling on what the deployment's AI key may cost, and a feature limit is
+the operator's share of that ceiling for one feature; a permission that could spend past either would
+turn them into suggestions.
+
+### 10.5 Token limits from before prices
+
+AI moderation and AI insights first shipped with a monthly token limit per feature
+(`ai_feature_limit`), because Modbot had no prices yet. No screen ever set one. Limits are money now,
+and each token limit is **changed into a monthly money limit for its feature once the feature's model
+has a price**:
+
+- The model is the one the feature is set to use now: Chat's or Insights' own model when set,
+  otherwise the Base model.
+- A token limit counts input and output together, and they have different prices, so it is priced at
+  the mix of input, cached input and output tokens the feature has actually used. With no usage, it is
+  priced as uncached input, which costs less than output on all but one model OpenRouter listed in
+  September 2026, so the money limit almost always stops the feature no later than the token limit
+  would have.
+- When the feature already has a monthly money limit, the lower of the two is kept.
+- A token limit whose model has no price is **kept as a token limit**: still counted, still stopping
+  the feature ("The monthly AI token limit for Moderation is reached."), shown on the limits page as a
+  token limit that can be removed, and changed on a later pass once a price arrives.
+
+The change runs on every hourly price pass, after a fetch, and after the operator saves prices. It is
+logged, not recorded as a fact.
+
+### 10.6 Cost by feature and the estimate
+
+Settings → AI → Limits shows, per feature and in total, spend today, this week (from Monday), this
+month and last month, each with its token counts; a daily spend chart for the last 30 days, stacked by
+feature; and the top ten accounts by Chat spend this month.
+
+**The month-end estimate** is deliberately plain, so anybody can check it by hand:
+
+> spend so far this month + (spend over the seven whole days before today ÷ 7) × days left after today
+
+The seven days may reach back into last month, which is what makes it usable on the first. It is
+shown per feature, in total, and next to each limit for everyone or a feature with how far through
+the monthly limit it is.
+
+### 10.7 Warnings and the fact
+
+**Health** shows an "AI spend" card, only when there is something to show, listing each limit for
+everyone or a feature where spend is at 80% or more of the limit, the month-end estimate is over a
+monthly limit, or the limit is reached. Amber while close, red once reached. Person and role limits
+are not listed: they are about one account, not the bill. The warnings come from
+`/api/health/sync` (`aiSpend`), which needs `ViewOperationalLog`.
+
+**One operational fact, `modbot.ai.limit.reached`,** is recorded the first time a limit stops a call
+in its UTC day or month, and not again for that limit in that period. `ai_limit_reached` holds the
+claim — the limit, whom it was for, and the period start — so two calls stopped at the same moment
+write one fact. Its payload names the limit, the feature, the period, the amount, what had been spent
+and the sentence shown. It is in the presence retention class, like other operational noise.
+
+**Email alerts** come later with Modbot Cloud. They plug in at `IAiSpendAlerts`, which is told of the
+same event straight after the fact is written; the one registered today does nothing.
+
+### 10.8 Settings → AI → Limits
+
+Needs `ManageSettings`, including the top Chat users. Cards: spend by feature with the estimate, daily
+spend, spend limits (with what each is compared with today and this month, the estimate and how far
+through each limit), top Chat users this month, and the price list. The price list shows every model
+in use, set in settings or priced, with the entered price in the boxes, the fetched price as the
+boxes' placeholder, and where the price in use comes from ("Entered", "OpenRouter · 3h ago" or "No
+price"). Limits and entered prices are each saved as a whole list; clearing a model's boxes removes
+its entered price.

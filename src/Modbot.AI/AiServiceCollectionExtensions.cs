@@ -25,12 +25,20 @@ public static class AiServiceCollectionExtensions
         services.AddHttpClient(AiClients.HttpClientName);
         services.AddScoped<IAiClients, AiClients>();
 
-        // Token counts by feature, and each feature's spend limit. Every AI feature records here.
+        // Token counts by feature, and the spend limits every AI feature asks before a call: for
+        // everyone, per feature, and for a person or a role in Chat (AI chat design §10).
         services.TryAddScoped<IAiUsage, AiUsageLedger>();
-
-        // Spend limits in money for everyone, a role or an account, checked before a Chat turn
-        // (AI chat design §10).
         services.AddScoped<AiSpendLimits>();
+        services.AddScoped<AiLimitNotices>();
+        services.AddScoped<AiSpendReport>();
+        services.AddScoped<AiTokenLimits>();
+
+        // Email alerts plug in here, registered before this call so the real one wins.
+        services.TryAddScoped<IAiSpendAlerts, NoAiSpendAlerts>();
+
+        // Model prices from OpenRouter's public list. Its own client: never the VRChat one.
+        services.AddHttpClient(OpenRouterPrices.HttpClientName);
+        services.AddScoped<OpenRouterPrices>();
 
         services.AddScoped<InsightFigureReader>();
         services.AddScoped<InsightWriter>();
@@ -62,6 +70,20 @@ public static class AiServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddHostedService<InsightScheduleService>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Fetches model prices daily and changes token limits into money limits once they have a price
+    /// (AI chat design §10). Separate from <see cref="AddModbotAi"/> so a test host makes no call to
+    /// OpenRouter.
+    /// </summary>
+    public static IServiceCollection AddModbotAiPriceFetch(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddHostedService<AiPriceFetchService>();
 
         return services;
     }

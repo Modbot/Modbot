@@ -1,37 +1,23 @@
 import { useCallback, useEffect, useId, useState } from 'react'
+import { DailyBars, Legend, nextSlot, type DaySeries } from '@/components/charts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { amountText, count, money, share, spentText, tokensText, tokensTitle } from '@/lib/aiSpend'
 import {
   api,
   ApiError,
+  type AiFeatureSpend,
+  type AiFetchedPrice,
   type AiLimit,
   type AiLimitAppliesTo,
   type AiLimits,
   type AiPrice,
   type AiSpent,
 } from '@/lib/api'
+import { ago } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { Fact, Outcome, Placeholder } from '../fields'
+import { Outcome, Placeholder } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
-
-const money = new Intl.NumberFormat(undefined, {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 4,
-})
-
-const count = new Intl.NumberFormat()
-
-function spentText(s: AiSpent | null): string {
-  if (!s) return '—'
-  return `${money.format(s.cost)} · ${count.format(s.inputTokens + s.outputTokens)} tokens`
-}
-
-function tokensTitle(s: AiSpent | null): string | undefined {
-  if (!s) return undefined
-  return `${count.format(s.inputTokens)} in (${count.format(s.cachedInputTokens)} cached) · ${count.format(s.outputTokens)} out`
-}
 
 /** A number box's text as a number, or null when empty. NaN when it is not a number. */
 function amount(text: string): number | null {
@@ -45,9 +31,12 @@ const failure = (e: unknown) =>
       ? e.message
       : 'Could not reach the Modbot server.'
 
+const cellClass = 'py-1 pr-3 align-top'
+const headClass = 'py-1 pr-3 font-normal'
+
 /**
- * Settings → AI → Limits: what AI has cost, what each model costs, and the daily and monthly spend
- * limits for everyone, a role or one account (AI chat design §10).
+ * Settings → AI → Limits: what AI has cost by feature, the month-end estimate, the spend limits for
+ * everyone, a feature, a role or one account, and the price list (AI chat design §10).
  */
 export function AiLimitsSettings() {
   const [data, setData] = useState<AiLimits | null>(null)
@@ -83,26 +72,109 @@ export function AiLimitsSettings() {
         <Placeholder>Loading…</Placeholder>
       ) : (
         <>
-          <SettingsCard title="Spent" span={12}>
-            <div className="grid max-w-2xl grid-cols-2 gap-4">
-              <div title={tokensTitle(data.today)}>
-                <Fact label="Today" value={spentText(data.today)} />
-              </div>
-              <div title={tokensTitle(data.month)}>
-                <Fact label="This month" value={spentText(data.month)} />
-              </div>
-            </div>
-          </SettingsCard>
-          <LimitsCard key={`limits-${JSON.stringify(data.limits)}`} data={data} onSaved={setData} />
-          <PricesCard key={`prices-${JSON.stringify(data.prices)}`} data={data} onSaved={setData} />
+          <SpendCard data={data} />
+          <DailyCard data={data} />
+          <LimitsCard key={`limits-${JSON.stringify([data.limits, data.tokenLimits])}`} data={data} onSaved={setData} />
+          <TopUsersCard data={data} />
+          <PricesCard key={`prices-${JSON.stringify(data.models)}`} data={data} onSaved={setData} />
         </>
       )}
     </SettingsSection>
   )
 }
 
+/** Money on one line and tokens under it. */
+function Spent({ spent, of }: { spent: AiSpent | null; of?: string }) {
+  if (!spent) return <span className="text-muted-foreground">—</span>
+
+  return (
+    <div className="whitespace-nowrap tabular-nums" title={tokensTitle(spent)}>
+      <div>
+        {spentText(spent)}
+        {of && <span className="text-muted-foreground"> · {of}</span>}
+      </div>
+      <div className="text-muted-foreground">{tokensText(spent)}</div>
+    </div>
+  )
+}
+
+function SpendCard({ data }: { data: AiLimits }) {
+  const rows: AiFeatureSpend[] = [...data.spend, data.total]
+
+  return (
+    <SettingsCard title="Spend by feature" span={12}>
+      <div className="overflow-x-auto">
+        <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+          <thead className="text-left text-muted-foreground">
+            <tr>
+              <th className={headClass}>Feature</th>
+              <th className={headClass}>Today</th>
+              <th className={headClass}>This week</th>
+              <th className={headClass}>This month</th>
+              <th className={headClass}>Last month</th>
+              <th className={headClass}>Month-end estimate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.feature} className={cn(r === data.total && 'border-t font-medium')}>
+                <td className={cn(cellClass, 'whitespace-nowrap')}>{r.label}</td>
+                <td className={cellClass}>
+                  <Spent spent={r.today} />
+                </td>
+                <td className={cellClass}>
+                  <Spent spent={r.week} />
+                </td>
+                <td className={cellClass}>
+                  <Spent spent={r.month} />
+                </td>
+                <td className={cellClass}>
+                  <Spent spent={r.lastMonth} />
+                </td>
+                <td className={cellClass}>
+                  <Spent spent={r.estimate} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </SettingsCard>
+  )
+}
+
+function DailyCard({ data }: { data: AiLimits }) {
+  // One series per feature, in the order the server lists them, so a feature keeps its colour.
+  const series: DaySeries[] = data.spend.map((f, i) => ({
+    key: f.feature,
+    label: f.label,
+    slot: nextSlot(i),
+    points: data.days.filter((d) => d.feature === f.feature).map((d) => ({ day: d.day, value: d.cost })),
+  }))
+
+  const partUnknown = data.days.some((d) => d.unpricedTokens > 0)
+
+  return (
+    <SettingsCard
+      title="Daily spend"
+      span={12}
+      action={
+        partUnknown ? (
+          <span className="text-warn" style={{ fontSize: 'var(--text-small)' }}>
+            Part unknown
+          </span>
+        ) : undefined
+      }
+    >
+      <Legend items={series.map((s) => ({ label: s.label, slot: s.slot }))} />
+      <DailyBars from={data.firstDay} to={data.lastDay} series={series} stacked format={money} emptyText="No AI spend." />
+    </SettingsCard>
+  )
+}
+
 type LimitRow = {
   appliesTo: AiLimitAppliesTo
+  feature: string | null
   roleId: string | null
   userId: string | null
   name: string | null
@@ -110,10 +182,13 @@ type LimitRow = {
   perMonth: string
   today: AiSpent | null
   month: AiSpent | null
+  estimate: AiSpent | null
 }
 
-const rowKey = (r: { appliesTo: string; roleId: string | null; userId: string | null }) =>
-  `${r.appliesTo}:${r.roleId ?? r.userId ?? ''}`
+type TokenRow = { feature: string; monthlyTokens: number; month: AiSpent | null; estimate: AiSpent | null }
+
+const rowKey = (r: { appliesTo: string; feature: string | null; roleId: string | null; userId: string | null }) =>
+  `${r.appliesTo}:${r.feature ?? r.roleId ?? r.userId ?? ''}`
 
 function toRow(l: AiLimit): LimitRow {
   return {
@@ -125,12 +200,14 @@ function toRow(l: AiLimit): LimitRow {
 
 function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimits) => void }) {
   const [rows, setRows] = useState<LimitRow[]>(() => data.limits.map(toRow))
+  const [tokenRows, setTokenRows] = useState<TokenRow[]>(() => data.tokenLimits)
   const [adding, setAdding] = useState('')
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
   const taken = new Set(rows.map(rowKey))
+  const featureLabel = (id: string | null) => data.features.find((f) => f.id === id)?.label ?? id ?? ''
 
   const add = () => {
     const [appliesTo, id] = adding.split(':') as [AiLimitAppliesTo, string]
@@ -141,19 +218,25 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
         ? (data.roles.find((r) => r.id === id)?.name ?? null)
         : appliesTo === 'user'
           ? (data.users.find((u) => u.id === id)?.name ?? null)
-          : null
+          : appliesTo === 'feature'
+            ? featureLabel(id)
+            : null
+
+    const spend = appliesTo === 'feature' ? data.spend.find((s) => s.feature === id) : undefined
 
     setRows((all) => [
       ...all,
       {
         appliesTo,
+        feature: appliesTo === 'feature' ? id : null,
         roleId: appliesTo === 'role' ? id : null,
         userId: appliesTo === 'user' ? id : null,
         name,
         perDay: '',
         perMonth: '',
-        today: null,
-        month: null,
+        today: appliesTo === 'everyone' ? data.total.today : (spend?.today ?? null),
+        month: appliesTo === 'everyone' ? data.total.month : (spend?.month ?? null),
+        estimate: appliesTo === 'everyone' ? data.total.estimate : (spend?.estimate ?? null),
       },
     ])
     setAdding('')
@@ -162,6 +245,7 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
   const save = () => {
     const limits = rows.map((r) => ({
       appliesTo: r.appliesTo,
+      feature: r.feature,
       roleId: r.roleId,
       userId: r.userId,
       perDay: amount(r.perDay),
@@ -178,7 +262,10 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
     setProblem(null)
 
     api
-      .setAiLimits(limits)
+      .setAiLimits(
+        limits,
+        tokenRows.map((t) => ({ feature: t.feature, monthlyTokens: t.monthlyTokens })),
+      )
       .then((next) => {
         setSaved(true)
         onSaved(next)
@@ -188,7 +275,16 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
   }
 
   const label = (r: LimitRow) =>
-    r.appliesTo === 'everyone' ? 'Everyone' : r.appliesTo === 'role' ? `Role · ${r.name ?? ''}` : `User · ${r.name ?? ''}`
+    r.appliesTo === 'everyone'
+      ? 'Everyone'
+      : r.appliesTo === 'feature'
+        ? featureLabel(r.feature)
+        : r.appliesTo === 'role'
+          ? `Role · ${r.name ?? ''}`
+          : `User · ${r.name ?? ''}`
+
+  const set = (i: number, patch: Partial<LimitRow>) =>
+    setRows((all) => all.map((x, j) => (j === i ? { ...x, ...patch } : x)))
 
   return (
     <SettingsCard
@@ -204,45 +300,67 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
         </>
       }
     >
-      {rows.length > 0 && (
+      {(rows.length > 0 || tokenRows.length > 0) && (
         <div className="overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
             <thead className="text-left text-muted-foreground">
               <tr>
-                <th className="py-1 pr-3 font-normal">Applies to</th>
-                <th className="py-1 pr-3 font-normal">Per day (USD)</th>
-                <th className="py-1 pr-3 font-normal">Per month (USD)</th>
-                <th className="py-1 pr-3 font-normal">Spent today</th>
-                <th className="py-1 pr-3 font-normal">Spent this month</th>
+                <th className={headClass}>Applies to</th>
+                <th className={headClass}>Per day (USD)</th>
+                <th className={headClass}>Per month (USD)</th>
+                <th className={headClass}>Spent today</th>
+                <th className={headClass}>Spent this month</th>
+                <th className={headClass}>Month-end estimate</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={rowKey(r)}>
-                  <td className="py-1 pr-3 whitespace-nowrap">{label(r)}</td>
-                  <td className="py-1 pr-3">
-                    <Money
-                      label={`${label(r)} per day`}
-                      value={r.perDay}
-                      onChange={(v) => setRows((all) => all.map((x, j) => (j === i ? { ...x, perDay: v } : x)))}
-                    />
+              {rows.map((r, i) => {
+                const perDay = amount(r.perDay)
+                const perMonth = amount(r.perMonth)
+                const eachMember = r.appliesTo === 'role'
+
+                return (
+                  <tr key={rowKey(r)}>
+                    <td className={cn(cellClass, 'whitespace-nowrap')}>{label(r)}</td>
+                    <td className={cellClass}>
+                      <Money label={`${label(r)} per day`} value={r.perDay} onChange={(v) => set(i, { perDay: v })} />
+                    </td>
+                    <td className={cellClass}>
+                      <Money label={`${label(r)} per month`} value={r.perMonth} onChange={(v) => set(i, { perMonth: v })} />
+                    </td>
+                    <td className={cellClass}>
+                      {eachMember ? 'Each member' : <Spent spent={r.today} of={r.today ? share(r.today.cost, perDay) : ''} />}
+                    </td>
+                    <td className={cellClass}>
+                      {eachMember ? 'Each member' : <Spent spent={r.month} of={r.month ? share(r.month.cost, perMonth) : ''} />}
+                    </td>
+                    <td className={cellClass}>
+                      {r.estimate ? <Spent spent={r.estimate} of={share(r.estimate.cost, perMonth)} /> : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="py-1 text-right align-top">
+                      <Button size="sm" variant="ghost" onClick={() => setRows((all) => all.filter((_, j) => j !== i))}>
+                        Remove
+                      </Button>
+                    </td>
+                  </tr>
+                )
+              })}
+              {tokenRows.map((t, i) => (
+                <tr key={`tokens:${t.feature}`}>
+                  <td className={cn(cellClass, 'whitespace-nowrap')}>{featureLabel(t.feature)} · tokens</td>
+                  <td className={cn(cellClass, 'text-muted-foreground')}>—</td>
+                  <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>{amountText(t.monthlyTokens, 'tokens')}</td>
+                  <td className={cn(cellClass, 'text-muted-foreground')}>—</td>
+                  <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>
+                    {t.month && `${tokensText(t.month)} · ${share(t.month.inputTokens + t.month.outputTokens, t.monthlyTokens)}`}
                   </td>
-                  <td className="py-1 pr-3">
-                    <Money
-                      label={`${label(r)} per month`}
-                      value={r.perMonth}
-                      onChange={(v) => setRows((all) => all.map((x, j) => (j === i ? { ...x, perMonth: v } : x)))}
-                    />
+                  <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>
+                    {t.estimate &&
+                      `${tokensText(t.estimate)} · ${share(t.estimate.inputTokens + t.estimate.outputTokens, t.monthlyTokens)}`}
                   </td>
-                  <td className="py-1 pr-3 whitespace-nowrap tabular-nums" title={tokensTitle(r.today)}>
-                    {r.appliesTo === 'role' ? 'Each member' : spentText(r.today)}
-                  </td>
-                  <td className="py-1 pr-3 whitespace-nowrap tabular-nums" title={tokensTitle(r.month)}>
-                    {r.appliesTo === 'role' ? 'Each member' : spentText(r.month)}
-                  </td>
-                  <td className="py-1 text-right">
-                    <Button size="sm" variant="ghost" onClick={() => setRows((all) => all.filter((_, j) => j !== i))}>
+                  <td className="py-1 text-right align-top">
+                    <Button size="sm" variant="ghost" onClick={() => setTokenRows((all) => all.filter((_, j) => j !== i))}>
                       Remove
                     </Button>
                   </td>
@@ -262,7 +380,16 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
         >
           <option value="">Add a limit for…</option>
           {!taken.has('everyone:') && <option value="everyone:">Everyone</option>}
-          <optgroup label="Roles">
+          <optgroup label="Features">
+            {data.features
+              .filter((f) => !taken.has(`feature:${f.id}`))
+              .map((f) => (
+                <option key={f.id} value={`feature:${f.id}`}>
+                  {f.label}
+                </option>
+              ))}
+          </optgroup>
+          <optgroup label="Chat · roles">
             {data.roles
               .filter((r) => !taken.has(`role:${r.id}`))
               .map((r) => (
@@ -271,7 +398,7 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
                 </option>
               ))}
           </optgroup>
-          <optgroup label="Users">
+          <optgroup label="Chat · users">
             {data.users
               .filter((u) => !taken.has(`user:${u.id}`))
               .map((u) => (
@@ -289,19 +416,60 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
   )
 }
 
-type PriceRow = { model: string; input: string; cached: string; output: string }
+function TopUsersCard({ data }: { data: AiLimits }) {
+  return (
+    <SettingsCard title="Top Chat users this month" span={12}>
+      {data.topChatUsers.length === 0 ? (
+        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          None.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+            <thead className="text-left text-muted-foreground">
+              <tr>
+                <th className={headClass}>User</th>
+                <th className={headClass}>Spent</th>
+                <th className={headClass}>Tokens</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.topChatUsers.map((u) => (
+                <tr key={u.userId}>
+                  <td className={cn(cellClass, 'whitespace-nowrap')}>{u.username ?? u.userId}</td>
+                  <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')} title={tokensTitle(u.month)}>
+                    {spentText(u.month)}
+                  </td>
+                  <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>
+                    {count(u.month.inputTokens + u.month.outputTokens)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SettingsCard>
+  )
+}
+
+type PriceRow = { model: string; input: string; cached: string; output: string; fetched: AiFetchedPrice | null }
+
+const text = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n))
 
 function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimits) => void }) {
   const [rows, setRows] = useState<PriceRow[]>(() =>
-    data.prices.map((p) => ({
-      model: p.model,
-      input: String(p.inputPerMillion),
-      cached: p.cachedInputPerMillion === null ? '' : String(p.cachedInputPerMillion),
-      output: String(p.outputPerMillion),
+    data.models.map((m) => ({
+      model: m.model,
+      input: text(m.entered?.inputPerMillion),
+      cached: text(m.entered?.cachedInputPerMillion),
+      output: text(m.entered?.outputPerMillion),
+      fetched: m.fetched,
     })),
   )
   const [adding, setAdding] = useState('')
   const [busy, setBusy] = useState(false)
+  const [fetching, setFetching] = useState(false)
   const [saved, setSaved] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const listId = useId()
@@ -312,16 +480,26 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
   const add = () => {
     const model = adding.trim()
     if (!model || rows.some((r) => r.model === model)) return
-    setRows((all) => [...all, { model, input: '', cached: '', output: '' }])
+    setRows((all) => [...all, { model, input: '', cached: '', output: '', fetched: null }])
     setAdding('')
   }
 
+  const entered = (r: PriceRow) => [r.input, r.cached, r.output].some((v) => v.trim() !== '')
+
   const save = () => {
-    const prices: AiPrice[] = rows.map((r) => ({
+    const priced = rows.filter(entered)
+
+    const missing = priced.find((r) => r.input.trim() === '' || r.output.trim() === '')
+    if (missing) {
+      setProblem(`Enter input and output prices for ${missing.model}.`)
+      return
+    }
+
+    const prices: AiPrice[] = priced.map((r) => ({
       model: r.model,
-      inputPerMillion: amount(r.input) ?? 0,
+      inputPerMillion: Number(r.input),
       cachedInputPerMillion: amount(r.cached),
-      outputPerMillion: amount(r.output) ?? 0,
+      outputPerMillion: Number(r.output),
     }))
 
     if (prices.some((p) => [p.inputPerMillion, p.cachedInputPerMillion, p.outputPerMillion].some((n) => Number.isNaN(n)))) {
@@ -343,6 +521,21 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
       .finally(() => setBusy(false))
   }
 
+  const fetchPrices = () => {
+    setFetching(true)
+    setSaved(false)
+    setProblem(null)
+
+    api
+      .fetchAiPrices()
+      .then(onSaved)
+      .catch((e: unknown) => setProblem(failure(e)))
+      .finally(() => setFetching(false))
+  }
+
+  const source = (r: PriceRow) =>
+    entered(r) ? 'Entered' : r.fetched ? `OpenRouter · ${ago(r.fetched.fetchedAt, data.now)}` : 'No price'
+
   return (
     <SettingsCard
       title="Prices per million tokens"
@@ -352,6 +545,12 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
           <Button size="sm" disabled={busy} onClick={save}>
             {busy ? 'Saving…' : 'Save'}
           </Button>
+          <Button size="sm" variant="outline" disabled={fetching} onClick={fetchPrices}>
+            {fetching ? 'Fetching…' : 'Fetch prices'}
+          </Button>
+          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {data.pricesFetchedAt ? `Fetched ${ago(data.pricesFetchedAt, data.now)}` : 'Not fetched'}
+          </span>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
           <Outcome tone="problem">{problem}</Outcome>
         </>
@@ -362,10 +561,11 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
             <thead className="text-left text-muted-foreground">
               <tr>
-                <th className="py-1 pr-3 font-normal">Model</th>
-                <th className="py-1 pr-3 font-normal">Input (USD)</th>
-                <th className="py-1 pr-3 font-normal">Cached input (USD)</th>
-                <th className="py-1 pr-3 font-normal">Output (USD)</th>
+                <th className={headClass}>Model</th>
+                <th className={headClass}>Input (USD)</th>
+                <th className={headClass}>Cached input (USD)</th>
+                <th className={headClass}>Output (USD)</th>
+                <th className={headClass}>Price from</th>
                 <th />
               </tr>
             </thead>
@@ -374,18 +574,43 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
                 <tr key={r.model}>
                   <td className="py-1 pr-3 font-mono whitespace-nowrap">{r.model}</td>
                   <td className="py-1 pr-3">
-                    <Money label={`${r.model} input`} value={r.input} onChange={(v) => set(i, { input: v })} />
+                    <Money
+                      label={`${r.model} input`}
+                      value={r.input}
+                      placeholder={text(r.fetched?.inputPerMillion)}
+                      onChange={(v) => set(i, { input: v })}
+                    />
                   </td>
                   <td className="py-1 pr-3">
-                    <Money label={`${r.model} cached input`} value={r.cached} onChange={(v) => set(i, { cached: v })} />
+                    <Money
+                      label={`${r.model} cached input`}
+                      value={r.cached}
+                      placeholder={text(r.fetched?.cachedInputPerMillion)}
+                      onChange={(v) => set(i, { cached: v })}
+                    />
                   </td>
                   <td className="py-1 pr-3">
-                    <Money label={`${r.model} output`} value={r.output} onChange={(v) => set(i, { output: v })} />
+                    <Money
+                      label={`${r.model} output`}
+                      value={r.output}
+                      placeholder={text(r.fetched?.outputPerMillion)}
+                      onChange={(v) => set(i, { output: v })}
+                    />
+                  </td>
+                  <td
+                    className={cn(
+                      'py-1 pr-3 whitespace-nowrap',
+                      !entered(r) && !r.fetched ? 'text-warn' : 'text-muted-foreground',
+                    )}
+                  >
+                    {source(r)}
                   </td>
                   <td className="py-1 text-right">
-                    <Button size="sm" variant="ghost" onClick={() => setRows((all) => all.filter((_, j) => j !== i))}>
-                      Remove
-                    </Button>
+                    {entered(r) && (
+                      <Button size="sm" variant="ghost" onClick={() => set(i, { input: '', cached: '', output: '' })}>
+                        Clear
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -424,7 +649,17 @@ const selectClass = cn(
   'h-9 rounded-md border bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]',
 )
 
-function Money({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Money({
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string
+  value: string
+  placeholder?: string
+  onChange: (v: string) => void
+}) {
   return (
     <Input
       aria-label={label}
@@ -433,6 +668,7 @@ function Money({ label, value, onChange }: { label: string; value: string; onCha
       min={0}
       step="any"
       value={value}
+      placeholder={placeholder}
       className="w-28"
       onChange={(e) => onChange(e.target.value)}
     />

@@ -77,7 +77,12 @@ public abstract class InsightTestBase : IAsyncLifetime
         => new(new DbContextOptionsBuilder<ModbotContext>().UseNpgsql(_connectionString).Options);
 
     protected InsightWriter NewWriter(ModbotContext context)
-        => new(context, NewClients(context), new AiUsageLedger(context, Clock), Clock, new InsightFigureReader(context));
+        => new(context, NewClients(context), NewUsage(context), Clock, new InsightFigureReader(context));
+
+    protected AiSpendLimits NewLimits(ModbotContext context)
+        => new(context, Clock, new AiLimitNotices(context, new FactWriter(context, Clock), new EventPartitionMaintainer(context, Clock), Clock, new NoAiSpendAlerts()));
+
+    protected AiUsageLedger NewUsage(ModbotContext context) => new(context, Clock, NewLimits(context));
 
     protected InsightScheduler NewScheduler(ModbotContext context)
         => new(context, NewWriter(context), Clock);
@@ -131,11 +136,12 @@ public abstract class InsightTestBase : IAsyncLifetime
 
     protected static DateOnly Day(int month, int day) => new(2029, month, day);
 
-    /// <summary>A monthly token limit for insights, already used up this month.</summary>
+    /// <summary>A monthly spend limit for insights of $1, already used up this month.</summary>
     protected async Task UseUpTheLimitAsync()
     {
         await using var context = NewContext();
-        context.AiFeatureLimits.Add(new AiFeatureLimit { Feature = AiFeatures.Insights, MonthlyTokenLimit = 1000 });
+        context.AiModelPrices.Add(new AiModelPrice { Model = BaseModel, InputPerMillion = 1000m, OutputPerMillion = 1000m, UpdatedAt = Clock.UtcNow });
+        context.AiSpendLimits.Add(new AiSpendLimit { AppliesTo = AiSpendLimit.ForFeature, Feature = AiFeatures.Insights, PerMonth = 1m, UpdatedAt = Clock.UtcNow });
         context.AiUsage.Add(new AiUsage
         {
             At = Clock.UtcNow,

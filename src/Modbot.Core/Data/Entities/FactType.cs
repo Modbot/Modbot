@@ -437,6 +437,13 @@ public static class FactType
     public const string PartitionCreated = "modbot.partition.created";
 
     /// <summary>
+    /// An AI spend limit was reached (AI chat design §10.7). Recorded once per limit per UTC day or
+    /// month, the first time a call is stopped by it. Subject is the limit. Payload: which limit, the
+    /// period, the amount and what had been spent.
+    /// </summary>
+    public const string AiLimitReached = "modbot.ai.limit.reached";
+
+    /// <summary>
     /// Every fact about one subject was erased on request (spec 5.5). It deliberately names no
     /// user.
     /// </summary>

@@ -88,6 +88,7 @@ public static class FactSubjects
         [FactType.MigrationApplied] = SubjectKind.Other,
         [FactType.RetentionPruned] = SubjectKind.Other,
         [FactType.PartitionCreated] = SubjectKind.Other,
+        [FactType.AiLimitReached] = SubjectKind.Other,
         [FactType.UserPurged] = SubjectKind.Other,
         [FactType.DiscordLogPosted] = SubjectKind.Other,
         [FactType.DiscordMembersSnapshot] = SubjectKind.Other,

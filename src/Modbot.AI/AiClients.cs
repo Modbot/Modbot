@@ -78,10 +78,10 @@ public sealed class AiClients : IAiClients
 
         try
         {
-            ChatCompletion completion = await chat.CompleteChatAsync(
-                [new UserChatMessage(TestPrompt)],
-                new ChatCompletionOptions { MaxOutputTokenCount = TestMaxOutputTokens },
-                ct);
+            var options = new ChatCompletionOptions { MaxOutputTokenCount = TestMaxOutputTokens };
+            Usage.AiReportedCost.AskFor(options, connection.Provider);
+
+            ChatCompletion completion = await chat.CompleteChatAsync([new UserChatMessage(TestPrompt)], options, ct);
 
             var reply = string.Concat(completion.Content
                 .Where(p => p.Kind == ChatMessageContentPartKind.Text)
@@ -91,7 +91,7 @@ public sealed class AiClients : IAiClients
 
             return new AiTestResult(true, reply.Length == 0
                 ? $"{model} answered."
-                : $"{model} answered: {Shorten(reply)}");
+                : $"{model} answered: {Shorten(reply)}", completion.Usage);
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
         {
