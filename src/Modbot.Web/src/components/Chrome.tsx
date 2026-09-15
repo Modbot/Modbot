@@ -4,6 +4,7 @@ import type { CurrentUser } from '@/lib/api'
 import { NAV, mayOpen, type NavItem, type PageId } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 import type { Density, Theme } from '@/lib/preferences'
+import { followLink } from '@/lib/router'
 import { Headset, LogOut, Moon, Rows3, Rows2, Sun, UserRound } from 'lucide-react'
 
 export function Sidebar({
@@ -140,6 +141,20 @@ export function Topbar({
         </Button>
       )}
     </header>
+  )
+}
+
+/** The foot of every page inside the app shell. */
+export function Footer() {
+  return (
+    <footer
+      className="mt-auto flex justify-end border-t px-5 py-2 text-muted-foreground"
+      style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+    >
+      <a href="/credits" onClick={followLink('/credits')} className="hover:text-foreground hover:underline">
+        Credits
+      </a>
+    </footer>
   )
 }
 

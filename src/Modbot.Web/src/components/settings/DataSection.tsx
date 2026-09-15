@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type DataSettings } from '@/lib/api'
+import { followLink } from '@/lib/router'
 import { Fact, Field, Hint, Outcome, Placeholder, Row } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { StorageChart } from './StorageChart'
@@ -137,7 +138,16 @@ function StorageCard({
 
 function DeploymentCard({ deployment }: { deployment: DataSettings['deployment'] }) {
   return (
-    <SettingsCard title="Deployment">
+    <SettingsCard
+      title="Deployment"
+      footer={
+        <Button asChild size="sm" variant="outline">
+          <a href="/credits" onClick={followLink('/credits')}>
+            Credits
+          </a>
+        </Button>
+      }
+    >
       <div>
         <Row label="Version" value={deployment.version} />
         <Row

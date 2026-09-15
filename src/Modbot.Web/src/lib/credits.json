@@ -1,0 +1,2351 @@
+{
+  "modbot": {
+    "name": "Modbot",
+    "licence": "AGPL-3.0",
+    "url": "https://github.com/binn/Modbot"
+  },
+  "services": [
+    {
+      "name": "VRChat API",
+      "url": "https://vrchat.com",
+      "licence": null,
+      "note": "Modbot is not affiliated with or endorsed by VRChat Inc."
+    },
+    {
+      "name": "VRChat API Community specification",
+      "url": "https://github.com/vrchatapi/specification",
+      "licence": "MIT",
+      "note": null
+    },
+    {
+      "name": "VRChat API Community C# library",
+      "url": "https://github.com/vrchatapi/vrchatapi-csharp",
+      "licence": "MIT",
+      "note": null
+    },
+    {
+      "name": "Discord",
+      "url": "https://discord.com",
+      "licence": null,
+      "note": null
+    },
+    {
+      "name": "Discord.Net",
+      "url": "https://github.com/Discord-Net/Discord.Net",
+      "licence": "MIT",
+      "note": null
+    },
+    {
+      "name": "PostgreSQL",
+      "url": "https://www.postgresql.org",
+      "licence": "PostgreSQL",
+      "note": null
+    },
+    {
+      "name": ".NET",
+      "url": "https://github.com/dotnet/runtime",
+      "licence": "MIT",
+      "note": null
+    },
+    {
+      "name": "ASP.NET Core",
+      "url": "https://github.com/dotnet/aspnetcore",
+      "licence": "MIT",
+      "note": null
+    },
+    {
+      "name": "OpenVR",
+      "url": "https://github.com/ValveSoftware/openvr",
+      "licence": "BSD-3-Clause",
+      "note": "SteamVR and OpenVR are trademarks of Valve Corporation. Modbot is not affiliated with or endorsed by Valve."
+    },
+    {
+      "name": "shadcn/ui",
+      "url": "https://github.com/shadcn-ui/ui",
+      "licence": "MIT",
+      "note": null
+    },
+    {
+      "name": "Lucide icons",
+      "url": "https://lucide.dev",
+      "licence": "ISC",
+      "note": null
+    },
+    {
+      "name": "IBM Plex fonts",
+      "url": "https://github.com/IBM/plex",
+      "licence": "OFL-1.1",
+      "note": null
+    },
+    {
+      "name": "Google Fonts",
+      "url": "https://fonts.google.com",
+      "licence": null,
+      "note": null
+    },
+    {
+      "name": "Inter font",
+      "url": "https://github.com/rsms/inter",
+      "licence": "OFL-1.1",
+      "note": null
+    }
+  ],
+  "nuget": [
+    {
+      "name": "Avalonia",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.Angle.Windows.Natives",
+      "version": "2.1.25547.20250602",
+      "licence": "BSD-3-Clause",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/angle",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.BuildServices",
+      "version": "11.3.2",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia.BuildServices",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.Desktop",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.Fonts.Inter",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.FreeDesktop",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.Headless",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.Native",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.Remote.Protocol",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.Skia",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.Themes.Fluent",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.Win32",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Avalonia.X11",
+      "version": "11.3.22",
+      "licence": "MIT",
+      "url": "https://avaloniaui.net",
+      "source": "https://github.com/AvaloniaUI/Avalonia",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "AWSSDK.Core",
+      "version": "4.0.3.6",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/aws/aws-sdk-net",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "AWSSDK.S3",
+      "version": "4.0.16",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/aws/aws-sdk-net",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Discord.Net.Core",
+      "version": "3.20.1",
+      "licence": "MIT",
+      "url": "https://github.com/Discord-Net/Discord.Net",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Discord.Net.Dave",
+      "version": "3.20.1",
+      "licence": "MIT",
+      "url": "https://github.com/Discord-Net/Discord.Net",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Discord.Net.Rest",
+      "version": "3.20.1",
+      "licence": "MIT",
+      "url": "https://github.com/Discord-Net/Discord.Net",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Discord.Net.WebSocket",
+      "version": "3.20.1",
+      "licence": "MIT",
+      "url": "https://github.com/Discord-Net/Discord.Net",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "EFCore.NamingConventions",
+      "version": "10.0.1",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/efcore/EFCore.NamingConventions",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "HarfBuzzSharp",
+      "version": "8.3.1.1",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?linkid=868515",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "HarfBuzzSharp.NativeAssets.Linux",
+      "version": "8.3.1.1",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?linkid=868515",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "HarfBuzzSharp.NativeAssets.macOS",
+      "version": "8.3.1.1",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?linkid=868515",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "HarfBuzzSharp.NativeAssets.WebAssembly",
+      "version": "8.3.1.1",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?linkid=868515",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "HarfBuzzSharp.NativeAssets.Win32",
+      "version": "8.3.1.1",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?linkid=868515",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Humanizer.Core",
+      "version": "2.14.1",
+      "licence": "MIT",
+      "url": "https://github.com/Humanizr/Humanizer",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "JsonSubTypes",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/manuc66/JsonSubTypes",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "MicroCom.Runtime",
+      "version": "0.11.0",
+      "licence": "MIT",
+      "url": "https://github.com/kekekeks/MicroCom",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Microsoft.AspNetCore.Cryptography.Internal",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://asp.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.AspNetCore.Cryptography.KeyDerivation",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://asp.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.AspNetCore.DataProtection",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://asp.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.AspNetCore.DataProtection.Abstractions",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://asp.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.AspNetCore.DataProtection.EntityFrameworkCore",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://asp.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.AspNetCore.OpenApi",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://asp.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Build.Framework",
+      "version": "18.0.2",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?LinkId=624683",
+      "source": "https://github.com/dotnet/msbuild",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.CodeAnalysis.Analyzers",
+      "version": "3.11.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/roslyn-analyzers",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.CodeAnalysis.Common",
+      "version": "5.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/roslyn",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.CodeAnalysis.CSharp",
+      "version": "5.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/roslyn",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.CodeAnalysis.CSharp.Workspaces",
+      "version": "5.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/roslyn",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.CodeAnalysis.Workspaces.Common",
+      "version": "5.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/roslyn",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.CodeAnalysis.Workspaces.MSBuild",
+      "version": "5.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/dotnet/roslyn",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.EntityFrameworkCore",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://docs.microsoft.com/ef/core",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.EntityFrameworkCore.Abstractions",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://docs.microsoft.com/ef/core",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.EntityFrameworkCore.Analyzers",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://docs.microsoft.com/ef/core",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.EntityFrameworkCore.Design",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://docs.microsoft.com/ef/core",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.EntityFrameworkCore.Relational",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://docs.microsoft.com/ef/core",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Caching.Abstractions",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Caching.Memory",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Configuration",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Configuration.Abstractions",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Configuration.Binder",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.DependencyInjection",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.DependencyInjection.Abstractions",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.DependencyModel",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Diagnostics",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Diagnostics.Abstractions",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.FileProviders.Abstractions",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Hosting.Abstractions",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Http",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Identity.Core",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://asp.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Logging",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Logging.Abstractions",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Options",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Options.ConfigurationExtensions",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.Extensions.Primitives",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.OpenApi",
+      "version": "2.12.0",
+      "licence": "MIT",
+      "url": "https://github.com/Microsoft/OpenAPI.NET",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Microsoft.VisualStudio.SolutionPersistence",
+      "version": "1.0.52",
+      "licence": "MIT",
+      "url": "https://github.com/microsoft/vs-solutionpersistence",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Mono.TextTemplating",
+      "version": "3.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/mono/t4",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Newtonsoft.Json",
+      "version": "13.0.3, 13.0.4",
+      "licence": "MIT",
+      "url": "https://www.newtonsoft.com/json",
+      "source": "https://github.com/JamesNK/Newtonsoft.Json",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Npgsql",
+      "version": "10.0.3",
+      "licence": "PostgreSQL",
+      "url": "https://github.com/npgsql/npgsql",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Npgsql.EntityFrameworkCore.PostgreSQL",
+      "version": "10.0.3",
+      "licence": "PostgreSQL",
+      "url": "https://github.com/npgsql/efcore.pg",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Otp.NET",
+      "version": "1.4.0",
+      "licence": "MIT",
+      "url": "https://github.com/kspearrin/Otp.NET",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Polly",
+      "version": "8.1.0",
+      "licence": "BSD-3-Clause",
+      "url": "https://github.com/App-vNext/Polly",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Polly.Core",
+      "version": "8.1.0",
+      "licence": "BSD-3-Clause",
+      "url": "https://github.com/App-vNext/Polly",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Scalar.AspNetCore",
+      "version": "2.17.3",
+      "licence": "MIT",
+      "url": "https://scalar.com",
+      "source": "https://github.com/scalar/scalar",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Serilog",
+      "version": "4.4.0",
+      "licence": "Apache-2.0",
+      "url": "https://serilog.net",
+      "source": "https://github.com/serilog/serilog",
+      "direct": true,
+      "usedBy": [
+        "Desktop",
+        "Server"
+      ]
+    },
+    {
+      "name": "Serilog.Expressions",
+      "version": "5.0.0",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/serilog/serilog-expressions",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Serilog.Extensions.Hosting",
+      "version": "10.0.0",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/serilog/serilog-extensions-hosting",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Serilog.Extensions.Logging",
+      "version": "10.0.0",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/serilog/serilog-extensions-logging",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Serilog.Formatting.Compact",
+      "version": "3.0.0",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/serilog/serilog-formatting-compact",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Serilog.Sinks.Console",
+      "version": "6.1.1",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/serilog/serilog-sinks-console",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop",
+        "Server"
+      ]
+    },
+    {
+      "name": "Serilog.Sinks.File",
+      "version": "7.0.0",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/serilog/serilog-sinks-file",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop",
+        "Server"
+      ]
+    },
+    {
+      "name": "Serilog.Sinks.Seq",
+      "version": "9.1.0",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/serilog/serilog-sinks-seq",
+      "source": "https://github.com/datalust/serilog-sinks-seq",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "SharpGen.Runtime",
+      "version": "2.4.2-beta",
+      "licence": "MIT",
+      "url": "https://github.com/SharpGenTools/SharpGenTools",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "SharpGen.Runtime.COM",
+      "version": "2.4.2-beta",
+      "licence": "MIT",
+      "url": "https://github.com/SharpGenTools/SharpGenTools",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "SkiaSharp",
+      "version": "2.88.9",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?linkid=868515",
+      "source": "https://github.com/mono/SkiaSharp",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "SkiaSharp.NativeAssets.Linux",
+      "version": "2.88.9",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?linkid=868515",
+      "source": "https://github.com/mono/SkiaSharp",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "SkiaSharp.NativeAssets.macOS",
+      "version": "2.88.9",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?linkid=868515",
+      "source": "https://github.com/mono/SkiaSharp",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "SkiaSharp.NativeAssets.WebAssembly",
+      "version": "2.88.9",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?linkid=868515",
+      "source": "https://github.com/mono/SkiaSharp",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "SkiaSharp.NativeAssets.Win32",
+      "version": "2.88.9",
+      "licence": "MIT",
+      "url": "https://go.microsoft.com/fwlink/?linkid=868515",
+      "source": "https://github.com/mono/SkiaSharp",
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "System.CodeDom",
+      "version": "6.0.0",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/runtime",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "System.Composition",
+      "version": "9.0.0",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/runtime",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "System.Composition.AttributedModel",
+      "version": "9.0.0",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/runtime",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "System.Composition.Convention",
+      "version": "9.0.0",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/runtime",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "System.Composition.Hosting",
+      "version": "9.0.0",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/runtime",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "System.Composition.Runtime",
+      "version": "9.0.0",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/runtime",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "System.Composition.TypedParts",
+      "version": "9.0.0",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/runtime",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "System.Security.Cryptography.Pkcs",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "System.Security.Cryptography.ProtectedData",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "System.Security.Cryptography.Xml",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "Tmds.DBus.Protocol",
+      "version": "0.21.3",
+      "licence": "MIT",
+      "url": "https://github.com/tmds/Tmds.DBus",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Velopack",
+      "version": "1.2.0",
+      "licence": "MIT",
+      "url": "https://github.com/velopack/velopack",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Vortice.Direct3D11",
+      "version": "3.8.3",
+      "licence": "MIT",
+      "url": "https://github.com/amerkoleci/Vortice.Windows",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Vortice.DirectX",
+      "version": "3.8.3",
+      "licence": "MIT",
+      "url": "https://github.com/amerkoleci/Vortice.Windows",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Vortice.DXGI",
+      "version": "3.8.3",
+      "licence": "MIT",
+      "url": "https://github.com/amerkoleci/Vortice.Windows",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "Vortice.Mathematics",
+      "version": "2.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/amerkoleci/Vortice.Mathematics",
+      "source": null,
+      "direct": false,
+      "usedBy": [
+        "Desktop"
+      ]
+    },
+    {
+      "name": "VRChat.API",
+      "version": "2.20.9",
+      "licence": "MIT",
+      "url": "https://github.com/vrchatapi/vrchatapi-csharp",
+      "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    }
+  ],
+  "npm": [
+    {
+      "name": "@radix-ui/primitive",
+      "version": "1.1.7",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-compose-refs",
+      "version": "1.1.5",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-context",
+      "version": "1.2.2",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-dialog",
+      "version": "1.1.23",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-dismissable-layer",
+      "version": "1.1.19",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-focus-guards",
+      "version": "1.1.6",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-focus-scope",
+      "version": "1.1.16",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-id",
+      "version": "1.1.4",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-portal",
+      "version": "1.1.17",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-presence",
+      "version": "1.1.10",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-primitive",
+      "version": "2.1.10",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-slot",
+      "version": "1.3.3",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-use-callback-ref",
+      "version": "1.1.4",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-use-controllable-state",
+      "version": "1.2.6",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-use-effect-event",
+      "version": "0.0.5",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-use-layout-effect",
+      "version": "1.1.4",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@reduxjs/toolkit",
+      "version": "2.12.0",
+      "licence": "MIT",
+      "url": "https://redux-toolkit.js.org",
+      "source": "https://github.com/reduxjs/redux-toolkit",
+      "direct": false
+    },
+    {
+      "name": "@ungap/structured-clone",
+      "version": "1.4.0",
+      "licence": "ISC",
+      "url": "https://github.com/ungap/structured-clone",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "aria-hidden",
+      "version": "1.2.6",
+      "licence": "MIT",
+      "url": "https://github.com/theKashey/aria-hidden",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "bail",
+      "version": "2.0.2",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/bail",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "ccount",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/ccount",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "class-variance-authority",
+      "version": "0.7.1",
+      "licence": "Apache-2.0",
+      "url": "https://github.com/joe-bell/cva",
+      "source": null,
+      "direct": true
+    },
+    {
+      "name": "clsx",
+      "version": "2.1.1",
+      "licence": "MIT",
+      "url": "https://github.com/lukeed/clsx",
+      "source": null,
+      "direct": true
+    },
+    {
+      "name": "comma-separated-tokens",
+      "version": "2.0.3",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/comma-separated-tokens",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "d3-array",
+      "version": "3.2.4",
+      "licence": "ISC",
+      "url": "https://d3js.org/d3-array",
+      "source": "https://github.com/d3/d3-array",
+      "direct": false
+    },
+    {
+      "name": "d3-color",
+      "version": "3.1.0",
+      "licence": "ISC",
+      "url": "https://d3js.org/d3-color",
+      "source": "https://github.com/d3/d3-color",
+      "direct": false
+    },
+    {
+      "name": "d3-format",
+      "version": "3.1.2",
+      "licence": "ISC",
+      "url": "https://d3js.org/d3-format",
+      "source": "https://github.com/d3/d3-format",
+      "direct": false
+    },
+    {
+      "name": "d3-interpolate",
+      "version": "3.0.1",
+      "licence": "ISC",
+      "url": "https://d3js.org/d3-interpolate",
+      "source": "https://github.com/d3/d3-interpolate",
+      "direct": false
+    },
+    {
+      "name": "d3-path",
+      "version": "3.1.0",
+      "licence": "ISC",
+      "url": "https://d3js.org/d3-path",
+      "source": "https://github.com/d3/d3-path",
+      "direct": false
+    },
+    {
+      "name": "d3-scale",
+      "version": "4.0.2",
+      "licence": "ISC",
+      "url": "https://d3js.org/d3-scale",
+      "source": "https://github.com/d3/d3-scale",
+      "direct": false
+    },
+    {
+      "name": "d3-shape",
+      "version": "3.2.0",
+      "licence": "ISC",
+      "url": "https://d3js.org/d3-shape",
+      "source": "https://github.com/d3/d3-shape",
+      "direct": false
+    },
+    {
+      "name": "d3-time",
+      "version": "3.1.0",
+      "licence": "ISC",
+      "url": "https://d3js.org/d3-time",
+      "source": "https://github.com/d3/d3-time",
+      "direct": false
+    },
+    {
+      "name": "d3-time-format",
+      "version": "4.1.0",
+      "licence": "ISC",
+      "url": "https://d3js.org/d3-time-format",
+      "source": "https://github.com/d3/d3-time-format",
+      "direct": false
+    },
+    {
+      "name": "decimal.js-light",
+      "version": "2.5.1",
+      "licence": "MIT",
+      "url": "https://github.com/MikeMcl/decimal.js-light",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "decode-named-character-reference",
+      "version": "1.3.0",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/decode-named-character-reference",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "devlop",
+      "version": "1.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/devlop",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "es-toolkit",
+      "version": "1.52.0",
+      "licence": "MIT",
+      "url": "https://es-toolkit.dev",
+      "source": "https://github.com/toss/es-toolkit",
+      "direct": false
+    },
+    {
+      "name": "escape-string-regexp",
+      "version": "5.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/sindresorhus/escape-string-regexp",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "estree-util-is-identifier-name",
+      "version": "3.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/estree-util-is-identifier-name",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "eventemitter3",
+      "version": "5.0.4",
+      "licence": "MIT",
+      "url": "https://github.com/primus/eventemitter3",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "extend",
+      "version": "3.0.2",
+      "licence": "MIT",
+      "url": "https://github.com/justmoon/node-extend",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "get-nonce",
+      "version": "1.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/theKashey/get-nonce",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "hast-util-to-jsx-runtime",
+      "version": "2.3.6",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/hast-util-to-jsx-runtime",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "hast-util-whitespace",
+      "version": "3.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/hast-util-whitespace",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "html-url-attributes",
+      "version": "3.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/rehypejs/rehype-minify/tree/main/packages/html-url-attributes",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "immer",
+      "version": "11.1.18",
+      "licence": "MIT",
+      "url": "https://github.com/immerjs/immer",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "inline-style-parser",
+      "version": "0.2.7",
+      "licence": "MIT",
+      "url": "https://github.com/remarkablemark/inline-style-parser",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "internmap",
+      "version": "2.0.3",
+      "licence": "ISC",
+      "url": "https://github.com/mbostock/internmap",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "is-plain-obj",
+      "version": "4.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/sindresorhus/is-plain-obj",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "longest-streak",
+      "version": "3.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/longest-streak",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "lucide-react",
+      "version": "1.45.0",
+      "licence": "ISC",
+      "url": "https://lucide.dev",
+      "source": "https://github.com/lucide-icons/lucide",
+      "direct": true
+    },
+    {
+      "name": "markdown-table",
+      "version": "3.0.4",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/markdown-table",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-find-and-replace",
+      "version": "3.0.2",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-find-and-replace",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-from-markdown",
+      "version": "2.0.3",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-from-markdown",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-gfm",
+      "version": "3.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-gfm",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-gfm-autolink-literal",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-gfm-autolink-literal",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-gfm-footnote",
+      "version": "2.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-gfm-footnote",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-gfm-strikethrough",
+      "version": "2.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-gfm-strikethrough",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-gfm-table",
+      "version": "2.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-gfm-table",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-gfm-task-list-item",
+      "version": "2.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-gfm-task-list-item",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-phrasing",
+      "version": "4.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-phrasing",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-to-hast",
+      "version": "13.2.1",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-to-hast",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-to-markdown",
+      "version": "2.1.2",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-to-markdown",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "mdast-util-to-string",
+      "version": "4.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/mdast-util-to-string",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark",
+      "version": "4.0.2",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-core-commonmark",
+      "version": "2.0.3",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-core-commonmark",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-extension-gfm",
+      "version": "3.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark-extension-gfm",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-extension-gfm-autolink-literal",
+      "version": "2.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark-extension-gfm-autolink-literal",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-extension-gfm-footnote",
+      "version": "2.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark-extension-gfm-footnote",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-extension-gfm-strikethrough",
+      "version": "2.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark-extension-gfm-strikethrough",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-extension-gfm-table",
+      "version": "2.1.2",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark-extension-gfm-table",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-extension-gfm-task-list-item",
+      "version": "2.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark-extension-gfm-task-list-item",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-factory-destination",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-factory-destination",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-factory-label",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-factory-label",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-factory-space",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-factory-space",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-factory-title",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-factory-title",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-factory-whitespace",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-factory-whitespace",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-character",
+      "version": "2.1.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-character",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-chunked",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-chunked",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-classify-character",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-classify-character",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-combine-extensions",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-combine-extensions",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-decode-numeric-character-reference",
+      "version": "2.0.2",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-decode-numeric-character-reference",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-decode-string",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-decode-string",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-html-tag-name",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-html-tag-name",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-normalize-identifier",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-normalize-identifier",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-resolve-all",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-resolve-all",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-sanitize-uri",
+      "version": "2.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-sanitize-uri",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "micromark-util-subtokenize",
+      "version": "2.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-subtokenize",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "property-information",
+      "version": "7.2.0",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/property-information",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "radix-ui",
+      "version": "1.6.7",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": true
+    },
+    {
+      "name": "react",
+      "version": "19.3.0",
+      "licence": "MIT",
+      "url": "https://react.dev",
+      "source": "https://github.com/react/react",
+      "direct": true
+    },
+    {
+      "name": "react-dom",
+      "version": "19.3.0",
+      "licence": "MIT",
+      "url": "https://react.dev",
+      "source": "https://github.com/react/react",
+      "direct": true
+    },
+    {
+      "name": "react-is",
+      "version": "19.3.0",
+      "licence": "MIT",
+      "url": "https://react.dev",
+      "source": "https://github.com/react/react",
+      "direct": false
+    },
+    {
+      "name": "react-markdown",
+      "version": "10.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/remarkjs/react-markdown",
+      "source": null,
+      "direct": true
+    },
+    {
+      "name": "react-redux",
+      "version": "9.3.0",
+      "licence": "MIT",
+      "url": "https://github.com/reduxjs/react-redux",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "react-remove-scroll",
+      "version": "2.7.2",
+      "licence": "MIT",
+      "url": "https://github.com/theKashey/react-remove-scroll",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "react-remove-scroll-bar",
+      "version": "2.3.8",
+      "licence": "MIT",
+      "url": "https://github.com/theKashey/react-remove-scroll-bar",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "react-style-singleton",
+      "version": "2.2.3",
+      "licence": "MIT",
+      "url": "https://github.com/theKashey/react-style-singleton",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "recharts",
+      "version": "3.10.1",
+      "licence": "MIT",
+      "url": "https://github.com/recharts/recharts",
+      "source": null,
+      "direct": true
+    },
+    {
+      "name": "redux",
+      "version": "5.0.1",
+      "licence": "MIT",
+      "url": "https://redux.js.org",
+      "source": "https://github.com/reduxjs/redux",
+      "direct": false
+    },
+    {
+      "name": "redux-thunk",
+      "version": "3.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/reduxjs/redux-thunk",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "remark-gfm",
+      "version": "4.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/remarkjs/remark-gfm",
+      "source": null,
+      "direct": true
+    },
+    {
+      "name": "remark-parse",
+      "version": "11.0.0",
+      "licence": "MIT",
+      "url": "https://remark.js.org",
+      "source": "https://github.com/remarkjs/remark/tree/main/packages/remark-parse",
+      "direct": false
+    },
+    {
+      "name": "remark-rehype",
+      "version": "11.1.2",
+      "licence": "MIT",
+      "url": "https://github.com/remarkjs/remark-rehype",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "reselect",
+      "version": "5.2.0",
+      "licence": "MIT",
+      "url": "https://github.com/reduxjs/reselect",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "scheduler",
+      "version": "0.28.0",
+      "licence": "MIT",
+      "url": "https://react.dev",
+      "source": "https://github.com/react/react",
+      "direct": false
+    },
+    {
+      "name": "space-separated-tokens",
+      "version": "2.0.2",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/space-separated-tokens",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "style-to-js",
+      "version": "1.1.21",
+      "licence": "MIT",
+      "url": "https://github.com/remarkablemark/style-to-js",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "style-to-object",
+      "version": "1.0.14",
+      "licence": "MIT",
+      "url": "https://github.com/remarkablemark/style-to-object",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "tailwind-merge",
+      "version": "3.7.0",
+      "licence": "MIT",
+      "url": "https://github.com/dcastil/tailwind-merge",
+      "source": null,
+      "direct": true
+    },
+    {
+      "name": "tailwindcss",
+      "version": "4.3.3",
+      "licence": "MIT",
+      "url": "https://tailwindcss.com",
+      "source": "https://github.com/tailwindlabs/tailwindcss",
+      "direct": true
+    },
+    {
+      "name": "tiny-invariant",
+      "version": "1.3.3",
+      "licence": "MIT",
+      "url": "https://github.com/alexreardon/tiny-invariant",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "trim-lines",
+      "version": "3.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/trim-lines",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "trough",
+      "version": "2.2.0",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/trough",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "tslib",
+      "version": "2.8.1",
+      "licence": "0BSD",
+      "url": "https://www.typescriptlang.org",
+      "source": "https://github.com/Microsoft/tslib",
+      "direct": false
+    },
+    {
+      "name": "unified",
+      "version": "11.0.5",
+      "licence": "MIT",
+      "url": "https://unifiedjs.com",
+      "source": "https://github.com/unifiedjs/unified",
+      "direct": false
+    },
+    {
+      "name": "unist-util-is",
+      "version": "6.0.1",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/unist-util-is",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "unist-util-position",
+      "version": "5.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/unist-util-position",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "unist-util-stringify-position",
+      "version": "4.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/unist-util-stringify-position",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "unist-util-visit",
+      "version": "5.1.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/unist-util-visit",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "unist-util-visit-parents",
+      "version": "6.0.2",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/unist-util-visit-parents",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "use-callback-ref",
+      "version": "1.3.3",
+      "licence": "MIT",
+      "url": "https://github.com/theKashey/use-callback-ref",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "use-sidecar",
+      "version": "1.1.3",
+      "licence": "MIT",
+      "url": "https://github.com/theKashey/use-sidecar",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "use-sync-external-store",
+      "version": "1.7.0",
+      "licence": "MIT",
+      "url": "https://github.com/react/react",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "vfile",
+      "version": "6.0.3",
+      "licence": "MIT",
+      "url": "https://github.com/vfile/vfile",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "vfile-message",
+      "version": "4.0.3",
+      "licence": "MIT",
+      "url": "https://github.com/vfile/vfile-message",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "victory-vendor",
+      "version": "37.3.6",
+      "licence": "MIT AND ISC",
+      "url": "https://commerce.nearform.com/open-source/victory",
+      "source": "https://github.com/FormidableLabs/victory",
+      "direct": false
+    }
+  ],
+  "buildTools": [
+    {
+      "name": "@tailwindcss/vite",
+      "version": "4.3.3",
+      "licence": "MIT",
+      "url": "https://tailwindcss.com",
+      "source": "https://github.com/tailwindlabs/tailwindcss"
+    },
+    {
+      "name": "@types/node",
+      "version": "24.13.4",
+      "licence": "MIT",
+      "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node",
+      "source": "https://github.com/DefinitelyTyped/DefinitelyTyped"
+    },
+    {
+      "name": "@types/react",
+      "version": "19.3.0",
+      "licence": "MIT",
+      "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react",
+      "source": "https://github.com/DefinitelyTyped/DefinitelyTyped"
+    },
+    {
+      "name": "@types/react-dom",
+      "version": "19.3.0",
+      "licence": "MIT",
+      "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom",
+      "source": "https://github.com/DefinitelyTyped/DefinitelyTyped"
+    },
+    {
+      "name": "@vitejs/plugin-react",
+      "version": "6.1.1",
+      "licence": "MIT",
+      "url": "https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react",
+      "source": "https://github.com/vitejs/vite-plugin-react"
+    },
+    {
+      "name": "oxlint",
+      "version": "1.82.0",
+      "licence": "MIT",
+      "url": "https://oxc.rs/docs/guide/usage/linter",
+      "source": "https://github.com/oxc-project/oxc"
+    },
+    {
+      "name": "typescript",
+      "version": "6.0.3",
+      "licence": "Apache-2.0",
+      "url": "https://www.typescriptlang.org",
+      "source": "https://github.com/microsoft/TypeScript"
+    },
+    {
+      "name": "vite",
+      "version": "8.3.0",
+      "licence": "MIT",
+      "url": "https://vite.dev",
+      "source": "https://github.com/vitejs/vite"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 
 /**
  * The whole router.
@@ -105,4 +105,16 @@ export function useQueryParam(
   )
 
   return [value, set]
+}
+
+/**
+ * The click handler for an in-app `<a href>`: moves without a reload, but leaves a middle-click,
+ * Ctrl-click or Shift-click alone so the link still opens in a new tab the ordinary way.
+ */
+export function followLink(to: string) {
+  return (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    e.preventDefault()
+    go(to)
+  }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Sidebar, Topbar } from '@/components/Chrome'
+import { Footer, Sidebar, Topbar } from '@/components/Chrome'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { NAV, mayOpen, type PageId } from '@/lib/nav'
@@ -11,6 +11,7 @@ import { Account } from '@/pages/Account'
 import { AuditLog } from '@/pages/AuditLog'
 import { Bans } from '@/pages/Bans'
 import { CaseFile } from '@/pages/CaseFile'
+import { Credits } from '@/pages/Credits'
 import { ForgotPassword } from '@/pages/ForgotPassword'
 import { Health } from '@/pages/Health'
 import { Join } from '@/pages/Join'
@@ -46,6 +47,7 @@ const TITLES: Record<PageId, string> = {
   settings: 'Settings',
   account: 'Your account',
   cases: 'Case file',
+  credits: 'Credits',
 }
 
 /**
@@ -69,6 +71,7 @@ const PATHS: Record<PageId, string> = {
   settings: '/settings',
   account: '/account',
   cases: '/cases',
+  credits: '/credits',
 }
 
 /**
@@ -278,7 +281,9 @@ function Shell({
           {page === 'health' && <Health />}
           {page === 'settings' && <Settings />}
           {page === 'account' && <Account me={me} onChanged={() => void refresh()} />}
+          {page === 'credits' && <Credits />}
         </div>
+        <Footer />
       </main>
 
       {/* Over the page, never instead of it: the page stays mounted with its scroll position and

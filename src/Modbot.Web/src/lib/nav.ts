@@ -32,6 +32,8 @@ export const NAV = [
   // Reached from the Bans page and the subject pane, not from the sidebar. The server gates
   // reads on ViewProfile and writes on Ban; the page shows the refusal in words.
   { id: 'cases', label: 'Case files', hidden: true },
+  // Reached from the footer and from Settings. No requirement: everyone signed in may read it.
+  { id: 'credits', label: 'Credits', hidden: true },
 ] as const
 
 export type NavItem = (typeof NAV)[number]
