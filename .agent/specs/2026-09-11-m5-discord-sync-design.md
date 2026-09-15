@@ -157,6 +157,9 @@ details without text or daily totals.
   deployment, the bot reads back the history of every channel it can read (View Channel and Read
   Message History) and stores each message it has not already stored. After that it stores new
   messages, edits and deletes as they arrive.
+- **When reading back stops.** A channel is read newest first, one page at a time. Once three pages
+  in a row hold only messages already stored, the bot stops reading that channel further back: the
+  history beyond them has been read before, and reading it again is wasted requests.
 - **What a message row holds.** Message id, channel, thread, author, time, text, each earlier version
   of the text when edited, when it was deleted, attachment names, types and sizes, and what it replied
   to. A deleted message is kept and marked deleted, because a deleted message is often the one a
