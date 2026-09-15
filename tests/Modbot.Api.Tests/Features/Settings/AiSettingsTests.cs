@@ -51,6 +51,8 @@ public class AiSettingsTests
 
         const string key = "sk-or-very-secret-key";
 
+        await AcknowledgeAsync(host, cookie);
+
         var saved = await host.SendJsonAsync(HttpMethod.Put, Path, new
         {
             enabled = true,
@@ -94,6 +96,7 @@ public class AiSettingsTests
         await using var host = await ApiTestHost.StartAsync(_db);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
+        await AcknowledgeAsync(host, cookie);
         await PutOkAsync(host, cookie, new { enabled = true, provider = "openai", endpoint = "https://api.openai.com/v1", model = "gpt-a", apiKey = "sk-1" });
         var body = await PutOkAsync(host, cookie, new { enabled = true, provider = "openai", endpoint = "https://api.openai.com/v1/", model = "gpt-b" });
 
@@ -139,6 +142,8 @@ public class AiSettingsTests
         await using var host = await ApiTestHost.StartAsync(_db);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
+        await AcknowledgeAsync(host, cookie);
+
         var response = await host.SendJsonAsync(HttpMethod.Put, Path,
             new { enabled = true, provider, endpoint, model, apiKey }, cookie, Ct);
 
@@ -154,6 +159,7 @@ public class AiSettingsTests
         await using var host = await ApiTestHost.StartAsync(_db);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
+        await AcknowledgeAsync(host, cookie);
         var body = await PutOkAsync(host, cookie, new { enabled = true, provider = "custom", endpoint = "http://localhost:11434/v1", model = "llama3.2" });
 
         Assert.True(body.GetProperty("enabled").GetBoolean());
@@ -278,6 +284,74 @@ public class AiSettingsTests
         var response = await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await ApiTestHost.BodyOf(response, Ct);
+    }
+
+    /// <summary>
+    /// M8 §4.5: the one-time confirmation of what member text goes to the provider, and the gate
+    /// that stops AI being switched on before it.
+    /// </summary>
+    [Fact]
+    public async Task AiCannotBeSwitchedOnUntilSomebodyConfirmsWhatIsSent_AndTheConfirmationIsRecordedOnce()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var before = await GetAsync(host, cookie);
+        Assert.False(before.GetProperty("acknowledgement").GetProperty("confirmed").GetBoolean());
+        Assert.NotEmpty(before.GetProperty("acknowledgement").GetProperty("sends").EnumerateArray());
+        Assert.Contains(
+            before.GetProperty("acknowledgement").GetProperty("sends").EnumerateArray(),
+            line => line.GetProperty("feature").GetString() == "Moderation rules");
+
+        var refused = await host.SendJsonAsync(HttpMethod.Put, Path,
+            new { enabled = true, provider = "openai", endpoint = "https://api.openai.com/v1", model = "gpt-a", apiKey = "sk-1" },
+            cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Equal("Confirm what is sent to the provider first.",
+            (await ApiTestHost.BodyOf(refused, Ct)).GetProperty("error").GetString());
+
+        // AI off does not need it: nothing is sent.
+        await PutOkAsync(host, cookie, new { enabled = false, provider = "openai", endpoint = "https://api.openai.com/v1", model = "gpt-a", apiKey = "sk-1" });
+
+        var confirmed = await AcknowledgeAsync(host, cookie);
+        Assert.True(confirmed.GetProperty("acknowledgement").GetProperty("confirmed").GetBoolean());
+        Assert.Equal(user.Username, confirmed.GetProperty("acknowledgement").GetProperty("by").GetString());
+
+        var on = await PutOkAsync(host, cookie, new { enabled = true, provider = "openai", endpoint = "https://api.openai.com/v1", model = "gpt-a", apiKey = "sk-1" });
+        Assert.True(on.GetProperty("enabled").GetBoolean());
+
+        // Confirming again is not an error and does not write a second fact: one confirmation, not
+        // a recurring prompt.
+        await AcknowledgeAsync(host, cookie);
+
+        var fact = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiAcknowledged, user.Id.ToString(), Ct)));
+        Assert.Equal(user.Username, fact.GetProperty("username").GetString());
+        Assert.Equal("https://api.openai.com/v1", fact.GetProperty("endpoint").GetString());
+        Assert.NotEmpty(fact.GetProperty("sends").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task ConfirmingNeedsTheSettingsPermission()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, reader) = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, $"{Path}/acknowledge",
+            new { endpoint = "https://api.openai.com/v1" }, reader, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    private static async Task<JsonElement> AcknowledgeAsync(ApiTestHost host, string cookie)
+    {
+        var response = await host.SendJsonAsync(HttpMethod.Post, $"{Path}/acknowledge",
+            new { endpoint = "https://api.openai.com/v1" }, cookie, Ct);
+
+        var parsed = await ApiTestHost.BodyOf(response, Ct);
+        Assert.True(response.StatusCode == HttpStatusCode.OK, parsed.ToString());
+        return parsed;
     }
 
     private static async Task<JsonElement> PutOkAsync(ApiTestHost host, string cookie, object body)

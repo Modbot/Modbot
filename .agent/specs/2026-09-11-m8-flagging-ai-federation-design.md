@@ -43,9 +43,26 @@ federation is that the rule is the group's own, written and switched on by its o
 third party's say-so.
 
 - Every rule starts as flag-only. It acts only after an operator sets that rule to act.
-- Every action is recorded as a fact naming the rule, the message or person it matched, and the
-  operator who set the rule to act, so the tool's actions are audited like a moderator's.
+- Every action is recorded as a fact naming the rule, the message or person it matched, the version
+  of the rule it acted on, and the operator who set the rule to act, so the tool's actions are
+  audited like a moderator's.
 - Actions on VRChat (kicks, bans, group removal) are still never taken on an AI signal.
+
+**What "an operator sets that rule to act" now involves (changed 2026-09-15).** "Tick a box" was too
+small a thing to stand between a rule and deleting people's messages, so three things were put in
+front of it and one behind it (AI moderation design §12 and §13):
+
+- A rule cannot be switched to acting until a **test run** of its own sample texts catches what it
+  should and flags nothing it should not. An operator may override that, and the override is a fact
+  naming them.
+- Switching it to acting starts a **trial**, 7 days by default, during which the rule records what
+  it would have done instead of doing it. Acting starts when the operator ends the trial.
+- A rule can be limited to certain Discord channels, and given roles whose members it never acts on.
+- An acting rule that suddenly acts far more in an hour than it usually does **pauses itself** and
+  waits for an operator.
+
+None of this is a limit on what a group may decide. It is the difference between deciding and
+finding out afterwards.
 
 ---
 
@@ -117,6 +134,29 @@ in-jokes and unusual names all draw false positives at higher rates.
 - Dismissal rates per category are shown. A category dismissed 90% of the time is noise and should be
   turned off; Modbot surfaces that rather than letting people quietly ignore it.
 - AI flags are facts like anything else, so the tool's own accuracy is auditable.
+- A rule's **test set** (AI moderation design §12) lets a group find its false positives before the
+  members do, and a rule may not start acting until its test set has none.
+
+### 4.5 One confirmation of what is sent where (added 2026-09-15)
+
+Open question 5 asked whether AI review should run at all without an explicit per-deployment
+acknowledgement of what is sent where. **Yes, and the answer is now built.**
+
+The first time AI is switched on, the operator is shown a short factual list — which text goes to the
+provider, at which endpoint, and for which features — and has to confirm it. AI cannot be switched
+on before that. It is recorded as a `modbot.ai.acknowledge` fact naming who confirmed, when, the
+endpoint they were shown and the lines they read.
+
+**Why yes.** §4.2 says a deployment using a hosted provider "is told plainly what text is
+transmitted". A docs page nobody has to open is not being told; a sentence under a switch is not
+being told either, because nobody reads the sentence under a switch. The person switching this on is
+deciding, on behalf of members who are not in the room, that their bios and messages leave the
+deployment. That decision should exist as a record with a name on it.
+
+**Why once.** A prompt that comes back is a prompt people learn to dismiss, and a dismissed prompt
+teaches the opposite of what it is for. One confirmation, kept, is a decision; a recurring one is
+furniture. The list itself lives on the server, so what was agreed to and what is shown cannot drift
+apart, and the fact holds the words that were on the screen.
 
 ---
 
@@ -211,5 +251,6 @@ special infrastructure.
    receiving group.
 4. **Rate limit of the group-membership endpoint** for §3.3 — must be asked before building, per
    foundation §4.3.4.
-5. **Whether AI review should run at all without an explicit per-deployment acknowledgement** of what
-   is sent where. Leaning yes: a one-time confirmation at enable, not a recurring nag.
+5. ~~**Whether AI review should run at all without an explicit per-deployment acknowledgement** of
+   what is sent where.~~ **Answered 2026-09-15: yes.** A one-time confirmation at enable, not a
+   recurring nag, recorded as a fact naming who confirmed. See §4.5.

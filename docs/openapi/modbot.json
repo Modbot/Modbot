@@ -2413,6 +2413,52 @@
         ]
       }
     },
+    "/api/settings/ai/acknowledge": {
+      "post": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "Confirm what member text is sent to the AI provider. Once, before AI can be switched on.",
+        "description": "M8 §4.5. Recorded as a fact naming the account that confirmed it, the endpoint shown at the time, and the lines they confirmed. Confirming again does nothing.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "AcknowledgeAiSending",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiAcknowledgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/ai/test": {
       "post": {
         "tags": [
@@ -3389,6 +3435,579 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/ai/moderation/rules/{kind}/{id}/tests": {
+      "get": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "A rule's sample texts and its last runs",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetRuleTestSet",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleTestsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/ai/moderation/rules/{kind}/{id}/samples": {
+      "post": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "Add a sample text to a rule's test set",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "AddTestSample",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestSampleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestSampleView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/ai/moderation/rules/{kind}/{id}/samples/{sampleId}": {
+      "put": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "Change a sample text",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "UpdateTestSample",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sampleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestSampleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestSampleView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "Remove a sample text",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "DeleteTestSample",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sampleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/ai/moderation/rules/{kind}/{id}/tests/run": {
+      "post": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "Check every sample against the rule as it stands now. AI topics cost a real request.",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "RunRuleTestSet",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestRunView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/ai/moderation/rules/{kind}/{id}/versions": {
+      "get": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "Every version of a rule's text, newest first",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "ListRuleVersions",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleVersionList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/ai/moderation/rules/{kind}/{id}/end-trial": {
+      "post": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "End a rule's trial. From now on it really deletes and times out.",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "EndRuleTrial",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermListDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/ai/moderation/rules/{kind}/{id}/resume": {
+      "post": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "Let a paused rule act again",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "ResumeRule",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TermListDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -9578,6 +10197,57 @@
           }
         }
       },
+      "AiAcknowledgeRequest": {
+        "required": [
+          "endpoint"
+        ],
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AiAcknowledgement": {
+        "required": [
+          "confirmed",
+          "at",
+          "by",
+          "endpoint",
+          "sends"
+        ],
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": "boolean"
+          },
+          "at": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "by": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "sends": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiSendLine"
+            }
+          }
+        }
+      },
       "AiCatalogModelView": {
         "required": [
           "id",
@@ -10688,6 +11358,21 @@
           }
         }
       },
+      "AiSendLine": {
+        "required": [
+          "feature",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "feature": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
       "AiSettingsResponse": {
         "required": [
           "enabled",
@@ -10695,7 +11380,8 @@
           "endpoint",
           "model",
           "apiKeyStored",
-          "providers"
+          "providers",
+          "acknowledgement"
         ],
         "type": "object",
         "properties": {
@@ -10725,6 +11411,9 @@
             "items": {
               "$ref": "#/components/schemas/AiProviderView"
             }
+          },
+          "acknowledgement": {
+            "$ref": "#/components/schemas/AiAcknowledgement"
           }
         }
       },
@@ -16389,6 +17078,38 @@
               "null",
               "string"
             ]
+          },
+          "ruleVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
+          },
+          "ruleText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "trial": {
+            "type": "boolean",
+            "default": false
+          },
+          "wouldDeleteMessage": {
+            "type": "boolean",
+            "default": false
+          },
+          "wouldTimeOutMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -19373,6 +20094,54 @@
           }
         }
       },
+      "RulePause": {
+        "required": [
+          "at",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RuleScope": {
+        "required": [
+          "channelMode",
+          "channels",
+          "exemptRoles",
+          "exemptRolesSkipFlag"
+        ],
+        "type": "object",
+        "properties": {
+          "channelMode": {
+            "type": "string"
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exemptRoles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exemptRolesSkipFlag": {
+            "type": "boolean"
+          }
+        }
+      },
       "RuleStats": {
         "required": [
           "flags",
@@ -19395,6 +20164,239 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "RuleTestSummary": {
+        "required": [
+          "samples",
+          "lastRunAt",
+          "lastRunModel",
+          "caught",
+          "shouldFlag",
+          "wronglyFlagged",
+          "passes"
+        ],
+        "type": "object",
+        "properties": {
+          "samples": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lastRunAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastRunModel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "caught": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "shouldFlag": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "wronglyFlagged": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "passes": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RuleTestsResponse": {
+        "required": [
+          "ruleKind",
+          "ruleId",
+          "ruleName",
+          "ruleVersion",
+          "acting",
+          "samples",
+          "runs"
+        ],
+        "type": "object",
+        "properties": {
+          "ruleKind": {
+            "type": "string"
+          },
+          "ruleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ruleName": {
+            "type": "string"
+          },
+          "ruleVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "acting": {
+            "type": "boolean"
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestSampleView"
+            }
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestRunView"
+            }
+          }
+        }
+      },
+      "RuleTrial": {
+        "required": [
+          "startedAt",
+          "days",
+          "endsAt",
+          "flags",
+          "wouldDelete",
+          "wouldTimeOut",
+          "dismissed"
+        ],
+        "type": "object",
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "days": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "flags": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "wouldDelete": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "wouldTimeOut": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "dismissed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "RuleVersionList": {
+        "required": [
+          "ruleKind",
+          "ruleId",
+          "versions"
+        ],
+        "type": "object",
+        "properties": {
+          "ruleKind": {
+            "type": "string"
+          },
+          "ruleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuleVersionView"
+            }
+          }
+        }
+      },
+      "RuleVersionView": {
+        "required": [
+          "version",
+          "changedAt",
+          "changedBy",
+          "name",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "changedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "changedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
           }
         }
       },
@@ -20078,6 +21080,29 @@
             "items": {
               "type": "string"
             }
+          },
+          "scope": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RuleScope"
+              }
+            ]
+          },
+          "trialDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actWithoutTest": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -20100,7 +21125,13 @@
           "hubAvailableVersion",
           "hubAvailableChanges",
           "hubError",
-          "stats"
+          "stats",
+          "version",
+          "acting",
+          "scope",
+          "trial",
+          "paused",
+          "tests"
         ],
         "type": "object",
         "properties": {
@@ -20207,6 +21238,43 @@
           },
           "stats": {
             "$ref": "#/components/schemas/RuleStats"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "acting": {
+            "type": "boolean"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/RuleScope"
+          },
+          "trial": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RuleTrial"
+              }
+            ]
+          },
+          "paused": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RulePause"
+              }
+            ]
+          },
+          "tests": {
+            "$ref": "#/components/schemas/RuleTestSummary"
           }
         }
       },
@@ -20301,6 +21369,237 @@
           }
         }
       },
+      "TestRunSampleView": {
+        "required": [
+          "sampleId",
+          "text",
+          "shouldFlag",
+          "note",
+          "target",
+          "flagged",
+          "term",
+          "matched",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "sampleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string"
+          },
+          "shouldFlag": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "target": {
+            "type": "string"
+          },
+          "flagged": {
+            "type": "boolean"
+          },
+          "term": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "matched": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TestRunView": {
+        "required": [
+          "id",
+          "ranAt",
+          "model",
+          "ruleVersion",
+          "samples",
+          "shouldFlagCount",
+          "caught",
+          "missed",
+          "shouldNotFlagCount",
+          "wronglyFlagged",
+          "aiSkipped",
+          "ranBy",
+          "results"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ranAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ruleVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "samples": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "shouldFlagCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "caught": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "missed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "shouldNotFlagCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "wronglyFlagged": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "aiSkipped": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ranBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestRunSampleView"
+            }
+          }
+        }
+      },
+      "TestSampleInput": {
+        "required": [
+          "text",
+          "shouldFlag",
+          "note",
+          "target"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "shouldFlag": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "target": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "TestSampleView": {
+        "required": [
+          "id",
+          "text",
+          "shouldFlag",
+          "note",
+          "target",
+          "seeded"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "text": {
+            "type": "string"
+          },
+          "shouldFlag": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "target": {
+            "type": "string"
+          },
+          "seeded": {
+            "type": "boolean"
+          }
+        }
+      },
       "TimePrecision": {
         "enum": [
           "Exact",
@@ -20360,6 +21659,29 @@
               "string"
             ],
             "format": "int32"
+          },
+          "scope": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RuleScope"
+              }
+            ]
+          },
+          "trialDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "actWithoutTest": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -20375,7 +21697,13 @@
           "timeoutMinutes",
           "setToActBy",
           "setToActAt",
-          "stats"
+          "stats",
+          "version",
+          "acting",
+          "scope",
+          "trial",
+          "paused",
+          "tests"
         ],
         "type": "object",
         "properties": {
@@ -20428,6 +21756,43 @@
           },
           "stats": {
             "$ref": "#/components/schemas/RuleStats"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "acting": {
+            "type": "boolean"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/RuleScope"
+          },
+          "trial": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RuleTrial"
+              }
+            ]
+          },
+          "paused": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RulePause"
+              }
+            ]
+          },
+          "tests": {
+            "$ref": "#/components/schemas/RuleTestSummary"
           }
         }
       },

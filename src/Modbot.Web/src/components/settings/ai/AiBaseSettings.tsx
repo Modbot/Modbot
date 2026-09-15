@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { api, ApiError, type AiSettings, type AiSettingsInput } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Field, Outcome, PasswordField, Placeholder, Switch } from '../fields'
@@ -70,6 +71,7 @@ function ConnectionCard({
   const [model, setModel] = useState(settings.model ?? '')
 
   const [busy, setBusy] = useState<'save' | 'test' | 'remove' | null>(null)
+  const [confirming, setConfirming] = useState(false)
   const [saved, setSaved] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [test, setTest] = useState<{ worked: boolean; message: string } | null>(null)
@@ -125,12 +127,43 @@ function ConnectionCard({
 
   const body = (): AiSettingsInput => ({ enabled, ...connection() })
 
+  // M8 §4.5: the first time AI is switched on, the operator reads what is sent where and confirms
+  // it. Once for the deployment, so a confirmed deployment never sees this again.
+  const saveOrConfirm = () => {
+    if (enabled && !settings.acknowledgement.confirmed) {
+      setConfirming(true)
+      return
+    }
+
+    save(body(), 'save')
+  }
+
+  const confirm = () => {
+    setBusy('save')
+    setProblem(null)
+
+    api
+      .acknowledgeAi(endpoint.trim())
+      .then((next) => {
+        onSaved(next)
+        setConfirming(false)
+        return api.setAiSettings(body())
+      })
+      .then((next) => {
+        setApiKey('')
+        setSaved(true)
+        onSaved(next)
+      })
+      .catch((e: unknown) => setProblem(failure(e)))
+      .finally(() => setBusy(null))
+  }
+
   return (
     <SettingsCard
       title="Connection"
       footer={
         <>
-          <Button size="sm" disabled={busy !== null} onClick={() => save(body(), 'save')}>
+          <Button size="sm" disabled={busy !== null} onClick={saveOrConfirm}>
             {busy === 'save' ? 'Saving…' : 'Save'}
           </Button>
           <Button
@@ -162,6 +195,35 @@ function ConnectionCard({
       <Switch checked={enabled} onChange={setEnabled}>
         AI on
       </Switch>
+
+      <Dialog open={confirming} onOpenChange={(next) => !next && setConfirming(false)}>
+        {confirming && (
+          <DialogContent title="What is sent to the provider" className="max-w-[640px]">
+            <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
+              <div>
+                <span className="text-muted-foreground">Sent to</span>{' '}
+                <span className="font-mono">{endpoint.trim() || settings.acknowledgement.endpoint}</span>
+              </div>
+              <ul className="flex flex-col gap-2">
+                {settings.acknowledgement.sends.map((s) => (
+                  <li key={s.feature}>
+                    <span className="font-medium">{s.feature}</span>
+                    <div className="text-muted-foreground">{s.text}</div>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex items-center gap-2">
+                <Button size="sm" disabled={busy !== null} onClick={confirm}>
+                  {busy === 'save' ? 'Saving…' : 'I understand'}
+                </Button>
+                <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => setConfirming(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
 
       <div role="group" aria-label="Provider" className="flex flex-wrap gap-1.5">
         {settings.providers.map((p) => (
