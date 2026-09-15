@@ -351,3 +351,69 @@ tools", "No structured output" and "Price varies". Picking a row fills the model
 already saved is marked, and a model id typed by hand that OpenRouter does not list is kept and
 shown as "Not in list". Every other provider keeps a plain list of the ids its own endpoint returns,
 with the operator's entered price beside each, or "No price".
+
+---
+
+## 11. The page as a chat app
+
+Added 2026-09-15 at the maintainer's request: "can we make the chat UI more like Claude and stuff?".
+The loop, the tools and the limits above are unchanged; this is the page around them, and the four
+pieces of API it needed.
+
+### 11.1 The page
+
+A conversation list on the left — new chat, search, grouped as Today / Yesterday / Previous 7 days /
+Older, rename and delete from a row menu, hidden on demand and a panel over the page on a narrow
+screen — and a reading column in the middle: the question in a bubble on the right, the answer as
+plain text across the column, and the message box pinned under it. The page follows a reply down
+while it is written unless the reader has scrolled up, and then offers "Jump to latest".
+
+Each tool call is a step inside the reply that opens to what it asked and a readable version of what
+came back, with "Raw" for the JSON. Several in a row collapse into "N steps". **The steps are inside
+the answer rather than under it** because that is where the model made them: a reply that looked
+something up mid-sentence reads as one thing that happened, not as an answer with an appendix.
+
+Answers render Markdown — headings, lists, tables that scroll rather than stretch, and code blocks
+highlighted and copyable. Raw HTML is still never rendered (`Markdown.tsx`), and the highlighting
+carries Modbot's own token colours rather than a highlight.js theme, which would be a second design
+in the middle of the page and would not follow the density and dark-mode tokens.
+
+The people, worlds and rooms the tools found are matched in the answer's text and become the usual
+popups. **Only what a tool actually returned is matched**, so a name the model invented links to
+nothing.
+
+The page is fetched when it is opened, not with the rest of the app: it carries a highlighter that
+no other screen uses.
+
+### 11.2 Versions, not a rewritten past
+
+Asking again ("Try again") and editing a question keep what was there. Every message names the
+message it follows (`ai_chat_message.parent_id`) and the conversation names the last message of the
+version being read (`ai_chat_conversation.leaf_id`); everything else — reading, sending, the 200
+message count — works on the line between them. A retry hangs a second reply off the same question;
+an edit hangs a second question off the same parent. `‹ 1/2 ›` moves between them, and moving back
+shows the reply that followed that version.
+
+A tree rather than "keep the last three": a moderator who asks again is comparing two answers, and
+one of them being deleted to make room for the other is the one outcome that makes comparing
+impossible. Nothing in a conversation is ever overwritten.
+
+### 11.3 The name a conversation is listed under
+
+The first words of the question, as before, and then one short call after the first reply asks the
+model for a name. It is recorded and limited under `chat` like any other call (§10), and anything
+that goes wrong leaves the first words in place — a worse name, not an error. The owner can type
+over it.
+
+### 11.4 Stopping
+
+Stop cancels the request Modbot made to the provider, not only the browser's reading of it, and what
+the model had written by then is stored and marked stopped. Before this, a stopped reply left the
+provider writing to nobody and the words already sent were lost.
+
+### 11.5 What a conversation cost
+
+Each round's token counts are written on the message they produced, and the conversation's spend is
+those rounds priced when they are read, exactly like every other figure in §10.2. It is behind a
+button in the header rather than on the screen: it is a question a moderator asks occasionally, and
+money beside every answer would make the page feel like a taxi meter.

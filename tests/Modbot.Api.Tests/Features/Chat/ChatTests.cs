@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -527,7 +528,328 @@ public class ChatTests
         Assert.Equal(HttpStatusCode.BadRequest, negative.StatusCode);
     }
 
+    // ── Versions of a question and of a reply ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task RenamingReadingAVersionAndSpend_NeedUseAiChat_AndAreOnlyEverTheOwners()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await StartWithProviderAsync(new ScriptedProvider());
+
+        var (owner, ownerCookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+        var (_, otherCookie) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        var (_, withoutChat) = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var id = await ConversationAsync(host, owner.Id, "Who is Gunner24?");
+
+        foreach (var (method, path, body) in new (HttpMethod, string, object?)[]
+                 {
+                     (HttpMethod.Put, $"/api/chat/conversations/{id}/title", new { title = "Gunner" }),
+                     (HttpMethod.Post, $"/api/chat/conversations/{id}/version", new { messageId = 1 }),
+                     (HttpMethod.Get, $"/api/chat/conversations/{id}/spend", null),
+                 })
+        {
+            Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(method, path, body, withoutChat, Ct)).StatusCode);
+
+            // Somebody else's conversation is a conversation that does not exist.
+            Assert.Equal(HttpStatusCode.NotFound, (await host.SendJsonAsync(method, path, body, otherCookie, Ct)).StatusCode);
+        }
+
+        var renamed = await host.SendJsonAsync(HttpMethod.Put, $"/api/chat/conversations/{id}/title",
+            new { title = "Gunner's bans" }, ownerCookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, renamed.StatusCode);
+        Assert.Equal("Gunner's bans", (await ApiTestHost.BodyOf(renamed, Ct)).GetProperty("title").GetString());
+
+        var empty = await host.SendJsonAsync(HttpMethod.Put, $"/api/chat/conversations/{id}/title",
+            new { title = "   " }, ownerCookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+    }
+
+    /// <summary>
+    /// Asking again writes a second reply beside the first. Both are kept, the new one is what the
+    /// conversation shows, and either can be read back.
+    /// </summary>
+    [Fact]
+    public async Task AskingAgain_KeepsBothReplies_AndEitherCanBeRead()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new ScriptedProvider()
+            .Then(Stream(Text("Three people.")))
+            // The naming call a new conversation makes, between the two replies.
+            .ThenJson(Completion("How many joined"))
+            .Then(Stream(Text("Four people.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+
+        var first = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "How many?" }, cookie, Ct);
+        var events = ParseEvents(await first.Content.ReadAsStringAsync(Ct));
+        var id = events[0].Data.GetProperty("id").GetString();
+
+        var question = events.Where(e => e.Name == "message").Select(e => e.Data)
+            .First(m => m.GetProperty("role").GetString() == "user").GetProperty("id").GetInt64();
+
+        var again = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages",
+            new { conversationId = id, retryAfterMessageId = question }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, again.StatusCode);
+        await again.Content.ReadAsStringAsync(Ct);
+
+        // Nothing was asked twice: the second reply answers the same question.
+        var shown = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, $"/api/chat/conversations/{id}", null, cookie, Ct), Ct);
+
+        var messages = shown.GetProperty("messages").EnumerateArray().ToList();
+        Assert.Equal(["user", "assistant"], messages.Select(m => m.GetProperty("role").GetString()));
+        Assert.Equal("Four people.", messages[1].GetProperty("content").GetString());
+
+        var versions = messages[1].GetProperty("versions").EnumerateArray().Select(v => v.GetInt64()).ToList();
+        Assert.Equal(2, versions.Count);
+        Assert.Equal(messages[1].GetProperty("id").GetInt64(), versions[1]);
+
+        var older = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Post, $"/api/chat/conversations/{id}/version",
+                new { messageId = versions[0] }, cookie, Ct), Ct);
+
+        Assert.Equal("Three people.",
+            older.GetProperty("messages").EnumerateArray().Last().GetProperty("content").GetString());
+    }
+
+    /// <summary>An edited question hangs where the old one hung, and keeps it beside it.</summary>
+    [Fact]
+    public async Task AnEditedQuestion_IsKeptBesideTheOldOne_WithItsOwnReply()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new ScriptedProvider()
+            .Then(Stream(Text("Nobody.")))
+            // The naming call a new conversation makes, between the two replies.
+            .ThenJson(Completion("Who joined"))
+            .Then(Stream(Text("Two people.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+
+        var first = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Who joined?" }, cookie, Ct);
+        var events = ParseEvents(await first.Content.ReadAsStringAsync(Ct));
+        var id = events[0].Data.GetProperty("id").GetString();
+        var question = events.Where(e => e.Name == "message").Select(e => e.Data)
+            .First(m => m.GetProperty("role").GetString() == "user").GetProperty("id").GetInt64();
+
+        var edited = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages",
+            new { conversationId = id, text = "Who joined this week?", replaceMessageId = question }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, edited.StatusCode);
+        await edited.Content.ReadAsStringAsync(Ct);
+
+        var shown = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, $"/api/chat/conversations/{id}", null, cookie, Ct), Ct);
+
+        var messages = shown.GetProperty("messages").EnumerateArray().ToList();
+        Assert.Equal(2, messages.Count);
+        Assert.Equal("Who joined this week?", messages[0].GetProperty("content").GetString());
+        Assert.Equal("Two people.", messages[1].GetProperty("content").GetString());
+
+        var versions = messages[0].GetProperty("versions").EnumerateArray().Select(v => v.GetInt64()).ToList();
+        Assert.Equal([question, messages[0].GetProperty("id").GetInt64()], versions);
+
+        // The old question, and the reply it got, are still there to go back to.
+        var older = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Post, $"/api/chat/conversations/{id}/version",
+                new { messageId = question }, cookie, Ct), Ct);
+
+        Assert.Equal(["Who joined?", "Nobody."],
+            older.GetProperty("messages").EnumerateArray().Select(m => m.GetProperty("content").GetString()));
+
+        // Both versions of the question, and both replies, are in the conversation.
+        await using var context = _db.NewContext();
+        Assert.Equal(4, await context.AiChatMessages.CountAsync(m => m.ConversationId == Guid.Parse(id!), Ct));
+    }
+
+    [Fact]
+    public async Task AMessageOfSomebodyElsesConversation_CannotBeAskedAgainOrEdited()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await StartWithProviderAsync(new ScriptedProvider());
+
+        var (owner, _) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+        var (_, ownerOfNothing) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+        var id = await ConversationAsync(host, owner.Id, "Mine");
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages",
+            new { conversationId = id, retryAfterMessageId = 1 }, ownerOfNothing, Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    // ── The name a conversation is listed under ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task ANewConversation_IsNamedByTheModel_AndTheNamingCallIsCounted()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new ScriptedProvider()
+            .Then(StreamWithUsage([Text("Nobody was banned.")], Usage(100, 0, 20)))
+            .ThenJson(Completion("\"Bans in March\"\n"));
+
+        await using var host = await StartWithProviderAsync(provider);
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages",
+            new { text = "Was anybody banned in March?" }, cookie, Ct);
+
+        var events = ParseEvents(await response.Content.ReadAsStringAsync(Ct));
+        var named = events.Last(e => e.Name == "conversation");
+
+        // Quotation marks and the line break the model wrapped it in are not part of the name.
+        Assert.Equal("Bans in March", named.Data.GetProperty("title").GetString());
+
+        var list = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/chat", null, cookie, Ct), Ct);
+        Assert.Equal("Bans in March",
+            Assert.Single(list.GetProperty("conversations").EnumerateArray()).GetProperty("title").GetString());
+
+        // The naming call is a call like any other: counted under Chat, for the person who asked.
+        await using var context = _db.NewContext();
+        var rows = await context.AiUsage.Where(u => u.Feature == "chat" && u.UserId == user.Id).ToListAsync(Ct);
+        Assert.Equal(2, rows.Count);
+    }
+
+    [Fact]
+    public async Task WhenTheModelCannotNameIt_TheFirstWordsOfTheQuestionStay()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        // One answer only: the naming call that follows gets the script's refusal.
+        var provider = new ScriptedProvider().Then(Stream(Text("Nobody.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages",
+            new { text = "Was anybody banned in March?" }, cookie, Ct);
+
+        await response.Content.ReadAsStringAsync(Ct);
+
+        var list = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/chat", null, cookie, Ct), Ct);
+        Assert.Equal("Was anybody banned in March?",
+            Assert.Single(list.GetProperty("conversations").EnumerateArray()).GetProperty("title").GetString());
+    }
+
+    // ── Stopping a reply ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Stop means stop at the provider, not just in the browser: the request the reply is being
+    /// written by is cancelled, and what the model had written by then is kept, marked stopped.
+    /// </summary>
+    [Fact]
+    public async Task StoppingAReply_CancelsTheProviderCall_AndKeepsWhatWasWritten()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new HangingProvider(Stream(Text("Looking, ")).Replace("data: [DONE]\n\n", "", StringComparison.Ordinal));
+        await using var host = await StartWithProviderAsync(provider);
+
+        // The reply cannot outlive this even if the browser's own stop never arrives.
+        await using (var context = _db.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.AiChatTimeLimitSeconds = AI.Chat.ChatSettingsRules.MinTimeLimitSeconds;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+
+        using var stop = new CancellationTokenSource();
+        var request = host.Authenticated(HttpMethod.Post, "/api/chat/messages", cookie);
+        request.Content = new StringContent("""{"text":"Who is online?"}""", Encoding.UTF8, "application/json");
+
+        var sending = host.Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, stop.Token);
+
+        // The model has started writing; the person presses Stop.
+        await provider.Writing.Task.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+        await stop.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sending);
+
+        // The provider call itself was cancelled, rather than left running to the end.
+        await provider.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+
+        var stored = await EventuallyAsync(async () =>
+        {
+            await using var context = _db.NewContext();
+            var messages = await context.AiChatMessages
+                .Where(m => m.Conversation.UserId == user.Id)
+                .OrderBy(m => m.Id)
+                .ToListAsync(Ct);
+
+            return messages.Count == 2 ? messages : null;
+        });
+
+        Assert.Equal(["user", "assistant"], stored.Select(m => m.Role));
+        Assert.Equal("Looking, ", stored[1].Content);
+        Assert.True(stored[1].Stopped);
+    }
+
+    // ── What a conversation cost ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task AConversationsSpend_AddsUpTheRoundsItIsMadeOf()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new ScriptedProvider()
+            .Then(StreamWithUsage([ToolCall("call_1", "find_person", """{"query":"x"}""")], Usage(1_000_000, 0, 100_000)))
+            .Then(StreamWithUsage([Text("Nobody.")], Usage(2_000_000, 0, 200_000)));
+
+        await using var host = await StartWithProviderAsync(provider);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile, Ct);
+
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        await host.SendJsonAsync(HttpMethod.Put, "/api/settings/ai/prices", new
+        {
+            prices = new[] { new { model = "test-model", inputPerMillion = 1m, outputPerMillion = 4m } },
+        }, admin, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Who is x?" }, cookie, Ct);
+        var events = ParseEvents(await response.Content.ReadAsStringAsync(Ct));
+        var id = events[0].Data.GetProperty("id").GetString();
+
+        var spend = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, $"/api/chat/conversations/{id}/spend", null, cookie, Ct), Ct);
+
+        // 3M in at $1 and 0.3M out at $4 = $4.20.
+        Assert.Equal(4.2m, spend.GetProperty("cost").GetDecimal());
+        Assert.Equal(3_000_000, spend.GetProperty("inputTokens").GetInt64());
+        Assert.Equal(300_000, spend.GetProperty("outputTokens").GetInt64());
+        Assert.Equal(0, spend.GetProperty("unpricedTokens").GetInt64());
+    }
+
     // ── Pieces ───────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Waits for something the reply's own task stores after the browser has gone.</summary>
+    private static async Task<T> EventuallyAsync<T>(Func<Task<T?>> read) where T : class
+    {
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            if (await read() is { } value)
+                return value;
+
+            await Task.Delay(100, Ct);
+        }
+
+        throw new TimeoutException("Nothing was stored.");
+    }
+
+    /// <summary>A whole (non-streamed) answer, which is what the naming call asks for.</summary>
+    private static string Completion(string text) => JsonSerializer.Serialize(new
+    {
+        id = "chatcmpl-name",
+        @object = "chat.completion",
+        created = 1_700_000_000,
+        model = "test-model",
+        choices = new[] { new { index = 0, message = new { role = "assistant", content = text }, finish_reason = "stop" } },
+        usage = new { prompt_tokens = 200, completion_tokens = 5, total_tokens = 205 },
+    });
 
     /// <summary>
     /// Usage worth <paramref name="cost"/> dollars: input tokens of a model priced at $1 per million.
@@ -594,7 +916,7 @@ public class ChatTests
         new { enabled, model, instructions, maxToolCalls, maxReplyTokens, timeLimitSeconds, tools };
 
     /// <summary>A host whose AI requests all go to <paramref name="provider"/>, with AI and Chat switched on.</summary>
-    private async Task<ApiTestHost> StartWithProviderAsync(ScriptedProvider provider)
+    private async Task<ApiTestHost> StartWithProviderAsync(HttpMessageHandler provider)
     {
         var host = await ApiTestHost.StartAsync(_db, configure: services =>
             services.AddHttpClient(AiClients.HttpClientName)
@@ -696,6 +1018,13 @@ public class ChatTests
             return this;
         }
 
+        /// <summary>A whole answer rather than a stream: what a call that does not stream gets.</summary>
+        public ScriptedProvider ThenJson(string json)
+        {
+            _answers.Enqueue(json);
+            return this;
+        }
+
         public List<string?> ToolNames(int request)
         {
             using var body = JsonDocument.Parse(Bodies[request]);
@@ -711,11 +1040,86 @@ public class ChatTests
             if (!_answers.TryDequeue(out var sse))
                 return new HttpResponseMessage(HttpStatusCode.InternalServerError);
 
+            var streamed = sse.StartsWith("data: ", StringComparison.Ordinal);
+
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(sse, Encoding.UTF8, "text/event-stream"),
+                Content = new StringContent(sse, Encoding.UTF8, streamed ? "text/event-stream" : "application/json"),
             };
         }
+    }
+
+    /// <summary>
+    /// A provider that writes the start of a reply and then stops answering until the call is
+    /// cancelled -- a model still thinking when somebody presses Stop.
+    /// </summary>
+    private sealed class HangingProvider(string first) : HttpMessageHandler
+    {
+        private readonly byte[] _first = Encoding.UTF8.GetBytes(first);
+
+        /// <summary>Completes once the first piece of the reply has been handed over.</summary>
+        public TaskCompletionSource Writing { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>Completes once the request Modbot made was cancelled.</summary>
+        public TaskCompletionSource Cancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            cancellationToken.Register(() => Cancelled.TrySetResult());
+
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StreamContent(new HangingStream(_first, Writing, Cancelled)),
+            };
+
+            response.Content.Headers.ContentType = new MediaTypeHeaderValue("text/event-stream");
+            return Task.FromResult(response);
+        }
+    }
+
+    private sealed class HangingStream(byte[] first, TaskCompletionSource writing, TaskCompletionSource cancelled) : Stream
+    {
+        private bool _sent;
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (!_sent)
+            {
+                _sent = true;
+                first.CopyTo(buffer);
+                writing.TrySetResult();
+                return first.Length;
+            }
+
+            try
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                cancelled.TrySetResult();
+                throw;
+            }
+
+            return 0;
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+        public override int Read(byte[] buffer, int offset, int count) =>
+            ReadAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
+
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     /// <summary>Hands requests to the shared script without letting the client factory dispose it.</summary>

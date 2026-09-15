@@ -35,7 +35,8 @@ public sealed record ChatTurn(
     string? ToolName = null,
     IReadOnlyList<ChatReference>? References = null,
     bool? Worked = null,
-    int? DurationMs = null)
+    int? DurationMs = null,
+    bool Stopped = false)
 {
     public static ChatTurn User(string text) => new(ChatRole.User, text, []);
 }
@@ -146,12 +147,17 @@ public sealed class ChatLoop
         ChatOutcome outcome;
         string? error = null;
 
+        // What the model has written in the round being streamed. Kept out here so a reply that is
+        // stopped, times out or loses the provider part-way is still stored as far as it got.
+        var partial = new StringBuilder();
+
         try
         {
             outcome = ChatOutcome.LimitReached;
 
             for (var round = 0; round < maxRounds; round++)
             {
+                partial.Clear();
                 var toolsAllowed = offered.Count > 0 && toolCalls < request.Limits.MaxToolCalls;
                 var options = new ChatCompletionOptions { MaxOutputTokenCount = request.Limits.MaxReplyTokens };
                 Usage.AiReportedCost.AskFor(options, request.Provider);
@@ -162,7 +168,7 @@ public sealed class ChatLoop
                         options.Tools.Add(ChatTool.CreateFunctionTool(tool.Name, tool.Description, tool.Parameters));
                 }
 
-                var (text, calls, usage) = await StreamRoundAsync(request.Chat, messages, options, onEvent, token);
+                var (text, calls, usage) = await StreamRoundAsync(request.Chat, messages, options, partial, onEvent, token);
 
                 if (usage is not null)
                     await onEvent(new ChatUsageEvent(request.Model, usage));
@@ -195,11 +201,13 @@ public sealed class ChatLoop
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             outcome = ChatOutcome.Cancelled;
+            await SaveWhatWasWrittenAsync(partial, onEvent);
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested)
         {
             outcome = ChatOutcome.TimedOut;
             error = "The reply took too long.";
+            await SaveWhatWasWrittenAsync(partial, onEvent);
         }
         catch (Exception e) when (e is ClientResultException or HttpRequestException or JsonException or InvalidOperationException)
         {
@@ -207,6 +215,8 @@ public sealed class ChatLoop
             error = request.ProviderAddress is { } address
                 ? AiClients.Describe(e, address)
                 : "The AI provider could not answer.";
+
+            await SaveWhatWasWrittenAsync(partial, onEvent);
 
             _logger.LogWarning(
                 "Chat reply for user {UserId} failed at the provider: {ErrorType}", userId, e.GetType().Name);
@@ -225,6 +235,19 @@ public sealed class ChatLoop
         }
 
         return outcome;
+    }
+
+    /// <summary>
+    /// Stores the part of a reply that was written before it stopped, marked as stopped so the page
+    /// can say so. Nothing is stored when the model had written nothing yet.
+    /// </summary>
+    private static async Task SaveWhatWasWrittenAsync(StringBuilder partial, Func<ChatEvent, Task> onEvent)
+    {
+        if (partial.Length == 0)
+            return;
+
+        await onEvent(new ChatTurnEvent(new ChatTurn(ChatRole.Assistant, partial.ToString(), [], Stopped: true)));
+        partial.Clear();
     }
 
     private async Task<ChatTurn> RunToolAsync(
@@ -295,10 +318,10 @@ public sealed class ChatLoop
         ChatClient chat,
         List<ChatMessage> messages,
         ChatCompletionOptions options,
+        StringBuilder text,
         Func<ChatEvent, Task> onEvent,
         CancellationToken ct)
     {
-        var text = new StringBuilder();
         var calls = new SortedDictionary<int, (string? Id, string? Name, StringBuilder Arguments)>();
         ChatTokenUsage? usage = null;
 

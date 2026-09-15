@@ -6817,7 +6817,7 @@
         "tags": [
           "Chat"
         ],
-        "summary": "Whether Chat answers, and your conversations, newest first",
+        "summary": "Whether Chat answers, the model it uses, and your conversations, newest first",
         "description": "Needs the `UseAiChat` permission.",
         "operationId": "GetChat",
         "responses": {
@@ -6853,7 +6853,7 @@
         "tags": [
           "Chat"
         ],
-        "summary": "One of your conversations, every message in order",
+        "summary": "One of your conversations, the version being read, in order",
         "description": "Needs the `UseAiChat` permission.",
         "operationId": "GetChatConversation",
         "parameters": [
@@ -6953,13 +6953,214 @@
         ]
       }
     },
+    "/api/chat/conversations/{id}/title": {
+      "put": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Rename one of your conversations",
+        "description": "Needs the `UseAiChat` permission.",
+        "operationId": "RenameChatConversation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatTitleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatConversationSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/chat/conversations/{id}/version": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Read another version of a message, and the reply that followed it",
+        "description": "Needs the `UseAiChat` permission.",
+        "operationId": "ReadChatVersion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatVersionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatConversationView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/chat/conversations/{id}/spend": {
+      "get": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "What this conversation has used and cost, every version of it included",
+        "description": "Needs the `UseAiChat` permission.",
+        "operationId": "GetChatConversationSpend",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiSpent"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/chat/messages": {
       "post": {
         "tags": [
           "Chat"
         ],
         "summary": "Ask a question; the reply streams back as server-sent events",
-        "description": "Events: `conversation` {id, title}; `message` for each stored message, the question first; `text` {text} as the reply is written; `tool` {callId, name, label} as a tool starts; `done` {outcome, error} last. Refused before streaming with 400 for an empty or too long message, 404 for a conversation that is not yours, 409 when Chat is off or the conversation is full, and 429 when a spend limit is reached.\n\nNeeds the `UseAiChat` permission.",
+        "description": "Events: `conversation` {id, title, updatedAt}, sent again at the end when the model named it; `message` for each stored message, the question first; `text` {text} as the reply is written; `tool` {callId, name, label} as a tool starts; `done` {outcome, error} last. Refused before streaming with 400 for an empty or too long message, 404 for a conversation or message that is not yours, 409 when Chat is off or the conversation is full, and 429 when a spend limit is reached.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "SendChatMessage",
         "requestBody": {
           "content": {
@@ -10570,6 +10771,69 @@
           }
         }
       },
+      "AiSpent": {
+        "required": [
+          "cost",
+          "inputTokens",
+          "cachedInputTokens",
+          "outputTokens"
+        ],
+        "type": "object",
+        "properties": {
+          "cost": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "inputTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "cachedInputTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "outputTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "unpricedTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64",
+            "default": 0
+          },
+          "tokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "partUnknown": {
+            "type": "boolean"
+          }
+        }
+      },
       "AiSpentView": {
         "required": [
           "cost",
@@ -12996,12 +13260,19 @@
       "ChatHome": {
         "required": [
           "available",
+          "model",
           "conversations"
         ],
         "type": "object",
         "properties": {
           "available": {
             "type": "boolean"
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "conversations": {
             "type": "array",
@@ -13014,6 +13285,8 @@
       "ChatMessageView": {
         "required": [
           "id",
+          "parentId",
+          "versions",
           "role",
           "content",
           "toolCalls",
@@ -13023,6 +13296,7 @@
           "references",
           "worked",
           "durationMs",
+          "stopped",
           "createdAt"
         ],
         "type": "object",
@@ -13034,6 +13308,26 @@
               "string"
             ],
             "format": "int64"
+          },
+          "parentId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
           },
           "role": {
             "type": "string"
@@ -13086,6 +13380,9 @@
             ],
             "format": "int32"
           },
+          "stopped": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -13117,7 +13414,9 @@
       "ChatSendRequest": {
         "required": [
           "conversationId",
-          "text"
+          "text",
+          "replaceMessageId",
+          "retryAfterMessageId"
         ],
         "type": "object",
         "properties": {
@@ -13129,6 +13428,38 @@
             "format": "uuid"
           },
           "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "replaceMessageId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "retryAfterMessageId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "ChatTitleRequest": {
+        "required": [
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
             "type": [
               "null",
               "string"
@@ -13156,6 +13487,22 @@
           },
           "arguments": {
             "type": "string"
+          }
+        }
+      },
+      "ChatVersionRequest": {
+        "required": [
+          "messageId"
+        ],
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },

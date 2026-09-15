@@ -24,6 +24,16 @@ public class AiChatConversation
     /// <summary>When the last message was added. The list is newest first by this.</summary>
     public DateTimeOffset UpdatedAt { get; set; }
 
+    /// <summary>
+    /// The last message of the version being read. Everything shown is this message and its
+    /// parents; the other versions hang off the same parents and are one step away.
+    /// </summary>
+    /// <remarks>
+    /// Null in a conversation written before versions existed and in an empty one; the whole list
+    /// in order is then what is shown.
+    /// </remarks>
+    public long? LeafId { get; set; }
+
     public List<AiChatMessage> Messages { get; set; } = [];
 }
 
@@ -39,6 +49,16 @@ public class AiChatMessage
     public Guid ConversationId { get; set; }
 
     public AiChatConversation Conversation { get; set; } = null!;
+
+    /// <summary>
+    /// The message this one follows. Null for the first message of a conversation.
+    /// </summary>
+    /// <remarks>
+    /// Asking again, or sending an edited question, adds a message with the same parent as the one
+    /// it stands beside rather than replacing it: both versions are kept, and
+    /// <see cref="AiChatConversation.LeafId"/> says which is being read.
+    /// </remarks>
+    public long? ParentId { get; set; }
 
     /// <summary><c>user</c>, <c>assistant</c> or <c>tool</c>.</summary>
     public string Role { get; set; } = string.Empty;
@@ -61,6 +81,22 @@ public class AiChatMessage
     public bool? Worked { get; set; }
 
     public int? DurationMs { get; set; }
+
+    /// <summary>True for a reply the person stopped, or one the time limit cut off, part-written.</summary>
+    public bool Stopped { get; set; }
+
+    /// <summary>For a reply: the model that wrote it, and what the provider counted for it.</summary>
+    public string? Model { get; set; }
+
+    public int? InputTokens { get; set; }
+
+    /// <summary>Input tokens the provider served from its cache. Included in <see cref="InputTokens"/>.</summary>
+    public int? CachedInputTokens { get; set; }
+
+    public int? OutputTokens { get; set; }
+
+    /// <summary>What the provider said this round cost, when it said. OpenRouter only.</summary>
+    public decimal? ReportedCost { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 }

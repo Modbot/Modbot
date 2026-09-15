@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260915223247_AddChatVersions")]
+    partial class AddChatVersions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -43,88 +46,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_data_protection_keys");
 
                     b.ToTable("data_protection_keys", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.AiCatalogModel", b =>
-                {
-                    b.Property<string>("Model")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("model");
-
-                    b.Property<DateTimeOffset?>("AddedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("added_at");
-
-                    b.Property<decimal?>("CachedInputPerMillion")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)")
-                        .HasColumnName("cached_input_per_million");
-
-                    b.Property<int?>("ContextLength")
-                        .HasColumnType("integer")
-                        .HasColumnName("context_length");
-
-                    b.Property<DateTimeOffset>("FetchedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("fetched_at");
-
-                    b.PrimitiveCollection<string>("InputModalities")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("input_modalities");
-
-                    b.Property<decimal?>("InputPerMillion")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)")
-                        .HasColumnName("input_per_million");
-
-                    b.Property<string>("Maker")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("maker");
-
-                    b.Property<int?>("MaxOutputTokens")
-                        .HasColumnType("integer")
-                        .HasColumnName("max_output_tokens");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)")
-                        .HasColumnName("name");
-
-                    b.PrimitiveCollection<string>("OutputModalities")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("output_modalities");
-
-                    b.Property<decimal?>("OutputPerMillion")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)")
-                        .HasColumnName("output_per_million");
-
-                    b.Property<bool>("PriceVaries")
-                        .HasColumnType("boolean")
-                        .HasColumnName("price_varies");
-
-                    b.Property<string>("Prices")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("prices");
-
-                    b.PrimitiveCollection<string>("SupportedParameters")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("supported_parameters");
-
-                    b.HasKey("Model")
-                        .HasName("pk_ai_catalog_model");
-
-                    b.HasIndex("Maker")
-                        .HasDatabaseName("ix_ai_catalog_model_maker");
-
-                    b.ToTable("ai_catalog_model", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>
@@ -471,172 +392,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_ai_usage_user_at");
 
                     b.ToTable("ai_usage", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.Alert", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("At")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("at");
-
-                    b.Property<string>("DiscordChannelId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("discord_channel_id");
-
-                    b.Property<string>("DiscordError")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("discord_error");
-
-                    b.Property<DateTimeOffset?>("DiscordPostedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("discord_posted_at");
-
-                    b.Property<DateTimeOffset?>("DismissedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("dismissed_at");
-
-                    b.Property<Guid?>("DismissedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("dismissed_by_user_id");
-
-                    b.Property<string>("DismissedByUsername")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("dismissed_by_username");
-
-                    b.Property<string>("Figures")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("figures");
-
-                    b.Property<string>("Link")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("link");
-
-                    b.Property<string>("Model")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("model");
-
-                    b.Property<decimal>("Normal")
-                        .HasColumnType("numeric")
-                        .HasColumnName("normal");
-
-                    b.Property<decimal>("Now")
-                        .HasColumnType("numeric")
-                        .HasColumnName("now");
-
-                    b.Property<string>("Provider")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("provider");
-
-                    b.Property<decimal>("Score")
-                        .HasColumnType("numeric")
-                        .HasColumnName("score");
-
-                    b.Property<string>("Sensitivity")
-                        .IsRequired()
-                        .HasMaxLength(8)
-                        .HasColumnType("character varying(8)")
-                        .HasColumnName("sensitivity");
-
-                    b.Property<decimal>("Spread")
-                        .HasColumnType("numeric")
-                        .HasColumnName("spread");
-
-                    b.Property<string>("Text")
-                        .HasColumnType("text")
-                        .HasColumnName("text");
-
-                    b.Property<string>("Watcher")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("watcher");
-
-                    b.Property<DateTimeOffset>("WindowEnd")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("window_end");
-
-                    b.Property<DateTimeOffset>("WindowStart")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("window_start");
-
-                    b.HasKey("Id")
-                        .HasName("pk_modbot_alert");
-
-                    b.HasIndex("At")
-                        .HasDatabaseName("ix_modbot_alert_discord_waiting")
-                        .HasFilter("discord_channel_id IS NOT NULL AND discord_posted_at IS NULL AND discord_error IS NULL");
-
-                    b.HasIndex("Watcher", "At")
-                        .IsDescending(false, true)
-                        .HasDatabaseName("ix_modbot_alert_watcher_at");
-
-                    b.ToTable("modbot_alert", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.AlertSettings", b =>
-                {
-                    b.Property<int>("Id")
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    b.Property<string>("DiscordChannelId")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("discord_channel_id");
-
-                    b.Property<DateTimeOffset?>("LastCheckedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_checked_at");
-
-                    b.Property<int>("QuietHours")
-                        .HasColumnType("integer")
-                        .HasColumnName("quiet_hours");
-
-                    b.Property<bool>("WriteSentence")
-                        .HasColumnType("boolean")
-                        .HasColumnName("write_sentence");
-
-                    b.HasKey("Id")
-                        .HasName("pk_modbot_alert_settings");
-
-                    b.ToTable("modbot_alert_settings", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_modbot_alert_settings_singleton", "id = 1");
-                        });
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.AlertWatch", b =>
-                {
-                    b.Property<string>("Watcher")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("watcher");
-
-                    b.Property<DateTimeOffset?>("CheckedThrough")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("checked_through");
-
-                    b.Property<string>("Sensitivity")
-                        .IsRequired()
-                        .HasMaxLength(8)
-                        .HasColumnType("character varying(8)")
-                        .HasColumnName("sensitivity");
-
-                    b.HasKey("Watcher")
-                        .HasName("pk_modbot_alert_watch");
-
-                    b.ToTable("modbot_alert_watch", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ApiKey", b =>

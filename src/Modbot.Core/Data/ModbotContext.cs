@@ -1089,6 +1089,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .HasForeignKey(e => e.ConversationId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // The versions of one message are the messages sharing its parent, so reading a
+            // conversation asks for them by parent.
+            entity.HasIndex(e => new { e.ConversationId, e.ParentId });
+
             entity.HasIndex(e => new { e.ConversationId, e.Id });
         });
 
