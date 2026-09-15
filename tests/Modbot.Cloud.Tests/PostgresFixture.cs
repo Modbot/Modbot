@@ -56,28 +56,14 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public EngineContext NewEngineContext() => new(EngineContext.Options(EngineConnectionString).Options);
 
-    /// <summary>Empties every table and drops every partition. Tests in the collection run one at a time.</summary>
+    /// <summary>Empties every table. Tests in the collection run one at a time.</summary>
     public async Task ResetAsync()
     {
         await using (var cloud = NewCloudContext())
             await cloud.Database.ExecuteSqlRawAsync("TRUNCATE install, admin_session, settings");
 
         await using var engine = NewEngineContext();
-        await engine.Database.ExecuteSqlRawAsync("TRUNCATE log_file, install_clock, line_day_total, event_hour_total");
-
-        var partitions = await engine.Database.SqlQuery<string>($"""
-            SELECT child.relname AS "Value" FROM pg_inherits
-            JOIN pg_class child ON child.oid = pg_inherits.inhrelid
-            JOIN pg_class parent ON parent.oid = pg_inherits.inhparent
-            WHERE parent.relname IN ('log_line', 'log_event')
-            """).ToListAsync();
-
-        foreach (var partition in partitions)
-        {
-#pragma warning disable EF1002
-            await engine.Database.ExecuteSqlRawAsync($"DROP TABLE {partition}");
-#pragma warning restore EF1002
-        }
+        await engine.Database.ExecuteSqlRawAsync("TRUNCATE client_event, install_clock, event_day_total, event_hour_total");
     }
 }
 

@@ -5,7 +5,7 @@ using Modbot.Core.Time;
 
 namespace Modbot.Client.Time;
 
-/// <summary>Asks one server what time it thinks it is, and where log backup goes.</summary>
+/// <summary>Asks one server what time it thinks it is, and where the event backup goes.</summary>
 public interface IServerTimeProbe
 {
     Task<ServerTimeAnswer?> MeasureAsync(ServerPairing pairing, CancellationToken cancellationToken);

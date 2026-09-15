@@ -1,6 +1,7 @@
 using System.Text;
 using Modbot.Client.CloudBackup;
 using Modbot.Client.Ingest;
+using Modbot.Client.Instances;
 using Modbot.Client.LogReading;
 using Modbot.Client.Pipeline;
 using Modbot.Client.Presentation;
@@ -9,7 +10,7 @@ using Modbot.TestSupport;
 
 namespace Modbot.Client.Tests.CloudBackup;
 
-public sealed class CloudLogBackupTests : IDisposable
+public sealed class CloudEventBackupTests : IDisposable
 {
     private static readonly TimeZoneInfo PlusTwo =
         TimeZoneInfo.CreateCustomTimeZone("Test/PlusTwo", TimeSpan.FromHours(2), "Plus two", "Plus two");
@@ -18,6 +19,7 @@ public sealed class CloudLogBackupTests : IDisposable
     private readonly FakeClock _clock = new(new DateTimeOffset(2026, 9, 15, 8, 0, 0, TimeSpan.Zero));
     private readonly FakeCloudClient _cloud = new();
     private readonly MemoryInstallStore _installs = new();
+    private readonly CountingIds _ids = new();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -31,21 +33,21 @@ public sealed class CloudLogBackupTests : IDisposable
 
     private string Outbox => Path.Combine(_directory, "cloud");
 
-    private CloudLogBackup Backup(bool enabled = true, BackoffPolicy? backoff = null) => new(new CloudBackupOptions(
+    private CloudEventBackup Backup(bool enabled = true) => new(new CloudBackupOptions(
         Outbox,
         _clock,
         _cloud,
         _installs,
         "2026.9.0",
         Enabled: enabled,
-        UserProfile: @"C:\Users\rin",
         TimeZone: PlusTwo,
-        Backoff: backoff ?? new BackoffPolicy(jitter: () => 1.0)));
+        Backoff: new BackoffPolicy(jitter: () => 1.0),
+        Ids: _ids));
 
-    /// <summary>Queues lines and waits out a batch, so the next pump has one closed batch to send.</summary>
-    private async Task QueueAndCloseAsync(CloudLogBackup backup, params ReadLogLine[] lines)
+    /// <summary>Queues observations and waits out a batch, so the next pump has one closed batch to send.</summary>
+    private async Task QueueAndCloseAsync(CloudEventBackup backup, params ObservedPresence[] observations)
     {
-        backup.Offer(lines);
+        backup.Offer(observations);
         await backup.PumpAsync(Ct);
         _clock.Advance(CloudOutbox.MaxBatchAge);
     }
@@ -76,19 +78,18 @@ public sealed class CloudLogBackupTests : IDisposable
         Assert.False(loaded.CheckForUpdates);
         Assert.Equal("https://modbot.example/pair", loaded.PairingPage.ToString());
 
-        // A file that is not JSON is not overwritten.
         File.WriteAllText(path, "{ not json");
         Assert.False(ClientSettings.SaveSwitch(path, ClientSettings.SendLogsToCloudField, true));
         Assert.Equal("{ not json", File.ReadAllText(path));
     }
 
     [Fact]
-    public async Task AnUnpairedClientSendsToTheDefaultCloud()
+    public async Task AnUnpairedClientSendsItsEventsToTheDefaultCloud()
     {
         var backup = Backup();
         backup.Destination = CloudDestination.Resolve([]);
 
-        await QueueAndCloseAsync(backup, Lines.Live(0), Lines.Live(50));
+        await QueueAndCloseAsync(backup, Observations.Joined("usr_1"), Observations.Joined("usr_2", second: 5));
         Assert.True(await backup.PumpAsync(Ct));
 
         Assert.Equal([new Uri("https://cloud.modbot.co")], _cloud.Registered);
@@ -99,24 +100,46 @@ public sealed class CloudLogBackupTests : IDisposable
         var root = body.RootElement;
         Assert.Equal("2026.9.0", root.GetProperty("clientVersion").GetString());
         Assert.Equal(_clock.UtcNow, root.GetProperty("sentAt").GetDateTimeOffset());
-        Assert.Equal(2, root.GetProperty("lines").GetArrayLength());
+        Assert.False(root.TryGetProperty("lines", out _));
 
-        var line = root.GetProperty("lines")[1];
-        Assert.Equal(Lines.File, line.GetProperty("file").GetString());
-        Assert.Equal(50, line.GetProperty("offset").GetInt64());
-        Assert.Equal("2026-09-15T10:00:00", line.GetProperty("loggedAt").GetString());
-        Assert.Equal(120, line.GetProperty("utcOffsetMinutes").GetInt32());
+        // The client protocol's event, exactly: id, type, time corrected from local, subject, place.
+        var sent = root.GetProperty("events")[1];
+        Assert.Equal("event-2", sent.GetProperty("clientEventId").GetString());
+        Assert.Equal("InstanceJoined", sent.GetProperty("type").GetString());
+        Assert.Equal(new DateTimeOffset(2026, 9, 15, 8, 0, 5, TimeSpan.Zero), sent.GetProperty("occurredAt").GetDateTimeOffset());
+        Assert.Equal("usr_2", sent.GetProperty("subjectId").GetString());
+        Assert.Equal("wrld_1", sent.GetProperty("worldId").GetString());
+        Assert.Equal("39911", sent.GetProperty("instanceId").GetString());
+        Assert.Equal("grp_cats", sent.GetProperty("groupId").GetString());
+        Assert.Equal("Rin", sent.GetProperty("data").GetProperty("displayName").GetString());
 
         Assert.Equal(0, BatchFiles());
         Assert.Equal(0, backup.Status.Queued);
     }
 
     [Fact]
+    public async Task EveryInstanceIsBackedUpButNoInstanceSecretLeaves()
+    {
+        var backup = Backup();
+
+        await QueueAndCloseAsync(backup, Observations.Joined("usr_1", Observations.PrivateLocation));
+        await backup.PumpAsync(Ct);
+
+        var body = Assert.Single(_cloud.Sent).Body;
+        var sent = body.RootElement.GetProperty("events")[0];
+
+        Assert.Equal("wrld_2", sent.GetProperty("worldId").GetString());
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, sent.GetProperty("groupId").ValueKind);
+        Assert.DoesNotContain("secret-nonce-value", body.RootElement.GetRawText(), StringComparison.Ordinal);
+        Assert.DoesNotContain("nonce", body.RootElement.GetRawText(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task TurningItOffStopsSendingAndDropsTheQueue()
     {
         var backup = Backup();
-        await QueueAndCloseAsync(backup, Lines.Live(0));
-        backup.Offer([Lines.Live(10)]);
+        await QueueAndCloseAsync(backup, Observations.Joined("usr_1"));
+        backup.Offer([Observations.Joined("usr_2")]);
         Assert.True(backup.Status.Queued > 0);
 
         backup.Enabled = false;
@@ -124,9 +147,9 @@ public sealed class CloudLogBackupTests : IDisposable
         Assert.Equal(CloudBackupState.Off, backup.Status.State);
         Assert.Equal(0, backup.Status.Queued);
         Assert.Equal(0, BatchFiles());
-        Assert.False(backup.WantsLines);
+        Assert.False(backup.WantsEvents);
 
-        backup.Offer([Lines.Live(20)]);
+        backup.Offer([Observations.Joined("usr_3")]);
         _clock.Advance(TimeSpan.FromHours(1));
         Assert.False(await backup.PumpAsync(Ct));
         Assert.Empty(_cloud.Sent);
@@ -136,7 +159,7 @@ public sealed class CloudLogBackupTests : IDisposable
     public async Task TurningItOffCancelsABatchAlreadyOnItsWay()
     {
         var backup = Backup();
-        await QueueAndCloseAsync(backup, Lines.Live(0));
+        await QueueAndCloseAsync(backup, Observations.Joined());
         _cloud.Hang = new TaskCompletionSource();
 
         var pump = backup.PumpAsync(Ct);
@@ -153,31 +176,23 @@ public sealed class CloudLogBackupTests : IDisposable
     public async Task TurningItBackOnSendsOnlyFromThatMoment()
     {
         var backup = Backup();
-        backup.Offer([Lines.Live(0)]);
+        backup.Offer([Observations.Joined("usr_before")]);
         backup.Enabled = false;
-        backup.Offer([Lines.Live(10)]);
+        backup.Offer([Observations.Joined("usr_while_off")]);
 
         backup.Enabled = true;
-        await QueueAndCloseAsync(backup, Lines.Live(20));
+        await QueueAndCloseAsync(backup, Observations.Joined("usr_after"));
         await backup.PumpAsync(Ct);
 
-        var body = Assert.Single(_cloud.Sent).Body;
-        var line = Assert.Single(body.RootElement.GetProperty("lines").EnumerateArray());
-        Assert.Equal(20, line.GetProperty("offset").GetInt64());
-
-        // Nor does a restart send the history from while it was off.
-        var restarted = Backup();
-        restarted.Offer([Lines.Replay(0), Lines.Replay(10), Lines.Replay(20)]);
-        _clock.Advance(CloudOutbox.MaxBatchAge);
-        await restarted.PumpAsync(Ct);
-        Assert.Equal(0, restarted.Status.Queued);
+        var sent = Assert.Single(Assert.Single(_cloud.Sent).Body.RootElement.GetProperty("events").EnumerateArray());
+        Assert.Equal("usr_after", sent.GetProperty("subjectId").GetString());
     }
 
     [Fact]
     public async Task APairedServerThatTurnedItOffStopsSendingAndQueuing()
     {
         var backup = Backup();
-        await QueueAndCloseAsync(backup, Lines.Live(0));
+        await QueueAndCloseAsync(backup, Observations.Joined());
 
         var connection = ServerConnections.Make(_clock, _directory, "cats");
         connection.Cloud = new ServerCloudAnswer(null, Disabled: true, null);
@@ -185,9 +200,9 @@ public sealed class CloudLogBackupTests : IDisposable
 
         Assert.Equal(CloudBackupState.TurnedOffByServer, backup.Status.State);
         Assert.Equal(0, backup.Status.Queued);
-        Assert.False(backup.WantsLines);
+        Assert.False(backup.WantsEvents);
 
-        backup.Offer([Lines.Live(10)]);
+        backup.Offer([Observations.Joined("usr_2")]);
         _clock.Advance(TimeSpan.FromHours(1));
         Assert.False(await backup.PumpAsync(Ct));
         Assert.Empty(_cloud.Sent);
@@ -201,7 +216,7 @@ public sealed class CloudLogBackupTests : IDisposable
         var connection = ServerConnections.Make(_clock, _directory, "cats");
         backup.Destination = CloudDestination.Resolve([connection]);
 
-        await QueueAndCloseAsync(backup, Lines.Live(0));
+        await QueueAndCloseAsync(backup, Observations.Joined());
         Assert.False(await backup.PumpAsync(Ct));
         Assert.Equal(CloudBackupState.WaitingForServer, backup.Status.State);
         Assert.Equal(1, backup.Status.Queued);
@@ -216,16 +231,16 @@ public sealed class CloudLogBackupTests : IDisposable
     }
 
     [Fact]
-    public async Task TheOutboxSurvivesARestart()
+    public async Task TheOutboxSurvivesARestartWithTheSameEventIds()
     {
         var first = Backup();
         first.Destination = new CloudDestination(CloudDestinationKind.Wait, null, null);
-        await QueueAndCloseAsync(first, Lines.Live(0), Lines.Live(10), Lines.Live(20));
+        await QueueAndCloseAsync(first, Observations.Joined("usr_1"), Observations.Joined("usr_2"), Observations.Joined("usr_3"));
         await first.PumpAsync(Ct);
         Assert.Equal(1, BatchFiles());
 
-        // A line left in the open batch when the client closed is kept too.
-        first.Offer([Lines.Live(30)]);
+        // An event left in the open batch when the client closed is kept too.
+        first.Offer([Observations.Joined("usr_4")]);
         await first.PumpAsync(Ct);
 
         var second = Backup();
@@ -234,44 +249,19 @@ public sealed class CloudLogBackupTests : IDisposable
         Assert.True(await second.PumpAsync(Ct));
         Assert.True(await second.PumpAsync(Ct));
 
-        Assert.Equal(4, _cloud.LinesSent);
+        Assert.Equal(4, _cloud.EventsSent);
+        Assert.Equal(
+            ["event-1", "event-2", "event-3", "event-4"],
+            _cloud.Sent.SelectMany(s => s.Body.RootElement.GetProperty("events").EnumerateArray())
+                .Select(e => e.GetProperty("clientEventId").GetString()));
         Assert.Equal(0, BatchFiles());
-    }
-
-    [Fact]
-    public async Task ARestartSendsWhatWasWrittenWhileTheClientWasClosed()
-    {
-        var first = Backup();
-        await QueueAndCloseAsync(first, Lines.Live(0), Lines.Live(10));
-        await first.PumpAsync(Ct);
-
-        var second = Backup();
-        second.Offer([Lines.Replay(0), Lines.Replay(10), Lines.Replay(20), Lines.Replay(30)]);
-        _clock.Advance(CloudOutbox.MaxBatchAge);
-        await second.PumpAsync(Ct);
-        await second.PumpAsync(Ct);
-
-        var offsets = _cloud.Sent.Last().Body.RootElement.GetProperty("lines").EnumerateArray()
-            .Select(l => l.GetProperty("offset").GetInt64()).ToList();
-        Assert.Equal([20L, 30L], offsets);
-    }
-
-    [Fact]
-    public async Task AFirstStartDoesNotUploadOldLog()
-    {
-        var backup = Backup();
-        backup.Offer([Lines.Replay(0), Lines.Replay(10)]);
-        _clock.Advance(CloudOutbox.MaxBatchAge);
-
-        Assert.False(await backup.PumpAsync(Ct));
-        Assert.Equal(0, backup.Status.Queued);
     }
 
     [Fact]
     public async Task TroubleBacksOffAndRetryAfterIsHonoured()
     {
         var backup = Backup();
-        await QueueAndCloseAsync(backup, Lines.Live(0));
+        await QueueAndCloseAsync(backup, Observations.Joined());
 
         _cloud.Answers.Enqueue(new IngestResult(IngestOutcome.ServerTrouble));
         Assert.False(await backup.PumpAsync(Ct));
@@ -295,13 +285,16 @@ public sealed class CloudLogBackupTests : IDisposable
         Assert.True(await backup.PumpAsync(Ct));
         Assert.Equal(CloudBackupState.Sending, backup.Status.State);
         Assert.Equal(0, BatchFiles());
+
+        // Every attempt carried the same events, so Cloud can recognise the retries.
+        Assert.All(_cloud.Sent, s => Assert.Equal("event-1", s.Body.RootElement.GetProperty("events")[0].GetProperty("clientEventId").GetString()));
     }
 
     [Fact]
     public async Task AForgottenInstallRegistersAgain()
     {
         var backup = Backup();
-        await QueueAndCloseAsync(backup, Lines.Live(0));
+        await QueueAndCloseAsync(backup, Observations.Joined());
 
         _cloud.Answers.Enqueue(new IngestResult(IngestOutcome.Unauthorised));
         Assert.False(await backup.PumpAsync(Ct));
@@ -316,7 +309,7 @@ public sealed class CloudLogBackupTests : IDisposable
     public async Task ABatchCloudRefusesForGoodIsDroppedAndCounted()
     {
         var backup = Backup();
-        await QueueAndCloseAsync(backup, Lines.Live(0), Lines.Live(10));
+        await QueueAndCloseAsync(backup, Observations.Joined("usr_1"), Observations.Joined("usr_2"));
 
         _cloud.Answers.Enqueue(new IngestResult(IngestOutcome.Malformed));
         await backup.PumpAsync(Ct);
@@ -326,33 +319,32 @@ public sealed class CloudLogBackupTests : IDisposable
     }
 
     [Fact]
-    public async Task TheUserFolderIsHiddenAndOnlyTheFileNameIsSent()
-    {
-        var backup = Backup();
-        await QueueAndCloseAsync(backup, Lines.Live(0, @"2026.09.15 10:00:00 Debug      -  Loading C:\Users\Rin\AppData\LocalLow\VRChat\x and C:/Users/rin/y"));
-        await backup.PumpAsync(Ct);
-
-        var line = _cloud.Sent[0].Body.RootElement.GetProperty("lines")[0];
-        Assert.Equal(@"2026.09.15 10:00:00 Debug      -  Loading %USERPROFILE%\AppData\LocalLow\VRChat\x and %USERPROFILE%/y", line.GetProperty("text").GetString());
-        Assert.DoesNotContain("\\", line.GetProperty("file").GetString(), StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task TheLogReaderNeverWaitsOnTheBackup()
     {
         var logs = Directory.CreateDirectory(Path.Combine(_directory, "logs")).FullName;
-        var logFile = Path.Combine(logs, Lines.File);
+        var logFile = Path.Combine(logs, "output_log_2026-09-15_10-00-00.txt");
         File.WriteAllText(logFile, "");
 
         var backup = Backup();
-        var observer = new PresenceObserver(new VRChatLogTail(logs), _clock, lines: backup);
-        var engine = new ClientEngine(observer, _clock);
+        var engine = new ClientEngine(new PresenceObserver(new VRChatLogTail(logs), _clock), _clock, backup: backup);
 
         // The first pass primes the reader; everything after it is live.
         await engine.TickAsync(Ct);
 
-        File.AppendAllText(logFile, "2026.09.15 10:00:00 Debug      -  [Behaviour] OnPlayerJoined Rin (usr_1)\n", Encoding.UTF8);
-        await engine.TickAsync(Ct);
+        // A private, non-group instance: no Modbot server is told, and the backup still is.
+        File.AppendAllText(
+            logFile,
+            "2026.09.15 10:00:00 Debug      -  [Behaviour] Joining wrld_2:77777~private(usr_owner)~nonce(n)~region(eu)\n"
+            + "2026.09.15 10:00:01 Debug      -  [Behaviour] Initialized PlayerAPI \"Rin\" is local\n"
+            + "2026.09.15 10:00:01 Debug      -  [Behaviour] OnPlayerJoined Rin (usr_me)\n",
+            Encoding.UTF8);
+
+        for (var i = 0; i < 5; i++)
+        {
+            _clock.Advance(TimeSpan.FromSeconds(5));
+            await engine.TickAsync(Ct);
+        }
+
         _clock.Advance(CloudOutbox.MaxBatchAge);
 
         // Cloud hangs on the first batch, and stays hung.
@@ -363,22 +355,18 @@ public sealed class CloudLogBackupTests : IDisposable
         // Meanwhile the reader goes on reading, and each turn finishes.
         for (var i = 0; i < 20; i++)
         {
-            File.AppendAllText(logFile, $"2026.09.15 10:00:{i:00} Debug      -  [IK Debug Log] fps {i}\n", Encoding.UTF8);
+            File.AppendAllText(logFile, $"2026.09.15 10:01:{i:00} Debug      -  [IK Debug Log] fps {i}\n", Encoding.UTF8);
             var tick = engine.TickAsync(Ct);
             Assert.True(tick.IsCompleted, "A reader turn waited on the backup.");
             await tick;
         }
 
         Assert.False(pump.IsCompleted);
-        Assert.Equal(21, backup.Status.Queued);
-        Assert.Equal(21, engine.LogHealth.LinesRead);
 
         _cloud.Hang.SetResult();
         Assert.True(await pump.WaitAsync(TimeSpan.FromSeconds(10), Ct));
-
-        var parsed = _cloud.Sent[0].Body.RootElement.GetProperty("lines")[0].GetProperty("event");
-        Assert.Equal("PlayerJoined", parsed.GetProperty("type").GetString());
-        Assert.Equal("usr_1", parsed.GetProperty("data").GetProperty("userId").GetString());
+        Assert.True(_cloud.EventsSent > 0);
+        Assert.Equal("usr_me", _cloud.Sent[0].Body.RootElement.GetProperty("events")[0].GetProperty("subjectId").GetString());
     }
 
     [Fact]
@@ -387,9 +375,9 @@ public sealed class CloudLogBackupTests : IDisposable
         var backup = Backup();
         backup.Destination = new CloudDestination(CloudDestinationKind.Wait, null, null);
 
-        backup.Offer([.. Enumerable.Range(0, CloudLogBackup.QueueLimit + 5).Select(i => Lines.Live(i))]);
+        backup.Offer([.. Enumerable.Range(0, CloudEventBackup.QueueLimit + 5).Select(i => Observations.Joined($"usr_{i}"))]);
 
-        Assert.Equal(CloudLogBackup.QueueLimit, backup.Status.Queued);
+        Assert.Equal(CloudEventBackup.QueueLimit, backup.Status.Queued);
         Assert.Equal(5, backup.Status.Dropped);
     }
 
@@ -398,24 +386,21 @@ public sealed class CloudLogBackupTests : IDisposable
     {
         var outbox = new CloudOutbox(Outbox, cap: CloudOutbox.MaxBytesPerBatch);
 
-        // Random text compresses poorly, so a few full batches pass a 512 KB cap.
+        // Random text compresses poorly, so a few full batches pass a small cap.
         var random = new Random(7);
         for (var batch = 0; batch < 6; batch++)
         {
-            var lines = Enumerable.Range(0, CloudOutbox.MaxLinesPerBatch).Select(i => new BackupLine(
-                Lines.File,
-                (batch * 10_000) + i,
-                new string([.. Enumerable.Range(0, 400).Select(_ => (char)random.Next(33, 126))]),
-                null,
-                null,
-                null)).ToList();
-            outbox.Append(lines, _clock.UtcNow);
+            var events = Enumerable.Range(0, CloudOutbox.MaxEventsPerBatch)
+                .Select(_ => "\"" + new string([.. Enumerable.Range(0, 600).Select(_ => (char)random.Next(65, 90))]) + "\"")
+                .ToList();
+            outbox.Append(events, _clock.UtcNow);
         }
 
-        Assert.True(outbox.DroppedLines > 0);
+        Assert.True(outbox.DroppedEvents > 0);
         Assert.True(outbox.Batches()[0].Sequence > 1);
     }
 }
+
 internal static class ServerConnections
 {
     public static ServerConnection Make(FakeClock clock, string directory, string serverId)

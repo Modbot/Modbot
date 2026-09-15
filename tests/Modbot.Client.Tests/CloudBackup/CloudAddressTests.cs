@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using Modbot.Client.CloudBackup;
 using Modbot.Client.Ingest;
-using Modbot.Client.LogReading;
 using Modbot.Client.Pairing;
 using Modbot.Client.Time;
 using Modbot.TestSupport;
@@ -130,19 +129,6 @@ public sealed class CloudAddressTests : IDisposable
 
         store.Forget(endpoint);
         Assert.Null(store.Find(endpoint));
-    }
-
-    [Fact]
-    public void EachLineKnowsWhereItStartsInItsFile()
-    {
-        var logs = Directory.CreateDirectory(Path.Combine(_directory, "logs")).FullName;
-        File.WriteAllText(Path.Combine(logs, "output_log_a.txt"), "first\r\nsecond ☃\n\nthird\n", Encoding.UTF8);
-
-        var lines = new VRChatLogTail(logs).ReadPending();
-
-        // The file starts with a three-byte byte-order mark, which rides on the first line's offset.
-        Assert.Equal(["first", "second ☃", "third"], lines.Select(l => l.Text));
-        Assert.Equal([0L, 10L, 22L], lines.Select(l => l.Offset));
     }
 
     private sealed class ReversingProtector : IPairingSecretProtector

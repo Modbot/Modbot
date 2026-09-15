@@ -11,9 +11,9 @@ namespace Modbot.Cloud.Data;
 /// <remarks>
 /// <para>
 /// Small, and meant to stay small: installs, admin sessions and settings today, and accounts,
-/// the instance registry, term lists and showcases later. Everything VRChat's logs produce lives in
-/// the other database (<see cref="Engine.EngineContext"/>), so this one can be backed up, restored
-/// and migrated without touching a hundred gigabytes of log lines.
+/// the instance registry, term lists and showcases later. The events clients back up live in the
+/// other database (<see cref="Engine.EngineContext"/>), so this one can be backed up, restored
+/// and migrated without touching the event storage.
 /// </para>
 /// <para>
 /// Nothing here has a foreign key into the engine database or from it. They are separate servers.

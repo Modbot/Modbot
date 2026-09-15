@@ -12,7 +12,7 @@ const PAGE = 50
 
 export function Installs() {
   const [offset, setOffset] = useState(0)
-  const days = useAdminLoad(() => api.linesPerDay(30), [])
+  const days = useAdminLoad(() => api.eventsPerDay(30), [])
   const { data, error } = useAdminLoad(() => api.installs(offset, PAGE), [offset])
 
   return (
@@ -20,12 +20,12 @@ export function Installs() {
       <h1 className="text-lg font-semibold">Installs</h1>
 
       <Card className="gap-0 py-0">
-        <h2 className="border-b px-4 py-3 font-semibold">Lines per day</h2>
+        <h2 className="border-b px-4 py-3 font-semibold">Events per day</h2>
         <div className="px-4 py-4">
           {days.error && days.error.status !== 401 ? (
             <p className="text-destructive">{days.error.message}</p>
           ) : days.data ? (
-            <LinesChart days={days.data.items} />
+            <EventsChart days={days.data.items} />
           ) : (
             <p className="text-muted-foreground">Loading</p>
           )}
@@ -47,7 +47,7 @@ export function Installs() {
                 <TableHead className="px-4">Version</TableHead>
                 <TableHead className="px-4">First seen</TableHead>
                 <TableHead className="px-4">Last seen</TableHead>
-                <TableHead className="px-4 text-right">Lines stored</TableHead>
+                <TableHead className="px-4 text-right">Events stored</TableHead>
                 <TableHead className="px-4 text-right">Clock offset</TableHead>
                 <TableHead className="px-4">Paired server</TableHead>
               </TableRow>
@@ -67,7 +67,7 @@ export function Installs() {
                   <TableCell className="px-4" title={when(install.lastSeenAt)}>
                     {ago(install.lastSeenAt)}
                   </TableCell>
-                  <TableCell className="px-4 text-right">{install.linesStored.toLocaleString()}</TableCell>
+                  <TableCell className="px-4 text-right">{install.eventsStored.toLocaleString()}</TableCell>
                   <TableCell className="px-4 text-right">
                     {clockText(install.clockOffsetMs)}
                     {install.clockDisagrees && (
@@ -107,8 +107,8 @@ export function Installs() {
 }
 
 /** One bar per day, scaled to the busiest day. Plain SVG: one chart does not need a library. */
-function LinesChart({ days }: { days: DayCount[] }) {
-  const most = Math.max(1, ...days.map((d) => d.lines))
+function EventsChart({ days }: { days: DayCount[] }) {
+  const most = Math.max(1, ...days.map((d) => d.events))
   const width = 720
   const height = 140
   const gap = 2
@@ -116,9 +116,9 @@ function LinesChart({ days }: { days: DayCount[] }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-36 w-full" role="img" aria-label="Lines per day">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-36 w-full" role="img" aria-label="Events per day">
         {days.map((d, i) => {
-          const h = Math.round((d.lines / most) * (height - 4))
+          const h = Math.round((d.events / most) * (height - 4))
           return (
             <rect
               key={d.day}
@@ -129,7 +129,7 @@ function LinesChart({ days }: { days: DayCount[] }) {
               rx={2}
               className="fill-primary"
             >
-              <title>{`${d.day}: ${d.lines.toLocaleString()}`}</title>
+              <title>{`${d.day}: ${d.events.toLocaleString()}`}</title>
             </rect>
           )
         })}

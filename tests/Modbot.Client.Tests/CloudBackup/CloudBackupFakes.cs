@@ -2,7 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using Modbot.Client.CloudBackup;
 using Modbot.Client.Ingest;
-using Modbot.Client.LogReading;
+using Modbot.Client.Instances;
 using Modbot.Client.Time;
 
 namespace Modbot.Client.Tests.CloudBackup;
@@ -45,7 +45,7 @@ internal sealed class FakeCloudClient : ICloudLogClient
     public Task<ClockSample?> MeasureAsync(Uri endpoint, CancellationToken cancellationToken) =>
         Task.FromResult<ClockSample?>(null);
 
-    public int LinesSent => Sent.Sum(s => s.Body.RootElement.GetProperty("lines").GetArrayLength());
+    public int EventsSent => Sent.Sum(s => s.Body.RootElement.GetProperty("events").GetArrayLength());
 }
 
 internal sealed class MemoryInstallStore : ICloudInstallStore
@@ -59,19 +59,22 @@ internal sealed class MemoryInstallStore : ICloudInstallStore
     public void Forget(Uri endpoint) => Installs.Remove(endpoint.GetLeftPart(UriPartial.Authority));
 }
 
-internal static class Lines
+internal sealed class CountingIds : IClientEventIdSource
 {
-    public const string File = "output_log_2026-09-15_10-00-00.txt";
+    private int _next;
 
-    public static ReadLogLine Live(long offset, string text = "2026.09.15 10:00:00 Debug      -  [IK Debug Log] fps 90") =>
-        Make(offset, text, replay: false);
+    public string Next() => $"event-{++_next}";
+}
 
-    public static ReadLogLine Replay(long offset, string text = "2026.09.15 09:00:00 Debug      -  old") =>
-        Make(offset, text, replay: true);
+internal static class Observations
+{
+    public const string GroupLocation = "wrld_1:39911~group(grp_cats)~groupAccessType(members)~region(eu)";
 
-    private static ReadLogLine Make(long offset, string text, bool replay)
+    public const string PrivateLocation = "wrld_2:77777~private(usr_owner)~nonce(secret-nonce-value)~region(eu)";
+
+    public static ObservedPresence Joined(string subject = "usr_1", string location = GroupLocation, int second = 0)
     {
-        VRChatLogLine? parsed = VRChatLogLineParser.TryParse(text, out var line) ? line : null;
-        return new ReadLogLine(File, offset, text, replay, parsed, null);
+        Assert.True(InstanceLocation.TryParse(location, out var instance));
+        return new ObservedPresence(PresenceKind.Joined, new DateTime(2026, 9, 15, 10, 0, second), subject, "Rin", instance);
     }
 }

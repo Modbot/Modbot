@@ -20,8 +20,7 @@ export function Settings() {
 }
 
 function RetentionForm({ initial }: { initial: SettingsValues }) {
-  const [lineDays, setLineDays] = useState(String(initial.logLineKeepDays))
-  const [eventDays, setEventDays] = useState(String(initial.logEventKeepDays))
+  const [eventDays, setEventDays] = useState(String(initial.eventKeepDays))
   const [status, setStatus] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -32,9 +31,8 @@ function RetentionForm({ initial }: { initial: SettingsValues }) {
     setStatus(null)
     setFailure(null)
     try {
-      const saved = await api.saveSettings({ logLineKeepDays: Number(lineDays), logEventKeepDays: Number(eventDays) })
-      setLineDays(String(saved.logLineKeepDays))
-      setEventDays(String(saved.logEventKeepDays))
+      const saved = await api.saveSettings({ eventKeepDays: Number(eventDays) })
+      setEventDays(String(saved.eventKeepDays))
       setStatus('Saved')
     } catch (e) {
       setFailure(e instanceof ApiError ? e.message : 'Could not reach the server.')
@@ -48,14 +46,8 @@ function RetentionForm({ initial }: { initial: SettingsValues }) {
       <form onSubmit={save} className="flex max-w-sm flex-col gap-4">
         <h2 className="font-semibold">Retention</h2>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="line-days" className="font-medium">
-            Keep log lines (days, 0 = forever)
-          </label>
-          <Input id="line-days" type="number" min={0} value={lineDays} onChange={(e) => setLineDays(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-1.5">
           <label htmlFor="event-days" className="font-medium">
-            Keep parsed events (days, 0 = forever)
+            Keep events (days, 0 = forever)
           </label>
           <Input id="event-days" type="number" min={0} value={eventDays} onChange={(e) => setEventDays(e.target.value)} />
         </div>
@@ -65,7 +57,7 @@ function RetentionForm({ initial }: { initial: SettingsValues }) {
           </p>
         )}
         <div className="flex items-center gap-3">
-          <Button type="submit" disabled={busy || lineDays === '' || eventDays === ''}>
+          <Button type="submit" disabled={busy || eventDays === ''}>
             Save
           </Button>
           {status && <span className="text-muted-foreground">{status}</span>}

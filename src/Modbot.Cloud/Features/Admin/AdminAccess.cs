@@ -4,7 +4,7 @@ using Modbot.Cloud.Data;
 namespace Modbot.Cloud.Features.Admin;
 
 /// <summary>
-/// Everything under <c>/api/admin</c>, raw log lines included: an <c>/admin</c> session cookie, or
+/// Everything under <c>/api/admin</c>, backed-up events included: an <c>/admin</c> session cookie, or
 /// <c>Authorization: Bearer &lt;ROOT_API_KEY&gt;</c> for scripts.
 /// </summary>
 public static class AdminAccess

@@ -9,7 +9,7 @@ namespace Modbot.Cloud.Features.Installs;
 /// <remarks>
 /// <para>
 /// An install is a random id, not a person: nothing here names the moderator, their VRChat account
-/// or their machine, and the IP address it registered from is not kept (cloud log backup spec 3.2).
+/// or their machine, and the IP address it registered from is not kept (cloud event backup spec 3.2).
 /// </para>
 /// <para>
 /// Only a SHA-256 of the secret is stored, so reading this table does not let anyone send as the

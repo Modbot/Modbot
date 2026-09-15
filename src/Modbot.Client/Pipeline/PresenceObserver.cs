@@ -1,4 +1,3 @@
-using Modbot.Client.CloudBackup;
 using Modbot.Client.Instances;
 using Modbot.Client.LogReading;
 using Modbot.Core.Time;
@@ -15,11 +14,8 @@ namespace Modbot.Client.Pipeline;
 /// arrivals and departures actually happened (<see cref="InstanceSessionTracker"/>).</para>
 /// <para><strong>Nothing has been sent anywhere at this point.</strong> What comes out of here is
 /// still on the moderator's machine, still unfiltered by group, and still in the machine's own
-/// local time. Routing decides which Modbot server is entitled to hear about any of it, and drops
-/// everything that is not a group instance.</para>
-/// <para><strong>Every line is also handed to the log backup</strong> when one is given
-/// (<see cref="ILogLineSink"/>): all of them, any tag, any instance. That is the separate Modbot
-/// Cloud backup the moderator can turn off in settings, and it is not filtered by group.</para>
+/// local time. Routing decides who is entitled to hear about any of it, and drops everything that
+/// is not a group instance.</para>
 /// <para><strong>Lines already in the file when Modbot started are read but not reported.</strong>
 /// They are needed — they are how the client works out which instance the moderator is sitting in
 /// right now — but reporting them would re-submit hours of old observations on every restart.</para>
@@ -77,18 +73,11 @@ public sealed class PresenceObserver
     /// </summary>
     private bool _stopReported;
 
-    private readonly ILogLineSink? _lines;
-
-    /// <param name="lines">
-    /// Where every line read is also handed, as read: the log backup to Modbot Cloud. Handed over in
-    /// one call per turn, after the turn's lines are parsed, and never waited on.
-    /// </param>
-    public PresenceObserver(VRChatLogTail tail, IModbotClock clock, InstanceSessionTracker? tracker = null, ILogLineSink? lines = null)
+    public PresenceObserver(VRChatLogTail tail, IModbotClock clock, InstanceSessionTracker? tracker = null)
     {
         _tail = tail;
         _clock = clock;
         _tracker = tracker ?? new InstanceSessionTracker();
-        _lines = lines;
     }
 
     /// <summary>
@@ -152,26 +141,12 @@ public sealed class PresenceObserver
             _stopReported = false;
         }
 
-        var fileName = _tail.CurrentFile is { } current ? Path.GetFileName(current) : null;
-        var backup = _lines is { WantsLines: true } && fileName is not null && pending.Count > 0
-            ? new List<ReadLogLine>(pending.Count)
-            : null;
-
         foreach (var line in pending)
         {
             _lastLineAt = _clock.UtcNow;
 
             if (!VRChatLogLineParser.TryParse(line.Text, out var parsed))
-            {
-                backup?.Add(new ReadLogLine(fileName!, line.Offset, line.Text, line.IsReplay, null, null));
                 continue;
-            }
-
-            var logEvent = string.Equals(parsed.Tag, "Behaviour", StringComparison.Ordinal)
-                ? BehaviourEventParser.Parse(parsed)
-                : null;
-
-            backup?.Add(new ReadLogLine(fileName!, line.Offset, line.Text, line.IsReplay, parsed, logEvent));
 
             _lastLineWritten = parsed.Timestamp;
 
@@ -197,7 +172,7 @@ public sealed class PresenceObserver
 
             _behaviourLines++;
 
-            if (logEvent is null)
+            if (BehaviourEventParser.Parse(parsed) is not { } logEvent)
                 continue;
 
             _recognisedEvents++;
@@ -214,9 +189,6 @@ public sealed class PresenceObserver
 
         if (StoppedJustNow() is { } stopped)
             observations.Add(stopped);
-
-        if (backup is { Count: > 0 })
-            _lines!.Offer(backup);
 
         return observations;
     }

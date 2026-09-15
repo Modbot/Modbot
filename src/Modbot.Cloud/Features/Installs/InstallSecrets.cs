@@ -11,7 +11,7 @@ namespace Modbot.Cloud.Features.Installs;
 /// <para>
 /// A secret is 32 random bytes, written as base64url: 43 characters. It is handed to the client
 /// once, at registration, and Cloud keeps only its SHA-256. The client keeps it encrypted to the
-/// Windows account (cloud log backup spec 3.2).
+/// Windows account (cloud event backup spec 3.2).
 /// </para>
 /// <para>
 /// A request carries <c>Authorization: Bearer &lt;installId&gt;.&lt;secret&gt;</c>. The id says which

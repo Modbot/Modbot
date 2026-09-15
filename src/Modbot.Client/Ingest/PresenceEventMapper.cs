@@ -34,6 +34,9 @@ public sealed class RandomClientEventIdSource : IClientEventIdSource
 /// this far anyway. The instance's raw location string, which for non-group instances carries the
 /// instance secret. Anything about instances belonging to no group. And avatar ids, which VRChat
 /// does not put in the log at all.</para>
+/// <para><see cref="MapAnyInstance"/> skips the group check, for the Modbot Cloud backup only. It adds
+/// nothing: the same fields, with no group id for an instance that has none. The instance secret is
+/// still gone, because it is discarded when the location is parsed.</para>
 /// <para>The mapping runs once per destination server, because each server has its own measured
 /// clock offset and its own idempotency scope.</para>
 /// </remarks>
@@ -62,6 +65,17 @@ public sealed class PresenceEventMapper
         if (observation.Instance.GroupId is not { } groupId)
             return null;
 
+        return Build(observation, groupId);
+    }
+
+    /// <summary>
+    /// Builds the same wire event for any instance, group or not. Used only by the Modbot Cloud
+    /// backup, which the moderator can turn off; never by anything that sends to a Modbot server.
+    /// </summary>
+    public ClientEvent MapAnyInstance(ObservedPresence observation) => Build(observation, observation.Instance.GroupId);
+
+    private ClientEvent Build(ObservedPresence observation, string? groupId)
+    {
         // Local wall-clock text to a real instant, then to the server's clock. Two corrections,
         // both necessary before this timestamp can be compared with another machine's.
         var occurredAt = _clock.ToServerTime(_timestamps.ToInstant(observation.OccurredAtLocal));

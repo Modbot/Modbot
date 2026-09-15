@@ -34,7 +34,7 @@ public sealed class RegistrationLimit(TimeProvider time)
 /// <para>
 /// Unauthenticated, because the client has nothing yet. Limited to
 /// <see cref="RegistrationLimit.PerHour"/> an hour per IP address. The address is used for the
-/// limit and not stored (cloud log backup spec 3.2).
+/// limit and not stored (cloud event backup spec 3.2).
 /// </para>
 /// <para>
 /// Takes the client's version and platform and nothing else: no machine name, no account, no

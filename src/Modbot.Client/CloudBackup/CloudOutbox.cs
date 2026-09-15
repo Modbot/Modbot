@@ -1,63 +1,53 @@
 using System.Globalization;
 using System.IO.Compression;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Modbot.Client.CloudBackup;
 
 /// <summary>A closed batch waiting to be sent.</summary>
-public sealed record OutboxBatch(string Name, long Sequence, int Lines);
+public sealed record OutboxBatch(string Name, long Sequence, int Events);
 
 /// <summary>
-/// The log backup's queue on disk: lines waiting to go to Modbot Cloud, kept across restarts and
+/// The event backup's queue on disk: events waiting to go to Modbot Cloud, kept across restarts and
 /// any length of time offline.
 /// </summary>
 /// <remarks>
 /// <para><strong>What is written to your disk.</strong> One folder, <c>%APPDATA%\Modbot\cloud</c>,
-/// holding VRChat log lines not yet sent — the fields listed on <see cref="BackupLine"/> and nothing
-/// else. <c>open.jsonl</c> is the batch being filled, one line per row. Closed batches are
-/// <c>batch-&lt;number&gt;-&lt;lines&gt;.json.gz</c>, gzipped, sent oldest first and deleted the moment
-/// Cloud accepts them. <c>sent-through.json</c> records, per log file, the last offset queued, so a
-/// restart knows where it left off.</para>
-/// <para><strong>It forgets on purpose.</strong> The whole folder is capped at <see cref="DefaultCap"/>.
-/// When closing a batch passes the cap, the oldest batches are deleted first and their lines
-/// counted in <see cref="DroppedLines"/>. Turning the backup off deletes everything here.</para>
-/// <para><strong>Nothing in here is sent except by <see cref="CloudLogBackup"/></strong>, to the one
+/// holding presence events not yet sent — each one the JSON of a <c>ClientEvent</c>, the same fields a
+/// Modbot server is sent, and nothing else. <c>open.jsonl</c> is the batch being filled, one event per
+/// row. Closed batches are <c>batch-&lt;number&gt;-&lt;events&gt;.json.gz</c>, gzipped, sent oldest first
+/// and deleted the moment Cloud accepts them.</para>
+/// <para><strong>It forgets on purpose.</strong> The folder is capped at <see cref="DefaultCap"/>. When
+/// closing a batch passes the cap, the oldest batches are deleted first and their events counted in
+/// <see cref="DroppedEvents"/>. Turning the backup off deletes everything here.</para>
+/// <para><strong>Nothing in here is sent except by <see cref="CloudEventBackup"/></strong>, to the one
 /// Cloud address it has settled on.</para>
-/// <para>Not thread-safe: <see cref="CloudLogBackup"/> is its only user and holds a lock around it.</para>
+/// <para>Not thread-safe: <see cref="CloudEventBackup"/> is its only user and holds a lock around it.</para>
 /// </remarks>
 public sealed partial class CloudOutbox
 {
     /// <summary>
-    /// 100 MB. At about ten to one compression that is roughly 500 hours of VRChat, which is weeks
-    /// offline before anything is dropped, and small enough not to matter on anyone's disk.
+    /// 20 MB. An event is a few hundred bytes of JSON and compresses well, so this is hundreds of
+    /// thousands of events — months offline for anyone — and small enough not to matter on a disk.
     /// </summary>
-    public const long DefaultCap = 100L * 1024 * 1024;
+    public const long DefaultCap = 20L * 1024 * 1024;
 
-    /// <summary>A batch closes at this many lines.</summary>
-    public const int MaxLinesPerBatch = 1_000;
+    /// <summary>A batch closes at this many events, the protocol's batch size toward a server.</summary>
+    public const int MaxEventsPerBatch = 500;
 
-    /// <summary>A batch closes once its lines reach this many bytes of JSON.</summary>
-    public const int MaxBytesPerBatch = 512 * 1024;
+    /// <summary>A batch closes once its events reach this many bytes of JSON.</summary>
+    public const int MaxBytesPerBatch = 256 * 1024;
 
-    /// <summary>A batch closes this long after its first line, however few it holds.</summary>
+    /// <summary>A batch closes this long after its first event, however few it holds.</summary>
     public static readonly TimeSpan MaxBatchAge = TimeSpan.FromSeconds(60);
 
     private const string OpenFileName = "open.jsonl";
-    private const string SentThroughFileName = "sent-through.json";
-
-    /// <summary>How many log files' positions are remembered. Only the newest few can be replayed.</summary>
-    private const int FilesRemembered = 8;
-
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     private readonly string _directory;
     private readonly long _cap;
-    private readonly Dictionary<string, long> _sentThrough;
-    private readonly List<string> _sentThroughOrder = [];
 
-    private int _openLines;
+    private int _openEvents;
     private long _openBytes;
     private DateTimeOffset? _openSince;
     private long _nextSequence;
@@ -66,61 +56,51 @@ public sealed partial class CloudOutbox
     {
         _directory = directory;
         _cap = Math.Max(MaxBytesPerBatch, cap);
-        _sentThrough = LoadSentThrough();
 
         Directory.CreateDirectory(_directory);
         _nextSequence = Batches().Select(b => b.Sequence).DefaultIfEmpty(0).Max() + 1;
 
-        // A batch left open by the last run is closed now: its lines are already late.
+        // A batch left open by the last run is closed now: its events are already late.
         if (File.Exists(OpenPath))
         {
-            _openLines = File.ReadLines(OpenPath).Count(l => l.Length > 0);
+            _openEvents = File.ReadLines(OpenPath).Count(l => l.Length > 0);
             Close();
         }
     }
 
-    /// <summary>Lines dropped because the folder passed its cap, since this outbox was made.</summary>
-    public long DroppedLines { get; private set; }
+    /// <summary>Events dropped because the folder passed its cap, since this outbox was made.</summary>
+    public long DroppedEvents { get; private set; }
 
-    /// <summary>Lines waiting on disk, open and closed.</summary>
-    public long QueuedLines => _openLines + Batches().Sum(b => (long)b.Lines);
-
-    /// <summary>
-    /// Where each log file had got to when the last run stopped queuing, as this outbox was opened.
-    /// </summary>
-    public IReadOnlyDictionary<string, long> SentThrough => _sentThrough;
+    /// <summary>Events waiting on disk, open and closed.</summary>
+    public long QueuedEvents => _openEvents + Batches().Sum(b => (long)b.Events);
 
     private string OpenPath => Path.Combine(_directory, OpenFileName);
 
-    private string SentThroughPath => Path.Combine(_directory, SentThroughFileName);
-
-    /// <summary>Adds lines to the open batch, closing it as often as it fills.</summary>
-    /// <param name="now">When these lines were read, which is when a batch they start begins to age.</param>
-    public void Append(IReadOnlyList<BackupLine> lines, DateTimeOffset now)
+    /// <summary>Adds events, each already its JSON, to the open batch, closing it as often as it fills.</summary>
+    /// <param name="since">When these events were observed, which is when a batch they start begins to age.</param>
+    public void Append(IReadOnlyList<string> events, DateTimeOffset since)
     {
-        if (lines.Count == 0)
+        if (events.Count == 0)
             return;
 
         Directory.CreateDirectory(_directory);
 
-        var writer = new StreamWriter(new FileStream(OpenPath, FileMode.Append, FileAccess.Write, FileShare.Read), new UTF8Encoding(false));
+        var writer = OpenWriter();
         try
         {
-            foreach (var line in lines)
+            foreach (var json in events)
             {
-                var json = JsonSerializer.Serialize(line, Json);
                 writer.WriteLine(json);
 
-                _openSince ??= now;
-                _openLines++;
+                _openSince ??= since;
+                _openEvents++;
                 _openBytes += Encoding.UTF8.GetByteCount(json) + 1;
-                Remember(line.File, line.Offset);
 
-                if (_openLines >= MaxLinesPerBatch || _openBytes >= MaxBytesPerBatch)
+                if (_openEvents >= MaxEventsPerBatch || _openBytes >= MaxBytesPerBatch)
                 {
                     writer.Dispose();
                     Close();
-                    writer = new StreamWriter(new FileStream(OpenPath, FileMode.Append, FileAccess.Write, FileShare.Read), new UTF8Encoding(false));
+                    writer = OpenWriter();
                 }
             }
         }
@@ -129,16 +109,14 @@ public sealed partial class CloudOutbox
             writer.Dispose();
         }
 
-        if (_openLines == 0 && File.Exists(OpenPath))
+        if (_openEvents == 0 && File.Exists(OpenPath))
             File.Delete(OpenPath);
-
-        SaveSentThrough();
     }
 
-    /// <summary>Closes the open batch once its first line is <see cref="MaxBatchAge"/> old.</summary>
+    /// <summary>Closes the open batch once its first event is <see cref="MaxBatchAge"/> old.</summary>
     public void CloseIfDue(DateTimeOffset now)
     {
-        if (_openLines > 0 && _openSince is { } since && now - since >= MaxBatchAge)
+        if (_openEvents > 0 && _openSince is { } since && now - since >= MaxBatchAge)
             Close();
     }
 
@@ -167,8 +145,8 @@ public sealed partial class CloudOutbox
     /// <summary>The oldest closed batch, or null when there is none.</summary>
     public OutboxBatch? Oldest() => Batches().FirstOrDefault();
 
-    /// <summary>The batch's lines, each as the JSON it will be sent as.</summary>
-    public IReadOnlyList<string> ReadLines(OutboxBatch batch)
+    /// <summary>The batch's events, each as the JSON it will be sent as.</summary>
+    public IReadOnlyList<string> ReadEvents(OutboxBatch batch)
     {
         ArgumentNullException.ThrowIfNull(batch);
 
@@ -176,14 +154,14 @@ public sealed partial class CloudOutbox
         using var gzip = new GZipStream(file, CompressionMode.Decompress);
         using var reader = new StreamReader(gzip, Encoding.UTF8);
 
-        var lines = new List<string>(batch.Lines);
+        var events = new List<string>(batch.Events);
         while (reader.ReadLine() is { } line)
         {
             if (line.Length > 0)
-                lines.Add(line);
+                events.Add(line);
         }
 
-        return lines;
+        return events;
     }
 
     /// <summary>Deletes a batch Cloud has accepted, or refused for good.</summary>
@@ -196,7 +174,7 @@ public sealed partial class CloudOutbox
             File.Delete(path);
     }
 
-    /// <summary>Deletes everything queued, and where each file had got to.</summary>
+    /// <summary>Deletes everything queued.</summary>
     public void Clear()
     {
         if (Directory.Exists(_directory))
@@ -205,25 +183,26 @@ public sealed partial class CloudOutbox
                 File.Delete(path);
         }
 
-        _openLines = 0;
+        _openEvents = 0;
         _openBytes = 0;
         _openSince = null;
-        _sentThrough.Clear();
-        _sentThroughOrder.Clear();
     }
+
+    private StreamWriter OpenWriter() =>
+        new(new FileStream(OpenPath, FileMode.Append, FileAccess.Write, FileShare.Read), new UTF8Encoding(false));
 
     /// <summary>Gzips the open batch into a numbered file, then enforces the cap.</summary>
     private void Close()
     {
-        if (_openLines == 0 || !File.Exists(OpenPath))
+        if (_openEvents == 0 || !File.Exists(OpenPath))
         {
-            _openLines = 0;
+            _openEvents = 0;
             _openBytes = 0;
             _openSince = null;
             return;
         }
 
-        var name = $"batch-{_nextSequence.ToString("D10", CultureInfo.InvariantCulture)}-{_openLines.ToString(CultureInfo.InvariantCulture)}.json.gz";
+        var name = $"batch-{_nextSequence.ToString("D10", CultureInfo.InvariantCulture)}-{_openEvents.ToString(CultureInfo.InvariantCulture)}.json.gz";
         var final = Path.Combine(_directory, name);
         var temporary = final + ".tmp";
 
@@ -234,13 +213,13 @@ public sealed partial class CloudOutbox
             source.CopyTo(gzip);
         }
 
-        // Renamed into place before the open file goes, so a crash in between leaves the lines
-        // twice rather than not at all. Cloud keeps one copy of a line it is sent twice.
+        // Renamed into place before the open file goes, so a crash in between leaves the events
+        // twice rather than not at all. Cloud keeps one copy of an event id it is sent twice.
         File.Move(temporary, final, overwrite: true);
         File.Delete(OpenPath);
 
         _nextSequence++;
-        _openLines = 0;
+        _openEvents = 0;
         _openBytes = 0;
         _openSince = null;
 
@@ -258,56 +237,9 @@ public sealed partial class CloudOutbox
             var oldest = batches[0];
             batches.RemoveAt(0);
             total -= sizes[oldest.Name];
-            DroppedLines += oldest.Lines;
+            DroppedEvents += oldest.Events;
             Delete(oldest);
         }
-    }
-
-    private void Remember(string file, long offset)
-    {
-        if (_sentThrough.TryGetValue(file, out var existing) && existing >= offset)
-            return;
-
-        _sentThrough[file] = offset;
-        _sentThroughOrder.Remove(file);
-        _sentThroughOrder.Add(file);
-
-        while (_sentThroughOrder.Count > FilesRemembered)
-        {
-            _sentThrough.Remove(_sentThroughOrder[0]);
-            _sentThroughOrder.RemoveAt(0);
-        }
-    }
-
-    private Dictionary<string, long> LoadSentThrough()
-    {
-        var path = Path.Combine(_directory, SentThroughFileName);
-        if (!File.Exists(path))
-            return new Dictionary<string, long>(StringComparer.Ordinal);
-
-        try
-        {
-            var loaded = JsonSerializer.Deserialize<Dictionary<string, long>>(File.ReadAllText(path), Json)
-                ?? new Dictionary<string, long>();
-
-            foreach (var file in loaded.Keys)
-                _sentThroughOrder.Add(file);
-
-            return new Dictionary<string, long>(loaded, StringComparer.Ordinal);
-        }
-        catch (Exception ex) when (ex is JsonException or IOException)
-        {
-            // A half-written file after a power cut. Starting from nothing costs at most a replay
-            // that is not sent; refusing to start would cost the whole backup.
-            return new Dictionary<string, long>(StringComparer.Ordinal);
-        }
-    }
-
-    private void SaveSentThrough()
-    {
-        var temporary = SentThroughPath + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(_sentThrough, Json), new UTF8Encoding(false));
-        File.Move(temporary, SentThroughPath, overwrite: true);
     }
 
     [GeneratedRegex(@"^batch-(\d{10})-(\d+)\.json\.gz$")]

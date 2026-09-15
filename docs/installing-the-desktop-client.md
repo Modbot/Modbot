@@ -55,20 +55,19 @@ It is not yet reporting to anybody. To connect it to your group's Modbot, follow
 [Pairing the desktop client](pairing-the-desktop-client.md). Pairing takes about ten seconds and
 happens in your browser.
 
-## Log backup to Modbot Cloud
+## Backup to Modbot Cloud
 
-**On by default.** The client sends every line of VRChat's log it reads to Modbot Cloud, from every
-instance you are in, including private and friends-only ones. VRChat's log contains the display
-names and user ids of the people around you, the avatars they switch to, and the instances you
-join, including what someone would need to join a private instance. It is kept so the project can
-see trends across VRChat and read old lines again when the client learns new things.
+**On by default.** The client sends the presence events it records — who joined, was already there,
+left, or changed avatar — to Modbot Cloud as a backup, for every instance you are in, including public,
+friends-only and private ones. Your group's Modbot still only receives its own group's instances. Each
+event carries that person's VRChat user id and display name and the world and instance it happened in.
+The client never sends VRChat's raw log, and never the part of a private instance's address that would
+let someone join it.
 
 - Turn it off in the client under **Settings**. That stops sending at once and deletes anything
   queued. Turning it back on sends only from that moment.
-- Your Windows user folder name is removed from lines before they are sent, only log file names
-  (not folders) are sent, and nothing from Modbot's own log or your pairings is sent.
 - Your client is identified to Modbot Cloud by a random install id, not your name or VRChat account.
-- Lines wait in `%APPDATA%\Modbot\cloud` while you are offline, up to 100 MB; past that the oldest go.
+- Events wait in `%APPDATA%\Modbot\cloud` while you are offline, up to 20 MB; past that the oldest go.
 - A group's server can turn it off for everyone paired with it, or send it to its own Cloud.
 
 ## Where things are
@@ -78,7 +77,7 @@ see trends across VRChat and read old lines again when the client learns new thi
 | The program | `%LOCALAPPDATA%\Modbot` (`C:\Users\<you>\AppData\Local\Modbot`) |
 | Its log | `%APPDATA%\Modbot\logs\client-<date>.log`, one file a day, the last seven kept |
 | Pairings, queued observations, the record of what has been sent, settings | `%APPDATA%\Modbot` |
-| Log lines waiting to go to Modbot Cloud, and its install id | `%APPDATA%\Modbot\cloud`, `%APPDATA%\Modbot\cloud-installs.json` |
+| Events waiting to go to Modbot Cloud, and its install id | `%APPDATA%\Modbot\cloud`, `%APPDATA%\Modbot\cloud-installs.json` |
 
 The log is the first thing to send when reporting a problem. It never leaves your machine on its
 own; the client does not upload its own log. Paste `%APPDATA%\Modbot\logs` into the address bar of

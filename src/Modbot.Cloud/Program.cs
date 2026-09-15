@@ -8,8 +8,8 @@ using Modbot.Cloud.Data;
 // Composition only. Every endpoint lives in its feature folder under Features/, and CloudApp wires
 // them together so the tests can build the same app over a test server.
 //
-// Two databases: DATABASE_URL for installs, sessions and settings; DATABASE_ENGINE_URL for the log
-// lines and events clients send (cloud log backup spec 4.1). Both are required.
+// Two databases: DATABASE_URL for installs, sessions and settings; DATABASE_ENGINE_URL for the
+// presence events clients back up (cloud event backup spec 4.1). Both are required.
 // ─────────────────────────────────────────────────────────────────────────────
 
 var environment = CloudEnvironment.Read();

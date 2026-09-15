@@ -5,87 +5,52 @@ using Modbot.Cloud.Engine;
 namespace Modbot.Cloud.Features.Retention;
 
 /// <summary>What one retention run did.</summary>
-public sealed record RetentionResult(IReadOnlyList<string> DroppedPartitions, int LogFilesRemoved, int ClocksRemoved);
+public sealed record RetentionResult(long EventsRemoved, int ClocksRemoved);
 
 /// <summary>
-/// Drops log lines and parsed events older than the admin's windows, a whole month at a time.
+/// Deletes events older than the admin's window, a slice at a time.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>A DROP, never a DELETE.</strong> A month of log lines is tens of millions of rows; a
-/// mass delete of them is hours of work and a table full of dead rows. Dropping the partition they
-/// live in is a catalogue update (foundation 5.5).
+/// <strong>A delete, in slices.</strong> The server drops whole partitions instead (foundation 5.5)
+/// because its presence facts run to hundreds of millions of rows. Cloud's events are a few dozen an
+/// hour per client and are keyed on the client's event id, which a partitioned table cannot hold as
+/// a unique key (cloud event backup spec 4.3). A day's expired events are a small delete, run in
+/// slices of <see cref="Slice"/> so no single statement holds a long lock.
 /// </para>
 /// <para>
-/// A partition is dropped only once its whole month is past the window, so a line may outlive its
-/// window by up to a month. Only partitions whose name <see cref="PartitionMaintainer"/> would have
-/// made are touched; a table attached by hand is left alone.
-/// </para>
-/// <para>
-/// <c>log_file</c> and <c>install_clock</c> rows untouched for longer than the log line window go
-/// too. Those are the only per-install rows that would otherwise outlive the lines. Totals stay:
-/// they hold counts and random ids, nothing from a log (cloud log backup spec 6).
-/// </para>
-/// <para>
-/// An install removed from the main database is not chased here. Its rows simply age out.
+/// <c>install_clock</c> rows untouched for longer than the window go too. Totals stay: they hold
+/// counts and random ids, nothing more. An install removed from the main database is not chased here;
+/// its events simply age out.
 /// </para>
 /// </remarks>
 public sealed class RetentionPruner(EngineContext engine, CloudContext cloud, TimeProvider time)
 {
+    public const int Slice = 10_000;
+
     public async Task<RetentionResult> RunAsync(CancellationToken ct = default)
     {
         var settings = await cloud.GetSettingsAsync(ct);
-        var now = time.GetUtcNow();
-        var dropped = new List<string>();
+        if (settings.EventKeepDays <= 0)
+            return new RetentionResult(0, 0);
 
-        dropped.AddRange(await DropExpiredAsync("log_line", settings.LogLineKeepDays, now, ct));
-        dropped.AddRange(await DropExpiredAsync("log_event", settings.LogEventKeepDays, now, ct));
+        var cutoff = time.GetUtcNow().AddDays(-settings.EventKeepDays);
+        long removed = 0;
 
-        var filesRemoved = 0;
-        var clocksRemoved = 0;
-
-        if (settings.LogLineKeepDays > 0)
+        while (true)
         {
-            var cutoff = now.AddDays(-settings.LogLineKeepDays);
-            filesRemoved = await engine.LogFiles.Where(f => f.LastReceivedAt < cutoff).ExecuteDeleteAsync(ct);
-            clocksRemoved = await engine.InstallClocks.Where(c => c.UpdatedAt < cutoff).ExecuteDeleteAsync(ct);
+            var deleted = await engine.Database.ExecuteSqlInterpolatedAsync($"""
+                DELETE FROM client_event
+                WHERE ctid IN (SELECT ctid FROM client_event WHERE received_at < {cutoff} LIMIT {Slice})
+                """, ct);
+
+            removed += deleted;
+            if (deleted < Slice)
+                break;
         }
 
-        return new RetentionResult(dropped, filesRemoved, clocksRemoved);
-    }
+        var clocks = await engine.InstallClocks.Where(c => c.UpdatedAt < cutoff).ExecuteDeleteAsync(ct);
 
-    private async Task<IReadOnlyList<string>> DropExpiredAsync(string table, int keepDays, DateTimeOffset now, CancellationToken ct)
-    {
-        if (keepDays <= 0)
-            return [];
-
-        var cutoff = now.AddDays(-keepDays);
-        var dropped = new List<string>();
-
-        var partitions = await engine.Database
-            .SqlQuery<string>($"""
-                SELECT child.relname AS "Value"
-                FROM pg_inherits
-                JOIN pg_class parent ON parent.oid = pg_inherits.inhparent
-                JOIN pg_class child ON child.oid = pg_inherits.inhrelid
-                WHERE parent.relname = {table}
-                """)
-            .ToListAsync(ct);
-
-        foreach (var name in partitions.Order(StringComparer.Ordinal))
-        {
-            if (PartitionMaintainer.UpperBound(table, name) is not { } upper || upper > cutoff)
-                continue;
-
-            // The name matched PartitionMaintainer's pattern for this table, which allows only
-            // letters, digits and underscores, so it is safe to put in DDL.
-#pragma warning disable EF1002
-            await engine.Database.ExecuteSqlRawAsync($"DROP TABLE IF EXISTS {name}", ct);
-#pragma warning restore EF1002
-
-            dropped.Add(name);
-        }
-
-        return dropped;
+        return new RetentionResult(removed, clocks);
     }
 }

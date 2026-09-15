@@ -17,10 +17,10 @@ public enum CloudDestinationKind
 }
 
 /// <summary>
-/// Where the log backup goes right now, worked out from the paired servers' answers.
+/// Where the event backup goes right now, worked out from the paired servers' answers.
 /// </summary>
 /// <remarks>
-/// <para>The rule (cloud log backup spec 3.1), in order:</para>
+/// <para>The rule (cloud event backup spec 3.1), in order:</para>
 /// <list type="number">
 /// <item>No paired server: the default Cloud.</item>
 /// <item>Any paired server said it is off: nothing is sent, by anyone's say-so. One operator's

@@ -3,16 +3,18 @@ using Microsoft.EntityFrameworkCore;
 namespace Modbot.Cloud.Engine;
 
 /// <summary>
-/// The event storage, from <c>DATABASE_ENGINE_URL</c>: log lines, parsed events and their totals.
+/// The event storage, from <c>DATABASE_ENGINE_URL</c>: the presence events desktop clients back up,
+/// each install's clock, and the daily and hourly totals.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A database of its own because it is most of Cloud's bytes and grows by gigabytes a week, while
-/// the main database is a few megabytes of installs and settings (cloud log backup spec 4.1).
+/// A database of its own because it grows with every client and is pruned on its own schedule, while
+/// the main database is a few megabytes of installs and settings (cloud event backup spec 4.1).
+/// Later, the structured logs Modbot deployments send for remote support belong beside these too.
 /// </para>
 /// <para>
 /// Rows here name an install by its id and nothing else. There is no foreign key to the main
-/// database, which is a different server: a removed install's lines are left to retention.
+/// database, which is a different server: a removed install's events are left to retention.
 /// </para>
 /// <para>
 /// Its migrations are in <c>Engine/Migrations</c> and their history in
@@ -24,15 +26,11 @@ public sealed class EngineContext(DbContextOptions<EngineContext> options) : DbC
 {
     public const string MigrationsHistoryTable = "__engine_migrations_history";
 
-    public DbSet<LogFile> LogFiles => Set<LogFile>();
-
-    public DbSet<LogLine> LogLines => Set<LogLine>();
-
-    public DbSet<LogEvent> LogEvents => Set<LogEvent>();
+    public DbSet<StoredEvent> Events => Set<StoredEvent>();
 
     public DbSet<InstallClock> InstallClocks => Set<InstallClock>();
 
-    public DbSet<LineDayTotal> LineDayTotals => Set<LineDayTotal>();
+    public DbSet<EventDayTotal> EventDayTotals => Set<EventDayTotal>();
 
     public DbSet<EventHourTotal> EventHourTotals => Set<EventHourTotal>();
 
@@ -58,11 +56,9 @@ public sealed class EngineContext(DbContextOptions<EngineContext> options) : DbC
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfiguration(new LogFileConfiguration());
-        modelBuilder.ApplyConfiguration(new LogLineConfiguration());
-        modelBuilder.ApplyConfiguration(new LogEventConfiguration());
+        modelBuilder.ApplyConfiguration(new StoredEventConfiguration());
         modelBuilder.ApplyConfiguration(new InstallClockConfiguration());
-        modelBuilder.ApplyConfiguration(new LineDayTotalConfiguration());
+        modelBuilder.ApplyConfiguration(new EventDayTotalConfiguration());
         modelBuilder.ApplyConfiguration(new EventHourTotalConfiguration());
     }
 }

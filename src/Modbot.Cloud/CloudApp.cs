@@ -7,7 +7,7 @@ using Modbot.Cloud.Features.Admin;
 using Modbot.Cloud.Features.AdminInstalls;
 using Modbot.Cloud.Features.Health;
 using Modbot.Cloud.Features.Installs;
-using Modbot.Cloud.Features.LogBackup;
+using Modbot.Cloud.Features.EventBackup;
 using Modbot.Cloud.Features.Pages;
 using Modbot.Cloud.Features.Retention;
 using Modbot.Cloud.Features.Time;
@@ -24,7 +24,7 @@ public static class CloudApp
     /// <param name="connectionString">Cloud's main database.</param>
     /// <param name="engineConnectionString">The event storage database.</param>
     /// <param name="rootApiKey">Unlocks admin. Null closes it to everyone.</param>
-    /// <param name="runDailyUpkeep">False in tests, which run upkeep themselves against a fake clock.</param>
+    /// <param name="runDailyUpkeep">False in tests, which run retention themselves against a fake clock.</param>
     public static void AddServices(
         IServiceCollection services,
         string connectionString,
@@ -47,10 +47,9 @@ public static class CloudApp
         services.AddSingleton<AdminSessions>();
         services.AddSingleton<LoginAttempts>();
         services.AddSingleton<RegistrationLimit>();
-        services.AddSingleton<LogBackupLimits>();
+        services.AddSingleton<EventBackupLimits>();
 
-        services.AddScoped<LogBatchWriter>();
-        services.AddScoped<PartitionMaintainer>();
+        services.AddScoped<EventBatchWriter>();
         services.AddScoped<RetentionPruner>();
 
         if (runDailyUpkeep)
@@ -58,21 +57,11 @@ public static class CloudApp
     }
 
     /// <summary>
-    /// Migrates both databases and makes this month's partitions, before anything is served. Returns
-    /// one sentence describing the problem, or null when Cloud is ready.
+    /// Migrates both databases before anything is served. Returns one sentence describing the problem,
+    /// or null when Cloud is ready.
     /// </summary>
-    public static async Task<string?> PrepareAsync(IServiceProvider services, ILogger log, CancellationToken ct = default)
-    {
-        if (await DatabaseMigrator.ApplyAsync(services, log, ct) is { } problem)
-            return problem;
-
-        await using var scope = services.CreateAsyncScope();
-        var created = await scope.ServiceProvider.GetRequiredService<PartitionMaintainer>().EnsureAsync(ct);
-        if (created.Count > 0)
-            log.LogInformation("Created partitions {Partitions}", created);
-
-        return null;
-    }
+    public static Task<string?> PrepareAsync(IServiceProvider services, ILogger log, CancellationToken ct = default) =>
+        DatabaseMigrator.ApplyAsync(services, log, ct);
 
     public static void MapEndpoints(WebApplication app)
     {
@@ -99,6 +88,6 @@ public static class CloudApp
         app.MapAdminInstalls();
         app.MapTime();
         app.MapInstalls();
-        app.MapLogBackup();
+        app.MapEventBackup();
     }
 }

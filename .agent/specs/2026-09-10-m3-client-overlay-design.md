@@ -169,10 +169,10 @@ left your machine" does not.
 managed group, are dropped locally and never reported.** The client is a group moderation tool; it
 has no business observing a moderator's personal VRChat use, and it does not.
 
-> **Narrowed 2026-09-15.** This table still describes everything sent to a **Modbot server**. It no
-> longer describes everything that leaves the machine: the client now sends every raw log line, from
-> every instance, to Modbot Cloud unless the moderator turns that off. See
-> `2026-09-15-cloud-log-backup-design.md`.
+> **Narrowed 2026-09-15.** This table still describes everything sent to a **Modbot server**, and the
+> raw log line is still never transmitted anywhere. What changed: unless the moderator turns it off, the
+> client also sends its parsed presence events to Modbot Cloud as a backup, for **every** instance,
+> including ones outside the managed group. See `2026-09-15-cloud-log-backup-design.md`.
 
 #### 3.1.1 "Screenshots" here means capture, not a file a human chose to attach
 

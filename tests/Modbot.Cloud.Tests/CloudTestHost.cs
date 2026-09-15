@@ -126,19 +126,28 @@ public sealed class CloudTestHost : IAsyncDisposable
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
         content.Headers.ContentEncoding.Add("gzip");
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/logs") { Content = content };
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/events") { Content = content };
         if (bearer is not null)
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
 
         return _client.SendAsync(request, Ct);
     }
 
-    public static object Line(string file, long offset, string text, DateTime? loggedAt = null, int? utcOffsetMinutes = null, object? @event = null) =>
-        new { file, offset, text, loggedAt, utcOffsetMinutes, @event };
+    /// <summary>One event in the client protocol's shape, for any instance.</summary>
+    public static object Event(
+        string id,
+        DateTimeOffset occurredAt,
+        string type = "InstanceJoined",
+        string subjectId = "usr_1",
+        string worldId = "wrld_1",
+        string instanceId = "12345",
+        string? groupId = null,
+        object? data = null) =>
+        new { clientEventId = id, type, occurredAt, occurredBefore = (DateTimeOffset?)null, subjectId, worldId, instanceId, groupId, data = data ?? new { displayName = "Rin" } };
 
-    public object Batch(params object[] lines) => Batch(Time.GetUtcNow(), null, "unknown", lines);
+    public object Batch(params object[] events) => Batch(Time.GetUtcNow(), null, "unknown", events);
 
-    public static object Batch(DateTimeOffset sentAt, long? clockOffsetMs, string clockConfidence, params object[] lines) => new
+    public static object Batch(DateTimeOffset sentAt, long? clockOffsetMs, string clockConfidence, params object[] events) => new
     {
         batchId = Guid.NewGuid().ToString("n"),
         clientVersion = "2026.9.0",
@@ -146,7 +155,7 @@ public sealed class CloudTestHost : IAsyncDisposable
         clockOffsetMs,
         clockConfidence,
         modbotServerId = (string?)null,
-        lines,
+        events,
     };
 
     public async ValueTask DisposeAsync()

@@ -337,9 +337,9 @@ reworded.
 - **No moderation actions.** A moderator acting from the overlay goes through the normal
   authenticated API as themselves, not through the device token — an ingest token cannot ban anyone
   (M3 §4).
-- **No log content.** Parsed events only, never raw lines (M3 §3.1). *(Narrowed 2026-09-15: this
-  protocol still carries no log content, but the client sends raw lines to Modbot Cloud over a separate
-  protocol — `2026-09-15-cloud-log-backup-design.md`. The only addition here is the `cloud` object and
+- **No log content.** Parsed events only, never raw lines (M3 §3.1). *(2026-09-15: still true. The
+  client also sends these same parsed events, for every instance, to Modbot Cloud as a backup —
+  `2026-09-15-cloud-log-backup-design.md`. The only addition to this protocol is the `cloud` object and
   `instanceId` on `GET /client/time`, which tell the client where that goes.)*
 - **No cross-group data.** A pairing sees exactly one group's context.
 

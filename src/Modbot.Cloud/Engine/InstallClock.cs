@@ -16,7 +16,8 @@ namespace Modbot.Cloud.Engine;
 /// </para>
 /// <para>
 /// A PC whose two numbers disagree by more than <see cref="DisagreeAbove"/> is flagged, not
-/// refused: its lines are still kept, with their raw times, and analytics can leave them out.
+/// refused: its events are still kept, with Cloud's own measure applied, and analytics can leave
+/// them out.
 /// </para>
 /// </remarks>
 public sealed class InstallClock

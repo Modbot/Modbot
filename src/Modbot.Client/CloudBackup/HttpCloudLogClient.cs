@@ -13,7 +13,7 @@ namespace Modbot.Client.CloudBackup;
 /// <summary>How registering with a Cloud went.</summary>
 public sealed record CloudRegistration(IngestOutcome Outcome, Guid InstallId = default, string? Secret = null, TimeSpan? RetryAfter = null);
 
-/// <summary>The three requests the log backup makes to Modbot Cloud.</summary>
+/// <summary>The three requests the event backup makes to Modbot Cloud.</summary>
 public interface ICloudLogClient
 {
     Task<CloudRegistration> RegisterAsync(Uri endpoint, string clientVersion, CancellationToken cancellationToken);
@@ -25,7 +25,7 @@ public interface ICloudLogClient
 }
 
 /// <summary>
-/// The network calls to Modbot Cloud: register, send a batch of log lines, ask the time.
+/// The network calls to Modbot Cloud: register, send a batch of presence events, ask the time.
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends, and where.</strong> Only to the one Cloud address the backup has
@@ -34,9 +34,9 @@ public interface ICloudLogClient
 /// <list type="bullet">
 /// <item><c>POST /api/v1/installs</c> with the client's version and the word <c>windows</c>. Nothing
 /// else: no machine name, no account, no VRChat id.</item>
-/// <item><c>POST /api/v1/logs</c> with a gzipped batch of <see cref="BackupLine"/> rows and the
-/// install id and secret as a bearer header. This carries VRChat log lines, which name other
-/// players and the instances you are in.</item>
+/// <item><c>POST /api/v1/events</c> with a gzipped batch of <c>ClientEvent</c> rows — the same presence
+/// events a Modbot server gets, but for every instance — and the install id and secret as a bearer
+/// header. These name other players and the instances you are in; never a raw log line.</item>
 /// <item><c>GET /api/v1/time</c> with no body and no credential.</item>
 /// </list>
 /// <para>No pairing token or device token is ever sent to Cloud, and nothing from Modbot's own logs.</para>
@@ -100,7 +100,7 @@ public sealed class HttpCloudLogClient : ICloudLogClient
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
         content.Headers.ContentEncoding.Add("gzip");
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(install.Endpoint, "/api/v1/logs")) { Content = content };
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(install.Endpoint, "/api/v1/events")) { Content = content };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", $"{install.InstallId:D}.{install.Secret}");
 
         try

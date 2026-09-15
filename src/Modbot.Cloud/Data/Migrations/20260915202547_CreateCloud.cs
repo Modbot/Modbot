@@ -46,8 +46,7 @@ namespace Modbot.Cloud.Data.Migrations
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false),
-                    log_line_keep_days = table.Column<int>(type: "integer", nullable: false),
-                    log_event_keep_days = table.Column<int>(type: "integer", nullable: false)
+                    event_keep_days = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {

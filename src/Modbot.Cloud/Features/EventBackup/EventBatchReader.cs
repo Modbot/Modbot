@@ -1,10 +1,10 @@
 using System.IO.Compression;
 using System.Text.Json;
 
-namespace Modbot.Cloud.Features.LogBackup;
+namespace Modbot.Cloud.Features.EventBackup;
 
 /// <summary>How reading a request body ended.</summary>
-public enum LogBatchReadOutcome
+public enum BatchReadOutcome
 {
     Read,
     TooLarge,
@@ -16,54 +16,51 @@ public enum LogBatchReadOutcome
 /// </summary>
 /// <remarks>
 /// Both limits are enforced while reading, not after: a body is never held beyond
-/// <see cref="LogBackupLimits.MaxCompressedBytes"/> as sent or
-/// <see cref="LogBackupLimits.MaxDecompressedBytes"/> once expanded, whatever the request claims.
+/// <see cref="EventBackupLimits.MaxCompressedBytes"/> as sent or
+/// <see cref="EventBackupLimits.MaxDecompressedBytes"/> once expanded, whatever the request claims.
 /// </remarks>
-public static class LogBatchReader
+public static class EventBatchReader
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
-    public static async Task<(LogBatchReadOutcome Outcome, LogBatch? Batch)> ReadAsync(HttpRequest request, CancellationToken ct)
+    public static async Task<(BatchReadOutcome Outcome, EventBatch? Batch)> ReadAsync(HttpRequest request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.ContentLength > LogBackupLimits.MaxCompressedBytes)
-            return (LogBatchReadOutcome.TooLarge, null);
+        if (request.ContentLength > EventBackupLimits.MaxCompressedBytes)
+            return (BatchReadOutcome.TooLarge, null);
 
-        var raw = await ReadCappedAsync(request.Body, LogBackupLimits.MaxCompressedBytes, ct);
+        var raw = await ReadCappedAsync(request.Body, EventBackupLimits.MaxCompressedBytes, ct);
         if (raw is null)
-            return (LogBatchReadOutcome.TooLarge, null);
+            return (BatchReadOutcome.TooLarge, null);
 
         var body = raw;
-        if (IsGzip(request))
+        if (request.Headers.ContentEncoding.Any(v => v is not null && v.Contains("gzip", StringComparison.OrdinalIgnoreCase)))
         {
             try
             {
                 await using var gzip = new GZipStream(raw, CompressionMode.Decompress);
-                body = await ReadCappedAsync(gzip, LogBackupLimits.MaxDecompressedBytes, ct);
+                body = await ReadCappedAsync(gzip, EventBackupLimits.MaxDecompressedBytes, ct);
             }
             catch (InvalidDataException)
             {
-                return (LogBatchReadOutcome.Malformed, null);
+                return (BatchReadOutcome.Malformed, null);
             }
 
             if (body is null)
-                return (LogBatchReadOutcome.TooLarge, null);
+                return (BatchReadOutcome.TooLarge, null);
         }
 
         try
         {
-            var batch = await JsonSerializer.DeserializeAsync<LogBatch>(body, Json, ct);
-            return batch is null ? (LogBatchReadOutcome.Malformed, null) : (LogBatchReadOutcome.Read, batch);
+            var batch = await JsonSerializer.DeserializeAsync<EventBatch>(body, Json, ct);
+            return batch is null ? (BatchReadOutcome.Malformed, null) : (BatchReadOutcome.Read, batch);
         }
         catch (JsonException)
         {
-            return (LogBatchReadOutcome.Malformed, null);
+            return (BatchReadOutcome.Malformed, null);
         }
     }
-
-    private static bool IsGzip(HttpRequest request) =>
-        request.Headers.ContentEncoding.Any(v => v is not null && v.Contains("gzip", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The stream's bytes, or null once more than <paramref name="cap"/> have arrived.</summary>
     private static async Task<MemoryStream?> ReadCappedAsync(Stream source, int cap, CancellationToken ct)

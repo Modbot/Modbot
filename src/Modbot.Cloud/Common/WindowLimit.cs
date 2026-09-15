@@ -4,7 +4,7 @@ namespace Modbot.Cloud.Common;
 
 /// <summary>
 /// At most <c>limit</c> of something per key in each fixed window of time: registrations per IP
-/// address, batches per install, lines per install.
+/// address, batches per install, events per install.
 /// </summary>
 /// <remarks>
 /// <para>

@@ -123,8 +123,8 @@ public sealed class ClientAppState
 
     public ClientSettings Settings { get; set; }
 
-    /// <summary>The log backup to Modbot Cloud, once the host has made it. Its status is shown on the settings page.</summary>
-    public CloudLogBackup? CloudBackup { get; set; }
+    /// <summary>The event backup to Modbot Cloud, once the host has made it. Its status is shown on the settings page.</summary>
+    public CloudEventBackup? CloudBackup { get; set; }
 
     /// <summary>How the start-with-Windows switch should look; hidden unless this copy is installed.</summary>
     public StartupState Startup { get; set; } = StartupState.Hidden;

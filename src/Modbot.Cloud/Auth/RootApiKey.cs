@@ -7,8 +7,8 @@ namespace Modbot.Cloud.Auth;
 /// The one secret that unlocks Cloud admin, from <c>ROOT_API_KEY</c>.
 /// </summary>
 /// <remarks>
-/// Admin reads raw VRChat log lines, which carry other players' names and private instance
-/// locations (cloud log backup spec 10). Nothing that reads them is ever public. Scripts send the
+/// Admin reads backed-up presence events, which carry other players' ids, names and where they
+/// were (cloud event backup spec 10). Nothing that reads them is ever public. Scripts send the
 /// key as <c>Authorization: Bearer</c>; people sign in to <c>/admin</c> with it (see
 /// <c>Features/Admin</c>).
 /// </remarks>

@@ -119,6 +119,16 @@ public class PresenceEventMapperTests
     }
 
     [Fact]
+    public void TheCloudBackupMapsAnyInstanceWithoutItsSecret()
+    {
+        var mapped = Mapper().MapAnyInstance(Observation(location: "wrld_w:1~private(usr_a)~nonce(secret)"));
+
+        Assert.Null(mapped.GroupId);
+        Assert.Equal("wrld_w", mapped.WorldId);
+        Assert.DoesNotContain("secret", System.Text.Json.JsonSerializer.Serialize(mapped), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EachEventGetsItsOwnIdempotencyKey()
     {
         var mapper = Mapper();

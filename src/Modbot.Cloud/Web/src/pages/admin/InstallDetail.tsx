@@ -4,15 +4,15 @@ import { api } from '@/lib/api'
 import { clockText, when } from '@/lib/format'
 import { useAdminLoad } from '@/lib/useLoad'
 
-const LINES = 200
+const EVENTS = 200
 
 /**
- * One install's recent lines, for debugging. Lines are rendered as plain text, never as links: the
- * server has already hidden instance nonces, and nothing here turns a location into a join link.
+ * One install's recent events, for debugging. Every value is rendered as plain text, never as a
+ * link: world and instance stay two separate strings, and nothing here builds a join link from them.
  */
 export function InstallDetail({ installId }: { installId: string }) {
   const install = useAdminLoad(() => api.install(installId), [installId])
-  const lines = useAdminLoad(() => api.lines(installId, LINES), [installId])
+  const events = useAdminLoad(() => api.events(installId, EVENTS), [installId])
 
   if (install.error && install.error.status !== 401) return <p className="text-destructive">{install.error.message}</p>
   if (!install.data) return <p className="text-muted-foreground">Loading</p>
@@ -22,7 +22,7 @@ export function InstallDetail({ installId }: { installId: string }) {
     { label: 'Version', value: i.clientVersion },
     { label: 'First seen', value: when(i.firstSeenAt) },
     { label: 'Last seen', value: when(i.lastSeenAt) },
-    { label: 'Lines stored', value: i.linesStored.toLocaleString() },
+    { label: 'Events stored', value: i.eventsStored.toLocaleString() },
     { label: 'Clock offset', value: clockText(i.clockOffsetMs) + (i.clockDisagrees ? ' (disagrees)' : '') },
     { label: 'Paired server', value: i.modbotServerId ?? '—' },
   ]
@@ -41,38 +41,43 @@ export function InstallDetail({ installId }: { installId: string }) {
       </div>
 
       <Card className="gap-0 py-0">
-        <h2 className="border-b px-4 py-3 font-semibold">Recent lines</h2>
-        {lines.error && lines.error.status !== 401 ? (
-          <p className="px-4 py-6 text-destructive">{lines.error.message}</p>
-        ) : !lines.data ? (
+        <h2 className="border-b px-4 py-3 font-semibold">Recent events</h2>
+        {events.error && events.error.status !== 401 ? (
+          <p className="px-4 py-6 text-destructive">{events.error.message}</p>
+        ) : !events.data ? (
           <p className="px-4 py-6 text-muted-foreground">Loading</p>
-        ) : lines.data.items.length === 0 ? (
-          <div className="px-4 py-6 text-center text-muted-foreground">No lines</div>
+        ) : events.data.items.length === 0 ? (
+          <div className="px-4 py-6 text-center text-muted-foreground">No events</div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="px-4">Received</TableHead>
-                  <TableHead className="px-4">Sent</TableHead>
-                  <TableHead className="px-4">Logged</TableHead>
-                  <TableHead className="px-4">File</TableHead>
-                  <TableHead className="px-4 text-right">Offset</TableHead>
-                  <TableHead className="px-4">Line</TableHead>
+                  <TableHead className="px-4">Happened</TableHead>
+                  <TableHead className="px-4">Type</TableHead>
+                  <TableHead className="px-4">Player</TableHead>
+                  <TableHead className="px-4">World</TableHead>
+                  <TableHead className="px-4">Instance</TableHead>
+                  <TableHead className="px-4">Group</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lines.data.items.map((line) => (
-                  <TableRow key={`${line.file}:${line.offset}:${line.receivedAt}`}>
-                    <TableCell className="px-4 whitespace-nowrap">{when(line.receivedAt)}</TableCell>
-                    <TableCell className="px-4 whitespace-nowrap">{when(line.sentAt)}</TableCell>
+                {events.data.items.map((e) => (
+                  <TableRow key={e.clientEventId}>
+                    <TableCell className="px-4 whitespace-nowrap">{when(e.receivedAt)}</TableCell>
+                    <TableCell className="px-4 whitespace-nowrap">{when(e.occurredAt)}</TableCell>
                     <TableCell className="px-4 font-mono whitespace-nowrap">
-                      {line.loggedAt ?? '—'}
-                      {line.utcOffsetMinutes !== null && ` ${line.utcOffsetMinutes >= 0 ? '+' : ''}${line.utcOffsetMinutes}m`}
+                      {e.type}
+                      {e.typeRaw && ` (${e.typeRaw})`}
                     </TableCell>
-                    <TableCell className="px-4 font-mono whitespace-nowrap">{line.file}</TableCell>
-                    <TableCell className="px-4 text-right font-mono">{line.offset}</TableCell>
-                    <TableCell className="px-4 font-mono break-all whitespace-pre-wrap">{line.text}</TableCell>
+                    <TableCell className="px-4">
+                      {e.displayName && <div>{e.displayName}</div>}
+                      <div className="font-mono text-muted-foreground break-all">{e.subjectId}</div>
+                    </TableCell>
+                    <TableCell className="px-4 font-mono break-all">{e.worldId}</TableCell>
+                    <TableCell className="px-4 font-mono break-all">{e.instanceId}</TableCell>
+                    <TableCell className="px-4 font-mono break-all">{e.groupId ?? '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

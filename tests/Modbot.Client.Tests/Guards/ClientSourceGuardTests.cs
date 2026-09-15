@@ -269,7 +269,7 @@ public class ClientSourceGuardTests
         // by somebody who has never seen the codebase. Five files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
         // code for a token, one reads the overlay's context, and one backs VRChat's log up to
-        // Modbot Cloud (cloud log backup spec). Nothing else reaches the network.
+        // Modbot Cloud (cloud event backup spec). Nothing else reaches the network.
         var senders = ClientSources()
             .Where(f => Regex.IsMatch(File.ReadAllText(f), @"_http\.(SendAsync|GetAsync|PostAsync|PutAsync|DeleteAsync)"))
             .Select(Path.GetFileName)

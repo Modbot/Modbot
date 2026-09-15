@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# cloud.modbot.co: the log backup API desktop clients send to, and /admin.
+# cloud.modbot.co: the event backup API desktop clients send to, and /admin.
 #
 # Build from the repository root, like the other images, because package versions are pinned once in
 # Directory.Packages.props:
@@ -10,7 +10,7 @@
 # On Railway it is its own service, not part of .railway/railway.ts. Leave the Root Directory empty,
 # set RAILWAY_DOCKERFILE_PATH=src/Modbot.Cloud/Dockerfile and point the health check at /health/ready.
 # It needs two Postgres databases: DATABASE_URL (installs, sessions, settings) and
-# DATABASE_ENGINE_URL (log lines and events). ROOT_API_KEY unlocks /admin.
+# DATABASE_ENGINE_URL (backed-up events). ROOT_API_KEY unlocks /admin.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1 — the web app. Vite writes it straight into Modbot.Cloud/wwwroot (see

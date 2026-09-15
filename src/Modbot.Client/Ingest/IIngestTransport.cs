@@ -58,7 +58,7 @@ public sealed record IngestResult(
 /// <remarks>
 /// An interface so the ingest logic can be tested against every failure the network has, and so
 /// that a reader looking for "what does this program send to a server, and where" has exactly one
-/// place to look. The only other path is the log backup to Modbot Cloud (<c>ICloudLogClient</c>): no
+/// place to look. The only other path is the event backup to Modbot Cloud (<c>ICloudLogClient</c>): no
 /// telemetry, no crash reporter carrying event data.
 /// </remarks>
 public interface IIngestTransport

@@ -1,3 +1,4 @@
+using Modbot.Client.CloudBackup;
 using Modbot.Client.Ingest;
 using Modbot.Client.Instances;
 using Modbot.Client.Routing;
@@ -34,6 +35,7 @@ public sealed class ClientEngine
     private readonly EventRouter _router;
     private readonly IServerTimeProbe? _timeProbe;
     private readonly IModbotClock _clock;
+    private readonly IObservationSink? _backup;
     private readonly Dictionary<string, DateTimeOffset> _lastClockCheck = new(StringComparer.Ordinal);
 
     /// <summary>How often each server's clock offset is re-measured. Not per batch.</summary>
@@ -43,9 +45,11 @@ public sealed class ClientEngine
         PresenceObserver observer,
         IModbotClock clock,
         IEnumerable<ServerConnection>? connections = null,
-        IServerTimeProbe? timeProbe = null)
+        IServerTimeProbe? timeProbe = null,
+        IObservationSink? backup = null)
     {
         _observer = observer;
+        _backup = backup;
         _clock = clock;
         _timeProbe = timeProbe;
         _router = new EventRouter();
@@ -98,6 +102,11 @@ public sealed class ClientEngine
     public async Task<EngineTick> TickAsync(CancellationToken cancellationToken = default)
     {
         var observations = _observer.Poll();
+
+        // The Modbot Cloud backup hears about every observation, whichever instance it is in; the
+        // servers below hear only about their own group's. Offer only queues, so it costs this turn
+        // nothing.
+        _backup?.Offer(observations);
         var dropped = _router.DispatchAll(observations);
 
         var sent = 0;

@@ -40,8 +40,7 @@ public enum ClientEventType
 /// <remarks>
 /// <para><strong>This type is the complete list of what leaves the machine.</strong> If a field is
 /// not here, it is not transmitted — and that is the check worth making when reading this client
-/// with suspicion. There is no raw log line here, no world the moderator visited outside this
-/// group, no chat, no friends list, no avatar id, no instance secret, no file path, no machine
+/// with suspicion. There is no raw log line here, no chat, no friends list, no avatar id, no instance secret, no file path, no machine
 /// name, and no process list.</para>
 /// <para>Concretely, per event: an opaque VRChat user id, the world and instance it happened in,
 /// the group that owns that instance, a timestamp, and — in <c>Data</c> — the display name that
@@ -49,6 +48,9 @@ public enum ClientEventType
 /// because the pairing of id to name at a point in time is useful history: it is what lets a
 /// moderator searching for a name somebody used six months ago find them. It is never used as
 /// identity, because names are mutable and collide.</para>
+/// <para><strong>Where it goes.</strong> To a paired Modbot server, only for that server's group's
+/// instances. And, unless the moderator turns it off, to Modbot Cloud as a backup for every instance
+/// the moderator is in, group or not (<c>CloudEventBackup</c>).</para>
 /// </remarks>
 public sealed record ClientEvent
 {
@@ -96,11 +98,12 @@ public sealed record ClientEvent
     public required string InstanceId { get; init; }
 
     /// <summary>
-    /// The owning group — the routing decision, already made on this machine. An event with no
-    /// group never gets this far, because it never gets created.
+    /// The owning group — the routing decision, already made on this machine. Never null in an event
+    /// sent to a Modbot server: an event with no group is never created for one. Null only in the
+    /// Modbot Cloud backup, which carries every instance, group or not (cloud event backup spec 2).
     /// </summary>
     [JsonPropertyName("groupId")]
-    public required string GroupId { get; init; }
+    public required string? GroupId { get; init; }
 
     /// <summary>Type-specific, small, and enumerated in the remarks on this type.</summary>
     [JsonPropertyName("data")]

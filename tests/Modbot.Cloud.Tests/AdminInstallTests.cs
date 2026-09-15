@@ -1,14 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Modbot.Cloud.Features.AdminInstalls;
 
 namespace Modbot.Cloud.Tests;
 
 [Collection(nameof(PostgresCollection))]
 public class AdminInstallTests(PostgresFixture db)
 {
-    private const string File = "output_log_2026-09-15_10-00-00.txt";
+    private static readonly DateTimeOffset Happened = new(2026, 9, 15, 11, 0, 0, TimeSpan.Zero);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -24,7 +23,7 @@ public class AdminInstallTests(PostgresFixture db)
         await using var host = await CloudTestHost.StartAsync(db);
         var (id, installBearer) = await host.RegisterAsync();
 
-        string[] paths = ["/api/admin/installs", $"/api/admin/installs/{id}", $"/api/admin/installs/{id}/lines", "/api/admin/lines-per-day", "/api/admin/settings"];
+        string[] paths = ["/api/admin/installs", $"/api/admin/installs/{id}", $"/api/admin/installs/{id}/events", "/api/admin/events-per-day", "/api/admin/settings"];
 
         foreach (var path in paths)
         {
@@ -35,7 +34,7 @@ public class AdminInstallTests(PostgresFixture db)
             Assert.Equal(HttpStatusCode.Unauthorized, install.StatusCode);
         }
 
-        using var save = await host.SendAsync(HttpMethod.Put, "/api/admin/settings", new { logLineKeepDays = 1, logEventKeepDays = 1 });
+        using var save = await host.SendAsync(HttpMethod.Put, "/api/admin/settings", new { eventKeepDays = 1 });
         Assert.Equal(HttpStatusCode.Unauthorized, save.StatusCode);
     }
 
@@ -52,7 +51,7 @@ public class AdminInstallTests(PostgresFixture db)
                    clientVersion = "2026.9.0",
                    sentAt = CloudTestHost.Start,
                    modbotServerId = "server-7",
-                   lines = new[] { CloudTestHost.Line(File, 0, "a"), CloudTestHost.Line(File, 5, "b") },
+                   events = new[] { CloudTestHost.Event("a", Happened), CloudTestHost.Event("b", Happened) },
                }))
         {
             Assert.Equal(HttpStatusCode.OK, batch.StatusCode);
@@ -63,48 +62,49 @@ public class AdminInstallTests(PostgresFixture db)
 
         var first = page.GetProperty("items")[0];
         Assert.Equal(id, first.GetProperty("installId").GetGuid());
-        Assert.Equal(2, first.GetProperty("linesStored").GetInt64());
+        Assert.Equal(2, first.GetProperty("eventsStored").GetInt64());
         Assert.Equal(3000, first.GetProperty("clockOffsetMs").GetInt64());
         Assert.Equal("server-7", first.GetProperty("modbotServerId").GetString());
-        Assert.Equal(CloudTestHost.Start, first.GetProperty("firstSeenAt").GetDateTimeOffset());
 
         var quiet = page.GetProperty("items")[1];
-        Assert.Equal(0, quiet.GetProperty("linesStored").GetInt64());
+        Assert.Equal(0, quiet.GetProperty("eventsStored").GetInt64());
         Assert.Equal(JsonValueKind.Null, quiet.GetProperty("clockOffsetMs").ValueKind);
 
-        var days = await ReadAsync(await host.GetAsync("/api/admin/lines-per-day?days=7", bearer: CloudTestHost.RootKey));
+        var days = await ReadAsync(await host.GetAsync("/api/admin/events-per-day?days=7", bearer: CloudTestHost.RootKey));
         var items = days.GetProperty("items");
         Assert.Equal(7, items.GetArrayLength());
         Assert.Equal("2026-09-15", items[6].GetProperty("day").GetString());
-        Assert.Equal(2, items[6].GetProperty("lines").GetInt64());
-        Assert.Equal(0, items[0].GetProperty("lines").GetInt64());
+        Assert.Equal(2, items[6].GetProperty("events").GetInt64());
+        Assert.Equal(0, items[0].GetProperty("events").GetInt64());
     }
 
     [Fact]
-    public async Task RecentLinesHideInstanceNoncesAndAreNewestFirst()
+    public async Task RecentEventsArePlainTextNewestFirst()
     {
         await using var host = await CloudTestHost.StartAsync(db);
         var (id, bearer) = await host.RegisterAsync();
 
-        const string location = "wrld_1:12345~private(usr_2)~nonce(abcdef-0123)~region(eu)";
         using (var batch = await host.PostBatchAsync(bearer, host.Batch(
-                   CloudTestHost.Line(File, 0, "first"),
-                   CloudTestHost.Line(File, 10, $"[Behaviour] Joining {location}"))))
+                   CloudTestHost.Event("a", Happened, instanceId: "12345~private(usr_2)", groupId: null))))
         {
             Assert.Equal(HttpStatusCode.OK, batch.StatusCode);
         }
 
-        var body = await ReadAsync(await host.GetAsync($"/api/admin/installs/{id}/lines", bearer: CloudTestHost.RootKey));
-        var lines = body.GetProperty("items");
+        host.Time.Advance(TimeSpan.FromMinutes(1));
+        using (var batch = await host.PostBatchAsync(bearer, host.Batch(CloudTestHost.Event("b", Happened, type: "InstanceLeft", groupId: "grp_1"))))
+            Assert.Equal(HttpStatusCode.OK, batch.StatusCode);
 
-        Assert.Equal(2, lines.GetArrayLength());
-        Assert.Equal("[Behaviour] Joining wrld_1:12345~private(usr_2)~nonce(hidden)~region(eu)", lines[0].GetProperty("text").GetString());
-        Assert.Equal(File, lines[0].GetProperty("file").GetString());
-        Assert.DoesNotContain("abcdef", body.GetRawText(), StringComparison.Ordinal);
+        var body = await ReadAsync(await host.GetAsync($"/api/admin/installs/{id}/events", bearer: CloudTestHost.RootKey));
+        var events = body.GetProperty("items");
 
-        // The stored line itself is untouched.
-        await using var engine = db.NewEngineContext();
-        Assert.Contains(engine.LogLines, l => l.Text.Contains("abcdef-0123", StringComparison.Ordinal));
+        Assert.Equal(2, events.GetArrayLength());
+        Assert.Equal("b", events[0].GetProperty("clientEventId").GetString());
+        Assert.Equal("vrchat.instance.leave", events[0].GetProperty("type").GetString());
+        Assert.Equal("Rin", events[1].GetProperty("displayName").GetString());
+        Assert.Equal("wrld_1", events[1].GetProperty("worldId").GetString());
+        Assert.Equal("12345~private(usr_2)", events[1].GetProperty("instanceId").GetString());
+        Assert.Equal(JsonValueKind.Null, events[1].GetProperty("groupId").ValueKind);
+        Assert.DoesNotContain("vrchat://", body.GetRawText(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -113,24 +113,15 @@ public class AdminInstallTests(PostgresFixture db)
         await using var host = await CloudTestHost.StartAsync(db);
 
         var defaults = await ReadAsync(await host.GetAsync("/api/admin/settings", bearer: CloudTestHost.RootKey));
-        Assert.Equal(90, defaults.GetProperty("logLineKeepDays").GetInt32());
-        Assert.Equal(365, defaults.GetProperty("logEventKeepDays").GetInt32());
+        Assert.Equal(365, defaults.GetProperty("eventKeepDays").GetInt32());
 
-        using (var saved = await host.SendAsync(HttpMethod.Put, "/api/admin/settings", new { logLineKeepDays = 0, logEventKeepDays = 30 }, bearer: CloudTestHost.RootKey))
+        using (var saved = await host.SendAsync(HttpMethod.Put, "/api/admin/settings", new { eventKeepDays = 0 }, bearer: CloudTestHost.RootKey))
             Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
 
         var changed = await ReadAsync(await host.GetAsync("/api/admin/settings", bearer: CloudTestHost.RootKey));
-        Assert.Equal(0, changed.GetProperty("logLineKeepDays").GetInt32());
-        Assert.Equal(30, changed.GetProperty("logEventKeepDays").GetInt32());
+        Assert.Equal(0, changed.GetProperty("eventKeepDays").GetInt32());
 
-        using var refused = await host.SendAsync(HttpMethod.Put, "/api/admin/settings", new { logLineKeepDays = -1, logEventKeepDays = 30 }, bearer: CloudTestHost.RootKey);
+        using var refused = await host.SendAsync(HttpMethod.Put, "/api/admin/settings", new { eventKeepDays = -1 }, bearer: CloudTestHost.RootKey);
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
-    }
-
-    [Fact]
-    public void NoncesAreHiddenWhereverTheyAppear()
-    {
-        Assert.Equal("a~nonce(hidden) b~nonce(hidden)", AdminInstallEndpoints.HideNonces("a~nonce(x1) b~NONCE(y)"));
-        Assert.Equal("nothing here", AdminInstallEndpoints.HideNonces("nothing here"));
     }
 }

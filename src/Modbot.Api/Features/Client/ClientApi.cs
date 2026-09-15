@@ -115,7 +115,7 @@ public static class ClientApi
                 + "swallow the fifteen-second genuine rejoin it has to preserve.\n\n"
                 + "Deliberately anonymous and deliberately trivial. It discloses the time, which "
                 + "every HTTP response header already does.\n\n"
-                + "Also says where paired clients send their log backup: the Modbot Cloud named by "
+                + "Also says where paired clients send their event backup: the Modbot Cloud named by "
                 + "MODBOT_CLOUD_ENDPOINT, or nowhere when MODBOT_CLOUD_DISABLED is set. "
                 + "instanceId is this deployment's id for Cloud to group clients by, and is null "
                 + "until deployments have one.")
@@ -193,7 +193,7 @@ public static class ClientApi
 }
 
 /// <param name="ServerTime">RFC 3339 with an explicit offset, like every timestamp in this API.</param>
-/// <param name="Cloud">Where paired clients send their log backup (cloud log backup spec 3.1).</param>
+/// <param name="Cloud">Where paired clients send their event backup (cloud event backup spec 3.1).</param>
 /// <param name="InstanceId">
 /// This deployment's id, which the client passes on to Cloud so installs can be grouped by server.
 /// Null: Modbot deployments do not have one yet.
@@ -215,7 +215,7 @@ public sealed record ServerTimeResponse(
 }
 
 /// <param name="Endpoint">The Cloud to send to, or null when <see cref="Disabled"/>.</param>
-/// <param name="Disabled">Paired clients must send no log backup at all.</param>
+/// <param name="Disabled">Paired clients must send no event backup at all.</param>
 public sealed record ServerCloudResponse(
     [property: JsonPropertyName("endpoint")] string? Endpoint,
     [property: JsonPropertyName("disabled")] bool Disabled);

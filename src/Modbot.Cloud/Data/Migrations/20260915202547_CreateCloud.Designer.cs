@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Cloud.Data.Migrations
 {
     [DbContext(typeof(CloudContext))]
-    [Migration("20260915080241_CreateCloud")]
+    [Migration("20260915202547_CreateCloud")]
     partial class CreateCloud
     {
         /// <inheritdoc />
@@ -101,13 +101,9 @@ namespace Modbot.Cloud.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id");
 
-                    b.Property<int>("LogEventKeepDays")
+                    b.Property<int>("EventKeepDays")
                         .HasColumnType("integer")
-                        .HasColumnName("log_event_keep_days");
-
-                    b.Property<int>("LogLineKeepDays")
-                        .HasColumnType("integer")
-                        .HasColumnName("log_line_keep_days");
+                        .HasColumnName("event_keep_days");
 
                     b.HasKey("Id")
                         .HasName("pk_settings");

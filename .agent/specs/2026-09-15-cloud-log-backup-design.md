@@ -1,26 +1,45 @@
-# Modbot Cloud — Log Backup
+# Modbot Cloud — Event Backup
 
-- **Date:** 2026-09-15
+- **Date:** 2026-09-15 (revised the same day; see §0)
 - **Status:** Building
 - **Covers:** the client setting "Send all logging to Modbot Cloud as backup", and the event storage it
   sends to in Modbot Cloud (`src/Modbot.Cloud`)
 - **Depends on:** foundation §4.4 (one clock), §5.3 (fact schema), §5.5 (retention); client protocol
   §4–§5; M3 §3
-- **Reverses:** M3 §3.1 ("never transmitted: the raw log line"), client protocol §8 ("no log content"),
-  and central services §1.1 ("no facts, no log content" held centrally). See §10.
+- **Narrows:** M3 §3.1 and M5.5.1 ("instances outside the managed group are never reported") and central
+  services §1.1 ("no facts held centrally"). See §10.
 
 ---
 
+## 0. What changed, and why
+
+The first version of this spec sent **every raw VRChat log line** to Cloud. That misread the request.
+The maintainer's words:
+
+> "Modbot deployed instances feed structured JSON logs to Modbot Cloud for remote support and backups,
+> and Modbot Clients also send their parsed events to Modbot Cloud as a backup instead of just Modbot,
+> but it has all instances logged instead of just that group's instances."
+
+So there are two halves of Modbot Cloud, and this spec builds one:
+
+| Half | What | Status |
+|---|---|---|
+| **Client event backup** | Each desktop client sends the presence events it already parses — the same ones it sends a paired Modbot server — for **every** instance, not only the group's. | This spec. |
+| **Server log feed** | Each Modbot deployment sends its own structured JSON logs to Cloud, for remote support and backups. | **Not built.** A separate part of Modbot Cloud, with its own spec, later. It will live in the engine database beside these events. |
+
+Raw log lines were never asked for. Nothing in Cloud or the client sends, stores or reads them.
+
 ## 1. What this is
 
-The desktop client reads VRChat's output log. With this setting on — and it is on unless the moderator
-turns it off — the client also sends **every line it reads, from every instance**, to Modbot Cloud.
+The desktop client reads VRChat's output log and turns it into presence events: someone joined, was
+already here, left, changed avatar, or VRChat's log stopped. Today those go to a paired Modbot server, and
+only for that server's group's instances.
 
-Why: so the project can later draw trends of what happens in VRChat across everyone who runs the client,
-and so a line nobody understands today can be read again when a newer parser does. Nothing in this spec
-builds the trends. It builds the storage they will read.
+With this setting on — and it is on unless the moderator turns it off — the client also sends **the same
+events, for every instance it sees**, to Modbot Cloud. Why: a backup of what the client observed that does
+not depend on any one group's server, and later, trends of what happens across VRChat.
 
-These are the maintainer's decisions:
+The maintainer's decisions:
 
 - On by default. No onboarding step, no prompt, no first-run dialog.
 - Every instance the moderator is in, not only group instances.
@@ -28,40 +47,36 @@ These are the maintainer's decisions:
 
 ## 2. What is sent
 
-For every line of `output_log_*.txt` the client reads:
+Each event is exactly the client protocol's event (protocol §4.2), built by the same mapper:
 
-| Field | Example | Notes |
-|---|---|---|
-| `file` | `output_log_2026-09-03_20-26-45.txt` | The file **name** only. Never the folder, which holds the Windows account name. |
-| `offset` | `1843320` | Byte offset of the line's first byte in that file. |
-| `text` | `2026.09.03 20:27:14 Debug - [Behaviour] OnPlayerJoined …` | The raw line. The user profile folder (`C:\Users\<name>`) is replaced by `%USERPROFILE%` wherever it appears. Cut to 16,384 characters. |
-| `loggedAt` | `2026-09-03T20:27:14` | The time **as written** in the line, with no offset. Null for a line with no timestamp (stack trace lines). |
-| `utcOffsetMinutes` | `120` | This PC's UTC offset at that time, so `loggedAt` can be read as an instant. |
-| `event` | `{ "type": "PlayerJoined", "data": { … } }` | The client's own parse of that one line, when it has one. |
+| Field | Notes |
+|---|---|
+| `clientEventId` | Random, made once, kept through every retry and restart. Cloud's de-duplication key (§4.3). |
+| `type` | `InstanceJoined`, `InstancePresenceObserved`, `InstanceLeft`, `AvatarChanged`, `LogStopped`. |
+| `occurredAt`, `occurredBefore` | Corrected to Cloud's clock as far as the client has measured it (§5). |
+| `subjectId` | The VRChat user id. |
+| `worldId`, `instanceId` | The instance, with its `nonce` already thrown away when the location was read. |
+| `groupId` | The owning group, or **null** for a public, friends-only, invite or private instance. This is the one difference from what a server gets. |
+| `data` | The display name at that moment, and the avatar name for an avatar change. |
 
-Per batch, alongside the lines: `batchId`, `clientVersion`, `sentAt` (the PC's own clock at the moment of
-sending, uncorrected), `clockOffsetMs` and `clockConfidence` (the client's measured correction to Cloud's
-clock, §5), and `modbotServerId` (§3.3).
+The phantom-burst rules apply exactly as for a server (M3 §7.1): what Cloud gets is the client's parsed
+facts, not its guesses. Events from log lines that were already in the file when the client started are
+not sent, to Cloud or to a server.
 
-**Never sent:** pairing tokens and device tokens, Modbot's own log files (`%APPDATA%\Modbot\logs`), the
-machine name, the Windows account name, folder paths, and any file other than VRChat's output logs.
+Per batch, alongside the events: `batchId`, `clientVersion`, `sentAt` (the PC's own clock when sending,
+uncorrected), `clockOffsetMs` and `clockConfidence` (the client's measured correction to Cloud's clock), and
+`modbotServerId` (§3.3). No file name or offset is sent; the event id is enough to de-duplicate.
 
-### 2.1 Which lines, and when
+**Never sent:** raw log lines, instance nonces, pairing or device tokens, Modbot's own logs, file paths,
+the machine name and the Windows account name.
 
-- **Lines read while the setting is on are sent.**
-- **Lines already in the log when the client starts** are sent only for the part of that file the client
-  had not queued last time — so a client restarted in the middle of a session backs up the lines written
-  while it was closed, and a first start does not upload hours of old log.
-- **Turning it off** stops sending at once and deletes everything queued and not yet sent.
-- **Turning it back on** sends from that moment. Lines written while it was off are never sent.
+### 2.1 When
 
-### 2.2 How often
-
-Lines are grouped into a batch of up to **1,000 lines or 512 KB**, and a batch is closed **60 seconds**
-after its first line, whichever comes first. A batch is gzipped JSON over HTTPS: `POST /api/v1/logs`.
-
-At the measured ~16,000 lines an hour (§11), that is about one request a minute while VRChat runs, and
-none while it does not.
+- **Events observed while the setting is on are sent.**
+- **Turning it off** stops sending at once, cancels a batch in flight, and deletes everything queued.
+- **Turning it back on** sends from that moment. Nothing observed while it was off is ever sent.
+- A batch closes at **500 events, 256 KB, or 60 seconds after its first event**, whichever comes first,
+  and is posted gzipped to `POST /api/v1/events`. A quiet room sends nothing.
 
 ## 3. Where it goes, and who decides
 
@@ -74,47 +89,37 @@ none while it does not.
 | Paired, server has neither variable | `https://cloud.modbot.co` |
 | Paired, server has `MODBOT_CLOUD_DISABLED=1` | **nothing is sent**, and nothing is queued |
 
-The paired server says which through `GET /api/v{n}/client/time`, which the client already calls when it
-starts and every two hours (protocol §5). The answer gains one small object and one id:
+The paired server says which on `GET /api/v{n}/client/time`, which the client already calls when it starts
+and every two hours (protocol §5):
 
 ```json
 { "serverTime": "…", "cloud": { "endpoint": "https://cloud.modbot.co", "disabled": false }, "instanceId": null }
 ```
 
-- **Several paired servers:** if any says `disabled`, nothing is sent. Otherwise the first paired server
-  that named an address wins.
-- **Before a paired server has answered:** lines are queued and not sent, so a server that turns Cloud off
-  never has its moderators send a first batch before the client finds out. If it then answers `disabled`,
-  the queue is deleted.
-- **An older server** whose answer has no `cloud` object counts as "no preference": the default address.
-- **A server that is paused or stopped** in the client is not asked, and does not hold sending.
-- The address must pass the client's usual rule: HTTPS, or plain HTTP to this PC only. Anything else is
-  treated as `disabled`.
+- **Several paired servers:** if any says `disabled`, nothing is sent. Otherwise the first that named an
+  address wins.
+- **Before a paired server has answered:** events are queued and not sent. If it then says `disabled`, the
+  queue is deleted.
+- **An older server** with no `cloud` object counts as "no preference": the default address.
+- **A paused or stopped pairing** is not asked, and does not hold sending.
+- The address must be HTTPS, or plain HTTP to this PC only. Anything else counts as `disabled`.
 
 ### 3.2 Device identity
 
-On first send to an address, the client registers an **install**:
-
-```http
-POST /api/v1/installs   { "clientVersion": "2026.9.0", "platform": "windows" }
-→ 201 { "installId": "…uuid…", "secret": "…43 characters…", "serverTime": "…" }
-```
+On first send to an address the client registers an **install**:
+`POST /api/v1/installs { clientVersion, platform }` → `201 { installId, secret, serverTime }`.
 
 - The secret is stored in `%APPDATA%\Modbot\cloud-installs.json`, **encrypted to the Windows account with
-  DPAPI**, the same way pairing tokens are (protocol §3.2). The install id and address are stored in the
-  clear so the file can be read.
-- One install per Cloud address. A different address registers again.
-- Every batch carries `Authorization: Bearer <installId>.<secret>`. Cloud stores only a SHA-256 of the
-  secret.
-- A `401` means Cloud no longer knows the install. The client forgets it and registers again, with
-  backoff.
-- Registration is limited to **10 an hour per IP address** on Cloud. Cloud does not store the address.
+  DPAPI** like pairing tokens, under its own key purpose. The install id and address are readable.
+- One install per Cloud address. Every batch carries `Authorization: Bearer <installId>.<secret>`; Cloud
+  keeps only a SHA-256 of the secret.
+- A `401` makes the client forget the install and register again, with backoff.
+- Registration is limited to **10 an hour per IP address**. Cloud does not store the address.
 
 ### 3.3 The paired server's id
 
-`modbotServerId` carries the paired server's `instanceId` from the time answer, when there is one, so a
-later Cloud feature can group installs by server. Modbot servers do not have an instance id yet, so the
-server sends `null` today and so does the client. Cloud keeps the last one it was sent on the install.
+`modbotServerId` carries the paired server's `instanceId` from the time answer, so a later Cloud feature
+can group installs by server. Modbot deployments have no instance id yet, so it is `null` today.
 
 ## 4. Storage
 
@@ -122,244 +127,193 @@ server sends `null` today and so does the client. Cloud keeps the last one it wa
 
 | Variable | Database | Holds |
 |---|---|---|
-| `DATABASE_URL` | Cloud's main database (`CloudContext`) | installs and their secret hashes, admin sessions, settings. Later: accounts, instance registry, term lists, showcases. |
-| `DATABASE_ENGINE_URL` | The event storage (`EngineContext`) | log files, log lines, parsed events, per-install clocks, daily and hourly totals. |
+| `DATABASE_URL` | Cloud's main database (`CloudContext`) | installs and secret hashes, admin sessions, settings. Later: accounts, instance registry, term lists, showcases. |
+| `DATABASE_ENGINE_URL` | The event storage (`EngineContext`) | backed-up events, per-install clocks, daily and hourly totals. Later: the server log feed (§0). |
 
 Both are required; Cloud refuses to start and names whichever is missing. Each has its own migrations
-(`Data/Migrations`, `Engine/Migrations`) and its own history table (`__EFMigrationsHistory`,
-`__engine_migrations_history`), and each is migrated at start.
+(`Data/Migrations`, `Engine/Migrations`) and history table (`__EFMigrationsHistory`,
+`__engine_migrations_history`), and each is migrated at start. `/health/ready` checks both.
 
-**No foreign keys between them.** Engine rows name an install by its id only. When an install is removed
-from the main database its engine rows are **left to retention** (§6); nothing reaches across.
+**No foreign keys between them.** Engine rows name an install by id only. A removed install's events are
+**left to retention** (§6).
 
 ### 4.2 Tables in the event storage
 
 ```sql
-log_file                       -- one row per install per VRChat log file
-  id                 bigint identity PK
-  install_id         uuid        not null
-  name               text(128)   not null
-  stored_through     bigint      not null   -- highest offset stored; the dedupe marker
-  lines_stored       bigint      not null
-  first_received_at  timestamptz not null
-  last_received_at   timestamptz not null
-  UNIQUE (install_id, name)
+client_event                   -- one row per event per install; never updated
+  install_id          uuid        not null
+  client_event_id     text(64)    not null
+  received_at         timestamptz not null   -- Cloud's clock
+  sent_at             timestamptz not null   -- the client's clock when it sent
+  occurred_at         timestamptz not null   -- when it happened, in Cloud's time (§5)
+  occurred_before     timestamptz null
+  clock_adjustment_ms integer     not null   -- what Cloud added to the client's own time
+  type                text(128)   not null   -- vrchat.instance.join … or modbot.unrecognised
+  type_raw            text(128)   null       -- the client's own word, when unrecognised
+  subject_id          text(128)   not null
+  world_id            text(128)   not null
+  instance_id         text(256)   not null
+  group_id            text(128)   null
+  client_version      text(32)    not null
+  data                jsonb       not null
+  PRIMARY KEY (install_id, client_event_id)  -- de-duplication
+  INDEX (type, occurred_at)                  -- the trends index
+  INDEX (install_id, received_at DESC)       -- admin: one install's recent events
+  INDEX (received_at)                        -- retention
 
-log_line                       -- PARTITION BY RANGE (received_at), monthly
-  id                 bigint      not null   -- sequence
-  received_at        timestamptz not null   -- Cloud's clock
-  sent_at            timestamptz not null   -- the client's clock when it sent
-  logged_at          timestamp   null       -- as written in the log, no offset
-  utc_offset_minutes smallint    null
-  install_id         uuid        not null
-  log_file_id        bigint      not null
-  line_offset        bigint      not null
-  text               text        not null
-  PK (id, received_at)
-  INDEX (install_id, received_at DESC)
-
-log_event                      -- PARTITION BY RANGE (received_at), monthly
-  id                 bigint      not null
-  received_at        timestamptz not null
-  occurred_at        timestamptz null       -- logged_at read as an instant, in Cloud's time (§5)
-  install_id         uuid        not null
-  log_file_id        bigint      not null
-  line_offset        bigint      not null   -- with log_file_id, finds the raw line
-  type               text(128)   not null   -- vrchat.log.player.joined … or modbot.unrecognised
-  type_raw           text(128)   null       -- the client's own name, when type is modbot.unrecognised
-  parsed_by          text(32)    not null   -- the client version that parsed it
-  data               jsonb       not null
-  PK (id, received_at)
-  INDEX (type, occurred_at)                 -- the trends index (§9)
-
-install_clock      (install_id PK)          -- the clock record, updated per batch (§5)
-line_day_total     (day, install_id) PK     -- lines stored per install per day; the admin chart
-event_hour_total   (type, hour) PK          -- events per type per hour; trends
+install_clock      (install_id) PK          -- the clock record, updated per batch
+event_day_total    (day, install_id) PK     -- events stored per install per day: the admin chart
+event_hour_total   (type, hour) PK          -- events per type per hour: trends
 ```
 
-- **Append-only.** `log_line` and `log_event` rows are never updated. A re-read is a new row. The totals
-  tables are counters, like the server's daily totals (foundation §5.4).
-- **Parsed events follow foundation §5.3.1.** Known client types are named `vrchat.log.*`; anything else
-  is stored as `modbot.unrecognised` with the client's word in `type_raw` and its data kept whole. A later
-  parser re-reads `log_line` and writes new `log_event` rows with its own `parsed_by`.
+- **Types are the server's fact types** (`vrchat.instance.join`, `vrchat.instance.presence`,
+  `vrchat.instance.leave`, `vrchat.avatar.change`, `vrchat.instance.log-stopped`), so a trend in Cloud and a
+  chart on a server mean the same thing. A type Cloud does not know is kept as `modbot.unrecognised` with
+  the client's word in `type_raw` and its data whole (foundation §5.3.1).
+- The totals are counters, written in the same transaction as the events and only for rows actually stored.
 
-### 4.3 Partitioning: by received time
+### 4.3 De-duplication, and why the table is not partitioned
 
-Both big tables are partitioned by **`received_at`, Cloud's own clock**, not the log's time:
+The key is **`(install_id, client_event_id)`**. The client makes an event's id once and writes it to its
+outbox with the event, so a retried batch, a batch sent twice, or an outbox that closed the same events
+twice after a crash all carry the same ids. Cloud inserts with `ON CONFLICT DO NOTHING` and counts only what
+was inserted: `{ "stored": 37, "duplicates": 11 }`.
 
-- `received_at` is always now, so the partitions that exist are always the right ones. The log's time
-  comes from a PC Modbot does not control, and a log can carry any date at all.
-- Retention (§6) drops whole partitions by how long ago Cloud received them, which is how storage is
-  actually used up.
-- A trends query by `occurred_at` still reaches few partitions: a line arrives at most the outbox's life
-  after it was written, so `received_at` bounds `occurred_at` closely.
-
-Partitions are created one month behind to two months ahead, at start and daily, the same way the
-server's `EventPartitionMaintainer` does.
-
-### 4.4 Dedupe: install + log file + offset
-
-A unique index on a partitioned table must include `received_at`, and a retry arrives with a new
-`received_at`, so such an index would dedupe nothing. The dedupe key lives in `log_file` instead:
-
-- A batch is written in one transaction. For each file it names, the `log_file` row is locked.
-- A line whose offset is **at or below `stored_through`** is a duplicate and is dropped. The rest are
-  written in offset order and `stored_through` moves up.
-- The client sends each file's lines in offset order, always. A retried batch, a batch sent twice, and a
-  restart that replays lines are all duplicates by this rule.
-- A log that shrinks and starts again from offset 0 would read as duplicates. VRChat writes a new file
-  per launch and does not do this.
-
-The answer is `{ "stored": 812, "duplicates": 188 }`.
+A partitioned table cannot hold a unique key that leaves out its partition column, and a retry can land in
+a later month than the first attempt. The first version of this spec worked around that for raw lines with
+a per-file offset marker. Events have a proper id, so the table is simply **not partitioned** and the key
+is exact. That is affordable because events are few (§11): a year for a hundred clients is a few million
+rows, and retention deletes a day's worth at a time (§6). If volume ever passes about a hundred million
+rows, partition it and move de-duplication to a separate key table.
 
 ## 5. Time
 
-Three times per line, and one clock record per install.
+Three times per event, and one clock record per install, reusing the server's approach (foundation §4.4,
+protocol §5).
 
 | Time | Whose clock | Trusted for |
 |---|---|---|
-| `received_at` | Cloud's (`TimeProvider`) | ordering and retention. Never taken from a client. |
+| `received_at` | Cloud's (`TimeProvider`) | order and retention. Never taken from a client. |
 | `sent_at` | the client PC's, uncorrected | measuring that PC's clock. |
-| `logged_at` + `utc_offset_minutes` | VRChat's text and the PC's time zone | when it happened, on that PC. |
+| `occurred_at` | the log's time, read in the PC's time zone, then in Cloud's time | when it happened. |
 
-This reuses the server's approach (foundation §4.4, protocol §5):
+- The client measures its offset to Cloud with `GET /api/v1/time` (the same SNTP estimate, `ServerClock`),
+  every two hours while it has something to send, corrects every event's time by it before sending — as it
+  does for a server — and sends the offset and its confidence with each batch.
+- Cloud also measures for itself: `received_at − sent_at`, the PC's clock error plus one request's delay.
+- The client's measure **stands** when it says `good` or `fair` and agrees with Cloud's within five
+  minutes. Otherwise Cloud undoes it and applies its own. `clock_adjustment_ms` records what Cloud added —
+  zero when the client's measure stood — so the client's own value is `occurred_at − clock_adjustment_ms`.
+- `install_clock` keeps, per install: the reported offset and confidence, the observed difference, the
+  offset applied, and whether the two disagree. A disagreeing clock is **flagged, not refused**.
 
-- The client measures its offset to Cloud with `GET /api/v1/time`, the same SNTP estimate
-  (`ServerClock`), every two hours, and sends `clockOffsetMs` and `clockConfidence` with every batch.
-- Cloud also measures for itself: `received_at − sent_at`, which is the PC's clock error plus the network
-  delay of one request.
-- `install_clock` keeps, per install: the reported offset and confidence, the observed difference, and
-  whether the two disagree by more than five minutes. A disagreeing clock is **flagged, not refused**.
-- `log_event.occurred_at` is `logged_at − utc_offset_minutes`, then corrected: by the reported offset
-  when its confidence is `good` or `fair` and it agrees with the observed difference, otherwise by the
-  observed difference. All three raw times stay on `log_line`, so a better correction can be run later.
-
-Cloud never reads the system clock; everything goes through `TimeProvider`. The client never reads it
-either; everything goes through `IModbotClock`.
+Cloud never reads the system clock; the client never does either.
 
 ## 6. Retention
 
-Settings in Cloud admin, stored in the main database:
+One setting in Cloud admin, stored in the main database:
 
 | What | Default | Why |
 |---|---|---|
-| Log lines | **90 days** | About 95% of the storage (§11), and the rows that hold other players' names and private instance locations (§10). Ninety days is long enough to re-read a quarter's lines with a newer parser. |
-| Parsed events | **365 days** | Small, and a year is what a trend needs to compare a month with the same month last year. |
-| Hourly and daily totals | forever | Counts only, with no player names or ids. |
+| Events | **365 days** | Storage no longer argues for a short window: events are about a thousandth of the raw log's size (§11). But every event names another player and where they were — private instances included — held by the project, not by their group, so they are not kept forever. A year is a full year of backup, and enough to rebuild the totals when a definition changes. |
+| Daily and hourly totals | forever | Counts only, with no player names or ids. |
 
-`0` means keep forever. Pruning is a `DROP TABLE` on a whole partition once all of it is past the window,
-never a `DELETE` (foundation §5.5). `log_file` and `install_clock` rows untouched for longer than the log
-line window are deleted by the same daily job.
+`0` keeps events forever. Retention deletes events whose `received_at` is past the window, **10,000 rows
+at a time** so no single statement holds a long lock, once a day. `install_clock` rows untouched for longer
+than the window go too.
 
 This is deliberately not foundation §5.5's "keep everything by default": that rule is for a group's own
-data on its own server. This is every client's view of every instance, held by the project.
+data on its own server.
 
 ## 7. Failure and offline
 
-- **Durable outbox** in `%APPDATA%\Modbot\cloud\`: the open batch as JSON lines, closed batches gzipped,
-  one file each, sent oldest first and deleted when Cloud answers `200`. It survives restarts and any
-  length of time offline.
-- **Cap: 100 MB on disk.** When closing a batch passes it, the oldest batches are deleted first and the
-  dropped line count is kept. At about ten to one compression that is roughly 500 hours of play.
-- Between the log reader and the outbox is an in-memory queue of **50,000 lines**. If it fills, the oldest
-  lines are dropped and counted.
-- **Backoff** on no network, `5xx` and `429`: exponential with jitter, two seconds doubling to five
-  minutes, and `Retry-After` when Cloud sends one. This is Cloud's limit and ordinary backoff is correct;
-  it has nothing to do with VRChat's cold stop (foundation §4.3.1).
-- `400` and `413` are permanent for that batch: it is deleted and counted, not retried.
-- **Never slows the moderation pipeline.** The log reader hands lines to the queue and returns. Writing
-  the outbox, compressing, registering and sending all happen on a background task. A Cloud that hangs
-  or is gone costs the reader nothing.
+- **Durable outbox** in `%APPDATA%\Modbot\cloud\`: the open batch as JSON rows, closed batches gzipped, sent
+  oldest first and deleted when Cloud answers `200`. Survives restarts and any length of time offline.
+- **Cap: 20 MB on disk**, oldest batches deleted first and counted. At a few hundred bytes an event before
+  compression, that is hundreds of thousands of events.
+- In front of it, an in-memory queue of **10,000 observations**; if it fills, the oldest are dropped and
+  counted.
+- **Backoff** on no network, `5xx` and `429`: exponential with jitter, two seconds up to five minutes, and
+  `Retry-After` when Cloud sends one. This is Cloud's limit, not VRChat's cold stop.
+- `400` and `413` are permanent for that batch: it is deleted and counted.
+- **Never slows the moderation pipeline.** The reader hands observations to the queue and returns. Building
+  events, writing the outbox, compressing, registering and sending run on their own task.
 
 ## 8. Limits
 
 | Limit | Value | Answer |
 |---|---|---|
-| Lines per batch | 2,000 | `413` |
-| Request body, compressed | 2 MB | `413` |
-| Request body, after decompressing | 8 MB | `413` |
-| Line text | 16,384 characters | cut, not refused |
-| Event data | 4,096 bytes of JSON | the event is stored with empty data |
+| Events per batch | 1,000 | `413` |
+| Request body, compressed | 1 MB | `413` |
+| Request body, after decompressing | 4 MB | `413` |
+| Event data | 4,096 bytes of JSON | stored as `{}` |
 | Batches per install | 30 a minute | `429` + `Retry-After` |
-| Lines per install | 200,000 an hour | `429` + `Retry-After` |
+| Events per install | 50,000 an hour | `429` + `Retry-After` |
 | Registrations per IP address | 10 an hour | `429` + `Retry-After` |
 
-The client stays well inside these: 1,000 lines and 512 KB a batch. The rate limits are held in memory,
-per Cloud process; a restart forgets them.
+The per-install limits are held in memory, per Cloud process.
 
 ## 9. What trends will read
 
-Nothing public reads this yet. When trends are built, they read:
-
-- **`event_hour_total (type, hour)`** — "events of type X per hour across all installs" is a primary key
-  range scan. Written in the same transaction as the events and only for rows actually stored, so dedupe
-  holds for the totals too. `hour` is `occurred_at` truncated to the hour, or `received_at` when there is
-  no time.
-- **`log_event` with index `(type, occurred_at)`** — for anything the totals do not answer, and to
-  rebuild them.
-- **`log_line`** — to re-read with a newer parser.
+Nothing public reads this yet. Trends will read **`event_hour_total (type, hour)`** — "events of type X per
+hour across all installs" is a primary key range scan — and fall back to **`client_event (type,
+occurred_at)`** for anything the totals do not answer, and to rebuild them.
 
 ## 10. Privacy facts for the privacy policy
 
-Statements of fact for `PRIVACY_POLICY.md`:
+1. **The Modbot Client sends its presence events to Modbot Cloud by default**: who joined, was already
+   there, left, or changed avatar, and when VRChat's log stopped. It is on unless you turn it off in the
+   client's settings. Turning it off deletes what was queued and not yet sent.
+2. **It covers every instance you are in**, including public, friends-only, invite and private instances,
+   not only instances of groups you moderate. A Modbot server still only receives its own group's.
+3. **Each event names another person**: their VRChat user id, their display name at that moment, and the
+   avatar name they switched to, with the world id and instance id where it happened.
+4. **It never sends VRChat's raw log**, and never an instance's `nonce`, so nothing Cloud holds is enough to
+   join a private instance.
+5. **Your own VRChat user id and display name** are in the events too, as the subject of your own arrival.
+6. **Your client is identified by a random install id**, not your name, VRChat account or machine. If the
+   client is paired with a Modbot server, the install can be linked to that server's id. Cloud does not
+   store IP addresses.
+7. **Events are kept 365 days** by default. Counts with no names or ids are kept indefinitely.
+8. **Only the Modbot Cloud administrator can read events**, after signing in to Cloud admin. There is no
+   public view, and admin shows world and instance as plain text, never as join links.
+9. **A Modbot server operator can turn this off for their moderators** with `MODBOT_CLOUD_DISABLED=1`, or
+   send it to their own Cloud with `MODBOT_CLOUD_ENDPOINT`.
+10. **Modbot deployments sending their own logs to Cloud** is a separate feature, not yet built, and will
+    need its own statement.
 
-1. **The Modbot Client sends VRChat's whole output log to Modbot Cloud by default.** It is on unless you
-   turn it off in the client's settings. Turning it off deletes what was queued and not yet sent.
-2. **It covers every instance you are in**, including private, friends-only and invite instances, not
-   only instances of groups you moderate.
-3. **VRChat's log contains other people's data**: the display names and user ids of everyone in the same
-   instance as you, the avatar names they switch to, world ids and instance ids.
-4. **It contains instance locations**, including the `~nonce(…)` part of private and friends-only
-   instances, which is enough to join them. Cloud stores these as written.
-5. **It contains your own VRChat display name and user id**, and anything else VRChat writes to its log.
-6. **The client removes your Windows user folder name** from lines before sending, and sends log file
-   names, not folders. It sends nothing from Modbot's own logs and none of its tokens.
-7. **Your client is identified by a random install id**, not by your name, VRChat account or machine. If
-   the client is paired with a Modbot server, the install can be linked to that server's id. Cloud does
-   not store IP addresses.
-8. **Log lines are kept 90 days and parsed events 365 days** by default (§6). Totals with no names or ids
-   are kept indefinitely.
-9. **Only the Modbot Cloud administrator can read raw lines**, after signing in to Cloud admin. There is
-   no public view.
-10. **Cloud admin never shows instance locations as join links**, and hides the `nonce` value in its view
-    of a line.
-11. **A Modbot server operator can turn this off for their moderators** with `MODBOT_CLOUD_DISABLED=1`, or
-    send it to their own Cloud with `MODBOT_CLOUD_ENDPOINT`.
+This narrows two earlier statements, on purpose and at the maintainer's request:
 
-This reverses three earlier statements, on purpose and at the maintainer's request:
-
-- M3 §3.1 lists "the raw log line" and "anything about the world outside the managed group" as never
-  transmitted. That still holds for what goes to a **Modbot server**. It does not hold for Modbot Cloud.
-- Client protocol §8's "No log content" still describes the server protocol. Cloud has its own.
-- Central services §1.1 says the project holds no facts and no log content centrally. Cloud does.
+- M3 §3.1 and §5.5.1 say events about instances outside the managed group are dropped on the moderator's PC
+  and never reported. That still holds for every **Modbot server**. The Cloud backup carries them.
+- Central services §1.1 says the project holds no facts centrally. Cloud holds these events.
 
 ## 11. Volume and cost — estimated, not measured
 
-From the one real log described in `.agent/research/vrchat-log-events.md`: **17,123 lines in about 64
-minutes**, roughly **16,000 lines an hour**, most of them `[IK Debug Log]` and `[VRCTrackingManager]`
-frame lines. The `[Behaviour]` fixture averages 88 bytes a line.
+From the one real log in `.agent/research/vrchat-log-events.md`: about **64 minutes**, 17,123 lines,
+754 of them `[Behaviour]`, 88 recognised. The client's parser and phantom-burst rules reduce the whole
+session — a home world and a busy group instance — to **32 events** (`RealSessionTests`). That is roughly
+**30 events an hour**, against about 16,000 lines an hour of raw log.
 
 | | Estimate |
 |---|---|
-| Raw text | ~1.8 MB an hour of play |
-| On the wire, gzipped | ~0.2 MB an hour |
-| Stored: one `log_line` row with its index | ~250 bytes → ~4 MB an hour |
-| One install, 3 hours a day | ~12 MB a day → ~1.1 GB at the 90-day window |
-| 100 active installs | ~110 GB at steady state → ~$27 a month at $0.25/GB |
+| One event on the wire | ~350 bytes of JSON, ~100 gzipped |
+| One stored row with its four indexes | ~0.5 KB |
+| One install, 3 hours a day | ~90 events a day → ~33,000 a year → ~17 MB at the 365-day window |
+| 100 installs | ~1.7 GB at steady state → ~$0.40 a month at $0.25/GB |
+| 100 installs in busy public instances (~10× the sample) | ~17 GB → ~$4 a month |
 
-Unverified: lines per hour in a busy instance, hours a day a moderator plays, and the real row size.
-Measure all three from the first week of real data before choosing a database plan.
+Unverified: events per hour in a crowded public instance, hours a day moderators play, and the real row
+size. Measure from the first week of data.
 
 ## 12. Deploying Cloud
 
 - Image: `docker build -f src/Modbot.Cloud/Dockerfile .` from the repository root.
 - Railway: its own service, not in `.railway/railway.ts`. Root Directory empty,
   `RAILWAY_DOCKERFILE_PATH=src/Modbot.Cloud/Dockerfile`, health check `/health/ready`.
-- Two Railway Postgres services. `DATABASE_URL` references the first, `DATABASE_ENGINE_URL` the second.
+- Two Railway Postgres services: `DATABASE_URL` references the main one, `DATABASE_ENGINE_URL` the event one.
 - `ROOT_API_KEY` unlocks `/admin`. `PORT` is set by Railway and defaults to 8080.
-- `/health/ready` answers only while both databases are reachable.
 
 ## 13. Not built here
 
-Accounts, instance registration, term lists, server logs, showcases, and any public analytics. The main
-database and the feature folders leave room for them.
+The server log feed (§0), accounts, instance registration, term lists, showcases, and any public analytics.

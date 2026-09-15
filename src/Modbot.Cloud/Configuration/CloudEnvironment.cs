@@ -6,8 +6,8 @@ namespace Modbot.Cloud.Configuration;
 /// keyword string. Required.
 /// </param>
 /// <param name="EngineDatabaseUrl">
-/// The event storage: log lines, parsed events and their totals. A separate database, because it
-/// is a hundred times the size of everything else and is pruned on its own schedule. Required.
+/// The event storage: backed-up presence events and their totals. A separate database, because it
+/// grows with every client and is pruned on its own schedule. Required.
 /// </param>
 /// <param name="RootApiKey">The key that unlocks <c>/admin</c>. When unset, admin refuses everyone.</param>
 /// <param name="Port">The port to listen on. Railway injects it.</param>

@@ -133,9 +133,10 @@ secrets to leak, and adding one is deliberately not an option.
 `MODBOT_DEBUG_LOGGING` additionally enables the Debug log streams. It is a diagnostic switch, not
 configuration.
 
-Two more decide where your moderators' desktop clients back up VRChat's log. By default every
-client sends every log line it reads to Modbot Cloud (`https://cloud.modbot.co`), unless the
-moderator turns that off in the client's settings. Your server tells the clients paired with it:
+Two more decide where your moderators' desktop clients back up their presence events. By default
+every client sends the events it records, for every instance its moderator is in, to Modbot Cloud
+(`https://cloud.modbot.co`), unless the moderator turns that off in the client's settings. Your server
+still only receives your group's. Your server tells the clients paired with it:
 
 | Variable | Purpose |
 |---|---|

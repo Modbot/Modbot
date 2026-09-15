@@ -1,7 +1,7 @@
 namespace Modbot.Client.Time;
 
 /// <summary>
-/// What a paired server said about where this client's log backup goes.
+/// What a paired server said about where this client's event backup goes.
 /// </summary>
 /// <param name="Endpoint">
 /// The Modbot Cloud to send to, or null when the server named none: an older server, or one that
