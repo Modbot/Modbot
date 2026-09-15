@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { AddInstance } from '@/components/AddInstance'
 import { InstanceList } from '@/components/InstanceList'
 import { Link } from '@/components/Link'
@@ -10,20 +9,13 @@ import { recordUse } from '@/lib/storage'
 import { useKnownInstances } from '@/lib/useKnownInstances'
 
 /**
- * `/go?redir=<path>`: opens `<path>` on an instance. With exactly one instance known, browser and
- * IP address together, it goes straight there; otherwise it lists them.
+ * `/go?redir=<path>`: opens `<path>` on an instance the person picks from the list. It never picks
+ * for them, even when only one instance is known: on a shared IP address, that instance may be one
+ * somebody else opened.
  */
 export function Go({ redir }: { redir: string | null }) {
   const path = safePath(redir)
   const known = useKnownInstances()
-
-  const only = path !== null && known.loaded && known.instances.length === 1 ? known.instances[0].url : null
-
-  useEffect(() => {
-    if (only === null || path === null) return
-    recordUse(only, path, 'go')
-    window.location.replace(only + path)
-  }, [only, path])
 
   if (path === null) {
     return (
@@ -43,12 +35,11 @@ export function Go({ redir }: { redir: string | null }) {
     )
   }
 
-  if (!known.loaded || only !== null) {
+  if (!known.loaded) {
     return (
       <Shell>
         <Card className="gap-1 px-6">
-          <h1 className="text-base font-semibold">{only ? 'Opening' : 'Loading'}</h1>
-          {only && <p className="break-all font-mono text-muted-foreground">{only + path}</p>}
+          <h1 className="text-base font-semibold">Loading</h1>
         </Card>
       </Shell>
     )

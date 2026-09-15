@@ -6,8 +6,8 @@ import { loadHidden, loadSaved, removeInstance, saveInstance } from './storage.t
 /**
  * The combined list: saved in this browser plus seen from this IP address.
  *
- * `loaded` turns true once the server has answered, or failed to. `/go` waits for it, because
- * "exactly one instance" has to count both halves.
+ * `loaded` turns true once the server has answered, or failed to. `/go` waits for it, so the list
+ * does not change under someone's cursor when the server's half arrives.
  */
 export function useKnownInstances(): {
   instances: KnownInstance[]

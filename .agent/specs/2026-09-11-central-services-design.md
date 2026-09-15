@@ -105,9 +105,9 @@ A deployment that does not know who you are sends you here to be remembered:
 Afterwards, `my.modbot.co` shows your saved instances and you pick one.
 
 **Going to a page on your instance** is `my.modbot.co/go?redir=<path>`. The page lists the saved
-instances and sends the browser to that path on the chosen one, going straight there when only one is
-saved. `redir` must be a plain path on the instance; anything that could send the browser elsewhere is
-refused.
+instances and sends the browser to that path on the one the person picks. It always shows the list,
+even when only one instance is known. `redir` must be a plain path on the instance; anything that
+could send the browser elsewhere is refused.
 
 It is the only redirect route. The desktop client's "Pair with a server" opens
 `my.modbot.co/go?redir=/pair` (client protocol §3.1), and documentation links use the same route for
@@ -118,9 +118,12 @@ any other page. `my.modbot.co` never sees a pairing code; the instance issues it
 
 > **Revised again 2026-09-14.** `/`, `/register` and `/go` all show one list: the instances saved in
 > this browser and the instances the server has seen from this browser's IP address (§2.3.1), one
-> entry per URL, most recently used first. `/go` goes straight to the instance when that combined
-> list holds exactly one, and every `/go` use is added to a history kept in the browser
+> entry per URL, most recently used first. Every `/go` use is added to a history kept in the browser
 > (`modbot.history`, beside the saved list in `modbot.instances`).
+>
+> **Revised 2026-09-15.** `/go` no longer goes straight to the only instance it knows; it always
+> shows the list. On a shared address, the only instance known may be one somebody else opened, and
+> sending a person there without asking let a stranger choose where they landed.
 
 ### 2.3 Fragment vs query string — and why registration uses a query string
 
@@ -196,10 +199,9 @@ entry for it in that browser. Saving it again un-hides it. An admin deleting a r
   network that puts many people behind one address. That is the cost of the feature, not a bug in
   it.
 - An address later handed to someone else carries its list with it for up to 90 days.
-- Because `/go` goes straight to the only instance it knows, a person on a shared address who has
-  nothing saved can be sent to an instance URL that someone else on that address opened. It is still
-  an `https` origin and `redir` is still only a path (§2.2), but the site was chosen by another
-  person.
+- A person on a shared address can see an instance URL someone else on that address opened, listed
+  beside their own. `/go` always asks which one to open (§2.2), so nobody is sent to it without
+  choosing it.
 - The rule trusts Railway's edge to write the right-most `X-Forwarded-For` entry. Put anything else
   in front of the app, or run it somewhere else, and that assumption has to be checked again.
 
