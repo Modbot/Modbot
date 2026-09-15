@@ -68,25 +68,25 @@ public sealed record ModbotPalette
     /// <summary>The desktop dark palette: the client window, and the web UI's <c>.dark</c>.</summary>
     public static ModbotPalette Dark { get; } = new()
     {
-        Background = Color.Parse("#0d0e12"),
-        Surface = Color.Parse("#14161c"),
-        Surface2 = Color.Parse("#1b1e26"),
+        Background = Color.Parse("#0f0e15"),
+        Surface = Color.Parse("#17151f"),
+        Surface2 = Color.Parse("#1e1b29"),
         Surface3 = Color.Parse("#232733"),
-        Border = Color.Parse("#272b36"),
-        Border2 = Color.Parse("#343947"),
-        Text = Color.Parse("#e6e8ee"),
-        TextDim = Color.Parse("#9aa1b1"),
+        Border = Color.Parse("#2a2738"),
+        Border2 = Color.Parse("#3a3650"),
+        Text = Color.Parse("#e6e6eb"),
+        TextDim = Color.Parse("#a5a3b8"),
         TextFaint = Color.Parse("#6a7183"),
-        Accent = Color.Parse("#7c6cf5"),
+        Accent = Color.Parse("#6d5cf0"),
         AccentForeground = Color.Parse("#ffffff"),
         AccentDim = Color.Parse("#2a2547"),
         Danger = Color.Parse("#f0526a"),
         DangerDim = Color.Parse("#3a1922"),
-        Warn = Color.Parse("#e8a33d"),
+        Warn = Color.Parse("#fbbf24"),
         WarnDim = Color.Parse("#3a2d16"),
-        Ok = Color.Parse("#3fbf8f"),
+        Ok = Color.Parse("#4ade80"),
         OkDim = Color.Parse("#13322a"),
-        Info = Color.Parse("#4aa3f0"),
+        Info = Color.Parse("#38bdf8"),
         InfoDim = Color.Parse("#12283d"),
     };
 
@@ -96,11 +96,11 @@ public sealed record ModbotPalette
     /// </summary>
     public static ModbotPalette VrDark { get; } = Dark with
     {
-        Background = Color.Parse("#15171e"),
-        Surface = Color.Parse("#1c1f28"),
-        Text = Color.Parse("#f2f4f8"),
-        TextDim = Color.Parse("#b9c0cf"),
-        Border = Color.Parse("#363c4a"),
+        Background = Color.Parse("#1a1824"),
+        Surface = Color.Parse("#211e2c"),
+        Text = Color.Parse("#f2f2f6"),
+        TextDim = Color.Parse("#bdbbcc"),
+        Border = Color.Parse("#3a3650"),
     };
 }
 

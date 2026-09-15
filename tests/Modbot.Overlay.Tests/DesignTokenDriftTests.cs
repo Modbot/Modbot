@@ -189,14 +189,16 @@ public class DesignTokenDriftTests
         // The stylesheet has no third surface or faint text; the prototype does, and a table needs
         // them to separate a header from a row from a hover. Checked against the prototype so the
         // two do not drift either.
+        //
+        // Only the steps the stylesheet lacks. The second surface and second border are --muted
+        // and --input there, checked above; the rebrand (brand design 2026-09-16) changed those in
+        // the stylesheet and not in the prototype, and where the two disagree the product wins.
         var prototype = File.ReadAllText(
             Path.Combine(FindRepoRoot(), "explore", "design", "index.html"));
 
         foreach (var (token, expected) in ((string, Color)[])
             [
-                ("surface-2", ModbotPalette.Dark.Surface2),
                 ("surface-3", ModbotPalette.Dark.Surface3),
-                ("border-2", ModbotPalette.Dark.Border2),
                 ("text-faint", ModbotPalette.Dark.TextFaint),
                 ("danger-dim", ModbotPalette.Dark.DangerDim),
                 ("warn-dim", ModbotPalette.Dark.WarnDim),
