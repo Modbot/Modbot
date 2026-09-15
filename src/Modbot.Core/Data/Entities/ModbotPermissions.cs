@@ -141,6 +141,21 @@ public enum ModbotPermissions : long
     /// </remarks>
     UseAiChat = 1L << 21,
 
+    // --- Discord account linking (Discord account linking design §11) ---
+
+    /// <summary>
+    /// End somebody else's link between their Discord and VRChat accounts.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ManageUsers"/>, which is about Modbot's own
+    /// accounts, or <see cref="ManageSettings"/>. Ending a link takes away the roles Modbot gave the
+    /// member, which is a moderation decision about that member. Seeing a link needs
+    /// <see cref="ViewProfile"/> only. Not added to the built-in roles. Bit 21 belongs to
+    /// <see cref="UseAiChat"/>, hence 22.
+
+    /// </remarks>
+    ManageDiscordLinks = 1L << 22,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

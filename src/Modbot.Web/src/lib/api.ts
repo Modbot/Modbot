@@ -175,6 +175,58 @@ export type VRChatLinkStatus = {
 
 export type LinkCheckResult = { linked: boolean; message: string; status: VRChatLinkStatus }
 
+/** The member link page (Discord account linking design §3). No Modbot account involved. */
+export type LinkPageStatus = {
+  /** The OAuth client and the public address are set. */
+  available: boolean
+  serverName: string | null
+  discord: { userId: string; username: string } | null
+  /** `checksLeft` is null before Discord sign-in, when nothing has been counted. */
+  pending: { vrChatUserId: string; code: string; expiresAt: string; checksLeft: number | null } | null
+  link: { vrChatUserId: string; vrChatDisplayName: string | null; linkedAt: string } | null
+  profileUrl: string
+}
+
+export type LinkPageCheckResult = { linked: boolean; message: string; status: LinkPageStatus }
+
+/** A VRChat person's Discord side, as the person popup shows it. */
+export type DiscordLinkView = {
+  id: string
+  discordUserId: string
+  discordUsername: string
+  vrChatUserId: string
+  linkedAt: string
+  startedFrom: 'discord' | 'vrchat'
+  /** The roles Modbot gave and believes the member still holds. */
+  roles: { id: string; name: string | null }[]
+  notInServer: boolean
+  roleError: string | null
+}
+
+/** Settings → Discord → Account linking. The client secret is never sent to the browser. */
+export type DiscordLinkingSettings = {
+  clientId: string | null
+  clientSecretStored: boolean
+  redirectUrl: string | null
+  inviteUrl: string | null
+  promptNewMembers: boolean
+  backupChannelId: string | null
+  linkedRoleId: string | null
+  eighteenPlusRoleId: string | null
+  available: boolean
+}
+
+export type DiscordLinkingSettingsInput = {
+  clientId: string
+  /** Empty keeps the stored secret, unless the client id changed. */
+  clientSecret: string
+  removeClientSecret: boolean
+  promptNewMembers: boolean
+  backupChannelId: string
+  linkedRoleId: string
+  eighteenPlusRoleId: string
+}
+
 export type PublicAddressView = { publicAddress: string | null; suggestion: string | null }
 
 export type DiscordChannelType = 'text' | 'announcement' | 'forum' | 'media' | 'voice' | 'stage' | 'category'
@@ -1898,6 +1950,34 @@ export const api = {
     post<VRChatLinkStatus>('/api/auth/vrchat-link/start', { userIdOrUrl }),
 
   checkVRChatLink: () => post<LinkCheckResult>('/api/auth/vrchat-link/check'),
+
+  // ── Discord account linking: the member page ───────────────────────────────────────────
+
+  linkPage: () => request<LinkPageStatus>('/api/discord-link'),
+
+  /** A full page navigation, not a fetch: the browser goes to Discord and comes back to /link. */
+  linkSignInUrl: '/api/discord-link/sign-in',
+
+  linkVRChat: (userIdOrUrl: string) => post<LinkPageStatus>('/api/discord-link/vrchat', { userIdOrUrl }),
+
+  linkCheck: () => post<LinkPageCheckResult>('/api/discord-link/check'),
+
+  linkUnlink: () => post<LinkPageStatus>('/api/discord-link/unlink'),
+
+  linkSignOut: () => post<void>('/api/discord-link/sign-out'),
+
+  // ── Discord account linking: moderators ───────────────────────────────────────────────
+
+  discordLinkFor: (vrchatUserId: string) =>
+    request<{ link: DiscordLinkView | null }>(`/api/discord-links?vrchatUserId=${encodeURIComponent(vrchatUserId)}`),
+
+  unlinkDiscord: (linkId: string) => post<void>(`/api/discord-links/${encodeURIComponent(linkId)}/unlink`),
+
+  discordLinkingSettings: () => request<DiscordLinkingSettings>('/api/settings/discord-linking'),
+
+  setDiscordLinkingSettings: (body: DiscordLinkingSettingsInput) =>
+    put<DiscordLinkingSettings>('/api/settings/discord-linking', body),
+
 
   /** Reports what the deployment can do. Nothing about any account. */
   forgotPasswordWays: () => request<ForgotPasswordWays>('/api/auth/forgot-password'),

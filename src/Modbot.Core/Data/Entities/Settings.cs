@@ -99,6 +99,39 @@ public class Settings
     /// </remarks>
     public bool DiscordInstanceShowNames { get; set; } = true;
 
+    // --- Discord account linking (Discord account linking design §4) ---
+
+    /// <summary>
+    /// The Discord application's OAuth2 client id, which is also its application id. Used for
+    /// "Sign in with Discord" on the link page and to build the bot invite link.
+    /// </summary>
+    public string? DiscordOAuthClientId { get; set; }
+
+    /// <summary>
+    /// The OAuth2 client secret. Encrypted like the bot token and never returned. Forgotten when
+    /// the client id changes without a new secret, so it is only ever sent with the id it was
+    /// saved for.
+    /// </summary>
+    public string? DiscordOAuthClientSecretEncrypted { get; set; }
+
+    /// <summary>
+    /// "Prompt new joiners to link their VRChat account". Off by default; while off, the bot does
+    /// not ask Discord for the privileged Server Members intent.
+    /// </summary>
+    public bool DiscordLinkPromptNewMembers { get; set; }
+
+    /// <summary>
+    /// Where a new member is mentioned when Discord refuses the direct message. Null means the
+    /// prompt stops at the failed DM.
+    /// </summary>
+    public string? DiscordLinkBackupChannelId { get; set; }
+
+    /// <summary>The role every linked member is given. Null means none.</summary>
+    public string? DiscordLinkedRoleId { get; set; }
+
+    /// <summary>The role a linked member whose VRChat record is 18+ verified is given. Null means none.</summary>
+    public string? DiscordEighteenPlusRoleId { get; set; }
+
     // --- AI (M8 section 4) ---
 
     /// <summary>

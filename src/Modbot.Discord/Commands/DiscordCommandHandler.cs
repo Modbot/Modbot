@@ -66,6 +66,13 @@ public sealed class DiscordCommandHandler
     {
         ArgumentNullException.ThrowIfNull(call);
 
+        if (DiscordCommands.IsForEveryone(call.CommandName))
+        {
+            var linkReply = await LinkAsync(ct).ConfigureAwait(false);
+            await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
+            return linkReply;
+        }
+
         var user = await _db.Users.AsNoTracking()
             .Include(u => u.Roles).ThenInclude(r => r.Role)
             .FirstOrDefaultAsync(u => u.DiscordUserId == call.DiscordUserId, ct)
@@ -251,7 +258,35 @@ public sealed class DiscordCommandHandler
         return line;
     }
 
+    /// <summary>
+    /// The <c>/link</c> answer: a button to the link page, built from the public address only. Says
+    /// so when linking is not set up rather than sending somebody to a page that cannot work.
+    /// </summary>
+    private async Task<DiscordReply> LinkAsync(CancellationToken ct)
+    {
+        var settings = await _db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => new { s.PublicAddress, s.DiscordOAuthClientId, s.DiscordOAuthClientSecretEncrypted })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        var page = Core.Discord.DiscordInvite.LinkPageFor(settings?.PublicAddress);
+
+        if (page is null
+            || string.IsNullOrWhiteSpace(settings!.DiscordOAuthClientId)
+            || settings.DiscordOAuthClientSecretEncrypted is null)
+        {
+            return DiscordReply.Say("Account linking is not set up on this server.");
+        }
+
+        return new DiscordReply(
+            "Link your VRChat account.",
+            [],
+            [new DiscordLinkButton(Linking.LinkPrompt.ButtonLabel, page)]);
+    }
+
     private async Task<string?> PublicAddressAsync(CancellationToken ct)
+
         => await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
             .Select(s => s.PublicAddress)

@@ -19,6 +19,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 19, (long)ModbotPermissions.ManageRoles);
         Assert.Equal(1L << 20, (long)ModbotPermissions.ViewLiveRooms);
         Assert.Equal(1L << 21, (long)ModbotPermissions.UseAiChat);
+        Assert.Equal(1L << 22, (long)ModbotPermissions.ManageDiscordLinks);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }

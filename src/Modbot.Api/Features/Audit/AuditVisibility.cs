@@ -109,6 +109,14 @@ public static class AuditVisibility
         [FactType.DiscordRoleGranted] = AuditCategory.Moderation,
         [FactType.DiscordRoleRevoked] = AuditCategory.Moderation,
 
+        // Linking a member's accounts, and the roles that follow, are member history. The prompt
+        // sent to a new member is plumbing.
+        [FactType.DiscordLinkCreated] = AuditCategory.Moderation,
+        [FactType.DiscordLinkRemoved] = AuditCategory.Moderation,
+        [FactType.DiscordLinkRoleGranted] = AuditCategory.Moderation,
+        [FactType.DiscordLinkRoleRemoved] = AuditCategory.Moderation,
+        [FactType.DiscordLinkPrompted] = AuditCategory.Operational,
+
         // Auth and config: spec 5.9.2's first two rows, and the reason the split exists.
         [FactType.Login] = AuditCategory.Operational,
         [FactType.LoginFailed] = AuditCategory.Operational,

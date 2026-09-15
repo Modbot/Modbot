@@ -75,6 +75,11 @@ public static class FactLabels
         [FactType.DiscordVoiceLeft] = "Left a voice channel",
         [FactType.DiscordRoleGranted] = "Discord role granted",
         [FactType.DiscordRoleRevoked] = "Discord role revoked",
+        [FactType.DiscordLinkCreated] = "Discord account linked",
+        [FactType.DiscordLinkRemoved] = "Discord account unlinked",
+        [FactType.DiscordLinkRoleGranted] = "Discord role given for a link",
+        [FactType.DiscordLinkRoleRemoved] = "Discord role taken away for a link",
+        [FactType.DiscordLinkPrompted] = "Asked to link on Discord",
 
         [FactType.Login] = "Signed in",
         [FactType.LoginFailed] = "Failed sign-in",

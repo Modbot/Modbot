@@ -22,9 +22,11 @@ namespace Modbot.Discord.Gateway;
 /// carries, and none of the text-command or interaction frameworks.
 /// </para>
 /// <para>
-/// <strong>Intents.</strong> <c>Guilds</c> only. It is what slash commands and channel lookups need
-/// and it is not privileged, so nothing has to be switched on in the Developer Portal. Message
-/// content is never requested: the bot reads no messages.
+/// <strong>Intents.</strong> <c>Guilds</c>, which is what slash commands and channel lookups need
+/// and is not privileged. <c>GuildMembers</c> is added only for a session made with
+/// <see cref="DiscordGatewayOptions.MemberEvents"/> -- the prompt for new joiners -- because it is
+/// privileged: it has to be switched on in the Developer Portal, and Discord closes a session that
+/// asks for it without that (close code 4014).
 /// </para>
 /// <para>
 /// <strong>Threading.</strong> The library raises events on its gateway task and complains when a
@@ -42,13 +44,17 @@ public sealed class DiscordNetGateway : IDiscordGateway
     /// <summary>Whether this session has been ready at least once, so a later connect is a resume.</summary>
     private volatile bool _sessionReady;
 
-    public DiscordNetGateway(ILogger? log = null)
+    public DiscordNetGateway(DiscordGatewayOptions? options = null, ILogger? log = null)
     {
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
 
+        var intents = GatewayIntents.Guilds;
+        if (options?.MemberEvents == true)
+            intents |= GatewayIntents.GuildMembers;
+
         _client = new DiscordSocketClient(new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.Guilds,
+            GatewayIntents = intents,
             AlwaysDownloadUsers = false,
             MessageCacheSize = 0,
             LogGatewayIntentWarnings = false,
@@ -69,9 +75,12 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.RoleDeleted += OnRoleDeleted;
         _client.GuildUpdated += OnGuildUpdated;
         _client.GuildMemberUpdated += OnGuildMemberUpdated;
+        _client.UserJoined += OnUserJoined;
     }
 
     public DiscordGatewayState State => _state;
+
+    public event Func<DiscordMemberJoin, Task>? MemberJoined;
 
     public event Func<string, DiscordChannelSnapshot, Task>? ChannelChanged;
 
@@ -301,6 +310,121 @@ public sealed class DiscordNetGateway : IDiscordGateway
         }
     }
 
+    public async Task<DiscordPostOutcome> SendDirectMessageAsync(
+        string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+
+        if (!ulong.TryParse(userId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+            return DiscordPostOutcome.Failed("That is not a Discord user id.", permanent: true);
+
+        try
+        {
+            var user = await _client.Rest.GetUserAsync(id).ConfigureAwait(false);
+            if (user is null)
+                return DiscordPostOutcome.Failed("Discord does not know that user.", permanent: true);
+
+            var channel = await user.CreateDMChannelAsync().ConfigureAwait(false);
+            var sent = await channel.SendMessageAsync(
+                    text: text,
+                    allowedMentions: AllowedMentions.None,
+                    components: Buttons(links) is { Components.Count: > 0 } buttons ? buttons : null)
+                .ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(Text(sent.Id));
+        }
+        catch (HttpException e) when (e.DiscordCode == DiscordErrorCode.CannotSendMessageToUser)
+        {
+            return new DiscordPostOutcome(
+                false, "That member does not accept direct messages.", Permanent: true, DirectMessagesClosed: true);
+        }
+        catch (HttpException e)
+        {
+            var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;
+            return DiscordPostOutcome.Failed($"Could not send the direct message: Discord answered {(int)e.HttpCode}.", permanent);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return DiscordPostOutcome.Failed($"Could not send the direct message: {e.Message}");
+        }
+    }
+
+    public Task<DiscordPostOutcome> MentionAsync(
+        string channelId, string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+
+        if (!ulong.TryParse(userId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+            return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord user id.", permanent: true));
+
+        return InChannelAsync(channelId, async channel =>
+        {
+            // Only this one person may be pinged, whatever else the text happens to contain.
+            var sent = await channel.SendMessageAsync(
+                    text: $"<@{Text(id)}> {text}",
+                    allowedMentions: new AllowedMentions { UserIds = [id] },
+                    components: Buttons(links) is { Components.Count: > 0 } buttons ? buttons : null)
+                .ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(Text(sent.Id));
+        });
+    }
+
+    public Task<DiscordRoleOutcome> AddRoleAsync(string guildId, string userId, string roleId, CancellationToken ct)
+        => RoleAsync(guildId, userId, roleId, add: true);
+
+    public Task<DiscordRoleOutcome> RemoveRoleAsync(string guildId, string userId, string roleId, CancellationToken ct)
+        => RoleAsync(guildId, userId, roleId, add: false);
+
+    /// <summary>
+    /// One role change by ids, over REST. The member does not have to be in the session's cache,
+    /// which without the members intent they usually are not.
+    /// </summary>
+    private async Task<DiscordRoleOutcome> RoleAsync(string guildId, string userId, string roleId, bool add)
+    {
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var guild)
+            || !ulong.TryParse(userId, NumberStyles.None, CultureInfo.InvariantCulture, out var user))
+        {
+            return DiscordRoleOutcome.Failed("That is not a Discord id.");
+        }
+
+        if (!ulong.TryParse(roleId, NumberStyles.None, CultureInfo.InvariantCulture, out var role))
+            return DiscordRoleOutcome.NoSuchRole;
+
+        var options = new RequestOptions { AuditLogReason = "Modbot: linked VRChat account" };
+
+        try
+        {
+            if (add)
+                await _client.Rest.AddRoleAsync(guild, user, role, options).ConfigureAwait(false);
+            else
+                await _client.Rest.RemoveRoleAsync(guild, user, role, options).ConfigureAwait(false);
+
+            return DiscordRoleOutcome.Ok;
+        }
+        catch (HttpException e) when (e.DiscordCode == DiscordErrorCode.UnknownMember)
+        {
+            return DiscordRoleOutcome.MemberNotInServer;
+        }
+        catch (HttpException e) when (e.DiscordCode == DiscordErrorCode.UnknownRole)
+        {
+            return DiscordRoleOutcome.NoSuchRole;
+        }
+        catch (HttpException e) when (e.HttpCode == HttpStatusCode.Forbidden)
+        {
+            return DiscordRoleOutcome.Failed(
+                "The bot may not change that role. Give it Manage Roles and keep its role above the linked roles.");
+        }
+        catch (HttpException e)
+        {
+            return DiscordRoleOutcome.Failed($"Could not change the role: Discord answered {(int)e.HttpCode}.");
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return DiscordRoleOutcome.Failed($"Could not change the role: {e.Message}");
+        }
+    }
+
     public async Task DisconnectAsync()
     {
         _state = DiscordGatewayState.Disconnected;
@@ -334,6 +458,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.RoleDeleted -= OnRoleDeleted;
         _client.GuildUpdated -= OnGuildUpdated;
         _client.GuildMemberUpdated -= OnGuildMemberUpdated;
+        _client.UserJoined -= OnUserJoined;
 
         _client.Dispose();
     }
@@ -419,6 +544,18 @@ public sealed class DiscordNetGateway : IDiscordGateway
         return after.Id == _client.CurrentUser?.Id
             ? ServerChangedIn(after.Guild.Id)
             : Task.CompletedTask;
+    }
+
+    private Task OnUserJoined(SocketGuildUser user)
+    {
+        var handler = MemberJoined;
+        if (handler is not null)
+        {
+            var joined = new DiscordMemberJoin(Text(user.Guild.Id), Text(user.Id), user.Username, user.IsBot);
+            _ = Task.Run(() => Guard(handler(joined), "member joined"));
+        }
+
+        return Task.CompletedTask;
     }
 
     private Task ServerChangedIn(ulong guildId)
@@ -573,7 +710,8 @@ public sealed class DiscordNetGateway : IDiscordGateway
                 text: reply.Text,
                 embeds: reply.Embeds.Count == 0 ? null : reply.Embeds.Select(ToEmbed).ToArray(),
                 ephemeral: true,
-                allowedMentions: AllowedMentions.None));
+                allowedMentions: AllowedMentions.None,
+                components: Buttons(reply.Links) is { Components.Count: > 0 } buttons ? buttons : null));
 
         var handler = CommandReceived;
         if (handler is not null)
@@ -615,7 +753,12 @@ public sealed class DiscordNetGateway : IDiscordGateway
         null => new DiscordDisconnect("The gateway connection closed.", Fatal: false),
         WebSocketClosedException { CloseCode: 4004 } =>
             new DiscordDisconnect("Discord rejected the bot token.", Fatal: true),
-        WebSocketClosedException { CloseCode: 4013 or 4014 } =>
+        WebSocketClosedException { CloseCode: 4014 } =>
+            new DiscordDisconnect(
+                "Discord refused the Server Members intent. Turn it on in the Developer Portal under Bot.",
+                Fatal: true,
+                IntentsRefused: true),
+        WebSocketClosedException { CloseCode: 4013 } =>
             new DiscordDisconnect("Discord refused the gateway intents this bot asked for.", Fatal: true),
         WebSocketClosedException w =>
             new DiscordDisconnect($"Discord closed the connection ({w.CloseCode}: {w.Reason}).", Fatal: false),
@@ -714,5 +857,6 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
 public sealed class DiscordNetGatewayFactory : IDiscordGatewayFactory
 {
-    public IDiscordGateway Create() => new DiscordNetGateway();
+    public IDiscordGateway Create(DiscordGatewayOptions options) => new DiscordNetGateway(options);
 }
+

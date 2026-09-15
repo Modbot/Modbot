@@ -6,6 +6,7 @@ using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.Insights;
 using Modbot.Discord.Instances;
+using Modbot.Discord.Linking;
 using Modbot.Discord.ModerationLog;
 using Modbot.Discord.ServerIndex;
 
@@ -46,6 +47,13 @@ public static class DiscordServiceCollectionExtensions
 
         // Scheduled AI insights that name a channel (AI insights design §4). Its own loop too.
         services.AddHostedService<InsightPostService>();
+
+        // Linked members' roles (Discord account linking design §6). The signal is shared with the
+        // API, which wakes the job when it saves or ends a link.
+        services.TryAddSingleton<DiscordLinkSignal>();
+        services.AddHostedService<LinkedRoleService>();
+        services.AddScoped<LinkedRoles>();
+        services.AddScoped<LinkPrompt>();
 
         services.AddScoped<LookupQuery>();
         services.AddScoped<DiscordCommandHandler>();

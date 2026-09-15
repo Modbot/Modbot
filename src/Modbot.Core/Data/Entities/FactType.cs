@@ -204,6 +204,30 @@ public static class FactType
     public const string DiscordRoleGranted = "discord.role.assign";
     public const string DiscordRoleRevoked = "discord.role.unassign";
 
+    // ── Discord account linking (Discord account linking design §9) ────────────────────────
+
+    /// <summary>
+    /// A Discord account and a VRChat account were proved to be the same person. Subject is the
+    /// VRChat user, so it sits in their history; actor is the Discord account. Payload: Discord id
+    /// and name, VRChat display name, which side they started from, the link it replaced.
+    /// </summary>
+    public const string DiscordLinkCreated = "discord.link.create";
+
+    /// <summary>A link ended. Subject is the VRChat user. Payload: Discord id, and who ended it.</summary>
+    public const string DiscordLinkRemoved = "discord.link.remove";
+
+    /// <summary>Modbot gave a linked member a role. Subject is the Discord account; no actor.</summary>
+    public const string DiscordLinkRoleGranted = "discord.link.role.grant";
+
+    /// <summary>Modbot took away a role it had given. Subject is the Discord account; no actor.</summary>
+    public const string DiscordLinkRoleRemoved = "discord.link.role.remove";
+
+    /// <summary>
+    /// A new member was sent the link prompt. Subject is the Discord account. Payload: <c>dm</c>,
+    /// <c>channel</c> or <c>none</c>, and the error when there was one. Short retention: plumbing.
+    /// </summary>
+    public const string DiscordLinkPrompted = "discord.link.prompt";
+
     // ── Modbot's Discord bot (foundation §9) ───────────────────────────────────────────────
 
     /// <summary>

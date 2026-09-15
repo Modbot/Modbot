@@ -81,7 +81,7 @@ public class DiscordBotServiceTests
         Assert.Equal(DiscordCommands.All.Select(c => c.Name), gateway.RegisteredCommands.Select(c => c.Name));
         var snapshot = services.Status.Snapshot();
         Assert.Equal(DiscordBotState.Connected, snapshot.State);
-        Assert.Equal(3, snapshot.CommandsRegistered);
+        Assert.Equal(DiscordCommands.All.Count, snapshot.CommandsRegistered);
         Assert.Equal(services.Clock.UtcNow, snapshot.ConnectedSince);
         Assert.Same(gateway, bot.ReadyGateway);
 
@@ -191,7 +191,81 @@ public class DiscordBotServiceTests
     }
 
     [Fact]
+    public async Task ThePromptForNewJoiners_AsksForMemberEvents_AndOnlyThen()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateways = new FakeGatewayFactory();
+        var plain = gateways.Next(g => g.ReadyOnConnect = true);
+        var withMembers = gateways.Next(g => g.ReadyOnConnect = true);
+        var bot = Service(services, gateways);
+
+        await ConfigureBotAsync(services, "token", "424242", ct);
+        await bot.TickAsync(ct);
+        Assert.False(plain.Options.MemberEvents);
+
+        await services.ConfigureAsync(s => s.DiscordLinkPromptNewMembers = true, ct);
+        await bot.TickAsync(ct);
+
+        Assert.True(plain.Disposed);
+        Assert.True(withMembers.Options.MemberEvents);
+        Assert.Same(withMembers, bot.ReadyGateway);
+    }
+
+    [Fact]
+    public async Task ARefusedMembersIntent_ReconnectsWithoutIt_InsteadOfStopping()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateways = new FakeGatewayFactory();
+        var refused = gateways.Next(g => g.ReadyOnConnect = true);
+        var without = gateways.Next(g => g.ReadyOnConnect = true);
+        var bot = Service(services, gateways);
+
+        await ConfigureBotAsync(services, "token", "424242", ct);
+        await services.ConfigureAsync(s => s.DiscordLinkPromptNewMembers = true, ct);
+        await bot.TickAsync(ct);
+        Assert.True(refused.Options.MemberEvents);
+
+        await refused.RaiseIntentsRefusedAsync();
+        Assert.True(refused.Disposed);
+        Assert.Contains("Server Members", services.Status.Snapshot().LastError, StringComparison.Ordinal);
+
+        await bot.TickAsync(ct);
+
+        Assert.False(without.Options.MemberEvents);
+        Assert.Same(without, bot.ReadyGateway);
+    }
+
+    [Fact]
+    public async Task AMemberJoiningTheServer_IsSentTheLinkPrompt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateways = new FakeGatewayFactory();
+        var gateway = gateways.Next(g => g.ReadyOnConnect = true);
+        var bot = Service(services, gateways);
+
+        await ConfigureBotAsync(services, "token", "424242", ct);
+        await services.ConfigureAsync(s =>
+        {
+            s.DiscordLinkPromptNewMembers = true;
+            s.PublicAddress = "https://modbot.example.com";
+            s.DiscordOAuthClientId = "123";
+            s.DiscordOAuthClientSecretEncrypted = services.Protector.Protect("secret");
+        }, ct);
+        await bot.TickAsync(ct);
+
+        await gateway.RaiseMemberJoinedAsync(new DiscordMemberJoin("424242", "8080", "newcomer", false));
+        await gateway.RaiseMemberJoinedAsync(new DiscordMemberJoin("some-other-server", "9090", "elsewhere", false));
+
+        var dm = Assert.Single(gateway.DirectMessages);
+        Assert.Equal("8080", dm.UserId);
+    }
+
+    [Fact]
     public async Task AnOrdinaryDrop_IsLeftToTheLibrary_ThenRebuiltIfItStaysDown()
+
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);
@@ -291,7 +365,7 @@ public class DiscordBotServiceTests
 
         var snapshot = services.Status.Snapshot();
         Assert.Equal(DiscordBotState.Connected, snapshot.State);
-        Assert.Equal(3, snapshot.CommandsRegistered);
+        Assert.Equal(DiscordCommands.All.Count, snapshot.CommandsRegistered);
         Assert.Null(snapshot.LastError);
         Assert.Same(gateway, bot.ReadyGateway);
         Assert.Equal(1, gateway.RegisterCalls);

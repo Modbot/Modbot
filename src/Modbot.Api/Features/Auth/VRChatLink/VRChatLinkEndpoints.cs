@@ -46,11 +46,10 @@ public sealed record LinkCheckResult(bool Linked, string Message, VRChatLinkStat
 /// signed-in policy rather than the default one.
 /// </para>
 /// <para>
-/// The read goes through <see cref="IVRChatGate"/> on the <c>users.read</c> class: one profile
-/// fetch, interactive priority. Spec 4.3.4's question was asked and answered when that class was
-/// added (§4.2.5, 1 req/s, its own lane). A 429 is a cold stop and nothing here retries it; the
-/// person is told to try again later. Check is limited per code and per account so the button
-/// cannot be used to hammer the endpoint.
+/// The read is <see cref="VRChatBioCheck"/>, shared with the Discord account link: one profile
+/// fetch through <see cref="IVRChatGate"/> on <c>users.read</c>, interactive priority. A 429 is a
+/// cold stop and nothing here retries it; the person is told to try again later. Check is limited
+/// per code and per account so the button cannot be used to hammer the endpoint.
 /// </para>
 /// <para>
 /// <strong>The id is never validated</strong> (spec 3.1.1). A URL is split by <c>/</c> and the
@@ -131,8 +130,7 @@ public static class VRChatLinkEndpoints
                 [FromServices] ModbotContext db,
                 [FromServices] UserAccountService accounts,
                 [FromServices] AccountFacts facts,
-                [FromServices] IVRChatGate gate,
-                [FromServices] VRChatUserProfiles profiles,
+                [FromServices] VRChatBioCheck bioCheck,
                 [FromServices] IModbotClock clock,
                 HttpContext http,
                 CancellationToken ct) =>
@@ -170,26 +168,14 @@ public static class VRChatLinkEndpoints
 
                 var pendingId = user.VRChatLinkPendingUserId;
 
-                var result = await gate.ExecuteAsync<User>(
-                    new VRChatEndpoint(VRChatEndpointClass.UsersRead, null, "GetUser"),
-                    (vrchat, token) => vrchat.Users.GetUserWithHttpInfoAsync(pendingId, token),
-                    VRChatCallPriority.Interactive,
-                    ct);
+                var check = await bioCheck.CheckAsync(pendingId, user.VRChatLinkCode, ct);
 
-                if (!result.Success)
-                    return Results.Ok(new LinkCheckResult(false, Explain(result), StatusOf(user, now)));
+                if (!check.Read)
+                    return Results.Ok(new LinkCheckResult(false, check.Problem!, StatusOf(user, now)));
 
-                var profile = result.Value;
-                var bio = profile?.Bio ?? string.Empty;
+                var profile = check.Profile;
 
-                // A fetched profile is a sighting, whether or not the code turns out to be in the
-                // bio: the row, the diff facts and the sticky 18+ flag all come from the same
-                // object the sync would have fetched, and paying for the request twice would be
-                // the only thing gained by not recording it here.
-                if (profile is not null)
-                    await profiles.RecordProfileAsync(VRChatUserSnapshot.From(profile), raw: null, ct);
-
-                if (!bio.Contains(user.VRChatLinkCode, StringComparison.OrdinalIgnoreCase))
+                if (!check.CodeFound)
                 {
                     return Results.Ok(new LinkCheckResult(
                         false,
@@ -316,17 +302,5 @@ public static class VRChatLinkEndpoints
             pending,
             ProfileUrl);
     }
-
-    private static string Explain<T>(VRChatResult<T> result) => result.Kind switch
-    {
-        VRChatFailureKind.NotConfigured =>
-            "Modbot's own VRChat account is not set up yet.",
-        VRChatFailureKind.RateLimited =>
-            "VRChat is rate limiting Modbot.",
-        VRChatFailureKind.WafBlocked =>
-            "Cloudflare is blocking Modbot's connection to VRChat.",
-        _ when result.StatusCode == 404 =>
-            "VRChat does not know that user id.",
-        _ => $"Modbot could not read that profile: {result.ErrorMessage ?? "no answer from VRChat"}.",
-    };
 }
+

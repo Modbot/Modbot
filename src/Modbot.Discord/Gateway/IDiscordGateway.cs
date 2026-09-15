@@ -52,7 +52,11 @@ public sealed record DiscordEmbedContent(
 public sealed record DiscordLinkButton(string Label, string Url);
 
 /// <summary>What the bot says back to a command. Always visible only to the person who asked.</summary>
-public sealed record DiscordReply(string? Text, IReadOnlyList<DiscordEmbedContent> Embeds)
+/// <param name="Links">Buttons under the reply that open a web address, or null for none.</param>
+public sealed record DiscordReply(
+    string? Text,
+    IReadOnlyList<DiscordEmbedContent> Embeds,
+    IReadOnlyList<DiscordLinkButton>? Links = null)
 {
     public static DiscordReply Say(string text) => new(text, []);
 
@@ -114,7 +118,16 @@ public sealed class DiscordCommandCall
 /// date, not a new message every minute. Null on a failure, and null for a send whose id nobody
 /// asked for.
 /// </param>
-public sealed record DiscordPostOutcome(bool Sent, string? Error, bool Permanent, string? MessageId = null)
+/// <param name="DirectMessagesClosed">
+/// A direct message was refused because the person does not accept messages from the server's
+/// members or has blocked the bot (Discord error 50007). Whoever sent it may try another way.
+/// </param>
+public sealed record DiscordPostOutcome(
+    bool Sent,
+    string? Error,
+    bool Permanent,
+    string? MessageId = null,
+    bool DirectMessagesClosed = false)
 {
     public static DiscordPostOutcome Ok { get; } = new(true, null, false);
 
@@ -128,7 +141,35 @@ public sealed record DiscordPostOutcome(bool Sent, string? Error, bool Permanent
 /// True when reconnecting with the same settings cannot work -- Discord rejected the token, or
 /// refused the intents -- so the bot should stop and wait for the operator instead of retrying.
 /// </param>
-public sealed record DiscordDisconnect(string Reason, bool Fatal);
+/// <param name="IntentsRefused">
+/// Discord refused an intent the session asked for (close code 4014): a privileged intent that is
+/// not turned on in the Developer Portal. The bot can connect again without it.
+/// </param>
+public sealed record DiscordDisconnect(string Reason, bool Fatal, bool IntentsRefused = false);
+
+/// <summary>What one session asks Discord for, fixed when it is made.</summary>
+/// <param name="MemberEvents">
+/// Ask for the privileged Server Members intent, so members joining are reported. Only while the
+/// prompt for new joiners is on.
+/// </param>
+public sealed record DiscordGatewayOptions(bool MemberEvents = false);
+
+/// <summary>Somebody joined a server the bot is in.</summary>
+public sealed record DiscordMemberJoin(string GuildId, string UserId, string Username, bool IsBot);
+
+/// <summary>Whether giving or taking away a role went through.</summary>
+/// <param name="NotInServer">Discord does not know that member in the server (Unknown Member).</param>
+/// <param name="RoleGone">The role no longer exists (Unknown Role).</param>
+public sealed record DiscordRoleOutcome(bool Done, bool NotInServer, bool RoleGone, string? Error)
+{
+    public static DiscordRoleOutcome Ok { get; } = new(true, false, false, null);
+
+    public static DiscordRoleOutcome MemberNotInServer { get; } = new(false, true, false, "That member is not in the server.");
+
+    public static DiscordRoleOutcome NoSuchRole { get; } = new(false, false, true, "That role does not exist any more.");
+
+    public static DiscordRoleOutcome Failed(string error) => new(false, false, false, error);
+}
 
 /// <summary>What the bot may do in one channel, after the category's and the channel's overwrites.</summary>
 public sealed record DiscordChannelPermissions(
@@ -213,6 +254,12 @@ public interface IDiscordGateway : IAsyncDisposable
     event Func<string, Task>? ServerChanged;
 
     /// <summary>
+    /// Somebody joined a server the bot is in. Only raised by a session made with
+    /// <see cref="DiscordGatewayOptions.MemberEvents"/>.
+    /// </summary>
+    event Func<DiscordMemberJoin, Task>? MemberJoined;
+
+    /// <summary>
     /// Every channel and role in the server as the session holds them, or null when the bot is
     /// not in that server. Read from the session's memory, so it costs no request to Discord.
     /// </summary>
@@ -277,11 +324,32 @@ public interface IDiscordGateway : IAsyncDisposable
     /// </remarks>
     Task<DiscordPostOutcome> TimeOutAsync(string guildId, string userId, TimeSpan duration, string reason, CancellationToken ct);
 
+    /// <summary>
+    /// Sends one person a direct message. A refusal because they do not accept DMs comes back with
+    /// <see cref="DiscordPostOutcome.DirectMessagesClosed"/> set.
+    /// </summary>
+    Task<DiscordPostOutcome> SendDirectMessageAsync(
+        string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct);
+
+    /// <summary>
+    /// Posts a line in a channel that mentions one person, and pings nobody else whatever the text
+    /// says.
+    /// </summary>
+    Task<DiscordPostOutcome> MentionAsync(
+        string channelId, string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct);
+
+    /// <summary>Gives a member a role. Needs Manage Roles and the role below the bot's highest.</summary>
+    Task<DiscordRoleOutcome> AddRoleAsync(string guildId, string userId, string roleId, CancellationToken ct);
+
+    /// <summary>Takes a role away from a member.</summary>
+    Task<DiscordRoleOutcome> RemoveRoleAsync(string guildId, string userId, string roleId, CancellationToken ct);
+
     Task DisconnectAsync();
 }
 
 /// <summary>A fresh session per connection: settings changed, or the last one gave up.</summary>
 public interface IDiscordGatewayFactory
 {
-    IDiscordGateway Create();
+    IDiscordGateway Create(DiscordGatewayOptions options);
 }
+

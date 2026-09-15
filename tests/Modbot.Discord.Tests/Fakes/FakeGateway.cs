@@ -26,6 +26,74 @@ public sealed class FakeGateway : IDiscordGateway
 
     public event Func<string, Task>? ServerChanged;
 
+    public event Func<DiscordMemberJoin, Task>? MemberJoined;
+
+    public Task RaiseMemberJoinedAsync(DiscordMemberJoin member)
+        => MemberJoined?.Invoke(member) ?? Task.CompletedTask;
+
+    /// <summary>What the session was made with.</summary>
+    public DiscordGatewayOptions Options { get; set; } = new();
+
+    /// <summary>Every direct message sent, in order.</summary>
+    public List<(string UserId, string Text, IReadOnlyList<DiscordLinkButton> Links)> DirectMessages { get; } = [];
+
+    /// <summary>Every mention posted, in order.</summary>
+    public List<(string ChannelId, string UserId, string Text, IReadOnlyList<DiscordLinkButton> Links)> Mentions { get; } = [];
+
+    /// <summary>Set to make direct messages fail as closed DMs do.</summary>
+    public bool DirectMessagesClosed { get; set; }
+
+    /// <summary>Every role change, in order: added or removed, member, role.</summary>
+    public List<(bool Added, string GuildId, string UserId, string RoleId)> RoleChanges { get; } = [];
+
+    /// <summary>Members Discord will say are not in the server.</summary>
+    public HashSet<string> NotInServer { get; } = [];
+
+    /// <summary>Set to make every role change fail with this sentence.</summary>
+    public string? RoleError { get; set; }
+
+    public Task<DiscordPostOutcome> SendDirectMessageAsync(
+        string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct)
+    {
+        if (DirectMessagesClosed)
+        {
+            return Task.FromResult(new DiscordPostOutcome(
+                false, "That member does not accept direct messages.", Permanent: true, DirectMessagesClosed: true));
+        }
+
+        DirectMessages.Add((userId, text, links ?? []));
+        return Task.FromResult(DiscordPostOutcome.Posted((_nextMessageId++).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    public Task<DiscordPostOutcome> MentionAsync(
+        string channelId, string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct)
+    {
+        var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : null;
+        if (outcome is { Sent: false })
+            return Task.FromResult(outcome);
+
+        Mentions.Add((channelId, userId, text, links ?? []));
+        return Task.FromResult(DiscordPostOutcome.Posted((_nextMessageId++).ToString(System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    public Task<DiscordRoleOutcome> AddRoleAsync(string guildId, string userId, string roleId, CancellationToken ct)
+        => RoleAsync(true, guildId, userId, roleId);
+
+    public Task<DiscordRoleOutcome> RemoveRoleAsync(string guildId, string userId, string roleId, CancellationToken ct)
+        => RoleAsync(false, guildId, userId, roleId);
+
+    private Task<DiscordRoleOutcome> RoleAsync(bool added, string guildId, string userId, string roleId)
+    {
+        if (NotInServer.Contains(userId))
+            return Task.FromResult(DiscordRoleOutcome.MemberNotInServer);
+
+        if (RoleError is { } error)
+            return Task.FromResult(DiscordRoleOutcome.Failed(error));
+
+        RoleChanges.Add((added, guildId, userId, roleId));
+        return Task.FromResult(DiscordRoleOutcome.Ok);
+    }
+
     /// <summary>What <see cref="ReadServer"/> answers. Null means the bot is not in the server.</summary>
     public DiscordServerSnapshot? Server { get; set; }
 
@@ -209,6 +277,14 @@ public sealed class FakeGateway : IDiscordGateway
         return Disconnected?.Invoke(new DiscordDisconnect(reason, fatal)) ?? Task.CompletedTask;
     }
 
+    /// <summary>Discord refused a privileged intent, as close code 4014 reads.</summary>
+    public Task RaiseIntentsRefusedAsync()
+    {
+        State = DiscordGatewayState.Disconnected;
+        return Disconnected?.Invoke(new DiscordDisconnect("Discord refused the Server Members intent.", Fatal: true, IntentsRefused: true))
+            ?? Task.CompletedTask;
+    }
+
     public Task RaiseCommandAsync(DiscordCommandCall call)
         => CommandReceived?.Invoke(call) ?? Task.CompletedTask;
 }
@@ -228,10 +304,12 @@ public sealed class FakeGatewayFactory : IDiscordGatewayFactory
         return gateway;
     }
 
-    public IDiscordGateway Create()
+    public IDiscordGateway Create(DiscordGatewayOptions options)
     {
         var gateway = _prepared.Count > 0 ? _prepared.Dequeue() : new FakeGateway();
+        gateway.Options = options;
         Created.Add(gateway);
         return gateway;
     }
+
 }

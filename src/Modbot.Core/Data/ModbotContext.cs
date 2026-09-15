@@ -144,6 +144,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Each AI feature's spend limit. No row means no limit.</summary>
     public DbSet<AiFeatureLimit> AiFeatureLimits => Set<AiFeatureLimit>();
 
+    /// <summary>Discord and VRChat accounts proved to be the same person. Ended links are kept.</summary>
+    public DbSet<DiscordAccountLink> DiscordAccountLinks => Set<DiscordAccountLink>();
+
+    /// <summary>VRChat bio codes waiting to be checked, one per signed-in Discord account.</summary>
+    public DbSet<DiscordLinkCode> DiscordLinkCodes => Set<DiscordLinkCode>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -200,6 +206,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // Plain words in the database as well as in code (PlainNamesInSchema migration). The
             // one-off walk through existing history is the "catch-up"; the tail poll's unread
             // window is the "backlog". Somebody reading the table should not need a glossary.
+            entity.Property(e => e.DiscordOAuthClientId).HasColumnName("discord_oauth_client_id");
+            entity.Property(e => e.DiscordOAuthClientSecretEncrypted).HasColumnName("discord_oauth_client_secret_encrypted");
             entity.Property(e => e.AuditLogCatchUpOffset).HasColumnName("audit_log_catch_up_offset");
             entity.Property(e => e.AuditLogCatchUpComplete).HasColumnName("audit_log_catch_up_complete");
             entity.Property(e => e.AuditLogCatchUpVersion).HasColumnName("audit_log_catch_up_version");
@@ -1027,6 +1035,43 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasKey(e => e.ChannelId);
             entity.Property(e => e.ChannelId).HasColumnType("text");
             entity.Property(e => e.LastError).HasColumnType("text");
+        });
+
+        builder.Entity<DiscordAccountLink>(entity =>
+        {
+            entity.ToTable("discord_account_link");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.DiscordUsername).HasColumnType("text");
+            entity.Property(e => e.VRChatUserId).HasColumnType("text").HasColumnName("vrchat_user_id");
+            entity.Property(e => e.VRChatDisplayName).HasColumnType("text").HasColumnName("vrchat_display_name");
+            entity.Property(e => e.StartedFrom).HasMaxLength(16);
+            entity.Property(e => e.UnlinkedBy).HasMaxLength(16);
+            entity.Property(e => e.LinkedRoleId).HasColumnType("text");
+            entity.Property(e => e.EighteenPlusRoleId).HasColumnType("text");
+            entity.Property(e => e.RoleError).HasColumnType("text");
+            entity.Ignore(e => e.IsActive);
+
+            // One active link per account on each side; ended rows are history and may repeat.
+            entity.HasIndex(e => e.DiscordUserId)
+                .IsUnique()
+                .HasFilter("unlinked_at IS NULL")
+                .HasDatabaseName("ux_discord_account_link_discord_active");
+
+            entity.HasIndex(e => e.VRChatUserId)
+                .IsUnique()
+                .HasFilter("unlinked_at IS NULL")
+                .HasDatabaseName("ux_discord_account_link_vrchat_active");
+        });
+
+        builder.Entity<DiscordLinkCode>(entity =>
+        {
+            entity.ToTable("discord_link_code");
+            entity.HasKey(e => e.DiscordUserId);
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.VRChatUserId).HasColumnType("text").HasColumnName("vrchat_user_id");
+            entity.Property(e => e.Code).HasMaxLength(32);
+            entity.Property(e => e.StartedFrom).HasMaxLength(16);
         });
 
         base.OnModelCreating(builder);

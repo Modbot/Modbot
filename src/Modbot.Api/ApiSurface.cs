@@ -13,6 +13,7 @@ using Modbot.Api.Features.Auth.VRChatLink;
 using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Cases;
+using Modbot.Api.Features.DiscordLink;
 using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.DiscordRoutes;
@@ -35,6 +36,7 @@ using Modbot.Api.Features.Onboarding.Status;
 using Modbot.Api.Features.Onboarding.TestConnection;
 using Modbot.Api.Features.Onboarding.VerifyVRChat;
 using Modbot.Core;
+using Modbot.Core.Discord;
 
 namespace Modbot.Api;
 
@@ -62,6 +64,16 @@ public static class ApiSurface
         // Chat's loop and tools (AI chat design). Here rather than in the host because the tools are
         // this project's own read code, and they resolve everything scoped from the request.
         services.AddModbotChat();
+
+        // Discord account linking (design 2026-09-15). The signal is shared with the bot's role job,
+        // which the host registers in the same container.
+        services.AddScoped<Features.Auth.VRChatLink.VRChatBioCheck>();
+        services.AddScoped<DiscordAccountLinks>();
+        services.AddScoped<DiscordOAuth>();
+        services.AddSingleton<LinkCookies>();
+        services.AddSingleton<LinkCheckLimit>();
+        services.TryAddSingleton<DiscordLinkSignal>();
+        services.AddHttpClient(DiscordOAuth.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(20));
 
         services.AddOpenApi(DocumentName, options =>
         {
@@ -146,6 +158,12 @@ public static class ApiSurface
 
         // AI insights: reading them, and when they are written (AI insights design).
         app.MapInsights();
+
+        // Linking a member's Discord and VRChat accounts: the public link page's API, the moderator's
+        // view and unlink, and the settings (Discord account linking design).
+        app.MapDiscordLink();
+        app.MapDiscordLinkModeration();
+        app.MapDiscordLinkingSettings();
 
         // The read surface over the fact log and the daily totals derived from it. Sync health resolves
         // SyncDiagnostics optionally, so a host that maps the API without registering the

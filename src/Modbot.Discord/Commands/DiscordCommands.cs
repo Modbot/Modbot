@@ -8,15 +8,17 @@ namespace Modbot.Discord.Commands;
 /// each needs.
 /// </summary>
 /// <remarks>
-/// Every command needs a Modbot account linked to the caller's Discord user id. The permission
-/// on top of that is the same one the equivalent web page asks for, so the bot never shows
-/// anybody more than the web app would.
+/// Every command but <see cref="Link"/> needs a Modbot account linked to the caller's Discord user
+/// id. The permission on top of that is the same one the equivalent web page asks for, so the bot
+/// never shows anybody more than the web app would. <see cref="Link"/> is for every member: it
+/// answers with the link page's address and nothing else (Discord account linking design §2).
 /// </remarks>
 public static class DiscordCommands
 {
     public const string Lookup = "lookup";
     public const string Recent = "recent";
     public const string Modbot = "modbot";
+    public const string Link = "link";
 
     public const string LookupUserOption = "user";
     public const string RecentCountOption = "count";
@@ -38,7 +40,14 @@ public static class DiscordCommands
             Modbot,
             "Whether the bot is working, and where the Modbot web app is",
             []),
+        new(
+            Link,
+            "Link your VRChat account",
+            []),
     ];
+
+    /// <summary>Commands any member may run, with no Modbot account.</summary>
+    public static bool IsForEveryone(string command) => command == Link;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

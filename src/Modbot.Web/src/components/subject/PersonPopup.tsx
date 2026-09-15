@@ -6,6 +6,7 @@ import { RoomTable } from '@/components/RoomTable'
 import { SubjectCaseFiles } from '@/components/SubjectCaseFiles'
 import { SubjectHistory } from '@/components/SubjectHistory'
 import { UserProfileCard } from '@/components/UserProfileCard'
+import { DiscordLinkCard } from '@/components/subject/DiscordLinkCard'
 import { FactList, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser } from '@/lib/api'
@@ -40,6 +41,8 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
       left={
         <>
           <UserProfileCard subjectId={id} me={me} />
+          {can(me, 'ViewProfile') && <DiscordLinkCard subjectId={id} me={me} />}
+
           {can(me, 'ViewMembers') && <MembershipCard subjectId={id} />}
         </>
       }

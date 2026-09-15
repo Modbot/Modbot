@@ -16,6 +16,7 @@ import { Credits } from '@/pages/Credits'
 import { ForgotPassword } from '@/pages/ForgotPassword'
 import { Health } from '@/pages/Health'
 import { Join } from '@/pages/Join'
+import { LinkAccounts } from '@/pages/LinkAccounts'
 import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Live } from '@/pages/Live'
 import { Login } from '@/pages/Login'
@@ -139,14 +140,19 @@ export default function App() {
   // operator whose setup was never finished goes there too, because an app shell with no group
   // configured has nothing in it.
   useEffect(() => {
-    if (!status || route === '/setup' || link) return
+    if (!status || route === '/setup' || route === '/link' || link) return
 
     const unfinished = !status.hasAdministrator || (status.authenticated && !status.onboardingComplete)
 
     if (unfinished) navigate('/setup', { replace: true })
   }, [status, route, navigate, link])
 
+  // The member link page (Discord account linking design §3). For any community member, signed in
+  // to Modbot or not, and whether or not this deployment's own setup is finished.
+  if (route === '/link') return <LinkAccounts />
+
   if (link?.kind === 'join')
+
     return <Join token={link.token} onJoined={() => void refresh().then(() => navigate('/'))} />
   if (link?.kind === 'reset') return <ResetPassword token={link.token} />
 

@@ -39,6 +39,13 @@ namespace Modbot.Discord.Bot;
 /// <strong>The token is never kept.</strong> It is decrypted for one sign-in and handed to the
 /// gateway; what this service remembers is a hash, enough to notice a change.
 /// </para>
+/// <para>
+/// <strong>The Server Members intent follows the prompt for new joiners</strong> (Discord account
+/// linking design §8). Turning the switch on or off changes the fingerprint and reconnects. If
+/// Discord refuses the intent because it is off in the Developer Portal, the bot says so and
+/// connects again without it rather than stopping, so the moderation log does not go quiet
+/// because of a switch that only the prompt needs. It asks again when the settings change.
+/// </para>
 /// </remarks>
 public sealed class DiscordBotService : BackgroundService
 {
@@ -52,6 +59,12 @@ public sealed class DiscordBotService : BackgroundService
 
     private IDiscordGateway? _gateway;
     private string? _fingerprint;
+
+    /// <summary>The fingerprint whose Server Members intent Discord refused. Connected without it until settings change.</summary>
+    private string? _membersIntentRefusedFor;
+
+    /// <summary>What the current session asked Discord for.</summary>
+    private DiscordGatewayOptions _sessionOptions = new();
     private string? _guildId;
     private DateTimeOffset? _disconnectedAt;
     private DateTimeOffset? _nextAttemptAt;
@@ -147,7 +160,7 @@ public sealed class DiscordBotService : BackgroundService
             return;
         }
 
-        var fingerprint = Fingerprint(config.Token, config.GuildId);
+        var fingerprint = Fingerprint(config.Token, config.GuildId, config.MemberEvents);
 
         if (fingerprint != _fingerprint)
         {
@@ -164,6 +177,10 @@ public sealed class DiscordBotService : BackgroundService
             _stopped = false;
             _nextAttemptAt = null;
             _retry = _options.FirstRetry;
+
+            // Any change -- the switch turned off and on again included -- is worth asking again.
+            _membersIntentRefusedFor = null;
+
         }
 
         // An event can be missed. If the gateway can post but the status says otherwise, the
@@ -192,14 +209,18 @@ public sealed class DiscordBotService : BackgroundService
         if (_nextAttemptAt is { } at && now < at)
             return;
 
-        await ConnectAsync(config.Token, config.GuildId, ct).ConfigureAwait(false);
+        var options = new DiscordGatewayOptions(
+            MemberEvents: config.MemberEvents && _membersIntentRefusedFor != fingerprint);
+
+        await ConnectAsync(config.Token, config.GuildId, options, ct).ConfigureAwait(false);
     }
 
-    private async Task ConnectAsync(string token, string guildId, CancellationToken ct)
+    private async Task ConnectAsync(string token, string guildId, DiscordGatewayOptions options, CancellationToken ct)
     {
         _status.Connecting();
 
-        var gateway = _gateways.Create();
+        var gateway = _gateways.Create(options);
+        gateway.MemberJoined += OnMemberJoinedAsync;
         gateway.Ready += OnReadyAsync;
         gateway.Resumed += OnResumedAsync;
         gateway.Disconnected += OnDisconnectedAsync;
@@ -226,6 +247,7 @@ public sealed class DiscordBotService : BackgroundService
 
         _gateway = gateway;
         _guildId = guildId;
+        _sessionOptions = options;
         _disconnectedAt = null;
         _log.Information("Discord bot signing in");
     }
@@ -331,6 +353,25 @@ public sealed class DiscordBotService : BackgroundService
     private Task OnServerChangedAsync(string guildId)
         => IsOurServer(guildId) ? RefreshServerIndexAsync() : Task.CompletedTask;
 
+    private async Task OnMemberJoinedAsync(DiscordMemberJoin member)
+    {
+        var gateway = _gateway;
+        if (gateway is null || !IsOurServer(member.GuildId))
+            return;
+
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var prompt = scope.ServiceProvider.GetRequiredService<Linking.LinkPrompt>();
+            await prompt.HandleAsync(gateway, member, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not send the link prompt to a new Discord member");
+            _status.Problem($"Could not send the link prompt to a new member: {e.Message}", _clock.UtcNow);
+        }
+    }
+
     /// <summary>The bot may sit in more than one server; only the one in settings is kept.</summary>
     private bool IsOurServer(string guildId)
         => _guildId is { } ours && string.Equals(ours, guildId, StringComparison.Ordinal);
@@ -361,6 +402,18 @@ public sealed class DiscordBotService : BackgroundService
     {
         var now = _clock.UtcNow;
         _disconnectedAt ??= now;
+
+        if (disconnect.IntentsRefused && _sessionOptions.MemberEvents)
+        {
+            // Connect again without the intent, straight away: the moderation log and the commands
+            // do not need it, and only the prompt for new joiners stops working.
+            _membersIntentRefusedFor = _fingerprint;
+            _status.Problem(disconnect.Reason, now);
+            _log.Warning("{Reason} Connecting without it; new members will not be prompted to link", disconnect.Reason);
+            _nextAttemptAt = null;
+            await TearDownAsync().ConfigureAwait(false);
+            return;
+        }
 
         if (disconnect.Fatal)
         {
@@ -413,6 +466,7 @@ public sealed class DiscordBotService : BackgroundService
         if (gateway is null)
             return;
 
+        gateway.MemberJoined -= OnMemberJoinedAsync;
         gateway.Ready -= OnReadyAsync;
         gateway.Resumed -= OnResumedAsync;
         gateway.Disconnected -= OnDisconnectedAsync;
@@ -439,12 +493,12 @@ public sealed class DiscordBotService : BackgroundService
 
         var settings = await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId })
+            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId, s.DiscordLinkPromptNewMembers })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
         if (settings is null)
-            return new BotConfig(null, null, false);
+            return new BotConfig(null, null, false, false);
 
         var token = protector.Unprotect(settings.DiscordBotTokenEncrypted);
 
@@ -455,13 +509,17 @@ public sealed class DiscordBotService : BackgroundService
         return new BotConfig(
             string.IsNullOrWhiteSpace(token) ? null : token,
             string.IsNullOrWhiteSpace(settings.DiscordGuildId) ? null : settings.DiscordGuildId.Trim(),
-            sendsEvents);
+            sendsEvents,
+            settings.DiscordLinkPromptNewMembers);
+
     }
 
-    private static string Fingerprint(string token, string guildId)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token + '\n' + guildId)));
+    private static string Fingerprint(string token, string guildId, bool memberEvents)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            token + '\n' + guildId + '\n' + (memberEvents ? "members" : string.Empty))));
 
     private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
-    private sealed record BotConfig(string? Token, string? GuildId, bool LogChannelConfigured);
+    private sealed record BotConfig(string? Token, string? GuildId, bool LogChannelConfigured, bool MemberEvents);
+
 }

@@ -11,7 +11,9 @@ Modbot can run a small Discord bot for your community's server. It does two thin
 It reads no messages, needs no privileged intents, and does nothing until you give it a token.
 Without one, the rest of Modbot is unaffected.
 
-Ban sync, role sync, account linking and auto-invites are not part of this bot yet.
+It can also **link members' Discord and VRChat accounts** and give linked members a role — see
+[Account linking](#account-linking) below. Ban sync, role sync and auto-invites are not part of
+this bot yet.
 
 ## 1. Create the application
 
@@ -119,6 +121,44 @@ is recorded as *Posted to the Discord log channel*. Adding, changing or deleting
 **Channels** card is recorded as *Settings changed*, with who did it. None of these carries the
 token.
 
+## Account linking
+
+Members of your community can prove which Discord account and which VRChat account are theirs, on
+a page Modbot serves at `/link`. They sign in with Discord, put a short code Modbot gives them in
+their VRChat bio, and press **Check**. They can do the VRChat part first if they came from VRChat.
+Nobody needs a Modbot account for this.
+
+Once linked, the bot gives them the **linked role**, and also the **18+ role** if their VRChat
+record is marked 18+ verified. The 18+ role is taken away again if a moderator clears that mark.
+Unlinking — by the member on the same page, or by a moderator with *Manage Discord links* from the
+person's popup — takes away the roles Modbot gave. The record of the link stays.
+
+### Set it up
+
+1. In the Developer Portal, open **OAuth2**. Copy the **Client ID** and **Client Secret**.
+2. In Modbot, go to **Settings → Discord → Account linking**, paste them, and save. A
+   **Public address** must be set under **Settings → Integrations**.
+3. Copy the **Redirect URL** Modbot now shows, and add it under **OAuth2 → Redirects** in the
+   Developer Portal.
+4. Pick a **Linked role** and, if you want one, an **18+ role**. The bot needs **Manage Roles**, and
+   its own role must sit above both in **Server Settings → Roles**. The **Bot invite link** in the
+   same card asks for Manage Roles once a role is set; use it to re-invite the bot if needed.
+
+Members can reach the page with `/link` in Discord, which anyone can run.
+
+### Prompt new joiners
+
+Switch on **Prompt new joiners to link their VRChat account** to have the bot send each person who
+joins your server a direct message with a button to the link page. People who are already linked
+are not asked.
+
+This needs the **Server Members Intent**. Turn it on in the Developer Portal under **Bot →
+Privileged Gateway Intents** before you switch the prompt on. If it is off, the bot keeps working
+without it, and **Settings → Health** says so.
+
+If somebody does not accept direct messages, the bot mentions them in the **Backup channel**
+instead. Leave it empty to skip that. The bot needs View Channel and Send Messages there.
+
 ## If something is wrong
 
 Check **Settings → Health** first; the bot's card says what it last ran into.
@@ -130,3 +170,7 @@ Check **Settings → Health** first; the bot's card says what it last ran into.
 | A channel with Missing … or a refusal beside it | Give the bot View Channel, Send Messages and Embed Links in that channel, or pick another. |
 | Commands do not appear in Discord | The invite link was missing the `applications.commands` scope. Re-invite with it; nothing else needs changing. |
 | Reconnecting | The connection dropped and is being retried. This usually clears by itself within a minute. |
+| Discord refused the Server Members intent | Turn on **Server Members Intent** under **Bot** in the Developer Portal, then switch the prompt for new joiners off, save, and on again. |
+| Could not change a linked member's role | Give the bot Manage Roles and move its role above the linked and 18+ roles. |
+| Sign in with Discord fails on the link page | Check the Redirect URL in the Developer Portal matches the one in Modbot exactly, and that the client secret is current. |
+

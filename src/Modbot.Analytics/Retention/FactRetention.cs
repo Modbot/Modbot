@@ -78,6 +78,9 @@ public static class FactRetention
         // here on purpose: who looked up whom through Discord is an access record, kept forever
         // like evidence access, so `modbot.discord.command` stays in the moderation class.
         "modbot.discord.posted",
+
+        // The prompt sent to a new Discord member. The link and its roles are history; this is not.
+        "discord.link.prompt",
     ];
 
     /// <summary>

@@ -5,6 +5,7 @@ import { api, ApiError, type DiscordChannelPermission, type OnboardingStatus } f
 import { Fact, Field, LongField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { ChannelsCard } from './ChannelsCard'
+import { LinkingCard } from './LinkingCard'
 
 /**
  * Instance cards are posted, then fetched by id and rewritten -- and fetching a message needs
@@ -17,7 +18,8 @@ const ANNOUNCE_NEEDS: DiscordChannelPermission[] = ['viewChannel', 'sendMessages
  *
  * Its own tab since events could go to many channels (Discord event routes design §7). Each card
  * saves on its own: the bot and announcement cards through the integrations save, which leaves
- * alone whatever a request does not name, and the channels card through its own endpoints.
+ * alone whatever a request does not name, and the channels and account linking cards through their
+ * own endpoints.
  */
 export function DiscordSection({
   status,
@@ -34,6 +36,7 @@ export function DiscordSection({
           <BotCard status={status} refresh={refresh} />
           <InstanceCard status={status} refresh={refresh} />
           <ChannelsCard />
+          <LinkingCard />
         </>
       ) : (
         <Placeholder>Loading…</Placeholder>
