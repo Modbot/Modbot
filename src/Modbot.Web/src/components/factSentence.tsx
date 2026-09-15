@@ -161,12 +161,12 @@ function Changed({ changed }: { changed: Parts['changed'] }) {
     return (
       <>
         {' '}
-        — {fieldName(key)}, from {shown(pair.old)} to {shown(pair.new)}
+        : {fieldName(key)}, from {shown(pair.old)} to {shown(pair.new)}
       </>
     )
   }
 
-  return <> — {changed.map(([key]) => fieldName(key)).join(', ')} changed</>
+  return <>: {changed.map(([key]) => fieldName(key)).join(', ')} changed</>
 }
 
 /** A quoted piece of somebody's own words. Rendered as text and never as markup. */
@@ -482,7 +482,7 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.user.roles.change': (p) => (
     <>
       {p.actor} changed {p.subject}'s roles
-      {p.text('before') !== null ? <> — from {p.text('before') || 'none'} to {p.text('after') || 'none'}</> : null}.
+      {p.text('before') !== null ? <>, from {p.text('before') || 'none'} to {p.text('after') || 'none'}</> : null}.
     </>
   ),
 
@@ -506,7 +506,7 @@ const SENTENCES: Record<string, Sentence> = {
     <>
       {p.actor} changed {p.text('setting') ? `the ${fieldName(p.text('setting')!)} setting` : "Modbot's settings"}
       {p.text('before') !== null || p.text('after') !== null ? (
-        <> — from {p.text('before') || 'nothing'} to {p.text('after') || 'nothing'}</>
+        <>, from {p.text('before') || 'nothing'} to {p.text('after') || 'nothing'}</>
       ) : null}
       <Changed changed={p.changed} />.
     </>
@@ -572,7 +572,7 @@ const SENTENCES: Record<string, Sentence> = {
   // ── Modbot's own workings ───────────────────────────────────────────────────────────────────
   'modbot.sync.failed': (p) => (
     <>
-      A sync failed{p.text('sync') ? <> — {p.text('sync')}</> : null}
+      A sync failed{p.text('sync') ? <> ({p.text('sync')})</> : null}
       {p.text('error') ? <>: {p.text('error')}</> : null}.
     </>
   ),
@@ -595,7 +595,7 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.retention.pruned': (p) => (
     <>
       Old facts were deleted under the retention settings
-      {p.text('dropped') ? <> — {p.text('dropped')}</> : null}.
+      {p.text('dropped') ? <>: {p.text('dropped')}</> : null}.
     </>
   ),
 
@@ -612,7 +612,7 @@ const SENTENCES: Record<string, Sentence> = {
     return (
       <>
         Every fact about one person was erased on request
-        {typeof facts === 'number' ? <> — {facts.toLocaleString()} of them</> : null}.
+        {typeof facts === 'number' ? <>, {facts.toLocaleString()} of them</> : null}.
       </>
     )
   },
@@ -651,7 +651,7 @@ function Unrecognised({ parts: p }: { parts: Parts }) {
       <details className="mt-1">
         <summary className="cursor-pointer text-muted-foreground">
           VRChat called it{' '}
-          <span className="font-mono">{eventType ?? 'nothing at all'}</span> — show what it sent
+          <span className="font-mono">{eventType ?? 'nothing at all'}</span>. Show what it sent
         </summary>
         <pre className="mt-1 max-h-64 overflow-auto rounded-xl bg-secondary px-2 py-1 whitespace-pre-wrap break-all">
           {JSON.stringify(payload ?? {}, null, 2)}
@@ -671,8 +671,8 @@ function Unrecognised({ parts: p }: { parts: Parts }) {
 function fallback(p: Parts): React.ReactNode {
   return (
     <>
-      {p.hasActor ? <>{p.actor} — </> : null}
-      <span className="font-mono">{p.entry.type}</span> — {p.subject}
+      {p.hasActor ? <>{p.actor} · </> : null}
+      <span className="font-mono">{p.entry.type}</span> · {p.subject}
       {p.place ? <> in {p.place}</> : null}
       {p.entry.description ? <>. {p.entry.description}</> : null}
     </>

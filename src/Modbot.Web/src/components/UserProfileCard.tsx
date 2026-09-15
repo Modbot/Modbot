@@ -205,7 +205,7 @@ function Freshness({
         </span>
         {profile.stale && profile.lastRefreshedAt && (
           <span className="text-warn">
-            stale — older than {Math.round(profile.staleAfterSeconds / 3600)} hours
+            stale, older than {Math.round(profile.staleAfterSeconds / 3600)} hours
           </span>
         )}
         {refreshing && (

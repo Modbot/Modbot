@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { Provider } from '@/components/provider';
 import { siteName, siteUrl } from '@/lib/shared';
@@ -11,6 +11,20 @@ export const metadata: Metadata = {
     template: `%s | ${siteName}`,
   },
   description: 'How to host, set up and use Modbot, and its API.',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f7f6fb' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f0e15' },
+  ],
 };
 
 export default function Layout({ children }: { children: ReactNode }) {

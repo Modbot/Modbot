@@ -155,7 +155,7 @@ function MembershipCard({ subjectId }: { subjectId: string }) {
             </p>
           ) : view.known ? (
             <p>
-              Not a member{view.leftAt ? <> — left {formatDay(view.leftAt)}</> : ''}
+              Not a member{view.leftAt ? <>, left {formatDay(view.leftAt)}</> : ''}
               {view.joinedAt ? <>, had joined {formatDay(view.joinedAt)}</> : ''}.
             </p>
           ) : (

@@ -325,7 +325,7 @@ function Freshness({ coverage }: { coverage: MemberList['coverage'] }) {
     <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
       <span>
         Last synced {ago(coverage.lastSyncedAt, coverage.now)}
-        {coverage.sweepInProgress ? ' — a new sweep is running now' : ''}.
+        {coverage.sweepInProgress ? '. A new sweep is running now' : ''}.
       </span>
       <span>
         {coverage.memberCount.toLocaleString()} {coverage.memberCount === 1 ? 'member' : 'members'} at the last full

@@ -60,7 +60,7 @@ export function WizardHeader({
       <div className="text-[0.6875rem] font-semibold tracking-[0.05em] text-primary uppercase">
         {eyebrow}
       </div>
-      <h2 className="mt-2 mb-1 text-[19px] font-semibold tracking-tight">{title}</h2>
+      <h2 className="font-display mt-2 mb-1 text-[19px]">{title}</h2>
       {children && (
         <p className="m-0 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           {children}
@@ -104,7 +104,7 @@ export function Field({
         style={{ fontSize: 'var(--text-small)' }}
       >
         {label}
-        {hint && <span className="text-muted-foreground/70"> — {hint}</span>}
+        {hint && <span className="text-muted-foreground/70"> · {hint}</span>}
       </label>
       {children}
     </div>

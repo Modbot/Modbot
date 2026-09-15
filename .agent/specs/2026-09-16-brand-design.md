@@ -120,5 +120,6 @@ dash.
 | `src/Modbot.Web/public` | `favicon.svg`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` |
 | `src/Modbot.My.Web/public` | same |
 | `src/Modbot.Cloud/Web/public` | same |
+| `docs/public` | same; the docs site maps these tokens onto Fumadocs' `--color-fd-*` variables in `docs/app/global.css` |
 
 The kit, the prompts and the generation script are in `explore/design/brand/`.

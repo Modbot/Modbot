@@ -44,7 +44,7 @@ function RetentionForm({ initial }: { initial: SettingsValues }) {
   return (
     <Card className="px-6">
       <form onSubmit={save} className="flex max-w-sm flex-col gap-4">
-        <h2 className="font-display">Retention</h2>
+        <h2 className="font-display text-base">Retention</h2>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="event-days" className="font-medium">
             Keep events (days, 0 = forever)

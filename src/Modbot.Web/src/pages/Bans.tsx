@@ -178,7 +178,7 @@ function GroupBans({
         <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           <span>
             Last synced {ago(list.coverage.lastSyncedAt, list.coverage.now)}
-            {list.coverage.sweepInProgress ? ' — a new sweep is running now' : ''}.
+            {list.coverage.sweepInProgress ? '. A new sweep is running now' : ''}.
           </span>
           <span>
             {list.coverage.banCount.toLocaleString()} {list.coverage.banCount === 1 ? 'ban' : 'bans'} at the last full sweep.

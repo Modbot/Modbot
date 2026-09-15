@@ -17,7 +17,7 @@ export default async function Page({ params }: Props) {
   if (page.type === 'openapi') {
     return (
       <DocsPage full>
-        <DocsTitle>{page.data.title}</DocsTitle>
+        <DocsTitle className="font-display">{page.data.title}</DocsTitle>
         {/* No description line: the endpoint's description is the first thing OpenAPIPage shows. */}
         <DocsBody>
           <OpenAPIPage {...page.data.getOpenAPIPageProps()} />
@@ -31,7 +31,7 @@ export default async function Page({ params }: Props) {
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
+      <DocsTitle className="font-display">{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
         <MDX

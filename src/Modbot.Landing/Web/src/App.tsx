@@ -76,7 +76,7 @@ function Hero() {
           </div>
           {/* The full mascot, at a quarter of the hero and no more: the product is the hero. */}
           <div aria-hidden="true" className="order-first lg:order-none lg:col-span-4">
-            <div className="grid place-items-center lg:aspect-square lg:max-w-[20rem] lg:rounded-2xl lg:bg-[radial-gradient(70%_70%_at_50%_45%,color-mix(in_oklab,var(--accent)_80%,transparent),transparent_72%)]">
+            <div className="grid place-items-center lg:aspect-square lg:max-w-[20rem] lg:rounded-xl lg:bg-accent/60">
               <img
                 src="/mascot.png"
                 alt=""
@@ -497,7 +497,7 @@ function Closing() {
         <div className="flex flex-wrap gap-3 md:col-span-4 md:justify-end">
           <a
             href={OPEN_MY_SERVER}
-            className={cn(buttonVariants({ size: 'lg' }), 'bg-white text-[#3f31a8] hover:bg-white/90')}
+            className={cn(buttonVariants({ size: 'lg' }), 'bg-primary-foreground text-primary hover:bg-primary-foreground/90')}
           >
             Open my server
           </a>

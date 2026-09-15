@@ -211,7 +211,7 @@ function WebhookList({
           {tested?.id === w.id && (
             <Outcome tone={tested.result.outcome === 'delivered' ? 'ok' : 'problem'}>
               {tested.result.statusCode ? `Test: ${tested.result.statusCode}` : 'Test failed'}
-              {tested.result.error ? ` — ${tested.result.error}` : ''} ({tested.result.durationMs} ms)
+              {tested.result.error ? `: ${tested.result.error}` : ''} ({tested.result.durationMs} ms)
             </Outcome>
           )}
         </div>

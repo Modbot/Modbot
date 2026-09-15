@@ -157,7 +157,7 @@ export function Health() {
             now={health.now}
             detail={
               health.auditLogPollRate
-                ? `Polling every ${duration(health.auditLogPollRate.intervalSeconds)} — ${health.auditLogPollRate.reason}`
+                ? `Polling every ${duration(health.auditLogPollRate.intervalSeconds)}: ${health.auditLogPollRate.reason}`
                 : undefined
             }
             run={health.lastAuditLogRun}
@@ -244,7 +244,7 @@ export function Health() {
                       <td className="py-1">
                         {bucket.alerting ? (
                           <span className="text-destructive">
-                            given up — needs you
+                            given up, needs you
                           </span>
                         ) : bucket.isColdStopped ? (
                           <span className="text-warn">
@@ -399,7 +399,7 @@ function Producer({
       )}
       {run && (
         <p className="mt-0.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Last run: {run.outcome.toLowerCase()} — {run.summary} ({run.durationSeconds.toFixed(1)}s,{' '}
+          Last run: {run.outcome.toLowerCase()}. {run.summary} ({run.durationSeconds.toFixed(1)}s,{' '}
           {ago(run.at, now)})
         </p>
       )}
@@ -412,7 +412,7 @@ const BOT_STATE: Record<DiscordBotHealth['state'], { label: string; tone: 'ok' |
   Connecting: { label: 'connecting', tone: 'warn' },
   Connected: { label: 'connected', tone: 'ok' },
   Disconnected: { label: 'reconnecting', tone: 'warn' },
-  Failed: { label: 'stopped — needs you', tone: 'problem' },
+  Failed: { label: 'stopped, needs you', tone: 'problem' },
 }
 
 const BOT_TONE: Record<'ok' | 'warn' | 'problem' | 'muted', string> = {

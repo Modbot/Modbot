@@ -9,23 +9,69 @@
 @import '@fontsource/ibm-plex-sans/600.css';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource-variable/bricolage-grotesque';
 
 @theme {
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-sans: 'IBM Plex Sans', 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', 'Malgun Gothic', system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 
-/* Modbot's purple, from src/Modbot.Landing/Web/src/index.css. */
+/* Modbot's tokens (.agent/specs/2026-09-16-brand-design.md), mapped onto Fumadocs' variables so
+   the docs share the landing page's and the app's colours: a flat violet, lavender-tinted
+   neutrals, and a lighter violet for links in dark mode. */
 :root {
+  --color-fd-background: #f7f6fb;
+  --color-fd-foreground: #111113;
+  --color-fd-muted: #f1eff8;
+  --color-fd-muted-foreground: #5c6475;
+  --color-fd-popover: #ffffff;
+  --color-fd-popover-foreground: #111113;
+  --color-fd-card: #ffffff;
+  --color-fd-card-foreground: #111113;
+  --color-fd-border: #e4e2ee;
   --color-fd-primary: #5b4bd6;
   --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: #f1eff8;
+  --color-fd-secondary-foreground: #111113;
+  --color-fd-accent: #edebff;
+  --color-fd-accent-foreground: #4a3cc2;
   --color-fd-ring: #5b4bd6;
 }
 
 .dark {
-  --color-fd-primary: #8b7dff;
-  --color-fd-primary-foreground: #0d0e12;
-  --color-fd-ring: #8b7dff;
+  --color-fd-background: #0f0e15;
+  --color-fd-foreground: #e6e6eb;
+  --color-fd-muted: #1e1b29;
+  --color-fd-muted-foreground: #a5a3b8;
+  --color-fd-popover: #17151f;
+  --color-fd-popover-foreground: #e6e6eb;
+  --color-fd-card: #17151f;
+  --color-fd-card-foreground: #e6e6eb;
+  --color-fd-border: #2a2738;
+  /* Fumadocs uses the primary for link text as well as fills; on the dark ground the fill colour
+     reads at 4.15:1, so the primary here is the link tint (6.9:1) and buttons stay legible on it. */
+  --color-fd-primary: #a78bfa;
+  --color-fd-primary-foreground: #0f0e15;
+  --color-fd-secondary: #1e1b29;
+  --color-fd-secondary-foreground: #e6e6eb;
+  --color-fd-accent: #2a2547;
+  --color-fd-accent-foreground: #b6acff;
+  --color-fd-ring: #8f82ff;
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: #1e1b29;
+  --color-fd-secondary: #1e1b29;
+  --color-fd-muted-foreground: #a5a3b8;
+}
+
+@utility font-display {
+  font-family: var(--font-display);
+  font-weight: 640;
+  font-variation-settings: 'wdth' 96;
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
 }
 
 html {

@@ -20,7 +20,7 @@ export function Installs() {
       <h1 className="font-display text-lg">Installs</h1>
 
       <Card className="gap-0 py-0">
-        <h2 className="font-display border-b px-4 py-3">Events per day</h2>
+        <h2 className="font-display border-b px-4 py-3 text-base">Events per day</h2>
         <div className="px-4 py-4">
           {days.error && days.error.status !== 401 ? (
             <p className="text-destructive">{days.error.message}</p>

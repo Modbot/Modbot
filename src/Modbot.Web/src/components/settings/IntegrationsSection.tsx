@@ -250,7 +250,7 @@ function EmailQueueTable({ email }: { email: EmailSettings }) {
               <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>{when(row.queuedAt)}</td>
               <td className={cn(cellClass, row.state === 'failed' && 'text-destructive')}>
                 {STATE_LABEL[row.state] ?? row.state}
-                {row.state === 'failed' && row.error ? ` — ${row.error}` : null}
+                {row.state === 'failed' && row.error ? `: ${row.error}` : null}
               </td>
             </tr>
           ))}

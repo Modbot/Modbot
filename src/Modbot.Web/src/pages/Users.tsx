@@ -323,7 +323,7 @@ function RolePicker({
               />
               <span>
                 <span className="font-medium">{r.name}</span>
-                {r.description && <span className="text-muted-foreground"> — {r.description}</span>}
+                {r.description && <span className="text-muted-foreground"> · {r.description}</span>}
               </span>
             </label>
           )

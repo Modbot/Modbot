@@ -225,7 +225,7 @@ function RoleEditor({
                               />
                               <span>
                                 <span className="font-medium">{p.label}</span>
-                                <span className="text-muted-foreground"> — {p.description}</span>
+                                <span className="text-muted-foreground"> · {p.description}</span>
                               </span>
                             </label>
                           )
