@@ -274,6 +274,12 @@ public class Settings
     public bool SmtpUseTls { get; set; } = true;
 
     /// <summary>
+    /// The most emails sent in any 24 hours. At least <see cref="Email.EmailLimit.Minimum"/>, and
+    /// that many are always kept for account email (accounts and access design §4.4).
+    /// </summary>
+    public int EmailLimitPer24Hours { get; set; } = Email.EmailLimit.Default;
+
+    /// <summary>
     /// The address people use to reach this Modbot, e.g. <c>https://modbot.example.com</c>.
     /// </summary>
     /// <remarks>

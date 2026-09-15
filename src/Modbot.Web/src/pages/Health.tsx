@@ -10,6 +10,7 @@ import {
   type DiscordBotHealth,
   type DiscordChannelProblem,
   type DiscordReadBackHealth,
+  type EmailHealth,
   type SyncHealth,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -128,6 +129,8 @@ export function Health() {
       {!health.syncRunningInThisProcess && <Note>Sync is not running in this process.</Note>}
 
       {health.aiSpend && health.aiSpend.length > 0 && <AiSpend warnings={health.aiSpend} />}
+
+      {health.email && (health.email.queued > 0 || health.email.failed > 0) && <EmailQueue email={health.email} />}
 
       {health.discordBot && (
         <DiscordBot
@@ -528,6 +531,26 @@ function AiSpend({ warnings }: { warnings: AiSpendWarning[] }) {
             {w.estimate !== null && ` · estimate ${amountText(w.estimate, w.unit)} (${share(w.estimate, w.limit)})`}
           </p>
         ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+function EmailQueue({ email }: { email: EmailHealth }) {
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-medium">Email</span>
+          <span className={email.failed > 0 ? 'text-destructive' : 'text-warn'} style={{ fontSize: 'var(--text-small)' }}>
+            {email.failed > 0 ? 'emails failed' : 'emails queued'}
+          </span>
+        </div>
+        <p className="mt-1 max-w-3xl tabular-nums text-warn" style={{ fontSize: 'var(--text-small)' }}>
+          {`${email.queued} queued`}
+          {email.nextSendAt && ` · next at ${new Date(email.nextSendAt).toLocaleString()}`}
+          {email.failed > 0 && ` · ${email.failed} failed`}
+        </p>
       </CardContent>
     </Card>
   )

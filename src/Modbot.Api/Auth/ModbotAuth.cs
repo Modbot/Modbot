@@ -96,8 +96,15 @@ public static class ModbotAuth
         // and a Discord messenger that says Discord is not set up. The host registers the real
         // Discord one before calling this.
         services.TryAddSingleton<IDelayScheduler, RealDelayScheduler>();
-        services.TryAddScoped<IEmailSender, SmtpEmailSender>();
+        services.TryAddScoped<IMailRelay, SmtpMailRelay>();
         services.TryAddScoped<IDiscordMessenger, NoDiscordMessenger>();
+
+        // Every email goes through the daily limit (design §4.4). Plain Add, not TryAdd: nothing
+        // registered earlier can put the relay in its place and skip the limit. A host or test
+        // swaps the relay, never this.
+        services.AddScoped<IEmailSender, EmailSender>();
+        services.TryAddSingleton(new EmailQueueOptions());
+        services.TryAddScoped<EmailQueuePass>();
 
         services.AddScoped<ApiCallers>();
 

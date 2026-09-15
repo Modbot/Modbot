@@ -118,6 +118,11 @@ account, an unknown one, a disabled one, and one with no way to be reached. One 
 link per account per ten minutes; repeated requests from one address slow down the way failed
 sign-ins do (§7).
 
+The sentence changes with the deployment and never with the account: while account email would
+be queued under the daily email limit (§4.4), it adds *"Email is running behind, so it may be
+late."* That is decided from the queue alone, before the username is looked up, so the two
+answers are still identical for a real and an unknown username.
+
 Two small abstractions carry this: `IEmailSender`, with an SMTP implementation reading the
 settings row (host, port, username, encrypted password per §8.3), and `IDiscordMessenger`, with
 an implementation in `Modbot.Discord` that calls Discord's REST API with the stored bot token —
@@ -189,6 +194,80 @@ with a temporary password is, until the password is changed, an account two peop
 which is exactly what §5.9.1's attribution is supposed to rule out. Forcing a change on first login
 is deferred (§9); the temporary-password path exists for the group whose new moderator is standing
 next to the administrator.
+
+### 4.4 Daily email limit and the email queue
+
+*Added 2026-09-15.* Relays that community groups use cap how much they send a day, and a relay
+that hits its cap drops mail or suspends the account -- the one moment that hurts most is a
+moderator locked out of Modbot whose reset link never comes. So Modbot keeps its own limit below
+the relay's and queues what does not fit rather than dropping it.
+
+**The setting.** *Email limit per 24 hours* on Settings → Integrations → Email:
+`settings.email_limit_per24hours`, a whole number, default **100**, minimum **20**
+(`PUT /api/settings/email/limit`, `ManageSettings`; recorded as a `SettingsChanged` fact).
+
+**A rolling window.** The count is the emails sent in the last 24 hours, not since midnight --
+a calendar day would allow the whole limit at 23:59 and again at 00:01.
+
+**Two kinds of email, and 20 kept for one of them.** Every message says which it is
+(`EmailKind`):
+
+| Kind | What | May send while the last 24 hours hold fewer than |
+|---|---|---|
+| **Account** | password reset links, invite links, email checks, sign-in and security notices -- anything in the account flows | the limit |
+| **Other** | the test message, alerts, notifications, everything else | the limit − 20 |
+
+So however much other email is asked for, the last 20 sends are always there for account email.
+At the minimum limit of 20, other email has no room at all and waits until the limit is raised.
+
+**One way to send.** `IEmailSender` is implemented only by `EmailSender`, which counts every
+message. The SMTP relay sits behind `IMailRelay`, which nothing else calls; the registration is a
+plain `Add`, so nothing registered earlier can put the relay in the limit's place.
+
+**The queue, `email_queue`.** Every email gets a row, sent straight away or not, and the rows in
+`sending` or `sent` with `sent_at` in the last 24 hours *are* the count -- there is no second
+counter to drift. Columns: kind, recipient, subject, state (`queued`, `sending`, `sent`,
+`failed`, `expired`), `queued_at`, `sent_at`, `expires_at`, `attempts`, `next_attempt_at`,
+`last_error`, `finished_at`, and `body_encrypted`. The body is stored only while a message
+waits, encrypted with `ISecretProtector`, and cleared the moment it is sent, fails or expires: a
+reset link's token is in it, and §4.1 stores only hashes so that reading the database yields no
+working link. Sent rows are deleted once they are a day old; failed and expired ones after three
+days.
+
+**Deciding.** Under a PostgreSQL advisory lock: a message goes now if nothing it waits behind is
+queued and the window has room for its kind; it is then written as `sending` before the lock is
+let go, so two requests cannot both take the last place. Account email waits only behind queued
+account email; other email waits behind everything. The relay is called with no lock held. A
+message sent straight away that the relay refuses is **not** queued -- the caller gets the
+relay's words as before, because the test message exists to show them.
+
+**Sending the queue.** `EmailQueueService` runs a pass every 30 seconds. Each pass first marks
+expired every queued message whose `expires_at` has passed, then takes the next message --
+**account email first, then oldest first** -- if the window has room for its kind, marks it
+`sending` under the lock, and hands it to the relay once. A queued message goes out when the
+send that filled the window turns 24 hours old. A refusal puts it back with `next_attempt_at`
+5 minutes later, then 15, 45 and so on up to 6 hours; after 5 refusals it is `failed` with the
+relay's sentence. It is never retried in a loop. A message a stopped process left in `sending`
+for ten minutes is marked failed, not tried again, because it may already have gone.
+
+**Links that go stale.** The reset link passes its own expiry as the message's `expires_at`. A
+link still queued when it expires is marked `expired` and never sent -- a dead link arriving is
+worse than none. Invite links will do the same when they are sent by email (§9); today they are
+copied by the administrator and never queued.
+
+**What people see.**
+
+- The person asking for a reset: the §4.2 sentence, with *"Email is running behind, so it may be
+  late."* while account email would be queued. Nothing about the account.
+- The test message: *Queued, sends at …*, or *Queued.* when other email has no room.
+- The `ResetLinkCreated` fact records `queued` and `sendsAt`.
+- Settings → Integrations → Email: the limit field, *Sent in the last 24 hours* as "N of limit",
+  *Queued*, *Next queued email*, and a list of queued, failed and expired messages -- recipient,
+  kind, queued at, state. Never bodies. (`GET /api/settings/email`, `ManageSettings`.)
+- Health: an *Email* row while any message is queued or has failed (`email` on
+  `GET /api/health/sync`, `ViewOperationalLog`).
+
+Nothing logs a body or a token; the queue's warnings name the message's id and kind only.
 
 ## 5. Sessions
 
@@ -294,7 +373,13 @@ once only, expiry, ends sessions. Disable ends an open session on its next reque
 not revive it. Role change is visible on the next request. Every new endpoint answers 401 without a
 session and 403 without the permission. Every operation leaves its fact, and a failed login's fact
 contains the username and not the password. Forgot-password answers identically for a real and an
-unknown username, picks email over Discord, and sends nothing when neither is configured. The
+unknown username, picks email over Discord, and sends nothing when neither is configured. The email limit (§4.4): other email stops at the limit
+less 20 while account email still goes; a message over the limit is queued and sent when the
+oldest send turns a day old, and only once; account email leaves the queue first; a refused
+queued message is tried again later and marked failed after five refusals; a queued link that
+expires is never sent; forgot-password answers identically for a real and an unknown username
+while email is queued; the limit refuses anything below 20; the email settings take
+`ManageSettings`. The
 VRChat link: a URL and a bare id parse the same, a bio without the code does not link, a bio with
 it does and records the fact, codes expire and are good once, Check is limited, and an unlinked
 session is refused everywhere but the link and sign-out endpoints. All against real PostgreSQL,

@@ -7,9 +7,13 @@ using Modbot.Core.Security;
 namespace Modbot.Core.Email;
 
 /// <summary>
-/// <see cref="IEmailSender"/> over the SMTP settings the wizard stored.
+/// <see cref="IMailRelay"/> over the SMTP settings the wizard stored.
 /// </summary>
 /// <remarks>
+/// <para>
+/// No limit here. Every message reaches this class through <see cref="EmailSender"/> or the
+/// email queue, which count it first (accounts and access design §4.4).
+/// </para>
 /// <para>
 /// Reads the settings row on every send rather than at construction: the relay can be changed on
 /// the settings page and the next test message must use what was just typed. The password is
@@ -22,12 +26,12 @@ namespace Modbot.Core.Email;
 /// place to swap the transport.
 /// </para>
 /// </remarks>
-public sealed class SmtpEmailSender : IEmailSender
+public sealed class SmtpMailRelay : IMailRelay
 {
     private readonly ModbotContext _db;
     private readonly ISecretProtector _protector;
 
-    public SmtpEmailSender(ModbotContext db, ISecretProtector protector)
+    public SmtpMailRelay(ModbotContext db, ISecretProtector protector)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(protector);

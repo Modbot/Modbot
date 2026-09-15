@@ -140,7 +140,8 @@ public static class SyncHealthEndpoints
                             w.Spent,
                             w.Estimate,
                             w.Reached,
-                            w.PartUnknown))]));
+                            w.PartUnknown))],
+                    await EmailAsync(db, clock.UtcNow, ct)));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
@@ -251,6 +252,12 @@ public static class SyncHealthEndpoints
             lastProblem?.LastError,
             lastProblem?.UpdatedAt,
             totals?.UpdatedAt);
+    }
+
+    private static async Task<EmailHealth> EmailAsync(ModbotContext db, DateTimeOffset now, CancellationToken ct)
+    {
+        var summary = await Modbot.Core.Email.EmailQueueStatus.ReadAsync(db, now, ct);
+        return new EmailHealth(summary.Queued, summary.Failed, summary.NextSendAt);
     }
 
     private static PollRateReport? PollRate(PollRateDecision? decision)

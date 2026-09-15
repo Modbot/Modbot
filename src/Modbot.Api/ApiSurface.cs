@@ -109,6 +109,13 @@ public static class ApiSurface
         return services;
     }
 
+    /// <summary>Sends queued email in the background. Needs what <see cref="Auth.ModbotAuth.AddModbotAuth"/> registers.</summary>
+    public static IServiceCollection AddEmailQueue(this IServiceCollection services)
+    {
+        services.AddHostedService<Modbot.Core.Email.EmailQueueService>();
+        return services;
+    }
+
     public static IEndpointRouteBuilder MapModbotApi(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api").WithTags("Meta");

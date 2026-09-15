@@ -101,9 +101,15 @@ public sealed record ForgotPasswordWays(bool Available, IReadOnlyList<string> Wa
 
 public sealed record ForgotPasswordRequest(string Username);
 
-/// <summary>Always the same sentence, whoever asked and whatever happened (design §4.2).</summary>
+/// <summary>
+/// The same sentence whoever asked and whatever happened (design §4.2). It changes only with the
+/// deployment: while account email is being held under the daily limit (design §4.4), it says so.
+/// </summary>
 public sealed record ForgotPasswordResponse(string Message)
 {
     public static ForgotPasswordResponse Standard { get; } =
         new("If that account can be reached, a reset link is on its way.");
+
+    public static ForgotPasswordResponse Delayed { get; } =
+        new("If that account can be reached, a reset link is on its way. Email is running behind, so it may be late.");
 }

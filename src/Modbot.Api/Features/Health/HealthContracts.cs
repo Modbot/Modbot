@@ -236,7 +236,15 @@ public sealed record SyncHealth(
     DiscordReadBackHealth? DiscordReadBack = null,
     // Spend limits for everyone or a feature at 80% or more, estimated to be passed this month, or
     // reached (AI chat design §10.7). Empty when none is.
-    IReadOnlyList<AiSpendWarningView>? AiSpend = null);
+    IReadOnlyList<AiSpendWarningView>? AiSpend = null,
+    // The email queue under the daily email limit (accounts and access design §4.4).
+    EmailHealth? Email = null);
+
+/// <summary>Emails waiting under the daily limit, and emails given up on.</summary>
+/// <param name="Queued">Messages waiting for room or for their next try.</param>
+/// <param name="Failed">Messages the relay refused too many times, in the last few days.</param>
+/// <param name="NextSendAt">When the next queued message should go out, or null.</param>
+public sealed record EmailHealth(int Queued, int Failed, DateTimeOffset? NextSendAt);
 
 /// <summary>A limit for everyone or for one AI feature that is close to being reached, or reached.</summary>
 /// <param name="AppliesTo"><c>everyone</c>, <c>feature</c>, or <c>tokens</c> for a token limit kept from before prices.</param>

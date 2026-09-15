@@ -8,6 +8,7 @@ using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Email;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
 using Modbot.VRChat.RateLimiting;
@@ -132,6 +133,7 @@ public static class ResetEndpoints
                 [FromServices] ResetLinkDelivery delivery,
                 [FromServices] AccountFacts facts,
                 [FromServices] ForgotPasswordSlowdown slowdown,
+                [FromServices] IEmailSender email,
                 [FromServices] IDelayScheduler delay,
                 [FromServices] IModbotClock clock,
                 HttpContext http,
@@ -149,7 +151,12 @@ public static class ResetEndpoints
                 slowdown.RecordFailure(null, address);
 
                 // The answer is decided here. Everything below it is invisible to the caller.
-                var answer = Results.Ok(ForgotPasswordResponse.Standard);
+                // Whether email is being held under the daily limit (design §4.4) is a fact about
+                // the deployment, asked before any account is looked up, so it says nothing about
+                // whether this one exists.
+                var answer = Results.Ok(await email.WouldQueueAsync(EmailKind.Account, ct)
+                    ? ForgotPasswordResponse.Delayed
+                    : ForgotPasswordResponse.Standard);
 
                 var publicAddress = await links.PublicAddressAsync(ct);
                 if (publicAddress is null)
@@ -179,7 +186,7 @@ public static class ResetEndpoints
                 var (link, token) = await links.CreateResetAsync(user.Id, user.Id, ct);
                 var url = OneTimeLinkService.UrlFor(publicAddress, link, token)!;
 
-                var result = await delivery.SendAsync(user, url, ct);
+                var result = await delivery.SendAsync(user, url, link.ExpiresAt, ct);
 
                 await facts.RecordAsync(
                     FactType.ResetLinkCreated,
@@ -190,6 +197,8 @@ public static class ResetEndpoints
                         ["requestedBy"] = "self",
                         ["sentVia"] = result.Via,
                         ["sent"] = result.Sent,
+                        ["queued"] = result.Queued,
+                        ["sendsAt"] = result.Outcome?.SendsAt?.ToString("o"),
                         ["error"] = result.Outcome?.Error,
                         ["expiresAt"] = link.ExpiresAt.ToString("o"),
                     },

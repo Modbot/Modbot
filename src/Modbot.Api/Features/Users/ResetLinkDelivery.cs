@@ -9,6 +9,9 @@ namespace Modbot.Api.Features.Users;
 public sealed record DeliveryResult(string? Via, SendOutcome? Outcome)
 {
     public bool Sent => Outcome?.Sent == true;
+
+    /// <summary>Waiting in the email queue under the daily limit (design §4.4).</summary>
+    public bool Queued => Outcome?.Queued == true;
 }
 
 /// <summary>
@@ -18,6 +21,8 @@ public sealed record DeliveryResult(string? Via, SendOutcome? Outcome)
 /// Email first, if SMTP is set up and the account has an address; otherwise a Discord direct
 /// message, if a bot token is stored and the account has a Discord user id. The message names the
 /// account so a person who did not ask can tell what happened, and it says nothing has changed.
+/// An email is account email under the daily limit and carries the link's expiry, so the queue
+/// does not send it once the link has stopped working (design §4.4).
 /// </remarks>
 public sealed class ResetLinkDelivery
 {
@@ -47,7 +52,8 @@ public sealed class ResetLinkDelivery
         return ways;
     }
 
-    public async Task<DeliveryResult> SendAsync(ModbotUser user, string url, CancellationToken ct)
+    /// <param name="expiresAt">When the link stops working. A queued email still waiting then is not sent.</param>
+    public async Task<DeliveryResult> SendAsync(ModbotUser user, string url, DateTimeOffset expiresAt, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(user);
         ArgumentException.ThrowIfNullOrWhiteSpace(url);
@@ -56,7 +62,9 @@ public sealed class ResetLinkDelivery
 
         if (user.Email is { Length: > 0 } email && await _email.IsConfiguredAsync(ct))
         {
-            var outcome = await _email.SendAsync(new EmailMessage(email, "Reset your Modbot password", text), ct);
+            var outcome = await _email.SendAsync(
+                new EmailMessage(email, "Reset your Modbot password", text, EmailKind.Account, expiresAt),
+                ct);
             return new DeliveryResult(EmailWay, outcome);
         }
 

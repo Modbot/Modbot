@@ -22,6 +22,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Invite and password reset links, stored as hashes (design §4.1).</summary>
     public DbSet<OneTimeLink> OneTimeLinks => Set<OneTimeLink>();
 
+    /// <summary>Every email from the last day, and the ones waiting under the daily limit (design §4.4).</summary>
+    public DbSet<EmailQueueEntry> EmailQueue => Set<EmailQueueEntry>();
+
     /// <summary>Keys for programs, stored as hashes (API keys design §3).</summary>
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
@@ -353,6 +356,26 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.DisabledReason).HasMaxLength(640);
 
             entity.HasIndex(e => e.CreatedByUserId);
+        });
+
+        builder.Entity<EmailQueueEntry>(entity =>
+        {
+            entity.ToTable("email_queue");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Kind).HasMaxLength(16);
+            entity.Property(e => e.ToAddress).HasMaxLength(320);
+            entity.Property(e => e.Subject).HasMaxLength(256);
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.LastError).HasMaxLength(512);
+
+            // "How many went out in the last 24 hours", asked on every send.
+            entity.HasIndex(e => new { e.State, e.SentAt });
+
+            // "What goes next": account email first, then oldest first.
+            entity.HasIndex(e => new { e.State, e.Kind, e.QueuedAt });
         });
 
         builder.Entity<WebhookDelivery>(entity =>

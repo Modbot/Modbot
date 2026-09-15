@@ -1211,7 +1211,45 @@ export type SyncHealth = {
   discordReadBack: DiscordReadBackHealth | null
   /** AI spend limits close to being reached, or reached. */
   aiSpend?: AiSpendWarning[] | null
+  /** Emails held under the daily email limit, and emails given up on. */
+  email?: EmailHealth | null
   now: string
+}
+
+export type EmailHealth = {
+  queued: number
+  failed: number
+  nextSendAt: string | null
+}
+
+export type TestEmailResult = {
+  sent: boolean
+  error: string | null
+  queued?: boolean
+  /** When a queued test message should go out; null when other email has no room under the limit. */
+  sendsAt?: string | null
+}
+
+/** One email on the settings page. Never the body. */
+export type EmailQueueRow = {
+  id: string
+  to: string
+  kind: 'account' | 'other'
+  queuedAt: string
+  state: 'queued' | 'sending' | 'failed' | 'expired'
+  attempts: number
+  nextAttemptAt: string | null
+  error: string | null
+}
+
+export type EmailSettings = {
+  limitPer24Hours: number
+  minimumLimit: number
+  sentInLast24Hours: number
+  queued: number
+  failed: number
+  nextSendAt: string | null
+  emails: EmailQueueRow[]
 }
 
 /**
@@ -2403,7 +2441,12 @@ export const api = {
   setPublicAddress: (publicAddress: string) =>
     put<PublicAddressView>('/api/settings/public-address', { publicAddress }),
 
-  sendTestEmail: (to: string) => post<{ sent: boolean; error: string | null }>('/api/settings/email/test', { to }),
+  sendTestEmail: (to: string) => post<TestEmailResult>('/api/settings/email/test', { to }),
+
+  emailSettings: () => request<EmailSettings>('/api/settings/email'),
+
+  setEmailLimit: (limitPer24Hours: number) =>
+    put<EmailSettings>('/api/settings/email/limit', { limitPer24Hours }),
 
   // ── AI ──────────────────────────────────────────────────────────────────────────────────
 

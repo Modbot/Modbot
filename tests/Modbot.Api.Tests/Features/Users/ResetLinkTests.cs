@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Users;
+using Modbot.Api.Tests.Fakes;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Email;
@@ -20,18 +21,14 @@ public class ResetLinkTests
 
     private static string ApiPath(string path) => "/api" + path;
 
-    /// <summary>Captures what would have been emailed, and says email is set up.</summary>
-    private sealed class CapturingEmail : IEmailSender
+    /// <summary>
+    /// A relay that captures what would have been emailed and says email is set up. It sits under
+    /// the real email sender, so these messages pass through the daily email limit like any other.
+    /// </summary>
+    private static async Task<FakeMailRelay> CapturingEmailAsync(PostgresFixture db)
     {
-        public List<EmailMessage> Sent { get; } = [];
-
-        public Task<bool> IsConfiguredAsync(CancellationToken ct = default) => Task.FromResult(true);
-
-        public Task<SendOutcome> SendAsync(EmailMessage message, CancellationToken ct = default)
-        {
-            Sent.Add(message);
-            return Task.FromResult(SendOutcome.Ok);
-        }
+        await ApiTestHost.ClearEmailQueueAsync(db, Ct);
+        return new FakeMailRelay();
     }
 
     private static async Task SetPublicAddressAsync(PostgresFixture db, string? address)
@@ -126,8 +123,8 @@ public class ResetLinkTests
     [Fact]
     public async Task ForgotPassword_AnswersTheSameForARealAndAnUnknownUsername()
     {
-        var email = new CapturingEmail();
-        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IEmailSender>(email));
+        var email = await CapturingEmailAsync(_db);
+        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IMailRelay>(email));
         await SetPublicAddressAsync(_db, "https://modbot.example.com");
         var (user, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
         await SetEmailAsync(_db, user.Id, "mod@example.com");
@@ -143,13 +140,14 @@ public class ResetLinkTests
         var message = Assert.Single(email.Sent);
         Assert.Equal("mod@example.com", message.To);
         Assert.Contains("https://modbot.example.com/reset/", message.Body, StringComparison.Ordinal);
+        Assert.Equal(EmailKind.Account, message.Kind);
     }
 
     [Fact]
     public async Task ForgotPassword_BuildsTheLinkFromThePublicAddress_NotFromForgedHeaders()
     {
-        var email = new CapturingEmail();
-        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IEmailSender>(email));
+        var email = await CapturingEmailAsync(_db);
+        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IMailRelay>(email));
         await SetPublicAddressAsync(_db, "https://modbot.example.com");
         var (user, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
         await SetEmailAsync(_db, user.Id, "victim@example.com");
@@ -179,8 +177,8 @@ public class ResetLinkTests
     [Fact]
     public async Task ForgotPassword_SendsNothingWithoutAPublicAddress_AndTheSignInPageIsToldWhy()
     {
-        var email = new CapturingEmail();
-        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IEmailSender>(email));
+        var email = await CapturingEmailAsync(_db);
+        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IMailRelay>(email));
         await SetPublicAddressAsync(_db, null);
         var (user, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
         await SetEmailAsync(_db, user.Id, "mod@example.com");
@@ -197,8 +195,8 @@ public class ResetLinkTests
     [Fact]
     public async Task ForgotPassword_SendsAtMostOneLinkPerAccountPerTenMinutes()
     {
-        var email = new CapturingEmail();
-        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IEmailSender>(email));
+        var email = await CapturingEmailAsync(_db);
+        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IMailRelay>(email));
         await SetPublicAddressAsync(_db, "https://modbot.example.com");
         var (user, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
         await SetEmailAsync(_db, user.Id, "mod@example.com");
@@ -216,8 +214,8 @@ public class ResetLinkTests
     [Fact]
     public async Task ForgotPassword_TheEmailedLinkWorks()
     {
-        var email = new CapturingEmail();
-        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IEmailSender>(email));
+        var email = await CapturingEmailAsync(_db);
+        await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IMailRelay>(email));
         await SetPublicAddressAsync(_db, "https://modbot.example.com");
         var (user, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
         await SetEmailAsync(_db, user.Id, "mod@example.com");

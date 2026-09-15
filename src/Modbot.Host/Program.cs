@@ -253,6 +253,10 @@ try
     // fact log each pass, so a deployment with no webhooks does one small query every two seconds.
     builder.Services.AddWebhookDelivery();
 
+    // Sends email the daily email limit held back, when the 24 hours have room again (accounts and
+    // access design §4.4). One small query every thirty seconds when nothing is waiting.
+    builder.Services.AddEmailQueue();
+
     if (BuildTimeDocument.IsRunning)
         BuildTimeDocument.RemoveBackgroundServices(builder.Services);
 

@@ -166,6 +166,23 @@ public sealed class ApiTestHost : IAsyncDisposable
         await context.AiModelPrices.ExecuteDeleteAsync(ct);
         await context.AiFetchedPrices.ExecuteDeleteAsync(ct);
         await context.AiLimitsReached.ExecuteDeleteAsync(ct);
+
+        await ClearEmailQueueAsync(db, ct);
+    }
+
+    /// <summary>
+    /// Empties the email queue and puts the daily email limit back to its default. Every test's
+    /// fake clock starts at the same instant, so one test's sends would count against the next
+    /// test's limit.
+    /// </summary>
+    public static async Task ClearEmailQueueAsync(PostgresFixture db, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+
+        await using var context = db.NewContext();
+        await context.EmailQueue.ExecuteDeleteAsync(ct);
+        await context.Settings.ExecuteUpdateAsync(
+            s => s.SetProperty(x => x.EmailLimitPer24Hours, Modbot.Core.Email.EmailLimit.Default), ct);
     }
 
     /// <summary>Signs in and returns the raw session cookie, ready for a <c>Cookie</c> header.</summary>
