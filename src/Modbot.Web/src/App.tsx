@@ -21,6 +21,7 @@ import { LinkAccounts } from '@/pages/LinkAccounts'
 import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Live } from '@/pages/Live'
 import { Login } from '@/pages/Login'
+import { DiscordMembers } from '@/pages/DiscordMembers'
 import { Members } from '@/pages/Members'
 import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
@@ -38,6 +39,7 @@ import { Setup } from '@/pages/setup/Setup'
 
 const TITLES: Record<PageId, string> = {
   members: 'Members',
+  'discord-members': 'Discord members',
   live: 'Live',
   chat: 'Chat',
   bans: 'Bans',
@@ -65,6 +67,7 @@ const TITLES: Record<PageId, string> = {
  */
 const PATHS: Record<PageId, string> = {
   members: '/',
+  'discord-members': '/discord/members',
   live: '/live',
   chat: '/chat',
   bans: '/bans',
@@ -273,7 +276,8 @@ function Shell({
           onSignOut={() => void api.logout().finally(() => window.location.assign('/'))}
         />
         <div className="p-5">
-          {page === 'members' && <Members onOpenSubject={setSubject} />}
+          {page === 'members' && <Members me={me} onOpenSubject={setSubject} />}
+          {page === 'discord-members' && <DiscordMembers me={me} />}
           {page === 'live' && <Live />}
           {page === 'chat' && <Chat />}
           {page === 'bans' && (
@@ -290,7 +294,7 @@ function Shell({
           {page === 'flags' && <Flags me={me} onOpenSubject={setSubject} />}
           {page === 'audit' && <AuditLog />}
           {page === 'analytics-group' && <MyGroup />}
-          {page === 'analytics-server' && <MyServer onOpenSubject={setSubject} />}
+          {page === 'analytics-server' && <MyServer />}
           {page === 'analytics-team' && (
             <MyTeam onOpenSubject={setSubject} onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined} />
           )}

@@ -1,5 +1,6 @@
 import { ArrowLeft } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
+import { DiscordPersonPopup } from '@/components/subject/DiscordPersonPopup'
 import { InstancePopup } from '@/components/subject/InstancePopup'
 import { PersonPopup } from '@/components/subject/PersonPopup'
 import { WorldPopup } from '@/components/subject/WorldPopup'
@@ -49,6 +50,7 @@ export function SubjectPopup({ me }: { me: CurrentUser }) {
       {top.kind === 'person' && <PersonPopup key={key} id={top.id} me={me} lead={lead} />}
       {top.kind === 'world' && <WorldPopup key={key} id={top.id} me={me} lead={lead} />}
       {top.kind === 'instance' && <InstancePopup key={key} id={top.id} me={me} lead={lead} />}
+      {top.kind === 'discord-person' && <DiscordPersonPopup key={key} id={top.id} me={me} lead={lead} />}
     </Dialog>
   )
 }
@@ -57,6 +59,7 @@ const KIND_WORD: Record<Subject['kind'], string> = {
   person: 'person',
   world: 'world',
   instance: 'instance',
+  'discord-person': 'Discord person',
 }
 
 function Back({ below, depth }: { below: Subject; depth: number }) {

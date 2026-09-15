@@ -196,6 +196,8 @@ export type DiscordLinkView = {
   discordUserId: string
   discordUsername: string
   vrChatUserId: string
+  /** The VRChat name Modbot has now, else the one saved with the link. */
+  vrChatDisplayName: string | null
   linkedAt: string
   startedFrom: 'discord' | 'vrchat'
   /** The roles Modbot gave and believes the member still holds. */
@@ -474,7 +476,9 @@ export type AuditRequest = {
   type?: string[]
   source?: string[]
   subject?: string
+  subjectPlatform?: 'VRChat' | 'Discord' | 'Modbot'
   actor?: string
+  actorPlatform?: 'VRChat' | 'Discord' | 'Modbot'
   from?: string
   to?: string
   limit?: number
@@ -541,7 +545,21 @@ export type MemberRow = {
   lastSeenAt: string | null
   profileRefreshedAt: string | null
   leftAt: string | null
+  /** Null when they have not linked, and always null without See profiles. */
+  linkedDiscord: LinkedDiscord | null
 }
+
+/** A group member's linked Discord account, and how the stored Discord member list has them. */
+export type LinkedDiscord = {
+  userId: string
+  name: string
+  avatarUrl: string | null
+  inServer: boolean
+  leftAt: string | null
+}
+
+/** Whether to narrow a member list to people who linked their accounts. Needs See profiles. */
+export type LinkedFilter = 'all' | 'linked' | 'not-linked'
 
 /**
  * How far the swept list can be trusted. `firstSweepComplete` false means the list is partial:
@@ -570,8 +588,86 @@ export type MemberQuery = {
   role?: string
   status?: 'current' | 'left' | 'all'
   sort?: 'joined' | 'name' | 'seen'
+  linked?: LinkedFilter
   page?: number
   pageSize?: number
+}
+
+export type DiscordMemberRole = { id: string; name: string | null; color: number }
+
+/** One member of the Discord server, current or past. */
+export type DiscordMember = {
+  userId: string
+  username: string
+  displayName: string
+  globalName: string | null
+  nickname: string | null
+  avatarUrl: string | null
+  isBot: boolean
+  joinedAt: string | null
+  leftAt: string | null
+  roles: DiscordMemberRole[]
+  timedOutUntil: string | null
+  isPending: boolean
+  boostingSince: string | null
+  firstSeenAt: string
+  updatedAt: string
+  /** Null when they have not linked, and always null without See profiles. */
+  linkedVRChat: { userId: string; displayName: string | null; avatarUrl: string | null } | null
+}
+
+export type DiscordMemberList = {
+  members: DiscordMember[]
+  total: number
+  page: number
+  pageSize: number
+  coverage: { guildId: string | null; listedAt: string | null; inServer: number; now: string }
+  /** The server's roles to filter by, highest first. */
+  roles: DiscordMemberRole[]
+}
+
+export type DiscordMemberQuery = {
+  search?: string
+  state?: 'in-server' | 'left' | 'all'
+  role?: string
+  linked?: LinkedFilter
+  page?: number
+  pageSize?: number
+}
+
+export type DiscordMemberMessage = {
+  messageId: string
+  sentAt: string
+  channelId: string
+  channelName: string | null
+  threadId: string | null
+  threadName: string | null
+  text: string
+  attachments: { name: string; type: string | null; size: number | null; url: string | null }[]
+  embedCount: number
+  replyToId: string | null
+  editedAt: string | null
+  deletedAt: string | null
+}
+
+export type DiscordMemberMessages = {
+  messages: DiscordMemberMessage[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export type DiscordMemberMetrics = {
+  userId: string
+  messagesPerDay: DayValue[]
+  voiceMinutesPerDay: DayValue[]
+  messagesAllTime: number
+  voiceMinutesAllTime: number
+  firstSeenAt: string | null
+  joinedAt: string | null
+  leftAt: string | null
+  history: { change: 'joined' | 'left'; at: string; before: string | null }[]
+  now: string
 }
 
 /** One person's membership and ban standing, for the subject pane. `known` false: no sweep has listed them. */
@@ -2164,6 +2260,10 @@ export const api = {
   discordLinkFor: (vrchatUserId: string) =>
     request<{ link: DiscordLinkView | null }>(`/api/discord-links?vrchatUserId=${encodeURIComponent(vrchatUserId)}`),
 
+  /** The same link, looked up from the Discord side. */
+  discordLinkForDiscord: (discordUserId: string) =>
+    request<{ link: DiscordLinkView | null }>(`/api/discord-links?discordUserId=${encodeURIComponent(discordUserId)}`),
+
   unlinkDiscord: (linkId: string) => post<void>(`/api/discord-links/${encodeURIComponent(linkId)}/unlink`),
 
   discordLinkingSettings: () => request<DiscordLinkingSettings>('/api/settings/discord-linking'),
@@ -2392,7 +2492,9 @@ export const api = {
     query.type?.forEach((t) => q.append('type', t))
     query.source?.forEach((s) => q.append('source', s))
     if (query.subject) q.set('subject', query.subject)
+    if (query.subjectPlatform) q.set('subjectPlatform', query.subjectPlatform)
     if (query.actor) q.set('actor', query.actor)
+    if (query.actorPlatform) q.set('actorPlatform', query.actorPlatform)
     if (query.from) q.set('from', query.from)
     if (query.to) q.set('to', query.to)
     if (query.limit) q.set('limit', String(query.limit))
@@ -2425,11 +2527,35 @@ export const api = {
     if (query.role) q.set('role', query.role)
     if (query.status && query.status !== 'current') q.set('status', query.status)
     if (query.sort && query.sort !== 'joined') q.set('sort', query.sort)
+    if (query.linked && query.linked !== 'all') q.set('linked', query.linked)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
     const search = q.toString()
     return request<MemberList>(`/api/members${search ? `?${search}` : ''}`)
   },
+
+  // The Discord server's members: a list of its own, because most people are on one side only.
+  discordMembers: (query: DiscordMemberQuery = {}) => {
+    const q = new URLSearchParams()
+    if (query.search) q.set('search', query.search)
+    if (query.state && query.state !== 'in-server') q.set('state', query.state)
+    if (query.role) q.set('role', query.role)
+    if (query.linked && query.linked !== 'all') q.set('linked', query.linked)
+    if (query.page && query.page > 1) q.set('page', String(query.page))
+    if (query.pageSize) q.set('pageSize', String(query.pageSize))
+    const search = q.toString()
+    return request<DiscordMemberList>(`/api/discord/members${search ? `?${search}` : ''}`)
+  },
+
+  discordMember: (id: string) => request<DiscordMember>(`/api/discord/members/${encodeURIComponent(id)}`),
+
+  discordMemberMessages: (id: string, page: number, pageSize: number) =>
+    request<DiscordMemberMessages>(
+      `/api/discord/members/${encodeURIComponent(id)}/messages?page=${page}&pageSize=${pageSize}`,
+    ),
+
+  discordMemberMetrics: (id: string) =>
+    request<DiscordMemberMetrics>(`/api/discord/members/${encodeURIComponent(id)}/metrics`),
 
   /** One person's membership and ban standing. The id goes in the query string (spec 3.1.1). */
   membership: (id: string) =>

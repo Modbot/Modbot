@@ -95,6 +95,8 @@ public class DiscordMemberTests
         Assert.Equal("Ada", ada.GlobalName);
         Assert.Equal(["Staff", "Member"], ada.Roles.Select(r => r.Name));
         Assert.Equal(0x3498DB, ada.Roles[1].Color);
+
+        Assert.Equal(["Staff", "Member"], body.Roles.Select(r => r.Name));
     }
 
     [Fact]

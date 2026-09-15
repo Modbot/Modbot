@@ -1,4 +1,4 @@
-import { RoomLink, SubjectLink, WorldLink } from '@/components/facts'
+import { PersonLink, RoomLink, WorldLink } from '@/components/facts'
 import type { AuditEntry } from '@/lib/api'
 
 /**
@@ -82,7 +82,7 @@ function parts(entry: AuditEntry): Parts {
     entry,
     subject: <Subject entry={entry} />,
     actor: entry.actorId ? (
-      <SubjectLink id={entry.actorId} name={entry.actorName} />
+      <PersonLink platform={entry.actorPlatform} id={entry.actorId} name={entry.actorName} />
     ) : (
       <span className="text-muted-foreground">Somebody</span>
     ),
@@ -104,7 +104,7 @@ function parts(entry: AuditEntry): Parts {
  */
 function Subject({ entry }: { entry: AuditEntry }) {
   if (entry.subjectKind === 'Person')
-    return <SubjectLink id={entry.subjectId} name={entry.subjectName} />
+    return <PersonLink platform={entry.subjectPlatform} id={entry.subjectId} name={entry.subjectName} />
 
   if (entry.subjectKind === 'Instance')
     return entry.instanceId ? <RoomLink roomId={entry.roomId} number={entry.instanceId} /> : <Id value={entry.subjectId} />

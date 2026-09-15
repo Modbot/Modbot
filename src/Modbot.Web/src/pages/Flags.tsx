@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { SubjectLink } from '@/components/facts'
+import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -100,9 +100,7 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
                       {flag.subjectPlatform === 'vrchat' ? (
                         <SubjectLink id={flag.subjectId} name={flag.subjectName} onOpen={onOpenSubject} />
                       ) : (
-                        <span className="font-medium" title={flag.subjectId}>
-                          {flag.subjectName ?? flag.subjectId}
-                        </span>
+                        <DiscordPersonLink id={flag.subjectId} name={flag.subjectName} />
                       )}
                       <Badge variant="outline">
                         {flag.subjectPlatform === 'discord' ? 'Discord' : 'VRChat'}

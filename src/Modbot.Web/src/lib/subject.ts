@@ -39,7 +39,7 @@ import { useLocation, go } from '@/lib/router'
  * the URL rather than calling back — otherwise the first Escape would take them out of Modbot
  * altogether.
  */
-export type SubjectKind = 'person' | 'world' | 'instance'
+export type SubjectKind = 'person' | 'world' | 'instance' | 'discord-person'
 
 export type Subject = { kind: SubjectKind; id: string }
 
@@ -56,7 +56,7 @@ export function encodeSubject(subject: Subject): string {
 export function decodeSubject(value: string): Subject | null {
   if (!value) return null
 
-  for (const kind of ['world', 'instance', 'person'] as const) {
+  for (const kind of ['world', 'instance', 'discord-person', 'person'] as const) {
     const prefix = `${kind}:`
     if (value.startsWith(prefix) && value.length > prefix.length)
       return { kind, id: value.slice(prefix.length) }
@@ -138,4 +138,13 @@ export function openWorld(id: string): void {
 
 export function openInstance(id: string): void {
   openSubject({ kind: 'instance', id })
+}
+
+/**
+ * A Discord account. Its own kind rather than a person with a flag, because a Discord id and a
+ * VRChat id are different people until they link, and even then they stay two popups that point at
+ * each other.
+ */
+export function openDiscordPerson(id: string): void {
+  openSubject({ kind: 'discord-person', id })
 }

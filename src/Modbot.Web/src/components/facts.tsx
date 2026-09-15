@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import { sourceLabel } from '@/lib/format'
-import { openInstance, openPerson, openWorld } from '@/lib/subject'
+import { openDiscordPerson, openInstance, openPerson, openWorld } from '@/lib/subject'
 import type { AuditEntry } from '@/lib/api'
 
 /**
@@ -100,6 +100,41 @@ export function SubjectLink({
     >
       {name ?? id}
     </button>
+  )
+}
+
+/** A Discord account, as a launcher for the Discord person popup. */
+export function DiscordPersonLink({
+  id,
+  name,
+  className,
+}: {
+  id: string
+  name?: string | null
+  className?: string
+}) {
+  return <SubjectLink id={id} name={name} onOpen={openDiscordPerson} className={className} />
+}
+
+/**
+ * A person on whichever platform they are on: Discord opens the Discord popup, anything else the
+ * VRChat one. Platform names arrive as `Discord` from facts and `discord` from analytics.
+ */
+export function PersonLink({
+  platform,
+  id,
+  name,
+  className,
+}: {
+  platform: string | null | undefined
+  id: string
+  name?: string | null
+  className?: string
+}) {
+  return platform?.toLowerCase() === 'discord' ? (
+    <DiscordPersonLink id={id} name={name} className={className} />
+  ) : (
+    <SubjectLink id={id} name={name} className={className} />
   )
 }
 

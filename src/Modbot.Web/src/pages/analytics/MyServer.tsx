@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { DailyBars, DailyLine, Heatmap, Legend, RankedList, compactNumber, longDay, minutes, percent } from '@/components/charts'
+import { PersonLink } from '@/components/facts'
 import { api, type ServerContributor } from '@/lib/api'
 import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, Toggle } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
@@ -17,7 +18,7 @@ const HOURS = Array.from({ length: 24 }, (_, h) => `${h}:00`)
  *
  * Every person listed opens the person popup, as names do everywhere else.
  */
-export function MyServer({ onOpenSubject }: { onOpenSubject?: (subjectId: string) => void }) {
+export function MyServer() {
   const [range, setRange] = useState<Range>(30)
   const [activeSpan, setActiveSpan] = useState<'daily' | 'weekly' | 'monthly'>('daily')
   const load = useCallback((q: string) => api.serverAnalytics(q), [])
@@ -226,7 +227,7 @@ export function MyServer({ onOpenSubject }: { onOpenSubject?: (subjectId: string
               {data.health.quiet.length === 0 ? (
                 <Nothing height={60}>Nobody went quiet.</Nothing>
               ) : (
-                <PeopleTable people={data.health.quiet} onOpenSubject={onOpenSubject} />
+                <PeopleTable people={data.health.quiet} />
               )}
             </Panel>
           </div>
@@ -235,7 +236,7 @@ export function MyServer({ onOpenSubject }: { onOpenSubject?: (subjectId: string
             {data.topContributors.length === 0 ? (
               <Nothing>No messages in this range.</Nothing>
             ) : (
-              <PeopleTable people={data.topContributors} onOpenSubject={onOpenSubject} />
+              <PeopleTable people={data.topContributors} />
             )}
           </Panel>
 
@@ -246,13 +247,8 @@ export function MyServer({ onOpenSubject }: { onOpenSubject?: (subjectId: string
   )
 }
 
-function PeopleTable({
-  people,
-  onOpenSubject,
-}: {
-  people: ServerContributor[]
-  onOpenSubject?: (subjectId: string) => void
-}) {
+/** Everybody here is a Discord member, so every name opens the Discord person popup. */
+function PeopleTable({ people }: { people: ServerContributor[] }) {
   return (
     <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
       <thead className="text-left text-muted-foreground">
@@ -266,13 +262,7 @@ function PeopleTable({
         {people.map((p) => (
           <tr key={p.who.id} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
             <td className="py-1">
-              {onOpenSubject ? (
-                <button type="button" className="font-medium hover:underline" onClick={() => onOpenSubject(p.who.id)}>
-                  {p.who.name ?? p.who.id}
-                </button>
-              ) : (
-                <span className="font-medium">{p.who.name ?? p.who.id}</span>
-              )}
+              <PersonLink platform={p.who.platform} id={p.who.id} name={p.who.name} />
             </td>
             <td className="py-1 text-right tabular-nums">{compactNumber(p.messages)}</td>
             <td className="py-1 text-right tabular-nums text-muted-foreground">

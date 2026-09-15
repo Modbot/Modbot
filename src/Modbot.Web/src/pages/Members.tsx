@@ -3,9 +3,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { SubjectLink } from '@/components/facts'
+import { Avatar } from '@/components/discord/DiscordMemberParts'
+import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { ago, formatDay } from '@/lib/format'
-import { api, ApiError, type MemberList, type MemberQuery } from '@/lib/api'
+import { api, ApiError, type CurrentUser, type LinkedDiscord, type LinkedFilter, type MemberList, type MemberQuery } from '@/lib/api'
+import { can } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 
 /**
@@ -23,12 +25,15 @@ import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 50
 
-export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void }) {
+export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (id: string) => void }) {
+  // Links are for people who may see profiles; the server leaves them out for anybody else.
+  const seesLinks = can(me, 'ViewProfile')
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
   const [role, setRole] = useState('')
   const [status, setStatus] = useState<NonNullable<MemberQuery['status']>>('current')
   const [sort, setSort] = useState<NonNullable<MemberQuery['sort']>>('joined')
+  const [linked, setLinked] = useState<LinkedFilter>('all')
   const [page, setPage] = useState(1)
   const [list, setList] = useState<MemberList | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +51,7 @@ export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void
     let cancelled = false
 
     api
-      .members({ search, role, status, sort, page, pageSize: PAGE_SIZE })
+      .members({ search, role, status, sort, linked, page, pageSize: PAGE_SIZE })
       .then((next) => {
         if (cancelled) return
         setList(next)
@@ -64,7 +69,7 @@ export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void
     return () => {
       cancelled = true
     }
-  }, [search, role, status, sort, page])
+  }, [search, role, status, sort, linked, page])
 
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
@@ -131,6 +136,21 @@ export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void
               <option value="seen">Most recently seen first</option>
             </Select>
 
+            {seesLinks && (
+              <Select
+                value={linked}
+                onChange={(v) => {
+                  setLinked(v as LinkedFilter)
+                  setPage(1)
+                }}
+                aria-label="Linked"
+              >
+                <option value="all">All</option>
+                <option value="linked">Linked</option>
+                <option value="not-linked">Not linked</option>
+              </Select>
+            )}
+
             <span className="flex-1" />
 
             <span className="text-muted-foreground">
@@ -141,7 +161,7 @@ export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void
           {list.members.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground">
               <div className="font-medium text-foreground">
-                {search || role ? 'Nobody matches' : 'Nobody listed yet'}
+                {search || role || linked !== 'all' ? 'Nobody matches' : 'Nobody listed yet'}
               </div>
             </div>
           ) : (
@@ -150,6 +170,7 @@ export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void
                 <thead className="text-muted-foreground">
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
                     <th className="px-3 py-2 text-left font-normal">Person</th>
+                    {seesLinks && <th className="px-3 py-2 text-left font-normal">Discord</th>}
                     <th className="px-3 py-2 text-left font-normal">Roles</th>
                     <th className="px-3 py-2 text-left font-normal">Joined</th>
                     <th className="px-3 py-2 text-left font-normal">Last seen by Modbot</th>
@@ -207,6 +228,15 @@ export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void
                           </div>
                         </div>
                       </td>
+                      {seesLinks && (
+                        <td className="px-3">
+                          {m.linkedDiscord ? (
+                            <DiscordAccount account={m.linkedDiscord} />
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-3">
                         <div className="flex flex-wrap gap-1">
                           {m.roleNames.map((name, i) => (
@@ -255,6 +285,21 @@ export function Members({ onOpenSubject }: { onOpenSubject: (id: string) => void
   )
 }
 
+/** A group member's linked Discord account: picture, name, and whether they are in the server. */
+function DiscordAccount({ account }: { account: LinkedDiscord }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Avatar url={account.avatarUrl} className="size-6" />
+      <div className="min-w-0">
+        <DiscordPersonLink id={account.userId} name={account.name} />
+        <div className="text-muted-foreground" style={{ fontSize: '0.6875rem' }}>
+          {account.inServer ? 'In server' : account.leftAt ? 'Left' : 'Not in server'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /**
  * How old the list is, stated before it. Before the first full sweep the list is partial and
  * the notice is the warning colour, because a short list shown as the group is the mistake
@@ -290,7 +335,7 @@ function Freshness({ coverage }: { coverage: MemberList['coverage'] }) {
   )
 }
 
-function Select({
+export function Select({
   value,
   onChange,
   children,
@@ -314,7 +359,7 @@ function Select({
   )
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
+export function Empty({ children }: { children: React.ReactNode }) {
   return (
     <Card>
       <CardContent className="py-10 text-center text-muted-foreground">{children}</CardContent>

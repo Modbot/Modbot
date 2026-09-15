@@ -63,12 +63,17 @@ public sealed record DiscordMemberListCoverage(
     DateTimeOffset Now);
 
 /// <param name="Total">Rows matching the filters, across every page.</param>
+/// <param name="Roles">
+/// The server's roles to filter by, highest first, without @everyone or roles since deleted. Here
+/// because the Discord role list for settings needs Change settings, and this list does not.
+/// </param>
 public sealed record DiscordMemberListResponse(
     IReadOnlyList<DiscordMemberView> Members,
     int Total,
     int Page,
     int PageSize,
-    DiscordMemberListCoverage Coverage);
+    DiscordMemberListCoverage Coverage,
+    IReadOnlyList<DiscordMemberRoleView> Roles);
 
 /// <summary>
 /// The Discord server's members as the bot last saw them, current and past, with search.
@@ -249,7 +254,12 @@ public static class DiscordMemberEndpoints
                 guildId,
                 server?.MembersListedAt,
                 await inGuild.CountAsync(m => m.LeftAt == null, ct),
-                clock.UtcNow));
+                clock.UtcNow),
+            roles.Values
+                .Where(r => !r.Everyone && r.RemovedAt == null)
+                .OrderByDescending(r => r.Position)
+                .Select(r => new DiscordMemberRoleView(r.RoleId, r.Name, r.Color))
+                .ToList());
     }
 
     /// <summary>The linked VRChat account of each of these Discord users that has one, in one query.</summary>

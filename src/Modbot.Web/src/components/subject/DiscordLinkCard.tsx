@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { api, ApiError, type CurrentUser, type DiscordLinkView } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { can } from '@/lib/permissions'
+import { DiscordPersonLink } from '@/components/facts'
 
 /**
  * The Discord account linked to this VRChat person (M5 §5.3), beside their VRChat profile, so a
@@ -57,7 +58,7 @@ export function DiscordLinkCard({ subjectId, me }: { subjectId: string; me: Curr
       {link && (
         <div className="mt-1 flex flex-col gap-1.5">
           <p>
-            <span className="font-medium">{link.discordUsername}</span>{' '}
+            <DiscordPersonLink id={link.discordUserId} name={link.discordUsername} />{' '}
             <span className="font-mono text-muted-foreground" title={link.discordUserId}>
               {link.discordUserId}
             </span>

@@ -136,6 +136,11 @@ is recorded as *Posted to the Discord log channel*. Adding, changing or deleting
 **Channels** card is recorded as *Settings changed*, with who did it. None of these carries the
 token.
 
+The server's members are listed under **Discord members**, beside the group's **Members**, for
+anyone with *See members*. Opening a person shows what Modbot recorded about them and, with *See
+profiles*, their message counts and the VRChat account they linked. Their stored messages, deleted
+ones included, need *Read Discord messages*, which no built-in role has.
+
 ## Account linking
 
 Members of your community can prove which Discord account and which VRChat account are theirs, on
