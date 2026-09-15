@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.AI.Usage;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -15,13 +16,23 @@ public sealed record InsightStart(string StartedBy, Guid? UserId = null, string?
     public static InsightStart Button(Guid userId, string username) => new(InsightKinds.StartedByButton, userId, username);
 }
 
+/// <summary>What came of asking for one insight.</summary>
+/// <param name="Insight">The stored insight -- with its text, or with the error when the call failed.</param>
+/// <param name="NotAsked">Why the model was not asked at all: AI is off, or the spend limit is reached.
+/// Nothing is stored then.</param>
+public sealed record InsightAttempt(Insight? Insight, string? NotAsked)
+{
+    public const string AiOff = "AI is off. Turn it on under Base.";
+    public const string LimitReached = "The AI spend limit for insights is reached.";
+}
+
 /// <summary>
 /// Gathers the figures for one insight, asks the model to write about them, and stores both.
 /// </summary>
 /// <remarks>
 /// Never acts on anything it writes (M8 §2). The only thing that leaves this class is a stored row.
 /// </remarks>
-public sealed class InsightWriter(ModbotContext db, IAiClients ai, IModbotClock clock, InsightFigureReader reader)
+public sealed class InsightWriter(ModbotContext db, IAiClients ai, IAiUsage usage, IModbotClock clock, InsightFigureReader reader)
 {
     /// <summary>
     /// Room for a reasoning model's thinking as well as its answer. The answer itself is asked to be
@@ -32,9 +43,7 @@ public sealed class InsightWriter(ModbotContext db, IAiClients ai, IModbotClock 
     /// <summary>
     /// Writes one insight for the stretch ending the day before <paramref name="today"/>.
     /// </summary>
-    /// <returns>The stored insight -- with its text, or with the error when the call failed -- or null
-    /// when AI is off, in which case nothing is stored.</returns>
-    public async Task<Insight?> WriteAsync(string kind, string every, DateOnly today, InsightStart start, CancellationToken ct)
+    public async Task<InsightAttempt> WriteAsync(string kind, string every, DateOnly today, InsightStart start, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(start);
 
@@ -43,7 +52,12 @@ public sealed class InsightWriter(ModbotContext db, IAiClients ai, IModbotClock 
 
         var chat = await ai.GetChatAsync(ct);
         if (chat is null)
-            return null;
+            return new InsightAttempt(null, InsightAttempt.AiOff);
+
+        // Read through the shared place every AI feature asks, so the limit settings built for all
+        // of them apply here without this class knowing how a limit is counted (design §6).
+        if (await usage.LimitReachedAsync(AiFeatures.Insights, ct))
+            return new InsightAttempt(null, InsightAttempt.LimitReached);
 
         var settings = await db.InsightSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var model = string.IsNullOrWhiteSpace(settings?.Model) ? chat.Model : settings.Model.Trim();
@@ -84,6 +98,10 @@ public sealed class InsightWriter(ModbotContext db, IAiClients ai, IModbotClock 
             else
                 insight.Text = text.Length <= InsightPrompt.MaxTextLength ? text : string.Concat(text.AsSpan(0, InsightPrompt.MaxTextLength), "…");
 
+            // Under the model asked for, which is what a price is saved under; the person only when
+            // somebody pressed the button.
+            await usage.RecordAsync(AiFeatures.Insights, start.UserId, model, chat.Provider, completion.Usage, ct);
+
             if (!string.IsNullOrWhiteSpace(completion.Model))
                 insight.Model = completion.Model.Length <= AiSettingsRules.MaxModelLength ? completion.Model : model;
         }
@@ -106,6 +124,6 @@ public sealed class InsightWriter(ModbotContext db, IAiClients ai, IModbotClock 
         db.Insights.Add(insight);
         await db.SaveChangesAsync(ct);
 
-        return insight;
+        return new InsightAttempt(insight, null);
     }
 }

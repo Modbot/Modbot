@@ -10,6 +10,9 @@ namespace Modbot.AI.Usage;
 public static class AiFeatures
 {
     public const string Moderation = "moderation";
+
+    /// <summary>AI insights (AI insights design §6). A scheduled one has no user.</summary>
+    public const string Insights = "insights";
 }
 
 /// <summary>

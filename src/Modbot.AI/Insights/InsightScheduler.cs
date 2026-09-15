@@ -54,10 +54,12 @@ public sealed class InsightScheduler(ModbotContext db, InsightWriter writer, IMo
             if (claimed == 0)
                 continue;
 
-            var insight = await writer.WriteAsync(
+            // With AI off or the spend limit reached nothing is asked, and the moment stays claimed:
+            // an insight is about the days just ended, so it is skipped rather than written late.
+            var attempt = await writer.WriteAsync(
                 schedule.Kind, schedule.Every, today, InsightStart.Schedule(schedule.DiscordChannelId), ct);
 
-            if (insight is not null)
+            if (attempt.Insight is not null)
                 written++;
         }
 

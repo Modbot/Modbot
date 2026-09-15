@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.AI.Insights;
+using Modbot.AI.Usage;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -76,7 +77,7 @@ public abstract class InsightTestBase : IAsyncLifetime
         => new(new DbContextOptionsBuilder<ModbotContext>().UseNpgsql(_connectionString).Options);
 
     protected InsightWriter NewWriter(ModbotContext context)
-        => new(context, NewClients(context), Clock, new InsightFigureReader(context));
+        => new(context, NewClients(context), new AiUsageLedger(context, Clock), Clock, new InsightFigureReader(context));
 
     protected InsightScheduler NewScheduler(ModbotContext context)
         => new(context, NewWriter(context), Clock);
@@ -130,6 +131,22 @@ public abstract class InsightTestBase : IAsyncLifetime
 
     protected static DateOnly Day(int month, int day) => new(2029, month, day);
 
+    /// <summary>A monthly token limit for insights, already used up this month.</summary>
+    protected async Task UseUpTheLimitAsync()
+    {
+        await using var context = NewContext();
+        context.AiFeatureLimits.Add(new AiFeatureLimit { Feature = AiFeatures.Insights, MonthlyTokenLimit = 1000 });
+        context.AiUsage.Add(new AiUsage
+        {
+            At = Clock.UtcNow,
+            Feature = AiFeatures.Insights,
+            Model = BaseModel,
+            InputTokens = 900,
+            OutputTokens = 100,
+        });
+        await context.SaveChangesAsync(Ct);
+    }
+
     protected static HttpResponseMessage Completion(string text, string model = BaseModel) => new(HttpStatusCode.OK)
     {
         Content = new StringContent(JsonSerializer.Serialize(new
@@ -141,6 +158,13 @@ public abstract class InsightTestBase : IAsyncLifetime
             choices = new[]
             {
                 new { index = 0, finish_reason = "stop", message = new { role = "assistant", content = text } },
+            },
+            usage = new
+            {
+                prompt_tokens = 900,
+                completion_tokens = 120,
+                total_tokens = 1020,
+                prompt_tokens_details = new { cached_tokens = 300 },
             },
         }), Encoding.UTF8, "application/json"),
     };

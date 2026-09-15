@@ -151,19 +151,20 @@ public static class InsightEndpoints
                 var username = await db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.Username).FirstOrDefaultAsync(ct) ?? "";
                 var schedule = (await SchedulesAsync(db, ct)).Single(s => s.Kind == kind);
 
-                var insight = await writer.WriteAsync(
+                var attempt = await writer.WriteAsync(
                     kind, schedule.Every, InsightPeriod.DayOf(clock.UtcNow), InsightStart.Button(userId, username), ct);
 
-                return insight is null
-                    ? Results.Conflict(new { error = "AI is off. Turn it on under Base." })
-                    : Results.Ok(InsightView.From(insight));
+                return attempt.Insight is null
+                    ? Results.Conflict(new { error = attempt.NotAsked })
+                    : Results.Ok(InsightView.From(attempt.Insight));
             })
             .RequiresFlag(ModbotPermissions.ManageSettings)
             .WithName("GenerateInsight")
             .WithSummary("Write one insight of this kind now, for the stretch ending yesterday")
             .WithDescription(
                 "Waits for the model. Answers 200 with the stored insight whether the model wrote "
-                + "something or the call failed -- `text` or `error` says which. Never posted to Discord.")
+                + "something or the call failed -- `text` or `error` says which. Never posted to Discord. "
+                + "409 when AI is off or the spend limit for insights is reached.")
             .Produces<InsightView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)

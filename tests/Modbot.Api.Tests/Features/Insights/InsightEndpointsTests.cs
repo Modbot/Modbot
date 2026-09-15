@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.AI.Usage;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
@@ -189,5 +190,48 @@ public class InsightEndpointsTests
         var figure = Assert.Single(insight.GetProperty("figures").GetProperty("figures").EnumerateArray());
         Assert.Equal("Warnings", figure.GetProperty("name").GetString());
         Assert.Equal(4, figure.GetProperty("now").GetDecimal());
+    }
+
+    [Fact]
+    public async Task GenerateNowWithTheSpendLimitReached_Is409WithTheLimitsMessage()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await ClearAsync(_db);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        await using (var context = _db.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.AiEnabled = true;
+            settings.AiProvider = "custom";
+            settings.AiEndpoint = "https://llm.test/v1";
+            settings.AiModel = "base-model";
+
+            await context.AiUsage.Where(u => u.Feature == AiFeatures.Insights).ExecuteDeleteAsync(Ct);
+            await context.AiFeatureLimits.Where(l => l.Feature == AiFeatures.Insights).ExecuteDeleteAsync(Ct);
+
+            context.AiFeatureLimits.Add(new AiFeatureLimit { Feature = AiFeatures.Insights, MonthlyTokenLimit = 10 });
+            context.AiUsage.Add(new AiUsage { At = host.Clock.UtcNow, Feature = AiFeatures.Insights, Model = "base-model", InputTokens = 8, OutputTokens = 2 });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        try
+        {
+            var response = await host.SendJsonAsync(HttpMethod.Post, Generate, null, cookie, Ct);
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("The AI spend limit for insights is reached.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+
+            await using var read = _db.NewContext();
+            Assert.False(await read.Insights.AnyAsync(Ct));
+        }
+        finally
+        {
+            await using var cleanup = _db.NewContext();
+            await cleanup.AiUsage.Where(u => u.Feature == AiFeatures.Insights).ExecuteDeleteAsync(Ct);
+            await cleanup.AiFeatureLimits.Where(l => l.Feature == AiFeatures.Insights).ExecuteDeleteAsync(Ct);
+            await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        }
     }
 }

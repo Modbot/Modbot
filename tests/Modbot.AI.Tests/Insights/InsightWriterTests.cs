@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Modbot.AI.Insights;
+using Modbot.AI.Usage;
 using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
@@ -21,11 +22,12 @@ public class InsightWriterTests : InsightTestBase
         await TurnAiOnAsync();
         await AddTotalAsync(Day(3, 10), DailyTotalMetrics.MembersJoined, 12);
 
-        Insight? insight;
+        InsightAttempt attempt;
         await using (var context = NewContext())
-            insight = await NewWriter(context).WriteAsync(InsightKinds.Group, InsightKinds.EveryWeek, Today, InsightStart.Schedule("555"), Ct);
+            attempt = await NewWriter(context).WriteAsync(InsightKinds.Group, InsightKinds.EveryWeek, Today, InsightStart.Schedule("555"), Ct);
 
-        Assert.NotNull(insight);
+        Assert.NotNull(attempt.Insight);
+        Assert.Null(attempt.NotAsked);
 
         var request = Assert.Single(Model.Requests);
         Assert.Equal(Endpoint + "/chat/completions", request.Url);
@@ -92,7 +94,7 @@ public class InsightWriterTests : InsightTestBase
         Answer = _ => Completion("Quiet week.", model: "insight-model");
 
         await using var context = NewContext();
-        var insight = await NewWriter(context).WriteAsync(InsightKinds.Team, InsightKinds.EveryDay, Today, InsightStart.Schedule(null), Ct);
+        var insight = (await NewWriter(context).WriteAsync(InsightKinds.Team, InsightKinds.EveryDay, Today, InsightStart.Schedule(null), Ct)).Insight;
 
         using var body = JsonDocument.Parse(Assert.Single(Model.Requests).Body!);
         Assert.Equal("insight-model", body.RootElement.GetProperty("model").GetString());
@@ -123,8 +125,72 @@ public class InsightWriterTests : InsightTestBase
 
         await using (var context = NewContext())
         {
-            var insight = await NewWriter(context).WriteAsync(InsightKinds.Group, InsightKinds.EveryWeek, Today, InsightStart.Schedule(null), Ct);
-            Assert.Null(insight);
+            var attempt = await NewWriter(context).WriteAsync(InsightKinds.Group, InsightKinds.EveryWeek, Today, InsightStart.Schedule(null), Ct);
+            Assert.Null(attempt.Insight);
+            Assert.Equal(InsightAttempt.AiOff, attempt.NotAsked);
+        }
+
+        Assert.Empty(Model.Requests);
+
+        await using var read = NewContext();
+        Assert.False(await read.Insights.AnyAsync(Ct));
+    }
+
+    /// <summary>Design §6: every call is recorded under insights, with a person only for the button.</summary>
+    [Fact]
+    public async Task EachCallRecordsItsTokens_WithThePersonOnlyWhenSomebodyPressedTheButton()
+    {
+        await TurnAiOnAsync();
+        var person = Guid.NewGuid();
+
+        await using (var context = NewContext())
+        {
+            await NewWriter(context).WriteAsync(InsightKinds.Group, InsightKinds.EveryWeek, Today, InsightStart.Schedule(null), Ct);
+            await NewWriter(context).WriteAsync(InsightKinds.Rooms, InsightKinds.EveryWeek, Today, InsightStart.Button(person, "sam"), Ct);
+        }
+
+        await using var read = NewContext();
+        var rows = await read.AiUsage.AsNoTracking().OrderBy(u => u.Id).ToListAsync(Ct);
+
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, u =>
+        {
+            Assert.Equal(AiFeatures.Insights, u.Feature);
+            Assert.Equal(BaseModel, u.Model);
+            Assert.Equal("custom", u.Provider);
+            Assert.Equal(900, u.InputTokens);
+            Assert.Equal(300, u.CachedInputTokens);
+            Assert.Equal(120, u.OutputTokens);
+            Assert.Equal(Start, u.At);
+        });
+        Assert.Null(rows[0].UserId);
+        Assert.Equal(person, rows[1].UserId);
+    }
+
+    [Fact]
+    public async Task ACallTheProviderRefusedRecordsNoUsage()
+    {
+        await TurnAiOnAsync();
+        Answer = _ => Refused("No credit left");
+
+        await using (var context = NewContext())
+            await NewWriter(context).WriteAsync(InsightKinds.Group, InsightKinds.EveryWeek, Today, InsightStart.Schedule(null), Ct);
+
+        await using var read = NewContext();
+        Assert.False(await read.AiUsage.AnyAsync(Ct));
+    }
+
+    [Fact]
+    public async Task WithTheSpendLimitReached_NothingIsAskedAndNothingIsStored()
+    {
+        await TurnAiOnAsync();
+        await UseUpTheLimitAsync();
+
+        await using (var context = NewContext())
+        {
+            var attempt = await NewWriter(context).WriteAsync(InsightKinds.Group, InsightKinds.EveryWeek, Today, InsightStart.Button(Guid.NewGuid(), "sam"), Ct);
+            Assert.Null(attempt.Insight);
+            Assert.Equal("The AI spend limit for insights is reached.", attempt.NotAsked);
         }
 
         Assert.Empty(Model.Requests);

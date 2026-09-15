@@ -168,4 +168,22 @@ public class InsightSchedulerTests : InsightTestBase
         Assert.Equal(0, await RunAtAsync(Monday9.AddMinutes(5)));
         Assert.Empty(Model.Requests);
     }
+
+    /// <summary>Design §6: a reached limit skips the insight, and it is not written late once lifted.</summary>
+    [Fact]
+    public async Task WithTheSpendLimitReached_TheInsightIsSkipped()
+    {
+        await TurnAiOnAsync();
+        await SaveWeeklyScheduleAsync(Monday9.AddDays(-1));
+        await UseUpTheLimitAsync();
+
+        Assert.Equal(0, await RunAtAsync(Monday9));
+
+        await using (var context = NewContext())
+            await context.AiFeatureLimits.ExecuteDeleteAsync(Ct);
+
+        Assert.Equal(0, await RunAtAsync(Monday9.AddMinutes(1)));
+        Assert.Empty(Model.Requests);
+        Assert.Empty(await InsightsAsync());
+    }
 }

@@ -107,7 +107,21 @@ picks it up, the same way the moderation log reads the fact log.
 
 Insights hold no personal data (§1.1), so they are not covered by retention or purge-user.
 
-## 6. Not in this version
+## 6. Usage and spend limits
+
+Added 2026-09-15 at the maintainer's request that every AI feature has spend limits and cost estimates
+broken down by feature.
+
+- Every insight call records one row in the shared AI usage table (`src/Modbot.AI/Usage`): the input,
+  output and cached tokens the provider reported, the model asked for, feature `insights`, and the
+  person only when somebody pressed Generate now. A scheduled insight has no person.
+- A failed call that the provider never counted records nothing.
+- Before a call, the limit is read through the same shared place. When a limit is reached, a scheduled
+  insight is skipped (its moment still counts as handled, so it is not written late once the limit
+  resets) and Generate now answers with the limit's short message.
+- The limit settings themselves are built later, on their own screen, for every feature at once.
+
+## 7. Not in this version
 
 - An insight straight after a big event (a room far busier than usual). It needs a rule for "big" that
   is not a guess, and the Rooms kind covers the same ground a day later.
