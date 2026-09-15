@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Footer, Sidebar, Topbar } from '@/components/Chrome'
 import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
@@ -12,7 +12,8 @@ import { Account } from '@/pages/Account'
 import { AuditLog } from '@/pages/AuditLog'
 import { Bans } from '@/pages/Bans'
 import { CaseFile } from '@/pages/CaseFile'
-import { Chat } from '@/pages/Chat'
+// Chat carries a Markdown highlighter nothing else uses, so it is fetched when it is opened.
+const Chat = lazy(() => import('@/pages/Chat').then((m) => ({ default: m.Chat })))
 import { Credits } from '@/pages/Credits'
 import { ForgotPassword } from '@/pages/ForgotPassword'
 import { Health } from '@/pages/Health'
@@ -101,8 +102,18 @@ function caseFileId(path: string): string | null {
   return path.startsWith(prefix) && path.length > prefix.length ? path.slice(prefix.length) : null
 }
 
+/**
+ * A conversation lives at `/chat/:id` for the same reason a case file does: it is the person's own
+ * thread, and they come back to it.
+ */
+function chatConversationId(path: string): string | null {
+  const prefix = `${PATHS.chat}/`
+  return path.startsWith(prefix) && path.length > prefix.length ? path.slice(prefix.length) : null
+}
+
 function pageFor(path: string): PageId {
   if (caseFileId(path)) return 'cases'
+  if (chatConversationId(path)) return 'chat'
 
   const match = (Object.keys(PATHS) as PageId[]).find((id) => PATHS[id] === path)
   return match ?? 'members'
@@ -283,7 +294,16 @@ function Shell({
           {page === 'discord-members' && <DiscordMembers me={me} />}
           {page === 'live' && <Live />}
           {page === 'calendar' && <Calendar />}
-          {page === 'chat' && <Chat />}
+          {page === 'chat' && (
+            <Suspense fallback={null}>
+              <Chat
+                conversationId={chatConversationId(route)}
+                onOpenConversation={(id, options) =>
+                  navigate(id ? `${PATHS.chat}/${id}` : PATHS.chat, options)
+                }
+              />
+            </Suspense>
+          )}
           {page === 'bans' && (
             <Bans me={me} onOpenSubject={setSubject} onOpenCase={(id) => navigate(`${PATHS.cases}/${id}`)} />
           )}

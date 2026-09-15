@@ -60,18 +60,48 @@ the [Chat settings](#chat-settings).
 
 ## Using the page
 
-- Type into the box at the bottom and press **Send** (or Enter; Shift+Enter starts a new line). A
-  message can be up to 4,000 characters.
-- While the model is working, the tools it is using appear as it runs them. Press **Stop** to stop
-  the reply. Lookups and messages that had already finished are kept in the conversation.
-- Under an answer, each tool call is shown by name. Hover over one to see what it was asked. People,
-  worlds and rooms a tool found appear beside it; click one to open its
-  [popup](/moderation/popups). A tool that failed says so.
-- **New conversation** starts a fresh one. The list on the left shows your conversations, newest
-  first, titled with their first question.
-- **Delete** removes the open conversation straight away.
-- A conversation holds up to 200 messages (tool calls and their results count). When it is full,
-  start a new one.
+### Asking
+
+- Type into the box at the bottom and press Enter to send; Shift+Enter starts a new line. A message
+  can be up to 4,000 characters. The box grows as you type, and the model in use is named under it.
+- Pressing <kbd>/</kbd> anywhere on the page puts the cursor in the message box.
+- The answer is written a few words at a time. The page follows it down unless you scroll up to read
+  something, and then a **Jump to latest** button appears.
+- While the model is working, **Send** becomes **Stop**. Stopping ends the reply at the provider as
+  well as on screen; the part that was already written is kept and marked **Stopped**.
+
+### Reading an answer
+
+- Answers are written in Markdown: headings, lists, tables and code, with a copy button on each code
+  block. Nothing the model writes can become a link out of Modbot.
+- Every lookup is a step inside the answer, with a tick when it worked. Open one to see what it was
+  asked and what came back in plain words, or press **Raw** for the result as the model got it.
+  Several lookups in a row are grouped as **N steps**.
+- People, worlds and rooms the lookups found are underlined in the answer and shown as buttons under
+  the step. Either opens the usual [popup](/moderation/popups).
+- Hovering over an answer shows **Copy** and **Try again**; hovering over your last question shows
+  **Copy** and **Edit**.
+
+### Asking again, and editing
+
+- **Try again** writes another reply to the same question. **Edit** sends a changed question from
+  that point.
+- Nothing is thrown away: both versions are kept, and `‹ 1/2 ›` beside the message moves between
+  them. Moving back to an older version shows the reply that followed it.
+
+### Conversations
+
+- The list on the left is grouped into **Today**, **Yesterday**, **Previous 7 days** and **Older**,
+  and can be searched. **New chat** starts a fresh one, and the list can be hidden. On a narrow
+  screen it opens as a panel over the page.
+- After the first answer, the model writes a short name for the conversation. The **⋯** menu on a row
+  renames it or deletes it; deleting asks first.
+- Each conversation has its own address, such as `/chat/0199…`, so it can be bookmarked or reopened.
+  It is still only yours to open.
+- The coin button in the header shows what the whole conversation has used and cost, every version of
+  it included.
+- A conversation holds up to 200 messages (tool calls, their results and older versions count). When
+  it is full, start a new one.
 
 A reply can end early:
 
@@ -96,8 +126,10 @@ asked.
 ## What leaves Modbot
 
 Each reply sends your AI provider Modbot's instructions (with your group's name, the current time and
-any extra instructions), the whole conversation so far, the list of tools on offer, and every tool
-result. Tool results are real group data: names, bios, ban history, audit log entries, who is in a
+any extra instructions), the conversation so far, the list of tools on offer, and every tool
+result. Naming a new conversation is one more short call, which sends the first question and the
+first answer; it is counted and limited like every other call Chat makes. If it fails, the
+conversation keeps the first words of the question as its name. Tool results are real group data: names, bios, ban history, audit log entries, who is in a
 room. The asker's Modbot account id is not sent.
 
 If that data must not leave your own servers, use a model you run yourself. See

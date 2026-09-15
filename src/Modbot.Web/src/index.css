@@ -195,6 +195,46 @@
   letter-spacing: -0.01em;
 }
 
+/* Code highlighting in an AI answer. Modbot's own hues rather than a
+   highlight.js theme: a bundled theme brings its own palette, which is a
+   second design in the middle of the page and does not follow the tokens
+   above into dark mode or VR. Only the classes highlight.js actually emits
+   are styled; anything else falls back to the code colour. */
+.hljs-comment,
+.hljs-quote { color: var(--muted-foreground); font-style: italic; }
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-name { color: var(--primary); }
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-literal,
+.dark .hljs-doctag,
+.dark .hljs-name { color: var(--accent-foreground); }
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-attribute { color: var(--ok); }
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link { color: var(--series-1); }
+.hljs-title,
+.hljs-section,
+.hljs-built_in,
+.hljs-class .hljs-title { color: var(--series-4); }
+.hljs-attr,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-type,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id { color: var(--series-2); }
+.hljs-deletion { color: var(--destructive); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+
 @layer base {
   * { border-color: var(--border); }
   body {

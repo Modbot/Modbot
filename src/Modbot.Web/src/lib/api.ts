@@ -1992,16 +1992,24 @@ export type AiSpendWarning = {
 }
 
 /** Something a tool result named that opens a popup. */
-export type ChatReference = { kind: 'person' | 'world' | 'instance'; id: string; label: string | null }
+export type ChatReference = {
+  kind: 'person' | 'world' | 'instance' | 'discord-person'
+  id: string
+  label: string | null
+}
 
 export type ChatConversationSummary = { id: string; title: string; updatedAt: string }
 
-export type ChatHome = { available: boolean; conversations: ChatConversationSummary[] }
+export type ChatHome = { available: boolean; model: string | null; conversations: ChatConversationSummary[] }
 
 export type ChatToolCall = { id: string; name: string; label: string; arguments: string }
 
 export type ChatMessage = {
   id: number
+  /** The message this one follows. Null for the first message of a conversation. */
+  parentId: number | null
+  /** Every version of this message, oldest first, this one among them. One entry means one version. */
+  versions: number[]
   role: 'user' | 'assistant' | 'tool'
   content: string
   toolCalls: ChatToolCall[]
@@ -2011,6 +2019,8 @@ export type ChatMessage = {
   references: ChatReference[]
   worked: boolean | null
   durationMs: number | null
+  /** True for a reply that was stopped, or cut off by the time limit, part-written. */
+  stopped: boolean
   createdAt: string
 }
 
@@ -2314,7 +2324,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
  * written. A refusal before the stream starts (400, 404, 409) still arrives as an ApiError.
  */
 async function sendChatMessage(
-  body: { conversationId: string | null; text: string },
+  body: {
+    conversationId: string | null
+    text: string
+    /** A question of this conversation that `text` is the edited version of. */
+    replaceMessageId?: number
+    /** Write another reply to this message; `text` is not used. */
+    retryAfterMessageId?: number
+  },
   onEvent: (event: ChatStreamEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
@@ -2634,6 +2651,16 @@ export const api = {
   chatConversation: (id: string) => request<ChatConversation>(`/api/chat/conversations/${encodeURIComponent(id)}`),
 
   deleteChatConversation: (id: string) => del<void>(`/api/chat/conversations/${encodeURIComponent(id)}`),
+
+  renameChatConversation: (id: string, title: string) =>
+    put<ChatConversationSummary>(`/api/chat/conversations/${encodeURIComponent(id)}/title`, { title }),
+
+  /** Reads another version of a message, and the newest reply written after it. */
+  readChatVersion: (id: string, messageId: number) =>
+    post<ChatConversation>(`/api/chat/conversations/${encodeURIComponent(id)}/version`, { messageId }),
+
+  chatConversationSpend: (id: string) =>
+    request<AiSpent>(`/api/chat/conversations/${encodeURIComponent(id)}/spend`),
 
   sendChatMessage,
 

@@ -598,6 +598,17 @@
       ]
     },
     {
+      "name": "Microsoft.Extensions.ApiDescription.Server",
+      "version": "10.0.12",
+      "licence": "MIT",
+      "url": "https://asp.net",
+      "source": "https://github.com/dotnet/dotnet",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
       "name": "Microsoft.Extensions.Caching.Abstractions",
       "version": "10.0.12",
       "licence": "MIT",
@@ -851,6 +862,17 @@
       ]
     },
     {
+      "name": "NodaTime",
+      "version": "3.3.4",
+      "licence": "Apache-2.0",
+      "url": "https://nodatime.org",
+      "source": "https://github.com/nodatime/nodatime",
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
       "name": "Npgsql",
       "version": "10.0.3",
       "licence": "PostgreSQL",
@@ -867,6 +889,17 @@
       "licence": "PostgreSQL",
       "url": "https://github.com/npgsql/efcore.pg",
       "source": null,
+      "direct": true,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "OpenAI",
+      "version": "2.13.0",
+      "licence": "MIT",
+      "url": "https://github.com/openai/openai-dotnet/tree/OpenAI_2.13.0",
+      "source": "https://github.com/openai/openai-dotnet",
       "direct": true,
       "usedBy": [
         "Server"
@@ -1085,6 +1118,17 @@
       ]
     },
     {
+      "name": "System.ClientModel",
+      "version": "1.14.0",
+      "licence": "MIT",
+      "url": "https://github.com/Azure/azure-sdk-for-net/blob/System.ClientModel_1.14.0/sdk/core/System.ClientModel/README.md",
+      "source": "https://github.com/Azure/azure-sdk-for-net",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
       "name": "System.CodeDom",
       "version": "6.0.0",
       "licence": "MIT",
@@ -1156,6 +1200,17 @@
       "licence": "MIT",
       "url": "https://dot.net",
       "source": "https://github.com/dotnet/runtime",
+      "direct": false,
+      "usedBy": [
+        "Server"
+      ]
+    },
+    {
+      "name": "System.Memory.Data",
+      "version": "10.0.3",
+      "licence": "MIT",
+      "url": "https://dot.net",
+      "source": "https://github.com/dotnet/dotnet",
       "direct": false,
       "usedBy": [
         "Server"
@@ -1274,6 +1329,62 @@
   ],
   "npm": [
     {
+      "name": "@floating-ui/core",
+      "version": "1.8.0",
+      "licence": "MIT",
+      "url": "https://floating-ui.com",
+      "source": "https://github.com/floating-ui/floating-ui",
+      "direct": false
+    },
+    {
+      "name": "@floating-ui/dom",
+      "version": "1.8.0",
+      "licence": "MIT",
+      "url": "https://floating-ui.com",
+      "source": "https://github.com/floating-ui/floating-ui",
+      "direct": false
+    },
+    {
+      "name": "@floating-ui/react-dom",
+      "version": "2.1.9",
+      "licence": "MIT",
+      "url": "https://floating-ui.com/docs/react-dom",
+      "source": "https://github.com/floating-ui/floating-ui",
+      "direct": false
+    },
+    {
+      "name": "@floating-ui/utils",
+      "version": "0.2.12",
+      "licence": "MIT",
+      "url": "https://floating-ui.com",
+      "source": "https://github.com/floating-ui/floating-ui",
+      "direct": false
+    },
+    {
+      "name": "@fontsource-variable/bricolage-grotesque",
+      "version": "5.3.0",
+      "licence": "OFL-1.1",
+      "url": "https://fontsource.org/fonts/bricolage-grotesque",
+      "source": "https://github.com/fontsource/font-files",
+      "direct": true
+    },
+    {
+      "name": "@fontsource/ibm-plex-mono",
+      "version": "5.3.0",
+      "licence": "OFL-1.1",
+      "url": "https://fontsource.org/fonts/ibm-plex-mono",
+      "source": "https://github.com/fontsource/font-files",
+      "direct": true
+    },
+    {
+      "name": "@fontsource/ibm-plex-sans",
+      "version": "5.3.0",
+      "licence": "OFL-1.1",
+      "url": "https://fontsource.org/fonts/ibm-plex-sans",
+      "source": "https://github.com/fontsource/font-files",
+      "direct": true
+    },
+    {
       "name": "@radix-ui/primitive",
       "version": "1.1.7",
       "licence": "MIT",
@@ -1338,6 +1449,22 @@
       "direct": false
     },
     {
+      "name": "@radix-ui/react-popover",
+      "version": "1.1.23",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-popper",
+      "version": "1.3.7",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
       "name": "@radix-ui/react-portal",
       "version": "1.1.17",
       "licence": "MIT",
@@ -1395,6 +1522,14 @@
     },
     {
       "name": "@radix-ui/react-use-layout-effect",
+      "version": "1.1.4",
+      "licence": "MIT",
+      "url": "https://radix-ui.com/primitives",
+      "source": "https://github.com/radix-ui/primitives",
+      "direct": false
+    },
+    {
+      "name": "@radix-ui/react-use-size",
       "version": "1.1.4",
       "licence": "MIT",
       "url": "https://radix-ui.com/primitives",
@@ -1610,10 +1745,26 @@
       "direct": false
     },
     {
+      "name": "hast-util-is-element",
+      "version": "3.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/hast-util-is-element",
+      "source": null,
+      "direct": false
+    },
+    {
       "name": "hast-util-to-jsx-runtime",
       "version": "2.3.6",
       "licence": "MIT",
       "url": "https://github.com/syntax-tree/hast-util-to-jsx-runtime",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "hast-util-to-text",
+      "version": "4.0.2",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/hast-util-to-text",
       "source": null,
       "direct": false
     },
@@ -1624,6 +1775,22 @@
       "url": "https://github.com/syntax-tree/hast-util-whitespace",
       "source": null,
       "direct": false
+    },
+    {
+      "name": "highlight.js",
+      "version": "11.11.2",
+      "licence": "BSD-3-Clause",
+      "url": "https://highlightjs.org",
+      "source": "https://github.com/highlightjs/highlight.js",
+      "direct": true
+    },
+    {
+      "name": "highlight.js",
+      "version": "11.12.0",
+      "licence": "BSD-3-Clause",
+      "url": "https://highlightjs.org",
+      "source": "https://github.com/highlightjs/highlight.js",
+      "direct": true
     },
     {
       "name": "html-url-attributes",
@@ -1670,6 +1837,14 @@
       "version": "3.1.0",
       "licence": "MIT",
       "url": "https://github.com/wooorm/longest-streak",
+      "source": null,
+      "direct": false
+    },
+    {
+      "name": "lowlight",
+      "version": "3.3.0",
+      "licence": "MIT",
+      "url": "https://github.com/wooorm/lowlight",
       "source": null,
       "direct": false
     },
@@ -2082,6 +2257,14 @@
       "direct": false
     },
     {
+      "name": "rehype-highlight",
+      "version": "7.0.2",
+      "licence": "MIT",
+      "url": "https://github.com/rehypejs/rehype-highlight",
+      "source": null,
+      "direct": true
+    },
+    {
       "name": "remark-gfm",
       "version": "4.0.1",
       "licence": "MIT",
@@ -2199,6 +2382,14 @@
       "licence": "MIT",
       "url": "https://unifiedjs.com",
       "source": "https://github.com/unifiedjs/unified",
+      "direct": false
+    },
+    {
+      "name": "unist-util-find-after",
+      "version": "5.0.0",
+      "licence": "MIT",
+      "url": "https://github.com/syntax-tree/unist-util-find-after",
+      "source": null,
       "direct": false
     },
     {
