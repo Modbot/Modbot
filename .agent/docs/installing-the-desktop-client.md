@@ -64,11 +64,13 @@ event carries that person's VRChat user id and display name and the world and in
 The client never sends VRChat's raw log, and never the part of a private instance's address that would
 let someone join it.
 
-- Turn it off in the client under **Settings**. That stops sending at once and deletes anything
-  queued. Turning it back on sends only from that moment.
+- Turn it off with `"cloud": { "disabled": true }` in `%APPDATA%\Modbot\settings.json`, or by setting
+  the environment variable `MODBOT_CLOUD_DISABLED=1` for your account, then restart the client. It
+  then sends nothing and deletes anything queued. `MODBOT_CLOUD_ENDPOINT` or `cloud.endpoint` sends it
+  to another Modbot Cloud. The environment variable wins over the file.
 - Your client is identified to Modbot Cloud by a random install id, not your name or VRChat account.
 - Events wait in `%APPDATA%\Modbot\cloud` while you are offline, up to 20 MB; past that the oldest go.
-- A group's server can turn it off for everyone paired with it, or send it to its own Cloud.
+- It works the same whether or not you are paired. A group's server has no say in it.
 
 ## Where things are
 

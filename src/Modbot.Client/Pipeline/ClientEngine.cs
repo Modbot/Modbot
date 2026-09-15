@@ -103,9 +103,9 @@ public sealed class ClientEngine
     {
         var observations = _observer.Poll();
 
-        // The Modbot Cloud backup hears about every observation, whichever instance it is in; the
-        // servers below hear only about their own group's. Offer only queues, so it costs this turn
-        // nothing.
+        // Two separate flows. The Modbot Cloud backup hears about every observation, whichever
+        // instance it is in, and whether or not anything is paired; the servers below hear only about
+        // their own group's. Offer only queues, so it costs this turn nothing.
         _backup?.Offer(observations);
         var dropped = _router.DispatchAll(observations);
 
@@ -134,10 +134,7 @@ public sealed class ClientEngine
 
         _lastClockCheck[connection.ServerId] = _clock.UtcNow;
 
-        if (await _timeProbe.MeasureAsync(connection.Pairing, cancellationToken).ConfigureAwait(false) is { } answer)
-        {
-            connection.ServerClock.Add(answer.Sample);
-            connection.Cloud = answer.Cloud;
-        }
+        if (await _timeProbe.MeasureAsync(connection.Pairing, cancellationToken).ConfigureAwait(false) is { } sample)
+            connection.ServerClock.Add(sample);
     }
 }

@@ -20,9 +20,9 @@ public sealed record OutboxBatch(string Name, long Sequence, int Events);
 /// and deleted the moment Cloud accepts them.</para>
 /// <para><strong>It forgets on purpose.</strong> The folder is capped at <see cref="DefaultCap"/>. When
 /// closing a batch passes the cap, the oldest batches are deleted first and their events counted in
-/// <see cref="DroppedEvents"/>. Turning the backup off deletes everything here.</para>
+/// <see cref="DroppedEvents"/>. Starting the client with the backup off deletes everything here.</para>
 /// <para><strong>Nothing in here is sent except by <see cref="CloudEventBackup"/></strong>, to the one
-/// Cloud address it has settled on.</para>
+/// Cloud address it was started with.</para>
 /// <para>Not thread-safe: <see cref="CloudEventBackup"/> is its only user and holds a lock around it.</para>
 /// </remarks>
 public sealed partial class CloudOutbox

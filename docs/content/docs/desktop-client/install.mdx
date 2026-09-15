@@ -157,7 +157,7 @@ for up to three days) and go out when it is back.
 The client also talks to a paired server in these ways:
 
 - It asks the server's time soon after it starts or pairs, and every two hours after that, so its
-  timestamps line up with the server's clock. The answer also says where Cloud backup should go.
+  timestamps line up with the server's clock.
 - While you are in that group's instance, the [overlay](/desktop-client/overlay) asks for the
   instance's roster (which tells the server the instance id) and waits for flagged-user alerts.
 
@@ -166,12 +166,14 @@ Everything the client sent to a server is listed on **What I've sent**.
 ### What it sends to Modbot Cloud
 
 Unless you turn it off, the client also sends **the same events, for every instance you are in**,
-to Modbot Cloud as a backup. That includes public, friends-only and private instances, where the
-group is left empty. It works even before you pair. It never sends VRChat's raw log, and never the
-secret part of an instance's address.
+straight to Modbot Cloud (`https://cloud.modbot.co`) as a backup. That includes public,
+friends-only and private instances, where the group is left empty. It works the same before and
+after you pair, and a paired server has no say in it. It never sends VRChat's raw log, and never
+the secret part of an instance's address.
 
-Cloud backup is not listed on **What I've sent**. How it works, and how to turn it off, is on
-[Client settings](/desktop-client/settings#send-all-logging-to-modbot-cloud-as-backup).
+Cloud backup is not listed on **What I've sent**. How it works, and how to turn it off in the
+client's settings file or with environment variables, is on
+[Client settings](/desktop-client/settings#modbot-cloud-backup).
 
 ### Other connections
 

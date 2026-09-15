@@ -338,9 +338,14 @@ reworded.
   authenticated API as themselves, not through the device token — an ingest token cannot ban anyone
   (M3 §4).
 - **No log content.** Parsed events only, never raw lines (M3 §3.1). *(2026-09-15: still true. The
-  client also sends these same parsed events, for every instance, to Modbot Cloud as a backup —
-  `2026-09-15-cloud-log-backup-design.md`. The only addition to this protocol is the `cloud` object and
-  `instanceId` on `GET /client/time`, which tell the client where that goes.)*
+  client also sends these same parsed events, for every instance, straight to Modbot Cloud as a
+  backup — `2026-09-15-cloud-log-backup-design.md`. That is a separate flow, set only on the client's
+  PC, and not part of this protocol.)*
+- **Nothing about Modbot Cloud.** A server never tells its clients where their Cloud backup goes or
+  whether to send it. *(2026-09-15: a revision that day added a `cloud` object and `instanceId` to
+  `GET /client/time` for exactly that; they were removed the same day, before any release, and the
+  answer is back to `serverTime` alone (§5). The fields were only ever additions a client could
+  ignore, so the API version is unchanged.)*
 - **No cross-group data.** A pairing sees exactly one group's context.
 
 ---

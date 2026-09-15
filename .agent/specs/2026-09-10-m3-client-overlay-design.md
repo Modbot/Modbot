@@ -170,9 +170,11 @@ managed group, are dropped locally and never reported.** The client is a group m
 has no business observing a moderator's personal VRChat use, and it does not.
 
 > **Narrowed 2026-09-15.** This table still describes everything sent to a **Modbot server**, and the
-> raw log line is still never transmitted anywhere. What changed: unless the moderator turns it off, the
-> client also sends its parsed presence events to Modbot Cloud as a backup, for **every** instance,
-> including ones outside the managed group. See `2026-09-15-cloud-log-backup-design.md`.
+> raw log line is still never transmitted anywhere. What changed: the client also sends its parsed
+> presence events straight to Modbot Cloud as a backup, for **every** instance, including ones outside
+> the managed group, whether or not it is paired. It is on unless the person using the PC turns it off
+> in the client's `settings.json` or with `MODBOT_CLOUD_DISABLED` on that PC; a paired server has no say
+> in it. See `2026-09-15-cloud-log-backup-design.md`.
 
 #### 3.1.1 "Screenshots" here means capture, not a file a human chose to attach
 

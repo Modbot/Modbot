@@ -1,11 +1,7 @@
 using Microsoft.AspNetCore.Builder;
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Modbot.Core.Configuration;
 using Modbot.Api.Features.Client.Alerts;
 using Modbot.Api.Features.Client.Context;
 using Modbot.Api.Features.Client.Devices;
@@ -66,10 +62,6 @@ public static class ClientApi
         services.AddSingleton<AlertHub>();
         services.AddScoped<DeviceAuthenticator>();
 
-        // The host registers the address from MODBOT_CLOUD_ENDPOINT and MODBOT_CLOUD_DISABLED
-        // first; anything that wires the client API without it gets the default.
-        services.TryAddSingleton(ModbotCloudAddress.Default);
-
         return services;
     }
 
@@ -103,9 +95,9 @@ public static class ClientApi
             .Produces<ClientError>(StatusCodes.Status503ServiceUnavailable)
             .AllowAnonymous();
 
-        client.MapGet("/time", ([FromRoute] int apiVersion, [FromServices] IModbotClock clock, [FromServices] ModbotCloudAddress cloud) =>
+        client.MapGet("/time", (int apiVersion, IModbotClock clock) =>
                 ClientApiVersion.IsSupported(apiVersion)
-                    ? Results.Ok(ServerTimeResponse.Create(clock.UtcNow, cloud))
+                    ? Results.Ok(new ServerTimeResponse(clock.UtcNow))
                     : ClientApiErrors.VersionUnsupported(apiVersion))
             .WithName("GetClientServerTime")
             .WithSummary("The server's current instant, for the client's clock offset")
@@ -116,11 +108,7 @@ public static class ClientApi
                 + "machine clocks the window would have to exceed worst-case skew, which would "
                 + "swallow the fifteen-second genuine rejoin it has to preserve.\n\n"
                 + "Deliberately anonymous and deliberately trivial. It discloses the time, which "
-                + "every HTTP response header already does.\n\n"
-                + "Also says where paired clients send their event backup: the Modbot Cloud named by "
-                + "MODBOT_CLOUD_ENDPOINT, or nowhere when MODBOT_CLOUD_DISABLED is set. "
-                + "instanceId is this deployment's id for Cloud to group clients by, and is null "
-                + "until deployments have one.")
+                + "every HTTP response header already does.")
             .Produces<ServerTimeResponse>()
             .AllowAnonymous();
 
@@ -195,29 +183,4 @@ public static class ClientApi
 }
 
 /// <param name="ServerTime">RFC 3339 with an explicit offset, like every timestamp in this API.</param>
-/// <param name="Cloud">Where paired clients send their event backup (cloud event backup spec 3.1).</param>
-/// <param name="InstanceId">
-/// This deployment's id, which the client passes on to Cloud so installs can be grouped by server.
-/// Null: Modbot deployments do not have one yet.
-/// </param>
-public sealed record ServerTimeResponse(
-    [property: JsonPropertyName("serverTime")] DateTimeOffset ServerTime,
-    [property: JsonPropertyName("cloud")] ServerCloudResponse Cloud,
-    [property: JsonPropertyName("instanceId")] string? InstanceId)
-{
-    public static ServerTimeResponse Create(DateTimeOffset now, ModbotCloudAddress cloud)
-    {
-        ArgumentNullException.ThrowIfNull(cloud);
-
-        return new ServerTimeResponse(
-            now,
-            new ServerCloudResponse(cloud.Disabled ? null : cloud.Endpoint.ToString(), cloud.Disabled),
-            InstanceId: null);
-    }
-}
-
-/// <param name="Endpoint">The Cloud to send to, or null when <see cref="Disabled"/>.</param>
-/// <param name="Disabled">Paired clients must send no event backup at all.</param>
-public sealed record ServerCloudResponse(
-    [property: JsonPropertyName("endpoint")] string? Endpoint,
-    [property: JsonPropertyName("disabled")] bool Disabled);
+public sealed record ServerTimeResponse(DateTimeOffset ServerTime);

@@ -70,7 +70,7 @@ public sealed class PresenceEventMapper
 
     /// <summary>
     /// Builds the same wire event for any instance, group or not. Used only by the Modbot Cloud
-    /// backup, which the moderator can turn off; never by anything that sends to a Modbot server.
+    /// backup, which can be turned off on this PC; never by anything that sends to a Modbot server.
     /// </summary>
     public ClientEvent MapAnyInstance(ObservedPresence observation) => Build(observation, observation.Instance.GroupId);
 

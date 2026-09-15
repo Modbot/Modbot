@@ -33,6 +33,8 @@ services:
       SEQ_URL: http://seq:5341
       PORT: "8080"
       MODBOT_DEBUG_LOGGING: ${MODBOT_DEBUG_LOGGING:-}
+      # Which Modbot Cloud this server talks to for its own use, and whether it does. Not passed to
+      # desktop clients, which keep their own Cloud settings.
       MODBOT_CLOUD_ENDPOINT: ${MODBOT_CLOUD_ENDPOINT:-}
       MODBOT_CLOUD_DISABLED: ${MODBOT_CLOUD_DISABLED:-}
     ports:

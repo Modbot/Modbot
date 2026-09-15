@@ -22,10 +22,11 @@ namespace Modbot.Core.Configuration;
 /// <para><strong>Do not add a fourth without the same justification.</strong></para>
 /// <para>
 /// <c>MODBOT_CLOUD_ENDPOINT</c> and <c>MODBOT_CLOUD_DISABLED</c> are the maintainer's exception, not
-/// a fourth setting in that sense (cloud event backup spec 3.1). They are not about reaching the
-/// database; they say where this server's paired desktop clients send their event backup, and are
-/// read from the environment because that is where the maintainer asked operators to set them.
-/// Both are optional, and Modbot runs identically without them.
+/// a fourth setting in that sense (central services spec 1.1). They are not about reaching the
+/// database; they say where this server talks to Modbot Cloud for its own purposes, and whether it
+/// does, and are read from the environment because that is where the maintainer asked operators to
+/// set them. They say nothing to paired desktop clients, which keep their own Cloud settings. Both
+/// are optional, and Modbot runs identically without them.
 /// </para>
 /// </remarks>
 public sealed class ModbotEnvironment
@@ -49,12 +50,12 @@ public sealed class ModbotEnvironment
     public bool DebugLogging { get; init; }
 
     /// <summary>
-    /// The Modbot Cloud paired clients send their event backup to, from <c>MODBOT_CLOUD_ENDPOINT</c>.
-    /// Null means the default, <c>https://cloud.modbot.co</c>. See <see cref="ModbotCloudAddress"/>.
+    /// The Modbot Cloud this server talks to, from <c>MODBOT_CLOUD_ENDPOINT</c>. Null means the
+    /// default, <c>https://cloud.modbot.co</c>. See <see cref="ModbotCloudAddress"/>.
     /// </summary>
     public string? CloudEndpoint { get; init; }
 
-    /// <summary>True when <c>MODBOT_CLOUD_DISABLED</c> is set truthy: paired clients send no event backup.</summary>
+    /// <summary>True when <c>MODBOT_CLOUD_DISABLED</c> is set truthy: this server does not talk to Modbot Cloud.</summary>
     public bool CloudDisabled { get; init; }
 
     public static ModbotEnvironment Read(IDictionary<string, string?>? source = null)

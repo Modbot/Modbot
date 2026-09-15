@@ -7,17 +7,11 @@ using Modbot.Core.Time;
 
 namespace Modbot.Client.CloudBackup;
 
-/// <summary>What the backup is doing, in the words the settings screen shows.</summary>
+/// <summary>What the backup is doing, for the client's own log.</summary>
 public enum CloudBackupState
 {
-    /// <summary>The moderator turned it off.</summary>
+    /// <summary>Turned off in <c>settings.json</c> or with <c>MODBOT_CLOUD_DISABLED</c>.</summary>
     Off,
-
-    /// <summary>A paired server's operator turned it off.</summary>
-    TurnedOffByServer,
-
-    /// <summary>Queuing, until a paired server says where to send.</summary>
-    WaitingForServer,
 
     /// <summary>Working normally.</summary>
     Sending,
@@ -32,6 +26,8 @@ public sealed record CloudBackupStatus(CloudBackupState State, long Queued, long
 
 /// <summary>Everything the backup needs, in one place.</summary>
 /// <param name="Directory">Its outbox folder, <c>%APPDATA%\Modbot\cloud</c>.</param>
+/// <param name="Endpoint">The Modbot Cloud to send to, from <see cref="CloudSettings"/>. Null is the default.</param>
+/// <param name="Enabled">False when <see cref="CloudSettings.Disabled"/>.</param>
 /// <param name="TimeZone">This PC's time zone, for reading VRChat's offset-less timestamps.</param>
 public sealed record CloudBackupOptions(
     string Directory,
@@ -39,6 +35,7 @@ public sealed record CloudBackupOptions(
     ICloudLogClient Client,
     ICloudInstallStore Installs,
     string ClientVersion,
+    Uri? Endpoint = null,
     bool Enabled = true,
     TimeZoneInfo? TimeZone = null,
     BackoffPolicy? Backoff = null,
@@ -58,8 +55,8 @@ public interface IObservationSink
 }
 
 /// <summary>
-/// "Send all logging to Modbot Cloud as backup": the presence events this client reports, for every
-/// instance, sent to Modbot Cloud (cloud event backup spec).
+/// The event backup: the presence events this client reports, for every instance, sent to Modbot
+/// Cloud (cloud event backup spec).
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends.</strong> The client's parsed presence events — joins, "already
@@ -70,12 +67,14 @@ public interface IObservationSink
 /// <strong>every instance</strong> the moderator is in, public, friends-only and private ones included,
 /// not only their group's. It never sends a raw log line, and never an instance's <c>nonce</c>, which
 /// is thrown away when a location is read.</para>
-/// <para><strong>Where.</strong> To one Modbot Cloud: <c>https://cloud.modbot.co</c>, or the one a
-/// paired server names. If any paired server's operator turned it off, nothing is sent and nothing
-/// is queued (<see cref="CloudDestination"/>). What each Modbot server is sent is unchanged.</para>
-/// <para><strong>On by default, and off means off.</strong> Turning it off stops sending at once — a
-/// batch in flight is cancelled — and deletes everything queued. Turning it back on sends from that
-/// moment; nothing observed while it was off is ever sent.</para>
+/// <para><strong>Where.</strong> To one Modbot Cloud: <c>https://cloud.modbot.co</c>, or the one named
+/// in <c>settings.json</c> or <c>MODBOT_CLOUD_ENDPOINT</c> on this PC (<see cref="CloudSettings"/>).
+/// Paired Modbot servers have no say in it, and pairing or unpairing changes nothing here. What each
+/// Modbot server is sent is separate and unchanged: only its own group's events, to its own
+/// address.</para>
+/// <para><strong>On by default, and off means off.</strong> A client started with the backup off
+/// sends nothing, queues nothing, and deletes anything a previous run left queued. Nothing observed
+/// while it was off is ever sent.</para>
 /// <para><strong>What is written to your disk.</strong> The outbox (<see cref="CloudOutbox"/>), capped
 /// at 20 MB, and this client's install id and encrypted secret (<see cref="DpapiCloudInstallStore"/>).</para>
 /// <para><strong>It never slows the log reader.</strong> <see cref="Offer"/> puts observations on an
@@ -108,9 +107,8 @@ public sealed class CloudEventBackup : IObservationSink
     private readonly Lock _outboxGate = new();
     private readonly Queue<ObservedPresence> _queue = new();
 
-    private volatile bool _enabled;
-    private volatile CloudDestination _destination = CloudDestination.Default;
-    private volatile CancellationTokenSource _sendStop = new();
+    private readonly bool _enabled;
+    private readonly Uri _endpoint;
 
     /// <summary>When the oldest observation now queued was offered. A batch's age counts from here.</summary>
     private DateTimeOffset? _queuedSince;
@@ -141,57 +139,22 @@ public sealed class CloudEventBackup : IObservationSink
         _timestamps = new LogTimestampConverter(options.TimeZone);
         _ids = options.Ids;
         _clientVersion = options.ClientVersion;
+        _endpoint = options.Endpoint ?? CloudSettings.DefaultEndpoint;
         _enabled = options.Enabled;
         _queuedOnDisk = _outbox.QueuedEvents;
         _cloudClock = new ServerClock(_clock);
         _mapper = new PresenceEventMapper(_timestamps, _cloudClock, _ids);
 
-        // Turned off while the client was closed -- settings edited by hand -- leaves nothing behind.
+        // Turned off while the client was closed leaves nothing behind.
         if (!_enabled)
             Clear();
     }
 
-    /// <summary>The moderator's switch.</summary>
-    public bool Enabled
-    {
-        get => _enabled;
-        set
-        {
-            if (_enabled == value)
-                return;
+    /// <summary>False when <c>settings.json</c> or <c>MODBOT_CLOUD_DISABLED</c> turned the backup off.</summary>
+    public bool Enabled => _enabled;
 
-            _enabled = value;
-            if (!value)
-                Clear();
-        }
-    }
-
-    /// <summary>
-    /// Where to send, worked out by the caller from the paired servers' answers each turn. A server
-    /// turning the backup off clears the queue, exactly as the moderator turning it off does.
-    /// </summary>
-    public CloudDestination Destination
-    {
-        get => _destination;
-        set
-        {
-            ArgumentNullException.ThrowIfNull(value);
-
-            var previous = _destination;
-            _destination = value;
-
-            if (value.Kind is CloudDestinationKind.TurnedOffByServer && previous.Kind is not CloudDestinationKind.TurnedOffByServer)
-                Clear();
-
-            if (value.Endpoint != previous.Endpoint && value.Endpoint is not null)
-            {
-                _notBefore = null;
-                _failures = 0;
-            }
-        }
-    }
-
-    public bool WantsEvents => _enabled && _destination.Kind is not CloudDestinationKind.TurnedOffByServer;
+    /// <summary>The Modbot Cloud this client sends to.</summary>
+    public Uri Endpoint => _endpoint;
 
     public CloudBackupStatus Status
     {
@@ -202,12 +165,8 @@ public sealed class CloudEventBackup : IObservationSink
                 inMemory = _queue.Count;
 
             var state = !_enabled ? CloudBackupState.Off
-                : _destination.Kind switch
-                {
-                    CloudDestinationKind.TurnedOffByServer => CloudBackupState.TurnedOffByServer,
-                    CloudDestinationKind.Wait => CloudBackupState.WaitingForServer,
-                    _ => _failures > 0 ? CloudBackupState.Retrying : CloudBackupState.Sending,
-                };
+                : _failures > 0 ? CloudBackupState.Retrying
+                : CloudBackupState.Sending;
 
             return new CloudBackupStatus(
                 state,
@@ -221,7 +180,7 @@ public sealed class CloudEventBackup : IObservationSink
     {
         ArgumentNullException.ThrowIfNull(observations);
 
-        if (!WantsEvents || observations.Count == 0)
+        if (!_enabled || observations.Count == 0)
             return;
 
         var now = _clock.UtcNow;
@@ -278,27 +237,18 @@ public sealed class CloudEventBackup : IObservationSink
 
     /// <summary>
     /// One turn: turn queued observations into events on disk, close a batch that is due, and send the
-    /// oldest batch if sending is allowed. Returns true when a batch was accepted.
+    /// oldest batch unless a backoff is being waited out. Returns true when a batch was accepted.
     /// </summary>
     public async Task<bool> PumpAsync(CancellationToken cancellationToken)
     {
-        if (!WantsEvents)
+        if (!_enabled)
             return false;
 
-        var destination = _destination;
+        var endpoint = _endpoint;
+
         // Only asks Cloud the time when there is something to send, so an idle client is silent.
-        if (destination is { Kind: CloudDestinationKind.Send, Endpoint: { } clockEndpoint } && Status.Queued > 0)
-        {
-            using var measuring = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _sendStop.Token);
-            try
-            {
-                await MeasureClockAsync(clockEndpoint, measuring.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                return false;
-            }
-        }
+        if (Status.Queued > 0)
+            await MeasureClockAsync(endpoint, cancellationToken).ConfigureAwait(false);
 
         MoveQueueToDisk();
 
@@ -308,9 +258,6 @@ public sealed class CloudEventBackup : IObservationSink
             _outbox.CloseIfDue(now);
             Interlocked.Exchange(ref _queuedOnDisk, _outbox.QueuedEvents);
         }
-
-        if (destination is not { Kind: CloudDestinationKind.Send, Endpoint: { } endpoint })
-            return false;
 
         if (_notBefore is { } waitUntil && now < waitUntil)
             return false;
@@ -328,34 +275,24 @@ public sealed class CloudEventBackup : IObservationSink
             generation = Volatile.Read(ref _generation);
         }
 
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _sendStop.Token);
+        if (await InstallAsync(endpoint, cancellationToken).ConfigureAwait(false) is not { } install)
+            return false;
 
+        byte[] body;
         try
         {
-            if (await InstallAsync(endpoint, linked.Token).ConfigureAwait(false) is not { } install)
-                return false;
-
-            byte[] body;
-            try
-            {
-                body = Body(batch, events, destination);
-            }
-            catch (Exception ex) when (ex is JsonException or ArgumentException)
-            {
-                // An event on disk that is not the JSON this client wrote. Resending will not fix it.
-                Finish(batch, generation, new IngestResult(IngestOutcome.Malformed), endpoint);
-                return false;
-            }
-
-            var result = await _client.SendAsync(install, body, linked.Token).ConfigureAwait(false);
-            Finish(batch, generation, result, endpoint);
-            return result.Outcome is IngestOutcome.Accepted;
+            body = Body(batch, events);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is JsonException or ArgumentException)
         {
-            // Turned off mid-request. The batch is gone with the rest of the outbox.
+            // An event on disk that is not the JSON this client wrote. Resending will not fix it.
+            Finish(batch, generation, new IngestResult(IngestOutcome.Malformed), endpoint);
             return false;
         }
+
+        var result = await _client.SendAsync(install, body, cancellationToken).ConfigureAwait(false);
+        Finish(batch, generation, result, endpoint);
+        return result.Outcome is IngestOutcome.Accepted;
     }
 
     private void MoveQueueToDisk()
@@ -428,7 +365,7 @@ public sealed class CloudEventBackup : IObservationSink
         return null;
     }
 
-    private byte[] Body(OutboxBatch batch, IReadOnlyList<string> events, CloudDestination destination)
+    private byte[] Body(OutboxBatch batch, IReadOnlyList<string> events)
     {
         using var buffer = new MemoryStream();
         using (var gzip = new GZipStream(buffer, CompressionLevel.Fastest, leaveOpen: true))
@@ -443,10 +380,8 @@ public sealed class CloudEventBackup : IObservationSink
             writer.WriteNumber("clockOffsetMs", (long)_cloudClock.Offset.TotalMilliseconds);
             writer.WriteString("clockConfidence", _cloudClock.Confidence.ToWire());
 
-            if (destination.ModbotServerId is { } serverId)
-                writer.WriteString("modbotServerId", serverId);
-            else
-                writer.WriteNull("modbotServerId");
+            // No modbotServerId. Cloud still accepts one, but nothing about the backup comes from,
+            // or is tied to, a paired Modbot server (cloud event backup spec 3.3).
 
             writer.WriteStartArray("events");
             foreach (var json in events)
@@ -514,7 +449,7 @@ public sealed class CloudEventBackup : IObservationSink
         _notBefore = _clock.UtcNow + (retryAfter ?? _backoff.Delay(_failures));
     }
 
-    /// <summary>Forgets everything queued and cancels a batch in flight.</summary>
+    /// <summary>Forgets everything queued.</summary>
     private void Clear()
     {
         lock (_queueGate)
@@ -523,10 +458,6 @@ public sealed class CloudEventBackup : IObservationSink
             _queuedSince = null;
             Interlocked.Increment(ref _generation);
         }
-
-        var stop = _sendStop;
-        _sendStop = new CancellationTokenSource();
-        stop.Cancel();
 
         lock (_outboxGate)
         {

@@ -49,11 +49,49 @@ ordinary, useful, and how a maintainer decides what to support.
 - **No public directory.** The registry is not browsable and not enumerable by third parties (§4.3).
 - **No content of any kind from a group's database.**
 
-> **Narrowed 2026-09-15.** Modbot Cloud (`cloud.modbot.co`) is operated centrally. By default it stores
-> the parsed presence events desktop clients send it, for every instance they are in — never raw log
-> lines. Later, Modbot deployments will also send it their own structured logs for remote support and
-> backups; that half is not built. It still holds nothing read from a group's database. See
-> `2026-09-15-cloud-log-backup-design.md`.
+> **Narrowed 2026-09-15, corrected the same day.** Modbot Cloud (`cloud.modbot.co`) is operated
+> centrally, and two kinds of program use it, separately. Neither decides anything for the other.
+
+#### 1.1.1 Desktop clients
+
+By default each client sends Cloud the parsed presence events it reads, for every instance its moderator
+is in — never raw log lines. Where they go, and whether they are sent, is set only on the client's own PC
+(`settings.json`, and `MODBOT_CLOUD_ENDPOINT` / `MODBOT_CLOUD_DISABLED` in that PC's environment). A
+Modbot server tells its clients nothing about Cloud. See `2026-09-15-cloud-log-backup-design.md`.
+
+#### 1.1.2 Modbot servers: the plan
+
+A Modbot server talks to Cloud for its own purposes. The maintainer's words:
+
+> "Modbot server -> uses Modbot Cloud for reporting and analytics (no linking needed), sends structured
+> app logs to Cloud (linking needed), Download default termlists (linking needed), Download shared
+> termlists (either directly from a another Modbot server endpoint or via Modbot cloud) (Account linking
+> needed by owner)"
+
+"Linking" is connecting a Modbot server to an account on Modbot Cloud.
+
+| What | Linking | Built? |
+|---|---|---|
+| Usage reporting and analytics (§5) | none | **No.** `UsageReportingService` (`Modbot.Core/Analytics`) exists but nothing registers it or implements `IUsageConfiguration`, and it posts to my.modbot.co's `/api/instances/…` endpoints through `HubUrl`, which Cloud does not serve. When it is wired up it moves to Cloud and takes its address from `MODBOT_CLOUD_ENDPOINT`. |
+| Sending its structured app logs, for remote support and backups | needed | **No.** The "server log feed" in the cloud event backup spec §0. |
+| Downloading the default term lists | needed | **No.** AI moderation fetches lists from Modbot Hub on my.modbot.co today (`HubTermLists`, `TermListHubOptions`), with no linking. |
+| Downloading shared term lists, from another Modbot server directly or through Cloud | the owner's account | **No.** |
+
+Two server environment variables, read by `ModbotEnvironment` into `ModbotCloudAddress`, govern all of
+them:
+
+| Variable | Meaning |
+|---|---|
+| `MODBOT_CLOUD_ENDPOINT` | The Cloud this server talks to. Default `https://cloud.modbot.co`; anything that is not a full `http` or `https` address means the default. |
+| `MODBOT_CLOUD_DISABLED` | `1`, `true`, `yes` or `on`: this server does not talk to Cloud at all. Every feature above must honour it, including one the operator has otherwise turned on. |
+
+They are read today and registered as a singleton, and nothing uses them yet. **A server never passes
+either value to its desktop clients** — an earlier revision did, and was reversed (cloud event backup
+spec §0.1). Cloud still holds nothing read from a group's database; what the app log feed may carry is
+for that feature's own spec to settle.
+
+Shared term lists fetched **directly from another Modbot server** do not touch Cloud. Whether
+`MODBOT_CLOUD_DISABLED` stops those too is for that feature's spec to settle.
 
 ### 1.2 The governing rule still holds
 

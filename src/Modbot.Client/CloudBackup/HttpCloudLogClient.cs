@@ -28,8 +28,9 @@ public interface ICloudLogClient
 /// The network calls to Modbot Cloud: register, send a batch of presence events, ask the time.
 /// </summary>
 /// <remarks>
-/// <para><strong>What this sends, and where.</strong> Only to the one Cloud address the backup has
-/// settled on — <c>https://cloud.modbot.co</c> unless a paired server named another — and only over
+/// <para><strong>What this sends, and where.</strong> Only to the one Cloud address the backup was
+/// started with — <c>https://cloud.modbot.co</c> unless <c>settings.json</c> or
+/// <c>MODBOT_CLOUD_ENDPOINT</c> on this PC names another — and only over
 /// HTTPS (plain HTTP to this PC is allowed for testing):</para>
 /// <list type="bullet">
 /// <item><c>POST /api/v1/installs</c> with the client's version and the word <c>windows</c>. Nothing

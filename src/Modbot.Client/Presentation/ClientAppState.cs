@@ -1,4 +1,3 @@
-using Modbot.Client.CloudBackup;
 using Modbot.Client.Ingest;
 using Modbot.Client.Journal;
 using Modbot.Client.Pairing;
@@ -77,7 +76,6 @@ public sealed record ClientAppSnapshot(
     IReadOnlyList<ClientWarning> Warnings,
     PairingNotice? LastPairing,
     string PairingPage,
-    CloudBackupStatus? CloudBackup = null,
     StartupState? Startup = null)
 {
     public static ClientAppSnapshot Empty { get; } =
@@ -122,9 +120,6 @@ public sealed class ClientAppState
     }
 
     public ClientSettings Settings { get; set; }
-
-    /// <summary>The event backup to Modbot Cloud, once the host has made it. Its status is shown on the settings page.</summary>
-    public CloudEventBackup? CloudBackup { get; set; }
 
     /// <summary>How the start-with-Windows switch should look; hidden unless this copy is installed.</summary>
     public StartupState Startup { get; set; } = StartupState.Hidden;
@@ -171,7 +166,6 @@ public sealed class ClientAppState
             [.. Warnings(logStatus)],
             LastPairing,
             Settings.PairingPage.ToString(),
-            CloudBackup?.Status,
             Startup);
     }
 

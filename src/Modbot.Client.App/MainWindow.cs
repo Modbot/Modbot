@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Modbot.Client.CloudBackup;
 using Modbot.Client.Ingest;
 using Modbot.Client.Journal;
 using Modbot.Client.Pipeline;
@@ -57,8 +56,6 @@ public sealed class MainWindow : Window
     private readonly TextBlock _pairingMessage;
 
     // Built once for the same reason: a switch rebuilt every second can lose the click on it.
-    private readonly CheckBox _cloudBackupBox;
-    private readonly TextBlock _cloudBackupState;
     private readonly CheckBox _startupBox;
     private bool _renderingSwitches;
 
@@ -84,14 +81,6 @@ public sealed class MainWindow : Window
         _pairingMessage = Ui.Dim("");
         _pairingMessage.IsVisible = false;
         _pairingCard = PairingCard();
-
-        _cloudBackupBox = new CheckBox { Content = Ui.Text("Send all logging to Modbot Cloud as backup", Ui.T.Density.TextSmall, Ui.T.TextBrush) };
-        _cloudBackupBox.IsCheckedChanged += (_, _) =>
-        {
-            if (!_renderingSwitches)
-                _actions.SetCloudBackup(_cloudBackupBox.IsChecked == true);
-        };
-        _cloudBackupState = Ui.Faint("");
 
         _startupBox = new CheckBox { Content = Ui.Text("Start Modbot Client when my computer starts", Ui.T.Density.TextSmall, Ui.T.TextBrush) };
         _startupBox.IsCheckedChanged += (_, _) =>
@@ -607,11 +596,6 @@ public sealed class MainWindow : Window
         _renderingSwitches = true;
         try
         {
-            var backup = _snapshot.CloudBackup;
-            _cloudBackupBox.IsChecked = backup is not null && backup.State is not CloudBackupState.Off;
-            _cloudBackupBox.IsEnabled = backup is not null;
-            _cloudBackupState.Text = backup is null ? "" : CloudBackupLabel(backup);
-
             // Shown only in an installed copy. Turned off in Windows' own Startup apps list shows off,
             // and cannot be turned back on from here.
             var startup = _snapshot.Startup;
@@ -624,30 +608,11 @@ public sealed class MainWindow : Window
             _renderingSwitches = false;
         }
 
-        DetachFromParent(_cloudBackupBox);
-        DetachFromParent(_cloudBackupState);
         DetachFromParent(_startupBox);
 
         _body.Children.Add(Ui.Card(
-            new StackPanel { Spacing = 6, Children = { _cloudBackupBox, _cloudBackupState, _startupBox } },
+            new StackPanel { Spacing = 6, Children = { _startupBox } },
             "Settings"));
-    }
-
-    /// <summary>A short state label under the switch. Labels only, no explanation (CLAUDE.md).</summary>
-    private static string CloudBackupLabel(CloudBackupStatus status)
-    {
-        var state = status.State switch
-        {
-            CloudBackupState.Off => "Off",
-            CloudBackupState.TurnedOffByServer => "Turned off by your server",
-            CloudBackupState.WaitingForServer => "Waiting for your server",
-            CloudBackupState.Retrying => "Retrying",
-            _ => "Sending",
-        };
-
-        return status.State is CloudBackupState.Off or CloudBackupState.TurnedOffByServer
-            ? state
-            : $"{state}  ·  {status.Queued:N0} queued";
     }
 
     private static void DetachFromParent(Control control)
@@ -677,7 +642,6 @@ public sealed record MainWindowActions(
     Action<string> Unpair,
     Func<string, Task<PairingAttemptResult>> PairAsync,
     Func<Task> OpenPairingPageAsync,
-    Action<bool> SetCloudBackup,
     Action<bool> SetStartWithWindows)
 {
     public static MainWindowActions None { get; } = new(
@@ -685,6 +649,5 @@ public sealed record MainWindowActions(
         _ => { },
         _ => Task.FromResult(new PairingAttemptResult(false, "Not ready yet.")),
         () => Task.CompletedTask,
-        _ => { },
         _ => { });
 }

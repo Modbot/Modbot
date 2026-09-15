@@ -1,9 +1,9 @@
 # Modbot Cloud — Event Backup
 
-- **Date:** 2026-09-15 (revised the same day; see §0)
+- **Date:** 2026-09-15 (revised twice the same day; see §0)
 - **Status:** Building
-- **Covers:** the client setting "Send all logging to Modbot Cloud as backup", and the event storage it
-  sends to in Modbot Cloud (`src/Modbot.Cloud`)
+- **Covers:** the desktop client's event backup to Modbot Cloud, its settings on the client's PC, and the
+  event storage it sends to in Modbot Cloud (`src/Modbot.Cloud`)
 - **Depends on:** foundation §4.4 (one clock), §5.3 (fact schema), §5.5 (retention); client protocol
   §4–§5; M3 §3
 - **Narrows:** M3 §3.1 and M5.5.1 ("instances outside the managed group are never reported") and central
@@ -29,21 +29,48 @@ So there are two halves of Modbot Cloud, and this spec builds one:
 
 Raw log lines were never asked for. Nothing in Cloud or the client sends, stores or reads them.
 
+### 0.1 Second correction: who decides where the backup goes
+
+The second version let a paired Modbot server decide for its clients. The server read
+`MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` and handed them to its clients on
+`GET /api/v{n}/client/time` as a `cloud` object and an `instanceId`; any paired server saying `disabled`
+stopped the client sending, and a client held sending until its paired servers had answered. The
+client also had a switch, "Send all logging to Modbot Cloud as backup", on its Settings page. That was
+wrong too. The maintainer's words:
+
+> "Modbot Client -> sends directly to cloud.modbot.co all instance events regardless of group to
+> cloud.modbot.co, and sends each group's own logs to modbot.group-endpoint.com (whatever their paired
+> server URL is). Also remove the setting from UI and add it to settings.json and reading from
+> environment variable MODBOT_CLOUD_ENDPOINT (and settings.json) and MODBOT_CLOUD_DISABLED env var"
+
+So:
+
+- The client has **two independent flows**: every instance event, whatever the group, straight to Cloud;
+  and each paired group's own events to that group's paired server, unchanged.
+- **Nothing about Cloud comes from, or depends on, a paired server.** The `cloud` object and `instanceId`
+  are gone from the time answer, and an unpaired client and a paired client behave the same toward Cloud.
+- **The switch is gone from the screen.** The client's Cloud settings live only on its own PC:
+  `settings.json` and two environment variables (§3.1).
+- A server's own `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` now mean only where that server talks
+  to Cloud for its own purposes, and whether it does (central services §1.1).
+
 ## 1. What this is
 
 The desktop client reads VRChat's output log and turns it into presence events: someone joined, was
 already here, left, changed avatar, or VRChat's log stopped. Today those go to a paired Modbot server, and
 only for that server's group's instances.
 
-With this setting on — and it is on unless the moderator turns it off — the client also sends **the same
-events, for every instance it sees**, to Modbot Cloud. Why: a backup of what the client observed that does
-not depend on any one group's server, and later, trends of what happens across VRChat.
+With the backup on — and it is on unless the person using the PC turns it off — the client also sends
+**the same events, for every instance it sees**, straight to Modbot Cloud. Why: a backup of what the
+client observed that does not depend on any one group's server, and later, trends of what happens across
+VRChat.
 
 The maintainer's decisions:
 
-- On by default. No onboarding step, no prompt, no first-run dialog.
+- On by default. No onboarding step, no prompt, no first-run dialog, and no switch on the screen.
 - Every instance the moderator is in, not only group instances.
-- Works whether or not the client is paired with a Modbot server.
+- Works the same whether the client is paired with no Modbot server, one, or several. A paired server has
+  no say in it.
 
 ## 2. What is sent
 
@@ -64,45 +91,49 @@ facts, not its guesses. Events from log lines that were already in the file when
 not sent, to Cloud or to a server.
 
 Per batch, alongside the events: `batchId`, `clientVersion`, `sentAt` (the PC's own clock when sending,
-uncorrected), `clockOffsetMs` and `clockConfidence` (the client's measured correction to Cloud's clock), and
-`modbotServerId` (§3.3). No file name or offset is sent; the event id is enough to de-duplicate.
+uncorrected), and `clockOffsetMs` and `clockConfidence` (the client's measured correction to Cloud's
+clock). No file name or offset: the event id is enough to de-duplicate. No `modbotServerId` either (§3.3).
 
 **Never sent:** raw log lines, instance nonces, pairing or device tokens, Modbot's own logs, file paths,
 the machine name and the Windows account name.
 
 ### 2.1 When
 
-- **Events observed while the setting is on are sent.**
-- **Turning it off** stops sending at once, cancels a batch in flight, and deletes everything queued.
-- **Turning it back on** sends from that moment. Nothing observed while it was off is ever sent.
+- **Events observed while the backup is on are sent.**
+- **The settings are read when the client starts** (§3.1). A client that starts with the backup off sends
+  nothing, queues nothing, and deletes anything a previous run left queued.
+- **Starting again with it on** sends from that moment. Nothing observed while it was off is ever sent.
 - A batch closes at **500 events, 256 KB, or 60 seconds after its first event**, whichever comes first,
   and is posted gzipped to `POST /api/v1/events`. A quiet room sends nothing.
 
 ## 3. Where it goes, and who decides
 
-### 3.1 The address
+### 3.1 The address, and on or off
 
-| Client state | Cloud address |
-|---|---|
-| Not paired | `https://cloud.modbot.co` |
-| Paired, server has `MODBOT_CLOUD_ENDPOINT` | that address |
-| Paired, server has neither variable | `https://cloud.modbot.co` |
-| Paired, server has `MODBOT_CLOUD_DISABLED=1` | **nothing is sent**, and nothing is queued |
+Decided only on the client's PC, from two places, for each of the two values separately:
 
-The paired server says which on `GET /api/v{n}/client/time`, which the client already calls when it starts
-and every two hours (protocol §5):
+| Order | Endpoint | On or off |
+|---|---|---|
+| 1 | environment variable `MODBOT_CLOUD_ENDPOINT` | environment variable `MODBOT_CLOUD_DISABLED` |
+| 2 | `settings.json`: `"cloud": { "endpoint": "…" }` | `settings.json`: `"cloud": { "disabled": true }` |
+| 3 | `https://cloud.modbot.co` | on |
 
 ```json
-{ "serverTime": "…", "cloud": { "endpoint": "https://cloud.modbot.co", "disabled": false }, "instanceId": null }
+{ "cloud": { "endpoint": "https://cloud.modbot.co", "disabled": false } }
 ```
 
-- **Several paired servers:** if any says `disabled`, nothing is sent. Otherwise the first that named an
-  address wins.
-- **Before a paired server has answered:** events are queued and not sent. If it then says `disabled`, the
-  queue is deleted.
-- **An older server** with no `cloud` object counts as "no preference": the default address.
-- **A paused or stopped pairing** is not asked, and does not hold sending.
-- The address must be HTTPS, or plain HTTP to this PC only. Anything else counts as `disabled`.
+- `settings.json` is the client's existing settings file, `%APPDATA%\Modbot\settings.json`. The client
+  never writes the `cloud` field; a person does.
+- `MODBOT_CLOUD_DISABLED`: `1`, `true`, `yes` or `on` is off; `0`, `false`, `no` or `off` is on. Any other
+  word is not taken as either, and `settings.json` decides, so a typo never turns sending back on.
+- **An endpoint that is not a full address the client will talk to** — HTTPS, or plain HTTP to this PC
+  only, the same rule pairing uses — is ignored, the default is used, and the client's log says so.
+- **Read once, at start.** The client does not watch `settings.json`, so a change applies at the next start.
+- **No paired server is asked.** The time answer carries `serverTime` only (protocol §5). Pairing,
+  unpairing, pausing and a server that has not answered change nothing about the backup.
+- A server's own `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` are about that server (central
+  services §1.1) and never reach its clients. The client reads the same names from its own PC's
+  environment.
 
 ### 3.2 Device identity
 
@@ -118,8 +149,9 @@ On first send to an address the client registers an **install**:
 
 ### 3.3 The paired server's id
 
-`modbotServerId` carries the paired server's `instanceId` from the time answer, so a later Cloud feature
-can group installs by server. Modbot deployments have no instance id yet, so it is `null` today.
+Cloud's batch format still accepts an optional `modbotServerId`, and Cloud keeps it on the install. The
+client sends none. It only ever came from the `instanceId` on the time answer, which is gone (§0.1), and
+nothing about the backup is tied to a paired server.
 
 ## 4. Storage
 
@@ -263,7 +295,8 @@ occurred_at)`** for anything the totals do not answer, and to rebuild them.
 
 1. **The Modbot Client sends its presence events to Modbot Cloud by default**: who joined, was already
    there, left, or changed avatar, and when VRChat's log stopped. It is on unless you turn it off in the
-   client's settings. Turning it off deletes what was queued and not yet sent.
+   client's `settings.json` or with the `MODBOT_CLOUD_DISABLED` environment variable on your PC, and
+   restart the client. Starting with it off deletes what was queued and not yet sent.
 2. **It covers every instance you are in**, including public, friends-only, invite and private instances,
    not only instances of groups you moderate. A Modbot server still only receives its own group's.
 3. **Each event names another person**: their VRChat user id, their display name at that moment, and the
@@ -271,14 +304,13 @@ occurred_at)`** for anything the totals do not answer, and to rebuild them.
 4. **It never sends VRChat's raw log**, and never an instance's `nonce`, so nothing Cloud holds is enough to
    join a private instance.
 5. **Your own VRChat user id and display name** are in the events too, as the subject of your own arrival.
-6. **Your client is identified by a random install id**, not your name, VRChat account or machine. If the
-   client is paired with a Modbot server, the install can be linked to that server's id. Cloud does not
-   store IP addresses.
+6. **Your client is identified by a random install id**, not your name, VRChat account or machine. It is
+   not linked to any Modbot server you are paired with. Cloud does not store IP addresses.
 7. **Events are kept 365 days** by default. Counts with no names or ids are kept indefinitely.
 8. **Only the Modbot Cloud administrator can read events**, after signing in to Cloud admin. There is no
    public view, and admin shows world and instance as plain text, never as join links.
-9. **A Modbot server operator can turn this off for their moderators** with `MODBOT_CLOUD_DISABLED=1`, or
-   send it to their own Cloud with `MODBOT_CLOUD_ENDPOINT`.
+9. **Only the person running the client can turn this off**, or send it to a different Modbot Cloud, on
+   their own PC. A Modbot server operator cannot turn it off or redirect it for their moderators.
 10. **Modbot deployments sending their own logs to Cloud** is a separate feature, not yet built, and will
     need its own statement.
 
@@ -317,3 +349,5 @@ size. Measure from the first week of data.
 ## 13. Not built here
 
 The server log feed (§0), accounts, instance registration, term lists, showcases, and any public analytics.
+What a Modbot server itself will use Cloud for, and the server's own `MODBOT_CLOUD_ENDPOINT` and
+`MODBOT_CLOUD_DISABLED`, are planned in central services §1.1.

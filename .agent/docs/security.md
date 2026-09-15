@@ -133,18 +133,18 @@ secrets to leak, and adding one is deliberately not an option.
 `MODBOT_DEBUG_LOGGING` additionally enables the Debug log streams. It is a diagnostic switch, not
 configuration.
 
-Two more decide where your moderators' desktop clients back up their presence events. By default
-every client sends the events it records, for every instance its moderator is in, to Modbot Cloud
-(`https://cloud.modbot.co`), unless the moderator turns that off in the client's settings. Your server
-still only receives your group's. Your server tells the clients paired with it:
+Two more are about your server and Modbot Cloud:
 
 | Variable | Purpose |
 |---|---|
-| `MODBOT_CLOUD_ENDPOINT` | send it to a different Modbot Cloud, such as one you run yourself |
-| `MODBOT_CLOUD_DISABLED` | set to `1` and clients paired with this server send nothing at all |
+| `MODBOT_CLOUD_ENDPOINT` | the Modbot Cloud this server talks to for its own use, such as one you run yourself |
+| `MODBOT_CLOUD_DISABLED` | set to `1` and this server does not talk to Modbot Cloud at all |
 
-Your server itself sends nothing to Modbot Cloud. If a moderator is paired with several servers and
-any one of them has `MODBOT_CLOUD_DISABLED=1`, their client sends nothing.
+Your server does not use Modbot Cloud for anything yet. Neither variable reaches your moderators'
+desktop clients. Each client sends the events it records, for every instance its moderator is in,
+straight to Modbot Cloud (`https://cloud.modbot.co`), whether or not it is paired, unless the person
+using that PC turns it off in the client's `settings.json` or with the same two variable names set on
+their own PC. Your server still only receives your group's events, and has no say in the backup.
 
 ### One exception, and it is a prefill rather than a setting
 

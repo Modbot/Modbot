@@ -1,24 +1,29 @@
 namespace Modbot.Core.Configuration;
 
 /// <summary>
-/// Where this deployment's paired desktop clients send their event backup, or that they must not.
+/// Where this Modbot server talks to Modbot Cloud for its own purposes, or that it must not.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The client backs up its presence events, for every instance, to Modbot Cloud unless its moderator turns
-/// that off (cloud event backup spec 3.1). A group's operator decides where that goes for the
-/// clients paired with their server: <c>MODBOT_CLOUD_ENDPOINT</c> names another Cloud, and
-/// <c>MODBOT_CLOUD_DISABLED=1</c> stops their clients sending at all. The server itself sends
-/// nothing to Cloud; it only tells its clients, on <c>GET /api/v{n}/client/time</c>.
+/// Read from <c>MODBOT_CLOUD_ENDPOINT</c> and <c>MODBOT_CLOUD_DISABLED</c> (central services spec
+/// 1.1). They are about this server only. Desktop clients paired with it are never told either value:
+/// a client's own Cloud settings live on the moderator's PC, in its <c>settings.json</c> and
+/// environment, and a server has no say in them.
+/// </para>
+/// <para>
+/// What a server uses Cloud for, as planned in central services spec 1.1: usage reporting and
+/// analytics (no account linking), sending its structured app logs (linking needed), downloading the
+/// default term lists (linking needed), and downloading shared term lists, from another Modbot server
+/// directly or through Cloud (the owner's account linking needed). None of those reads this yet;
+/// each must honour <see cref="Disabled"/> when it does.
 /// </para>
 /// <para>
 /// An endpoint that is not an absolute <c>http</c> or <c>https</c> address is ignored in favour of
-/// the default. The client refuses plain <c>http</c> to anywhere but itself, so a mistyped address
-/// costs that operator's clients their backup rather than sending it somewhere unintended.
+/// the default.
 /// </para>
 /// </remarks>
-/// <param name="Endpoint">The Cloud clients send to.</param>
-/// <param name="Disabled">Clients paired with this server send nothing.</param>
+/// <param name="Endpoint">The Cloud this server talks to.</param>
+/// <param name="Disabled">This server sends nothing to, and fetches nothing from, Modbot Cloud.</param>
 public sealed record ModbotCloudAddress(Uri Endpoint, bool Disabled)
 {
     public static readonly Uri DefaultEndpoint = new("https://cloud.modbot.co");

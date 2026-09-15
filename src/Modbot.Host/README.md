@@ -15,8 +15,8 @@ deployment switches.
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value (not 1–65535) falls back to 8080. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send structured logs to. Unset means no Seq. |
 | `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log streams. |
-| `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud address this server gives its paired desktop clients for their backup. |
-| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: paired desktop clients send nothing to Modbot Cloud. |
+| `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud this server talks to for its own use: usage reporting, its app logs and term lists. None of those use it yet. A value that is not a full `http` or `https` address means the default. Desktop clients are not told it. |
+| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: this server does not talk to Modbot Cloud. It does not change what desktop clients send. |
 
 ## Read once, to fill in the setup wizard
 

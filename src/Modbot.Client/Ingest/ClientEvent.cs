@@ -49,8 +49,8 @@ public enum ClientEventType
 /// moderator searching for a name somebody used six months ago find them. It is never used as
 /// identity, because names are mutable and collide.</para>
 /// <para><strong>Where it goes.</strong> To a paired Modbot server, only for that server's group's
-/// instances. And, unless the moderator turns it off, to Modbot Cloud as a backup for every instance
-/// the moderator is in, group or not (<c>CloudEventBackup</c>).</para>
+/// instances. And, separately and unless it is turned off on this PC, to Modbot Cloud as a backup for
+/// every instance the moderator is in, group or not (<c>CloudEventBackup</c>).</para>
 /// </remarks>
 public sealed record ClientEvent
 {

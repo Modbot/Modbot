@@ -39,9 +39,10 @@ namespace Modbot.Client.App;
 /// <para><strong>What leaves the machine.</strong> Presence observations, to the Modbot servers
 /// you paired with — and only for instances belonging to the group each of those servers manages;
 /// a server is never sent a raw log line or anything about your private, friends-only or public
-/// VRChat use. Separately, unless you turn it off in settings, the same presence events — for every
-/// instance, private ones included, but never a raw log line — are backed up to Modbot Cloud (see
-/// <c>CloudEventBackup</c>).
+/// VRChat use. Separately, and whether or not anything is paired, the same presence events — for
+/// every instance, private ones included, but never a raw log line — are backed up to Modbot Cloud,
+/// unless you turn that off in <c>settings.json</c> or with <c>MODBOT_CLOUD_DISABLED</c> (see
+/// <c>CloudEventBackup</c> and <c>CloudSettings</c>).
 /// Never chat, screenshots, keystrokes, your friends list or a list of your processes.</para>
 /// <para><strong>It never captures the screen.</strong> Not the desktop, not a window, not
 /// VRChat's screenshot folder, not any other folder. Attaching evidence to a moderation case is a
@@ -229,12 +230,14 @@ internal sealed class ClientHost
     }
 
     /// <summary>
-    /// Brings up "Send all logging to Modbot Cloud as backup", on its own task.
+    /// Brings up the event backup to Modbot Cloud, on its own task.
     /// </summary>
     /// <remarks>
-    /// <para><strong>What it sends, and where.</strong> The presence events the client reports, for every instance, to
-    /// Modbot Cloud, unless the moderator turns it off on the settings page or a paired server's
-    /// operator turned it off. The details are on <see cref="CloudEventBackup"/>.</para>
+    /// <para><strong>What it sends, and where.</strong> The presence events the client reports, for
+    /// every instance, to <c>https://cloud.modbot.co</c> or the Cloud named in <c>settings.json</c> or
+    /// <c>MODBOT_CLOUD_ENDPOINT</c>, unless <c>settings.json</c> or <c>MODBOT_CLOUD_DISABLED</c> on
+    /// this PC turns it off. Paired servers have no say in it. Read once, at start. The details are on
+    /// <see cref="CloudEventBackup"/> and <see cref="CloudSettings"/>.</para>
     /// <para><strong>What it writes to your disk.</strong> Its queue under
     /// <c>%APPDATA%\Modbot\cloud</c>, capped at 20 MB, and <c>cloud-installs.json</c> with this
     /// client's install id and its secret, encrypted to your Windows account.</para>
@@ -243,6 +246,11 @@ internal sealed class ClientHost
     /// </remarks>
     private void StartCloudBackup(string appData)
     {
+        var cloud = _state!.Settings.Cloud;
+
+        if (cloud.RejectedEndpoint is { } rejected)
+            Log.Warning("Ignoring the Modbot Cloud address {Endpoint}: it must be an https address; using {Default}", rejected, cloud.Endpoint);
+
         _cloudBackup = new CloudEventBackup(new CloudBackupOptions(
             Path.Combine(_directory, "cloud"),
             _clock,
@@ -251,16 +259,18 @@ internal sealed class ClientHost
                 DpapiCloudInstallStore.DefaultPath(appData),
                 new DpapiSecretProtector(DpapiSecretProtector.CloudSecretPurpose)),
             ModbotVersion.Release,
-            Enabled: _state!.Settings.SendLogsToCloud));
-
-        _state.CloudBackup = _cloudBackup;
+            Endpoint: cloud.Endpoint,
+            Enabled: !cloud.Disabled));
 
         var backup = _cloudBackup;
         _ = Task.Run(() => backup.RunAsync(
             _backupStop.Token,
             ex => Log.Warning(ex, "The event backup to Modbot Cloud hit a problem; it carries on")));
 
-        Log.Information("Event backup to Modbot Cloud is {State}", _state.Settings.SendLogsToCloud ? "on" : "off");
+        if (cloud.Disabled)
+            Log.Information("Event backup to Modbot Cloud is off");
+        else
+            Log.Information("Event backup to Modbot Cloud is on, to {Endpoint}", cloud.Endpoint);
     }
 
     /// <summary>
@@ -295,22 +305,6 @@ internal sealed class ClientHost
             Log.Warning("Could not save the start-with-Windows switch to {Path}", _settingsPath);
 
         ApplyStartWithWindows();
-        Render();
-    }
-
-    private void SetCloudBackup(bool on)
-    {
-        if (_state is null || _cloudBackup is null || _cloudBackup.Enabled == on)
-            return;
-
-        // Immediate: off cancels a batch in flight and deletes the queue before this returns.
-        _cloudBackup.Enabled = on;
-        _state.Settings = _state.Settings with { SendLogsToCloud = on };
-
-        if (!ClientSettings.SaveSwitch(_settingsPath, ClientSettings.SendLogsToCloudField, on))
-            Log.Warning("Could not save the backup switch to {Path}; it applies until the client restarts", _settingsPath);
-
-        Log.Information("Event backup to Modbot Cloud turned {State}", on ? "on" : "off");
         Render();
     }
 
@@ -354,11 +348,6 @@ internal sealed class ClientHost
         try
         {
             var tick = await _engine.TickAsync();
-
-            // Where the backup goes follows what the paired servers last said. Worked out here, on
-            // the loop that owns the connections, and handed over as one value.
-            if (_cloudBackup is not null)
-                _cloudBackup.Destination = CloudDestination.Resolve(_engine.Connections);
             _consecutiveTickFailures = 0;
             if (_state is not null)
                 _state.ReadingFault = null;
@@ -681,7 +670,7 @@ internal sealed class ClientHost
 
         Window.Render(
             _state.Snapshot(),
-            new MainWindowActions(TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetCloudBackup, SetStartWithWindows));
+            new MainWindowActions(TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows));
     }
 
     private void TogglePause(string serverId)

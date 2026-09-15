@@ -1,6 +1,8 @@
+using Modbot.Client.CloudBackup;
 using Modbot.Client.Ingest;
 using Modbot.Client.LogReading;
 using Modbot.Client.Pipeline;
+using Modbot.Client.Tests.CloudBackup;
 using Modbot.Client.Tests.LogReading;
 using Modbot.Client.Time;
 using Modbot.TestSupport;
@@ -30,11 +32,11 @@ public sealed class ClientEngineTests : IDisposable
     {
         public int Calls { get; private set; }
 
-        public Task<ServerTimeAnswer?> MeasureAsync(ServerPairing pairing, CancellationToken ct)
+        public Task<ClockSample?> MeasureAsync(ServerPairing pairing, CancellationToken ct)
         {
             Calls++;
             var now = DateTimeOffset.UnixEpoch;
-            return Task.FromResult<ServerTimeAnswer?>(new ServerTimeAnswer(new ClockSample(now, now + offset, now), ServerCloudAnswer.NoPreference));
+            return Task.FromResult<ClockSample?>(new ClockSample(now, now + offset, now));
         }
     }
 
@@ -129,6 +131,94 @@ public sealed class ClientEngineTests : IDisposable
         Assert.Equal(0, tick.Routed);
         Assert.Equal(tick.Observed, tick.Dropped);
         Assert.False(_transport.ByServer.ContainsKey("cats"));
+    }
+
+    /// <summary>
+    /// One run of a client with the Cloud backup on: the fixture, then two group instances in turn.
+    /// Returns what Modbot Cloud was sent and what the paired server, if any, was sent.
+    /// </summary>
+    private static async Task<(List<string> Cloud, List<ClientEvent> Server)> RunWithCloudAsync(string directory, bool paired)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var clock = new FakeClock(new DateTimeOffset(2026, 9, 12, 20, 0, 0, TimeSpan.Zero));
+        var logs = Directory.CreateDirectory(Path.Combine(directory, "logs")).FullName;
+        var logFile = Path.Combine(logs, "output_log_2026-09-03_20-26-45.txt");
+        File.Copy(LogFixture.Path, logFile);
+
+        var transport = new CapturingTransport();
+        List<ServerConnection> connections = [];
+        if (paired)
+        {
+            var serverClock = new ServerClock(clock);
+            connections.Add(new ServerConnection(
+                new ServerPairing("cats", new Uri("https://cats.example"), "token-cats", "grp_cats"),
+                new FileEventBuffer(Path.Combine(directory, "cats.jsonl"), clock),
+                new PresenceEventMapper(new LogTimestampConverter(Utc), serverClock),
+                serverClock,
+                transport,
+                clock,
+                clientVersion: "2026.9.0"));
+        }
+
+        var cloud = new FakeCloudClient();
+        var backup = new CloudEventBackup(new CloudBackupOptions(
+            Path.Combine(directory, "cloud"),
+            clock,
+            cloud,
+            new MemoryInstallStore(),
+            "2026.9.0",
+            TimeZone: Utc,
+            Ids: new CountingIds()));
+
+        var engine = new ClientEngine(new PresenceObserver(new VRChatLogTail(logs), clock), clock, connections, backup: backup);
+        await engine.TickAsync(ct);
+
+        File.AppendAllLines(logFile,
+        [
+            "2026.09.03 21:00:00 Debug      -  [Behaviour] Joining wrld_a:1~group(grp_cats)~region(use)",
+            "2026.09.03 21:00:01 Debug      -  [Behaviour] OnPlayerJoined bin¹ (" + LogFixture.LocalUserId + ")",
+            "2026.09.03 21:00:05 Debug      -  [Behaviour] OnPlayerJoined cat person (usr_cat)",
+            "2026.09.03 21:00:10 Debug      -  [Behaviour] OnLeftRoom",
+            "2026.09.03 21:00:20 Debug      -  [Behaviour] Joining wrld_b:2~group(grp_dogs)~region(use)",
+            "2026.09.03 21:00:21 Debug      -  [Behaviour] OnPlayerJoined bin¹ (" + LogFixture.LocalUserId + ")",
+            "2026.09.03 21:00:25 Debug      -  [Behaviour] OnPlayerJoined dog person (usr_dog)",
+        ]);
+
+        await engine.TickAsync(ct);
+        clock.Advance(ServerConnection.DefaultBatchInterval);
+        await engine.TickAsync(ct);
+
+        await backup.PumpAsync(ct);
+        clock.Advance(CloudOutbox.MaxBatchAge);
+        while (await backup.PumpAsync(ct))
+        {
+        }
+
+        var sentToCloud = cloud.Sent
+            .SelectMany(s => s.Body.RootElement.GetProperty("events").EnumerateArray())
+            .Select(e => e.GetRawText())
+            .ToList();
+
+        return (sentToCloud, transport.ByServer.GetValueOrDefault("cats") ?? []);
+    }
+
+    [Fact]
+    public async Task CloudGetsTheSameEventsWhetherOrNotAnythingIsPaired()
+    {
+        // Two separate flows from one read: every instance to Modbot Cloud, and each group's own
+        // events to its own paired server. Pairing changes the second and never the first.
+        var unpaired = await RunWithCloudAsync(Path.Combine(_directory, "unpaired"), paired: false);
+        var paired = await RunWithCloudAsync(Path.Combine(_directory, "paired"), paired: true);
+
+        Assert.NotEmpty(unpaired.Cloud);
+        Assert.Equal(unpaired.Cloud, paired.Cloud);
+        Assert.Contains(paired.Cloud, e => e.Contains("usr_cat", StringComparison.Ordinal));
+        Assert.Contains(paired.Cloud, e => e.Contains("usr_dog", StringComparison.Ordinal));
+
+        Assert.Empty(unpaired.Server);
+        Assert.Contains(paired.Server, e => e.SubjectId == "usr_cat");
+        Assert.All(paired.Server, e => Assert.Equal("grp_cats", e.GroupId));
+        Assert.DoesNotContain(paired.Server, e => e.SubjectId == "usr_dog");
     }
 
     [Fact]

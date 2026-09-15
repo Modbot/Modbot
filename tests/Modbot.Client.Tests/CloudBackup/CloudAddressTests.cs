@@ -1,11 +1,10 @@
 using System.IO.Compression;
 using System.Net;
 using System.Text;
-using System.Text.Json;
 using Modbot.Client.CloudBackup;
 using Modbot.Client.Ingest;
 using Modbot.Client.Pairing;
-using Modbot.Client.Time;
+using Modbot.Client.Presentation;
 using Modbot.TestSupport;
 
 namespace Modbot.Client.Tests.CloudBackup;
@@ -19,56 +18,115 @@ public sealed class CloudAddressTests : IDisposable
 
     public void Dispose() => Directory.Delete(_directory, recursive: true);
 
-    private ServerConnection Server(string id, ServerCloudAnswer? answer)
+    private string SettingsFile(string json)
     {
-        var connection = ServerConnections.Make(_clock, _directory, id);
-        connection.Cloud = answer;
-        return connection;
+        var path = Path.Combine(_directory, "settings.json");
+        File.WriteAllText(path, json);
+        return path;
+    }
+
+    private static Func<string, string?> Environment(params (string Name, string Value)[] variables) =>
+        name => variables.FirstOrDefault(v => v.Name == name).Value;
+
+    [Fact]
+    public void TheDefaultIsOnToModbotCloud()
+    {
+        var missing = ClientSettings.Load(Path.Combine(_directory, "missing.json"), Environment());
+
+        Assert.Equal(CloudSettings.Default, missing.Cloud);
+        Assert.Equal(new Uri("https://cloud.modbot.co"), missing.Cloud.Endpoint);
+        Assert.False(missing.Cloud.Disabled);
+
+        var other = ClientSettings.Load(SettingsFile("""{ "pairingPage": "https://modbot.example/pair" }"""), Environment());
+        Assert.Equal(CloudSettings.Default, other.Cloud);
     }
 
     [Fact]
-    public void TheRuleForWhichCloud()
+    public void SettingsJsonCanNameAnotherCloudOrTurnItOff()
     {
-        var named = new ServerCloudAnswer(new Uri("https://cloud.group.example"), false, null);
-        var other = new ServerCloudAnswer(new Uri("https://cloud.other.example"), false, "other-id");
-        var off = new ServerCloudAnswer(null, true, null);
+        var path = SettingsFile("""{ "cloud": { "endpoint": "https://cloud.group.example", "disabled": true } }""");
 
-        Assert.Equal(CloudDestination.Default, CloudDestination.Resolve([]));
+        var cloud = ClientSettings.Load(path, Environment()).Cloud;
 
-        Assert.Equal(CloudDestinationKind.Wait, CloudDestination.Resolve([Server("a", null)]).Kind);
+        Assert.Equal(new Uri("https://cloud.group.example"), cloud.Endpoint);
+        Assert.True(cloud.Disabled);
+    }
 
-        var noPreference = CloudDestination.Resolve([Server("a", ServerCloudAnswer.NoPreference)]);
-        Assert.Equal((CloudDestinationKind.Send, CloudDestination.DefaultEndpoint), (noPreference.Kind, noPreference.Endpoint));
+    [Fact]
+    public void TheEnvironmentWinsOverSettingsJson()
+    {
+        var path = SettingsFile("""{ "cloud": { "endpoint": "https://cloud.file.example", "disabled": false } }""");
 
-        var first = CloudDestination.Resolve([Server("a", named), Server("b", other)]);
-        Assert.Equal(new Uri("https://cloud.group.example"), first.Endpoint);
-        Assert.Equal("other-id", first.ModbotServerId);
+        var cloud = ClientSettings.Load(path, Environment(
+            (CloudSettings.EndpointVariable, "https://cloud.env.example"),
+            (CloudSettings.DisabledVariable, "yes"))).Cloud;
 
-        // Any one server turning it off wins, even over a server that named an address.
-        Assert.Equal(CloudDestinationKind.TurnedOffByServer, CloudDestination.Resolve([Server("a", named), Server("b", off)]).Kind);
+        Assert.Equal(new Uri("https://cloud.env.example"), cloud.Endpoint);
+        Assert.True(cloud.Disabled);
 
-        // Plain HTTP to somewhere else counts as off.
-        var insecure = new ServerCloudAnswer(new Uri("http://cloud.group.example"), false, null);
-        Assert.Equal(CloudDestinationKind.TurnedOffByServer, CloudDestination.Resolve([Server("a", insecure)]).Kind);
-
-        // A paused server is not asked, so it does not hold sending.
-        var paused = Server("a", null);
-        paused.IsPaused = true;
-        Assert.Equal(CloudDestination.Default, CloudDestination.Resolve([paused]));
+        // Turned off in the file, and back on in the environment.
+        var offInFile = SettingsFile("""{ "cloud": { "disabled": true } }""");
+        Assert.False(ClientSettings.Load(offInFile, Environment((CloudSettings.DisabledVariable, "0"))).Cloud.Disabled);
     }
 
     [Theory]
-    [InlineData("""{ "serverTime": "2026-09-15T08:00:00Z" }""", null, false)]
-    [InlineData("""{ "serverTime": "2026-09-15T08:00:00Z", "cloud": { "endpoint": "https://cloud.modbot.co/", "disabled": false } }""", "https://cloud.modbot.co/", false)]
-    [InlineData("""{ "serverTime": "2026-09-15T08:00:00Z", "cloud": { "endpoint": null, "disabled": true } }""", null, true)]
-    [InlineData("""{ "serverTime": "2026-09-15T08:00:00Z", "cloud": { "endpoint": "not a url", "disabled": false } }""", null, true)]
-    public void TheServersAnswerIsRead(string json, string? endpoint, bool disabled)
+    [InlineData("1")]
+    [InlineData("true")]
+    [InlineData("YES")]
+    [InlineData(" on ")]
+    public void TheEnvironmentAloneCanTurnItOff(string value)
     {
-        using var document = JsonDocument.Parse(json);
-        var answer = HttpServerTimeProbe.ReadCloud(document.RootElement);
+        var cloud = ClientSettings.Load(Path.Combine(_directory, "missing.json"), Environment((CloudSettings.DisabledVariable, value))).Cloud;
 
-        Assert.Equal(endpoint, answer.Endpoint?.ToString());
-        Assert.Equal(disabled, answer.Disabled);
+        Assert.True(cloud.Disabled);
+        Assert.Equal(CloudSettings.DefaultEndpoint, cloud.Endpoint);
+    }
+
+    [Fact]
+    public void AnEnvironmentWordThatIsNotOnOrOffLeavesSettingsJsonToDecide()
+    {
+        var offInFile = SettingsFile("""{ "cloud": { "disabled": true } }""");
+
+        Assert.True(ClientSettings.Load(offInFile, Environment((CloudSettings.DisabledVariable, "ture"))).Cloud.Disabled);
+        Assert.True(ClientSettings.Load(offInFile, Environment((CloudSettings.DisabledVariable, ""))).Cloud.Disabled);
+    }
+
+    [Theory]
+    [InlineData("cloud.example.org")]
+    [InlineData("not an address")]
+    [InlineData("ftp://cloud.example.org")]
+    [InlineData("http://cloud.example.org")]
+    public void AnInvalidEndpointFallsBackToTheDefault(string endpoint)
+    {
+        var fromEnvironment = CloudSettings.Resolve(null, null, Environment((CloudSettings.EndpointVariable, endpoint)));
+        Assert.Equal(CloudSettings.DefaultEndpoint, fromEnvironment.Endpoint);
+        Assert.Equal(endpoint, fromEnvironment.RejectedEndpoint);
+        Assert.False(fromEnvironment.Disabled);
+
+        var fromFile = CloudSettings.Resolve(endpoint, null, Environment());
+        Assert.Equal(CloudSettings.DefaultEndpoint, fromFile.Endpoint);
+    }
+
+    [Fact]
+    public void PlainHttpToThisPcIsAllowedForTesting()
+    {
+        var cloud = CloudSettings.Resolve("http://localhost:5080", null, Environment());
+
+        Assert.Equal(new Uri("http://localhost:5080"), cloud.Endpoint);
+        Assert.Null(cloud.RejectedEndpoint);
+    }
+
+    [Fact]
+    public void AnUnreadableSettingsFileStillHonoursTheEnvironment()
+    {
+        var path = SettingsFile("{ not json");
+
+        var cloud = ClientSettings.Load(path, Environment(
+            (CloudSettings.EndpointVariable, "https://cloud.env.example"),
+            (CloudSettings.DisabledVariable, "1"))).Cloud;
+
+        Assert.Equal(new Uri("https://cloud.env.example"), cloud.Endpoint);
+        Assert.True(cloud.Disabled);
     }
 
     [Fact]

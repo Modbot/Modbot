@@ -13,6 +13,9 @@ public class ClientSettingsTests : IDisposable
 
     private string Path_ => Path.Combine(_directory, "settings.json");
 
+    /// <summary>So a Modbot Cloud variable set on the machine running the tests changes nothing here.</summary>
+    private static string? NoEnvironment(string name) => null;
+
     public void Dispose()
     {
         if (Directory.Exists(_directory))
@@ -30,8 +33,8 @@ public class ClientSettingsTests : IDisposable
     [Fact]
     public void TheDefaultIsTheProjectsPairingPage()
     {
-        Assert.Equal(new Uri("https://my.modbot.co/go?redir=/pair"), ClientSettings.Load(Path_).PairingPage);
-        Assert.Equal(ClientSettings.Default, ClientSettings.Load(Path_));
+        Assert.Equal(new Uri("https://my.modbot.co/go?redir=/pair"), ClientSettings.Load(Path_, NoEnvironment).PairingPage);
+        Assert.Equal(ClientSettings.Default, ClientSettings.Load(Path_, NoEnvironment));
     }
 
     [Fact]
@@ -39,7 +42,7 @@ public class ClientSettingsTests : IDisposable
     {
         Write("""{ "pairingPage": "https://modbot.example/pair" }""");
 
-        Assert.Equal(new Uri("https://modbot.example/pair"), ClientSettings.Load(Path_).PairingPage);
+        Assert.Equal(new Uri("https://modbot.example/pair"), ClientSettings.Load(Path_, NoEnvironment).PairingPage);
     }
 
     [Fact]
@@ -47,7 +50,7 @@ public class ClientSettingsTests : IDisposable
     {
         Write("""{ "pairingPage": "http://localhost:5173/pair" }""");
 
-        Assert.Equal(new Uri("http://localhost:5173/pair"), ClientSettings.Load(Path_).PairingPage);
+        Assert.Equal(new Uri("http://localhost:5173/pair"), ClientSettings.Load(Path_, NoEnvironment).PairingPage);
     }
 
     [Theory]
@@ -63,7 +66,7 @@ public class ClientSettingsTests : IDisposable
         // is treated the same as a typo: ignored, and the default used.
         Write(json);
 
-        Assert.Equal(ClientSettings.Default, ClientSettings.Load(Path_));
+        Assert.Equal(ClientSettings.Default, ClientSettings.Load(Path_, NoEnvironment));
     }
 
     [Fact]
@@ -72,13 +75,13 @@ public class ClientSettingsTests : IDisposable
         // M3 9.2: a tool that is genuinely self-hostable must let a group pin a version and never
         // have the client call out on its own. Off is a deliberate word in the file, never a
         // default and never the result of a typo.
-        Assert.True(ClientSettings.Load(Path_).CheckForUpdates);
+        Assert.True(ClientSettings.Load(Path_, NoEnvironment).CheckForUpdates);
 
         Write("""{ "checkForUpdates": false }""");
-        Assert.False(ClientSettings.Load(Path_).CheckForUpdates);
+        Assert.False(ClientSettings.Load(Path_, NoEnvironment).CheckForUpdates);
 
         Write("""{ "checkForUpdates": "no" }""");
-        Assert.True(ClientSettings.Load(Path_).CheckForUpdates);
+        Assert.True(ClientSettings.Load(Path_, NoEnvironment).CheckForUpdates);
     }
 
     [Fact]
@@ -86,7 +89,7 @@ public class ClientSettingsTests : IDisposable
     {
         Write("""{ "pairingPage": "https://modbot.example/pair", "checkForUpdates": false }""");
 
-        var settings = ClientSettings.Load(Path_);
+        var settings = ClientSettings.Load(Path_, NoEnvironment);
 
         Assert.Equal(new Uri("https://modbot.example/pair"), settings.PairingPage);
         Assert.False(settings.CheckForUpdates);

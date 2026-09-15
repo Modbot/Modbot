@@ -125,12 +125,6 @@ public sealed class ServerConnection : IIngestTarget
 
     public ServerClock ServerClock { get; }
 
-    /// <summary>
-    /// What this server last said about the event backup to Modbot Cloud, or null until it has answered a
-    /// time probe. Read by <see cref="CloudBackup.CloudDestination"/>; nothing else acts on it.
-    /// </summary>
-    public ServerCloudAnswer? Cloud { get; set; }
-
     public string ServerId => Pairing.ServerId;
 
     public string ManagedGroupId => Pairing.ManagedGroupId;

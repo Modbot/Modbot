@@ -86,14 +86,12 @@ If you would rather not use it, skip the tab it opens and bookmark your Modbot's
 
 ### Modbot Cloud
 
-`cloud.modbot.co` keeps a backup of what paired desktop clients read from VRChat's log: the
-presence events they send to your Modbot, never raw log lines. The desktop client sends this backup
-unless the moderator turns it off in the client.
+`cloud.modbot.co` keeps a backup of what desktop clients read from VRChat's log: presence events
+for every instance their moderator is in, never raw log lines. Each client sends this straight to
+Modbot Cloud, whether or not it is paired, unless the person using that PC turns it off in the
+client's own settings. Your Modbot server has no say in it. See
+[Client settings](/desktop-client/settings#modbot-cloud-backup).
 
-Your Modbot server itself sends nothing to Modbot Cloud. It only tells its paired clients where the
-backup should go. As the operator you can change that with two environment variables:
-
-- `MODBOT_CLOUD_DISABLED=1` stops every client paired with your Modbot from sending a backup.
-- `MODBOT_CLOUD_ENDPOINT` points your clients at a different Modbot Cloud.
-
-See [Environment variables](/self-hosting/environment-variables).
+Your Modbot server's own `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` are only about your
+server: which Modbot Cloud it talks to, and whether it talks to one at all. Your server does not use
+Modbot Cloud for anything yet. See [Environment variables](/self-hosting/environment-variables).

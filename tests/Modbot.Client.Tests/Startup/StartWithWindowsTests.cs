@@ -131,7 +131,7 @@ public class StartWithWindowsTests
         Assert.True(ClientSettings.Load(path).StartWithWindows);
         Assert.True(ClientSettings.SaveSwitch(path, ClientSettings.StartWithWindowsField, false));
         Assert.False(ClientSettings.Load(path).StartWithWindows);
-        Assert.True(ClientSettings.Load(path).SendLogsToCloud);
+        Assert.False(ClientSettings.Load(path).Cloud.Disabled);
 
         Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
     }

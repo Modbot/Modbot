@@ -268,7 +268,7 @@ public class ClientSourceGuardTests
         // "What does this program send, and where" should have a short, complete answer findable
         // by somebody who has never seen the codebase. Five files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
-        // code for a token, one reads the overlay's context, and one backs VRChat's log up to
+        // code for a token, one reads the overlay's context, and one backs the client's events up to
         // Modbot Cloud (cloud event backup spec). Nothing else reaches the network.
         var senders = ClientSources()
             .Where(f => Regex.IsMatch(File.ReadAllText(f), @"_http\.(SendAsync|GetAsync|PostAsync|PutAsync|DeleteAsync)"))
@@ -285,6 +285,16 @@ public class ClientSourceGuardTests
                 "HttpServerTimeProbe.cs",
             ],
             senders);
+    }
+
+    [Fact]
+    public void TheWindowHasNoModbotCloudSwitch()
+    {
+        // Where the event backup goes, and whether it is sent, is set in settings.json or the
+        // environment on this PC (cloud event backup spec 3.1). There is no switch for it on screen.
+        var window = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "Modbot.Client.App", "MainWindow.cs"));
+
+        Assert.DoesNotContain("Cloud", window, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

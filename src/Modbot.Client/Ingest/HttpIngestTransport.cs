@@ -14,7 +14,7 @@ namespace Modbot.Client.Ingest;
 /// server.</strong> It sends the JSON of an <see cref="EventBatch"/> — whose fields are listed on that
 /// type and on <see cref="ClientEvent"/> — to the address the moderator paired with, and nothing
 /// else. The one other destination is the event backup to Modbot Cloud, in <c>HttpCloudLogClient</c>,
-/// which the moderator can turn off. No telemetry and no crash reports carrying event data.</para>
+/// which can be turned off on this PC. No telemetry and no crash reports carrying event data.</para>
 /// <para>Batched HTTP rather than a websocket, deliberately: with batching, "buffer and send later"
 /// is the same code path as "send now" with a different timer, so replay after an outage is not a
 /// separate, rarely exercised implementation that only runs when things are already going wrong.

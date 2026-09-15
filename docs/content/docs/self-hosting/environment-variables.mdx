@@ -22,8 +22,8 @@ what Modbot needs before it can reach the database, plus a few switches.
 | `PORT` | No | `8080` | The port to listen on. A missing value, or one that is not a number from 1 to 65535, means 8080. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. Useful when the container's disk does not survive a redeploy, and when Modbot cannot reach its database, which is exactly when settings stored in the database cannot help. |
 | `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log files and sends Debug detail to Seq. It also brings back the web server's per-request log lines and the database's query lines, which are left out otherwise. |
-| `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud address this server gives its paired desktop clients for their backup. A value that is not a full `http` or `https` address is ignored and the default is used. |
-| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: desktop clients paired with this server send nothing to Modbot Cloud. |
+| `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud this server talks to for its own use. A value that is not a full `http` or `https` address is ignored and the default is used. It is not passed to desktop clients. See [Modbot Cloud](/self-hosting#modbot-cloud). |
+| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: this server does not talk to Modbot Cloud. It does not change what desktop clients send. |
 
 The image clears `ASPNETCORE_HTTP_PORTS`, so `PORT` is the only port setting.
 
@@ -90,14 +90,17 @@ image and served by it.
 
 ## The desktop client
 
-The Windows client's settings are in the client itself. Where its Cloud backup goes comes from the
-server it is paired with, through `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` above.
+The Windows client reads these from the PC it runs on, not from the server it is paired with. A
+server's own `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` do not reach its clients.
 
 | Variable | Required | Default | What it does |
 |---|---|---|---|
 | `MODBOT_CLIENT_LOG_LEVEL` | No | `Verbose` | The lowest level written to the client's own log in `%APPDATA%\Modbot\logs`: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Verbose`. |
+| `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | Where the client sends its Modbot Cloud backup. Wins over `cloud.endpoint` in the client's `settings.json`. It must be HTTPS, or plain HTTP to the same PC; anything else is ignored and the default is used. |
+| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on` turns the client's Modbot Cloud backup off, and `0`, `false`, `no` or `off` turns it on. Wins over `cloud.disabled` in `settings.json`. Any other value is ignored. |
 
-See [Installing the desktop client](/desktop-client/install).
+The client reads them when it starts. See [Client settings](/desktop-client/settings#modbot-cloud-backup)
+and [Installing the desktop client](/desktop-client/install).
 
 ## The project's own services
 

@@ -4,7 +4,6 @@ using Modbot.Client.Ingest;
 using Modbot.Client.Instances;
 using Modbot.Client.LogReading;
 using Modbot.Client.Pipeline;
-using Modbot.Client.Presentation;
 using Modbot.Client.Time;
 using Modbot.TestSupport;
 
@@ -33,12 +32,13 @@ public sealed class CloudEventBackupTests : IDisposable
 
     private string Outbox => Path.Combine(_directory, "cloud");
 
-    private CloudEventBackup Backup(bool enabled = true) => new(new CloudBackupOptions(
+    private CloudEventBackup Backup(bool enabled = true, Uri? endpoint = null) => new(new CloudBackupOptions(
         Outbox,
         _clock,
         _cloud,
         _installs,
         "2026.9.0",
+        Endpoint: endpoint,
         Enabled: enabled,
         TimeZone: PlusTwo,
         Backoff: new BackoffPolicy(jitter: () => 1.0),
@@ -55,39 +55,9 @@ public sealed class CloudEventBackupTests : IDisposable
     private int BatchFiles() => Directory.Exists(Outbox) ? Directory.GetFiles(Outbox, "batch-*.json.gz").Length : 0;
 
     [Fact]
-    public void TheSettingIsOnByDefault()
-    {
-        Assert.True(ClientSettings.Default.SendLogsToCloud);
-        Assert.True(ClientSettings.Load(Path.Combine(_directory, "missing.json")).SendLogsToCloud);
-
-        var path = Path.Combine(_directory, "settings.json");
-        File.WriteAllText(path, """{ "pairingPage": "https://modbot.example/pair" }""");
-        Assert.True(ClientSettings.Load(path).SendLogsToCloud);
-    }
-
-    [Fact]
-    public void TurningItOffIsSavedWithoutLosingTheRestOfTheFile()
-    {
-        var path = Path.Combine(_directory, "settings.json");
-        File.WriteAllText(path, """{ "pairingPage": "https://modbot.example/pair", "checkForUpdates": false }""");
-
-        Assert.True(ClientSettings.SaveSwitch(path, ClientSettings.SendLogsToCloudField, false));
-
-        var loaded = ClientSettings.Load(path);
-        Assert.False(loaded.SendLogsToCloud);
-        Assert.False(loaded.CheckForUpdates);
-        Assert.Equal("https://modbot.example/pair", loaded.PairingPage.ToString());
-
-        File.WriteAllText(path, "{ not json");
-        Assert.False(ClientSettings.SaveSwitch(path, ClientSettings.SendLogsToCloudField, true));
-        Assert.Equal("{ not json", File.ReadAllText(path));
-    }
-
-    [Fact]
     public async Task AnUnpairedClientSendsItsEventsToTheDefaultCloud()
     {
         var backup = Backup();
-        backup.Destination = CloudDestination.Resolve([]);
 
         await QueueAndCloseAsync(backup, Observations.Joined("usr_1"), Observations.Joined("usr_2", second: 5));
         Assert.True(await backup.PumpAsync(Ct));
@@ -101,6 +71,9 @@ public sealed class CloudEventBackupTests : IDisposable
         Assert.Equal("2026.9.0", root.GetProperty("clientVersion").GetString());
         Assert.Equal(_clock.UtcNow, root.GetProperty("sentAt").GetDateTimeOffset());
         Assert.False(root.TryGetProperty("lines", out _));
+
+        // Nothing in a batch ties it to a paired Modbot server.
+        Assert.False(root.TryGetProperty("modbotServerId", out _));
 
         // The client protocol's event, exactly: id, type, time corrected from local, subject, place.
         var sent = root.GetProperty("events")[1];
@@ -135,106 +108,67 @@ public sealed class CloudEventBackupTests : IDisposable
     }
 
     [Fact]
-    public async Task TurningItOffStopsSendingAndDropsTheQueue()
+    public async Task ANamedCloudIsUsedInsteadOfTheDefault()
     {
-        var backup = Backup();
-        await QueueAndCloseAsync(backup, Observations.Joined("usr_1"));
-        backup.Offer([Observations.Joined("usr_2")]);
-        Assert.True(backup.Status.Queued > 0);
+        var backup = Backup(endpoint: new Uri("https://cloud.group.example"));
 
-        backup.Enabled = false;
+        await QueueAndCloseAsync(backup, Observations.Joined());
+        Assert.True(await backup.PumpAsync(Ct));
 
+        Assert.Equal([new Uri("https://cloud.group.example")], _cloud.Registered);
+        Assert.Equal(new Uri("https://cloud.group.example"), Assert.Single(_cloud.Sent).Install.Endpoint);
+    }
+
+    [Fact]
+    public async Task AClientStartedWithTheBackupOffSendsNothingAndDropsWhatWasQueued()
+    {
+        // Queued by an earlier run that had the backup on, and never sent.
+        _cloud.Registration = new CloudRegistration(IngestOutcome.NetworkFailure);
+        var earlier = Backup();
+        await QueueAndCloseAsync(earlier, Observations.Joined("usr_1"));
+        await earlier.PumpAsync(Ct);
+        earlier.Offer([Observations.Joined("usr_2")]);
+        Assert.True(earlier.Status.Queued > 0);
+
+        _cloud.Registration = new CloudRegistration(IngestOutcome.Accepted, Guid.NewGuid(), "the-secret");
+        _cloud.Registered.Clear();
+
+        var backup = Backup(enabled: false);
+
+        Assert.False(backup.Enabled);
         Assert.Equal(CloudBackupState.Off, backup.Status.State);
         Assert.Equal(0, backup.Status.Queued);
         Assert.Equal(0, BatchFiles());
-        Assert.False(backup.WantsEvents);
 
         backup.Offer([Observations.Joined("usr_3")]);
         _clock.Advance(TimeSpan.FromHours(1));
         Assert.False(await backup.PumpAsync(Ct));
+        Assert.Equal(0, backup.Status.Queued);
         Assert.Empty(_cloud.Sent);
+        Assert.Empty(_cloud.Registered);
     }
 
     [Fact]
-    public async Task TurningItOffCancelsABatchAlreadyOnItsWay()
+    public async Task StartingAgainWithTheBackupOnSendsOnlyFromThatMoment()
     {
-        var backup = Backup();
-        await QueueAndCloseAsync(backup, Observations.Joined());
-        _cloud.Hang = new TaskCompletionSource();
+        var off = Backup(enabled: false);
+        off.Offer([Observations.Joined("usr_while_off")]);
+        await off.PumpAsync(Ct);
 
-        var pump = backup.PumpAsync(Ct);
-        await _cloud.SendStarted.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
-
-        backup.Enabled = false;
-
-        Assert.False(await pump.WaitAsync(TimeSpan.FromSeconds(10), Ct));
-        Assert.Empty(_cloud.Sent);
-        Assert.Equal(0, BatchFiles());
-    }
-
-    [Fact]
-    public async Task TurningItBackOnSendsOnlyFromThatMoment()
-    {
-        var backup = Backup();
-        backup.Offer([Observations.Joined("usr_before")]);
-        backup.Enabled = false;
-        backup.Offer([Observations.Joined("usr_while_off")]);
-
-        backup.Enabled = true;
-        await QueueAndCloseAsync(backup, Observations.Joined("usr_after"));
-        await backup.PumpAsync(Ct);
+        var on = Backup();
+        await QueueAndCloseAsync(on, Observations.Joined("usr_after"));
+        await on.PumpAsync(Ct);
 
         var sent = Assert.Single(Assert.Single(_cloud.Sent).Body.RootElement.GetProperty("events").EnumerateArray());
         Assert.Equal("usr_after", sent.GetProperty("subjectId").GetString());
     }
 
     [Fact]
-    public async Task APairedServerThatTurnedItOffStopsSendingAndQueuing()
-    {
-        var backup = Backup();
-        await QueueAndCloseAsync(backup, Observations.Joined());
-
-        var connection = ServerConnections.Make(_clock, _directory, "cats");
-        connection.Cloud = new ServerCloudAnswer(null, Disabled: true, null);
-        backup.Destination = CloudDestination.Resolve([connection]);
-
-        Assert.Equal(CloudBackupState.TurnedOffByServer, backup.Status.State);
-        Assert.Equal(0, backup.Status.Queued);
-        Assert.False(backup.WantsEvents);
-
-        backup.Offer([Observations.Joined("usr_2")]);
-        _clock.Advance(TimeSpan.FromHours(1));
-        Assert.False(await backup.PumpAsync(Ct));
-        Assert.Empty(_cloud.Sent);
-        Assert.Empty(_cloud.Registered);
-    }
-
-    [Fact]
-    public async Task APairedServerThatHasNotAnsweredHoldsSendingButNotQueuing()
-    {
-        var backup = Backup();
-        var connection = ServerConnections.Make(_clock, _directory, "cats");
-        backup.Destination = CloudDestination.Resolve([connection]);
-
-        await QueueAndCloseAsync(backup, Observations.Joined());
-        Assert.False(await backup.PumpAsync(Ct));
-        Assert.Equal(CloudBackupState.WaitingForServer, backup.Status.State);
-        Assert.Equal(1, backup.Status.Queued);
-
-        connection.Cloud = new ServerCloudAnswer(new Uri("https://cloud.group.example"), false, "server-7");
-        backup.Destination = CloudDestination.Resolve([connection]);
-
-        Assert.True(await backup.PumpAsync(Ct));
-        var (install, body) = Assert.Single(_cloud.Sent);
-        Assert.Equal(new Uri("https://cloud.group.example"), install.Endpoint);
-        Assert.Equal("server-7", body.RootElement.GetProperty("modbotServerId").GetString());
-    }
-
-    [Fact]
     public async Task TheOutboxSurvivesARestartWithTheSameEventIds()
     {
+        // The first run cannot reach Cloud, so its batches stay on disk.
+        _cloud.Registration = new CloudRegistration(IngestOutcome.NetworkFailure);
         var first = Backup();
-        first.Destination = new CloudDestination(CloudDestinationKind.Wait, null, null);
         await QueueAndCloseAsync(first, Observations.Joined("usr_1"), Observations.Joined("usr_2"), Observations.Joined("usr_3"));
         await first.PumpAsync(Ct);
         Assert.Equal(1, BatchFiles());
@@ -242,7 +176,9 @@ public sealed class CloudEventBackupTests : IDisposable
         // An event left in the open batch when the client closed is kept too.
         first.Offer([Observations.Joined("usr_4")]);
         await first.PumpAsync(Ct);
+        Assert.Empty(_cloud.Sent);
 
+        _cloud.Registration = new CloudRegistration(IngestOutcome.Accepted, Guid.Parse("11111111-2222-3333-4444-555555555555"), "the-secret");
         var second = Backup();
         Assert.Equal(4, second.Status.Queued);
 
@@ -373,7 +309,6 @@ public sealed class CloudEventBackupTests : IDisposable
     public void TheQueueInMemoryIsBounded()
     {
         var backup = Backup();
-        backup.Destination = new CloudDestination(CloudDestinationKind.Wait, null, null);
 
         backup.Offer([.. Enumerable.Range(0, CloudEventBackup.QueueLimit + 5).Select(i => Observations.Joined($"usr_{i}"))]);
 
@@ -398,29 +333,5 @@ public sealed class CloudEventBackupTests : IDisposable
 
         Assert.True(outbox.DroppedEvents > 0);
         Assert.True(outbox.Batches()[0].Sequence > 1);
-    }
-}
-
-internal static class ServerConnections
-{
-    public static ServerConnection Make(FakeClock clock, string directory, string serverId)
-    {
-        var pairing = new ServerPairing(serverId, new Uri($"https://{serverId}.example"), "token", "grp_1");
-        var serverClock = new ServerClock(clock);
-
-        return new ServerConnection(
-            pairing,
-            new FileEventBuffer(Path.Combine(directory, $"{serverId}-queue.jsonl"), clock),
-            new PresenceEventMapper(new LogTimestampConverter(TimeZoneInfo.Utc), serverClock),
-            serverClock,
-            new NoTransport(),
-            clock,
-            "2026.9.0");
-    }
-
-    private sealed class NoTransport : IIngestTransport
-    {
-        public Task<IngestResult> SendAsync(ServerPairing pairing, EventBatch batch, CancellationToken cancellationToken) =>
-            Task.FromResult(new IngestResult(IngestOutcome.Accepted));
     }
 }
