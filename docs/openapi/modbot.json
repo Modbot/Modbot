@@ -280,7 +280,7 @@
           "Events"
         ],
         "summary": "The live event WebSocket",
-        "description": "Authenticate with `Authorization: Bearer mbk_...`, or `?ticket=` from POST /api/events/tickets. Send `{\"op\":\"subscribe\",\"types\":[...],\"subjects\":[...],\"cursor\":\"...\"}` within ten seconds; events arrive as `{\"kind\":\"event\",\"event\":{...}}`. See docs/api.md.",
+        "description": "Authenticate with `Authorization: Bearer mbk_...`, or `?ticket=` from POST /api/events/tickets. Send `{\"op\":\"subscribe\",\"types\":[...],\"subjects\":[...],\"cursor\":\"...\"}` within ten seconds; events arrive as `{\"kind\":\"event\",\"event\":{...}}`. See https://docs.modbot.co/api/events-websocket/.",
         "operationId": "EventSocket",
         "parameters": [
           {
@@ -310,7 +310,7 @@
           "Events"
         ],
         "summary": "Long polling for the live event stream",
-        "description": "Authenticate with `Authorization: Bearer mbk_...`. Returns events after `cursor` at once when there are any, up to `limit` (default 100, at most 500); otherwise waits up to `wait` seconds (default 30, at most 60) for one and returns an empty list. No cursor means from now. Send the returned `cursor` back; `more` means poll again straight away. `types` and `subjects` repeat or are comma-separated. See docs/api.md.",
+        "description": "Authenticate with `Authorization: Bearer mbk_...`. Returns events after `cursor` at once when there are any, up to `limit` (default 100, at most 500); otherwise waits up to `wait` seconds (default 30, at most 60) for one and returns an empty list. No cursor means from now. Send the returned `cursor` back; `more` means poll again straight away. `types` and `subjects` repeat or are comma-separated. See https://docs.modbot.co/api/long-polling/.",
         "operationId": "PollEvents",
         "parameters": [
           {

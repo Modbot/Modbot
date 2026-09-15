@@ -9,7 +9,7 @@
   access design §9 ("API keys", deferred there)
 - **Related:** foundation §4.4 (one clock), §5.3 (facts), §5.5 (retention), §5.9.2–§5.9.4 (what is
   recorded, secrets are never the payload, the two logs); accounts and access design §3, §5;
-  `docs/api.md`
+  `.agent/docs/api.md`
 
 ---
 
@@ -451,7 +451,7 @@ which was its name before long polling joined it):
 - **Events** — the WebSocket and long polling addresses, and a WebSocket test view: an optional key,
   event types, cursor, *Connect*, and the events as they arrive.
 
-Labels only (CLAUDE.md). The explanations are here and in `docs/api.md`.
+Labels only (CLAUDE.md). The explanations are here and in `.agent/docs/api.md`.
 
 ## 10. Deferred
 

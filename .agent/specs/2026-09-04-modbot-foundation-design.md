@@ -2144,7 +2144,7 @@ variables in plaintext and displays them in its dashboard — so a key held ther
 meaningfully safer. What a required key *would* reliably do is permanently brick installs when
 someone redeploys and loses it.
 
-The threat model is stated in one honest paragraph in `docs/security.md`. Operators who need real
+The threat model is stated in one honest paragraph in `.agent/docs/security.md`. Operators who need real
 encryption at rest should encrypt the database itself, which is where that control belongs.
 
 ---

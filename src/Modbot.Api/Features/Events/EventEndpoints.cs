@@ -176,7 +176,7 @@ public static class EventEndpoints
                 "Authenticate with `Authorization: Bearer mbk_...`, or `?ticket=` from POST "
                 + "/api/events/tickets. Send `{\"op\":\"subscribe\",\"types\":[...],\"subjects\":[...],"
                 + "\"cursor\":\"...\"}` within ten seconds; events arrive as `{\"kind\":\"event\","
-                + "\"event\":{...}}`. See docs/api.md.")
+                + "\"event\":{...}}`. See https://docs.modbot.co/api/events-websocket/.")
             .AllowAnonymous();
 
         return app;

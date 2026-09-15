@@ -7,7 +7,7 @@ import { EventsPanel } from './EventsPanel'
 /**
  * The API sub-tabs, in order. The id is the part after the slash in `/settings#api/keys`.
  * The reasoning behind all three is in .agent/specs/2026-09-15-api-keys-websocket-webhooks-design.md
- * and the reference for people integrating is docs/api.md; the screens carry labels only.
+ * and the guide for people integrating is docs/content/docs/api/; the screens carry labels only.
  */
 const API_TABS = [
   { value: 'keys', label: 'Keys', panel: ApiKeysPanel },

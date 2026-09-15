@@ -49,6 +49,7 @@ moderator. If a screen seems to need a paragraph to be understood, fix the scree
 | `.agent/specs/` | Design documents. Read before changing behaviour. |
 | `.agent/plans/` | Implementation plans, task-by-task. |
 | `.agent/research/` | Empirical findings about VRChat's API and logs, with fixtures. |
+| `.agent/docs/` | The Markdown docs from before the docs site, kept as source material and reference. Not published; the site in `docs/` replaces them. |
 | `docs/` | The documentation site (Next.js and Fumadocs), published at docs.modbot.co: end-user pages in `docs/content/docs/`, the API reference made from `docs/openapi/modbot.json`. See `docs/README.md`. |
 | `explore/` | Scratch tool for probing the live VRChat API. Not part of the product. |
 | `libs/`, `old/` | Gitignored reference clones. Never edit; never import from. |

@@ -4,7 +4,7 @@
 - **Status:** Implemented (M2.5, second half)
 - **Covers:** Foundation §5.8.4 (repeat offenders) and §5.8.5 (moderator pattern detection) as
   they can be built from the fact log alone, before Modbot performs any action itself (M4).
-- **Related:** Foundation §5.8, §5.9, §5.10.2; M4 design §8; `docs/reviews-and-repeat-offenders.md`
+- **Related:** Foundation §5.8, §5.9, §5.10.2; M4 design §8; `.agent/docs/reviews-and-repeat-offenders.md`
 
 ## 1. What this is, and is not
 

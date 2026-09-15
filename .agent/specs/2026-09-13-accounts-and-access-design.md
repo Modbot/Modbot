@@ -7,7 +7,7 @@
 - **Depends on:** M0 (fact log, `ModbotUser`, cookie sessions, `IModbotClock`)
 - **Implements:** foundation §7.2, §7.3; extends §5.9.2's "Auth" row
 - **Related:** foundation §5.8 (accountability), §5.9.1 (attribution must survive account changes),
-  §6.3, `docs/security.md`
+  §6.3, `.agent/docs/security.md`
 
 ---
 
@@ -290,7 +290,7 @@ What moves the timestamp:
 
 The same per-request lookup **refreshes the permissions claim** when it differs from the roles'
 union, so a role change takes effect on the next request rather than the next sign-in.
-`docs/security.md`'s "disable then delete the key ring" emergency procedure is no longer needed
+`.agent/docs/security.md`'s "disable then delete the key ring" emergency procedure is no longer needed
 and the page is updated.
 
 ## 6. Facts

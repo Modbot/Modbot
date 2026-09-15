@@ -7,7 +7,7 @@
 - **Depends on:** M0 (fact log, `Settings`, `IModbotClock`, `INotifier`, `IVRChatGate`), M4 (ban reports)
 - **Implements:** foundation §5.8.3 and M4 §7 — *"optional evidence references"*, upgraded from
   references into stored artefacts
-- **Related:** M3 §3.1 (what the client never transmits), `docs/security.md`, `docs/data-retention.md`
+- **Related:** M3 §3.1 (what the client never transmits), `.agent/docs/security.md`, `.agent/docs/data-retention.md`
 
 ---
 
@@ -266,7 +266,7 @@ the bucket by someone with bucket credentials but not database credentials — a
 **It does not prove** that the bytes are what the uploader claimed, that the video is unedited, or
 that the case is honest. And it does not defend against an attacker who holds **both** the object
 store and the database, because they can replace the object and rewrite the hash in the metadata row
-in the same breath. That is the same threat model `docs/security.md` states for secrets: anyone who
+in the same breath. That is the same threat model `.agent/docs/security.md` states for secrets: anyone who
 can read and write your database has already won. Content addressing raises the floor from "evidence
 can be quietly edited by one moderator with a web login" to "evidence can only be forged by someone
 with infrastructure access", which is a large and worthwhile jump, and not a cryptographic
@@ -1011,7 +1011,7 @@ behaviour over time, and a group that wants a window on them should be able to h
 
 ### 15.1 Evidence survives purge-user
 
-`docs/data-retention.md` currently promises that **deletion works regardless of retention settings**.
+`.agent/docs/data-retention.md` currently promises that **deletion works regardless of retention settings**.
 After this spec that is no longer unconditionally true, and the honest thing is to say so loudly
 rather than to quietly narrow it.
 

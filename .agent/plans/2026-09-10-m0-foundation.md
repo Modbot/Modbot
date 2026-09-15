@@ -1017,7 +1017,7 @@ namespace Modbot.Core.Security;
 /// full database access has the key too. That is the correct trade for community groups on
 /// managed hosting, where Railway already stores environment variables in plaintext and shows
 /// them in its dashboard. Operators who need real encryption at rest should encrypt the database.
-/// This is documented plainly in docs/security.md; do not overstate it elsewhere.
+/// This is documented plainly in .agent/docs/security.md; do not overstate it elsewhere.
 /// </remarks>
 public interface ISecretProtector
 {

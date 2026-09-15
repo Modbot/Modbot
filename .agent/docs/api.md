@@ -175,7 +175,7 @@ Send `subscribe` again at any time to change what you receive.
 
 Keep the `cursor` of the last event or heartbeat you handled. When you reconnect, send it in
 `subscribe`. You receive every event after it that you may see, then carry on live. How far back
-this reaches depends on your deployment's data retention (see `docs/data-retention.md`).
+this reaches depends on your deployment's data retention (see `data-retention.md`).
 
 Events arrive at least once and in order. If you reconnect with an older cursor, you will see some
 again: use `id` to skip the ones you have handled.

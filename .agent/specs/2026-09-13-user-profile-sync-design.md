@@ -10,7 +10,7 @@
   is visible, never implied"; the profile snapshot the evidence design §12 relies on
 - **Related:** foundation §3.1.1 (opaque ids), §4.3 (rate limiting), §5.3 (facts), §5.10
   (`modbot_subject_profile`, which this is **not**); research `vrchat-user-object-findings.md`;
-  `docs/profiles.md`
+  `.agent/docs/profiles.md`
 
 ---
 

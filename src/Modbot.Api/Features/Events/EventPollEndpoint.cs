@@ -176,7 +176,7 @@ public static class EventPollEndpoint
                 + "when there are any, up to `limit` (default 100, at most 500); otherwise waits up to "
                 + "`wait` seconds (default 30, at most 60) for one and returns an empty list. No cursor "
                 + "means from now. Send the returned `cursor` back; `more` means poll again straight "
-                + "away. `types` and `subjects` repeat or are comma-separated. See docs/api.md.")
+                + "away. `types` and `subjects` repeat or are comma-separated. See https://docs.modbot.co/api/long-polling/.")
             .Produces<EventPollResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized)

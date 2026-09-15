@@ -17,7 +17,7 @@ namespace Modbot.Api.Features.Evidence;
 /// <strong>The S3 secret is decrypted here and nowhere else.</strong> It is stored encrypted like
 /// every other secret column (foundation §8.3), which protects a database dump from casual reading
 /// and nothing more — the key is in the same database. Overstating that is a documented mistake;
-/// see <c>docs/security.md</c>.
+/// see <c>docs/content/docs/security.mdx</c>.
 /// </para>
 /// <para>
 /// Binding <em>mutates</em> an existing options object rather than returning a new one, and that

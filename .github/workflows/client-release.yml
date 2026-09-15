@@ -13,7 +13,7 @@
 #                               what installed clients read and download when they update
 #
 # Signing is optional and skipped cleanly when the secrets are absent. Unsigned builds trip
-# SmartScreen; docs/installing-the-desktop-client.md tells testers how to get past it and the M3
+# SmartScreen; docs/content/docs/desktop-client/install.mdx tells testers how to get past it and the M3
 # spec (8.2) says what a real certificate involves.
 
 name: Client release
