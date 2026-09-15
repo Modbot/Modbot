@@ -29,6 +29,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.ViewAnalytics, "See analytics", "Charts and daily totals.", "Reading"),
         Describe(ModbotPermissions.ViewLiveRooms, "See live instances", "Open instances right now and who is in each.", "Reading"),
         Describe(ModbotPermissions.ViewAuditLog, "See the audit log", "Bans, kicks, role changes and other moderation history.", "Reading"),
+        Describe(ModbotPermissions.UseAiChat, "Use AI chat", "Ask questions in Chat. Answers only use what this person can already see.", "Reading"),
         Describe(ModbotPermissions.ViewOperationalLog, "See the operational log", "Sign-ins, settings changes, sync problems and account changes.", "Reading"),
         Describe(ModbotPermissions.ViewEvidence, "View evidence", "Open the screenshots and video attached to a case.", "Evidence"),
         Describe(ModbotPermissions.UploadEvidence, "Upload evidence", "Attach screenshots and video to a case.", "Evidence"),

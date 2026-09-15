@@ -106,7 +106,7 @@ public static class PlacesEndpoints
         return app;
     }
 
-    private static async Task<WorldView> WorldAsync(
+    internal static async Task<WorldView> WorldAsync(
         string worldId,
         ModbotContext db,
         DateTimeOffset now,
@@ -194,7 +194,7 @@ public static class PlacesEndpoints
         return (Series(DailyTotalMetrics.WorldVisitors), Series(DailyTotalMetrics.WorldInstances));
     }
 
-    private static async Task<InstanceView?> RoomAsync(
+    internal static async Task<InstanceView?> RoomAsync(
         Guid id,
         ModbotPermissions held,
         ModbotContext db,

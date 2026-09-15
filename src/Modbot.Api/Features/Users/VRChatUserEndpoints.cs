@@ -258,7 +258,7 @@ public static class VRChatUserEndpoints
             ct);
     }
 
-    private static async Task<VRChatUserProfile> ProfileAsync(
+    internal static async Task<VRChatUserProfile> ProfileAsync(
         string id,
         ModbotContext db,
         IModbotClock clock,

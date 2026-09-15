@@ -160,6 +160,35 @@ public class Settings
     /// <summary>The model features use unless they ask for another.</summary>
     public string? AiModel { get; set; }
 
+    // --- AI chat (AI chat design §5) ---
+
+    /// <summary>Whether the Chat page answers. Off by default, and needs <see cref="AiEnabled"/> too.</summary>
+    public bool AiChatEnabled { get; set; }
+
+    /// <summary>The model Chat uses. Null means <see cref="AiModel"/>.</summary>
+    public string? AiChatModel { get; set; }
+
+    /// <summary>Added to the end of Chat's system prompt, in the operator's own words.</summary>
+    public string? AiChatInstructions { get; set; }
+
+    /// <summary>How many tools one reply may call before it has to answer with what it has.</summary>
+    public int AiChatMaxToolCalls { get; set; } = 8;
+
+    /// <summary>The most tokens the model may write in one round of a reply.</summary>
+    public int AiChatMaxReplyTokens { get; set; } = 2000;
+
+    /// <summary>How long one reply may take, tool calls included, before it is stopped.</summary>
+    public int AiChatTimeLimitSeconds { get; set; } = 120;
+
+    /// <summary>
+    /// Per-tool on/off switches, as a JSON object of tool name to true or false.
+    /// </summary>
+    /// <remarks>
+    /// Only switches somebody changed are stored. A tool with no entry is on when it only reads
+    /// and off when it acts, so a tool added in a later version starts the way its kind should.
+    /// </remarks>
+    public string AiChatToolSwitches { get; set; } = "{}";
+
     // --- Operator-supplied SMTP (spec 7.4) ---
     public string? SmtpHost { get; set; }
     public int? SmtpPort { get; set; }

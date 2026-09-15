@@ -12,6 +12,7 @@ using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Cases;
 using Modbot.Api.Features.DiscordLists;
+using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.Reviews;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
@@ -54,6 +55,10 @@ public static class ApiSurface
 
     public static IServiceCollection AddModbotApi(this IServiceCollection services)
     {
+        // Chat's loop and tools (AI chat design). Here rather than in the host because the tools are
+        // this project's own read code, and they resolve everything scoped from the request.
+        services.AddModbotChat();
+
         services.AddOpenApi(DocumentName, options =>
         {
             options.AddDocumentTransformer((document, _, _) =>
@@ -120,6 +125,7 @@ public static class ApiSurface
         app.MapPublicAddressSettings();
         app.MapEmailSettings();
         app.MapAiSettings();
+        app.MapAiChatSettings();
 
         // The Discord server's channels and roles as the bot last stored them, so a setting picks
         // a channel by name and sees which permission the bot lacks there (M5 spec §7).
@@ -149,6 +155,10 @@ public static class ApiSurface
         // Live: the group's open instances right now and who is in each. From Modbot's own tables
         // only, so a page that refreshes every five seconds costs no VRChat budget.
         app.MapLive();
+
+        // Chat: questions answered by the configured model, using tools that run with the asking
+        // person's own permissions (AI chat design §3.1). Conversations are the owner's alone.
+        app.MapChat();
 
         // Moderation accountability (spec 5.8): people acted on more than once, and the reviews
         // that open when a moderator's pattern looks unusual. Read from caches the review job

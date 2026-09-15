@@ -119,7 +119,7 @@ public static class MemberEndpoints
         return app;
     }
 
-    private static async Task<MemberListResponse> ListMembersAsync(
+    internal static async Task<MemberListResponse> ListMembersAsync(
         ModbotContext db,
         IModbotClock clock,
         string? search,
@@ -215,7 +215,7 @@ public static class MemberEndpoints
             MemberCoverage(settings, clock.UtcNow));
     }
 
-    private static async Task<MembershipView> MembershipAsync(
+    internal static async Task<MembershipView> MembershipAsync(
         string id,
         ModbotContext db,
         IModbotClock clock,
@@ -255,7 +255,7 @@ public static class MemberEndpoints
             BanCoverage(settings, now));
     }
 
-    private static async Task<GroupBanListResponse> ListBansAsync(
+    internal static async Task<GroupBanListResponse> ListBansAsync(
         ModbotContext db,
         IModbotClock clock,
         string? search,

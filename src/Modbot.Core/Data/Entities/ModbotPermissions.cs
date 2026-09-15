@@ -129,6 +129,18 @@ public enum ModbotPermissions : long
     /// </remarks>
     ViewLiveRooms = 1L << 20,
 
+    // --- AI (AI chat design §4) ---
+
+    /// <summary>
+    /// Ask questions on the Chat page. Every tool the model can use runs with this person's own
+    /// permissions, so this grants a way of asking, never anything more to see.
+    /// </summary>
+    /// <remarks>
+    /// Not added to the built-in Moderator or Viewer roles: using Chat sends group data to the
+    /// provider the operator chose, so it is granted on purpose. Administrator already holds it.
+    /// </remarks>
+    UseAiChat = 1L << 21,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

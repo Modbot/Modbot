@@ -1493,6 +1493,80 @@ export type AiSettings = {
 }
 
 /** The form's values for the Test button and the model list. Nothing is saved. */
+/** Settings → AI → Chat. */
+export type AiChatToolSetting = {
+  name: string
+  label: string
+  /** The permissions a person must hold to be offered the tool, as the roles page labels them. */
+  needs: string[]
+  /** False for a tool that changes something; such a tool is off until switched on. */
+  onlyReads: boolean
+  enabled: boolean
+}
+
+export type AiChatSettings = {
+  enabled: boolean
+  /** Null means the Base model, `baseModel`. */
+  model: string | null
+  baseModel: string | null
+  instructions: string | null
+  maxToolCalls: number
+  maxReplyTokens: number
+  timeLimitSeconds: number
+  aiEnabled: boolean
+  tools: AiChatToolSetting[]
+}
+
+export type AiChatSettingsInput = {
+  enabled: boolean
+  model: string | null
+  instructions: string | null
+  maxToolCalls: number
+  maxReplyTokens: number
+  timeLimitSeconds: number
+  tools: Record<string, boolean>
+}
+
+/** Something a tool result named that opens a popup. */
+export type ChatReference = { kind: 'person' | 'world' | 'instance'; id: string; label: string | null }
+
+export type ChatConversationSummary = { id: string; title: string; updatedAt: string }
+
+export type ChatHome = { available: boolean; conversations: ChatConversationSummary[] }
+
+export type ChatToolCall = { id: string; name: string; label: string; arguments: string }
+
+export type ChatMessage = {
+  id: number
+  role: 'user' | 'assistant' | 'tool'
+  content: string
+  toolCalls: ChatToolCall[]
+  toolCallId: string | null
+  toolName: string | null
+  toolLabel: string | null
+  references: ChatReference[]
+  worked: boolean | null
+  durationMs: number | null
+  createdAt: string
+}
+
+export type ChatConversation = {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  full: boolean
+  messages: ChatMessage[]
+}
+
+/** One server-sent event from sending a message, in the order the server sends them. */
+export type ChatStreamEvent =
+  | { type: 'conversation'; data: ChatConversationSummary }
+  | { type: 'message'; data: ChatMessage }
+  | { type: 'text'; data: { text: string } }
+  | { type: 'tool'; data: { callId: string; name: string; label: string } }
+  | { type: 'done'; data: { outcome: string; error: string | null } }
+
 export type AiConnectionInput = {
   provider: string
   endpoint: string
@@ -1627,6 +1701,71 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       : `The server answered ${response.status}.`
 
   throw new ApiError(response.status, message, null, body)
+}
+
+/**
+ * Sends a chat message and hands each server-sent event to `onEvent` as it arrives.
+ *
+ * Not `request`: the answer is a stream, read a chunk at a time so the reply appears as it is
+ * written. A refusal before the stream starts (400, 404, 409) still arrives as an ApiError.
+ */
+async function sendChatMessage(
+  body: { conversationId: string | null; text: string },
+  onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  let response: Response
+
+  try {
+    response = await fetch('/api/chat/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+      body: JSON.stringify(body),
+      signal,
+    })
+  } catch (e) {
+    if (signal?.aborted) throw e
+    throw new ApiError(0, 'Could not reach the Modbot server. Is it still running?', null)
+  }
+
+  if (!response.ok || !response.body) {
+    const text = await response.text()
+    let parsed: unknown = null
+    try {
+      parsed = text ? JSON.parse(text) : null
+    } catch {
+      parsed = null
+    }
+    const message =
+      typeof parsed === 'object' && parsed !== null && 'error' in parsed
+        ? String((parsed as { error: unknown }).error)
+        : `The server answered ${response.status}.`
+    throw new ApiError(response.status, message, null, parsed)
+  }
+
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += value
+
+    let end = buffer.indexOf('\n\n')
+    while (end >= 0) {
+      const block = buffer.slice(0, end)
+      buffer = buffer.slice(end + 2)
+      end = buffer.indexOf('\n\n')
+
+      let type = ''
+      let data = ''
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event: ')) type = line.slice(7)
+        else if (line.startsWith('data: ')) data += line.slice(6)
+      }
+      if (type && data) onEvent({ type, data: JSON.parse(data) } as ChatStreamEvent)
+    }
+  }
 }
 
 const post = <T>(path: string, body?: unknown): Promise<T> =>
@@ -1815,6 +1954,20 @@ export const api = {
   /** Written insights only, newest first. */
   insights: (kind?: InsightKind, limit = 10) =>
     request<{ insights: Insight[] }>(`/api/insights?limit=${limit}${kind ? `&kind=${kind}` : ''}`),
+
+  aiChatSettings: () => request<AiChatSettings>('/api/settings/ai/chat'),
+
+  setAiChatSettings: (body: AiChatSettingsInput) => put<AiChatSettings>('/api/settings/ai/chat', body),
+
+  // ── Chat ────────────────────────────────────────────────────────────────────────────────
+
+  chatHome: () => request<ChatHome>('/api/chat'),
+
+  chatConversation: (id: string) => request<ChatConversation>(`/api/chat/conversations/${encodeURIComponent(id)}`),
+
+  deleteChatConversation: (id: string) => del<void>(`/api/chat/conversations/${encodeURIComponent(id)}`),
+
+  sendChatMessage,
 
   // ── Desktop client ──────────────────────────────────────────────────────────────────────
 

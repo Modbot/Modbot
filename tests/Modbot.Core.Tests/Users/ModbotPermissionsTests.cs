@@ -18,6 +18,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 6, (long)ModbotPermissions.ManageUsers);
         Assert.Equal(1L << 19, (long)ModbotPermissions.ManageRoles);
         Assert.Equal(1L << 20, (long)ModbotPermissions.ViewLiveRooms);
+        Assert.Equal(1L << 21, (long)ModbotPermissions.UseAiChat);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -36,5 +37,16 @@ public class ModbotPermissionsTests
             Assert.True(long.PopCount(bits) == 1, $"{value} is not a single bit.");
             Assert.True(seen.Add(bits), $"{value} reuses a bit already assigned to another flag.");
         }
+    }
+
+    /// <summary>
+    /// Chat sends group data to the operator's AI provider, so the permission is granted on
+    /// purpose rather than arriving with a built-in role (AI chat design §4).
+    /// </summary>
+    [Fact]
+    public void UseAiChat_IsNotInTheEditableBuiltInRoles()
+    {
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.UseAiChat));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.UseAiChat));
     }
 }

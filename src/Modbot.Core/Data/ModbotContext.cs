@@ -120,6 +120,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<InsightSchedule> InsightSchedules => Set<InsightSchedule>();
 
+    /// <summary>Conversations on the Chat page, one owner each (AI chat design §6).</summary>
+    public DbSet<AiChatConversation> AiChatConversations => Set<AiChatConversation>();
+
+    public DbSet<AiChatMessage> AiChatMessages => Set<AiChatMessage>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -841,6 +846,47 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Every).HasMaxLength(8);
             entity.Property(e => e.DiscordChannelId).HasMaxLength(32);
         });
+
+        builder.Entity<AiChatConversation>(entity =>
+        {
+            entity.ToTable("ai_chat_conversation");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Title).HasMaxLength(200);
+
+            // Deleting an account deletes its conversations: nobody else may read them, so
+            // keeping them would keep something nobody can open.
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.UserId, e.UpdatedAt });
+        });
+
+        builder.Entity<AiChatMessage>(entity =>
+        {
+            entity.ToTable("ai_chat_message");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).UseIdentityAlwaysColumn();
+            entity.Property(e => e.Role).HasMaxLength(16);
+            entity.Property(e => e.ToolCalls).HasColumnType("jsonb");
+            entity.Property(e => e.Mentioned).HasColumnType("jsonb");
+            entity.Property(e => e.ToolCallId).HasColumnType("text");
+            entity.Property(e => e.ToolName).HasMaxLength(64);
+
+            entity.HasOne(e => e.Conversation)
+                .WithMany(c => c.Messages)
+                .HasForeignKey(e => e.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.ConversationId, e.Id });
+        });
+
+        builder.Entity<Settings>(entity =>
+            entity.Property(e => e.AiChatToolSwitches).HasColumnType("jsonb"));
 
         base.OnModelCreating(builder);
     }
