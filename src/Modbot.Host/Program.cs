@@ -237,6 +237,10 @@ try
 
     builder.Services.AddModbotApi();
 
+    // Sends new events to registered webhooks (API keys design §6). Reads the settings and the
+    // fact log each pass, so a deployment with no webhooks does one small query every two seconds.
+    builder.Services.AddWebhookDelivery();
+
     var app = builder.Build();
 
     // Spec 8.2: migrations run here, before the first request, because a self-hosted appliance

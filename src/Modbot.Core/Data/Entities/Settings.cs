@@ -132,6 +132,14 @@ public class Settings
     /// <summary>The role a linked member whose VRChat record is 18+ verified is given. Null means none.</summary>
     public string? DiscordEighteenPlusRoleId { get; set; }
 
+    // --- Webhooks (API keys design §6.7) ---
+
+    /// <summary>
+    /// Whether webhooks may be sent to private, loopback and link-local addresses, and over plain
+    /// http. Off by default, so the webhook form cannot be used to reach Modbot's own network.
+    /// </summary>
+    public bool WebhooksAllowPrivateAddresses { get; set; }
+
     // --- AI (M8 section 4) ---
 
     /// <summary>

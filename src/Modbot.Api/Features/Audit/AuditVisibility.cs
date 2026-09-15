@@ -144,6 +144,11 @@ public static class AuditVisibility
         [FactType.RoleDeleted] = AuditCategory.Operational,
         [FactType.ApiKeyCreated] = AuditCategory.Operational,
         [FactType.ApiKeyRevoked] = AuditCategory.Operational,
+        [FactType.WebhookCreated] = AuditCategory.Operational,
+        [FactType.WebhookChanged] = AuditCategory.Operational,
+        [FactType.WebhookSecretChanged] = AuditCategory.Operational,
+        [FactType.WebhookDeleted] = AuditCategory.Operational,
+        [FactType.WebhookDisabled] = AuditCategory.Operational,
         [FactType.SettingsChanged] = AuditCategory.Operational,
 
         // System: operational noise, and the row spec 5.9.2 gives the short retention class.

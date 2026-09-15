@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Api.Features.ApiKeys;
 using Modbot.Api.Features.Events;
+using Modbot.Api.Features.Webhooks;
 using Modbot.Api.Features.Auth.Account;
 using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
@@ -104,6 +105,22 @@ public static class ApiSurface
         services.TryAddSingleton<EventTickets>();
         services.TryAddSingleton<EventConnections>();
 
+        // Webhooks (API keys design §6). The sender is here because "Send test" needs it; the
+        // service that delivers on a timer is added by the host, with AddWebhookDelivery.
+        services.TryAddSingleton(new WebhookOptions());
+        services.TryAddSingleton(sp => new WebhookSender(
+            sp.GetRequiredService<Modbot.Core.Time.IModbotClock>(),
+            sp.GetRequiredService<WebhookOptions>(),
+            sp.GetService<Modbot.VRChat.Scheduling.IMonotonicClock>()));
+        services.TryAddScoped<WebhookDispatcher>();
+
+        return services;
+    }
+
+    /// <summary>Delivers webhooks in the background. Needs the database, the clock and the secret protector.</summary>
+    public static IServiceCollection AddWebhookDelivery(this IServiceCollection services)
+    {
+        services.AddHostedService<WebhookDeliveryService>();
         return services;
     }
 
@@ -194,6 +211,9 @@ public static class ApiSurface
         // Every new fact, as it is written, to a connected program (API keys design §5). The host
         // must call UseWebSockets before mapping this.
         app.MapEvents();
+
+        // The same events, sent to addresses the operator registers (API keys design §6).
+        app.MapWebhooks();
 
         // Moderation accountability (spec 5.8): people acted on more than once, and the reviews
         // that open when a moderator's pattern looks unusual. Read from caches the review job

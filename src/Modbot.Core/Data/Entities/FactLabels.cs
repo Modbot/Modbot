@@ -102,6 +102,11 @@ public static class FactLabels
         [FactType.RoleDeleted] = "Role deleted",
         [FactType.ApiKeyCreated] = "API key created",
         [FactType.ApiKeyRevoked] = "API key revoked",
+        [FactType.WebhookCreated] = "Webhook created",
+        [FactType.WebhookChanged] = "Webhook changed",
+        [FactType.WebhookSecretChanged] = "Webhook secret changed",
+        [FactType.WebhookDeleted] = "Webhook deleted",
+        [FactType.WebhookDisabled] = "Webhook turned off",
         [FactType.SettingsChanged] = "Settings changed",
 
         // Reviews of a moderator's pattern (spec 5.8.5). Both are about the moderator.

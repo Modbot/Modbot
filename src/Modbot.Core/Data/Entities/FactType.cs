@@ -283,6 +283,16 @@ public static class FactType
 
     public const string ApiKeyCreated = "modbot.apikey.create";
     public const string ApiKeyRevoked = "modbot.apikey.revoke";
+
+    // Webhooks (API keys design §6.8). The subject is the webhook's id on the Modbot platform. The
+    // payload names the webhook and its address, never the secret.
+    public const string WebhookCreated = "modbot.webhook.create";
+    public const string WebhookChanged = "modbot.webhook.change";
+    public const string WebhookSecretChanged = "modbot.webhook.secret.change";
+    public const string WebhookDeleted = "modbot.webhook.delete";
+
+    /// <summary>Modbot turned a webhook off by itself: failing for a day, or its owner disabled. No actor.</summary>
+    public const string WebhookDisabled = "modbot.webhook.disable";
     public const string SettingsChanged = "modbot.settings.change";
 
     // ── Reviews of a moderator's pattern (spec 5.8.5, accountability signals design) ───────

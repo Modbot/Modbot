@@ -25,6 +25,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Keys for programs, stored as hashes (API keys design §3).</summary>
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
 
+    /// <summary>Addresses events are sent to (API keys design §6).</summary>
+    public DbSet<Webhook> Webhooks => Set<Webhook>();
+
+    /// <summary>The last attempts per webhook.</summary>
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+
     /// <summary>The fact log (spec 5.3). Append-only: never update or delete a row here.</summary>
     public DbSet<ModbotEvent> Events => Set<ModbotEvent>();
 
@@ -312,6 +318,44 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // other two questions asked of the table.
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => e.CreatedByUserId);
+        });
+
+        builder.Entity<Webhook>(entity =>
+        {
+            entity.ToTable("api_webhook");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(64);
+            entity.Property(e => e.Url).HasMaxLength(2048);
+            entity.Property(e => e.EventTypes).HasColumnType("jsonb");
+            entity.Property(e => e.SubjectIds).HasColumnType("jsonb");
+            entity.Property(e => e.LastError).HasMaxLength(512);
+            entity.Property(e => e.DisabledReason).HasMaxLength(640);
+
+            entity.HasIndex(e => e.CreatedByUserId);
+        });
+
+        builder.Entity<WebhookDelivery>(entity =>
+        {
+            entity.ToTable("api_webhook_delivery");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.EventId).HasMaxLength(64);
+            entity.Property(e => e.EventType).HasMaxLength(128);
+            entity.Property(e => e.Error).HasMaxLength(512);
+            entity.Property(e => e.Outcome).HasMaxLength(16);
+
+            // Deleting a webhook takes its log with it; the facts keep the record that it existed.
+            entity.HasOne<Webhook>()
+                .WithMany()
+                .HasForeignKey(e => e.WebhookId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // "The last fifty attempts for this webhook", newest first.
+            entity.HasIndex(e => new { e.WebhookId, e.Id });
         });
 
         builder.Entity<ApiKey>(entity =>
