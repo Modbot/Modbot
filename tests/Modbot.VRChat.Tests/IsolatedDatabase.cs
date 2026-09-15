@@ -62,6 +62,20 @@ public sealed class IsolatedDatabase : IAsyncDisposable
         return new ModbotContext(options);
     }
 
-    /// <summary>The container takes the database with it; dropping it here only fights the pool.</summary>
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    /// <summary>
+    /// Closes this database's idle pooled connections. The database itself is left for the container
+    /// to take with it; dropping it here only fights the pool.
+    /// </summary>
+    /// <remarks>
+    /// Every test gets its own database and so its own connection pool, and a pool keeps its idle
+    /// connections open for minutes. Left alone, a suite of a few hundred database tests holds them
+    /// all at once and PostgreSQL refuses new ones with "too many clients already" -- which surfaces
+    /// as whichever tests happen to run last failing in setup, not as anything they did.
+    /// </remarks>
+    public ValueTask DisposeAsync()
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        NpgsqlConnection.ClearPool(connection);
+        return ValueTask.CompletedTask;
+    }
 }
