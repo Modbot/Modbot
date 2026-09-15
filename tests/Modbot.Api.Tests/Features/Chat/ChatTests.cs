@@ -177,12 +177,16 @@ public class ChatTests
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
 
         var person = $"usr_{Guid.NewGuid():N}";
+
+        // A name no other test uses: the vrchat_user table is shared by the assembly, and
+        // VRChatLinkTests records a "Gunner24" of its own, which find_person would also return.
+        var name = $"Gunner{Guid.NewGuid():N}";
         var provider = new ScriptedProvider()
-            .Then(Stream(ToolCall("call_1", "find_person", JsonSerializer.Serialize(new { query = "Gunner" }))))
+            .Then(Stream(ToolCall("call_1", "find_person", JsonSerializer.Serialize(new { query = name }))))
             .Then(Stream(Text("Gunner24 is "), Text(person + ".")));
 
         await using var host = await StartWithProviderAsync(provider);
-        await SeedPersonAsync(host, person, "Gunner24");
+        await SeedPersonAsync(host, person, name);
 
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile, Ct);
 
