@@ -67,10 +67,18 @@ public sealed class PlaceStore
         // the same room coming back (InstanceIdentity.ReopensWithin). Almost never more than one.
         var reopenFrom = seenAt - InstanceIdentity.ReopensWithin;
 
-        var candidates = await _db.VRChatInstances
+        // Loaded into the context, then read back from what the context holds. The query brings in
+        // saved rows; Local also holds a room added earlier in this same pass and not yet saved,
+        // which a query cannot see -- and missing it would open the same room twice.
+        await _db.VRChatInstances
             .Where(i => i.Location == location
                 && (i.ClosedAt == null || i.ClosedAt > reopenFrom))
-            .ToListAsync(ct).ConfigureAwait(false);
+            .LoadAsync(ct).ConfigureAwait(false);
+
+        var candidates = _db.VRChatInstances.Local
+            .Where(i => i.Location == location
+                && (i.ClosedAt == null || i.ClosedAt > reopenFrom))
+            .ToList();
 
         var room = InstanceIdentity.Match(candidates, seenAt);
 
@@ -158,8 +166,12 @@ public sealed class PlaceStore
         if (string.IsNullOrWhiteSpace(worldId))
             return;
 
-        var world = await _db.VRChatWorlds
-            .FirstOrDefaultAsync(w => w.WorldId == worldId, ct).ConfigureAwait(false);
+        // FindAsync, not a query. A query only sees saved rows, so a world added earlier in the same
+        // pass looked missing, was added a second time, and EF Core refused to track the copy --
+        // which failed the whole group instance poll, every ten seconds, for as long as any open
+        // room was in a world Modbot had not saved yet. Find checks what the context already holds,
+        // added rows included, before it asks the database.
+        var world = await _db.VRChatWorlds.FindAsync([worldId], ct).ConfigureAwait(false);
 
         if (world is null)
         {

@@ -196,8 +196,10 @@ public sealed class GroupInstanceSync
 
         await _places.NoteWorldSeenAsync(world.Id, now, ct).ConfigureAwait(false);
 
-        var row = await _db.VRChatWorlds
-            .FirstOrDefaultAsync(w => w.WorldId == world.Id, ct).ConfigureAwait(false);
+        // Find, for the same reason as PlaceStore.NoteWorldSeenAsync: the row was very likely added
+        // a moment ago in this pass and is not saved yet, and a query would not see it -- so the
+        // name the list just handed over would be dropped and the world left unnamed.
+        var row = await _db.VRChatWorlds.FindAsync([world.Id], ct).ConfigureAwait(false);
 
         if (row is null)
             return;
