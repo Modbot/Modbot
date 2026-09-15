@@ -100,7 +100,7 @@ public sealed class CloudAddressTests : IDisposable
         Assert.Equal(TimeSpan.FromSeconds(42), result.RetryAfter);
 
         var sent = handler.Requests[1];
-        Assert.Equal("/api/v1/logs", sent.RequestUri!.AbsolutePath);
+        Assert.Equal("/api/v1/events", sent.RequestUri!.AbsolutePath);
         Assert.Equal("Bearer", sent.Headers.Authorization!.Scheme);
         Assert.Equal("11111111-2222-3333-4444-555555555555.s3cret", sent.Headers.Authorization.Parameter);
         Assert.Contains("gzip", handler.ContentEncodings[1]);
