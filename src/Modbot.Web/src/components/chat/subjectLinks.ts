@@ -1,4 +1,5 @@
 import type { Element, Parent, Root, RootContent } from 'hast'
+import { opensPopup } from '@/components/chat/sourceLinks'
 import type { ChatReference } from '@/lib/api'
 
 /** Past this many, matching every name in every answer costs more than it is worth. */
@@ -33,7 +34,9 @@ type Term = { kind: ChatReference['kind']; id: string }
 function termsOf(references: readonly ChatReference[]): Map<string, Term> {
   const terms = new Map<string, Term>()
 
-  for (const reference of references.slice(0, MOST_REFERENCES)) {
+  // Only what a popup can open. A fact id is a number and a case id is a UUID: matching those in
+  // prose would underline dates, counts and anything else that happened to read the same.
+  for (const reference of references.filter((r) => opensPopup(r.kind)).slice(0, MOST_REFERENCES)) {
     if (reference.id) terms.set(reference.id, { kind: reference.kind, id: reference.id })
 
     const label = reference.label?.trim()

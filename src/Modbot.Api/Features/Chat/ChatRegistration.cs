@@ -26,6 +26,17 @@ public static class ChatRegistration
         services.AddSingleton<IChatTool, GetWorldTool>();
         services.AddSingleton<IChatTool, GetInstanceTool>();
         services.AddSingleton<IChatTool, GroupAnalyticsTool>();
+        services.AddSingleton<IChatTool, ServerAnalyticsTool>();
+        services.AddSingleton<IChatTool, SearchDiscordMessagesTool>();
+        services.AddSingleton<IChatTool, DiscordMessagesAroundTool>();
+        services.AddSingleton<IChatTool, GetDiscordMemberTool>();
+        services.AddSingleton<IChatTool, SearchDiscordMembersTool>();
+        services.AddSingleton<IChatTool, DiscordMembersLeftTool>();
+        services.AddSingleton<IChatTool, AccountLinkTool>();
+        services.AddSingleton<IChatTool, PersonFlagsTool>();
+        services.AddSingleton<IChatTool, RecentFlagsTool>();
+        services.AddSingleton<IChatTool, CalendarEventsTool>();
+        services.AddSingleton<IChatTool, GetCalendarEventTool>();
 
         services.TryAddSingleton<ChatToolRegistry>();
         services.TryAddSingleton<ChatLoop>();

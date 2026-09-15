@@ -46,6 +46,14 @@ export type Subject = { kind: SubjectKind; id: string }
 /** The old name, kept: a link written before worlds and rooms existed still says `subject`. */
 const PARAM = 'subject'
 
+/**
+ * The one Discord message a popup opened at, when it was opened from a source chip in Chat.
+ *
+ * Beside the stack rather than inside the subject value, because only the top popup is on screen:
+ * there is never more than one message being opened at.
+ */
+export const MESSAGE = 'message'
+
 /** Marks a history entry this module pushed, so closing knows whether back is safe. */
 const PUSHED = { modbotSubject: true }
 
@@ -96,6 +104,27 @@ export function openSubject(subject: Subject): void {
   go(`${window.location.pathname}?${params.toString()}`, { state: PUSHED })
 }
 
+/**
+ * A Discord account, opened at one of their messages: the Messages tab, on the page that holds it.
+ */
+export function openDiscordMessage(discordUserId: string, messageId: string): void {
+  const params = new URLSearchParams(window.location.search)
+  const stack = params.getAll(PARAM)
+  const subject: Subject = { kind: 'discord-person', id: discordUserId }
+
+  if (stack.length === 0 || !sameSubject(decodeSubject(stack[stack.length - 1]), subject))
+    params.append(PARAM, encodeSubject(subject))
+
+  params.set(MESSAGE, messageId)
+  go(`${window.location.pathname}?${params.toString()}`, { state: PUSHED })
+}
+
+/** The message the popup on top was opened at, when it was opened at one. */
+export function useMessageAt(): string | null {
+  const [location] = useLocation()
+  return location.search.get(MESSAGE)
+}
+
 /** Closes the top popup, returning to the one underneath. */
 export function closeSubject(): void {
   // Modbot pushed this entry, so the browser's own back is the honest way to leave it: it keeps
@@ -111,6 +140,7 @@ export function closeSubject(): void {
   const stack = params.getAll(PARAM)
 
   params.delete(PARAM)
+  params.delete(MESSAGE)
   for (const value of stack.slice(0, -1)) params.append(PARAM, value)
 
   const query = params.toString()
@@ -123,6 +153,7 @@ export function closeAllSubjects(): void {
   if (params.getAll(PARAM).length === 0) return
 
   params.delete(PARAM)
+  params.delete(MESSAGE)
   const query = params.toString()
   go(window.location.pathname + (query ? `?${query}` : ''), { replace: true })
 }

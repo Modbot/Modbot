@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, SourceBadge } from '@/components/facts'
 import { formatDay, sourceLabel } from '@/lib/format'
+import { useLocation } from '@/lib/router'
 import { api, ApiError, type AuditEntry, type AuditFilters, type AuditPage } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +24,17 @@ import { cn } from '@/lib/utils'
 const SOURCES = ['AuditLog', 'SyncDiff', 'Client', 'Discord', 'Manual', 'Modbot']
 
 export function AuditLog() {
+  const [location] = useLocation()
+
+  // `?fact=` opens the log at one entry: the timeline starts there and the row is marked. It is
+  // what a source chip under a Chat answer links to.
+  const factId = location.search.get('fact')
+
+  const [fetched, setFetched] = useState<{ factId: string; entry: AuditEntry } | null>(null)
+
+  // Only the entry that was fetched for the fact currently in the address counts, so nothing has
+  // to be cleared when the address changes.
+  const openAt = fetched?.factId === factId ? fetched.entry : null
   const [filters, setFilters] = useState<AuditFilters | null>(null)
   const [pages, setPages] = useState<AuditPage[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -35,6 +47,24 @@ export function AuditLog() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
 
+  useEffect(() => {
+    if (!factId) return
+
+    let cancelled = false
+    api
+      .auditEntry(factId)
+      .then((entry) => {
+        if (!cancelled) setFetched({ factId, entry })
+      })
+      .catch(() => {
+        // An entry this account may not read, or one that is gone: the log opens where it always does.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [factId])
+
   const query = useMemo(
     () => ({
       type: types.length > 0 ? types : undefined,
@@ -46,10 +76,15 @@ export function AuditLog() {
       // asking for midnight at the start of the next one. Sending the picked day directly would
       // silently drop everything that happened on it, which is the filter people would trust
       // least once they noticed and would not notice at all before that.
-      to: to ? new Date(Date.parse(`${to}T00:00:00Z`) + 86_400_000).toISOString() : undefined,
+      to: to
+        ? new Date(Date.parse(`${to}T00:00:00Z`) + 86_400_000).toISOString()
+        : openAt
+          ? // A second past it, so the entry itself is the first row rather than the one above it.
+            new Date(Date.parse(openAt.occurredAt) + 1000).toISOString()
+          : undefined,
       limit: 50,
     }),
-    [types, sources, actor, subject, from, to],
+    [types, sources, actor, subject, from, to, openAt],
   )
 
   useEffect(() => {
@@ -146,7 +181,7 @@ export function AuditLog() {
                 </thead>
                 <tbody>
                   {entries.map((entry) => (
-                    <Row key={entry.id} entry={entry} />
+                    <Row key={entry.id} entry={entry} marked={String(entry.id) === factId} />
                   ))}
                 </tbody>
               </table>
@@ -180,9 +215,22 @@ export function AuditLog() {
  * which is three things to read and none of them words. The sentence names who did what to whom
  * and where, and every name in it opens its own popup (see components/factSentence.tsx).
  */
-function Row({ entry }: { entry: AuditEntry }) {
+function Row({ entry, marked }: { entry: AuditEntry; marked: boolean }) {
+  const row = useRef<HTMLTableRowElement>(null)
+  const brought = useRef(false)
+
+  useEffect(() => {
+    if (!marked || brought.current) return
+    brought.current = true
+    row.current?.scrollIntoView({ block: 'center' })
+  }, [marked])
+
   return (
-    <tr className="border-b last:border-0 hover:bg-muted/40" style={{ borderBottomWidth: 'var(--hairline)' }}>
+    <tr
+      ref={row}
+      className={cn('border-b last:border-0 hover:bg-muted/40', marked && 'bg-accent')}
+      style={{ borderBottomWidth: 'var(--hairline)' }}
+    >
       <td className="whitespace-nowrap px-3 align-top" style={{ height: 'var(--row-h)' }}>
         <div className="flex flex-col py-1 leading-tight">
           <FactTime entry={entry} />

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { AlertCircle, Check, ChevronRight, Loader2 } from 'lucide-react'
+import { SourceChip } from '@/components/chat/Sources'
+import { uniqueSources } from '@/components/chat/sourceLinks'
 import type { ChatMessage, ChatReference, ChatToolCall } from '@/lib/api'
-import { openSubject } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 
 /** One lookup: what the model asked for, and what came back — or nothing yet, while it runs. */
@@ -122,30 +123,23 @@ function Mark({ running, failed }: { running: boolean; failed: boolean }) {
 
 function References({ references }: { references: readonly ChatReference[] }) {
   const [all, setAll] = useState(false)
-  const shown = all ? references : references.slice(0, REFERENCES_SHOWN)
+
+  const sources = uniqueSources(references)
+  const shown = all ? sources : sources.slice(0, REFERENCES_SHOWN)
 
   return (
     <div className="flex flex-wrap gap-1.5">
       {shown.map((r) => (
-        <button
-          key={`${r.kind}:${r.id}`}
-          type="button"
-          title={r.id}
-          onClick={() => openSubject({ kind: r.kind, id: r.id })}
-          className="max-w-[16rem] truncate rounded-full border bg-card px-2.5 py-0.5 font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring"
-          style={{ borderWidth: 'var(--hairline)' }}
-        >
-          {r.label ?? r.id}
-        </button>
+        <SourceChip key={`${r.kind}:${r.id}`} reference={r} />
       ))}
-      {!all && references.length > shown.length && (
+      {!all && sources.length > shown.length && (
         <button
           type="button"
           onClick={() => setAll(true)}
           className="rounded-full border px-2.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           style={{ borderWidth: 'var(--hairline)' }}
         >
-          +{references.length - shown.length}
+          +{sources.length - shown.length}
         </button>
       )}
     </div>

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.AI.Chat;
@@ -46,6 +47,39 @@ internal abstract class ReadTool : IChatTool
     protected static ChatReference Person(string id, string? name) => new(ChatReference.Person, id, name);
 
     protected static ChatReference World(string id, string? name) => new(ChatReference.World, id, name);
+
+    protected static ChatReference DiscordPerson(string id, string? name) => new(ChatReference.DiscordPerson, id, name);
+
+    protected static ChatReference Fact(long id, string? label) =>
+        new(ChatReference.Fact, id.ToString(CultureInfo.InvariantCulture), label);
+
+    protected static ChatReference Case(Guid id, string? label) => new(ChatReference.Case, id.ToString(), label);
+
+    /// <summary>A Discord message, which opens in its author's messages.</summary>
+    protected static ChatReference Message(string messageId, string authorId, string? label) =>
+        new(ChatReference.Message, messageId, label, authorId);
+
+    protected static ChatReference Event(Guid id, string? label) => new(ChatReference.Event, id.ToString(), label);
+
+    /// <summary>
+    /// Keeps the first <paramref name="limit"/> rows of a query asked for one more than it wanted,
+    /// and says whether there were more.
+    /// </summary>
+    /// <remarks>
+    /// A tool result is read by a model with a token budget and by a moderator in a step. Rows, and
+    /// a count of what was left out, answer more questions than a dump the model has to be cut off
+    /// part-way through.
+    /// </remarks>
+    protected static (List<T> Rows, bool More) FirstOf<T>(List<T> rows, int limit)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        var more = rows.Count > limit;
+        if (more)
+            rows.RemoveRange(limit, rows.Count - limit);
+
+        return (rows, more);
+    }
 
     protected static IEnumerable<ChatReference> RoomReferences(InstanceRow room)
     {

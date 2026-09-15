@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Copy, Pencil, RotateCcw } from 'lucide-react'
 import { Answer } from '@/components/chat/Answer'
+import { Sources } from '@/components/chat/Sources'
 import { ToolSteps, type ToolStep } from '@/components/chat/ToolSteps'
 import { Button } from '@/components/ui/button'
 import type { ChatMessage, ChatReference } from '@/lib/api'
@@ -188,6 +189,8 @@ function Reply({
           Stopped
         </span>
       )}
+
+      <Sources references={references} />
 
       <Actions>
         <Versions message={first} onReadVersion={onReadVersion} />

@@ -483,6 +483,14 @@ public static class FactType
     public const string InsightAlert = "modbot.insight.alert";
 
     /// <summary>
+    /// Somebody asked about a person on the Chat page and the tools read that person's record (AI
+    /// chat design §13). Subject is the person who was looked at; the actor is the moderator who
+    /// asked. One per question, however many tools ran; the question itself is never stored here.
+    /// Payload: everyone the same question looked at, and which tools read them.
+    /// </summary>
+    public const string ChatLookup = "modbot.chat.lookup";
+
+    /// <summary>
     /// Every fact about one subject was erased on request (spec 5.5). It deliberately names no
     /// user.
     /// </summary>

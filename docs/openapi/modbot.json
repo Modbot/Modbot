@@ -5030,7 +5030,7 @@
           "Discord"
         ],
         "summary": "One Discord member's stored messages, newest first, deleted ones included",
-        "description": "Messages in the server in settings, newest first. A deleted message is returned with `deletedAt` set and an edited one with `editedAt`; `text` is the text as it reads now. Needs Read Discord messages.\n\nNeeds the `ReadDiscordMessages` permission.",
+        "description": "Messages in the server in settings, newest first. A deleted message is returned with `deletedAt` set and an edited one with `editedAt`; `text` is the text as it reads now. Pass `at` with a message id instead of `page` to get the page that message is on, which is what a link to one message opens. Needs Read Discord messages.\n\nNeeds the `ReadDiscordMessages` permission.",
         "operationId": "GetDiscordMemberMessages",
         "parameters": [
           {
@@ -5063,6 +5063,13 @@
                 "string"
               ],
               "format": "int32"
+            }
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -5896,6 +5903,64 @@
           },
           "403": {
             "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/audit/entries/{id}": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "summary": "One entry of the timeline, by its id",
+        "description": "For a link to a single entry. An entry of a type this account may not read answers 404, the same as one that does not exist.",
+        "operationId": "GetAuditEntry",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEntry"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
             "description": "Not signed in, or the API key is not valid."
@@ -14489,6 +14554,12 @@
             "type": "string"
           },
           "label": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "author": {
             "type": [
               "null",
               "string"

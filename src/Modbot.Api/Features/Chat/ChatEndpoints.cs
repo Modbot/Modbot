@@ -10,7 +10,9 @@ using Modbot.AI;
 using Modbot.AI.Calls;
 using Modbot.AI.Chat;
 using Modbot.AI.Usage;
+using Modbot.Analytics.Facts;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -294,6 +296,8 @@ public static class ChatEndpoints
         [FromServices] IAiUsage usage,
         [FromServices] IAiCallLog calls,
         [FromServices] IModbotClock clock,
+        [FromServices] IFactWriter facts,
+        [FromServices] EventPartitionMaintainer partitions,
         [FromServices] IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
         CancellationToken ct)
     {
@@ -460,6 +464,9 @@ public static class ChatEndpoints
         ChatTokenUsage? round = null;
         var answer = string.Empty;
 
+        // What the tools read about people, for the one fact this question records (design §13).
+        var lookups = new List<ChatTurn>();
+
         var outcome = await loop.RunAsync(request, async e =>
         {
             switch (e)
@@ -491,6 +498,9 @@ public static class ChatEndpoints
                     if (turn.Turn.Role == ChatRole.Assistant && turn.Turn.ToolCalls.Count == 0 && turn.Turn.Content.Length > 0)
                         answer = turn.Turn.Content;
 
+                    if (turn.Turn.Role == ChatRole.Tool)
+                        lookups.Add(turn.Turn);
+
                     var stored = await StoreAsync(turn.Turn, taken);
                     await SendEvent("message", View(conversation, stored, registry));
                     break;
@@ -500,6 +510,21 @@ public static class ChatEndpoints
                     break;
             }
         }, ct);
+
+        // Who asked about whom, once for the whole question. Written after the reply rather than
+        // inside each tool, so asking about one person six ways is one entry in their history --
+        // and written whatever the outcome, because a tool that read somebody read them even if
+        // the reply was stopped afterwards.
+        var (people, toolsUsed) = ChatLookupFacts.Read(lookups);
+        await ChatLookupFacts.RecordAsync(
+            facts,
+            partitions,
+            clock.UtcNow,
+            Actor.Of(http) ?? new Actor(userId, string.Empty),
+            conversation.Id,
+            people,
+            toolsUsed,
+            CancellationToken.None);
 
         // A name for the list, written once, from the exchange that started the conversation. The
         // first words of the question are already stored, so a provider that refuses costs nothing.

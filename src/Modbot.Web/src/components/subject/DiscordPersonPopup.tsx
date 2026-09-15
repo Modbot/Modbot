@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs } from '@/components/ui/tabs'
@@ -9,6 +9,8 @@ import { FactList, Field, Figure, Note, Panel, PopupFrame } from '@/components/s
 import { api, ApiError, type AuditEntry, type CurrentUser, type DiscordMember } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { can } from '@/lib/permissions'
+import { useMessageAt } from '@/lib/subject'
+import { cn } from '@/lib/utils'
 import { useLoad } from '@/lib/useLoad'
 
 type Tab = 'logs' | 'messages' | 'metrics'
@@ -25,7 +27,12 @@ type Tab = 'logs' | 'messages' | 'metrics'
  * profile, so a Discord account cannot have one yet.
  */
 export function DiscordPersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
-  const [tab, setTab] = useState<Tab>('logs')
+  // Opened at one message, from a source chip under a Chat answer: the Messages tab, on the page
+  // that holds it, with that message marked.
+  const at = useMessageAt()
+  const reads = can(me, 'ReadDiscordMessages')
+
+  const [tab, setTab] = useState<Tab>(at && reads ? 'messages' : 'logs')
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'logs', label: 'Logs' },
@@ -47,7 +54,7 @@ export function DiscordPersonPopup({ id, me, lead }: { id: string; me: CurrentUs
     >
       <Tabs value={tab} onChange={setTab} tabs={tabs}>
         {tab === 'logs' && <Logs id={id} />}
-        {tab === 'messages' && <Messages id={id} />}
+        {tab === 'messages' && <Messages id={id} at={at} />}
         {tab === 'metrics' && <Metrics id={id} />}
       </Tabs>
     </PopupFrame>
@@ -213,15 +220,29 @@ function Logs({ id }: { id: string }) {
 
 const MESSAGE_PAGE = 50
 
-function Messages({ id }: { id: string }) {
+function Messages({ id, at }: { id: string; at?: string | null }) {
   const [page, setPage] = useState(1)
-  const load = useCallback(() => api.discordMemberMessages(id, page, MESSAGE_PAGE), [id, page])
+
+  // The server works out which page holds the message asked for, so a link lands on it rather than
+  // on the newest page. Paging by hand afterwards drops the anchor.
+  const [anchored, setAnchored] = useState(Boolean(at))
+  const load = useCallback(
+    () => api.discordMemberMessages(id, page, MESSAGE_PAGE, anchored ? at ?? undefined : undefined),
+    [id, page, at, anchored],
+  )
   const { data, error } = useLoad(load)
 
   if (error) return <Panel title="Messages"><Note className="text-destructive">{error}</Note></Panel>
   if (!data) return <Panel title="Messages"><Note>Loading…</Note></Panel>
 
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize))
+
+  // Turning a page by hand leaves the linked message behind, so the anchor goes with it. The page
+  // turned from is the one the server answered with, which is where the linked message was found.
+  const turn = (to: number) => {
+    setAnchored(false)
+    setPage(to)
+  }
 
   return (
     <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
@@ -230,11 +251,7 @@ function Messages({ id }: { id: string }) {
       ) : (
         <ol className="flex flex-col gap-2">
           {data.messages.map((m) => (
-            <li
-              key={m.messageId}
-              className="rounded-md border px-3 py-2"
-              style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-            >
+            <Message key={m.messageId} marked={anchored && m.messageId === at}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium" title={m.channelId}>
                   #{m.channelName ?? m.channelId}
@@ -281,25 +298,47 @@ function Messages({ id }: { id: string }) {
                   ))}
                 </ul>
               )}
-            </li>
+            </Message>
           ))}
         </ol>
       )}
 
       {pages > 1 && (
         <div className="flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-          <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+          <Button variant="outline" size="xs" disabled={data.page <= 1} onClick={() => turn(data.page - 1)}>
             Previous
           </Button>
           <span className="text-muted-foreground">
             Page {data.page} of {pages}
           </span>
-          <Button variant="outline" size="xs" disabled={page >= pages} onClick={() => setPage(page + 1)}>
+          <Button variant="outline" size="xs" disabled={data.page >= pages} onClick={() => turn(data.page + 1)}>
             Next
           </Button>
         </div>
       )}
     </div>
+  )
+}
+
+/** One message. A message somebody was sent a link to is marked and brought into view. */
+function Message({ marked, children }: { marked: boolean; children: React.ReactNode }) {
+  const row = useRef<HTMLLIElement>(null)
+  const brought = useRef(false)
+
+  useEffect(() => {
+    if (!marked || brought.current) return
+    brought.current = true
+    row.current?.scrollIntoView({ block: 'center' })
+  }, [marked])
+
+  return (
+    <li
+      ref={row}
+      className={cn('rounded-md border px-3 py-2', marked && 'border-ring bg-accent')}
+      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+    >
+      {children}
+    </li>
   )
 }
 

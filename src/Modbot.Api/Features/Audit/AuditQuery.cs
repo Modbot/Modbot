@@ -84,6 +84,31 @@ public sealed class AuditQuery(ModbotContext db)
     }
 
     /// <summary>
+    /// One entry by its id, or null when it does not exist or is not one of <paramref name="types"/>.
+    /// </summary>
+    /// <remarks>
+    /// For a link to a single entry, such as a source chip under a Chat answer. The type list is
+    /// the caller's own visible set, so an entry they may not read answers the same as one that is
+    /// not there.
+    /// </remarks>
+    public async Task<AuditEntry?> EntryAsync(long id, IReadOnlyList<string> types, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(types);
+
+        if (types.Count == 0)
+            return null;
+
+        var row = await db.Events.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == id && types.Contains(e.Type), ct);
+
+        if (row is null)
+            return null;
+
+        var named = await AuditNaming.ResolveAsync(db, [Project(row)], ct);
+        return named.Count == 0 ? null : named[0];
+    }
+
+    /// <summary>
     /// Where this caller's timeline actually starts, and whether it is still moving.
     /// </summary>
     /// <remarks>

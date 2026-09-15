@@ -54,6 +54,20 @@ something the asker could not already open in Modbot.
 | **Open a world** | One world: name, author, capacity, time people spent in it and its recent rooms | **See analytics** |
 | **Open an instance** | One room: where and when it ran, how busy it was, who was in it and what was recorded there | **See analytics** |
 | **Group figures** | The group's figures over a number of days (30 unless asked otherwise, up to 365): member count, joins, leaves, invites, join requests, roles and how long members have been members | **See analytics** |
+| **Server figures** | The Discord server's figures over a number of days: members, joins, leaves, messages, minutes in voice, active members, busiest channels, who wrote most, bans, kicks, timeouts and messages removed | **See analytics** |
+| **Search Discord messages** | Stored Discord messages, by who wrote them, the channel, words in them and dates. Deleted ones come back marked deleted | **Read Discord messages** |
+| **Around a message** | The messages sent just before and just after one message, in the same channel or thread | **Read Discord messages** |
+| **Open a Discord member** | One member of the Discord server: names, roles, when they joined, whether they left or are timed out, and their linked VRChat account | **See members** |
+| **Search Discord members** | The Discord member list by name or id, and everyone holding one role | **See members** |
+| **Who left Discord** | The people who most recently left the Discord server | **See members** |
+| **Account link** | Whether someone's VRChat and Discord accounts are linked, the other account, and links that were ended | **See profiles** |
+| **Person's flags** | One person's AI moderation flags: which rule matched, what it matched, what was done, and whether a moderator dismissed it | **See profiles** |
+| **Recent flags** | The most recent AI moderation flags across the group, and how many are still open | **See profiles** |
+| **What's on** | Calendar events over a window of days: when each runs, its world, whether it repeats and its state | **See calendar** |
+| **Open an event** | One calendar event: its description, world and room settings, where it was published and whether Modbot opened a room for it | **See calendar** |
+
+A list of results is capped, and the answer is told when there were more. Searching Discord
+messages on words alone looks at the last 90 days unless dates are given.
 
 All of these only read. Anyone with **Change settings** can switch any of them off for everyone in
 the [Chat settings](#chat-settings).
@@ -79,6 +93,11 @@ the [Chat settings](#chat-settings).
   Several lookups in a row are grouped as **N steps**.
 - People, worlds and rooms the lookups found are underlined in the answer and shown as buttons under
   the step. Either opens the usual [popup](/moderation/popups).
+- **Sources** under the answer are the rows it was built from. Each one opens where it lives: a
+  person, world or room in its popup, an audit log entry in the audit log at that entry, a case file
+  on its own page, a Discord message in that person's **Messages** tab with the message marked, and
+  an event on the calendar. The model is told to answer only from what the lookups returned and
+  never to write an id it was not given.
 - Hovering over an answer shows **Copy** and **Try again**; hovering over your last question shows
   **Copy** and **Edit**.
 
@@ -122,6 +141,17 @@ are deleted with it.
 Conversations are not part of the audit log. Modbot's server log records who used Chat, which tools
 ran, whether they worked and how long they took, but never the text of a message or what a tool was
 asked.
+
+## Asking about a person is recorded
+
+A question whose lookups read about people records one audit log entry naming you and everyone the
+lookups returned: **Wren asked about TeaSpoon in chat**. It appears in the
+[audit log](/moderation/audit-log) and in each of those people's own history, exactly like any other
+lookup, so asking through Chat is as visible as opening a profile.
+
+One entry per question, however many lookups it made. **Try again** and **Edit** send a question, so
+each records again. Your question is never stored in the entry — only who asked, who was read, which
+lookups read them and which conversation it was.
 
 ## What leaves Modbot
 

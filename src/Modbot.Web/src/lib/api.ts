@@ -2078,11 +2078,18 @@ export type AiSpendWarning = {
   partUnknown: boolean
 }
 
-/** Something a tool result named that opens a popup. */
+/**
+ * A source of an answer: something a tool returned, and where it opens.
+ *
+ * The first four open a popup; a fact opens the audit log at that entry, a case the case file, a
+ * message that person's Discord messages at it, and an event the calendar.
+ */
 export type ChatReference = {
-  kind: 'person' | 'world' | 'instance' | 'discord-person'
+  kind: 'person' | 'world' | 'instance' | 'discord-person' | 'fact' | 'case' | 'message' | 'event'
   id: string
   label: string | null
+  /** For a message: the Discord account whose messages it opens in. */
+  author?: string | null
 }
 
 export type ChatConversationSummary = { id: string; title: string; updatedAt: string }
@@ -2896,6 +2903,9 @@ export const api = {
 
   auditFilters: () => request<AuditFilters>('/api/audit/filters'),
 
+  /** One entry by its id. 404 when it does not exist or this account may not read its type. */
+  auditEntry: (id: string) => request<AuditEntry>(`/api/audit/entries/${encodeURIComponent(id)}`),
+
   bans: (query: { offset?: number; limit?: number; includeUnbanned?: boolean } = {}) => {
     const q = new URLSearchParams()
     if (query.offset) q.set('offset', String(query.offset))
@@ -2939,9 +2949,11 @@ export const api = {
 
   discordMember: (id: string) => request<DiscordMember>(`/api/discord/members/${encodeURIComponent(id)}`),
 
-  discordMemberMessages: (id: string, page: number, pageSize: number) =>
+  /** `at` is a message id to open on: the page holding it comes back, whatever `page` says. */
+  discordMemberMessages: (id: string, page: number, pageSize: number, at?: string) =>
     request<DiscordMemberMessages>(
-      `/api/discord/members/${encodeURIComponent(id)}/messages?page=${page}&pageSize=${pageSize}`,
+      `/api/discord/members/${encodeURIComponent(id)}/messages?page=${page}&pageSize=${pageSize}` +
+        (at ? `&at=${encodeURIComponent(at)}` : ''),
     ),
 
   discordMemberMetrics: (id: string) =>

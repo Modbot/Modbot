@@ -58,8 +58,16 @@ internal static class AuditSearch
             References(entries));
     }
 
+    /// <summary>
+    /// One entry, with the id it is filed under.
+    /// </summary>
+    /// <remarks>
+    /// The id is here so the answer can say where a claim came from: the page turns it into a
+    /// source chip that opens the audit log at that entry.
+    /// </remarks>
     public static object Summary(AuditEntry e) => new
     {
+        factId = e.Id,
         e.OccurredAt,
         e.OccurredBefore,
         what = FactLabels.For(e.Type),
@@ -78,14 +86,24 @@ internal static class AuditSearch
     public static IEnumerable<ChatReference> References(IEnumerable<AuditEntry> entries)
     {
         var vrchat = FactPlatform.VRChat.ToString();
+        var discord = FactPlatform.Discord.ToString();
 
         foreach (var e in entries)
         {
+            yield return new ChatReference(
+                ChatReference.Fact, e.Id.ToString(CultureInfo.InvariantCulture), FactLabels.For(e.Type));
+
             if (e.SubjectKind == SubjectKind.Person && e.SubjectPlatform == vrchat)
                 yield return new ChatReference(ChatReference.Person, e.SubjectId, e.SubjectName);
 
+            if (e.SubjectKind == SubjectKind.Person && e.SubjectPlatform == discord)
+                yield return new ChatReference(ChatReference.DiscordPerson, e.SubjectId, e.SubjectName);
+
             if (e.ActorId is { } actor && e.ActorPlatform == vrchat)
                 yield return new ChatReference(ChatReference.Person, actor, e.ActorName);
+
+            if (e.ActorId is { } discordActor && e.ActorPlatform == discord)
+                yield return new ChatReference(ChatReference.DiscordPerson, discordActor, e.ActorName);
 
             if (e.WorldId is { } world)
                 yield return new ChatReference(ChatReference.World, world, e.WorldName);
@@ -145,14 +163,9 @@ internal sealed class SearchAuditLogTool : ReadTool
             types,
             ChatArguments.Text(arguments, "subjectId"),
             ChatArguments.Text(arguments, "actorId"),
-            Time(ChatArguments.Text(arguments, "from")),
-            Time(ChatArguments.Text(arguments, "to")),
+            ChatTime.Of(ChatArguments.Text(arguments, "from")),
+            ChatTime.Of(ChatArguments.Text(arguments, "to")),
             ChatArguments.Number(arguments, "limit", 25, 1, 50),
             ct);
     }
-
-    private static DateTimeOffset? Time(string? text) =>
-        DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)
-            ? at
-            : null;
 }

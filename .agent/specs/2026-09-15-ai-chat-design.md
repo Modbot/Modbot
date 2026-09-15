@@ -80,8 +80,55 @@ A moderator can never see through Chat what they could not see in the app.
 | `get_instance` | ViewAnalytics | the room popup's read |
 | `group_analytics` | ViewAnalytics | the My Group page's query, for a number of days |
 
-Each result also names the people, worlds and rooms it mentions, so the page can show them as
-chips that open the usual popups.
+Added 2026-09-15, at the maintainer's request, once Discord messages, members, account links,
+flags and the calendar had all landed: Chat was answering from a third of what Modbot knows.
+
+| Tool | Needs | Uses |
+|---|---|---|
+| `search_discord_messages` | ReadDiscordMessages | stored Discord messages by author, channel, words and dates |
+| `discord_messages_around` | ReadDiscordMessages | the messages either side of one message, in its channel or thread |
+| `get_discord_member` | ViewMembers | the Discord member popup's read |
+| `search_discord_members` | ViewMembers | the Discord members page's search, including by role |
+| `discord_members_left` | ViewMembers | who left the server, most recently first |
+| `get_account_link` | ViewProfile | `discord_account_link`, current and ended |
+| `get_person_flags` | ViewProfile | one person's AI moderation flags and dismissals |
+| `recent_flags` | ViewProfile | the Flags page's list |
+| `list_calendar_events` | ViewCalendar | the Calendar page's read, over a window of days |
+| `get_calendar_event` | ViewCalendar | one event, with how publishing it went |
+| `server_analytics` | ViewAnalytics | the My Server page's query, for a number of days |
+
+Two rules the whole set follows. **A tool's result is rows, not a dump**: every list has a row cap,
+asks the database for one more row than it shows, and says `more` when there was one, so the model
+is told what it is missing rather than being cut off mid-JSON. And **a tool narrows the same way
+the page does**: `get_discord_member` only says which VRChat account somebody linked when the asker
+holds ViewProfile, exactly like the popup.
+
+Searching Discord messages on words alone reads the last ninety days unless a date range is given.
+The message table is partitioned by month and indexed by channel, thread and author, not by text;
+without a window, three words would read every partition Modbot has.
+
+### 3.2.1 Sources
+
+Every tool result carries a reference for each row it returned, and the reply shows them as chips
+under it. A reference is a kind, an id, and a name to show:
+
+| Kind | Id | Opens |
+|---|---|---|
+| `person`, `world`, `instance`, `discord-person` | the VRChat or Discord id, or Modbot's room id | the usual popup |
+| `fact` | the audit log entry's own id | the audit log at that entry |
+| `case` | the case file's id | the case file page |
+| `message` | the Discord message id, with the author beside it | that person's Messages tab, on the page holding it, marked |
+| `event` | the calendar event's id | the calendar, with the event open |
+
+**Sources are what makes an answer checkable.** The steps inside a reply say which lookups ran; the
+chips under it are the rows themselves, so a moderator about to act on "they were warned twice in
+March" can open both warnings without searching for them. The model is told to answer only from
+what the tools returned and never to write an id a tool did not return, but the chips do not depend
+on it behaving: they are built from the tool results, not from the words.
+
+Only the four popup kinds are matched in the answer's text (§11.1). A fact id is a number and a
+case id is a UUID; matching those in prose would underline dates and counts that happened to read
+the same.
 
 ### 3.3 Acting tools — none yet, and off by default
 
@@ -124,7 +171,7 @@ Every provider call is also a row in `ai_usage` (§10).
 Only the owner can list, open, continue or delete a conversation; anybody else gets a 404, the
 same answer as for one that does not exist. Deleting the Modbot account deletes its
 conversations. Conversations are not facts: they are a person's own scratch pad, not moderation
-history.
+history. What the tools *read about people* is a fact, though, and that is §12.
 
 ## 7. What is sent to the provider
 
@@ -525,3 +572,47 @@ text is sent in the first place.
 The Health page's AI card counts the last hour's calls, failures and timeouts, and names the model
 answering while the fallback is the one answering. It stays away entirely on a deployment with
 nothing to say.
+
+---
+## 13. Who asked about whom
+
+Added 2026-09-15 at the maintainer's request: *"A moderator looking up a member through Chat should
+be as visible as opening their profile."*
+
+A question whose tools returned people records a fact of type `modbot.chat.lookup`. The subject is
+the person who was read; the actor is the moderator who asked. It reads *"Wren asked about TeaSpoon
+in chat"* and lands in the audit log and in that person's own history like any other entry.
+
+**Why it exists.** Everything Chat can read, a moderator could already open in the app — that is
+§3.1, and it has not changed. What Chat changes is how cheap reading is: one sentence can pull a
+profile, a ban history, a case file and three months of Discord messages. Without this, Chat would
+be the quiet way to read a member's record, and the accountability the audit log exists for would
+have a hole in it shaped exactly like the newest feature.
+
+**One per question, not one per tool call.** Six tools about one person is one lookup; six identical
+rows would bury the timeline this is meant to serve. A question that read two people writes one
+entry for each of them, because the audit log files an entry under a single subject and a moderator
+reading their own history has to find it there. Both entries carry the whole list in the payload
+(`people`), so it still reads as one question. At most twenty people are recorded for one question:
+a question that swept a member list is still one lookup, not a reason to write a thousand facts.
+
+**Everyone the tools named, not only whoever was asked about.** A moderator who appears as the
+actor of an audit entry that was read is recorded too. That is over-inclusive and deliberately so:
+their name was read, the tools cannot say which person the question was "really" about, and an
+accountability log errs towards recording access rather than towards missing it.
+
+**The question is not stored.** The payload holds who asked, everyone the question read, which
+tools read them, and the conversation's id — never the words. The conversation already has those,
+and this is a record of access rather than of what was said (§6, §8).
+
+**It is moderation history, not the operator's log.** `AuditVisibility` files it as
+`AuditCategory.Moderation`, beside `modbot.evidence.access`, for the same reason: who opened a
+record about somebody belongs in that person's timeline, where the person and their team can see
+it, not in a log only operators read.
+
+**Asking again and editing record again.** Both send a question and both run tools, so both write
+the fact. That is not a duplicate: the second reading of somebody's record is a second reading of
+it.
+
+**It is written whatever the outcome.** A reply that was stopped, timed out or lost the provider
+still ran the tools it ran, and what they read was read.

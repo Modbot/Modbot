@@ -445,6 +445,18 @@ const SENTENCES: Record<string, Sentence> = {
   },
 
   // ── Modbot accounts ─────────────────────────────────────────────────────────────────────────
+  'modbot.chat.lookup': (p) => {
+    const people = p.entry.data?.['people']
+    const others = Array.isArray(people) ? people.length - 1 : 0
+
+    return (
+      <>
+        {p.actor} asked about {p.subject}
+        {others > 0 ? <> and {others === 1 ? '1 other person' : `${others} other people`}</> : null} in chat.
+      </>
+    )
+  },
+
   'modbot.user.login': (p) => <>{p.subject} signed in to Modbot.</>,
 
   'modbot.user.login.failed': (p) => (

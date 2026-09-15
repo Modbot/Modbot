@@ -17,6 +17,7 @@ import {
   type CalendarFeed,
   type CalendarView,
 } from '@/lib/calendar'
+import { useLocation } from '@/lib/router'
 import { openInstance } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 import { PageMessage, Toggle } from '@/pages/analytics/shared'
@@ -41,6 +42,11 @@ export function Calendar() {
   const [data, setData] = useState<CalendarView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
+
+  // `?event=` opens one event, whenever it runs: what a source chip under a Chat answer links to.
+  const [location] = useLocation()
+  const linkedId = location.search.get('event')
+  const [linked, setLinked] = useState<CalendarEvent | null>(null)
   const [editing, setEditing] = useState<CalendarEvent | 'new' | null>(null)
 
   const range = useMemo(() => {
@@ -87,8 +93,31 @@ export function Calendar() {
     [data],
   )
 
+  useEffect(() => {
+    if (!linkedId) return
+
+    let cancelled = false
+    calendarApi
+      .event(linkedId)
+      .then((e) => {
+        if (cancelled) return
+        setLinked(e)
+        setOpenId(e.id)
+      })
+      .catch(() => {
+        // An event that is gone, or one this account may not see: the calendar opens as usual.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [linkedId])
+
   const drafts = useMemo(() => (data?.events ?? []).filter((e) => e.state === 'draft'), [data])
-  const opened = data?.events.find((e) => e.id === openId) ?? null
+
+  // An event linked to may run outside the window on screen, so the one that was fetched stands in.
+  const opened =
+    data?.events.find((e) => e.id === openId) ?? (linked && linked.id === openId ? linked : null)
 
   if (!data) return <PageMessage>{error ?? 'Loading…'}</PageMessage>
 

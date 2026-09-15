@@ -166,9 +166,13 @@ Name: `UseAiChat`
 - Opens the **Chat** page and lets the person ask questions. See [Chat](/ai/chat).
 
 Chat can only use what the person asking can already see: every tool it uses runs with that
-person's own permissions. It adds a way of asking, not anything more to see. Using Chat sends group
-data to the AI provider set up in Settings, which is why it is not in the built-in Moderator or
-Viewer roles.
+person's own permissions, and a tool they lack the permission for is never offered to the model.
+[Chat](/ai/chat#tools) lists every lookup and the permission it needs. It adds a way of asking, not
+anything more to see. Using Chat sends group data to the AI provider set up in Settings, which is
+why it is not in the built-in Moderator or Viewer roles.
+
+Asking about a person through Chat is recorded in the audit log and in that person's own history,
+the same as any other lookup.
 
 ### Use AI in excess of usage limits
 

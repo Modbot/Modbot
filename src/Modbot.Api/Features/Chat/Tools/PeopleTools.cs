@@ -202,7 +202,10 @@ internal sealed class PersonCasesTool : ReadTool
                     c.EvidenceCount,
                 }),
             },
-            list.Cases.Select(c => Person(c.UserId, c.DisplayName)));
+            [
+                .. list.Cases.Select(c => Person(c.UserId, c.DisplayName)),
+                .. list.Cases.Select(c => Case(c.Id, c.DisplayName is { Length: > 0 } name ? $"Case: {name}" : "Case file")),
+            ]);
     }
 }
 

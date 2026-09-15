@@ -51,14 +51,34 @@ public interface IChatTool
 public sealed record ChatToolContext(Guid UserId, ModbotPermissions Held, IServiceProvider Services);
 
 /// <summary>Something a tool result names that the Chat page can open.</summary>
-/// <param name="Kind"><c>person</c>, <c>world</c> or <c>instance</c> -- the popup it opens.</param>
-/// <param name="Id">The VRChat user or world id, or Modbot's own room id.</param>
+/// <remarks>
+/// These are the sources of an answer. A tool sends back a reference for every row it returned, so
+/// the page can show what the answer was built from and open each one where it lives: a person,
+/// world or room in its popup, a fact in the audit log, a case file on its own page, a Discord
+/// message in that person's messages, an event on the calendar.
+/// </remarks>
+/// <param name="Kind">One of the constants below -- what the chip opens.</param>
+/// <param name="Id">The VRChat user or world id, Modbot's own room id, or the row's own id.</param>
 /// <param name="Label">A name to show, when one is known.</param>
-public sealed record ChatReference(string Kind, string Id, string? Label)
+/// <param name="Author">For a Discord message: whose messages to open it in.</param>
+public sealed record ChatReference(string Kind, string Id, string? Label, string? Author = null)
 {
     public const string Person = "person";
     public const string World = "world";
     public const string Instance = "instance";
+    public const string DiscordPerson = "discord-person";
+
+    /// <summary>One entry of the audit log, by its own id.</summary>
+    public const string Fact = "fact";
+
+    /// <summary>One case file, by its id.</summary>
+    public const string Case = "case";
+
+    /// <summary>One Discord message, by its message id. <see cref="Author"/> says whose it is.</summary>
+    public const string Message = "message";
+
+    /// <summary>One calendar event, by its id.</summary>
+    public const string Event = "event";
 }
 
 /// <summary>What a tool sends back to the model, and what it named along the way.</summary>

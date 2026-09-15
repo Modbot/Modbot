@@ -17,7 +17,7 @@ import yaml from 'highlight.js/lib/languages/yaml'
 import { Markdown } from '@/components/Markdown'
 import { subjectLinks } from '@/components/chat/subjectLinks'
 import type { ChatReference } from '@/lib/api'
-import { openSubject } from '@/lib/subject'
+import { openSubject, type SubjectKind } from '@/lib/subject'
 
 /**
  * Enough languages for the code an answer about a VRChat group might carry, and no more: every
@@ -66,7 +66,7 @@ export function Answer({ text, references }: { text: string; references: readonl
             return (
               <button
                 type="button"
-                onClick={() => openSubject({ kind: kind as ChatReference['kind'], id })}
+                onClick={() => openSubject({ kind: kind as SubjectKind, id })}
                 className="rounded-sm font-medium text-link underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {children}

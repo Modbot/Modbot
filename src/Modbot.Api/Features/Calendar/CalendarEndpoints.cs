@@ -685,7 +685,7 @@ public static class CalendarEndpoints
         ["openMinutesBefore"] = e.OpenMinutesBefore,
     };
 
-    private static async Task<List<CalendarEventView>> ViewsAsync(
+    internal static async Task<List<CalendarEventView>> ViewsAsync(
         ModbotContext db, IReadOnlyList<CalendarEvent> events, DateTimeOffset from, DateTimeOffset to, CancellationToken ct)
     {
         var ids = events.Select(e => e.Id).ToList();

@@ -208,6 +208,12 @@ public static class AuditVisibility
         [FactType.ReportSnapshotRecaptured] = AuditCategory.Moderation,
         [FactType.BanReasonsChanged] = AuditCategory.Operational,
 
+        // Looking somebody up through Chat is the same kind of access record as opening a piece of
+        // evidence, and it belongs in the timeline of the person who was looked at rather than in
+        // the operator's log: a moderator reading their own history should see who has been asking
+        // about them.
+        [FactType.ChatLookup] = AuditCategory.Moderation,
+
         // Evidence is moderation history, not plumbing: who attached what to a case, who opened
         // it, and who destroyed it are all part of the accountability record spec 5.8 exists for.
         [FactType.EvidenceAttached] = AuditCategory.Moderation,

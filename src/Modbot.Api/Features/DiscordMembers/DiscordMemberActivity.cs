@@ -100,16 +100,18 @@ public static class DiscordMemberActivity
                 [FromRoute] string id,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
+                [FromQuery] string? at,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
-                Results.Ok(await MessagesAsync(db, id, page, pageSize, ct)))
+                Results.Ok(await MessagesAsync(db, id, page, pageSize, at, ct)))
             .RequiresFlag(ModbotPermissions.ReadDiscordMessages)
             .WithName("GetDiscordMemberMessages")
             .WithSummary("One Discord member's stored messages, newest first, deleted ones included")
             .WithDescription(
                 "Messages in the server in settings, newest first. A deleted message is returned with "
                 + "`deletedAt` set and an edited one with `editedAt`; `text` is the text as it reads now. "
-                + "Needs Read Discord messages.")
+                + "Pass `at` with a message id instead of `page` to get the page that message is on, "
+                + "which is what a link to one message opens. Needs Read Discord messages.")
             .Produces<DiscordMemberMessagesResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -128,8 +130,12 @@ public static class DiscordMemberActivity
         return group;
     }
 
+    /// <param name="at">
+    /// A message id to open at. The page holding it is returned, whatever <paramref name="page"/>
+    /// says, so a link to one message lands on it rather than on the newest page.
+    /// </param>
     internal static async Task<DiscordMemberMessagesResponse> MessagesAsync(
-        ModbotContext db, string id, int? page, int? pageSize, CancellationToken ct)
+        ModbotContext db, string id, int? page, int? pageSize, string? at, CancellationToken ct)
     {
         var size = Math.Clamp(pageSize ?? DefaultPageSize, 1, MaxPageSize);
         var number = Math.Max(page ?? 1, 1);
@@ -140,6 +146,18 @@ public static class DiscordMemberActivity
             .Where(m => m.AuthorId == id && (guildId == null || m.GuildId == guildId));
 
         var total = await query.CountAsync(ct);
+
+        if (!string.IsNullOrWhiteSpace(at)
+            && await query.FirstOrDefaultAsync(m => m.MessageId == at, ct) is { } asked)
+        {
+            // Which page it is on is how many of this person's messages are newer than it. The
+            // list is paged by offset, so this is the one number that finds it.
+            var newer = await query.CountAsync(
+                m => m.SentAt > asked.SentAt || (m.SentAt == asked.SentAt && string.Compare(m.MessageId, asked.MessageId) > 0),
+                ct);
+
+            number = (newer / size) + 1;
+        }
 
         var rows = await query
             .OrderByDescending(m => m.SentAt)

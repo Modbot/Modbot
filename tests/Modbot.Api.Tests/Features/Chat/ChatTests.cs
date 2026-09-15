@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.AI;
+using Modbot.Analytics.Messages;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
@@ -90,7 +91,7 @@ public class ChatTests
         Assert.Equal(120, fresh.GetProperty("timeLimitSeconds").GetInt32());
 
         var tools = fresh.GetProperty("tools").EnumerateArray().ToList();
-        Assert.Equal(12, tools.Count);
+        Assert.Equal(23, tools.Count);
         Assert.All(tools, t => Assert.True(t.GetProperty("onlyReads").GetBoolean() && t.GetProperty("enabled").GetBoolean()));
         Assert.Contains(tools, t => t.GetProperty("name").GetString() == "list_live_rooms"
                                     && t.GetProperty("needs").EnumerateArray().Single().GetString() == "See live instances");
@@ -823,6 +824,402 @@ public class ChatTests
         Assert.Equal(300_000, spend.GetProperty("outputTokens").GetInt64());
         Assert.Equal(0, spend.GetProperty("unpricedTokens").GetInt64());
     }
+
+    // ── The wider set of tools (design §3.2, added with Discord, flags and the calendar) ──────
+
+    [Fact]
+    public async Task ANewTool_IsOnlyOfferedToSomebodyHoldingItsPermission()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new ScriptedProvider()
+            .Then(Stream(Text("Hello.")))
+            .Then(Stream(Text("Hello.")))
+            .Then(Stream(Text("Hello.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+
+        var (_, plain) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+        var (_, reader) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ReadDiscordMessages, Ct);
+        var (_, calendar) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewCalendar, Ct);
+
+        await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Question one" }, plain, Ct);
+        await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Question two" }, reader, Ct);
+        await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Question three" }, calendar, Ct);
+
+        // Naming a new conversation is a provider call of its own, so the request a question was
+        // sent in is found by the question rather than counted.
+        List<string?> Offered(string question) =>
+            provider.ToolNames(provider.Bodies.FindIndex(b => b.Contains(question, StringComparison.Ordinal)));
+
+        // Every tool needs something, so somebody holding only UseAiChat is offered none of them.
+        Assert.Empty(Offered("Question one"));
+
+        Assert.Equal(
+            ["discord_messages_around", "search_discord_messages"],
+            Offered("Question two").Order(StringComparer.Ordinal));
+
+        Assert.Equal(
+            ["get_calendar_event", "list_calendar_events"],
+            Offered("Question three").Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task SearchingDiscordMessages_MarksDeletedOnes_CapsTheRows_AndSaysThereWereMore()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var author = $"d_{Guid.NewGuid():N}";
+        var provider = new ScriptedProvider()
+            .Then(Stream(ToolCall("call_1", "search_discord_messages", JsonSerializer.Serialize(new { discordUserId = author, limit = 2 }))))
+            .Then(Stream(Text("Three messages, two shown.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        await SeedDiscordMessagesAsync(host, author);
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ReadDiscordMessages, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "What did they say?" }, cookie, Ct);
+        var events = ParseEvents(await response.Content.ReadAsStringAsync(Ct));
+
+        var result = ToolResult(events, "search_discord_messages");
+
+        Assert.Equal(2, result.GetProperty("count").GetInt32());
+        Assert.True(result.GetProperty("more").GetBoolean());
+
+        var messages = result.GetProperty("messages").EnumerateArray().ToList();
+        Assert.Equal(["m3", "m2"], messages.Select(m => m.GetProperty("messageId").GetString()));
+        Assert.True(messages[0].GetProperty("deleted").GetBoolean());
+        Assert.False(messages[1].GetProperty("deleted").GetBoolean());
+    }
+
+    [Fact]
+    public async Task SearchingDiscordMessages_OnlyEverReturnsMessagesOfTheServerModbotWatches()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var author = $"d_{Guid.NewGuid():N}";
+        var provider = new ScriptedProvider()
+            .Then(Stream(ToolCall("call_1", "search_discord_messages", JsonSerializer.Serialize(new { discordUserId = author }))))
+            .Then(Stream(Text("Three.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        await SeedDiscordMessagesAsync(host, author, elsewhere: "somewhere else entirely");
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ReadDiscordMessages, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "What did they say?" }, cookie, Ct);
+        var result = ToolResult(ParseEvents(await response.Content.ReadAsStringAsync(Ct)), "search_discord_messages");
+
+        Assert.Equal(3, result.GetProperty("count").GetInt32());
+        Assert.DoesNotContain("somewhere else entirely", result.GetRawText(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task FlagsTool_ReturnsOnlyTheFlagsOfThePersonAskedAbout()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var person = $"usr_{Guid.NewGuid():N}";
+        var somebodyElse = $"usr_{Guid.NewGuid():N}";
+
+        var provider = new ScriptedProvider()
+            .Then(Stream(ToolCall("call_1", "get_person_flags", JsonSerializer.Serialize(new { userId = person }))))
+            .Then(Stream(Text("One flag.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        await SeedFlagAsync(host, person, "theirs-only");
+        await SeedFlagAsync(host, somebodyElse, "not-theirs");
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Any flags?" }, cookie, Ct);
+        var result = ToolResult(ParseEvents(await response.Content.ReadAsStringAsync(Ct)), "get_person_flags");
+
+        Assert.Equal(1, result.GetProperty("count").GetInt32());
+        Assert.Contains("theirs-only", result.GetRawText(), StringComparison.Ordinal);
+        Assert.DoesNotContain("not-theirs", result.GetRawText(), StringComparison.Ordinal);
+    }
+
+    // ── Sources (design §3.2.1) ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ASource_IsStoredWithTheToolResult_WithWhatItOpens()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var author = $"d_{Guid.NewGuid():N}";
+        var provider = new ScriptedProvider()
+            .Then(Stream(ToolCall("call_1", "search_discord_messages", JsonSerializer.Serialize(new { discordUserId = author }))))
+            .Then(Stream(Text("They said three things.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        await SeedDiscordMessagesAsync(host, author);
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ReadDiscordMessages, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "What did they say?" }, cookie, Ct);
+        var events = ParseEvents(await response.Content.ReadAsStringAsync(Ct));
+
+        var id = events[0].Data.GetProperty("id").GetString();
+        var conversation = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, $"/api/chat/conversations/{id}", null, cookie, Ct), Ct);
+
+        var tool = conversation.GetProperty("messages").EnumerateArray()
+            .Single(m => m.GetProperty("role").GetString() == "tool");
+
+        var references = tool.GetProperty("references").EnumerateArray().ToList();
+
+        var message = references.Single(r => r.GetProperty("kind").GetString() == "message"
+                                             && r.GetProperty("id").GetString() == "m3");
+
+        // A message opens in its author's messages, so the chip carries whose it is.
+        Assert.Equal(author, message.GetProperty("author").GetString());
+        Assert.Contains(references, r => r.GetProperty("kind").GetString() == "discord-person"
+                                         && r.GetProperty("id").GetString() == author);
+    }
+
+    // ── Who asked about whom (design §13) ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task AQuestionThatReadsAboutPeople_RecordsOneFactForEachOfThem_NotOnePerTool()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var one = $"usr_{Guid.NewGuid():N}";
+        var two = $"usr_{Guid.NewGuid():N}";
+
+        // Three tool calls, two people: the question is one lookup of each, not three of anything.
+        var provider = new ScriptedProvider()
+            .Then(Stream(
+                ToolCall("call_1", "find_person", JsonSerializer.Serialize(new { query = one })),
+                MoreCall(1, "call_2", "get_person", JsonSerializer.Serialize(new { userId = one })),
+                MoreCall(2, "call_3", "find_person", JsonSerializer.Serialize(new { query = two }))))
+            .Then(Stream(Text("Both are members.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        await SeedPersonAsync(host, one, $"One{Guid.NewGuid():N}");
+        await SeedPersonAsync(host, two, $"Two{Guid.NewGuid():N}");
+
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile, Ct);
+
+        await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Who are these two?" }, cookie, Ct);
+
+        var facts = await LookupFactsAsync(host, [one, two]);
+
+        Assert.Equal(2, facts.Count);
+        Assert.Contains(one, facts.Select(f => f.SubjectId));
+        Assert.Contains(two, facts.Select(f => f.SubjectId));
+        Assert.All(facts, f => Assert.Equal(user.Id.ToString(), f.ActorId));
+        Assert.All(facts, f => Assert.Equal(FactPlatform.Modbot, f.ActorPlatform));
+
+        // Both carry the whole list, so it still reads as one question.
+        foreach (var fact in facts)
+        {
+            Assert.Contains(one, fact.Data, StringComparison.Ordinal);
+            Assert.Contains(two, fact.Data, StringComparison.Ordinal);
+            Assert.Contains("get_person", fact.Data, StringComparison.Ordinal);
+
+            // The question itself is never stored: this is a record of access, not of what was said.
+            Assert.DoesNotContain("Who are these two?", fact.Data, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task AQuestionThatReadsNobody_RecordsNothing()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new ScriptedProvider().Then(Stream(Text("Nothing to look up.")));
+        await using var host = await StartWithProviderAsync(provider);
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile, Ct);
+
+        await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Hello" }, cookie, Ct);
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        Assert.Equal(0, await db.Events.CountAsync(e => e.Type == FactType.ChatLookup, Ct));
+    }
+
+    [Fact]
+    public async Task AskingAgainAndEditing_EachRecordTheLookupAgain()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var person = $"usr_{Guid.NewGuid():N}";
+        var name = $"Asked{Guid.NewGuid():N}";
+
+        var provider = new ScriptedProvider()
+            .Then(Stream(ToolCall("call_1", "find_person", JsonSerializer.Serialize(new { query = name }))))
+            .Then(Stream(Text("A member.")))
+            .ThenJson(Completion("Who they are"))
+            .Then(Stream(ToolCall("call_2", "find_person", JsonSerializer.Serialize(new { query = name }))))
+            .Then(Stream(Text("Still a member.")))
+            .Then(Stream(ToolCall("call_3", "find_person", JsonSerializer.Serialize(new { query = name }))))
+            .Then(Stream(Text("A member, again.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        await SeedPersonAsync(host, person, name);
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile, Ct);
+
+        var first = ParseEvents(await (await host.SendJsonAsync(
+            HttpMethod.Post, "/api/chat/messages", new { text = $"Who is {name}?" }, cookie, Ct)).Content.ReadAsStringAsync(Ct));
+
+        var conversationId = first[0].Data.GetProperty("id").GetString();
+        var question = first.Where(e => e.Name == "message").Select(e => e.Data)
+            .First(m => m.GetProperty("role").GetString() == "user").GetProperty("id").GetInt64();
+
+        Assert.Single(await LookupFactsAsync(host, [person]));
+
+        await host.SendJsonAsync(
+            HttpMethod.Post,
+            "/api/chat/messages",
+            new { conversationId, retryAfterMessageId = question },
+            cookie,
+            Ct);
+
+        Assert.Equal(2, (await LookupFactsAsync(host, [person])).Count);
+
+        await host.SendJsonAsync(
+            HttpMethod.Post,
+            "/api/chat/messages",
+            new { conversationId, text = $"And who is {name}, really?", replaceMessageId = question },
+            cookie,
+            Ct);
+
+        Assert.Equal(3, (await LookupFactsAsync(host, [person])).Count);
+    }
+
+    [Fact]
+    public async Task TheLookupFact_IsInThePersonsOwnHistory()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var person = $"usr_{Guid.NewGuid():N}";
+        var name = $"Seen{Guid.NewGuid():N}";
+
+        var provider = new ScriptedProvider()
+            .Then(Stream(ToolCall("call_1", "find_person", JsonSerializer.Serialize(new { query = name }))))
+            .Then(Stream(Text("A member.")));
+
+        await using var host = await StartWithProviderAsync(provider);
+        await SeedPersonAsync(host, person, name);
+
+        var (asker, cookie) = await host.SignedInAsync(
+            ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile | ModbotPermissions.ViewAuditLog, Ct);
+
+        await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = $"Who is {name}?" }, cookie, Ct);
+
+        var history = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, $"/api/audit?subject={person}", null, cookie, Ct), Ct);
+
+        var entry = history.GetProperty("entries").EnumerateArray()
+            .Single(e => e.GetProperty("type").GetString() == FactType.ChatLookup);
+
+        Assert.Equal(person, entry.GetProperty("subjectId").GetString());
+        Assert.Equal(asker.Id.ToString(), entry.GetProperty("actorId").GetString());
+    }
+
+    // ── Seeds for the wider tools ────────────────────────────────────────────────────────────
+
+    /// <summary>Three messages by one person, the newest deleted, and one in another server.</summary>
+    private static async Task SeedDiscordMessagesAsync(ApiTestHost host, string author, string? elsewhere = null)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        var guild = $"g_{Guid.NewGuid():N}";
+        var settings = await db.GetSettingsAsync(Ct);
+        settings.DiscordGuildId = guild;
+
+        var at = host.Clock.UtcNow;
+        var times = new[] { at.AddHours(-3), at.AddHours(-2), at.AddHours(-1) };
+        await new MessagePartitionMaintainer(db).EnsureForAsync(times, Ct);
+
+        DiscordMessage Message(string id, DateTimeOffset sent, string text, string inGuild) => new()
+        {
+            MessageId = id,
+            SentAt = sent,
+            GuildId = inGuild,
+            ChannelId = "500",
+            AuthorId = author,
+            AuthorName = "Somebody",
+            Text = text,
+            StoredAt = at,
+        };
+
+        var deleted = Message("m3", times[2], "the last thing", guild);
+        deleted.DeletedAt = times[2].AddMinutes(1);
+
+        db.DiscordMessages.AddRange(
+            Message("m1", times[0], "the first thing", guild),
+            Message("m2", times[1], "the second thing", guild),
+            deleted);
+
+        if (elsewhere is not null)
+            db.DiscordMessages.Add(Message("m4", times[2], elsewhere, $"other_{Guid.NewGuid():N}"));
+
+        await db.SaveChangesAsync(Ct);
+    }
+
+    private static async Task SeedFlagAsync(ApiTestHost host, string userId, string matched)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        db.ModerationFlags.Add(new ModerationFlag
+        {
+            Id = Guid.CreateVersion7(),
+            FlaggedAt = host.Clock.UtcNow,
+            RuleKind = "term",
+            RuleId = Guid.CreateVersion7(),
+            RuleName = "A rule",
+            TermKey = "key",
+            Term = "term",
+            Target = "discordMessage",
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = userId,
+            SubjectName = "Somebody",
+            Matched = matched,
+            State = ModerationFlagState.Open,
+        });
+
+        await db.SaveChangesAsync(Ct);
+    }
+
+    /// <summary>The lookup facts recorded about these people, oldest first.</summary>
+    private static async Task<List<LookupFactRow>> LookupFactsAsync(ApiTestHost host, IReadOnlyList<string> people)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        return await db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.ChatLookup && people.Contains(e.SubjectId))
+            .OrderBy(e => e.Id)
+            .Select(e => new LookupFactRow(e.SubjectId, e.ActorId, e.ActorPlatform, e.Data))
+            .ToListAsync(Ct);
+    }
+
+    private sealed record LookupFactRow(string SubjectId, string? ActorId, FactPlatform? ActorPlatform, string Data);
+
+    /// <summary>What one tool sent back, out of the stream.</summary>
+    private static JsonElement ToolResult(IReadOnlyList<SseEvent> events, string tool)
+    {
+        var message = events.Where(e => e.Name == "message").Select(e => e.Data)
+            .Single(m => m.TryGetProperty("toolName", out var name) && name.GetString() == tool);
+
+        return JsonDocument.Parse(message.GetProperty("content").GetString()!).RootElement.Clone();
+    }
+
+    /// <summary>A second or third tool call in the same round, as a provider streams them.</summary>
+    private static object MoreCall(int index, string id, string name, string arguments) => new
+    {
+        role = "assistant",
+        tool_calls = new[] { new { index, id, type = "function", function = new { name, arguments } } },
+    };
 
     // ── Pieces ───────────────────────────────────────────────────────────────────────────────
 

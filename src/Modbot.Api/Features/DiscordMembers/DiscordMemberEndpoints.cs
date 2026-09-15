@@ -148,21 +148,11 @@ public static class DiscordMemberEndpoints
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
-                var guildId = await GuildIdAsync(db, ct);
+                var member = await OneAsync(db, id, LinkFilter.SeesLinks(http), ct);
 
-                var row = await db.DiscordMembers.AsNoTracking()
-                    .Where(m => m.UserId == id && (guildId == null || m.GuildId == guildId))
-                    .FirstOrDefaultAsync(ct);
-
-                if (row is null)
-                    return Results.NotFound(new { error = "That person has not been seen in the Discord server." });
-
-                var roles = await RoleNamesAsync(db, row.GuildId, ct);
-                var links = LinkFilter.SeesLinks(http)
-                    ? await LinkedVRChatAsync(db, [row.UserId], ct)
-                    : new Dictionary<string, LinkedVRChatView>();
-
-                return Results.Ok(View(row, roles, links));
+                return member is null
+                    ? Results.NotFound(new { error = "That person has not been seen in the Discord server." })
+                    : Results.Ok(member);
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetDiscordMember")
@@ -176,7 +166,32 @@ public static class DiscordMemberEndpoints
         return app;
     }
 
-    private static async Task<DiscordMemberListResponse> ListAsync(
+    /// <summary>One member of the server, current or past, or null when never seen.</summary>
+    /// <param name="seesLinks">
+    /// Whether the caller may be told which VRChat account this one is linked to, which needs
+    /// <see cref="ModbotPermissions.ViewProfile"/>.
+    /// </param>
+    internal static async Task<DiscordMemberView?> OneAsync(
+        ModbotContext db, string id, bool seesLinks, CancellationToken ct)
+    {
+        var guildId = await GuildIdAsync(db, ct);
+
+        var row = await db.DiscordMembers.AsNoTracking()
+            .Where(m => m.UserId == id && (guildId == null || m.GuildId == guildId))
+            .FirstOrDefaultAsync(ct);
+
+        if (row is null)
+            return null;
+
+        var roles = await RoleNamesAsync(db, row.GuildId, ct);
+        var links = seesLinks
+            ? await LinkedVRChatAsync(db, [row.UserId], ct)
+            : new Dictionary<string, LinkedVRChatView>();
+
+        return View(row, roles, links);
+    }
+
+    internal static async Task<DiscordMemberListResponse> ListAsync(
         ModbotContext db,
         IModbotClock clock,
         string? search,

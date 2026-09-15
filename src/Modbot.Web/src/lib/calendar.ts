@@ -118,6 +118,7 @@ export const calendarApi = {
     http.request<CalendarView>(
       `${base}?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
     ),
+  event: (id: string) => http.request<CalendarEvent>(`${base}/events/${encodeURIComponent(id)}`),
   create: (body: CalendarEventInput) => http.post<CalendarEvent>(`${base}/events`, body),
   update: (id: string, body: CalendarEventInput) => http.put<CalendarEvent>(`${base}/events/${id}`, body),
   cancel: (id: string) => http.post<void>(`${base}/events/${id}/cancel`),

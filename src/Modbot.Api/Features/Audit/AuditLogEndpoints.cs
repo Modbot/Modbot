@@ -102,6 +102,31 @@ public static class AuditLogEndpoints
             .Produces<AuditPage>()
             .Produces(StatusCodes.Status403Forbidden);
 
+        group.MapGet("/entries/{id:long}", async (
+                HttpContext http,
+                [FromRoute] long id,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                var held = ModbotAuth.PermissionsOf(http.User);
+                var visible = AuditVisibility.VisibleTypes(held);
+
+                if (visible.Count == 0)
+                    return Results.Forbid();
+
+                var entry = await new AuditQuery(db).EntryAsync(id, visible, ct);
+
+                return entry is null ? Results.NotFound() : Results.Ok(entry);
+            })
+            .WithName("GetAuditEntry")
+            .WithSummary("One entry of the timeline, by its id")
+            .WithDescription(
+                "For a link to a single entry. An entry of a type this account may not read "
+                + "answers 404, the same as one that does not exist.")
+            .Produces<AuditEntry>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         group.MapGet("/filters", async (
                 HttpContext http,
                 [FromServices] ModbotContext db,
