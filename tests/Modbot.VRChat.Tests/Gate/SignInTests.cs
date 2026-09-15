@@ -234,33 +234,40 @@ public class SignInTests
     public async Task TenSimultaneous401sShareOneCheckAndOneSignIn()
     {
         var vrchat = new FakeVRChat { AuthToken = (HttpStatusCode.Unauthorized, "{}") }.AlwaysSignedInAs();
-        var harness = new Harness(vrchat, Account(), LimiterHarness.Unpaced());
+        var counting = (CountingLimiter?)null;
+        var harness = new Harness(vrchat, Account(), LimiterHarness.Unpaced(),
+            wrapLimiter: inner => counting = new CountingLimiter(inner));
 
         // The first session, before anything fails.
         await harness.Gate.ExecuteAsync(Members, Ok("warm"), ct: Ct);
         Assert.Equal(1, vrchat.GetCurrentUserCalls);
 
-        // Hold the check open until all ten have had their 401, so they really are waiting on it
-        // together rather than arriving one after another. Calls through one lane are issued one
-        // at a time, and a call that arrives while the check holds the session waits for it
-        // before it is sent at all -- so the ten may not all get that far; the fallback release
-        // keeps the test from waiting on a count that scheduling did not reach.
+        // A call takes the session first and only then asks the limiter for a turn, so once all
+        // ten have asked, all ten hold the same session and will be sent on it. Calls in one lane
+        // go out one at a time, so the first holds its turn -- and its 401 -- until then. Without
+        // that hold, the first 401's check can take the session before the others have it, and
+        // they wait for the new session instead of being refused; a one-second timer stood in for
+        // the hold here once, and CI saw only one call refused.
+        var allAskedForATurn = counting!.WhenTurnsReach(counting.Turns + 10);
+
+        // And the check is held open until all ten have had their 401, so they really are waiting
+        // on it together rather than arriving one after another.
         var refusedCount = 0;
-        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        vrchat.VerifyAuthTokenGate = gate;
-        _ = Task.Delay(TimeSpan.FromSeconds(1), Ct).ContinueWith(_ => gate.TrySetResult(), TaskScheduler.Default);
+        var checkHeld = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        vrchat.VerifyAuthTokenGate = checkHeld;
 
         var calls = Enumerable.Range(0, 10).Select(_ => Task.Run(() => harness.Gate.ExecuteAsync(
             Members,
-            async (_, _) =>
+            async (_, ct) =>
             {
-                await Task.Yield();
+                // A limit, not a pace: if the count is never reached the test fails rather than hangs.
+                await allAskedForATurn.WaitAsync(TimeSpan.FromSeconds(30), ct);
 
                 if (vrchat.GetCurrentUserCalls >= 2)
                     return Response(HttpStatusCode.OK, "members");
 
                 if (Interlocked.Increment(ref refusedCount) == 10)
-                    gate.TrySetResult();
+                    checkHeld.TrySetResult();
 
                 return Response<string>(HttpStatusCode.Unauthorized);
             },
@@ -269,7 +276,7 @@ public class SignInTests
         var results = await Task.WhenAll(calls);
 
         Assert.All(results, r => Assert.True(r.Success));
-        Assert.True(refusedCount >= 2, $"only {refusedCount} of the calls were refused together");
+        Assert.Equal(10, refusedCount);
         Assert.Equal(1, vrchat.VerifyAuthTokenCalls);
         Assert.Equal(2, vrchat.GetCurrentUserCalls);
         Assert.Equal(2, harness.SignIns.Attempts.Count);
@@ -569,7 +576,8 @@ public class SignInTests
             RateLimitOptions? limits = null,
             FakeClock? clock = null,
             MemorySignInStore? signIns = null,
-            ILogger? logger = null)
+            ILogger? logger = null,
+            Func<IRateLimiter, IRateLimiter>? wrapLimiter = null)
         {
             Clock = clock ?? new FakeClock();
             Factory = new FakeClientFactory(vrchat.Client);
@@ -578,7 +586,7 @@ public class SignInTests
             Limiter = new LimiterHarness(limits ?? LimiterHarness.Unpaced(), Clock);
 
             Gate = new VRChatGate(
-                Factory, Store, Limiter.Limiter, Clock, new FakeMonotonicClock(),
+                Factory, Store, wrapLimiter?.Invoke(Limiter.Limiter) ?? Limiter.Limiter, Clock, new FakeMonotonicClock(),
                 logger ?? new LoggerConfiguration().CreateLogger(),
                 SignIns);
         }
@@ -589,6 +597,59 @@ public class SignInTests
         public MemorySignInStore SignIns { get; }
         public LimiterHarness Limiter { get; }
         public VRChatGate Gate { get; }
+    }
+
+    /// <summary>Counts the turns asked for, so a test can wait until every call has got that far.</summary>
+    private sealed class CountingLimiter(IRateLimiter inner) : IRateLimiter
+    {
+        private readonly Lock _sync = new();
+        private readonly List<(int Count, TaskCompletionSource Reached)> _waiters = [];
+        private int _turns;
+
+        public int Turns
+        {
+            get
+            {
+                lock (_sync)
+                    return _turns;
+            }
+        }
+
+        public Task WhenTurnsReach(int count)
+        {
+            lock (_sync)
+            {
+                if (_turns >= count)
+                    return Task.CompletedTask;
+
+                var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _waiters.Add((count, reached));
+                return reached.Task;
+            }
+        }
+
+        public Task<IRateLimitLease> AcquireAsync(
+            VRChatEndpoint endpoint,
+            VRChatCallPriority priority = VRChatCallPriority.Background,
+            CancellationToken ct = default)
+        {
+            List<TaskCompletionSource> reached;
+            lock (_sync)
+            {
+                _turns++;
+                var turns = _turns;
+                reached = [.. _waiters.Where(w => turns >= w.Count).Select(w => w.Reached)];
+                _waiters.RemoveAll(w => turns >= w.Count);
+            }
+
+            foreach (var r in reached)
+                r.TrySetResult();
+
+            return inner.AcquireAsync(endpoint, priority, ct);
+        }
+
+        public Task<IReadOnlyList<RateLimitBucketHealth>> DescribeAsync(CancellationToken ct = default) =>
+            inner.DescribeAsync(ct);
     }
 
     private sealed class CollectingSink : ILogEventSink
