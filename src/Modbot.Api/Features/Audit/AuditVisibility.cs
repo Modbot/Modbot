@@ -174,6 +174,14 @@ public static class AuditVisibility
         [FactType.EvidenceAccessed] = AuditCategory.Moderation,
         [FactType.EvidenceDestroyed] = AuditCategory.Moderation,
 
+        // AI moderation. What a rule flagged, dismissed or did to somebody is moderation history
+        // about that person; a rule being changed is a setting, and goes with the other settings.
+        [FactType.AiModerationFlag] = AuditCategory.Moderation,
+        [FactType.AiModerationFlagDismissed] = AuditCategory.Moderation,
+        [FactType.AiModerationMessageDeleted] = AuditCategory.Moderation,
+        [FactType.AiModerationTimeout] = AuditCategory.Moderation,
+        [FactType.AiModerationRuleChanged] = AuditCategory.Operational,
+
         // An upstream event Modbot has no name for yet. Its TypeRaw comes from the group's own
         // audit log, which is moderation history by definition -- an instance kick Modbot does
         // not map is still something a moderator did to somebody. The Operational default exists

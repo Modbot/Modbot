@@ -260,6 +260,23 @@ public interface IDiscordGateway : IAsyncDisposable
         IReadOnlyList<DiscordLinkButton>? links,
         CancellationToken ct);
 
+    /// <summary>
+    /// Deletes somebody's message. For AI moderation rules set to act (M8 §2).
+    /// </summary>
+    /// <remarks>
+    /// Needs Manage Messages in the channel, and no gateway intent: a message is deleted by id.
+    /// </remarks>
+    /// <param name="reason">Written to the server's audit log.</param>
+    Task<DiscordPostOutcome> DeleteMessageAsync(string channelId, string messageId, string reason, CancellationToken ct);
+
+    /// <summary>
+    /// Times a member out. For AI moderation rules set to act (M8 §2).
+    /// </summary>
+    /// <remarks>
+    /// Needs Moderate Members, and no gateway intent: the member is looked up by id over REST.
+    /// </remarks>
+    Task<DiscordPostOutcome> TimeOutAsync(string guildId, string userId, TimeSpan duration, string reason, CancellationToken ct);
+
     Task DisconnectAsync();
 }
 

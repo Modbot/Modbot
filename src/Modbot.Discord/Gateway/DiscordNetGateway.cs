@@ -208,6 +208,61 @@ public sealed class DiscordNetGateway : IDiscordGateway
     /// acts on. A 403 or a 404 is permanent: the bot has been removed from the channel, or the
     /// channel is gone, and retrying is just noise in the log until somebody changes a setting.
     /// </remarks>
+    public Task<DiscordPostOutcome> DeleteMessageAsync(string channelId, string messageId, string reason, CancellationToken ct)
+    {
+        if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
+            return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
+
+        return InChannelAsync(channelId, async channel =>
+        {
+            await channel.DeleteMessageAsync(message, new RequestOptions { AuditLogReason = reason, CancelToken = ct })
+                .ConfigureAwait(false);
+            return DiscordPostOutcome.Ok;
+        });
+    }
+
+    public async Task<DiscordPostOutcome> TimeOutAsync(
+        string guildId, string userId, TimeSpan duration, string reason, CancellationToken ct)
+    {
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var guild)
+            || !ulong.TryParse(userId, NumberStyles.None, CultureInfo.InvariantCulture, out var user))
+        {
+            return DiscordPostOutcome.Failed("That is not a Discord server or user id.", permanent: true);
+        }
+
+        try
+        {
+            // REST rather than the member cache: the cache needs the Server Members intent, and one
+            // lookup per timeout does not.
+            var member = await _client.Rest.GetGuildUserAsync(guild, user, new RequestOptions { CancelToken = ct })
+                .ConfigureAwait(false);
+
+            if (member is null)
+                return DiscordPostOutcome.Failed("That person is not in the server.", permanent: true);
+
+            await member.SetTimeOutAsync(duration, new RequestOptions { AuditLogReason = reason, CancelToken = ct })
+                .ConfigureAwait(false);
+            return DiscordPostOutcome.Ok;
+        }
+        catch (HttpException e)
+        {
+            var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;
+            return DiscordPostOutcome.Failed(
+                e.HttpCode == HttpStatusCode.Forbidden
+                    ? "The bot may not time that person out; it needs Moderate Members and a role above theirs."
+                    : $"Discord answered {(int)e.HttpCode}.",
+                permanent);
+        }
+        catch (RateLimitedException)
+        {
+            return DiscordPostOutcome.Failed("Discord is rate limiting the bot.");
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return DiscordPostOutcome.Failed($"Could not time out on Discord: {e.Message}");
+        }
+    }
+
     private async Task<DiscordPostOutcome> InChannelAsync(
         string channelId, Func<IMessageChannel, Task<DiscordPostOutcome>> work)
     {

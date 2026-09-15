@@ -189,6 +189,25 @@ public class Settings
     /// </remarks>
     public string AiChatToolSwitches { get; set; } = "{}";
 
+    // --- AI moderation (AI moderation design) ---
+
+    /// <summary>The one switch for term lists and AI topics. Off by default, like everything in M8.</summary>
+    public bool AiModerationEnabled { get; set; }
+
+    /// <summary>How many AI calls moderation may make in one UTC day (design §4.2). Term lists are not counted.</summary>
+    public int AiModerationDailyCallLimit { get; set; } = 200;
+
+    /// <summary>The UTC day <see cref="AiModerationCallsUsed"/> counts.</summary>
+    public DateOnly? AiModerationCallsDay { get; set; }
+
+    public int AiModerationCallsUsed { get; set; }
+
+    /// <summary>
+    /// The last profile fact the profile check has read (design §8). It does not move while
+    /// moderation is off, so switching it on checks the profiles seen in between.
+    /// </summary>
+    public long AiModerationProfileFactsReadThrough { get; set; }
+
     // --- Operator-supplied SMTP (spec 7.4) ---
     public string? SmtpHost { get; set; }
     public int? SmtpPort { get; set; }

@@ -118,6 +118,13 @@ public static class FactLabels
 
         [FactType.DiscordCommandRun] = "Discord command used",
         [FactType.DiscordLogPosted] = "Posted to the Discord log channel",
+
+        // AI moderation (AI moderation design §7).
+        [FactType.AiModerationFlag] = "Flagged by a moderation rule",
+        [FactType.AiModerationFlagDismissed] = "Moderation flag dismissed",
+        [FactType.AiModerationMessageDeleted] = "Discord message deleted by a moderation rule",
+        [FactType.AiModerationTimeout] = "Timed out on Discord by a moderation rule",
+        [FactType.AiModerationRuleChanged] = "Moderation rule changed",
     };
 
     public static string For(string type)

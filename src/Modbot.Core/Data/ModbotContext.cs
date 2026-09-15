@@ -125,6 +125,20 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<AiChatMessage> AiChatMessages => Set<AiChatMessage>();
 
+    /// <summary>AI moderation term lists, local and from Modbot Hub (AI moderation design §2).</summary>
+    public DbSet<ModerationTermList> ModerationTermLists => Set<ModerationTermList>();
+
+    public DbSet<ModerationTopic> ModerationTopics => Set<ModerationTopic>();
+
+    /// <summary>What the rules matched, and whether a moderator dismissed it (design §5).</summary>
+    public DbSet<ModerationFlag> ModerationFlags => Set<ModerationFlag>();
+
+    /// <summary>Token counts of every AI request, by feature, for spend limits and cost estimates.</summary>
+    public DbSet<AiUsage> AiUsage => Set<AiUsage>();
+
+    /// <summary>Each AI feature's spend limit. No row means no limit.</summary>
+    public DbSet<AiFeatureLimit> AiFeatureLimits => Set<AiFeatureLimit>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -887,6 +901,101 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
         builder.Entity<Settings>(entity =>
             entity.Property(e => e.AiChatToolSwitches).HasColumnType("jsonb"));
+
+        builder.Entity<ModerationTermList>(entity =>
+        {
+            entity.ToTable("ai_term_list");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Source).HasMaxLength(16);
+            entity.Property(e => e.Terms).HasColumnType("jsonb");
+            entity.Property(e => e.ExcludedTerms).HasColumnType("jsonb");
+            entity.Property(e => e.ActSetByUsername).HasMaxLength(64);
+            entity.Property(e => e.HubId).HasMaxLength(100);
+            entity.Property(e => e.HubVersion).HasMaxLength(32);
+            entity.Property(e => e.HubAvailableVersion).HasMaxLength(32);
+            entity.Property(e => e.HubAvailableTerms).HasColumnType("jsonb");
+            entity.Property(e => e.HubAvailableChanges).HasColumnType("jsonb");
+            entity.Property(e => e.HubError).HasMaxLength(500);
+
+            // A Hub list is subscribed once; a second subscription would flag everything twice.
+            entity.HasIndex(e => e.HubId)
+                .HasDatabaseName("ux_ai_term_list_hub_id")
+                .IsUnique()
+                .HasFilter("hub_id IS NOT NULL");
+        });
+
+        builder.Entity<ModerationTopic>(entity =>
+        {
+            entity.ToTable("ai_topic");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Instructions).HasMaxLength(2000);
+            entity.Property(e => e.Sensitivity).HasMaxLength(16);
+            entity.Property(e => e.ActSetByUsername).HasMaxLength(64);
+        });
+
+        builder.Entity<ModerationFlag>(entity =>
+        {
+            entity.ToTable("ai_flag");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.RuleKind).HasMaxLength(16);
+            entity.Property(e => e.RuleName).HasMaxLength(100);
+            entity.Property(e => e.TermKey).HasMaxLength(200);
+            entity.Property(e => e.Term).HasMaxLength(2000);
+            entity.Property(e => e.Target).HasMaxLength(32);
+            entity.Property(e => e.SubjectId).HasColumnType("text");
+            entity.Property(e => e.SubjectName).HasMaxLength(200);
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.MessageId).HasColumnType("text");
+            entity.Property(e => e.Matched).HasMaxLength(1000);
+            entity.Property(e => e.Reason).HasMaxLength(2000);
+            entity.Property(e => e.DismissedByUsername).HasMaxLength(64);
+
+            // The page: open flags, newest first.
+            entity.HasIndex(e => new { e.State, e.FlaggedAt })
+                .HasDatabaseName("ix_ai_flag_state");
+
+            // "Has this rule and term already been flagged, or dismissed, for this person?" --
+            // asked before every flag is written. Also the per-rule dismissal rate.
+            entity.HasIndex(e => new { e.RuleId, e.TermKey, e.SubjectPlatform, e.SubjectId })
+                .HasDatabaseName("ix_ai_flag_rule_person");
+
+            entity.HasIndex(e => e.MessageId)
+                .HasDatabaseName("ix_ai_flag_message")
+                .HasFilter("message_id IS NOT NULL");
+        });
+
+        builder.Entity<AiUsage>(entity =>
+        {
+            entity.ToTable("ai_usage");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Feature).HasMaxLength(32);
+            entity.Property(e => e.Model).HasMaxLength(200);
+            entity.Property(e => e.Provider).HasMaxLength(32);
+
+            // "How much has this feature used this month", asked before each request.
+            entity.HasIndex(e => new { e.Feature, e.At })
+                .HasDatabaseName("ix_ai_usage_feature_at");
+        });
+
+        builder.Entity<AiFeatureLimit>(entity =>
+        {
+            entity.ToTable("ai_feature_limit");
+
+            entity.HasKey(e => e.Feature).HasName("pk_ai_feature_limit");
+            entity.Property(e => e.Feature).HasMaxLength(32);
+        });
 
         base.OnModelCreating(builder);
     }

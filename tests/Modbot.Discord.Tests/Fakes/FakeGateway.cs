@@ -158,6 +158,24 @@ public sealed class FakeGateway : IDiscordGateway
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
 
+    /// <summary>Every message deleted, in order.</summary>
+    public List<(string ChannelId, string MessageId, string Reason)> Deleted { get; } = [];
+
+    /// <summary>Every timeout, in order.</summary>
+    public List<(string GuildId, string UserId, TimeSpan Duration, string Reason)> TimedOut { get; } = [];
+
+    public Task<DiscordPostOutcome> DeleteMessageAsync(string channelId, string messageId, string reason, CancellationToken ct)
+    {
+        Deleted.Add((channelId, messageId, reason));
+        return Task.FromResult(DiscordPostOutcome.Ok);
+    }
+
+    public Task<DiscordPostOutcome> TimeOutAsync(string guildId, string userId, TimeSpan duration, string reason, CancellationToken ct)
+    {
+        TimedOut.Add((guildId, userId, duration, reason));
+        return Task.FromResult(DiscordPostOutcome.Ok);
+    }
+
     public Task DisconnectAsync()
     {
         DisconnectCalled = true;

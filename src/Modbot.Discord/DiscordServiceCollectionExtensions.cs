@@ -54,6 +54,9 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<DiscordServerIndex>();
         services.AddScoped<InsightPoster>();
 
+        // What an AI moderation rule set to act does on Discord (M8 §2), through the live session.
+        services.AddSingleton<IDiscordModerationActions, DiscordModerationActions>();
+
         return services;
     }
 }

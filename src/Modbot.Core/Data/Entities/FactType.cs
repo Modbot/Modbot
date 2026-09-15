@@ -326,6 +326,24 @@ public static class FactType
     /// </remarks>
     public const string EvidenceDestroyed = "modbot.evidence.destroy";
 
+    // ── AI moderation (AI moderation design §7) ────────────────────────────────────────────
+    //
+    // A flag and a dismissal are about the person who wrote the text, on the platform they wrote
+    // it on. The two actions have no actor, because nobody pressed a button at that moment; the
+    // operator who set the rule to act is named in the data (M8 §2). A rule change is about the
+    // Modbot account that made it. All are kept: "who switched this rule to delete messages" is
+    // history.
+
+    public const string AiModerationFlag = "modbot.ai-moderation.flag";
+
+    public const string AiModerationFlagDismissed = "modbot.ai-moderation.flag.dismiss";
+
+    public const string AiModerationMessageDeleted = "modbot.ai-moderation.message-delete";
+
+    public const string AiModerationTimeout = "modbot.ai-moderation.timeout";
+
+    public const string AiModerationRuleChanged = "modbot.ai-moderation.rule.change";
+
     // ── Modbot operational events ──────────────────────────────────────────────────────────
     public const string SyncFailed = "modbot.sync.failed";
     public const string RateLimitColdStop = "modbot.ratelimit.coldstop";

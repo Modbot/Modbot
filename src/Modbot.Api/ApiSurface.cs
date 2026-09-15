@@ -19,6 +19,7 @@ using Modbot.Api.Features.Reviews;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Evidence;
+using Modbot.Api.Features.Flags;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Members;
 using Modbot.Api.Features.Insights;
@@ -134,6 +135,8 @@ public static class ApiSurface
         app.MapEmailSettings();
         app.MapAiSettings();
         app.MapAiChatSettings();
+        app.MapAiModerationSettings();
+        app.MapModerationFlags();
 
         // The Discord server's channels and roles as the bot last stored them, so a setting picks
         // a channel by name and sees which permission the bot lacks there (M5 spec §7).

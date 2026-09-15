@@ -173,6 +173,7 @@ try
     // Where every AI feature gets its client (M8 section 4). It reads the settings row on each
     // call and hands out nothing while AI is off, so it needs nothing from startup.
     builder.Services.AddModbotAi();
+    builder.Services.AddModbotAiModerationJobs();
 
     // Scheduled AI insights (AI insights design §3). Nothing is written while AI is off or no kind
     // of insight is switched on.
