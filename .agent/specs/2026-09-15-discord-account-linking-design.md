@@ -158,12 +158,16 @@ still active — and adds or removes the difference. That covers every way the a
 - the operator changing or clearing a role setting (the old role is removed, the new one given);
 - a member leaving and rejoining the server (Discord takes their roles; the rows are reset on join).
 
-Seeing a member join needs the Server Members intent, which is only asked for while the prompt for
-new joiners is on. Without it, a linked member who left and came back gets their roles again by
-unlinking and linking again on the link page. Taking away or giving a role the member does or does
-not already hold changes nothing in Discord, so the round trip is safe. Proving an existing link a
-second time resets the rows the same way.
+Seeing a member join needs the Server Members intent. If Discord refused it, a linked member who
+left and came back gets their roles again by unlinking and linking again on the link page. Taking
+away or giving a role the member does or does not already hold changes nothing in Discord, so the
+round trip is safe. Proving an existing link a second time resets the rows the same way.
 
+Who is in the server comes from the stored member list, `discord_member`, once the bot has read it
+(`discord_server.members_listed_at`). Linking keeps no member list of its own. With the list, a
+linked person who is not in the server is not asked about at all, and any roles recorded as given
+to them are forgotten, since leaving took them. Before the list has been read, the job finds out
+from Discord's Unknown Member as below.
 
 
 Modbot only removes a role it gave. A role a moderator hands out by hand is not Modbot's to take.
@@ -183,13 +187,16 @@ from the person popup. Either way:
 
 ## 8. New members
 
-With the switch on, the bot asks Discord for the **Server Members** intent and listens for members
-joining. The intent is privileged, so it has to be turned on in the Developer Portal as well. It is
-not asked for while the switch is off.
+Members joining are seen through the **Server Members** intent. The intent is privileged, so it has
+to be turned on in the Developer Portal.
+
+**Changed 2026-09-15.** This section first said the intent was asked for only while the switch was
+on. Storing the server's messages and members (M5 §5.1) now needs the intent on every session, so
+the bot always asks for it; turning the switch on or off still reconnects, which asks again for an
+intent Discord refused before.
 
 If Discord refuses it (close code 4014), the bot does not stop: it reports that the intent is off in
-the Developer Portal and reconnects without it, so the moderation log keeps posting. It asks again
-when the settings change.
+the Developer Portal and reconnects without it, so the moderation log keeps posting.
 
 On a member joining:
 
@@ -231,7 +238,24 @@ built-in roles.
 
 1. **OAuth2 → Redirects:** add the redirect URL shown in settings.
 2. **OAuth2:** copy the client id and client secret into settings.
-3. **Bot → Privileged Gateway Intents:** turn on **Server Members Intent** before turning on the
-   prompt for new joiners.
+3. **Bot → Privileged Gateway Intents:** turn on **Server Members Intent**. The prompt for new
+   joiners does nothing without it.
 4. Invite the bot with the invite link from settings, so it has Manage Roles.
 5. In **Server Settings → Roles**, keep the bot's role above the linked and 18+ roles.
+
+## 13. Most people are not linked
+
+**Unlinked is the normal case.** Most members will never link, many VRChat group members are not in
+the Discord server, and many Discord members are not in the VRChat group.
+
+- Nothing outside linking requires a link. Only the linked role and the 18+ role depend on one.
+- A Discord-only person and a VRChat-only person each keep their own full history under their own
+  platform's id. Linking joins the two into one view; unlinking splits them back into two, and
+  neither history loses anything, because no fact is ever rewritten on link or unlink.
+- Linking never checks membership on either side. A person in the Discord server but not the VRChat
+  group can link; their VRChat account is simply not a group member.
+
+`discord_account_link` is the one place that connects a Discord user id to a VRChat user id.
+Other features read it through `AccountLinkLookup` in `Modbot.Core.Discord`:
+`ActiveAccountLinks()`, `LinkedVRChatUserIdAsync(discordUserId)` and
+`LinkedDiscordUserIdAsync(vrchatUserId)`. A null answer means two separate people.

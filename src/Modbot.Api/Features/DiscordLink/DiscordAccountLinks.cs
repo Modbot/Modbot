@@ -54,7 +54,8 @@ public sealed class DiscordAccountLinks
         _signal = signal;
     }
 
-    /// <summary>The active link for a Discord account, or null.</summary>
+    /// <summary>The active link for a Discord account, tracked for changing, or null.</summary>
+    /// <remarks>Read-only lookups for other features are <see cref="AccountLinkLookup"/>.</remarks>
     public Task<DiscordAccountLink?> ActiveForDiscordAsync(string discordUserId, CancellationToken ct)
         => _db.DiscordAccountLinks.FirstOrDefaultAsync(l => l.DiscordUserId == discordUserId && l.UnlinkedAt == null, ct);
 

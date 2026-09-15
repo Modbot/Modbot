@@ -7,6 +7,7 @@ using Modbot.Api.Auth;
 using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 
 namespace Modbot.Api.Features.DiscordLink;
 
@@ -53,8 +54,8 @@ public static class DiscordLinkModeratorEndpoints
                 if (string.IsNullOrWhiteSpace(vrchatUserId))
                     return Results.BadRequest(new { error = "vrchatUserId is required." });
 
-                var link = await db.DiscordAccountLinks.AsNoTracking()
-                    .FirstOrDefaultAsync(l => l.VRChatUserId == vrchatUserId && l.UnlinkedAt == null, ct);
+                var link = await db.ActiveAccountLinks()
+                    .FirstOrDefaultAsync(l => l.VRChatUserId == vrchatUserId, ct);
 
                 return Results.Ok(new DiscordLinkLookup(link is null ? null : await ViewAsync(db, link, ct)));
             })
@@ -99,6 +100,16 @@ public static class DiscordLinkModeratorEndpoints
                 .Where(r => ids.Contains(r.RoleId))
                 .ToDictionaryAsync(r => r.RoleId, r => r.Name, ct);
 
+        // The stored member list answers once the bot has read it; before that, what the role job
+        // last heard from Discord.
+        var guildId = await db.Settings.AsNoTracking().Where(s => s.Id == 1).Select(s => s.DiscordGuildId).FirstOrDefaultAsync(ct);
+        var listed = guildId is not null
+                     && await db.DiscordServers.AsNoTracking().AnyAsync(s => s.GuildId == guildId && s.MembersListedAt != null, ct);
+
+        var notInServer = listed
+            ? !await db.DiscordMembers.AsNoTracking().AnyAsync(m => m.GuildId == guildId && m.UserId == link.DiscordUserId && m.LeftAt == null, ct)
+            : link.NotInServerAt is not null;
+
         return new DiscordLinkView(
             link.Id,
             link.DiscordUserId,
@@ -107,7 +118,7 @@ public static class DiscordLinkModeratorEndpoints
             link.LinkedAt,
             link.StartedFrom,
             [.. ids.Select(roleId => new LinkedRoleView(roleId, names.GetValueOrDefault(roleId)))],
-            link.NotInServerAt is not null,
+            notInServer,
             link.RoleError);
     }
 }

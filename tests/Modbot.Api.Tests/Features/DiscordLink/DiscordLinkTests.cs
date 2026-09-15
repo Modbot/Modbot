@@ -390,6 +390,13 @@ public class DiscordLinkTests
         h.Gate.Returns("GetUser", Profile(vrchatId, "Leaving", code));
         await PostAsync(h.Host, "/api/discord-link/check", null, session);
 
+        using (var linkedScope = h.Host.Services.CreateScope())
+        {
+            var linkedDb = linkedScope.ServiceProvider.GetRequiredService<ModbotContext>();
+            Assert.Equal(h.Discord.UserId, await linkedDb.LinkedDiscordUserIdAsync(vrchatId, Ct));
+            Assert.Equal(vrchatId, await linkedDb.LinkedVRChatUserIdAsync(h.Discord.UserId, Ct));
+        }
+
         var unlinked = await ApiTestHost.BodyOf(await PostAsync(h.Host, "/api/discord-link/unlink", null, session), Ct);
         Assert.Equal(JsonValueKind.Null, unlinked.GetProperty("link").ValueKind);
 
@@ -398,6 +405,10 @@ public class DiscordLinkTests
         var row = await db.DiscordAccountLinks.AsNoTracking().SingleAsync(l => l.VRChatUserId == vrchatId, Ct);
         Assert.NotNull(row.UnlinkedAt);
         Assert.Equal(LinkEndedBy.Member, row.UnlinkedBy);
+
+        // Two separate people again, each with their own history.
+        Assert.Null(await db.LinkedDiscordUserIdAsync(vrchatId, Ct));
+        Assert.Null(await db.LinkedVRChatUserIdAsync(h.Discord.UserId, Ct));
 
         Assert.Single(await h.Host.FactsAsync(FactType.DiscordLinkCreated, vrchatId, Ct));
         var removed = Assert.Single(await h.Host.FactsAsync(FactType.DiscordLinkRemoved, vrchatId, Ct));

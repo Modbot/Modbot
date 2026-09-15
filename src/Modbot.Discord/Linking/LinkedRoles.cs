@@ -29,8 +29,10 @@ public sealed record LinkedRolePass(int Given, int Removed, int NotInServer, str
 /// not recorded on the row, so nothing here ever removes it.
 /// </para>
 /// <para>
-/// At most <see cref="MaxRowsPerPass"/> rows a pass; the next pass carries on. A member Discord says
-/// is not in the server is left for <see cref="NotInServerWait"/>, or until they join.
+/// At most <see cref="MaxRowsPerPass"/> rows a pass; the next pass carries on. Who is in the server
+/// comes from the stored member list (<c>discord_member</c>) once the bot has read it. Before that,
+/// a member Discord says is not in the server is left for <see cref="NotInServerWait"/>, or until
+/// they join. Nobody has to be a member of both the server and the VRChat group to be linked.
 /// </para>
 /// </remarks>
 public sealed class LinkedRoles
@@ -80,10 +82,34 @@ public sealed class LinkedRoles
         var now = _clock.UtcNow;
         var waitedSince = now - NotInServerWait;
 
+        // Once the bot has read the server's member list, it says who is here without asking Discord.
+        var listed = await _db.DiscordServers.AsNoTracking()
+            .Where(s => s.GuildId == guildId)
+            .Select(s => s.MembersListedAt)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false) is not null;
+
+        if (listed)
+        {
+            // Somebody who left the server took every role with them, so there is nothing to take
+            // away and nothing to ask Discord about. Rejoining puts them back on the list, and the
+            // next pass gives the roles again.
+            await _db.DiscordAccountLinks
+                .Where(l => (l.LinkedRoleId != null || l.EighteenPlusRoleId != null)
+                            && !_db.DiscordMembers.Any(m => m.GuildId == guildId && m.UserId == l.DiscordUserId && m.LeftAt == null))
+                .ExecuteUpdateAsync(
+                    s => s.SetProperty(l => l.LinkedRoleId, (string?)null).SetProperty(l => l.EighteenPlusRoleId, (string?)null),
+                    ct)
+                .ConfigureAwait(false);
+        }
+
         // Everything whose recorded roles differ from what it should hold, decided in the database
-        // so a pass over a server where nothing changed reads no rows.
+        // so a pass over a server where nothing changed reads no rows. With the member list, only
+        // people in the server; without it, Discord's Unknown Member is how the job finds out.
         var rows = await _db.DiscordAccountLinks
-            .Where(l => l.NotInServerAt == null || l.NotInServerAt < waitedSince)
+            .Where(l => listed
+                ? _db.DiscordMembers.Any(m => m.GuildId == guildId && m.UserId == l.DiscordUserId && m.LeftAt == null)
+                : l.NotInServerAt == null || l.NotInServerAt < waitedSince)
             .Select(l => new
             {
                 Link = l,

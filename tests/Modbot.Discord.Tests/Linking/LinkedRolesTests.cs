@@ -203,7 +203,46 @@ public class LinkedRolesTests
     }
 
     [Fact]
+    public async Task OnceTheMemberListIsRead_OnlyPeopleInTheServerAreAskedAbout()
+    {
+        await using var services = await SetUpAsync(_db);
+        var gateway = new FakeGateway();
+
+        var here = await LinkAsync(services, "881", "usr_listed_here", eighteenPlus: false, Ct);
+        var gone = await LinkAsync(services, "882", "usr_listed_gone", eighteenPlus: false, Ct);
+        var never = await LinkAsync(services, "883", "usr_never_joined", eighteenPlus: false, Ct);
+
+        await using (var db = services.Database.NewContext())
+        {
+            var now = services.Clock.UtcNow;
+            db.DiscordServers.Add(new DiscordServer { GuildId = Guild, Name = "Server", RefreshedAt = now, UpdatedAt = now, MembersListedAt = now });
+            db.DiscordMembers.Add(new DiscordMember { GuildId = Guild, UserId = "881", Username = "here", DisplayName = "here", FirstSeenAt = now, UpdatedAt = now });
+            db.DiscordMembers.Add(new DiscordMember { GuildId = Guild, UserId = "882", Username = "gone", DisplayName = "gone", FirstSeenAt = now, LeftAt = now, UpdatedAt = now });
+
+            // Recorded as given before they left: leaving took it, so it is forgotten, not taken away.
+            var row = await db.DiscordAccountLinks.SingleAsync(l => l.Id == gone.Id, Ct);
+            row.LinkedRoleId = LinkedRole;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var pass = await PassAsync(services, gateway);
+
+        Assert.Equal([(true, Guild, "881", LinkedRole)], gateway.RoleChanges);
+        Assert.Equal(1, pass.Given);
+        Assert.Equal(LinkedRole, (await RowAsync(services, here.Id)).LinkedRoleId);
+        Assert.Null((await RowAsync(services, gone.Id)).LinkedRoleId);
+        Assert.Null((await RowAsync(services, never.Id)).NotInServerAt);
+
+        // A linked person who is not in the server is a normal case: nothing is retried or reported.
+        gateway.RoleChanges.Clear();
+        var again = await PassAsync(services, gateway);
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Null(again.Problem);
+    }
+
+    [Fact]
     public async Task ARefusedChange_IsReported_AndLeavesTheRowToTryAgain()
+
     {
         await using var services = await SetUpAsync(_db);
         var gateway = new FakeGateway { RoleError = "The bot may not change that role." };
