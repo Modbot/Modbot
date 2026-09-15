@@ -54,7 +54,7 @@ public static class CalendarFeedWriter
 
         foreach (var group in ordered
                      .Select(e => (Event: e, Zone: CalendarRepeat.ZoneOf(e)))
-                     .Where(e => e.Zone != DateTimeZone.Utc)
+                     .Where(e => !IsUtc(e.Zone))
                      .GroupBy(e => e.Zone.Id, StringComparer.Ordinal)
                      .OrderBy(g => g.Key, StringComparer.Ordinal))
         {
@@ -186,8 +186,17 @@ public static class CalendarFeedWriter
     private static Instant LastMomentOf(DateOnly day, DateTimeZone zone) =>
         zone.AtStartOfDay(new LocalDate(day.Year, day.Month, day.Day).PlusDays(1)).ToInstant() - Duration.FromSeconds(1);
 
+    /// <summary>
+    /// A zone that is always UTC. Not <c>zone == DateTimeZone.Utc</c>: zones are compared by
+    /// reference, and the time zone database's own "UTC" (or "Etc/UTC") is a different object
+    /// from <see cref="DateTimeZone.Utc"/>, so an event saved as "UTC" was written with a
+    /// <c>TZID=UTC</c> and a VTIMEZONE it does not need.
+    /// </summary>
+    private static bool IsUtc(DateTimeZone zone) =>
+        zone.MinOffset == Offset.Zero && zone.MaxOffset == Offset.Zero;
+
     private static string Time(DateTimeOffset at, DateTimeZone zone) =>
-        zone == DateTimeZone.Utc
+        IsUtc(zone)
             ? ":" + Utc(at)
             : $";TZID={zone.Id}:" + Local(Instant.FromDateTimeOffset(at).InZone(zone).LocalDateTime);
 
