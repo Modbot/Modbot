@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260915224519_AddUnusualActivityAlerts")]
+    partial class AddUnusualActivityAlerts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -43,88 +46,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_data_protection_keys");
 
                     b.ToTable("data_protection_keys", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.AiCatalogModel", b =>
-                {
-                    b.Property<string>("Model")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("model");
-
-                    b.Property<DateTimeOffset?>("AddedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("added_at");
-
-                    b.Property<decimal?>("CachedInputPerMillion")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)")
-                        .HasColumnName("cached_input_per_million");
-
-                    b.Property<int?>("ContextLength")
-                        .HasColumnType("integer")
-                        .HasColumnName("context_length");
-
-                    b.Property<DateTimeOffset>("FetchedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("fetched_at");
-
-                    b.PrimitiveCollection<string>("InputModalities")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("input_modalities");
-
-                    b.Property<decimal?>("InputPerMillion")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)")
-                        .HasColumnName("input_per_million");
-
-                    b.Property<string>("Maker")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("maker");
-
-                    b.Property<int?>("MaxOutputTokens")
-                        .HasColumnType("integer")
-                        .HasColumnName("max_output_tokens");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)")
-                        .HasColumnName("name");
-
-                    b.PrimitiveCollection<string>("OutputModalities")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("output_modalities");
-
-                    b.Property<decimal?>("OutputPerMillion")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)")
-                        .HasColumnName("output_per_million");
-
-                    b.Property<bool>("PriceVaries")
-                        .HasColumnType("boolean")
-                        .HasColumnName("price_varies");
-
-                    b.Property<string>("Prices")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("prices");
-
-                    b.PrimitiveCollection<string>("SupportedParameters")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("supported_parameters");
-
-                    b.HasKey("Model")
-                        .HasName("pk_ai_catalog_model");
-
-                    b.HasIndex("Maker")
-                        .HasDatabaseName("ix_ai_catalog_model_maker");
-
-                    b.ToTable("ai_catalog_model", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>

@@ -8,6 +8,7 @@ import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type LinkedDiscord, type LinkedFilter, type MemberList, type MemberQuery } from '@/lib/api'
 import { can } from '@/lib/permissions'
+import { useQueryParam } from '@/lib/router'
 import { cn } from '@/lib/utils'
 
 /**
@@ -28,6 +29,13 @@ const PAGE_SIZE = 50
 export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (id: string) => void }) {
   // Links are for people who may see profiles; the server leaves them out for anybody else.
   const seesLinks = can(me, 'ViewProfile')
+
+  // The stretch an unusual-activity alert links to. In the address bar rather than in state, so
+  // the link a moderator was sent lands on the same list they were meant to see.
+  const [joinedFrom, setJoinedFrom] = useQueryParam('joinedFrom')
+  const [joinedTo, setJoinedTo] = useQueryParam('joinedTo')
+  const joined = joinedFrom && joinedTo ? { from: joinedFrom, to: joinedTo } : null
+
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
   const [role, setRole] = useState('')
@@ -51,7 +59,17 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
     let cancelled = false
 
     api
-      .members({ search, role, status, sort, linked, page, pageSize: PAGE_SIZE })
+      .members({
+        search,
+        role,
+        status,
+        sort,
+        linked,
+        joinedFrom: joined?.from,
+        joinedTo: joined?.to,
+        page,
+        pageSize: PAGE_SIZE,
+      })
       .then((next) => {
         if (cancelled) return
         setList(next)
@@ -69,7 +87,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
     return () => {
       cancelled = true
     }
-  }, [search, role, status, sort, linked, page])
+  }, [search, role, status, sort, linked, joined?.from, joined?.to, page])
 
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
@@ -135,6 +153,21 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
               <option value="name">By name</option>
               <option value="seen">Most recently seen first</option>
             </Select>
+
+            {joined && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={() => {
+                  setJoinedFrom(null)
+                  setJoinedTo(null)
+                  setPage(1)
+                }}
+              >
+                {`Joined ${new Date(joined.from).toLocaleString()} – ${new Date(joined.to).toLocaleTimeString()} ×`}
+              </Button>
+            )}
 
             {seesLinks && (
               <Select

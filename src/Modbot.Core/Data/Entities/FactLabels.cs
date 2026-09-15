@@ -157,6 +157,7 @@ public static class FactLabels
         [FactType.RetentionPruned] = "Retention pruned",
         [FactType.PartitionCreated] = "Partition created",
         [FactType.AiLimitReached] = "AI spend limit reached",
+        [FactType.InsightAlert] = "Unusual activity",
         [FactType.UserPurged] = "User data purged",
         [FactType.Unrecognised] = "Event Modbot has no name for yet",
 

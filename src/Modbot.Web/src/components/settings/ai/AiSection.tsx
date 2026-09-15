@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Tabs } from '@/components/ui/tabs'
+import { AiAlertsSettings } from './AiAlertsSettings'
 import { AiBaseSettings } from './AiBaseSettings'
 import { AiInsightsSettings } from './AiInsightsSettings'
 import { AiLimitsSettings } from './AiLimitsSettings'
@@ -15,6 +16,7 @@ import { AiModerationSettings } from './AiModerationSettings'
 const AI_TABS = [
   { value: 'base', label: 'Base', panel: AiBaseSettings },
   { value: 'insights', label: 'Insights', panel: AiInsightsSettings },
+  { value: 'alerts', label: 'Alerts', panel: AiAlertsSettings },
   { value: 'chat', label: 'Chat', panel: AiChatSettings },
   { value: 'moderation', label: 'Moderation', panel: AiModerationSettings },
   { value: 'limits', label: 'Limits', panel: AiLimitsSettings },

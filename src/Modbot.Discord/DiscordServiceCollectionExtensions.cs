@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Core.Discord;
 using Modbot.Core.Moderation;
+using Modbot.Discord.Alerts;
 using Modbot.Discord.Bot;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
@@ -55,6 +56,10 @@ public static class DiscordServiceCollectionExtensions
         // Scheduled AI insights that name a channel (AI insights design §4). Its own loop too.
         services.AddHostedService<InsightPostService>();
 
+        // Unusual-activity alerts (AI insights design §8.4). Its own loop as well, because an alert
+        // is worth posting in the next minute and an insight is not.
+        services.AddHostedService<AlertPostService>();
+
         // Linked members' roles (Discord account linking design §6). The signal is shared with the
         // API, which wakes the job when it saves or ends a link.
         services.TryAddSingleton<DiscordLinkSignal>();
@@ -68,6 +73,7 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<InstanceAnnouncer>();
         services.AddScoped<DiscordServerIndex>();
         services.AddScoped<InsightPoster>();
+        services.AddScoped<AlertPoster>();
 
         // What an AI moderation rule set to act does on Discord (M8 §2), through the live session.
         services.AddSingleton<IDiscordModerationActions, DiscordModerationActions>();

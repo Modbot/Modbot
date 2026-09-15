@@ -26,6 +26,7 @@ using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Flags;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Members;
+using Modbot.Api.Features.Alerts;
 using Modbot.Api.Features.Insights;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Live;
@@ -172,6 +173,9 @@ public static class ApiSurface
 
         // AI insights: reading them, and when they are written (AI insights design).
         app.MapInsights();
+
+        // Unusual-activity alerts and what is watched for them (AI insights design §8).
+        app.MapAlerts();
 
         // Linking a member's Discord and VRChat accounts: the public link page's API, the moderator's
         // view and unlink, and the settings (Discord account linking design).

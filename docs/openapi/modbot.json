@@ -4601,6 +4601,210 @@
         ]
       }
     },
+    "/api/alerts": {
+      "get": {
+        "tags": [
+          "Alerts"
+        ],
+        "summary": "Times something ran far outside this deployment's own normal, newest first",
+        "description": "Recent alerts nobody has hidden by default; `all=true` lists every alert kept. Each carries the figure, what normal looks like, the window, and where in Modbot to look. Counts and places only -- never a person.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "ListAlerts",
+        "parameters": [
+          {
+            "name": "all",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/alerts/{id}/dismiss": {
+      "post": {
+        "tags": [
+          "Alerts"
+        ],
+        "summary": "Hide one alert's card",
+        "description": "The alert itself is kept, and so is the fact it wrote.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "DismissAlert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/ai/alerts": {
+      "get": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "What is watched for unusual activity, and where alerts go",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetAiAlertSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "Save what is watched, how sensitive each watcher is, and where alerts go",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "SetAiAlertSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord-links": {
       "get": {
         "tags": [
@@ -7536,7 +7740,7 @@
           "Members"
         ],
         "summary": "The group's member list, as last swept, with search",
-        "description": "Current members by default; `status=left` shows people a full sweep no longer listed, `status=all` both. `search` matches the display name and the id, case-insensitively. `role` is a role id. Sorted by join date, newest first, unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without; both need See profiles, as does `linkedDiscord` on each row.\n\n`coverage.firstSweepComplete` is false until the first full sweep has finished; the list is partial until then. Names and pictures come from the profile sync and are null for people it has not fetched yet.\n\nNeeds the `ViewMembers` permission.",
+        "description": "Current members by default; `status=left` shows people a full sweep no longer listed, `status=all` both. `search` matches the display name and the id, case-insensitively. `role` is a role id. Sorted by join date, newest first, unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without; both need See profiles, as does `linkedDiscord` on each row. `joinedFrom` and `joinedTo` narrow the list to people who joined inside that stretch, which is what an unusual-activity alert links to.\n\n`coverage.firstSweepComplete` is false until the first full sweep has finished; the list is partial until then. Names and pictures come from the profile sync and are null for people it has not fetched yet.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetMembers",
         "parameters": [
           {
@@ -7572,6 +7776,22 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "joinedFrom",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "joinedTo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
             }
           },
           {
@@ -10532,6 +10752,277 @@
           },
           "month": {
             "$ref": "#/components/schemas/AiSpentView"
+          }
+        }
+      },
+      "AlertPage": {
+        "required": [
+          "alerts"
+        ],
+        "type": "object",
+        "properties": {
+          "alerts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlertView"
+            }
+          }
+        }
+      },
+      "AlertSettingsResponse": {
+        "required": [
+          "discordChannelId",
+          "quietHours",
+          "writeSentence",
+          "aiOn",
+          "watchers"
+        ],
+        "type": "object",
+        "properties": {
+          "discordChannelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quietHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "writeSentence": {
+            "type": "boolean"
+          },
+          "aiOn": {
+            "type": "boolean"
+          },
+          "watchers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlertWatchSettings"
+            }
+          }
+        }
+      },
+      "AlertSettingsUpdate": {
+        "required": [
+          "discordChannelId",
+          "quietHours",
+          "writeSentence",
+          "watchers"
+        ],
+        "type": "object",
+        "properties": {
+          "discordChannelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "quietHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "writeSentence": {
+            "type": "boolean"
+          },
+          "watchers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AlertWatchUpdate"
+            }
+          }
+        }
+      },
+      "AlertView": {
+        "required": [
+          "id",
+          "watcher",
+          "label",
+          "counts",
+          "at",
+          "windowStart",
+          "windowEnd",
+          "now",
+          "normal",
+          "spread",
+          "score",
+          "sensitivity",
+          "where",
+          "link",
+          "text",
+          "model",
+          "dismissedAt",
+          "dismissedBy",
+          "discordPostedAt",
+          "discordError"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "watcher": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "windowStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "windowEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "now": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "normal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "spread": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "score": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "sensitivity": {
+            "type": "string"
+          },
+          "where": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dismissedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "dismissedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordPostedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "discordError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AlertWatchSettings": {
+        "required": [
+          "watcher",
+          "label",
+          "sensitivity",
+          "last"
+        ],
+        "type": "object",
+        "properties": {
+          "watcher": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "sensitivity": {
+            "type": "string"
+          },
+          "last": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AlertView"
+              }
+            ]
+          }
+        }
+      },
+      "AlertWatchUpdate": {
+        "required": [
+          "watcher",
+          "sensitivity"
+        ],
+        "type": "object",
+        "properties": {
+          "watcher": {
+            "type": "string"
+          },
+          "sensitivity": {
+            "type": "string"
           }
         }
       },
@@ -20925,6 +21416,11 @@
       "x-displayName": "Insights"
     },
     {
+      "name": "Alerts",
+      "description": "Times something ran far outside this deployment's own normal.",
+      "x-displayName": "Alerts"
+    },
+    {
       "name": "Analytics",
       "description": "Charts and daily totals.",
       "x-displayName": "Analytics"
@@ -20941,7 +21437,7 @@
     },
     {
       "name": "AI settings",
-      "description": "The AI provider, Chat, moderation rules, insights and spend limits.",
+      "description": "The AI provider, Chat, moderation rules, insights, alerts and spend limits.",
       "x-displayName": "AI settings"
     }
   ]

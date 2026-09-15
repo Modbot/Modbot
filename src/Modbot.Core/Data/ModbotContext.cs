@@ -132,6 +132,13 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<InsightSchedule> InsightSchedules => Set<InsightSchedule>();
 
+    /// <summary>Times something ran far outside this deployment's own normal (AI insights design §8).</summary>
+    public DbSet<Alert> Alerts => Set<Alert>();
+
+    public DbSet<AlertWatch> AlertWatches => Set<AlertWatch>();
+
+    public DbSet<AlertSettings> AlertSettings => Set<AlertSettings>();
+
     /// <summary>Conversations on the Chat page, one owner each (AI chat design §6).</summary>
     public DbSet<AiChatConversation> AiChatConversations => Set<AiChatConversation>();
 
@@ -994,6 +1001,56 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasKey(e => e.Kind).HasName("pk_modbot_insight_schedule");
             entity.Property(e => e.Kind).HasMaxLength(32);
             entity.Property(e => e.Every).HasMaxLength(8);
+            entity.Property(e => e.DiscordChannelId).HasMaxLength(32);
+        });
+
+        builder.Entity<Alert>(entity =>
+        {
+            entity.ToTable("modbot_alert");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Watcher).HasMaxLength(32);
+            entity.Property(e => e.Sensitivity).HasMaxLength(8);
+            entity.Property(e => e.Figures).HasColumnType("jsonb");
+            entity.Property(e => e.Link).HasMaxLength(200);
+            entity.Property(e => e.Text).HasColumnType("text");
+            entity.Property(e => e.Model).HasMaxLength(200);
+            entity.Property(e => e.Provider).HasMaxLength(32);
+            entity.Property(e => e.DismissedByUsername).HasMaxLength(64);
+            entity.Property(e => e.DiscordChannelId).HasMaxLength(32);
+            entity.Property(e => e.DiscordError).HasMaxLength(1000);
+
+            // The quiet time asks for the newest alert of one watcher; that is the only lookup that
+            // needs an index. "The newest few, whatever the watcher" has no index of its own on
+            // purpose: the quiet time keeps this table to a handful of rows a day.
+            entity.HasIndex(e => new { e.Watcher, e.At })
+                .HasDatabaseName("ix_modbot_alert_watcher_at")
+                .IsDescending(false, true);
+
+            // What the Discord poster still has to do. Small, because almost every row is done.
+            entity.HasIndex(e => e.At)
+                .HasDatabaseName("ix_modbot_alert_discord_waiting")
+                .HasFilter("discord_channel_id IS NOT NULL AND discord_posted_at IS NULL AND discord_error IS NULL");
+        });
+
+        builder.Entity<AlertWatch>(entity =>
+        {
+            entity.ToTable("modbot_alert_watch");
+
+            entity.HasKey(e => e.Watcher).HasName("pk_modbot_alert_watch");
+            entity.Property(e => e.Watcher).HasMaxLength(32);
+            entity.Property(e => e.Sensitivity).HasMaxLength(8);
+        });
+
+        builder.Entity<AlertSettings>(entity =>
+        {
+            entity.ToTable("modbot_alert_settings", t =>
+                t.HasCheckConstraint("ck_modbot_alert_settings_singleton", "id = 1"));
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.DiscordChannelId).HasMaxLength(32);
         });
 

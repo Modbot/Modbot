@@ -1,0 +1,118 @@
+---
+title: Unusual activity
+description: Alerts when a figure Modbot watches runs far outside your own normal - a burst of joins or flags, a busy room nobody is watching, a drop in active members.
+---
+
+Insights arrive on a schedule. An **alert** arrives when something happens: a burst of joins, a run
+of flags, a room filling up with nobody watching it, a week with far fewer active members than
+usual.
+
+An alert is figures, not prose. It says what the figure was, what normal looks like, which stretch
+of time it covers, and where in Modbot to go and look. If your AI is on, it can also carry one
+sentence from the model about those figures — but the alert goes out either way.
+
+Like an insight, an alert never names anybody and never suggests an action. It counts things.
+
+You set alerts up under **Settings** → **AI** → **Alerts**, which needs the **Change settings**
+permission. Everything is off until you turn it on.
+
+## What Modbot can watch
+
+| Watcher | What it notices | Over |
+|---|---|---|
+| **People joining the group** | VRChat group joins | an hour |
+| **People joining Discord** | Discord server joins | an hour |
+| **New accounts joining** | of those joiners, the ones whose VRChat account is less than a month old | an hour |
+| **AI flags** | flags raised by your [moderation rules](/ai/moderation-rules) | an hour |
+| **Moderation actions** | bans, removals, room kicks, warnings, rejections, and Discord bans, kicks and timeouts | an hour |
+| **People leaving** | group and Discord leaves | an hour |
+| **Rooms opening** | group instances being created | an hour |
+| **A room filling up** | an open room far busier than your rooms usually get | now |
+| **Nobody watching a busy room** | a busy open room with no moderator's client in it | now |
+| **Fewer active members** | the week just ended against the four weeks before | a week |
+
+Group joins and Discord joins are watched separately, because they are different doors.
+
+**Active member** here means the same as it does on [My Server](/analytics#my-server): somebody who
+sent a message or spent time in voice.
+
+## How Modbot decides something is unusual
+
+Never against a fixed number. A group of fifty and a group of five thousand have nothing in common
+except that each knows what its own Tuesday evening looks like.
+
+Modbot compares the stretch just ended with the **matching earlier stretches** — the same hour of
+the day on each of the last 14 days, or the four weeks before this one. **Normal** is the middle of
+those, and the **spread** is how far they usually sat from the middle.
+
+A spike has to clear three bars at once:
+
+- it has to be big enough on its own — five joins, three flags — so a quiet group never alerts on
+  two of anything;
+- it has to be several spreads above normal, and how many is the sensitivity you chose;
+- it has to be at least half again normal, so a big steady number does not alert on a wobble.
+
+A drop works the other way: **Fewer active members** alerts when the week comes in below a share of
+normal — half at **Low**, about two thirds at **Normal**, three quarters at **High**.
+
+Modbot says nothing at all until it has enough history to know what normal is: five matching
+stretches, or three weeks for the weekly watcher.
+
+**Nobody watching a busy room** is the one that is not a comparison. It fires on a room at or above
+your own normal busiest room — twice that at **Low**, half again at **Normal**, level with it at
+**High** — with no moderator's client in it.
+
+## Sensitivity
+
+Each watcher is **Off**, **Low**, **Normal** or **High**.
+
+- **Low** is the quietest: it takes a big, obvious spike.
+- **Normal** is the middle.
+- **High** notices more, and will sometimes notice a busy evening.
+
+If a watcher is saying too much, move it down one. If something happened and it said nothing, move
+it up one.
+
+## Quiet time
+
+After an alert, that watcher stays quiet for the **quiet time** — 6 hours by default — so one busy
+evening does not fill your channel.
+
+The exception is when it gets **much worse**: twice as far from normal as the alert that was posted.
+Then it speaks up again, because a burst that keeps growing is worth hearing about more than once.
+
+## Where alerts appear
+
+- **In Modbot**, as a card at the top of **My Group** and **Health**, showing alerts from the last
+  24 hours. Each row has **Open**, which takes you to the thing it is about — the member list
+  filtered to the people who joined in that hour, the Flags page, the Live page, and so on. Reading
+  them needs **See analytics**.
+- **In Discord**, if you pick an alerts channel. This can be a different, noisier channel from your
+  insights channel. The bot needs to see the channel, send messages and embed links in it.
+- **Anywhere else**, through [event routes](/discord/event-channels): every alert also writes an
+  **Unusual activity** event, which a route can send wherever you like.
+
+**×** on a card hides it. The alert itself is kept, and you can still find it through the event log.
+
+## Settings
+
+The **Alerts** card:
+
+- **Discord channel** — where alerts go. Leave it empty to keep them in Modbot only.
+- **Quiet time** — how long a watcher stays quiet after an alert.
+- **AI sentence** — whether the model writes one sentence on each alert. Turning it off does not
+  turn alerts off.
+
+The **What is watched** card has one control per watcher.
+
+Alert sentences are real AI requests and count towards spend under **Insights** on
+[Limits and spend](/ai/limits-and-spend). If AI is off, or that limit is reached, alerts still go
+out — with their figures and no sentence.
+
+## When the checks run
+
+Every 15 minutes. An hour-long stretch ends on the quarter-hour, so an alert reaches you within
+about 15 minutes of the thing it is about.
+
+**Fewer active members** is checked once a day, because it counts whole days and cannot change
+inside one.

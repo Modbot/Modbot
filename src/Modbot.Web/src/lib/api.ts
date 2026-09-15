@@ -589,6 +589,10 @@ export type MemberQuery = {
   status?: 'current' | 'left' | 'all'
   sort?: 'joined' | 'name' | 'seen'
   linked?: LinkedFilter
+  /** Only people who joined at or after this moment. */
+  joinedFrom?: string
+  /** Only people who joined before this moment. */
+  joinedTo?: string
   page?: number
   pageSize?: number
 }
@@ -2100,6 +2104,69 @@ export type AiInsightsSettingsInput = {
   kinds: Omit<InsightKindSettings, 'label' | 'last'>[]
 }
 
+export type AlertWatcher =
+  | 'vrchat-joins'
+  | 'discord-joins'
+  | 'new-accounts'
+  | 'flags'
+  | 'actions'
+  | 'leaves'
+  | 'rooms-opened'
+  | 'room-filling'
+  | 'room-unwatched'
+  | 'active-drop'
+
+export type AlertSensitivity = 'off' | 'low' | 'normal' | 'high'
+
+/** One time something ran far outside this deployment's own normal. Counts and places only. */
+export type Alert = {
+  id: string
+  watcher: AlertWatcher
+  label: string
+  /** What the figure counts, in plain words. */
+  counts: string
+  at: string
+  windowStart: string
+  windowEnd: string
+  now: number
+  normal: number
+  spread: number
+  score: number
+  sensitivity: AlertSensitivity
+  /** The world or room, for the two room watchers. */
+  where: string | null
+  /** Where in Modbot to look, as a path. */
+  link: string | null
+  text: string | null
+  model: string | null
+  dismissedAt: string | null
+  dismissedBy: string | null
+  discordPostedAt: string | null
+  discordError: string | null
+}
+
+export type AlertWatchSettings = {
+  watcher: AlertWatcher
+  label: string
+  sensitivity: AlertSensitivity
+  last: Alert | null
+}
+
+export type AiAlertSettings = {
+  discordChannelId: string | null
+  quietHours: number
+  writeSentence: boolean
+  aiOn: boolean
+  watchers: AlertWatchSettings[]
+}
+
+export type AiAlertSettingsInput = {
+  discordChannelId: string | null
+  quietHours: number
+  writeSentence: boolean
+  watchers: { watcher: AlertWatcher; sensitivity: AlertSensitivity }[]
+}
+
 /** One API key as the list shows it. Never the key itself. */
 export type ApiKeyView = {
   id: string
@@ -2534,6 +2601,16 @@ export const api = {
   insights: (kind?: InsightKind, limit = 10) =>
     request<{ insights: Insight[] }>(`/api/insights?limit=${limit}${kind ? `&kind=${kind}` : ''}`),
 
+  aiAlertSettings: () => request<AiAlertSettings>('/api/settings/ai/alerts'),
+
+  setAiAlertSettings: (body: AiAlertSettingsInput) => put<AiAlertSettings>('/api/settings/ai/alerts', body),
+
+  /** Recent alerts nobody has hidden, newest first. `all` lists every alert kept. */
+  alerts: (all = false, limit = 20) =>
+    request<{ alerts: Alert[] }>(`/api/alerts?limit=${limit}${all ? '&all=true' : ''}`),
+
+  dismissAlert: (id: string) => post<Alert>(`/api/alerts/${id}/dismiss`),
+
   aiChatSettings: () => request<AiChatSettings>('/api/settings/ai/chat'),
 
   aiLimits: () => request<AiLimits>('/api/settings/ai/limits'),
@@ -2701,6 +2778,8 @@ export const api = {
     if (query.status && query.status !== 'current') q.set('status', query.status)
     if (query.sort && query.sort !== 'joined') q.set('sort', query.sort)
     if (query.linked && query.linked !== 'all') q.set('linked', query.linked)
+    if (query.joinedFrom) q.set('joinedFrom', query.joinedFrom)
+    if (query.joinedTo) q.set('joinedTo', query.joinedTo)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
     const search = q.toString()

@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { Badge } from '@/components/ui/badge'
 import { DailyBars, DailyLine, Legend, RankedList, compactNumber, longDay, percent } from '@/components/charts'
 import { api } from '@/lib/api'
@@ -32,6 +33,8 @@ export function MyGroup() {
 
   return (
     <div className="flex flex-col gap-4">
+      <AlertsCard />
+
       <RangePicker range={range} onChange={setRange} from={data?.from} to={data?.to} />
 
       {!data && <PageMessage>Loading…</PageMessage>}

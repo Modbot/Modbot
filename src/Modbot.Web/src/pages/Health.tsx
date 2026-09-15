@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { Card, CardContent } from '@/components/ui/card'
 import { statusOf, TONE } from '@/lib/gate'
 import { ago, duration, formatDay } from '@/lib/format'
@@ -82,6 +83,8 @@ export function Health() {
 
   return (
     <div className="flex flex-col gap-4">
+      <AlertsCard />
+
       <Card>
         <CardContent className="py-4">
           <div className="flex items-start gap-3">

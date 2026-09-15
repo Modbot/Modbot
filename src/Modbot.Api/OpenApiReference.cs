@@ -61,10 +61,11 @@ internal static class OpenApiReference
         ("Discord account link", "Links between members' Discord and VRChat accounts."),
         ("Chat", "Questions answered by the AI model, using only what you can see."),
         ("Insights", "AI-written summaries of the group's own numbers."),
+        ("Alerts", "Times something ran far outside this deployment's own normal."),
         ("Analytics", "Charts and daily totals."),
         ("Health", "Whether Modbot is reaching VRChat."),
         ("Settings", "Deployment settings: storage, retention, email, evidence, ban reasons and more."),
-        ("AI settings", "The AI provider, Chat, moderation rules, insights and spend limits."),
+        ("AI settings", "The AI provider, Chat, moderation rules, insights, alerts and spend limits."),
     ];
 
     public static OpenApiOptions AddModbotReference(this OpenApiOptions options)

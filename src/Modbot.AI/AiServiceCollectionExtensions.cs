@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Modbot.AI.Alerts;
 using Modbot.AI.Insights;
 using Modbot.AI.Moderation;
 using Modbot.AI.Usage;
@@ -43,6 +44,11 @@ public static class AiServiceCollectionExtensions
         services.AddScoped<InsightFigureReader>();
         services.AddScoped<InsightWriter>();
         services.AddScoped<InsightScheduler>();
+
+        // Unusual-activity alerts (AI insights design §8). Every watcher is off until an operator
+        // turns one on, so a pass is one small read.
+        services.AddScoped<AlertFigureReader>();
+        services.AddScoped<AlertChecker>();
 
         // AI moderation (AI moderation design). The engine reads its rules from the database on
         // every check, so like the client it does nothing until an operator switches it on.

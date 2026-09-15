@@ -58,6 +58,8 @@ public static class MemberEndpoints
                 [FromQuery] string? status,
                 [FromQuery] string? sort,
                 [FromQuery] string? linked,
+                [FromQuery] DateTimeOffset? joinedFrom,
+                [FromQuery] DateTimeOffset? joinedTo,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
                 CancellationToken ct) =>
@@ -69,7 +71,8 @@ public static class MemberEndpoints
                 if (LinkFilter.Narrows(linked) && !seesLinks)
                     return Results.Forbid();
 
-                return Results.Ok(await ListMembersAsync(db, clock, search, role, status, sort, page, pageSize, ct, linked, seesLinks));
+                return Results.Ok(await ListMembersAsync(
+                    db, clock, search, role, status, sort, page, pageSize, ct, linked, seesLinks, joinedFrom, joinedTo));
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetMembers")
@@ -80,7 +83,9 @@ public static class MemberEndpoints
                 + "case-insensitively. `role` is a role id. Sorted by join date, newest first, "
                 + "unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked "
                 + "Discord account and `linked=not-linked` only people without; both need See profiles, "
-                + "as does `linkedDiscord` on each row.\n\n"
+                + "as does `linkedDiscord` on each row. `joinedFrom` and `joinedTo` narrow the list "
+                + "to people who joined inside that stretch, which is what an unusual-activity alert "
+                + "links to.\n\n"
                 + "`coverage.firstSweepComplete` is false until the first full sweep has finished; "
                 + "the list is partial until then. Names and pictures come from the profile sync "
                 + "and are null for people it has not fetched yet.")
@@ -146,7 +151,9 @@ public static class MemberEndpoints
         int? pageSize,
         CancellationToken ct,
         string? linked = null,
-        bool seesLinks = false)
+        bool seesLinks = false,
+        DateTimeOffset? joinedFrom = null,
+        DateTimeOffset? joinedTo = null)
     {
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var groupId = settings?.ManagedGroupId ?? string.Empty;
@@ -174,6 +181,13 @@ public static class MemberEndpoints
                 EF.Functions.ILike(x.m.UserId, pattern, "\\")
                 || (x.u != null && x.u.DisplayName != null && EF.Functions.ILike(x.u.DisplayName, pattern, "\\")));
         }
+
+        // What an unusual-activity alert links to: the people who joined in the hour it is about.
+        if (joinedFrom is { } from)
+            query = query.Where(x => x.m.JoinedAt >= from);
+
+        if (joinedTo is { } to)
+            query = query.Where(x => x.m.JoinedAt < to);
 
         if (Trimmed(role) is { } roleId)
         {

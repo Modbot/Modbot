@@ -464,6 +464,13 @@ public static class FactType
     public const string AiLimitReached = "modbot.ai.limit.reached";
 
     /// <summary>
+    /// Something Modbot watches ran far outside this deployment's own normal (AI insights design
+    /// §8). Subject is the watcher. Payload: the figure, the window, what normal looks like, and
+    /// where in Modbot to look. Never a person: an alert is counts, not a report about anyone.
+    /// </summary>
+    public const string InsightAlert = "modbot.insight.alert";
+
+    /// <summary>
     /// Every fact about one subject was erased on request (spec 5.5). It deliberately names no
     /// user.
     /// </summary>
