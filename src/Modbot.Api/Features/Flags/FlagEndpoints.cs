@@ -44,7 +44,9 @@ public sealed record FlagView(
     string? RuleText = null,
     bool Trial = false,
     bool WouldDeleteMessage = false,
-    int? WouldTimeOutMinutes = null);
+    int? WouldTimeOutMinutes = null,
+    // The AI call that produced it, in the call log. Null for a term list, which makes no call.
+    Guid? CallId = null);
 
 public sealed record FlagList(IReadOnlyList<FlagView> Flags, int Open);
 
@@ -216,5 +218,6 @@ public static class FlagEndpoints
         ruleText is not null && ruleText.TryGetValue((f.RuleId, f.RuleVersion), out var text) ? text : null,
         f.Trial,
         f.WouldDeleteMessage,
-        f.WouldTimeOutMinutes);
+        f.WouldTimeOutMinutes,
+        f.CallId);
 }

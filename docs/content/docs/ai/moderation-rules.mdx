@@ -120,18 +120,30 @@ How AI topics run:
 
 - **Term lists go first.** A topic only checks text that no term list has already matched for that
   kind of text, so a message a term list caught does not cost an AI request as well.
-- **One request per piece of text**, covering every topic that applies to it.
-- **The model must quote the text.** It answers with the topic, one sentence saying why, and the
-  words it matched. If those words are not really in the text, Modbot throws the match away.
-- **The member's text is sent on its own.** It never shares a message with Modbot's instructions,
-  and the two are separated by a marker that is different every request, so nothing written in a
-  message can pretend to be an instruction. The model is told that everything inside is untrusted
-  text to check and never something to obey. Member text is sent to the AI provider you choose.
-- **An answer Modbot cannot read is thrown away.** If the model answers in the wrong shape, or names
-  a topic nobody asked about, the whole answer is discarded rather than half-read.
+- **Several pieces of text in one request.** A profile's name, bio, status and pronouns go together,
+  and the profile check hands several people over at once. The topics are listed once for all of
+  them, which is most of what a request costs.
+- **Each person's text is still sent on its own.** It never shares a message with Modbot's
+  instructions, and the pieces are separated by a marker that is different every request, so nothing
+  written in a message can pretend to be an instruction or to belong to somebody else. The model is
+  told that everything inside is untrusted text to check and never something to obey. Member text is
+  sent to the AI provider you choose.
+- **The model must quote the text.** It answers with which piece of text, the topic, one sentence
+  saying why, and the words it matched. If those words are not really in that piece of text, Modbot
+  throws the match away.
+- **An answer Modbot cannot read is thrown away.** If the model answers in the wrong shape, names a
+  topic nobody asked about, or names a piece of text nobody sent, the whole answer is discarded
+  rather than half-read — and the pieces are then sent again one at a time, so one confused answer
+  costs a retry rather than costing everybody in it their check.
+- **Each request has thirty seconds.** A provider that does not answer in time is recorded as an
+  error in the [call log](/ai/call-log), never as "nothing matched", and Modbot tries your
+  [fallback model](/ai/settings#the-fields) once if you set one.
 - Before each request, Modbot checks the daily AI call limit and the
   [spend limits](/ai/limits-and-spend) for everyone and for **Moderation**. When any is reached, AI
   topics stop and term lists carry on.
+- **Every request is written down** in the [call log](/ai/call-log). A request that produced a flag
+  keeps the whole prompt and the whole answer, so you can see exactly what the model saw; one that
+  flagged nothing keeps counts only.
 
 [AI settings](/ai/settings#what-is-sent-to-the-provider) lists exactly what is sent.
 

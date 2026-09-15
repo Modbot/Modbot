@@ -75,8 +75,8 @@ public class ChatLoopTests
 
         var (_, events) = await RunAsync(ChatTestKit.Request(provider, [new FakeTool("find_person", ModbotPermissions.None)]));
 
-        var usage = events.OfType<ChatUsageEvent>()
-            .Select(e => (e.Model, e.Usage.InputTokenCount, e.Usage.InputTokenDetails.CachedTokenCount, e.Usage.OutputTokenCount))
+        var usage = events.OfType<ChatCallEvent>()
+            .Select(e => (e.ModelAsked, e.Usage!.InputTokenCount, e.Usage.InputTokenDetails.CachedTokenCount, e.Usage.OutputTokenCount))
             .ToList();
         Assert.Equal([("test-model", 1200, 1000, 40), ("test-model", 1500, 1200, 90)], usage);
 

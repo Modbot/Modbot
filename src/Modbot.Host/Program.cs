@@ -181,6 +181,9 @@ try
     builder.Services.AddModbotAi();
     builder.Services.AddModbotAiModerationJobs();
 
+    // Deletes call log rows past the operator's keep-for setting, once a day.
+    builder.Services.AddModbotAiCallLogPrune();
+
     // Scheduled AI insights (AI insights design §3). Nothing is written while AI is off or no kind
     // of insight is switched on.
     builder.Services.AddModbotAiInsightSchedule();

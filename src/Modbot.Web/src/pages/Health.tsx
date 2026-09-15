@@ -12,6 +12,7 @@ import {
   type DiscordChannelProblem,
   type DiscordReadBackHealth,
   type CalendarHealth,
+  type AiCallsHealth,
   type EmailHealth,
   type PausedRule,
   type SyncHealth,
@@ -134,6 +135,11 @@ export function Health() {
       {!health.syncRunningInThisProcess && <Note>Sync is not running in this process.</Note>}
 
       {health.aiSpend && health.aiSpend.length > 0 && <AiSpend warnings={health.aiSpend} />}
+
+      {health.aiCalls &&
+        (health.aiCalls.errors > 0 || health.aiCalls.timedOut > 0 || health.aiCalls.fallbacks > 0) && (
+          <AiCalls calls={health.aiCalls} />
+        )}
 
       {health.email && (health.email.queued > 0 || health.email.failed > 0) && <EmailQueue email={health.email} />}
 
@@ -601,6 +607,37 @@ function AiSpend({ warnings }: { warnings: AiSpendWarning[] }) {
             {w.estimate !== null && ` · estimate ${amountText(w.estimate, w.unit)} (${share(w.estimate, w.limit)})`}
           </p>
         ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * AI calls over the last hour: how many failed, how many ran out of time, and which model is
+ * answering while the fallback is in use. Shown only when there is something wrong.
+ */
+function AiCalls({ calls }: { calls: AiCallsHealth }) {
+  const failing = calls.errors + calls.timedOut > 0
+
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-medium">AI</span>
+          <span className={failing ? 'text-destructive' : 'text-warn'} style={{ fontSize: 'var(--text-small)' }}>
+            {failing ? 'calls failing' : 'on the fallback model'}
+          </span>
+        </div>
+        <p
+          className={cn('mt-1 max-w-3xl tabular-nums', failing ? 'text-destructive' : 'text-warn')}
+          style={{ fontSize: 'var(--text-small)' }}
+        >
+          {`${calls.calls} calls in the last hour`}
+          {calls.errors > 0 && ` · ${calls.errors} failed`}
+          {calls.timedOut > 0 && ` · ${calls.timedOut} timed out`}
+          {calls.fallbacks > 0 && ` · ${calls.fallbacks} on the fallback`}
+          {calls.answeringModel && ` · answering: ${calls.answeringModel}`}
+        </p>
       </CardContent>
     </Card>
   )

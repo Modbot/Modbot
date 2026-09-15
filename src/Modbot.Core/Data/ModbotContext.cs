@@ -169,6 +169,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Token counts of every AI request, by feature, for spend limits and cost estimates.</summary>
     public DbSet<AiUsage> AiUsage => Set<AiUsage>();
 
+    /// <summary>Every AI call and what came of it, the failed ones included (the call log).</summary>
+    public DbSet<AiCall> AiCalls => Set<AiCall>();
+
     /// <summary>Monthly token limits kept from before prices, until the feature's model has a price.</summary>
     public DbSet<AiFeatureLimit> AiFeatureLimits => Set<AiFeatureLimit>();
 
@@ -1267,6 +1270,28 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // "How much has this feature used this month", asked before each request.
             entity.HasIndex(e => new { e.Feature, e.At })
                 .HasDatabaseName("ix_ai_usage_feature_at");
+        });
+
+        builder.Entity<AiCall>(entity =>
+        {
+            entity.ToTable("ai_call");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Feature).HasMaxLength(32);
+            entity.Property(e => e.ModelAsked).HasMaxLength(200);
+            entity.Property(e => e.ModelAnswered).HasMaxLength(200);
+            entity.Property(e => e.Provider).HasMaxLength(32);
+            entity.Property(e => e.Outcome).HasMaxLength(16);
+            entity.Property(e => e.Error).HasMaxLength(1000);
+            entity.Property(e => e.Username).HasMaxLength(64);
+            entity.Property(e => e.ReportedCost).HasPrecision(18, 8);
+
+            // The call log, newest first, with its filters -- and the same index answers the
+            // Health card's "how many errors in the last hour".
+            entity.HasIndex(e => new { e.At, e.Feature, e.Outcome })
+                .HasDatabaseName("ix_ai_call_at");
         });
 
         builder.Entity<AiFeatureLimit>(entity =>

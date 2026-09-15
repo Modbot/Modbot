@@ -79,14 +79,28 @@ people type to get past a filter, not all of Unicode.
 
 - **Term lists run first.** AI runs only on text no term list matched for that target. A message a
   term list already flagged does not also cost an AI call.
-- **One call per text.** All enabled topics for that target go in one request.
-- **Structured output.** The model must answer JSON `{ "matches": [ { "topic", "why", "quote" } ] }`
-  (M8 §4.1: what it flagged and why). A match whose `quote` is not actually in the text is thrown
-  away, so a flag always points at words the person wrote. An answer that does not fit the schema is
-  thrown away whole (§15.3).
-- The member's text is sent in a message of its own, between two lines of a marker that is different
-  every request, and the system message says everything between them is untrusted content to
-  classify and never an instruction (§15).
+- **One call for several texts (changed 2026-09-15).** Modbot used to send one request per piece of
+  text, which meant a profile with a name, a bio, a status and pronouns cost four calls carrying the
+  same instructions and the same topics four times. Now every piece of text in one check goes in one
+  request, and the profile pass hands several people over at once
+  (`settings.ai_moderation_profile_batch_size`, five by default, counted in profiles and capped at
+  twenty). The topics are listed once with short keys, and each piece of text is named and says
+  which of them it is to be checked against.
+- **Each piece of text still gets its own message.** A member's text never shares a message with
+  Modbot's instructions: every piece arrives between two lines of a marker that is different every
+  request, and the first marker line names it. A member cannot guess the marker, so nothing they
+  write can look like the end of their own text, the start of Modbot's, or the name of somebody
+  else's (§15).
+- **Structured output.** The model must answer JSON
+  `{ "matches": [ { "text", "topic", "why", "quote" } ] }` (M8 §4.1: what it flagged and why). A
+  match whose `quote` is not actually in that piece of text is thrown away, so a flag always points
+  at words the person wrote. An answer that does not fit the schema — a piece of text that was not
+  sent, a topic that piece was not checked against, a field missing or a field nobody asked for — is
+  thrown away whole (§15.3). With one piece of text in the request the name may be left out, because
+  there is nothing else it could mean.
+- **A batch that cannot be matched up goes again one at a time.** An unreadable answer costs that
+  batch one retry per piece of text rather than costing every piece in it its check. That is what
+  Modbot did before batching existed, so the worst case is the old cost, not a lost check.
 - **Daily AI call limit.** One setting, counted per UTC day from `IModbotClock`, incremented in the
   same statement that checks it. At the limit, AI topics stop until the next day; term lists keep
   running. The "Try it" box counts towards the limit, because it costs the same.
@@ -99,6 +113,12 @@ people type to get past a filter, not all of Unicode.
   Moderation first shipped with a monthly token limit because Modbot had no prices; that becomes a
   money limit once the model has a price, and until then it is kept and counted (AI chat design
   §10.5). Limits are set on Settings → AI → Limits.
+- **Timeout and fallback (added 2026-09-15).** Every call goes through `AiCallRunner` (AI chat design
+  §12): thirty seconds for moderation, one retry on the fallback model, and a row in the call log
+  whatever happens. A timeout is an error on that call — term lists carry on and the profile pass
+  moves to the next batch — never an empty answer that would read as "the model found nothing".
+- **Prompt caching.** The instructions are a constant and go first, unchanged between calls, so a
+  provider that caches prefixes can. Anything that differs comes after them in the user message.
 
 ## 5. Flags and dismissals
 
@@ -165,7 +185,12 @@ messages" is history.
 
 - `CheckDiscordMessageAsync(DiscordMessageToCheck, ct)` — for Discord message indexing, on each new
   and edited message with text. Not wired yet: message indexing is not on master.
-- `CheckProfileAsync(ProfileToCheck, ct)` — for profile text. Wired by a background job that reads
+- `CheckProfilesAsync(IReadOnlyList<ProfileToCheck>, ct)` — several people at once, so their AI
+  topics share calls. The answers come back in the order the profiles were given. The default
+  implementation on the interface checks them one at a time, so a checker that makes no AI call
+  needs no code for it.
+- `CheckProfileAsync(ProfileToCheck, ct)` — one person, which is `CheckProfilesAsync` with a list of
+  one. Wired by a background job that reads
   `vrchat.user.profile.first-seen` and `.changed` facts after a stored position and checks the stored
   profile, so the profile sync itself is not slowed by AI calls. While the feature is off the position
   does not move, so switching it on checks the profiles seen in between.
@@ -187,7 +212,10 @@ gets flagged — and here, what gets deleted. So:
 Paste text, pick a target, optionally include AI topics. The answer lists each matching rule, the
 term or topic, the matched text, and what would happen (flag, delete, timeout, or suppressed for
 nobody — "Try it" has no person). Nothing is written and nothing is done, apart from the AI call
-counting towards the daily limit.
+counting towards the daily limit and appearing in the call log.
+
+Somebody pressed a button, so the call keeps what the model was sent and what it answered, and the
+answer carries the call's id: this is the screen whose whole purpose is showing what the model saw.
 
 ## 11. Not built
 

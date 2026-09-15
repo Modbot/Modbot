@@ -151,6 +151,27 @@ public interface IModerationChecker
     Task<ModerationOutcome> CheckDiscordMessageAsync(DiscordMessageToCheck message, CancellationToken ct = default);
 
     Task<ModerationOutcome> CheckProfileAsync(ProfileToCheck profile, CancellationToken ct = default);
+
+    /// <summary>
+    /// Several profiles at once, so the AI topics of all of them can go in one call. The answers
+    /// come back in the order the profiles were given.
+    /// </summary>
+    /// <remarks>
+    /// The plain one-at-a-time version is here so a checker that makes no AI call -- the one in a
+    /// process without AI, and the fakes in the tests -- needs no code for batching.
+    /// </remarks>
+    async Task<IReadOnlyList<ModerationOutcome>> CheckProfilesAsync(
+        IReadOnlyList<ProfileToCheck> profiles, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(profiles);
+
+        var outcomes = new List<ModerationOutcome>(profiles.Count);
+
+        foreach (var profile in profiles)
+            outcomes.Add(await CheckProfileAsync(profile, ct).ConfigureAwait(false));
+
+        return outcomes;
+    }
 }
 
 /// <summary>The checker in a process with no AI moderation: it checks nothing.</summary>

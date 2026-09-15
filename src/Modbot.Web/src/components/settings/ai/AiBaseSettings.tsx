@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { api, ApiError, type AiSettings, type AiSettingsInput } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Field, Outcome, PasswordField, Placeholder, Switch } from '../fields'
+import { Field, NumberField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { ModelField } from './ModelField'
 
@@ -69,6 +69,8 @@ function ConnectionCard({
   const [endpoint, setEndpoint] = useState(settings.endpoint ?? presetEndpoint(settings.provider))
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState(settings.model ?? '')
+  const [fallbackModel, setFallbackModel] = useState(settings.fallbackModel ?? '')
+  const [keepDays, setKeepDays] = useState(String(settings.callLogKeepDays))
 
   const [busy, setBusy] = useState<'save' | 'test' | 'remove' | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -125,7 +127,12 @@ function ConnectionCard({
       .finally(() => setBusy(null))
   }
 
-  const body = (): AiSettingsInput => ({ enabled, ...connection() })
+  const body = (): AiSettingsInput => ({
+    enabled,
+    ...connection(),
+    fallbackModel: fallbackModel.trim(),
+    callLogKeepDays: Number(keepDays) || 0,
+  })
 
   // M8 §4.5: the first time AI is switched on, the operator reads what is sent where and confirms
   // it. Once for the deployment, so a confirmed deployment never sees this again.
@@ -274,6 +281,17 @@ function ConnectionCard({
           apiKey={apiKey.trim()}
           onChange={setModel}
         />
+        <ModelField
+          label="Fallback model"
+          feature="base"
+          name="base-fallback"
+          value={fallbackModel}
+          provider={provider}
+          endpoint={endpoint.trim()}
+          apiKey={apiKey.trim()}
+          onChange={setFallbackModel}
+        />
+        <NumberField label="Keep the call log for (days)" value={keepDays} onChange={setKeepDays} min={0} />
       </div>
     </SettingsCard>
   )

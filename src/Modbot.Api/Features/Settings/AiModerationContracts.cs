@@ -226,8 +226,10 @@ public sealed record TryMatchView(
     bool DeleteMessage,
     int? TimeoutMinutes);
 
+/// <param name="CallId">The AI call behind it, in the call log. Null when no AI call was made.</param>
 public sealed record TryResponse(
     IReadOnlyList<TryMatchView> Matches,
     bool WouldDeleteMessage,
     int? WouldTimeOutMinutes,
-    string? AiSkipped);
+    string? AiSkipped,
+    Guid? CallId = null);

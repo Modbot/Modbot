@@ -120,6 +120,22 @@ redirected to another server.
 [Insights](/ai/insights) and [Chat](/ai/chat) each have their own **Model** box; left empty, they use
 this one.
 
+**Fallback model** is optional. When the main model errors, runs out of time, or the provider will
+not run it, Modbot tries the same request once more on this one. It is picked from the same list as
+**Model**.
+
+Modbot does **not** fall back when a spend limit stopped the call, when the provider refused your API
+key, or when you closed the page: another model would fail the same way, or spend past a limit you
+set, or answer a question nobody is waiting for any more. The **Test** button never falls back
+either — you are testing one model, and an answer from a different one would not tell you whether
+that one works.
+
+The [call log](/ai/call-log) records both attempts, so you can always see which model actually
+answered.
+
+**Keep the call log for (days)** is how long a row in the [call log](/ai/call-log) is kept. Thirty
+days by default. `0` keeps them for ever.
+
 ## Choosing a model
 
 Every **Model** box has a **Choose** button. What it opens depends on your provider.
@@ -212,4 +228,5 @@ VRChat.
   <Card title="Insights" href="/ai/insights">Short written summaries of your group's figures.</Card>
   <Card title="Chat" href="/ai/chat">Ask questions about your group in plain words.</Card>
   <Card title="Limits and spend" href="/ai/limits-and-spend">See what AI costs and set money limits.</Card>
+  <Card title="Call log" href="/ai/call-log">Every AI call: model, tokens, cost, time taken and what went wrong.</Card>
 </Cards>

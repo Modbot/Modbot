@@ -22,7 +22,9 @@ It is a faster way to look things up. It is not a moderator.
 
 One reply is a loop over the OpenAI SDK's chat completions, streamed:
 
-1. Send the system prompt, the conversation so far and the tools on offer.
+1. Send the system prompt, then a second system message with anything that changes between replies
+   (the time), then the conversation so far and the tools on offer. The first message is the same
+   bytes every reply so a provider that caches prefixes can (§11.3).
 2. Stream the answer. Text goes to the browser as it arrives.
 3. If the model asked for tools, run each one, send the results back, and go to 1.
 4. If it did not, the reply is finished.
@@ -33,7 +35,7 @@ Limits, all from settings:
 |---|---|---|---|
 | Tool calls per reply | 8 | 0–50 | Further calls get "limit reached" as their result, and the next round is sent with no tools, so the model has to answer with what it has. |
 | Reply length (tokens) | 2000 | 256–32000 | Sent as `max_completion_tokens` on every round. |
-| Time limit (seconds) | 120 | 10–600 | The whole reply is cancelled. What was stored so far stays. |
+| Time limit (seconds) | 120 | 10–600 | The whole reply is cancelled and recorded as timed out (§11.1). What was stored so far stays. |
 
 Also fixed in code: a message is at most 4000 characters, a conversation at most 200 messages
 (then "start a new one"), and a tool result sent back to the model at most 20,000 characters.
@@ -417,3 +419,109 @@ Each round's token counts are written on the message they produced, and the conv
 those rounds priced when they are read, exactly like every other figure in §10.2. It is behind a
 button in the header rather than on the screen: it is a question a moderator asks occasionally, and
 money beside every answer would make the page feel like a taxi meter.
+
+---
+## 12. Timeouts, the fallback model, cheaper calls and the call log (added 2026-09-15)
+
+Every AI feature makes the same kind of call to the same provider, and the three things that are
+easiest to forget in each of them — a timeout, what to do when the provider fails, and writing down
+what happened — are the three things a moderator later needs in order to know why nothing happened.
+So they live in one place, `Modbot.AI/Calls`, and a feature hands over the call it wants made.
+
+### 12.1 A timeout for each feature
+
+`AiTimeouts` holds one number per feature. It covers the whole call, the tool loop for Chat
+included, and it is enforced with a cancellation token that reaches the provider call.
+
+| Feature | Timeout | Why that long |
+|---|---|---|
+| Moderation | 30 seconds | It runs behind the profile sync with a queue of people waiting. A check of four short fields that has not come back in thirty seconds is stuck, not slow. |
+| Insights | 3 minutes | One call a day, and a reasoning model asked to read a page of figures thinks for a long while before it writes anything. The next try is tomorrow. |
+| Chat | the operator's, 120 seconds by default | Somebody is sitting watching it, and the reply may take several rounds of tools. It is already a setting (§2) and stays one. |
+| Test and the model list | 30 seconds | Somebody is watching a button. A provider that has not answered in thirty seconds has told them what they needed to know. |
+
+**A timeout is recorded as an error on that call.** It is never handed back as an empty answer: an
+empty answer from a moderation check reads as "the model found nothing", which is the opposite of
+what happened.
+
+### 12.2 The fallback model
+
+Settings → AI → Base has a second, optional model box, filled from the same picker (§10.9). When the
+first model does not answer, the call is tried once more on it.
+
+It falls back when the answer could plausibly be different on another model: a timeout, a 5xx, a
+429 that got past Modbot's own limits, a model id the provider will not run (400, 404, 422), a host
+that could not be reached, or a reply that is not an OpenAI-compatible answer at all.
+
+It never falls back on:
+
+- **a Modbot spend limit** — the call was never made, and a second model would be spending past the
+  ceiling the operator set;
+- **a key the provider will not take** (401, 402, 403) — another model on the same key fails
+  identically, so the second call only spends a round trip to be told the same thing;
+- **the person's own cancellation** — nobody is waiting for the answer any more.
+
+Chat falls back only while nothing has reached the person yet: once text or a tool result is on
+their screen, starting again would repeat it.
+
+The Test button never falls back. Somebody is testing one model, and an answer from a different one
+would not tell them whether that one works.
+
+**Both attempts are recorded.** The failed one and the one that answered are separate rows, so the
+log says which model actually wrote the answer, and a flag points at the row that produced it.
+
+### 12.3 Cheaper calls
+
+**Prompt caching.** Providers charge less for a prefix they have seen before, and only for one that
+is byte-for-byte the same. So each feature's fixed instructions go first, as a constant, and
+everything that differs comes after them. Chat's system prompt used to carry the current time, which
+changed it every minute and made it uncacheable; the time is a second system message now.
+`AiPromptCache.Instructions` also sets Anthropic's `cache_control` marker through OpenRouter, and
+nowhere else: a provider that has never heard of the field refuses the whole request rather than
+ignoring it. Cached input tokens are recorded where the provider reports them, in `ai_usage` and in
+the call log, and are priced at the cached rate (§10.4).
+
+**Batching profile checks.** See the moderation design §4.2. One request carries every piece of text
+in a check and, for the profile pass, several people at once. On a profile of four fields and three
+topics that is four calls to one and about 63% fewer input tokens; at the default batch of five
+people, twenty calls to one and about 80% fewer.
+
+### 12.4 The call log
+
+`ai_call`, one row per attempt, written by `AiCallLog` through `AiCallRunner`:
+
+feature, the model asked for, the model that answered, the provider, whether it was the fallback,
+the outcome, an error message, input, cached input and output tokens, the provider's reported cost,
+how long it took, and the account that asked when a person did.
+
+The outcome is one of `answered`, `timedOut`, `error` (could not be reached, or an unreadable
+reply), `refused` (the provider answered with an error status) and `limited` (a Modbot limit stopped
+it before anything was sent).
+
+This is beside `ai_usage`, not instead of it. That table is the spend ledger and holds a row only
+when the provider counted tokens; this one holds a row for every attempt, including the ones that
+never left the building.
+
+**What the model was sent and what it answered are kept only for a call that produced a flag and a
+call somebody started from a button** — the Test button, "Try it", and **Generate now** on Insights.
+Everything else keeps counts only. The text is a member's own profile text or Discord message, and
+keeping every check of it would be a second copy of the group's members that nobody asked for. A
+moderation call is recorded counts-only and keeps its text afterwards, once it is known to have
+flagged something.
+
+**How long.** `settings.ai_call_log_keep_days`, thirty days by default, set on Settings → AI → Base.
+0 keeps them for ever. A daily job deletes the rest.
+
+**Where it appears.** Settings → AI → Call log: a table with filters for feature, outcome, model and
+time, and a "flagged only" switch. A row whose text was kept opens it. A flag on the Flags page
+links to the call that produced it.
+
+**Who may see it.** The counts need `ViewOperationalLog`: they are Modbot's own record of what it
+did. The prompt and the answer need `ManageSettings` — the same permission that decides where that
+text is sent in the first place.
+
+### 12.5 Health
+
+The Health page's AI card counts the last hour's calls, failures and timeouts, and names the model
+answering while the fallback is the one answering. It stays away entirely on a deployment with
+nothing to say.

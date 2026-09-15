@@ -1,0 +1,83 @@
+---
+title: Call log
+description: Every AI call Modbot made — feature, model, tokens, cost, time taken and what went wrong — and what the model was sent for the calls that flagged something.
+---
+
+Every time Modbot asks an AI model anything, it writes down what happened. **Settings** → **AI** →
+**Call log** is that list.
+
+It is the place to look when a feature has gone quiet, when the bill is higher than you expected, or
+when you want to know exactly what the model saw before it flagged somebody.
+
+## What each row says
+
+| Column | What it is |
+|---|---|
+| **When** | When the call was made |
+| **Feature** | Moderation, Insights, Chat or Connection test |
+| **Model** | The model that answered, marked **Fallback** when it was the second one |
+| **Outcome** | See below, with the error underneath when there was one |
+| **In**, **Cached**, **Out** | Tokens sent, tokens the provider had already cached, tokens written back |
+| **Cost** | What the call cost, or a dash when the model has no price |
+| **Took** | How long the provider took |
+| **Asked by** | The person who pressed the button, when a person did |
+
+### Outcomes
+
+| Outcome | What happened |
+|---|---|
+| **Answered** | The model answered. |
+| **Timed out** | The provider did not answer within the feature's time limit. |
+| **Error** | Modbot could not reach the provider, or what came back was not an answer it could read. |
+| **Refused** | The provider answered with an error — a bad key, a model it will not run, a rate limit. |
+| **Limited** | One of your own [spend limits](/ai/limits-and-spend) stopped the call. Nothing was sent and nothing was charged. |
+
+A call that did not answer and could have gone better on another model is tried once more on your
+[fallback model](/ai/settings#the-fields). Both attempts get their own row, so the log always shows
+which model actually wrote the answer.
+
+## Filters
+
+Filter by feature, by outcome, by model, and by a time range. **Flagged only** narrows the list to
+the calls that produced a flag. **Show more** loads the next hundred rows.
+
+## Seeing what the model was sent
+
+Rows with an **Open** button keep the whole prompt and the whole answer. Those are:
+
+- calls that produced a [flag](/moderation/flags)
+- calls you started yourself: the **Test** button, **Try it** on
+  [moderation rules](/ai/moderation-rules), and **Generate now** on [insights](/ai/insights)
+
+Every other call keeps counts only. The prompt of a routine moderation check is somebody's profile
+text or Discord message, and keeping a copy of every check would build a second copy of your members
+that nobody asked for.
+
+On the [Flags](/moderation/flags) page, a flag that came from an AI topic links straight to the call
+behind it.
+
+## Who can see it
+
+| What | Permission |
+|---|---|
+| The list, with counts, models, costs and errors | **See operational log** |
+| The prompt and the answer behind one call | **Change settings** |
+
+They are different permissions because they are different things to show. The counts are Modbot's own
+record of what it did. The prompt and the answer are a member's own words — so reading them needs the
+same permission that decides where those words get sent in the first place.
+
+See [roles and permissions](/accounts/roles-and-permissions).
+
+## How long rows are kept
+
+Thirty days by default. Change it with **Keep the call log for (days)** on
+**Settings** → **AI** → **Base**; `0` keeps them for ever. Modbot deletes older rows once a day.
+
+## Where to next
+
+<Cards>
+  <Card title="AI settings" href="/ai/settings">The provider, the model, and the fallback model.</Card>
+  <Card title="Limits and spend" href="/ai/limits-and-spend">See what AI costs and set money limits.</Card>
+  <Card title="Moderation rules" href="/ai/moderation-rules">Term lists and AI topics.</Card>
+</Cards>

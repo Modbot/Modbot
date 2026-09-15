@@ -4385,6 +4385,157 @@
         ]
       }
     },
+    "/api/settings/ai/calls": {
+      "get": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "AI calls, newest first, with counts and what went wrong",
+        "description": "Needs the `ViewOperationalLog` permission.",
+        "operationId": "GetAiCallLog",
+        "parameters": [
+          {
+            "name": "feature",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "outcome",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "flagged",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiCallLogPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/ai/calls/{id}": {
+      "get": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "One AI call, with what the model was sent and what it answered",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetAiCall",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiCallDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord/channels": {
       "get": {
         "tags": [
@@ -10248,6 +10399,221 @@
           }
         }
       },
+      "AiCallDetail": {
+        "required": [
+          "call",
+          "prompt",
+          "answer"
+        ],
+        "type": "object",
+        "properties": {
+          "call": {
+            "$ref": "#/components/schemas/AiCallView"
+          },
+          "prompt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "answer": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AiCallLogPage": {
+        "required": [
+          "calls",
+          "next",
+          "now",
+          "models",
+          "features",
+          "outcomes",
+          "keepDays"
+        ],
+        "type": "object",
+        "properties": {
+          "calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiCallView"
+            }
+          },
+          "next": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outcomes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "keepDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "AiCallView": {
+        "required": [
+          "id",
+          "at",
+          "feature",
+          "featureLabel",
+          "modelAsked",
+          "modelAnswered",
+          "provider",
+          "fallback",
+          "outcome",
+          "outcomeLabel",
+          "error",
+          "inputTokens",
+          "cachedInputTokens",
+          "outputTokens",
+          "cost",
+          "durationMs",
+          "userId",
+          "username",
+          "flagged",
+          "hasText"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "feature": {
+            "type": "string"
+          },
+          "featureLabel": {
+            "type": "string"
+          },
+          "modelAsked": {
+            "type": "string"
+          },
+          "modelAnswered": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "provider": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fallback": {
+            "type": "boolean"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "outcomeLabel": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inputTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "cachedInputTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "outputTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "cost": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "durationMs": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "userId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "username": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "flagged": {
+            "type": "boolean"
+          },
+          "hasText": {
+            "type": "boolean"
+          }
+        }
+      },
       "AiCatalogModelView": {
         "required": [
           "id",
@@ -11414,6 +11780,21 @@
           },
           "acknowledgement": {
             "$ref": "#/components/schemas/AiAcknowledgement"
+          },
+          "fallbackModel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "callLogKeepDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 30
           }
         }
       },
@@ -11457,6 +11838,21 @@
           "removeApiKey": {
             "type": "boolean",
             "default": false
+          },
+          "fallbackModel": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "callLogKeepDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 30
           }
         }
       },
@@ -17110,6 +17506,13 @@
               "string"
             ],
             "format": "int32"
+          },
+          "callId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -21906,6 +22309,13 @@
               "null",
               "string"
             ]
+          },
+          "callId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

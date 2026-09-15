@@ -34,7 +34,7 @@ public sealed class AiClients : IAiClients
     private const int MaxModels = 5000;
     private const int MaxMessageLength = 500;
 
-    private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan TestTimeout = Calls.AiTimeouts.Test;
 
     private readonly ModbotContext _db;
     private readonly ISecretProtector _protector;
@@ -51,7 +51,7 @@ public sealed class AiClients : IAiClients
     {
         var settings = await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => new { s.AiEnabled, s.AiProvider, s.AiEndpoint, s.AiModel, s.AiApiKeyEncrypted })
+            .Select(s => new { s.AiEnabled, s.AiProvider, s.AiEndpoint, s.AiModel, s.AiApiKeyEncrypted, s.AiFallbackModel })
             .FirstOrDefaultAsync(ct);
 
         if (settings is null || !settings.AiEnabled)
@@ -67,7 +67,13 @@ public sealed class AiClients : IAiClients
             check.Provider!.Id, check.Endpoint!, _protector.Unprotect(settings.AiApiKeyEncrypted), check.Model!);
 
         var client = CreateClient(connection, forTest: false);
-        return new AiChat(client.GetChatClient(connection.Model), client, connection.Model, connection.Provider);
+
+        var fallback = string.IsNullOrWhiteSpace(settings.AiFallbackModel) ? null : settings.AiFallbackModel.Trim();
+        if (string.Equals(fallback, connection.Model, StringComparison.OrdinalIgnoreCase))
+            fallback = null;
+
+        return new AiChat(
+            client.GetChatClient(connection.Model), client, connection.Model, connection.Provider, fallback, connection.Endpoint);
     }
 
     public async Task<AiTestResult> TestAsync(AiConnection connection, CancellationToken ct)
@@ -75,6 +81,7 @@ public sealed class AiClients : IAiClients
         ArgumentNullException.ThrowIfNull(connection);
 
         var chat = CreateClient(connection, forTest: true).GetChatClient(connection.Model);
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
 
         try
         {
@@ -89,13 +96,16 @@ public sealed class AiClients : IAiClients
 
             var model = string.IsNullOrWhiteSpace(completion.Model) ? connection.Model : completion.Model;
 
-            return new AiTestResult(true, reply.Length == 0
-                ? $"{model} answered."
-                : $"{model} answered: {Shorten(reply)}", completion.Usage);
+            return new AiTestResult(
+                true,
+                reply.Length == 0 ? $"{model} answered." : $"{model} answered: {Shorten(reply)}",
+                completion.Usage,
+                TestPrompt,
+                Elapsed(started));
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
         {
-            return new AiTestResult(false, Describe(e, connection.Endpoint));
+            return new AiTestResult(false, Describe(e, connection.Endpoint), null, TestPrompt, Elapsed(started));
         }
     }
 
@@ -236,6 +246,9 @@ public sealed class AiClients : IAiClients
     }
 
     private static string? Text(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static int Elapsed(long started) =>
+        (int)Math.Min(int.MaxValue, System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
 
     private static string Shorten(string text) =>
         text.Length <= MaxMessageLength ? text : string.Concat(text.AsSpan(0, MaxMessageLength), "…");

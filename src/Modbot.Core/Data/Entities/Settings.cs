@@ -229,6 +229,27 @@ public class Settings
 
     public string? AiAcknowledgedByUsername { get; set; }
 
+    /// <summary>
+    /// A second model, tried once when the first one errors, times out or is refused. Null means
+    /// there is none and a failed call stays failed.
+    /// </summary>
+    /// <remarks>
+    /// Never tried when a spend limit stopped the call, when the key is wrong, or when the person
+    /// asking went away: none of those are the model's fault, and a second call would only spend
+    /// again or fail the same way.
+    /// </remarks>
+    public string? AiFallbackModel { get; set; }
+
+    /// <summary>
+    /// How long a row in the call log is kept, in days. 0 keeps them forever.
+    /// </summary>
+    /// <remarks>
+    /// A month by default: long enough to see what a model has been doing and to read the prompt
+    /// behind a flag somebody is still looking at, short enough that the text of every flagged
+    /// message does not sit in the database for a year.
+    /// </remarks>
+    public int AiCallLogKeepDays { get; set; } = 30;
+
     // --- AI chat (AI chat design §5) ---
 
     /// <summary>Whether the Chat page answers. Off by default, and needs <see cref="AiEnabled"/> too.</summary>
@@ -265,6 +286,16 @@ public class Settings
 
     /// <summary>How many AI calls moderation may make in one UTC day (design §4.2). Term lists are not counted.</summary>
     public int AiModerationDailyCallLimit { get; set; } = 200;
+
+    /// <summary>
+    /// How many profiles the profile check may put in one AI call. 1 sends one profile per call.
+    /// </summary>
+    /// <remarks>
+    /// Five by default. The topics and the instructions are the same for every profile in the
+    /// batch, so sending five together sends them once instead of five times; much past that and
+    /// one unreadable answer costs five profiles a retry.
+    /// </remarks>
+    public int AiModerationProfileBatchSize { get; set; } = 5;
 
     /// <summary>The UTC day <see cref="AiModerationCallsUsed"/> counts.</summary>
     public DateOnly? AiModerationCallsDay { get; set; }

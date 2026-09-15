@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.AI.Alerts;
+using Modbot.AI.Calls;
 using Modbot.AI.Insights;
 using Modbot.AI.Moderation;
 using Modbot.AI.Usage;
@@ -29,6 +30,11 @@ public static class AiServiceCollectionExtensions
         // Token counts by feature, and the spend limits every AI feature asks before a call: for
         // everyone, per feature, and for a person or a role in Chat (AI chat design §10).
         services.TryAddScoped<IAiUsage, AiUsageLedger>();
+
+        // Every AI call goes through the runner: the feature's timeout around it, the fallback
+        // model behind it, and a row in the call log whatever happens.
+        services.TryAddScoped<IAiCallLog, AiCallLog>();
+        services.AddScoped<AiCallRunner>();
         services.AddScoped<AiSpendLimits>();
         services.AddScoped<AiLimitNotices>();
         services.AddScoped<AiSpendReport>();
@@ -108,6 +114,19 @@ public static class AiServiceCollectionExtensions
 
         services.AddHostedService<HubTermListRefreshService>();
         services.AddHostedService<ProfileModerationService>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Deletes call log rows past the operator's keep-for setting, once a day. Separate from
+    /// <see cref="AddModbotAi"/> so a test host has no loop deleting rows underneath it.
+    /// </summary>
+    public static IServiceCollection AddModbotAiCallLogPrune(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddHostedService<AiCallLogPruneService>();
 
         return services;
     }

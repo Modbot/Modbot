@@ -51,6 +51,7 @@ const failure = (e: unknown) =>
 export function ModelField({
   label = 'Model',
   feature,
+  name = feature,
   value,
   placeholder,
   provider,
@@ -60,6 +61,8 @@ export function ModelField({
 }: {
   label?: string
   feature: AiModelFeature
+  /** Distinguishes two boxes for the same feature, such as the model and its fallback. */
+  name?: string
   value: string
   placeholder?: string
   /** The values on the form, for Base. Left out elsewhere: the saved connection is used. */
@@ -72,12 +75,12 @@ export function ModelField({
 
   return (
     <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-      <span className="text-muted-foreground" id={`${feature}-model-label`}>
+      <span className="text-muted-foreground" id={`${name}-model-label`}>
         {label}
       </span>
       <div className="flex items-center gap-2">
         <Input
-          aria-labelledby={`${feature}-model-label`}
+          aria-labelledby={`${name}-model-label`}
           value={value}
           placeholder={placeholder}
           autoComplete="off"

@@ -18,12 +18,30 @@ public sealed record AiConnection(string Provider, Uri Endpoint, string? ApiKey,
 /// </remarks>
 /// <param name="Chat">A chat client for <paramref name="Model"/>.</param>
 /// <param name="Client">The underlying client, for a feature that needs a different model or another API.</param>
-public sealed record AiChat(ChatClient Chat, OpenAIClient Client, string Model, string Provider);
+/// <param name="FallbackModel">
+/// The second model, tried once when the first errors, times out or is refused. Null when the
+/// operator set none.
+/// </param>
+/// <param name="Endpoint">Where the calls go, so an error can say which host refused.</param>
+public sealed record AiChat(
+    ChatClient Chat,
+    OpenAIClient Client,
+    string Model,
+    string Provider,
+    string? FallbackModel = null,
+    Uri? Endpoint = null);
 
 /// <summary>The Test button's answer.</summary>
 /// <param name="Message">What the model said on success, or the provider's error in its own words.</param>
 /// <param name="Usage">The provider's token counts, when it answered with any, for the usage ledger.</param>
-public sealed record AiTestResult(bool Worked, string Message, ChatTokenUsage? Usage = null);
+/// <param name="Prompt">What was sent, for the call log.</param>
+/// <param name="DurationMs">How long the provider took, answered or not.</param>
+public sealed record AiTestResult(
+    bool Worked,
+    string Message,
+    ChatTokenUsage? Usage = null,
+    string? Prompt = null,
+    int DurationMs = 0);
 
 /// <summary>The model ids the endpoint listed, or why it did not.</summary>
 public sealed record AiModelList(IReadOnlyList<string> Models, string? Error);

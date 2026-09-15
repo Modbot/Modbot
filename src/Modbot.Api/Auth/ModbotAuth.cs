@@ -235,6 +235,10 @@ public static class ModbotAuth
             ? id
             : null;
 
+    /// <summary>The signed-in account's username, for a record that names who asked.</summary>
+    public static string? UsernameOf(ClaimsPrincipal? principal)
+        => principal?.FindFirst(ClaimTypes.Name)?.Value is { Length: > 0 } name ? name : null;
+
     /// <summary>When the session started, or null for a cookie from before the claim existed.</summary>
     public static DateTimeOffset? SignedInAtOf(ClaimsPrincipal? principal)
         => DateTimeOffset.TryParse(

@@ -1215,6 +1215,8 @@ export type SyncHealth = {
   discordReadBack: DiscordReadBackHealth | null
   /** AI spend limits close to being reached, or reached. */
   aiSpend?: AiSpendWarning[] | null
+  /** AI calls over the last hour. Null when there have been none. */
+  aiCalls?: AiCallsHealth | null
   /** Emails held under the daily email limit, and emails given up on. */
   email?: EmailHealth | null
   /** Calendar places that failed, instances that did not open, and a missing Manage Events. */
@@ -1230,6 +1232,16 @@ export type PausedRule = {
   ruleName: string
   pausedAt: string
   reason: string | null
+}
+
+/** What AI calls have been doing over the last hour. */
+export type AiCallsHealth = {
+  calls: number
+  errors: number
+  timedOut: number
+  fallbacks: number
+  /** The model answering, named only while the fallback is the one answering. */
+  answeringModel: string | null
 }
 
 export type CalendarHealth = {
@@ -1809,6 +1821,10 @@ export type AiSettings = {
   apiKeyStored: boolean
   providers: AiProviderOption[]
   acknowledgement: AiAcknowledgement
+  /** Tried once when the main model does not answer. Null when there is none. */
+  fallbackModel: string | null
+  /** How long a call log row is kept, in days. 0 keeps them forever. */
+  callLogKeepDays: number
 }
 
 /** The one-time confirmation of what member text goes to the provider. */
@@ -1818,6 +1834,57 @@ export type AiAcknowledgement = {
   by: string | null
   endpoint: string
   sends: { feature: string; text: string }[]
+}
+
+/** One AI call in the call log, counts only. */
+export type AiCall = {
+  id: string
+  at: string
+  feature: string
+  featureLabel: string
+  modelAsked: string
+  modelAnswered: string | null
+  provider: string | null
+  /** The fallback model answered this call. */
+  fallback: boolean
+  /** `answered`, `timedOut`, `error`, `refused` or `limited`. */
+  outcome: string
+  outcomeLabel: string
+  error: string | null
+  inputTokens: number
+  cachedInputTokens: number
+  outputTokens: number
+  /** Null when the model has no price. */
+  cost: number | null
+  durationMs: number
+  userId: string | null
+  username: string | null
+  flagged: boolean
+  /** The prompt and the answer were kept, so the call can be opened. */
+  hasText: boolean
+}
+
+export type AiCallLogPage = {
+  calls: AiCall[]
+  /** Pass as `skip` to read the next page. Null on the last page. */
+  next: number | null
+  now: string
+  models: string[]
+  features: string[]
+  outcomes: string[]
+  keepDays: number
+}
+
+export type AiCallDetail = { call: AiCall; prompt: string | null; answer: string | null }
+
+/** What the call log is filtered by. Empty strings mean no filter. */
+export type AiCallFilters = {
+  feature: string
+  outcome: string
+  model: string
+  from: string
+  to: string
+  flagged: boolean
 }
 
 /** The form's values for the Test button and the model list. Nothing is saved. */
@@ -2069,7 +2136,12 @@ export type AiConnectionInput = {
   apiKey?: string
 }
 
-export type AiSettingsInput = AiConnectionInput & { enabled: boolean; removeApiKey?: boolean }
+export type AiSettingsInput = AiConnectionInput & {
+  enabled: boolean
+  removeApiKey?: boolean
+  fallbackModel?: string
+  callLogKeepDays?: number
+}
 
 /** One number for the days an insight covers and the same number for the days before. Null means nothing was recorded. */
 export type InsightFigure = { name: string; now: number | null; before: number | null }
@@ -2627,6 +2699,23 @@ export const api = {
   /** OpenRouter's models as last fetched, ordered for the feature the picker was opened from. */
   aiCatalog: (feature: AiModelFeature) =>
     request<AiCatalog>(`/api/settings/ai/catalog?feature=${feature}`),
+
+  /** AI calls, newest first. Counts only; open one to see what the model was sent. */
+  aiCalls: (filters: Partial<AiCallFilters> = {}, skip?: number) => {
+    const query = new URLSearchParams()
+    if (filters.feature) query.set('feature', filters.feature)
+    if (filters.outcome) query.set('outcome', filters.outcome)
+    if (filters.model) query.set('model', filters.model)
+    if (filters.from) query.set('from', new Date(filters.from).toISOString())
+    if (filters.to) query.set('to', new Date(filters.to).toISOString())
+    if (filters.flagged) query.set('flagged', 'true')
+    if (skip) query.set('skip', String(skip))
+
+    const text = query.toString()
+    return request<AiCallLogPage>(`/api/settings/ai/calls${text ? `?${text}` : ''}`)
+  },
+
+  aiCall: (id: string) => request<AiCallDetail>(`/api/settings/ai/calls/${id}`),
 
   aiInsightsSettings: () => request<AiInsightsSettings>('/api/settings/ai/insights'),
 

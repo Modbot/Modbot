@@ -237,6 +237,9 @@ public sealed record SyncHealth(
     // Spend limits for everyone or a feature at 80% or more, estimated to be passed this month, or
     // reached (AI chat design §10.7). Empty when none is.
     IReadOnlyList<AiSpendWarningView>? AiSpend = null,
+    // AI calls in the last hour: how many failed, how many ran out of time, and which model is
+    // answering when the fallback is in use. Null when nothing is worth saying.
+    AiCallsHealth? AiCalls = null,
     // The email queue under the daily email limit (accounts and access design §4.4).
     EmailHealth? Email = null,
     // Calendar events that could not be published or opened, and whether the bot lacks Manage
@@ -261,6 +264,17 @@ public sealed record CalendarHealth(bool MissingManageEvents, IReadOnlyList<Cale
 
 /// <param name="Place"><c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c>, or <c>instance</c> for an instance that did not open.</param>
 public sealed record CalendarProblem(Guid EventId, string Title, string Place, string Error, DateTimeOffset? At);
+
+/// <summary>What AI calls have been doing over the last hour.</summary>
+/// <param name="Calls">Calls made in the last hour, whatever came of them.</param>
+/// <param name="Errors">Calls the provider refused or that could not be reached.</param>
+/// <param name="TimedOut">Calls that ran past their feature's timeout.</param>
+/// <param name="Fallbacks">Calls that went to the fallback model because the first one did not answer.</param>
+/// <param name="AnsweringModel">
+/// The model that answered most recently, when the fallback has answered in the last hour. Null
+/// when the main model is doing the answering.
+/// </param>
+public sealed record AiCallsHealth(int Calls, int Errors, int TimedOut, int Fallbacks, string? AnsweringModel);
 
 /// <summary>Emails waiting under the daily limit, and emails given up on.</summary>
 /// <param name="Queued">Messages waiting for room or for their next try.</param>

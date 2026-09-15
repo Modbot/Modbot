@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Modbot.AI.Calls;
 using Modbot.AI.Insights;
 using Modbot.AI.Usage;
 using Modbot.Analytics.Facts;
@@ -77,7 +78,10 @@ public abstract class InsightTestBase : IAsyncLifetime
         => new(new DbContextOptionsBuilder<ModbotContext>().UseNpgsql(_connectionString).Options);
 
     protected InsightWriter NewWriter(ModbotContext context)
-        => new(context, NewClients(context), NewUsage(context), Clock, new InsightFigureReader(context));
+        => new(context, NewClients(context), NewUsage(context), Clock, new InsightFigureReader(context), NewRunner(context));
+
+    protected AiCallRunner NewRunner(ModbotContext context)
+        => new(new AiCallLog(context, Clock), NewUsage(context));
 
     protected AiSpendLimits NewLimits(ModbotContext context)
         => new(context, Clock, new AiLimitNotices(context, new FactWriter(context, Clock), new EventPartitionMaintainer(context, Clock), Clock, new NoAiSpendAlerts()));

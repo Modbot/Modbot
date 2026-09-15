@@ -51,6 +51,35 @@ export function Field({
   )
 }
 
+/** A field for a whole number. The value stays a string so an empty box stays empty. */
+export function NumberField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string
+  value: string
+  min?: number
+  max?: number
+  onChange: (v: string) => void
+}) {
+  return (
+    <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+      <span className="text-muted-foreground">{label}</span>
+      <Input
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  )
+}
+
 /** A field for something longer than one line -- a message, a note. */
 export function LongField({
   label,

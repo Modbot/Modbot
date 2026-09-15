@@ -141,6 +141,7 @@ public static class SyncHealthEndpoints
                             w.Estimate,
                             w.Reached,
                             w.PartUnknown))],
+                    await AiCallsAsync(db, clock.UtcNow, ct),
                     await EmailAsync(db, clock.UtcNow, ct),
                     await CalendarHealthAsync(db, settings?.DiscordGuildId, ct),
                     await PausedRulesAsync(db, ct)));
@@ -331,6 +332,42 @@ public static class SyncHealthEndpoints
     {
         var summary = await Modbot.Core.Email.EmailQueueStatus.ReadAsync(db, now, ct);
         return new EmailHealth(summary.Queued, summary.Failed, summary.NextSendAt);
+    }
+
+    /// <summary>
+    /// AI calls over the last hour. Null when there have been none, so the card stays away on a
+    /// deployment that does not use AI.
+    /// </summary>
+    private static async Task<AiCallsHealth?> AiCallsAsync(ModbotContext db, DateTimeOffset now, CancellationToken ct)
+    {
+        var since = now.AddHours(-1);
+
+        var counts = await db.AiCalls.AsNoTracking()
+            .Where(c => c.At >= since)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                Calls = g.Count(),
+                Errors = g.Count(c => c.Outcome == AiCallOutcomes.Error || c.Outcome == AiCallOutcomes.Refused),
+                TimedOut = g.Count(c => c.Outcome == AiCallOutcomes.TimedOut),
+                Fallbacks = g.Count(c => c.Fallback),
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (counts is null || counts.Calls == 0)
+            return null;
+
+        // Named only while the fallback is doing the answering: on a healthy deployment the model
+        // that answers is the one on the settings page, and saying so adds nothing.
+        var answering = counts.Fallbacks == 0
+            ? null
+            : await db.AiCalls.AsNoTracking()
+                .Where(c => c.At >= since && c.Outcome == AiCallOutcomes.Answered)
+                .OrderByDescending(c => c.Id)
+                .Select(c => c.ModelAnswered ?? c.ModelAsked)
+                .FirstOrDefaultAsync(ct);
+
+        return new AiCallsHealth(counts.Calls, counts.Errors, counts.TimedOut, counts.Fallbacks, answering);
     }
 
     private static PollRateReport? PollRate(PollRateDecision? decision)

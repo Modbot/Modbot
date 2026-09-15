@@ -177,6 +177,8 @@ export type TryResult = {
   wouldDeleteMessage: boolean
   wouldTimeOutMinutes: number | null
   aiSkipped: string | null
+  /** The AI call behind it, in the call log. Null when no AI call was made. */
+  callId: string | null
 }
 
 export type TestSample = {
@@ -268,6 +270,8 @@ export type ModerationFlag = {
   trial: boolean
   wouldDeleteMessage: boolean
   wouldTimeOutMinutes: number | null
+  /** The AI call that produced it, in the call log. Null for a term list. */
+  callId: string | null
 }
 
 const base = '/api/settings/ai/moderation'

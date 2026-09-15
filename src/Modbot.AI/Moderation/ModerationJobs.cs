@@ -218,19 +218,23 @@ public sealed class ProfileModerationPass
             .Select(u => new { u.UserId, u.DisplayName, u.Bio, u.StatusDescription, u.Pronouns })
             .ToListAsync(ct).ConfigureAwait(false);
 
-        foreach (var profile in profiles)
-        {
-            var fields = wanted[profile.UserId];
+        // Handed over together rather than one at a time, so the engine can put several profiles
+        // in one AI call. The topics and the instructions are the same for all of them.
+        var toCheck = profiles
+            .Select(profile =>
+            {
+                var fields = wanted[profile.UserId];
 
-            await _checker.CheckProfileAsync(
-                new ProfileToCheck(
+                return new ProfileToCheck(
                     profile.UserId,
                     fields.Contains("displayName") ? profile.DisplayName : null,
                     fields.Contains("bio") ? profile.Bio : null,
                     fields.Contains("statusDescription") ? profile.StatusDescription : null,
-                    fields.Contains("pronouns") ? profile.Pronouns : null),
-                ct).ConfigureAwait(false);
-        }
+                    fields.Contains("pronouns") ? profile.Pronouns : null);
+            })
+            .ToList();
+
+        await _checker.CheckProfilesAsync(toCheck, ct).ConfigureAwait(false);
 
         settings.AiModerationProfileFactsReadThrough = rows[^1].Id;
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);

@@ -302,6 +302,12 @@ public class ModerationFlag
 
     public int? WouldTimeOutMinutes { get; set; }
 
+    /// <summary>
+    /// The AI call that produced this flag, in <see cref="AiCall"/>. Null for a term list, which
+    /// makes no call.
+    /// </summary>
+    public Guid? CallId { get; set; }
+
     public ModerationFlagState State { get; set; } = ModerationFlagState.Open;
 
     public DateTimeOffset? DismissedAt { get; set; }

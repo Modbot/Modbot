@@ -311,3 +311,20 @@ Alerts hold no personal data (§8.3), so like insights they are outside retentio
   measure of anything, and they are not — they see what their moderators happen to be looking at.
 - Choosing the window length per watcher. An hour and a week cover what was asked for, and a knob
   nobody turns is a knob that goes wrong.
+
+---
+## Timeout, fallback and the call log (added 2026-09-15)
+
+One insight is one call through `AiCallRunner` (AI chat design §12), with a three-minute timeout:
+one call a day, and a reasoning model asked to read a page of figures thinks for a long while before
+it writes anything, while the next try is a whole day away.
+
+A call that does not answer is tried once on the fallback model, and the insight records the model
+that actually wrote it — which may be the fallback rather than the one on the settings page. A
+timeout is stored as the insight's error, never as an insight with no text.
+
+The instructions never change for a kind of insight and go first, unchanged, so a provider that
+caches prefixes can. The figures follow in the user message.
+
+Every attempt appears in the call log. An insight somebody asked for with **Generate now** keeps what
+the model was sent and what it answered; a scheduled one keeps counts only.

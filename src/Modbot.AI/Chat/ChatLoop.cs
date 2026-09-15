@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Modbot.AI.Calls;
+using Modbot.Core.Data.Entities;
 using OpenAI.Chat;
 
 namespace Modbot.AI.Chat;
@@ -67,8 +69,21 @@ public sealed record ChatTextEvent(string Text) : ChatEvent;
 /// <summary>A tool is about to run.</summary>
 public sealed record ChatToolStartedEvent(string CallId, string Tool) : ChatEvent;
 
-/// <summary>What one provider call used, as the provider reported it. One per round.</summary>
-public sealed record ChatUsageEvent(string Model, ChatTokenUsage Usage) : ChatEvent;
+/// <summary>
+/// One provider call and what came of it. One per round, whether it answered or not.
+/// </summary>
+/// <param name="ModelAsked">The model the round was sent to.</param>
+/// <param name="ModelAnswered">The model the provider named in its reply. Null when nothing answered.</param>
+/// <param name="Fallback">This round went to the fallback model because the first one did not answer.</param>
+/// <param name="Outcome">One of <c>AiCallOutcomes</c>.</param>
+public sealed record ChatCallEvent(
+    string ModelAsked,
+    string? ModelAnswered,
+    bool Fallback,
+    string Outcome,
+    string? Error,
+    ChatTokenUsage? Usage,
+    int DurationMs) : ChatEvent;
 
 /// <summary>A message to store: the model's reply or tool request, or a tool's result.</summary>
 public sealed record ChatTurnEvent(ChatTurn Turn) : ChatEvent;
@@ -83,6 +98,15 @@ public sealed record ChatFinishedEvent(ChatOutcome Outcome, string? Error, int T
 /// <param name="ProviderAddress">For error messages: which host refused.</param>
 /// <param name="Model">The model id <paramref name="Chat"/> was made for, which usage is recorded under.</param>
 /// <param name="Provider">The provider preset, so OpenRouter can be asked what each round cost.</param>
+/// <param name="SystemPromptExtra">
+/// A second system message holding whatever changes between replies, such as the time. Kept out of
+/// <paramref name="SystemPrompt"/> so that prompt is the same bytes every time and the provider can
+/// cache it.
+/// </param>
+/// <param name="FallbackChat">
+/// A client for the fallback model, tried once when the first model does not answer and nothing has
+/// been shown to the person yet. Null when the operator set no fallback.
+/// </param>
 public sealed record ChatRequest(
     ChatClient Chat,
     string SystemPrompt,
@@ -93,7 +117,10 @@ public sealed record ChatRequest(
     Guid? ConversationId = null,
     Uri? ProviderAddress = null,
     string Model = "",
-    string? Provider = null);
+    string? Provider = null,
+    string? SystemPromptExtra = null,
+    ChatClient? FallbackChat = null,
+    string? FallbackModel = null);
 
 /// <summary>
 /// Writes one reply: asks the model, runs the tools it asks for, and asks again until it answers
@@ -147,15 +174,87 @@ public sealed class ChatLoop
         var started = Stopwatch.GetTimestamp();
         var userId = request.Context.UserId;
 
+        var attempt = await AttemptAsync(request, request.Chat, request.Model, fallback: false, onEvent, ct);
+
+        // One more try on the fallback model, and only while the person has been shown nothing:
+        // once text or a tool result is on their screen, starting again would repeat it.
+        if (attempt.MayFallBack && request.FallbackChat is { } spare && !string.IsNullOrWhiteSpace(request.FallbackModel))
+        {
+            _logger.LogWarning(
+                "Chat reply for user {UserId} falling back from {Model} to {Fallback}",
+                userId, request.Model, request.FallbackModel);
+
+            attempt = await AttemptAsync(request, spare, request.FallbackModel, fallback: true, onEvent, ct);
+        }
+
+        var (outcome, error, toolCalls, _) = attempt;
+
+        _logger.LogInformation(
+            "Chat reply for user {UserId} in conversation {ConversationId}: {Outcome}, {ToolCalls} tool calls, {DurationMs} ms",
+            userId, request.ConversationId, outcome, toolCalls, Milliseconds(started));
+
+        if (outcome != ChatOutcome.Cancelled)
+        {
+            if (outcome == ChatOutcome.LimitReached)
+                error = "The reply used every tool call it was allowed.";
+
+            await onEvent(new ChatFinishedEvent(outcome, error, toolCalls));
+        }
+
+        return outcome;
+    }
+
+    /// <param name="MayFallBack">
+    /// The model did not answer, and nothing has reached the person yet, so a second model could
+    /// still write the whole reply.
+    /// </param>
+    private sealed record Attempt(ChatOutcome Outcome, string? Error, int ToolCalls, bool MayFallBack);
+
+    /// <summary>
+    /// One whole reply on one model: ask, run the tools it asks for, ask again until it answers.
+    /// </summary>
+    /// <remarks>
+    /// The time limit is this attempt's, not the pair's. It is a limit on how long one model may
+    /// take to write a reply, and a fallback that inherited what the first model had already spent
+    /// would be given no time to answer in.
+    /// </remarks>
+    private async Task<Attempt> AttemptAsync(
+        ChatRequest request,
+        ChatClient client,
+        string model,
+        bool fallback,
+        Func<ChatEvent, Task> onEvent,
+        CancellationToken ct)
+    {
+        var userId = request.Context.UserId;
+
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(request.Limits.TimeLimit);
         var token = deadline.Token;
 
-        var messages = new List<ChatMessage> { new SystemChatMessage(request.SystemPrompt) };
+        // The instructions first and unchanged, so a provider that caches prefixes can; anything
+        // that differs between replies, such as the time, in a second message after them.
+        var messages = new List<ChatMessage> { AiPromptCache.Instructions(request.SystemPrompt, request.Provider) };
+
+        if (!string.IsNullOrWhiteSpace(request.SystemPromptExtra))
+            messages.Add(new SystemChatMessage(request.SystemPromptExtra));
+
         messages.AddRange(ToSdk(request.History));
 
         var offered = request.Tools.ToDictionary(t => t.Name, StringComparer.Ordinal);
         var toolCalls = 0;
+
+        // Nothing the person can see has happened yet, so a failure here can still be started again
+        // on another model.
+        var shown = false;
+
+        async Task Show(ChatEvent e)
+        {
+            if (e is ChatTextEvent or ChatTurnEvent or ChatToolStartedEvent)
+                shown = true;
+
+            await onEvent(e);
+        }
 
         // Every round but the last may call tools; the rounds beyond the tool limit exist only to
         // let the model answer. A model that asks for tools it was not offered, round after round,
@@ -186,14 +285,15 @@ public sealed class ChatLoop
                         options.Tools.Add(ChatTool.CreateFunctionTool(tool.Name, tool.Description, tool.Parameters));
                 }
 
-                var (text, calls, usage) = await StreamRoundAsync(request.Chat, messages, options, partial, onEvent, token);
+                var roundStarted = Stopwatch.GetTimestamp();
+                var (text, calls, usage, answeredBy) = await StreamRoundAsync(client, messages, options, partial, Show, token);
 
-                if (usage is not null)
-                    await onEvent(new ChatUsageEvent(request.Model, usage));
+                await onEvent(new ChatCallEvent(
+                    model, answeredBy ?? model, fallback, AiCallOutcomes.Answered, null, usage, Milliseconds(roundStarted)));
 
                 if (calls.Count == 0)
                 {
-                    await onEvent(new ChatTurnEvent(new ChatTurn(ChatRole.Assistant, text, [])));
+                    await Show(new ChatTurnEvent(new ChatTurn(ChatRole.Assistant, text, [])));
                     outcome = ChatOutcome.Answered;
                     break;
                 }
@@ -204,28 +304,33 @@ public sealed class ChatLoop
                     assistant.Content.Add(ChatMessageContentPart.CreateTextPart(text));
 
                 messages.Add(assistant);
-                await onEvent(new ChatTurnEvent(new ChatTurn(ChatRole.Assistant, text, calls)));
+                await Show(new ChatTurnEvent(new ChatTurn(ChatRole.Assistant, text, calls)));
 
                 foreach (var call in calls)
                 {
-                    var turn = await RunToolAsync(call, offered, toolCalls, request, onEvent, token);
+                    var turn = await RunToolAsync(call, offered, toolCalls, request, Show, token);
                     toolCalls++;
 
                     messages.Add(new ToolChatMessage(call.Id, AsUntrustedData(turn.Content)));
-                    await onEvent(new ChatTurnEvent(turn));
+                    await Show(new ChatTurnEvent(turn));
                 }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            outcome = ChatOutcome.Cancelled;
+            // The person went away. What the model had already written is still stored, and
+            // nothing more is sent: there is nobody left to send it to.
             await SaveWhatWasWrittenAsync(partial, onEvent);
+            return new Attempt(ChatOutcome.Cancelled, null, toolCalls, false);
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested)
         {
             outcome = ChatOutcome.TimedOut;
             error = "The reply took too long.";
             await SaveWhatWasWrittenAsync(partial, onEvent);
+            await onEvent(new ChatCallEvent(model, null, fallback, AiCallOutcomes.TimedOut, error, null, 0));
+
+            return new Attempt(outcome, error, toolCalls, !shown);
         }
         catch (Exception e) when (e is ClientResultException or HttpRequestException or JsonException or InvalidOperationException)
         {
@@ -238,21 +343,14 @@ public sealed class ChatLoop
 
             _logger.LogWarning(
                 "Chat reply for user {UserId} failed at the provider: {ErrorType}", userId, e.GetType().Name);
+
+            await onEvent(new ChatCallEvent(
+                model, null, fallback, AiFallbackRules.OutcomeOf(e, timedOut: false), error, null, 0));
+
+            return new Attempt(outcome, error, toolCalls, !shown && AiFallbackRules.ShouldFallBack(e, timedOut: false));
         }
 
-        _logger.LogInformation(
-            "Chat reply for user {UserId} in conversation {ConversationId}: {Outcome}, {ToolCalls} tool calls, {DurationMs} ms",
-            userId, request.ConversationId, outcome, toolCalls, Milliseconds(started));
-
-        if (outcome != ChatOutcome.Cancelled)
-        {
-            if (outcome == ChatOutcome.LimitReached)
-                error = "The reply used every tool call it was allowed.";
-
-            await onEvent(new ChatFinishedEvent(outcome, error, toolCalls));
-        }
-
-        return outcome;
+        return new Attempt(outcome, error, toolCalls, false);
     }
 
     /// <summary>
@@ -332,7 +430,7 @@ public sealed class ChatLoop
     private static ChatTurn Refused(ChatToolCallRecord call, string content) =>
         new(ChatRole.Tool, content, [], call.Id, Shorten(call.Name), [], false, 0);
 
-    private static async Task<(string Text, IReadOnlyList<ChatToolCallRecord> Calls, ChatTokenUsage? Usage)> StreamRoundAsync(
+    private static async Task<(string Text, IReadOnlyList<ChatToolCallRecord> Calls, ChatTokenUsage? Usage, string? Model)> StreamRoundAsync(
         ChatClient chat,
         List<ChatMessage> messages,
         ChatCompletionOptions options,
@@ -342,12 +440,17 @@ public sealed class ChatLoop
     {
         var calls = new SortedDictionary<int, (string? Id, string? Name, StringBuilder Arguments)>();
         ChatTokenUsage? usage = null;
+        string? model = null;
 
         await foreach (var update in chat.CompleteChatStreamingAsync(messages, options, ct))
         {
             // Sent on the last piece, when the provider sends it at all.
             if (update.Usage is not null)
                 usage = update.Usage;
+
+            // The provider names the model on every piece; a router may name one the request did not.
+            if (model is null && !string.IsNullOrWhiteSpace(update.Model))
+                model = update.Model;
 
             foreach (var part in update.ContentUpdate)
             {
@@ -381,7 +484,7 @@ public sealed class ChatLoop
             .Select(c => new ChatToolCallRecord(c.Value.Id ?? $"call_{c.Key}", c.Value.Name!, c.Value.Arguments.ToString()))
             .ToList();
 
-        return (text.ToString(), finished, usage);
+        return (text.ToString(), finished, usage, model);
     }
 
     /// <summary>

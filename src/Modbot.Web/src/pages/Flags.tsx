@@ -139,6 +139,14 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
                       {ago(flag.flaggedAt, now)}
                       {flag.state === 'dismissed' &&
                         ` · Dismissed by ${flag.dismissedBy ?? 'someone'} ${ago(flag.dismissedAt, now)}`}
+                      {flag.callId && (
+                        <>
+                          {' · '}
+                          <a className="underline" href={`/settings#ai/calls/${flag.callId}`}>
+                            AI call
+                          </a>
+                        </>
+                      )}
                     </div>
                   </div>
                   {mayDismiss && flag.state === 'open' && (

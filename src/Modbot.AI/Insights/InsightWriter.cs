@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.AI.Calls;
 using Modbot.AI.Usage;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -31,7 +32,8 @@ public sealed record InsightAttempt(Insight? Insight, string? NotAsked)
 /// <remarks>
 /// Never acts on anything it writes (M8 §2). The only thing that leaves this class is a stored row.
 /// </remarks>
-public sealed class InsightWriter(ModbotContext db, IAiClients ai, IAiUsage usage, IModbotClock clock, InsightFigureReader reader)
+public sealed class InsightWriter(
+    ModbotContext db, IAiClients ai, IAiUsage usage, IModbotClock clock, InsightFigureReader reader, AiCallRunner runner)
 {
     /// <summary>
     /// Room for a reasoning model's thinking as well as its answer. The answer itself is asked to be
@@ -56,11 +58,13 @@ public sealed class InsightWriter(ModbotContext db, IAiClients ai, IAiUsage usag
         // Read through the shared place every AI feature asks: the limit for everyone and the one for
         // insights (design §6).
         if (await usage.LimitReachedAsync(AiFeatures.Insights, ct) is { } reached)
+        {
+            await runner.RecordLimitedAsync(AiFeatures.Insights, chat.Model, chat.Provider, reached.Message, start.UserId, ct);
             return new InsightAttempt(null, reached.Message);
+        }
 
         var settings = await db.InsightSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var model = string.IsNullOrWhiteSpace(settings?.Model) ? chat.Model : settings.Model.Trim();
-        var client = model == chat.Model ? chat.Chat : chat.Client.GetChatClient(model);
 
         var figures = await reader.ReadAsync(kind, InsightPeriod.Ending(today, every), ct);
 
@@ -78,41 +82,52 @@ public sealed class InsightWriter(ModbotContext db, IAiClients ai, IAiUsage usag
             DiscordChannelId = start.DiscordChannelId,
         };
 
-        try
+        // The instructions never change for a kind of insight; the figures do. Instructions first,
+        // so a provider that caches prefixes charges for them once.
+        var instructions = InsightPrompt.Instructions(kind);
+        var question = InsightPrompt.Figures(figures);
+
+        var plan = new AiCallPlan(
+            AiFeatures.Insights, chat, model,
+            Prompt: $"{instructions}\n\n{question}",
+            UserId: start.UserId,
+            Username: start.Username,
+            // Somebody pressed Generate now: they are looking at what the model was asked.
+            KeepText: start.StartedBy == InsightKinds.StartedByButton);
+
+        var result = await runner.RunAsync(plan, async (client, token) =>
         {
             var options = new ChatCompletionOptions { MaxOutputTokenCount = MaxOutputTokens };
             AiReportedCost.AskFor(options, chat.Provider);
 
             ChatCompletion completion = await client.CompleteChatAsync(
-                [
-                    new SystemChatMessage(InsightPrompt.Instructions(kind)),
-                    new UserChatMessage(InsightPrompt.Figures(figures)),
-                ],
+                [AiPromptCache.Instructions(instructions, chat.Provider), new UserChatMessage(question)],
                 options,
-                ct);
+                token);
 
-            var text = string.Concat(completion.Content
+            var answer = string.Concat(completion.Content
                 .Where(p => p.Kind == ChatMessageContentPartKind.Text)
                 .Select(p => p.Text)).Trim();
+
+            return new AiCallAnswer<string>(answer, completion.Model, completion.Usage, answer);
+        }, ct);
+
+        if (!result.Answered)
+        {
+            insight.Error = result.Error;
+        }
+        else
+        {
+            var text = result.Value ?? string.Empty;
 
             if (text.Length == 0)
                 insight.Error = "The model answered with no text.";
             else
                 insight.Text = text.Length <= InsightPrompt.MaxTextLength ? text : string.Concat(text.AsSpan(0, InsightPrompt.MaxTextLength), "…");
 
-            // Under the model asked for, which is what a price is saved under; the person only when
-            // somebody pressed the button.
-            await usage.RecordAsync(AiFeatures.Insights, start.UserId, model, chat.Provider, completion.Usage, ct);
-
-            if (!string.IsNullOrWhiteSpace(completion.Model))
-                insight.Model = completion.Model.Length <= AiSettingsRules.MaxModelLength ? completion.Model : model;
-        }
-        catch (Exception e) when (!ct.IsCancellationRequested)
-        {
-            var endpoint = await db.Settings.AsNoTracking().Where(s => s.Id == 1).Select(s => s.AiEndpoint).FirstOrDefaultAsync(ct);
-            insight.Error = Uri.TryCreate(endpoint, UriKind.Absolute, out var uri)
-                ? AiClients.Describe(e, uri)
-                : e.Message;
+            // The model that answered, which may be the fallback rather than the one asked for.
+            if (result.Model.Length <= AiSettingsRules.MaxModelLength)
+                insight.Model = result.Model;
         }
 
         // Discord is never told about an attempt that has nothing to say.

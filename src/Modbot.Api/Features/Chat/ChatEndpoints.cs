@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Modbot.AI;
+using Modbot.AI.Calls;
 using Modbot.AI.Chat;
 using Modbot.AI.Usage;
 using Modbot.Api.Auth;
@@ -291,6 +292,7 @@ public static class ChatEndpoints
         [FromServices] ChatLoop loop,
         [FromServices] AiSpendLimits limits,
         [FromServices] IAiUsage usage,
+        [FromServices] IAiCallLog calls,
         [FromServices] IModbotClock clock,
         [FromServices] IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
         CancellationToken ct)
@@ -298,6 +300,7 @@ public static class ChatEndpoints
         ArgumentNullException.ThrowIfNull(body);
 
         var userId = ModbotAuth.UserIdOf(http.User)!.Value;
+        var username = ModbotAuth.UsernameOf(http.User);
         var held = ModbotAuth.PermissionsOf(http.User);
 
         AiChatConversation? conversation = null;
@@ -439,7 +442,7 @@ public static class ChatEndpoints
 
         var request = new ChatRequest(
             client,
-            ChatPrompt.Build(now, settings.ManagedGroupName, settings.AiChatInstructions),
+            ChatPrompt.Build(settings.ManagedGroupName, settings.AiChatInstructions),
             history,
             registry.OfferedTo(held, ChatToolRegistry.ParseSwitches(settings.AiChatToolSwitches)),
             ChatSettingsRules.Limits(settings.AiChatMaxToolCalls, settings.AiChatMaxReplyTokens, settings.AiChatTimeLimitSeconds),
@@ -447,7 +450,10 @@ public static class ChatEndpoints
             conversation.Id,
             Uri.TryCreate(settings.AiEndpoint, UriKind.Absolute, out var address) ? address : null,
             model,
-            chat.Provider);
+            chat.Provider,
+            ChatPrompt.Now(now),
+            chat.FallbackModel is null ? null : chat.Client.GetChatClient(chat.FallbackModel),
+            chat.FallbackModel);
 
         // What the round that is being stored used. The loop reports it just before the message it
         // belongs to, so the conversation can add up what it cost without reading every usage row.
@@ -462,9 +468,19 @@ public static class ChatEndpoints
                     await SendEvent("text", new { text = t.Text });
                     break;
 
-                case ChatUsageEvent used:
-                    round = used.Usage;
-                    await usage.RecordAsync(AiFeatures.Chat, userId, used.Model, chat.Provider, used.Usage, CancellationToken.None);
+                case ChatCallEvent made:
+                    round = made.Usage;
+
+                    // Not the request's token either: the provider has already charged for it, and
+                    // the call log is how a moderator later sees why a reply stopped.
+                    await usage.RecordAsync(
+                        AiFeatures.Chat, userId, made.ModelAnswered ?? made.ModelAsked, chat.Provider, made.Usage, CancellationToken.None);
+
+                    await calls.RecordAsync(
+                        new AiCallEntry(
+                            AiFeatures.Chat, made.ModelAsked, made.ModelAnswered, chat.Provider, made.Outcome, made.DurationMs,
+                            made.Fallback, made.Error, made.Usage, userId, username),
+                        CancellationToken.None);
                     break;
 
                 case ChatTurnEvent turn:

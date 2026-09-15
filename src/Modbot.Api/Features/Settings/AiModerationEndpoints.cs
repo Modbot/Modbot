@@ -517,6 +517,7 @@ public static class AiModerationEndpoints
         // ── Try it ──────────────────────────────────────────────────────────────────────────
 
         group.MapPost("/try", async (
+                HttpContext http,
                 [FromBody] TryRequest body,
                 [FromServices] ModerationEngine engine,
                 CancellationToken ct) =>
@@ -530,7 +531,9 @@ public static class AiModerationEndpoints
                 if (ModerationTargetNames.Parse(body.Target) is not { } target)
                     return Error("Choose a target.");
 
-                var result = await engine.TryAsync(body.Text, target, body.IncludeAi, ct);
+                var result = await engine.TryAsync(
+                    body.Text, target, body.IncludeAi,
+                    ModbotAuth.UserIdOf(http.User), ModbotAuth.UsernameOf(http.User), ct);
 
                 return Results.Ok(new TryResponse(
                     [.. result.Matches.Select(m => new TryMatchView(
@@ -538,7 +541,8 @@ public static class AiModerationEndpoints
                         m.Match.Reason, m.Match.DeleteMessage, m.Match.TimeoutMinutes))],
                     result.WouldDeleteMessage,
                     result.WouldTimeOutMinutes,
-                    result.AiSkipped));
+                    result.AiSkipped,
+                    result.CallId));
             })
             .WithName("TryAiModeration")
             .WithSummary("Check some text against every rule. Nothing is recorded and nothing is done.")

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Modbot.AI;
+using Modbot.AI.Calls;
 using Modbot.AI.Usage;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Auth;
@@ -38,6 +39,8 @@ public sealed record AiAcknowledgement(
 /// <summary>Settings → AI → Base, as stored.</summary>
 /// <param name="Endpoint">Null when nothing has been saved; the page fills it from the preset.</param>
 /// <param name="ApiKeyStored">Whether a key is stored. The key itself is never returned.</param>
+/// <param name="FallbackModel">Tried once when the main model does not answer. Null when there is none.</param>
+/// <param name="CallLogKeepDays">How long a call log row is kept. 0 keeps them forever.</param>
 public sealed record AiSettingsResponse(
     bool Enabled,
     string Provider,
@@ -45,7 +48,9 @@ public sealed record AiSettingsResponse(
     string? Model,
     bool ApiKeyStored,
     IReadOnlyList<AiProviderView> Providers,
-    AiAcknowledgement Acknowledgement);
+    AiAcknowledgement Acknowledgement,
+    string? FallbackModel = null,
+    int CallLogKeepDays = 30);
 
 /// <param name="Endpoint">The endpoint shown on the form when the operator confirmed, so the fact records what they read.</param>
 public sealed record AiAcknowledgeRequest(string? Endpoint);
@@ -58,7 +63,9 @@ public sealed record AiSettingsUpdate(
     string? Endpoint,
     string? Model,
     string? ApiKey,
-    bool RemoveApiKey = false);
+    bool RemoveApiKey = false,
+    string? FallbackModel = null,
+    int CallLogKeepDays = 30);
 
 /// <summary>The values on the form, for the Test button and the model list. Nothing is saved.</summary>
 /// <param name="ApiKey">
@@ -119,6 +126,13 @@ public static class AiSettingsEndpoints
                 if (!check.Ok)
                     return Results.BadRequest(new { error = check.Error });
 
+                var fallback = string.IsNullOrWhiteSpace(body.FallbackModel) ? null : body.FallbackModel.Trim();
+                if (fallback is { Length: > AiSettingsRules.MaxModelLength })
+                    return Results.BadRequest(new { error = "The fallback model name is too long." });
+
+                if (body.CallLogKeepDays < 0 || body.CallLogKeepDays > 3650)
+                    return Results.BadRequest(new { error = "Keep the call log for between 0 and 3650 days." });
+
                 var settings = await db.GetSettingsAsync(ct);
                 var endpoint = check.Endpoint?.OriginalString;
                 var newKey = string.IsNullOrWhiteSpace(body.ApiKey) ? null : body.ApiKey.Trim();
@@ -141,6 +155,8 @@ public static class AiSettingsEndpoints
                 settings.AiProvider = check.Provider!.Id;
                 settings.AiEndpoint = endpoint;
                 settings.AiModel = check.Model;
+                settings.AiFallbackModel = fallback;
+                settings.AiCallLogKeepDays = body.CallLogKeepDays;
 
                 await db.SaveChangesAsync(ct);
 
@@ -219,6 +235,7 @@ public static class AiSettingsEndpoints
                 [FromServices] ISecretProtector protector,
                 [FromServices] IAiClients ai,
                 [FromServices] IAiUsage usage,
+                [FromServices] IAiCallLog calls,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -228,11 +245,34 @@ public static class AiSettingsEndpoints
                     return Results.BadRequest(new { error });
 
                 // A test is a real call, so it is counted and limited like any feature (AI chat design §10).
+                var userId = ModbotAuth.UserIdOf(http.User);
+                var username = ModbotAuth.UsernameOf(http.User);
+
                 if (await usage.LimitReachedAsync(AiFeatures.Test, ct) is { } reached)
+                {
+                    await calls.RecordAsync(
+                        new AiCallEntry(
+                            AiFeatures.Test, connection.Model, null, connection.Provider, AiCallOutcomes.Limited, 0,
+                            Error: reached.Message, UserId: userId, Username: username),
+                        ct);
+
                     return Results.Ok(new AiTestResponse(false, reached.Message));
+                }
 
                 var result = await ai.TestAsync(connection, ct);
-                await usage.RecordAsync(AiFeatures.Test, ModbotAuth.UserIdOf(http.User), connection.Model, connection.Provider, result.Usage, ct);
+                await usage.RecordAsync(AiFeatures.Test, userId, connection.Model, connection.Provider, result.Usage, ct);
+
+                // Somebody is testing this model, so the fallback is deliberately not tried: an
+                // answer from a different model would not tell them whether this one works. The
+                // prompt and the answer are kept, because seeing them is what the button is for.
+                await calls.RecordAsync(
+                    new AiCallEntry(
+                        AiFeatures.Test, connection.Model, result.Worked ? connection.Model : null, connection.Provider,
+                        result.Worked ? AiCallOutcomes.Answered : AiCallOutcomes.Error, result.DurationMs,
+                        Error: result.Worked ? null : result.Message,
+                        Usage: result.Usage, UserId: userId, Username: username,
+                        Prompt: result.Prompt, Answer: result.Worked ? result.Message : null, KeepText: true),
+                    ct);
 
                 return Results.Ok(new AiTestResponse(result.Worked, result.Message));
             })
@@ -302,7 +342,9 @@ public static class AiSettingsEndpoints
             settings.AiAcknowledgedAt,
             settings.AiAcknowledgedByUsername,
             Endpoint(settings),
-            AiSends));
+            AiSends),
+        settings.AiFallbackModel,
+        settings.AiCallLogKeepDays);
 
     private static async Task<(AiConnection? Connection, string? Error)> ConnectionAsync(
         AiConnectionCheck body, bool requireModel, ModbotContext db, ISecretProtector protector, CancellationToken ct)
