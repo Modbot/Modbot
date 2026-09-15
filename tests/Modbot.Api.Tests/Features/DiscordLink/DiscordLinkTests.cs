@@ -257,7 +257,7 @@ public class DiscordLinkTests
         Assert.Equal(vrchatId, pending.GetProperty("vrChatUserId").GetString());
         var code = pending.GetProperty("code").GetString()!;
 
-        h.Gate.Returns("GetUser", Profile(vrchatId, "Gunner24", "hello"));
+        h.Gate.Returns("GetUser", Profile(vrchatId, "LinkPageTester", "hello"));
         var notYet = await ApiTestHost.BodyOf(await PostAsync(h.Host, "/api/discord-link/check", null, session), Ct);
         Assert.False(notYet.GetProperty("linked").GetBoolean());
         Assert.Contains(code, notYet.GetProperty("message").GetString(), StringComparison.Ordinal);
@@ -267,13 +267,13 @@ public class DiscordLinkTests
         Assert.Equal(Modbot.VRChat.VRChatCallPriority.Interactive, call.Priority);
 
         h.Host.Clock.Advance(VRChatLinkEndpoints.MinimumGapBetweenChecks);
-        h.Gate.Returns("GetUser", new User { Id = vrchatId, DisplayName = "Gunner24", Bio = $"hi {code}", AgeVerificationStatus = AgeVerificationStatus.plus18 });
+        h.Gate.Returns("GetUser", new User { Id = vrchatId, DisplayName = "LinkPageTester", Bio = $"hi {code}", AgeVerificationStatus = AgeVerificationStatus.plus18 });
 
         var linked = await ApiTestHost.BodyOf(await PostAsync(h.Host, "/api/discord-link/check", null, session), Ct);
         Assert.True(linked.GetProperty("linked").GetBoolean());
         var link = linked.GetProperty("status").GetProperty("link");
         Assert.Equal(vrchatId, link.GetProperty("vrChatUserId").GetString());
-        Assert.Equal("Gunner24", link.GetProperty("vrChatDisplayName").GetString());
+        Assert.Equal("LinkPageTester", link.GetProperty("vrChatDisplayName").GetString());
 
         using var scope = h.Host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
