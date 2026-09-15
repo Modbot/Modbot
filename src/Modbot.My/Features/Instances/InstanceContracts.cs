@@ -18,7 +18,8 @@ public sealed record UsageReport(
     int? RateLimitColdStops,
     int? WafBlocks);
 
-/// <summary>One registered deployment, as the root API key holder reads it.</summary>
+/// <summary>One registered deployment, as an admin reads it.</summary>
+/// <param name="IpAddress">The address its last register or usage call came from.</param>
 public sealed record InstanceView(
     string InstanceId,
     string InstanceUrl,
@@ -32,7 +33,8 @@ public sealed record InstanceView(
     bool? DiscordConnected,
     IReadOnlyList<string>? TermListsImported,
     int? RateLimitColdStops,
-    int? WafBlocks)
+    int? WafBlocks,
+    string? IpAddress)
 {
     internal static InstanceView From(RegisteredInstance i) => new(
         i.InstanceId,
@@ -47,5 +49,11 @@ public sealed record InstanceView(
         i.DiscordConnected,
         i.TermListsImported,
         i.RateLimitColdStops,
-        i.WafBlocks);
+        i.WafBlocks,
+        i.IpAddress);
 }
+
+/// <param name="Requests">Register and usage calls from this address.</param>
+public sealed record InstanceIpView(string IpAddress, DateTimeOffset FirstSeenAt, DateTimeOffset LastSeenAt, int Requests);
+
+public sealed record InstanceIpHistory(IReadOnlyList<InstanceIpView> Items);

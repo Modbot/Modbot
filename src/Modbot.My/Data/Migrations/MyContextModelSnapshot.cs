@@ -23,6 +23,30 @@ namespace Modbot.My.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Modbot.My.Features.Admin.AdminSession", b =>
+                {
+                    b.Property<string>("TokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.HasKey("TokenHash")
+                        .HasName("pk_admin_session");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_admin_session_expires_at");
+
+                    b.ToTable("admin_session", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.My.Features.Instances.RegisteredInstance", b =>
                 {
                     b.Property<string>("InstanceId")
@@ -43,6 +67,11 @@ namespace Modbot.My.Data.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)")
                         .HasColumnName("instance_url");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)")
+                        .HasColumnName("ip_address");
 
                     b.Property<DateTimeOffset>("LastSeenAt")
                         .HasColumnType("timestamp with time zone")
@@ -94,6 +123,36 @@ namespace Modbot.My.Data.Migrations
                     b.ToTable("registered_instance", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.My.Features.Instances.RegisteredInstanceIp", b =>
+                {
+                    b.Property<string>("InstanceId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("instance_id");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_seen_at");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<int>("Requests")
+                        .HasColumnType("integer")
+                        .HasColumnName("requests");
+
+                    b.HasKey("InstanceId", "IpAddress")
+                        .HasName("pk_registered_instance_ip");
+
+                    b.ToTable("registered_instance_ip", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.My.Features.RegisterPage.RegisterPageInstance", b =>
                 {
                     b.Property<string>("InstanceUrl")
@@ -120,6 +179,53 @@ namespace Modbot.My.Data.Migrations
                         .HasDatabaseName("ix_register_page_instance_last_seen_at");
 
                     b.ToTable("register_page_instance", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.My.Features.Visits.VisitorInstance", b =>
+                {
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<string>("InstanceUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("instance_url");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_seen_at");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at");
+
+                    b.Property<DateTimeOffset>("LastVisitAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_visit_at");
+
+                    b.Property<int>("Visits")
+                        .HasColumnType("integer")
+                        .HasColumnName("visits");
+
+                    b.HasKey("IpAddress", "InstanceUrl")
+                        .HasName("pk_visitor_instance");
+
+                    b.HasIndex("InstanceUrl")
+                        .HasDatabaseName("ix_visitor_instance_instance_url");
+
+                    b.ToTable("visitor_instance", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.My.Features.Instances.RegisteredInstanceIp", b =>
+                {
+                    b.HasOne("Modbot.My.Features.Instances.RegisteredInstance", null)
+                        .WithMany()
+                        .HasForeignKey("InstanceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_registered_instance_ip_registered_instance_instance_id");
                 });
 #pragma warning restore 612, 618
         }

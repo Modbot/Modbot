@@ -81,6 +81,13 @@ JavaScript on a CDN.
 > registry (§4). It is built as `src/Modbot.My`, one folder per feature under `Features/`, and needs
 > `DATABASE_URL`. See §6.
 
+> **Revised again 2026-09-14.** The page is now a React app (Vite, Tailwind, shadcn/ui, Modbot's own
+> theme tokens), built from `src/Modbot.My.Web` into `src/Modbot.My/wwwroot`. The server serves it
+> only on the app's real routes — `/`, `/register`, `/go`, and `/admin` with its sub-paths — and
+> every other path is a 404, so the retired `/pair` and `/instanceredirect` cannot come back as
+> pages that happen to render. An unknown `/api/…` path is a JSON 404. The instance list is no
+> longer only in the browser either; see §2.3.1.
+
 ### 2.2 The flow
 
 A deployment that does not know who you are sends you here to be remembered:
@@ -109,6 +116,12 @@ any other page. `my.modbot.co` never sees a pairing code; the instance issues it
 > **Revised 2026-09-14.** `/go?redir=` replaced `/instanceredirect?path=` and a separate `/pair`
 > route, and `/register` takes `url` rather than `modbotInstanceUrl`.
 
+> **Revised again 2026-09-14.** `/`, `/register` and `/go` all show one list: the instances saved in
+> this browser and the instances the server has seen from this browser's IP address (§2.3.1), one
+> entry per URL, most recently used first. `/go` goes straight to the instance when that combined
+> list holds exactly one, and every `/go` use is added to a history kept in the browser
+> (`modbot.history`, beside the saved list in `modbot.instances`).
+
 ### 2.3 Fragment vs query string — and why registration uses a query string
 
 This is the one detail that matters, and it is easy to get wrong.
@@ -127,6 +140,69 @@ The selector still stores the instance list in `localStorage`, so **which instan
 uses** stays in their browser. The registry learns that a deployment exists; it does not learn who
 opens it.
 
+> **Reversed 2026-09-14.** Which instances a person uses no longer stays only in their browser. The
+> server now keeps the instance URLs opened from each visitor IP address, and gives each address
+> its own list back (§2.3.1). The maintainer asked for this, and for the addresses to be stored: a
+> first-time visitor, a new browser or a new device otherwise sees an empty page, which is why
+> `/go` looked broken to everyone who had never saved an instance.
+
+#### 2.3.1 Instance history by IP address
+
+**What is stored.** `visitor_instance`: the visitor's IP address, the instance URL (its origin, by
+the same rule as §4.1), when it was first and last seen, when the last counted visit began, and a
+visit count.
+
+**When it is saved — twice, on purpose.**
+
+1. As the page is served. When `/`, `/register` or `/go` is requested with an `https` instance URL
+   in `url`, the server records it in `register_page_instance` and `visitor_instance` before it
+   sends the page.
+2. After the app renders. The app calls `POST /api/local-register` with the same URL, and on
+   `/register` also writes it to `localStorage`. This covers a page the browser took from its cache
+   and a route reached by navigating inside the app, neither of which reaches the server.
+
+Both always run. They must not count twice: a save for the same address and URL within **five
+minutes** of the visit last counted moves last-seen forward and adds no visit, in both tables. The
+five minutes run from the counted visit, not from the latest save, so someone who reloads every few
+minutes is still counted again once they pass. The two saves of one page view are serialised on the
+row, so arriving together still counts once.
+
+**Reading it.** `GET /api/my-instances` needs no key and returns the instances seen from the
+requesting address only — the last 90 days, at most 50, most recent first. Nothing in the request
+can name a different address.
+
+**Which address.** The chain is visitor → Cloudflare → Railway's edge → app, so the connection
+address is never the visitor. Railway's edge writes the address that connected to it as the
+right-most `X-Forwarded-For` entry; every entry to its left came from the client.
+
+1. When the right-most `X-Forwarded-For` entry is inside Cloudflare's published ranges, the request
+   really came through Cloudflare, so `CF-Connecting-IP` is the visitor.
+2. Otherwise the right-most `X-Forwarded-For` entry is used, and any `CF-Connecting-IP` is ignored.
+   That is the case for anyone calling the Railway address directly.
+3. With no usable `X-Forwarded-For`, the connection address is used.
+
+Cloudflare's ranges are written into `Common/ClientAddress.cs` and have to be updated by hand when
+Cloudflare changes them. A missing range makes that edge's visitors look like the edge — wrong, but
+never a way to spoof an address. The same rule gives the addresses in §4.5 and the admin sign-in
+limit.
+
+**Removing.** Removing an instance on the page removes it from `localStorage` and hides the server's
+entry for it in that browser. Saving it again un-hides it. An admin deleting a register-page entry
+(§4.4) deletes its IP history too.
+
+**Known limits.**
+
+- **People sharing one address see each other's instances**: a school, a workplace, a VPN, a phone
+  network that puts many people behind one address. That is the cost of the feature, not a bug in
+  it.
+- An address later handed to someone else carries its list with it for up to 90 days.
+- Because `/go` goes straight to the only instance it knows, a person on a shared address who has
+  nothing saved can be sent to an instance URL that someone else on that address opened. It is still
+  an `https` origin and `redir` is still only a path (§2.2), but the site was chosen by another
+  person.
+- The rule trusts Railway's edge to write the right-most `X-Forwarded-For` entry. Put anything else
+  in front of the app, or run it somewhere else, and that assumption has to be checked again.
+
 ### 2.4 Behaviour
 
 - Multiple saved instances, user-named ("Main group", "Test"), reorderable.
@@ -135,6 +211,12 @@ opens it.
 - Warns when adding a non-HTTPS instance, and refuses to auto-redirect to one.
 - Works offline for instances already saved, since there is nothing to fetch.
 - No cookies, no analytics, no third-party requests, no fonts loaded from elsewhere.
+
+> **Revised 2026-09-14.** Names and reordering are not built; the list is most recently used first.
+> Removing an instance removes it from `localStorage` and also hides the server's entry for it in
+> that browser (§2.3.1). An `http` URL is refused outright rather than warned about, and one with a
+> username or password is refused too. The public pages still set no cookies; only `/admin` does
+> (§4.4). The fonts are bundled with the app, so nothing is loaded from elsewhere.
 
 ### 2.5 Validation without trust
 
@@ -282,6 +364,9 @@ behind it.
 The instance list lives in that browser and nowhere else — **which instances a given person uses**
 stays local, and the selector has no backend for it.
 
+> **Reversed 2026-09-14.** The list is also kept by visitor IP address on the server; see §2.3.1 for
+> what is stored, how one page view is saved twice but counted once, and the known limits.
+
 **The instance URL itself is recorded server-side**, as a backup registry. A deployment whose
 operator turned analytics off, or who never got as far as self-registering, is still counted. The
 page visit contributes the URL and nothing else: no analytics, no group, no version, no operator.
@@ -328,6 +413,37 @@ may not.
 > require `Authorization: Bearer <ROOT_API_KEY>`. With no key set, all four refuse everyone. A
 > missing key, a wrong key and an unset key get the same 401. Nothing that reads the registry is
 > public, and registering and usage reporting stay open because a deployment has no key.
+
+> **Revised again 2026-09-14 — `/admin`.** The rows can also be read, and deleted, in a browser at
+> `/admin`, by signing in with `ROOT_API_KEY`. Every admin endpoint accepts either the session cookie
+> or the `Authorization: Bearer` header, so scripts keep working; with no key set, both are refused.
+>
+> - **Signing in.** `POST /api/admin/login` compares the key in constant time and sets
+>   `modbot_admin`: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/`, expiring after 12 hours. The
+>   key is never kept in the browser.
+> - **The session.** The cookie holds 32 random bytes and an HMAC-SHA256 of them, under a key derived
+>   from `ROOT_API_KEY`. The server keeps only a SHA-256 of the random bytes, with an expiry, in
+>   `admin_session`. A session is good while both the signature and the row check out, so changing
+>   `ROOT_API_KEY` ends every session at once, and `POST /api/admin/logout` ends one by deleting its
+>   row.
+> - **Too many tries.** Five wrong keys from one address (§2.3.1's rule) within 15 minutes block that
+>   address until the 15 minutes are up, even with the right key. The count is kept in memory, so a
+>   restart clears it.
+> - **Pages.** Stats; registered instances, searchable, each with its usage fields, IP history
+>   (§4.5) and a delete; register-page instances with visits and first and last seen, each with a
+>   delete. Deleting a registered instance deletes its IP history. Deleting a register-page entry
+>   deletes that URL's visitor IP history too.
+> - **New endpoints.** `GET /api/admin/session`, `GET /api/instances/{instanceId}/ip-history`,
+>   `DELETE /api/instances/{instanceId}`, `DELETE /api/register-page-instances?url=`, and `search`
+>   on both lists.
+
+### 4.5 Where deployments call from
+
+When a deployment calls `POST /api/instances/register` or `POST /api/instances/{instanceId}/usage`,
+the calling address (by §2.3.1's rule) is stored on its `registered_instance` row as `ip_address`,
+and counted in `registered_instance_ip`: one row per deployment and address, with first seen, last
+seen and a request count. A deployment that moves to a new address starts a new row; the old row
+keeps when it was last used.
 
 ---
 
@@ -390,6 +506,11 @@ rather than a threat.
 - Its image builds from the repository root, because package versions are pinned in
   `Directory.Packages.props`: `docker build -f src/Modbot.My/Dockerfile .`. On Railway, leave the
   Root Directory empty and set `RAILWAY_DOCKERFILE_PATH=src/Modbot.My/Dockerfile`.
+- The image builds the web app first, in a Node stage, from `src/Modbot.My.Web` into
+  `src/Modbot.My/wwwroot`, and publishes the server with it. `wwwroot` is build output: it is not
+  committed, and `.dockerignore` keeps a local copy out of the image.
+- Running behind something other than Cloudflare and Railway's edge changes which address is the
+  visitor's; see §2.3.1.
 
 ---
 
@@ -399,6 +520,10 @@ rather than a threat.
 - Server-side storage of instance URLs, including "sync your instance list across devices." That is
   an account system, an instance registry, and a breach waiting to happen, in exchange for saving
   someone one paste.
+
+  > **Reversed 2026-09-14.** Instance URLs are now stored against the IP address they were opened
+  > from (§2.3.1), and handed back to that address. It is still not an account system and does not
+  > follow a person to a different network.
 - Hosting Modbot deployments. The project publishes software, not a service.
 - Update delivery for anything other than the Windows client. Server deployments update through
   Railway or the operator's own pipeline.

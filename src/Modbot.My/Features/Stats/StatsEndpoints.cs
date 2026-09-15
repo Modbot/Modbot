@@ -1,16 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Modbot.My.Auth;
 using Modbot.My.Data;
+using Modbot.My.Features.Admin;
 
 namespace Modbot.My.Features.Stats;
 
-/// <summary>Counts across the registry, behind the root API key.</summary>
+/// <summary>Counts across the registry, for admins.</summary>
 public static class StatsEndpoints
 {
     public static IEndpointRouteBuilder MapStats(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/stats", GetAsync).RequireRootApiKey();
+        app.MapGet("/api/stats", GetAsync).RequireAdmin();
         return app;
     }
 
@@ -44,9 +44,9 @@ public static class StatsEndpoints
 /// <param name="ActiveLast30Days">Of those, seen in the last 30 days.</param>
 /// <param name="WithAnalytics">Of those, have sent at least one usage report.</param>
 /// <param name="ByVersion">Registered deployments per release.</param>
-/// <param name="RegisterPageInstances">URLs noted by the register page.</param>
+/// <param name="RegisterPageInstances">URLs noted by the pages.</param>
 /// <param name="RegisterPageOnly">
-/// Of those, URLs no registered deployment uses: deployments known only from the register page.
+/// Of those, URLs no registered deployment uses: deployments known only from the pages.
 /// </param>
 public sealed record RegistryStats(
     int RegisteredInstances,

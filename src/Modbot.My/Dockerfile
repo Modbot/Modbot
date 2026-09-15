@@ -1,16 +1,32 @@
 # syntax=docker/dockerfile:1
 #
-# my.modbot.co: the instance selector, the register and pair pages, the instance registry and
-# Modbot Hub.
+# my.modbot.co: the web app (/, /register, /go and /admin), the instance registry and Modbot Hub.
 #
 # Build from the repository root, like the main image, because package versions are pinned once in
-# Directory.Packages.props:
+# Directory.Packages.props and the web app is a sibling project under src/:
 #
 #   docker build -f src/Modbot.My/Dockerfile -t modbot-my .
 #
 # On Railway, leave the service's Root Directory empty and set the variable
 # RAILWAY_DOCKERFILE_PATH=src/Modbot.My/Dockerfile. The service needs DATABASE_URL and ROOT_API_KEY.
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1 — the web app. Vite writes it straight into Modbot.My/wwwroot (see
+# src/Modbot.My.Web/vite.config.ts), which the publish stage then copies in.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM node:24-alpine AS web
+WORKDIR /src
+
+# Lockfile first: dependencies change far less often than source, and this layer is the slow one.
+COPY src/Modbot.My.Web/package.json src/Modbot.My.Web/package-lock.json src/Modbot.My.Web/
+RUN cd src/Modbot.My.Web && npm ci
+
+COPY src/Modbot.My.Web/ src/Modbot.My.Web/
+RUN cd src/Modbot.My.Web && npm run build
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2 — publish.
+# ─────────────────────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
@@ -20,11 +36,18 @@ RUN dotnet restore src/Modbot.My/Modbot.My.csproj
 
 COPY src/Modbot.My/ src/Modbot.My/
 
+# .dockerignore keeps any local wwwroot out of the context, so the only web app in the image is the
+# one stage 1 just built.
+COPY --from=web /src/src/Modbot.My/wwwroot/ src/Modbot.My/wwwroot/
+
 RUN dotnet publish src/Modbot.My/Modbot.My.csproj \
         --configuration Release \
         --no-restore \
         --output /app
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 3 — runtime.
+# ─────────────────────────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
 WORKDIR /app
 

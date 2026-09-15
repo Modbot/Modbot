@@ -4,11 +4,13 @@ using System.Text;
 namespace Modbot.My.Auth;
 
 /// <summary>
-/// The one secret that unlocks reading the registry, from <c>ROOT_API_KEY</c>.
+/// The one secret that unlocks reading and changing the registry, from <c>ROOT_API_KEY</c>.
 /// </summary>
 /// <remarks>
 /// The registry is a list of Modbot deployments, which is a map of VRChat moderation servers
-/// (central services spec 4.4). Nothing that reads it is ever public.
+/// (central services spec 4.4). Nothing that reads it is ever public. Scripts send the key as
+/// <c>Authorization: Bearer</c>; people sign in to <c>/admin</c> with it (see
+/// <c>Features/Admin</c>).
 /// </remarks>
 public sealed class RootApiKey
 {
@@ -30,35 +32,11 @@ public sealed class RootApiKey
 
         return CryptographicOperations.FixedTimeEquals(_hash, SHA256.HashData(Encoding.UTF8.GetBytes(candidate)));
     }
-}
-
-public static class RootApiKeyEndpoints
-{
-    private const string BearerPrefix = "Bearer ";
 
     /// <summary>
-    /// Refuses the request unless it carries <c>Authorization: Bearer &lt;ROOT_API_KEY&gt;</c>.
+    /// A key for one purpose, made from <c>ROOT_API_KEY</c>, or null when none is set. A different
+    /// <c>ROOT_API_KEY</c> makes a different key, so anything signed with the old one stops working.
     /// </summary>
-    /// <remarks>
-    /// A missing key, a wrong key and a server with no key configured all get the same 401, so the
-    /// response says nothing about which one it was.
-    /// </remarks>
-    public static TBuilder RequireRootApiKey<TBuilder>(this TBuilder builder)
-        where TBuilder : IEndpointConventionBuilder =>
-        builder.AddEndpointFilter(async (context, next) =>
-        {
-            var http = context.HttpContext;
-            var key = http.RequestServices.GetRequiredService<RootApiKey>();
-            var header = http.Request.Headers.Authorization.ToString();
-
-            var candidate = header.StartsWith(BearerPrefix, StringComparison.OrdinalIgnoreCase)
-                ? header[BearerPrefix.Length..].Trim()
-                : null;
-
-            if (key.Matches(candidate))
-                return await next(context);
-
-            http.Response.Headers.WWWAuthenticate = "Bearer";
-            return Results.Json(new { error = "A valid root API key is required." }, statusCode: StatusCodes.Status401Unauthorized);
-        });
+    public byte[]? DeriveKey(string purpose) =>
+        _hash is null ? null : HMACSHA256.HashData(_hash, Encoding.UTF8.GetBytes(purpose));
 }
