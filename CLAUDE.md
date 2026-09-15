@@ -71,6 +71,18 @@ The data tests need **Docker** — they run against real PostgreSQL via Testcont
 than a substitute provider, because Modbot depends on table partitioning, `jsonb`, GIN indexes
 and advisory locks, and an in-memory provider implements none of them.
 
+### Which model runs end-to-end testing
+
+**Agents that run end-to-end testing use the latest Sonnet model (currently Sonnet 5,
+`claude-sonnet-5`), not Opus.** That covers:
+- running the test suites
+- watching and fixing CI
+- checking pages in a browser
+- bringing up Docker stacks to try them
+
+When spawning such an agent, pass the Sonnet model explicitly. Building features and writing specs
+can still use Opus.
+
 ## Standing rules
 
 These are recorded in the foundation spec and are easy to violate by accident:
