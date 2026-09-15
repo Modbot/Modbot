@@ -258,6 +258,9 @@ try
     var evidence = await app.Services.LoadEvidenceSettingsAsync();
     Log.Information("Evidence store: {Explanation}", evidence.Explanation);
 
+    // The live event WebSocket (API keys design §5). Keep-alive pings are set per connection.
+    app.UseWebSockets();
+
     app.UseAuthentication();
     app.UseAuthorization();
 

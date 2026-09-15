@@ -55,6 +55,9 @@ public sealed class ApiTestHost : IAsyncDisposable
 
     public IServiceProvider Services => _app.Services;
 
+    /// <summary>The in-process server, for what <see cref="Client"/> cannot do -- opening a WebSocket.</summary>
+    public TestServer Server => _app.GetTestServer();
+
     /// <param name="configure">
     /// Last word on the container, after every registration the host makes: a test substitutes
     /// the email sender or the delay scheduler here, and the later registration wins.
@@ -116,6 +119,7 @@ public sealed class ApiTestHost : IAsyncDisposable
 
         var app = builder.Build();
 
+        app.UseWebSockets();
         app.UseAuthentication();
         app.UseAuthorization();
 

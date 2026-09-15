@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Api.Features.ApiKeys;
+using Modbot.Api.Features.Events;
 using Modbot.Api.Features.Auth.Account;
 using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
@@ -82,6 +84,12 @@ public static class ApiSurface
             });
         });
 
+        // The live event WebSocket (API keys design §5). Tickets and the connection count are held
+        // in memory: a restart forgets both, and so do the connections they belong to.
+        services.TryAddSingleton(new EventSocketOptions());
+        services.TryAddSingleton<EventTickets>();
+        services.TryAddSingleton<EventConnections>();
+
         return services;
     }
 
@@ -159,6 +167,10 @@ public static class ApiSurface
         // Chat: questions answered by the configured model, using tools that run with the asking
         // person's own permissions (AI chat design §3.1). Conversations are the owner's alone.
         app.MapChat();
+
+        // Every new fact, as it is written, to a connected program (API keys design §5). The host
+        // must call UseWebSockets before mapping this.
+        app.MapEvents();
 
         // Moderation accountability (spec 5.8): people acted on more than once, and the reviews
         // that open when a moderator's pattern looks unusual. Read from caches the review job

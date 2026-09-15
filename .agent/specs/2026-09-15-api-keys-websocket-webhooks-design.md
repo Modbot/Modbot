@@ -275,7 +275,9 @@ A cursor before that gets a `history_trimmed` notice and continues from the olde
 - **Access is re-checked** at every heartbeat.
 - **No buffer.** Each connection reads the next page of facts only after the last one was sent, so
   a slow client cannot make the server hold anything. A send that has not finished in ten seconds
-  ends the connection with 4008. The fact log is the buffer; the client reconnects with its cursor.
+  ends the connection; 4008 is sent if the socket can still carry it, though a client that has
+  stopped reading will usually just see the connection drop. The fact log is the buffer; the
+  client reconnects with its cursor.
 - Each connection polls for new facts once a second. One indexed range read per connection per
   second is nothing next to the rest of Modbot, and it keeps every connection independent.
 
