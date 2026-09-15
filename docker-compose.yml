@@ -1,0 +1,79 @@
+# Modbot with its database and Seq, for running on your own machine or server.
+#
+#   cp .env.example .env      # then set the two passwords in .env
+#   docker compose up -d --build
+#
+# Modbot:  http://localhost:8080  (the setup wizard opens on first visit)
+# Seq:     http://localhost:5380  (sign in as "admin" with SEQ_ADMIN_PASSWORD)
+#
+# Everything Modbot keeps is in the database, except log files and evidence stored on disk, which
+# have their own volumes below. Run one Modbot per database: a second copy would double the
+# requests against VRChat's rate limits.
+
+name: modbot
+
+services:
+  modbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Shown as the version commit and release branch in Settings. Optional.
+        RAILWAY_GIT_COMMIT_SHA: ${MODBOT_COMMIT:-}
+        RAILWAY_GIT_BRANCH: ${MODBOT_BRANCH:-}
+    image: modbot:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seq:
+        condition: service_started
+    environment:
+      # The keyword form, so a password with @, : or / needs no escaping.
+      DATABASE_URL: Host=postgres;Port=5432;Database=${POSTGRES_DB:-modbot};Username=${POSTGRES_USER:-modbot};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      SEQ_URL: http://seq:5341
+      PORT: "8080"
+      MODBOT_DEBUG_LOGGING: ${MODBOT_DEBUG_LOGGING:-}
+      MODBOT_CLOUD_ENDPOINT: ${MODBOT_CLOUD_ENDPOINT:-}
+      MODBOT_CLOUD_DISABLED: ${MODBOT_CLOUD_DISABLED:-}
+    ports:
+      - "${MODBOT_PORT:-8080}:8080"
+    volumes:
+      - modbot-logs:/app/logs
+      # Used when Settings → Evidence is set to a directory on disk (/app/data/evidence).
+      - modbot-data:/app/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-modbot}
+      POSTGRES_USER: ${POSTGRES_USER:-modbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  seq:
+    image: datalust/seq:latest
+    environment:
+      ACCEPT_EULA: "Y"
+      # Only read the first time Seq starts with an empty volume.
+      SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD:?Set SEQ_ADMIN_PASSWORD in .env}
+    ports:
+      # The Seq web UI, reachable from this machine only. Modbot sends to port 5341 over the
+      # compose network, which is not published.
+      - "127.0.0.1:${SEQ_PORT:-5380}:80"
+    volumes:
+      - seq-data:/data
+    restart: unless-stopped
+
+volumes:
+  modbot-logs:
+  modbot-data:
+  postgres-data:
+  seq-data:

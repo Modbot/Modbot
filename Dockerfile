@@ -71,9 +71,11 @@ ENV ASPNETCORE_HTTP_PORTS=
 # busybox wget drives the HEALTHCHECK below; nothing else is added to the runtime image.
 COPY --from=build /app/ ./
 
-# Serilog writes six streams into ./logs relative to the content root, so the directory must be
-# writable by the unprivileged user the container runs as. $APP_UID is set by the base image.
-RUN mkdir -p /app/logs && chown -R $APP_UID:0 /app/logs && chmod -R g+rwX /app/logs
+# Serilog writes six streams into ./logs relative to the content root, and evidence stored on disk
+# goes under ./data, so both must be writable by the unprivileged user the container runs as.
+# Creating them here also means a new named volume mounted on either starts out owned by that user
+# rather than by root. $APP_UID is set by the base image.
+RUN mkdir -p /app/logs /app/data/evidence     && chown -R $APP_UID:0 /app/logs /app/data     && chmod -R g+rwX /app/logs /app/data
 USER $APP_UID
 
 # Documentation only -- the real port comes from PORT at runtime. It is deliberately not an ENV

@@ -65,3 +65,26 @@ release branch on Settings → Data → Deployment.
 | `ModbotOpenApiDocument` | MSBuild (`-p:ModbotOpenApiDocument=false`) | Stops the build rewriting `docs/openapi/modbot.json`, the OpenAPI document the docs site is built from. Docker builds never write it. |
 
 The image clears `ASPNETCORE_HTTP_PORTS`, so `PORT` is the only port setting.
+
+## Docker Compose
+
+`docker-compose.yml` in the repository root runs this project with PostgreSQL 16 and Seq. Its
+settings are listed in `.env.example`:
+
+```bash
+cp .env.example .env   # set POSTGRES_PASSWORD and SEQ_ADMIN_PASSWORD
+docker compose up -d --build
+```
+
+| Variable in `.env` | Required | Default | What it does |
+|---|---|---|---|
+| `POSTGRES_PASSWORD` | Yes | — | The database password, used by PostgreSQL and in `DATABASE_URL`. It must not contain `;`. |
+| `SEQ_ADMIN_PASSWORD` | Yes | — | Seq's `admin` password, set the first time Seq starts. |
+| `POSTGRES_DB`, `POSTGRES_USER` | No | `modbot` | The database name and user. |
+| `MODBOT_PORT` | No | `8080` | The port Modbot is published on. |
+| `SEQ_PORT` | No | `5380` | The port the Seq UI is published on, on 127.0.0.1 only. |
+| `MODBOT_DEBUG_LOGGING`, `MODBOT_CLOUD_ENDPOINT`, `MODBOT_CLOUD_DISABLED` | No | — | Passed to Modbot, as described above. |
+| `MODBOT_COMMIT`, `MODBOT_BRANCH` | No | — | Passed as the build args that show the version commit and release branch. |
+
+Volumes: `modbot-logs` (`/app/logs`), `modbot-data` (`/app/data`, for evidence on disk),
+`postgres-data` and `seq-data`.

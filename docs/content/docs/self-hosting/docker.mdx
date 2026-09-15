@@ -1,6 +1,6 @@
 ---
 title: Docker
-description: Building the Modbot image from the repository and running it next to PostgreSQL with docker run or Docker Compose.
+description: Building the Modbot image from the repository and running it next to PostgreSQL and Seq with docker run or Docker Compose.
 ---
 
 Modbot is one container plus a PostgreSQL database. You build the image yourself from the
@@ -67,6 +67,7 @@ docker run -d --name modbot --network modbot \
   -e DATABASE_URL=postgres://modbot:choose-a-long-password@modbot-db:5432/modbot \
   -p 8080:8080 \
   -v modbot-logs:/app/logs \
+  -v modbot-data:/app/data \
   --restart unless-stopped \
   modbot
 ```
@@ -76,41 +77,35 @@ before giving up.
 
 ## Run it with Docker Compose
 
-The repository does not ship a Compose file. This one uses only what the image needs. Save it as
-`compose.yaml` in the root of the repository and run `docker compose up -d --build`:
+The repository ships `docker-compose.yml` in its root. It runs Modbot, PostgreSQL 16 and
+[Seq](https://datalust.co/seq) together, with a volume for each:
 
-```yaml
-services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: modbot
-      POSTGRES_PASSWORD: choose-a-long-password
-      POSTGRES_DB: modbot
-    volumes:
-      - db:/var/lib/postgresql/data
-    restart: unless-stopped
+| Service | Volume | Holds |
+|---|---|---|
+| `modbot` | `modbot-logs` → `/app/logs` | Log files |
+| `modbot` | `modbot-data` → `/app/data` | Evidence, when it is stored on disk (`/app/data/evidence`) |
+| `postgres` | `postgres-data` | The database |
+| `seq` | `seq-data` | Seq's stored logs and settings |
 
-  modbot:
-    build: .
-    environment:
-      DATABASE_URL: postgres://modbot:choose-a-long-password@db:5432/modbot
-    ports:
-      - "8080:8080"
-    volumes:
-      - logs:/app/logs
-    depends_on:
-      - db
-    restart: unless-stopped
+Copy `.env.example` to `.env`, set `POSTGRES_PASSWORD` and `SEQ_ADMIN_PASSWORD`, then start it:
 
-volumes:
-  db:
-  logs:
+```bash
+cp .env.example .env
+docker compose up -d --build
 ```
 
-If your password contains characters such as `@`, `:` or `/`, write them percent-encoded in
-`DATABASE_URL` (for example `@` becomes `%40`), or use the keyword form described in
-[PostgreSQL](/self-hosting/postgres).
+- Modbot waits until the database is ready before starting.
+- Modbot is at `http://localhost:8080`. To publish it on a different port, set `MODBOT_PORT` in `.env`.
+- Seq is at `http://localhost:5380`, reachable from the same computer only. Sign in as `admin` with
+  `SEQ_ADMIN_PASSWORD`. Seq reads it only the first time it starts with an empty volume. Modbot
+  sends its logs to Seq over the Compose network.
+- The database connection uses the keyword form, so the password needs no escaping, but it must not
+  contain `;`.
+- `.env` also takes these optional settings:
+  - `MODBOT_DEBUG_LOGGING`
+  - `MODBOT_CLOUD_ENDPOINT`
+  - `MODBOT_CLOUD_DISABLED`
+  - `MODBOT_COMMIT` and `MODBOT_BRANCH`, to show the version commit and release branch in **Settings**
 
 ## Open it
 
@@ -136,14 +131,17 @@ If you choose **A directory on disk** for evidence under **Settings**, **Evidenc
 directory is `/app/data/evidence`. Mount a volume there, or the files are lost when the container is
 replaced.
 
-The container runs as an unprivileged user, and a new named volume at `/app/data` belongs to root.
-If **Test and save** says the directory cannot be written, give the volume to the container's user:
+Add `-v modbot-data:/app/data` to the `docker run` command for Modbot; the Compose file already
+mounts it. The image creates `/app/data` owned by the container's user, so a new named volume there
+can be written to straight away.
+
+A volume created by an older image, or a host folder mounted instead, may belong to root. If
+**Test and save** says the directory cannot be written, give it to the container's user:
 
 ```bash
 docker run --rm -v modbot-data:/data alpine \
   chown -R "$(docker run --rm --entrypoint id modbot -u)":0 /data
 ```
 
-Then add `-v modbot-data:/app/data` to the `docker run` command for Modbot (or `- data:/app/data`
-under `volumes` in Compose) and recreate the container. See
-[Storage buckets](/self-hosting/storage-buckets) for the other choices.
+Then recreate the container. See [Storage buckets](/self-hosting/storage-buckets) for the other
+choices.
