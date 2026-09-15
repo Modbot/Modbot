@@ -55,6 +55,21 @@ public sealed class ServerConnection : IIngestTarget
 
     public static readonly TimeSpan DefaultBatchInterval = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// How long an arrival, a departure or a stopped log waits before it is sent. Protocol 4.4.
+    /// </summary>
+    /// <remarks>
+    /// <para>The Live page shows who is in a room right now, and a thirty-second wait made "right
+    /// now" half a minute old. Two seconds is quick enough to read as live and slow enough to
+    /// group the changes that land together -- a friend group walking in, the tail of an arrival
+    /// burst -- into one request.</para>
+    /// <para>Measured from the <em>first</em> change still waiting, not the latest, so a steady
+    /// stream of arrivals cannot keep pushing the send back.</para>
+    /// <para>Avatar changes do not start this wait. They are not who is in the room, and a room
+    /// full of people trying on avatars would otherwise send every two seconds.</para>
+    /// </remarks>
+    public static readonly TimeSpan DefaultChangeDelay = TimeSpan.FromSeconds(2);
+
     private readonly FileEventBuffer _buffer;
     private readonly PresenceEventMapper _mapper;
     private readonly IIngestTransport _transport;
@@ -62,7 +77,11 @@ public sealed class ServerConnection : IIngestTarget
     private readonly BackoffPolicy _backoff;
     private readonly string _clientVersion;
     private readonly TimeSpan _batchInterval;
+    private readonly TimeSpan _changeDelay;
     private readonly SentJournal? _journal;
+
+    /// <summary>When the oldest unsent arrival, departure or stop was put in the buffer, or null.</summary>
+    private DateTimeOffset? _changeWaitingSince;
 
     private int _batchSize = DefaultBatchSize;
     private int _consecutiveFailures;
@@ -81,7 +100,8 @@ public sealed class ServerConnection : IIngestTarget
         string clientVersion,
         BackoffPolicy? backoff = null,
         TimeSpan? batchInterval = null,
-        SentJournal? journal = null)
+        SentJournal? journal = null,
+        TimeSpan? changeDelay = null)
     {
         Pairing = pairing;
         _buffer = buffer;
@@ -92,8 +112,13 @@ public sealed class ServerConnection : IIngestTarget
         _clientVersion = clientVersion;
         _backoff = backoff ?? new BackoffPolicy();
         _batchInterval = batchInterval ?? DefaultBatchInterval;
+        _changeDelay = changeDelay ?? DefaultChangeDelay;
         _journal = journal;
         _lastSendAttempt = clock.UtcNow;
+
+        // A buffer carried over from the last run may hold changes nobody has been told about yet.
+        // They are already late, so they go at the next chance rather than waiting out a timer.
+        NoteWaitingChanges();
     }
 
     public ServerPairing Pairing { get; private set; }
@@ -173,16 +198,34 @@ public sealed class ServerConnection : IIngestTarget
         }
 
         if (_mapper.Map(observation) is { } clientEvent)
+        {
             _buffer.Add(clientEvent);
+
+            if (IsChange(clientEvent.Type))
+                _changeWaitingSince ??= _clock.UtcNow;
+        }
     }
+
+    /// <summary>
+    /// Whether an event changes who is in a room -- and so is worth sending within seconds rather
+    /// than at the next thirty-second batch.
+    /// </summary>
+    public static bool IsChange(ClientEventType type) => type is
+        ClientEventType.InstanceJoined
+        or ClientEventType.InstancePresenceObserved
+        or ClientEventType.InstanceLeft
+        or ClientEventType.LogStopped;
 
     /// <summary>
     /// Whether there is something to send and the client is allowed to send it yet.
     /// </summary>
     /// <remarks>
-    /// One rule covers both shapes of traffic: walking into a busy instance produces a burst of
-    /// forty observations at once, and sitting in a quiet one produces a trickle. Fifty events or
-    /// thirty seconds, whichever comes first.
+    /// <para>Three rules, whichever comes first: fifty events, thirty seconds, or two seconds after
+    /// somebody arrived or left. Walking into a busy instance produces a burst of forty
+    /// observations at once and goes straight away; people coming and going go within seconds; a
+    /// quiet room sends nothing extra, because nothing is waiting.</para>
+    /// <para>Backoff and <c>Retry-After</c> still win over all three. A server that asked for a
+    /// pause gets one, however lively the room.</para>
     /// </remarks>
     public bool IsDueToSend()
     {
@@ -195,7 +238,9 @@ public sealed class ServerConnection : IIngestTarget
         if (_notBefore is { } waitUntil && _clock.UtcNow < waitUntil)
             return false;
 
-        return _buffer.Count >= _batchSize || _clock.UtcNow - _lastSendAttempt >= _batchInterval;
+        return _buffer.Count >= _batchSize
+            || _clock.UtcNow - _lastSendAttempt >= _batchInterval
+            || (_changeWaitingSince is { } since && _clock.UtcNow - since >= _changeDelay);
     }
 
     /// <summary>
@@ -254,6 +299,7 @@ public sealed class ServerConnection : IIngestTarget
                 _journal?.RecordSent(ServerId, sent);
                 _buffer.Remove(sent.Select(e => e.ClientEventId));
                 Succeeded();
+                NoteWaitingChanges();
                 break;
 
             case IngestOutcome.Malformed:
@@ -266,6 +312,7 @@ public sealed class ServerConnection : IIngestTarget
                     $"The server refused a batch of {sent.Count} as malformed. They were dropped, not retried.");
                 _buffer.Remove(sent.Select(e => e.ClientEventId));
                 Succeeded();
+                NoteWaitingChanges();
                 break;
 
             case IngestOutcome.Unauthorised:
@@ -304,6 +351,18 @@ public sealed class ServerConnection : IIngestTarget
                 State = ConnectionState.Waiting;
                 break;
         }
+    }
+
+    /// <summary>
+    /// Looks at what is still in the buffer after a send and starts the short wait again if any of
+    /// it is an arrival or a departure -- the second half of a burst bigger than one batch.
+    /// </summary>
+    private void NoteWaitingChanges()
+    {
+        _changeWaitingSince = _buffer.Count > 0
+            && _buffer.Peek(Math.Min(_buffer.Count, EventBatch.MaxEvents)).Any(e => IsChange(e.Type))
+            ? _clock.UtcNow
+            : null;
     }
 
     private void Succeeded()

@@ -175,7 +175,7 @@ expected (M3 §5.1), not a failure to report.
 ```json
 {
   "clientEventId": "b7e2…",        // stable across retries; the idempotency key
-  "type": "InstanceJoined",        // | InstancePresenceObserved | InstanceLeft | AvatarChanged
+  "type": "InstanceJoined",        // | InstancePresenceObserved | InstanceLeft | AvatarChanged | LogStopped
   "occurredAt": "2026-09-12T20:14:07.412+00:00",
   "occurredBefore": null,          // non-null ⇒ it happened somewhere in (occurredAt, occurredBefore]
   "subjectId": "usr_…",            // opaque; never validated for shape (foundation §3.1.1)
@@ -189,6 +189,37 @@ expected (M3 §5.1), not a failure to report.
 `InstancePresenceObserved` is the one that stops phantom bursts becoming fake joins (M3 §7.1): it
 means *this person was here when I arrived*, arrival time unknown and earlier. It carries no
 `occurredBefore` upper bound because there isn't one — the lower bound is unknown, not the upper.
+
+`LogStopped` (added 2026-09-14) means *VRChat's log stopped growing while I was in this instance*.
+The subject is the moderator themselves, `occurredAt` is VRChat's timestamp on the last line the
+log wrote, and `data` carries the moderator's display name when it is known. The server stores it
+as `vrchat.instance.log-stopped` and uses it to end that moderator's watch of the room (M3 §7.3).
+
+- **Sent once per stop.** The client notices after `PresenceObserver.InstanceStaleAfter` (two
+  minutes, about twelve of the frame-rate lines VRChat writes every ten seconds — research note
+  §1.0) and says so once. It says nothing more while the log stays stopped.
+- **Not a heartbeat.** Nothing is sent while the log is growing. The rejected "still here" report
+  stays rejected, for the reason recorded on the server's `DeviceLocations`: a moderator's
+  whereabouts are a by-product of what they observe, never something reported on a timer.
+- **Only for a stop worth reporting.** The log must have grown while the client was running (a
+  file that was already dead at startup is last night's session), the moderator must be settled
+  in an instance, and their own id must be known.
+- **When the log starts again** in the same file — a slept laptop, a paused VM — the client sends
+  its current roster once as `InstancePresenceObserved`, dated at the first new line, moderator
+  included. The server ended the watch at the stop, and this is how it learns the watch started
+  again. A new file is a new session and is not restated.
+
+#### 4.2.1 Old servers and new event types
+
+A server that does not recognise a `type` rejects **that event** as `malformed_event` in the
+`rejected` list and accepts the rest of the batch with a `200`. The batch is never refused as a
+whole over one event, because `type` is read as a string rather than an enum.
+
+The client treats a `200` as the server's final word on every event in the batch — accepted,
+already known or refused — and removes all of them from its buffer. So a new client talking to an
+old server loses exactly the `LogStopped` lines, retries nothing, and reports everything else as
+before. An old client talking to a new server simply never sends the event: its moderators' watches
+end on their own leave, on the room closing, or on their presence showing up somewhere else.
 
 ### 4.3 Idempotency is the client's job, deduplication is the server's
 
@@ -205,8 +236,14 @@ the server applies both.
 
 ### 4.4 Batching and backoff
 
-- Send when the buffer reaches ~50 events **or** 30 seconds have passed, whichever first. Instance
-  entry produces a burst; an idle instance produces a trickle; one rule covers both.
+- Send when the buffer reaches ~50 events, **or** 30 seconds have passed, **or** 2 seconds have
+  passed since the oldest unsent arrival, departure, "already here" or `LogStopped` was buffered —
+  whichever comes first. Instance entry produces a burst and goes at once; people coming and going
+  go within seconds, grouped with anything that lands in the same two seconds; an idle instance
+  sends nothing extra, because nothing is waiting. Avatar changes do not start the two-second wait.
+  *(The two-second rule was added 2026-09-14 for the Live page, which a thirty-second wait made half
+  a minute stale. The client's loop ticks once a second, so "within about two seconds" is two to
+  three in practice.)*
 - Cap batches at 500 events, and the on-disk buffer by both size and age (M3 §5.3).
 - Retry with exponential backoff and jitter, capped at ~5 minutes.
 
@@ -303,8 +340,8 @@ reworded.
 
 1. **Long-poll timeout tuning** against real proxies and load balancers, which often cap idle
    connections below 30 s.
-2. **Batch size in practice.** 50 events / 30 s is a guess; the right numbers come from a busy
-   instance with six moderators, not from reasoning.
+2. **Batch size in practice.** 50 events / 30 s / 2 s is a guess; the right numbers come from a
+   busy instance with six moderators, not from reasoning.
 3. **Whether `clientEventId` should be content-derived** (a hash of the logical event) rather than
    random. Content-derived would make retry idempotency work even across a client restart that lost
    the buffer's ids — worth it if restarts during a pending batch prove common.

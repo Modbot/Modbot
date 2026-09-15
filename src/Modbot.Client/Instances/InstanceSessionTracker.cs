@@ -119,6 +119,29 @@ public sealed class InstanceSessionTracker
     };
 
     /// <summary>
+    /// Everyone this session believes is in the room, restated as "already here" at
+    /// <paramref name="at"/> -- the moderator included.
+    /// </summary>
+    /// <remarks>
+    /// <para>Used once, when VRChat's log starts growing again after this client reported that it
+    /// had stopped. The server ended the moderator's watch at that report, so it has to be told
+    /// the watch has started again, and "already here" is exactly what is known: these people are
+    /// in the log's roster now, and nothing is known about when they got there.</para>
+    /// <para>Empty unless the moderator is settled in an instance. During an arrival burst the
+    /// burst itself will report everybody, and outside an instance there is nobody to report.</para>
+    /// </remarks>
+    public IReadOnlyList<ObservedPresence> SeenAgain(DateTime at)
+    {
+        if (_phase is not Phase.Present || _instance is not { } instance)
+            return [];
+
+        return _userIdToDisplayName
+            .Select(entry => new ObservedPresence(
+                PresenceKind.PresenceObserved, at, entry.Key, NullIfBlank(entry.Value), instance))
+            .ToList();
+    }
+
+    /// <summary>
     /// <c>Joining &lt;location&gt;</c>: the moderator is entering an instance, and the phantom join
     /// burst starts here.
     /// </summary>

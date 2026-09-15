@@ -143,6 +143,7 @@ public sealed class SentJournal
             ClientEventType.InstancePresenceObserved =>
                 $"{when} — told them {who} was already in {where} when you arrived",
             ClientEventType.InstanceLeft => $"{when} — told them {who} left {where}",
+            ClientEventType.LogStopped => $"{when} — told them VRChat's log stopped while you were in {where}",
             ClientEventType.AvatarChanged =>
                 clientEvent.Data.TryGetValue("avatarName", out var avatar) && avatar.Length > 0
                     ? $"{when} — told them {who} switched to the avatar “{avatar}”"

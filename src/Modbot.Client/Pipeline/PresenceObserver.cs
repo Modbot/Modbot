@@ -57,6 +57,22 @@ public sealed class PresenceObserver
     private DateTimeOffset? _lastLineAt;
     private DateTimeOffset? _lastRecognisedAt;
 
+    /// <summary>VRChat's own timestamp on the last line read, of any tag. What a stop is dated at.</summary>
+    private DateTime? _lastLineWritten;
+
+    /// <summary>
+    /// Whether a line written <em>after</em> startup has been read from the current file. Replayed
+    /// history is how the client learns where the moderator is, but a log that was already dead
+    /// when Modbot started is not a log that stopped while anyone was watching.
+    /// </summary>
+    private bool _sawLiveLine;
+
+    /// <summary>
+    /// Whether this stop has already been reported. A stopped log is reported once, not once per
+    /// poll: this is not a heartbeat, and a client that repeated it would be one.
+    /// </summary>
+    private bool _stopReported;
+
     public PresenceObserver(VRChatLogTail tail, IModbotClock clock, InstanceSessionTracker? tracker = null)
     {
         _tail = tail;
@@ -117,6 +133,12 @@ public sealed class PresenceObserver
             && !string.Equals(previousFile, _tail.CurrentFile, StringComparison.OrdinalIgnoreCase))
         {
             _tracker.ForgetSession();
+
+            // A new file is a new session. Whatever the old one's stop was, it is not owed a resume:
+            // the people it listed are not in this session's roster, and the new session reports
+            // its own arrival burst.
+            _sawLiveLine = false;
+            _stopReported = false;
         }
 
         foreach (var line in pending)
@@ -125,6 +147,23 @@ public sealed class PresenceObserver
 
             if (!VRChatLogLineParser.TryParse(line.Text, out var parsed))
                 continue;
+
+            _lastLineWritten = parsed.Timestamp;
+
+            if (!line.IsReplay)
+            {
+                _sawLiveLine = true;
+
+                // The log had stopped and this client said so; now it is growing again -- a slept
+                // laptop woke, a paused VM resumed. The server ended the watch at the stop, so the
+                // room is restated once, dated at this line. Before this line's own event is
+                // applied, so that a leave on this very line still takes effect afterwards.
+                if (_stopReported)
+                {
+                    _stopReported = false;
+                    observations.AddRange(_tracker.SeenAgain(parsed.Timestamp));
+                }
+            }
 
             // The tag filter. Every other tag in the file -- tracking, asset downloads, OSC, Steam,
             // VRChat's own HTTP -- is skipped here, unread. That is roughly 96% of the file.
@@ -148,6 +187,39 @@ public sealed class PresenceObserver
             }
         }
 
+        if (StoppedJustNow() is { } stopped)
+            observations.Add(stopped);
+
         return observations;
+    }
+
+    /// <summary>
+    /// The one report that the log has stopped, or null when there is nothing to say.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>Once per stop.</strong> The client says the log stopped and then says nothing
+    /// until it starts again. It never sends "still here" while the log is growing: a moderator's
+    /// whereabouts are a by-product of what they observe, not something reported on a timer
+    /// (see <c>DeviceLocations</c> on the server, which records why that was rejected).</para>
+    /// <para><strong>Only a stop worth reporting.</strong> The log must have grown while this client
+    /// was running, the moderator must be settled in an instance, and their own id must be known --
+    /// otherwise there is no watch on the server for this to end, and no subject to name.</para>
+    /// <para>Dated at VRChat's own timestamp on the last line, which is the last moment anything
+    /// was actually seen, rather than two minutes later when the silence was noticed.</para>
+    /// </remarks>
+    private ObservedPresence? StoppedJustNow()
+    {
+        if (_stopReported || !_sawLiveLine || LogIsLive)
+            return null;
+
+        if (_lastLineWritten is not { } lastWritten
+            || _tracker.CurrentInstance is not { } instance
+            || _tracker.LocalUserId is not { } moderator)
+        {
+            return null;
+        }
+
+        _stopReported = true;
+        return new ObservedPresence(PresenceKind.LogStopped, lastWritten, moderator, _tracker.LocalDisplayName, instance);
     }
 }

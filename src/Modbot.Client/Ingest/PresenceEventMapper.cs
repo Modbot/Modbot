@@ -101,6 +101,7 @@ public sealed class PresenceEventMapper
         PresenceKind.PresenceObserved => ClientEventType.InstancePresenceObserved,
         PresenceKind.Left => ClientEventType.InstanceLeft,
         PresenceKind.AvatarChanged => ClientEventType.AvatarChanged,
+        PresenceKind.LogStopped => ClientEventType.LogStopped,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown presence kind."),
     };
 }
