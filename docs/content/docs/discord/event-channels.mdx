@@ -1,0 +1,154 @@
+---
+title: Event channels and filters
+description: Send bans, kicks, joins, role changes and other events to the Discord channels you choose, narrowed to the people and roles you care about.
+---
+
+The bot can post events to your Discord server as they happen: bans, kicks, warnings, people
+joining and leaving, role changes, case files and much more. You decide which events go to which
+channel, and you can narrow a channel to certain people or roles, for example "bans done by
+Moderators" or "anything that happens to these three people".
+
+Each rule for a channel is set up on the **Channels** card under **Settings → Discord**. You need
+the **Change settings** permission. The bot has to be connected first; see
+[Setting up the bot](/discord/bot-setup).
+
+## Add a channel
+
+On the **Channels** card, press **Add channel**. The **Add channel** window has:
+
+1. **Channel** — pick the channel by name. A channel where the bot is missing a permission is
+   marked with what is missing (see [What the bot needs in the channel](#what-the-bot-needs-in-the-channel)).
+2. **Name** — optional. It is shown next to the channel in the list, which helps when one channel
+   has more than one rule.
+3. **Events** — tick the events to send. Events are grouped under headings; the box beside a
+   heading ticks or clears the whole group, and the count beside it shows how many are ticked.
+4. **Filters** — all optional (see below).
+
+Press **Save**. You must pick a channel and at least one event.
+
+## Which events can be chosen
+
+Almost every kind of event Modbot records can be sent. They are grouped like this:
+
+| Group | Examples |
+|---|---|
+| **Moderation** | Banned, Unbanned, Kicked, Kicked from an instance, Warned in an instance, Join request rejected, Case file written, Evidence attached, Review opened, Flagged by a moderation rule |
+| **Members** | Joined the group, Left the group, Role granted, Role revoked, Asked to join the group, Profile changed, Seen as 18+ verified |
+| **Instances** | Group instance created, Group instance closed, Joined an instance, Left an instance, Changed avatar |
+| **Group** | Group details changed, Group post created, Calendar entry created |
+| **Discord** | Joined Discord, Left Discord, Banned from Discord, Timed out on Discord, Discord role granted, Joined a voice channel, Discord messages removed by a moderator, Discord account linked |
+| **Access and settings** | Account created, Roles changed, Role created, API key created, Settings changed |
+| **Other** | Sync failed, AI spend limit reached, and anything that fits no other group |
+
+The window always lists the full set. When Modbot learns to record a new kind of event, it appears
+in the list without anyone having to add it.
+
+### Events that are never sent
+
+Some events are never posted to Discord, whatever a rule says, and are not offered in the list.
+A Discord channel is usually readable by many people, so these stay inside Modbot:
+
+- sign-ins and failed sign-ins;
+- password changes and password reset links;
+- **Signed out everywhere**;
+- contact detail changes;
+- Modbot's own housekeeping, such as **Posted to the Discord log channel**.
+
+## Filters
+
+Leave every filter empty to send all events of the ticked kinds.
+
+| Filter | An event is sent only when |
+|---|---|
+| **Happened to** | it happened to one of these people. |
+| **Happened to someone with these VRChat roles** | the person it happened to held one of these VRChat group roles at the time. |
+| **Done by** | one of these people did it. Tick **Modbot (automatic)** to also include events nobody did, such as changes Modbot noticed on its own. |
+| **Done by someone with these VRChat roles** | the person who did it held one of these VRChat group roles at the time. |
+| **Done by someone with these Modbot roles** | the Modbot account of the person who did it held one of these Modbot roles at the time. |
+
+**How filters combine.** When you set more than one filter, an event has to pass all of them.
+Inside one filter, matching any of the listed people or roles is enough.
+
+**Events nobody did.** An event with no one who did it never passes **Done by someone with these
+VRChat roles** or **Done by someone with these Modbot roles**. It only passes **Done by** when
+**Modbot (automatic)** is ticked.
+
+### Picking people
+
+Type a name or id in the search box under **Happened to** or **Done by**. The results come from
+the VRChat profiles Modbot has stored, the Discord server's member list, and the Discord accounts
+members have linked. Each result is marked **VRChat** or **Discord**. If the person is not found,
+you can pick **Use … as a VRChat id** or **Use … as a Discord id** to use what you typed as it is.
+
+- **A VRChat account** matches events about that VRChat account.
+- **A Discord account** matches events about that Discord account, whether or not the person has
+  ever linked a VRChat account.
+- **When a member has linked their accounts** (see [Account linking](/discord/account-linking)),
+  picking either account also matches events on the other one.
+- **A moderator's actions in Modbot** count as done by the VRChat account linked to their Modbot
+  account, and by the Discord user id saved on it.
+
+### Roles are the roles at the time
+
+Roles are checked as they were when the event happened, not when the post goes out. If a
+Moderator bans someone while the bot is offline and then loses the Moderator role, a
+"bans by Moderators" channel still gets that ban.
+
+**VRChat roles** are the group roles Modbot last read from VRChat. **Modbot roles** are the roles
+on the **Roles** page.
+
+## More than one rule for a channel
+
+You can add as many channels as you like, and more than one rule for the same channel. If two rules
+for one channel both match an event, the channel still gets it only once.
+
+## The channel list
+
+Each row on the **Channels** card shows:
+
+- the channel name, and the rule's **Name** if it has one;
+- a warning such as **Missing Send Messages** or **Removed** if the bot cannot post there;
+- how many events it sends, and **Filtered** when any filter is set;
+- an on/off switch, **Edit** and **Delete**. **Delete** asks you to press **Delete** again to confirm.
+
+Every change is saved as soon as you make it, and recorded in the audit log as **Settings changed**
+with who made it.
+
+## Turning a channel on and off
+
+The switch on each row turns a rule on (**On**) or off (**Off**). A rule that is off is kept but
+sends nothing.
+
+**Posting starts from the moment a channel is turned on.** Nothing that happened before is posted.
+Adding a channel, or turning a channel back on after every rule for it was off, never replays your
+group's history into Discord.
+
+## What a post looks like
+
+Each event is a card with:
+
+- the event's name as the title, for example **Banned**. When a [public address](/discord/bot-setup#enter-the-token-and-server-id-in-modbot)
+  is set, the title links to that person's entries in Modbot's **Audit log**;
+- **Who** it happened to and **By** whom, with names and ids;
+- **When**, shown in each reader's own time zone;
+- VRChat's own sentence about the event, quoted, when VRChat gave one.
+
+Modbot looks for new events every few seconds. When many events arrive at once, it groups up to
+ten cards in one message and spaces messages out, so it stays within Discord's limits. Events go
+out in the order they happened, and none are skipped.
+
+## What the bot needs in the channel
+
+The bot needs **View Channel**, **Send Messages** and **Embed Links** in each channel it posts
+to. These can be taken away by a channel's or category's own permission settings, even when the
+bot's role has them.
+
+If Discord refuses a post, that channel waits 30 seconds and tries again from the same event, so
+nothing is lost. Other channels keep posting in the meantime. The **Discord bot** card on the
+**Sync health** page lists each channel with a problem: missing permissions, a deleted channel, or
+the reason Discord gave for refusing the last post.
+
+## Insights
+
+AI insights can also be posted to a Discord channel. That is set up with the insights themselves;
+see [Insights](/ai/insights).

@@ -1,0 +1,21 @@
+---
+title: Privacy
+description: Where Modbot's privacy policy will be published, and pointers to what a self-hosted Modbot stores.
+---
+
+Modbot's privacy policy will be published in `PRIVACY_POLICY.md` in the
+[Modbot repository](https://github.com/binn/Modbot), and on modbot.co once that site exists.
+
+Until then, this page does not state a privacy policy.
+
+## What a self-hosted Modbot stores
+
+A Modbot you run yourself keeps its data in your own PostgreSQL database, and evidence files
+wherever you choose to store them. These pages describe what is kept and how it is protected:
+
+- [Data and retention](/self-hosting/data-retention): the kinds of records Modbot keeps (moderation
+  facts, presence facts such as instance joins and avatar changes, stored Discord messages, daily
+  totals, case files and evidence), how long each is kept, and how to set a retention window. By
+  default nothing is deleted.
+- [Security](/security): how passwords, sessions, stored secrets, API keys, webhooks, evidence and
+  desktop client tokens are protected, and what Modbot sends to VRChat.

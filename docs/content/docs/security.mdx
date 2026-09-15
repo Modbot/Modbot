@@ -1,0 +1,235 @@
+---
+title: Security
+description: What Modbot protects, how, and where the limits are, from passwords and sessions to stored secrets, API keys, webhooks, evidence and the desktop client.
+---
+
+This page says plainly what Modbot protects, how it does it, and what it does not protect against.
+If you are deciding whether Modbot is safe enough for your group, or you run a Modbot for one, this
+is the page to read.
+
+## Staff passwords
+
+- Passwords are never stored. Modbot stores a **hash**: a one-way scramble made with PBKDF2 and a
+  random salt per password, using ASP.NET Core's standard password hasher. A copy of the database
+  does not reveal anybody's password. When the hasher's settings are strengthened in a newer
+  version, a password's hash is upgraded the next time that person signs in.
+- A password must be at least 12 characters.
+- Changing your username or password needs your current password, so a browser left signed in
+  cannot be used to take over the account.
+- Signing in with a username that does not exist takes the same work as a wrong password, so timing
+  does not reveal which usernames are real.
+
+See [Staff accounts](/accounts/staff-accounts) for how people are added and how resets work.
+
+## Signing in
+
+### Slowdown, not lockout
+
+Each failed sign-in makes the next attempt wait longer: 1 second, then 2, 4, 8, 16, and at most 20
+seconds. Failures are counted per username and per address over 15 minutes, and the wait happens
+before the password is even checked.
+
+There is **no lockout**. A correct password always works after the wait, so an attacker hammering
+the administrator's username cannot keep the administrator out; the worst they can do is make them
+wait 20 seconds. The sign-in page gives the same answer for a wrong password, an unknown username
+and a disabled account.
+
+Every failed attempt is recorded in the operational log with the username tried and the address it
+came from, never the password.
+
+### Sessions and cookies
+
+A session is a cookie named `modbot.session`. It is:
+
+- `HttpOnly`: scripts on the page cannot read it,
+- `Secure`: browsers only send it over HTTPS, so run Modbot behind HTTPS,
+- `SameSite=Lax`: other websites cannot make your browser send it along with their own requests,
+- valid for **14 days**, extended while you keep using Modbot.
+
+**Every request checks the account** before the cookie is trusted. That is what makes these take
+effect on the very next click:
+
+- disabling an account ends all its sessions,
+- using a reset link ends all the account's sessions,
+- changing your own password ends all your other sessions,
+- **Sign out everywhere** ends all your sessions, including the current one,
+- a change to somebody's roles, or to a role they hold.
+
+The keys that sign session cookies are kept in Modbot's database (the `data_protection_keys` table),
+so restarting or updating Modbot does not sign anybody out. If you ever need to end every session
+for every account at once, delete the rows in that table and restart Modbot. Normally you do not
+need to: disabling an account or **Sign out everywhere** does the job for one account.
+
+Those keys are stored unencrypted. Encrypting them would need another key, and the only place to
+keep it would be the same database. Anybody who can read that table can already read everything
+else Modbot holds, so it would not change what an attacker gets.
+
+### Every account is tied to a real VRChat account
+
+Before an account can do anything other than finish the link and sign out, the person must prove
+they control a VRChat account by putting a code in its bio, which Modbot reads back through its own
+VRChat connection. One VRChat account can be linked to only one Modbot account. This is what lets
+Modbot say which person did something, not just which username. See
+[Linking a VRChat account](/accounts/staff-accounts#linking-a-vrchat-account-required).
+
+### Invite and reset links
+
+- Each link carries 32 random bytes. Modbot stores only a SHA-256 hash of it, so a copy of the
+  database contains no working links.
+- Invite links last 72 hours and reset links 24 hours. Both work once.
+- A reset link that Modbot sends by email or Discord is built **only** from the **Public address**
+  saved under **Settings**, **Host & Database**. It is never built from the address a request came
+  in on, or from forwarding headers. Anybody can ask for a reset link for somebody else's username;
+  if Modbot built the link from that request, an attacker could make a genuine reset message point
+  at their own server. Until a public address is saved, nothing is sent.
+- The forgot-password page gives the same answer whether or not the username exists.
+
+## Permissions
+
+Every request is checked on the server against the permissions of the person (or API key) making
+it. Hiding a page in the sidebar is only for tidiness. People can only hand out permissions they
+hold themselves, and at least one enabled administrator always remains. See
+[Roles and permissions](/accounts/roles-and-permissions).
+
+## Secrets stored in the database
+
+Modbot stores several secrets for you so it can do its job:
+
+- your VRChat service account's password and two-factor (TOTP) secret,
+- the VRChat sign-in cookies it keeps between logins,
+- your proxy password, if you use a proxy,
+- your Discord bot token and Discord sign-in (OAuth) client secret,
+- your SMTP password,
+- your AI provider's API key,
+- your S3 bucket's secret access key, if evidence is stored in a bucket,
+- each webhook's signing secret.
+
+These are encrypted with **AES-256-GCM** before they are written to the database.
+
+**The encryption key is created the first time Modbot starts and is stored in the same database**,
+in the `protector_key` table. There is no environment variable or file to keep it in.
+
+### What that protects against
+
+One thing: somebody casually reading a copy of the database. If a backup, an export or a stray
+`pg_dump` ends up somewhere it should not, the secret columns are unreadable rather than your VRChat
+password in plain view.
+
+### What it does not protect against
+
+**Anyone who can read your whole database can decrypt your secrets**, because the key is in that
+same database. This is the design, not a shortcut to be fixed later. It does **not** protect
+against:
+
+- somebody who gets into your PostgreSQL server,
+- your hosting provider, or anyone who works there,
+- somebody who takes over the running Modbot server, which holds the key in memory,
+- a Modbot administrator, who can change settings through the web app.
+
+### Why the key lives in the database
+
+Modbot is run by community groups on hosted platforms, not by security teams with a key vault. The
+alternative, a key you must supply in an environment variable, would be worse in practice:
+
+- On platforms like Railway, environment variables sit in the same project dashboard as the
+  database password. Whoever can see one can see the other.
+- A key you have to keep is a key people lose: a fresh redeploy, a project recreated after a billing
+  problem, a handover to the next volunteer. Losing it would not just weaken Modbot; every stored
+  secret would become unreadable for good, including the VRChat session your moderation depends on.
+
+### If you need real encryption at rest
+
+Encrypt the database itself. Every managed PostgreSQL provider offers this, and disk encryption does
+the same job on your own server. Restrict who can reach the database. Modbot's own encryption is a
+second, weaker layer on top and was never meant to replace that. See
+[PostgreSQL](/self-hosting/postgres).
+
+`DATABASE_URL` contains your database password, so treat it as carefully as the database. See
+[Environment variables](/self-hosting/environment-variables).
+
+## API keys
+
+- A key is 32 random bytes with an `mbk_` prefix. Modbot stores a **SHA-256 hash** of the key and
+  its first 12 characters (so you can tell keys apart), never the whole key. It is shown once, when
+  it is made.
+- A key can only be given permissions its maker holds, and it can never do more than its maker can
+  do **right now**. If the maker loses a permission or is disabled, the key loses it too.
+- A revoked or expired key, or a key whose maker is disabled, stops working on its next request.
+
+See [API keys](/api/keys).
+
+## Webhooks
+
+- Every delivery is **signed**: the `Modbot-Signature` header is an HMAC-SHA256 of the timestamp and
+  the body, made with that webhook's own secret. Check it before trusting a delivery. See
+  [Webhooks and signatures](/api/webhooks).
+- The secret is encrypted in the database like the other secrets above, because Modbot has to read
+  it back to sign each delivery.
+- A webhook address must start with `https://` and may not point at a private or local network
+  address, unless somebody holding **Change settings** allows private addresses.
+- A webhook only sends events its owner is allowed to see.
+
+## Evidence
+
+- Opening evidence needs **View evidence**, uploading needs **Upload evidence**, and destroying it
+  needs **Destroy evidence**. They are three separate permissions on purpose.
+- Evidence is downloaded as an attachment, with a content type Modbot works out from the file itself.
+  When the file is sent through Modbot, it also carries headers that stop the browser guessing a
+  different type or running anything inside it.
+- Each file is stored under the SHA-256 hash of its contents. When a file is sent through Modbot, it
+  is hashed again on the way out, and the download is cut off if the file no longer matches.
+- When a bucket sends a file straight to the browser instead, the link it uses lasts five minutes.
+- Destroying a file keeps a record of what it was, who destroyed it, when and why.
+
+See [Evidence](/moderation/evidence) and [Storage buckets](/self-hosting/storage-buckets).
+
+## The desktop client
+
+The desktop client pairs with your server through the pairing page. See
+[Pairing](/desktop-client/pairing).
+
+- The **pairing code** is single-use and expires after **5 minutes**, so a code left in a browser
+  history, a screenshot or a stream is useless by the time anyone sees it.
+- Pairing gives the client a long, random **device token** that nobody ever sees or types. The
+  server stores only a SHA-256 hash of it and compares tokens in a way that does not leak how much
+  of a guess was right.
+- On the moderator's PC, the token is encrypted with Windows' own data protection for that Windows
+  user, so copying the file to another machine or user account does not give a working token.
+- A device token identifies a client, not a person. It can send what the client observes and read
+  the context the overlay needs, and nothing else: it cannot ban, kick, read the member list or reach
+  any other part of Modbot.
+- A pairing code can only be made by a signed-in person, never by a device, so one compromised client
+  cannot create more.
+
+## What Modbot tells VRChat about you
+
+Modbot talks to VRChat's API with your VRChat service account, through a single connection that
+follows VRChat's rate limits and never retries after VRChat says to slow down.
+
+Every request carries a descriptive User-Agent, because VRChat asks for one and would rather contact
+an operator than block them. It contains:
+
+- the name **Modbot** and its version,
+- the **email address of whoever runs this Modbot**: the oldest enabled account holding
+  **Administrator** that has an email address. The first administrator gives one during the
+  [setup wizard](/setup-wizard). Changing that account's email changes the address Modbot sends
+  from then on.
+
+Two more headers name the Modbot project itself (its contact email and
+`https://github.com/binn/Modbot`), so VRChat can reach somebody who can explain the traffic even if
+your address stops working.
+
+If you set up a proxy for VRChat traffic in **Settings**, **VRChat Service Account**, those requests
+go through it.
+
+## Logs
+
+Modbot's logs contain VRChat user ids, display names and moderation actions: they are a record of
+what your moderators did and to whom. If you send them to Seq with `SEQ_URL`, point it somewhere you
+control. See [Environment variables](/self-hosting/environment-variables).
+
+## Reporting a security problem
+
+Please do not open a public issue. Open a **private security advisory** on the repository at
+[github.com/binn/Modbot](https://github.com/binn/Modbot/security/advisories/new). Modbot is run by
+volunteer groups who cannot patch on the same day a problem is made public.

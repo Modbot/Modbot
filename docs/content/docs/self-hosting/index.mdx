@@ -1,0 +1,99 @@
+---
+title: What you run
+description: The one service and one database Modbot needs, what is optional, and what the project's own central services are used for.
+---
+
+Modbot runs as **one service plus one PostgreSQL database**. There is no Redis, no search server, no
+message queue and no outside sign-in service to set up.
+
+The service needs one setting to start: `DATABASE_URL`, which tells it where the database is.
+Everything else, from the VRChat account to the Discord bot, is entered in the web app through the
+[setup wizard](/setup-wizard) and **Settings**, and stored in the database.
+
+## What is required
+
+### The Modbot server
+
+One container, built from the `Dockerfile` at the root of the repository. It holds:
+
+- the web app your staff open in a browser,
+- the API,
+- the VRChat sync, which reads your group's audit log, members, bans and profiles,
+- the Discord bot, which only starts once you give it a token.
+
+Run **exactly one copy**. Modbot signs in to VRChat with one account and paces its requests to
+stay inside VRChat's rate limits. A second copy would send twice as many requests against the same
+limit, and neither copy could see what the other was doing.
+
+The server listens on the port in `PORT` (8080 if you do not set one) and answers two health checks,
+`/health/live` and `/health/ready`. See [Checking a deployment](/self-hosting/health).
+
+### PostgreSQL
+
+The database holds everything: settings, staff accounts, the history Modbot records, and the keys
+Modbot uses to protect stored passwords and keep people signed in. Modbot creates and updates its
+own tables every time it starts. See [PostgreSQL](/self-hosting/postgres).
+
+## What is optional
+
+| | What it is for | Where you set it up |
+|---|---|---|
+| **Evidence storage** | Keeping screenshots and videos attached to case files. You can use an S3-compatible storage bucket, a folder on disk, or the database itself. Until you choose one, uploads are turned off and everything else works. | **Settings**, **Evidence** tab. See [Storage buckets](/self-hosting/storage-buckets). |
+| **The Discord bot** | Posting events to Discord, instance announcements, account linking, and reading your Discord server. | The setup wizard, or **Settings**, **Discord** tab. See [Setting up the bot](/discord/bot-setup). |
+| **Email (SMTP)** | Sending email, such as password reset links. | The setup wizard, or **Settings**, **Integrations** tab. |
+| **An AI provider** | AI moderation rules, insights and chat. | **Settings**, **AI** tab. See [AI settings](/ai/settings). |
+| **A proxy** | Reaching VRChat from a host whose network VRChat's Cloudflare protection blocks. Common on VPS and datacentre hosting. | The setup wizard's connection check, or **Settings**, **VRChat Service Account** tab. |
+| **Seq** | Sending logs to a [Seq](https://datalust.co/seq) server, so you keep them when the container's disk does not survive. | The `SEQ_URL` environment variable. |
+
+A Modbot with none of these is complete and working: it syncs your group, and your staff can use
+every page that does not depend on one of them.
+
+## Ways to deploy
+
+<Cards>
+  <Card title="Railway" href="/self-hosting/railway">
+    The service and a Postgres database, with the health check and variables already wired.
+  </Card>
+  <Card title="Docker" href="/self-hosting/docker">
+    Build the image and run it next to PostgreSQL on your own machine or server.
+  </Card>
+</Cards>
+
+After it is running, open its address in a browser. A new Modbot sends every visitor to the
+[setup wizard](/setup-wizard).
+
+## The project's central services
+
+The Modbot project runs a few services of its own. A self-hosted Modbot does not need any of them to
+sync your group or run your moderation. Here is what each one is used for.
+
+### my.modbot.co
+
+A page that remembers the Modbot addresses you use, so you can pick one from a list instead of
+hunting for a URL.
+
+- When you finish the setup wizard for the first time, Modbot opens
+  `https://my.modbot.co/register?url=` followed by your Modbot's address, in a new tab. That page
+  saves the address in your browser. my.modbot.co also records that the address was registered.
+- **Your account** in the web app has an **Add to my.modbot.co** button that does the same thing
+  later.
+- The desktop client's pairing button opens `https://my.modbot.co/go?redir=/pair`, which lists your
+  saved Modbots and sends you to the pairing page on the one you pick. See [Pairing](/desktop-client/pairing).
+- AI moderation can use shared term lists published on my.modbot.co. Modbot fetches a list only if
+  you choose to use one. See [Moderation rules](/ai/moderation-rules).
+
+If you would rather not use it, skip the tab it opens and bookmark your Modbot's address instead.
+
+### Modbot Cloud
+
+`cloud.modbot.co` keeps a backup of what paired desktop clients read from VRChat's log: the
+presence events they send to your Modbot, never raw log lines. The desktop client sends this backup
+unless the moderator turns it off in the client.
+
+Your Modbot server itself sends nothing to Modbot Cloud. It only tells its paired clients where the
+backup should go. As the operator you can change that with two environment variables:
+
+- `MODBOT_CLOUD_DISABLED=1` stops every client paired with your Modbot from sending a backup.
+- `MODBOT_CLOUD_ENDPOINT` points your clients at a different Modbot Cloud.
+
+See [Environment variables](/self-hosting/environment-variables).

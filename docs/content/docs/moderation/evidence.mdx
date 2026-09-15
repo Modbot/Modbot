@@ -1,0 +1,138 @@
+---
+title: Evidence
+description: Attach screenshots and video to a case file, view them, what destroying evidence means, the three evidence permissions, and the upload limits in Settings.
+---
+
+Evidence is the screenshots and video attached to a [case file](/moderation/case-files). It sits in
+the **Evidence** section of the case file page.
+
+Before anyone can attach evidence, whoever runs your Modbot has to choose where the files are kept.
+See [Storage buckets](/self-hosting/storage-buckets).
+
+## The three evidence permissions
+
+| Permission | What it allows |
+|---|---|
+| [**View evidence**](/accounts/roles-and-permissions#view-evidence) | Open the screenshots and video attached to a case file. |
+| [**Upload evidence**](/accounts/roles-and-permissions#upload-evidence) | Attach screenshots and video to a case file. |
+| [**Destroy evidence**](/accounts/roles-and-permissions#destroy-evidence) | Permanently remove the files. The record that they existed stays. |
+
+**View evidence** is separate from reading case files on purpose. Knowing somebody was banned for
+harassment is not the same as needing to watch it happen. Without it, the Evidence section says
+**You do not have permission to view evidence.**
+
+## Attaching a screenshot or video
+
+You see **Attach a screenshot or video** when all of these are true:
+
+- you have **Upload evidence**;
+- you wrote the case file, or you have **Ban**;
+- the case file has not been withdrawn.
+
+Beside the button, Modbot lists the accepted formats and the size limit per file.
+
+<Steps>
+
+<Step>
+
+### Press Attach a screenshot or video
+
+Choose one file. To attach several, do them one after another.
+
+</Step>
+
+<Step>
+
+### Wait for the upload
+
+You may see **Checking the file…** first, then a progress bar with how much has been sent and how fast,
+then **Attaching…**. A large video on a home connection can take minutes.
+
+</Step>
+
+<Step>
+
+### Check it arrived
+
+The line says **Attached** and the file name, and the file appears in the list.
+
+</Step>
+
+</Steps>
+
+Nothing is attached until the upload has finished. If your connection drops, the file is not
+attached; try again. If a file is over the size limit, Modbot says so before sending anything.
+
+### Accepted formats
+
+| Kind | Formats |
+|---|---|
+| Images | PNG, JPEG, WebP, GIF |
+| Video | MP4, WebM |
+
+Modbot decides what a file is from its contents, not from its name. A file that is really
+something else is refused, whatever it is called. SVG and HTML files are never accepted, because
+they can carry code that would run in a moderator's browser.
+
+Modbot stores the file exactly as you uploaded it. It does not shrink, convert or clean it, so a
+photo keeps any hidden details saved inside it (such as when or where it was taken).
+
+### If uploads are refused
+
+When the storage is not set up or not reachable, the button is greyed out and a line says
+**Uploads are refused right now:** with the reason. Ask whoever runs your Modbot to check
+**Settings**, **Evidence**.
+
+## Viewing evidence
+
+Each attached file shows:
+
+- **Images** inline. Click one to open it full size in a new tab.
+- **Video** in a player on the page. Seeking works when the storage supports reading part of a
+  file (**Settings**, **Evidence**, **Range reads**).
+- The file name, its type, its size, the date it was stored and who uploaded it.
+- **Download**, to save the file.
+- Its `sha256` fingerprint. This is a code worked out from the file's exact contents. If a
+  downloaded file gives the same fingerprint, it is byte for byte the file that was stored.
+
+To show an attached image inside the written reason, copy its fingerprint and write
+`![what it shows](evidence:the-sha256-you-copied)`. Only evidence attached to the same case file
+works. See [Formatting the written reason](/moderation/case-files#formatting-the-written-reason).
+
+## Destroying evidence
+
+Destroying removes a file's contents from storage for good. There is no undo: none of the storage
+types Modbot supports could bring it back.
+
+What stays is the record that the file existed: its fingerprint, size and type, who destroyed it
+and why. In the case file, the file's place says **The file was destroyed**, with the date, who did
+it and the reason. A case file never looks as though it had no evidence.
+
+<Callout type="warn" title="There is no Destroy button yet">
+The web app has no button for destroying evidence. The server has an API endpoint for it, which
+needs **Destroy evidence** and a reason. It refuses to destroy a file that is still attached to a
+case file, and names those case files instead. Modbot also has no way yet to take a file off a
+case file, so files attached through the web app cannot be destroyed today. It also refuses while
+the storage's state is in doubt.
+</Callout>
+
+## Upload limits in Settings
+
+Anyone with **Change settings** can set limits in **Settings**, **Evidence**, **File Upload
+Limits**, then press **Save limits**.
+
+| Field | Meaning | Default |
+|---|---|---|
+| **Per file (MB)** | The largest single file anyone can attach. Checked in the browser before sending, and again by the server while the file arrives. | 100 MB |
+| **Per report (MB)** | The most one case file may hold in total. 0 means no limit. If set, it cannot be smaller than the per-file limit. | 0 (no limit) |
+| **Deployment (MB)** | The most your whole Modbot may hold. 0 means no limit. | 0 (no limit) |
+
+<Callout type="info" title="Only the per-file limit is checked today">
+Modbot saves the **Per report** and **Deployment** limits, but at the time of writing only
+**Per file** is checked when a file is uploaded.
+</Callout>
+
+The **What this store is doing** card in the same tab shows **Delivery** (**Straight from the
+store** or **Through Modbot**), **Range reads**, **Evidence held** (how many files and how much
+space), **Destroyed** and **Accepted formats**. When delivery is straight from the store, opening a
+file sends your browser a link that works for 5 minutes.

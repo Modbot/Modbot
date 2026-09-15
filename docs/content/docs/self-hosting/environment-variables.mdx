@@ -1,0 +1,154 @@
+---
+title: Environment variables
+description: Every environment variable each Modbot service reads, starting with the server you host yourself.
+---
+
+If you self-host Modbot, **the only service you run is the Modbot server** (`Modbot.Host`, built
+from the `Dockerfile` at the root of the repository). Its variables are the first section on this
+page.
+
+The other sections cover the project's own services: my.modbot.co, Modbot Cloud, the landing page
+and this documentation site. You do not need them to run Modbot. They are listed so the whole
+project is documented in one place.
+
+## The Modbot server
+
+Almost everything is set in the web app and stored in the database. The environment only holds
+what Modbot needs before it can reach the database, plus a few switches.
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `DATABASE_URL` | Yes | none | Where the PostgreSQL database is, as `postgres://user:password@host:5432/database` or a keyword connection string. Modbot refuses to start without it. See [PostgreSQL](/self-hosting/postgres). |
+| `PORT` | No | `8080` | The port to listen on. A missing value, or one that is not a number from 1 to 65535, means 8080. |
+| `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. Useful when the container's disk does not survive a redeploy, and when Modbot cannot reach its database, which is exactly when settings stored in the database cannot help. |
+| `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log files and sends Debug detail to Seq. It also brings back the web server's per-request log lines and the database's query lines, which are left out otherwise. |
+| `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud address this server gives its paired desktop clients for their backup. A value that is not a full `http` or `https` address is ignored and the default is used. |
+| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: desktop clients paired with this server send nothing to Modbot Cloud. |
+
+The image clears `ASPNETCORE_HTTP_PORTS`, so `PORT` is the only port setting.
+
+### Read only to fill in a form
+
+Railway sets the first five when you add a bucket to the service. Modbot reads them only to fill in
+**Settings**, **Evidence**, **Where evidence is stored** while no evidence storage has been chosen.
+You still confirm and press **Test and save**. Once storage is saved, these variables are ignored,
+so changing them later does not move anything.
+
+`BUCKET`, `ENDPOINT`, `ACCESS_KEY_ID` and `SECRET_ACCESS_KEY` must all be set for the form to be
+filled in.
+
+| Variable | Fills in |
+|---|---|
+| `BUCKET` | **Bucket** |
+| `ENDPOINT` | **Endpoint** |
+| `ACCESS_KEY_ID` | **Access key id** |
+| `SECRET_ACCESS_KEY` | Not shown in the form. Used as the secret access key if you leave **Secret access key** empty when you first save. |
+| `REGION` | **Region** (optional) |
+| `RAILWAY_PUBLIC_DOMAIN` | The suggested public address in the setup wizard and in **Settings**, **Host & Database**, **Public address**. |
+
+### Read to describe the deployment
+
+Your hosting platform sets these, not you. Modbot reads them to fill in the **Deployment** card
+under **Settings**, **Host & Database**.
+
+| Variable | Used for |
+|---|---|
+| `RAILWAY_GIT_COMMIT_SHA`, `GITHUB_SHA` | **Version commit**, when the build did not record one |
+| `RAILWAY_GIT_BRANCH`, `GITHUB_HEAD_REF`, `GITHUB_REF_NAME` (with `GITHUB_REF_TYPE=branch`) | **Release branch**, when the build did not record one |
+| `RAILWAY_ENVIRONMENT`, `RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID` | **Host**: Railway |
+| `FLY_APP_NAME`, `FLY_ALLOC_ID`, `FLY_MACHINE_ID` | **Host**: Fly.io |
+| `RENDER`, `RENDER_SERVICE_ID`, `RENDER_INSTANCE_ID` | **Host**: Render |
+| `DYNO`, `HEROKU_APP_ID` | **Host**: Heroku |
+| `VERCEL`, `VERCEL_ENV` | **Host**: Vercel |
+| `KOYEB_APP_NAME`, `KOYEB_SERVICE_ID` | **Host**: Koyeb |
+| `NF_INSTANCE_ID`, `NF_PROJECT_ID` | **Host**: Northflank |
+| `K_SERVICE`, `K_REVISION` | **Host**: Google Cloud Run |
+| `CONTAINER_APP_NAME`, `CONTAINER_APP_REVISION` | **Host**: Azure Container Apps |
+| `AWS_APP_RUNNER_SERVICE_ID` | **Host**: AWS App Runner |
+| `ECS_CONTAINER_METADATA_URI_V4`, `ECS_CONTAINER_METADATA_URI` | **Host**: AWS ECS / Fargate |
+| `KUBERNETES_SERVICE_HOST` | **Host**: Kubernetes |
+
+When none of them is set, **Host** shows `self-hosted`.
+
+The host also decides one default: on every platform above except Kubernetes, Modbot assumes the
+container's disk is thrown away on redeploy until it sees proof otherwise, and warns about log files
+and evidence kept on disk. A disk that survives one restart is treated as lasting from then on.
+
+### Build settings
+
+| Setting | Where | What it does |
+|---|---|---|
+| `RAILWAY_GIT_COMMIT_SHA`, `RAILWAY_GIT_BRANCH` | Docker build arguments (`--build-arg`) | Recorded as the version commit and release branch. Railway passes them automatically. |
+| `ModbotCommit`, `ModbotBranch` | .NET build properties (`-p:ModbotCommit=...`) | The same, and they win over everything else. Without them, a local build asks git. |
+| `ModbotRelease` | .NET build property (`-p:ModbotRelease=2026.9.0`) | Stamps the release version, which must look like year.month.patch with no leading zeros. The root Dockerfile does not set it. |
+| `ModbotOpenApiDocument` | .NET build property (`-p:ModbotOpenApiDocument=false`) | Stops the build rewriting `docs/openapi/modbot.json`, the API description this site's API reference is built from. Docker builds never write it. |
+
+## The web app
+
+The web app (`src/Modbot.Web`) reads no environment variables. It is built into the Modbot server's
+image and served by it.
+
+## The desktop client
+
+The Windows client's settings are in the client itself. Where its Cloud backup goes comes from the
+server it is paired with, through `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` above.
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `MODBOT_CLIENT_LOG_LEVEL` | No | `Verbose` | The lowest level written to the client's own log in `%APPDATA%\Modbot\logs`: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Verbose`. |
+
+See [Installing the desktop client](/desktop-client/install).
+
+## The project's own services
+
+You do not run these to self-host Modbot.
+
+### my.modbot.co
+
+`src/Modbot.My`, built by `src/Modbot.My/Dockerfile` from the root of the repository.
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `DATABASE_URL` | Yes | none | PostgreSQL, as a `postgres://` URL or a keyword connection string. It refuses to start without it. |
+| `ROOT_API_KEY` | No | none | The key that signs in to `/admin` and unlocks the endpoints that read registered Modbots. Unset means those are refused to everyone. |
+| `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. |
+
+On Railway: leave the root directory empty and set `RAILWAY_DOCKERFILE_PATH=src/Modbot.My/Dockerfile`.
+
+### Modbot Cloud
+
+`src/Modbot.Cloud` (`cloud.modbot.co`), built by `src/Modbot.Cloud/Dockerfile` from the root of the
+repository.
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `DATABASE_URL` | Yes | none | The main PostgreSQL database: installs, admin sessions and settings. |
+| `DATABASE_ENGINE_URL` | Yes | none | A second, separate PostgreSQL database that stores the events. |
+| `ROOT_API_KEY` | No | none | The key that signs in to `/admin`. Unset means admin is refused to everyone. |
+| `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. |
+
+It refuses to start when either database variable is missing, and names each missing one.
+`/health/ready` checks both databases.
+
+On Railway: leave the root directory empty, set `RAILWAY_DOCKERFILE_PATH=src/Modbot.Cloud/Dockerfile`,
+set the health check to `/health/ready`, and add two Postgres databases, one for each database
+variable.
+
+### The landing page
+
+`src/Modbot.Landing` (`modbot.co`), built by `src/Modbot.Landing/Dockerfile`. It has no database.
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. It is the only variable it reads. |
+
+On Railway: leave the root directory empty, set `RAILWAY_DOCKERFILE_PATH=src/Modbot.Landing/Dockerfile`,
+and set the health check to `/health/ready`.
+
+### This documentation site
+
+Built from `docs/Dockerfile`.
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `PORT` | No | `8080` | Port to listen on. Its health check path is `/health`. |

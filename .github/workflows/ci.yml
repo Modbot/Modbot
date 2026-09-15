@@ -110,6 +110,27 @@ jobs:
       - run: npm run build
       - run: npm run lint
 
+  # docs.modbot.co, the documentation site. `npm run build` exports every page, the API reference
+  # (from the committed docs/openapi/modbot.json) and the search index into docs/out; the link
+  # check then reads that output, so a link to a page or heading that does not exist fails here.
+  docs-site:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run lint
+      - run: npm run check-links
+
   # modbot.co's landing page. `npm run build` type-checks, bundles and prerenders the page into
   # src/Modbot.Landing/wwwroot; `npm test` runs the sample-evening and popup-stack tests.
   landing-web:

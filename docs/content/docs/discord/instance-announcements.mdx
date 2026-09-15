@@ -1,0 +1,79 @@
+---
+title: Instance announcements
+description: Post a card in a Discord channel for each instance your group opens, kept up to date while it runs.
+---
+
+Instance announcements turn a Discord channel into a notice board for your group's open instances.
+When the group opens an instance, the bot posts one card for it. The card is updated as people
+come and go, and updated one last time when the instance closes.
+
+This is meant for your members ("we are in here, come along"), so it usually goes in a different
+channel from the [event channels](/discord/event-channels) your team reads.
+
+## Set it up
+
+You need the **Change settings** permission, and the bot must be connected (see
+[Setting up the bot](/discord/bot-setup)).
+
+1. Open **Settings → Discord** and find the **Instance announcements** card.
+2. Pick a channel in **Announce open instances in this channel**.
+3. Optionally, write a **Message above each announcement**, for example "Come and join us!". It is
+   posted above every card. It can be up to 2,000 characters. Mentions in it do not ping anyone.
+4. Choose whether to **Show names** (see [Names on the card](#names-on-the-card)). It is on by default.
+5. Press **Save**.
+
+To stop announcing, set the channel to **None** and save.
+
+## Which instances are announced
+
+- **Only your group's own instances.** An instance appears when it shows up in the group's list of
+  open instances. A moderator's own private or public instance is never announced.
+- **Only instances that opened in the last 15 minutes.** Turning announcements on, or Modbot
+  starting up again after being down, does not post cards for instances that have already been
+  running for a while.
+- An instance that closes before its card was posted gets no card.
+
+## What the card shows
+
+While the instance is open, the card's title is the world's name, and the card shows:
+
+- **People here now**, and **Most at once** when more people were there earlier;
+- **Open for**, such as `2h 14m`;
+- **Who can join**: **Group members**, **Members and their friends** or **Anyone**;
+- **Region**, the world's **Capacity** when Modbot knows it, and the **Instance** number;
+- **Who is here**, when names are shown (below);
+- the world's picture, when Modbot has it;
+- a **Join** button. It opens VRChat's launch page for that instance. VRChat still checks who is
+  allowed in, so the button lets in only the people who could already join.
+
+The card is green while someone is in the instance and grey while it is empty.
+
+When the instance closes, the card changes to **This instance has closed.**, shows
+**People at the end** and **Ran for**, and loses its **Join** button. After that it is never
+changed again.
+
+Cards are updated at most once a minute each, so the numbers can be up to a minute behind.
+
+## Names on the card
+
+Modbot only knows who is inside an instance while someone from your team is in it with the
+[desktop client](/desktop-client/install) running. While that is true and **Show names** is on,
+the card lists the display names of the people there under **Who is here**: up to 20 names, then
+"and N more".
+
+When nobody from the team is in the instance, or **Show names** is off, the card shows only the
+head count. Turn **Show names** off if your community would rather not have names posted.
+
+## What the bot needs in the channel
+
+The bot needs **View Channel**, **Send Messages**, **Embed Links** and **Read Message History** in
+the announcement channel. Read Message History is needed because the bot has to fetch its own card
+again each time it updates it. The channel picker marks a channel where any of these is missing.
+
+## Good to know
+
+- If you change the channel, cards already posted stay in the old channel and keep being updated
+  there until their instances close. New instances go to the new channel.
+- If someone deletes a card in Discord, or the bot loses access to the channel, Modbot stops
+  updating that card and does not post it again.
+- If Discord refuses a post, Modbot waits two minutes and tries again.

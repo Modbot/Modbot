@@ -1,0 +1,135 @@
+---
+title: Chat
+description: Ask questions about your group in plain words. Who can use Chat, what it can look up, what is stored, and its settings.
+---
+
+The **Chat** page lets a moderator ask questions in plain words, such as "has this person been
+banned before?", "who is in our instances right now?" or "how many people joined this month?". The
+AI model answers by looking things up in Modbot with a set of tools, and every lookup is shown
+beside the answer.
+
+Chat only looks things up. It cannot kick, ban, unban, warn or change anything, and there is no tool
+that could. It is also told not to write ban reasons, case files or reports for you, and not to give
+anyone a score or verdict.
+
+## Who can use it
+
+Chat needs three things:
+
+1. AI set up and switched on under **Settings** → **AI** → **Base** ([AI settings](/ai/settings)).
+2. **Chat on** under **Settings** → **AI** → **Chat**. It starts off.
+3. The **Use AI chat** permission on the person's role
+   ([roles and permissions](/accounts/roles-and-permissions#use-ai-chat)).
+
+**Use AI chat** is not part of the built-in **Moderator** or **Viewer** roles. Using Chat sends group
+data to your AI provider, so give it on purpose. Administrators have it.
+
+The **Chat** link appears in the sidebar for anyone with **Use AI chat**. If Chat or AI is switched
+off, the page says **Chat is off.** Someone who already has conversations still sees them and can read
+them, but the message box is greyed out.
+
+## Answers only use what the asker can see
+
+Every tool runs with the permissions of the person asking. A tool is only offered to the model if
+the asker holds the permission it needs, and a tool that was not offered never runs, even if the
+model asks for it. Where a page in Modbot shows different things to different people (the audit log,
+who is in a room), the Chat tool uses the same rules as that page, with the asker's permissions.
+
+So two moderators asking the same question can get different answers, and Chat never reveals
+something the asker could not already open in Modbot.
+
+## Tools
+
+| Tool | What it looks up | Needs |
+|---|---|---|
+| **Find a person** | VRChat users Modbot has a profile for, by id or part of a display name (up to 10) | **See profiles** |
+| **Open a profile** | One user's stored profile: display name, bio, status, pronouns, when they joined VRChat, the 18+ mark, when Modbot first and last saw them, and group membership and ban standing | **See profiles** |
+| **Person's history** | The most recent audit log entries about one person | **See the audit log** |
+| **Person's case files** | Case files (ban write-ups) about one person | **See profiles** |
+| **Person's bans** | Whether one person is banned now or was before, with every ban and unban and who did it | **See the audit log** |
+| **Search members** | The group's member list, by name or id, with roles, join date and last seen | **See members** |
+| **Search the audit log** | Audit log entries, filtered by type, person, who did it and dates | **See the audit log** |
+| **Live instances** | The group's open instances right now, with head counts, which moderators are watching and who is there | **See live instances** |
+| **Find a world** | Worlds Modbot has seen, by id or part of a name (up to 10) | **See analytics** |
+| **Open a world** | One world: name, author, capacity, time people spent in it and its recent rooms | **See analytics** |
+| **Open an instance** | One room: where and when it ran, how busy it was, who was in it and what was recorded there | **See analytics** |
+| **Group figures** | The group's figures over a number of days (30 unless asked otherwise, up to 365): member count, joins, leaves, invites, join requests, roles and how long members have been members | **See analytics** |
+
+All of these only read. Anyone with **Change settings** can switch any of them off for everyone in
+the [Chat settings](#chat-settings).
+
+## Using the page
+
+- Type into the box at the bottom and press **Send** (or Enter; Shift+Enter starts a new line). A
+  message can be up to 4,000 characters.
+- While the model is working, the tools it is using appear as it runs them. Press **Stop** to stop
+  the reply. Lookups and messages that had already finished are kept in the conversation.
+- Under an answer, each tool call is shown by name. Hover over one to see what it was asked. People,
+  worlds and rooms a tool found appear beside it; click one to open its
+  [popup](/moderation/popups). A tool that failed says so.
+- **New conversation** starts a fresh one. The list on the left shows your conversations, newest
+  first, titled with their first question.
+- **Delete** removes the open conversation straight away.
+- A conversation holds up to 200 messages (tool calls and their results count). When it is full,
+  start a new one.
+
+A reply can end early:
+
+- **The reply used every tool call it was allowed.** The model hit the tool call limit and answered
+  with what it had.
+- **The reply took too long.** It passed the time limit.
+- **The AI provider could not answer.** The provider refused or could not be reached.
+- A spend limit's sentence, such as **Your daily AI spend limit is reached.** Limits are checked
+  before a reply starts, never in the middle of one. See [Limits and spend](/ai/limits-and-spend).
+
+## Conversations are private
+
+A conversation belongs to the account that started it. Nobody else can list, open, continue or
+delete it, administrators included; to anyone else it looks as though it does not exist.
+Conversations stay until their owner deletes them. If a Modbot account is deleted, its conversations
+are deleted with it.
+
+Conversations are not part of the audit log. Modbot's server log records who used Chat, which tools
+ran, whether they worked and how long they took, but never the text of a message or what a tool was
+asked.
+
+## What leaves Modbot
+
+Each reply sends your AI provider Modbot's instructions (with your group's name, the current time and
+any extra instructions), the whole conversation so far, the list of tools on offer, and every tool
+result. Tool results are real group data: names, bios, ban history, audit log entries, who is in a
+room. The asker's Modbot account id is not sent.
+
+If that data must not leave your own servers, use a model you run yourself. See
+[AI settings](/ai/settings#providers).
+
+## Chat settings
+
+**Settings** → **AI** → **Chat** needs **Change settings**. It has three cards; **Save** on any of them
+saves them all.
+
+### Chat
+
+- **Chat on** switches the Chat page on for everyone with **Use AI chat**. The card shows
+  **AI is off on Base.** when AI itself is off.
+- **Model** is the model Chat uses. Left empty, Chat uses the model on **Base** (shown as the
+  placeholder).
+- **Extra instructions** are added to the end of Chat's instructions, under a heading saying they
+  come from your group's operator. Use them for things like your group's own words for roles, or
+  how short answers should be. Up to 8,000 characters.
+
+### Limits
+
+| Setting | Default | Allowed | What it does |
+|---|---|---|---|
+| **Tool calls per reply** | 8 | 0 to 50 | How many lookups one reply may make. At 0, no tools are offered at all. |
+| **Reply length (tokens)** | 2,000 | 256 to 32,000 | The most the model may write in each step of a reply, in tokens (small pieces of text, see [Limits and spend](/ai/limits-and-spend#how-spend-is-counted)). |
+| **Time limit (seconds)** | 120 | 10 to 600 | How long one whole reply may take, lookups included. |
+
+These limit a single reply. To limit what Chat costs, use [spend limits](/ai/limits-and-spend), which
+can be set for everyone, for Chat, for a role or for one person.
+
+### Tools
+
+One switch per tool. Beside each is **Reads** and the permission it needs. Read-only tools start
+switched on. Switching a tool off removes it for everyone, whatever their permissions.

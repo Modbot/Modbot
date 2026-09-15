@@ -1,0 +1,120 @@
+---
+title: Audit log
+description: The Audit log page, what goes into it, how to filter it, and the difference between the audit log and the operational log permissions.
+---
+
+The **Audit log** page is one timeline of everything Modbot has recorded: bans, kicks and role
+changes from VRChat, people coming and going in instances, Discord events, case files, and
+Modbot's own record of sign-ins, settings changes and sync problems. Each row is written as a
+sentence, and every name in it opens a [popup](/moderation/popups).
+
+## Two permissions, one page
+
+What you see depends on two separate permissions. The page opens if you have either.
+
+| Permission | What it shows |
+|---|---|
+| [**See the audit log**](/accounts/roles-and-permissions#see-the-audit-log) | Moderation and member history: who did what to whom. |
+| [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) | Modbot's own record of how it is run: sign-ins, settings, accounts, sync problems. |
+
+The split is on purpose. A moderator who needs to see bans does not need to see that the owner
+changed the email settings or which API keys exist. The server removes what you may not see from
+every request, so you cannot get around it by editing the page address.
+
+When you open **More filters**, the page says what is hidden from you: **Hidden from this account:
+logins, settings changes and sync failures.** or **Hidden from this account: bans, kicks and role
+changes.**
+
+### What each one covers
+
+**See the audit log:**
+
+- joins, leaves, bans, unbans, removals from the group, role changes and invites;
+- the rest of VRChat's group audit log: instance kicks and warns, join requests, group posts,
+  instances opened and closed, calendar events, changes to group details;
+- profile changes and the 18+ verified mark, including changes a moderator made by hand;
+- instance joins, leaves, avatar changes and "already here" reports from desktop clients;
+- Discord joins, leaves, bans, kicks, timeouts, nickname and role changes, voice, deleted
+  messages, and channel and role changes;
+- Discord account links, and the roles given or taken because of them;
+- case files written, edited, withdrawn and profile snapshots taken again;
+- reviews opened and closed;
+- moderation rule flags, dismissals, and messages deleted or timeouts given by a rule.
+
+**See the operational log:**
+
+- sign-ins, failed sign-ins, password, username and contact changes, "sign out everywhere";
+- staff accounts created, invited, disabled, enabled, and their roles changed; reset links;
+- Modbot roles created, changed and deleted;
+- API keys and webhooks;
+- settings changes, including the ban reason list and moderation rules;
+- sync failures, rate limit stops, database updates and old data being removed;
+- AI spend limits being reached, and a person's data being purged;
+- Discord bot commands run and log messages posted.
+
+Anything Modbot cannot name, if it came from VRChat's group audit log, counts as moderation
+history.
+
+## Reading a row
+
+| Column | What it shows |
+|---|---|
+| **When** | The time, with the date under it. Hover for the full date and time. A range such as `~14:05–14:20` means Modbot knows it happened between those times but not exactly when, for example a change a sweep noticed. |
+| **Source** | Where the entry came from (see below). |
+| **What happened** | A sentence naming who did what to whom, and where. Hover to see the entry's type. |
+
+The sources:
+
+| Source | Meaning |
+|---|---|
+| **VRChat** | VRChat's own group audit log. Exact. |
+| **Sync** | Modbot noticed a difference between two reads of the member or ban list. It has a time window and no "who". |
+| **Client** | A moderator's desktop client. |
+| **Discord** | Seen by the Discord bot. |
+| **Manual** | Entered by a person through Modbot, such as a case file or a change to the 18+ verified mark. |
+| **Modbot** | Something that happened inside Modbot, such as a sign-in or a settings change. |
+
+## Filtering
+
+All sources are on by default. Click a source to show only that one; click more to add them back.
+
+**More filters** opens the rest:
+
+| Filter | How it works |
+|---|---|
+| **Subject id** | Only entries about this id, for example a VRChat user id. |
+| **Actor id** | Only entries done by this id. |
+| **From** and **To** | A date range. Both days are included. |
+| **Recent actors** | Up to eight people who did the most in the last 90 days, with their count. Click one to filter by them; click again to clear. |
+| **Type** | Click entry types to show only those. The list only contains types you are allowed to see. |
+
+The page shows 50 entries at a time. **Load more** at the bottom fetches the next 50.
+
+The page does not refresh by itself. Change a filter or reload to see new entries.
+
+A person's own entries are also on the **Logs** tab of their [person popup](/moderation/popups#person-popup),
+and an instance's on the **Logs** tab of its instance popup.
+
+## Where the timeline starts
+
+Above the table: **Oldest recorded entry:** and a date. Anything older than that is not in Modbot.
+While Modbot is still reading older entries from VRChat's audit log, it adds **catch-up still
+running**.
+
+VRChat's group audit log only reaches back a limited time. Modbot keeps what it has read from then
+on, for as long as your retention settings allow. See [Data and retention](/self-hosting/data-retention).
+
+## How quickly things appear
+
+Modbot reads VRChat's group audit log every 8 seconds while things are happening. When nothing new
+comes in, it slows down step by step, to once every 5 minutes at the slowest. These are the
+defaults; **Settings**, **Sync**, **Group audit log** shows the numbers your Modbot uses.
+
+Desktop client and Discord entries arrive as they are reported.
+
+## What the audit log does not contain
+
+- **Why** somebody was banned. VRChat's audit log has no reason. Write a
+  [case file](/moderation/case-files).
+- Kicks, warns and bans done **through Modbot**. Modbot does not perform them; moderators act in
+  VRChat and the entry comes from VRChat's audit log.

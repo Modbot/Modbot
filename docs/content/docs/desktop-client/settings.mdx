@@ -1,0 +1,180 @@
+---
+title: Client settings
+description: Every setting in the desktop client, including Cloud backup and starting with Windows, and the ones kept in its settings file.
+---
+
+The client's **Settings** page has two switches: Cloud backup, and starting with Windows. Two more
+settings live only in the client's settings file, and one environment variable sets how much the
+client writes to its own log.
+
+Nothing on this page is sent to any server. The switches decide what the client does on your PC.
+
+## Send all logging to Modbot Cloud as backup
+
+**On by default.** While it is on, the client sends a copy of its presence events to Modbot Cloud,
+for **every instance you are in**. Your group's Modbot still only gets its own group's instances.
+
+Despite the word "logging" in the label, this does **not** send VRChat's log. It sends the events
+the client builds from the log, the same ones described in
+[What it sends to your group's Modbot](/desktop-client/install#what-it-sends-to-your-groups-modbot):
+
+- someone joined, was already there when you arrived, left, or changed avatar, and VRChat's log
+  stopping while you were in an instance;
+- for each: a random event id, the time, the person's VRChat user id and display name, the world
+  id and instance id, the avatar's name for an avatar change, and the group that owns the instance.
+
+The differences from what a Modbot server gets:
+
+- It covers public, friends-only and private instances too. For an instance that belongs to no
+  group, the group is left empty.
+- It works even if the client is not paired with any server.
+- It is not listed on the client's **What I've sent** page.
+
+It never sends VRChat's raw log, the secret part of an instance's address that would let someone
+join it, your pairing tokens, the client's own log, your computer's name or your Windows account
+name.
+
+Each batch also carries a batch id, the client's version, your PC's clock time, how far your clock
+is from Cloud's, and a slot for the paired server's id, which is always empty today.
+
+### The line under the switch
+
+| It says | Meaning |
+|---|---|
+| **Sending** · N queued | Working normally. |
+| **Waiting for your server** · N queued | A paired server has not yet said where backups should go. Events are kept and not sent until it does. |
+| **Retrying** · N queued | The last attempt failed. The client waits and tries again. |
+| **Turned off by your server** | A paired server's operator has turned Cloud backup off. Nothing is sent or kept. |
+| **Off** | You turned it off. |
+
+### Turning it off and on
+
+- **Off** takes effect at once: a batch that is being sent is stopped, and everything waiting to be
+  sent is deleted.
+- **On** again sends only what happens from that moment. Nothing that happened while it was off is
+  ever sent.
+
+The choice is saved in the settings file as `sendLogsToCloud`. If it is set to `false` in the file
+while the client is closed, anything left waiting is deleted when the client next starts.
+
+### Where it goes
+
+The paired server decides where Cloud backup goes, through the answer it gives when the client asks
+its time. The rules, in order:
+
+| Situation | Where events go |
+|---|---|
+| No paired server (or every pairing is paused or stopped) | `https://cloud.modbot.co` |
+| Any paired server has turned it off | Nowhere. Nothing is sent and nothing is kept, whatever the other servers say. |
+| A paired server has not answered yet | Kept on your PC and not sent, until it answers. |
+| Otherwise | The first paired server's chosen Cloud address, or `https://cloud.modbot.co` if none of them chose one. |
+
+A Cloud address that is not HTTPS counts as turned off.
+
+If you host Modbot, you control this for everyone paired with your server with
+`MODBOT_CLOUD_ENDPOINT` (send backups to a different Modbot Cloud) and `MODBOT_CLOUD_DISABLED`
+(send nothing). See [Environment variables](/self-hosting/environment-variables).
+
+### How Cloud knows your client
+
+The first time the client sends to a Cloud address, it registers with it, sending only its version
+and the word `windows`. Cloud gives back a random install id and a secret. The id is not your name,
+your VRChat account or your PC. The client keeps both in `%APPDATA%\Modbot\cloud-installs.json`,
+with the secret encrypted so only your Windows account can read it, and sends them with every
+batch. If Cloud stops recognising the install, the client registers again.
+
+### Batches, queue and retries
+
+- Events are gathered into batches. A batch closes at 500 events, 256 KB, or 60 seconds after its
+  first event, whichever comes first, and is sent compressed. A quiet room sends nothing.
+- While Cloud cannot be reached, events wait: up to 10,000 in memory, then on disk in
+  `%APPDATA%\Modbot\cloud`, up to 20 MB. When either fills, the oldest are dropped.
+- After a failure the client waits before trying again, a little longer each time up to five
+  minutes, or as long as Cloud asks.
+- A batch Cloud refuses as broken or too large is deleted, not retried.
+- The client only asks Cloud's time when it has something to send, at most every two hours.
+- Cloud backup runs on its own, so a slow or missing Cloud never holds up reporting to your group's
+  server or the overlay.
+
+Modbot Cloud keeps events for 365 days by default. See [Privacy](/privacy).
+
+## Start Modbot Client when my computer starts
+
+**On by default**, and only shown in a copy installed with `Modbot-win-Setup.exe`. The portable
+zip, and a copy you built yourself, do not show this switch and never touch the Windows startup
+list.
+
+While it is on, Modbot adds itself to your own Windows startup list and starts in the tray, with no
+window, when you sign in to Windows. The client checks the entry every time it starts and fixes it
+if needed, so it keeps working after an update.
+
+Turning it off removes the entry. The choice is saved in the settings file as `startWithWindows`.
+
+If you turn Modbot off in **Task Manager → Startup apps**, Modbot respects that: it never turns
+itself back on, and the switch shows off and cannot be changed from the client. Turn it back on in
+Task Manager if you want it again.
+
+Uninstalling the client removes the startup entry.
+
+## Settings in the settings file
+
+The client keeps its settings in `%APPDATA%\Modbot\settings.json`. Every field is optional. The two
+switches above write their own field here, and two more settings can only be set by editing the
+file:
+
+| Field | Default | What it does |
+|---|---|---|
+| `pairingPage` | `https://my.modbot.co/go?redir=/pair` | The page **Pair with a server** opens. See [Pairing page](#pairing-page). |
+| `checkForUpdates` | `true` | Whether an installed client looks for newer versions. See [Check for updates](#check-for-updates). |
+| `sendLogsToCloud` | `true` | The **Send all logging to Modbot Cloud as backup** switch. |
+| `startWithWindows` | `true` | The **Start Modbot Client when my computer starts** switch. |
+
+For example:
+
+```json
+{
+  "pairingPage": "https://modbot.example.org/pair",
+  "checkForUpdates": false
+}
+```
+
+Quit the client from the tray and open it again after editing the file.
+
+Things to know:
+
+- If the file is missing, or cannot be read as JSON, **every** setting uses its default. That
+  includes Cloud backup and starting with Windows being on.
+- When you flip a switch, the client changes only that switch's field and leaves the rest of the
+  file as it was.
+- If the file is broken, the client does not overwrite it. A switch you flip then only lasts until
+  the client restarts.
+
+### Pairing page
+
+Set `pairingPage` to your own server's pairing page, for example
+`https://modbot.example.org/pair`, to make **Pair with a server** go there directly instead of
+through my.modbot.co.
+
+The address must be HTTPS. Plain HTTP is only accepted to your own PC (`localhost`, `127.0.0.1` or
+`::1`), for testing. Any other address is ignored and the default is used. The **Servers** page
+shows which address the button opens.
+
+You never have to set this: you can always open your server's `/pair` page in the browser
+yourself.
+
+### Check for updates
+
+Set `checkForUpdates` to `false` to stop the client asking for newer versions at all, for example
+if your group keeps everyone on one version, or the PC must not contact GitHub. Update checks are
+described under [Updates](/desktop-client/install#updates).
+
+## Client log level
+
+The client writes a detailed log of what it is doing to `%APPDATA%\Modbot\logs`. To make it write
+less, set the Windows environment variable `MODBOT_CLIENT_LOG_LEVEL` for your account, then restart
+the client:
+
+The values, from most to least: `Verbose`, `Debug`, `Information`, `Warning`, `Error`, `Fatal`.
+Each writes that level and everything more serious. The default, `Verbose`, writes everything,
+including a line each time the client reads new lines from VRChat's log. An unknown value means
+`Verbose`. The log never leaves your PC unless you send it to someone.

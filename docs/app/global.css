@@ -1,0 +1,38 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+@import 'fumadocs-openapi/css/preset.css';
+
+/* Fonts are bundled, never fetched from a font service, like the landing page and the web app. */
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+
+@theme {
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* Modbot's purple, from src/Modbot.Landing/Web/src/index.css. */
+:root {
+  --color-fd-primary: #5b4bd6;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-ring: #5b4bd6;
+}
+
+.dark {
+  --color-fd-primary: #8b7dff;
+  --color-fd-primary-foreground: #0d0e12;
+  --color-fd-ring: #8b7dff;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}

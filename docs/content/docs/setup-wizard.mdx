@@ -1,0 +1,247 @@
+---
+title: The setup wizard
+description: Every step Modbot walks you through the first time you open it, what each one checks, and who can come back to it later.
+---
+
+The first time you open a new Modbot, it sends you to `/setup`: a wizard of six steps that
+connects Modbot to VRChat and to your group. Nothing here is set with environment variables; every
+answer is stored in Modbot's database.
+
+| Step | Title on screen | Required |
+|---|---|---|
+| 1 | **Create your administrator account** | Yes |
+| 2 | **Connect a VRChat account** | Yes |
+| 3 | **Check the connection** | Yes |
+| 4 | **Link your VRChat account** | Yes |
+| 5 | **Choose the group to manage** | Yes |
+| 6 | **Public address, Discord and email** | No |
+
+Press **Continue** (or Enter) to move on, and **Back** to return to an earlier step. If you close the
+browser part way through, Modbot remembers what is done and opens the wizard at the first step that
+is not.
+
+<Callout type="warn" title="Do step 1 straight away">
+  Until the administrator account exists, anyone who can reach your Modbot's address can open the
+  wizard. Create the account as soon as your Modbot is running. From that moment on, the wizard
+  needs you to be signed in.
+</Callout>
+
+## Before you start
+
+Have these ready:
+
+- **A VRChat account for Modbot to use.** Use a dedicated account, not your personal one. Modbot
+  signs in as this account and reads your group through it.
+- **That account's two-factor secret**, if two-factor authentication is on. This is the text code
+  you are shown when you set up an authenticator app, not the 6-digit code the app shows.
+- **That account in your group, with a role** that has at least one of the group permissions listed
+  in [step 5](#5-choose-the-group-to-manage).
+- **Your own VRChat account**, to link to your administrator account in step 4.
+
+## 1. Create your administrator account
+
+| Field | Notes |
+|---|---|
+| **Username** | How you sign in. Up to 64 characters. Not case-sensitive. |
+| **Contact email** | Required for this first account. Modbot includes it in how it identifies itself to VRChat on every request, so VRChat has someone to contact. Password reset links for this account go here too. |
+| **Password** | At least 12 characters. There are no other rules, so a long phrase is best. |
+| **Confirm password** | Must match. |
+
+The first account gets the **Administrator** role, which allows everything, and you are signed in
+straight away.
+
+If two people open a new Modbot at the same moment, only one administrator account is created.
+
+## 2. Connect a VRChat account
+
+This is the account Modbot acts as.
+
+| Field | Notes |
+|---|---|
+| **Email or username** | The VRChat account's email address or username. |
+| **Password** | The VRChat account's password. |
+| **Two-factor secret** | Only if the account has two-factor authentication. Spaces are fine; Modbot removes them. |
+
+When you press **Continue**, Modbot signs in to VRChat with these details right away, so a problem
+shows up now rather than hours later.
+
+Modbot keeps the details, encrypted, even when the sign-in fails. That way, if the problem turns out
+to be your network rather than the password, you can add a proxy in step 3 without typing them
+again. Pressing **Continue** again with the same details reuses the session Modbot already has
+instead of signing in again.
+
+If it fails, you see what went wrong:
+
+| Message | What to do |
+|---|---|
+| **VRChat rejected these credentials.** | Check the account by signing in at vrchat.com, then enter the details again. |
+| **VRChat asked for a two-factor code.** | The account has two-factor authentication. Add its two-factor secret. Modbot runs on its own and cannot ask you for a code. |
+| **Cloudflare is blocking this network.** | Your host's network cannot reach VRChat. This is common on VPS and datacentre hosting, and it is not a problem with your account. Continue to step 3 and add a proxy. |
+| **VRChat's address could not be resolved.** | A DNS problem on your host. A proxy will not help. |
+| **The connection timed out.** | Outgoing HTTPS from your host is being blocked or dropped, or a proxy is not responding. |
+| **The connection could not be established.** | Usually a wrong proxy address or proxy password. |
+| **VRChat is rate limiting this account.** | Wait, then try again. Do not retry over and over; that makes the wait longer. |
+| **Waiting to sign in to VRChat.** | Modbot is waiting before it may sign in again. A banner at the top of the page says how long. |
+
+## 3. Check the connection
+
+This step finds out whether Modbot can reach VRChat from where it is hosted, and whether it needs a
+proxy to do it.
+
+Press **Test connection**. The test uses the VRChat session from step 2, so it does not spend
+another sign-in. The result appears above the button, with how long it took. When it passes,
+**Continue** moves on. Until it passes, **Continue** tells you why it cannot.
+
+### Using a proxy
+
+A proxy only helps with one problem: **Cloudflare is blocking this network.** When the test finds
+that, the proxy fields open by themselves. For any other failure, a proxy will not help, and the
+message says so.
+
+To add one, open **Use a proxy** and fill in:
+
+| Field | Notes |
+|---|---|
+| **Proxy URL** | Starts with `http://`, `https://` or `socks5://`, and includes the port, such as `http://proxy.example.com:11202`. |
+| **Username** | If your proxy needs one. |
+| **Password** | If your proxy needs one. After it is saved the label says **stored**; leave it empty to keep it. |
+
+Then press **Test again**. The proxy is saved when you test, so what passes is what Modbot uses.
+**Test without the proxy** removes it and tests again.
+
+Modbot supports one proxy. The message for a Cloudflare block names iproyal.com as a provider known to
+work.
+
+You can come back to this later: if your host gets blocked after Modbot has been working, change the
+proxy under **Settings**, **VRChat Service Account**, **Egress proxy**.
+
+## 4. Link your VRChat account
+
+This connects **your own** VRChat account to your administrator account. It is not the account from
+step 2. Every staff member links their own VRChat account the first time they sign in; this is where
+you do yours.
+
+1. Press **Open my VRChat profile** if you need to find your profile.
+2. Paste your VRChat user id (it starts with `usr_`) or your profile's address into
+   **Your VRChat user id or profile address**, and press **Continue** under the field.
+3. Modbot shows a short code. Press **Copy**, and put the code in your VRChat bio.
+4. Press **Check**. Modbot reads your bio through VRChat and confirms the link.
+
+A code lasts 30 minutes and can be checked 6 times, at most once every 10 seconds. The screen shows
+how many checks are left. **Start over** lets you enter a different account.
+
+When it says you are linked, press **Continue** at the bottom. If you press it before the link is
+confirmed, the wizard says **Link your VRChat account first.**
+
+## 5. Choose the group to manage
+
+Modbot lists the groups the step 2 account belongs to where it has at least one of these group
+permissions:
+
+| VRChat group permission | What Modbot uses it for |
+|---|---|
+| `group-members-viewall` | Seeing the full member list. Without it Modbot cannot sync members at all. |
+| `group-audit-view` | Reading the group's audit log, which is Modbot's main record of what happened. |
+| `group-bans-manage` | Reading and applying bans. |
+| `group-members-remove` | Removing members from the group. |
+
+The biggest groups come first. Each shows its name, its id and its member count. If the account is
+missing some of the permissions in a group, the group says **Missing** and lists them, so you can see
+before choosing which features will not work until you grant them.
+
+Choose one group and press **Continue**. One Modbot manages one group.
+
+If no group qualifies, the wizard says **This account is not in any group.** or **None of your
+groups qualify.** and lists the permissions needed. Give the account a role with them in VRChat, then
+press **Check again**.
+
+## 6. Public address, Discord and email
+
+Everything on this step is optional. A Modbot with none of it is complete.
+
+### Public address
+
+**Address** is the address people use to open your Modbot, such as `https://modbot.example.com`.
+Links Modbot sends by email or Discord, such as password reset and invite links, are built from this
+address and nothing else.
+
+It is filled in for you: with the address you saved before, or on Railway with the domain Railway
+gave the service, or with the address you have the wizard open at. Check it before you finish. Enter
+only the start of the address, with no path after the host.
+
+### Discord bot
+
+| Field | Notes |
+|---|---|
+| **Bot token** | Your Discord bot's token. Once saved, the label says **stored**; leave it empty to keep it. |
+| **Server ID** | The id of your Discord server. |
+
+The bot starts shortly after a token is saved, without a restart. See [Setting up the bot](/discord/bot-setup) for creating the
+bot and the settings that come after.
+
+### Email (SMTP)
+
+| Field | Notes |
+|---|---|
+| **Host** | Your mail server, such as `smtp.example.com`. |
+| **Port** | `587` if you leave it empty. |
+| **Username** | For your mail server. |
+| **Password** | For your mail server. |
+| **From address** | The address emails are sent from. |
+
+Nothing on this step is tested when you save. Modbot uses TLS for email unless told otherwise. You
+can check it later with **Send a test email** under **Settings**, **Integrations**, **Email (SMTP)**.
+
+## Finishing
+
+**Finish setup** saves this page and finishes the wizard. **Skip this step** finishes without saving
+anything on this page.
+
+Modbot will only finish once the VRChat account from step 2 has signed in successfully and a group is
+chosen. If either is missing, it says which.
+
+The first time you finish, Modbot opens `my.modbot.co/register` in a new tab. That page saves your
+Modbot's address in your browser, so you can pick it from a list later. You can close the tab; your
+Modbot does not depend on it. See [What you run](/self-hosting#mymodbotco).
+
+Then you land in Modbot. Next steps:
+
+- Choose where evidence files are kept under **Settings**, **Evidence**. See
+  [Storage buckets](/self-hosting/storage-buckets).
+- Invite your staff. See [Staff accounts](/accounts/staff-accounts).
+- Turn on AI features if you want them. See [AI settings](/ai/settings).
+
+## Coming back to the wizard later
+
+Each step can be run again. There are two ways.
+
+**In Settings**, most steps have a place of their own:
+
+| Step | In Settings |
+|---|---|
+| VRChat account | **VRChat Service Account**, **Update Service Account** |
+| Connection check and proxy | **VRChat Service Account**, **Egress proxy** |
+| Public address | **Host & Database**, **Public address** |
+| Discord bot | **Discord**, **Bot** |
+| Email | **Integrations**, **Email (SMTP)** |
+
+**The wizard itself**, by opening `/setup` on your Modbot's address. This is the place to choose a
+different group. On a Modbot that is already set up, it opens at the last step; use **Back** to reach
+the others, and **Back to Modbot** to leave. Changing the group points every sync at a different
+group's data.
+
+### Who can do it
+
+- **Before any account exists:** anyone who can open the address.
+- **After that:** only someone signed in with the **Change settings** permission, or the
+  **Administrator** role. Anyone else who opens `/setup` is asked to sign in.
+- **Steps 5 and 6, and finishing,** also need that person's own VRChat account to be linked.
+
+A signed-in person on a Modbot whose setup was never finished is sent back to the wizard at the first
+unfinished step.
+
+On a Modbot that already has accounts, step 1 does not replace the administrator. It creates an extra
+staff account with the **Viewer** role, and needs the **Manage users** permission. To add staff, use
+**Users** instead. See [Staff accounts](/accounts/staff-accounts).
+
+See [Roles and permissions](/accounts/roles-and-permissions) for every permission.

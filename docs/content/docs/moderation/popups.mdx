@@ -1,0 +1,129 @@
+---
+title: Popups
+description: The popups that open when you click a person, a world or an instance, how they stack, what each one shows and which permissions they need.
+---
+
+Almost every name in Modbot can be clicked: a person in the audit log, a world on Live, an
+instance number in a table. Clicking one opens a popup over the page you are on. The page stays
+exactly as it was underneath, with its scroll position, filters and loaded rows, so closing the
+popup puts you back where you were.
+
+There are four kinds: a **person** (a VRChat user), a **world**, an **instance** and a
+**Discord person**.
+
+## How popups stack
+
+- **Opening something from inside a popup puts a new popup on top.** Click the world inside an
+  instance popup and the world opens over it.
+- **Only the top popup is shown.** Its header has a back control naming the one underneath, such
+  as **Back to the instance**. Hover over it to see how many more are open below.
+- **Closing goes back one level.** Escape, the close button, a click outside the popup and your
+  browser's Back button all do the same thing.
+- **Clicking the thing that is already on top does nothing**, so a list that names the same world
+  twice does not build a pile of identical popups.
+
+The whole stack is kept in the page address (as one or more `?subject=` values). You can copy the
+address and send it to another moderator, and it opens the same popups for them. They still need
+the permissions to see what is inside.
+
+## Person popup
+
+The title is **Person**, with the person's VRChat id under it.
+
+### Left side
+
+- **The profile.** What Modbot has stored about the person's VRChat profile, how old it is, and
+  the 18+ verified mark. Opening the popup asks for a fresh copy. See [Profiles](/moderation/profiles).
+- **Discord.** Only when the person has linked a Discord account: the Discord name (click it to
+  open the Discord person popup), the Discord id, when they linked, the roles Modbot gave them,
+  and **Not in the server** if they have left it. Anybody with **Manage Discord links** also sees
+  an **Unlink** button. See [Account linking](/discord/account-linking).
+- **Membership.** Whether they are in your group now and since when, whether they are
+  representing the group, their group roles, the group's manager notes about them, and whether
+  they are on the ban list. The last line says how long ago the member list and the ban list were
+  last read. If the member list has never been read, it says **Member list not read yet.**
+
+### Tabs
+
+| Tab | What it shows |
+|---|---|
+| **Logs** | The **History** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#history-on-a-persons-popup)), then **Everything recorded about this person**: the newest 50 audit log entries about them. |
+| **Cases** | Their case files, withdrawn ones included and marked as such. Click one to open it. See [Bans and case files](/moderation/case-files). |
+| **Metrics** | **Time in world**: **Time seen**, **Instances visited**, **Worlds visited**, **Arrivals**, **Last seen** and **First seen**, then a table of the instances they were seen in (newest 25). |
+
+The **Metrics** tab only counts time a moderator's desktop client shared an instance with the
+person. **Not seen in an instance yet.** means no client has seen them, not that they have never
+been in one.
+
+## World popup
+
+The title is the world's name, with the world id under it.
+
+### Left side
+
+The world's picture, then:
+
+| Field | Meaning |
+|---|---|
+| **Made by** | The world's author. Click to open them as a person. |
+| **Holds** | How many people the world page says it holds, and the suggested number if different. This is what the page says; group exemptions can raise the real limit. |
+| **Who can find it** | **Anyone (public)**, **Only people given the link (private)** or **Hidden**. |
+| **First seen by Modbot** | When the world first turned up. |
+| **Published on VRChat** | When the author published it. |
+| **Page last read** | When Modbot last read the world's VRChat page. |
+| **Description** | The world's description. |
+
+**Name not read yet** is normal for a few minutes after a new world turns up, and permanent for a
+private or deleted world.
+
+### Tabs
+
+- **Instances**: the newest 25 instances that have run in this world. The number on the tab is the
+  total.
+- **Metrics**: **Time seen**, **Visitors**, **Instances opened** (with how many are open now) and
+  **Last seen**, then two daily charts: **Visitors per day** and **Instances opened per day**.
+  Time and visitors only count time a moderator's desktop client was in the world.
+
+Opening a world popup never asks VRChat for anything. It shows what Modbot already has.
+
+## Instance popup
+
+The title is the world name and the instance number. Under it: **Open now** or **Closed**.
+
+Modbot gives every instance its own id, because VRChat hands the same instance number out again
+after an instance closes. Two evenings under the same number are two different instances and two
+different popups.
+
+### Left side
+
+The world's picture, then **World** (click to open the world popup), **Instance number**,
+**Who can join**, **Region**, **Opened**, then either **Closed** (with "went quiet" if Modbot closed
+it after hearing nothing for a long time) or **Still open** with when it was last seen,
+**Ran for** or **Open for**, **People now** (open instances only), **Most at once**, and
+**Seen by a moderator's client**: how many people a client saw and for how long in total.
+
+### Tabs
+
+- **People**: **Who was seen in this instance**, with **Time seen**, **Arrivals**, **First seen**
+  and **Last seen** for each person.
+- **Logs**: **What happened in this instance**, the newest 100 entries.
+
+## Discord person popup
+
+Opens when you click a Discord name. It is described on [Discord members](/discord/members).
+
+## Who can see what
+
+| Part | Permission |
+|---|---|
+| Person popup: profile, **Discord** card, **Cases** and **Metrics** tabs, **History** block | **See profiles** |
+| Person popup: **Membership** card | **See members** |
+| Person popup: **Unlink** button | **Manage Discord links** |
+| Person popup: entries in **Logs** | **See the audit log** (and **See the operational log** for Modbot's own entries such as sign-ins) |
+| World popup | **See analytics** |
+| Instance popup | **See analytics** |
+| Instance popup: **People**, **Logs** and **Seen by a moderator's client** | **See analytics** and **See the audit log** |
+
+When you lack a permission, the popup still opens and says **You do not have permission to see
+this.** (or a similar line) in the part you cannot see. See
+[Roles and permissions](/accounts/roles-and-permissions) for the full list.

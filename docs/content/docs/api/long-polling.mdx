@@ -1,0 +1,178 @@
+---
+title: Events by long polling
+description: Receive Modbot's live events with ordinary HTTP requests in a loop, when a WebSocket or a webhook will not do.
+---
+
+Long polling gives you the same events as the [live event WebSocket](/api/events-websocket), using
+nothing but ordinary HTTP requests. It suits a program that cannot keep a connection open and
+cannot receive [webhooks](/api/webhooks): a script behind a firewall, or a platform that only makes
+plain requests.
+
+Each request answers **at once** when there are new events. When there are none, it **waits** until
+one arrives or the wait runs out, then answers. Your program asks again straight away, and so
+receives each event moments after it is recorded.
+
+## The request
+
+```http
+GET /api/events/poll?cursor=81230&types=vrchat.group.member.*&wait=30
+Host: modbot.example.com
+Authorization: Bearer mbk_...
+```
+
+The web app shows the address, with a copy button, on **Settings → API → Events** under
+**Addresses**.
+
+### Signing in
+
+Send an [API key](/api/keys) in the `Authorization` header. That is the only way in:
+
+- A key in the address is not read.
+- The web app's session cookie on its own is refused with `401` and
+  `{ "error": "Send an API key in the Authorization header." }`.
+
+### Parameters
+
+All are optional.
+
+| Parameter | |
+|---|---|
+| `cursor` | Where to carry on from: the `cursor` from your previous answer. Leave it out on your very first request to start from now. `0` starts from the oldest event this Modbot still keeps. |
+| `types` | Which event types to receive, using the same patterns as the WebSocket: an exact type, a prefix ending in `.*`, or `*`. Repeat the parameter (`types=a&types=b`) or separate types with commas. Leave it out for everything. At most 100. |
+| `subjects` | Only events about these ids, repeated or separated by commas the same way. Leave it out for every subject. At most 500. |
+| `wait` | How many seconds to wait when there is nothing new. Default `30`, at most `60`. `0` answers at once. |
+| `limit` | The most events in one answer. Default `100`, at most `500`. |
+
+`wait` and `limit` are whole numbers. A value outside the allowed range is moved to the nearest
+allowed value rather than refused. The patterns for `types` and the limits on `subjects` are
+described on the [WebSocket page](/api/events-websocket#subscribing).
+
+## The answer
+
+```json
+{
+  "events": [
+    {
+      "version": 1,
+      "id": "81234",
+      "cursor": "81234",
+      "type": "vrchat.group.member.ban",
+      "type_raw": null,
+      "label": "Banned",
+      "category": "moderation",
+      "source": "AuditLog",
+      "occurred_at": "2026-09-15T14:32:07+00:00",
+      "occurred_before": null,
+      "observed_at": "2026-09-15T14:32:11.204+00:00",
+      "subject": { "platform": "VRChat", "id": "usr_c1644b5b", "kind": "Person" },
+      "actor": { "platform": "VRChat", "id": "usr_4f0b4f5e", "name": "Alice" },
+      "world_id": null,
+      "instance_id": null,
+      "data": { "actorDisplayName": "Alice" }
+    }
+  ],
+  "cursor": "81234",
+  "more": false,
+  "notice": null
+}
+```
+
+| Field | |
+|---|---|
+| `events` | New events, oldest first. Each has the shape described in [the event](/api/events-websocket#the-event). Empty when the wait ran out with nothing new. |
+| `cursor` | Send this back as `cursor` on your next request. Always use this one, not the cursor of the last event: it also moves past events that were not for you, so even an answer with no events can move it forward. |
+| `more` | `true` when there is more to read already: ask again straight away. This can be `true` with an empty `events` list, when Modbot read a long run of events that were not for you and stopped to answer. |
+| `notice` | Null, or `{ "kind": "notice", "code": "history_trimmed", "message": "Events before the oldest kept fact are gone." }` when your cursor was older than anything this Modbot still keeps. Reading carried on from the oldest event still kept; the events in between are gone. |
+
+Every answer has the header `Cache-Control: no-store`.
+
+## What you receive
+
+Exactly what the WebSocket would send the same key: the same events, in the same order, chosen by
+the same types and subjects, and limited by the same permissions (see
+[which events you receive](/api/events-websocket#which-events-you-receive)).
+
+Events arrive **at least once**. If your program stops after handling some events but before
+storing the new cursor, it will see them again: use each event's `id` to skip the ones you have
+handled.
+
+## How long a request waits
+
+- When there are events after your cursor, the answer comes **at once**, with up to `limit` of
+  them.
+- When there are none, the request waits up to `wait` seconds. A new event for you ends the wait
+  at once.
+- While it waits, Modbot checks your key again every few seconds. If the key has been revoked or
+  has expired, or its account disabled, the request ends with `401` and
+  `{ "error": "The API key is not valid." }`.
+
+Set your HTTP client's timeout **longer** than `wait`, for example `wait` plus fifteen seconds, or
+your client will give up on requests that were about to answer. Modbot adds no time limit of its
+own, but if your Modbot sits behind a proxy that cuts off slow requests, use a `wait` shorter than
+that proxy's limit.
+
+## Limits and errors
+
+A waiting request holds one of its key's **five** connection places (the default). The places are
+shared with that key's WebSocket connections. Closing the request gives its place back at once.
+
+| Status | Body | Why |
+|---|---|---|
+| `400` | `{ "error": "..." }` | A type, subject or cursor is wrong. The sentence says which, using the same wording as the WebSocket (for example `The cursor is not valid.`). |
+| `401` | none, or `{ "error": "..." }` | No key, a wrong, expired or revoked key, or a session cookie instead of a key. |
+| `403` | `{ "error": "This key can see no events." }` | The key has neither **See the audit log** nor **See the operational log**. |
+| `429` | `{ "error": "Too many connections for this key." }` | All five places are in use. The `Retry-After` header says how many seconds to wait: `5` by default. |
+
+Only run one poll loop per key. Several loops sharing one key will take its places, and each will
+receive the same events.
+
+## A loop in Node.js
+
+```js
+let cursor = loadCursor() // null the first time: start from now
+
+for (;;) {
+  const url = new URL('https://modbot.example.com/api/events/poll')
+  url.searchParams.set('types', 'vrchat.group.member.*')
+  url.searchParams.set('wait', '30')
+  if (cursor) url.searchParams.set('cursor', cursor)
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${process.env.MODBOT_KEY}` },
+    signal: AbortSignal.timeout(45_000),
+  })
+
+  if (response.status === 429) {
+    const seconds = Number(response.headers.get('retry-after') ?? 5)
+    await new Promise((resolve) => setTimeout(resolve, seconds * 1000))
+    continue
+  }
+
+  if (!response.ok) {
+    const body = await response.text()
+    throw new Error(`Modbot answered ${response.status} ${body}`)
+  }
+
+  const page = await response.json()
+  if (page.notice) console.warn(page.notice.message)
+
+  for (const event of page.events) {
+    console.log(event.id, event.type, event.subject.id)
+  }
+
+  cursor = page.cursor
+  saveCursor(cursor) // somewhere that survives a restart
+}
+```
+
+`loadCursor` and `saveCursor` stand for wherever your program keeps its position. A real program
+would also wait a little and try again after a network error or a `5xx`, rather than stop.
+
+## Once, with curl
+
+```bash
+curl -H "Authorization: Bearer $MODBOT_KEY" \
+  "https://modbot.example.com/api/events/poll?cursor=81230&types=vrchat.group.member.*&wait=30"
+```
+
+Run it again with the `cursor` from the answer to get the next events.

@@ -1,0 +1,153 @@
+---
+title: AI settings and providers
+description: Turning AI on, choosing a provider, the endpoint, key and model, the Test button, and what each AI feature sends to the provider.
+---
+
+Modbot's AI features (moderation rules, insights and Chat) all talk to one AI service that you
+choose. You set it up once, under **Settings** → **AI** → **Base**, and every feature uses it.
+
+Modbot does not come with an AI service or pay for one. You bring your own: a hosted provider with
+your own API key, or a model server you run yourself. Everything AI-related is off until you turn it
+on.
+
+Changing anything on the **AI** tab needs the **Change settings** permission
+([roles and permissions](/accounts/roles-and-permissions#change-settings)).
+
+## Providers
+
+Modbot talks to any service that understands the OpenAI chat format (often called
+"OpenAI-compatible"). The **Connection** card offers these presets:
+
+| Preset | Endpoint it fills in |
+|---|---|
+| **OpenRouter** (the default) | `https://openrouter.ai/api/v1` |
+| **xAI** | `https://api.x.ai/v1` |
+| **Anthropic** | `https://api.anthropic.com/v1/` |
+| **OpenAI** | `https://api.openai.com/v1` |
+| **Custom** | Nothing. You type the address. |
+
+A preset only fills in the **Endpoint** box. You can edit the address afterwards.
+
+Choose **Custom** for anything else, including a model server on your own machine or network, such
+as Ollama (`http://localhost:11434/v1`). **Custom** is the only preset that accepts a plain `http://`
+address, and the only one that can be switched on without an API key, because a local server
+usually needs neither.
+
+<Callout type="info" title="Keeping member data in-house">
+If you do not want profile text, Discord messages or moderation history to leave your own servers,
+use **Custom** with a model you run yourself. See [What is sent to the provider](#what-is-sent-to-the-provider).
+</Callout>
+
+## Setting it up
+
+<Steps>
+<Step>
+
+### Open the Base tab
+
+Go to **Settings** → **AI** → **Base**. The card is called **Connection**.
+
+</Step>
+<Step>
+
+### Choose a provider
+
+Click one of the provider buttons. The **Endpoint** box fills in.
+
+</Step>
+<Step>
+
+### Enter your API key
+
+Paste the key from your provider into **API key**. Leave it empty for a local server that needs no
+key.
+
+</Step>
+<Step>
+
+### Choose a model
+
+Click into **Model**. Modbot asks the endpoint for its list of models and offers them as you type.
+You can also type a model name the list does not show.
+
+</Step>
+<Step>
+
+### Test
+
+Press **Test**. Modbot sends one short message ("Reply with the single word OK.") and shows either
+the model's name with its answer (for example `answered: OK`), or the provider's error in its own
+words.
+
+</Step>
+<Step>
+
+### Turn it on and save
+
+Switch **AI on** and press **Save**.
+
+</Step>
+</Steps>
+
+## The fields
+
+**AI on** is the switch for every AI feature at once. With it off, nothing is sent to any provider,
+whatever the other AI tabs say. With it off you can still save an unfinished form, so you can fill
+in the endpoint today and the key later. With it on, Modbot will not save until the endpoint, the
+model and (for any preset except **Custom**) the key are all there.
+
+**Endpoint** is the full address of the service, starting with `https://` (or `http://` for
+**Custom**). It cannot contain `?` or `#`, and it cannot contain a user name or password: put the key
+in the key field.
+
+**API key** is write-only. Once saved, the page never shows it again; the label changes to
+**API key (stored)** so you know one is there. To replace it, type a new one and save. To delete it,
+press **Remove key**.
+
+<Callout type="warn" title="Changing the endpoint forgets the key">
+A stored key is only ever sent to the endpoint it was saved with. If you change the endpoint and
+save without typing a key, the stored key is removed. The same rule applies to **Test** and the
+model list: against a different address, they go without the stored key. This stops a key being
+redirected to another server.
+</Callout>
+
+**Model** is the model every feature uses unless you choose another one for it.
+[Insights](/ai/insights) and [Chat](/ai/chat) each have their own **Model** box; left empty, they use
+this one.
+
+## The Test button
+
+**Test** uses the values on the form, not the saved ones, so you can check a new key before it
+replaces one that works. It needs an endpoint and a model.
+
+A test is a real request to the provider. It is counted as the **Connection test** feature on the
+[Limits](/ai/limits-and-spend) tab, and a spend limit can stop it. If a limit is reached, **Test**
+shows that limit's sentence instead of calling the provider.
+
+If the model list does not load, the endpoint may not offer one. That is not an error: type the model
+name yourself and use **Test** to check it.
+
+## What is sent to the provider
+
+Everything below goes to the endpoint on **Base**, with your key. Your provider's own terms decide
+what happens to it there.
+
+| Feature | What is sent |
+|---|---|
+| **Test** | The single message "Reply with the single word OK." |
+| Model list | A request for the model list. No group data. |
+| [Moderation rules](/ai/moderation-rules) (AI topics only) | Modbot's instructions; the name, "What to catch" text and sensitivity of each AI topic that applies; which kind of text it is (a Discord message, a VRChat display name, bio, status or pronouns); and the text itself, up to 4,000 characters. The person's name and id are not sent. Term lists never send anything. |
+| [Insights](/ai/insights) | Modbot's instructions and the insight's figures: counts for the period and the period before, and short lists of the busiest worlds and rooms by world name. No person's name, id or messages. |
+| [Chat](/ai/chat) | Modbot's instructions (including the group's name, the current time and any extra instructions you wrote), the whole conversation so far, the list of tools on offer, and every tool result. Tool results are Modbot data: names, bios, ban history, audit log entries, who is in a room. The asker's Modbot account id is not sent. |
+
+AI requests go out on their own connection. They never use the proxy you may have set up for
+VRChat.
+
+## Where to next
+
+<Cards>
+  <Card title="Moderation rules" href="/ai/moderation-rules">Term lists and AI topics that flag Discord messages and VRChat profiles.</Card>
+  <Card title="Insights" href="/ai/insights">Short written summaries of your group's figures.</Card>
+  <Card title="Chat" href="/ai/chat">Ask questions about your group in plain words.</Card>
+  <Card title="Limits and spend" href="/ai/limits-and-spend">See what AI costs and set money limits.</Card>
+</Cards>

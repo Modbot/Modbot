@@ -1,0 +1,156 @@
+---
+title: Data and retention
+description: What Modbot keeps, for how long, how to set a retention window, how to read the storage estimate, and what deleting does.
+---
+
+Modbot records what happens in your group as a log of **facts**: one short record per thing that
+happened, such as a ban, a join, a role change or a sign-in. From those facts it builds **daily
+totals** for the charts. This page says what is kept, for how long, and what happens when you
+choose to delete older data.
+
+## Modbot deletes nothing by default
+
+Out of the box every retention window is set to **0**, which means **keep forever**. A Modbot that
+nobody has configured keeps all of its history, and that is the intended way to run it.
+
+The reason is simple: group history cannot be filled in later. Whatever Modbot did not record
+while it was happening is gone, and no amount of asking VRChat brings it back. A default that
+quietly removed old join and leave records would also remove the answer to "is this person a
+regular?" for anyone who joined a few months ago.
+
+If storage is a real cost for you, you can set a window. The settings page shows what keeping
+everything actually costs first, so it is a choice you make with the numbers in front of you.
+
+## What Modbot keeps
+
+Retention sorts facts into two kinds, plus stored Discord messages.
+
+| Kind | What is in it | Default |
+|---|---|---|
+| **Moderation facts** | Bans, kicks, warnings, role changes, members joining and leaving the group, the group's audit log, case file changes, evidence, Discord moderation, Discord account links, Modbot's own sign-ins, account and settings changes, Discord bot commands (who looked up whom), and anything Modbot does not recognise. | Forever |
+| **Presence facts** | Instance joins and leaves, avatar changes, Discord voice sessions, and Modbot's own routine notices (sync problems, rate limits, connection blocks, retention runs, AI limit notices, the Discord bot's posting markers and new-member link prompts). | Forever |
+| **Discord messages** | The messages Modbot stores from your Discord server, including earlier versions of edited messages and messages that were later deleted. | Forever |
+
+Moderation facts arrive at a few hundred a day; in a busy group, presence facts can arrive around a
+thousand times faster. That is why they can be given different windows: a ban from three years
+ago is exactly what a moderator needs, while a join from three years ago usually is not.
+
+A new kind of fact that Modbot has not been told about always counts as a moderation fact. Keeping
+something longer than intended costs a little disk; deleting it early cannot be undone.
+
+### What retention never touches
+
+Retention only removes facts and stored Discord messages. These are not affected by any retention
+setting:
+
+- **Daily totals.** Charts keep their full history even after the facts behind them are removed.
+- **Case files**, their written reasons and the profile snapshot taken at the time. See
+  [Bans and case files](/moderation/case-files).
+- **Evidence files** attached to case files. See [Evidence](/moderation/evidence).
+- **Staff accounts.** They are never deleted, only disabled. See
+  [Staff accounts](/accounts/staff-accounts).
+
+## Setting a retention window
+
+Open **Settings**, then the **Host & Database** tab. You need the **Change settings** permission.
+
+The **Retention** card has three fields:
+
+- **Moderation facts (days)**
+- **Presence facts (days)**
+- **Discord messages (days)**
+
+Type a number of days, or **0** to keep forever, and press **Save retention**.
+
+<Callout type="error" title="Deleted means gone">
+Anything past a retention window is destroyed permanently. There is no undo, no recycle bin, and
+Modbot cannot fetch it again. If you might want it later, take a database backup before you shorten
+a window. See [PostgreSQL](/self-hosting/postgres).
+</Callout>
+
+### When data is actually removed
+
+- Modbot checks retention **once a day**. If a check fails it tries again an hour later, and keeps
+  running normally in the meantime.
+- Facts are stored in one table per calendar month (UTC), and Modbot removes **whole months**, never
+  single records. A month is only removed once its **last day** is past the window. So with a
+  90-day window, facts from early in a month can stay a few weeks longer than 90 days before their
+  month goes.
+- If a month holds both kinds of fact and only one kind has passed its window (for example presence
+  at 90 days and moderation kept forever), Modbot rebuilds that month with only the facts that are
+  still kept, and removes the rest.
+- Discord messages work the same way: a month of messages is removed once its last day is past the
+  window. When Modbot catches up on messages it missed, it does not store messages that are already
+  older than the window.
+- Every run that removes something is recorded as a **Retention pruned** entry in the operational
+  log.
+
+Shortening a window removes the old data at the next daily check. Lengthening it, or setting it back
+to 0, cannot bring back anything already removed.
+
+## The storage estimate
+
+The **Storage** card at the top of **Settings**, **Host & Database** shows what your own Modbot is
+storing. The numbers are measured from your database, not taken from a table.
+
+| Label | What it shows |
+|---|---|
+| **Database** | The size of Modbot's recorded history on disk: all facts and daily totals, indexes included. |
+| **Facts recorded** | How many facts are stored. On a large history this is PostgreSQL's own close estimate rather than an exact count. |
+| **Per fact** | The measured size of one fact, indexes included. |
+| **Arriving** | How many facts a day are arriving, measured over recent history. It says **Not measurable yet** until Modbot has at least a day of facts. |
+
+Two inputs turn this into your own terms:
+
+- **Cost per GB/mo**: what your host charges per GB per month. The chart adds a second line showing
+  the estimated monthly cost.
+- **Disk size (GB)**: the size of your disk if you host at home. The chart shows when the disk
+  would fill, and if it would last more than five years you see **You have plenty of storage for
+  the foreseeable future**.
+
+Both inputs are remembered by your browser only. They are not saved in Modbot and change nothing
+about how it behaves.
+
+### Reading the chart
+
+- The left side is the size Modbot recorded each day over the past year. Modbot records one size a
+  day, starting from the first day it recorded one, so a new Modbot has a short history and today
+  sits further left.
+- The right side is an **estimate** for the next year, drawn dashed. It is a straight line at the
+  current growth rate.
+- With less than a month of history the estimate also has a shaded band, showing the same line at a
+  slower and a faster rate, because the rate is still uncertain.
+
+Treat the estimate as a rough size, not a forecast. Real growth is rarely a straight line: a group
+that opens more instances records more facts per member.
+
+### What the estimate does not include
+
+The **Storage** card covers facts and daily totals. It does not include:
+
+- **Evidence files.** Their count and size are shown under **Settings**, **Evidence**, in
+  **What this store is doing**, as **Evidence held**. A single video can be larger than months of
+  facts, so once you attach evidence, it is usually the evidence that decides your storage bill.
+  Where it is kept is your choice: see [Storage buckets](/self-hosting/storage-buckets).
+- **Stored Discord messages.**
+- The rest of the database, such as settings, accounts, case files and member lists.
+
+Your hosting provider's own dashboard shows the full size of the database.
+
+## Deleting other things
+
+- **Case files** are never deleted. A case file can be withdrawn, with a note; it stays readable.
+  See [Bans and case files](/moderation/case-files).
+- **Evidence files** can be destroyed one at a time by somebody holding **Destroy evidence**. The
+  file is deleted permanently and a reason is required. The record that it existed stays: its size,
+  type, who destroyed it, when and why. There is no button for this in the web app yet; it is done
+  through the [API](/api/reference). See [Evidence](/moderation/evidence).
+- **Staff accounts** are never deleted, because every recorded action points at the account that
+  did it. Disable them instead.
+
+## Personal information
+
+Presence data (who was in which instance, for how long, wearing what) and stored Discord messages
+are personal information, even though your group could see them at the time. They live on your own
+server and database, and how long they are kept is up to you. For what Modbot protects and how, see
+[Security](/security).

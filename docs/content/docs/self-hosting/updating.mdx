@@ -1,0 +1,116 @@
+---
+title: Updating
+description: How to update a self-hosted Modbot, what happens to the database when the new version starts, and what the version numbers mean.
+---
+
+Updating Modbot means running a newer build of the server image against the same database. There is
+no update command and no database step for you to run: the new version updates the database's tables
+itself when it starts.
+
+## Before you update
+
+Take a backup of the database. The new version may change its tables when it starts, and going back
+to an older version does not undo those changes. See [PostgreSQL](/self-hosting/postgres#backups).
+
+Note the **Version** and **Version commit** on the **Deployment** card under **Settings**,
+**Host & Database**, so you can tell afterwards that the update took.
+
+## Updating on Railway
+
+Deploy the newer commit of the repository to your Modbot service, the same way it was deployed the
+first time. If your service is connected to your own fork, bring the fork up to date first.
+
+Railway builds the image and starts the new deployment. It counts as healthy once `/health/ready`
+answers, which only happens after the database has been updated. With the 300 second timeout from
+Modbot's Railway configuration, a slow update is not mistaken for a failed one. See
+[Railway](/self-hosting/railway).
+
+## Updating with Docker
+
+From your copy of the repository, get the newer code, build the image again, and replace the
+container:
+
+```bash
+git pull
+docker build -t modbot .
+docker stop modbot && docker rm modbot
+docker run -d --name modbot --network modbot \
+  -e DATABASE_URL=postgres://modbot:choose-a-long-password@modbot-db:5432/modbot \
+  -p 8080:8080 \
+  -v modbot-logs:/app/logs \
+  --restart unless-stopped \
+  modbot
+```
+
+Use the same `docker run` options you started it with the first time, including any volume for
+evidence. With Docker Compose it is:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+Your data is in the database's volume, so replacing the Modbot container loses nothing. See
+[Docker](/self-hosting/docker).
+
+## What happens when the new version starts
+
+1. Modbot connects to the database, waiting for it if needed.
+2. It compares the database's tables with what this version expects. If they match, the log says
+   `Database schema is up to date`. If not, it logs how many changes it is applying, and applies them.
+3. Only then does it start answering requests and health checks.
+
+If applying the changes fails, the new version logs why in one sentence and does not start. It will
+not run against a half-updated database. Restore your backup, or fix the cause named in the log and
+start it again.
+
+## Version numbers
+
+Modbot has two version numbers, and they answer different questions.
+
+### The release version
+
+A calendar version, `year.month.patch`, such as `2026.9.1`:
+
+- the year and the month the release was made,
+- a patch number that starts again at 0 each month.
+
+The parts are not padded with zeros, so compare them part by part as numbers: `2026.9.10` is newer
+than `2026.9.2`.
+
+It is shown as **Version** on the **Deployment** card, and returned by `GET /api/version`, which
+needs no sign-in.
+
+An image built with the repository's `Dockerfile` does not set a release number, so **Version**
+shows the default written in the source at that commit. **Version commit** tells you exactly which
+code you are running.
+
+### The API version
+
+A whole number that only goes up when something the desktop client depends on changes in a way older
+clients cannot handle. It does not change with every release.
+
+Each server speaks a range of API versions, not just one. `GET /api/version` returns it:
+
+```json
+{
+  "version": "2026.9.0",
+  "apiVersion": 1,
+  "apiVersionMinimum": 1
+}
+```
+
+A desktop client picks the highest version both sides speak. The project's rule is that a server
+keeps speaking the current API version and at least the two before it, and never drops one less
+than 12 months old. That is why installing the newest desktop client is always the right choice,
+even for a moderator whose groups run Modbots on different versions.
+
+If a client and a server have no version in common, the client is told
+`This server speaks API versions` followed by the range.
+
+## The desktop client updates separately
+
+Updating your server does not update anyone's desktop client. Because servers speak a range of API
+versions, a client does not need to match the server's release. The client checks for its own
+updates. See
+[Installing the desktop client](/desktop-client/install).

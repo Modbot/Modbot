@@ -1,0 +1,161 @@
+---
+title: Messages and My Server
+description: What the bot keeps from your Discord server, who can read stored messages, and the My Server charts built from it.
+---
+
+Once the bot is connected, Modbot keeps a record of your Discord server: its messages, who joins
+and leaves, moderation in the server, and time spent in voice. That record feeds the
+[Discord members](/discord/members) list, the Discord person popup, [moderation rules](/ai/moderation-rules),
+and the **My Server** charts described below.
+
+## What the bot stores
+
+### Messages
+
+The bot stores every message in the channels and threads it can see, including messages from
+bots. For each message it keeps:
+
+- who sent it, in which channel or thread, and when;
+- the text;
+- the names, types and sizes of attached files, and Discord's link to each file. The files
+  themselves are not downloaded;
+- which message it replied to, how many embeds and mentions it had, and whether it is pinned;
+- **edits**: the current text, and each earlier version of the text;
+- **deletes**: a deleted message is kept and marked as deleted, because the deleted message is
+  often the one a moderator needs.
+
+Without the **Message Content Intent** (see [Setting up the bot](/discord/bot-setup#intents-the-bot-asks-for)),
+Discord sends messages with no text. Modbot still stores the rest.
+
+### Reading back older messages
+
+When the bot first connects, it reads back the history of every channel and thread where it has
+**View Channel** and **Read Message History**. It reads each channel from newest to oldest, about
+two pages of 100 messages a second, so it leaves room for everything else the bot does. A small
+server finishes in minutes; a very large one can take hours.
+
+It stops reading a channel when it reaches the first message, or when it finds three pages in a
+row it already has. If Modbot restarts part way through, it carries on where it stopped.
+
+The **Discord bot** card on the **Sync health** page shows progress, for example
+**Message history read back: 12 of 40 channels and threads · 85,000 messages stored**, and how
+many channels it has no access to.
+
+### Catching up after being offline
+
+When the bot reconnects after being away, it catches up on what it missed:
+
+- new messages in each channel since the newest one it has;
+- who joined and left, by comparing the member list with what it had;
+- bans, kicks, timeouts, role changes and removed messages, from the server's audit log;
+- who is in voice now.
+
+For something it only found out about afterwards, Modbot records the window it happened in (between
+when the bot was last listening and when it came back) rather than making up an exact time.
+
+### Members, moderation and voice
+
+The bot also records these as events, which appear in the audit log and the Discord person popup,
+and can be sent to [event channels](/discord/event-channels):
+
+- people joining and leaving the server, nickname changes, and Discord roles given or taken away;
+- bans, unbans, kicks, timeouts and timeouts removed;
+- messages removed by a moderator, one at a time or in bulk;
+- channels and roles created, changed or deleted;
+- people joining, leaving and moving between voice channels.
+
+With the **View Audit Log** permission, the bot also records *who* did each ban, kick, timeout,
+role change and message removal. Without it, those events are recorded with nobody named.
+
+Time in voice is counted from these voice events.
+
+### How long messages are kept
+
+Set how long messages are kept under **Settings → Host & Database**, on the **Retention** card, in
+**Discord messages (days)**. `0` keeps them forever. Older messages, with their earlier edited
+versions, are removed by Modbot's retention job, and a message older than the setting is not stored
+in the first place. See [Data and retention](/self-hosting/data-retention).
+
+The daily totals behind the charts are kept after the messages themselves are gone, so charts can
+go back further than the stored messages.
+
+## Who can read messages
+
+Stored messages can only be read by someone with **Read Discord messages**. Of the built-in roles,
+only **Administrator** has it. Give it to another role on the **Roles** page if you want to (see
+[Roles and permissions](/accounts/roles-and-permissions)).
+
+With it, the Discord person popup has a **Messages** tab showing everything that person wrote,
+newest first, 50 to a page:
+
+- the channel, and the thread when there is one;
+- the text as it reads now, or **No text**;
+- attached files, as links;
+- an **Edited** mark when the text was changed, and a **Deleted** mark when the message was deleted.
+  Hover over either mark to see when.
+
+The app shows the current text of an edited message, not its earlier versions.
+
+Nothing else in Modbot shows a person's messages. **My Server** and the popup's **Metrics** tab only
+count them, and a [flag](/moderation/flags) quotes only the message a rule matched.
+
+## My Server
+
+**My Server** is under **Analytics** in the sidebar. It needs **See analytics**. It answers "is our
+Discord server healthy, and who keeps it going?"
+
+Pick a range at the top: **7 days**, **30 days**, **90 days** or **All time**.
+
+**Active** means the person sent a message or spent time in voice.
+
+### The figures at the top
+
+| Figure | What it shows |
+|---|---|
+| **Members** | Discord's own member count, as last read. |
+| **Messages** | Messages sent in the range. |
+| **Active in 30 days** | People active in the last 30 days, and what share of current members that is. |
+| **Time in voice** | Total time in voice channels in the range. |
+
+### The charts
+
+| Panel | What it shows |
+|---|---|
+| **Member count** | The member count over time, from the last reading each day. |
+| **Joins and leaves per day** | People who **Joined** and **Left** each day. |
+| **Messages per day** | Messages sent each day. |
+| **Active members** | Different people active each day. Switch between **Day**, **7 days** and **30 days** to count people active over a day, the week ending that day, or the 30 days ending that day. The latest figures are shown underneath. |
+| **Minutes in voice per day** | Time spent in voice each day. |
+| **Busiest channels** | The channels with the most messages in the range. |
+| **Busiest hours** | Messages by day of the week and hour, in your own time zone (shown in the title). |
+| **Moderation actions per day** | **Bans**, **Kicks**, **Timeouts** and **Messages removed** each day. |
+
+### New members still here
+
+For people who joined in the range, at least 7 or 30 days ago:
+
+| Column | Meaning |
+|---|---|
+| **After** | 7 days or 30 days after joining. |
+| **Joined** | How many joined. |
+| **Still here** | How many had not left, been kicked or been banned by then. |
+| **Still active** | How many were active in the week after that point. |
+
+### Member health
+
+This panel is about now, whatever range you picked.
+
+- **Members** — people in the server now, not counting bots.
+- **Active in 30 days** — the share of them active in the last 30 days.
+- **Went quiet** — current members who were active in the 30 days before that, but have not been
+  active since. Up to 20 of them are listed with their messages and voice time from back then.
+
+### Top contributors
+
+The 20 people who sent the most messages in the range, with their time in voice. Bots are not
+counted.
+
+Every name on the page opens that person's Discord person popup (see
+[Discord members](/discord/members)).
+
+If no Discord server is set up, or the bot has not read anything yet, the charts are empty.

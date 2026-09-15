@@ -1,0 +1,172 @@
+---
+title: API keys
+description: Making, using and revoking the keys that let a program use your Modbot's API.
+---
+
+An API key lets a program use your Modbot's API as you. You choose what each key may do, and it
+can never do more than you can.
+
+## Who can manage keys
+
+Keys need the **Manage API keys and webhooks** permission (see
+[roles and permissions](/accounts/roles-and-permissions#manage-api-keys-and-webhooks)). Anyone with
+it can:
+
+- see every key on this Modbot, whoever made it (never the key itself)
+- make keys for themselves
+- revoke any key
+
+Keys live on **Settings → API → Keys**. In the web app, the **Settings** page only appears for
+people who also have **Change settings**. Someone with only **Manage API keys and webhooks** can
+still manage keys through the API itself, with `GET`, `POST` and `DELETE` on `/api/api-keys`.
+
+## Making a key
+
+<Steps>
+<Step>
+
+### Open the Keys tab
+
+Go to **Settings**, then the **API** tab, then **Keys**. Click **Create key**.
+
+</Step>
+<Step>
+
+### Name it
+
+Give it a **Name** you will recognise later, such as the name of the bot that will use it. At most
+64 characters.
+
+</Step>
+<Step>
+
+### Choose when it stops working
+
+**Expires** is optional. Pick a date and the key stops working at the end of that day, in your
+browser's time zone. Leave it empty for a key that never expires.
+
+</Step>
+<Step>
+
+### Tick what it may do
+
+The list shows only the permissions you hold yourself, grouped as on the Roles page. Tick at least
+one. Give a key only what its program needs: a bot that posts bans to a chat needs
+**See the audit log**, not **Administrator**.
+
+</Step>
+<Step>
+
+### Copy the key
+
+Click **Create**. The key is shown **once**, with a copy button. Copy it now and store it
+somewhere safe, such as your bot's settings or a password manager.
+
+</Step>
+</Steps>
+
+<Callout type="warn" title="The key is shown only once">
+  Modbot keeps only a fingerprint of the key (a SHA-256 hash), so it cannot show it again. If you
+  lose it, revoke it and make a new one.
+</Callout>
+
+A key looks like `mbk_` followed by 43 letters, digits, `-` and `_`. The first twelve characters are
+kept in the clear, so the list can show which key is which.
+
+## Using a key
+
+Send it in the `Authorization` header:
+
+```bash
+curl -H "Authorization: Bearer mbk_..." https://modbot.example.com/api/auth/me
+```
+
+`GET /api/auth/me` answers with the account the key belongs to, which is a quick way to check a
+key works. See the [API overview](/api) for what keys cannot do, and for errors.
+
+## What a key may do
+
+A key has two limits, and both apply on **every request**:
+
+1. The permissions ticked when it was made.
+2. The permissions its owner holds **right now**.
+
+The key may do only what both allow. So:
+
+- If someone removes a permission from you, your keys lose it on their next request.
+- If your account is disabled, your keys stop working. If it is enabled again, they work again: disabling does not revoke them.
+- If your account has not linked its VRChat account, its keys do not work.
+
+**Administrator** is the one special case, because it means "everything":
+
+| Your account has Administrator | The key has Administrator | The key may do |
+|---|---|---|
+| Yes | either | exactly what was ticked on the key |
+| No | Yes | everything your account holds now |
+| No | No | what both the key and your account hold |
+
+A key with **Manage API keys and webhooks** can make more keys. Those keys belong to the same
+account and can hold no more than the key that made them.
+
+Anything done with a key is recorded in the [audit log](/moderation/audit-log) as done by the key's
+owner.
+
+## The key list
+
+The list on **Settings → API → Keys** shows every key:
+
+| Column | |
+|---|---|
+| **Name** | The name it was given. |
+| **Key** | The first twelve characters. |
+| **Owner** | The account that made it. |
+| **Permissions** | What was ticked, by the permission's short code name (for example `ViewAuditLog`). |
+| **Created** | When it was made. |
+| **Last used** | When a request last used it, or **Never**. This is updated at most once a minute, so it can be up to a minute behind. |
+| **Expires** | Its expiry, or **Never**. |
+| **State** | **Active**, **Expired** or **Revoked**. |
+
+Expired and revoked keys stay in the list, greyed out.
+
+## Revoking a key
+
+Click **Revoke** beside the key. There is no confirmation, and it cannot be undone.
+
+A revoked key stops working on its next request. A program that is already connected notices a
+little later:
+
+- A live event WebSocket is closed with code `4003` at its next heartbeat, about every thirty
+  seconds. See [events over WebSocket](/api/events-websocket).
+- A long poll that is waiting stops within a few seconds and answers `401`. See
+  [long polling](/api/long-polling).
+
+Revoke a key as soon as you think someone else may have it, and make a new one.
+
+## What is recorded
+
+Making and revoking a key are recorded in the operational log, with who did it, the key's name,
+its first twelve characters, and (when made) its permissions and expiry. The key itself is never
+recorded. Individual requests made with a key are not recorded; the key's **Last used** time is all
+that changes.
+
+## Making keys through the API
+
+The same actions are on the API, for a program holding a key with **Manage API keys and webhooks**:
+
+| Request | |
+|---|---|
+| `GET /api/api-keys` | Every key, and in `grantable` the permissions you may put on a new one. |
+| `POST /api/api-keys` | Make a key for yourself. |
+| `DELETE /api/api-keys/{id}` | Revoke a key. Answers `204`, also when it was already revoked. |
+
+```http
+POST /api/api-keys
+Authorization: Bearer mbk_...
+Content-Type: application/json
+
+{ "name": "Discord bot", "permissions": ["ViewAuditLog"], "expiresAt": "2027-01-31T23:59:59Z" }
+```
+
+`permissions` takes the permission code names that `GET /api/api-keys` lists. `expiresAt` may be
+`null` for a key that never expires, and must not be in the past. The answer carries the new key in
+`key`, once, beside the list entry in `apiKey`.

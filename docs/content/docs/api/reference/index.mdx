@@ -1,0 +1,26 @@
+---
+title: API reference
+description: Every endpoint programs can call, made from the server's own OpenAPI document.
+---
+
+Each page in this section describes one endpoint: what it needs, what to send, what comes back,
+and example requests in several languages. The pages are made from the OpenAPI document that
+building Modbot writes, so they match the server's code.
+
+## Before you start
+
+- The address in the examples, `modbot.example.com`, stands for your own Modbot. Every Modbot is
+  somebody's own server; there is no shared one. See [the API overview](/api).
+- Programs sign in with an API key: `Authorization: Bearer mbk_...`. See [API keys](/api/keys).
+- Each page says which permission the endpoint needs, when it needs one.
+- The live events stream is described in [Events over WebSocket](/api/events-websocket) and
+  [Events by long polling](/api/long-polling), because OpenAPI cannot describe WebSocket messages.
+
+## The document itself
+
+The same document is in the repository at `docs/openapi/modbot.json`. Your own Modbot serves the
+version it is running at `/api/openapi/v1.json`, with a browsable copy at `/api/reference`.
+
+Some endpoints are left out of the document because they are not meant for other programs: the
+setup wizard's steps, the desktop client's own connection and pairing, the member-facing Discord
+link page, and the settings and health details of VRChat syncing.

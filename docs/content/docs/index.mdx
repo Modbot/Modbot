@@ -1,0 +1,98 @@
+---
+title: Introduction
+description: What Modbot is, what it does today, the pieces it is made of, and where to start.
+---
+
+Modbot is moderation, analytics and automation for one VRChat group. You host it yourself. It is
+open source under the AGPL-3.0 licence.
+
+Modbot keeps a copy of what VRChat's API tells it about your group, records the history VRChat does
+not keep, and gives your staff tools VRChat does not have: searchable member and ban lists, a full
+audit log, case files with evidence, analytics, a Discord bot, a desktop client with a SteamVR
+overlay, and optional AI features.
+
+One Modbot looks after one group. If you run two groups, you run two Modbots.
+
+## What it does today
+
+### Moderation
+
+- **[Live](/moderation/live)** shows your group's open instances right now and who is in each one.
+- **[Popups](/moderation/popups)** open a person, a world or an instance on top of whatever page you
+  are on, with its history.
+- **[Members and bans](/moderation/members-and-bans)** can be searched and sorted, which VRChat's own
+  lists cannot.
+- **[Profiles](/moderation/profiles)** keep what Modbot has seen of a VRChat user over time.
+- **[Audit log](/moderation/audit-log)** shows every event from your group's VRChat audit log, next
+  to what happened inside Modbot itself.
+- **[Bans and case files](/moderation/case-files)** record why someone was banned, by whom, with the
+  details written down.
+- **[Evidence](/moderation/evidence)** lets staff attach screenshots and videos to a case file.
+- **[Reviews and repeat offenders](/moderation/reviews)** help you look at patterns: people who keep
+  coming back, and moderators whose actions need a second look.
+- **[Flags](/moderation/flags)** list what your AI moderation rules picked up.
+
+### The desktop client
+
+- **[The desktop client](/desktop-client/install)** is a Windows program for moderators. It reads
+  VRChat's log on your PC and reports who is in your group's instances.
+- **[Pairing](/desktop-client/pairing)** connects a client to your Modbot.
+- **[The SteamVR overlay](/desktop-client/overlay)** shows that information while you are in VR.
+
+### Discord
+
+- **[The Discord bot](/discord/bot-setup)** runs inside Modbot. You give it a bot token.
+- **[Event channels](/discord/event-channels)** post group events to the Discord channels you choose.
+- **[Instance announcements](/discord/instance-announcements)** post your open instances for members.
+- **[Account linking](/discord/account-linking)** lets members link their Discord and VRChat accounts.
+- **[Messages and My Server](/discord/messages-and-my-server)** and
+  **[Discord members](/discord/members)** cover your Discord server itself.
+
+### AI (optional)
+
+- **[AI settings](/ai/settings)** connect Modbot to an AI provider you choose. Nothing AI-related
+  runs until you do.
+- **[Moderation rules](/ai/moderation-rules)**, **[Insights](/ai/insights)** and
+  **[Chat](/ai/chat)** are the features built on it.
+- **[Limits and spend](/ai/limits-and-spend)** keep the cost under control.
+
+### Analytics, staff and the API
+
+- **[Analytics](/analytics)** covers your group, your Discord server, your team, your worlds and
+  your instances.
+- **[Staff accounts](/accounts/staff-accounts)** and **[roles and permissions](/accounts/roles-and-permissions)**
+  decide who can see and do what.
+- **[The API](/api)** lets your own tools read Modbot's data, with
+  [API keys](/api/keys), [live events over WebSocket](/api/events-websocket),
+  [long polling](/api/long-polling) and [webhooks](/api/webhooks).
+
+## The pieces
+
+| Piece | What it is | Do you need it? |
+|---|---|---|
+| **The Modbot server** | One program that holds the API, the web app, the VRChat sync and the Discord bot. It runs as one container. | Yes |
+| **PostgreSQL** | The database. Everything Modbot knows and every setting lives here. | Yes |
+| **The web app** | What you and your staff open in a browser. It is served by the Modbot server, so there is nothing extra to install. | Comes with the server |
+| **The desktop client** | A Windows program each moderator can install to report presence from VRChat and show the overlay. | Optional |
+| **The Discord bot** | Part of the server. It starts when you give Modbot a bot token. | Optional |
+| **An AI provider** | A service you already have an account with, used for AI moderation rules, insights and chat. | Optional |
+| **A storage bucket** | Somewhere to keep evidence files. Modbot can also keep them on disk or in the database. | Optional |
+
+See [What you run](/self-hosting) for more on each one.
+
+## Where to start
+
+<Cards>
+  <Card title="Self-hosting" href="/self-hosting">
+    What you need to run Modbot, and the ways to deploy it.
+  </Card>
+  <Card title="The setup wizard" href="/setup-wizard">
+    The steps Modbot walks you through the first time you open it.
+  </Card>
+  <Card title="The desktop client" href="/desktop-client/install">
+    Install the Windows client and pair it with your Modbot.
+  </Card>
+  <Card title="The API" href="/api">
+    Read Modbot's data from your own tools.
+  </Card>
+</Cards>

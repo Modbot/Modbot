@@ -1,0 +1,439 @@
+---
+title: Webhooks
+description: Have Modbot send each new event to an address of yours, and check that each request really came from your Modbot.
+---
+
+A webhook is an address on a server of yours that Modbot sends events to. Each time an event you
+chose is recorded, Modbot sends it there in a `POST` request, signed with a secret only you and
+your Modbot know.
+
+Webhooks suit a server that can receive requests from the internet. If yours cannot, use the
+[live event WebSocket](/api/events-websocket) or [long polling](/api/long-polling) instead. All
+three send the same events, in the same shape.
+
+## Who can manage webhooks
+
+Webhooks need the **Manage API keys and webhooks** permission (see
+[roles and permissions](/accounts/roles-and-permissions#manage-api-keys-and-webhooks)). They live on
+**Settings → API → Webhooks**. In the web app, the **Settings** page only appears for people who
+also have **Change settings**.
+
+Everyone with the permission sees every webhook and its **Delivery log**, and can **Turn off** or
+**Delete** any of them. Only the person who set a webhook up, or an **Administrator**, can
+**Edit** it, **Send test**, **Roll secret** or **Turn on**.
+
+That is because a webhook sends what **the person who set it up** may see. Letting someone else
+point it at a new address would hand them that person's view of the log.
+
+## Setting one up
+
+<Steps>
+<Step>
+
+### Open the Webhooks tab
+
+Go to **Settings**, then **API**, then **Webhooks**, and click **Create webhook**.
+
+</Step>
+<Step>
+
+### Name and address
+
+Give it a **Name** (at most 64 characters) and the **Address** Modbot should send to, such as
+`https://example.com/modbot`. The address must start with `https://`, must not contain a user name
+or password, and must not be a private address (see [private addresses](#private-addresses)).
+
+</Step>
+<Step>
+
+### Choose the events
+
+**Event types** starts as `*`, which means every event you may see. To choose instead, write one
+type per line (or separate them with commas), or pick them from **Add an event type…**. Types use
+the same patterns as the WebSocket: an exact type such as `vrchat.group.member.ban`, a prefix such
+as `vrchat.group.member.*`, or `*`. See
+[subscribing](/api/events-websocket#subscribing) for the rules.
+
+**Subjects** is optional. Put ids in it, one per line, and the webhook only sends events about
+those ids.
+
+</Step>
+<Step>
+
+### Save and copy the secret
+
+Leave **On** switched on and click **Create**. The **Signing secret** is shown **once**. Copy it
+into your receiver now: you need it to check signatures. It looks like `whsec_` followed by 43
+letters, digits, `-` and `_`.
+
+</Step>
+<Step>
+
+### Test it
+
+Click **Send test** beside the webhook. Modbot sends a test event straight away and shows what your
+server answered underneath, for example `Test: 200 (84 ms)`.
+
+</Step>
+</Steps>
+
+A new webhook starts with events recorded **from the moment it is created**. It does not send
+older ones.
+
+### Which events it sends
+
+The event types and subjects you chose, limited to what the person who set it up may see **at the
+moment each event is sent**, by the same rules as the WebSocket (see
+[which events you receive](/api/events-websocket#which-events-you-receive)). If that person loses
+**See the audit log**, the webhook stops sending moderation events.
+
+If the account that set the webhook up is disabled or no longer linked to VRChat, Modbot
+turns the webhook off.
+
+## The webhook list
+
+Each webhook shows its name, state and address, then its **Owner**, **Events**, **Subjects** (how
+many), **Last delivered**, and when it is failing, **Failing since** and **Next try**. The last error,
+or the reason Modbot turned it off, is shown below.
+
+| State | Means |
+|---|---|
+| **Working** | On, and the last delivery worked. |
+| **Failing** | On, but deliveries are failing and being tried again. |
+| **Turned off by Modbot** | Modbot turned it off. The reason is shown. |
+| **Off** | Someone turned it off. |
+
+**Delete** removes the webhook and its delivery log at once, with no confirmation.
+
+## What Modbot sends
+
+One `POST` request per event. The body is the event as JSON, in exactly the shape described in
+[the event](/api/events-websocket#the-event), on one line. These headers come with it:
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `application/json; charset=utf-8` |
+| `User-Agent` | `Modbot-Webhooks/` and the Modbot release, for example `Modbot-Webhooks/2026.9.0` |
+| `Modbot-Event-Id` | The event's `id` |
+| `Modbot-Event-Type` | The event's `type` |
+| `Modbot-Timestamp` | When this attempt was signed, in Unix seconds |
+| `Modbot-Signature` | `v1=` followed by the signature in lowercase hex |
+
+Answer with any `2xx` status within **ten seconds** (the default). If you need to do slow work, save
+the event, answer, and do the work afterwards.
+
+Events go **in order**, one at a time, and **at least once**. While one event is failing, the events
+after it wait behind it. If Modbot stops just after sending an event but before noting that it
+worked, it sends that event again. Use `Modbot-Event-Id` to skip an event you have already handled.
+
+Modbot sends webhooks directly: not through the VRChat proxy or any other proxy, without cookies,
+and without following redirects.
+
+## Checking the signature
+
+Anyone who learns your address can send requests to it. The signature proves a request came from
+your Modbot and was not changed on the way.
+
+The signature is an HMAC-SHA256. The key is the whole signing secret (including `whsec_`) as UTF-8
+text. The signed text is the `Modbot-Timestamp` header, a full stop, and the request body **exactly
+as received**:
+
+```text
+Modbot-Signature = "v1=" + lowercase_hex( HMAC_SHA256( secret, timestamp + "." + body ) )
+```
+
+To check a request:
+
+1. Read the body as raw bytes, **before** any JSON parsing. Parsing and writing it out again
+   changes the bytes, and the signature will not match. (Modbot may also write some characters,
+   such as accented letters, as `\u` escapes, which a JSON library would not reproduce.)
+2. Work out the signature yourself from your secret, the `Modbot-Timestamp` header and the raw body.
+3. Compare it with the `Modbot-Signature` header using a constant-time comparison, so the time taken
+   does not give the answer away.
+4. Refuse the request if the timestamp is more than five minutes away from your clock. A captured
+   request then cannot be sent again later. Every retry is signed again with a fresh timestamp, so
+   a genuine retry still passes.
+
+Only trust anything in the request after it passes.
+
+### Node.js
+
+```js
+import { createHmac, timingSafeEqual } from 'node:crypto'
+
+export function isFromModbot(secret, timestamp, signature, rawBody) {
+  const sentAt = Number(timestamp)
+  if (!Number.isInteger(sentAt) || Math.abs(Date.now() / 1000 - sentAt) > 300) return false
+
+  const expected = 'v1=' + createHmac('sha256', secret)
+    .update(`${timestamp}.`)
+    .update(rawBody)
+    .digest('hex')
+
+  const a = Buffer.from(expected)
+  const b = Buffer.from(signature ?? '')
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+```
+
+With Express, take the raw body for this route:
+
+```js
+import express from 'express'
+
+const app = express()
+
+app.post('/modbot', express.raw({ type: 'application/json' }), (req, res) => {
+  const ok = isFromModbot(
+    process.env.MODBOT_WEBHOOK_SECRET,
+    req.get('Modbot-Timestamp'),
+    req.get('Modbot-Signature'),
+    req.body, // a Buffer, because of express.raw
+  )
+  if (!ok) return res.status(401).end()
+
+  const event = JSON.parse(req.body.toString('utf8'))
+  console.log(event.id, event.type)
+  res.status(204).end()
+})
+```
+
+### Python
+
+```python
+import hashlib
+import hmac
+import time
+
+
+def is_from_modbot(secret: str, timestamp: str, signature: str, raw_body: bytes) -> bool:
+    try:
+        sent_at = int(timestamp)
+    except (TypeError, ValueError):
+        return False
+    if abs(time.time() - sent_at) > 300:
+        return False
+
+    signed = timestamp.encode() + b"." + raw_body
+    expected = "v1=" + hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature or "")
+```
+
+With Flask, `request.get_data()` gives the raw body and `request.headers["Modbot-Signature"]` the
+header.
+
+### A worked example
+
+Use this to check your code gives the right answer. The secret is made up; the request is a test
+event like the one **Send test** sends.
+
+Signing secret:
+
+```text
+whsec_Zm9yIGRvY3VtZW50YXRpb24gb25seSwgbm90IHJlYWw
+```
+
+`Modbot-Timestamp` header:
+
+```text
+1789482732
+```
+
+Body, exactly (one line, no newline at the end):
+
+```json
+{"version":1,"id":"test-0199a4c2e8f07d3a9b1c5e7f2a4d6b8c","cursor":null,"type":"modbot.webhook.test","type_raw":null,"label":"Webhook test","category":"operational","source":"Modbot","occurred_at":"2026-09-15T14:32:12.123+00:00","occurred_before":null,"observed_at":"2026-09-15T14:32:12.123+00:00","subject":{"platform":"Modbot","id":"0199a4c1-5b2e-7c4d-8e9f-1a2b3c4d5e6f","kind":"Other"},"actor":{"platform":"Modbot","id":"0199a4b0-1c2d-7e3f-9a4b-5c6d7e8f9a0b","name":"alice"},"world_id":null,"instance_id":null,"data":{"actorDisplayName":"alice"}}
+```
+
+The signed text is `1789482732.` followed by that body, and the `Modbot-Signature` header is:
+
+```text
+v1=007691b77ff3813dc8b0f6dd2dd1530aad47732873c94b553e50e4c7839662fc
+```
+
+That timestamp is 15 September 2026, 14:32:12 UTC, so leave out the five-minute check while you
+try this example.
+
+## The test event
+
+**Send test** (or `POST /api/webhooks/{id}/test`) sends one event of type `modbot.webhook.test`
+straight away, signed like any other. It is sent even when the webhook is off, and whatever event
+types it has chosen.
+
+It has the usual shape, with these values:
+
+| Field | Value |
+|---|---|
+| `id` | `test-` followed by 32 hex characters, different each time |
+| `cursor` | `null` |
+| `type`, `label` | `modbot.webhook.test`, `Webhook test` |
+| `category`, `source` | `operational`, `Modbot` |
+| `subject` | the webhook itself: `platform` `Modbot`, `id` the webhook's id, `kind` `Other` |
+| `actor` | the person who clicked: `platform` `Modbot`, their account id and username |
+| `data` | `{ "actorDisplayName": "..." }` with the same username |
+
+A test is tried once and never again. It appears in the delivery log marked **Test**, and does not
+change whether the webhook counts as working or failing. The event does not exist anywhere else:
+it is not in the audit log.
+
+## When your server does not answer
+
+| Your server | What Modbot does |
+|---|---|
+| Answers `2xx` | Marks the event delivered and moves on to the next one. |
+| Does not answer in time, cannot be reached, or answers `5xx` | Tries the same event again later. Events after it wait. |
+| Answers `408` or `429` | Tries again, after as long as your `Retry-After` header asks, up to an hour. Without the header, it waits as for a `5xx`. |
+| Answers any other `4xx`, or a redirect (`3xx`) | Does not try that event again. Logs the attempt and moves on to the next event. |
+
+Retries wait longer each time: **10 seconds, 30 seconds, 90 seconds, 4½ minutes, 13½ minutes,
+40½ minutes, then every hour** (the defaults).
+
+<Callout type="warn" title="A 4xx skips the event for good">
+  If your server answers `400`, `401`, `404` or another `4xx`, Modbot treats that event as one your
+  server will never accept, and does not send it again. Answer `5xx` when you want Modbot to try
+  again later, for example while your database is down, or `429` with a `Retry-After` header to say
+  exactly when.
+</Callout>
+
+### Turned off after a day of failures
+
+Every answer that is not a `2xx` counts as a failure, including the `4xx` answers that skip an
+event. If a webhook has not had a `2xx` for **24 hours** (the default), Modbot turns it off. It
+shows as **Turned off by Modbot**, with a reason such as:
+
+```text
+Failing since 2026-09-15 14:32 UTC: No answer in 10 seconds.
+```
+
+Turning it off is also recorded in the operational log. Fix your server, then click **Turn on**.
+
+Modbot also turns a webhook off, with a reason, when:
+
+- the account that set it up is disabled or no longer linked to VRChat:
+  `The account that set it up is disabled.`
+- its saved address or event types are no longer valid: `Its address or event types are not valid.`
+
+### Turning a webhook back on
+
+A webhook that is turned back on **carries on from where it stopped**. The events recorded while it
+was off are sent to it then, in order, as long as this Modbot still keeps them. Its failure count
+starts again from zero.
+
+## The delivery log
+
+**Delivery log** beside a webhook shows its last **50** attempts, newest first, tests included:
+
+| Column | |
+|---|---|
+| **When** | When the attempt was made. |
+| **Event** | The event's type and id, or **Test**. |
+| **Try** | Which attempt at this event it was: `1` for the first. |
+| **Status** | The HTTP status your server answered, or `—` when there was no answer. |
+| **Time** | How long the attempt took, in milliseconds. |
+| **Error** | What went wrong, if anything. |
+
+Errors you may see:
+
+| Error | |
+|---|---|
+| `Answered 500.` (or another status) | Your server answered with that status. |
+| `Answered 301. Redirects are not followed.` | Your server answered with a redirect. Use the final address instead. |
+| `No answer in 10 seconds.` | Your server took too long. |
+| `That address is private.` | The address is a private one, and private addresses are not allowed. |
+| `Only https addresses are allowed.` | The address starts with `http://`, and private addresses are not allowed. |
+| `example.com resolves to a private address.` | The name led to a private address when Modbot connected. |
+
+Other network problems show the error text from the connection.
+
+## The signing secret
+
+The secret is shown once when the webhook is made, and once each time you roll it. Modbot keeps it
+encrypted, because it needs to read it back to sign each request.
+
+**Roll secret** makes a new secret and shows it in a **Signing secret** window. **The old secret
+stops being used at once.** Any event sent before you have put the new secret into your receiver
+will fail your signature check, and if your receiver then answers with a `4xx`, that event is
+skipped for good.
+
+To roll a secret without losing events:
+
+1. Click **Turn off** on the webhook.
+2. Click **Roll secret** and copy the new secret.
+3. Put the new secret into your receiver.
+4. Click **Turn on**. The events recorded while it was off are sent now, signed with the new secret.
+
+Roll the secret whenever you think someone else may have it.
+
+## Private addresses
+
+By default, Modbot will only send webhooks to `https` addresses on the public internet. It refuses:
+
+- `localhost` and names ending in `.localhost`
+- loopback addresses (`127.x.x.x`, `::1`)
+- private networks (`10.x.x.x`, `172.16.x.x` to `172.31.x.x`, `192.168.x.x`, and IPv6 `fc00::/7`)
+- link-local addresses (`169.254.x.x`, which includes cloud metadata services, and IPv6 `fe80::/10`)
+- shared carrier addresses (`100.64.x.x` to `100.127.x.x`)
+- `0.x.x.x`, multicast, broadcast, and addresses reserved for documentation and testing
+- IPv6 addresses that carry one of the IPv4 addresses above inside them
+
+This stops the webhook form being used to make your Modbot's server reach machines on its own
+network, such as the database. The address is checked when you save the webhook, and again **each
+time Modbot connects**, against the address the name actually leads to at that moment.
+
+If your receiver runs on the same private network as Modbot, switch on **Allow private addresses** in
+the **Addresses** card on the Webhooks tab. This needs **Change settings**; for anyone else the
+switch cannot be changed. With it on, private addresses and plain `http://` addresses are both
+allowed. The change is recorded in the operational log.
+
+If you switch it off again, webhooks that point at private or `http://` addresses start failing
+with `That address is private.` or `Only https addresses are allowed.`, and are turned off after 24
+hours.
+
+The same switch is on the API:
+
+```http
+PUT /api/settings/webhooks
+Authorization: Bearer mbk_...
+Content-Type: application/json
+
+{ "allowPrivateAddresses": true }
+```
+
+It answers `{ "allowPrivateAddresses": true }`.
+
+## Webhooks through the API
+
+Everything on the Webhooks tab is also on the API, for a key with
+**Manage API keys and webhooks**:
+
+| Request | |
+|---|---|
+| `GET /api/webhooks` | Every webhook, never its secret, plus `allowPrivateAddresses`. |
+| `POST /api/webhooks` | Set one up. The answer carries the secret, once, in `secret`. |
+| `PUT /api/webhooks/{id}` | Change one, or turn it on or off. Send every field. |
+| `DELETE /api/webhooks/{id}` | Delete one and its delivery log. |
+| `POST /api/webhooks/{id}/secret` | Roll the secret. The answer carries the new one in `secret`. |
+| `POST /api/webhooks/{id}/test` | Send the test event and get back the delivery log entry. |
+| `GET /api/webhooks/{id}/deliveries` | The delivery log, newest first. |
+
+```http
+POST /api/webhooks
+Authorization: Bearer mbk_...
+Content-Type: application/json
+
+{
+  "name": "Our Discord bot",
+  "url": "https://example.com/modbot",
+  "eventTypes": ["vrchat.group.member.*"],
+  "subjectIds": [],
+  "enabled": true
+}
+```
+
+The webhook belongs to the account that owns the key, and sends what that account may see.
+
+## What is recorded
+
+Setting up, changing, rolling the secret of, deleting, and Modbot turning off a webhook are each
+recorded in the operational log, with who did it, the webhook's name, address and event types. The
+secret never is. Individual deliveries are not recorded there: the delivery log keeps the last 50.

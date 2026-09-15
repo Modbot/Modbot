@@ -172,7 +172,7 @@ public static class EventPollEndpoint
             .WithName("PollEvents")
             .WithSummary("Long polling for the live event stream")
             .WithDescription(
-                "Authenticate with Authorization: Bearer <key>. Returns events after `cursor` at once "
+                "Authenticate with `Authorization: Bearer mbk_...`. Returns events after `cursor` at once "
                 + "when there are any, up to `limit` (default 100, at most 500); otherwise waits up to "
                 + "`wait` seconds (default 30, at most 60) for one and returns an empty list. No cursor "
                 + "means from now. Send the returned `cursor` back; `more` means poll again straight "

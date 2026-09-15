@@ -1,0 +1,171 @@
+---
+title: Storage buckets
+description: Choosing where evidence files are kept, filling in a storage bucket, the test Modbot runs before saving, the store marker, and upload limits.
+---
+
+Evidence is the screenshots and videos your staff attach to [case files](/moderation/case-files).
+Modbot does not keep those files anywhere until you choose a place for them. Until then, evidence
+uploads are turned off and everything else in Modbot works as normal.
+
+You choose the place under **Settings**, on the **Evidence** tab. You need the
+[**Change settings**](/accounts/roles-and-permissions) permission, or **Administrator**.
+
+## The choices
+
+The **Where evidence is stored** card offers four:
+
+| Choice | What it is | Good for |
+|---|---|---|
+| **S3-compatible object storage** (recommended) | A storage bucket from a provider that speaks the S3 protocol, such as a Railway bucket. | Most deployments, and any host whose disk does not survive a redeploy. |
+| **A directory on disk** | A folder on the machine Modbot runs on. | A Modbot on your own server, with a volume that lasts. |
+| **Inside PostgreSQL** | The files are stored in Modbot's own database. | A small group that wants one thing to back up and nothing else to set up. |
+| **Not configured** | No evidence storage. Uploads are off. | Turning storage off before any evidence is stored. |
+
+Some differences that matter:
+
+- **A bucket** can hand a person's browser a direct link to a file, so files do not pass through
+  Modbot. The other two send every file through Modbot.
+- **A directory on disk** only lasts if the directory lasts. On most hosting platforms the
+  container's disk is thrown away on every redeploy unless you mount a volume.
+- **Inside PostgreSQL** puts every file into your database backups, so they grow with every video.
+  You also need nothing else set up.
+
+## Filling in a bucket
+
+Choose **S3-compatible object storage** and fill in:
+
+| Field | What to enter |
+|---|---|
+| **Bucket** | The bucket's name. |
+| **Endpoint** | The provider's S3 address, including `https://`. |
+| **Access key id** | From your provider. |
+| **Secret access key** | From your provider. Once saved it is never shown again; the label says **(stored)**. Leave it empty to keep the stored one. |
+| **Region** | From your provider. `us-east-1` if you leave it empty. |
+| **Key prefix (optional)** | A folder name inside the bucket, if you want Modbot's files kept under one. |
+| **Path-style URLs** | Tick it if your provider needs the bucket name in the path of the address rather than in front of it. Your provider's credentials page usually says which. |
+
+### Railway fills this in for you
+
+When you add a Railway bucket to the Modbot service, Railway sets `BUCKET`, `ENDPOINT`,
+`ACCESS_KEY_ID`, `SECRET_ACCESS_KEY` and `REGION`. While evidence storage is **Not configured**,
+Modbot uses them to fill in **Bucket**, **Endpoint**, **Access key id** and **Region**. The secret is
+not shown, but if you leave **Secret access key** empty, the one Railway set is used when you save.
+
+`BUCKET`, `ENDPOINT`, `ACCESS_KEY_ID` and `SECRET_ACCESS_KEY` must all be set for this to happen.
+
+You still press **Test and save**. Once storage is saved, Modbot never reads those variables again,
+so changing them in Railway later does not move your evidence to a different bucket.
+
+## A directory on disk
+
+Choose **A directory on disk** and enter a **Directory**. It starts as `/app/data/evidence`.
+
+When you save, Modbot checks the directory:
+
+- **If it cannot be written to**, saving is refused. Mount a volume there and make sure Modbot's
+  user can write to it. See [Docker](/self-hosting/docker#keeping-evidence-on-disk).
+- **If Modbot cannot tell whether it survives a restart**, you see
+  **Modbot could not confirm that this directory survives a restart.** with a **Use anyway** box.
+  This happens on hosting platforms that usually throw their disks away, such as Railway, Fly.io and
+  Render, until the directory has been through one restart. Tick **Use anyway** and press
+  **Test and save** again to go ahead. Your name, the time and the exact warning are recorded.
+- **If the directory has already been through a restart**, or Modbot does not recognise the host
+  (for example your own Docker server), there is no warning.
+
+Modbot leaves a small hidden file in the directory to find out. If it is still there after a
+restart, the directory lasts.
+
+## Inside PostgreSQL
+
+Choose **Inside PostgreSQL**. There is nothing to fill in: Modbot uses its own database connection.
+
+## Test only, and Test and save
+
+**Test only** tries the store without saving anything. **Test and save** runs the same test and
+saves the choice only if every step passed. A store that fails cannot be chosen.
+
+The test does what a real upload does:
+
+1. writes a test file,
+2. reads it back and checks the bytes are the same,
+3. moves it to its final place,
+4. reads it again,
+5. deletes it,
+6. writes the store marker (below).
+
+If a step fails, the message starts with its name, so you know where to look:
+
+| Step | Usually means |
+|---|---|
+| `write` | Modbot could not write at all: wrong endpoint, wrong credentials, or no permission to write. |
+| `compare` | The store gave back different bytes than were sent. |
+| `read-back` | The file was accepted and then could not be read. |
+| `commit` | The file could not be moved to its final place. On an S3-compatible store this usually means the credentials can write but not copy. |
+| `verify` | The file in its final place did not come back intact. |
+| `store-marker` | Modbot could not write its store marker. |
+
+Some problems are caught before the test starts, and the message says what is missing, such as
+`A bucket name is required.` or `An endpoint is required, with its scheme`.
+
+On success the message names the store and says `passed`, with the store marker's id.
+
+## The store marker
+
+When a store passes the test, Modbot writes a small marker into it holding an id, and saves the same
+id in its database. From then on Modbot checks that marker when it starts, when you press
+**Re-check**, and when you save.
+
+The box at the top of the **Evidence** tab shows what the last check found:
+
+| Message | What it means |
+|---|---|
+| **No evidence store has been configured.** | Nothing has been chosen yet. |
+| **The store answered, and it is ours.** | The marker is there and matches. Uploads work. |
+| **The store did not answer.** | Modbot could not reach the store: a network problem, credentials, or an outage. Uploads wait until it answers again. |
+| **This is not the store Modbot put its evidence in.** | The store answered, but the marker is missing or belongs to something else. **Uploads are blocked.** |
+
+The last one is the important one. It means the files are not where Modbot's records say they are.
+Common causes are a volume that was not mounted, a new or different bucket, a mistyped key prefix, or
+a bucket that another Modbot set up. The message says which marker id was expected and which was
+found.
+
+Modbot keeps running while this is showing: sync, bans, Discord and everything else carry on. The
+block does not clear by itself. Fix the cause, then press **Re-check**. It clears when the matching
+marker is found again.
+
+## Changing where evidence is stored
+
+Once any evidence is stored, you cannot switch to a different bucket, directory or choice. The card
+says **The backend cannot be changed while evidence is stored.** Saving a setting does not move files,
+so switching would leave every existing file behind.
+
+You can still change the credentials for the same bucket, endpoint and key prefix, for example to
+use a new access key.
+
+## What this store is doing
+
+The **What this store is doing** card shows:
+
+| Row | What it shows |
+|---|---|
+| **Store marker** | The marker id, or **none written yet**. |
+| **Delivery** | **Straight from the store** for a bucket, **Through Modbot** for the others. |
+| **Range reads** | Whether a video can be played from the middle without downloading all of it. |
+| **Evidence held** | How many files are stored, and their total size. |
+| **Destroyed** | How many files have been destroyed. |
+| **Accepted formats** | The file types Modbot accepts: PNG, JPEG, WebP and GIF images, and MP4 and WebM videos. |
+
+Modbot decides a file's type from its contents, not its name. SVG, HTML and every other type are
+refused.
+
+## File upload limits
+
+The **File Upload Limits** card has three sizes, in megabytes:
+
+| Field | Default | What it limits |
+|---|---|---|
+| **Per file (MB)** | 100 | The largest single file. It cannot be 0. |
+| **Per report (MB)** | 0 | The total of all files on one case file. 0 means no limit. It cannot be smaller than the per-file limit. |
+| **Deployment (MB)** | 0 | The total of all evidence in this Modbot. 0 means no limit. |
+
+Press **Save limits** to apply them. They take effect straight away, without a restart.

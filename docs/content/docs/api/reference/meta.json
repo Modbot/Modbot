@@ -1,0 +1,32 @@
+{
+  "title": "API reference",
+  "pages": [
+    "version",
+    "auth",
+    "users",
+    "roles",
+    "api-keys",
+    "events",
+    "webhooks",
+    "members",
+    "vrchat-users",
+    "live",
+    "calendar",
+    "places",
+    "audit",
+    "case-files",
+    "evidence",
+    "reviews",
+    "repeat-offenders",
+    "moderation",
+    "discord",
+    "discord-account-link",
+    "chat",
+    "insights",
+    "analytics",
+    "health",
+    "settings",
+    "ai-settings",
+    "..."
+  ]
+}

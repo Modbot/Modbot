@@ -1,0 +1,87 @@
+---
+title: Flags
+description: The Flags page lists what your moderation rules caught in Discord messages and VRChat profiles, and lets you dismiss a flag for good.
+---
+
+A **flag** is a note Modbot writes when one of your [moderation rules](/ai/moderation-rules) matches
+some text: a Discord message, or a VRChat user's display name, bio, status or pronouns. The
+**Flags** page lists them so a moderator can read each one and either leave it or dismiss it.
+
+| To | You need |
+|---|---|
+| Open the **Flags** page | [**See profiles**](/accounts/roles-and-permissions#see-profiles) |
+| Press **Dismiss** | [**Review tickets**](/accounts/roles-and-permissions#review-tickets) |
+
+A flag is a note, not a finding. Nobody is judged by it.
+
+## What raises a flag
+
+Flags only come from moderation rules, set up under **Settings**, **AI**. There are two kinds of
+rule:
+
+- **Term lists**: words, phrases or patterns. They are matched inside Modbot and send nothing to an
+  AI provider.
+- **AI topics**: something to catch, described in your own words. Modbot asks your AI model whether
+  the text matches.
+
+Nothing is flagged until the moderation feature and at least one rule are switched on. Discord
+messages are checked as the bot stores them; VRChat profiles are checked when Modbot first records
+a profile and whenever part of it changes. The details are on
+[Moderation rules](/ai/moderation-rules).
+
+The same rule and term on the same message, or on the same words in the same part of a profile,
+is only flagged once.
+
+<Callout type="info" title="Not the same as Flagged on Live">
+The **Flagged** mark on the [Live](/moderation/live) page counts past removals and bans. It is not
+a moderation rule flag.
+</Callout>
+
+## Reading the page
+
+There are two tabs: **Open**, with the number waiting, and **Dismissed**. Each shows the newest
+200 flags.
+
+Each flag shows:
+
+- **Who.** Click the name to open their popup: a [person popup](/moderation/popups#person-popup)
+  for a VRChat user, or a Discord person popup for a Discord user.
+- **Where.** A **VRChat** or **Discord** badge, and what was checked: **Discord messages**,
+  **Display name**, **Bio**, **Status** or **Pronouns**.
+- **Which rule**, by name.
+- **What the rule did**, when it was set to act on Discord messages: **Message deleted** and
+  **Timed out** with the number of minutes.
+- **The matched words**, in quotes. For a term list, the term that matched follows in grey.
+- **The reason**, when there is one: a Modbot Hub term's note, or the AI model's one-sentence
+  explanation.
+- **When** it was flagged. On the **Dismissed** tab, also who dismissed it and when.
+
+The page does not refresh by itself. Switch tabs or reload to see new flags.
+
+## Dismissing a flag
+
+Press **Dismiss** beside an open flag. It moves to the **Dismissed** tab.
+
+<Callout type="warn" title="Dismissing is permanent for that person">
+Once dismissed, **that rule and that term** (for an AI topic, **that topic**) never flags that
+person again, and never deletes their messages or times them out again. Other terms in the same
+list, and other rules, still apply to them. There is no way to undo a dismissal in the app.
+</Callout>
+
+Dismissing does not undo anything the rule already did. A deleted Discord message stays deleted
+and a timeout runs its course.
+
+Dismiss a flag when the rule got it wrong for this person: a name that only looks like a slur, a
+joke between friends, a word that means something else in their language. If the flag was right,
+leave it open, or act on it in Discord or VRChat as you normally would.
+
+Every dismissal is recorded in the [audit log](/moderation/audit-log) against your account, with
+the rule, the term and the matched words.
+
+## Good to know
+
+- A rule that is mostly dismissed is mostly noise. The **Term lists** and **AI topics** cards in
+  Settings show how often each rule has flagged and how many of those were dismissed.
+- Deleting a term list or topic keeps the flags it already made.
+- Modbot never kicks, warns or bans anybody in VRChat because of a flag. The only actions a rule can
+  take are on Discord messages.

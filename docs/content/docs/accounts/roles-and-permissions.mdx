@@ -1,0 +1,355 @@
+---
+title: Roles and permissions
+description: What a role is, the three built-in roles, and every permission in Modbot with what it lets a person do.
+---
+
+A **role** is a name for a set of permissions. Every staff account holds one or more roles, and
+what a person may do is everything their roles allow, added together. There are no extra
+permissions set on one person alone: if you want to know why somebody can do something, the
+answer is always on the Roles page.
+
+To give people roles, see [Staff accounts](/accounts/staff-accounts).
+
+## The Roles page
+
+Open **Roles** in the sidebar, under **Team**. You need **Manage roles** to see it.
+
+Each role is a card showing its name, its one-line description, how many permissions it holds and
+how many people hold it. Click a card to open it:
+
+- **Name** and **One line about it** (the description).
+- A checklist of every permission, grouped under **Reading**, **Evidence**, **Moderation** and
+  **Administration**. Each has a short label and a line saying what it covers.
+- **Save changes**, and for roles you made yourself, **Delete role**.
+
+Press **New role** to make one. Give it a name, tick its permissions and press **Create role**.
+
+Rules:
+
+- A role name can be up to 64 characters and must be unique (upper and lower case count as the
+  same). A description can be up to 256 characters.
+- **You can only put permissions into a role that you have yourself.** Boxes for permissions you do
+  not hold are greyed out, and saving a role that contains one is refused, even if the role had it
+  before. An administrator can tick anything.
+- **A role somebody holds cannot be deleted.** Move those people to another role first. The button
+  stays greyed out until nobody holds it.
+- A change to a role takes effect for everyone holding it on their next click, not their next
+  sign-in.
+- Creating, changing and deleting roles are all recorded in the operational log, with the
+  permissions before and after.
+
+## Built-in roles
+
+Three roles exist on every Modbot from the start. They cannot be deleted or renamed.
+
+| Role | Holds | Can be changed |
+|---|---|---|
+| **Administrator** | **Administrator**: everything, including permissions added in future versions. | No. It always means everything. |
+| **Moderator** | **See members**, **See profiles**, **See analytics**, **See the audit log**, **Kick**, **Ban**, **Unban**, **Warn**, **View evidence**, **Upload evidence**. | Yes: its description and permissions. |
+| **Viewer** | **See members**, **See profiles**, **See analytics**, **See the audit log**. | Yes: its description and permissions. |
+
+Some permissions are deliberately not in Moderator or Viewer, because they reach further than
+day-to-day moderation: **See live instances**, **Use AI chat**, **Read Discord messages**, **Manage
+Discord links**, and the evidence and administration permissions not listed above. Grant them on
+purpose, to a role of your own or by editing a built-in one.
+
+## Administrator covers everything
+
+A person holding **Administrator** passes every permission check in Modbot, including checks for
+permissions that are added in later versions of Modbot. You never need to tick anything else for
+an administrator, and updating Modbot never leaves an administrator missing something new.
+
+Modbot always keeps at least one enabled account holding Administrator. See
+[the last administrator](/accounts/staff-accounts#the-last-administrator).
+
+## Who can give what
+
+The same rule applies everywhere a permission can be handed out:
+
+- On the **Roles** page you can only put permissions you hold into a role.
+- On the **Users** page you can only give people roles whose permissions you all hold, whether by
+  invite link, temporary password or changing their roles.
+- An **API key** can only be given permissions you hold, and it can never do more than the account
+  that made it can do right now. If you lose a permission, your keys lose it too. See
+  [API keys](/api/keys).
+
+So **Manage users** and **Manage roles** are never a way to become an administrator.
+
+## Permissions are enforced by the server
+
+The sidebar hides pages a person cannot open, but that is only for tidiness. Every request is
+checked on the server, so hiding a link is never what keeps data safe. The same checks apply to the
+[API](/api), to [live events over WebSocket](/api/events-websocket) and
+[long polling](/api/long-polling), to [webhooks](/api/webhooks), to the tools [Chat](/ai/chat) uses
+to answer questions, and to the Discord bot's commands.
+
+The API refers to each permission by its name, shown below after the label (for example
+`ViewAuditLog`).
+
+## Reading
+
+### See members
+
+Name: `ViewMembers`
+
+- Opens the **Members** page (the group's member list) and the **Discord members** page.
+- Shows whether somebody is a member now, and with which roles, in the person popup.
+- Lets [Chat](/ai/chat) look up group membership.
+
+Seeing which Discord and VRChat accounts are linked, and filtering the member lists by link, also
+needs **See profiles**.
+
+### See profiles
+
+Name: `ViewProfile`
+
+- A VRChat user's profile, history and metrics in the person popup, and refreshing that profile
+  from VRChat. See [Profiles](/moderation/profiles).
+- Reading [case files](/moderation/case-files): the **Cases** tab in the person popup and the case
+  files shown on the **Bans** page.
+- The **Flags** page, which lists what [AI moderation rules](/ai/moderation-rules) flagged. See
+  [Flags](/moderation/flags).
+- [Repeat offenders](/moderation/reviews).
+- Seeing a member's linked Discord or VRChat account, and the **Metrics** tab in the Discord person
+  popup.
+- The Discord bot's `/lookup` command.
+
+### See analytics
+
+Name: `ViewAnalytics`
+
+- The analytics pages: **My Group**, **My Server**, **My Team**, **Worlds** and **Instances**. See
+  [Analytics](/analytics).
+- The world and instance popups.
+- [Insights](/ai/insights) on the **My Group** page.
+
+Seeing who was in a past instance also needs **See the audit log**.
+
+### See live instances
+
+Name: `ViewLiveRooms`
+
+- The **Live** page: the group's open instances right now, how many people are in each, and who.
+  See [Live](/moderation/live).
+- Live join, leave and avatar events (where somebody is right now) in the
+  [event stream](/api/events-websocket) and [webhooks](/api/webhooks). Those events also need
+  **See the audit log**.
+
+Not in the built-in Moderator or Viewer roles.
+
+### See the audit log
+
+Name: `ViewAuditLog`
+
+- The moderation half of the **Audit log** page: bans, kicks, role changes, joins and leaves,
+  Discord moderation, case file changes and other moderation history. See
+  [Audit log](/moderation/audit-log).
+- The **Bans** page and the group's ban list. See [Members and bans](/moderation/members-and-bans).
+- Who was in a past instance, in the instance popup.
+- Moderation events in the [event stream](/api/events-websocket), [long polling](/api/long-polling)
+  and [webhooks](/api/webhooks).
+- The Discord bot's `/recent` command.
+
+### Use AI chat
+
+Name: `UseAiChat`
+
+- Opens the **Chat** page and lets the person ask questions. See [Chat](/ai/chat).
+
+Chat can only use what the person asking can already see: every tool it uses runs with that
+person's own permissions. It adds a way of asking, not anything more to see. Using Chat sends group
+data to the AI provider set up in Settings, which is why it is not in the built-in Moderator or
+Viewer roles.
+
+### Use AI in excess of usage limits
+
+Name: `UseAiPastLimits`
+
+- Chat is not stopped by spend limits set on this person or on any of their roles.
+
+The limit for everyone together, and each feature's own limit, still apply. See
+[Limits and spend](/ai/limits-and-spend).
+
+### Read Discord messages
+
+Name: `ReadDiscordMessages`
+
+- The **Messages** tab in the Discord person popup: the messages Modbot has stored from that member,
+  deleted ones included. See [Messages and My Server](/discord/messages-and-my-server).
+
+Not in the built-in roles. Analytics only count messages; this is everything the person wrote.
+
+### See the operational log
+
+Name: `ViewOperationalLog`
+
+- The Modbot half of the **Audit log** page: sign-ins and failed sign-ins, account and role
+  changes, settings changes, sync problems and similar. See [Audit log](/moderation/audit-log).
+- The **Sync health** page. See [Checking a deployment](/self-hosting/health).
+- Those Modbot events in the [event stream](/api/events-websocket), [long polling](/api/long-polling)
+  and [webhooks](/api/webhooks).
+
+The **Audit log** page appears in the sidebar for anyone holding **See the audit log** or **See the
+operational log**, and shows only the half each person may see.
+
+## Evidence
+
+See [Evidence](/moderation/evidence) for how evidence works.
+
+### View evidence
+
+Name: `ViewEvidence`
+
+- Opens the screenshots and video attached to a case file, and lists them on the case file.
+
+Without it, a person who can read a case file sees the case file but not its evidence.
+
+### Upload evidence
+
+Name: `UploadEvidence`
+
+- Attaches screenshots and video to a case file. In the web app the upload shows on case files the
+  person may also edit: ones they wrote, or any case file if they hold **Ban**.
+
+Choosing where evidence is stored is a setting and needs **Change settings**, not this.
+
+### Destroy evidence
+
+Name: `DestroyEvidence`
+
+- Permanently deletes the file behind a piece of evidence. The record that it existed stays: its
+  size, type, who destroyed it, when and why. A reason is required, and there is no undo.
+
+There is no button for this in the web app yet. It is available through the [API](/api/reference).
+
+## Moderation
+
+### Kick
+
+Name: `Kick`
+
+Reserved: nothing in Modbot uses this yet. It is in the built-in Moderator role so that the role is
+ready when Modbot gains kick actions.
+
+### Warn
+
+Name: `Warn`
+
+Reserved: nothing in Modbot uses this yet. It is in the built-in Moderator role.
+
+### Ban
+
+Name: `Ban`
+
+Modbot does not ban people in VRChat itself yet. Today this permission is about
+[case files](/moderation/case-files):
+
+- Writing a case file for a ban (the **Bans** page offers this for bans with no case file).
+- Changing or withdrawing **any** case file. Without **Ban**, a person can only change or withdraw
+  case files they wrote themselves.
+
+### Unban
+
+Name: `Unban`
+
+Reserved: nothing in Modbot uses this yet. It is in the built-in Moderator role.
+
+### Act on many at once
+
+Name: `BulkAction`
+
+Reserved: nothing in Modbot uses this yet.
+
+### Review tickets
+
+Name: `ReviewTickets`
+
+- Opens the **Reviews** page and closes the reviews that open when a moderator's pattern looks
+  unusual. See [Reviews and repeat offenders](/moderation/reviews).
+- Dismisses flags on the **Flags** page.
+
+Kept separate from the action permissions on purpose: the people being reviewed should not be the
+people closing their reviews.
+
+### Edit the reason list
+
+Name: `EditClassifications`
+
+- Adds, changes, reorders and turns off the ban reasons moderators pick from when they write a case
+  file.
+
+In the web app the reason list is under **Settings**, **Moderation**, and the Settings page needs
+**Change settings** to open. A person with only this permission can use it through the
+[API](/api/reference).
+
+### Manage Discord links
+
+Name: `ManageDiscordLinks`
+
+- Unlinks a member's Discord and VRChat accounts. This also removes the Discord roles Modbot gave
+  them. See [Account linking](/discord/account-linking).
+
+Seeing a link needs only **See profiles**. Not in the built-in roles.
+
+### Edit 18+ verified
+
+Name: `EditAgeVerification`
+
+- Sets or clears the 18+ verified mark on a VRChat user's profile by hand.
+
+A sync can set the mark but never clears it, so clearing it is always a person's decision, and it is
+recorded with their name.
+
+## Administration
+
+### Manage users
+
+Name: `ManageUsers`
+
+- Opens the **Users** page: add people by invite link or temporary password, take back invite
+  links, change people's roles and contact details, make password reset links, and disable or enable
+  accounts. See [Staff accounts](/accounts/staff-accounts).
+
+A person with this can disable administrators and take roles away from them (as long as one enabled
+administrator is left), so give it only to people you trust with the whole team.
+
+### Manage roles
+
+Name: `ManageRoles`
+
+- Opens the **Roles** page: create roles, change what each allows, and delete roles nobody holds.
+
+Separate from **Manage users**: handing somebody a role is a smaller decision than deciding what a
+role means.
+
+### Change settings
+
+Name: `ManageSettings`
+
+- Opens the **Settings** page and changes everything on it: **Host & Database** (retention and the
+  public address), **VRChat Service Account**, **Integrations**, **Discord** (including event
+  channels and instance announcements), **Moderation**, **Evidence**, **Sync**, **AI** (including
+  moderation rules, insights and limits) and **API**.
+- Runs the [setup wizard](/setup-wizard) again once it has been completed.
+- Allows webhooks to be sent to private network addresses.
+
+The **API** tab's keys and webhooks also need **Manage API keys and webhooks**, and the reason list
+under **Moderation** needs **Edit the reason list**.
+
+### Manage API keys and webhooks
+
+Name: `ManageApiKeys`
+
+- Makes API keys for yourself, sees every key and revokes any key. See [API keys](/api/keys).
+- Sets up webhooks, sees every webhook, and turns off or deletes any of them. Changing a webhook's
+  address, events or secret, or sending a test, is only for the person who set it up or an
+  administrator. See [Webhooks](/api/webhooks).
+
+In the web app these are under **Settings**, **API**, which also needs **Change settings** to open.
+
+### Administrator
+
+Name: `Administrator`
+
+- Everything, including permissions added in future versions. See
+  [Administrator covers everything](#administrator-covers-everything).

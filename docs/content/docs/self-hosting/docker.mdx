@@ -1,0 +1,149 @@
+---
+title: Docker
+description: Building the Modbot image from the repository and running it next to PostgreSQL with docker run or Docker Compose.
+---
+
+Modbot is one container plus a PostgreSQL database. You build the image yourself from the
+`Dockerfile` at the root of the repository, then run it with `DATABASE_URL` pointing at your
+database.
+
+## What the image needs
+
+| | |
+|---|---|
+| `DATABASE_URL` | **Required.** Where the database is, as `postgres://user:password@host:5432/database` or a keyword connection string. See [PostgreSQL](/self-hosting/postgres). |
+| `PORT` | Optional. The port Modbot listens on inside the container. Defaults to `8080`. |
+| Port `8080` | Publish it (or whatever you set `PORT` to) so you can reach the web app. |
+| `/app/logs` | Where log files are written. Mount a volume here if you want to keep them when the container is replaced. |
+| `/health/live` | Answers while the process is running. The image's own Docker health check uses it. |
+| `/health/ready` | Answers healthy only when Modbot can reach its database. |
+
+Every other setting is entered in the web app and stored in the database. See
+[Environment variables](/self-hosting/environment-variables) for the few optional ones.
+
+Run **one** Modbot container per database. Modbot holds one VRChat session and paces its own
+requests, and a second container would send twice as many against the same rate limit.
+
+## Build the image
+
+The build needs the whole repository, because the image contains both the server and the web app.
+Run this from the root of a copy of the repository:
+
+```bash
+git clone https://github.com/binn/Modbot.git
+cd Modbot
+docker build -t modbot .
+```
+
+The **Deployment** card in **Settings** shows the commit and branch the image was built from, if the
+build is told. A plain `docker build` has no access to git, so pass them in if you want them shown:
+
+```bash
+docker build -t modbot \
+  --build-arg RAILWAY_GIT_COMMIT_SHA="$(git rev-parse HEAD)" \
+  --build-arg RAILWAY_GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD)" \
+  .
+```
+
+The build arguments have Railway in their names because Railway sets them automatically. They work
+the same anywhere.
+
+## Run it with docker run
+
+This creates a private network, a PostgreSQL 16 database with its own volume, and Modbot:
+
+```bash
+docker network create modbot
+
+docker run -d --name modbot-db --network modbot \
+  -e POSTGRES_USER=modbot \
+  -e POSTGRES_PASSWORD=choose-a-long-password \
+  -e POSTGRES_DB=modbot \
+  -v modbot-db:/var/lib/postgresql/data \
+  --restart unless-stopped \
+  postgres:16-alpine
+
+docker run -d --name modbot --network modbot \
+  -e DATABASE_URL=postgres://modbot:choose-a-long-password@modbot-db:5432/modbot \
+  -p 8080:8080 \
+  -v modbot-logs:/app/logs \
+  --restart unless-stopped \
+  modbot
+```
+
+Modbot can start before the database is ready. It tries to connect up to 10 times, 3 seconds apart,
+before giving up.
+
+## Run it with Docker Compose
+
+The repository does not ship a Compose file. This one uses only what the image needs. Save it as
+`compose.yaml` in the root of the repository and run `docker compose up -d --build`:
+
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: modbot
+      POSTGRES_PASSWORD: choose-a-long-password
+      POSTGRES_DB: modbot
+    volumes:
+      - db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  modbot:
+    build: .
+    environment:
+      DATABASE_URL: postgres://modbot:choose-a-long-password@db:5432/modbot
+    ports:
+      - "8080:8080"
+    volumes:
+      - logs:/app/logs
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  db:
+  logs:
+```
+
+If your password contains characters such as `@`, `:` or `/`, write them percent-encoded in
+`DATABASE_URL` (for example `@` becomes `%40`), or use the keyword form described in
+[PostgreSQL](/self-hosting/postgres).
+
+## Open it
+
+Open `http://localhost:8080` on the same computer. A new Modbot sends you to the
+[setup wizard](/setup-wizard).
+
+<Callout type="warn" title="Use HTTPS from anywhere but localhost">
+  Modbot's sign-in cookie is marked secure, so browsers only keep it over HTTPS. Browsers make an
+  exception for `localhost`. To reach Modbot from any other address, put a reverse proxy that
+  provides HTTPS in front of it. The proxy must also pass WebSocket connections through if you use
+  [live events over WebSocket](/api/events-websocket).
+</Callout>
+
+## Logs
+
+The container prints its log to the console, so `docker logs modbot` shows it. It also writes log
+files to `/app/logs`. With the volume above, those files survive when the container is replaced.
+See [Checking a deployment](/self-hosting/health#log-files).
+
+## Keeping evidence on disk
+
+If you choose **A directory on disk** for evidence under **Settings**, **Evidence**, the default
+directory is `/app/data/evidence`. Mount a volume there, or the files are lost when the container is
+replaced.
+
+The container runs as an unprivileged user, and a new named volume at `/app/data` belongs to root.
+If **Test and save** says the directory cannot be written, give the volume to the container's user:
+
+```bash
+docker run --rm -v modbot-data:/data alpine \
+  chown -R "$(docker run --rm --entrypoint id modbot -u)":0 /data
+```
+
+Then add `-v modbot-data:/app/data` to the `docker run` command for Modbot (or `- data:/app/data`
+under `volumes` in Compose) and recreate the container. See
+[Storage buckets](/self-hosting/storage-buckets) for the other choices.

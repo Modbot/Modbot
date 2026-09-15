@@ -1,0 +1,139 @@
+---
+title: API overview
+description: How a program talks to your Modbot, how it signs in, what errors look like, and where the full list of endpoints is.
+---
+
+Everything the Modbot web app shows comes from Modbot's own HTTP API. A script, a bot or another
+service of yours can use the same API. This section explains how.
+
+## Every Modbot is its own server
+
+There is no central Modbot service and no shared API address. Each group runs its own Modbot, and
+you talk to **that** server, at the address it is hosted on. If your web app opens at
+`https://modbot.example.com`, then the API is at `https://modbot.example.com/api/...`.
+
+Every example in these pages uses `https://modbot.example.com`. Put your own address in its place.
+
+<Callout type="info">
+  Modbot does not send CORS headers, so a web page on a different site cannot call the API from a
+  visitor's browser. Call it from a program or a server of your own.
+</Callout>
+
+## Signing in
+
+The API accepts two kinds of sign-in.
+
+### An API key, for programs
+
+Make a key on **Settings → API → Keys** (see [API keys](/api/keys)) and send it in the
+`Authorization` header of every request:
+
+```bash
+curl -H "Authorization: Bearer mbk_..." https://modbot.example.com/api/audit
+```
+
+Every key starts with `mbk_`. The key acts as the person who made it, with the permissions chosen
+for the key, and never more than that person holds at the moment of the request. Anything done with
+a key is recorded as done by that person.
+
+Never put a key in an address (`?key=...`). Addresses end up in logs. Modbot does not read keys
+from the address anyway.
+
+### The session cookie, for the web app
+
+When someone signs in to the web app, Modbot sets a cookie called `modbot.session`. The API accepts
+that cookie too, which is how the web app itself works. It is meant for the browser, not for your
+programs: use a key instead.
+
+Both kinds of sign-in are refused for an account that is disabled. An account that has not linked
+its VRChat account yet can do almost nothing, and its keys do not work at all.
+
+### What a key cannot do
+
+Some parts of the API belong to a person, not to a program. There, a key does not count as a
+sign-in at all, whatever permissions it holds, so anything that needs one answers `401`:
+
+| Addresses | What they are |
+|---|---|
+| Everything under `/api/auth/` except `GET /api/auth/me` | Your own account: changing your password, username or contact details, signing out everywhere, linking your VRChat account. `GET /api/auth/me` is allowed, so a program can ask whose key it holds. |
+| Everything under `/api/onboarding/` | The [setup wizard](/setup-wizard). |
+| `/api/client-devices/pairing-code` | Making a code to [pair a desktop client](/desktop-client/pairing). |
+| `/api/v1/client/...` (any version number) | The desktop client's own connection, which uses its own device sign-in. |
+
+Everywhere else, the key's permissions decide, exactly as a person's permissions do in the web app.
+
+## Errors
+
+Modbot answers with ordinary HTTP status codes. Most errors carry a small JSON body with one field,
+`error`, which is a sentence saying what went wrong:
+
+```json
+{ "error": "A key needs a name." }
+```
+
+Some errors have no body at all. The most common are `401` and `403` answers from the sign-in and
+permission checks.
+
+| Status | Meaning |
+|---|---|
+| `200`, `204` | It worked. `204` has no body. |
+| `400` | Something in the request is wrong. The `error` sentence says what. |
+| `401` | Not signed in: no key, a wrong, expired or revoked key, a key sent where keys are not allowed, or an account that is disabled or not linked. A refused key gets the header `WWW-Authenticate: Bearer` and no body. Modbot never says whether a key exists. |
+| `403` | Signed in, but without a permission this needs. |
+| `404` | That thing does not exist. |
+| `409` | It clashes with something that already exists. |
+| `429` | A limit was reached. Some answers carry a `Retry-After` header with the number of seconds to wait. |
+| `503` | Something Modbot needs for this is not available right now, such as evidence storage. |
+
+## Versions
+
+`GET /api/version` needs no sign-in. It answers:
+
+```json
+{ "version": "2026.9.0", "apiVersion": 1, "apiVersionMinimum": 1 }
+```
+
+| Field | |
+|---|---|
+| `version` | The Modbot release, as year, month and a number: `2026.9.0`. |
+| `apiVersion` | The API version this server speaks. A plain number that goes up only when something changes in a way that could break a program. |
+| `apiVersionMinimum` | The oldest API version this server still supports. |
+
+The current API version is `1`, and the oldest supported is `1`.
+
+## The full list of endpoints
+
+The [API reference](/api/reference) on this site lists every endpoint, with its parameters, answers
+and the permission it needs. It is made from the same description the server builds from its own
+code, so it cannot claim something the server does not do.
+
+Your own Modbot also serves its reference:
+
+- `https://modbot.example.com/api/reference` is a page you can read and try requests from.
+- `https://modbot.example.com/api/openapi/v1.json` is the OpenAPI document itself, which tools
+  can use to generate a client in your language.
+
+Neither needs a sign-in.
+
+### What the reference leaves out
+
+A few groups of endpoints are not meant for other programs, so the reference does not list them:
+
+- the setup wizard (`/api/onboarding/...`)
+- the desktop client's connection and pairing (`/api/v1/client/...` and `/api/client-devices/...`)
+- the page members use to link their Discord account (`/api/discord-link/...`), which is driven by
+  a browser and Discord's sign-in
+- how often Modbot asks VRChat for data (`/api/settings/sync`)
+- the inside of each sync job for the Health page (`/api/health/sync`)
+
+They still exist and the web app uses them, but they can change without warning.
+
+## In this section
+
+<Cards>
+  <Card title="API keys" href="/api/keys">Making, using and revoking keys.</Card>
+  <Card title="Events over WebSocket" href="/api/events-websocket">Stay connected and get each new event as it happens.</Card>
+  <Card title="Events by long polling" href="/api/long-polling">The same events, by asking in a loop.</Card>
+  <Card title="Webhooks" href="/api/webhooks">Modbot sends each new event to your address, signed.</Card>
+  <Card title="API reference" href="/api/reference">Every endpoint.</Card>
+</Cards>

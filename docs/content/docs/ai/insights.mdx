@@ -1,0 +1,125 @@
+---
+title: Insights
+description: Short AI-written summaries of your group's own figures, written on a schedule, shown on My Group and posted to Discord.
+---
+
+An **insight** is a short piece of writing by your AI model about Modbot's own figures for a day or a
+week: what went up, what went down, and what stands out compared with the stretch before. Each
+insight is stored with the exact figures the model was given, so anyone reading it can check every
+sentence against the numbers.
+
+Insights are about the group as a whole. The model is only given counts and world names, never a
+person's name, id or messages, so an insight cannot turn into a report about somebody.
+
+You set insights up under **Settings** → **AI** → **Insights**, which needs the **Change settings**
+permission. AI has to be set up and on under [Base](/ai/settings) first; until then the page shows
+**AI is off.**
+
+## The three kinds
+
+| Kind | What it covers | Figures the model gets |
+|---|---|---|
+| **Group** | The group as a whole: members, how people join, how active it is | Members at the end, as VRChat reported; joined; left; invites sent; join requests; join requests approved and rejected; bans; rooms opened; Discord messages (only on deployments that have ever counted one); busiest worlds by visitors |
+| **Moderation team** | How much moderation happened, and of what kind | All moderator actions; how many moderators took any action; kicks from a room; warnings; bans; unbans; removals from the group; invites sent by moderators; join requests approved and rejected; role changes; reviews opened; ban write-ups |
+| **Rooms** | The group's instances: how many ran, for how long, how busy | Rooms opened; typical minutes a room stayed open; most people in one room; busiest rooms by most people at once (world and opening time); worlds by rooms opened |
+
+The **Moderation team** kind counts how many moderators acted, never who did the most.
+
+Every figure comes with the same figure for the stretch before, so the model can compare. The
+figures come from the same [daily totals](/analytics#where-the-numbers-come-from) as the Analytics
+pages.
+
+## What a day and a week mean
+
+Insights cover whole days in UTC, ending **yesterday** (UTC). Today is never included, because it is
+not over.
+
+- **Day**: yesterday, compared with the day before.
+- **Week**: the seven days ending yesterday, compared with the seven days before that.
+
+The **Time zone** setting only decides *when* a scheduled insight is written. It does not move the
+day boundaries of the figures.
+
+## Settings
+
+The first card, **Insights**, has two settings shared by every kind:
+
+- **Time zone** is the zone the hour on each kind is in. Left on **UTC**, hours are UTC.
+- **Model** is the model insights use. Left empty, they use the model on **Base** (shown as the
+  placeholder).
+
+Then there is one card per kind (**Group**, **Moderation team**, **Rooms**), each with:
+
+- **On**, to write this kind on its schedule.
+- **Every**: **Day** or **Week**.
+- **Day**: the day of the week, when **Every** is **Week**.
+- **At**: the hour it is written.
+- **Discord channel**: where to post it. Leave empty to keep it in Modbot only.
+
+**Save** on any card saves the whole page.
+
+## When scheduled insights are written
+
+Modbot checks once a minute for an insight that is due.
+
+- If the daily totals have not yet caught up with the day being summarised, it waits for them, for up
+  to an hour. After that it writes the insight anyway.
+- If you switch a kind on, or change its time, after today's time has already passed, nothing is
+  written straight away. The first one comes at the next scheduled time.
+- Each scheduled time is tried once. If the provider fails, Modbot does not try again until the next
+  scheduled time.
+- If AI is off, or a [spend limit](/ai/limits-and-spend) for everyone or for **Insights** is reached,
+  that time is skipped. The insight is not written late once the limit resets.
+
+## Generate now
+
+Each kind's card has **Generate now**. It writes one insight straight away, for the day or week
+(following that kind's **Every** setting) ending yesterday, and waits for the model. The result
+appears on the card, or the error if the model could not be reached.
+
+**Generate now** is for checking what an insight looks like:
+
+- It is **never posted to Discord**.
+- It is stored like any other insight, so a successful one also appears on **My Group**.
+- It is a real AI request, and counts towards spend under **Insights**. If a spend limit is reached,
+  the card shows that limit's sentence and nothing is written.
+
+The bottom of each card always shows the most recent attempt of that kind, whether it worked or not,
+and any problem posting it to Discord.
+
+## Where insights appear
+
+### On My Group
+
+The [My Group](/analytics#my-group) analytics page shows an **Insights** panel above its charts. It
+shows the latest insight, with a switch between kinds when there is more than one, and a picker for
+earlier ones by date. Open **Figures** under the text to see the table of figures the model was
+given, with both stretches side by side.
+
+Reading insights needs **See analytics**. Attempts that failed are not shown there. The panel does
+not appear at all until there is at least one insight.
+
+### In Discord
+
+When a kind has a **Discord channel**, each scheduled insight is posted there as one card, titled
+with the kind and the days (for example "Group: 14 September 2026"), with the model's name in the
+footer.
+
+- The Discord bot must be connected and able to see the channel, send messages and embed links in
+  it. The channel picker checks these.
+- If the bot is offline when an insight is written, it is posted when the bot comes back, as long as
+  that is within a day. An insight more than a day old is not posted.
+- If the channel is gone or the bot is not allowed to post there, Modbot records the problem and
+  does not try again. Other failures are tried again, for up to a day.
+
+See [Setting up the bot](/discord/bot-setup).
+
+## What the model is told
+
+The model is told to use only the figures given, never to invent a number, cause or event, to lead
+with what changed most, to say when a reason is a guess, and to keep to about 220 words of plain
+English. It is told never to recommend banning, removing, warning or acting against anyone, and
+never to give a score or grade.
+
+These are instructions, and a model can ignore them. That is why the figures are kept beside every
+insight: if a sentence and the figures disagree, the figures are right.

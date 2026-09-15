@@ -1,0 +1,147 @@
+---
+title: Profiles
+description: What Modbot stores about a VRChat user, how and how often it is refreshed, and how the 18+ verified mark works.
+---
+
+Modbot keeps a copy of the public VRChat profile of everyone it comes across, so moderators can
+see who somebody is without leaving Modbot, and so there is a record of what a profile said
+before it changed. You see it at the top of the [person popup](/moderation/popups#person-popup).
+
+Reading profiles needs **See profiles**.
+
+## Who gets a profile
+
+Anyone Modbot sees, including:
+
+- everyone on the member list and the ban list;
+- anyone who joins, leaves, is banned, kicked, warned, given a role or turned away, and the
+  moderator who did it;
+- anyone a moderator's desktop client sees in an instance.
+
+## What is stored
+
+The profile as VRChat returns it. The card shows:
+
+- picture, display name and pronouns;
+- status line and bio;
+- **Joined VRChat** and **Last platform**;
+- **Last seen by Modbot**: the latest time Modbot saw this person in anything it recorded;
+- VRChat's tags (trust level and similar);
+- the 18+ verified mark, and what VRChat shows about age verification.
+
+Modbot keeps everything else VRChat returns too, **except** these, which are dropped before
+anything is saved:
+
+- where the person is right now and where they are travelling to, because that can contain the
+  secret part of an instance address;
+- the private note Modbot's own VRChat account may have on them;
+- the friend key.
+
+Profile pictures are shown from VRChat's servers. Modbot does not keep a copy of the image.
+
+When a watched part of the profile changes (name, bio, status, pronouns, pictures, tags, join date
+or age verification), Modbot writes an entry to the [audit log](/moderation/audit-log). The
+person's **Logs** tab shows those entries, so you can see what a bio said last week.
+
+## How profiles are refreshed
+
+VRChat hands out profiles one person per request, so Modbot works through a queue. At most 3.5
+requests a second go to VRChat, and the queue is ordered like this:
+
+1. People a desktop client has just seen in an instance.
+2. People a moderator has just opened in Modbot.
+3. People who just did something Modbot recorded (in the last 30 minutes).
+4. The oldest profiles, once they are more than 6 hours old.
+5. People Modbot has never fetched.
+
+These are the defaults. Some other rules protect the queue:
+
+- A profile fetched in the last 30 seconds is not fetched again just because somebody opened it.
+- If a refresh failed, that person is left alone for 30 minutes.
+- If VRChat says the account does not exist, Modbot waits a week before asking again.
+
+### Every profile says how old it is
+
+The top line of the card always says **Last refreshed** and how long ago. When the profile is
+older than 6 hours it adds **stale — older than 6 hours**. A bio from an hour ago and a bio from
+last week are different claims, and the card never shows one without saying which it is.
+
+When you open a person, Modbot shows what it has straight away and asks for a fresh copy.
+**refreshing…** appears while it waits, and the card updates when the new copy arrives. If the
+refresh cannot happen, the card says **Couldn't refresh:** and the reason (for example, VRChat is
+limiting Modbot's requests) and keeps showing what it has. After a minute of waiting it says
+**Refresh still waiting.**
+
+Other lines you may see:
+
+| Line | Meaning |
+|---|---|
+| **Never refreshed** | Modbot knows the id but has not fetched the profile yet. |
+| **Profile not fetched yet.** | The same, in place of the profile. |
+| **Not seen before.** | Modbot has no record of this id at all. |
+| **No VRChat account with this id as of** a date | VRChat said the account does not exist. Modbot keeps the last profile it saw, and the person's history still mentions them. |
+
+## The 18+ verified mark
+
+VRChat lets people choose whether their age verification is visible. Somebody who showed as 18+
+yesterday can hide it today, and to anyone who looks them up they then appear unverified.
+
+Modbot treats verification as something it has **seen**, not something it checks again:
+
+- **A refresh can set the mark and can never clear it.** The first time any refresh sees the person
+  as 18+ verified, the mark is set and the card says **18+ verified**, **first seen on VRChat** and
+  the date. Hiding the badge in VRChat later changes nothing.
+- **The card shows both sides.** Under the mark, **VRChat shows this person as** gives what VRChat
+  said at the last refresh (for example `18+` or `hidden`). When the two disagree, that is the
+  point: hidden is not the same as unverified.
+- **Only a moderator can clear it.** Anyone with **Edit 18+ verified** sees a **Clear flag** button
+  on a marked person, and **Mark 18+ verified** on an unmarked one.
+
+The **18+** mark on the Members page and in case files is this same mark.
+
+### Changing the mark by hand
+
+<Steps>
+
+<Step>
+
+### Open the person
+
+Click their name anywhere to open the [person popup](/moderation/popups#person-popup).
+
+</Step>
+
+<Step>
+
+### Press Clear flag or Mark 18+ verified
+
+The button is at the right of the 18+ block. You need **Edit 18+ verified**.
+
+</Step>
+
+<Step>
+
+### Say why, and confirm
+
+Type a reason (up to 500 characters) and press the button again. The reason is optional but worth
+writing: it is kept with the change.
+
+</Step>
+
+</Steps>
+
+The card then says **set by** or **cleared by** your username and the date. The change is written
+to the [audit log](/moderation/audit-log) against your account, with the reason.
+
+If you clear the mark and a later refresh sees the person as 18+ verified again, the mark is set
+again. A new sighting is new evidence.
+
+## Common problems
+
+**The card keeps saying Couldn't refresh.** Modbot's VRChat account may be rate limited or not
+signed in. Check the [Sync health](/self-hosting/health) page. The stored profile stays usable in
+the meantime.
+
+**A big group has many ids without names.** After Modbot is first set up, it has to fetch every
+profile one at a time. At 3.5 a second, a group of 8,000 takes about 40 minutes, and larger groups
+take hours.

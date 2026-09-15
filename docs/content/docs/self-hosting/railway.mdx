@@ -1,0 +1,144 @@
+---
+title: Railway
+description: Deploying Modbot on Railway as one service plus one Postgres database, with the health check, variables and optional bucket.
+---
+
+On Railway, Modbot is **one service plus one Postgres database**. The service is built from the
+`Dockerfile` at the root of the repository, and its only required variable, `DATABASE_URL`, points
+at the database. Railway supplies `PORT` itself.
+
+There is no one-click Railway template for Modbot yet. You can create the project from the
+configuration file in the repository, or set it up by hand in the Railway dashboard. Both end with
+the same result.
+
+## What the project looks like
+
+The repository describes the Railway project in `.railway/railway.ts`:
+
+| | Value | Why |
+|---|---|---|
+| Database | One Postgres, named `postgres` | Holds everything Modbot knows and every setting. |
+| Service | One service, named `modbot` | The server, the web app, the sync and the Discord bot. |
+| `DATABASE_URL` | Taken from the Postgres database | The only variable you must set. |
+| Health check path | `/health/ready` | A new deployment only counts as healthy once it has updated the database and can reach it. |
+| Health check timeout | 300 seconds | A first deploy updates a database that may have only just been created. A short timeout would fail a deploy that was only slow. |
+| Replicas | 1 | Modbot holds one VRChat session and paces its own requests. A second copy would double the requests against the same rate limit. |
+
+<Callout type="warn" title="Keep it at one replica">
+  Do not scale the Modbot service beyond one replica.
+</Callout>
+
+## Option 1: from the repository's configuration file
+
+The `.railway/README.md` file in the repository gives these commands. Run them from a copy of the
+repository:
+
+```bash
+npm install railway     # the Railway configuration library, needed to read railway.ts
+railway login && railway link
+railway config plan     # preview what will be created
+railway config apply    # create it, after you confirm
+```
+
+Railway creates the database and the service, and wires `DATABASE_URL` between them.
+
+The repository has no `railway.json`. Railway has deprecated that format, so the configuration lives
+only in `railway.ts`.
+
+## Option 2: by hand in the dashboard
+
+<Steps>
+<Step>
+### Create the service
+
+Create a new Railway project and deploy it from the Modbot GitHub repository, or from your own
+fork. Leave the root directory empty. Railway finds the `Dockerfile` at the root and builds it.
+</Step>
+<Step>
+### Add PostgreSQL
+
+Add a PostgreSQL database to the same project.
+</Step>
+<Step>
+### Point Modbot at the database
+
+In the Modbot service's variables, add `DATABASE_URL` and set it to the Postgres database's own
+`DATABASE_URL`, using a Railway reference variable. If your database service is called `Postgres`,
+that is:
+
+```text
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+```
+
+Do not set `PORT`. Railway sets it.
+</Step>
+<Step>
+### Set the health check
+
+In the Modbot service's settings, set the health check path to `/health/ready` and the timeout to
+300 seconds. Keep the service at one replica.
+</Step>
+<Step>
+### Give it an address
+
+Generate a public domain for the Modbot service, then open it. You land in the
+[setup wizard](/setup-wizard).
+</Step>
+</Steps>
+
+## What Modbot reads from Railway
+
+Railway sets some variables on every service. Modbot reads a few of them, and none of them needs
+anything from you.
+
+| Variable | What Modbot does with it |
+|---|---|
+| `PORT` | Listens on it. |
+| `RAILWAY_PUBLIC_DOMAIN` | Suggests it as your Modbot's public address in the setup wizard and in **Settings**, **Host & Database**, **Public address**. You still confirm it; links sent by email or Discord are only built from the address you save. |
+| `RAILWAY_GIT_COMMIT_SHA`, `RAILWAY_GIT_BRANCH` | Shown as **Version commit** and **Release branch** on the **Deployment** card. The Dockerfile declares them, so Railway passes them to the build. |
+| `RAILWAY_ENVIRONMENT`, `RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID` | Show **Host** as Railway on the **Deployment** card. |
+
+## Adding a bucket for evidence
+
+Evidence storage is optional, but on Railway a bucket is the simplest place to keep evidence files.
+When you add a Railway bucket to the Modbot service, Railway sets `BUCKET`, `ENDPOINT`,
+`ACCESS_KEY_ID`, `SECRET_ACCESS_KEY` and `REGION` on it.
+
+Modbot uses those only to fill in the form under **Settings**, **Evidence**, **Where evidence is
+stored**, while no storage has been chosen yet. You still press **Test and save**. After that, Modbot
+ignores the variables, so changing them later does not move your evidence.
+
+Railway's bucket credentials page tells you whether the bucket uses path-style addresses. If it
+does, tick **Path-style URLs** before you save.
+
+See [Storage buckets](/self-hosting/storage-buckets) for the whole form and what the test does.
+
+## Logs on Railway
+
+Railway throws away a container's disk when it redeploys, unless you mount a volume. Modbot still
+writes its log files to `/app/logs`, and warns at startup that they will not survive unless a volume
+is mounted there. Railway keeps what Modbot prints to its console, which you can read in the
+deployment's logs.
+
+To keep full logs across deploys, do one of these:
+
+- set `SEQ_URL` to a [Seq](https://datalust.co/seq) server, or
+- mount a Railway volume at `/app/logs`.
+
+Modbot notices a mounted volume by itself after the next restart. See
+[Checking a deployment](/self-hosting/health) for the log files and what the **Log files** row means.
+
+## Common problems
+
+**The deploy log says `DATABASE_URL is not set`.** The variable is missing or empty on the Modbot
+service. Add it as a reference to the Postgres database, as above.
+
+**The deploy waits, then fails its health check.** On the very first deploy Modbot waits for the
+database to accept connections (up to 10 tries, 3 seconds apart), then creates its tables, and it
+only starts answering health checks after that. Check that the timeout is 300 seconds and read the
+deploy log: every database problem is written as one sentence naming what is wrong, such as a
+rejected password or a database that does not exist.
+
+**The connection check in the setup wizard says Cloudflare is blocking this network.** Your host's
+network cannot reach VRChat. Add a proxy on that step. See
+[the setup wizard](/setup-wizard#3-check-the-connection).

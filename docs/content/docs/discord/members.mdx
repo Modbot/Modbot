@@ -1,0 +1,101 @@
+---
+title: Discord members
+description: The Discord server's member list, and the Discord person popup with a member's details, history, messages and activity.
+---
+
+The **Discord members** page lists the people in your Discord server, as the bot sees them. It sits
+in the sidebar just below **Members**, which is your VRChat group's list. They are separate lists
+because most people are in one place and not the other, and most never
+[link their accounts](/discord/account-linking).
+
+The page needs **See members**. The bot must be set up and connected
+([Setting up the bot](/discord/bot-setup)).
+
+## The list
+
+Above the list, Modbot says when it last read the member list and how many people are in the
+server. Instead, you may see:
+
+- **No Discord server set.** — no **Guild id** is saved on the **Bot** card.
+- **The Discord member list has not been read yet.** — the bot has not read the full list. Until it
+  has, the list only holds people the bot has seen some other way. Reading the list needs the
+  **Server Members Intent** (see [Intents the bot asks for](/discord/bot-setup#intents-the-bot-asks-for)).
+
+### Search and filters
+
+- **Search by name or id** — matches the server nickname, the Discord display name, the username
+  and the user id.
+- **Status** — **In server** (the default), **Left**, or **All**.
+- **Role** — **Any role**, or one of your server's Discord roles.
+- **Linked** — **All**, **Linked** or **Not linked**, by whether the person has linked a VRChat
+  account. Only shown to people with **See profiles**.
+
+The number of people matching is shown on the right. Newest joiners come first, 50 to a page, with
+**Previous** and **Next** at the bottom.
+
+### Columns
+
+| Column | What it shows |
+|---|---|
+| **Person** | Picture and the name the server shows: nickname, else display name, else username. Bots are marked **bot**. |
+| **Username** | The Discord username. |
+| **Roles** | The Discord roles they hold. |
+| **Joined** | When they joined the server. |
+| **Left** | When the bot saw them leave. Only shown when **Status** is **Left** or **All**. People who left are greyed out. |
+| **Timed out until** | When a timeout ends, if they are timed out now. |
+| **VRChat** | The VRChat account they linked, if any. Click it to open that VRChat person's popup. Only shown to people with **See profiles**. |
+
+Click a row to open the Discord person popup.
+
+## The Discord person popup
+
+The **Discord person** popup shows one Discord account. It opens from a row on **Discord members**,
+and from a Discord person's name anywhere else in Modbot: an audit log entry, **My Server**, or the
+**Discord** card in a VRChat person's popup.
+
+It is a separate popup from the VRChat person popup, even for someone who has linked. Each shows
+its own account's history and points to the other when there is a link. There is no case files tab,
+because case files are written for VRChat bans.
+
+The popup's subtitle is the Discord user id.
+
+### Left side
+
+**Who they are in the server** (needs **See members**):
+
+- picture, server name, Discord display name and `@username`;
+- marks: **In server** or **Left**, **Bot**, **Pending** (they have not passed the server's
+  membership screening yet) and **Timed out**;
+- **Joined**, **Left**, **Timed out until** and **Boosting since**, when they apply;
+- **Roles**.
+
+If the bot never saw the person in the server, it says **Not seen in the server.** This happens for
+someone named in an event who was never a member.
+
+**VRChat** card (needs **See profiles**): the VRChat account they linked, with when they linked.
+Click the name to open the VRChat person popup. People with **Manage Discord links** see
+**Unlink** here (see [Unlinking](/discord/account-linking#unlinking)). The card is not shown when
+there is no link.
+
+### Tabs
+
+| Tab | Needs | What it shows |
+|---|---|---|
+| **Logs** | **See the audit log** or **See the operational log** | The latest 50 events about this account or done by it, newest first. You see the kinds of event your permissions allow in the [audit log](/moderation/audit-log). |
+| **Messages** | **Read Discord messages** | Everything the person wrote that Modbot has stored, deleted messages included. See [Who can read messages](/discord/messages-and-my-server#who-can-read-messages). |
+| **Metrics** | **See profiles** | Their activity, below. |
+
+**Messages** and **Metrics** are hidden from people without their permission. **Logs** is always
+there, but only loads for someone who can see the audit log.
+
+### Metrics
+
+- **Activity** — **Messages, 30 days**, **Voice, 30 days**, **Messages, all time**,
+  **Voice, all time**, **First seen** (when Modbot first saw them in the server) and **Joined**.
+- **Messages per day** and **Voice minutes per day** — each of the last 30 days.
+- **Joined and left** — each time they joined or left the server that Modbot still has on record.
+  When Modbot only found out afterwards, for example while the bot was offline, it shows the window
+  the change happened in.
+
+The counts come from Modbot's daily totals, so **all time** can go back further than the stored
+messages do.

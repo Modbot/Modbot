@@ -1,0 +1,161 @@
+---
+title: Checking a deployment
+description: The two health check addresses, the Sync health page, the Deployment card, log files and Seq.
+---
+
+There are four places to look when you want to know whether your Modbot is working:
+
+- two **health check addresses** your hosting platform can call,
+- the **Sync health** page in the web app,
+- the **Deployment** card in **Settings**,
+- the **logs**.
+
+## Health check addresses
+
+Modbot answers two addresses. Neither needs you to be signed in.
+
+### /health/live
+
+Answers `Healthy` as long as the Modbot process is running. It checks nothing else, on purpose: if
+it checked the database, a platform would restart Modbot every time the database blinked, which is
+exactly when you want Modbot up to read the error.
+
+Use it for checks that restart a container that has stopped responding. The Docker image's own
+health check calls it every 30 seconds.
+
+### /health/ready
+
+Answers whether Modbot can reach its database right now. The reply names the check:
+
+```json
+{
+  "status": "Healthy",
+  "checks": {
+    "database": {
+      "status": "Healthy",
+      "description": "Database is reachable."
+    }
+  }
+}
+```
+
+When the database cannot be reached, `status` is `Unhealthy`, the description says
+`Database is not reachable.`, and the HTTP status is 503.
+
+Use it to decide when a new deployment is ready for traffic. Railway's configuration for Modbot uses
+this one, with a 300 second timeout. See [Railway](/self-hosting/railway).
+
+<Callout type="info" title="Nothing answers during startup">
+  Modbot updates its database tables before it starts listening. Until that is done, neither address
+  answers. On a first deploy this can take a little while. See [PostgreSQL](/self-hosting/postgres).
+</Callout>
+
+## The Sync health page
+
+**Sync health** is in the sidebar under **Setup**. You need the
+[**See the operational log**](/accounts/roles-and-permissions) permission. The line at the bottom of
+the sidebar, **VRChat ·** followed by a status, opens it too.
+
+The page refreshes itself every 20 seconds. From top to bottom:
+
+### VRChat
+
+Whether Modbot is reaching VRChat, as one of:
+
+| Status | What it means |
+|---|---|
+| **Working** | Requests are going through. |
+| **Waiting on purpose** | Modbot has stopped sending for a while: it is waiting out a rate limit, or waiting before it may sign in again. It recovers by itself. Do not restart Modbot to hurry it. |
+| **Needs you** | Something will not fix itself: Cloudflare is blocking this host, the VRChat account cannot read the group, or a kind of request has stopped after being rate limited again and again. The line below says which. |
+| **Not configured** | No VRChat account has been set up yet. |
+
+Under it: **Last signed in**, **Sign-ins this hour** (out of the limit Modbot allows itself), and
+**Next sign-in** when Modbot is waiting before it may sign in again.
+
+To change the VRChat account or the proxy, go to **Settings**, **VRChat Service Account**.
+
+### Discord bot
+
+Shown when relevant. The bot is **not set up**, **connecting**, **connected**, **reconnecting**, or
+**stopped — needs you**. When something is wrong it lists channels the bot cannot post in and the
+Discord permissions it is missing, and **Intents off in the Developer Portal** if Discord is not
+sending it what it needs. See [Setting up the bot](/discord/bot-setup).
+
+### AI spend
+
+Shown only when an AI spending limit is close or reached. See [Limits and spend](/ai/limits-and-spend).
+
+### Producers
+
+The jobs that read from VRChat: **Group audit log**, **Group info**, **User profiles**,
+**Member list** and **Ban list**. Each says when it last completed a pass and how its last run went.
+A line underneath says whether the audit log catch-up has finished, and how far it has read.
+
+### Rate-limit budgets
+
+One row per kind of VRChat request, with its current rate, its budget, how many times VRChat has
+said "too many requests", and its state: **running**, **cold-stopped** (paused until the time shown)
+or **given up — needs you**.
+
+### Audit-log event types Modbot does not understand
+
+Event types from your group's audit log that Modbot has no meaning for yet, with how many it has
+seen. **None seen.** is the normal answer.
+
+## The Deployment card
+
+**Settings**, **Host & Database**, **Deployment** describes what is running. You need the
+**Change settings** permission to open **Settings**.
+
+| Row | What it shows |
+|---|---|
+| **Version** | The release version, as year.month.patch. |
+| **Version commit** | The first 7 characters of the git commit the build came from. Point at it to see the whole id. **Unknown** if the build was not told. |
+| **Release branch** | The branch the build came from, or **Unknown**. |
+| **Host** | The hosting platform Modbot recognised, such as Railway, or `self-hosted`. |
+| **Log files** | **Written to disk**, or **Console and Seq only** if the log directory cannot be written to. |
+
+When you report a problem, include the version and the commit.
+
+## Logs
+
+### The console
+
+Modbot prints its main log to the console at Information level and above. This is what your hosting
+platform's log view shows, and what `docker logs` shows. The first lines of every start say which port
+Modbot is using, which host it thinks it is on, and whether its log directory has survived a
+restart.
+
+### Log files
+
+Modbot writes log files into `/app/logs` in the container. Every start gets its own files, named with
+the date and the start time:
+
+| File | What is in it |
+|---|---|
+| `modbot_log_<date>_<time>.txt` and `.jsonl` | The main record, Information level and above. |
+| `modbot_log_http_<date>_<time>.txt` and `.jsonl` | Only the requests Modbot sends to outside services, such as VRChat. |
+| `modbot_log_debug_<date>_<time>.txt` and `.jsonl` | Everything, in detail. Only written when `MODBOT_DEBUG_LOGGING` is on. |
+
+The `.txt` files are for reading. The `.jsonl` files hold the same events with every detail kept
+separately, for searching with a tool.
+
+A file starts a new part when it reaches 64 MB. Modbot keeps the newest 60 main files, 60 HTTP files
+and 6 debug files, and deletes older ones.
+
+**Files that do not survive.** On a platform that throws the container's disk away on redeploy, these
+files go with it. Modbot writes them anyway and logs a warning at startup, because you may have
+mounted a volume it cannot see yet. Once a restart shows the directory lasted, the warning stops. To
+keep logs, mount a volume at `/app/logs` or set `SEQ_URL`.
+
+**Files that cannot be written.** If `/app/logs` cannot be written to, Modbot writes no files, logs
+`Log files are not being written.`, and the **Log files** row says **Console and Seq only**.
+
+### Seq
+
+Set `SEQ_URL` to the address of a [Seq](https://datalust.co/seq) server and Modbot sends its logs
+there as well, with every detail searchable. This is the one logging setting kept outside the
+database, because it is how you find out why Modbot cannot reach its database. With
+`MODBOT_DEBUG_LOGGING` on, Seq also gets the Debug detail.
+
+See [Environment variables](/self-hosting/environment-variables).

@@ -1,0 +1,14 @@
+{
+  "title": "Self-hosting",
+  "pages": [
+    "index",
+    "railway",
+    "docker",
+    "environment-variables",
+    "postgres",
+    "storage-buckets",
+    "data-retention",
+    "health",
+    "updating"
+  ]
+}

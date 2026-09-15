@@ -1,0 +1,151 @@
+---
+title: Members and bans
+description: The Members and Bans pages, how their search, filters and sorting work, and how fresh the lists are.
+---
+
+Modbot keeps its own copy of your group's member list and ban list, read from VRChat. The
+**Members** page and the **Bans** page show those copies. Nothing on either page is typed in by
+hand or guessed. When Modbot does not know something yet, the page says so.
+
+<Callout type="info" title="Modbot records moderation; it does not do it">
+Modbot does not kick, warn, ban or unban anybody, and there are no buttons for it. Moderators act
+in VRChat as usual, VRChat's group audit log records it, and Modbot reads that record. The
+**Kick**, **Warn**, **Unban** and **Act on many at once** permissions are on the Roles page but do
+nothing yet. **Ban** decides who may write [case files](/moderation/case-files).
+</Callout>
+
+## What "as last swept" means
+
+You will see the words *sweep* and *last synced* on both pages. A **sweep** is Modbot reading a whole
+list from VRChat, one page of up to 100 people at a time, from start to finish. When it gets to the
+end, it rests, then starts again from the top.
+
+So the lists show **what the last complete read found**. **Last synced 12 minutes ago** means the
+last complete read finished 12 minutes ago. Anything that changed in VRChat after that shows up
+after the next read.
+
+These are the default timings. You can see the ones your Modbot uses in **Settings**, **Sync**,
+on the **Member list** and **Ban list** cards. They cannot be changed from the app.
+
+| List | **Time between pages** | **Rest between sweeps** |
+|---|---|---|
+| Member list | 2 seconds | 15 minutes |
+| Ban list | 3.5 seconds | 30 minutes |
+
+For example, a group of 5,000 members is 50 pages, which takes about 100 seconds to read. With the
+15-minute rest, a change on VRChat's side normally shows on the Members page within about 17
+minutes.
+
+The pages do not refresh by themselves. To fetch the list again, change a filter, move to another
+page, or reload the browser tab.
+
+**The first read.** Until Modbot has read a list all the way through once, the page shows a
+warning: **Reading the member list for the first time.** (or **The member list has not been read
+yet.**). What you see until then is only the pages read so far, not the whole group.
+
+## Members
+
+The **Members** page needs **See members**.
+
+Above the list: when it was last synced, whether a new sweep is running now, and how many members
+the last complete read found.
+
+### Search, filters and sorting
+
+| Control | Options |
+|---|---|
+| **Search by name or id** | Matches any part of the display name or the VRChat id. Capital letters do not matter. It waits a moment after you stop typing. |
+| Role | **Any role**, or one of your group's roles. |
+| Status | **Members** (current members), **People who left**, or **Both**. |
+| Sort | **Newest joiner first**, **By name**, or **Most recently seen first**. |
+| Discord link | **All**, **Linked** (only people with a linked Discord account) or **Not linked**. Only shown if you have **See profiles**. |
+
+**People who left** are people a complete read no longer listed. The list shows 50 people a page,
+with **Previous** and **Next** at the bottom and the total on the right.
+
+### Columns
+
+| Column | What it shows |
+|---|---|
+| **Person** | Picture and display name once Modbot has fetched their profile, otherwise their VRChat id. An **18+** mark if Modbot has ever seen them as 18+ verified (see [Profiles](/moderation/profiles#the-18-verified-mark)). "representing" if they are representing your group. |
+| **Discord** | Only with **See profiles**. Their linked Discord account, and **In server**, **Left** or **Not in server**. |
+| **Roles** | Their group roles. |
+| **Joined** | When they joined the group. |
+| **Last seen by Modbot** | The latest time Modbot saw them in anything it recorded. |
+| **Left** | When a complete read stopped listing them. Only shown with **People who left** or **Both**. |
+
+Click a name to open the [person popup](/moderation/popups#person-popup).
+
+Names and pictures come from Modbot's profile refresh, which works through people one at a time.
+In a big group, some rows show only an id for a while after Modbot is first set up.
+
+## Bans
+
+The **Bans** page needs **See the audit log**.
+
+At the top, anybody with **See profiles** sees a card counting the bans in the last 30 days that
+have no case file. See [Bans and case files](/moderation/case-files#bans-with-no-case-file).
+
+Below it are three tabs, because they answer three different questions.
+
+### Ban list
+
+Everyone VRChat says is banned from your group right now, however long ago the ban was issued.
+**This is the list to check before deciding somebody is not banned.**
+
+Above it: when it was last synced and how many bans the last complete read found.
+
+| Control | Options |
+|---|---|
+| **Search by name or id** | As on Members. |
+| Status | **Bans that stand**, **Bans that were lifted** or **Both**. |
+
+**Bans that were lifted** are bans a complete read no longer listed.
+
+The columns are **Person**, **Banned on**, **Modbot first saw it**, **Lifted** (when you are
+looking at lifted bans), and **Case file** (with **See profiles**). 50 bans a page.
+
+### What the audit log recorded
+
+The bans Modbot saw happen in VRChat's group audit log, with **who** issued each one. This is the
+only list that knows who did the banning.
+
+It only reaches back as far as VRChat's audit log still went when Modbot first synced, so the top
+of the tab always says what it covers:
+
+| Field | Meaning |
+|---|---|
+| **Records cover** | The dates of the oldest and newest ban or unban Modbot recorded. |
+| **First synced** | When Modbot first read the audit log. |
+| **Ban events recorded** and **Unban events recorded** | How many of each. |
+| **Catch-up** | **finished**, or **still running** while Modbot is still reading older audit log entries. |
+
+**Show people who were later unbanned** is ticked by default. The columns are **Person**,
+**Status** (**Banned** or **Unbanned**), **When**, **By**, **Recorded from** and **Case file**. Up
+to 200 people are listed.
+
+"ban itself not recorded" under a date means the person was banned before Modbot's records start
+and unbanned after. It is proof of a ban this tab cannot show.
+
+### People acted on more than once
+
+Everyone who has been kicked, warned, banned, removed from the group or turned away more than
+once. See [Reviews and repeat offenders](/moderation/reviews#people-acted-on-more-than-once).
+
+## Who banned somebody, and why
+
+- The **Ban list** knows who is banned, but not who banned them.
+- **What the audit log recorded** knows who banned them, but only inside its window.
+- Neither knows **why**. VRChat's audit log has nowhere to put a reason, so your group writes one
+  itself in a [case file](/moderation/case-files).
+
+## How joins, leaves and bans are recorded
+
+When somebody joins, leaves, gets a role, or is banned or unbanned, Modbot adds it to the
+[audit log](/moderation/audit-log). Most of the time that entry comes from VRChat's own audit log,
+which says exactly who did it and when, and shows **VRChat** as its source.
+
+The sweeps are a backup. If VRChat's audit log missed a change, the next sweep notices the
+difference and records it with **Sync** as its source and no "who", because a list cannot say who
+changed it. A sweep waits a couple of minutes for the audit log first, so the same change is not
+recorded twice.

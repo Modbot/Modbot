@@ -1,0 +1,24 @@
+{
+  "title": "Modbot",
+  "root": true,
+  "pages": [
+    "index",
+    "---Hosting---",
+    "self-hosting",
+    "setup-wizard",
+    "---Using Modbot---",
+    "moderation",
+    "desktop-client",
+    "discord",
+    "ai",
+    "analytics",
+    "accounts",
+    "---For developers---",
+    "api",
+    "---About---",
+    "security",
+    "privacy",
+    "not-built-yet",
+    "legal"
+  ]
+}

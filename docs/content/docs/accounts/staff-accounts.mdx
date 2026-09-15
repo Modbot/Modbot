@@ -1,0 +1,294 @@
+---
+title: Staff accounts, invites and password resets
+description: How to add your moderators, link their VRChat accounts, disable them, and get them back in when they forget a password.
+---
+
+Modbot has its own accounts, separate from VRChat and Discord. Each person on your team signs in
+with their own username and password, so everything Modbot records says who did it. This page
+covers getting people in, keeping their accounts in order, and what each person can do with their
+own account.
+
+What a person may do once they are in is decided by their roles. See
+[Roles and permissions](/accounts/roles-and-permissions).
+
+## The Users page
+
+Open **Users** in the sidebar, under **Team**. You need the **Manage users** permission to see it.
+
+The table lists every staff account with its **Username**, the linked **VRChat account** (or
+**Not linked yet**), its **Roles**, and its **Last sign-in**. Disabled accounts are greyed out and
+marked **Disabled**. Your own row says "you".
+
+Click a row to open that person's panel, where you can change their roles, their contact details,
+make a password reset link, and disable or enable the account.
+
+Accounts are never deleted. Every action Modbot records points at the account that did it, and
+deleting the account would break that record. When somebody leaves the team, disable them.
+
+## Adding somebody
+
+Press **Add someone**. There are two ways, shown as two tabs.
+
+### Send them a link (recommended)
+
+1. Choose **Send them a link**.
+2. Tick the roles the person should have.
+3. Press **Make the link**.
+4. Copy the link and send it to them on Discord, or however your team talks.
+
+The person opens the link, sees who invited them and with which roles, and picks their own
+**Username** and **Password** on the **Create your Modbot account** page. When they press
+**Create account** they are signed in straight away and taken to link their VRChat account (see
+below).
+
+An invite link:
+
+- works **once**,
+- expires after **72 hours**,
+- stops working if the account that made it is disabled before it is used,
+- is shown **only once**. Modbot keeps only a fingerprint of it, so it cannot show it to you again.
+  If you lose it, make a new one.
+
+Invite links that have not been used yet are listed under **Invite links not used yet** on the
+Users page, with who made each one, its roles and when it expires. Press **Take back** to cancel
+one.
+
+This is the way to add people because nobody but the new moderator ever knows their password.
+
+### Set a temporary password
+
+If the person is sitting next to you, choose **Set a temporary password**, type a **Username**
+and a **Temporary password** (at least 12 characters) twice, tick their roles and press
+**Create the account**. They can sign in right away.
+
+Tell them the password in person and ask them to change it on their account page straight away.
+Until they do, two people know it, and Modbot cannot tell which of you did something. Modbot does
+not force the change.
+
+### Username and password rules
+
+- A username can be up to 64 characters. Two usernames that differ only in upper and lower case
+  count as the same name, so `Gunner24` and `gunner24` cannot both exist.
+- A password must be at least 12 characters.
+
+### You can only give what you have
+
+The role list shows every role, but you can only tick roles whose permissions you hold yourself.
+The others are greyed out. This applies to invite links, temporary-password accounts and changing
+somebody's roles. It stops a person who manages users from making themselves, or a friend, an
+administrator. An administrator can give any role.
+
+## Linking a VRChat account (required)
+
+Every account has to be linked to the VRChat account of the person behind it before it can use
+Modbot. This includes the first administrator, who does it during the
+[setup wizard](/setup-wizard). The link is what lets Modbot connect "Alice in Modbot" with a real
+VRChat user.
+
+Until the link is done, signing in takes the person to the **Link your VRChat account** page and
+nowhere else.
+
+<Steps>
+<Step>
+
+### Open your profile
+
+Press **Open my VRChat profile**. Your VRChat profile opens in a new tab.
+
+</Step>
+<Step>
+
+### Paste your user id or profile address
+
+Copy your user id (it starts with `usr_`) or the address of the page, paste it into **Your VRChat
+user id or profile address**, and press **Continue**. Either is fine.
+
+</Step>
+<Step>
+
+### Put the code in your bio
+
+Modbot shows a short code like `modbot-7F3K9Q`. Press **Copy**, paste it anywhere in your VRChat
+bio, and save your profile on the VRChat website.
+
+</Step>
+<Step>
+
+### Press Check
+
+Back in Modbot, press **Check**. Modbot reads your VRChat profile and, if the code is in the bio,
+the link is confirmed. You can take the code out of your bio afterwards.
+
+</Step>
+</Steps>
+
+Things to know:
+
+- A code lasts **30 minutes** and can be checked **6 times**. You have to wait **10 seconds**
+  between checks. The page shows how many checks are left. If the code runs out, press
+  **Start over**.
+- One VRChat account can be linked to only one Modbot account. If it is already linked to somebody
+  else, Check says so.
+- Modbot reads the profile through its own VRChat account. If that account is not set up yet, or
+  VRChat is rate limiting Modbot, Check tells you and nothing is retried. Try again later.
+- You can link a different VRChat account later from your account page. The new link replaces the
+  old one and is recorded.
+
+### What an account without a link can do
+
+Only three things: see who it is signed in as, finish the link, and sign out. Every other part of
+Modbot refuses it, whatever roles it holds. The one exception is the first steps of the
+[setup wizard](/setup-wizard) for an account allowed to change settings, because the link cannot be
+checked until Modbot's own VRChat account is working.
+
+## Changing somebody's roles
+
+Open the person on the Users page, tick or untick roles and press **Save roles**. The change takes
+effect on their very next click in Modbot, not the next time they sign in.
+
+## Disabling and enabling an account
+
+In the person's panel, under **Access**:
+
+- **Disable this account** ends every session they have straight away and stops them signing in.
+  Nothing they did is removed from history. Invite links they made stop working. You cannot
+  disable your own account.
+- **Enable this account** lets them sign in again. Sessions that were open before they were
+  disabled do not come back; they have to sign in fresh.
+
+A disabled account also cannot use password reset links, and any Discord bot commands it tries are
+refused.
+
+## The last administrator
+
+Modbot will not let you disable an account, or change its roles, if that would leave no enabled
+account that holds **Administrator**. You see "That would leave nobody who can administer Modbot."
+A deployment with no administrator has no way back except editing the database, so make sure a
+second person holds Administrator before you step away.
+
+<Callout type="warn">
+Anyone with **Manage users** can disable any account other than their own, administrators
+included, and can take roles away from people, as long as one enabled administrator is left. Give
+that permission to people you trust with the whole team.
+</Callout>
+
+## Contact details
+
+Each account can hold an **Email** address and a **Discord user id**. You can set them for
+somebody under **Contact details** in their panel (then press **Save contact details**), and each
+person can set their own on their account page.
+
+They are used for two things:
+
+- sending a password reset link the person asked for (see below),
+- recognising the person when they use the Modbot Discord bot's commands. See
+  [Setting up the bot](/discord/bot-setup).
+
+Modbot does not check that the Discord user id really belongs to the person. It is typed in.
+
+The email address of the oldest enabled administrator is also the contact address Modbot gives
+VRChat on every request. See [Security](/security#what-modbot-tells-vrchat-about-you).
+
+## When somebody forgets their password
+
+There are two ways. You only need one.
+
+### They ask for a link
+
+The sign-in page has **Forgot password?**. The person types their **Username** and presses
+**Send me a link**. Modbot sends a reset link:
+
+1. **by email**, if email is set up under **Settings**, **Integrations**, **Email (SMTP)**, and the
+   account has an email address,
+2. otherwise **by Discord direct message**, if a **Bot token** is saved under **Settings**,
+   **Discord**, and the account has a Discord user id.
+
+The message names the account and says nothing has changed if they did not ask. The link lasts
+**24 hours**.
+
+For this to work, an administrator must have saved the **Public address** of your Modbot under
+**Settings**, **Host & Database**. That is the address people type to reach it, and it is the only
+thing a sent link is ever built from. If no public address is saved, or neither email nor Discord
+is set up, the forgot-password page says so and sends nothing. Use the second way instead.
+
+To stop this being used to find out which usernames exist, the page always gives the same answer,
+whether or not the username is real, disabled, or has no contact details. Behind that answer:
+
+- nothing is sent to a disabled account or one with no email and no Discord user id,
+- a person can get at most one link every **10 minutes**,
+- many requests from one address slow down, the same way failed sign-ins do.
+
+Nothing is ever sent to a person's email or Discord except a reset link they asked for.
+
+### You make them a link
+
+Open the person on the Users page and press **Make a reset link** under **Password**. Copy the link
+and send it to them yourself. It is shown once. This works even when email, Discord and the public
+address are not set up, but not for a disabled account (enable it first).
+
+### Using a reset link
+
+Either kind of link opens the **Choose a new password** page. The person types a **New password**
+twice. Using the link:
+
+- sets the new password,
+- **ends every session the account had**, everywhere,
+- uses the link up.
+
+They then sign in with the new password. Making a new reset link for an account cancels any older
+unused ones.
+
+## Your own account
+
+Press the button with your name at the top right of any page to open **Your account**. Anyone who
+is signed in can use it. It has these parts:
+
+- **You**: who you are signed in as and your roles.
+- **Change your username**: type a **New username** and **Your current password**, then press
+  **Change username**. The change is recorded with the old and new names.
+- **Change your password**: type your **Current password** and a **New password** twice, then
+  press **Change password**. Every other session you have is signed out. The browser you did it in
+  stays signed in.
+- **Password reset**: your **Email** and **Discord user id**, used to send you a reset link if you
+  forget your password. Press **Save**.
+- **Your VRChat account**: which VRChat account you are linked to, and **Link a different account**.
+- **my.modbot.co**: **Add to my.modbot.co**.
+- **Sign out everywhere**: ends every session you have on every browser and machine, including
+  this one.
+
+The **Sign out** button at the top right ends only the session in the browser you are using.
+
+## Sessions
+
+- Signing in starts a session that lasts **14 days**. Using Modbot keeps extending it, so a session
+  only ends by itself after about two weeks without use.
+- Modbot checks the account on every request. Disabling an account, using a reset link, changing
+  your password (for your other sessions) and **Sign out everywhere** all take effect on the next
+  click, not at the next sign-in.
+- Restarting or updating Modbot does not sign anybody out.
+
+### Failed sign-ins
+
+A wrong password never locks anybody out. Instead each failed attempt makes the next one wait
+longer: 1 second, then 2, 4, 8, 16, and at most **20 seconds**, counted per username and per
+address over 15 minutes. A correct password always works after the wait, so nobody can keep you
+out of your own Modbot by hammering your username. The sign-in page gives the same answer for a
+wrong password, an unknown username and a disabled account.
+
+## What Modbot writes down
+
+Every account event is recorded in Modbot's own log, which people with **See the operational log**
+can read on the [Audit log](/moderation/audit-log) page:
+
+- accounts created (and whether by invite or temporary password), invite links made, used and taken
+  back,
+- roles changed, and roles created, changed or deleted,
+- accounts disabled and enabled,
+- usernames changed (old and new name), passwords changed, contact details changed (which fields,
+  not the values),
+- reset links made (whether you or the person asked, and how it was sent) and used,
+- VRChat accounts linked,
+- every sign-in, every failed sign-in, and every **Sign out everywhere**.
+
+A failed sign-in records the username that was tried and the address it came from, never the
+password.

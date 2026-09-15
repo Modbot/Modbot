@@ -1,0 +1,100 @@
+---
+title: Live
+description: See your group's open instances right now, how many people are in each, and who is inside when a moderator is there.
+---
+
+The **Live** page lists every instance your group has open right now. Each card shows the world,
+the instance number, who can join, the region and how many people are inside. When a moderator
+with the desktop client is in an instance, the card also lists who is there.
+
+Live needs the [**See live instances**](/accounts/roles-and-permissions#see-live-instances)
+permission. Without it, **Live** does not appear in the sidebar.
+
+## What a card shows
+
+Every open group instance gets a card, whether or not anybody from your team is in it.
+
+- **The world.** Its picture and name. Click either to open the [world popup](/moderation/popups#world-popup).
+- **The instance number.** Click it to open the [instance popup](/moderation/popups#instance-popup).
+  Beside it: who can join (**Group members**, **Members and friends** or **Anyone**) and the region.
+- **The head count**, on the right. A dash means Modbot has no number for it yet.
+- **Watching.** The moderators whose desktop client is in the instance right now, or
+  **Nobody watching**.
+- **Here now.** Only while somebody is watching: everyone in the instance, with a count. Each name
+  opens the [person popup](/moderation/popups#person-popup).
+- **Last seen**, with a time. Only when nobody is watching now but somebody was earlier: who was
+  there when the last moderator left. This is not who is there now.
+
+Next to a name you may see:
+
+| Mark | Meaning |
+|---|---|
+| **Flagged** | Modbot has recorded this person being removed from the group or banned before. A line such as "2 prior actions" follows. |
+| **Member** | The person is in your group. |
+| arrived 21:14 | A moderator's client saw them come in at that time. |
+| here before 21:02 | They were already there when watching started, so nobody saw them arrive. Modbot does not guess an earlier time. |
+
+<Callout type="info" title="Flagged here is not the Flags page">
+The **Flagged** mark on Live only counts past removals from the group and bans. It has nothing to
+do with [Flags](/moderation/flags), which come from moderation rules.
+</Callout>
+
+## Where the numbers come from
+
+Two kinds of source feed this page, and they answer different questions.
+
+| What | Comes from | How often |
+|---|---|---|
+| Which instances are open | Modbot asks VRChat for your group's instance list | Every 10 seconds |
+| Head count | Each instance's own VRChat page | About every 30 seconds per instance |
+| Who is inside | The desktop clients of moderators who are in the instance | As each client reports |
+| World name and picture | VRChat's world page, read when Modbot first sees the world | Once, and again if the world turns up in a new instance 30 days or more later |
+
+VRChat tells Modbot how many people are in an instance, but not who they are. So every card has a
+head count, and names only appear when a moderator's desktop client is inside.
+
+If an instance's own page cannot be read, or the last good read is more than two minutes old,
+Modbot shows the number from the group's instance list instead. That number may leave some people
+out, so treat it as a rough count.
+
+The page asks the Modbot server for new data every 5 seconds while its browser tab is on screen,
+and stops while you are on another tab. Everything on it comes from Modbot's own database, so
+leaving Live open does not use up any of your group's VRChat requests.
+
+An instance leaves the page when it drops off VRChat's group instance list, which Modbot notices
+within about 10 seconds.
+
+## When a moderator counts as watching
+
+Watching starts when **your own** desktop client reports that **you** are in the instance. For
+that to work:
+
+1. The desktop client is installed and [paired](/desktop-client/pairing) to your Modbot account.
+2. Your Modbot account is [linked to your VRChat account](/accounts/staff-accounts#linking-a-vrchat-account-required).
+3. You are in VRChat, in that instance.
+
+A moderator whom somebody else's client sees is in the instance, but is not watching it.
+
+Watching stops at whichever comes first:
+
+- you leave the instance;
+- your client says VRChat's log stopped (for example, you closed VRChat);
+- your client reports you in a different instance;
+- the instance closes.
+
+When two moderators overlap, the instance counts as watched without a break. If Alice arrives at
+eight, Bob at half past and Alice leaves at nine, the list is built from everything reported since
+eight.
+
+## Common problems
+
+**It says Nobody watching, but I am in the instance.** Check that the desktop client is running,
+paired and not paused, and that your Modbot account is linked to the VRChat account you are
+playing on. A client paired to somebody else's Modbot account does not make you a watcher.
+
+**An instance I can see in VRChat is missing.** Live only lists instances that belong to your
+group and appear in VRChat's group instance list. If no instances ever appear, check that Modbot's
+VRChat account is working on the [Sync health](/self-hosting/health) page.
+
+**No open instances.** Your group has no instances open right now, or Modbot has not read the list
+yet.

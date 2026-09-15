@@ -1,0 +1,220 @@
+---
+title: Setting up the bot
+description: Create a Discord bot, switch on the intents it needs, invite it to your server and connect it to Modbot.
+---
+
+Modbot can run a Discord bot for your community's server. Once it is connected it:
+
+- posts events to the Discord channels you choose ([Event channels](/discord/event-channels));
+- announces your group's open instances in a channel ([Instance announcements](/discord/instance-announcements));
+- lets members link their Discord and VRChat accounts, and gives linked members a role ([Account linking](/discord/account-linking));
+- keeps a copy of the server's messages, members and voice time, for the **Discord members** list and the **My Server** charts ([Messages and My Server](/discord/messages-and-my-server));
+- answers four slash commands (see [Slash commands](#slash-commands)).
+
+The bot is optional. Until you give Modbot a token and a server id, the bot does not start and the
+rest of Modbot works as normal.
+
+You need the **Change settings** permission to set the bot up.
+
+<Steps>
+
+<Step>
+
+### Create the application
+
+1. Open the [Discord Developer Portal](https://discord.com/developers/applications) and click
+   **New Application**. Any name works; "Modbot" is fine.
+2. Open **Bot** and click **Reset Token**. Copy the token and keep it somewhere safe for a
+   moment. Discord shows it only once.
+
+</Step>
+
+<Step>
+
+### Switch on the privileged intents
+
+An *intent* is a kind of update the bot asks Discord to send it. Most are open to every bot. Two
+of the ones Modbot asks for are *privileged*, which means you have to switch them on yourself.
+
+Still under **Bot**, find **Privileged Gateway Intents** and switch on:
+
+- **Server Members Intent**
+- **Message Content Intent**
+
+Leave **Presence Intent** off. Modbot does not ask for it.
+
+</Step>
+
+<Step>
+
+### Invite the bot to your server
+
+The easiest way is the **Bot invite link** Modbot builds for you. It appears on the
+**Account linking** card under **Settings → Discord** once you have saved the **OAuth client id**
+there (the Developer Portal shows the client id under **OAuth2**). It asks for exactly the
+permissions the features you have set up need. See [Account linking](/discord/account-linking)
+if you want to fill in that card now.
+
+You can also build the link yourself under **OAuth2 → URL Generator**:
+
+- Scopes: **bot** and **applications.commands**. Without **applications.commands** the bot
+  connects, but no slash commands appear.
+- Bot permissions: see [Permissions the bot needs](#permissions-the-bot-needs) below.
+
+Open the link, pick your server and confirm. Do not give the bot **Administrator**.
+
+</Step>
+
+<Step>
+
+### Find your server id
+
+In Discord, turn on **Developer Mode** (User Settings → Advanced). Then right-click your server's
+icon and choose **Copy Server ID**.
+
+</Step>
+
+<Step>
+
+### Enter the token and server id in Modbot
+
+You can do this in the [setup wizard](/setup-wizard) or later in Settings.
+
+- **In the setup wizard**, the step **Public address, Discord and email** has a **Discord bot**
+  section with **Bot token** and **Server ID**.
+- **In Settings**, open **Settings → Discord**. On the **Bot** card, fill in **Bot token** and
+  **Guild id** (your server id), then press **Save**.
+
+The token is stored encrypted and is never shown again. Once one is saved, the **Bot** line on
+the card says **Token stored**. When you change something else later, leave **Bot token** empty:
+an empty field keeps the token you already have.
+
+Also set a **Public address** under **Settings → Host & Database**. Modbot builds every link it
+sends to Discord from that address and nothing else. Without it, event posts have no link back to
+Modbot, and account linking cannot work.
+
+</Step>
+
+</Steps>
+
+Modbot looks at its Discord settings every ten seconds, so the bot connects within a few seconds
+of saving. Nothing needs restarting, now or when you change these settings later.
+
+## Intents the bot asks for
+
+These are all the intents Modbot requests, and what each one is for.
+
+| Intent | Switch in the Developer Portal | What Modbot uses it for |
+|---|---|---|
+| Servers | none | The server's name, channels and roles, and slash commands. |
+| Server messages | none | Messages as they are sent, edited and deleted. |
+| **Message Content Intent** | yes | The text of those messages. |
+| **Server Members Intent** | yes | The member list, joins and leaves, nickname and role changes, timeouts, and the message that asks new joiners to link their accounts. |
+| Voice states | none | Who joins, leaves or moves between voice channels, for voice time. |
+| Bans and moderation | none | Bans and unbans, and new entries in the server's audit log as they happen. |
+
+### If a privileged intent is off
+
+Discord refuses the whole connection when a bot asks for a privileged intent that is switched off,
+without saying which one. Modbot works out which ones are off, then connects again **without
+them**, so posting events and the slash commands keep working.
+
+While that is happening, the **Discord bot** card on the **Sync health** page shows
+**Intents off in the Developer Portal:** followed by the switches to turn on.
+
+What you lose without each one:
+
+- **Without Message Content Intent**, messages are still stored, but with no text.
+- **Without Server Members Intent**, Modbot does not read the member list or see people join and
+  leave, and new joiners are not asked to link their accounts.
+
+After you switch an intent on, Modbot asks for it again the next time Modbot restarts, or when you
+change the **Bot token**, the **Guild id**, or the **Prompt new joiners to link their VRChat
+account** switch.
+
+## Permissions the bot needs
+
+These are Discord permissions. You give them when you invite the bot, or later in your server's
+role and channel settings.
+
+| Permission | Needed for |
+|---|---|
+| **View Channels** | Everything the bot reads or posts. |
+| **Send Messages** | Event posts, instance announcements, insights, and the backup channel for account linking. |
+| **Embed Links** | Event posts, instance announcements and insights, which are sent as cards. |
+| **Read Message History** | Reading back each channel's older messages, and updating instance announcement cards. |
+| **View Audit Log** | Knowing *who* banned, kicked, timed out or changed somebody's roles, and catching up on what happened while the bot was offline. |
+| **Manage Roles** | Only if you set a **Linked role** or an **18+ role** for account linking. The bot's own role must also sit above those roles. |
+| **Manage Messages** and **Timeout Members** | Only if you set [moderation rules](/ai/moderation-rules) to delete messages or time people out. The invite link Modbot builds does not ask for these. |
+
+The **Bot invite link** asks for View Channels, Send Messages, Embed Links, Read Message History and
+View Audit Log. It adds Manage Roles once a linked role or 18+ role is saved. If you turn on a
+feature later that needs more, open the link again to give the bot the new permission.
+
+Whenever you pick a channel in **Settings → Discord**, a channel where the bot lacks a permission
+that setting needs is marked with what is missing, for example `Missing Send Messages, Embed Links`.
+Fix it in Discord's channel settings, or pick another channel. The channel and role lists come from
+the bot, so they are empty until it has connected once.
+
+## Checking that it is connected
+
+Open **Sync health** in the sidebar, under **Setup**. It needs **See the operational log**. The
+**Discord bot** card shows one of these:
+
+| State | Meaning |
+|---|---|
+| **not set up** | No token or no server id is saved. This is not a fault. |
+| **connecting** | Signing in to Discord. |
+| **connected** | Working. It also shows how long it has been connected and how many slash commands were registered. |
+| **reconnecting** | The connection dropped and Modbot is getting it back. This usually clears within a minute. |
+| **stopped — needs you** | Discord refused to let the bot sign in, usually because the token is wrong. The bot waits until you change the settings. |
+
+The card also shows how many posts have gone to Discord since Modbot last started, each event
+channel with a problem, how far reading back message history has got, and the last problem the bot
+ran into. See [Checking a deployment](/self-hosting/health) for the rest of that page.
+
+You can also run `/modbot` in Discord.
+
+## Slash commands
+
+The bot registers its commands on your server only. Every reply is visible only to the person who
+ran the command.
+
+| Command | What it does | Who can use it |
+|---|---|---|
+| `/lookup user:` | Looks up a VRChat user, by id or display name, in what Modbot has stored: their name, whether they have been seen as 18+ verified, when the profile was last refreshed, ban status, how many bans, kicks and warns, and their latest moderation events. Nothing is fetched from VRChat. If several people match, it lists them so you can run it again with the id. | **See profiles** |
+| `/recent count:` | The latest moderation events, newest first. `count` is 1 to 25; 10 if you leave it out. | **See the audit log** |
+| `/modbot` | Whether the bot is connected, whether any channel is set to receive events, and the web app's address. | Anyone with a linked Modbot account |
+| `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
+
+### Letting moderators use the commands
+
+Every command except `/link` only answers people Modbot can match to a Modbot account. Each
+moderator enters their **Discord user id** on their own **Your account** page. Someone with
+**Manage users** can also set it for them on the **Users** page. To find your id, turn on Developer
+Mode in Discord, right-click your own name and choose **Copy User ID**.
+
+If someone without a linked Modbot account runs a command, the bot replies "Link your Discord
+account in Modbot first." If they lack the permission, the reply names the permission they need.
+Permissions come from the person's Modbot roles, the same as in the web app. See
+[Roles and permissions](/accounts/roles-and-permissions).
+
+Every command run, answered or refused, is recorded in the audit log as **Discord command used**.
+
+## Turning the bot off
+
+Clear **Guild id** on the **Bot** card and press **Save**. The bot disconnects within a few
+seconds. Your channels and other Discord settings are kept for when you turn it back on.
+
+## If something is wrong
+
+Start with the **Discord bot** card on **Sync health**.
+
+| You see | What to do |
+|---|---|
+| **stopped — needs you** with "Discord rejected the bot token." | Reset the token in the Developer Portal and paste the new one into **Bot token**. |
+| **Intents off in the Developer Portal:** … | Switch the named intents on under **Bot → Privileged Gateway Intents**. |
+| **reconnecting** for a long time | Check whether Discord is having problems. After a few minutes Modbot signs in again from scratch by itself. |
+| **connected**, but no slash commands appear in Discord | The bot was invited without the **applications.commands** scope. Invite it again with it. |
+| A problem registering the slash commands | Check that **Guild id** is your server's id and that the bot is in that server. |
+| A channel marked **Missing** … or **Removed** | Give the bot the named permissions in that channel, or pick a different channel. |

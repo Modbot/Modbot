@@ -1,0 +1,110 @@
+---
+title: PostgreSQL
+description: Which PostgreSQL to use, how to write DATABASE_URL, how Modbot sets up its own tables, and what happens when the database is not reachable.
+---
+
+Modbot keeps everything in one PostgreSQL database: its settings, staff accounts, the history it
+records about your group, and the keys it uses to protect stored passwords and keep people signed
+in. There is nothing else to back up on the server except evidence files, if you keep those outside
+the database.
+
+## Which PostgreSQL
+
+Modbot's automated tests run against **PostgreSQL 16**. Use 16 or newer.
+
+It has to be real PostgreSQL. Modbot relies on table partitioning, `jsonb` columns, GIN indexes and
+advisory locks, so a database that only imitates PostgreSQL's connection protocol will not work.
+
+A managed PostgreSQL from your hosting platform (such as Railway's) is fine.
+
+## Writing DATABASE_URL
+
+Modbot accepts two forms.
+
+**A URL**, which is what most hosting platforms give you:
+
+```text
+postgres://user:password@host:5432/database
+```
+
+- `postgresql://` works as well as `postgres://`.
+- If you leave out the port, Modbot uses `5432`.
+- The part after the last `/` is the database name, and it is required.
+- If the username or password contains characters such as `@`, `:` or `/`, write them
+  percent-encoded. For example, `p@ss:word` becomes `p%40ss%3Aword`.
+- Connection options go after a `?`, for example `?sslmode=require`. Modbot passes them on as they
+  are. An option the database driver does not recognise stops Modbot starting, with a message
+  naming it.
+
+**A keyword connection string**, the kind you can copy from pgAdmin:
+
+```text
+Host=localhost;Port=5432;Database=modbot;Username=modbot;Password=choose-a-long-password
+```
+
+Anything that does not start with `postgres://` or `postgresql://` is treated as this form.
+
+## The database user
+
+Modbot creates and changes its own tables, so its database user needs permission to create tables
+in the database it connects to. The simplest way is to make Modbot's user the owner of its database.
+
+If the user can connect but not create tables, Modbot stops at startup and says so.
+
+## Tables are set up when Modbot starts
+
+You never run a database command yourself. Every time Modbot starts, before it serves anything, it
+checks whether its tables are up to date and applies any changes a new version brings. The log says
+either `Database schema is up to date` or how many changes it is applying.
+
+If applying the changes fails, Modbot does not start. It will not run against a half-updated
+database.
+
+## When the database is not reachable yet
+
+A database created at the same moment as Modbot is often still starting up. Modbot waits for it:
+
+1. It tries to connect.
+2. If the database does not accept the connection, it logs a warning saying which try this is, waits
+   3 seconds, and tries again.
+3. After 10 tries it gives up, logs why, and exits.
+
+If the database answers but refuses, Modbot stops at once, because waiting will not change the
+answer. Each of these is written to the log as one sentence:
+
+| What the log says | What to check |
+|---|---|
+| `DATABASE_URL is not set.` | The variable is missing or empty. |
+| `... rejected Modbot's credentials.` | The username or password in `DATABASE_URL`. |
+| `The database named in DATABASE_URL does not exist ...` | Create the database, or fix its name in the URL. |
+| `Modbot's database user may connect ... but may not change its schema.` | Give the user permission to create tables, or use the database's owner. |
+| `Modbot could not reach the database ... after 10 attempts` | The host and port in `DATABASE_URL`, and that PostgreSQL is running. |
+
+The log never prints the password. It names the database as host, port and database name only.
+
+Once Modbot is running, `/health/ready` reports whether it can still reach the database. If the
+database goes away later, Modbot keeps running and `/health/ready` reports it as unhealthy until it
+comes back. See [Checking a deployment](/self-hosting/health).
+
+## How much space it uses
+
+**Settings**, **Host & Database**, **Storage** shows the database's size, how many facts Modbot has
+recorded, and how quickly new ones arrive. Enter your disk size there to see roughly when it would
+fill. Modbot keeps everything until you set a retention period. See
+[Data and retention](/self-hosting/data-retention).
+
+## Backups
+
+Because everything lives in the database, a backup of the database is a backup of your Modbot. That
+includes the key that protects the passwords and tokens you entered in the setup wizard, so a
+restored database works without any extra key.
+
+Two things are worth knowing:
+
+- If you keep evidence **inside PostgreSQL**, every evidence file is in your database backup too,
+  and the backup grows with every video. See [Storage buckets](/self-hosting/storage-buckets).
+- If you keep evidence in a **bucket** or **on disk**, back that up separately. The database only
+  records which files exist, not their contents.
+
+Take a backup before [updating](/self-hosting/updating). Modbot updates its tables when a new version
+starts, and does not undo those changes if you go back to an older version.

@@ -39,7 +39,7 @@ internal static class OpenApiReference
     /// <summary>The sections, in the order the reference lists them, with one line each.</summary>
     private static readonly (string Name, string Description)[] Tags =
     [
-        ("Meta", "The server's version."),
+        ("Version", "The server's release and API version."),
         ("Auth", "Signing in and out, and your own account. API keys can only use GET /api/auth/me here."),
         ("Users", "Staff accounts, invite links and password reset links."),
         ("Roles", "Roles and the permissions each one gives."),
@@ -170,12 +170,26 @@ internal static class OpenApiReference
         foreach (var (name, description) in Tags)
         {
             if (used.Remove(name))
-                ordered.Add(new OpenApiTag { Name = name, Description = description });
+                ordered.Add(Tag(name, description));
         }
 
-        ordered.AddRange(used.Order(StringComparer.Ordinal).Select(name => new OpenApiTag { Name = name }));
+        ordered.AddRange(used.Order(StringComparer.Ordinal).Select(name => Tag(name, null)));
         document.Tags = new HashSet<OpenApiTag>(ordered);
     }
+
+    /// <remarks>
+    /// <c>x-displayName</c> is the section title as written. Without it, readers of the document
+    /// such as the docs site make one up from the name, and "API keys" comes out as "A P I keys".
+    /// </remarks>
+    private static OpenApiTag Tag(string name, string? description) => new()
+    {
+        Name = name,
+        Description = description,
+        Extensions = new Dictionary<string, IOpenApiExtension>
+        {
+            ["x-displayName"] = new JsonNodeExtension(JsonValue.Create(name)),
+        },
+    };
 
     private static void DescribeOperation(OpenApiOperation operation, OpenApiOperationTransformerContext context)
     {

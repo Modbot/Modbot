@@ -1,0 +1,185 @@
+---
+title: Reviews and repeat offenders
+description: The list of people acted on more than once, the History block on a person, and the Reviews page that asks the team to look when a moderator's pattern seems unusual.
+---
+
+Modbot reads your group's audit log from VRChat, so it knows every kick, warn, ban and removal any
+moderator has done in VRChat. Two features count what is in that record:
+
+- **People acted on more than once**, on the Bans page and on each person's popup.
+- **Reviews**, which ask the team to look when one moderator's recent actions seem unusual.
+
+Neither does anything to anybody. They count, and they ask.
+
+## What counts as an action
+
+Both features count the same things done to a person:
+
+- kicked from an instance;
+- warned;
+- banned;
+- removed from the group;
+- a join request turned away (rejected or blocked).
+
+Unbans are shown but never counted as an action against somebody: lifting a ban is not another
+strike. Invites, accepted join requests and role changes are not counted either.
+
+A moderator acting on their own account is never counted.
+
+## People acted on more than once
+
+On the **Bans** page, the **People acted on more than once** tab lists everyone who has been acted
+on at least twice, by any moderator, most recent action first. Opening the Bans page needs
+**See the audit log**; the list itself needs **See profiles**.
+
+At the top, the rule that decides the status is written out, for example **Repeat: 3 or more
+actions in the last 30 days.**, and when the counts were last rebuilt.
+
+Switch between **Everyone** and **Repeat only**. Up to 200 people are listed.
+
+| Column | What it shows |
+|---|---|
+| **Person** | Click to open their popup. |
+| **Status** | **Once**, **More than once** or **Repeat** (see below). |
+| **Actions** | All actions against them, ever. |
+| **Last 30 days** | Actions in the last 30 days. |
+| **Kicks**, **Warns**, **Bans**, **Removed**, **Turned away** | The count of each kind. **Kicks** are kicks from an instance; **Removed** is removal from the group. |
+| **Moderators** | How many different moderators acted on them. |
+| **Last action** | What it was, who did it and how long ago. |
+
+The statuses:
+
+- **Once**: one action, ever.
+- **More than once**: two or more, but not enough recently to count as repeat.
+- **Repeat**: 3 or more actions in the last 30 days. The 3 is the default.
+
+### History on a person's popup
+
+The same numbers appear as a **History** block at the top of the **Logs** tab in a
+[person popup](/moderation/popups#person-popup), for anyone with **See profiles**. For example:
+*Acted on 4 times by 3 different moderators, 2 in the last 30 days.* followed by the last and first
+action, a count of each kind, the status and its rule.
+
+If nobody has ever acted on them it says **No actions recorded.**
+
+### How fresh the counts are
+
+The counts are rebuilt from Modbot's records **every 15 minutes**, and each screen says when that
+last happened (**Counts rebuilt** and a time). Before the first run they say **Counts not built
+yet.**
+
+They only cover what Modbot has recorded, which starts when Modbot first read VRChat's audit log.
+Nothing before that is counted.
+
+## Reviews
+
+The **Reviews** page is under **Team** in the sidebar. It needs the
+[**Review tickets**](/accounts/roles-and-permissions#review-tickets) permission. The number beside **Reviews** is how
+many are waiting.
+
+A review is a **question, not a finding**. Modbot never judges a moderator, never limits what they
+can do, and never messages them. It writes a plain sentence with the numbers in it, and waits for a
+person to look.
+
+**Review tickets** is a separate permission from the moderation ones on purpose: the people being
+reviewed should not be the people closing their own reviews.
+
+### What opens a review
+
+The same run that rebuilds the counts, every 15 minutes, looks for two patterns. The moderator in a
+review is the VRChat account VRChat's audit log names as having done the action.
+
+**Keeps acting on one person.** One moderator has acted on the same person 3 or more times in the
+last 30 days, in at least 2 different places, and no other moderator has ever acted on that person.
+A "place" is an instance when Modbot knows it, otherwise the world, otherwise the day. Two kicks in
+one evening in one instance are one place.
+
+If other moderators **have** acted on the same person, the bar is much higher: 8 or more. That is
+what keeps the persistent troll everybody removes from looking like a grudge.
+
+**Far more actions than the rest of the team.** One moderator did 10 or more actions in one day
+(counted in UTC), and that is at least 4 times the larger of:
+
+- what the next busiest moderator did that day, and
+- the team's usual number of actions per moderator per day.
+
+Comparing against the next busiest moderator stops a raid night, when everybody is busy, from
+opening a review on whoever happened to be busiest. This check does not run at all until the team
+has at least 7 days with recorded actions, because before that there is no "usual".
+
+"Usual" is actions over the last 90 days, up to yesterday, divided by the days a moderator did
+anything. Today is left out, so a busy day cannot raise the usual it is compared to.
+
+The numbers in this section are the defaults. There is no screen for changing them yet.
+
+### Reading a review
+
+Switch between **Waiting** (with a count) and **Closed**. At the top right: **Detection last ran**
+and a time.
+
+Each review shows:
+
+- what kind it is (**Keeps acting on one person** or **Far more actions than the rest of the
+  team**), the moderator, and the person when there is one; all click through to popups;
+- when it opened, and when its numbers were last updated;
+- the sentence, for example *Acted on the same person 4 times in the last 30 days, across 3
+  different instances or days (3 instance kicks, 1 ban). No other moderator has acted on this
+  person.*;
+- the numbers behind it: **Actions**, **Of which**, **Different instances or days**, **Other
+  moderators who acted on them**, **Looking back**, **Day (UTC)**, **Next busiest that day**,
+  **Team's usual per moderator-day**, **Their usual**, and **Rule applied**;
+- **Covers** and the dates, and a button such as **Show the 4 fact ids**, which lists the ids of
+  the audit log entries behind the numbers.
+
+If you disagree with the question, you can see exactly how it came to be asked.
+
+### Closing a review
+
+<Steps>
+
+<Step>
+
+### Find out what happened
+
+Open the moderator and the person, read their **Logs**, and ask the moderator if you need to.
+
+</Step>
+
+<Step>
+
+### Write what you concluded
+
+In **What did you conclude?**, for example *"Asked her; a crasher kept coming back on new accounts."*
+A note is required, up to 2,000 characters.
+
+</Step>
+
+<Step>
+
+### Press Close review
+
+The review moves to **Closed**, showing who closed it, when, and the note.
+
+</Step>
+
+</Steps>
+
+The note and who closed it are kept with the review and recorded in the
+[audit log](/moderation/audit-log). "This was looked at and found fine" is worth keeping as much as
+the pattern was.
+
+If somebody else closed the same review a moment before you, Modbot says so.
+
+### What happens after
+
+- **A closed review is never reopened by the same actions.** Only actions that happen after it was
+  closed can open a new review about the same moderator and person.
+- **While a review is open, its numbers keep updating.** The same pattern does not open a second
+  review.
+
+## What these features cannot see
+
+- **Anything VRChat's audit log does not record.** Everything here comes from actions done in
+  VRChat.
+- **Why an action was taken.** Kicks and warns have no reason in VRChat's audit log. Bans can have a
+  [case file](/moderation/case-files), but the checks do not read case file reasons yet.

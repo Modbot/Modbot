@@ -280,7 +280,7 @@
           "Events"
         ],
         "summary": "The live event WebSocket",
-        "description": "Authenticate with Authorization: Bearer <key>, or ?ticket= from POST /api/events/tickets. Send {\"op\":\"subscribe\",\"types\":[...],\"subjects\":[...],\"cursor\":\"...\"} within ten seconds; events arrive as {\"kind\":\"event\",\"event\":{...}}. See docs/api.md.",
+        "description": "Authenticate with `Authorization: Bearer mbk_...`, or `?ticket=` from POST /api/events/tickets. Send `{\"op\":\"subscribe\",\"types\":[...],\"subjects\":[...],\"cursor\":\"...\"}` within ten seconds; events arrive as `{\"kind\":\"event\",\"event\":{...}}`. See docs/api.md.",
         "operationId": "EventSocket",
         "parameters": [
           {
@@ -310,7 +310,7 @@
           "Events"
         ],
         "summary": "Long polling for the live event stream",
-        "description": "Authenticate with Authorization: Bearer <key>. Returns events after `cursor` at once when there are any, up to `limit` (default 100, at most 500); otherwise waits up to `wait` seconds (default 30, at most 60) for one and returns an empty list. No cursor means from now. Send the returned `cursor` back; `more` means poll again straight away. `types` and `subjects` repeat or are comma-separated. See docs/api.md.",
+        "description": "Authenticate with `Authorization: Bearer mbk_...`. Returns events after `cursor` at once when there are any, up to `limit` (default 100, at most 500); otherwise waits up to `wait` seconds (default 30, at most 60) for one and returns an empty list. No cursor means from now. Send the returned `cursor` back; `more` means poll again straight away. `types` and `subjects` repeat or are comma-separated. See docs/api.md.",
         "operationId": "PollEvents",
         "parameters": [
           {
@@ -538,7 +538,7 @@
     "/api/version": {
       "get": {
         "tags": [
-          "Meta"
+          "Version"
         ],
         "summary": "Server and API version",
         "description": "Unauthenticated so a client can negotiate compatibility before it holds credentials. Clients compare their own supported range against apiVersionMinimum..apiVersion and use the highest both support.",
@@ -20515,108 +20515,134 @@
   },
   "tags": [
     {
-      "name": "Meta",
-      "description": "The server's version."
+      "name": "Version",
+      "description": "The server's release and API version.",
+      "x-displayName": "Version"
     },
     {
       "name": "Auth",
-      "description": "Signing in and out, and your own account. API keys can only use GET /api/auth/me here."
+      "description": "Signing in and out, and your own account. API keys can only use GET /api/auth/me here.",
+      "x-displayName": "Auth"
     },
     {
       "name": "Users",
-      "description": "Staff accounts, invite links and password reset links."
+      "description": "Staff accounts, invite links and password reset links.",
+      "x-displayName": "Users"
     },
     {
       "name": "Roles",
-      "description": "Roles and the permissions each one gives."
+      "description": "Roles and the permissions each one gives.",
+      "x-displayName": "Roles"
     },
     {
       "name": "API keys",
-      "description": "Keys that let a program use this API as the person who made them."
+      "description": "Keys that let a program use this API as the person who made them.",
+      "x-displayName": "API keys"
     },
     {
       "name": "Events",
-      "description": "Every new event as it happens, over a WebSocket or by long polling."
+      "description": "Every new event as it happens, over a WebSocket or by long polling.",
+      "x-displayName": "Events"
     },
     {
       "name": "Webhooks",
-      "description": "Addresses Modbot sends new events to, signed with a secret."
+      "description": "Addresses Modbot sends new events to, signed with a secret.",
+      "x-displayName": "Webhooks"
     },
     {
       "name": "Members",
-      "description": "The group's member list and ban list, as Modbot last read them."
+      "description": "The group's member list and ban list, as Modbot last read them.",
+      "x-displayName": "Members"
     },
     {
       "name": "VRChat users",
-      "description": "What Modbot has stored about one VRChat user."
+      "description": "What Modbot has stored about one VRChat user.",
+      "x-displayName": "VRChat users"
     },
     {
       "name": "Live",
-      "description": "The group's open instances right now."
+      "description": "The group's open instances right now.",
+      "x-displayName": "Live"
     },
     {
       "name": "Calendar",
-      "description": "Planned events, where each is published, and the calendar feed."
+      "description": "Planned events, where each is published, and the calendar feed.",
+      "x-displayName": "Calendar"
     },
     {
       "name": "Places",
-      "description": "One world or one instance."
+      "description": "One world or one instance.",
+      "x-displayName": "Places"
     },
     {
       "name": "Audit",
-      "description": "The audit log: who did what to whom, and when."
+      "description": "The audit log: who did what to whom, and when.",
+      "x-displayName": "Audit"
     },
     {
       "name": "Case files",
-      "description": "The write-up of each ban."
+      "description": "The write-up of each ban.",
+      "x-displayName": "Case files"
     },
     {
       "name": "Evidence",
-      "description": "Screenshots and video attached to case files."
+      "description": "Screenshots and video attached to case files.",
+      "x-displayName": "Evidence"
     },
     {
       "name": "Reviews",
-      "description": "Reviews that open when a moderator's actions look unusual."
+      "description": "Reviews that open when a moderator's actions look unusual.",
+      "x-displayName": "Reviews"
     },
     {
       "name": "Repeat offenders",
-      "description": "People acted on more than once."
+      "description": "People acted on more than once.",
+      "x-displayName": "Repeat offenders"
     },
     {
       "name": "Moderation",
-      "description": "Flags raised by moderation rules."
+      "description": "Flags raised by moderation rules.",
+      "x-displayName": "Moderation"
     },
     {
       "name": "Discord",
-      "description": "The Discord server's channels, roles and members, and where events are posted."
+      "description": "The Discord server's channels, roles and members, and where events are posted.",
+      "x-displayName": "Discord"
     },
     {
       "name": "Discord account link",
-      "description": "Links between members' Discord and VRChat accounts."
+      "description": "Links between members' Discord and VRChat accounts.",
+      "x-displayName": "Discord account link"
     },
     {
       "name": "Chat",
-      "description": "Questions answered by the AI model, using only what you can see."
+      "description": "Questions answered by the AI model, using only what you can see.",
+      "x-displayName": "Chat"
     },
     {
       "name": "Insights",
-      "description": "AI-written summaries of the group's own numbers."
+      "description": "AI-written summaries of the group's own numbers.",
+      "x-displayName": "Insights"
     },
     {
       "name": "Analytics",
-      "description": "Charts and daily totals."
+      "description": "Charts and daily totals.",
+      "x-displayName": "Analytics"
     },
     {
       "name": "Health",
-      "description": "Whether Modbot is reaching VRChat."
+      "description": "Whether Modbot is reaching VRChat.",
+      "x-displayName": "Health"
     },
     {
       "name": "Settings",
-      "description": "Deployment settings: storage, retention, email, evidence, ban reasons and more."
+      "description": "Deployment settings: storage, retention, email, evidence, ban reasons and more.",
+      "x-displayName": "Settings"
     },
     {
       "name": "AI settings",
-      "description": "The AI provider, Chat, moderation rules, insights and spend limits."
+      "description": "The AI provider, Chat, moderation rules, insights and spend limits.",
+      "x-displayName": "AI settings"
     }
   ]
 }

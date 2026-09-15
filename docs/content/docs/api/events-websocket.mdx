@@ -1,0 +1,407 @@
+---
+title: Events over WebSocket
+description: Stay connected to your Modbot and receive every new event the moment it is recorded.
+---
+
+An **event** is one entry in Modbot's log: a ban, a join, a role change, a sign-in, a settings
+change. Everything in the [audit log](/moderation/audit-log) is an event, with the same id.
+
+The live event WebSocket keeps a connection open and sends you each new event as it is recorded.
+It suits a bot or a service that runs all the time. If your program cannot hold a connection open,
+use [long polling](/api/long-polling) or [webhooks](/api/webhooks) instead: all three send the
+same events, in the same shape.
+
+## The address
+
+```text
+wss://modbot.example.com/api/events/ws
+```
+
+Use `ws://` instead of `wss://` only if your Modbot is served over plain `http`. The web app shows
+the address, with a copy button, on **Settings → API → Events** under **Addresses**.
+
+An ordinary request to this address, without a WebSocket upgrade, gets `400` and
+`{ "error": "Connect with a WebSocket." }`.
+
+## Signing in
+
+There are two ways, and a session cookie on its own is **not** one of them.
+
+### From a program: a key in the header
+
+Send an [API key](/api/keys) in the `Authorization` header when you connect:
+
+```text
+Authorization: Bearer mbk_...
+```
+
+Never put a key in the address. The socket does not read keys from there.
+
+### From a browser: a one-use ticket
+
+A browser cannot set headers on a WebSocket, so it uses a ticket instead.
+
+1. Ask for a ticket with `POST /api/events/tickets`, signed in with a key or with the web app's
+   session. It answers:
+
+   ```json
+   { "ticket": "p6Cq1bA0H2c9m2d9V1x0cE5yQkN0aVh6c3JTR1FhWGs", "expiresAt": "2026-09-15T14:33:07+00:00" }
+   ```
+
+2. Connect to the socket with the ticket in the address:
+
+   ```text
+   wss://modbot.example.com/api/events/ws?ticket=p6Cq1bA0H2c9m2d9V1x0cE5yQkN0aVh6c3JTR1FhWGs
+   ```
+
+A ticket works **once**, and only for **sixty seconds** (the default). It stands for whoever asked
+for it: a ticket asked for with a key has that key's permissions and counts against that key's
+connections; a ticket asked for with a session has that person's permissions.
+
+`POST /api/events/tickets` answers `401` when you are not signed in, and `403` when you may not see
+any events at all. Tickets are held in memory, so a Modbot restart forgets unused ones.
+
+<Callout type="info" title="Keeping the key off the page">
+  A page on another site cannot ask your Modbot for a ticket from the browser. Have your own server
+  ask for the ticket with its key, pass only the ticket to the page, and let the page connect. The
+  key never reaches the browser.
+</Callout>
+
+### When sign-in fails
+
+Modbot accepts the connection first and then closes it with a code, because browsers hide the
+reason for a refused connection. See [close codes](#close-codes).
+
+## The conversation
+
+Every message, in both directions, is one JSON text message. Messages from the server have a
+`kind`. Messages you send have an `op`.
+
+<Steps>
+<Step>
+
+### The server says hello
+
+As soon as you connect:
+
+```json
+{ "kind": "hello", "version": 1, "heartbeat_seconds": 30, "permissions": ["ViewLiveRooms", "ViewAuditLog"] }
+```
+
+`version` is the version of the message shapes. `permissions` are the permission code names in
+force for this connection.
+
+</Step>
+<Step>
+
+### You subscribe, within ten seconds
+
+```json
+{ "op": "subscribe", "types": ["vrchat.group.member.*"], "subjects": [], "cursor": "81230" }
+```
+
+If no usable `subscribe` arrives within **ten seconds** (the default), the server closes the
+connection with `4000`.
+
+</Step>
+<Step>
+
+### The server confirms
+
+```json
+{ "kind": "subscribed", "types": ["vrchat.group.member.*"], "subjects": [], "cursor": "81230" }
+```
+
+`types` and `subjects` are what is now in force, tidied up (see below). `cursor` is the position
+reading starts **after**.
+
+</Step>
+<Step>
+
+### Events arrive
+
+```json
+{ "kind": "event", "event": { "version": 1, "id": "81234", "type": "vrchat.group.member.ban", "...": "..." } }
+```
+
+The whole event is described in [the event](#the-event) below.
+
+</Step>
+</Steps>
+
+You can send `subscribe` again at any time to change what you receive. The new types and subjects
+replace the old ones. If it has a `cursor`, reading moves there; without one, reading carries on
+from where it was.
+
+## Subscribing
+
+All three fields of `subscribe` are optional.
+
+| Field | |
+|---|---|
+| `types` | A list of event types to receive. Leave it out, or send an empty list, for `["*"]`. |
+| `subjects` | A list of ids. When it has any, you only receive events about those ids. Leave it out, or send an empty list, for every subject. |
+| `cursor` | Where to start: you receive events **after** this one. Text such as `"81230"`, or a whole number. |
+
+### Types
+
+Each entry in `types` is one of:
+
+| Pattern | Matches |
+|---|---|
+| `vrchat.group.member.ban` | exactly that type |
+| `vrchat.group.member.*` | every type that starts with `vrchat.group.member.` |
+| `*` | every event you may receive |
+
+Types are made of at least two parts separated by dots, each part using only lowercase letters,
+digits, `-` and `_`, up to 128 characters in all. Modbot trims spaces, lowercases them and removes
+repeats. You can send at most **100** types.
+
+`GET /api/events/types` lists the types you may receive, with a label and category for each:
+
+```json
+[
+  { "type": "vrchat.group.member.ban", "label": "Banned", "category": "moderation" },
+  { "type": "vrchat.group.member.join", "label": "Joined the group", "category": "moderation" }
+]
+```
+
+The list only holds types this version of Modbot has a name for. An event from VRChat that Modbot
+does not have a name for yet can still arrive, so a prefix such as `vrchat.group.*` is the safer
+choice when you want everything in an area.
+
+### Subjects
+
+Subject ids are the ids in each event's `subject.id`: VRChat user ids, Discord ids and so on. They
+are text, and Modbot never checks their format. Blank entries are dropped. You can send at most
+**500**, each at most 256 characters.
+
+### Cursor
+
+| You send | Reading starts |
+|---|---|
+| no `cursor`, on the first `subscribe` | from now: only events recorded after you subscribed |
+| no `cursor`, on a later `subscribe` | where the connection already was |
+| `"0"` | from the oldest event this Modbot still keeps |
+| a cursor you stored | right after that event |
+
+### Mistakes in a message
+
+A message the server cannot use gets an `error` message back, and the connection stays open:
+
+```json
+{ "kind": "error", "message": "'vrchat.group.member ban' is not an event type." }
+```
+
+The messages you can see are:
+
+| `message` | |
+|---|---|
+| `Messages must be JSON.` | The message was not JSON. |
+| `Unknown op. Send subscribe or ping.` | `op` was missing or not one of the two. |
+| `'types' must be a list.` or `'subjects' must be a list.` | Not a JSON list. |
+| `'types' must be a list of text.` or `'subjects' must be a list of text.` | Something in the list was not text. |
+| `'...' is not an event type.` | A type did not follow the rules above. |
+| `Choose at most 100 event types.` | Too many types. |
+| `Choose at most 500 subjects.` | Too many subjects. |
+| `A subject id is longer than 256 characters.` | One subject id is too long. |
+| `The cursor is not valid.` | The cursor was not a whole number of zero or more. |
+
+A subscribe with a mistake is ignored completely. If it was your first, you still have to send a
+usable one within the ten seconds.
+
+A single message may be at most 64 KB. A larger one closes the connection with `1009`.
+
+## Messages the server sends
+
+| `kind` | Example | |
+|---|---|---|
+| `hello` | see above | On connect. |
+| `subscribed` | see above | After each usable `subscribe`. |
+| `event` | `{ "kind": "event", "event": { ... } }` | One new event. |
+| `heartbeat` | `{ "kind": "heartbeat", "cursor": "81290" }` | About every thirty seconds, once you have subscribed. |
+| `notice` | `{ "kind": "notice", "code": "history_trimmed", "message": "Events before the oldest kept fact are gone." }` | Your cursor was older than anything this Modbot still keeps. See [carrying on after a disconnect](#carrying-on-after-a-disconnect). |
+| `error` | `{ "kind": "error", "message": "..." }` | A message you sent could not be used. |
+| `pong` | `{ "kind": "pong" }` | The answer to `{ "op": "ping" }`. |
+
+The heartbeat's `cursor` moves past events your subscription skipped. Store it just as you store
+the cursor of each event, so a reconnect does not read through them again.
+
+## The event
+
+Every event has this shape. Webhooks and long polling send exactly the same thing.
+
+```json
+{
+  "version": 1,
+  "id": "81234",
+  "cursor": "81234",
+  "type": "vrchat.group.member.ban",
+  "type_raw": null,
+  "label": "Banned",
+  "category": "moderation",
+  "source": "AuditLog",
+  "occurred_at": "2026-09-15T14:32:07+00:00",
+  "occurred_before": null,
+  "observed_at": "2026-09-15T14:32:11.204+00:00",
+  "subject": { "platform": "VRChat", "id": "usr_c1644b5b", "kind": "Person" },
+  "actor": { "platform": "VRChat", "id": "usr_4f0b4f5e", "name": "Alice" },
+  "world_id": null,
+  "instance_id": null,
+  "data": { "actorDisplayName": "Alice" }
+}
+```
+
+| Field | |
+|---|---|
+| `version` | The shape of this event. Fields may be added to version 1. Nothing is removed or renamed without a new version. |
+| `id` | The event's id, the same one the audit log uses. It is text, because it can be larger than a JavaScript number can hold exactly. |
+| `cursor` | Your position. Store the last one you handled and send it back to carry on from there. Treat it as text with no meaning of its own. |
+| `type` | What happened, as dotted words, such as `vrchat.group.member.ban` or `modbot.user.login`. |
+| `type_raw` | For an event VRChat reported that Modbot has no name for: the word VRChat used. Otherwise null. |
+| `label` | A short English label for the type, such as `Banned`. |
+| `category` | `moderation` or `operational`: which of the two logs it belongs to. |
+| `source` | Where Modbot learned of it: `AuditLog` (VRChat's group audit log), `SyncDiff` (noticed by comparing two syncs), `Client` (a moderator's desktop client), `Discord`, `Manual` (entered by a person in Modbot) or `Modbot` (Modbot's own record, such as sign-ins). |
+| `occurred_at` | When it happened. |
+| `occurred_before` | Null when the time is exact. Otherwise it happened somewhere between `occurred_at` and this time, for example when a change was noticed between two syncs. |
+| `observed_at` | When Modbot learned of it. |
+| `subject` | Who or what it happened to. `platform` is `VRChat`, `Discord` or `Modbot`. `kind` is `Person`, `Instance`, `Group`, `Role`, `Account` or `Other`. |
+| `actor` | Who did it, or null when nobody did. `name` is the name recorded at the time, or null. It is never looked up again later. |
+| `world_id`, `instance_id` | Where it happened, for events inside a VRChat instance. Otherwise null. |
+| `data` | Everything else Modbot recorded about the event. What is in it depends on the type. |
+
+Ids are text. Do not assume a format for them: older VRChat ids follow no pattern.
+
+## Which events you receive
+
+The same rules as the audit log, using the permissions of the key (or the person) the connection
+stands for:
+
+- **Moderation** events (bans, joins, role changes, case files and so on) need
+  **See the audit log**.
+- **Operational** events (sign-ins, settings changes, sync problems and so on) need
+  **See the operational log**.
+- **Presence** events, which say where somebody is right now, also need **See live instances**.
+  These are the types starting `vrchat.instance.`, `vrchat.avatar.` and `discord.voice.`.
+- **Administrator** receives everything.
+
+A key or person with neither **See the audit log** nor **See the operational log** cannot connect:
+the socket closes with `4003`.
+
+Permissions are read again at every heartbeat. If you lose one, the events it allowed stop from
+then on. If you can no longer see any events at all (the key was revoked or expired, or the account
+was disabled), the connection closes with `4003`.
+
+## Carrying on after a disconnect
+
+Connections drop: a restart, a network change, a deploy. To miss nothing:
+
+1. Store the `cursor` of every event you finish handling, and of every heartbeat.
+2. When you reconnect, send that cursor in your `subscribe`.
+3. Modbot sends every event after it that you may see, as fast as you read them, then carries on
+   live.
+
+Events arrive **in order** and **at least once**. If you reconnect with a cursor older than the last
+event you handled, you receive some events again: use `id` to skip the ones you have already
+handled.
+
+How far back a cursor can reach depends on how long this Modbot keeps its log (see
+[data and retention](/self-hosting/data-retention)). If your cursor is older than the oldest event
+still kept, you get a `history_trimmed` notice first, and reading carries on from the oldest event
+still kept. The events in between are gone.
+
+Very occasionally an event arrives a few seconds late, up to about ten. That happens when two
+events are recorded at nearly the same moment and the earlier one takes longer to save: Modbot
+waits for it rather than skip it.
+
+## Staying connected
+
+- **Heartbeats.** The server sends a `heartbeat` message about every thirty seconds. If you hear
+  nothing for well over a minute, the connection is probably dead: reconnect.
+- **Pings.** The server also sends WebSocket ping frames every twenty seconds (the default), and
+  closes a connection that does not answer within forty. Almost every WebSocket library answers
+  pings for you. You can also send `{ "op": "ping" }` and get `{ "kind": "pong" }`.
+- **Read promptly.** Modbot sends the next events only after the last ones went out. If a send
+  cannot finish within **ten seconds** (the default), because your program stopped reading, the
+  connection ends with `4008`. Often you only see it drop. Reconnect with your cursor.
+- **At most five connections.** One key can hold at most **five** connections at once (the
+  default), and a long poll waiting on the same key takes one of those places. Tickets asked for
+  with a web app session count per person, also five. A sixth connection is closed with `4029`.
+
+## Close codes
+
+| Code | Reason text | Why |
+|---|---|---|
+| `1000` | | You closed the connection. |
+| `1009` | `Message too big` | You sent a message over 64 KB. |
+| `4000` | `No subscribe in time` | No usable `subscribe` within ten seconds of connecting. |
+| `4001` | `Not authenticated` | No key, a wrong key, or a ticket that was already used, expired or unknown. |
+| `4003` | `No events visible` or `Access removed` | You may not see any events, or you lost access while connected: the key was revoked or expired, or the account was disabled. |
+| `4008` | `Too slow` | A send could not finish in ten seconds. |
+| `4029` | `Too many connections` | This key or person already has five connections open. |
+
+Reconnect with your cursor after `4008` and after a connection that simply dropped. After `1009`,
+send smaller messages. Do not keep reconnecting after `4001` or `4003` until you fix the key, and
+after `4029`, close a connection you no longer need first.
+
+## An example in Node.js
+
+Node's built-in `WebSocket` cannot set headers, so this uses the
+[`ws`](https://www.npmjs.com/package/ws) package.
+
+```js
+import WebSocket from 'ws'
+
+let cursor = loadCursor() // null the first time
+
+function connect() {
+  const socket = new WebSocket('wss://modbot.example.com/api/events/ws', {
+    headers: { Authorization: `Bearer ${process.env.MODBOT_KEY}` },
+  })
+
+  socket.on('message', (raw) => {
+    const message = JSON.parse(raw.toString())
+
+    if (message.kind === 'hello') {
+      socket.send(JSON.stringify({
+        op: 'subscribe',
+        types: ['vrchat.group.member.*'],
+        ...(cursor ? { cursor } : {}),
+      }))
+    } else if (message.kind === 'event') {
+      const event = message.event
+      console.log(event.id, event.type, event.subject.id)
+      cursor = event.cursor
+      saveCursor(cursor)
+    } else if (message.kind === 'heartbeat') {
+      cursor = message.cursor
+      saveCursor(cursor)
+    } else if (message.kind === 'error' || message.kind === 'notice') {
+      console.warn(message)
+    }
+  })
+
+  socket.on('close', (code, reason) => {
+    console.log('closed', code, reason.toString())
+    if (code === 4001 || code === 4003) return // fix the key first
+    setTimeout(connect, 5000)
+  })
+}
+
+connect()
+```
+
+`loadCursor` and `saveCursor` stand for wherever your program keeps its position, such as a file
+or a database row.
+
+## Trying it in the web app
+
+**Settings → API → Events** has a **Test** card for watching the stream in your browser:
+
+1. Optionally paste a key into **API key**. Leave it empty to connect as yourself.
+2. Enter **Event types**, separated by commas (`*` for everything).
+3. Optionally enter a **Cursor**.
+4. Click **Connect**.
+
+Every message appears under **Received**, newest first. **Disconnect** closes the connection and
+**Clear** empties the list.

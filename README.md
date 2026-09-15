@@ -41,7 +41,7 @@ No Redis, no search server, no message broker, no hosted auth, no third-party ac
 | [`.agent/specs/`](.agent/specs/) | Design documents, with the reasoning behind every decision |
 | [`.agent/plans/`](.agent/plans/) | Implementation plans, task by task |
 | [`.agent/research/`](.agent/research/) | Empirical findings about VRChat's API and logs |
-| `docs/` | End-user documentation — setup, usage, self-hosting, API reference |
+| [`docs/`](docs/) | The documentation site: self-hosting, setup, usage and the API reference |
 | `explore/` | A scratch tool for probing the live VRChat API. Not part of the product. |
 
 ## Contributing

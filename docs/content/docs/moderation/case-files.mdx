@@ -1,0 +1,212 @@
+---
+title: Bans and case files
+description: Write down why somebody was banned, with reasons, your own words, evidence and a copy of their profile, and keep track of bans nobody has written up.
+---
+
+VRChat's audit log records that somebody was banned, who did it and when. It does not record
+**why**: there is nowhere in it for a reason to go.
+
+A **case file** is your group's own account of a ban: the reasons, what happened in the
+moderator's own words, the screenshots or video they kept, and a copy of the person's profile as it
+was at the time. It is what you will want three months later, when the ban is questioned or the
+moderator who issued it has moved on.
+
+<Callout type="info" title="Bans still happen in VRChat">
+Modbot does not ban anybody. You ban in VRChat as usual, then write the case file in Modbot.
+</Callout>
+
+## Where to find them
+
+- **Bans** page: both the **Ban list** tab and the **What the audit log recorded** tab have a
+  **Case file** column. It shows **Open the case file** when one exists (with a number if the
+  person has more than one) or **Write the case file** when not. If you cannot write case files, the
+  column says "none" or "withdrawn".
+- **The card at the top of the Bans page** lists recent bans with no case file. See
+  [below](/moderation/case-files#bans-with-no-case-file).
+- **A person's popup**, on the **Cases** tab, lists every case file about them, withdrawn ones
+  included.
+
+## Writing a case file
+
+<Steps>
+
+<Step>
+
+### Press Write the case file
+
+On the **Bans** page, beside the ban. You need the **Ban** permission.
+
+</Step>
+
+<Step>
+
+### Pick the reasons
+
+Tap every reason that fits. Hover over one to see what it means. You must pick at least one.
+
+The reasons are the part Modbot can count and compare. "Five bans, all Harassment" says something
+that "five bans, all Other" does not.
+
+</Step>
+
+<Step>
+
+### Say what happened
+
+Write it in **What happened**. It says **(optional)** for most reasons and **(required)** when you
+picked a reason that needs a written reason, such as **Other**. Up to 20,000 characters.
+
+</Step>
+
+<Step>
+
+### Press Write the case file
+
+The case file opens. If somebody already wrote one for this ban, Modbot says so and offers
+**Open the one that exists**. There is one case file per ban.
+
+</Step>
+
+</Steps>
+
+Writing a case file is recorded in the [audit log](/moderation/audit-log) against your account.
+
+### Formatting the written reason
+
+The written reason uses Markdown: `**bold**`, lists, `> quotes`, headings, tables and links.
+
+- Raw HTML is never shown.
+- Links only work for `http`, `https` and `mailto` addresses, and open in a new tab.
+- **Images only show if they are evidence attached to this same case file.** Copy the `sha256`
+  under an attached image and write `![what it shows](evidence:the-sha256-you-copied)`. An image
+  from any other address is never loaded, because the server it came from would learn the address
+  of every moderator who opened the case file, and when. See [Evidence](/moderation/evidence).
+
+## The case file page
+
+At the top: the person (click to open their popup), their VRChat id, when they were banned and by
+whom, and the VRChat audit entry id when there is one. **Back to bans** returns to the Bans page.
+
+### Why they were banned
+
+The reasons picked, then the written reason, then **Written by** and the date, and who last edited
+it. A reason that has since been switched off in Settings is still shown, greyed out.
+
+### Evidence
+
+Screenshots and video. See [Evidence](/moderation/evidence).
+
+### The profile at the time
+
+When the case file is written, Modbot copies what it has about the person into it:
+
+- their VRChat profile: picture, display name, pronouns, **18+ verified** if marked, status, bio,
+  **Joined VRChat**, **Last platform**, **VRChat showed** (what VRChat said about age
+  verification) and tags;
+- **Membership at the time**: whether they were a member, when they joined, their membership
+  status, their role ids and the group's manager notes;
+- their entry on the group's ban list.
+
+This is the part people forget to keep. A banned account often changes its name and clears its bio
+within the hour.
+
+The copy is taken from what Modbot **already has**, so the case file never waits on VRChat. A line
+at the top of the section says when the copy was taken and how old the profile already was then.
+Profiles are [refreshed on a schedule](/moderation/profiles#how-profiles-are-refreshed), so the
+copy might be a few hours old.
+
+Straight after the case file is written, Modbot asks VRChat for a fresher profile. When one has
+arrived, the section offers **Refresh and capture again** with **Once only.** beside it. Pressing
+it replaces the copy with the newer profile. The copy it replaced is kept in full in the audit log
+entry for the recapture, so nothing is lost. After that, the copy never changes.
+
+The profile picture is shown from VRChat's own servers and may stop loading if the account is
+deleted. Modbot does not keep the image.
+
+## Editing a case file
+
+Press **Edit** beside the reasons. You can change the reasons and the written reason, then press
+**Save the case file**. The profile copy and the evidence are not changed by editing.
+
+The person who wrote the case file can edit it, and so can anyone with **Ban**. Every edit is
+recorded in the audit log with what it said before and after, so the history of a case file can
+always be read back.
+
+## Withdrawing a case file
+
+**Case files are never deleted.** If one should not have been written, for example it names the
+wrong person, withdraw it:
+
+1. Press **Withdraw this case file** at the bottom of the page.
+2. Write why under **Why are you withdrawing it?** (required, up to 2,000 characters).
+3. Press **Withdraw**.
+
+A withdrawn case file:
+
+- stays readable, with a banner saying **This case file has been withdrawn.**, who withdrew it,
+  when, and the note;
+- can no longer be edited;
+- no longer counts as the write-up of its ban, so the ban shows as having no case file again and a
+  new one can be written.
+
+The author and anyone with **Ban** can withdraw a case file.
+
+## The reason list
+
+The reasons come from **Settings**, **Moderation**, **Ban reasons**. A new Modbot starts with:
+
+| Reason | Needs a written reason |
+|---|---|
+| Harassment | No |
+| Hate speech | No |
+| Crashing or malicious avatars | No |
+| Underage | No |
+| Ban evasion | No |
+| Spam | No |
+| Other | Yes |
+
+With the **Edit the reason list** permission you can:
+
+- **Add a reason**: a name (up to 64 characters), a short description (up to 256 characters) and
+  whether it **Needs a written reason**. Press **Add it to the end**.
+- **Move** a reason up or down with the arrows. The buttons on the case file form follow this order.
+- **Switch off** a reason, and **Switch on** again. A switched-off reason disappears from the
+  buttons, but stays on every case file that already picked it.
+
+There is no delete, on purpose. Case files name the reason they were given, so deleting one would
+quietly change what old case files say. Every change to the list is recorded in the audit log
+(visible with **See the operational log**).
+
+<Callout type="warn" title="Settings needs its own permission">
+The Settings page only appears for people with **Change settings**. Someone with **Edit the reason
+list** but not **Change settings** cannot reach the list in the app.
+</Callout>
+
+## Bans with no case file
+
+The card at the top of the **Bans** page (for anyone with **See profiles**) says either **Every
+recorded ban has a case file** or how many bans have no case file **in the last 30 days**. It lists
+the 50 most recent, each with who banned them, whether the ban has since been lifted, and a
+**Write the case file** button for anyone with **Ban**.
+
+A ban counts as written up when a case file that has not been withdrawn names that ban, or was
+written for the same person on or after the ban. Lifted bans still appear: a ban somebody reversed
+is worth an account too.
+
+<Callout type="warn" title="An empty card does not mean every ban is written up">
+The card only counts bans Modbot saw happen in VRChat's audit log. It reaches back only as far as
+VRChat's audit log went when Modbot first synced. Bans from before that are on the **Ban list**
+tab, where you can still write case files for them, but they are not counted here.
+</Callout>
+
+## Who can do what
+
+| Action | Permission |
+|---|---|
+| Read case files | **See profiles** |
+| See the **Bans** page | **See the audit log** |
+| Write a case file | **Ban** |
+| Edit, withdraw or capture the profile again | **Ban**, or being the person who wrote it |
+| See the evidence on a case file | **View evidence** |
+| Attach evidence | **Upload evidence**, and being able to edit the case file |
+| Change the reason list | **Edit the reason list** (and **Change settings** to open Settings) |

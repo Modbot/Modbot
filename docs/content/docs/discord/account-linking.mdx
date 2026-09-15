@@ -1,0 +1,221 @@
+---
+title: Account linking
+description: Let members prove which Discord account and which VRChat account are theirs, give linked members a role, and unlink them again.
+---
+
+Account linking lets a member of your community prove that a Discord account and a VRChat account
+belong to the same person. They do it themselves, on a page Modbot serves at `/link`. Nobody needs
+a Modbot account for this.
+
+Once linked:
+
+- the bot gives them a **linked role** in your Discord server, and an **18+ role** if their VRChat
+  account is marked 18+ verified;
+- moderators see the two accounts side by side in the person popups;
+- [event channel](/discord/event-channels) filters that name one of the accounts also match events
+  on the other.
+
+Most members never link, and that is normal. Nothing else in Modbot needs a link. A person can link
+whether or not they are in your VRChat group, and whether or not they are in your Discord server.
+
+<Callout type="info">
+This page is about your community's members. Staff connect their own Modbot account to Discord
+by entering a **Discord user id** on **Your account** (see [Setting up the bot](/discord/bot-setup#letting-moderators-use-the-commands)),
+and to VRChat when they first sign in (see [Staff accounts](/accounts/staff-accounts)).
+</Callout>
+
+## Set it up
+
+You need the **Change settings** permission. The bot should be set up first
+([Setting up the bot](/discord/bot-setup)), and a **Public address** must be saved under
+**Settings → Host & Database**.
+
+<Steps>
+
+<Step>
+
+### Copy the OAuth2 client id and secret
+
+In the [Discord Developer Portal](https://discord.com/developers/applications), open your bot's
+application, then **OAuth2**. Copy the **Client ID**, and reset and copy the **Client Secret**.
+
+</Step>
+
+<Step>
+
+### Paste them into Modbot
+
+Open **Settings → Discord** and find the **Account linking** card. Paste them into
+**OAuth client id** and **OAuth client secret**, then press **Save account linking**.
+
+The secret is stored encrypted and never shown again; **Client secret** says **Stored**. To keep it
+when you change something else, leave the secret field empty. If you change the client id without
+entering a new secret, the stored secret is removed, because it belongs to the old client id.
+
+</Step>
+
+<Step>
+
+### Add the redirect URL in the Developer Portal
+
+The card now shows a **Redirect URL**. It is your public address followed by
+`/api/discord-link/callback`. Press **Copy**, then in the Developer Portal open **OAuth2 →
+Redirects**, add it, and save.
+
+If there is no **Redirect URL** on the card, the public address is not set.
+
+</Step>
+
+<Step>
+
+### Pick the roles
+
+- **Linked role** — given to every linked member.
+- **18+ role** — given to linked members whose VRChat account is marked 18+ verified. Optional,
+  and it must be a different role from the linked role.
+
+For the bot to give these roles, it needs the **Manage Roles** permission, and its own role must
+sit above both roles in **Server Settings → Roles**. A role the bot cannot give is marked
+**Bot cannot assign** in the picker, and Modbot will not save it.
+
+Press **Save account linking**. Once a role is saved, the **Bot invite link** on the card also asks
+for Manage Roles. Press **Open** on it to give the bot that permission if it does not have it yet.
+
+</Step>
+
+</Steps>
+
+When the client id, the secret and the public address are all saved, **Linking** on the card says
+**On**.
+
+## How a member links
+
+Send members to your link page: your public address followed by `/link`. Anyone in your server can
+also run `/link` in Discord, which replies with a **Link VRChat account** button. If linking is not
+set up, `/link` replies "Account linking is not set up on this server."
+
+The page is titled **Link your VRChat account** and has two parts, **Discord** and **VRChat**.
+They can be done in either order, but **Check** only works once the member has signed in with
+Discord.
+
+1. **Sign in with Discord.** Discord asks the member to let your bot's application see their
+   username. Modbot reads only their Discord id and username. Signing in on the page lasts an hour.
+2. **Name the VRChat account.** They paste their VRChat profile link or user id into
+   **VRChat profile link or user id** and press **Get code**. **Open my VRChat profile** opens
+   VRChat's website so they can find it.
+3. **Put the code in their VRChat bio.** The page shows a short code with a **Copy** button. They
+   add it anywhere in the bio of that VRChat account. **Change** lets them pick a different account.
+4. **Press Check.** Modbot reads the VRChat profile once. If the code is in the bio, the page says
+   "Linked to" followed by the VRChat name. The member can take the code out of their bio
+   afterwards.
+
+When a member is linked, the page shows **Linked** with both names, and an **Unlink** button.
+
+### Limits on checking
+
+Each check reads a VRChat profile, which counts against Modbot's VRChat request budget, so checks
+are limited:
+
+- A code lasts 30 minutes.
+- Each code can be checked 6 times. The page shows how many checks are left.
+- A member must wait 10 seconds between checks.
+- The whole site allows 30 checks a minute. Past that, members see "Too many checks right now. Try
+  again in a minute."
+
+Getting a new code starts the count again.
+
+### Messages a member may see
+
+| Message | Meaning |
+|---|---|
+| … is not in that account's bio yet. | The code was not found. Check it was saved in the bio of the right account, and try again. |
+| That VRChat account is already linked to another Discord account. | Each VRChat account can be linked to one Discord account. The other link has to be ended first, by that member or by a moderator. |
+| That code has expired. | More than 30 minutes passed. Get a new code. |
+| That code has been checked too many times. | Get a new code. |
+| Discord sign-in was cancelled. / Discord sign-in expired. Try again. / Discord sign-in failed. | Signing in with Discord did not finish. Try again. If it keeps failing, see [If something is wrong](#if-something-is-wrong). |
+| Account linking is not set up. | The client id, the secret or the public address is missing. |
+
+A Discord account can be linked to only one VRChat account at a time. If a member links the same
+Discord account to a different VRChat account, the new link replaces the old one.
+
+## Linked roles
+
+Modbot checks every link about once a minute, and straight away when a link is saved or ended or a
+member joins the server. It compares the roles each member should have with the roles Modbot gave
+them, and fixes the difference:
+
+- A new link gets the **Linked role**, and the **18+ role** if the VRChat account is marked
+  18+ verified.
+- The **18+ role** follows the 18+ verified mark on the VRChat account. The mark is set
+  automatically when VRChat shows the account as 18+ verified. If a moderator clears the mark, the
+  role is taken away.
+- An ended link loses the roles Modbot gave.
+- If you change the **Linked role** or **18+ role** setting, Modbot takes away the old role and
+  gives the new one.
+- **Modbot only takes away roles it gave.** A role someone gave by hand in Discord is left alone.
+
+A member who is not in your Discord server is skipped until they join. When a linked member leaves
+and joins again, Discord removes their roles, and Modbot gives them back when it sees them join.
+Seeing people join needs the **Server Members Intent**. Without it, the member can get their roles
+back by unlinking and linking again on the link page.
+
+If Discord refuses a role change, the **Discord bot** card on **Sync health** shows
+"Could not change a linked member's role", with Discord's reason, and Modbot tries again a minute
+later.
+
+## Asking new joiners to link
+
+Switch on **Prompt new joiners to link their VRChat account** and press **Save account linking**.
+The bot then sends each person who joins your server a direct message: "Welcome to" your server's
+name, "Link your VRChat account.", and a **Link VRChat account** button that opens the link page.
+
+- Bots and members who are already linked are not asked.
+- If the person does not accept direct messages and a **Backup channel** is set, the bot posts in
+  that channel instead, mentioning only that person: "your DMs are closed. Link your VRChat account
+  here." with the same button. Leave **Backup channel** empty to skip this.
+- The bot needs **View Channel** and **Send Messages** in the backup channel.
+- This needs the **Server Members Intent** (see
+  [Intents the bot asks for](/discord/bot-setup#intents-the-bot-asks-for)).
+
+Each attempt is recorded as **Asked to link on Discord**, with how it went.
+
+## Unlinking
+
+**A member** can unlink on the link page: they sign in with Discord and press **Unlink**.
+
+**A moderator** can unlink from either person popup:
+
+- in a VRChat person's popup, on the **Discord** card;
+- in a Discord person's popup, on the **VRChat** card.
+
+Seeing these cards needs **See profiles**. The **Unlink** button needs **Manage Discord links**.
+Of the built-in roles, only **Administrator** has Manage Discord links; give it to other roles on
+the **Roles** page if you want to (see [Roles and permissions](/accounts/roles-and-permissions)).
+
+Either way, the roles Modbot gave are taken away within a minute. Nothing in either person's
+history is deleted: the record that the link existed stays, and each account keeps its own
+history.
+
+The **Discord** card in a VRChat person's popup shows the Discord name and id, when they linked,
+the roles Modbot gave, **Not in the server** when they have left, and any problem giving a role.
+
+## What is recorded
+
+These events appear in the audit log and can be sent to [event channels](/discord/event-channels):
+
+| Event | When |
+|---|---|
+| **Discord account linked** | A member finished linking. |
+| **Discord account unlinked** | A link ended, by the member or by a moderator. |
+| **Discord role given for a link** | Modbot gave the linked role or the 18+ role. |
+| **Discord role taken away for a link** | Modbot took one of those roles away. |
+| **Asked to link on Discord** | A new joiner was sent the prompt, or could not be. |
+
+## If something is wrong
+
+| Problem | What to do |
+|---|---|
+| Sign in with Discord fails every time | Check that the **Redirect URL** in the Developer Portal matches the one on the **Account linking** card exactly, and that the client secret is current. |
+| **Linking** says **Not set up** | Save the client id, the client secret, and a public address. |
+| Members link but get no role | Give the bot **Manage Roles** and move its role above the linked and 18+ roles. Check **Sync health** for the reason. |
+| New joiners are not messaged | Check that **Prompt new joiners to link their VRChat account** is on and the **Server Members Intent** is switched on. |

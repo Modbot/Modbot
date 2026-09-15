@@ -1,0 +1,240 @@
+---
+title: Limits and spend
+description: What AI costs by feature, the month-end estimate, money limits for everyone, a feature, a role or one person, and model prices.
+---
+
+Every AI feature in Modbot sends paid requests to your provider. **Settings** → **AI** → **Limits**
+shows what each feature has cost, estimates the month's bill, and lets you set money limits so no
+feature, and nobody using Chat, can run it past what you are willing to pay.
+
+The page needs the **Change settings** permission, including its list of top Chat users.
+
+## Features
+
+Spend is counted and limited per feature:
+
+| Feature | What counts |
+|---|---|
+| **Moderation** | AI topic checks, including **Try it** with AI topics ([moderation rules](/ai/moderation-rules)) |
+| **Insights** | Scheduled insights and **Generate now** ([insights](/ai/insights)) |
+| **Chat** | Every step of every Chat reply ([Chat](/ai/chat)) |
+| **Connection test** | The **Test** button on **Base** ([AI settings](/ai/settings)) |
+
+## How spend is counted
+
+AI providers charge by **tokens**: small pieces of text, roughly three quarters of a word each in
+English. Input tokens are what is sent to the model, output tokens are what it writes back, and cached
+input tokens are input the provider has seen recently and charges less for.
+
+After each request, Modbot records the tokens your provider says it used (input, cached input and
+output), the model, the feature, and for Chat, **Generate now** and **Test**, the person who asked.
+It turns tokens into money when it shows or checks spend:
+
+1. **OpenRouter's own cost.** When your provider is **OpenRouter**, Modbot asks OpenRouter what each
+   request cost and uses that figure exactly.
+2. **A price you entered** for the model, on the price list below. It always wins over a fetched
+   price.
+3. **A price fetched from OpenRouter's public model list.**
+4. **No price.** The cost is **unknown**, never zero.
+
+Because prices are applied when spend is read, a price you enter today also prices what that model
+used earlier.
+
+Unknown spend is shown as **Unknown**, or beside a known amount as, for example, "$1.20 + unknown".
+Hover over a figure to see its input, cached and output tokens and how many have no price.
+
+<Callout type="warn" title="Unknown spend cannot reach a limit">
+A model with no price has no cost Modbot can compare with a money limit, so its use is never stopped
+by one. Make sure every model you use has a price. Check the **Price from** column for **No price**.
+</Callout>
+
+If your AI server does not report token counts at all (some local servers do not), Modbot has
+nothing to record, and limits cannot stop it either.
+
+Days, weeks and months are counted in UTC. A week starts on Monday.
+
+## Spend by feature
+
+The **Spend by feature** card has one row per feature and a **Total** row, with columns **Today**,
+**This week**, **This month**, **Last month** and **Month-end estimate**. Each shows money with the
+token count underneath.
+
+The **Daily spend** card is a chart of the last 30 days, one colour per feature, stacked. It shows
+**Part unknown** when some of those days include spend with no price.
+
+## The month-end estimate
+
+The estimate is deliberately simple, so you can check it by hand:
+
+```text
+estimate = spent so far this month
+         + (spent over the 7 whole days before today ÷ 7) × days left in the month after today
+```
+
+The seven days can reach back into last month, which is what makes the estimate usable on the first
+of the month. If some of that spend has no price, the estimate says so.
+
+## Spend limits
+
+A limit is an amount in US dollars **per day**, **per month**, or both. You can set limits for:
+
+| Applies to | Compared with | Stops |
+|---|---|---|
+| **Everyone** | Every feature's spend added together | Every feature |
+| A feature (**Moderation**, **Insights**, **Chat** or **Connection test**) | That feature's spend | That feature |
+| A role | Each person with that role, separately: their own Chat spend | Chat, for that person |
+| A user | That person's own Chat spend | Chat, for that person |
+
+A role limit is not a shared pot. A $2 daily limit on the Moderator role lets each moderator spend $2
+a day on Chat.
+
+Role and user limits only apply to **Chat**, because Chat is the one feature a person uses over and
+over. They do not apply to **Generate now** or **Test**, even though those also record who pressed
+them.
+
+### Adding a limit
+
+<Steps>
+<Step>
+
+### Choose what it applies to
+
+In the **Spend limits** card, open **Add a limit for…** and pick **Everyone**, a feature (under
+**Features**), a role (under **Chat · roles**) or a user (under **Chat · users**). Press **Add**.
+
+</Step>
+<Step>
+
+### Enter the amounts
+
+Fill in **Per day (USD)**, **Per month (USD)**, or both. Leave a box empty for no limit in that
+period. Amounts must be zero or more.
+
+</Step>
+<Step>
+
+### Save
+
+Press **Save**. The whole list is saved at once: a row you removed with **Remove** is gone once you
+save.
+
+</Step>
+</Steps>
+
+Each thing can only have one limit row. For each row the card also shows **Spent today**, **Spent
+this month** and the **Month-end estimate**, with how far through the limit each one is (for
+example "45%"). Role rows show **Each member** instead, because each member is compared separately.
+
+A limit of **0** stops the feature (or the person) completely.
+
+### How a limit stops a request
+
+- Modbot checks limits **before** each request, never during one. A request that starts just under a
+  limit can finish a little over it; the next one is refused. Your provider is not called for a
+  refused request.
+- When several limits apply, the tightest one stops it.
+- A limit resets at the start of the next UTC day or month.
+
+What happens when a limit is reached:
+
+| Feature | What happens |
+|---|---|
+| **Chat** | New replies are refused with a sentence naming the limit. A reply already under way finishes. |
+| **Moderation** | AI topics stop and the reason is shown in **Try it**. Term lists keep working. |
+| **Insights** | Scheduled insights are skipped (not written late). **Generate now** shows the sentence. |
+| **Connection test** | **Test** shows the sentence instead of calling the provider. |
+
+The sentences name the limit:
+
+- "Your daily AI spend limit is reached." (a user limit)
+- "The Moderator role's monthly AI spend limit is reached." (a role limit)
+- "The monthly AI spend limit for Chat is reached." (a feature limit)
+- "This Modbot's daily AI spend limit is reached." (the limit for everyone)
+
+The first time each limit stops a request in its day or month, Modbot records **AI spend limit
+reached** in the [audit log](/moderation/audit-log), once per limit per period. It is an operational
+entry, so seeing it needs **See the operational log**.
+
+## Use AI in excess of usage limits
+
+The **Use AI in excess of usage limits** permission
+([roles and permissions](/accounts/roles-and-permissions#use-ai-in-excess-of-usage-limits)) takes away
+the limits on a person and on their roles, so they are not stopped by a user or role limit in Chat.
+
+**The limit for everyone and the feature limits still apply to them.** Those are your ceiling on the
+bill and each feature's share of it; no permission spends past them.
+
+People with **Administrator** are treated the same way: user and role limits never stop them, but the
+limit for everyone and feature limits do.
+
+**Use AI in excess of usage limits** is not part of the built-in **Moderator** or **Viewer** roles.
+
+## Token limits from earlier versions
+
+Earlier versions of Modbot could have a monthly **token** limit on **Moderation** or **Insights**,
+from before Modbot knew prices. If your deployment has one, it appears in the **Spend limits** card as,
+for example, **Moderation · tokens**, and can only be removed.
+
+Modbot changes each one into a monthly money limit for that feature as soon as the feature's model has
+a price, working out the amount from the mix of tokens that feature has used. If the feature already
+has a lower monthly money limit, the lower one is kept. Until then the token limit keeps counting and
+stops the feature with "The monthly AI token limit for Moderation is reached." (or Insights).
+
+## Top Chat users this month
+
+The **Top Chat users this month** card lists the ten accounts that spent most on Chat this month, with
+what they spent and how many tokens they used. It helps decide whether a user or role limit is
+needed.
+
+## Prices
+
+The **Prices per million tokens** card lists every model in use: the models set on **Base**, **Chat**
+and **Insights**, every model that has been used, and any model you have priced.
+
+| Column | Meaning |
+|---|---|
+| **Model** | The model name exactly as it is sent to your provider. |
+| **Input (USD)** | Price per million input tokens. |
+| **Cached input (USD)** | Price per million cached input tokens. Left empty, cached input costs the same as input. |
+| **Output (USD)** | Price per million output tokens. |
+| **Price from** | **Entered** (your price), **OpenRouter** with how long ago it was fetched, or **No price**. |
+
+The boxes hold prices you entered. When a box is empty, the fetched price shows faintly as its
+placeholder.
+
+- **To enter a price**, type the input and output prices (both are needed) and press **Save**.
+- **To go back to the fetched price**, press **Clear** on that row and **Save**.
+- **To price a model not listed**, type its name in the **Model** box under the table (it suggests
+  models that have been used), press **Add**, fill in the prices and **Save**.
+
+Like limits, the whole price list is saved at once.
+
+### Fetched prices
+
+**Fetch prices** downloads OpenRouter's public list of model prices straight away. It needs no key.
+The card shows when prices were last fetched, or **Not fetched**.
+
+Modbot also fetches automatically once a day, but only while AI is on and the provider on **Base** is
+**OpenRouter**. A deployment using any other provider, or a local model, never contacts OpenRouter
+unless someone presses **Fetch prices**. If an automatic fetch fails, Modbot tries again an hour
+later; if OpenRouter says it is receiving too many requests, Modbot waits a day.
+
+<Callout type="info" title="Model names must match exactly">
+A fetched price is used only when the model name matches OpenRouter's name for it exactly. OpenRouter
+names models with the company in front (for example `openai/...` or `anthropic/...`). If you use a
+provider directly and its model names are written differently, the fetched prices will not match:
+enter prices for those models by hand.
+</Callout>
+
+## Warnings on the Health page
+
+The **Sync health** page shows an **AI spend** card when a limit for everyone or for a feature:
+
+- has reached 80% of its amount,
+- has a month-end estimate over its monthly amount, or
+- is reached.
+
+Each line shows what was spent, the limit, the percentage and, for a monthly limit, the estimate. The
+card is amber while close and red once a limit is reached. User and role limits are not listed there.
+Seeing the Health page needs **See the operational log**. See
+[Checking a deployment](/self-hosting/health).

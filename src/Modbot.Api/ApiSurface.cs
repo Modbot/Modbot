@@ -118,7 +118,7 @@ public static class ApiSurface
 
     public static IEndpointRouteBuilder MapModbotApi(this IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup("/api").WithTags("Meta");
+        var api = app.MapGroup("/api").WithTags("Version");
 
         api.MapGet("/version", () => Results.Ok(new VersionResponse(
                 ModbotVersion.Release,

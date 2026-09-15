@@ -84,6 +84,10 @@ src/Modbot.My/wwwroot/
 src/Modbot.Landing/wwwroot/
 # Built by src/Modbot.Cloud/Web.
 src/Modbot.Cloud/wwwroot/
+# The docs site's build output and the files Next.js and Fumadocs generate.
+docs/out/
+docs/.source/
+docs/next-env.d.ts
 
 # Local scratch: live-data pulls, transcripts, anything that must never be committed.
 /.local/

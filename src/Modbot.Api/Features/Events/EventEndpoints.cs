@@ -171,10 +171,12 @@ public static class EventEndpoints
             .WithName("EventSocket")
             .WithSummary("The live event WebSocket")
             .WithDescription(
-                "Authenticate with Authorization: Bearer <key>, or ?ticket= from POST "
-                + "/api/events/tickets. Send {\"op\":\"subscribe\",\"types\":[...],\"subjects\":[...],"
-                + "\"cursor\":\"...\"} within ten seconds; events arrive as {\"kind\":\"event\","
-                + "\"event\":{...}}. See docs/api.md.")
+                // Markdown: the reference renders descriptions, so code goes in backticks and a
+                // placeholder in angle brackets would vanish as an unknown HTML tag.
+                "Authenticate with `Authorization: Bearer mbk_...`, or `?ticket=` from POST "
+                + "/api/events/tickets. Send `{\"op\":\"subscribe\",\"types\":[...],\"subjects\":[...],"
+                + "\"cursor\":\"...\"}` within ten seconds; events arrive as `{\"kind\":\"event\","
+                + "\"event\":{...}}`. See docs/api.md.")
             .AllowAnonymous();
 
         return app;
