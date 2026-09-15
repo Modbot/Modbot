@@ -1,0 +1,66 @@
+# Modbot.Host
+
+The Modbot server: the API, the web app, and the VRChat and Discord sync, all in one process. It is
+built by the `Dockerfile` at the repository root.
+
+Almost everything is configured in the app (the setup wizard and Settings) and stored in the
+database. The environment only holds what is needed before the database can be reached, plus a few
+deployment switches.
+
+## Environment variables
+
+| Variable | Required | Default | What it does |
+|---|---|---|---|
+| `DATABASE_URL` | Yes | — | PostgreSQL connection, as a `postgres://user:password@host:5432/database` URL or a keyword connection string. Modbot refuses to start without it. |
+| `PORT` | No | `8080` | Port to listen on. A missing or invalid value (not 1–65535) falls back to 8080. |
+| `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send structured logs to. Unset means no Seq. |
+| `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log streams. |
+| `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud address this server gives its paired desktop clients for their backup. |
+| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: paired desktop clients send nothing to Modbot Cloud. |
+
+## Read once, to fill in the setup wizard
+
+Railway sets the first five when a bucket is added to the service. Modbot reads them only to
+pre-fill the evidence storage step the first time it is set up. You still confirm and save, and
+later changes to them are ignored. `BUCKET`, `ENDPOINT`, `ACCESS_KEY_ID` and `SECRET_ACCESS_KEY` must
+all be present for the pre-fill to appear.
+
+| Variable | Pre-fills |
+|---|---|
+| `BUCKET` | Bucket name |
+| `ENDPOINT` | S3 endpoint |
+| `ACCESS_KEY_ID` | Access key id |
+| `SECRET_ACCESS_KEY` | Secret access key |
+| `REGION` | Region (optional) |
+| `RAILWAY_PUBLIC_DOMAIN` | The suggested public address in Settings |
+
+## Read to describe the deployment
+
+The hosting platform sets these, not you. Modbot reads them to show the host, version commit and
+release branch on Settings → Data → Deployment.
+
+| Variable | Used for |
+|---|---|
+| `RAILWAY_GIT_COMMIT_SHA`, `GITHUB_SHA` | Version commit, when the build didn't record one |
+| `RAILWAY_GIT_BRANCH`, `GITHUB_HEAD_REF`, `GITHUB_REF_NAME` (with `GITHUB_REF_TYPE=branch`) | Release branch, when the build didn't record one |
+| `RAILWAY_ENVIRONMENT`, `RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID` | Host: Railway |
+| `FLY_APP_NAME`, `FLY_ALLOC_ID`, `FLY_MACHINE_ID` | Host: Fly.io |
+| `RENDER`, `RENDER_SERVICE_ID`, `RENDER_INSTANCE_ID` | Host: Render |
+| `DYNO`, `HEROKU_APP_ID` | Host: Heroku |
+| `VERCEL`, `VERCEL_ENV` | Host: Vercel |
+| `KOYEB_APP_NAME`, `KOYEB_SERVICE_ID` | Host: Koyeb |
+| `NF_INSTANCE_ID`, `NF_PROJECT_ID` | Host: Northflank |
+| `CONTAINER_APP_NAME`, `CONTAINER_APP_REVISION` | Host: Azure Container Apps |
+| `AWS_APP_RUNNER_SERVICE_ID` | Host: AWS App Runner |
+| `ECS_CONTAINER_METADATA_URI_V4`, `ECS_CONTAINER_METADATA_URI` | Host: AWS ECS / Fargate |
+| `KUBERNETES_SERVICE_HOST` | Host: Kubernetes |
+
+## Build settings
+
+| Setting | Where | What it does |
+|---|---|---|
+| `RAILWAY_GIT_COMMIT_SHA`, `RAILWAY_GIT_BRANCH` | Docker build args (`--build-arg`) | Recorded as the version commit and release branch. Railway passes them automatically. |
+| `ModbotCommit`, `ModbotBranch` | MSBuild (`-p:ModbotCommit=...`) | The same, and they win over everything else. Without them, a local build asks git. |
+| `ModbotRelease` | MSBuild (`-p:ModbotRelease=2026.9.0`) | Stamps the release version on every assembly. |
+
+The image clears `ASPNETCORE_HTTP_PORTS`, so `PORT` is the only port setting.
