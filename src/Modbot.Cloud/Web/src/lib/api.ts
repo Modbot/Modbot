@@ -32,8 +32,45 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return (await response.json()) as T
 }
 
+export type InstallView = {
+  installId: string
+  clientVersion: string
+  firstSeenAt: string
+  lastSeenAt: string
+  linesStored: number
+  clockOffsetMs: number | null
+  clockDisagrees: boolean
+  modbotServerId: string | null
+}
+
+export type InstallPage = { total: number; offset: number; limit: number; items: InstallView[] }
+
+/** One stored line. `text` is plain text with any instance nonce already hidden by the server. */
+export type LineView = {
+  receivedAt: string
+  sentAt: string
+  loggedAt: string | null
+  utcOffsetMinutes: number | null
+  file: string
+  offset: number
+  text: string
+}
+
+export type DayCount = { day: string; lines: number }
+
+export type Settings = { logLineKeepDays: number; logEventKeepDays: number }
+
 export const api = {
   login: (key: string) => request<void>('POST', '/api/admin/login', { key }),
   logout: () => request<void>('POST', '/api/admin/logout'),
   session: () => request<{ signedIn: boolean }>('GET', '/api/admin/session'),
+
+  installs: (offset: number, limit: number) =>
+    request<InstallPage>('GET', `/api/admin/installs?offset=${offset}&limit=${limit}`),
+  install: (id: string) => request<InstallView>('GET', `/api/admin/installs/${encodeURIComponent(id)}`),
+  lines: (id: string, limit: number) =>
+    request<{ items: LineView[] }>('GET', `/api/admin/installs/${encodeURIComponent(id)}/lines?limit=${limit}`),
+  linesPerDay: (days: number) => request<{ items: DayCount[] }>('GET', `/api/admin/lines-per-day?days=${days}`),
+  settings: () => request<Settings>('GET', '/api/admin/settings'),
+  saveSettings: (settings: Settings) => request<Settings>('PUT', '/api/admin/settings', settings),
 }

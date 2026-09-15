@@ -29,3 +29,10 @@ export function host(url: string): string {
     return url
   }
 }
+
+/** A clock correction in seconds, signed: "+3.0 s". */
+export function clockText(offsetMs: number | null): string {
+  if (offsetMs === null) return '—'
+  const seconds = offsetMs / 1000
+  return `${seconds >= 0 ? '+' : ''}${seconds.toFixed(1)} s`
+}

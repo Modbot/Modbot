@@ -6,7 +6,16 @@ import { Card } from '@/components/ui/card'
 import { api } from '@/lib/api'
 import { go } from '@/lib/router'
 import { SignedOutContext } from '@/lib/useLoad'
+import { cn } from '@/lib/utils'
+import { InstallDetail } from './InstallDetail'
+import { Installs } from './Installs'
 import { Login } from './Login'
+import { Settings } from './Settings'
+
+const NAV = [
+  { href: '/admin', label: 'Installs' },
+  { href: '/admin/settings', label: 'Settings' },
+]
 
 type SessionState = 'checking' | 'signed-out' | 'signed-in'
 
@@ -49,6 +58,24 @@ export function Admin({ path }: { path: string }) {
               <Mark />
               <span className="hidden sm:inline">Cloud admin</span>
             </Link>
+            <nav className="flex gap-1">
+              {NAV.map((item) => {
+                const active =
+                  item.href === '/admin' ? path === '/admin' || path.startsWith('/admin/installs') : path.startsWith(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'rounded-md px-2.5 py-1.5 font-medium transition-colors',
+                      active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
             <Button variant="ghost" size="sm" className="ml-auto" onClick={logout}>
               Log out
             </Button>
@@ -63,6 +90,9 @@ export function Admin({ path }: { path: string }) {
 }
 
 function AdminPage({ path }: { path: string }) {
-  if (path === '/admin') return <h1 className="text-lg font-semibold">Cloud admin</h1>
+  if (path === '/admin') return <Installs />
+  if (path.startsWith('/admin/installs/'))
+    return <InstallDetail installId={decodeURIComponent(path.slice('/admin/installs/'.length))} />
+  if (path === '/admin/settings') return <Settings />
   return <h1 className="text-lg font-semibold">Page not found</h1>
 }

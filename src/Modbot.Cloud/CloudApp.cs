@@ -4,6 +4,7 @@ using Modbot.Cloud.Auth;
 using Modbot.Cloud.Data;
 using Modbot.Cloud.Engine;
 using Modbot.Cloud.Features.Admin;
+using Modbot.Cloud.Features.AdminInstalls;
 using Modbot.Cloud.Features.Health;
 using Modbot.Cloud.Features.Installs;
 using Modbot.Cloud.Features.LogBackup;
@@ -95,6 +96,7 @@ public static class CloudApp
         app.MapHealth();
         app.MapPages();
         app.MapAdmin();
+        app.MapAdminInstalls();
         app.MapTime();
         app.MapInstalls();
         app.MapLogBackup();
