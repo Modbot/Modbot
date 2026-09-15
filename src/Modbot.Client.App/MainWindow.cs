@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Modbot.Client.CloudBackup;
 using Modbot.Client.Ingest;
 using Modbot.Client.Journal;
 using Modbot.Client.Pipeline;
@@ -17,6 +18,7 @@ internal enum Page
     Servers,
     Sent,
     Log,
+    Settings,
 }
 
 /// <summary>
@@ -54,6 +56,11 @@ public sealed class MainWindow : Window
     private readonly TextBlock _pairingWhere;
     private readonly TextBlock _pairingMessage;
 
+    // Built once for the same reason: a switch rebuilt every second can lose the click on it.
+    private readonly CheckBox _cloudBackupBox;
+    private readonly TextBlock _cloudBackupState;
+    private bool _renderingSwitches;
+
     private Page _page = Page.Servers;
     private ClientAppSnapshot _snapshot = ClientAppSnapshot.Empty;
     private MainWindowActions _actions = MainWindowActions.None;
@@ -76,6 +83,14 @@ public sealed class MainWindow : Window
         _pairingMessage = Ui.Dim("");
         _pairingMessage.IsVisible = false;
         _pairingCard = PairingCard();
+
+        _cloudBackupBox = new CheckBox { Content = Ui.Text("Send all logging to Modbot Cloud as backup", Ui.T.Density.TextSmall, Ui.T.TextBrush) };
+        _cloudBackupBox.IsCheckedChanged += (_, _) =>
+        {
+            if (!_renderingSwitches)
+                _actions.SetCloudBackup(_cloudBackupBox.IsChecked == true);
+        };
+        _cloudBackupState = Ui.Faint("");
 
         var main = new ScrollViewer { Padding = new Thickness(20), Content = _body };
         Grid.SetColumn(main, 1);
@@ -176,6 +191,7 @@ public sealed class MainWindow : Window
         _nav.Children.Add(NavItem(
             Page.Sent, "What I've sent", _snapshot.Journal.Count == 0 ? null : $"{_snapshot.Journal.Count}"));
         _nav.Children.Add(NavItem(Page.Log, "Log", null));
+        _nav.Children.Add(NavItem(Page.Settings, "Settings", null));
     }
 
     private Control NavItem(Page page, string caption, string? badge)
@@ -237,6 +253,9 @@ public sealed class MainWindow : Window
             case Page.Log:
                 RenderLog();
                 break;
+            case Page.Settings:
+                RenderSettings();
+                break;
             default:
                 RenderServers();
                 break;
@@ -256,8 +275,7 @@ public sealed class MainWindow : Window
         {
             _body.Children.Add(Ui.Card(
                 Ui.Dim(
-                    "No servers paired. Modbot is reading nothing and sending nothing. Press "
-                    + "\"Pair with a server\" below to add the group you moderate."),
+                    "No servers paired. Press \"Pair with a server\" below to add the group you moderate."),
                 "Not reporting anywhere"));
         }
 
@@ -452,9 +470,8 @@ public sealed class MainWindow : Window
     {
         _body.Children.Add(Ui.Card(
             Ui.Dim(
-                "Every line here is something this program disclosed about you, newest first. "
-                + "Nothing is sent that does not appear in this list, and the list is kept on your "
-                + "disk so it is still here tomorrow."),
+                "Every line here is something this program disclosed about you to a Modbot server, "
+                + "newest first, and the list is kept on your disk so it is still here tomorrow."),
             "What Modbot has sent"));
 
         if (_snapshot.Journal.Count == 0)
@@ -577,6 +594,52 @@ public sealed class MainWindow : Window
             "What it does not read"));
     }
 
+    private void RenderSettings()
+    {
+        _renderingSwitches = true;
+        try
+        {
+            var backup = _snapshot.CloudBackup;
+            _cloudBackupBox.IsChecked = backup is not null && backup.State is not CloudBackupState.Off;
+            _cloudBackupBox.IsEnabled = backup is not null;
+            _cloudBackupState.Text = backup is null ? "" : CloudBackupLabel(backup);
+        }
+        finally
+        {
+            _renderingSwitches = false;
+        }
+
+        DetachFromParent(_cloudBackupBox);
+        DetachFromParent(_cloudBackupState);
+
+        _body.Children.Add(Ui.Card(
+            new StackPanel { Spacing = 6, Children = { _cloudBackupBox, _cloudBackupState } },
+            "Settings"));
+    }
+
+    /// <summary>A short state label under the switch. Labels only, no explanation (CLAUDE.md).</summary>
+    private static string CloudBackupLabel(CloudBackupStatus status)
+    {
+        var state = status.State switch
+        {
+            CloudBackupState.Off => "Off",
+            CloudBackupState.TurnedOffByServer => "Turned off by your server",
+            CloudBackupState.WaitingForServer => "Waiting for your server",
+            CloudBackupState.Retrying => "Retrying",
+            _ => "Sending",
+        };
+
+        return status.State is CloudBackupState.Off or CloudBackupState.TurnedOffByServer
+            ? state
+            : $"{state}  ·  {status.Queued:N0} queued";
+    }
+
+    private static void DetachFromParent(Control control)
+    {
+        if (control.Parent is Panel panel)
+            panel.Children.Remove(control);
+    }
+
     private static Control Dock(Control control, Dock side)
     {
         DockPanel.SetDock(control, side);
@@ -597,11 +660,13 @@ public sealed record MainWindowActions(
     Action<string> TogglePause,
     Action<string> Unpair,
     Func<string, Task<PairingAttemptResult>> PairAsync,
-    Func<Task> OpenPairingPageAsync)
+    Func<Task> OpenPairingPageAsync,
+    Action<bool> SetCloudBackup)
 {
     public static MainWindowActions None { get; } = new(
         _ => { },
         _ => { },
         _ => Task.FromResult(new PairingAttemptResult(false, "Not ready yet.")),
-        () => Task.CompletedTask);
+        () => Task.CompletedTask,
+        _ => { });
 }

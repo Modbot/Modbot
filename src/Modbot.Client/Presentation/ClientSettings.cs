@@ -1,39 +1,48 @@
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Modbot.Client.Pairing;
 
 namespace Modbot.Client.Presentation;
 
 /// <summary>
-/// The two things a moderator can change about the client itself: which page "Pair with a server"
-/// opens, and whether it checks for newer versions of itself.
+/// What a moderator can change about the client itself: which page "Pair with a server" opens,
+/// whether it checks for newer versions of itself, and whether it backs up VRChat's log to Modbot
+/// Cloud.
 /// </summary>
 /// <remarks>
-/// <para><strong>What this reads.</strong> One optional file, <c>settings.json</c>, in Modbot's own
-/// folder under your user profile — beside <c>pairings.json</c>. It is plain JSON with two optional
-/// fields, <c>pairingPage</c> and <c>checkForUpdates</c>, and if it is missing, unreadable or names
-/// an address the client would not talk to, the defaults are used and nothing is written. The
-/// client never creates this file; a person who wants an override creates it.</para>
-/// <para><strong>Nothing here leaves the machine.</strong> The address is what the client opens in
-/// your browser when you press the button; it is not sent anywhere, and no server is told what it
-/// is.</para>
+/// <para><strong>What this reads and writes.</strong> One file, <c>settings.json</c>, in Modbot's own
+/// folder under your user profile — beside <c>pairings.json</c>. It is plain JSON with optional fields:
+/// <c>pairingPage</c>, <c>checkForUpdates</c> and <c>sendLogsToCloud</c>. If it is missing or
+/// unreadable the defaults are used. The client writes it only when a switch on the settings screen
+/// is changed, and then changes only that switch's field, leaving anything else in the file as it
+/// was.</para>
+/// <para><strong>Nothing here leaves the machine.</strong> The pairing page address is what the client
+/// opens in your browser when you press the button; no server is told what it is. The switches decide
+/// what the client does; they are not reported anywhere.</para>
 /// <para><strong>Why it exists.</strong> The default page is the project's own, which forwards a
-/// signed-in moderator to their group's server. A tester with only their own server, or a group
-/// that would rather not go through the project's page at all, points the button at
-/// <c>https://their-server/pair</c> directly. The update switch is for a group whose policy is to
-/// pin a version and never have software call out for new versions on its own (M3 9.2).</para>
+/// signed-in moderator to their group's server. A tester with only their own server points the
+/// button at <c>https://their-server/pair</c> directly. The update switch is for a group whose policy
+/// is to pin a version (M3 9.2). The backup switch is on unless the moderator turns it off (cloud log
+/// backup spec 1).</para>
 /// </remarks>
 /// <param name="CheckForUpdates">
 /// Whether an installed client asks the release feed for newer versions. On unless
 /// <c>"checkForUpdates": false</c> is in the file.
 /// </param>
-public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true)
+/// <param name="SendLogsToCloud">
+/// "Send all logging to Modbot Cloud as backup". On unless <c>"sendLogsToCloud": false</c> is in the file.
+/// </param>
+public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true, bool SendLogsToCloud = true)
 {
     /// <summary>
     /// my.modbot.co's redirect route, pointed at <c>/pair</c>: it picks one of the moderator's saved
     /// servers and opens that server's own pairing page.
     /// </summary>
     public const string DefaultPairingPage = "https://my.modbot.co/go?redir=/pair";
+
+    public const string SendLogsToCloudField = "sendLogsToCloud";
 
     public static ClientSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -62,7 +71,49 @@ public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true
             return Default;
         }
 
-        return FromPairingPage(shape?.PairingPage) with { CheckForUpdates = shape?.CheckForUpdates ?? true };
+        return FromPairingPage(shape?.PairingPage) with
+        {
+            CheckForUpdates = shape?.CheckForUpdates ?? true,
+            SendLogsToCloud = shape?.SendLogsToCloud ?? true,
+        };
+    }
+
+    /// <summary>
+    /// Writes one switch to the file, keeping every other field in it. Returns false, and changes
+    /// nothing, when the file cannot be read as JSON or cannot be written: a hand-edited file with a
+    /// typo is not overwritten.
+    /// </summary>
+    public static bool SaveSwitch(string path, string field, bool value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(field);
+
+        try
+        {
+            JsonObject root;
+            if (File.Exists(path))
+            {
+                if (JsonNode.Parse(File.ReadAllText(path)) is not JsonObject existing)
+                    return false;
+
+                root = existing;
+            }
+            else
+            {
+                root = [];
+            }
+
+            root[field] = value;
+
+            if (Path.GetDirectoryName(path) is { Length: > 0 } directory)
+                Directory.CreateDirectory(directory);
+
+            File.WriteAllText(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            return true;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -82,5 +133,6 @@ public sealed record ClientSettings(Uri PairingPage, bool CheckForUpdates = true
 
     private sealed record FileShape(
         [property: JsonPropertyName("pairingPage")] string? PairingPage,
-        [property: JsonPropertyName("checkForUpdates")] bool? CheckForUpdates);
+        [property: JsonPropertyName("checkForUpdates")] bool? CheckForUpdates,
+        [property: JsonPropertyName("sendLogsToCloud")] bool? SendLogsToCloud);
 }

@@ -20,12 +20,21 @@ namespace Modbot.Core.Configuration;
 ///   its database, which is exactly when database-stored config is no help.</item>
 /// </list>
 /// <para><strong>Do not add a fourth without the same justification.</strong></para>
+/// <para>
+/// <c>MODBOT_CLOUD_ENDPOINT</c> and <c>MODBOT_CLOUD_DISABLED</c> are the maintainer's exception, not
+/// a fourth setting in that sense (cloud log backup spec 3.1). They are not about reaching the
+/// database; they say where this server's paired desktop clients send their log backup, and are
+/// read from the environment because that is where the maintainer asked operators to set them.
+/// Both are optional, and Modbot runs identically without them.
+/// </para>
 /// </remarks>
 public sealed class ModbotEnvironment
 {
     public const string PortVariable = "PORT";
     public const string DatabaseUrlVariable = "DATABASE_URL";
     public const string SeqUrlVariable = "SEQ_URL";
+    public const string CloudEndpointVariable = "MODBOT_CLOUD_ENDPOINT";
+    public const string CloudDisabledVariable = "MODBOT_CLOUD_DISABLED";
 
     /// <summary>Port to listen on. Defaults to 8080, which is what Railway and most hosts expect.</summary>
     public int Port { get; init; } = 8080;
@@ -38,6 +47,15 @@ public sealed class ModbotEnvironment
 
     /// <summary>True when <c>MODBOT_DEBUG_LOGGING</c> is set truthy — enables the Debug streams.</summary>
     public bool DebugLogging { get; init; }
+
+    /// <summary>
+    /// The Modbot Cloud paired clients send their log backup to, from <c>MODBOT_CLOUD_ENDPOINT</c>.
+    /// Null means the default, <c>https://cloud.modbot.co</c>. See <see cref="ModbotCloudAddress"/>.
+    /// </summary>
+    public string? CloudEndpoint { get; init; }
+
+    /// <summary>True when <c>MODBOT_CLOUD_DISABLED</c> is set truthy: paired clients send no log backup.</summary>
+    public bool CloudDisabled { get; init; }
 
     public static ModbotEnvironment Read(IDictionary<string, string?>? source = null)
     {
@@ -53,6 +71,8 @@ public sealed class ModbotEnvironment
             DatabaseUrl = Blank(Get(DatabaseUrlVariable)),
             SeqUrl = Blank(Get(SeqUrlVariable)),
             DebugLogging = Truthy(Get("MODBOT_DEBUG_LOGGING")),
+            CloudEndpoint = Blank(Get(CloudEndpointVariable)),
+            CloudDisabled = Truthy(Get(CloudDisabledVariable)),
         };
 
         static string? Blank(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();

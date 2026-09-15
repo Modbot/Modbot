@@ -10,10 +10,11 @@ namespace Modbot.Client.Ingest;
 /// The real network call: one HTTPS POST carrying one batch to one Modbot server.
 /// </summary>
 /// <remarks>
-/// <para><strong>This is the only place in the client that transmits observations.</strong> It
-/// sends the JSON of an <see cref="EventBatch"/> — whose fields are listed on that type and on
-/// <see cref="ClientEvent"/> — to the address the moderator paired with, and nothing else. No
-/// telemetry, no crash reports carrying event data, no analytics, and no second destination.</para>
+/// <para><strong>This is the only place in the client that transmits observations to a Modbot
+/// server.</strong> It sends the JSON of an <see cref="EventBatch"/> — whose fields are listed on that
+/// type and on <see cref="ClientEvent"/> — to the address the moderator paired with, and nothing
+/// else. The one other destination is the log backup to Modbot Cloud, in <c>HttpCloudLogClient</c>,
+/// which the moderator can turn off. No telemetry and no crash reports carrying event data.</para>
 /// <para>Batched HTTP rather than a websocket, deliberately: with batching, "buffer and send later"
 /// is the same code path as "send now" with a different timer, so replay after an outage is not a
 /// separate, rarely exercised implementation that only runs when things are already going wrong.

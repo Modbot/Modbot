@@ -8,7 +8,11 @@ namespace Modbot.Client.LogReading;
 /// can work out which instance the moderator is currently in, and then <em>not</em> reported —
 /// re-sending hours of old observations on every restart would be wrong.
 /// </param>
-public readonly record struct TailedLine(string Text, bool IsReplay);
+/// <param name="Offset">
+/// Where the line's first byte sits in its file. With the file's name, it names the line exactly,
+/// which is what lets Modbot Cloud tell a line it already has from a new one.
+/// </param>
+public readonly record struct TailedLine(string Text, bool IsReplay, long Offset = 0);
 
 /// <summary>
 /// Follows VRChat's output log as it is written.
@@ -22,8 +26,9 @@ public readonly record struct TailedLine(string Text, bool IsReplay);
 /// <para><strong>What it does with them.</strong> Hands each completed line to the parser. It keeps
 /// a byte offset so it does not re-read what it has already seen, and that offset is all the state
 /// there is. No copy of the log is made, and no line is written anywhere.</para>
-/// <para><strong>What leaves the machine.</strong> Nothing, from here. Transmission happens much
-/// later and only for the handful of recognised event types; see <c>ClientEvent</c>.</para>
+/// <para><strong>What leaves the machine.</strong> Nothing, from here. A Modbot server is sent only
+/// the handful of recognised event types (see <c>ClientEvent</c>). Modbot Cloud is sent every line
+/// read, unless the moderator turns that off in settings (see <c>CloudLogBackup</c>).</para>
 /// <para><strong>Tolerating reality.</strong> VRChat may not be installed, may not be running, may
 /// be mid-write, or may have restarted into a new log file. All four are ordinary states and none
 /// of them is an error.</para>
@@ -164,7 +169,7 @@ public sealed class VRChatLogTail
         if (lastNewline < 0)
             return [];
 
-        var text = Encoding.UTF8.GetString(chunk, 0, lastNewline + 1);
+        var chunkStart = _position;
         _position += lastNewline + 1;
 
         // Everything that was in the file when the reader got to its end is history; whatever is
@@ -173,14 +178,33 @@ public sealed class VRChatLogTail
         if (reachedEnd && lastNewline == chunk.Length - 1)
             _replaying = false;
 
-        // A byte-order mark, if the file has one, would otherwise ride along on the first line and
-        // stop it matching any known shape.
-        text = text.TrimStart('﻿');
+        // Split on the bytes rather than on decoded text, so each line knows the byte offset it
+        // starts at. '\n' never occurs inside a multi-byte UTF-8 character, so this cuts exactly
+        // where splitting the text would.
+        var result = new List<TailedLine>();
+        var start = 0;
+        while (start <= lastNewline)
+        {
+            var end = Array.IndexOf(chunk, (byte)'\n', start, lastNewline + 1 - start);
+            if (end > start)
+            {
+                var line = Encoding.UTF8.GetString(chunk, start, end - start);
 
-        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var result = new List<TailedLine>(lines.Length);
-        foreach (var line in lines)
-            result.Add(new TailedLine(line.TrimEnd('\r'), replay));
+                // A byte-order mark, if the file has one, would otherwise ride along on the first
+                // line and stop it matching any known shape.
+                var bomOnly = false;
+                if (result.Count == 0 && line.Length > 0 && line[0] == '﻿')
+                {
+                    line = line.TrimStart('﻿');
+                    bomOnly = line.Length == 0;
+                }
+
+                if (!bomOnly)
+                    result.Add(new TailedLine(line.TrimEnd('\r'), replay, chunkStart + start));
+            }
+
+            start = end + 1;
+        }
 
         LinesRead += result.Count;
         return result;

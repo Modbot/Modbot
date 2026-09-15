@@ -233,6 +233,9 @@ try
     // wires the API without the analytics foundation gets endpoints whose parameters cannot be
     // resolved, and minimal APIs report that by throwing while mapping routes, taking every
     // other endpoint in the host down with it. Composition is the host's job (spec 2.5).
+    // Where paired clients send their log backup, before AddClientApi so it is not replaced by the
+    // default (cloud log backup spec 3.1).
+    builder.Services.AddSingleton(ModbotCloudAddress.From(env));
     builder.Services.AddClientApi();
 
     builder.Services.AddModbotApi();

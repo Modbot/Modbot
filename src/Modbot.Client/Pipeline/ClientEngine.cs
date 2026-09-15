@@ -125,7 +125,10 @@ public sealed class ClientEngine
 
         _lastClockCheck[connection.ServerId] = _clock.UtcNow;
 
-        if (await _timeProbe.MeasureAsync(connection.Pairing, cancellationToken).ConfigureAwait(false) is { } sample)
-            connection.ServerClock.Add(sample);
+        if (await _timeProbe.MeasureAsync(connection.Pairing, cancellationToken).ConfigureAwait(false) is { } answer)
+        {
+            connection.ServerClock.Add(answer.Sample);
+            connection.Cloud = answer.Cloud;
+        }
     }
 }

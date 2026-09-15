@@ -248,12 +248,13 @@ public class ClientSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheFourDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheFiveDeclaredPlacesMakeOutboundRequests()
     {
         // "What does this program send, and where" should have a short, complete answer findable
-        // by somebody who has never seen the codebase. Four files, each with a remarks block
+        // by somebody who has never seen the codebase. Five files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
-        // code for a token, and one reads the overlay's context. Nothing else reaches the network.
+        // code for a token, one reads the overlay's context, and one backs VRChat's log up to
+        // Modbot Cloud (cloud log backup spec). Nothing else reaches the network.
         var senders = ClientSources()
             .Where(f => Regex.IsMatch(File.ReadAllText(f), @"_http\.(SendAsync|GetAsync|PostAsync|PutAsync|DeleteAsync)"))
             .Select(Path.GetFileName)
@@ -262,6 +263,7 @@ public class ClientSourceGuardTests
 
         Assert.Equal(
             [
+                "HttpCloudLogClient.cs",
                 "HttpIngestTransport.cs",
                 "HttpOverlayReadClient.cs",
                 "HttpPairingClient.cs",

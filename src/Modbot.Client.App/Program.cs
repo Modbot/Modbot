@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Modbot.Client.CloudBackup;
 using Modbot.Client.Ingest;
 using Modbot.Client.Instances;
 using Modbot.Client.LogReading;
@@ -34,10 +35,11 @@ namespace Modbot.Client.App;
 /// links open this program, which is how pairing from the browser reaches it. Nothing else on the
 /// machine is touched.</para>
 /// <para><strong>What leaves the machine.</strong> Presence observations, to the Modbot servers
-/// you paired with and to nowhere else — and only for instances belonging to the group each of
-/// those servers manages. Never a raw log line, never anything about your private, friends-only or
-/// public VRChat use, and never chat, screenshots, keystrokes, your friends list or a list of your
-/// processes.</para>
+/// you paired with — and only for instances belonging to the group each of those servers manages;
+/// a server is never sent a raw log line or anything about your private, friends-only or public
+/// VRChat use. Separately, unless you turn it off in settings, every VRChat log line read — from
+/// every instance, private ones included — is backed up to Modbot Cloud (see <c>CloudLogBackup</c>).
+/// Never chat, screenshots, keystrokes, your friends list or a list of your processes.</para>
 /// <para><strong>It never captures the screen.</strong> Not the desktop, not a window, not
 /// VRChat's screenshot folder, not any other folder. Attaching evidence to a moderation case is a
 /// deliberate human action taken in Modbot's web interface, in a browser, by choosing a file —
@@ -154,6 +156,11 @@ internal sealed class ClientHost
     private OverlayDriver? _overlay;
     private OverlayHost? _overlayHost;
     private Updates? _updates;
+    private CloudLogBackup? _cloudBackup;
+    private string _settingsPath = string.Empty;
+
+    /// <summary>Stops the log backup's own task when this copy quits.</summary>
+    private readonly CancellationTokenSource _backupStop = new();
     private bool _overlayTicking;
     private bool _engineTicking;
 
@@ -165,7 +172,8 @@ internal sealed class ClientHost
         _directory = Path.Combine(appData, "Modbot");
 
         _journal = new Journal.SentJournal(Path.Combine(_directory, "sent.jsonl"), _clock);
-        _state = new ClientAppState(_clock, _journal, ClientSettings.Load(ClientSettings.DefaultPath(appData)));
+        _settingsPath = ClientSettings.DefaultPath(appData);
+        _state = new ClientAppState(_clock, _journal, ClientSettings.Load(_settingsPath));
 
         // Only the token is encrypted; the rest of the file is left readable on purpose, so a
         // suspicious moderator can open it and see exactly which servers this client talks to.
@@ -180,6 +188,7 @@ internal sealed class ClientHost
         _pairing = new PairingCoordinator(new HttpPairingClient(_http), store);
         _transport = new HttpIngestTransport(_http);
 
+        StartCloudBackup(appData);
         StartEngine();
 
         // A pairing whose token will not decrypt is shown by name rather than retried or hidden.
@@ -209,6 +218,58 @@ internal sealed class ClientHost
     }
 
     /// <summary>
+    /// Brings up "Send all logging to Modbot Cloud as backup", on its own task.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>What it sends, and where.</strong> Every VRChat log line the reader reads, to
+    /// Modbot Cloud, unless the moderator turns it off on the settings page or a paired server's
+    /// operator turned it off. The details are on <see cref="CloudLogBackup"/>.</para>
+    /// <para><strong>What it writes to your disk.</strong> Its queue under
+    /// <c>%APPDATA%\Modbot\cloud</c>, capped at 100 MB, and <c>cloud-installs.json</c> with this
+    /// client's install id and its secret, encrypted to your Windows account.</para>
+    /// <para>Its own task, so nothing it does — disk, compression, a slow or missing Cloud — ever
+    /// holds up the reading loop, which also feeds presence reporting and the overlay.</para>
+    /// </remarks>
+    private void StartCloudBackup(string appData)
+    {
+        _cloudBackup = new CloudLogBackup(new CloudBackupOptions(
+            Path.Combine(_directory, "cloud"),
+            _clock,
+            new HttpCloudLogClient(_http!, _clock),
+            new DpapiCloudInstallStore(
+                DpapiCloudInstallStore.DefaultPath(appData),
+                new DpapiSecretProtector(DpapiSecretProtector.CloudSecretPurpose)),
+            ModbotVersion.Release,
+            Enabled: _state!.Settings.SendLogsToCloud,
+            UserProfile: Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
+
+        _state.CloudBackup = _cloudBackup;
+
+        var backup = _cloudBackup;
+        _ = Task.Run(() => backup.RunAsync(
+            _backupStop.Token,
+            ex => Log.Warning(ex, "The log backup to Modbot Cloud hit a problem; it carries on")));
+
+        Log.Information("Log backup to Modbot Cloud is {State}", _state.Settings.SendLogsToCloud ? "on" : "off");
+    }
+
+    private void SetCloudBackup(bool on)
+    {
+        if (_state is null || _cloudBackup is null || _cloudBackup.Enabled == on)
+            return;
+
+        // Immediate: off cancels a batch in flight and deletes the queue before this returns.
+        _cloudBackup.Enabled = on;
+        _state.Settings = _state.Settings with { SendLogsToCloud = on };
+
+        if (!ClientSettings.SaveSwitch(_settingsPath, ClientSettings.SendLogsToCloudField, on))
+            Log.Warning("Could not save the log backup switch to {Path}; it applies until the client restarts", _settingsPath);
+
+        Log.Information("Log backup to Modbot Cloud turned {State}", on ? "on" : "off");
+        Render();
+    }
+
+    /// <summary>
     /// Brings up the half that reads VRChat's log and reports what it sees.
     /// </summary>
     /// <remarks>
@@ -224,7 +285,7 @@ internal sealed class ClientHost
         _tail = new VRChatLogTail(VRChatLogTail.DefaultDirectory);
         Log.Information("Watching VRChat's log folder {Directory}", VRChatLogTail.DefaultDirectory);
 
-        var observer = new PresenceObserver(_tail, _clock);
+        var observer = new PresenceObserver(_tail, _clock, lines: _cloudBackup);
         _engine = new ClientEngine(observer, _clock, timeProbe: new HttpServerTimeProbe(_http!, _clock));
 
         _engineLoop.Tick += async (_, _) => await CrashGuard.RunAsync("reading VRChat's log", EngineTickAsync);
@@ -248,6 +309,11 @@ internal sealed class ClientHost
         try
         {
             var tick = await _engine.TickAsync();
+
+            // Where the backup goes follows what the paired servers last said. Worked out here, on
+            // the loop that owns the connections, and handed over as one value.
+            if (_cloudBackup is not null)
+                _cloudBackup.Destination = CloudDestination.Resolve(_engine.Connections);
             _consecutiveTickFailures = 0;
             if (_state is not null)
                 _state.ReadingFault = null;
@@ -482,6 +548,7 @@ internal sealed class ClientHost
             _overlayLoop.Stop();
             _updates?.Stop();
             _inboxStop.Cancel();
+            _backupStop.Cancel();
             _overlay?.Dispose();
             _overlayHost?.Dispose();
             desktop.Shutdown();
@@ -569,7 +636,7 @@ internal sealed class ClientHost
 
         Window.Render(
             _state.Snapshot(),
-            new MainWindowActions(TogglePause, Unpair, PairAsync, OpenPairingPageAsync));
+            new MainWindowActions(TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetCloudBackup));
     }
 
     private void TogglePause(string serverId)

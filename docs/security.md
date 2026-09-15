@@ -133,6 +133,18 @@ secrets to leak, and adding one is deliberately not an option.
 `MODBOT_DEBUG_LOGGING` additionally enables the Debug log streams. It is a diagnostic switch, not
 configuration.
 
+Two more decide where your moderators' desktop clients back up VRChat's log. By default every
+client sends every log line it reads to Modbot Cloud (`https://cloud.modbot.co`), unless the
+moderator turns that off in the client's settings. Your server tells the clients paired with it:
+
+| Variable | Purpose |
+|---|---|
+| `MODBOT_CLOUD_ENDPOINT` | send it to a different Modbot Cloud, such as one you run yourself |
+| `MODBOT_CLOUD_DISABLED` | set to `1` and clients paired with this server send nothing at all |
+
+Your server itself sends nothing to Modbot Cloud. If a moderator is paired with several servers and
+any one of them has `MODBOT_CLOUD_DISABLED=1`, their client sends nothing.
+
 ### One exception, and it is a prefill rather than a setting
 
 If you deploy on Railway and add one of its buckets, Railway injects `BUCKET`, `ACCESS_KEY_ID`,

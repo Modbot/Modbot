@@ -44,13 +44,20 @@ public sealed class DpapiSecretProtector : IPairingSecretProtector
     /// Mixed into the key so a blob lifted out of this file cannot be decrypted by a different
     /// program that happens to run as the same user and calls DPAPI with no entropy.
     /// </summary>
-    private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("moe.bin.modbot.client.device-token.v1");
+    public const string DeviceTokenPurpose = "moe.bin.modbot.client.device-token.v1";
+
+    /// <summary>A different purpose for Modbot Cloud secrets, so neither kind decrypts as the other.</summary>
+    public const string CloudSecretPurpose = "moe.bin.modbot.client.cloud-secret.v1";
+
+    private readonly byte[] _entropy;
+
+    public DpapiSecretProtector(string purpose = DeviceTokenPurpose) => _entropy = Encoding.UTF8.GetBytes(purpose);
 
     public byte[] Protect(byte[] plaintext)
-        => ProtectedData.Protect(plaintext, Entropy, DataProtectionScope.CurrentUser);
+        => ProtectedData.Protect(plaintext, _entropy, DataProtectionScope.CurrentUser);
 
     public byte[] Unprotect(byte[] ciphertext)
-        => ProtectedData.Unprotect(ciphertext, Entropy, DataProtectionScope.CurrentUser);
+        => ProtectedData.Unprotect(ciphertext, _entropy, DataProtectionScope.CurrentUser);
 }
 
 /// <summary>Why a stored pairing could not be used.</summary>

@@ -30,11 +30,11 @@ public sealed class ClientEngineTests : IDisposable
     {
         public int Calls { get; private set; }
 
-        public Task<ClockSample?> MeasureAsync(ServerPairing pairing, CancellationToken ct)
+        public Task<ServerTimeAnswer?> MeasureAsync(ServerPairing pairing, CancellationToken ct)
         {
             Calls++;
             var now = DateTimeOffset.UnixEpoch;
-            return Task.FromResult<ClockSample?>(new ClockSample(now, now + offset, now));
+            return Task.FromResult<ServerTimeAnswer?>(new ServerTimeAnswer(new ClockSample(now, now + offset, now), ServerCloudAnswer.NoPreference));
         }
     }
 
