@@ -13,8 +13,9 @@ import { cn } from '@/lib/utils'
 // SettingsCard inside an existing section, or one more SettingsSection listed in Settings.tsx.
 
 /**
- * A titled block of the settings page: a heading, one line saying what it covers, and a grid of
- * cards. Cards span 6 columns by default and stack to one column below `lg`.
+ * One settings tab's content: a grid of cards. Cards span 6 columns by default and stack to one
+ * column below `lg`. The heading is for screen readers only, because the tab above already shows
+ * the same name.
  */
 export function SettingsSection({
   id,
@@ -26,17 +27,10 @@ export function SettingsSection({
   children: React.ReactNode
 }) {
   return (
-    // scroll-mt clears the sticky topbar when the section nav scrolls a section into view.
-    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-20">
-      <div className="mb-3">
-        <h2
-          id={`${id}-title`}
-          className="font-semibold tracking-tight"
-          style={{ fontSize: 'calc(var(--text-base) + 2px)' }}
-        >
-          {title}
-        </h2>
-      </div>
+    <section id={id} aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`} className="sr-only">
+        {title}
+      </h2>
       <div className="grid grid-cols-12 gap-4">{children}</div>
     </section>
   )
