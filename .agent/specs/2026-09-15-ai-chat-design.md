@@ -323,9 +323,9 @@ an entered price is never "price varies". Refresh on the picker is the existing
 **Recommended for a feature.** No favourite model is ever named. A model is recommended when all
 three hold:
 
-1. it does what the feature needs — `tools` for Chat, `structured_outputs` for Moderation and
-   Insights, and both for Base, because every feature without a model of its own runs on the Base
-   model and Moderation always does;
+1. it does what the feature needs — `tools` for Chat, `structured_outputs` for Moderation, nothing
+   in particular for Insights, which asks for plain text, and both for Base, because every feature
+   without a model of its own runs on the Base model and Moderation always does;
 2. it has a real price — not a router priced `-1`, and not a model OpenRouter prices not at all,
    since neither can be compared on cost;
 3. OpenRouter added it less than eighteen months ago.

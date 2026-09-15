@@ -162,11 +162,16 @@ public class AiModelCatalogTests
         // No price at all.
         Assert.False(AiModelCatalog.IsRecommended(Entry("a/unpriced", input: null, output: null), AiModelCatalog.BaseFeature, Now));
 
-        // Chat needs tools; Moderation needs structured output.
+        // Chat needs tools; Moderation needs structured output; Insights asks for plain text and
+        // so needs neither; Base may end up running any of them and is held to both.
         Assert.False(AiModelCatalog.IsRecommended(Entry("a/no-tools", parameters: ["structured_outputs"]), AiFeatures.Chat, Now));
         Assert.True(AiModelCatalog.IsRecommended(Entry("a/no-tools", parameters: ["structured_outputs"]), AiFeatures.Moderation, Now));
         Assert.False(AiModelCatalog.IsRecommended(Entry("a/no-shape", parameters: ["tools"]), AiFeatures.Moderation, Now));
         Assert.True(AiModelCatalog.IsRecommended(Entry("a/no-shape", parameters: ["tools"]), AiFeatures.Chat, Now));
+
+        Assert.True(AiModelCatalog.IsRecommended(Entry("a/plain", parameters: ["temperature"]), AiFeatures.Insights, Now));
+        Assert.False(AiModelCatalog.IsRecommended(Entry("a/plain", parameters: ["temperature"]), AiModelCatalog.BaseFeature, Now));
+        Assert.Empty(AiModelCatalog.NeedsOf(AiFeatures.Insights));
     }
 
     [Fact]
@@ -175,6 +180,9 @@ public class AiModelCatalogTests
         Assert.Equal(["tools"], AiModelCatalog.MissingFor(Entry("a/no-tools", parameters: ["structured_outputs"]), AiFeatures.Chat));
         Assert.Equal(["structuredOutput"], AiModelCatalog.MissingFor(Entry("a/no-shape", parameters: ["tools"]), AiFeatures.Moderation));
         Assert.Empty(AiModelCatalog.MissingFor(Entry("a/both"), AiModelCatalog.BaseFeature));
+
+        // Insights asks for plain text, so nothing is ever missing for it.
+        Assert.Empty(AiModelCatalog.MissingFor(Entry("a/plain", parameters: ["temperature"]), AiFeatures.Insights));
     }
 
     [Fact]

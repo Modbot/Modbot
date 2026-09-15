@@ -107,13 +107,14 @@ public static class AiModelCatalog
     }
 
     /// <summary>
-    /// What the feature needs a model to do. Base is held to both, because every feature without a
-    /// model of its own runs on it, and Moderation always does.
+    /// What the feature needs a model to do. Insights needs nothing in particular: it asks for
+    /// plain text. Base is held to both, because any feature may end up running on it.
     /// </summary>
     public static IReadOnlyList<string> NeedsOf(string? feature) => feature switch
     {
         AiFeatures.Chat => [AiModelNeeds.Tools],
-        AiFeatures.Moderation or AiFeatures.Insights => [AiModelNeeds.StructuredOutput],
+        AiFeatures.Moderation => [AiModelNeeds.StructuredOutput],
+        AiFeatures.Insights => [],
         _ => [AiModelNeeds.Tools, AiModelNeeds.StructuredOutput],
     };
 
