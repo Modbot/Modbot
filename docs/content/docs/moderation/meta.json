@@ -1,1 +1,15 @@
-{ "title": "Moderation", "pages": ["live", "popups", "members-and-bans", "profiles", "audit-log", "case-files", "evidence", "reviews", "flags"] }
+{
+  "title": "Moderation",
+  "pages": [
+    "live",
+    "calendar",
+    "popups",
+    "members-and-bans",
+    "profiles",
+    "audit-log",
+    "case-files",
+    "evidence",
+    "reviews",
+    "flags"
+  ]
+}
