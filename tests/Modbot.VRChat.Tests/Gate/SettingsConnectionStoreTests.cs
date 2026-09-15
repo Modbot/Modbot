@@ -88,6 +88,40 @@ public class SettingsConnectionStoreTests(PostgresFixture db)
         Assert.Equal("modbot@example.com", connection.Username);
     }
 
+    [Fact]
+    public async Task ASignInStoresWhoTheSessionBelongsTo()
+    {
+        var (store, _) = await NewStoreAsync();
+
+        await store.SaveSignInAsync(
+            "authValue", "twoFactorValue", new VRChatSignedInAccount("modbot@example.com", "usr_bot", "ModbotBot"), Ct);
+
+        var connection = await store.ReadAsync(Ct);
+
+        Assert.Equal("authValue", connection.AuthCookie);
+        Assert.Equal("usr_bot", connection.SessionUserId);
+        Assert.Equal("ModbotBot", connection.DisplayName);
+    }
+
+    /// <summary>
+    /// A session issued to another username is not offered, so the gate can never present one
+    /// account's session while holding another account's password.
+    /// </summary>
+    [Fact]
+    public async Task ASessionForADifferentUsernameIsNotOffered()
+    {
+        var (store, _) = await NewStoreAsync();
+
+        await store.SaveSignInAsync(
+            "authValue", "twoFactorValue", new VRChatSignedInAccount("someone-else@example.com", "usr_other", null), Ct);
+
+        var connection = await store.ReadAsync(Ct);
+
+        Assert.Null(connection.AuthCookie);
+        Assert.Null(connection.TwoFactorAuthCookie);
+        Assert.Null(connection.SessionUserId);
+    }
+
     private async Task<(IVRChatConnectionStore Store, ISecretProtector Protector)> NewStoreAsync()
     {
         await using (var context = db.NewContext())
@@ -96,6 +130,8 @@ public class SettingsConnectionStoreTests(PostgresFixture db)
             settings.VRChatUsername = "modbot@example.com";
             settings.VRChatPasswordEncrypted = null;
             settings.VRChatAuthCookieEncrypted = null;
+            settings.VRChatSessionAccount = null;
+            settings.VRChatSessionUserId = null;
             await context.SaveChangesAsync(Ct);
         }
 

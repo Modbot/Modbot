@@ -84,11 +84,11 @@ public static class TestConnectionHandler
             await db.SaveChangesAsync(ct);
         }
 
-        // Dropping the stored session forces a real login rather than a cookie replay. A cookie
-        // established before the proxy existed proves nothing about whether the proxy works, and
-        // "the test passed but every sync fails" is the worst possible outcome for this step.
-        settings.VRChatAuthCookieEncrypted = null;
-        await db.SaveChangesAsync(ct);
+        // The stored session is kept. The gate rebuilds its client from the settings just saved,
+        // proxy included, and checks the session through it: a round trip through the proxy proves
+        // the proxy works as well as a sign-in would, without spending one of the few VRChat
+        // allows an hour (spec 4.1.2). This used to drop the session and force a sign-in on every
+        // press of "Test connection".
 
         var started = elapsed.Elapsed;
         var result = await gate.SignInAsync(ct);

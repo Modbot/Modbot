@@ -90,6 +90,27 @@ export function Health() {
                   Next probe no earlier than {new Date(health.gate.coldStopEndsAt).toLocaleTimeString()}
                 </p>
               )}
+              <dl
+                className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-muted-foreground"
+                style={{ fontSize: 'var(--text-small)' }}
+              >
+                <dt>Last signed in</dt>
+                <dd className="text-foreground">
+                  {health.gate.lastSignedInAt ? new Date(health.gate.lastSignedInAt).toLocaleString() : 'Never'}
+                </dd>
+                <dt>Sign-ins this hour</dt>
+                <dd className="tabular-nums text-foreground">
+                  {health.gate.signInsInLastHour} of {health.gate.signInLimit}
+                </dd>
+                {health.gate.signInWait && (
+                  <>
+                    <dt>Next sign-in</dt>
+                    <dd className="text-destructive">
+                      {new Date(health.gate.signInWait.retryAt).toLocaleTimeString()}
+                    </dd>
+                  </>
+                )}
+              </dl>
             </div>
           </div>
         </CardContent>

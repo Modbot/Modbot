@@ -73,6 +73,59 @@ public class SdkContractTests
         Assert.Equal(401, (int)response.StatusCode);
     }
 
+    /// <summary>
+    /// Why a restart used to spend a sign-in (spec 4.1.2).
+    /// </summary>
+    /// <remarks>
+    /// The SDK adds a Basic header to <c>/auth/user</c> whenever a username is configured, stored
+    /// cookie or not. The gate used to build its client with both and "check the cookie" with
+    /// <c>/auth/user</c> -- which sent the password on every start-up and after every 401.
+    /// </remarks>
+    [Fact]
+    public async Task GetCurrentUserSendsThePasswordWheneverAUsernameIsSet()
+    {
+        using var server = new StubHttpServer(_ => (200, "{}"));
+        var client = NewClient(server, username: "modbot@example.com", password: "hunter2");
+
+        await client.Authentication.GetCurrentUserWithHttpInfoAsync(Ct);
+
+        Assert.Contains("Authorization: Basic", Assert.Single(server.Heads), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The session check sends no credentials, even from a client that has them.</summary>
+    [Fact]
+    public async Task VerifyAuthTokenNeverSendsThePassword()
+    {
+        using var server = new StubHttpServer(_ => (200, """{"ok":true,"token":"x"}"""));
+        var client = NewClient(server, username: "modbot@example.com", password: "hunter2");
+
+        var response = await client.Authentication.VerifyAuthTokenWithHttpInfoAsync(Ct);
+
+        Assert.Equal(200, (int)response.StatusCode);
+        Assert.StartsWith("GET /auth ", server.Requests.Single(), StringComparison.Ordinal);
+        Assert.DoesNotContain("Authorization", server.Heads.Single(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Stored cookies go in the jar, where a cookie VRChat replaces stays replaced -- not in the
+    /// configuration, which the SDK copies back over the jar before every request.
+    /// </summary>
+    [Fact]
+    public void StoredCookiesGoInTheJarAndACookieOnlyClientHasNoPassword()
+    {
+        var connection = new VRChatConnection("user", "password", AuthCookie: "authValue", TwoFactorAuthCookie: "twoFactorValue");
+
+        var client = new VRChatClientFactory().Create(connection.WithoutCredentials());
+
+        Assert.Null(client.Configuration.Username);
+        Assert.Null(client.Configuration.Password);
+        Assert.Null(client.Configuration.GetApiKeyWithPrefix("auth"));
+
+        var cookies = client.GetCookies();
+        Assert.Contains(cookies, c => c is { Name: "auth", Value: "authValue" });
+        Assert.Contains(cookies, c => c is { Name: "twoFactorAuth", Value: "twoFactorValue" });
+    }
+
     [Fact]
     public async Task HeadersSurviveOnTheOrdinaryResponsePath()
     {
@@ -132,7 +185,7 @@ public class SdkContractTests
     /// A real SDK client aimed at the loopback stub. See the note on the class: the base path has
     /// to be given to <see cref="ApiClient"/> itself, because that is the only place it is read.
     /// </summary>
-    private static IVRChat NewClient(StubHttpServer server)
+    private static IVRChat NewClient(StubHttpServer server, string? username = null, string? password = null)
     {
         var handler = new HttpClientHandler { UseCookies = true, CookieContainer = new CookieContainer() };
         var http = new HttpClient(handler);
@@ -142,6 +195,8 @@ public class SdkContractTests
         {
             BasePath = server.BaseUrl,
             UserAgent = "ModbotTests/0.0 (tests), VRChat.API/tests",
+            Username = username!,
+            Password = password!,
         };
 
         return VRChatClient.Create(configuration, twoFactorSecret: string.Empty, apiClient, http, handler);

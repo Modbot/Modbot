@@ -1,5 +1,6 @@
 using Modbot.VRChat;
 using Modbot.VRChat.RateLimiting;
+using Modbot.VRChat.Session;
 
 namespace Modbot.Api.Features.Health;
 
@@ -50,13 +51,52 @@ public static class GateHealthReader
             .ThenBy(b => b.Name, StringComparer.Ordinal)
             .ToList();
 
-        return (Describe(gate.State, buckets), buckets);
+        SignInStatus? signIn;
+
+        try
+        {
+            signIn = await gate.DescribeSignInAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Same reasoning as the buckets: the stored wait lives in the database, and a health
+            // read that cannot reach it still answers with what the gate knows in memory.
+            signIn = null;
+        }
+
+        return (Describe(signIn?.State ?? gate.State, buckets, signIn), buckets);
     }
 
-    /// <summary>The status decision, as a pure function of the state and the buckets.</summary>
-    public static GateHealth Describe(VRChatSessionState state, IReadOnlyList<BucketHealth> buckets)
+    /// <summary>The status decision, as a pure function of the state, the buckets and signing in.</summary>
+    public static GateHealth Describe(
+        VRChatSessionState state, IReadOnlyList<BucketHealth> buckets, SignInStatus? signIn = null)
     {
         ArgumentNullException.ThrowIfNull(buckets);
+
+        var health = DescribeState(state, buckets, signIn);
+
+        if (signIn is null)
+            return health;
+
+        return health with
+        {
+            SignInWait = signIn.Wait is { } wait
+                ? new SignInWaitHealth(
+                    wait.Reason,
+                    wait.RetryAt,
+                    // Whole seconds, rounded up, from the server's clock: the banner counts down
+                    // from this rather than from the browser's clock, which may be wrong.
+                    (int)Math.Max(0, Math.Ceiling((wait.RetryAt - signIn.Now).TotalSeconds)))
+                : null,
+            LastSignedInAt = signIn.LastSignedInAt,
+            SignInsInLastHour = signIn.SignInsInLastHour,
+            SignInLimit = signIn.SignInLimit,
+        };
+    }
+
+    private static GateHealth DescribeState(
+        VRChatSessionState state, IReadOnlyList<BucketHealth> buckets, SignInStatus? signIn)
+    {
 
         var stopped = buckets.Count(b => b.IsColdStopped);
         var alerting = buckets.Count(b => b.Alerting);
@@ -68,6 +108,19 @@ public static class GateHealthReader
             .Min();
 
         var coldStopEndsAt = endsAt == default ? (DateTimeOffset?)null : endsAt;
+
+        // A wait on signing in stops everything, so it heads the list: nothing else below is
+        // happening while it lasts (spec 4.1.2).
+        if (state is VRChatSessionState.SignInWaiting || signIn?.Wait is not null)
+        {
+            return new GateHealth(
+                VRChatSessionState.SignInWaiting.ToString(),
+                GateStatus.WaitingOnPurpose,
+                "Waiting to sign in to VRChat.",
+                stopped,
+                coldStopEndsAt,
+                alerting);
+        }
 
         // Ordered by how much the operator has to care, most first. A bucket that has run out of
         // probes outranks the session state: a gate reporting Healthy while one class has given up
@@ -98,6 +151,14 @@ public static class GateHealthReader
                 state.ToString(),
                 GateStatus.NeedsOperator,
                 "Cloudflare is blocking this host. An egress proxy is needed.",
+                stopped,
+                coldStopEndsAt,
+                alerting),
+
+            VRChatSessionState.NoGroupAccess => new GateHealth(
+                state.ToString(),
+                GateStatus.NeedsOperator,
+                "The VRChat account cannot read the group.",
                 stopped,
                 coldStopEndsAt,
                 alerting),

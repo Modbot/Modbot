@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { api, type GateHealth } from '@/lib/api'
+import { useGateHealth } from '@/lib/useGateHealth'
 import { DOT, statusOf, TONE } from '@/lib/gate'
 import { cn } from '@/lib/utils'
 
@@ -16,32 +15,8 @@ import { cn } from '@/lib/utils'
  * costume.
  */
 export function GateIndicator({ onOpen }: { onOpen?: () => void }) {
-  const [gate, setGate] = useState<GateHealth | null>(null)
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-
-    const load = () =>
-      api
-        .gateHealth()
-        .then((next) => {
-          if (cancelled) return
-          setGate(next)
-          setFailed(false)
-        })
-        .catch(() => {
-          if (!cancelled) setFailed(true)
-        })
-
-    void load()
-    const timer = setInterval(() => void load(), 30_000)
-
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [])
+  // Shared with the sign-in wait banner, so the two read one poll rather than two.
+  const { gate, failed } = useGateHealth()
 
   if (failed || !gate) {
     return (

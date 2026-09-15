@@ -73,7 +73,7 @@ public sealed class VRChatBioCheck
     {
         VRChatFailureKind.NotConfigured =>
             "Modbot's own VRChat account is not set up yet.",
-        VRChatFailureKind.RateLimited =>
+        VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting =>
             "VRChat is rate limiting Modbot.",
         VRChatFailureKind.WafBlocked =>
             "Cloudflare is blocking Modbot's connection to VRChat.",

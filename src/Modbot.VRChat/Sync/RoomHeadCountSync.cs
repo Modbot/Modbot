@@ -115,7 +115,7 @@ public sealed class RoomHeadCountSync
                 VRChatCallPriority.Background,
                 ct).ConfigureAwait(false);
 
-            if (result.Kind == VRChatFailureKind.RateLimited)
+            if (result.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
             {
                 // Cold stop. Never retried (spec 4.3.1): the pass ends here, what was read is kept,
                 // and every room falls back to the group list's count once its read goes stale.

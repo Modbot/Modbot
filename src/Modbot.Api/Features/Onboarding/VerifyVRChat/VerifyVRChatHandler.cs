@@ -52,23 +52,45 @@ public static class VerifyVRChatHandler
 
         var settings = await db.GetSettingsAsync(ct);
 
-        settings.VRChatUsername = request.Username.Trim();
-        settings.VRChatPasswordEncrypted = protector.Protect(request.Password);
-        settings.VRChatTotpSecretEncrypted = string.IsNullOrWhiteSpace(request.TotpSecret)
+        var username = request.Username.Trim();
+
+        // Authenticator apps display the secret in spaced groups of four and people copy it that
+        // way. Base32 has no whitespace, so stripping it here turns a guaranteed failure into a
+        // working account.
+        var totpSecret = string.IsNullOrWhiteSpace(request.TotpSecret)
             ? null
-            // Authenticator apps display the secret in spaced groups of four and people copy it
-            // that way. Base32 has no whitespace, so stripping it here turns a guaranteed failure
-            // into a working account.
-            : protector.Protect(request.TotpSecret.Replace(" ", string.Empty, StringComparison.Ordinal).Trim());
+            : request.TotpSecret.Replace(" ", string.Empty, StringComparison.Ordinal).Trim();
 
-        // A session cookie belonging to whatever account was configured before is not merely
-        // stale, it is dangerous: the gate would present it, VRChat would accept it, and Modbot
-        // would report the *previous* account as verified while holding the new one's password.
-        settings.VRChatAuthCookieEncrypted = null;
-        settings.VRChatDisplayName = null;
-        settings.VRChatVerifiedAt = null;
+        var unchanged =
+            string.Equals(settings.VRChatUsername, username, StringComparison.Ordinal)
+            && string.Equals(protector.Unprotect(settings.VRChatPasswordEncrypted), request.Password, StringComparison.Ordinal)
+            && string.Equals(protector.Unprotect(settings.VRChatTotpSecretEncrypted), totpSecret, StringComparison.Ordinal);
 
-        await db.SaveChangesAsync(ct);
+        if (!unchanged)
+        {
+            settings.VRChatUsername = username;
+            settings.VRChatPasswordEncrypted = protector.Protect(request.Password);
+            settings.VRChatTotpSecretEncrypted = totpSecret is null ? null : protector.Protect(totpSecret);
+
+            // A session belonging to the credentials that were there before is not merely stale,
+            // it is dangerous: the gate would present it, VRChat would accept it, and Modbot would
+            // report the *previous* account as verified while holding the new one's password.
+            settings.VRChatAuthCookieEncrypted = null;
+            settings.VRChatSessionAccount = null;
+            settings.VRChatSessionUserId = null;
+            settings.VRChatDisplayName = null;
+            settings.VRChatVerifiedAt = null;
+
+            await db.SaveChangesAsync(ct);
+        }
+
+        // Re-entering the same credentials changes nothing, so the session they made is kept and
+        // checked rather than thrown away: a sign-in is scarce (spec 4.1.2), and pressing the
+        // button twice should not spend one.
+        //
+        // Either way the gate decides whether a sign-in may be sent. During a wait it is not, and
+        // the answer is the short SignInWaiting diagnosis below; the credentials stay stored, so
+        // the attempt that follows the wait uses them.
 
         var started = elapsed.Elapsed;
         var result = await gate.SignInAsync(ct);

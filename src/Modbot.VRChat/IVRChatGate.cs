@@ -1,4 +1,5 @@
 using Modbot.VRChat.RateLimiting;
+using Modbot.VRChat.Session;
 using VRChat.API.Client;
 using VRChat.API.Model;
 
@@ -50,7 +51,31 @@ public interface IVRChatGate
     /// Used by onboarding's connection check (spec 7.1.1), which has to tell a WAF block apart
     /// from a timeout apart from bad credentials — a proxy fixes the first and none of the others.
     /// </remarks>
+    /// <remarks>
+    /// Checks a stored session before anything else, and signs in with the password only when
+    /// VRChat has really rejected it -- within the sign-in limit and never during a wait
+    /// (spec 4.1.2). An operator's deliberate change does not skip either.
+    /// </remarks>
     Task<VRChatResult<CurrentUser>> SignInAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Whether Modbot is waiting to sign in, when it last signed in, and how much of the hour's
+    /// sign-in limit is used (spec 4.1.2).
+    /// </summary>
+    /// <remarks>
+    /// Reads the stored wait on first use, so a health read straight after a restart already shows
+    /// a wait the previous process started. Never waits behind a sign-in in progress.
+    /// </remarks>
+    Task<SignInStatus> DescribeSignInAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Makes the one attempt that follows a wait, once the wait has ended. Does nothing otherwise.
+    /// </summary>
+    /// <remarks>
+    /// Called on a timer, so the banner clears on its own when a deployment has nothing else asking
+    /// VRChat for anything -- during setup, say.
+    /// </remarks>
+    Task ResumeAfterWaitAsync(CancellationToken ct = default);
 
     /// <summary>Per-bucket health, for the UI (spec 4.3.3).</summary>
     Task<IReadOnlyList<RateLimitBucketHealth>> DescribeBucketsAsync(CancellationToken ct = default);

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { DiagnosisNote } from '@/pages/setup/DiagnosisNote'
 import { api, ApiError, type ConnectionDiagnosis, type OnboardingStatus } from '@/lib/api'
+import { refreshGateHealth } from '@/lib/useGateHealth'
 import { Fact, Field, Hint, Outcome, PasswordField, Placeholder, Switch } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 
@@ -50,6 +51,12 @@ function AccountCard({ status }: { status: OnboardingStatus }) {
             status.vrChat.verifiedAt ? new Date(status.vrChat.verifiedAt).toLocaleString() : 'Never'
           }
         />
+        <Fact
+          label="Last signed in"
+          value={
+            status.vrChat.lastSignedInAt ? new Date(status.vrChat.lastSignedInAt).toLocaleString() : 'Never'
+          }
+        />
         <Fact label="Managed group" value={status.group ? status.group.name : 'None chosen'} />
       </div>
     </SettingsCard>
@@ -87,8 +94,10 @@ function CredentialsCard({
         await refresh()
       })
       .catch((e: unknown) => {
-        if (e instanceof ApiError && e.diagnosis) setDiagnosis(e.diagnosis)
-        else setError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.')
+        if (e instanceof ApiError && e.diagnosis) {
+          setDiagnosis(e.diagnosis)
+          if (e.diagnosis.outcome === 'SignInWaiting') void refreshGateHealth()
+        } else setError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.')
       })
       .finally(() => setVerifying(false))
   }

@@ -92,6 +92,16 @@ public static class VRChatEndpointClass
 
     /// <summary>Login and re-login only.</summary>
     public const string Auth = "auth";
+
+    /// <summary>
+    /// <c>GET /auth</c>, Verify Auth Token: whether a stored session still works, without signing in
+    /// again (spec 4.1.2). Asked on start-up and after a 401, and nowhere else.
+    /// </summary>
+    /// <remarks>
+    /// Its own class, so a 429 here stops the session check and not the sign-in or anything else.
+    /// <strong>The limit is not measured</strong>; see its budget in <c>VRChatRateLimits</c>.
+    /// </remarks>
+    public const string AuthVerify = "auth.verify";
 }
 
 /// <summary>

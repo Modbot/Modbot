@@ -41,7 +41,7 @@ public enum GateStatus
 }
 
 /// <param name="State">The gate's own state name: Healthy, RateLimited, WafBlocked, Unconfigured,
-/// Reauthenticating.</param>
+/// Reauthenticating, SignInWaiting, NoGroupAccess.</param>
 /// <param name="Headline">One sentence for a person, not a state name repeated.</param>
 /// <param name="ColdStoppedBuckets">How many buckets are currently refusing to send.</param>
 /// <param name="ColdStopEndsAt">
@@ -53,13 +53,40 @@ public enum GateStatus
 /// Buckets that have exhausted their probes (spec 4.3.1, step 4). Something is wrong that waiting
 /// will not fix.
 /// </param>
+/// <param name="SignInWait">
+/// Set while Modbot is waiting to sign in to VRChat (spec 4.1.2), and null otherwise. The web app
+/// shows a banner on every page for as long as it is set.
+/// </param>
+/// <param name="LastSignedInAt">When Modbot last signed in to VRChat with the password.</param>
+/// <param name="SignInsInLastHour">Requests counted against the sign-in limit in the last hour.</param>
+/// <param name="SignInLimit">The most Modbot sends in any rolling hour.</param>
 public sealed record GateHealth(
     string State,
     GateStatus Status,
     string Headline,
     int ColdStoppedBuckets,
     DateTimeOffset? ColdStopEndsAt,
-    int AlertingBuckets);
+    int AlertingBuckets,
+    SignInWaitHealth? SignInWait = null,
+    DateTimeOffset? LastSignedInAt = null,
+    int SignInsInLastHour = 0,
+    int SignInLimit = 0);
+
+/// <summary>A wait before Modbot signs in to VRChat again (spec 4.1.2).</summary>
+/// <param name="Reason">
+/// <c>RateLimitedByVRChat</c> when VRChat refused a sign-in, <c>SignInLimitReached</c> when
+/// Modbot's own limit per hour is used up. Both are rate limits and shown the same way.
+/// </param>
+/// <param name="RetryAt">When Modbot will try again.</param>
+/// <param name="SecondsLeft">
+/// Whole seconds until <paramref name="RetryAt"/>, measured on the server's clock when this was
+/// read. A countdown starts from this rather than from the browser's clock. Zero once the wait is
+/// over and the attempt has not finished yet.
+/// </param>
+public sealed record SignInWaitHealth(
+    Modbot.VRChat.Session.SignInWaitReason Reason,
+    DateTimeOffset RetryAt,
+    int SecondsLeft);
 
 /// <param name="EffectiveRatePerSecond">After the AIMD adaptation, not the configured ceiling.</param>
 /// <param name="BudgetMultiplier">

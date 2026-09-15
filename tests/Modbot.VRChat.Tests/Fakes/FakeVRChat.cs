@@ -54,6 +54,18 @@ public sealed class FakeVRChat
                 return Task.FromResult(Next(_verify, "Verify2FA"));
             });
 
+        authentication
+            .VerifyAuthTokenWithHttpInfoAsync(Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                VerifyAuthTokenCalls++;
+
+                if (VerifyAuthTokenGate is { } gate)
+                    return gate.Task.ContinueWith(_ => AuthTokenAnswer(), TaskScheduler.Default);
+
+                return Task.FromResult(AuthTokenAnswer());
+            });
+
         // Built before the Returns call, not inside it: configuring one substitute while another
         // is mid-configuration makes NSubstitute lose track of which call it is answering, and it
         // fails at the Returns with a message about the wrong substitute entirely.
@@ -90,6 +102,30 @@ public sealed class FakeVRChat
     public int GetCurrentUserCalls { get; private set; }
 
     public int Verify2FACalls { get; private set; }
+
+    /// <summary><c>GET /auth</c> calls: the session check that does not sign in.</summary>
+    public int VerifyAuthTokenCalls { get; private set; }
+
+    /// <summary>
+    /// What <c>GET /auth</c> answers: a status and a raw body. A working session by default --
+    /// <c>{"ok":true}</c> -- because that is what a stored cookie usually gets.
+    /// </summary>
+    public (HttpStatusCode Status, string Body) AuthToken { get; set; } =
+        (HttpStatusCode.OK, """{"ok":true,"token":"authcookie_secret"}""");
+
+    /// <summary>When set, <c>GET /auth</c> waits for it, so a test can hold the check open.</summary>
+    public TaskCompletionSource? VerifyAuthTokenGate { get; set; }
+
+    private ApiResponse<VerifyAuthTokenResult> AuthTokenAnswer()
+    {
+        var (status, body) = AuthToken;
+        var ok = status == HttpStatusCode.OK && body.Contains("\"ok\":true", StringComparison.Ordinal);
+
+        return new ApiResponse<VerifyAuthTokenResult>(
+            status, new Multimap<string, string>(),
+            status == HttpStatusCode.OK ? new VerifyAuthTokenResult(ok, "authcookie_secret") : null!,
+            body);
+    }
 
     public FakeVRChat RespondsWith(params ApiResponse<CurrentUser>[] responses)
     {
@@ -140,7 +176,7 @@ public sealed class FakeVRChat
                 Ok(new CurrentUser { RequiresTwoFactorAuth = ["totp"] }),
                 Ok(new CurrentUser { DisplayName = "Modbot", Id = "usr_fake" }))
             .VerifiesWith(new ApiResponse<Verify2FAResult>(
-                HttpStatusCode.OK, new Multimap<string, string>(), new Verify2FAResult(true)));
+                HttpStatusCode.OK, new Multimap<string, string>(), new Verify2FAResult(verified: true)));
     }
 
     public static ApiResponse<CurrentUser> Ok(CurrentUser user) =>
@@ -192,6 +228,27 @@ public sealed class FakeConnectionStore(VRChatConnection? connection = null) : I
         SavedAuthCookie = authCookie;
         SavedTwoFactorAuthCookie = twoFactorAuthCookie;
         Connection = Connection with { AuthCookie = authCookie, TwoFactorAuthCookie = twoFactorAuthCookie };
+
+        return Task.CompletedTask;
+    }
+
+    public int SignInSaves { get; private set; }
+
+    public Task SaveSignInAsync(
+        string authCookie, string? twoFactorAuthCookie, VRChatSignedInAccount account, CancellationToken ct = default)
+    {
+        SignInSaves++;
+        SessionSaves++;
+        SavedAuthCookie = authCookie;
+        SavedTwoFactorAuthCookie = twoFactorAuthCookie;
+        Connection = Connection with
+        {
+            AuthCookie = authCookie,
+            TwoFactorAuthCookie = twoFactorAuthCookie,
+            SessionAccount = account.Account,
+            SessionUserId = account.UserId,
+            DisplayName = account.DisplayName ?? Connection.DisplayName,
+        };
 
         return Task.CompletedTask;
     }

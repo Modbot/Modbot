@@ -38,6 +38,51 @@ public class Settings
     /// <summary>When VRChat last accepted these credentials (spec 7.1, step 2).</summary>
     public DateTimeOffset? VRChatVerifiedAt { get; set; }
 
+    /// <summary>
+    /// The username the stored session cookies were issued to (foundation spec 4.1.2).
+    /// </summary>
+    /// <remarks>
+    /// A session belongs to an account, not to the settings row. When the username beside it no
+    /// longer matches, the cookies are ignored rather than sent: presenting one account's session
+    /// while holding another account's password would report the wrong account as signed in.
+    /// </remarks>
+    public string? VRChatSessionAccount { get; set; }
+
+    /// <summary>The VRChat user id the stored session belongs to, from the sign-in that made it.</summary>
+    public string? VRChatSessionUserId { get; set; }
+
+    /// <summary>
+    /// The profile the session check reads to tell a bad session from a lost group (spec 4.1.2).
+    /// Null means VRChat staff member Nayir's, <c>usr_fbdf2c30-fcea-4220-88f4-c3f83e11215a</c>.
+    /// </summary>
+    /// <remarks>
+    /// Configuration rather than a constant, because it is someone else's account: if VRChat ever
+    /// removes it, an operator changes this and nothing else. Never validated (spec 3.1.1).
+    /// </remarks>
+    public string? VRChatSessionCheckUserId { get; set; }
+
+    /// <summary>When Modbot last signed in to VRChat with the account's password (spec 4.1.2).</summary>
+    /// <remarks>
+    /// Not every successful request: only a sign-in that sent the password. It is what tells an
+    /// operator whether a restart or a deploy cost a sign-in, which it should not.
+    /// </remarks>
+    public DateTimeOffset? VRChatLastSignedInAt { get; set; }
+
+    /// <summary>
+    /// When Modbot may next try to sign in, while it is waiting (spec 4.1.2). Null when not waiting.
+    /// </summary>
+    /// <remarks>
+    /// Kept here rather than in memory so a restart or a crash loop cannot cut the wait short.
+    /// VRChat allows only a handful of sign-ins an hour and answers the next with an hour-long
+    /// block, so a wait that a redeploy forgot would be spent straight back into that block.
+    /// </remarks>
+    public DateTimeOffset? VRChatSignInWaitUntil { get; set; }
+
+    /// <summary>
+    /// Why Modbot is waiting to sign in: <c>RateLimitedByVRChat</c> or <c>SignInLimitReached</c>.
+    /// </summary>
+    public string? VRChatSignInWaitReason { get; set; }
+
     // --- Managed group (spec 2.4) ---
     public string? ManagedGroupId { get; set; }
     public string? ManagedGroupName { get; set; }

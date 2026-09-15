@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260915075035_AddVRChatSignInLimit")]
+    partial class AddVRChatSignInLimit
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -645,10 +648,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id");
 
-                    b.Property<DateTimeOffset?>("MessagesStoredThrough")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("messages_stored_through");
-
                     b.Property<DateTimeOffset?>("ObservedThrough")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("observed_through");
@@ -868,11 +867,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("actor_automatic");
 
-                    b.PrimitiveCollection<string>("ActorDiscordIds")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("actor_discord_ids");
-
                     b.PrimitiveCollection<string>("ActorIds")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -910,11 +904,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<int>("Position")
                         .HasColumnType("integer")
                         .HasColumnName("position");
-
-                    b.PrimitiveCollection<string>("SubjectDiscordIds")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("subject_discord_ids");
 
                     b.PrimitiveCollection<string>("SubjectIds")
                         .IsRequired()

@@ -23,6 +23,12 @@ public enum ConnectionOutcome
     NetworkFailure,
     WafBlocked,
     RateLimited,
+
+    /// <summary>
+    /// Nothing was sent: Modbot is waiting out a rate limit on signing in (spec 4.1.2). Every page
+    /// shows the wait; this outcome only needs to say the attempt did not happen.
+    /// </summary>
+    SignInWaiting,
     CredentialsRejected,
     TwoFactorMissing,
     Error,
@@ -108,6 +114,7 @@ public sealed record ConnectionDiagnosis(
             VRChatFailureKind.Network => ConnectionOutcome.NetworkFailure,
             VRChatFailureKind.WafBlocked => ConnectionOutcome.WafBlocked,
             VRChatFailureKind.RateLimited => ConnectionOutcome.RateLimited,
+            VRChatFailureKind.SignInWaiting => ConnectionOutcome.SignInWaiting,
             VRChatFailureKind.CredentialsRejected => ConnectionOutcome.CredentialsRejected,
             VRChatFailureKind.TwoFactorMissing => ConnectionOutcome.TwoFactorMissing,
 
@@ -179,6 +186,12 @@ public sealed record ConnectionDiagnosis(
             "Modbot stops entirely rather than retrying into a penalty that grows each time "
             + "(spec 4.3.1), so this clears by waiting and by nothing else.",
             "Wait, then test again. Do not retry in a loop — that is what lengthens it."),
+
+        // Short on purpose. The banner on every page already says why and for how long.
+        ConnectionOutcome.SignInWaiting => (
+            "Waiting to sign in to VRChat.",
+            string.Empty,
+            null),
 
         ConnectionOutcome.NotConfigured => (
             "No VRChat account is configured yet.",

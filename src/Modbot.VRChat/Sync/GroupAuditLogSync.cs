@@ -478,7 +478,7 @@ public sealed class GroupAuditLogSync
         if (result.Success)
             return new FetchedPage(result.Value?.Results ?? [], result.Value?.HasNext ?? false, null);
 
-        if (result.Kind == VRChatFailureKind.RateLimited)
+        if (result.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
         {
             // Reported, not retried, and not escalated to an error: a cold stop is Modbot working
             // as designed, and logging it as a failure would train an operator to ignore the line

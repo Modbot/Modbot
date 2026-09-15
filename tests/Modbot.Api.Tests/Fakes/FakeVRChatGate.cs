@@ -1,5 +1,6 @@
 using Modbot.VRChat;
 using Modbot.VRChat.RateLimiting;
+using Modbot.VRChat.Session;
 using VRChat.API.Client;
 using VRChat.API.Model;
 
@@ -82,6 +83,25 @@ public sealed class FakeVRChatGate : IVRChatGate
 
     public Task<IReadOnlyList<RateLimitBucketHealth>> DescribeBucketsAsync(CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<RateLimitBucketHealth>>([]);
+
+    /// <summary>What <see cref="DescribeSignInAsync"/> returns. Null means "not waiting, never signed in".</summary>
+    public SignInStatus? SignInStatus { get; set; }
+
+    public Task<SignInStatus> DescribeSignInAsync(CancellationToken ct = default) =>
+        Task.FromResult(SignInStatus ?? new SignInStatus(State, null, null, 0, 4, DateTimeOffset.UnixEpoch));
+
+    /// <summary>A gate waiting to sign in until <paramref name="retryAt"/>, as seen at <paramref name="now"/>.</summary>
+    public FakeVRChatGate WaitingToSignIn(DateTimeOffset now, DateTimeOffset retryAt,
+        SignInWaitReason reason = SignInWaitReason.RateLimitedByVRChat)
+    {
+        State = VRChatSessionState.SignInWaiting;
+        SignInStatus = new SignInStatus(State, new SignInWait(reason, retryAt), null, 4, 4, now);
+        SignIn = VRChatResult<CurrentUser>.Failure(
+            0, "Waiting to sign in to VRChat.", kind: VRChatFailureKind.SignInWaiting);
+        return this;
+    }
+
+    public Task ResumeAfterWaitAsync(CancellationToken ct = default) => Task.CompletedTask;
 
     /// <summary>
     /// <c>CurrentUser</c> has around sixty required constructor arguments, so it is built by

@@ -60,6 +60,7 @@ jobs:
       - run: npx tsc --noEmit -p tsconfig.app.json
       - run: npm run build
       - run: npm run lint
+      - run: npm test
 
   # my.modbot.co's web app. `npm run build` type-checks before bundling; `npm test` runs the
   # /go path-safety and instance-list tests on Node's own test runner.

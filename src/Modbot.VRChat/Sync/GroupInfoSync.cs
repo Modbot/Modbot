@@ -140,7 +140,7 @@ public sealed class GroupInfoSync
         VRChatResult<T> result,
         CancellationToken ct)
     {
-        if (result.Kind == VRChatFailureKind.RateLimited)
+        if (result.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
         {
             // Never retried, and not logged as an error: a cold stop is the design working
             // (spec 4.3.1). The audit log runs in its own bucket and is unaffected.

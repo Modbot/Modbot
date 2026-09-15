@@ -22,7 +22,8 @@ public static class StatusHandler
         var vrchat = new VRChatAccountStatus(
             settings.VRChatUsername,
             settings.VRChatDisplayName,
-            settings.VRChatVerifiedAt);
+            settings.VRChatVerifiedAt,
+            settings.VRChatLastSignedInAt);
 
         var connection = new ConnectionStatus(
             settings.ConnectionCheckedAt,

@@ -59,16 +59,22 @@ public class VRChatGateTests
             new VRChatConnection("modbot@example.com", "hunter2", AuthCookie: "storedCookie"));
 
         var gate = NewGate(vrchat, out var factory, store);
-        await gate.SignInAsync(Ct);
+        var result = await gate.ExecuteAsync(
+            Members, (_, _) => Task.FromResult(Response(HttpStatusCode.OK, "members")), ct: Ct);
 
+        Assert.True(result.Success);
         Assert.Equal("storedCookie", factory.Built[0].AuthCookie);
+
+        // Built without the password, so the client cannot send it: the SDK adds a Basic header to
+        // /auth/user whenever a username is set, which is how a cookie check became a sign-in.
+        Assert.Null(factory.Built[0].Password);
+        Assert.Equal(0, vrchat.GetCurrentUserCalls);
     }
 
     [Fact]
     public async Task AnExpiredStoredSessionFallsBackToThePasswordOnce()
     {
-        var vrchat = new FakeVRChat()
-            .RespondsWith(FakeVRChat.Status(HttpStatusCode.Unauthorized))
+        var vrchat = new FakeVRChat { AuthToken = (HttpStatusCode.Unauthorized, "{}") }
             .SignedInAs("Modbot", "usr_1");
 
         var store = new FakeConnectionStore(
@@ -80,6 +86,8 @@ public class VRChatGateTests
         // A 401 from a stored cookie says the session expired, not that the password is wrong,
         // and those need different answers (spec 4.1.1).
         Assert.True(result.Success);
+        Assert.Equal(1, vrchat.VerifyAuthTokenCalls);
+        Assert.Equal(1, vrchat.GetCurrentUserCalls);
         Assert.Equal(2, factory.Built.Count);
         Assert.Equal("staleCookie", factory.Built[0].AuthCookie);
         Assert.Null(factory.Built[1].AuthCookie);
@@ -95,7 +103,7 @@ public class VRChatGateTests
 
         var result = await gate.SignInAsync(Ct);
 
-        Assert.True(result.Success);
+        Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal(1, vrchat.Verify2FACalls);
         Assert.Matches(@"^\d{6}$", vrchat.SubmittedCodes.Single());
 
@@ -143,7 +151,7 @@ public class VRChatGateTests
     [Fact]
     public async Task A401OnACallTriggersOneReLoginAndOneRetry()
     {
-        var vrchat = new FakeVRChat()
+        var vrchat = new FakeVRChat { AuthToken = (HttpStatusCode.Unauthorized, "{}") }
             .SignedInAs()
             .RespondsWith(FakeVRChat.Ok(new CurrentUser { DisplayName = "Modbot", Id = "usr_1" }));
 
@@ -175,7 +183,7 @@ public class VRChatGateTests
     [Fact]
     public async Task A401AfterReAuthenticatingIsNotRetriedAgain()
     {
-        var vrchat = new FakeVRChat()
+        var vrchat = new FakeVRChat { AuthToken = (HttpStatusCode.Unauthorized, "{}") }
             .SignedInAs()
             .RespondsWith(FakeVRChat.Ok(new CurrentUser { DisplayName = "Modbot", Id = "usr_1" }));
 

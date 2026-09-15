@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { Button } from '@/components/ui/button'
 import { ApiError, api, type OnboardingStatus, type OnboardingStep } from '@/lib/api'
 import { openRegisterOnce } from '@/lib/myModbot'
@@ -190,12 +191,17 @@ function Shell({
   groupName?: string
 }) {
   return (
-    <div className="grid min-h-screen place-items-center bg-background p-6">
-      <div className="w-full max-w-[520px]">
-        <Brand subtitle={groupName} />
-        <div className="overflow-hidden rounded-xl border bg-card shadow-lg">
-          {steps && <StepIndicator total={steps.total} current={steps.current} />}
-          {children}
+    <div className="flex min-h-screen flex-col bg-background">
+      {/* The same banner as the app shell (foundation spec 4.1.2). It stays empty until somebody is
+          signed in, because the health it reads needs a session. */}
+      <SignInWaitBanner />
+      <div className="grid flex-1 place-items-center p-6">
+        <div className="w-full max-w-[520px]">
+          <Brand subtitle={groupName} />
+          <div className="overflow-hidden rounded-xl border bg-card shadow-lg">
+            {steps && <StepIndicator total={steps.total} current={steps.current} />}
+            {children}
+          </div>
         </div>
       </div>
     </div>

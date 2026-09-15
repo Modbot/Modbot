@@ -91,4 +91,16 @@ public enum VRChatSessionState
 
     /// <summary>Cloudflare is blocking this host's network. The fix is a proxy (spec 2.3.1).</summary>
     WafBlocked,
+
+    /// <summary>
+    /// A sign-in is needed and Modbot is waiting to send it: VRChat rate limited the last one, or
+    /// Modbot's own limit per hour is used up (spec 4.1.2). Nothing is sent until the wait ends.
+    /// </summary>
+    SignInWaiting,
+
+    /// <summary>
+    /// The session works, and the service account cannot read the managed group (spec 4.1.2). Signing
+    /// in again would not fix it; the account needs its group access back.
+    /// </summary>
+    NoGroupAccess,
 }

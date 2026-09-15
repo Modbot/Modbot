@@ -235,8 +235,12 @@ public class TestConnectionTests
         Assert.Equal("http://proxy.example.com:11202/", settings.ProxyUrl);
     }
 
+    /// <summary>
+    /// The stored session is kept: the gate checks it through the proxy just saved, which proves the
+    /// proxy as well as a sign-in would and costs none of the few VRChat allows an hour (spec 4.1.2).
+    /// </summary>
     [Fact]
-    public async Task TheStoredSessionIsDroppedSoTheProxyIsActuallyExercised()
+    public async Task TheStoredSessionIsKeptAndCheckedThroughTheProxy()
     {
         var gate = new FakeVRChatGate().SignedInAs();
         var (host, cookie) = await OnboardingTestContext.SetUpAsync(_db, gate, Ct);
@@ -255,10 +259,8 @@ public class TestConnectionTests
             cookie,
             Ct);
 
-        // Replaying a cookie established before the proxy existed proves nothing about whether
-        // the proxy works -- and "the test passed but every sync fails" is the worst outcome this
-        // step could possibly produce.
         var after = await OnboardingTestContext.ReadSettingsAsync(_db, Ct);
-        Assert.NotEqual("a-session-from-before-the-proxy", after.VRChatAuthCookieEncrypted);
+        Assert.Equal("a-session-from-before-the-proxy", after.VRChatAuthCookieEncrypted);
+        Assert.Equal(1, gate.SignInCalls);
     }
 }

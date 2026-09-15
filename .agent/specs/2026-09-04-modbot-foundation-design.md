@@ -492,6 +492,7 @@ public interface IVRChatGate
         CancellationToken ct = default);
 
     VRChatSessionState State { get; }   // Healthy | Reauthenticating | RateLimited | WafBlocked | Unconfigured
+                                        // | SignInWaiting | NoGroupAccess (§4.1.2)
 }
 
 public readonly record struct VRChatResult<T>(
@@ -512,7 +513,8 @@ Responsibilities, all in one place:
   arrival order, which cannot satisfy the preemption requirement on the next line; a priority gate
   decides the order at release time instead.
 - **Priority queue**: interactive moderation actions preempt background sync.
-- `401` → transparent re-login (TOTP via the stored 2FA secret), then retry once.
+- `401` → check the session without signing in; sign in again (TOTP via the stored 2FA secret) only
+  if it is really bad, within the limit per hour, then retry once (§4.1.2).
 - `429` → **cold stop, never retry** (§4.3). This is the one place the gate deliberately does not
   behave like a normal HTTP client.
 - Classifies WAF blocks distinctly from ordinary errors and surfaces them as a **health state in
@@ -559,6 +561,7 @@ The gate therefore drives the flow itself:
     ├─ 200 and no requiresTwoFactorAuth  → authenticated
     ├─ 200 and requiresTwoFactorAuth     → Verify2FAWithHttpInfoAsync(TOTP), then re-fetch
     ├─ 401                               → credentials genuinely rejected; surface to operator
+    ├─ 429 (on a sign-in)                → one-hour wait, stored; nothing needing a session is sent (§4.1.2)
     ├─ 429                               → cold stop; never retry (§4.3.1)
     └─ other / WAF                       → classify, surface as health state
 ```
@@ -571,6 +574,96 @@ shortcut.
 **Split-ready:** the token bucket and the priority gate sit behind an `IRateLimitLease`. The
 in-process implementation is local state; a future distributed implementation is a Redis lease. Same
 interface, same call sites.
+
+#### 4.1.2 Signing in is scarce — check the session, count every sign-in, wait out a limit
+
+*Added 2026-09-15.* VRChat allows about **four or five sign-ins an hour**, publishes nothing about
+it, and answers the next one with a **one-hour block**. Before this section existed, every restart
+signed in with the password at least once and often three or four times, so a few deploys in an
+evening were enough to lock Modbot out for an hour.
+
+**What went wrong.** The SDK adds a `Basic` header to `GET /auth/user` whenever a username is set on
+the client, stored cookie or not. The gate built its client with both, and "checked the stored
+cookie" with `/auth/user` — so every start-up sent the password. It also put the cookie in the SDK's
+configuration, which copies it back into the cookie jar before every request: when VRChat handed
+out a new cookie, the next call went out with the old one and got a 401. Every 401 then signed in
+again, once *per failing call*, so two producers failing together cost two more sign-ins. And
+"Test connection" in the wizard threw the session away on purpose and signed in.
+
+**What counts as a sign-in.** Any request that sends the password or a two-factor code:
+`GET /auth/user` with the password, and `Verify2FA`. The `GET /auth/user` that follows a two-factor
+code is counted too — VRChat's counting is undocumented and the careful reading costs little. A full
+sign-in with a two-factor challenge is therefore **three**; with a stored `twoFactorAuth` cookie,
+VRChat usually skips the challenge and it is **one**. `/auth/user` is never used for anything but a
+real sign-in.
+
+**Checking a session without signing in.** A stored session is always tried first — on start-up,
+after a 401, and when the wizard or Settings asks. The maintainer confirmed that `GET /auth` (Verify
+Auth Token) does not sign in again, so the check is, in order, each step asked only when the one
+before could not say:
+
+1. **`GET /auth`.** `ok: true` → the session is good. `ok: false` or a 401 → it is bad; sign in.
+   Anything else (a 5xx, a timeout, a Cloudflare block, a body without `ok`) → unknown; go on.
+2. **Get User** on a profile any signed-in account can read — by default VRChat staff member Nayir,
+   `usr_fbdf2c30-fcea-4220-88f4-c3f83e11215a`, changeable in `settings.vr_chat_session_check_user_id`
+   if VRChat ever removes it. 200 → good. 401 → bad; sign in. Anything else → unknown; go on.
+3. **Get Group** on the managed group. 200 → good. A 401 or 403 here is **not** read as a bad
+   session: step 2 did not end in a 401, and a refusal from the group could just as well be the
+   group. Modbot reports that it cannot tell and does not sign in.
+
+A 429 at any step is that bucket's ordinary cold stop (§4.3.1): the check stops there, nothing is
+signed in, and no sign-in banner is shown. `GET /auth` has its own class, `auth.verify`, on the auth
+lane at one request per ten seconds — **a guess, not a measurement, that needs confirming** — and it
+is not counted against the sign-ins per hour.
+
+**Lost group access is not a sign-in problem.** When the session is known to be good and group
+requests still get 401 (or Get Group gets 403), the gate shows `NoGroupAccess` — "The VRChat account
+cannot read the group" — and never signs in for it. The finding stands for fifteen minutes before a
+further 401 checks again, so a producer's refused polls do not each spend a check.
+
+**The limit per hour.** Every counted request is written to `vrchat_sign_in_attempt` *before* it is
+sent, so a restart, a crash or a crash loop cannot hand the allowance back. At most
+`RateLimitOptions.SignInsPerHour` go out in any rolling hour: **4 by default, and configuration may
+lower it but never raise it**. A sign-in that cannot finish in the room left is not started — a
+two-factor sign-in with two left waits rather than spending one and stopping. When the limit is used
+up, Modbot waits until enough of the oldest are an hour old.
+
+**A rate limit on a sign-in.** A 429 on any counted request — or a refusal whose body says "too
+many"; VRChat's exact answer to this has not been captured — starts a **one-hour wait from that
+moment**, stored in `settings.vr_chat_sign_in_wait_until`. While it lasts:
+
+- nothing that could count as a sign-in is sent, and **nothing that needs a session either** — not
+  even a session check. Calls return `SignInWaiting` straight away, the way a cold stop does, and
+  sync treats it as a rate limit and backs off;
+- a restart reads the wait and keeps to it;
+- an operator entering new credentials, or pressing "Verify and store" or "Test connection", does
+  not skip it — that would only turn one hour into two. The credentials are stored, the answer is a
+  short "Waiting to sign in to VRChat.", and the attempt after the wait uses them.
+
+When the hour is up Modbot makes **one** attempt, on a five-second timer so it happens even when
+nothing else is asking VRChat for anything. If that is rate limited too, the next hour starts from
+then. Modbot's own limit being used up is the same kind of wait and is shown the same way.
+
+**One at a time.** The gate holds one lock for checking and signing in. Calls that get a 401 while a
+check or sign-in is under way share it and take its result; after a sign-in fails, the next 401 does
+not start another at once — it goes through the limit. Credentials VRChat has refused are not sent
+again on a producer's behalf until they change.
+
+**Cookies.** Both cookies are stored encrypted in `settings.vr_chat_auth_cookie_encrypted`, with the
+username and user id they belong to beside them; a session belonging to a different username is
+never offered. Stored cookies go into the client's cookie jar rather than the SDK's configuration, so
+a cookie VRChat replaces stays replaced, and a replaced cookie is written back to the database.
+Changing the credentials clears the session. The cookie and the token `GET /auth` returns are never
+logged and never returned by any endpoint.
+
+**What an operator sees.** The gate's state becomes `SignInWaiting`. `GET /api/health/gate` carries
+`signInWait { reason, retryAt, secondsLeft }` (seconds counted on the server's clock), plus
+`lastSignedInAt`, `signInsInLastHour` and `signInLimit`. The web app shows a red banner at the top of
+every page of the app shell and the setup wizard, for anyone signed in, with no way to close it:
+*"Service account authentication issue - ratelimited - retrying in 59 minutes and 32 seconds"*,
+counting down each second and reading "retrying now" at zero until the state changes. The server log
+gets one Warning when a wait starts and one Information when signing in works again. The Health page
+and the Settings VRChat card show "Last signed in".
 
 ### 4.2 Sync jobs — paced per type, capped globally, deliberately desynchronised
 
@@ -1008,7 +1101,8 @@ endpoint classes §4.2 does not schedule:
 | `users.read` | **0.33 req/s** | `UserProducer` — 3000 ms |
 | `users.groups` | **0.2 req/s** | **no data at all** — see §4.3.4.1 |
 | `moderation.write` | **0.3 req/s** | unknown; interactive and low-volume, kept conservative |
-| `auth` | negligible | login and re-login only |
+| `auth` | negligible | login and re-login only; at most 4 counted requests an hour (§4.1.2) |
+| `auth.verify` | **0.1 req/s** | **no data** — `GET /auth`, the session check; a guess to confirm (§4.1.2) |
 
 ##### 4.3.4.1 `users.groups` — an unmeasured endpoint, isolated rather than guessed at
 

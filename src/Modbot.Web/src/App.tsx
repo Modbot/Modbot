@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Footer, Sidebar, Topbar } from '@/components/Chrome'
+import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { NAV, mayOpen, type PageId } from '@/lib/nav'
@@ -260,6 +261,8 @@ function Shell({
         badges={{ reviews: openReviews }}
       />
       <main className="flex flex-col overflow-auto">
+        {/* Above everything, for everyone signed in, on every page (foundation spec 4.1.2). */}
+        <SignInWaitBanner />
         <Topbar
           title={title}
           {...prefs}

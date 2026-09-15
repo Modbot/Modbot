@@ -100,6 +100,27 @@ public sealed record RateLimitOptions
     /// </summary>
     public TimeSpan StateFlushInterval { get; init; } = TimeSpan.FromSeconds(30);
 
+    /// <summary>
+    /// The most requests that could count as a VRChat sign-in Modbot will send in any rolling hour
+    /// (spec 4.1.2). Configuration may lower it; nothing raises it.
+    /// </summary>
+    /// <remarks>
+    /// VRChat allows about four or five an hour and answers the next with an hour-long block, so
+    /// the ceiling sits at the bottom of that range rather than in it. Sits beside the
+    /// <c>auth</c> bucket in <see cref="VRChatRateLimits.Defaults"/>, which paces the same requests
+    /// over seconds; this counts them over the hour.
+    /// </remarks>
+    public const int MaxSignInsPerHour = 4;
+
+    private readonly int _signInsPerHour = MaxSignInsPerHour;
+
+    /// <summary>See <see cref="MaxSignInsPerHour"/>. Clamped to between one and that ceiling on write.</summary>
+    public int SignInsPerHour
+    {
+        get => _signInsPerHour;
+        init => _signInsPerHour = Math.Clamp(value, 1, MaxSignInsPerHour);
+    }
+
     /// <summary>The per-class budgets, keyed by endpoint class.</summary>
     public IReadOnlyDictionary<string, RateLimitClassOptions> Classes { get; init; } =
         VRChatRateLimits.Defaults;
@@ -276,11 +297,22 @@ public static class VRChatRateLimits
                 CountsAgainstGlobal: false),
 
             // A login is GetCurrentUser, Verify2FA, GetCurrentUser. Pacing that at one per two
-            // seconds would make every restart look like a hang, so this is the one bucket with
-            // a burst -- of exactly the size of the sequence it exists to admit.
+            // seconds would make a sign-in look like a hang, so this is the one bucket with a
+            // burst -- of exactly the size of the sequence it exists to admit. How many of those
+            // may be sent in an hour is RateLimitOptions.SignInsPerHour (spec 4.1.2), not this.
             [VRChatEndpointClass.Auth] = new(
                 VRChatEndpointClass.Auth, AuthLane,
                 HardMaxPerSecond: 0.5, DefaultCeilingPerSecond: CeilingFor(0.5),
                 CountsAgainstGlobal: false, BurstTokens: 3),
+
+            // Verify Auth Token, the session check (spec 4.1.2). NOT MEASURED -- the maintainer gave
+            // no limit for it, and this needs confirming. One per ten seconds is a guess kept
+            // deliberately low: it is asked on start-up and after a 401 and nowhere else, so it
+            // never needs more. On the auth lane, and not counted against the sign-ins per hour,
+            // because the maintainer confirmed it does not sign in again.
+            [VRChatEndpointClass.AuthVerify] = new(
+                VRChatEndpointClass.AuthVerify, AuthLane,
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
+                CountsAgainstGlobal: false),
         };
 }

@@ -64,12 +64,18 @@ public static class VRChatServiceCollectionExtensions
             rateLimits,
             provider.GetRequiredService<ISyncPacingSource>()));
 
+        // The sign-in limit's record (spec 4.1.2). In the database, so a restart or a crash loop
+        // cannot hand the hour's sign-ins back or cut a wait short.
+        services.AddSingleton<IVRChatSignInStore, DatabaseSignInStore>();
+
         services.AddSingleton<IVRChatGate>(provider => new VRChatGate(
             provider.GetRequiredService<IVRChatClientFactory>(),
             provider.GetRequiredService<IVRChatConnectionStore>(),
             provider.GetRequiredService<IRateLimiter>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
-            provider.GetRequiredService<IMonotonicClock>()));
+            provider.GetRequiredService<IMonotonicClock>(),
+            signIns: provider.GetRequiredService<IVRChatSignInStore>(),
+            rateLimits: rateLimits));
 
         return services;
     }
@@ -280,6 +286,12 @@ public static class VRChatServiceCollectionExtensions
         services.AddHostedService(provider => new RoomHeadCountSyncService(
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<IMonotonicClock>()));
+
+        // The one sign-in attempt after a wait (spec 4.1.2), made on time even when nothing else is
+        // asking VRChat for anything.
+        services.AddHostedService(provider => new SignInResumeService(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<IDelayScheduler>()));
 
         services.AddHostedService(provider => new GroupBanSyncService(
             provider.GetRequiredService<IServiceScopeFactory>(),

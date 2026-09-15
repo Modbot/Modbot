@@ -453,7 +453,7 @@ public sealed class GroupMemberSync
         bool started,
         CancellationToken ct)
     {
-        if (result.Kind == VRChatFailureKind.RateLimited)
+        if (result.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
         {
             // Never retried, and not logged as an error: a cold stop is the design working
             // (spec 4.3.1). The cursor stays; the next pass reads the same page.

@@ -31,6 +31,7 @@ export type ConnectionOutcome =
   | 'NetworkFailure'
   | 'WafBlocked'
   | 'RateLimited'
+  | 'SignInWaiting'
   | 'CredentialsRejected'
   | 'TwoFactorMissing'
   | 'Error'
@@ -54,7 +55,7 @@ export type OnboardingStatus = {
   vrChatLinked: boolean
   onboardingComplete: boolean
   nextStep: OnboardingStep
-  vrChat: { username: string | null; displayName: string | null; verifiedAt: string | null }
+  vrChat: { username: string | null; displayName: string | null; verifiedAt: string | null; lastSignedInAt: string | null }
   connection: {
     checkedAt: string | null
     proxyUrl: string | null
@@ -967,6 +968,18 @@ export type GateHealth = {
   coldStoppedBuckets: number
   coldStopEndsAt: string | null
   alertingBuckets: number
+  /** Set while Modbot waits to sign in to VRChat again (foundation spec 4.1.2). */
+  signInWait: SignInWait | null
+  lastSignedInAt: string | null
+  signInsInLastHour: number
+  signInLimit: number
+}
+
+export type SignInWait = {
+  reason: 'RateLimitedByVRChat' | 'SignInLimitReached'
+  retryAt: string
+  /** Whole seconds left on the server's clock when the answer was read. Count down from this, not from the browser's clock. */
+  secondsLeft: number
 }
 
 export type BucketHealth = {

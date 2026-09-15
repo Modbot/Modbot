@@ -46,6 +46,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// </summary>
     public DbSet<RateLimitBucket> RateLimitBuckets => Set<RateLimitBucket>();
 
+    /// <summary>Requests that could count as a VRChat sign-in, kept for an hour (spec 4.1.2).</summary>
+    public DbSet<VRChatSignInAttempt> VRChatSignInAttempts => Set<VRChatSignInAttempt>();
+
     /// <summary>
     /// ASP.NET Core's data protection key ring, persisted rather than held in memory.
     /// </summary>
@@ -756,6 +759,16 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // runs on every dashboard load.
             entity.HasIndex(e => e.StoppedUntil)
                 .HasDatabaseName("ix_rate_limit_bucket_stopped");
+        });
+
+        builder.Entity<VRChatSignInAttempt>(entity =>
+        {
+            entity.ToTable("vrchat_sign_in_attempt");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Operation).HasColumnType("text");
+
+            // "How many in the last hour" is the only question ever asked of this table.
+            entity.HasIndex(e => e.At).HasDatabaseName("ix_vrchat_sign_in_attempt_at");
         });
 
         builder.Entity<DailyTotalsState>(entity =>

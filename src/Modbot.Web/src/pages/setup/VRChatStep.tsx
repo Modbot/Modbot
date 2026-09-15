@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type ConnectionDiagnosis } from '@/lib/api'
+import { refreshGateHealth } from '@/lib/useGateHealth'
 import { DiagnosisNote } from './DiagnosisNote'
 import { ErrorText, Field, Note, WizardBody, WizardHeader } from './WizardChrome'
 import { WIZARD_FORM_ID, type StepProps } from './types'
@@ -33,6 +34,8 @@ export function VRChatStep({ eyebrow, status, run, refresh }: StepProps) {
       } catch (e) {
         if (e instanceof ApiError && e.diagnosis) {
           setDiagnosis(e.diagnosis)
+          // The banner is what says how long; ask for it now rather than at the next poll.
+          if (e.diagnosis.outcome === 'SignInWaiting') void refreshGateHealth()
           return false
         }
 

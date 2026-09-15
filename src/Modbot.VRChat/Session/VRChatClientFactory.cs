@@ -95,20 +95,25 @@ public sealed class VRChatClientFactory(
         if (!string.IsNullOrWhiteSpace(connection.TotpSecret))
             builder = builder.WithTwoFactorSecret(connection.TotpSecret);
 
-        if (!string.IsNullOrWhiteSpace(connection.AuthCookie))
-        {
-            // The two-factor cookie is optional: without it a rebuilt session simply re-verifies,
-            // which costs one more request against the auth endpoint. It is omitted rather than
-            // sent empty, because an empty cookie is a cookie VRChat still has to reject.
-            builder = string.IsNullOrWhiteSpace(connection.TwoFactorAuthCookie)
-                ? builder.WithAuthCookie(connection.AuthCookie)
-                : builder.WithAuthCookie(connection.AuthCookie, connection.TwoFactorAuthCookie);
-        }
-
         if (!string.IsNullOrWhiteSpace(connection.ProxyUrl))
             builder = builder.WithProxy(Proxy(connection));
 
         var client = builder.Build();
+
+        // Stored cookies go into the client's cookie jar, not through WithAuthCookie. That method
+        // stores them in the configuration, and the SDK copies a configured cookie back into the
+        // jar before every request -- so a cookie VRChat replaced with Set-Cookie would be
+        // overwritten by the old one on the very next call, and the next call would be a 401
+        // (spec 4.1.2). In the jar, VRChat's own Set-Cookie wins, which is what a browser does.
+        //
+        // Either cookie may be absent. The two-factor cookie in particular is sent on a sign-in
+        // with the password, where it lets VRChat skip the challenge: two fewer requests counted
+        // against the sign-in limit.
+        if (client is VRChatClient concrete)
+        {
+            AddCookie(concrete, "auth", connection.AuthCookie);
+            AddCookie(concrete, "twoFactorAuth", connection.TwoFactorAuthCookie);
+        }
 
         // The developer is named on every request, not only in the User-Agent, so the project is
         // reachable from a single log line on VRChat's side even when the operator is not.
@@ -126,6 +131,19 @@ public sealed class VRChatClientFactory(
     {
         var email = _operator.Email;
         return string.IsNullOrWhiteSpace(email) ? _options.DeveloperContactEmail : email.Trim();
+    }
+
+    /// <summary>The domain VRChat's API sets its cookies on, and the one the SDK itself uses.</summary>
+    public const string CookieDomain = "api.vrchat.cloud";
+
+    private static void AddCookie(VRChatClient client, string name, string? value)
+    {
+        // Omitted rather than sent empty, because an empty cookie is a cookie VRChat still has to
+        // reject.
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        client.HttpClientHandler.CookieContainer.Add(new Cookie(name, value, "/", CookieDomain));
     }
 
     private static WebProxy Proxy(VRChatConnection connection)

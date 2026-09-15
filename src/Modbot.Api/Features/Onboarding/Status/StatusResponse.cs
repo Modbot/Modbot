@@ -42,7 +42,9 @@ public enum OnboardingStep
 
 /// <param name="VerifiedAt">When VRChat last accepted these credentials.</param>
 /// <param name="DisplayName">The account VRChat said they belong to.</param>
-public sealed record VRChatAccountStatus(string? Username, string? DisplayName, DateTimeOffset? VerifiedAt);
+/// <param name="LastSignedInAt">When Modbot last signed in to VRChat with the password (spec 4.1.2).</param>
+public sealed record VRChatAccountStatus(
+    string? Username, string? DisplayName, DateTimeOffset? VerifiedAt, DateTimeOffset? LastSignedInAt = null);
 
 /// <param name="ProxyUrl">
 /// The configured egress proxy, or null. The <em>password</em> is never returned — spec 5.9.3 and

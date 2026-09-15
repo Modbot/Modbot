@@ -364,7 +364,7 @@ public sealed class GroupBanSync
         bool started,
         CancellationToken ct)
     {
-        if (result.Kind == VRChatFailureKind.RateLimited)
+        if (result.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
         {
             _log.Information(
                 "Ban sweep is paused: {Reason}",

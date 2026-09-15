@@ -56,6 +56,13 @@ public enum VRChatFailureKind
     /// <summary>VRChat rate limited, or a bucket is cold-stopped. Waiting is the only remedy.</summary>
     RateLimited,
 
+    /// <summary>
+    /// Nothing was sent: a sign-in is needed and Modbot is waiting out a rate limit on signing in
+    /// (spec 4.1.2). Waiting is the only remedy, the same as <see cref="RateLimited"/>, and sync
+    /// treats the two alike.
+    /// </summary>
+    SignInWaiting,
+
     /// <summary>VRChat rejected the username or password. Nothing about the network is wrong.</summary>
     CredentialsRejected,
 

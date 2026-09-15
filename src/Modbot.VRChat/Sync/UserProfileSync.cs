@@ -377,7 +377,7 @@ public sealed class UserProfileSync
     {
         var userId = request.UserId;
 
-        if (result.Kind == VRChatFailureKind.RateLimited)
+        if (result.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
         {
             // Never retried, and not logged as an error: a cold stop is the design working
             // (spec 4.3.1). The request goes back to the front of its tier -- it was not spent.

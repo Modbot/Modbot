@@ -35,6 +35,9 @@ public sealed class StubHttpServer : IDisposable
     /// <summary>Request lines the server saw, so a test can assert what was sent.</summary>
     public List<string> Requests { get; } = [];
 
+    /// <summary>Each request's line and headers, so a test can assert what was sent with it.</summary>
+    public List<string> Heads { get; } = [];
+
     public void Dispose()
     {
         _stopping.Cancel();
@@ -82,6 +85,7 @@ public sealed class StubHttpServer : IDisposable
             lock (Requests)
             {
                 Requests.Add(requestLine);
+                Heads.Add(request.ToString());
             }
 
             var (status, body) = _respond(requestLine);

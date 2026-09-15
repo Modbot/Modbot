@@ -83,7 +83,7 @@ public sealed class WorldSync
                 VRChatCallPriority.Background,
                 ct).ConfigureAwait(false);
 
-            if (result.Kind == VRChatFailureKind.RateLimited)
+            if (result.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
             {
                 // Cold stop: stop the pass where it is rather than walking the rest of the list
                 // into the same wall. Never retried (spec 4.3.1).
