@@ -44,7 +44,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.ManageUsers, "Manage users", "Add people, invite them, disable them and change their roles.", "Administration"),
         Describe(ModbotPermissions.ManageRoles, "Manage roles", "Create roles and decide what each one allows.", "Administration"),
         Describe(ModbotPermissions.ManageSettings, "Change settings", "VRChat account, group, proxy, retention, evidence storage, AI and integrations.", "Administration"),
-        Describe(ModbotPermissions.ManageApiKeys, "Manage API keys", "Create and revoke keys for the read API.", "Administration"),
+        Describe(ModbotPermissions.ManageApiKeys, "Manage API keys and webhooks", "Create and revoke API keys, and set up webhooks.", "Administration"),
         Describe(ModbotPermissions.Administrator, "Administrator", "Everything, including things added in future versions.", "Administration"),
     ];
 

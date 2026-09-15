@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Api.Features.ApiKeys;
 using Modbot.Api.Features.Auth.Account;
 using Modbot.Api.Features.Auth.Login;
 using Modbot.Api.Features.Auth.Logout;
@@ -108,6 +109,10 @@ public static class ApiSurface
         app.MapInvites();
         app.MapResetLinks();
         app.MapRoles();
+
+        // Keys for programs (API keys design §3). A key is accepted by every endpoint mapped here,
+        // through the same authorisation a session goes through.
+        app.MapApiKeys();
 
         app.MapDataSettings();
         app.MapSyncSettings();

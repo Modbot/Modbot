@@ -22,6 +22,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Invite and password reset links, stored as hashes (design §4.1).</summary>
     public DbSet<OneTimeLink> OneTimeLinks => Set<OneTimeLink>();
 
+    /// <summary>Keys for programs, stored as hashes (API keys design §3).</summary>
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+
     /// <summary>The fact log (spec 5.3). Append-only: never update or delete a row here.</summary>
     public DbSet<ModbotEvent> Events => Set<ModbotEvent>();
 
@@ -257,6 +260,23 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // "This account's outstanding reset links" and "who created this invite" are the
             // other two questions asked of the table.
             entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.CreatedByUserId);
+        });
+
+        builder.Entity<ApiKey>(entity =>
+        {
+            entity.ToTable("api_key");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(64);
+            entity.Property(e => e.Start).HasMaxLength(16);
+            entity.Property(e => e.KeyHash).HasMaxLength(64);
+
+            // Every request made with a key is a lookup by this hash, and two keys must never
+            // share one.
+            entity.HasIndex(e => e.KeyHash).IsUnique();
             entity.HasIndex(e => e.CreatedByUserId);
         });
 

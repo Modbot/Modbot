@@ -45,6 +45,9 @@ public static class ModbotAuth
 {
     public const string CookieName = "modbot.session";
 
+    /// <summary>The forwarding scheme that picks the key handler or the cookie handler per request.</summary>
+    public const string DefaultScheme = "Modbot";
+
     /// <summary>The permission bitfield, as an invariant decimal string.</summary>
     public const string PermissionsClaim = "modbot:permissions";
 
@@ -96,8 +99,18 @@ public static class ModbotAuth
         services.TryAddScoped<IEmailSender, SmtpEmailSender>();
         services.TryAddScoped<IDiscordMessenger, NoDiscordMessenger>();
 
+        services.AddScoped<ApiCallers>();
+
         services
-            .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddAuthentication(DefaultScheme)
+            // API keys design §3.4: a request carrying a key goes to the key handler, everything
+            // else to the cookie handler exactly as it did before keys existed. Sign-in and
+            // sign-out name the cookie scheme explicitly, so they never pass through here.
+            .AddPolicyScheme(DefaultScheme, DefaultScheme, options =>
+                options.ForwardDefaultSelector = context => ApiKeyAuthentication.Carries(context)
+                    ? ApiKeyAuthentication.Scheme
+                    : CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthentication.Scheme, null)
             .AddCookie(options =>
             {
                 options.Cookie.Name = CookieName;
