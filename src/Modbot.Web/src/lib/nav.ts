@@ -16,6 +16,9 @@ export const NAV = [
   // Questions answered from Modbot's own data, with tools that run as the person asking.
   { id: 'chat', label: 'Chat', needs: 'UseAiChat' },
   { id: 'bans', label: 'Bans', needs: 'ViewAuditLog' },
+  // What AI moderation rules flagged. A flag is a note about a person, so it needs ViewProfile;
+  // dismissing one needs ReviewTickets, which the page checks for itself.
+  { id: 'flags', label: 'Flags', needs: 'ViewProfile' },
   { id: 'audit', label: 'Audit log', needsAny: ['ViewAuditLog', 'ViewOperationalLog'] },
   // One page per question (spec 10.1), not one "metrics" page. Tracked Groups is a later
   // feature (spec 10.3) and has no entry until it exists.

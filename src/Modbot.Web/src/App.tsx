@@ -26,6 +26,7 @@ import { MyTeam } from '@/pages/analytics/MyTeam'
 import { Worlds } from '@/pages/analytics/Worlds'
 import { Pair } from '@/pages/Pair'
 import { ResetPassword } from '@/pages/ResetPassword'
+import { Flags } from '@/pages/Flags'
 import { Reviews } from '@/pages/Reviews'
 import { Roles } from '@/pages/Roles'
 import { Settings } from '@/pages/Settings'
@@ -37,6 +38,7 @@ const TITLES: Record<PageId, string> = {
   live: 'Live',
   chat: 'Chat',
   bans: 'Bans',
+  flags: 'Flags',
   audit: 'Audit log',
   'analytics-group': 'My Group',
   'analytics-team': 'My Team',
@@ -62,6 +64,7 @@ const PATHS: Record<PageId, string> = {
   live: '/live',
   chat: '/chat',
   bans: '/bans',
+  flags: '/flags',
   audit: '/audit',
   'analytics-group': '/analytics/group',
   'analytics-team': '/analytics/team',
@@ -272,6 +275,7 @@ function Shell({
               onBack={() => navigate(PATHS.bans)}
             />
           )}
+          {page === 'flags' && <Flags me={me} onOpenSubject={setSubject} />}
           {page === 'audit' && <AuditLog />}
           {page === 'analytics-group' && <MyGroup />}
           {page === 'analytics-team' && (

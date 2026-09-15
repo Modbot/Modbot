@@ -3,6 +3,7 @@ import { Tabs } from '@/components/ui/tabs'
 import { AiBaseSettings } from './AiBaseSettings'
 import { AiInsightsSettings } from './AiInsightsSettings'
 import { AiChatSettings } from './AiChatSettings'
+import { AiModerationSettings } from './AiModerationSettings'
 
 /**
  * The AI sub-tabs, in order. The id is the part after the slash in `/settings#ai/base`.
@@ -14,6 +15,7 @@ const AI_TABS = [
   { value: 'base', label: 'Base', panel: AiBaseSettings },
   { value: 'insights', label: 'Insights', panel: AiInsightsSettings },
   { value: 'chat', label: 'Chat', panel: AiChatSettings },
+  { value: 'moderation', label: 'Moderation', panel: AiModerationSettings },
 ] as const
 
 type AiTabId = (typeof AI_TABS)[number]['value']

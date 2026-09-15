@@ -1776,6 +1776,9 @@ const put = <T>(path: string, body: unknown): Promise<T> =>
 
 const del = <T>(path: string): Promise<T> => request<T>(path, { method: 'DELETE' })
 
+/** The same helpers, for a feature that keeps its calls in its own file (lib/aiModeration.ts). */
+export const http = { request, post, put, del }
+
 export const api = {
   onboardingStatus: () => request<OnboardingStatus>('/api/onboarding/status'),
 
