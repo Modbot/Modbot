@@ -115,10 +115,14 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     public Task<DiscordPostOutcome> PostAsync(
         string channelId, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct) =>
-        PostAsync(channelId, text: null, embeds, ct);
+        PostAsync(channelId, text: null, embeds, links: null, ct);
 
     public Task<DiscordPostOutcome> PostAsync(
-        string channelId, string? text, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct)
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(embeds);
 
@@ -129,7 +133,8 @@ public sealed class DiscordNetGateway : IDiscordGateway
             var sent = await channel.SendMessageAsync(
                     text: text,
                     embeds: embeds.Select(ToEmbed).ToArray(),
-                    allowedMentions: AllowedMentions.None)
+                    allowedMentions: AllowedMentions.None,
+                    components: Buttons(links) is { Components.Count: > 0 } buttons ? buttons : null)
                 .ConfigureAwait(false);
 
             return DiscordPostOutcome.Posted(
@@ -142,6 +147,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
         string messageId,
         string? text,
         IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(embeds);
@@ -167,6 +173,9 @@ public sealed class DiscordNetGateway : IDiscordGateway
                 m.Content = text;
                 m.Embeds = embeds.Select(ToEmbed).ToArray();
                 m.AllowedMentions = AllowedMentions.None;
+
+                // Always set, so an edit with no buttons takes away the ones the message had.
+                m.Components = Buttons(links);
             }).ConfigureAwait(false);
 
             return DiscordPostOutcome.Posted(messageId);
@@ -411,6 +420,25 @@ public sealed class DiscordNetGateway : IDiscordGateway
         return builder.Build();
     }
 
+    /// <summary>Link buttons on one row. An address that is not plain https is left off.</summary>
+    private static MessageComponent Buttons(IReadOnlyList<DiscordLinkButton>? links)
+    {
+        var builder = new ComponentBuilder();
+
+        foreach (var link in links ?? [])
+        {
+            if (IsHttps(link.Url) && link.Label is { Length: > 0 })
+                builder.WithButton(label: link.Label, style: ButtonStyle.Link, url: link.Url);
+        }
+
+        return builder.Build();
+    }
+
+    private static bool IsHttps(string? address) =>
+        address is { Length: > 0 }
+        && Uri.TryCreate(address, UriKind.Absolute, out var uri)
+        && uri.Scheme == Uri.UriSchemeHttps;
+
     private static Embed ToEmbed(DiscordEmbedContent content)
     {
         var builder = new EmbedBuilder()
@@ -423,8 +451,16 @@ public sealed class DiscordNetGateway : IDiscordGateway
         if (content.Timestamp is { } at)
             builder.WithTimestamp(at);
 
-        if (content.Url is { Length: > 0 })
+        // Discord refuses the whole message over one bad address, so anything that is not a plain
+        // https address is left off rather than allowed to lose the post.
+        if (IsHttps(content.Url))
             builder.WithUrl(content.Url);
+
+        if (IsHttps(content.ImageUrl))
+            builder.WithImageUrl(content.ImageUrl);
+
+        if (IsHttps(content.ThumbnailUrl))
+            builder.WithThumbnailUrl(content.ThumbnailUrl);
 
         if (content.Footer is { Length: > 0 })
             builder.WithFooter(content.Footer);

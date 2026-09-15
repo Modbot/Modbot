@@ -415,4 +415,37 @@ public class InstanceAnnouncerTests
     [Fact]
     public void NamesAreOnByDefault()
         => Assert.True(new Settings().DiscordInstanceShowNames);
+
+    [Fact]
+    public async Task TheCardIsPostedWithAJoinButton_AndTheClosingEditTakesItAway()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
+        var id = await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 2, ct: ct);
+
+        await RunAsync(services, gateway, ct);
+
+        var posted = Assert.Single(gateway.Messages);
+        var join = Assert.Single(posted.Links);
+        Assert.Equal("Join", join.Label);
+        Assert.StartsWith("https://vrchat.com/home/launch?worldId=", join.Url, StringComparison.Ordinal);
+        Assert.Equal(join.Url, Assert.Single(posted.Embeds).Url);
+
+        await using (var db = services.Database.NewContext())
+        {
+            var room = await db.VRChatInstances.FirstAsync(i => i.Id == id, ct);
+            room.ClosedAt = services.Clock.UtcNow;
+            room.ClosedBy = "list";
+            await db.SaveChangesAsync(ct);
+        }
+
+        await RunAsync(services, gateway, ct);
+
+        var closing = Assert.Single(gateway.Edits);
+        Assert.Empty(closing.Links);
+        Assert.Null(Assert.Single(closing.Embeds).Url);
+    }
 }

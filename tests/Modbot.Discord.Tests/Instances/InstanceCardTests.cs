@@ -133,4 +133,97 @@ public class InstanceCardTests
 
         Assert.DoesNotContain(card.Fields, f => f.Name == "Who is here");
     }
+
+    /// <summary>The address format the maintainer gave, character for character.</summary>
+    [Fact]
+    public void TheJoinLink_IsVRChatsLaunchPage_WithTheFullInstanceId()
+    {
+        var room = Room();
+        room.Location = "wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd:26093~group(grp_0a17232e-6ad4-4889-8e1e-6e0c5fa815fd)~groupAccessType(plus)~region(us)";
+        room.WorldId = "wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd";
+
+        Assert.Equal(
+            "https://vrchat.com/home/launch?worldId=wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd&instanceId=26093~group(grp_0a17232e-6ad4-4889-8e1e-6e0c5fa815fd)~groupAccessType(plus)~region(us)",
+            InstanceCard.JoinLink(room));
+    }
+
+    [Fact]
+    public void TheJoinLink_EscapesAnythingThatWouldSplitTheAddress()
+    {
+        var room = Room();
+        room.Location = "wrld_a:1&x=2#frag";
+
+        Assert.Equal("https://vrchat.com/home/launch?worldId=wrld_a&instanceId=1%26x%3D2%23frag", InstanceCard.JoinLink(room));
+    }
+
+    [Fact]
+    public void AnOpenRoom_LinksTheTitleAndCarriesAJoinButtonAndTheWorldsPicture()
+    {
+        var room = Room();
+        var world = new VRChatWorld { WorldId = "wrld_a", Name = "VRChat Home", ImageUrl = "https://api.vrchat.cloud/api/1/file/file_a/1/file" };
+
+        var card = InstanceCard.For(room, world, Now);
+
+        Assert.Equal(InstanceCard.JoinLink(room), card.Url);
+        Assert.Equal("https://api.vrchat.cloud/api/1/file/file_a/1/file", card.ImageUrl);
+
+        var join = Assert.Single(InstanceCard.Links(room));
+        Assert.Equal("Join", join.Label);
+        Assert.Equal(InstanceCard.JoinLink(room), join.Url);
+    }
+
+    [Fact]
+    public void AWorldWithOnlyAThumbnail_UsesTheThumbnail()
+    {
+        var world = new VRChatWorld { WorldId = "wrld_a", ThumbnailImageUrl = "https://api.vrchat.cloud/api/1/image/file_a/1/256" };
+
+        Assert.Equal("https://api.vrchat.cloud/api/1/image/file_a/1/256", InstanceCard.For(Room(), world, Now).ImageUrl);
+    }
+
+    [Fact]
+    public void AClosedRoom_HasNoJoinLinkAndNoButton()
+    {
+        var room = Room();
+        room.ClosedAt = Now;
+
+        Assert.Null(InstanceCard.For(room, null, Now).Url);
+        Assert.Empty(InstanceCard.Links(room));
+    }
+
+    /// <summary>A group can set an instance id to any text; it must not render as formatting.</summary>
+    [Fact]
+    public void AnInstanceIdWithFormatting_IsEscapedOnTheCard()
+    {
+        var room = Room();
+        room.VRChatInstanceId = "**@everyone** __big__";
+
+        var value = InstanceCard.For(room, null, Now).Fields.Single(f => f.Name == "Instance").Value;
+
+        Assert.Equal(InstanceCard.Escape("**@everyone** __big__"), value);
+        Assert.DoesNotContain("**@everyone**", value, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AVeryLongInstanceId_GetsACardButNoJoinLink()
+    {
+        var room = Room();
+        room.Location = "wrld_a:" + new string('9', 600);
+        room.VRChatInstanceId = new string('9', 2000);
+
+        var card = InstanceCard.For(room, null, Now);
+
+        Assert.Null(InstanceCard.JoinLink(room));
+        Assert.Null(card.Url);
+        Assert.Empty(InstanceCard.Links(room));
+        Assert.True(card.Fields.Single(f => f.Name == "Instance").Value.Length <= InstanceCard.FieldValueLimit);
+    }
+
+    [Fact]
+    public void TheWorldsCapacity_ShowsWhenItsPageSaysIt()
+    {
+        var world = new VRChatWorld { WorldId = "wrld_a", Capacity = 32 };
+
+        Assert.Equal("32", InstanceCard.For(Room(), world, Now).Fields.Single(f => f.Name == "Capacity").Value);
+        Assert.DoesNotContain(InstanceCard.For(Room(), null, Now).Fields, f => f.Name == "Capacity");
+    }
 }

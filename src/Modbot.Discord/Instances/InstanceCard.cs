@@ -31,8 +31,15 @@ namespace Modbot.Discord.Instances;
 /// disabled on every message this bot sends, so a name spelled like a mention is text.
 /// </para>
 /// <para>
-/// The card never links straight into the instance. A group room's location string carries the
-/// qualifiers that let anybody holding it join, and a channel is not the place to publish one.
+/// <strong>The card links straight into the instance</strong>, through the world name and a Join
+/// button, both opening VRChat's launch page (<see cref="JoinLink"/>). It is only ever posted for
+/// the group's own rooms, and VRChat still applies the room's access -- group members, members and
+/// their friends, or anyone -- when the link is opened, so it lets the people who could already
+/// join do it in one click and lets nobody else in. Both go away when the room closes.
+/// </para>
+/// <para>
+/// <strong>The world's picture</strong> is the one VRChat's world page gave, as stored in
+/// <c>vrchat_world</c>. A world not read yet has none, and the card goes without it.
 /// </para>
 /// </remarks>
 public static class InstanceCard
@@ -94,12 +101,20 @@ public static class InstanceCard
             fields.Add(new DiscordEmbedField("Who can join", Access(access), Inline: true));
 
         if (room.Region is { Length: > 0 } region)
-            fields.Add(new DiscordEmbedField("Region", region.ToUpperInvariant(), Inline: true));
+            fields.Add(new DiscordEmbedField("Region", Fit(Escape(region.ToUpperInvariant())), Inline: true));
+
+        // What the world's page says it holds, when it has been read. Shown, never enforced.
+        if (world?.Capacity is > 0 and var capacity)
+            fields.Add(new DiscordEmbedField("Capacity", capacity.ToString(CultureInfo.InvariantCulture), Inline: true));
 
         // The instance number, so a moderator reading the channel can match it to what they see
-        // in game. Not the whole location string -- see the remarks above.
+        // in game. The full location goes in the join link instead of on screen.
+        //
+        // Escaped like a display name, because it is not always a number: a group can set an
+        // instance id to any text through the API (M6 spec 4.1.1), and it would otherwise render as
+        // formatting on a card every member reads.
         if (room.VRChatInstanceId is { Length: > 0 } number)
-            fields.Add(new DiscordEmbedField("Instance", number, Inline: true));
+            fields.Add(new DiscordEmbedField("Instance", Fit(Escape(number)), Inline: true));
 
         if (!closed && names is { Count: > 0 } && NameList(names) is { } list)
             fields.Add(new DiscordEmbedField("Who is here", list, Inline: false));
@@ -112,9 +127,64 @@ public static class InstanceCard
             Color: colour,
             Fields: fields,
             Timestamp: closed ? room.ClosedAt : room.OpenedAt,
-            Url: null,
-            Footer: closed ? "Closed" : "Open now");
+            Url: closed ? null : JoinLink(room),
+            Footer: closed ? "Closed" : "Open now",
+            ImageUrl: world?.ImageUrl ?? world?.ThumbnailImageUrl);
     }
+
+    /// <summary>
+    /// The buttons under a room's card: Join while it is open, none once it has closed.
+    /// </summary>
+    public static IReadOnlyList<DiscordLinkButton> Links(VRChatInstance room)
+    {
+        ArgumentNullException.ThrowIfNull(room);
+
+        return room.ClosedAt is null && JoinLink(room) is { } link
+            ? [new DiscordLinkButton("Join", link)]
+            : [];
+    }
+
+    /// <summary>
+    /// VRChat's launch page for a room:
+    /// <c>https://vrchat.com/home/launch?worldId=wrld_…&amp;instanceId=26093~group(grp_…)~groupAccessType(plus)~region(us)</c>.
+    /// </summary>
+    /// <remarks>
+    /// <c>instanceId</c> is everything after the first <c>:</c> of the location, qualifiers and all,
+    /// because the qualifiers are part of which room it is. The characters VRChat writes in a
+    /// location (<c>~</c>, <c>(</c>, <c>)</c>) are kept as they are, and anything that could end or
+    /// split the query string is escaped.
+    /// </remarks>
+    /// <returns>
+    /// Null when the location has no instance part, or when the link would be longer than
+    /// <see cref="MaxLinkLength"/>.
+    /// </returns>
+    public static string? JoinLink(VRChatInstance room)
+    {
+        ArgumentNullException.ThrowIfNull(room);
+
+        var colon = room.Location.IndexOf(':');
+        if (colon < 0 || colon == room.Location.Length - 1)
+            return null;
+
+        var worldId = room.WorldId is { Length: > 0 } world ? world : room.Location[..colon];
+        var instanceId = room.Location[(colon + 1)..];
+
+        var link = $"https://vrchat.com/home/launch?worldId={QueryValue(worldId)}&instanceId={QueryValue(instanceId)}";
+
+        // Discord refuses the whole message when a link button's address is too long, so a room with
+        // a very long custom instance id gets its card without the link rather than no card at all.
+        return link.Length <= MaxLinkLength ? link : null;
+    }
+
+    /// <summary>The longest address Discord accepts for a link button.</summary>
+    public const int MaxLinkLength = 512;
+
+    /// <summary>Cuts a value to fit one embed field.</summary>
+    private static string Fit(string value) =>
+        value.Length <= FieldValueLimit ? value : value[..(FieldValueLimit - 1)] + "…";
+
+    private static string QueryValue(string value) =>
+        Uri.EscapeDataString(value).Replace("%28", "(", StringComparison.Ordinal).Replace("%29", ")", StringComparison.Ordinal);
 
     /// <summary>
     /// The names as one field value: escaped, one per line, at most <see cref="NamesListed"/>, then

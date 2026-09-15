@@ -35,6 +35,8 @@ public sealed record DiscordEmbedField(string Name, string Value, bool Inline = 
 /// A rich message card, described without the library's types so the formatting can be tested
 /// and the library swapped. Sizes are Discord's: title 256, description 4096, field value 1024.
 /// </summary>
+/// <param name="ImageUrl">A large picture across the bottom of the card. Only an https address is used.</param>
+/// <param name="ThumbnailUrl">A small picture in the top corner. Only an https address is used.</param>
 public sealed record DiscordEmbedContent(
     string Title,
     string? Description,
@@ -42,7 +44,12 @@ public sealed record DiscordEmbedContent(
     IReadOnlyList<DiscordEmbedField> Fields,
     DateTimeOffset? Timestamp,
     string? Url,
-    string? Footer);
+    string? Footer,
+    string? ImageUrl = null,
+    string? ThumbnailUrl = null);
+
+/// <summary>A button under a message that opens a web address. Only an https address is used.</summary>
+public sealed record DiscordLinkButton(string Label, string Url);
 
 /// <summary>What the bot says back to a command. Always visible only to the person who asked.</summary>
 public sealed record DiscordReply(string? Text, IReadOnlyList<DiscordEmbedContent> Embeds)
@@ -160,8 +167,13 @@ public interface IDiscordGateway : IAsyncDisposable
     /// with mentions disabled: a message written months ago must not be able to ping a channel
     /// every time a room opens.
     /// </param>
+    /// <param name="links">Buttons under the message that open a web address, or null for none.</param>
     Task<DiscordPostOutcome> PostAsync(
-        string channelId, string? text, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct);
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct);
 
     /// <summary>
     /// Rewrites a message the bot posted earlier.
@@ -170,11 +182,15 @@ public interface IDiscordGateway : IAsyncDisposable
     /// A message somebody deleted comes back as a permanent failure, which is the caller's signal
     /// to forget the id rather than to keep trying.
     /// </remarks>
+    /// <param name="links">
+    /// The buttons the message should have after the edit. Null or empty removes any it had.
+    /// </param>
     Task<DiscordPostOutcome> EditAsync(
         string channelId,
         string messageId,
         string? text,
         IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
         CancellationToken ct);
 
     Task DisconnectAsync();

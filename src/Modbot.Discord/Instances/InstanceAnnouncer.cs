@@ -251,7 +251,7 @@ public sealed class InstanceAnnouncer
     {
         var card = InstanceCard.For(room, await WorldOfAsync(room, ct).ConfigureAwait(false), now, names);
 
-        var outcome = await gateway.PostAsync(channelId, message, [card], ct).ConfigureAwait(false);
+        var outcome = await gateway.PostAsync(channelId, message, [card], InstanceCard.Links(room), ct).ConfigureAwait(false);
 
         if (!outcome.Sent || outcome.MessageId is null)
             return outcome;
@@ -280,7 +280,7 @@ public sealed class InstanceAnnouncer
 
         var card = InstanceCard.For(room, await WorldOfAsync(room, ct).ConfigureAwait(false), now, names);
 
-        var outcome = await gateway.EditAsync(channelId, messageId, message, [card], ct).ConfigureAwait(false);
+        var outcome = await gateway.EditAsync(channelId, messageId, message, [card], InstanceCard.Links(room), ct).ConfigureAwait(false);
 
         if (!outcome.Sent)
             return outcome;

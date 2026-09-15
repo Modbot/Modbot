@@ -23,10 +23,10 @@ public sealed class FakeGateway : IDiscordGateway
     public List<(string ChannelId, IReadOnlyList<DiscordEmbedContent> Embeds)> Posts { get; } = [];
 
     /// <summary>Every message posted with a line of text above it, in order, with its id.</summary>
-    public List<(string ChannelId, string MessageId, string? Text, IReadOnlyList<DiscordEmbedContent> Embeds)> Messages { get; } = [];
+    public List<(string ChannelId, string MessageId, string? Text, IReadOnlyList<DiscordEmbedContent> Embeds, IReadOnlyList<DiscordLinkButton> Links)> Messages { get; } = [];
 
     /// <summary>Every rewrite, in order. The message id says which card was changed.</summary>
-    public List<(string ChannelId, string MessageId, string? Text, IReadOnlyList<DiscordEmbedContent> Embeds)> Edits { get; } = [];
+    public List<(string ChannelId, string MessageId, string? Text, IReadOnlyList<DiscordEmbedContent> Embeds, IReadOnlyList<DiscordLinkButton> Links)> Edits { get; } = [];
 
     private int _nextMessageId = 1000;
 
@@ -96,7 +96,11 @@ public sealed class FakeGateway : IDiscordGateway
     }
 
     public Task<DiscordPostOutcome> PostAsync(
-        string channelId, string? text, IReadOnlyList<DiscordEmbedContent> embeds, CancellationToken ct)
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct)
     {
         var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : null;
 
@@ -106,7 +110,7 @@ public sealed class FakeGateway : IDiscordGateway
         var messageId = (_nextMessageId++).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         Posts.Add((channelId, embeds));
-        Messages.Add((channelId, messageId, text, embeds));
+        Messages.Add((channelId, messageId, text, embeds, links ?? []));
 
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
@@ -116,6 +120,7 @@ public sealed class FakeGateway : IDiscordGateway
         string messageId,
         string? text,
         IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
         CancellationToken ct)
     {
         var outcome = _editOutcomes.Count > 0 ? _editOutcomes.Dequeue() : null;
@@ -123,7 +128,7 @@ public sealed class FakeGateway : IDiscordGateway
         if (outcome is { Sent: false })
             return Task.FromResult(outcome);
 
-        Edits.Add((channelId, messageId, text, embeds));
+        Edits.Add((channelId, messageId, text, embeds, links ?? []));
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
 
