@@ -359,7 +359,11 @@ export type StorageDay = { day: string; bytes: number }
  * year of recorded days and starts wherever recording started.
  */
 export type DataSettings = {
-  retention: { moderationFactRetentionDays: number; presenceFactRetentionDays: number }
+  retention: {
+    moderationFactRetentionDays: number
+    presenceFactRetentionDays: number
+    discordMessageRetentionDays: number
+  }
   storage: {
     bytes: number
     facts: number
@@ -994,6 +998,19 @@ export type DiscordBotHealth = {
   logChannelConfigured: boolean
   lastPostedAt: string | null
   postedInThisProcess: number
+  /** The privileged intents Discord refused because they are off in the Developer Portal. */
+  missingIntents: string[] | null
+}
+
+/** How far the bot has read back through the Discord server's message history. */
+export type DiscordReadBackHealth = {
+  channels: number
+  finished: number
+  noAccess: number
+  messagesStored: number
+  lastError: string | null
+  lastErrorAt: string | null
+  updatedAt: string | null
 }
 
 /**
@@ -1040,6 +1057,7 @@ export type SyncHealth = {
   discordChannelProblems?: DiscordChannelProblem[] | null
   memberSweep: SweepHealth | null
   banSweep: SweepHealth | null
+  discordReadBack: DiscordReadBackHealth | null
   now: string
 }
 
@@ -2106,6 +2124,7 @@ export const api = {
   setRetention: (body: {
     moderationFactRetentionDays: number
     presenceFactRetentionDays: number
+    discordMessageRetentionDays: number
   }) => request<typeof body>('/api/settings/retention', {
     method: 'PUT',
     body: JSON.stringify(body),

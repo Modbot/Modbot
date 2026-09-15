@@ -19,4 +19,17 @@ public sealed class DiscordBotOptions
     /// it away and signs in afresh.
     /// </summary>
     public TimeSpan RebuildAfterDisconnected { get; init; } = TimeSpan.FromMinutes(3);
+
+    /// <summary>
+    /// The wait between one page of history and the next while reading back or catching up.
+    /// </summary>
+    /// <remarks>
+    /// Discord allows a bot about fifty requests a second overall and a few a second per channel,
+    /// and the library queues each request behind those limits by itself. Reading as fast as that
+    /// allows would put every post the bot makes -- the moderation log, instance cards -- in the
+    /// same queue behind thousands of history pages. Two pages a second reads a channel of ten
+    /// thousand messages in under a minute and a server of a million in about three hours, while
+    /// leaving nearly all of the limit free.
+    /// </remarks>
+    public TimeSpan ReadPause { get; init; } = TimeSpan.FromMilliseconds(500);
 }

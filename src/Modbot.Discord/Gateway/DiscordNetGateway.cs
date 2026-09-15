@@ -22,11 +22,12 @@ namespace Modbot.Discord.Gateway;
 /// carries, and none of the text-command or interaction frameworks.
 /// </para>
 /// <para>
-/// <strong>Intents.</strong> <c>Guilds</c>, which is what slash commands and channel lookups need
-/// and is not privileged. <c>GuildMembers</c> is added only for a session made with
-/// <see cref="DiscordGatewayOptions.MemberEvents"/> -- the prompt for new joiners -- because it is
-/// privileged: it has to be switched on in the Developer Portal, and Discord closes a session that
-/// asks for it without that (close code 4014).
+/// <strong>Intents.</strong> <see cref="Intents"/>. Two are privileged and must be switched on in
+/// the Developer Portal under Bot, Privileged Gateway Intents: Message Content, because messages
+/// are stored in full (M5 spec §5.1), and Server Members, for joins, leaves and role changes.
+/// Discord refuses the whole session when one is off (close code 4014) without saying which, so
+/// the application's own flags are read to name them on the Health page, and the bot connects
+/// again without them (<see cref="DiscordGatewayOptions"/>).
 /// </para>
 /// <para>
 /// <strong>Threading.</strong> The library raises events on its gateway task and complains when a
@@ -36,8 +37,23 @@ namespace Modbot.Discord.Gateway;
 /// </remarks>
 public sealed class DiscordNetGateway : IDiscordGateway
 {
+    /// <summary>
+    /// What the session asks Discord for. The server: channels, roles, slash commands. Messages and
+    /// their text. Members, with their bans and timeouts. Voice, for voice sessions.
+    /// </summary>
+    public const GatewayIntents Intents =
+        GatewayIntents.Guilds
+        | GatewayIntents.GuildMessages
+        | GatewayIntents.MessageContent
+        | GatewayIntents.GuildMembers
+        | GatewayIntents.GuildVoiceStates
+        | GatewayIntents.GuildBans;
+
     private readonly DiscordSocketClient _client;
     private readonly ILogger _log;
+
+    /// <summary>What this session asked for: <see cref="Intents"/>, less any refused before.</summary>
+    private readonly GatewayIntents _intents;
 
     private volatile DiscordGatewayState _state = DiscordGatewayState.Disconnected;
 
@@ -48,13 +64,11 @@ public sealed class DiscordNetGateway : IDiscordGateway
     {
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
 
-        var intents = GatewayIntents.Guilds;
-        if (options?.MemberEvents == true)
-            intents |= GatewayIntents.GuildMembers;
+        _intents = IntentsFor(options ?? new DiscordGatewayOptions());
 
         _client = new DiscordSocketClient(new DiscordSocketConfig
         {
-            GatewayIntents = intents,
+            GatewayIntents = _intents,
             AlwaysDownloadUsers = false,
             MessageCacheSize = 0,
             LogGatewayIntentWarnings = false,
@@ -76,6 +90,11 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.GuildUpdated += OnGuildUpdated;
         _client.GuildMemberUpdated += OnGuildMemberUpdated;
         _client.UserJoined += OnUserJoined;
+
+        _client.MessageReceived += OnMessageReceived;
+        _client.MessageUpdated += OnMessageUpdated;
+        _client.MessageDeleted += OnMessageDeleted;
+        _client.MessagesBulkDeleted += OnMessagesBulkDeleted;
     }
 
     public DiscordGatewayState State => _state;
@@ -95,6 +114,12 @@ public sealed class DiscordNetGateway : IDiscordGateway
     public event Func<DiscordDisconnect, Task>? Disconnected;
 
     public event Func<DiscordCommandCall, Task>? CommandReceived;
+
+    public event Func<DiscordMessageSnapshot, Task>? MessageReceived;
+
+    public event Func<DiscordMessageSnapshot, Task>? MessageEdited;
+
+    public event Func<string, string, IReadOnlyList<string>, Task>? MessagesDeleted;
 
     public async Task ConnectAsync(string token, CancellationToken ct)
     {
@@ -459,6 +484,10 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.GuildUpdated -= OnGuildUpdated;
         _client.GuildMemberUpdated -= OnGuildMemberUpdated;
         _client.UserJoined -= OnUserJoined;
+        _client.MessageReceived -= OnMessageReceived;
+        _client.MessageUpdated -= OnMessageUpdated;
+        _client.MessageDeleted -= OnMessageDeleted;
+        _client.MessagesBulkDeleted -= OnMessagesBulkDeleted;
 
         _client.Dispose();
     }
@@ -636,6 +665,210 @@ public sealed class DiscordNetGateway : IDiscordGateway
             canAssign);
     }
 
+    // ── Messages ───────────────────────────────────────────────────────────────────────────
+    //
+    // Described on the gateway task, where the library's objects are still valid, and handed to
+    // the thread pool. The message cache is off, so an edit or a delete carries no copy of the
+    // message before it: the store has that.
+
+    private Task OnMessageReceived(SocketMessage message)
+    {
+        var handler = MessageReceived;
+        if (handler is not null && Describe(message, message.Channel) is { } snapshot)
+            _ = Task.Run(() => Guard(handler(snapshot), "message received"));
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnMessageUpdated(Cacheable<IMessage, ulong> before, SocketMessage after, ISocketMessageChannel channel)
+    {
+        var handler = MessageEdited;
+        if (handler is not null && after is not null && Describe(after, channel) is { } snapshot)
+            _ = Task.Run(() => Guard(handler(snapshot), "message edited"));
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnMessageDeleted(Cacheable<IMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel)
+        => Deleted(channel.Id, [message.Id]);
+
+    private Task OnMessagesBulkDeleted(
+        IReadOnlyCollection<Cacheable<IMessage, ulong>> messages, Cacheable<IMessageChannel, ulong> channel)
+        => Deleted(channel.Id, messages.Select(m => m.Id).ToArray());
+
+    private Task Deleted(ulong channelId, IReadOnlyList<ulong> messageIds)
+    {
+        var handler = MessagesDeleted;
+
+        // The channel is looked up in the session to learn its server; a delete in a direct
+        // message has none and is not Modbot's business.
+        if (handler is not null && _client.GetChannel(channelId) is IGuildChannel inServer)
+        {
+            var ids = messageIds.Select(Text).ToArray();
+            _ = Task.Run(() => Guard(handler(Text(inServer.GuildId), Text(channelId), ids), "messages deleted"));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public async Task<DiscordMessagePage> ReadMessagesAsync(
+        string channelId, string? beforeId, string? afterId, CancellationToken ct)
+    {
+        if (!ulong.TryParse(channelId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+            return DiscordMessagePage.Failed("That is not a Discord channel id.", noAccess: true);
+
+        var before = ParseId(beforeId);
+        var after = ParseId(afterId);
+
+        try
+        {
+            var channel = _client.GetChannel(id) as IMessageChannel
+                ?? await _client.GetChannelAsync(id, Request(ct)).ConfigureAwait(false) as IMessageChannel;
+
+            if (channel is not IGuildChannel)
+                return DiscordMessagePage.Failed("Discord does not know that channel, or the bot cannot see it.", noAccess: true);
+
+            // A limit of one page is one request. The library queues it behind Discord's rate
+            // limit for the channel and waits a 429 out itself; nothing here retries.
+            var pages = before is { } b
+                ? channel.GetMessagesAsync(b, Direction.Before, DiscordMessagePage.Size, CacheMode.AllowDownload, Request(ct))
+                : after is { } a
+                    ? channel.GetMessagesAsync(a, Direction.After, DiscordMessagePage.Size, CacheMode.AllowDownload, Request(ct))
+                    : channel.GetMessagesAsync(DiscordMessagePage.Size, CacheMode.AllowDownload, Request(ct));
+
+            var messages = (await pages.FlattenAsync().ConfigureAwait(false))
+                .OrderByDescending(m => m.Id)
+                .ToList();
+
+            return new DiscordMessagePage(
+                messages.Select(m => Describe(m, channel)).OfType<DiscordMessageSnapshot>().ToList(),
+                messages.Count > 0 ? Text(messages[^1].Id) : null,
+                messages.Count > 0 ? Text(messages[0].Id) : null,
+                Full: messages.Count >= DiscordMessagePage.Size);
+        }
+        catch (HttpException e) when (e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
+        {
+            return DiscordMessagePage.Failed(
+                e.HttpCode == HttpStatusCode.NotFound
+                    ? "The channel is gone."
+                    : "The bot may not read this channel's history.",
+                noAccess: true);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return DiscordMessagePage.Failed($"Could not read messages from Discord: {e.Message}", noAccess: false);
+        }
+    }
+
+    public async Task<IReadOnlyList<DiscordThreadSnapshot>> ReadThreadsAsync(
+        string guildId, IReadOnlyList<string> channelIds, IReadOnlyList<string> archivedIn, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(channelIds);
+        ArgumentNullException.ThrowIfNull(archivedIn);
+
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            || _client.GetGuild(id) is not { } guild)
+        {
+            return [];
+        }
+
+        var wanted = channelIds.ToHashSet(StringComparer.Ordinal);
+        var threads = new Dictionary<ulong, DiscordThreadSnapshot>();
+
+        // Open threads arrive with the server and cost no request.
+        foreach (var thread in guild.ThreadChannels)
+        {
+            if (thread.ParentChannel is { } parent && wanted.Contains(Text(parent.Id)))
+                threads[thread.Id] = new DiscordThreadSnapshot(Text(thread.Id), Text(parent.Id), thread.Name, thread.IsArchived);
+        }
+
+        // Archived public threads cost a request per fifty, per channel. Private archived threads
+        // need Manage Threads and are left out.
+        foreach (var channelId in archivedIn.Where(wanted.Contains))
+        {
+            if (ParseId(channelId) is not { } cid || guild.GetChannel(cid) is not IThreadContainerChannel container)
+                continue;
+
+            DateTimeOffset? before = null;
+
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    var page = await container
+                        .GetPublicArchivedThreadsAsync(50, before, Request(ct))
+                        .ConfigureAwait(false);
+
+                    foreach (var thread in page)
+                        threads.TryAdd(thread.Id, new DiscordThreadSnapshot(Text(thread.Id), channelId, thread.Name, Archived: true));
+
+                    if (page.Count < 50)
+                        break;
+
+                    before = page.Min(t => t.ArchiveTimestamp);
+                }
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // A channel whose archive cannot be listed still has its open threads read.
+                _log.Debug(e, "Could not list the archived threads in channel {ChannelId}", channelId);
+            }
+        }
+
+        return threads.Values.ToList();
+    }
+
+    private static RequestOptions Request(CancellationToken ct) => new() { CancelToken = ct };
+
+    private static ulong? ParseId(string? id)
+        => id is not null && ulong.TryParse(id, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+
+    /// <summary>A message in the shape Modbot stores, or null for a system line or a direct message.</summary>
+    private static DiscordMessageSnapshot? Describe(IMessage message, IChannel channel)
+    {
+        if (message is not IUserMessage user || message.Source == MessageSource.System)
+            return null;
+
+        if (channel is not IGuildChannel inServer)
+            return null;
+
+        // In the library's model a thread's parent channel is its CategoryId.
+        var channelId = Text(channel.Id);
+        string? threadId = null;
+
+        if (channel is IThreadChannel thread && ((INestedChannel)thread).CategoryId is { } parent)
+        {
+            channelId = Text(parent);
+            threadId = Text(thread.Id);
+        }
+
+        var author = message.Author;
+        var name = (author as IGuildUser)?.DisplayName ?? author.GlobalName ?? author.Username ?? string.Empty;
+
+        return new DiscordMessageSnapshot(
+            Text(message.Id),
+            Text(inServer.GuildId),
+            channelId,
+            threadId,
+            Text(author.Id),
+            name,
+            author.IsBot || author.IsWebhook,
+            message.Timestamp,
+            message.EditedTimestamp,
+            message.Content ?? string.Empty,
+            message.Attachments
+                .Select(a => new DiscordAttachmentSnapshot(a.Filename, a.ContentType, a.Size, a.Url))
+                .ToArray(),
+            message.Embeds.Count,
+            message.Type == MessageType.Reply && message.Reference?.MessageId is { IsSpecified: true } reply
+                ? Text(reply.Value)
+                : null,
+            message.MentionedUserIds.Count + message.MentionedRoleIds.Count + (message.MentionedEveryone ? 1 : 0),
+            user.IsPinned);
+    }
+
     private Task OnConnected()
     {
         // Connected is the socket; Ready is the session. On the first connect nothing is usable
@@ -678,7 +911,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
         var handler = Disconnected;
         if (handler is not null)
-            _ = Task.Run(() => Guard(handler(Describe(exception)), "disconnected"));
+            _ = Task.Run(() => Guard(DescribeDisconnectAsync(exception, handler), "disconnected"));
 
         return Task.CompletedTask;
     }
@@ -744,6 +977,97 @@ public sealed class DiscordNetGateway : IDiscordGateway
         return Task.CompletedTask;
     }
 
+    private async Task DescribeDisconnectAsync(Exception? exception, Func<DiscordDisconnect, Task> handler)
+    {
+        var disconnect = Describe(exception);
+
+        if (exception is WebSocketClosedException { CloseCode: 4014 })
+        {
+            var missing = await MissingIntentsAsync().ConfigureAwait(false);
+            if (missing.Count > 0)
+            {
+                disconnect = disconnect with
+                {
+                    Reason = "Discord refused the gateway intents. Turn these on in the Developer Portal under Bot: "
+                        + string.Join(", ", missing) + ".",
+                    MissingIntents = missing,
+                };
+            }
+        }
+
+        await handler(disconnect).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The privileged intents this bot asks for that are switched off for the application.
+    /// </summary>
+    /// <remarks>
+    /// Close code 4014 says only "disallowed intents". The application's flags say which are on:
+    /// the plain flag for a verified bot, the limited one for a bot in fewer than a hundred
+    /// servers, which is every self-hosted Modbot. Signing in over REST has already worked by the
+    /// time the gateway refuses, so this one request can be made. Empty when it cannot.
+    /// </remarks>
+    private async Task<IReadOnlyList<string>> MissingIntentsAsync()
+    {
+        try
+        {
+            var application = await _client.GetApplicationInfoAsync().ConfigureAwait(false);
+            return MissingIntents(application.Flags, _intents);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Debug(e, "Could not read the application's flags to name the refused intents");
+            return [];
+        }
+    }
+
+    /// <summary>Which privileged intents in <see cref="Intents"/> the flags leave off, by the Developer Portal's names.</summary>
+    public static IReadOnlyList<string> MissingIntents(ApplicationFlags flags) => MissingIntents(flags, Intents);
+
+    /// <summary>The intents a session made with these options asks for.</summary>
+    public static GatewayIntents IntentsFor(DiscordGatewayOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        var intents = Intents;
+
+        if (!options.MemberEvents)
+            intents &= ~GatewayIntents.GuildMembers;
+
+        if (!options.MessageContent)
+            intents &= ~GatewayIntents.MessageContent;
+
+        return intents;
+    }
+
+    private static IReadOnlyList<string> MissingIntents(ApplicationFlags flags, GatewayIntents intents)
+    {
+        var missing = new List<string>();
+
+        if (intents.HasFlag(GatewayIntents.GuildPresences)
+            && !flags.HasFlag(ApplicationFlags.GatewayPresence)
+            && !flags.HasFlag(ApplicationFlags.GatewayPresenceLimited))
+        {
+            missing.Add("Presence Intent");
+        }
+
+        if (intents.HasFlag(GatewayIntents.GuildMembers)
+            && !flags.HasFlag(ApplicationFlags.GatewayGuildMembers)
+            && !flags.HasFlag(ApplicationFlags.GatewayGuildMembersLimited))
+        {
+            missing.Add("Server Members Intent");
+        }
+
+        if (intents.HasFlag(GatewayIntents.MessageContent)
+            && !flags.HasFlag(ApplicationFlags.GatewayMessageContent)
+            && !flags.HasFlag(ApplicationFlags.GatewayMessageContentLimited))
+        {
+            missing.Add("Message Content Intent");
+        }
+
+        return missing;
+    }
+
     /// <summary>
     /// The library's close reason, in a sentence, and whether the same settings can ever work.
     /// Close codes are Discord's: 4004 bad token, 4013 and 4014 refused intents.
@@ -755,7 +1079,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
             new DiscordDisconnect("Discord rejected the bot token.", Fatal: true),
         WebSocketClosedException { CloseCode: 4014 } =>
             new DiscordDisconnect(
-                "Discord refused the Server Members intent. Turn it on in the Developer Portal under Bot.",
+                "Discord refused a privileged intent. Turn on Server Members Intent and Message Content Intent in the Developer Portal under Bot.",
                 Fatal: true,
                 IntentsRefused: true),
         WebSocketClosedException { CloseCode: 4013 } =>

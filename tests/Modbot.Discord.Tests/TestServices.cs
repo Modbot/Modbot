@@ -20,12 +20,13 @@ namespace Modbot.Discord.Tests;
 /// </summary>
 public sealed class TestServices : IAsyncDisposable
 {
-    private TestServices(IsolatedDatabase database, ServiceProvider provider, FakeClock clock, DiscordBotStatus status)
+    private TestServices(IsolatedDatabase database, ServiceProvider provider, FakeClock clock, DiscordBotStatus status, RecordingChecker checker)
     {
         Database = database;
         Provider = provider;
         Clock = clock;
         Status = status;
+        Checker = checker;
     }
 
     public IsolatedDatabase Database { get; }
@@ -36,6 +37,9 @@ public sealed class TestServices : IAsyncDisposable
 
     public DiscordBotStatus Status { get; }
 
+    /// <summary>Every message the handler passed to AI moderation.</summary>
+    public RecordingChecker Checker { get; }
+
     public FakeSecretProtector Protector { get; } = new();
 
     public static async Task<TestServices> CreateAsync(PostgresFixture fixture, CancellationToken ct)
@@ -44,6 +48,7 @@ public sealed class TestServices : IAsyncDisposable
         var clock = new FakeClock(new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero));
         var status = new DiscordBotStatus();
         var protector = new FakeSecretProtector();
+        var checker = new RecordingChecker();
 
         var services = new ServiceCollection();
         services.AddDbContext<ModbotContext>(o => o.UseNpgsql(database.ConnectionString));
@@ -60,9 +65,14 @@ public sealed class TestServices : IAsyncDisposable
         services.AddSingleton<Modbot.Core.Discord.DiscordLinkSignal>();
         services.AddScoped<Modbot.Discord.Linking.LinkedRoles>();
         services.AddScoped<Modbot.Discord.Linking.LinkPrompt>();
+        services.AddScoped<Modbot.Analytics.Messages.MessagePartitionMaintainer>();
+        services.AddScoped<Modbot.Discord.Messages.DiscordMessageStore>();
+        services.AddScoped<Modbot.Discord.Messages.DiscordMessageHandler>();
+        services.AddSingleton(checker);
+        services.AddScoped<Modbot.Core.Moderation.IModerationChecker>(p => p.GetRequiredService<RecordingChecker>());
 
         var provider = services.BuildServiceProvider();
-        var built = new TestServices(database, provider, clock, status);
+        var built = new TestServices(database, provider, clock, status, checker);
 
         // Facts in these tests all fall around the fake clock's month.
         using var scope = provider.CreateScope();

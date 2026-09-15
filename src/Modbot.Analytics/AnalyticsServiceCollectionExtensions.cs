@@ -24,6 +24,7 @@ public static class AnalyticsServiceCollectionExtensions
 
         services.AddScoped<IFactWriter, FactWriter>();
         services.AddScoped<EventPartitionMaintainer>();
+        services.AddScoped<Messages.MessagePartitionMaintainer>();
         services.AddHostedService<EventPartitionMaintenanceService>();
 
         services.AddScoped<DailyTotalsJob>();

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { statusOf, TONE } from '@/lib/gate'
 import { ago, duration, formatDay } from '@/lib/format'
-import { api, ApiError, type DiscordBotHealth, type DiscordChannelProblem, type SyncHealth } from '@/lib/api'
+import { api, ApiError, type DiscordBotHealth, type DiscordChannelProblem, type DiscordReadBackHealth, type SyncHealth } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /**
@@ -98,7 +98,12 @@ export function Health() {
       {!health.syncRunningInThisProcess && <Note>Sync is not running in this process.</Note>}
 
       {health.discordBot && (
-        <DiscordBot bot={health.discordBot} channels={health.discordChannelProblems ?? []} now={health.now} />
+        <DiscordBot
+          bot={health.discordBot}
+          channels={health.discordChannelProblems ?? []}
+          readBack={health.discordReadBack}
+          now={health.now}
+        />
       )}
 
       <Card>
@@ -384,10 +389,12 @@ const BOT_TONE: Record<'ok' | 'warn' | 'problem' | 'muted', string> = {
 function DiscordBot({
   bot,
   channels,
+  readBack,
   now,
 }: {
   bot: DiscordBotHealth
   channels: DiscordChannelProblem[]
+  readBack: DiscordReadBackHealth | null
   now: string
 }) {
   // Not BOT_STATE[bot.state] directly. That Record is a compile-time claim about a value which
@@ -433,6 +440,22 @@ function DiscordBot({
               ` · ${channel.lastError}${channel.lastErrorAt ? ` (${ago(channel.lastErrorAt, now)})` : ''}`}
           </p>
         ))}
+        {bot.missingIntents && bot.missingIntents.length > 0 && (
+          <p className="mt-1 max-w-3xl text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+            Intents off in the Developer Portal: {bot.missingIntents.join(', ')}
+          </p>
+        )}
+        {readBack && readBack.channels > 0 && (
+          <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {`Message history read back: ${readBack.finished.toLocaleString()} of ${readBack.channels.toLocaleString()} channels and threads · ${readBack.messagesStored.toLocaleString()} messages stored`}
+            {readBack.noAccess > 0 && ` · ${readBack.noAccess.toLocaleString()} without access`}
+          </p>
+        )}
+        {readBack?.lastError && (
+          <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            Last reading problem{readBack.lastErrorAt ? ` (${ago(readBack.lastErrorAt, now)})` : ''}: {readBack.lastError}
+          </p>
+        )}
         {bot.lastError && (
           <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             Last problem{bot.lastErrorAt ? ` (${ago(bot.lastErrorAt, now)})` : ''}: {bot.lastError}

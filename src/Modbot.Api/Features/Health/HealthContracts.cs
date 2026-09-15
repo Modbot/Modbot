@@ -205,7 +205,8 @@ public sealed record SyncHealth(
     DateTimeOffset Now,
     // Channels an enabled route sends to that cannot be posted in (Discord event routes design §6).
     // Empty when every channel is fine or none is set.
-    IReadOnlyList<DiscordChannelProblem>? DiscordChannelProblems = null);
+    IReadOnlyList<DiscordChannelProblem>? DiscordChannelProblems = null,
+    DiscordReadBackHealth? DiscordReadBack = null);
 
 /// <summary>
 /// A channel events are sent to that has something wrong with it.
@@ -221,3 +222,21 @@ public sealed record DiscordChannelProblem(
     bool Removed,
     string? LastError,
     DateTimeOffset? LastErrorAt);
+
+/// <summary>
+/// How far the bot has read back through the Discord server's message history (M5 spec §5.1).
+/// Null when no server is set.
+/// </summary>
+/// <param name="Channels">Channels and threads the bot has found it can read.</param>
+/// <param name="Finished">Of those, how many are read back as far as they go.</param>
+/// <param name="NoAccess">Of the finished, how many stopped because the bot may not read them.</param>
+/// <param name="MessagesStored">Messages the read-back stored that were not stored before.</param>
+/// <param name="LastError">The most recent problem reading a channel, as a sentence, or null.</param>
+public sealed record DiscordReadBackHealth(
+    int Channels,
+    int Finished,
+    int NoAccess,
+    long MessagesStored,
+    string? LastError,
+    DateTimeOffset? LastErrorAt,
+    DateTimeOffset? UpdatedAt);

@@ -37,6 +37,12 @@ public enum DiscordBotState
 /// <param name="LogChannelConfigured">Whether a moderation log channel is set.</param>
 /// <param name="LastPostedAt">When the bot last posted to that channel, in this process.</param>
 /// <param name="PostedInThisProcess">Events posted since this process started.</param>
+/// <param name="MissingIntents">
+/// The privileged intents Discord refused because they are off in the Developer Portal, by the
+/// portal's own names ("Message Content Intent", "Server Members Intent"). Empty unless the last
+/// sign-in was refused for that reason; the bot then waits for the settings to change rather than
+/// signing in again and again.
+/// </param>
 public sealed record DiscordBotSnapshot(
     DiscordBotState State,
     DateTimeOffset? ConnectedSince,
@@ -45,7 +51,8 @@ public sealed record DiscordBotSnapshot(
     int CommandsRegistered,
     bool LogChannelConfigured,
     DateTimeOffset? LastPostedAt,
-    int PostedInThisProcess);
+    int PostedInThisProcess,
+    IReadOnlyList<string>? MissingIntents = null);
 
 /// <summary>
 /// Read side of the bot's status. Declared here rather than in <c>Modbot.Discord</c> so the API

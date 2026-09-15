@@ -37,7 +37,11 @@ public interface IUserPurger
 /// would otherwise survive the purge (spec 5.2.1).
 /// </param>
 /// <param name="DaysRecomputed">Days rebuilt so that no aggregate still includes the facts.</param>
-public sealed record PurgeResult(int FactsDeleted, int CountedDailyTotalsDeleted, int DaysRecomputed);
+/// <param name="MessagesDeleted">
+/// Discord messages the person wrote, erased with every earlier text of them (M5 spec §5.1). Zero
+/// for anyone but a Discord user.
+/// </param>
+public sealed record PurgeResult(int FactsDeleted, int CountedDailyTotalsDeleted, int DaysRecomputed, int MessagesDeleted = 0);
 
 /// <inheritdoc />
 public sealed class UserPurger : IUserPurger
@@ -126,15 +130,19 @@ public sealed class UserPurger : IUserPurger
                 new NpgsqlParameter("origin", (short)DailyTotalOrigin.Counted),
                 new NpgsqlParameter("dimensions", Dimensions(platform, subjectId)));
 
+            var messagesDeleted = platform == FactPlatform.Discord
+                ? await DeleteMessagesAsync(subjectId, ct)
+                : 0;
+
             if (days.Count > 0)
                 await _dailyTotals.RecomputeDaysAsync(days, ct);
 
-            await RecordAsync(factsDeleted, dailyTotalsDeleted, days.Count, ct);
+            await RecordAsync(factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, ct);
 
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
 
-            return new PurgeResult(factsDeleted, dailyTotalsDeleted, days.Count);
+            return new PurgeResult(factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted);
         }
         finally
         {
@@ -164,7 +172,31 @@ public sealed class UserPurger : IUserPurger
     /// that data was destroyed and how much, which is what makes the deletion auditable without
     /// undoing it.
     /// </remarks>
-    private async Task RecordAsync(int facts, int dailyTotals, int days, CancellationToken ct)
+    /// <summary>
+    /// Deletes a Discord user's messages and every earlier text of them.
+    /// </summary>
+    /// <remarks>
+    /// Messages the person wrote, not messages that mention or reply to them: those are somebody
+    /// else's words. Edits first, while the messages still say which ids are theirs.
+    /// </remarks>
+    private async Task<int> DeleteMessagesAsync(string authorId, CancellationToken ct)
+    {
+        await ExecuteAsync(
+            """
+            DELETE FROM discord_message_edit e
+            USING discord_message m
+            WHERE m.author_id = @author AND e.message_id = m.message_id AND e.sent_at = m.sent_at
+            """,
+            ct,
+            new NpgsqlParameter("author", authorId));
+
+        return await ExecuteAsync(
+            "DELETE FROM discord_message WHERE author_id = @author",
+            ct,
+            new NpgsqlParameter("author", authorId));
+    }
+
+    private async Task RecordAsync(int facts, int dailyTotals, int days, int messages, CancellationToken ct)
     {
         await _partitions.EnsureForAsync(_clock.UtcNow, ct);
 
@@ -182,6 +214,7 @@ public sealed class UserPurger : IUserPurger
                     // Key kept as first written: this is fact data already in modbot_event.
                     ["countedDailyTotals"] = dailyTotals,
                     ["daysRecomputed"] = days,
+                    ["messages"] = messages,
                 },
             },
             ct);

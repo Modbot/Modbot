@@ -10,6 +10,7 @@ using Modbot.Core.Security;
 using Modbot.Core.Time;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
+using Modbot.Discord.Messages;
 using Modbot.Discord.ServerIndex;
 using Serilog;
 
@@ -40,11 +41,12 @@ namespace Modbot.Discord.Bot;
 /// gateway; what this service remembers is a hash, enough to notice a change.
 /// </para>
 /// <para>
-/// <strong>The Server Members intent follows the prompt for new joiners</strong> (Discord account
-/// linking design §8). Turning the switch on or off changes the fingerprint and reconnects. If
-/// Discord refuses the intent because it is off in the Developer Portal, the bot says so and
-/// connects again without it rather than stopping, so the moderation log does not go quiet
-/// because of a switch that only the prompt needs. It asks again when the settings change.
+/// <strong>Both privileged intents are asked for</strong> -- Server Members and Message Content --
+/// because members are recorded and messages stored in full (M5 spec §5). If Discord refuses one
+/// because it is off in the Developer Portal, the bot names it on the Health page and connects
+/// again without it rather than stopping, so the moderation log and the commands do not go quiet
+/// over a switch they do not need. It asks again when the settings change or Modbot restarts.
+/// Turning the prompt for new joiners on or off still changes the fingerprint and reconnects.
 /// </para>
 /// </remarks>
 public sealed class DiscordBotService : BackgroundService
@@ -60,8 +62,12 @@ public sealed class DiscordBotService : BackgroundService
     private IDiscordGateway? _gateway;
     private string? _fingerprint;
 
-    /// <summary>The fingerprint whose Server Members intent Discord refused. Connected without it until settings change.</summary>
-    private string? _membersIntentRefusedFor;
+    /// <summary>The fingerprint whose privileged intents Discord refused. Connected without them until settings change.</summary>
+    private string? _intentsRefusedFor;
+
+    private bool _membersRefused;
+
+    private bool _contentRefused;
 
     /// <summary>What the current session asked Discord for.</summary>
     private DiscordGatewayOptions _sessionOptions = new();
@@ -77,6 +83,13 @@ public sealed class DiscordBotService : BackgroundService
     /// thread pool, and a full refresh racing a channel update would insert the same row twice.
     /// </summary>
     private readonly SemaphoreSlim _indexing = new(1, 1);
+
+    private readonly DiscordHistoryReader _history;
+
+    /// <summary>The history being read for the current session, and the way to stop it.</summary>
+    private CancellationTokenSource? _readingStop;
+
+    private Task _reading = Task.CompletedTask;
 
     public DiscordBotService(
         IServiceScopeFactory scopes,
@@ -100,7 +113,14 @@ public sealed class DiscordBotService : BackgroundService
         _delay = delay ?? Task.Delay;
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
         _retry = _options.FirstRetry;
+        _history = new DiscordHistoryReader(scopes, clock, _options, _delay, _log);
     }
+
+    /// <summary>
+    /// The current pass over the server's message history, or a finished task when none is
+    /// running. Exposed so a test can wait for it.
+    /// </summary>
+    public Task Reading => _reading;
 
     /// <summary>The session, when it can answer and post. Null otherwise.</summary>
     public IDiscordGateway? ReadyGateway
@@ -179,7 +199,7 @@ public sealed class DiscordBotService : BackgroundService
             _retry = _options.FirstRetry;
 
             // Any change -- the switch turned off and on again included -- is worth asking again.
-            _membersIntentRefusedFor = null;
+            _intentsRefusedFor = null;
 
         }
 
@@ -209,8 +229,10 @@ public sealed class DiscordBotService : BackgroundService
         if (_nextAttemptAt is { } at && now < at)
             return;
 
+        var refused = _intentsRefusedFor == fingerprint;
         var options = new DiscordGatewayOptions(
-            MemberEvents: config.MemberEvents && _membersIntentRefusedFor != fingerprint);
+            MemberEvents: !(refused && _membersRefused),
+            MessageContent: !(refused && _contentRefused));
 
         await ConnectAsync(config.Token, config.GuildId, options, ct).ConfigureAwait(false);
     }
@@ -228,6 +250,9 @@ public sealed class DiscordBotService : BackgroundService
         gateway.ChannelChanged += OnChannelChangedAsync;
         gateway.ChannelRemoved += OnChannelRemovedAsync;
         gateway.ServerChanged += OnServerChangedAsync;
+        gateway.MessageReceived += OnMessageReceivedAsync;
+        gateway.MessageEdited += OnMessageEditedAsync;
+        gateway.MessagesDeleted += OnMessagesDeletedAsync;
 
         try
         {
@@ -262,6 +287,10 @@ public sealed class DiscordBotService : BackgroundService
         _disconnectedAt = null;
         _retry = _options.FirstRetry;
 
+        // Everything was asked for and Discord took it: whatever was refused before is on now.
+        if (_sessionOptions is { MemberEvents: true, MessageContent: true })
+            _status.IntentsAllowed();
+
         try
         {
             var count = await gateway
@@ -283,6 +312,7 @@ public sealed class DiscordBotService : BackgroundService
         }
 
         await RefreshServerIndexAsync().ConfigureAwait(false);
+        StartReading();
     }
 
     /// <summary>
@@ -305,6 +335,91 @@ public sealed class DiscordBotService : BackgroundService
         _log.Information("Discord bot resumed its session");
 
         await RefreshServerIndexAsync().ConfigureAwait(false);
+        StartReading();
+    }
+
+    /// <summary>
+    /// Starts reading the server's message history in the background, stopping any pass already
+    /// running first: a new session means the channel list and the gap to catch up have changed.
+    /// </summary>
+    /// <remarks>
+    /// In the background because a read-back can take hours, and the Ready handler must return.
+    /// It runs one page at a time and stops with the session.
+    /// </remarks>
+    private void StartReading()
+    {
+        var gateway = _gateway;
+        var guildId = _guildId;
+        if (gateway is null || guildId is null)
+            return;
+
+        StopReading();
+
+        var stop = new CancellationTokenSource();
+        _readingStop = stop;
+
+        var previous = _reading;
+        _reading = Task.Run(async () =>
+        {
+            // The pass it replaced finishes its page first; two at once would read the same pages.
+            await previous.ConfigureAwait(false);
+
+            try
+            {
+                await _history.ReadBackAsync(gateway, guildId, stop.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (stop.IsCancellationRequested)
+            {
+            }
+            catch (Exception e)
+            {
+                _log.Warning(e, "Reading the Discord server's message history failed; it carries on at the next sign-in");
+                _status.Problem($"Could not read the server's message history: {e.Message}", _clock.UtcNow);
+            }
+        });
+    }
+
+    private void StopReading()
+    {
+        var stop = _readingStop;
+        _readingStop = null;
+
+        if (stop is not null)
+        {
+            stop.Cancel();
+            stop.Dispose();
+        }
+    }
+
+    private Task OnMessageReceivedAsync(DiscordMessageSnapshot message)
+        => IsOurServer(message.GuildId)
+            ? MessagesAsync("store a Discord message", (handler, ct) => handler.ReceivedAsync([message], ct))
+            : Task.CompletedTask;
+
+    private Task OnMessageEditedAsync(DiscordMessageSnapshot message)
+        => IsOurServer(message.GuildId)
+            ? MessagesAsync("store an edited Discord message", (handler, ct) => handler.EditedAsync(message, ct))
+            : Task.CompletedTask;
+
+    private Task OnMessagesDeletedAsync(string guildId, string channelId, IReadOnlyList<string> messageIds)
+        => IsOurServer(guildId)
+            ? MessagesAsync("mark Discord messages deleted", (handler, ct) => handler.DeletedAsync(messageIds, ct))
+            : Task.CompletedTask;
+
+    private async Task MessagesAsync(string what, Func<DiscordMessageHandler, CancellationToken, Task> work)
+    {
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var handler = scope.ServiceProvider.GetRequiredService<DiscordMessageHandler>();
+            await work(handler, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // One message lost; catching up after the next reconnect finds a new one again.
+            _log.Warning(e, "Could not {What}", what);
+            _status.Problem($"Could not {what}: {e.Message}", _clock.UtcNow);
+        }
     }
 
     /// <summary>Reads every channel and role from the session and stores them.</summary>
@@ -403,13 +518,20 @@ public sealed class DiscordBotService : BackgroundService
         var now = _clock.UtcNow;
         _disconnectedAt ??= now;
 
-        if (disconnect.IntentsRefused && _sessionOptions.MemberEvents)
+        if (disconnect.IntentsRefused && (_sessionOptions.MemberEvents || _sessionOptions.MessageContent))
         {
-            // Connect again without the intent, straight away: the moderation log and the commands
-            // do not need it, and only the prompt for new joiners stops working.
-            _membersIntentRefusedFor = _fingerprint;
-            _status.Problem(disconnect.Reason, now);
-            _log.Warning("{Reason} Connecting without it; new members will not be prompted to link", disconnect.Reason);
+            // Connect again without the refused intents, straight away: the moderation log and
+            // the commands need neither. When the flags could not be read to say which, both go.
+            var missing = disconnect.MissingIntents is { Count: > 0 } named
+                ? named
+                : ["Server Members Intent", "Message Content Intent"];
+
+            _intentsRefusedFor = _fingerprint;
+            _membersRefused = missing.Contains("Server Members Intent");
+            _contentRefused = missing.Contains("Message Content Intent");
+
+            _status.IntentsRefused(disconnect.Reason, now, missing);
+            _log.Warning("{Reason} Connecting without them", disconnect.Reason);
             _nextAttemptAt = null;
             await TearDownAsync().ConfigureAwait(false);
             return;
@@ -463,6 +585,8 @@ public sealed class DiscordBotService : BackgroundService
         _guildId = null;
         _disconnectedAt = null;
 
+        StopReading();
+
         if (gateway is null)
             return;
 
@@ -474,6 +598,9 @@ public sealed class DiscordBotService : BackgroundService
         gateway.ChannelChanged -= OnChannelChangedAsync;
         gateway.ChannelRemoved -= OnChannelRemovedAsync;
         gateway.ServerChanged -= OnServerChangedAsync;
+        gateway.MessageReceived -= OnMessageReceivedAsync;
+        gateway.MessageEdited -= OnMessageEditedAsync;
+        gateway.MessagesDeleted -= OnMessagesDeletedAsync;
 
         try
         {

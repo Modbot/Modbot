@@ -244,6 +244,16 @@ public class Settings
     public int PresenceFactRetentionDays { get; set; }            // 0 = keep forever
 
     /// <summary>
+    /// How long stored Discord messages are kept, in days. 0 keeps them forever.
+    /// </summary>
+    /// <remarks>
+    /// Its own setting rather than one of the fact classes (M5 spec §5.1): messages are neither
+    /// moderation history nor presence, and a group may well want chat gone long before the bans
+    /// it led to. Enforced by dropping whole months of <c>discord_message</c>.
+    /// </remarks>
+    public int DiscordMessageRetentionDays { get; set; }
+
+    /// <summary>
     /// Deduplication half-window for client-reported facts (spec 5.7.1). Bounded above by the
     /// 15-second genuine leave-and-rejoin, below by residual clock skew after IModbotClock sync.
     /// </summary>

@@ -22,6 +22,7 @@ public sealed class DiscordBotStatus : IDiscordBotStatus
     private bool _logChannelConfigured;
     private DateTimeOffset? _lastPostedAt;
     private int _postedInThisProcess;
+    private IReadOnlyList<string> _missingIntents = [];
 
     public DiscordBotSnapshot Snapshot()
     {
@@ -35,7 +36,8 @@ public sealed class DiscordBotStatus : IDiscordBotStatus
                 _commandsRegistered,
                 _logChannelConfigured,
                 _lastPostedAt,
-                _postedInThisProcess);
+                _postedInThisProcess,
+                _missingIntents);
         }
     }
 
@@ -54,6 +56,7 @@ public sealed class DiscordBotStatus : IDiscordBotStatus
         {
             _state = DiscordBotState.NotConfigured;
             _connectedSince = null;
+            _missingIntents = [];
             _commandsRegistered = 0;
         }
     }
@@ -116,6 +119,26 @@ public sealed class DiscordBotStatus : IDiscordBotStatus
             _lastError = error;
             _lastErrorAt = at;
         }
+    }
+
+    /// <summary>
+    /// Discord refused privileged intents that are off in the Developer Portal. Stays on the card
+    /// while the bot runs without them, until a session that asked for everything is ready.
+    /// </summary>
+    public void IntentsRefused(string error, DateTimeOffset at, IReadOnlyList<string> missing)
+    {
+        lock (_gate)
+        {
+            _missingIntents = missing;
+            _lastError = error;
+            _lastErrorAt = at;
+        }
+    }
+
+    public void IntentsAllowed()
+    {
+        lock (_gate)
+            _missingIntents = [];
     }
 
     public void LogChannel(bool configured)

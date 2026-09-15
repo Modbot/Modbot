@@ -191,7 +191,7 @@ public class DiscordBotServiceTests
     }
 
     [Fact]
-    public async Task ThePromptForNewJoiners_AsksForMemberEvents_AndOnlyThen()
+    public async Task EverySession_AsksForMembersAndMessages_AndThePromptSwitchReconnects()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);
@@ -202,7 +202,8 @@ public class DiscordBotServiceTests
 
         await ConfigureBotAsync(services, "token", "424242", ct);
         await bot.TickAsync(ct);
-        Assert.False(plain.Options.MemberEvents);
+        Assert.True(plain.Options.MemberEvents);
+        Assert.True(plain.Options.MessageContent);
 
         await services.ConfigureAsync(s => s.DiscordLinkPromptNewMembers = true, ct);
         await bot.TickAsync(ct);
@@ -233,7 +234,10 @@ public class DiscordBotServiceTests
 
         await bot.TickAsync(ct);
 
+        // Which intent was refused could not be read, so both are left out.
         Assert.False(without.Options.MemberEvents);
+        Assert.False(without.Options.MessageContent);
+        Assert.Equal(["Server Members Intent", "Message Content Intent"], services.Status.Snapshot().MissingIntents);
         Assert.Same(without, bot.ReadyGateway);
     }
 

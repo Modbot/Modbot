@@ -145,14 +145,25 @@ public sealed record DiscordPostOutcome(
 /// Discord refused an intent the session asked for (close code 4014): a privileged intent that is
 /// not turned on in the Developer Portal. The bot can connect again without it.
 /// </param>
-public sealed record DiscordDisconnect(string Reason, bool Fatal, bool IntentsRefused = false);
+/// <param name="MissingIntents">
+/// When Discord refused the intents, the privileged ones switched off in the Developer Portal, by
+/// the portal's names. Empty for any other close, or when they could not be looked up.
+/// </param>
+public sealed record DiscordDisconnect(
+    string Reason,
+    bool Fatal,
+    bool IntentsRefused = false,
+    IReadOnlyList<string>? MissingIntents = null);
 
 /// <summary>What one session asks Discord for, fixed when it is made.</summary>
-/// <param name="MemberEvents">
-/// Ask for the privileged Server Members intent, so members joining are reported. Only while the
-/// prompt for new joiners is on.
-/// </param>
-public sealed record DiscordGatewayOptions(bool MemberEvents = false);
+/// <remarks>
+/// Both privileged intents are asked for unless Discord has refused them: members are recorded as
+/// facts and messages are stored in full (M5 spec §5), whatever else is switched on. A session
+/// made after a refusal leaves the refused ones out, so everything else keeps working.
+/// </remarks>
+/// <param name="MemberEvents">Ask for the privileged Server Members intent: joins, leaves, role changes.</param>
+/// <param name="MessageContent">Ask for the privileged Message Content intent: the text of messages.</param>
+public sealed record DiscordGatewayOptions(bool MemberEvents = true, bool MessageContent = true);
 
 /// <summary>Somebody joined a server the bot is in.</summary>
 public sealed record DiscordMemberJoin(string GuildId, string UserId, string Username, bool IsBot);
@@ -343,6 +354,40 @@ public interface IDiscordGateway : IAsyncDisposable
 
     /// <summary>Takes a role away from a member.</summary>
     Task<DiscordRoleOutcome> RemoveRoleAsync(string guildId, string userId, string roleId, CancellationToken ct);
+
+    // ── Messages (M5 spec §5.1) ──────────────────────────────────────────────────────────
+    //
+    // Only messages in a server, never direct messages, and only messages people post: Discord's
+    // own system lines ("X pinned a message") are left out.
+
+    /// <summary>A message was posted.</summary>
+    event Func<DiscordMessageSnapshot, Task>? MessageReceived;
+
+    /// <summary>
+    /// A message changed. <see cref="DiscordMessageSnapshot.EditedAt"/> is set when its text was
+    /// edited, and null when Discord only filled in something else, such as a link preview.
+    /// </summary>
+    event Func<DiscordMessageSnapshot, Task>? MessageEdited;
+
+    /// <summary>
+    /// One or more messages were deleted. Carries the server's id, the channel or thread, and the
+    /// message ids -- all a delete event says.
+    /// </summary>
+    event Func<string, string, IReadOnlyList<string>, Task>? MessagesDeleted;
+
+    /// <summary>
+    /// Reads one page of a channel's or thread's history: the hundred messages before
+    /// <paramref name="beforeId"/>, after <paramref name="afterId"/>, or the newest hundred when both
+    /// are null. One request to Discord; the library waits out Discord's rate limits on its own.
+    /// </summary>
+    Task<DiscordMessagePage> ReadMessagesAsync(string channelId, string? beforeId, string? afterId, CancellationToken ct);
+
+    /// <summary>
+    /// Threads in the server: the open ones the session holds in <paramref name="channelIds"/>, and
+    /// the archived public ones in <paramref name="archivedIn"/>, which costs requests.
+    /// </summary>
+    Task<IReadOnlyList<DiscordThreadSnapshot>> ReadThreadsAsync(
+        string guildId, IReadOnlyList<string> channelIds, IReadOnlyList<string> archivedIn, CancellationToken ct);
 
     Task DisconnectAsync();
 }

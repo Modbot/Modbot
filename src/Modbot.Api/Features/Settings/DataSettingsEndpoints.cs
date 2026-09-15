@@ -15,7 +15,11 @@ namespace Modbot.Api.Features.Settings;
 
 /// <param name="ModerationFactRetentionDays">0 means keep forever.</param>
 /// <param name="PresenceFactRetentionDays">0 means keep forever.</param>
-public sealed record RetentionSettings(int ModerationFactRetentionDays, int PresenceFactRetentionDays);
+/// <param name="DiscordMessageRetentionDays">Stored Discord messages. 0 means keep forever.</param>
+public sealed record RetentionSettings(
+    int ModerationFactRetentionDays,
+    int PresenceFactRetentionDays,
+    int DiscordMessageRetentionDays = 0);
 
 /// <param name="Version">Calendar release, so a bug report can name it.</param>
 /// <param name="Commit">The full git commit id the running build was made from, or null when unknown.</param>
@@ -118,7 +122,8 @@ public static class DataSettingsEndpoints
                 return Results.Ok(new DataSettingsResponse(
                     new RetentionSettings(
                         settings.ModerationFactRetentionDays,
-                        settings.PresenceFactRetentionDays),
+                        settings.PresenceFactRetentionDays,
+                        settings.DiscordMessageRetentionDays),
                     new StorageSummary(
                         m.TotalBytes,
                         m.FactCount,
@@ -155,13 +160,14 @@ public static class DataSettingsEndpoints
             {
                 if (Forbidden(http)) return Results.Forbid();
 
-                if (body.ModerationFactRetentionDays < 0 || body.PresenceFactRetentionDays < 0)
+                if (body.ModerationFactRetentionDays < 0 || body.PresenceFactRetentionDays < 0 || body.DiscordMessageRetentionDays < 0)
                     return Results.BadRequest(new { error = "Retention cannot be negative. Use 0 to keep forever." });
 
                 var settings = await db.GetSettingsAsync(ct);
 
                 settings.ModerationFactRetentionDays = body.ModerationFactRetentionDays;
                 settings.PresenceFactRetentionDays = body.PresenceFactRetentionDays;
+                settings.DiscordMessageRetentionDays = body.DiscordMessageRetentionDays;
 
                 await db.SaveChangesAsync(ct);
 

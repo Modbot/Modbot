@@ -287,6 +287,82 @@ public sealed class FakeGateway : IDiscordGateway
 
     public Task RaiseCommandAsync(DiscordCommandCall call)
         => CommandReceived?.Invoke(call) ?? Task.CompletedTask;
+
+    // ── Messages ─────────────────────────────────────────────────────────────────────────────
+
+    public event Func<DiscordMessageSnapshot, Task>? MessageReceived;
+
+    public event Func<DiscordMessageSnapshot, Task>? MessageEdited;
+
+    public event Func<string, string, IReadOnlyList<string>, Task>? MessagesDeleted;
+
+    /// <summary>Each channel's or thread's history, in any order. Ids are numbers, as Discord's are.</summary>
+    public Dictionary<string, List<DiscordMessageSnapshot>> History { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Channels that answer as if the bot may not read them.</summary>
+    public HashSet<string> NoAccess { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Every page asked for, in order: the channel, and the before and after ids.</summary>
+    public List<(string ChannelId, string? BeforeId, string? AfterId)> Reads { get; } = [];
+
+    public List<DiscordThreadSnapshot> Threads { get; } = [];
+
+    /// <summary>Every call to list threads: which channels had their archived threads listed.</summary>
+    public List<IReadOnlyList<string>> ArchivedListings { get; } = [];
+
+    private static ulong Number(string id) => ulong.Parse(id, System.Globalization.CultureInfo.InvariantCulture);
+
+    public Task<DiscordMessagePage> ReadMessagesAsync(string channelId, string? beforeId, string? afterId, CancellationToken ct)
+    {
+        Reads.Add((channelId, beforeId, afterId));
+
+        if (NoAccess.Contains(channelId))
+            return Task.FromResult(DiscordMessagePage.Failed("The bot may not read this channel's history.", noAccess: true));
+
+        var ordered = (History.TryGetValue(channelId, out var list) ? list : [])
+            .OrderByDescending(m => Number(m.Id))
+            .ToList();
+
+        var page = beforeId is not null
+            ? ordered.Where(m => Number(m.Id) < Number(beforeId)).Take(DiscordMessagePage.Size).ToList()
+            : afterId is not null
+                ? ordered.Where(m => Number(m.Id) > Number(afterId)).TakeLast(DiscordMessagePage.Size).ToList()
+                : ordered.Take(DiscordMessagePage.Size).ToList();
+
+        return Task.FromResult(new DiscordMessagePage(
+            page,
+            page.Count > 0 ? page[^1].Id : null,
+            page.Count > 0 ? page[0].Id : null,
+            Full: page.Count >= DiscordMessagePage.Size));
+    }
+
+    public Task<IReadOnlyList<DiscordThreadSnapshot>> ReadThreadsAsync(
+        string guildId, IReadOnlyList<string> channelIds, IReadOnlyList<string> archivedIn, CancellationToken ct)
+    {
+        ArchivedListings.Add(archivedIn.ToList());
+
+        var wanted = channelIds.ToHashSet(StringComparer.Ordinal);
+        var listed = archivedIn.ToHashSet(StringComparer.Ordinal);
+
+        return Task.FromResult<IReadOnlyList<DiscordThreadSnapshot>>(Threads
+            .Where(t => wanted.Contains(t.ParentChannelId) && (!t.Archived || listed.Contains(t.ParentChannelId)))
+            .ToList());
+    }
+
+    public Task RaiseMessageAsync(DiscordMessageSnapshot message)
+        => MessageReceived?.Invoke(message) ?? Task.CompletedTask;
+
+    public Task RaiseMessageEditedAsync(DiscordMessageSnapshot message)
+        => MessageEdited?.Invoke(message) ?? Task.CompletedTask;
+
+    public Task RaiseMessagesDeletedAsync(string guildId, string channelId, params string[] ids)
+        => MessagesDeleted?.Invoke(guildId, channelId, ids) ?? Task.CompletedTask;
+
+    public Task RaiseDisconnectedAsync(DiscordDisconnect disconnect)
+    {
+        State = DiscordGatewayState.Disconnected;
+        return Disconnected?.Invoke(disconnect) ?? Task.CompletedTask;
+    }
 }
 
 /// <summary>Hands out the gateways a test prepared, in order, and remembers every one it made.</summary>

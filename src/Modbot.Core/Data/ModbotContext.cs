@@ -151,6 +151,18 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     public DbSet<DiscordLinkCode> DiscordLinkCodes => Set<DiscordLinkCode>();
 
     /// <summary>
+    /// Every message in the Discord server, in full (M5 spec §5.1). Partitioned by month; edits and
+    /// deletes change the row, and a deleted message keeps it.
+    /// </summary>
+    public DbSet<DiscordMessage> DiscordMessages => Set<DiscordMessage>();
+
+    /// <summary>Earlier texts of edited messages.</summary>
+    public DbSet<DiscordMessageEdit> DiscordMessageEdits => Set<DiscordMessageEdit>();
+
+    /// <summary>How far back each channel and thread has been read.</summary>
+    public DbSet<DiscordReadBack> DiscordReadBacks => Set<DiscordReadBack>();
+
+    /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
     /// </summary>
@@ -1072,6 +1084,77 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.VRChatUserId).HasColumnType("text").HasColumnName("vrchat_user_id");
             entity.Property(e => e.Code).HasMaxLength(32);
             entity.Property(e => e.StartedFrom).HasMaxLength(16);
+        });
+
+        builder.Entity<DiscordMessage>(entity =>
+        {
+            // Created by hand-written SQL in the migration, like the fact log: EF cannot express
+            // declarative partitioning. If you change the columns here, change them there too.
+            entity.ToTable("discord_message");
+
+            entity.HasKey(e => new { e.MessageId, e.SentAt }).HasName("pk_discord_message");
+
+            entity.Property(e => e.MessageId).HasColumnType("text");
+            entity.Property(e => e.GuildId).HasColumnType("text");
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.ThreadId).HasColumnType("text");
+            entity.Property(e => e.AuthorId).HasColumnType("text");
+            entity.Property(e => e.AuthorName).HasColumnType("text");
+            entity.Property(e => e.Text).HasColumnType("text");
+            entity.Property(e => e.Attachments).HasColumnType("jsonb");
+            entity.Property(e => e.ReplyToId).HasColumnType("text");
+
+            // An edit or a delete arrives with the message id and nothing else.
+            entity.HasIndex(e => e.MessageId).HasDatabaseName("ix_discord_message_id");
+
+            // "The newest message stored in this channel" -- where catching up starts -- and a
+            // channel's messages in order.
+            entity.HasIndex(e => new { e.ChannelId, e.SentAt })
+                .HasDatabaseName("ix_discord_message_channel")
+                .IsDescending(false, true);
+
+            // The same question for a thread.
+            entity.HasIndex(e => new { e.ThreadId, e.SentAt })
+                .HasDatabaseName("ix_discord_message_thread")
+                .IsDescending(false, true)
+                .HasFilter("thread_id IS NOT NULL");
+
+            // One person's messages: their profile, and purge-user.
+            entity.HasIndex(e => new { e.AuthorId, e.SentAt })
+                .HasDatabaseName("ix_discord_message_author")
+                .IsDescending(false, true);
+
+            // The daily totals ask which days messages stored since their last run fall on.
+            entity.HasIndex(e => e.StoredAt).HasDatabaseName("ix_discord_message_stored");
+        });
+
+        builder.Entity<DiscordMessageEdit>(entity =>
+        {
+            entity.ToTable("discord_message_edit");
+
+            entity.HasKey(e => new { e.Id, e.SentAt }).HasName("pk_discord_message_edit");
+            entity.Property(e => e.Id).UseSerialColumn();
+
+            entity.Property(e => e.MessageId).HasColumnType("text");
+            entity.Property(e => e.Text).HasColumnType("text");
+
+            entity.HasIndex(e => new { e.MessageId, e.ReplacedAt }).HasDatabaseName("ix_discord_message_edit_message");
+        });
+
+        builder.Entity<DiscordReadBack>(entity =>
+        {
+            entity.ToTable("discord_read_back");
+            entity.HasKey(e => e.ChannelId);
+
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.GuildId).HasColumnType("text");
+            entity.Property(e => e.ParentChannelId).HasColumnType("text");
+            entity.Property(e => e.Name).HasColumnType("text");
+            entity.Property(e => e.OldestReadId).HasColumnType("text");
+            entity.Property(e => e.StoppedBecause).HasMaxLength(16);
+            entity.Property(e => e.LastError).HasColumnType("text");
+
+            entity.HasIndex(e => e.GuildId).HasDatabaseName("ix_discord_read_back_guild");
         });
 
         base.OnModelCreating(builder);

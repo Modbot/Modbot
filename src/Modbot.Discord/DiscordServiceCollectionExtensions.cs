@@ -1,12 +1,14 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Core.Discord;
+using Modbot.Core.Moderation;
 using Modbot.Discord.Bot;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.Insights;
 using Modbot.Discord.Instances;
 using Modbot.Discord.Linking;
+using Modbot.Discord.Messages;
 using Modbot.Discord.ModerationLog;
 using Modbot.Discord.ServerIndex;
 
@@ -64,6 +66,12 @@ public static class DiscordServiceCollectionExtensions
 
         // What an AI moderation rule set to act does on Discord (M8 §2), through the live session.
         services.AddSingleton<IDiscordModerationActions, DiscordModerationActions>();
+
+        // Messages, stored in full (M5 spec §5.1), and checked by AI moderation. The checker that
+        // checks nothing stands in when AI moderation is not registered; when it is, it wins.
+        services.AddScoped<DiscordMessageStore>();
+        services.AddScoped<DiscordMessageHandler>();
+        services.TryAddScoped<IModerationChecker, NoModerationChecker>();
 
         return services;
     }

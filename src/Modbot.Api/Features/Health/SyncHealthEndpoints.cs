@@ -124,7 +124,8 @@ public static class SyncHealthEndpoints
                         settings?.BanSweepPolledAt,
                         Run(diagnostics.LastBanSweepRun)),
                     clock.UtcNow,
-                    await DiscordChannelProblemsAsync(db, ct)));
+                    await DiscordChannelProblemsAsync(db, ct),
+                    await ReadBackAsync(db, settings?.DiscordGuildId, ct)));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
@@ -195,6 +196,44 @@ public static class SyncHealthEndpoints
         }
 
         return problems;
+    }
+
+    /// <summary>The read-back's progress for the server in settings, summed from its per-channel rows.</summary>
+    private static async Task<DiscordReadBackHealth?> ReadBackAsync(ModbotContext db, string? guildId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(guildId))
+            return null;
+
+        var guild = guildId.Trim();
+
+        // Summed in the database: a server with years of threads has thousands of rows.
+        var totals = await db.DiscordReadBacks.AsNoTracking()
+            .Where(r => r.GuildId == guild)
+            .GroupBy(r => 1)
+            .Select(g => new
+            {
+                Channels = g.Count(),
+                Finished = g.Count(r => r.FinishedAt != null),
+                NoAccess = g.Count(r => r.StoppedBecause == Modbot.Core.Data.Entities.DiscordReadBackStops.NoAccess),
+                Stored = g.Sum(r => r.MessagesStored),
+                UpdatedAt = g.Max(r => (DateTimeOffset?)r.UpdatedAt),
+            })
+            .FirstOrDefaultAsync(ct);
+
+        var lastProblem = await db.DiscordReadBacks.AsNoTracking()
+            .Where(r => r.GuildId == guild && r.LastError != null)
+            .OrderByDescending(r => r.UpdatedAt)
+            .Select(r => new { r.LastError, r.UpdatedAt })
+            .FirstOrDefaultAsync(ct);
+
+        return new DiscordReadBackHealth(
+            totals?.Channels ?? 0,
+            totals?.Finished ?? 0,
+            totals?.NoAccess ?? 0,
+            totals?.Stored ?? 0,
+            lastProblem?.LastError,
+            lastProblem?.UpdatedAt,
+            totals?.UpdatedAt);
     }
 
     private static PollRateReport? PollRate(PollRateDecision? decision)

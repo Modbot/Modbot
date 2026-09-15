@@ -8,7 +8,8 @@ Modbot can run a small Discord bot for your community's server. It does two thin
 - **Answers three slash commands** — `/lookup`, `/recent` and `/modbot` — so a moderator in Discord
   can check somebody's record without opening the web app.
 
-It reads no messages, needs no privileged intents, and does nothing until you give it a token.
+It also keeps a copy of your server's messages — reading back each channel's history when it is
+first set up — so the server's activity can be charted. It does nothing until you give it a token.
 Without one, the rest of Modbot is unaffected.
 
 It can also **link members' Discord and VRChat accounts** and give linked members a role — see
@@ -21,8 +22,12 @@ this bot yet.
    **New Application**. Name it whatever you like — "Modbot" is fine.
 2. Under **Bot**, click **Reset Token** and copy the token. You will paste it into Modbot in a
    moment; the portal will not show it again.
-3. Still under **Bot**, leave every **Privileged Gateway Intent** switched **off**. The bot uses
-   only the `Guilds` intent, which is not privileged. It never asks for message content.
+3. Still under **Bot**, under **Privileged Gateway Intents**, switch **on**:
+   - **Server Members Intent** — for joins, leaves and role changes.
+   - **Message Content Intent** — for the text of messages.
+
+   Leave **Presence Intent** off. If either of the two is off, the bot connects without it and
+   **Settings → Health** names the one to switch on.
 
 ## 2. Invite it to your server
 
@@ -30,8 +35,10 @@ Under **OAuth2 → URL Generator**:
 
 - Scopes: **`bot`** and **`applications.commands`**. The second is what lets the slash commands
   appear; without it the bot connects but nobody can run anything.
-- Bot permissions: **View Channels**, **Send Messages**, **Embed Links**. That is all it needs.
-  Do not give it Administrator.
+- Bot permissions: **View Channels**, **Send Messages**, **Embed Links**, **Read Message History**
+  and **View Audit Log**. Read Message History lets it read back each channel's messages; View Audit
+  Log lets it see who banned, kicked or timed somebody out, including while it was offline. Do not
+  give it Administrator.
 
 Open the generated link, pick your server, and confirm.
 
@@ -152,9 +159,8 @@ Switch on **Prompt new joiners to link their VRChat account** to have the bot se
 joins your server a direct message with a button to the link page. People who are already linked
 are not asked.
 
-This needs the **Server Members Intent**. Turn it on in the Developer Portal under **Bot →
-Privileged Gateway Intents** before you switch the prompt on. If it is off, the bot keeps working
-without it, and **Settings → Health** says so.
+This needs the **Server Members Intent** from step 1. If it is off, the bot keeps working without
+it, and **Settings → Health** says so.
 
 If somebody does not accept direct messages, the bot mentions them in the **Backup channel**
 instead. Leave it empty to skip that. The bot needs View Channel and Send Messages there.
@@ -170,7 +176,7 @@ Check **Settings → Health** first; the bot's card says what it last ran into.
 | A channel with Missing … or a refusal beside it | Give the bot View Channel, Send Messages and Embed Links in that channel, or pick another. |
 | Commands do not appear in Discord | The invite link was missing the `applications.commands` scope. Re-invite with it; nothing else needs changing. |
 | Reconnecting | The connection dropped and is being retried. This usually clears by itself within a minute. |
-| Discord refused the Server Members intent | Turn on **Server Members Intent** under **Bot** in the Developer Portal, then switch the prompt for new joiners off, save, and on again. |
+| Intents off in the Developer Portal | Switch the named intents on under **Bot → Privileged Gateway Intents**. Until then the bot connects without them; it asks for them again when Modbot restarts or the Discord settings change. |
 | Could not change a linked member's role | Give the bot Manage Roles and move its role above the linked and 18+ roles. |
 | Sign in with Discord fails on the link page | Check the Redirect URL in the Developer Portal matches the one in Modbot exactly, and that the client secret is current. |
 

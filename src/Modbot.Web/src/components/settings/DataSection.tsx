@@ -175,15 +175,19 @@ function RetentionCard({
 }) {
   const [moderation, setModeration] = useState(String(current.moderationFactRetentionDays))
   const [presence, setPresence] = useState(String(current.presenceFactRetentionDays))
+  const [messages, setMessages] = useState(String(current.discordMessageRetentionDays))
   const [saving, setSaving] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
   const keepingEverything =
-    current.moderationFactRetentionDays === 0 && current.presenceFactRetentionDays === 0
+    current.moderationFactRetentionDays === 0 &&
+    current.presenceFactRetentionDays === 0 &&
+    current.discordMessageRetentionDays === 0
 
   const dirty =
     moderation !== String(current.moderationFactRetentionDays) ||
-    presence !== String(current.presenceFactRetentionDays)
+    presence !== String(current.presenceFactRetentionDays) ||
+    messages !== String(current.discordMessageRetentionDays)
 
   const save = () => {
     setSaving(true)
@@ -192,6 +196,7 @@ function RetentionCard({
       .setRetention({
         moderationFactRetentionDays: Number(moderation) || 0,
         presenceFactRetentionDays: Number(presence) || 0,
+        discordMessageRetentionDays: Number(messages) || 0,
       })
       .then(onSaved)
       .catch((e: unknown) =>
@@ -213,7 +218,7 @@ function RetentionCard({
       }
     >
       {!keepingEverything && <Hint>Facts past the retention window are destroyed permanently.</Hint>}
-      <div className="grid max-w-sm grid-cols-2 gap-3">
+      <div className="grid max-w-lg grid-cols-3 gap-3">
         <Field
           label="Moderation facts (days)"
           placeholder="0"
@@ -225,6 +230,12 @@ function RetentionCard({
           placeholder="0"
           value={presence}
           onChange={setPresence}
+        />
+        <Field
+          label="Discord messages (days)"
+          placeholder="0"
+          value={messages}
+          onChange={setMessages}
         />
       </div>
       <Hint>0 keeps forever.</Hint>

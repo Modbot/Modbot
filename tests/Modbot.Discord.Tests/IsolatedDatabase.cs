@@ -54,5 +54,15 @@ public sealed class IsolatedDatabase : IAsyncDisposable
         return new ModbotContext(options);
     }
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    /// <summary>
+    /// Closes the idle connections this database's pool keeps. Every test makes its own database,
+    /// and a pool left open per test runs the shared server out of connections part way through
+    /// the suite.
+    /// </summary>
+    public ValueTask DisposeAsync()
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        NpgsqlConnection.ClearPool(connection);
+        return ValueTask.CompletedTask;
+    }
 }

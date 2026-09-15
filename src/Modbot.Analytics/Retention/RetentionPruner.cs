@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
+using Modbot.Analytics.Messages;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -93,12 +94,17 @@ public sealed partial class RetentionPruner
 
     public async Task<RetentionResult> PruneAsync(CancellationToken ct = default)
     {
+        var messagesDropped = await PruneMessagesAsync(ct);
+
         var cutoffs = await CutoffsAsync(ct);
 
         // Nothing expires: every class is set to keep forever. Not an error -- it is the default
         // for moderation facts, and a deployment may well choose it for everything.
         if (cutoffs.Values.All(c => c is null))
-            return new RetentionResult([], []);
+        {
+            await RecordAsync([], [], messagesDropped, ct);
+            return new RetentionResult([], [], messagesDropped);
+        }
 
         var dropped = new List<string>();
         var movedOut = new List<string>();
@@ -127,9 +133,81 @@ public sealed partial class RetentionPruner
             movedOut.Add(partition.Name);
         }
 
-        await RecordAsync(dropped, movedOut, ct);
+        await RecordAsync(dropped, movedOut, messagesDropped, ct);
 
-        return new RetentionResult(dropped, movedOut);
+        return new RetentionResult(dropped, movedOut, messagesDropped);
+    }
+
+    /// <summary>
+    /// Drops every month of Discord messages, and of their earlier texts, older than the message
+    /// retention setting (M5 spec §5.1).
+    /// </summary>
+    /// <remarks>
+    /// Simpler than the fact log: the message tables hold one kind of row, so a month is either
+    /// wholly past retention and dropped, or kept. The same whole-partition rule applies -- a month
+    /// is dropped once its last day is past the cutoff, never picked through row by row.
+    /// </remarks>
+    private async Task<IReadOnlyList<string>> PruneMessagesAsync(CancellationToken ct)
+    {
+        var days = await _db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => (int?)s.DiscordMessageRetentionDays)
+            .FirstOrDefaultAsync(ct) ?? 0;
+
+        if (days <= 0)
+            return [];
+
+        var cutoff = _clock.UtcNow.AddDays(-days);
+        var dropped = new List<string>();
+
+        foreach (var table in new[] { MessagePartitionMaintainer.MessageTable, MessagePartitionMaintainer.EditTable })
+        {
+            foreach (var partition in await PartitionsOfAsync(table, ct))
+            {
+                if (partition.UpperBound > cutoff)
+                    continue;
+
+                await DropAsync(partition, ct);
+                dropped.Add(partition.Name);
+            }
+        }
+
+        if (dropped.Count > 0)
+            MessagePartitionMaintainer.Forget();
+
+        return dropped;
+    }
+
+    /// <summary>A message table's monthly partitions, found by name like the fact log's.</summary>
+    private async Task<IReadOnlyList<Partition>> PartitionsOfAsync(string table, CancellationToken ct)
+    {
+        var names = await _db.Database
+            .SqlQuery<string>($"""
+                SELECT child.relname AS "Value"
+                FROM pg_inherits i
+                JOIN pg_class child ON child.oid = i.inhrelid
+                JOIN pg_class parent ON parent.oid = i.inhparent
+                WHERE parent.relname = {table}
+                ORDER BY child.relname
+                """)
+            .ToListAsync(ct);
+
+        var partitions = new List<Partition>();
+
+        foreach (var name in names)
+        {
+            var match = MessagePartitionName().Match(name);
+            if (!match.Success || match.Groups["table"].Value != table)
+                continue;
+
+            var year = int.Parse(match.Groups["year"].ValueSpan, CultureInfo.InvariantCulture);
+            var month = int.Parse(match.Groups["month"].ValueSpan, CultureInfo.InvariantCulture);
+            var lower = new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
+
+            partitions.Add(new Partition(name, lower, lower.AddMonths(1)));
+        }
+
+        return partitions;
     }
 
     /// <summary>
@@ -286,9 +364,10 @@ public sealed partial class RetentionPruner
     private async Task RecordAsync(
         IReadOnlyList<string> dropped,
         IReadOnlyList<string> movedOut,
+        IReadOnlyList<string> messagesDropped,
         CancellationToken ct)
     {
-        if (dropped.Count == 0 && movedOut.Count == 0)
+        if (dropped.Count == 0 && movedOut.Count == 0 && messagesDropped.Count == 0)
             return;
 
         await _partitions.EnsureForAsync(_clock.UtcNow, ct);
@@ -306,6 +385,7 @@ public sealed partial class RetentionPruner
                     ["dropped"] = string.Join(",", dropped),
                     // Key kept as first written: this is fact data already in modbot_event.
                     ["movedOut"] = string.Join(",", movedOut),
+                    ["messagesDropped"] = string.Join(",", messagesDropped),
                 },
             },
             ct);
@@ -339,6 +419,9 @@ public sealed partial class RetentionPruner
     [GeneratedRegex(@"^modbot_event_(?<year>\d{4})_(?<month>\d{2})$")]
     private static partial Regex MonthlyPartitionName();
 
+    [GeneratedRegex(@"^(?<table>discord_message(_edit)?)_(?<year>\d{4})_(?<month>\d{2})$")]
+    private static partial Regex MessagePartitionName();
+
     private sealed record Partition(string Name, DateTimeOffset LowerBound, DateTimeOffset UpperBound);
 }
 
@@ -347,4 +430,8 @@ public sealed partial class RetentionPruner
 /// Partitions rebuilt without their expired classes, because something in them was still in
 /// retention.
 /// </param>
-public sealed record RetentionResult(IReadOnlyList<string> Dropped, IReadOnlyList<string> MovedOut);
+/// <param name="MessagesDropped">Months of Discord messages and their earlier texts destroyed.</param>
+public sealed record RetentionResult(
+    IReadOnlyList<string> Dropped,
+    IReadOnlyList<string> MovedOut,
+    IReadOnlyList<string> MessagesDropped);
