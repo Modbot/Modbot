@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Modbot.Client.Ingest;
 
-/// <summary>The four things a client ever reports. Protocol section 4.2.</summary>
+/// <summary>The five things a client ever reports. Protocol section 4.2.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<ClientEventType>))]
 public enum ClientEventType
 {
@@ -20,6 +20,18 @@ public enum ClientEventType
 
     /// <summary>An avatar display name. VRChat does not put avatar ids in the log.</summary>
     AvatarChanged,
+
+    /// <summary>
+    /// VRChat's log stopped while the moderator was in this instance. The subject is the moderator
+    /// and the time is the log's last line. Sent once when the log stops, not repeated while it
+    /// stays stopped, and never sent as a "still here" signal.
+    /// </summary>
+    /// <remarks>
+    /// Added after the first servers shipped. A server that does not know it rejects this one
+    /// event as malformed and accepts the rest of the batch (protocol section 4.2.1), so sending it
+    /// to an older server costs one rejected line and nothing else.
+    /// </remarks>
+    LogStopped,
 }
 
 /// <summary>

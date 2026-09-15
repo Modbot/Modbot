@@ -128,6 +128,26 @@ public sealed class ClientApiTestHost : IAsyncDisposable
         return token;
     }
 
+    /// <summary>
+    /// Pairs a device to a staff account linked to a VRChat account, the way a real moderator's
+    /// client is paired. Facts that device reports about that VRChat account are the moderator's
+    /// own, which is what starts a watch.
+    /// </summary>
+    public async Task<(string Token, Guid DeviceId, string VRChatUserId)> PairModeratorAsync(CancellationToken ct)
+    {
+        var moderator = await TestAccounts.CreateAsync(
+            NewContext(), $"mod_{Guid.NewGuid():N}", TestAccounts.Password, ModbotPermissions.None, linked: true, ct);
+
+        var token = DeviceTokens.NewToken();
+        var deviceId = Guid.NewGuid();
+
+        await Devices.AddDeviceAsync(
+            new ClientDevice(deviceId, DeviceTokens.Hash(token), "2026.9.0", "windows", moderator.Id, Clock.UtcNow),
+            ct);
+
+        return (token, deviceId, moderator.VRChatUserId!);
+    }
+
     public HttpRequestMessage WithToken(HttpMethod method, string path, string? token)
     {
         var request = new HttpRequestMessage(method, path);

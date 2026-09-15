@@ -347,6 +347,42 @@ public class IngestTests
         Assert.Equal("malformed_event", Assert.Single(result.Rejected).Reason);
     }
 
+    /// <summary>
+    /// An unknown type costs that one event, not the batch -- which is what lets a newer client
+    /// send LogStopped to an older server safely.
+    /// </summary>
+    [Fact]
+    public async Task AnUnknownTypeDoesNotCostTheRestOfTheBatch()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var result = await PostAsync(
+            host, token, Batch(Event(), Event(type: "SomethingNewerThanThisServer", subject: "usr_mod")), ct);
+
+        Assert.Equal(1, result.Accepted);
+        Assert.Equal(1, Assert.Single(result.Rejected).Index);
+    }
+
+    [Fact]
+    public async Task AStoppedLogIsRecordedUnderItsOwnType()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var result = await PostAsync(host, token, Batch(Event(type: "LogStopped", subject: "usr_mod")), ct);
+
+        Assert.Equal(1, result.Accepted);
+        Assert.Empty(result.Rejected);
+
+        await using var context = _db.NewContext();
+        var fact = context.Events.Single(e => e.SubjectId == "usr_mod");
+        Assert.Equal(Core.Data.Entities.FactType.InstanceLogStopped, fact.Type);
+        Assert.Equal("39911", fact.InstanceId);
+    }
+
     [Fact]
     public async Task ReportingUpdatesLastSeenSoAnOperatorCanTellWhoIsActuallyCovering()
     {

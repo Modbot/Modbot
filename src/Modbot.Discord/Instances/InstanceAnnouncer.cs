@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Live;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Modbot.Discord.Bot;
@@ -56,6 +57,12 @@ public sealed record InstanceAnnouncePass(
 /// fill it with notices for an evening three hours in progress -- the same protection the
 /// moderation log gives with its cursor. It also covers the case where Modbot itself was down:
 /// coming back up does not announce rooms that have been running the whole time.
+/// </para>
+/// <para>
+/// <strong>Names.</strong> While a moderator is watching a room, its card lists who is there
+/// (<see cref="InstanceCard"/>), from the same watching rule the Live page and the overlay use
+/// (<see cref="RoomWatching"/>). Nobody watching, or <c>DiscordInstanceShowNames</c> off, and the
+/// card carries the head count only.
 /// </para>
 /// <para>
 /// <strong>Pacing.</strong> Discord's limits on editing are real and per-channel, so a pass does
@@ -132,6 +139,10 @@ public sealed class InstanceAnnouncer
             .Take(MessagesPerPass * 4)
             .ToListAsync(ct).ConfigureAwait(false);
 
+        var names = settings.DiscordInstanceShowNames
+            ? await NamesAsync(rooms, ct).ConfigureAwait(false)
+            : [];
+
         var announced = 0;
         var updated = 0;
         var finished = 0;
@@ -163,7 +174,8 @@ public sealed class InstanceAnnouncer
                     continue;
                 }
 
-                var outcome = await AnnounceAsync(gateway, room, channelId, message, now, ct).ConfigureAwait(false);
+                var outcome = await AnnounceAsync(
+                    gateway, room, channelId, message, names.GetValueOrDefault(room.Id), now, ct).ConfigureAwait(false);
                 sent++;
 
                 if (outcome.Sent)
@@ -185,7 +197,7 @@ public sealed class InstanceAnnouncer
             if (!closed && room.AnnouncementUpdatedAt is { } written && now - written < RewriteEvery)
                 continue;
 
-            var edit = await RewriteAsync(gateway, room, message, now, ct).ConfigureAwait(false);
+            var edit = await RewriteAsync(gateway, room, message, names.GetValueOrDefault(room.Id), now, ct).ConfigureAwait(false);
             sent++;
 
             if (edit.Sent)
@@ -233,10 +245,11 @@ public sealed class InstanceAnnouncer
         VRChatInstance room,
         string channelId,
         string? message,
+        IReadOnlyList<string?>? names,
         DateTimeOffset now,
         CancellationToken ct)
     {
-        var card = InstanceCard.For(room, await WorldOfAsync(room, ct).ConfigureAwait(false), now);
+        var card = InstanceCard.For(room, await WorldOfAsync(room, ct).ConfigureAwait(false), now, names);
 
         var outcome = await gateway.PostAsync(channelId, message, [card], ct).ConfigureAwait(false);
 
@@ -254,6 +267,7 @@ public sealed class InstanceAnnouncer
         IDiscordGateway gateway,
         VRChatInstance room,
         string? message,
+        IReadOnlyList<string?>? names,
         DateTimeOffset now,
         CancellationToken ct)
     {
@@ -264,7 +278,7 @@ public sealed class InstanceAnnouncer
         if (channelId is not { Length: > 0 } || room.AnnouncementMessageId is not { Length: > 0 } messageId)
             return DiscordPostOutcome.Failed("The card has no message to rewrite.", permanent: true);
 
-        var card = InstanceCard.For(room, await WorldOfAsync(room, ct).ConfigureAwait(false), now);
+        var card = InstanceCard.For(room, await WorldOfAsync(room, ct).ConfigureAwait(false), now, names);
 
         var outcome = await gateway.EditAsync(channelId, messageId, message, [card], ct).ConfigureAwait(false);
 
@@ -277,6 +291,50 @@ public sealed class InstanceAnnouncer
             room.AnnouncementFinished = true;
 
         return outcome;
+    }
+
+    /// <summary>
+    /// The display names of the people in each open room a moderator is watching. Rooms nobody is
+    /// watching are absent, so their cards show the head count only.
+    /// </summary>
+    /// <remarks>
+    /// A person the facts carried no name for is named from their stored profile when there is one,
+    /// and otherwise left as a null the card counts in "and N more" -- never shown by id.
+    /// </remarks>
+    private async Task<Dictionary<Guid, IReadOnlyList<string?>>> NamesAsync(
+        IReadOnlyList<VRChatInstance> rooms,
+        CancellationToken ct)
+    {
+        var result = new Dictionary<Guid, IReadOnlyList<string?>>();
+        var open = rooms.Where(r => r.ClosedAt is null).ToList();
+
+        if (open.Count == 0)
+            return result;
+
+        var people = await new RoomPeopleReader(_db).ForRoomsAsync(open, ct).ConfigureAwait(false);
+
+        var nameless = people.Values
+            .Where(p => p.IsWatched)
+            .SelectMany(p => p.Here)
+            .Where(p => p.DisplayName is null)
+            .Select(p => p.UserId)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var stored = nameless.Count == 0
+            ? new Dictionary<string, string>(StringComparer.Ordinal)
+            : await _db.VRChatUsers.AsNoTracking()
+                .Where(u => nameless.Contains(u.UserId) && u.DisplayName != null)
+                .ToDictionaryAsync(u => u.UserId, u => u.DisplayName!, StringComparer.Ordinal, ct)
+                .ConfigureAwait(false);
+
+        foreach (var (roomId, inRoom) in people)
+        {
+            if (inRoom.IsWatched)
+                result[roomId] = inRoom.Here.Select(p => p.DisplayName ?? stored.GetValueOrDefault(p.UserId)).ToList();
+        }
+
+        return result;
     }
 
     private Task<VRChatWorld?> WorldOfAsync(VRChatInstance room, CancellationToken ct) =>

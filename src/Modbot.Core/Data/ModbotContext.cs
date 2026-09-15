@@ -87,6 +87,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// </summary>
     public DbSet<VRChatInstance> VRChatInstances => Set<VRChatInstance>();
 
+    /// <summary>Every change in a room's head count, keyed on Modbot's own room id.</summary>
+    public DbSet<InstanceHeadCount> InstanceHeadCounts => Set<InstanceHeadCount>();
+
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
 
     /// <summary>The group's ban list as last swept.</summary>
@@ -353,6 +356,25 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .HasFilter("last_refreshed_at IS NULL");
         });
 
+        builder.Entity<InstanceHeadCount>(entity =>
+        {
+            entity.ToTable("instance_head_count");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).UseIdentityAlwaysColumn();
+            entity.Property(e => e.Source).HasMaxLength(8);
+
+            // Rows belong to their room and go with it. Rooms are never deleted in normal running,
+            // but a test reset or an operator's clean-up must not be blocked by the history.
+            entity.HasOne<VRChatInstance>()
+                .WithMany()
+                .HasForeignKey(e => e.InstanceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // "How full was this room, and when", in order -- the only question asked of it.
+            entity.HasIndex(e => new { e.InstanceId, e.CountedAt })
+                .HasDatabaseName("ix_instance_head_count_room");
+        });
+
         builder.Entity<VRChatInstance>(entity =>
         {
             entity.ToTable("vrchat_instance");
@@ -368,6 +390,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.GroupAccessType).HasMaxLength(32);
             entity.Property(e => e.Region).HasMaxLength(32);
             entity.Property(e => e.ClosedBy).HasMaxLength(16);
+            entity.Property(e => e.HeadCountSource).HasMaxLength(8);
 
             // Discord ids are long numbers Modbot never does arithmetic on, so they are text --
             // the same choice the moderation log channel setting already makes.

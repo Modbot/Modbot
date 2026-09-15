@@ -15,6 +15,7 @@ import { ForgotPassword } from '@/pages/ForgotPassword'
 import { Health } from '@/pages/Health'
 import { Join } from '@/pages/Join'
 import { LinkVRChat } from '@/pages/LinkVRChat'
+import { Live } from '@/pages/Live'
 import { Login } from '@/pages/Login'
 import { Members } from '@/pages/Members'
 import { Instances } from '@/pages/analytics/Instances'
@@ -31,6 +32,7 @@ import { Setup } from '@/pages/setup/Setup'
 
 const TITLES: Record<PageId, string> = {
   members: 'Members',
+  live: 'Live',
   bans: 'Bans',
   audit: 'Audit log',
   'analytics-group': 'My Group',
@@ -53,6 +55,7 @@ const TITLES: Record<PageId, string> = {
  */
 const PATHS: Record<PageId, string> = {
   members: '/',
+  live: '/live',
   bans: '/bans',
   audit: '/audit',
   'analytics-group': '/analytics/group',
@@ -250,6 +253,7 @@ function Shell({
         />
         <div className="p-5">
           {page === 'members' && <Members onOpenSubject={setSubject} />}
+          {page === 'live' && <Live />}
           {page === 'bans' && (
             <Bans me={me} onOpenSubject={setSubject} onOpenCase={(id) => navigate(`${PATHS.cases}/${id}`)} />
           )}

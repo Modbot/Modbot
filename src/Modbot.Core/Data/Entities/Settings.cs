@@ -119,6 +119,17 @@ public class Settings
     /// </remarks>
     public string? DiscordInstanceMessage { get; set; }
 
+    /// <summary>
+    /// Whether an instance card lists the display names of the people in the room while a moderator
+    /// is watching it. On by default.
+    /// </summary>
+    /// <remarks>
+    /// With nobody watching, a card shows the head count only whatever this says, because Modbot does
+    /// not know who is inside. Off keeps every card to the head count, for a community that would
+    /// rather not have names posted in a channel.
+    /// </remarks>
+    public bool DiscordInstanceShowNames { get; set; } = true;
+
     // --- Operator-supplied SMTP (spec 7.4) ---
     public string? SmtpHost { get; set; }
     public int? SmtpPort { get; set; }

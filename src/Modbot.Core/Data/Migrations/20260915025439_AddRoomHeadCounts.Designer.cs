@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260915025439_AddRoomHeadCounts")]
+    partial class AddRoomHeadCounts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1330,10 +1333,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("DiscordInstanceMessage")
                         .HasColumnType("text")
                         .HasColumnName("discord_instance_message");
-
-                    b.Property<bool>("DiscordInstanceShowNames")
-                        .HasColumnType("boolean")
-                        .HasColumnName("discord_instance_show_names");
 
                     b.Property<string>("DiscordLogChannelId")
                         .HasColumnType("text")

@@ -128,6 +128,28 @@ public class VRChatInstance
     public int? PeakUserCount { get; set; }
 
     /// <summary>
+    /// How many people are in the room right now, as best Modbot knows: <c>n_users</c> from the
+    /// room's own page, or the group list's count when the page cannot be read. Every change is
+    /// kept in <see cref="InstanceHeadCount"/>. Set only through <c>HeadCounts.Record</c>.
+    /// </summary>
+    public int? HeadCount { get; set; }
+
+    /// <summary><c>room</c> or <c>list</c>: where <see cref="HeadCount"/> came from.</summary>
+    public string? HeadCountSource { get; set; }
+
+    /// <summary>The room page's <c>userCount</c> at the last good read, kept beside <c>n_users</c>.</summary>
+    public int? PageUserCount { get; set; }
+
+    /// <summary>When the room's own page was last read successfully.</summary>
+    public DateTimeOffset? PageReadAt { get; set; }
+
+    /// <summary>
+    /// When reading the room's own page was last tried, whatever the answer. What spaces the reads
+    /// out, so a room whose page keeps failing is not asked again on every pass.
+    /// </summary>
+    public DateTimeOffset? PageCheckedAt { get; set; }
+
+    /// <summary>
     /// Whether this room has ever appeared in the managed group's live instance list. When true,
     /// the list is the authority on when it ends and the time rule is never applied to it.
     /// </summary>

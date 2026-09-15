@@ -1,4 +1,5 @@
 using System.Net;
+using System.Runtime.CompilerServices;
 using NSubstitute;
 using VRChat.API.Api;
 using VRChat.API.Client;
@@ -72,6 +73,24 @@ public sealed class FakeGroups
 
     public int BanRequests => BanQueries.Count;
 
+    /// <summary>The group's open rooms, as <c>/groups/{groupId}/instances</c> lists them.</summary>
+    public List<GroupInstance> Instances { get; } = [];
+
+    public HttpStatusCode InstancesStatus { get; set; } = HttpStatusCode.OK;
+
+    public int InstancesRequests { get; private set; }
+
+    /// <summary>One entry in the group's instance list, with no world attached.</summary>
+    public static GroupInstance Listed(string location, int memberCount)
+    {
+        // Built without its constructor, which insists on a whole world object.
+        var instance = (GroupInstance)RuntimeHelpers.GetUninitializedObject(typeof(GroupInstance));
+        instance.Location = location;
+        instance.InstanceId = location[(location.IndexOf(':') + 1)..];
+        instance.MemberCount = memberCount;
+        return instance;
+    }
+
     public FakeGroups Add(params GroupAuditLogEntry[] entries)
     {
         _entries.AddRange(entries);
@@ -111,6 +130,17 @@ public sealed class FakeGroups
                 call.ArgAt<int?>(1) ?? 60,
                 call.ArgAt<int?>(2) ?? 0,
                 call.ArgAt<DateTime?>(3))));
+
+        groups
+            .GetGroupInstancesWithHttpInfoAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                InstancesRequests++;
+
+                return Task.FromResult(InstancesStatus == HttpStatusCode.OK
+                    ? new ApiResponse<List<GroupInstance>>(HttpStatusCode.OK, new Multimap<string, string>(), [.. Instances], "[]")
+                    : new ApiResponse<List<GroupInstance>>(InstancesStatus, new Multimap<string, string>(), null!, "{}"));
+            });
 
         groups
             .GetGroupWithHttpInfoAsync(Arg.Any<string>(), Arg.Any<bool?>(), Arg.Any<CancellationToken>())

@@ -23,6 +23,19 @@ public enum PresenceKind
 
     /// <summary>Somebody changed avatar while the moderator was watching. Exact.</summary>
     AvatarChanged,
+
+    /// <summary>
+    /// VRChat's log stopped growing while the moderator was in this instance, so this client can
+    /// no longer see who is there. The subject is the moderator; the time is the last line the log
+    /// wrote. Sent once per stop, never repeated.
+    /// </summary>
+    /// <remarks>
+    /// The ordinary way a session ends is that the log simply stops (research note §7): VRChat is
+    /// closed, crashes, or the machine sleeps, and no leave of any kind is written. Without this the
+    /// server would go on believing a moderator was watching a room they had long since stopped
+    /// seeing, and would show everyone they last saw as still being there.
+    /// </remarks>
+    LogStopped,
 }
 
 /// <summary>

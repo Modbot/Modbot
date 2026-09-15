@@ -184,6 +184,18 @@ public static class FactType
     /// </remarks>
     public const string InstancePresenceObserved = "vrchat.instance.presence";
 
+    /// <summary>
+    /// A moderator's client reported that VRChat's log stopped while they were in this instance.
+    /// The subject is the moderator; the time is the last line the log wrote.
+    /// </summary>
+    /// <remarks>
+    /// Not a leave. Whether the moderator is still standing there is unknown -- VRChat may have
+    /// crashed, or the machine slept -- only that their client can no longer see the room. It ends
+    /// that moderator's watch (<c>RoomWatching</c>), so nobody they last saw stays listed as present.
+    /// Sent once per stop, never as a repeating "still here". Presence class, by prefix.
+    /// </remarks>
+    public const string InstanceLogStopped = "vrchat.instance.log-stopped";
+
     // ── Discord (M5) ───────────────────────────────────────────────────────────────────────
     public const string DiscordMemberJoined = "discord.member.join";
     public const string DiscordMemberLeft = "discord.member.leave";

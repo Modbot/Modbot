@@ -17,6 +17,7 @@ using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Members;
 using Modbot.Api.Features.Settings;
+using Modbot.Api.Features.Live;
 using Modbot.Api.Features.Places;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
@@ -129,6 +130,10 @@ public static class ApiSurface
         // 10.2). Read entirely from Modbot's own tables -- opening a popup costs no VRChat
         // budget, however often a moderator does it.
         app.MapPlaces();
+
+        // Live: the group's open instances right now and who is in each. From Modbot's own tables
+        // only, so a page that refreshes every five seconds costs no VRChat budget.
+        app.MapLive();
 
         // Moderation accountability (spec 5.8): people acted on more than once, and the reviews
         // that open when a moderator's pattern looks unusual. Read from caches the review job
