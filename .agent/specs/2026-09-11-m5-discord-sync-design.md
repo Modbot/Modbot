@@ -141,19 +141,33 @@ audit log gets.
 | Role granted / removed | fact | Moderation |
 | Discord ban / kick / timeout | fact — feeds §5.8 accountability | Moderation |
 | Voice channel join / leave | fact — sessions, exactly like instance presence | Presence |
-| **Messages sent** | **daily total only** (foundation §5.2.1) | — |
+| Messages sent, edited, deleted | message rows, full text (§5.1) | Messages (its own setting) |
 | Member count, online count | daily total snapshot | — |
 
 All facts carry `subject_platform = Discord`.
 
-### 5.1 Message content is never stored
+### 5.1 Messages are stored in full
 
-Foundation §5.2.1: message volume increments a counter and writes no fact. Modbot stores **no message
-content, no message ids, and no per-message rows** — there is no social graph to leak, export by
-accident, or be asked to hand over.
+**Changed 2026-09-15.** This section used to say Modbot stores no message text, no message ids and no
+per-message rows. The maintainer asked for rich Discord server analytics built from an index of every
+message, and for AI moderation that reads chat (M8 §2), and chose full messages over per-message
+details without text or daily totals.
 
-The bot therefore does not need the Message Content intent for analytics. If a future feature needs
-it, that is a separate decision requiring its own justification, not an incremental permission grab.
+- **Reading back.** When Discord is first set up, or when this change first runs on an existing
+  deployment, the bot reads back the history of every channel it can read (View Channel and Read
+  Message History) and stores each message it has not already stored. After that it stores new
+  messages, edits and deletes as they arrive.
+- **What a message row holds.** Message id, channel, thread, author, time, text, each earlier version
+  of the text when edited, when it was deleted, attachment names, types and sizes, and what it replied
+  to. A deleted message is kept and marked deleted, because a deleted message is often the one a
+  moderator needs.
+- **The Message Content intent** has to be turned on in the Discord Developer Portal. Without it
+  Discord sends messages with no text, and Modbot stores the rest of the row.
+- **Missed while disconnected.** Messages are caught up by reading each channel back from the last
+  message stored. Everything else the bot missed -- bans, kicks, timeouts, role and channel changes,
+  messages removed by moderators -- is caught up from the server's audit log.
+- **Retention and erasure.** Messages have their own retention setting, and purge-user (foundation
+  §5.5) removes a person's messages along with the rest of their record.
 
 ### 5.2 Voice presence is presence
 
@@ -193,8 +207,6 @@ no group can currently answer, and it is answerable the moment both sides are fa
 
 ## 8. Non-goals
 
-- Storing message content, message ids, or per-message rows.
-- Moderating Discord chat. Modbot observes and syncs; it is not an automod.
 - Multi-guild support. One deployment, one group, one guild (foundation §2.4).
 - Discord-side appeals or ticket UI beyond the accountability tickets of M4.
 

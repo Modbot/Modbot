@@ -24,8 +24,8 @@ it is achieved by making sure Modbot never decides anything on a group's behalf.
 
 ## 2. The rule that governs all of M8
 
-> **Modbot never takes a moderation action based on an M8 signal. It surfaces the signal, attributes
-> it, and a human in the receiving group decides.**
+> **Modbot never takes a moderation action based on a federation signal or a group flag. It surfaces
+> the signal, attributes it, and a human in the receiving group decides.**
 
 Auto-action on inherited or inferred signals is the line between a moderation tool and a weapon. A
 system that automatically bans on a third party's say-so means one group's grudge, mistake, or bad
@@ -35,6 +35,17 @@ to because nobody chose anything.
 This is not configurable. There is no "enable auto-ban from federation" setting, because the moment
 that setting exists it becomes the default in half the deployments and Modbot becomes the
 infrastructure of exactly the thing it was supposed to avoid.
+
+**AI moderation rules are the exception (changed 2026-09-15).** This rule used to cover every M8
+signal, AI included. The maintainer chose to let AI moderation rules -- term lists and AI topics --
+act on Discord chat, for example deleting a message or timing somebody out. The difference from
+federation is that the rule is the group's own, written and switched on by its own operator, not a
+third party's say-so.
+
+- Every rule starts as flag-only. It acts only after an operator sets that rule to act.
+- Every action is recorded as a fact naming the rule, the message or person it matched, and the
+  operator who set the rule to act, so the tool's actions are audited like a moderator's.
+- Actions on VRChat (kicks, bans, group removal) are still never taken on an AI signal.
 
 ---
 
@@ -178,7 +189,8 @@ special infrastructure.
 
 ## 6. Non-goals
 
-- **Auto-action on any M8 signal**, at any confidence, under any configuration (§2).
+- **Auto-action on a federation signal or a group flag**, at any confidence, under any configuration,
+  and any AI action on VRChat (§2). AI moderation rules may act on Discord chat when set to.
 - A central blocklist, registry, or project-operated peer directory.
 - A shipped default flag list.
 - Risk scores, threat ratings, or any single number purporting to summarise a person.
