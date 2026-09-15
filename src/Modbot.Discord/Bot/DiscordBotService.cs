@@ -10,6 +10,7 @@ using Modbot.Core.Security;
 using Modbot.Core.Time;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
+using Modbot.Discord.Members;
 using Modbot.Discord.Messages;
 using Modbot.Discord.ServerIndex;
 using Serilog;
@@ -90,6 +91,17 @@ public sealed class DiscordBotService : BackgroundService
     private CancellationTokenSource? _readingStop;
 
     private Task _reading = Task.CompletedTask;
+
+    /// <summary>One read of the audit log at a time: a live entry and a catch-up must not both record it.</summary>
+    private readonly SemaphoreSlim _auditLog = new(1, 1);
+
+    /// <summary>
+    /// Whether this session has read when the bot was last listening. Until it has, that moment is
+    /// not moved on, or the gap to catch up would be lost before it was looked at.
+    /// </summary>
+    private volatile bool _gapRead;
+
+    private DateTimeOffset _seenWrittenAt;
 
     public DiscordBotService(
         IServiceScopeFactory scopes,
@@ -223,6 +235,15 @@ public sealed class DiscordBotService : BackgroundService
             await TearDownAsync().ConfigureAwait(false);
         }
 
+        // Note that the bot is listening, once a minute, so the next catch-up knows where the gap began.
+        if (_gateway is { State: DiscordGatewayState.Ready } && _gapRead && _guildId is { } listening
+            && now - _seenWrittenAt >= TimeSpan.FromMinutes(1))
+        {
+            _seenWrittenAt = now;
+            await RecordAsync("note that the bot is listening", (recorder, token) => recorder.SeenAsync(listening, token))
+                .ConfigureAwait(false);
+        }
+
         if (_gateway is not null || _stopped)
             return;
 
@@ -253,6 +274,13 @@ public sealed class DiscordBotService : BackgroundService
         gateway.MessageReceived += OnMessageReceivedAsync;
         gateway.MessageEdited += OnMessageEditedAsync;
         gateway.MessagesDeleted += OnMessagesDeletedAsync;
+        gateway.MemberJoined += RecordMemberJoinedAsync;
+        gateway.MemberLeft += OnMemberLeftAsync;
+        gateway.MemberUpdated += OnMemberUpdatedAsync;
+        gateway.MemberBanned += OnMemberBannedAsync;
+        gateway.MemberUnbanned += OnMemberUnbannedAsync;
+        gateway.VoiceChanged += OnVoiceChangedAsync;
+        gateway.AuditLogChanged += OnAuditLogChangedAsync;
 
         try
         {
@@ -312,7 +340,7 @@ public sealed class DiscordBotService : BackgroundService
         }
 
         await RefreshServerIndexAsync().ConfigureAwait(false);
-        StartReading();
+        StartReading(signedIn: true);
     }
 
     /// <summary>
@@ -335,7 +363,7 @@ public sealed class DiscordBotService : BackgroundService
         _log.Information("Discord bot resumed its session");
 
         await RefreshServerIndexAsync().ConfigureAwait(false);
-        StartReading();
+        StartReading(signedIn: false);
     }
 
     /// <summary>
@@ -343,10 +371,20 @@ public sealed class DiscordBotService : BackgroundService
     /// running first: a new session means the channel list and the gap to catch up have changed.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// In the background because a read-back can take hours, and the Ready handler must return.
     /// It runs one page at a time and stops with the session.
+    /// </para>
+    /// <para>
+    /// Everything since the bot last listened is caught up first: the member list, the audit log and
+    /// who is in voice, after a fresh sign-in and after a resume alike. The member list comes over
+    /// the gateway and the audit log is a request or two, so both are cheap. Each channel's messages
+    /// are caught up forward from the newest stored only after a fresh sign-in -- a restart, or a
+    /// session that could not be resumed: after a resume Discord replays the messages the session
+    /// missed, and reading every channel on each resume would be hundreds of requests.
+    /// </para>
     /// </remarks>
-    private void StartReading()
+    private void StartReading(bool signedIn)
     {
         var gateway = _gateway;
         var guildId = _guildId;
@@ -366,6 +404,8 @@ public sealed class DiscordBotService : BackgroundService
 
             try
             {
+                await CatchUpAsync(gateway, guildId, messages: signedIn, stop.Token).ConfigureAwait(false);
+
                 await _history.ReadBackAsync(gateway, guildId, stop.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stop.IsCancellationRequested)
@@ -377,6 +417,116 @@ public sealed class DiscordBotService : BackgroundService
                 _status.Problem($"Could not read the server's message history: {e.Message}", _clock.UtcNow);
             }
         });
+    }
+
+    /// <summary>Everything the bot missed while it was away, in the order that keeps names right.</summary>
+    private async Task CatchUpAsync(IDiscordGateway gateway, string guildId, bool messages, CancellationToken ct)
+    {
+        DateTimeOffset? seenThrough = null;
+        await RecordAsync("read when the bot last listened", async (recorder, token) =>
+            seenThrough = await recorder.SeenThroughAsync(guildId, token).ConfigureAwait(false)).ConfigureAwait(false);
+        _gapRead = true;
+
+        // Members first, so the audit log's facts can name the people in them.
+        if (await gateway.ReadMembersAsync(guildId, ct).ConfigureAwait(false) is { } members)
+        {
+            await RecordAsync("compare the member list", (recorder, token) =>
+                recorder.MembersListedAsync(guildId, members, seenThrough, token)).ConfigureAwait(false);
+        }
+
+        await ReadAuditLogAsync(gateway, guildId, ct).ConfigureAwait(false);
+
+        var voice = gateway.ReadVoice(guildId);
+        await RecordAsync("compare who is in voice", (recorder, token) =>
+            recorder.VoiceListedAsync(guildId, voice, seenThrough, token)).ConfigureAwait(false);
+
+        if (messages)
+            await _history.CatchUpAsync(gateway, guildId, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Reads the audit log from where the last read stopped and records what is new.</summary>
+    private async Task ReadAuditLogAsync(IDiscordGateway gateway, string guildId, CancellationToken ct)
+    {
+        await _auditLog.WaitAsync(ct).ConfigureAwait(false);
+
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var recorder = scope.ServiceProvider.GetRequiredService<DiscordEventRecorder>();
+
+            var after = await recorder.AuditLogReadThroughAsync(guildId, ct).ConfigureAwait(false);
+            var page = await gateway.ReadAuditLogAsync(guildId, after, ct).ConfigureAwait(false);
+
+            if (page.Error is not null && !page.NoAccess)
+                _log.Warning("Could not read the Discord audit log: {Reason}", page.Error);
+
+            if (page.Entries.Count > 0 || page.NewestId is not null)
+                await recorder.AuditLogAsync(guildId, page, ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not record the Discord audit log");
+            _status.Problem($"Could not record the Discord audit log: {e.Message}", _clock.UtcNow);
+        }
+        finally
+        {
+            _auditLog.Release();
+        }
+    }
+
+    private Task RecordMemberJoinedAsync(DiscordMemberJoin join)
+        => IsOurServer(join.GuildId)
+            ? RecordAsync("record a member joining", (recorder, ct) => recorder.MemberJoinedAsync(
+                join.GuildId,
+                join.Member ?? new DiscordMemberSnapshot(join.UserId, join.Username, join.Username, null, join.IsBot, null, [], null),
+                _gateway?.ReadMemberCount(join.GuildId),
+                ct))
+            : Task.CompletedTask;
+
+    private Task OnMemberLeftAsync(string guildId, string userId)
+        => IsOurServer(guildId)
+            ? RecordAsync("record a member leaving", (recorder, ct) =>
+                recorder.MemberLeftAsync(guildId, userId, _gateway?.ReadMemberCount(guildId), ct))
+            : Task.CompletedTask;
+
+    private Task OnMemberUpdatedAsync(string guildId, DiscordMemberSnapshot member)
+        => IsOurServer(guildId)
+            ? RecordAsync("record a member change", (recorder, ct) => recorder.MemberUpdatedAsync(guildId, member, ct))
+            : Task.CompletedTask;
+
+    private Task OnMemberBannedAsync(string guildId, string userId)
+        => IsOurServer(guildId)
+            ? RecordAsync("record a ban", (recorder, ct) => recorder.BannedAsync(guildId, userId, ct))
+            : Task.CompletedTask;
+
+    private Task OnMemberUnbannedAsync(string guildId, string userId)
+        => IsOurServer(guildId)
+            ? RecordAsync("record an unban", (recorder, ct) => recorder.UnbannedAsync(guildId, userId, ct))
+            : Task.CompletedTask;
+
+    private Task OnVoiceChangedAsync(string guildId, string userId, string? from, string? to)
+        => IsOurServer(guildId)
+            ? RecordAsync("record a voice change", (recorder, ct) => recorder.VoiceChangedAsync(guildId, userId, from, to, ct))
+            : Task.CompletedTask;
+
+    private Task OnAuditLogChangedAsync(string guildId)
+        => IsOurServer(guildId) && _gateway is { } gateway
+            ? ReadAuditLogAsync(gateway, guildId, CancellationToken.None)
+            : Task.CompletedTask;
+
+    private async Task RecordAsync(string what, Func<DiscordEventRecorder, CancellationToken, Task> work)
+    {
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var recorder = scope.ServiceProvider.GetRequiredService<DiscordEventRecorder>();
+            await work(recorder, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not {What}", what);
+            _status.Problem($"Could not {what}: {e.Message}", _clock.UtcNow);
+        }
     }
 
     private void StopReading()
@@ -546,6 +696,7 @@ public sealed class DiscordBotService : BackgroundService
             return;
         }
 
+        _gapRead = false;
         _status.Disconnected(disconnect.Reason, now);
         _log.Warning("Discord bot lost its connection: {Reason}. Reconnecting", disconnect.Reason);
     }
@@ -586,6 +737,7 @@ public sealed class DiscordBotService : BackgroundService
         _disconnectedAt = null;
 
         StopReading();
+        _gapRead = false;
 
         if (gateway is null)
             return;
@@ -601,6 +753,13 @@ public sealed class DiscordBotService : BackgroundService
         gateway.MessageReceived -= OnMessageReceivedAsync;
         gateway.MessageEdited -= OnMessageEditedAsync;
         gateway.MessagesDeleted -= OnMessagesDeletedAsync;
+        gateway.MemberJoined -= RecordMemberJoinedAsync;
+        gateway.MemberLeft -= OnMemberLeftAsync;
+        gateway.MemberUpdated -= OnMemberUpdatedAsync;
+        gateway.MemberBanned -= OnMemberBannedAsync;
+        gateway.MemberUnbanned -= OnMemberUnbannedAsync;
+        gateway.VoiceChanged -= OnVoiceChangedAsync;
+        gateway.AuditLogChanged -= OnAuditLogChangedAsync;
 
         try
         {

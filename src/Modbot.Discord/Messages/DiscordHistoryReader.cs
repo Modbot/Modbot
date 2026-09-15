@@ -139,6 +139,107 @@ public sealed class DiscordHistoryReader
     }
 
     /// <summary>
+    /// Reads every channel and open thread forward from its newest stored message until nothing
+    /// newer is left: the messages posted while the bot was away (M5 spec §5.1).
+    /// </summary>
+    /// <remarks>
+    /// The three-page stop rule does not apply going forward -- every page past the newest stored
+    /// message is new by definition, and stopping early would leave a hole. A channel with nothing
+    /// stored yet is skipped: its read-back starts from the newest message anyway. Archived threads
+    /// are skipped too; posting in one opens it again, and then it is in the session's list.
+    /// </remarks>
+    public async Task<DiscordHistoryPass> CatchUpAsync(IDiscordGateway gateway, string guildId, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(gateway);
+        ArgumentException.ThrowIfNullOrWhiteSpace(guildId);
+
+        List<(string Id, bool Thread)> targets;
+
+        using (var scope = _scopes.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+            var channels = await db.DiscordChannels.AsNoTracking()
+                .Where(c => c.GuildId == guildId && c.RemovedAt == null && c.BotCanView && c.BotCanReadHistory)
+                .OrderBy(c => c.Position)
+                .Select(c => new { c.ChannelId, c.Type })
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            targets = channels
+                .Where(c => MessageChannelTypes.Contains(c.Type))
+                .Select(c => (c.ChannelId, false))
+                .ToList();
+
+            var containers = channels.Where(c => ThreadChannelTypes.Contains(c.Type)).Select(c => c.ChannelId).ToList();
+            if (containers.Count > 0)
+            {
+                var open = await gateway.ReadThreadsAsync(guildId, containers, [], ct).ConfigureAwait(false);
+                targets.AddRange(open.Where(t => !t.Archived).Select(t => (t.Id, true)));
+            }
+        }
+
+        var pages = 0;
+        var stored = 0L;
+
+        foreach (var (id, thread) in targets)
+        {
+            var newest = await NewestStoredAsync(id, thread, ct).ConfigureAwait(false);
+            if (newest is null)
+                continue;
+
+            while (!ct.IsCancellationRequested)
+            {
+                var page = await gateway.ReadMessagesAsync(id, beforeId: null, afterId: newest, ct).ConfigureAwait(false);
+                pages++;
+
+                if (page.Error is not null)
+                {
+                    _log.Debug("Could not catch up channel {ChannelId}: {Reason}", id, page.Error);
+                    break;
+                }
+
+                using (var scope = _scopes.CreateScope())
+                {
+                    var handler = scope.ServiceProvider.GetRequiredService<DiscordMessageHandler>();
+                    stored += await handler.ReceivedAsync(page.Messages, ct).ConfigureAwait(false);
+                }
+
+                newest = page.NewestId ?? newest;
+
+                await _delay(_options.ReadPause, ct).ConfigureAwait(false);
+
+                if (!page.Full)
+                    break;
+            }
+
+            ct.ThrowIfCancellationRequested();
+        }
+
+        if (stored > 0)
+            _log.Information("Caught up {Stored} Discord messages posted while the bot was away, in {Pages} pages", stored, pages);
+
+        return new DiscordHistoryPass(pages, stored, 0);
+    }
+
+    /// <summary>The newest message stored in a channel -- not counting its threads -- or in a thread.</summary>
+    private async Task<string?> NewestStoredAsync(string id, bool thread, CancellationToken ct)
+    {
+        using var scope = _scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        var messages = thread
+            ? db.DiscordMessages.AsNoTracking().Where(m => m.ThreadId == id)
+            : db.DiscordMessages.AsNoTracking().Where(m => m.ChannelId == id && m.ThreadId == null);
+
+        return await messages
+            .OrderByDescending(m => m.SentAt)
+            .Select(m => m.MessageId)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Makes sure every readable channel and thread has a read-back row, and reopens a channel the
     /// bot has since been given access to.
     /// </summary>

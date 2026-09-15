@@ -74,4 +74,50 @@ public sealed class DailyTotalCounter : IDailyTotalCounter
                 + "counted into.");
         }
     }
+
+    public async Task SetAsync(
+        string metric,
+        decimal value,
+        string? dimension = null,
+        DateOnly? day = null,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(metric);
+
+        if (DailyTotalMetrics.Computed.Contains(metric))
+        {
+            throw new ArgumentException(
+                $"'{metric}' is computed from facts. Setting it would be overwritten by the next rebuild.",
+                nameof(metric));
+        }
+
+        var target = day ?? DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
+
+        var parameters = new NpgsqlParameter[]
+        {
+            new("day", target),
+            new("metric", metric),
+            new("dimension", dimension ?? string.Empty),
+            new("value", value),
+            new("origin", (short)DailyTotalOrigin.Counted),
+        };
+
+        const string Sql = """
+            INSERT INTO modbot_daily_total (day, metric, dimension, value, origin)
+            VALUES (@day, @metric, @dimension, @value, @origin)
+            ON CONFLICT (day, metric, dimension) DO UPDATE
+                SET value = EXCLUDED.value
+                WHERE modbot_daily_total.origin = @origin
+            """;
+
+#pragma warning disable EF1002 // Constant SQL; every value is a parameter.
+        var rows = await _db.Database.ExecuteSqlRawAsync(Sql, parameters, ct);
+#pragma warning restore EF1002
+
+        if (rows == 0)
+        {
+            throw new InvalidOperationException(
+                $"Daily total '{metric}' on {target:yyyy-MM-dd} is computed from facts and cannot be set.");
+        }
+    }
 }

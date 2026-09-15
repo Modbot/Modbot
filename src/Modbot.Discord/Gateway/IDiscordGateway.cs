@@ -166,7 +166,8 @@ public sealed record DiscordDisconnect(
 public sealed record DiscordGatewayOptions(bool MemberEvents = true, bool MessageContent = true);
 
 /// <summary>Somebody joined a server the bot is in.</summary>
-public sealed record DiscordMemberJoin(string GuildId, string UserId, string Username, bool IsBot);
+/// <param name=Member>The member as they joined -- name, roles, join time -- for recording the join.</param>
+public sealed record DiscordMemberJoin(string GuildId, string UserId, string Username, bool IsBot, DiscordMemberSnapshot? Member = null);
 
 /// <summary>Whether giving or taking away a role went through.</summary>
 /// <param name="NotInServer">Discord does not know that member in the server (Unknown Member).</param>
@@ -388,6 +389,51 @@ public interface IDiscordGateway : IAsyncDisposable
     /// </summary>
     Task<IReadOnlyList<DiscordThreadSnapshot>> ReadThreadsAsync(
         string guildId, IReadOnlyList<string> channelIds, IReadOnlyList<string> archivedIn, CancellationToken ct);
+
+    // ── Members, voice and moderation (M5 spec §5) ───────────────────────────────────────
+    //
+    // Each event carries the server's id first; a join is MemberJoined above. Member events need
+    // the Server Members intent.
+
+    /// <summary>Somebody left, was kicked or was banned. Carries the user's id.</summary>
+    event Func<string, string, Task>? MemberLeft;
+
+    /// <summary>A member's nickname, roles or timeout changed. Carries the member as they are now.</summary>
+    event Func<string, DiscordMemberSnapshot, Task>? MemberUpdated;
+
+    event Func<string, string, Task>? MemberBanned;
+
+    event Func<string, string, Task>? MemberUnbanned;
+
+    /// <summary>
+    /// Somebody joined, left or moved between voice channels. Carries the user's id, the channel they
+    /// were in and the channel they are in now; either is null for none.
+    /// </summary>
+    event Func<string, string, string?, string?, Task>? VoiceChanged;
+
+    /// <summary>
+    /// A new audit log entry was written. Carries only the server's id: the entry is read with
+    /// <see cref="ReadAuditLogAsync"/>, the same way a catch-up reads it, so there is one path.
+    /// </summary>
+    event Func<string, Task>? AuditLogChanged;
+
+    /// <summary>
+    /// The audit log entries after <paramref name="afterId"/>, oldest first, up to a thousand; or,
+    /// with no id, as far back as Discord keeps -- forty-five days. One request per hundred.
+    /// </summary>
+    Task<DiscordAuditPage> ReadAuditLogAsync(string guildId, string? afterId, CancellationToken ct);
+
+    /// <summary>
+    /// Every member of the server, asked for over the gateway. Null when the bot is not in the
+    /// server or the list could not be had.
+    /// </summary>
+    Task<IReadOnlyList<DiscordMemberSnapshot>?> ReadMembersAsync(string guildId, CancellationToken ct);
+
+    /// <summary>Who is in a voice channel right now, from the session's memory. Empty when the server is not known.</summary>
+    IReadOnlyList<DiscordVoiceState> ReadVoice(string guildId);
+
+    /// <summary>How many members the server has, as the session last heard. Null when not known.</summary>
+    int? ReadMemberCount(string guildId);
 
     Task DisconnectAsync();
 }

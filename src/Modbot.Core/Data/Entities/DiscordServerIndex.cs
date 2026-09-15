@@ -53,6 +53,26 @@ public class DiscordServer
 
     /// <summary>When anything in this server's lists last changed, from a full read or a single event.</summary>
     public DateTimeOffset UpdatedAt { get; set; }
+
+    /// <summary>
+    /// The newest audit log entry the bot has read. The next read starts after it, so an entry is
+    /// recorded once whether it arrived live or was caught up after a disconnect.
+    /// </summary>
+    public string? AuditLogReadThrough { get; set; }
+
+    public DateTimeOffset? AuditLogReadAt { get; set; }
+
+    /// <summary>
+    /// The last moment the bot is known to have been connected and listening. After a restart or a
+    /// long disconnect, anything found changed happened between this and now.
+    /// </summary>
+    public DateTimeOffset? SeenThrough { get; set; }
+
+    /// <summary>
+    /// When the whole member list was first read. Before it, a member the bot has no row for is not
+    /// a new join -- they were there all along.
+    /// </summary>
+    public DateTimeOffset? MembersListedAt { get; set; }
 }
 
 /// <summary>

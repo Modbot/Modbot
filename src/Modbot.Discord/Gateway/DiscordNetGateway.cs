@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using Discord;
 using Discord.Net;
+using Discord.Rest;
 using Discord.WebSocket;
 using Modbot.Core.Logging;
 using DiscordChannelTypes = Modbot.Core.Data.Entities.DiscordChannelTypes;
@@ -95,6 +96,12 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.MessageUpdated += OnMessageUpdated;
         _client.MessageDeleted += OnMessageDeleted;
         _client.MessagesBulkDeleted += OnMessagesBulkDeleted;
+
+        _client.UserLeft += OnUserLeft;
+        _client.UserBanned += OnUserBanned;
+        _client.UserUnbanned += OnUserUnbanned;
+        _client.UserVoiceStateUpdated += OnVoiceStateUpdated;
+        _client.AuditLogCreated += OnAuditLogCreated;
     }
 
     public DiscordGatewayState State => _state;
@@ -488,6 +495,11 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.MessageUpdated -= OnMessageUpdated;
         _client.MessageDeleted -= OnMessageDeleted;
         _client.MessagesBulkDeleted -= OnMessagesBulkDeleted;
+        _client.UserLeft -= OnUserLeft;
+        _client.UserBanned -= OnUserBanned;
+        _client.UserUnbanned -= OnUserUnbanned;
+        _client.UserVoiceStateUpdated -= OnVoiceStateUpdated;
+        _client.AuditLogCreated -= OnAuditLogCreated;
 
         _client.Dispose();
     }
@@ -568,23 +580,233 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     private Task OnGuildMemberUpdated(Cacheable<SocketGuildUser, ulong> before, SocketGuildUser after)
     {
-        // Only the bot's own roles matter here, and only its own updates arrive without the
-        // privileged members intent anyway.
+        var handler = MemberUpdated;
+        if (handler is not null)
+        {
+            var snapshot = Describe(after);
+            _ = Task.Run(() => Guard(handler(Text(after.Guild.Id), snapshot), "member updated"));
+        }
+
+        // The bot's own roles move its permissions everywhere, so the whole server is read again.
         return after.Id == _client.CurrentUser?.Id
             ? ServerChangedIn(after.Guild.Id)
             : Task.CompletedTask;
     }
+
+    // ── Members, voice and moderation ──────────────────────────────────────────────────────
+
+    public event Func<string, string, Task>? MemberLeft;
+
+    public event Func<string, DiscordMemberSnapshot, Task>? MemberUpdated;
+
+    public event Func<string, string, Task>? MemberBanned;
+
+    public event Func<string, string, Task>? MemberUnbanned;
+
+    public event Func<string, string, string?, string?, Task>? VoiceChanged;
+
+    public event Func<string, Task>? AuditLogChanged;
 
     private Task OnUserJoined(SocketGuildUser user)
     {
         var handler = MemberJoined;
         if (handler is not null)
         {
-            var joined = new DiscordMemberJoin(Text(user.Guild.Id), Text(user.Id), user.Username, user.IsBot);
+            var joined = new DiscordMemberJoin(Text(user.Guild.Id), Text(user.Id), user.Username, user.IsBot, Describe(user));
             _ = Task.Run(() => Guard(handler(joined), "member joined"));
         }
 
         return Task.CompletedTask;
+    }
+
+    private Task OnUserLeft(SocketGuild guild, SocketUser user)
+    {
+        var handler = MemberLeft;
+        if (handler is not null)
+            _ = Task.Run(() => Guard(handler(Text(guild.Id), Text(user.Id)), "member left"));
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnUserBanned(SocketUser user, SocketGuild guild)
+    {
+        var handler = MemberBanned;
+        if (handler is not null)
+            _ = Task.Run(() => Guard(handler(Text(guild.Id), Text(user.Id)), "member banned"));
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnUserUnbanned(SocketUser user, SocketGuild guild)
+    {
+        var handler = MemberUnbanned;
+        if (handler is not null)
+            _ = Task.Run(() => Guard(handler(Text(guild.Id), Text(user.Id)), "member unbanned"));
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnVoiceStateUpdated(SocketUser user, SocketVoiceState before, SocketVoiceState after)
+    {
+        var handler = VoiceChanged;
+        var from = before.VoiceChannel;
+        var to = after.VoiceChannel;
+        var guild = to?.Guild ?? from?.Guild;
+
+        // Muting, deafening or starting a stream changes the state without changing the channel.
+        if (handler is not null && guild is not null && from?.Id != to?.Id)
+        {
+            _ = Task.Run(() => Guard(
+                handler(Text(guild.Id), Text(user.Id), from is null ? null : Text(from.Id), to is null ? null : Text(to.Id)),
+                "voice changed"));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnAuditLogCreated(SocketAuditLogEntry entry, SocketGuild guild)
+    {
+        var handler = AuditLogChanged;
+        if (handler is not null)
+            _ = Task.Run(() => Guard(handler(Text(guild.Id)), "audit log changed"));
+
+        return Task.CompletedTask;
+    }
+
+    public async Task<DiscordAuditPage> ReadAuditLogAsync(string guildId, string? afterId, CancellationToken ct)
+    {
+        if (ParseId(guildId) is not { } id || _client.GetGuild(id) is not { } guild)
+            return new DiscordAuditPage([], null, NoAccess: true, Error: "The bot is not in that server.");
+
+        if (guild.CurrentUser is { GuildPermissions.ViewAuditLog: false })
+            return new DiscordAuditPage([], null, NoAccess: true, Error: "The bot may not read the audit log.");
+
+        try
+        {
+            var after = ParseId(afterId);
+
+            // A thousand entries is ten requests. Past the first read, which walks back as far as
+            // Discord keeps, a gap that size is days of a busy server's moderation.
+            var pages = after is { } a
+                ? guild.GetAuditLogsAsync(1000, Request(ct), afterId: a)
+                : guild.GetAuditLogsAsync(1000, Request(ct));
+
+            var entries = (await pages.FlattenAsync().ConfigureAwait(false))
+                .OrderBy(e => e.Id)
+                .ToList();
+
+            return new DiscordAuditPage(
+                entries.Select(Describe).OfType<DiscordAuditEntry>().ToList(),
+                entries.Count > 0 ? Text(entries[^1].Id) : null);
+        }
+        catch (HttpException e) when (e.HttpCode == HttpStatusCode.Forbidden)
+        {
+            return new DiscordAuditPage([], null, NoAccess: true, Error: "The bot may not read the audit log.");
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return new DiscordAuditPage([], null, Error: $"Could not read the audit log: {e.Message}");
+        }
+    }
+
+    public async Task<IReadOnlyList<DiscordMemberSnapshot>?> ReadMembersAsync(string guildId, CancellationToken ct)
+    {
+        if (ParseId(guildId) is not { } id || _client.GetGuild(id) is not { } guild)
+            return null;
+
+        // Without the Server Members intent Discord sends no list; the Health card already says why.
+        if (!_intents.HasFlag(GatewayIntents.GuildMembers))
+            return null;
+
+        try
+        {
+            // Over the gateway in chunks of a thousand, not REST pages, so no REST limit is spent
+            // however large the server; the session keeps the list current after.
+            await guild.DownloadUsersAsync().ConfigureAwait(false);
+            return guild.Users.Select(Describe).ToList();
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not read the Discord server's member list");
+            return null;
+        }
+    }
+
+    public IReadOnlyList<DiscordVoiceState> ReadVoice(string guildId)
+    {
+        if (ParseId(guildId) is not { } id || _client.GetGuild(id) is not { } guild)
+            return [];
+
+        return guild.VoiceChannels
+            .SelectMany(channel => channel.ConnectedUsers.Select(user => new DiscordVoiceState(Text(user.Id), Text(channel.Id))))
+            .ToList();
+    }
+
+    public int? ReadMemberCount(string guildId)
+        => ParseId(guildId) is { } id && _client.GetGuild(id) is { } guild ? guild.MemberCount : null;
+
+    private static DiscordMemberSnapshot Describe(IGuildUser user) => new(
+        Text(user.Id),
+        user.Username ?? string.Empty,
+        user.DisplayName ?? user.Username ?? string.Empty,
+        user.Nickname,
+        user.IsBot,
+        user.JoinedAt,
+        user.RoleIds.Where(r => r != user.GuildId).Select(Text).ToArray(),
+        user.TimedOutUntil,
+        user.GlobalName,
+        user.GetDisplayAvatarUrl() ?? user.GetDefaultAvatarUrl(),
+        user.IsPending ?? false,
+        user.PremiumSince);
+
+    /// <summary>An audit log entry in Modbot's words, or null for a kind Modbot does not record.</summary>
+    private static DiscordAuditEntry? Describe(RestAuditLogEntry entry)
+    {
+        var id = Text(entry.Id);
+        var actor = entry.User is { } user ? Text(user.Id) : null;
+        var reason = string.IsNullOrWhiteSpace(entry.Reason) ? null : entry.Reason;
+
+        return entry.Data switch
+        {
+            BanAuditLogData ban => new(id, entry.CreatedAt, DiscordAuditKinds.Ban, actor, Target(ban.Target), reason),
+            UnbanAuditLogData unban => new(id, entry.CreatedAt, DiscordAuditKinds.Unban, actor, Target(unban.Target), reason),
+            KickAuditLogData kick => new(id, entry.CreatedAt, DiscordAuditKinds.Kick, actor, Target(kick.Target), reason),
+
+            MemberUpdateAuditLogData member when member.Before.TimedOutUntil != member.After.TimedOutUntil =>
+                member.After.TimedOutUntil is { } until
+                    ? new(id, entry.CreatedAt, DiscordAuditKinds.Timeout, actor, Target(member.Target), reason, Until: until)
+                    : new(id, entry.CreatedAt, DiscordAuditKinds.TimeoutRemoved, actor, Target(member.Target), reason),
+
+            MemberRoleAuditLogData roles => new(
+                id, entry.CreatedAt, DiscordAuditKinds.Roles, actor, Target(roles.Target), reason,
+                Roles: roles.Roles.Select(r => new DiscordRoleChange(Text(r.RoleId), r.Name ?? string.Empty, r.Added)).ToArray()),
+
+            MessageDeleteAuditLogData deleted => new(
+                id, entry.CreatedAt, DiscordAuditKinds.MessagesDeleted, actor, Target(deleted.Target), reason,
+                ChannelId: Text(deleted.ChannelId), Count: deleted.MessageCount),
+
+            MessageBulkDeleteAuditLogData bulk => new(
+                id, entry.CreatedAt, DiscordAuditKinds.MessagesBulkDeleted, actor, Text(bulk.ChannelId), reason,
+                ChannelId: Text(bulk.ChannelId), Count: bulk.MessageCount),
+
+            ChannelCreateAuditLogData created => new(
+                id, entry.CreatedAt, DiscordAuditKinds.ChannelCreated, actor, Text(created.ChannelId), reason, Name: created.ChannelName),
+            ChannelUpdateAuditLogData changed => new(
+                id, entry.CreatedAt, DiscordAuditKinds.ChannelChanged, actor, Text(changed.ChannelId), reason, Name: changed.After.Name),
+            ChannelDeleteAuditLogData removed => new(
+                id, entry.CreatedAt, DiscordAuditKinds.ChannelDeleted, actor, Text(removed.ChannelId), reason, Name: removed.ChannelName),
+
+            RoleCreateAuditLogData created => new(
+                id, entry.CreatedAt, DiscordAuditKinds.RoleCreated, actor, Text(created.RoleId), reason, Name: created.Properties.Name),
+            RoleUpdateAuditLogData changed => new(
+                id, entry.CreatedAt, DiscordAuditKinds.RoleChanged, actor, Text(changed.RoleId), reason, Name: changed.After.Name),
+            RoleDeleteAuditLogData removed => new(
+                id, entry.CreatedAt, DiscordAuditKinds.RoleDeleted, actor, Text(removed.RoleId), reason, Name: removed.Properties.Name),
+
+            _ => null,
+        };
+
+        static string? Target(IUser? target) => target is null ? null : Text(target.Id);
     }
 
     private Task ServerChangedIn(ulong guildId)

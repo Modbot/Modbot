@@ -197,10 +197,42 @@ public static class FactType
     public const string InstanceLogStopped = "vrchat.instance.log-stopped";
 
     // ── Discord (M5) ───────────────────────────────────────────────────────────────────────
+    //
+    // Everything here has subject_platform = Discord and, where somebody did it, an actor on
+    // Discord too. Moderation actions -- bans, kicks, timeouts, role changes, messages removed by a
+    // moderator -- come from the server's audit log when the bot may read it, because only the audit
+    // log says who did it, and carry its entry id as `auditEntryId`. Without that permission they
+    // come from the gateway's own events, with no actor. Voice is presence and ages out with it;
+    // the rest is membership and moderation history and is kept.
+
     public const string DiscordMemberJoined = "discord.member.join";
     public const string DiscordMemberLeft = "discord.member.leave";
+
+    /// <summary>
+    /// The first full read of the server's member list: how many members there were. The subject is
+    /// the server. One fact rather than a join per member, for the reason <see cref="MembersSnapshot"/> gives.
+    /// </summary>
+    public const string DiscordMembersSnapshot = "discord.members.snapshot";
+
+    public const string DiscordMemberBanned = "discord.member.ban";
+    public const string DiscordMemberUnbanned = "discord.member.unban";
+    public const string DiscordMemberKicked = "discord.member.kick";
+
+    /// <summary>Timed out, or a timeout changed. Payload: <c>until</c>.</summary>
+    public const string DiscordMemberTimedOut = "discord.member.timeout";
+
+    /// <summary>A timeout taken off before it ran out.</summary>
+    public const string DiscordMemberTimeoutRemoved = "discord.member.timeout.remove";
+
+    /// <summary>Their server nickname changed. Payload: <c>old</c> and <c>new</c>.</summary>
+    public const string DiscordMemberNicknameChanged = "discord.member.nickname";
+
     public const string DiscordVoiceJoined = "discord.voice.join";
     public const string DiscordVoiceLeft = "discord.voice.leave";
+
+    /// <summary>Moved from one voice channel to another without leaving. Payload: <c>from</c> and <c>channelId</c>.</summary>
+    public const string DiscordVoiceMoved = "discord.voice.move";
+
     public const string DiscordRoleGranted = "discord.role.assign";
     public const string DiscordRoleRevoked = "discord.role.unassign";
 
@@ -227,6 +259,24 @@ public static class FactType
     /// <c>channel</c> or <c>none</c>, and the error when there was one. Short retention: plumbing.
     /// </summary>
     public const string DiscordLinkPrompted = "discord.link.prompt";
+
+    /// <summary>
+    /// A moderator deleted somebody's messages. The subject is the author, the actor the moderator.
+    /// Payload: <c>channelId</c> and <c>count</c>. The messages themselves stay stored, marked deleted.
+    /// </summary>
+    public const string DiscordMessagesRemoved = "discord.message.remove";
+
+    /// <summary>A moderator deleted many messages at once. The subject is the channel. Payload: <c>count</c>.</summary>
+    public const string DiscordMessagesBulkRemoved = "discord.message.bulk-remove";
+
+    // Channels and roles changed in Discord, from the audit log. The subject is the channel or role;
+    // the channel and role lists themselves are kept by the server index, not by these.
+    public const string DiscordChannelCreated = "discord.channel.create";
+    public const string DiscordChannelChanged = "discord.channel.update";
+    public const string DiscordChannelDeleted = "discord.channel.delete";
+    public const string DiscordRoleCreated = "discord.role.create";
+    public const string DiscordRoleChanged = "discord.role.update";
+    public const string DiscordRoleDeleted = "discord.role.delete";
 
     // ── Modbot's Discord bot (foundation §9) ───────────────────────────────────────────────
 

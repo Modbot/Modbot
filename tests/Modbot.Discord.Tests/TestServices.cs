@@ -68,6 +68,8 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<Modbot.Analytics.Messages.MessagePartitionMaintainer>();
         services.AddScoped<Modbot.Discord.Messages.DiscordMessageStore>();
         services.AddScoped<Modbot.Discord.Messages.DiscordMessageHandler>();
+        services.AddScoped<Modbot.Discord.Members.DiscordEventRecorder>();
+        services.AddScoped<Modbot.Analytics.DailyTotals.IDailyTotalCounter, Modbot.Analytics.DailyTotals.DailyTotalCounter>();
         services.AddSingleton(checker);
         services.AddScoped<Modbot.Core.Moderation.IModerationChecker>(p => p.GetRequiredService<RecordingChecker>());
 

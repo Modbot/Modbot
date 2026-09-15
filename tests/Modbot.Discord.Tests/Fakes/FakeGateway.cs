@@ -358,6 +358,77 @@ public sealed class FakeGateway : IDiscordGateway
     public Task RaiseMessagesDeletedAsync(string guildId, string channelId, params string[] ids)
         => MessagesDeleted?.Invoke(guildId, channelId, ids) ?? Task.CompletedTask;
 
+    // ── Members, voice and moderation ────────────────────────────────────────────────────────
+
+    public event Func<string, string, Task>? MemberLeft;
+
+    public event Func<string, DiscordMemberSnapshot, Task>? MemberUpdated;
+
+    public event Func<string, string, Task>? MemberBanned;
+
+    public event Func<string, string, Task>? MemberUnbanned;
+
+    public event Func<string, string, string?, string?, Task>? VoiceChanged;
+
+    public event Func<string, Task>? AuditLogChanged;
+
+    /// <summary>What <see cref="ReadMembersAsync"/> answers. Null means the list could not be had.</summary>
+    public List<DiscordMemberSnapshot>? Members { get; set; }
+
+    public List<DiscordVoiceState> Voice { get; set; } = [];
+
+    /// <summary>The whole audit log, any order. Ids are numbers, as Discord's are.</summary>
+    public List<DiscordAuditEntry> AuditLog { get; } = [];
+
+    public bool AuditLogNoAccess { get; set; }
+
+    public Task<DiscordAuditPage> ReadAuditLogAsync(string guildId, string? afterId, CancellationToken ct)
+    {
+        if (AuditLogNoAccess)
+            return Task.FromResult(new DiscordAuditPage([], null, NoAccess: true, Error: "The bot may not read the audit log."));
+
+        var entries = AuditLog
+            .Where(e => afterId is null || Number(e.Id) > Number(afterId))
+            .OrderBy(e => Number(e.Id))
+            .ToList();
+
+        return Task.FromResult(new DiscordAuditPage(entries, entries.Count > 0 ? entries[^1].Id : null));
+    }
+
+    public Task<IReadOnlyList<DiscordMemberSnapshot>?> ReadMembersAsync(string guildId, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<DiscordMemberSnapshot>?>(Options.MemberEvents ? Members?.ToList() : null);
+
+    public IReadOnlyList<DiscordVoiceState> ReadVoice(string guildId) => Voice.ToList();
+
+    public int? ReadMemberCount(string guildId) => Members?.Count;
+
+    public Task RaiseMemberJoinedAsync(string guildId, DiscordMemberSnapshot member)
+    {
+        Members?.Add(member);
+        return RaiseMemberJoinedAsync(new DiscordMemberJoin(guildId, member.UserId, member.Username, member.IsBot, member));
+    }
+
+    public Task RaiseMemberLeftAsync(string guildId, string userId)
+    {
+        Members?.RemoveAll(m => m.UserId == userId);
+        return MemberLeft?.Invoke(guildId, userId) ?? Task.CompletedTask;
+    }
+
+    public Task RaiseMemberUpdatedAsync(string guildId, DiscordMemberSnapshot member)
+        => MemberUpdated?.Invoke(guildId, member) ?? Task.CompletedTask;
+
+    public Task RaiseMemberBannedAsync(string guildId, string userId)
+        => MemberBanned?.Invoke(guildId, userId) ?? Task.CompletedTask;
+
+    public Task RaiseMemberUnbannedAsync(string guildId, string userId)
+        => MemberUnbanned?.Invoke(guildId, userId) ?? Task.CompletedTask;
+
+    public Task RaiseVoiceChangedAsync(string guildId, string userId, string? from, string? to)
+        => VoiceChanged?.Invoke(guildId, userId, from, to) ?? Task.CompletedTask;
+
+    public Task RaiseAuditLogChangedAsync(string guildId)
+        => AuditLogChanged?.Invoke(guildId) ?? Task.CompletedTask;
+
     public Task RaiseDisconnectedAsync(DiscordDisconnect disconnect)
     {
         State = DiscordGatewayState.Disconnected;

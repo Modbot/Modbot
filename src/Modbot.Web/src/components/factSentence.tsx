@@ -63,6 +63,12 @@ type Parts = {
   changed: [string, { old?: unknown; new?: unknown }][]
 }
 
+/** A count in the payload, written out, or the given word when there is none. */
+function howMany(p: Parts, otherwise: string): string {
+  const value = p.entry.data?.['count']
+  return typeof value === 'number' ? value.toLocaleString() : otherwise
+}
+
 function parts(entry: AuditEntry): Parts {
   const text = (key: string) => {
     const value = entry.data?.[key]
@@ -351,6 +357,64 @@ const SENTENCES: Record<string, Sentence> = {
   'discord.member.leave': (p) => <>{p.subject} left the Discord server.</>,
   'discord.voice.join': (p) => <>{p.subject} joined a Discord voice channel.</>,
   'discord.voice.leave': (p) => <>{p.subject} left a Discord voice channel.</>,
+  'discord.voice.move': (p) => <>{p.subject} moved to another Discord voice channel.</>,
+
+  'discord.members.snapshot': (p) => {
+    const count = p.entry.data?.['count']
+    return (
+      <>
+        Modbot read the Discord server's member list for the first time
+        {typeof count === 'number' ? `: ${count.toLocaleString()} members` : ''}.
+      </>
+    )
+  },
+
+  'discord.member.ban': (p) => (
+    <>
+      {p.hasActor ? <>{p.actor} banned {p.subject} from the Discord server</> : <>{p.subject} was banned from the Discord server</>}
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+    </>
+  ),
+  'discord.member.unban': (p) => (
+    <>{p.hasActor ? <>{p.actor} unbanned {p.subject} on Discord</> : <>{p.subject} was unbanned on Discord</>}.</>
+  ),
+  'discord.member.kick': (p) => (
+    <>
+      {p.actor} kicked {p.subject} from the Discord server
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+    </>
+  ),
+  'discord.member.timeout': (p) => (
+    <>
+      {p.hasActor ? <>{p.actor} timed out {p.subject} on Discord</> : <>{p.subject} was timed out on Discord</>}
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
+    </>
+  ),
+  'discord.member.timeout.remove': (p) => (
+    <>{p.hasActor ? <>{p.actor} took {p.subject}'s Discord timeout off</> : <>{p.subject}'s Discord timeout was taken off</>}.</>
+  ),
+  'discord.member.nickname': (p) => (
+    <>
+      {p.subject} changed their Discord nickname
+      {p.text('new') ? <> to {p.text('new')}</> : null}.
+    </>
+  ),
+  'discord.message.remove': (p) => (
+    <>
+      {p.actor} removed {howMany(p, 'some')} of {p.subject}'s Discord messages.
+    </>
+  ),
+  'discord.message.bulk-remove': (p) => (
+    <>
+      {p.actor} removed {howMany(p, 'many')} Discord messages at once.
+    </>
+  ),
+  'discord.channel.create': (p) => <>{p.actor} created the Discord channel {p.text('name') ?? 'a channel'}.</>,
+  'discord.channel.update': (p) => <>{p.actor} changed the Discord channel {p.text('name') ?? 'a channel'}.</>,
+  'discord.channel.delete': (p) => <>{p.actor} deleted the Discord channel {p.text('name') ?? 'a channel'}.</>,
+  'discord.role.create': (p) => <>{p.actor} created the Discord role {p.text('name') ?? 'a role'}.</>,
+  'discord.role.update': (p) => <>{p.actor} changed the Discord role {p.text('name') ?? 'a role'}.</>,
+  'discord.role.delete': (p) => <>{p.actor} deleted the Discord role {p.text('name') ?? 'a role'}.</>,
 
   'discord.role.assign': (p) => (
     <>

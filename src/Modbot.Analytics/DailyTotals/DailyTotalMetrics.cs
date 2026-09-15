@@ -143,6 +143,13 @@ public static class DailyTotalMetrics
     public const string DiscordMessages = "discord.messages";
 
     /// <summary>
+    /// The Discord server's member count as Discord reported it, the last reading of each day. A
+    /// counted snapshot (spec 5.2.1): the bot sets it on sign-in and at every join and leave, and
+    /// nothing can rebuild a reading that was never kept. M5 spec §5's table calls for exactly this.
+    /// </summary>
+    public const string DiscordMembersCount = "discord.members.count";
+
+    /// <summary>
     /// The per-moderator metrics, in the order the "My Team" page lists them. Every one is
     /// broken down by actor; their sum is a moderator's total.
     /// </summary>

@@ -174,6 +174,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>How far back each channel and thread has been read.</summary>
     public DbSet<DiscordReadBack> DiscordReadBacks => Set<DiscordReadBack>();
 
+    /// <summary>The Discord server's members as last seen. Current state; the history is in <see cref="Events"/>.</summary>
+    public DbSet<DiscordMember> DiscordMembers => Set<DiscordMember>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -859,6 +862,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // Discord's ids are opaque text here, as everywhere else Modbot stores one.
             entity.Property(e => e.GuildId).HasColumnType("text");
             entity.Property(e => e.Name).HasColumnType("text");
+            entity.Property(e => e.AuditLogReadThrough).HasColumnType("text");
         });
 
         builder.Entity<DiscordChannel>(entity =>
@@ -1242,6 +1246,33 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<DiscordMember>(entity =>
+        {
+            entity.ToTable("discord_member");
+            entity.HasKey(e => new { e.GuildId, e.UserId });
+
+            entity.Property(e => e.GuildId).HasColumnType("text");
+            entity.Property(e => e.UserId).HasColumnType("text");
+            entity.Property(e => e.Username).HasColumnType("text");
+            entity.Property(e => e.DisplayName).HasColumnType("text");
+            entity.Property(e => e.Nickname).HasColumnType("text");
+            entity.Property(e => e.GlobalName).HasColumnType("text");
+            entity.Property(e => e.AvatarUrl).HasColumnType("text");
+            entity.Property(e => e.Roles).HasColumnType("jsonb");
+            entity.Property(e => e.VoiceChannelId).HasColumnType("text");
+
+            // "Current members" -- the members list, the analytics headcount and who went quiet.
+            entity.HasIndex(e => new { e.GuildId, e.LeftAt }).HasDatabaseName("ix_discord_member_current");
+
+            // The has-role filter is a jsonb containment test, and GIN is what answers one.
+            entity.HasIndex(e => e.Roles).HasDatabaseName("ix_discord_member_roles").HasMethod("gin");
+
+            // Who is in voice now, asked on every sign-in.
+            entity.HasIndex(e => e.GuildId)
+                .HasDatabaseName("ix_discord_member_in_voice")
+                .HasFilter("voice_channel_id IS NOT NULL");
         });
 
         base.OnModelCreating(builder);

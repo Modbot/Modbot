@@ -49,4 +49,16 @@ public interface IDailyTotalCounter
         decimal amount = 1m,
         DateOnly? day = null,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets one daily total to a value observed now, replacing whatever the day held: the last
+    /// reading of the day stands. For a snapshot such as a member count, where the reading itself
+    /// is the datum and adding two readings together means nothing.
+    /// </summary>
+    Task SetAsync(
+        string metric,
+        decimal value,
+        string? dimension = null,
+        DateOnly? day = null,
+        CancellationToken ct = default);
 }

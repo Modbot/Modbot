@@ -7,6 +7,7 @@ using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.Insights;
 using Modbot.Discord.Instances;
+using Modbot.Discord.Members;
 using Modbot.Discord.Linking;
 using Modbot.Discord.Messages;
 using Modbot.Discord.ModerationLog;
@@ -71,6 +72,7 @@ public static class DiscordServiceCollectionExtensions
         // checks nothing stands in when AI moderation is not registered; when it is, it wins.
         services.AddScoped<DiscordMessageStore>();
         services.AddScoped<DiscordMessageHandler>();
+        services.AddScoped<DiscordEventRecorder>();
         services.TryAddScoped<IModerationChecker, NoModerationChecker>();
 
         return services;

@@ -108,6 +108,22 @@ public static class AuditVisibility
         [FactType.DiscordVoiceLeft] = AuditCategory.Moderation,
         [FactType.DiscordRoleGranted] = AuditCategory.Moderation,
         [FactType.DiscordRoleRevoked] = AuditCategory.Moderation,
+        [FactType.DiscordMembersSnapshot] = AuditCategory.Moderation,
+        [FactType.DiscordMemberBanned] = AuditCategory.Moderation,
+        [FactType.DiscordMemberUnbanned] = AuditCategory.Moderation,
+        [FactType.DiscordMemberKicked] = AuditCategory.Moderation,
+        [FactType.DiscordMemberTimedOut] = AuditCategory.Moderation,
+        [FactType.DiscordMemberTimeoutRemoved] = AuditCategory.Moderation,
+        [FactType.DiscordMemberNicknameChanged] = AuditCategory.Moderation,
+        [FactType.DiscordVoiceMoved] = AuditCategory.Moderation,
+        [FactType.DiscordMessagesRemoved] = AuditCategory.Moderation,
+        [FactType.DiscordMessagesBulkRemoved] = AuditCategory.Moderation,
+        [FactType.DiscordChannelCreated] = AuditCategory.Moderation,
+        [FactType.DiscordChannelChanged] = AuditCategory.Moderation,
+        [FactType.DiscordChannelDeleted] = AuditCategory.Moderation,
+        [FactType.DiscordRoleCreated] = AuditCategory.Moderation,
+        [FactType.DiscordRoleChanged] = AuditCategory.Moderation,
+        [FactType.DiscordRoleDeleted] = AuditCategory.Moderation,
 
         // Linking a member's accounts, and the roles that follow, are member history. The prompt
         // sent to a new member is plumbing.
