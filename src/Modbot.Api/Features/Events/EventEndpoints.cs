@@ -156,7 +156,8 @@ public static class EventEndpoints
                     Log.Information("Event connection opened for {Caller}", slot);
 
                     var elapsed = http.RequestServices.GetService<IMonotonicClock>() ?? new StopwatchMonotonicClock();
-                    var session = new EventSocketSession(socket, scopes, clock, elapsed, options, holder, caller.Permissions);
+                    var signal = http.RequestServices.GetRequiredService<Modbot.Analytics.Facts.FactSignal>();
+                    var session = new EventSocketSession(socket, scopes, clock, elapsed, options, holder, caller.Permissions, signal);
                     await session.RunAsync(ct);
                 }
                 finally

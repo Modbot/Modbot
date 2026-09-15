@@ -3,7 +3,7 @@
 - **Date:** 2026-09-15
 - **Status:** Implemented with this document
 - **Covers:** API keys and how they authenticate against the existing `/api` surface; the event
-  envelope; the live event WebSocket; outgoing webhooks, their signing, retries and address
+  envelope; the live event WebSocket and long polling; outgoing webhooks, their signing, retries and address
   blocking; Settings → API
 - **Implements:** foundation §6.3 (`ApiKey`), §7.3 ("read API access uses `ApiKey`"); accounts and
   access design §9 ("API keys", deferred there)
@@ -17,11 +17,13 @@
 
 Everything Modbot knows is already behind `/api`, but only a person with a browser session can
 reach it. A group that wants a bot of its own, a spreadsheet, or a second Discord integration has
-no way in. This design adds three doors, all opening onto what already exists:
+no way in. This design adds four doors, all opening onto what already exists:
 
 1. **API keys** — a credential for a program, used on the same endpoints the web app uses.
 2. **The live event WebSocket** — every new fact, as it is written, to a connected program.
-3. **Webhooks** — the same events, sent by Modbot to an address the operator registers.
+3. **Long polling** — the same stream by repeated requests, for a program that can do neither of
+   the others (§5.6).
+4. **Webhooks** — the same events, sent by Modbot to an address the operator registers.
 
 ## 2. What is settled, and what this narrows
 
@@ -278,8 +280,47 @@ A cursor before that gets a `history_trimmed` notice and continues from the olde
   ends the connection; 4008 is sent if the socket can still carry it, though a client that has
   stopped reading will usually just see the connection drop. The fact log is the buffer; the
   client reconnects with its cursor.
-- Each connection polls for new facts once a second. One indexed range read per connection per
-  second is nothing next to the rest of Modbot, and it keeps every connection independent.
+- **Woken, not timed.** A caught-up connection waits on `FactSignal`, a process-wide pulse. The
+  fact writer pulses after each insert; because that can be before the insert's transaction
+  commits, `FactFeedWatcher` also reads the newest fact id every half second -- one read for the
+  whole process, not one per connection -- and pulses when it moves. Each connection still re-reads
+  every three seconds if nothing pulses, so a missed pulse costs latency, never an event.
+
+> **Revised 2026-09-15.** Connections first polled the log once a second each. Long polling
+> (§5.6) made per-request timers a real cost -- sixty idle polls would be sixty reads a second --
+> so both now wait on the signal.
+
+### 5.6 Long polling
+
+Added the same day, for a program that can neither hold a socket open nor receive webhooks.
+
+`GET /api/events/poll?cursor=&types=&subjects=&wait=&limit=`
+
+- **A key in the `Authorization` header only.** Not in the query string, and not a session cookie
+  alone, for the WebSocket's reasons (§5.1). There are no tickets: a browser has the socket.
+- **Same reader, same rules.** `FactFeed` with its gap rule, the same filter syntax (§4.5) and the
+  same visibility (§4.3, including `ViewLiveRooms` for presence). A poll can be sent nothing the
+  WebSocket would not send the same key, and miss nothing it would.
+- **Answer at once or wait.** Events after `cursor` come back immediately, up to `limit` (default
+  100, at most 500). With none, the request waits on the signal until one arrives or `wait` seconds
+  pass (default 30, at most 60), then answers with an empty list. Access is checked again after
+  every wake.
+- **The answer** is `{ events, cursor, more, notice }`. `cursor` is where to carry on and moves past
+  events not for this caller, as the WebSocket heartbeat's does -- so an empty answer can still move
+  it, when everything read was filtered out; with nothing read it stays put. `more` is true when a
+  wanted event did not fit, or reading stopped at a full page. A read looks at most ten pages past
+  unwanted events before answering, so one poll against a long filtered backlog is bounded.
+  `notice` is the WebSocket's `history_trimmed` notice.
+- **No cursor** is from now.
+- **Limits.** A poll holds one of its key's connection places **for as long as it runs, shared with
+  the key's WebSocket connections** -- five in all -- rather than a separate cap: a key that may hold
+  five live connections gains nothing by being allowed five more that do the same job. Past that,
+  `429` with `Retry-After: 5`. A client that goes away cancels the request, which ends the wait and
+  gives the place back at once.
+- **`Cache-Control: no-store`.**
+- **How long a request may run.** Kestrel has no request duration limit and Modbot adds no
+  request-timeout middleware. Railway's edge lets an HTTP request run up to five minutes without
+  data and fifteen with it, so sixty seconds is well inside, and the maximum stays at sixty.
 
 ## 6. Webhooks
 
@@ -398,7 +439,8 @@ gets its own endpoint then, verifying that sender's signature.
 
 ## 9. Settings → API
 
-Three sub-tabs, `#api/keys`, `#api/webhooks`, `#api/websocket`:
+Three sub-tabs, `#api/keys`, `#api/webhooks`, `#api/events` (`#api/websocket` still opens the last,
+which was its name before long polling joined it):
 
 - **Keys** — the list (name, start of key, owner, permissions, created, last used, expiry, state),
   *Create key* with a name, expiry and permission checklist limited to what the person holds, the
@@ -406,8 +448,8 @@ Three sub-tabs, `#api/keys`, `#api/webhooks`, `#api/websocket`:
 - **Webhooks** — the list with state and last error, create and edit (name, address, event types,
   subjects, on/off), the secret shown once, *Roll secret*, *Send test*, the delivery log, and the
   *Allow private addresses* switch.
-- **WebSocket** — the endpoint address, and a test view: an optional key, event types, *Connect*,
-  and the events as they arrive.
+- **Events** — the WebSocket and long polling addresses, and a WebSocket test view: an optional key,
+  event types, cursor, *Connect*, and the events as they arrive.
 
 Labels only (CLAUDE.md). The explanations are here and in `docs/api.md`.
 
@@ -424,6 +466,10 @@ Key hashing, lookup and revocation; expiry; the cap at creation and at use (a de
 loses the permission on the next request); keys accepted by existing endpoints with exactly their
 permissions and refused on `/api/auth/*`; `ManageApiKeys` gates. The fact feed's gap rule. The
 WebSocket over `TestServer`: header key, ticket once only, no cookie-only socket, subscribe and type
-filter, subject filter, visibility, resume from a cursor, connection limit. Webhook signing checked
+filter, subject filter, visibility, resume from a cursor, connection limit, woken by a written fact.
+Long polling: an immediate answer, a wait ended by a written fact (and by the watcher for a fact
+written without a pulse), an empty answer at the timeout, paging with `more`, filters, visibility,
+key-only access, the shared limit and its 429, a dropped client freeing its place, and a late
+lower id. Webhook signing checked
 against an independent HMAC; retry, backoff, `Retry-After`, 4xx skip and the 24-hour turn-off with a
 fake clock and a fake HTTP handler; the address rules and the connect-time block.

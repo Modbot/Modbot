@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Analytics.Facts;
 using Modbot.Analytics.Retention;
 using Modbot.Analytics.DailyTotals;
@@ -22,6 +23,7 @@ public static class AnalyticsServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.TryAddSingleton<FactSignal>();
         services.AddScoped<IFactWriter, FactWriter>();
         services.AddScoped<EventPartitionMaintainer>();
         services.AddScoped<Messages.MessagePartitionMaintainer>();

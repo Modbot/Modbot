@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net.WebSockets;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Facts;
 using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -61,6 +62,7 @@ internal sealed class EventSocketSession
     private readonly EventSocketOptions _options;
     private readonly EventTicketHolder _caller;
     private readonly ILogger _log;
+    private readonly FactSignal _signal;
 
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly SemaphoreSlim _wake = new(0);
@@ -76,8 +78,10 @@ internal sealed class EventSocketSession
         IMonotonicClock elapsed,
         EventSocketOptions options,
         EventTicketHolder caller,
-        ModbotPermissions permissions)
+        ModbotPermissions permissions,
+        FactSignal signal)
     {
+        _signal = signal;
         _socket = socket;
         _scopes = scopes;
         _clock = clock;
@@ -197,6 +201,9 @@ internal sealed class EventSocketSession
                 lastHeartbeat = _elapsed.Elapsed;
             }
 
+            // Taken before the read, so a fact written between the read and the wait still wakes it.
+            var written = _signal.Next();
+
             FactFeedPage page;
             using (var scope = _scopes.CreateScope())
             {
@@ -217,10 +224,32 @@ internal sealed class EventSocketSession
 
             // A full page means there is probably more: read on without waiting.
             if (page.Facts.Count < _options.PageSize)
-                await _wake.WaitAsync(_options.PollInterval, ct);
+                await WaitAsync(written, ct);
         }
 
         return "client went away";
+    }
+
+    /// <summary>
+    /// Until a fact is written, a new subscribe arrives, or <see cref="EventSocketOptions.PollInterval"/>
+    /// passes -- the last being the check that does not depend on anybody pulsing.
+    /// </summary>
+    private async Task WaitAsync(Task written, CancellationToken ct)
+    {
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var subscribed = _wake.WaitAsync(_options.PollInterval, stop.Token);
+
+        await Task.WhenAny(written, subscribed);
+        await stop.CancelAsync();
+
+        try
+        {
+            await subscribed;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // Woken by the signal; the subscribe wait was only cancelled.
+        }
     }
 
     private async Task<(EventFilter Filter, long Cursor)> ApplyAsync(Subscription subscription, long? current, CancellationToken ct)

@@ -176,6 +176,24 @@ public class EventSocketTests
     }
 
     [Fact]
+    public async Task ACaughtUpConnection_IsWokenByAWrittenFact_NotByItsFallbackCheck()
+    {
+        await using var host = await StartAsync(_db, new EventSocketOptions { PollInterval = TimeSpan.FromSeconds(60) });
+        var key = await KeyAsync(host, ModbotPermissions.ViewAuditLog);
+        using var socket = await ConnectAsync(host, key);
+
+        var subject = Subject();
+        await SubscribeAsync(socket, new { op = "subscribe", subjects = new[] { subject } });
+        await Task.Delay(300, Ct);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        await WriteFactAsync(host, FactType.MemberBanned, subject);
+
+        Assert.Equal(subject, (await NextOfKindAsync(socket, "event")).GetProperty("event").GetProperty("subject").GetProperty("id").GetString());
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(10), $"Took {clock.Elapsed}");
+    }
+
+    [Fact]
     public async Task ASubjectFilter_NarrowsToThoseSubjects()
     {
         await using var host = await StartAsync(_db);

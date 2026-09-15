@@ -103,6 +103,7 @@ public static class ApiSurface
         // The live event WebSocket (API keys design §5). Tickets and the connection count are held
         // in memory: a restart forgets both, and so do the connections they belong to.
         services.TryAddSingleton(new EventSocketOptions());
+        services.TryAddSingleton<Modbot.Analytics.Facts.FactSignal>();
         services.TryAddSingleton<EventTickets>();
         services.TryAddSingleton<EventConnections>();
 
@@ -122,6 +123,9 @@ public static class ApiSurface
     public static IServiceCollection AddWebhookDelivery(this IServiceCollection services)
     {
         services.AddHostedService<WebhookDeliveryService>();
+
+        // Wakes WebSocket connections and long polls when a fact commits (API keys design §5.5).
+        services.AddHostedService<FactFeedWatcher>();
         return services;
     }
 
@@ -216,6 +220,9 @@ public static class ApiSurface
         // Every new fact, as it is written, to a connected program (API keys design §5). The host
         // must call UseWebSockets before mapping this.
         app.MapEvents();
+
+        // The same stream by long polling, for programs that can hold neither (API keys design §5.6).
+        app.MapEventPoll();
 
         // The same events, sent to addresses the operator registers (API keys design §6).
         app.MapWebhooks();

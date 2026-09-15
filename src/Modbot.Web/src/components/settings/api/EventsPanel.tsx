@@ -13,12 +13,14 @@ type Status = 'closed' | 'connecting' | 'open'
 const KEEP = 200
 
 /**
- * Settings → API → WebSocket: the address, and a live view that connects the way a browser has to
- * -- a ticket from a POST, never a key in the address. With a key typed in, the ticket stands for
- * that key, so what arrives is what the key may see.
+ * Settings → API → Events: the WebSocket and long polling addresses, and a live view that connects
+ * the way a browser has to -- a ticket from a POST, never a key in the address. With a key typed
+ * in, the ticket stands for that key, so what arrives is what the key may see. Long polling takes a
+ * key in the header only, so the browser view uses the socket.
  */
-export function WebSocketPanel() {
+export function EventsPanel() {
   const address = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/events/ws`
+  const pollAddress = `${window.location.origin}/api/events/poll`
 
   const [key, setKey] = useState('')
   const [types, setTypes] = useState('*')
@@ -91,9 +93,16 @@ export function WebSocketPanel() {
   const disconnect = () => socket.current?.close(1000)
 
   return (
-    <SettingsSection id="api-websocket" title="WebSocket">
-      <SettingsCard title="Address">
-        <CopyBox text={address} />
+    <SettingsSection id="api-events" title="Events">
+      <SettingsCard title="Addresses">
+        <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+          <span className="text-muted-foreground">WebSocket</span>
+          <CopyBox text={address} />
+        </div>
+        <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+          <span className="text-muted-foreground">Long polling</span>
+          <CopyBox text={pollAddress} />
+        </div>
       </SettingsCard>
 
       <SettingsCard

@@ -5,9 +5,10 @@ the same API. There are three ways in:
 
 - **API keys** — call any `/api` endpoint from a script or bot.
 - **The live event WebSocket** — stay connected and receive every new event as it happens.
+- **Long polling** — the same events, by asking in a loop, when a WebSocket or webhook will not do.
 - **Webhooks** — Modbot sends each new event to an address you choose.
 
-All three live under **Settings → API**. Managing them needs the **Manage API keys and webhooks**
+All of them live under **Settings → API**. Managing them needs the **Manage API keys and webhooks**
 permission.
 
 This is your own deployment's API. There is no central Modbot service: every address below starts
@@ -187,9 +188,90 @@ again: use `id` to skip the ones you have handled.
 | 4001 | Not authenticated: no key, a wrong key, or a used or expired ticket |
 | 4003 | You can receive no events, or your access was removed while connected (key revoked or expired, account disabled) |
 | 4008 | Too slow: you stopped reading and a send could not finish in ten seconds |
-| 4029 | Too many connections: at most five per key, or five per account for browser tickets |
+| 4029 | Too many connections: at most five per key (long polls waiting on the same key count too), or five per account for browser tickets |
 
-## 4. Webhooks
+## 4. Long polling
+
+If your program cannot keep a WebSocket open and cannot receive webhooks — a script behind a
+firewall, a platform that only makes ordinary HTTP requests — it can ask for events in a loop
+instead. Each request returns at once when there is something new, and otherwise waits until there
+is.
+
+```
+GET https://modbot.example.com/api/events/poll?cursor=81230&types=vrchat.group.member.*&wait=30
+Authorization: Bearer mbk_…
+```
+
+Send your key in the `Authorization` header. A key in the address, or a signed-in browser session
+on its own, is refused with `401`.
+
+| Parameter | |
+|---|---|
+| `cursor` | Where to carry on from: the `cursor` of the previous answer. Leave it out on the first request to start from now. |
+| `types` | Event types, as in section 2. Repeat the parameter or separate with commas. Leave it out for everything. |
+| `subjects` | Subject ids, the same way. |
+| `wait` | How many seconds to wait when there is nothing new. Default 30, at most 60. `0` answers at once. |
+| `limit` | The most events in one answer. Default 100, at most 500. |
+
+The answer:
+
+```json
+{
+  "events": [ { "version": 1, "id": "81234", "type": "vrchat.group.member.ban", … } ],
+  "cursor": "81234",
+  "more": false,
+  "notice": null
+}
+```
+
+| Field | |
+|---|---|
+| `events` | New events, oldest first, in the shape from section 2. Empty when the wait ran out. |
+| `cursor` | Send this back as `cursor` next time. It also moves past events that were not for you, so an empty answer can still move it on. |
+| `more` | `true` when there are more events waiting: ask again straight away. |
+| `notice` | `{ "kind": "notice", "code": "history_trimmed", … }` when your cursor was older than anything this deployment still keeps, as on the WebSocket. Otherwise null. |
+
+You receive exactly what the WebSocket would send the same key: the same events, in the same order,
+filtered the same way. Events arrive at least once; use `id` to skip any you have handled.
+
+A request that is waiting holds one of the key's five connection places, shared with its WebSocket
+connections. A request past that gets `429` with a `Retry-After` header saying how many seconds to
+wait. Closing the request gives the place back at once. Answers are sent with
+`Cache-Control: no-store`.
+
+A loop in Node.js:
+
+```js
+let cursor = null
+
+for (;;) {
+  const url = new URL('https://modbot.example.com/api/events/poll')
+  url.searchParams.set('types', 'vrchat.group.member.*')
+  url.searchParams.set('wait', '30')
+  if (cursor) url.searchParams.set('cursor', cursor)
+
+  const response = await fetch(url, { headers: { authorization: `Bearer ${process.env.MODBOT_KEY}` } })
+
+  if (response.status === 429) {
+    await new Promise((r) => setTimeout(r, Number(response.headers.get('retry-after') ?? 5) * 1000))
+    continue
+  }
+  if (!response.ok) throw new Error(`Modbot answered ${response.status}`)
+
+  const page = await response.json()
+  for (const event of page.events) console.log(event.id, event.type, event.subject.id)
+  cursor = page.cursor // store it somewhere that survives a restart
+}
+```
+
+Or once, with curl:
+
+```
+curl -H "Authorization: Bearer $MODBOT_KEY" \
+  "https://modbot.example.com/api/events/poll?cursor=81230&wait=30"
+```
+
+## 5. Webhooks
 
 A webhook is an address on your own server that Modbot sends events to.
 
@@ -298,7 +380,7 @@ switch on **Allow private addresses** on the Webhooks page. That also allows pla
 
 Webhooks do not go through the VRChat proxy.
 
-## 5. What is recorded
+## 6. What is recorded
 
 - Creating and revoking a key, and creating, changing, rolling the secret of, deleting or
   automatically turning off a webhook, are recorded in the operational log with who did it. Keys and
@@ -306,7 +388,7 @@ Webhooks do not go through the VRChat proxy.
 - Each webhook keeps its last fifty delivery attempts.
 - Individual API requests are not recorded; each key shows when it was last used.
 
-## 6. Incoming webhooks
+## 7. Incoming webhooks
 
 Modbot does not have URLs for other services to post into. A service that needs to tell Modbot
 something can use an API key with the endpoint for what it wants done, and gets the same permission

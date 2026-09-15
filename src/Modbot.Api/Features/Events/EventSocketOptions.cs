@@ -3,8 +3,26 @@ namespace Modbot.Api.Features.Events;
 /// <summary>How the live event WebSocket paces itself (API keys design §5). Tests shorten these.</summary>
 public sealed class EventSocketOptions
 {
-    /// <summary>How often a connection that is caught up looks for new facts.</summary>
-    public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(1);
+    /// <summary>
+    /// How often a caught-up connection or a waiting long poll looks for new facts without being
+    /// woken. Ordinarily a written fact wakes them at once; this is the check that does not rely on it.
+    /// </summary>
+    public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(3);
+
+    /// <summary>The longest a long poll may wait, and what it waits when it does not say.</summary>
+    public int LongPollMaxWaitSeconds { get; init; } = 60;
+
+    public int LongPollDefaultWaitSeconds { get; init; } = 30;
+
+    public int LongPollMaxLimit { get; init; } = 500;
+
+    public int LongPollDefaultLimit { get; init; } = 100;
+
+    /// <summary>Pages a long poll reads past events the caller is not sent before answering anyway.</summary>
+    public int LongPollMaxPages { get; init; } = 10;
+
+    /// <summary>What a refused poll is told to wait, in seconds.</summary>
+    public int LongPollRetryAfterSeconds { get; init; } = 5;
 
     /// <summary>How often a heartbeat message goes out, and access is checked again.</summary>
     public TimeSpan HeartbeatInterval { get; init; } = TimeSpan.FromSeconds(30);

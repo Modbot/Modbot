@@ -43,13 +43,17 @@ public sealed class FactWriter : IFactWriter
 
     private int? _windowSeconds;
 
-    public FactWriter(ModbotContext db, IModbotClock clock)
+    private readonly FactSignal? _signal;
+
+    /// <param name="signal">Pulsed after each insert, so live readers look now rather than at their next check.</param>
+    public FactWriter(ModbotContext db, IModbotClock clock, FactSignal? signal = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
 
         _db = db;
         _clock = clock;
+        _signal = signal;
     }
 
     public async Task<FactWriteResult> WriteAsync(FactRecord fact, CancellationToken ct = default)
@@ -212,6 +216,7 @@ public sealed class FactWriter : IFactWriter
         }
 
         _db.Entry(entity).State = EntityState.Detached;
+        _signal?.Pulse();
 
         return entity.Id;
     }
