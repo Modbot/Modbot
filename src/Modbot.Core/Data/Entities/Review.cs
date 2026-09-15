@@ -73,6 +73,12 @@ public class Review
 
     /// <summary>What the person who closed it said. Required to close.</summary>
     public string? Note { get; set; }
+
+    /// <summary>
+    /// <see cref="ReviewOutcome"/> for a review opened by an AI moderation flag; null for every
+    /// other signal, where closing records that a person looked and nothing more.
+    /// </summary>
+    public string? Outcome { get; set; }
 }
 
 /// <summary>
@@ -98,4 +104,31 @@ public static class ReviewSignal
     /// team usually does (spec 5.8.5, fourth bullet).
     /// </summary>
     public const string FarAboveTeam = "far-above-team";
+
+    /// <summary>
+    /// An AI moderation rule flagged somebody, and the flag was sent here so the team's normal
+    /// review flow handles it (AI moderation design §19). The "moderator" is the rule.
+    /// </summary>
+    public const string AiFlag = "ai-flag";
+}
+
+/// <summary>
+/// What a person concluded when they closed a review (AI moderation design §19).
+/// </summary>
+/// <remarks>
+/// Only a review opened by an AI moderation flag asks for one, because only there does the answer
+/// change something: "wrong" dismisses the flag, "right" confirms it, and both feed the rule's
+/// counts. A review of a moderator's pattern records a note and nothing else -- closing one is not
+/// a verdict on the moderator.
+/// </remarks>
+public static class ReviewOutcome
+{
+    /// <summary>The rule was right to flag it.</summary>
+    public const string Right = "right";
+
+    /// <summary>The rule was wrong: a false positive.</summary>
+    public const string Wrong = "wrong";
+
+    public static bool IsOutcome(string? outcome)
+        => string.Equals(outcome, Right, StringComparison.Ordinal) || string.Equals(outcome, Wrong, StringComparison.Ordinal);
 }

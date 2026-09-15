@@ -1,5 +1,5 @@
 import { Input } from '@/components/ui/input'
-import { TARGETS, type RuleAction } from '@/lib/aiModeration'
+import { CONTEXT_CHOICES, TARGETS, type RuleAction } from '@/lib/aiModeration'
 import { Checkbox, Switch } from '../../fields'
 import { RuleScopeFields } from './RuleScopeFields'
 
@@ -23,11 +23,14 @@ export function RuleActionFields({
   value,
   onChange,
   acting,
+  picturesAvailable,
 }: {
   value: RuleAction
   onChange: (next: RuleAction) => void
   /** The rule already acts, so setting an action here does not start a new trial. */
   acting?: boolean
+  /** The model in use reads pictures. False makes the picture box unavailable.  */
+  picturesAvailable?: boolean
 }) {
   const chat = value.targets.includes('discordMessage')
   const acts = value.deleteMessage || value.timeoutMinutes !== null
@@ -61,6 +64,42 @@ export function RuleActionFields({
             </Checkbox>
           ))}
         </div>
+      </Group>
+
+      <Group label="Earlier messages">
+        <div role="radiogroup" aria-label="Earlier messages" className="flex flex-wrap gap-4">
+          {CONTEXT_CHOICES.map((n) => (
+            <label key={n} className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="contextMessages"
+                checked={value.contextMessages === n}
+                disabled={!chat}
+                onChange={() => onChange({ ...value, contextMessages: n })}
+              />
+              {n === 0 ? 'None' : `${n} messages`}
+            </label>
+          ))}
+        </div>
+      </Group>
+
+      <Group label="Pictures">
+        <Checkbox
+          checked={value.checkPictures && picturesAvailable !== false}
+          disabled={picturesAvailable === false}
+          onChange={(checkPictures) => onChange({ ...value, checkPictures })}
+        >
+          {picturesAvailable === false ? 'Check pictures (the model reads none)' : 'Check pictures'}
+        </Checkbox>
+      </Group>
+
+      <Group label="Reviews">
+        <Checkbox
+          checked={value.openReviewForEachFlag}
+          onChange={(openReviewForEachFlag) => onChange({ ...value, openReviewForEachFlag })}
+        >
+          Open a review for each flag
+        </Checkbox>
       </Group>
 
       <Group label="Action">

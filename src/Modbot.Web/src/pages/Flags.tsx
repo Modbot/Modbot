@@ -4,7 +4,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs } from '@/components/ui/tabs'
-import { moderationApi, targetLabel, type ModerationFlag } from '@/lib/aiModeration'
+import {
+  moderationApi,
+  targetLabel,
+  UNKNOWN_LANGUAGE,
+  type FlagLanguageCount,
+  type ModerationFlag,
+} from '@/lib/aiModeration'
 import { ApiError, type CurrentUser } from '@/lib/api'
 import { ago } from '@/lib/format'
 import { can } from '@/lib/permissions'
@@ -12,11 +18,14 @@ import { cn } from '@/lib/utils'
 
 /**
  * What AI moderation rules flagged (AI moderation design §5). Seeing needs ViewProfile; the
- * Dismiss button needs ReviewTickets, and a dismissal is permanent for that rule and that person.
+ * Dismiss and Review buttons need ReviewTickets, and a dismissal is permanent for that rule and
+ * that person.
  */
 export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (id: string) => void }) {
-  const [state, setState] = useState<'open' | 'dismissed'>('open')
+  const [state, setState] = useState<'open' | 'dismissed' | 'confirmed'>('open')
+  const [language, setLanguage] = useState<string | null>(null)
   const [flags, setFlags] = useState<ModerationFlag[] | null>(null)
+  const [languages, setLanguages] = useState<FlagLanguageCount[]>([])
   const [open, setOpen] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -26,9 +35,10 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
 
   const load = useCallback(() => {
     moderationApi
-      .flags(state)
+      .flags(state, language)
       .then((r) => {
         setFlags(r.flags)
+        setLanguages(r.languages)
         setOpen(r.open)
         setError(null)
       })
@@ -39,19 +49,18 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
             : 'Could not load the flags.',
         ),
       )
-  }, [state])
+  }, [state, language])
 
   useEffect(() => {
     load()
   }, [load])
 
-  const dismiss = (id: string) => {
+  const act = (id: string, work: () => Promise<unknown>, fallback: string) => {
     setBusy(id)
     setProblem(null)
-    moderationApi
-      .dismissFlag(id)
+    work()
       .then(load)
-      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not dismiss the flag.'))
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : fallback))
       .finally(() => setBusy(null))
   }
 
@@ -72,9 +81,34 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
       tabs={[
         { value: 'open', label: 'Open', badge: open },
         { value: 'dismissed', label: 'Dismissed' },
+        { value: 'confirmed', label: 'Confirmed' },
       ]}
       className="gap-4"
     >
+      {languages.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
+          <Button
+            size="xs"
+            variant={language === null ? 'default' : 'outline'}
+            onClick={() => setLanguage(null)}
+          >
+            All languages
+          </Button>
+          {languages.map((l) => {
+            const value = l.language ?? UNKNOWN_LANGUAGE
+            return (
+              <Button
+                key={value}
+                size="xs"
+                variant={language === value ? 'default' : 'outline'}
+                onClick={() => setLanguage(value)}
+              >
+                {l.label} {l.flags}
+              </Button>
+            )
+          })}
+        </div>
+      )}
       {problem && <div className="text-destructive">{problem}</div>}
       <Card>
         <CardContent className="p-0">
@@ -106,6 +140,8 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
                         {flag.subjectPlatform === 'discord' ? 'Discord' : 'VRChat'}
                       </Badge>
                       <Badge variant="outline">{targetLabel(flag.target)}</Badge>
+                      <Badge variant="outline">{flag.languageLabel}</Badge>
+                      {flag.picture && <Badge variant="outline">Picture</Badge>}
                       <span className="font-medium">{flag.ruleName}</span>
                       {flag.messageDeleted && <Badge variant="destructive">Message deleted</Badge>}
                       {flag.timedOutMinutes && (
@@ -122,9 +158,34 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
                             .join(' · ')}
                         </Badge>
                       )}
+                      {flag.reviewId && <Badge variant="secondary">In review</Badge>}
                     </div>
+                    {flag.context && flag.context.length > 0 && (
+                      <ul className="mt-1 flex flex-col text-muted-foreground">
+                        {flag.context.map((m) => (
+                          <li key={m.messageId} className="truncate">
+                            {m.author}: {m.text}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <div className="mt-1">
-                      “{flag.matched}”
+                      {flag.picture ? (
+                        flag.pictureUrl ? (
+                          <a
+                            href={flag.pictureUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="underline"
+                          >
+                            {flag.picture}
+                          </a>
+                        ) : (
+                          flag.picture
+                        )
+                      ) : (
+                        `“${flag.matched}”`
+                      )}
                       {flag.ruleKind === 'termList' && (
                         <span className="ml-2 font-mono text-muted-foreground">{flag.term}</span>
                       )}
@@ -139,6 +200,8 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
                       {ago(flag.flaggedAt, now)}
                       {flag.state === 'dismissed' &&
                         ` · Dismissed by ${flag.dismissedBy ?? 'someone'} ${ago(flag.dismissedAt, now)}`}
+                      {flag.state === 'confirmed' &&
+                        ` · Confirmed by ${flag.confirmedBy ?? 'someone'} ${ago(flag.confirmedAt, now)}`}
                       {flag.callId && (
                         <>
                           {' · '}
@@ -150,14 +213,34 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
                     </div>
                   </div>
                   {mayDismiss && flag.state === 'open' && (
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      disabled={busy !== null}
-                      onClick={() => dismiss(flag.id)}
-                    >
-                      {busy === flag.id ? 'Dismissing…' : 'Dismiss'}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {!flag.reviewId && (
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          disabled={busy !== null}
+                          onClick={() =>
+                            act(
+                              flag.id,
+                              () => moderationApi.openFlagReview(flag.id),
+                              'Could not open a review.',
+                            )
+                          }
+                        >
+                          {busy === flag.id ? 'Working…' : 'Open a review'}
+                        </Button>
+                      )}
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        disabled={busy !== null}
+                        onClick={() =>
+                          act(flag.id, () => moderationApi.dismissFlag(flag.id), 'Could not dismiss the flag.')
+                        }
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
                   )}
                 </li>
               ))}

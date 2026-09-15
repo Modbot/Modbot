@@ -1,6 +1,6 @@
 ---
 title: Moderation rules
-description: Term lists and AI topics that check Discord messages and VRChat profiles, test sets, the trial before a rule acts, channel and role limits, the daily AI call limit and the Try it box.
+description: Term lists and AI topics that check Discord messages and VRChat profiles, the messages before the one being checked, pictures, the language on each flag, test sets, the trial before a rule acts, channel and role limits, the daily AI call limit and the Try it box.
 ---
 
 Moderation rules read text your group already has, Discord messages and VRChat profiles, and check
@@ -50,6 +50,55 @@ deployment is every profile Modbot has recorded. If you have AI topics that chec
 mean many AI requests. The daily AI call limit and your [spend limits](/ai/limits-and-spend) are what
 hold it back.
 </Callout>
+
+## Earlier messages
+
+A reply, a joke and a quote all read differently on their own. Each rule has **Earlier messages**:
+how many messages before the one being checked go to the model so it can read that message in
+context. Choose **None**, **3 messages**, **5 messages** or **10 messages**. A new rule starts on 5.
+
+The messages come from the same channel, or from the same thread when the message is in one. When
+the message is a reply, the message it replied to goes with them.
+
+The model is told to judge the last message only and to use the rest to understand it. A quote it
+takes from an earlier message is thrown away, so nobody is flagged for words somebody else wrote.
+
+Earlier messages only apply to Discord messages. A VRChat profile has no conversation around it.
+
+The flag records which messages went with it, and the [Flags](/moderation/flags) page shows them.
+
+## Pictures
+
+Each rule has a **Check pictures** box. With it ticked, the rule also checks:
+
+- image attachments on a Discord message,
+- the author's Discord avatar,
+- a VRChat profile picture and avatar picture.
+
+The box is only available when the model you have chosen reads pictures. Modbot knows this from the
+model list on [Base](/ai/settings); if your model reads text only, the box is greyed out.
+
+At most four pictures go with one check, each at most 4 MB, and only PNG, JPEG, WebP and GIF.
+Anything larger or of another kind is skipped, and a link that points at a private or local address
+is never followed.
+
+<Callout type="warn" title="Pictures cost much more than words">
+A single picture can cost more than the whole message around it. Picture checks go through the
+daily AI call limit and your [spend limits](/ai/limits-and-spend) like any other AI request, and a
+rule with pictures on says so on its card.
+</Callout>
+
+When a picture matches, the flag says which one — "Attachment cat.png", "Discord avatar", "VRChat
+profile picture" — with a link to it.
+
+## Language
+
+Every flag records the language of the text that was checked, worked out on your own server without
+sending anything anywhere. Very short text is left as **Unknown**.
+
+The [Flags](/moderation/flags) page shows the language on each row and lets you filter by it, and
+each rule's card shows its dismissal rate for each language beside the whole figure. A rule that is
+right in English and wrong in every other language reads as fine until you split it that way.
 
 ## The Moderation card
 
@@ -243,6 +292,20 @@ Seeing flags needs **See profiles**; dismissing them needs **Review tickets**. S
 [Flags](/moderation/flags).
 
 Deleting a list or topic keeps the flags it already made.
+
+## Sending a flag to Reviews
+
+A flag can go to [Reviews](/moderation/reviews), so your team decides it the way it decides
+everything else.
+
+- Each rule has **Open a review for each flag**, off to start with.
+- Any open flag has an **Open a review** button, for when you want the team to look at one.
+
+Closing that review asks which way it went. **The rule was wrong** dismisses the flag; **The rule
+was right** confirms it. Both need **Review tickets**, and both are recorded in the
+[audit log](/moderation/audit-log).
+
+The rule's card counts both: confirmations show next to the dismissal rate.
 
 ## Try it
 

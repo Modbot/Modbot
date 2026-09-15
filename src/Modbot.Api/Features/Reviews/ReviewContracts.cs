@@ -24,7 +24,8 @@ public sealed record ReviewView(
     DateTimeOffset UpdatedAt,
     DateTimeOffset? ClosedAt,
     string? ClosedByUsername,
-    string? Note);
+    string? Note,
+    string? Outcome = null);
 
 /// <param name="OpenCount">Every open review, whatever this page was filtered to.</param>
 /// <param name="LastRunAt">When detection last ran. Null means never -- there is nothing to read into an empty list yet.</param>
@@ -37,7 +38,11 @@ public sealed record ReviewListResponse(
 public sealed record OpenReviewCount(int Open);
 
 /// <param name="Note">Required. What the person who looked at it concluded, in their words.</param>
-public sealed record CloseReviewRequest(string Note);
+/// <param name="Outcome">
+/// <c>right</c> or <c>wrong</c>. Required for a review opened by an AI moderation flag, where wrong
+/// dismisses the flag and right confirms it; not accepted for any other kind of review.
+/// </param>
+public sealed record CloseReviewRequest(string Note, string? Outcome = null);
 
 /// <summary>The words for each signal.</summary>
 public static class ReviewSignals
@@ -46,6 +51,7 @@ public static class ReviewSignals
     {
         ReviewSignal.SamePerson => "Keeps acting on one person",
         ReviewSignal.FarAboveTeam => "Far more actions than the rest of the team",
+        ReviewSignal.AiFlag => "Flagged by a moderation rule",
         _ => signal,
     };
 }

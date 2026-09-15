@@ -59,6 +59,14 @@ public static class AiServiceCollectionExtensions
         // AI moderation (AI moderation design). The engine reads its rules from the database on
         // every check, so like the client it does nothing until an operator switches it on.
         services.TryAddSingleton<TermListHubOptions>();
+
+        // The language on every flag (design §18) and the pictures a rule can check (§17). The
+        // detector builds its profiles once, so it is a singleton; the picture client refuses
+        // private and local addresses, because a picture link is text somebody else wrote.
+        services.TryAddSingleton<TextLanguage>();
+        services.AddModerationPictureClient();
+        services.AddScoped<ModerationPictures>();
+
         services.AddHttpClient(HubTermLists.HttpClientName);
         services.AddSingleton<HubTermLists>();
         services.AddScoped<HubTermListUpdates>();

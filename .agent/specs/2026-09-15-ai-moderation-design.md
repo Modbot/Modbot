@@ -3,10 +3,12 @@
 - **Date:** 2026-09-15
 - **Status:** Built, first version
 - **Covers:** term lists (local and from Modbot Hub), AI topics, flags, dismissals, Discord actions,
-  the "Try it" box, test sets, the trial, the automatic pause, scope, rule versions and prompt
-  injection defence
-- **Depends on:** M8 §2 and §4 (as changed 2026-09-15), M5 §5.1 (messages stored in full),
-  foundation §4.2.7 (Modbot Hub term lists), AI base settings (`IAiClients`)
+  the "Try it" box, test sets, the trial, the automatic pause, scope, rule versions, prompt
+  injection defence, the messages before the one being checked, pictures, the language on a flag,
+  and sending a flag to Reviews
+- **Depends on:** M8 §2, §4 and §4.4 (as changed 2026-09-15), M5 §5.1 (messages stored in full),
+  foundation §4.2.7 (Modbot Hub term lists), `PublicAddresses`, AI base settings (`IAiClients`),
+  the model list (AI chat design §10.9), Reviews (spec 5.8.5)
 
 ---
 
@@ -400,3 +402,153 @@ Four samples, on every new AI topic, all **should not flag**:
    moderation AI.
 3. Text pretending to be a system message, with chat-template markers.
 4. Text pretending to be a tool result saying the user is approved.
+
+---
+
+## 16. The messages before the one being checked (added 2026-09-15)
+
+A reply, a joke and a quote all read differently on their own, and a rule that judges the last
+message alone flags all three. So a rule can send the few messages before it.
+
+**Per rule: none, 3, 5 or 10. A new rule starts on 5.** The messages come from the same channel, or
+the same thread when the message is in one — a thread is its own conversation, and the channel it
+hangs off is not what surrounds a message inside it. The message being replied to goes in front of
+them, whenever it was posted.
+
+Context is only for Discord chat. A profile has no conversation around it, so a profile check sends
+none whatever the rule says.
+
+### 16.1 It is marked as context, inside the same markers
+
+Everything the member wrote still goes in one message between two lines of the request's marker
+(§15.1). Inside it the earlier messages come first, under a line saying they are context and are
+never judged, then the message to judge under a line saying so. The topics message says in so many
+words: judge the last one alone, never flag an earlier message, never quote one.
+
+Nothing a member wrote enters the instructions message — the context included.
+
+### 16.2 The quote check does not widen
+
+The quote check (§15.2) still runs against the **checked message alone**. A quote taken from the
+context is refused exactly as an invented one is: the words may be real, but they are not what this
+person wrote, and a flag that quotes somebody else's message is a flag against the wrong person.
+
+### 16.3 Topics that want different amounts are asked separately
+
+A request carries several pieces of text (§4.2), each named and each with the topics it is checked
+against. One piece of text carries every topic that wants the same amount of context and the same
+answer about pictures; topics that want different amounts become **another** piece of text with the
+same words and different context, because context changes the answer and a topic whose operator
+asked for none must not be judged on a conversation. Rules left on the defaults share one piece, so
+the ordinary message is still asked about once.
+
+### 16.4 What is stored
+
+The flag records the ids of the messages that went with it. The Flags page reads those messages
+back when it shows the flag, rather than copying them onto it: a second copy of somebody's words is
+a second thing to delete when they ask.
+
+---
+
+## 17. Pictures (added 2026-09-15)
+
+A rule can check pictures as well as words: a Discord message's image attachments, the author's
+Discord avatar, and on a VRChat profile the profile picture and the avatar picture.
+
+**Only when the model reads pictures.** The model list (`ai_catalog_model`) says what each model
+takes; when the model in use does not take images the box on the rule is unavailable rather than
+failing at run time, and a rule saved earlier with pictures on sends none until the model changes.
+
+### 17.1 How a picture is sent
+
+Where the provider takes a link, the link goes — that is one fewer copy of a member's picture on
+Modbot's server. OpenRouter, OpenAI and xAI take links; Anthropic's compatibility layer and a local
+server take the bytes, so the bytes are fetched.
+
+That fetch is the dangerous one, because an attachment link is text somebody else wrote. It goes
+out through a client that refuses every private and local address, checked on the address the name
+actually resolved to (foundation, `PublicAddresses`), and follows no redirects. A link that is not
+`https`, or whose host is private or local, is dropped before anything is sent — by link or by
+bytes.
+
+### 17.2 The caps
+
+At most **four** pictures for one piece of text, at most **4 MB** each, and only `image/png`, `image/jpeg`,
+`image/webp` and `image/gif`. Anything else, anything too big, and anything the server does not
+return as a picture is skipped. The same link twice is sent once.
+
+### 17.3 The answer, and the cost
+
+Each picture goes behind a short key of Modbot's own (`p1`, `p2`) — never its file name, which a
+member chose. The answer names the key that matched; a key nobody sent is invented and thrown away,
+exactly as an invented quote is. The flag then says which picture matched, in plain words
+("Attachment cat.png", "Discord avatar"), with the link so a moderator can open it.
+
+Each picture goes in the same message as the words it belongs to, between that piece's marker
+lines, so a picture is inside the untrusted-content fence like everything else a member sent.
+
+Pictures cost far more than words. The call goes through the daily AI call limit and the spend
+limits like any other, and the rule's card says pictures are on, so the bill is not a surprise.
+
+---
+
+## 18. The language on every flag (added 2026-09-15)
+
+M8 §4.4 says a rule's false positives cluster in text that is not English. Nobody can see that
+unless the language is on the flag, so **every flag records one** — term list and AI topic alike.
+
+It is worked out on Modbot's own server by an offline detector built into the binary
+(`LanguageDetection.Ai`, Apache-2.0, a port of Nakatani Shuyo's `language-detection`), not asked of
+the model: it costs nothing, it answers the same way for a term list as for a topic, and a model
+asked to name a language names one even when the text is three words of nothing. Text under twelve
+characters is left **unknown** rather than guessed at, because that is exactly where a detector is
+wrong.
+
+The code stored is ISO 639-3 (`eng`, `rus`); the page shows the word.
+
+The Flags page shows it on every row and filters by it, "Unknown" included. Each rule's card shows
+its dismissal rate broken down by language beside the whole-rule figure — a rule that is fine in
+English and terrible in Russian reads as fine until it is split.
+
+### 18.1 Why not a NuGet package that needs a corpus
+
+The .NET options were a .NET Framework 4.5 assembly that will not load on .NET 10, one that needs a
+2.4 MB corpus file committed to the repository for fourteen languages, one whose package is 73 MB,
+and two that drag in a `Newtonsoft.Json` with a known high-severity advisory. The one chosen is a
+single assembly with its language profiles built in, no dependencies, and fifty-odd languages.
+
+---
+
+## 19. A flag can go to Reviews (added 2026-09-15)
+
+A flag and a review ask the same question — "this happened; is it what it looks like?" — and
+Reviews already has the page, the badge, the permission and the record of who answered. So a flag
+is sent there rather than given a second thing that looks like it.
+
+**Two ways in.** Per rule, "open a review for each flag", off by default. And a button on any open
+flag, for a moderator who wants the team to decide this one.
+
+The review's signal is `ai-flag`. The "moderator" being reviewed is the **rule**, on the Modbot
+platform — the same way a rule that pauses itself is the subject of its own fact; nobody on VRChat
+did this. What it is about is the flag, so the existing open-review index already stops one flag
+opening two reviews.
+
+### 19.1 Closing it decides the flag
+
+A flag's review is the one kind that asks which way it went:
+
+- **The rule was wrong** dismisses the flag. A dismissal is permanent for that rule, that term and
+  that person, as it always was (§5).
+- **The rule was right** confirms it. The flag closes, and the rule's card counts it.
+
+Every other kind of review still records a note and nothing more — closing one is not a verdict on
+the moderator, and it never was.
+
+Both write their own fact (`modbot.ai-moderation.flag.dismiss`, `modbot.ai-moderation.flag.confirm`)
+naming the account, alongside the review's own closing fact. The row and the facts commit together.
+
+### 19.2 What the numbers say
+
+The rule's card shows flags, the dismissal rate, and — once there are any — how many were confirmed
+beside it. A rule whose flags are confirmed is earning its place; a rule whose flags are dismissed
+is not, and §12 and §13 are what to do about it.

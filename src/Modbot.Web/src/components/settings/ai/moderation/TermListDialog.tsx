@@ -27,6 +27,9 @@ const NEW_LIST: RuleAction = {
   timeoutMinutes: null,
   scope: NO_SCOPE,
   trialDays: null,
+  contextMessages: 5,
+  checkPictures: false,
+  openReviewForEachFlag: false,
 }
 
 /**
@@ -40,27 +43,39 @@ const NEW_LIST: RuleAction = {
 export function TermListDialog({
   listId,
   open,
+  picturesAvailable,
   onClose,
   onSaved,
 }: {
   listId: string | null
   open: boolean
+  picturesAvailable: boolean
   onClose: () => void
   onSaved: () => void
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      {open && <TermListForm key={listId ?? 'new'} listId={listId} onClose={onClose} onSaved={onSaved} />}
+      {open && (
+        <TermListForm
+          key={listId ?? 'new'}
+          listId={listId}
+          picturesAvailable={picturesAvailable}
+          onClose={onClose}
+          onSaved={onSaved}
+        />
+      )}
     </Dialog>
   )
 }
 
 function TermListForm({
   listId,
+  picturesAvailable,
   onClose,
   onSaved,
 }: {
   listId: string | null
+  picturesAvailable: boolean
   onClose: () => void
   onSaved: () => void
 }) {
@@ -88,6 +103,9 @@ function TermListForm({
           timeoutMinutes: d.list.timeoutMinutes,
           scope: d.list.scope,
           trialDays: d.list.trial?.days ?? null,
+          contextMessages: d.list.contextMessages,
+          checkPictures: d.list.checkPictures,
+          openReviewForEachFlag: d.list.openReviewForEachFlag,
         })
         setTerms(
           d.terms
@@ -148,7 +166,12 @@ function TermListForm({
         </label>
       )}
 
-      <RuleActionFields value={rule} onChange={setRule} acting={detail?.list.acting ?? false} />
+      <RuleActionFields
+        value={rule}
+        onChange={setRule}
+        acting={detail?.list.acting ?? false}
+        picturesAvailable={picturesAvailable}
+      />
 
       {hub ? (
         <Group label={`Terms · ${detail ? detail.terms.length - excluded.size : 0} on`}>

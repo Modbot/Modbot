@@ -442,6 +442,9 @@ public static class FactType
 
     public const string AiModerationFlagDismissed = "modbot.ai-moderation.flag.dismiss";
 
+    /// <summary>A moderator closed the flag's review as right (AI moderation design §19).</summary>
+    public const string AiModerationFlagConfirmed = "modbot.ai-moderation.flag.confirm";
+
     public const string AiModerationMessageDeleted = "modbot.ai-moderation.message-delete";
 
     public const string AiModerationTimeout = "modbot.ai-moderation.timeout";

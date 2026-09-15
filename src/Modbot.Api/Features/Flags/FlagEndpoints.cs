@@ -1,10 +1,12 @@
-using System.Text.Json.Nodes;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Modbot.AI.Moderation;
 using Modbot.Analytics.Facts;
+using Modbot.Analytics.Reviews;
 using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -20,6 +22,11 @@ namespace Modbot.Api.Features.Flags;
 /// </param>
 /// <param name="Trial">The rule was in its trial, so nothing was done.</param>
 /// <param name="WouldDeleteMessage">What the rule would have done, during a trial or while paused.</param>
+/// <param name="Language">The checked text's language as an ISO 639-3 code, or null.</param>
+/// <param name="LanguageLabel">That language in words, or "Unknown".</param>
+/// <param name="Picture">Which picture matched, or null when the words did.</param>
+/// <param name="Context">The messages the model was given to understand this one, oldest first.</param>
+/// <param name="ReviewId">The review opened for this flag, or null.</param>
 public sealed record FlagView(
     Guid Id,
     DateTimeOffset FlaggedAt,
@@ -46,9 +53,24 @@ public sealed record FlagView(
     bool WouldDeleteMessage = false,
     int? WouldTimeOutMinutes = null,
     // The AI call that produced it, in the call log. Null for a term list, which makes no call.
-    Guid? CallId = null);
+    Guid? CallId = null,
+    string? Language = null,
+    string LanguageLabel = LanguageNames.UnknownLabel,
+    string? Picture = null,
+    string? PictureUrl = null,
+    IReadOnlyList<FlagContextMessage>? Context = null,
+    Guid? ReviewId = null,
+    DateTimeOffset? ConfirmedAt = null,
+    string? ConfirmedBy = null);
 
-public sealed record FlagList(IReadOnlyList<FlagView> Flags, int Open);
+/// <summary>One message the model was shown alongside the flagged one (AI moderation design §16).</summary>
+public sealed record FlagContextMessage(string MessageId, string Author, string Text);
+
+/// <param name="Languages">Every language these flags are in, with how many of each.</param>
+public sealed record FlagList(IReadOnlyList<FlagView> Flags, int Open, IReadOnlyList<FlagLanguageCount> Languages);
+
+/// <param name="Language">The ISO 639-3 code, or null for flags whose language could not be told.</param>
+public sealed record FlagLanguageCount(string? Language, string Label, int Flags);
 
 /// <summary>
 /// What AI moderation rules flagged, and dismissing a flag (AI moderation design §5).
@@ -71,24 +93,53 @@ public static class FlagEndpoints
 
         group.MapGet("", async (
                 [FromQuery] string? state,
+                [FromQuery] string? language,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
-                var wanted = state == "dismissed" ? ModerationFlagState.Dismissed : ModerationFlagState.Open;
+                var wanted = state switch
+                {
+                    "dismissed" => ModerationFlagState.Dismissed,
+                    "confirmed" => ModerationFlagState.Confirmed,
+                    _ => ModerationFlagState.Open,
+                };
 
-                var flags = await db.ModerationFlags.AsNoTracking()
-                    .Where(f => f.State == wanted)
-                    .OrderByDescending(f => wanted == ModerationFlagState.Dismissed ? f.DismissedAt : f.FlaggedAt)
+                var query = db.ModerationFlags.AsNoTracking().Where(f => f.State == wanted);
+
+                // "unknown" is a language on this page: a flag whose language could not be told is
+                // exactly the kind a moderator wants to pick out.
+                var wantedLanguage = string.IsNullOrWhiteSpace(language) ? null : language.Trim();
+                if (wantedLanguage is UnknownLanguage)
+                    query = query.Where(f => f.Language == null);
+                else if (wantedLanguage is not null)
+                    query = query.Where(f => f.Language == wantedLanguage);
+
+                var flags = await query
+                    .OrderByDescending(f => wanted == ModerationFlagState.Open ? f.FlaggedAt : (f.DismissedAt ?? f.ConfirmedAt))
                     .Take(PageSize)
                     .ToListAsync(ct);
 
                 var open = await db.ModerationFlags.CountAsync(f => f.State == ModerationFlagState.Open, ct);
                 var text = await RuleTextAsync(db, flags, ct);
+                var context = await ContextAsync(db, flags, ct);
 
-                return Results.Ok(new FlagList([.. flags.Select(f => View(f, text))], open));
+                // Counted over every flag in this state, not only the page, so the filter offers a
+                // language the page in front of you happens not to show.
+                var counts = await db.ModerationFlags.AsNoTracking()
+                    .Where(f => f.State == wanted)
+                    .GroupBy(f => f.Language)
+                    .Select(g => new { Language = g.Key, Flags = g.Count() })
+                    .ToListAsync(ct);
+
+                return Results.Ok(new FlagList(
+                    [.. flags.Select(f => View(f, text, context))],
+                    open,
+                    [.. counts
+                        .OrderByDescending(c => c.Flags)
+                        .Select(c => new FlagLanguageCount(c.Language, LanguageNames.Label(c.Language), c.Flags))]));
             })
             .WithName("ListModerationFlags")
-            .WithSummary("The newest flags, open or dismissed")
+            .WithSummary("The newest flags: open, dismissed or confirmed, and filtered by language")
             .Produces<FlagList>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ViewProfile);
@@ -108,8 +159,8 @@ public static class FlagEndpoints
                 var flag = await db.ModerationFlags.FirstOrDefaultAsync(f => f.Id == id, ct);
                 if (flag is null)
                     return Results.NotFound(new { error = "No such flag." });
-                if (flag.State == ModerationFlagState.Dismissed)
-                    return Results.Conflict(new { error = "This flag is already dismissed." });
+                if (flag.State != ModerationFlagState.Open)
+                    return Results.Conflict(new { error = "This flag is already closed." });
 
                 var username = http.User.Identity?.Name ?? string.Empty;
                 var now = clock.UtcNow;
@@ -117,33 +168,8 @@ public static class FlagEndpoints
                 await partitions.EnsureForAsync(now, ct);
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-                flag.State = ModerationFlagState.Dismissed;
-                flag.DismissedAt = now;
-                flag.DismissedByUserId = userId;
-                flag.DismissedByUsername = username.Length <= 64 ? username : username[..64];
+                await FlagDecisions.DismissAsync(facts, flag, userId, username, now, ct);
                 await db.SaveChangesAsync(ct);
-
-                await facts.WriteAsync(new FactRecord
-                {
-                    Type = FactType.AiModerationFlagDismissed,
-                    OccurredAt = now,
-                    SubjectPlatform = flag.SubjectPlatform,
-                    SubjectId = flag.SubjectId,
-                    ActorPlatform = FactPlatform.Modbot,
-                    ActorId = userId.ToString(),
-                    Source = FactSource.Modbot,
-                    Data = new JsonObject
-                    {
-                        ["flagId"] = flag.Id.ToString(),
-                        ["ruleKind"] = flag.RuleKind,
-                        ["ruleId"] = flag.RuleId.ToString(),
-                        ["ruleName"] = flag.RuleName,
-                        ["termKey"] = flag.TermKey,
-                        ["term"] = flag.Term,
-                        ["matched"] = flag.Matched,
-                        ["username"] = username,
-                    },
-                }, ct);
 
                 await transaction.CommitAsync(ct);
 
@@ -157,7 +183,87 @@ public static class FlagEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ReviewTickets);
 
+        group.MapPost("/{id:guid}/review", async (
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] ReviewFacts facts,
+                CancellationToken ct) =>
+            {
+                var flag = await db.ModerationFlags.FirstOrDefaultAsync(f => f.Id == id, ct);
+                if (flag is null)
+                    return Results.NotFound(new { error = "No such flag." });
+                if (flag.State != ModerationFlagState.Open)
+                    return Results.Conflict(new { error = "This flag is already closed." });
+                if (flag.ReviewId is not null)
+                    return Results.Conflict(new { error = "This flag already has a review." });
+
+                var now = clock.UtcNow;
+                var review = FlagReviews.For(flag, now);
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+                db.Reviews.Add(review);
+                flag.ReviewId = review.Id;
+                await db.SaveChangesAsync(ct);
+
+                await facts.OpenedAsync(review, ct);
+                await transaction.CommitAsync(ct);
+
+                return Results.Ok(View(flag, await RuleTextAsync(db, [flag], ct)));
+            })
+            .WithName("OpenModerationFlagReview")
+            .WithSummary("Open a review for a flag, so the team's review flow decides it")
+            .WithDescription(
+                "Closing that review as wrong dismisses the flag; closing it as right confirms it. "
+                + "Both feed the rule's counts on Settings → AI → Moderation.")
+            .Produces<FlagView>()
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ReviewTickets);
+
         return app;
+    }
+
+    /// <summary>What the Flags page filter calls a flag whose language could not be told.</summary>
+    public const string UnknownLanguage = "unknown";
+
+    /// <summary>
+    /// The context messages each flag's check sent, keyed by message id (AI moderation design §16).
+    /// </summary>
+    /// <remarks>
+    /// Read now rather than copied onto the flag, because the message rows are already kept and a
+    /// second copy of somebody's words is a second thing to delete when they ask.
+    /// </remarks>
+    private static async Task<Dictionary<string, FlagContextMessage>> ContextAsync(
+        ModbotContext db, IReadOnlyList<ModerationFlag> flags, CancellationToken ct)
+    {
+        var ids = flags.SelectMany(f => ContextIds(f.ContextMessageIds)).Distinct(StringComparer.Ordinal).ToList();
+        if (ids.Count == 0)
+            return [];
+
+        var rows = await db.DiscordMessages.AsNoTracking()
+            .Where(m => ids.Contains(m.MessageId))
+            .Select(m => new { m.MessageId, m.AuthorName, m.Text })
+            .ToListAsync(ct);
+
+        return rows.ToDictionary(r => r.MessageId, r => new FlagContextMessage(r.MessageId, r.AuthorName, r.Text), StringComparer.Ordinal);
+    }
+
+    private static IReadOnlyList<string> ContextIds(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 
     /// <summary>
@@ -189,7 +295,10 @@ public static class FlagEndpoints
         return text;
     }
 
-    private static FlagView View(ModerationFlag f, IReadOnlyDictionary<(Guid, int), string>? ruleText = null) => new(
+    private static FlagView View(
+        ModerationFlag f,
+        IReadOnlyDictionary<(Guid, int), string>? ruleText = null,
+        IReadOnlyDictionary<string, FlagContextMessage>? context = null) => new(
         f.Id,
         f.FlaggedAt,
         f.RuleKind,
@@ -211,7 +320,12 @@ public static class FlagEndpoints
         f.Reason,
         f.MessageDeleted,
         f.TimedOutMinutes,
-        f.State == ModerationFlagState.Dismissed ? "dismissed" : "open",
+        f.State switch
+        {
+            ModerationFlagState.Dismissed => "dismissed",
+            ModerationFlagState.Confirmed => "confirmed",
+            _ => "open",
+        },
         f.DismissedAt,
         f.DismissedByUsername,
         f.RuleVersion,
@@ -219,5 +333,15 @@ public static class FlagEndpoints
         f.Trial,
         f.WouldDeleteMessage,
         f.WouldTimeOutMinutes,
-        f.CallId);
+        f.CallId,
+        f.Language,
+        LanguageNames.Label(f.Language),
+        f.Picture,
+        f.PictureUrl,
+        [.. ContextIds(f.ContextMessageIds)
+            .Select(id => context is not null && context.TryGetValue(id, out var m) ? m : null)
+            .OfType<FlagContextMessage>()],
+        f.ReviewId,
+        f.ConfirmedAt,
+        f.ConfirmedByUsername);
 }

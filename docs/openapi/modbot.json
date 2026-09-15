@@ -4038,12 +4038,19 @@
         "tags": [
           "Moderation"
         ],
-        "summary": "The newest flags, open or dismissed",
+        "summary": "The newest flags: open, dismissed or confirmed, and filtered by language",
         "description": "Needs the `ViewProfile` permission.",
         "operationId": "ListModerationFlags",
         "parameters": [
           {
             "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
             "in": "query",
             "schema": {
               "type": "string"
@@ -4086,6 +4093,73 @@
         "summary": "Dismiss a flag. The same rule and term never flags this person again.",
         "description": "Needs the `ReviewTickets` permission.",
         "operationId": "DismissModerationFlag",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/moderation-flags/{id}/review": {
+      "post": {
+        "tags": [
+          "Moderation"
+        ],
+        "summary": "Open a review for a flag, so the team's review flow decides it",
+        "description": "Closing that review as wrong dismisses the flag; closing it as right confirms it. Both feed the rule's counts on Settings → AI → Moderation.\n\nNeeds the `ReviewTickets` permission.",
+        "operationId": "OpenModerationFlagReview",
         "parameters": [
           {
             "name": "id",
@@ -11671,6 +11745,24 @@
             "items": {
               "$ref": "#/components/schemas/TopicView"
             }
+          },
+          "picturesAvailable": {
+            "type": "boolean",
+            "default": false
+          },
+          "contextChoices": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
           }
         }
       },
@@ -14670,6 +14762,12 @@
         "properties": {
           "note": {
             "type": "string"
+          },
+          "outcome": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -17414,10 +17512,57 @@
           }
         }
       },
+      "FlagContextMessage": {
+        "required": [
+          "messageId",
+          "author",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "messageId": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "FlagLanguageCount": {
+        "required": [
+          "language",
+          "label",
+          "flags"
+        ],
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "flags": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "FlagList": {
         "required": [
           "flags",
-          "open"
+          "open",
+          "languages"
         ],
         "type": "object",
         "properties": {
@@ -17434,6 +17579,12 @@
               "string"
             ],
             "format": "int32"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FlagLanguageCount"
+            }
           }
         }
       },
@@ -17584,6 +17735,57 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "languageLabel": {
+            "type": "string",
+            "default": "Unknown"
+          },
+          "picture": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pictureUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "context": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/FlagContextMessage"
+            }
+          },
+          "reviewId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "confirmedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "confirmedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -20393,6 +20595,12 @@
               "null",
               "string"
             ]
+          },
+          "outcome": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -20568,6 +20776,51 @@
           }
         }
       },
+      "RuleLanguageStats": {
+        "required": [
+          "language",
+          "label",
+          "flags",
+          "dismissed",
+          "confirmed"
+        ],
+        "type": "object",
+        "properties": {
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "flags": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "dismissed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "confirmed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "RulePause": {
         "required": [
           "at",
@@ -20638,6 +20891,24 @@
               "string"
             ],
             "format": "int32"
+          },
+          "confirmed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
+          },
+          "byLanguage": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/RuleLanguageStats"
+            }
           }
         }
       },
@@ -21577,6 +21848,23 @@
           "actWithoutTest": {
             "type": "boolean",
             "default": false
+          },
+          "contextMessages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "checkPictures": {
+            "type": "boolean",
+            "default": false
+          },
+          "openReviewForEachFlag": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -21749,6 +22037,23 @@
           },
           "tests": {
             "$ref": "#/components/schemas/RuleTestSummary"
+          },
+          "contextMessages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
+          },
+          "checkPictures": {
+            "type": "boolean",
+            "default": false
+          },
+          "openReviewForEachFlag": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -22156,6 +22461,23 @@
           "actWithoutTest": {
             "type": "boolean",
             "default": false
+          },
+          "contextMessages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "checkPictures": {
+            "type": "boolean",
+            "default": false
+          },
+          "openReviewForEachFlag": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -22267,6 +22589,23 @@
           },
           "tests": {
             "$ref": "#/components/schemas/RuleTestSummary"
+          },
+          "contextMessages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
+          },
+          "checkPictures": {
+            "type": "boolean",
+            "default": false
+          },
+          "openReviewForEachFlag": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

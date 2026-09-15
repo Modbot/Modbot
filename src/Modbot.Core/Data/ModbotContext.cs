@@ -885,6 +885,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Summary).HasColumnType("text");
             entity.Property(e => e.ClosedByUsername).HasMaxLength(64);
             entity.Property(e => e.Note).HasMaxLength(2000);
+            entity.Property(e => e.Outcome).HasMaxLength(16);
 
             // The idempotence rule in the database: at most one open review per moderator,
             // signal and thing. Two detection runs racing each other then cannot open two.
@@ -1235,7 +1236,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.MessageId).HasColumnType("text");
             entity.Property(e => e.Matched).HasMaxLength(1000);
             entity.Property(e => e.Reason).HasMaxLength(2000);
+            entity.Property(e => e.Language).HasMaxLength(8);
+            entity.Property(e => e.ContextMessageIds).HasColumnType("jsonb");
+            entity.Property(e => e.Picture).HasMaxLength(300);
+            entity.Property(e => e.PictureUrl).HasMaxLength(2000);
             entity.Property(e => e.DismissedByUsername).HasMaxLength(64);
+            entity.Property(e => e.ConfirmedByUsername).HasMaxLength(64);
 
             // The page: open flags, newest first.
             entity.HasIndex(e => new { e.State, e.FlaggedAt })
@@ -1249,6 +1255,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.MessageId)
                 .HasDatabaseName("ix_ai_flag_message")
                 .HasFilter("message_id IS NOT NULL");
+
+            // "Which languages has this rule flagged, and how many of each were dismissed?" --
+            // the breakdown M8 §4.4 asks for, on the rule's card and on the Flags page filter.
+            entity.HasIndex(e => new { e.RuleId, e.Language })
+                .HasDatabaseName("ix_ai_flag_language")
+                .HasFilter("language IS NOT NULL");
 
             // "What has this rule done in the last hour, and in the last seven days?" -- asked
             // after every action to decide whether the rule has run away (design §13.2), and for

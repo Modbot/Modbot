@@ -73,7 +73,31 @@ public interface IModerationRule
     /// <summary>Exempt members are not flagged either.</summary>
     bool ExemptRolesSkipFlag { get; }
 
+    /// <summary>
+    /// How many messages before the checked one go to the model as context
+    /// (AI moderation design §16). One of <see cref="ContextMessageCounts"/>.
+    /// </summary>
+    int ContextMessages { get; }
+
+    /// <summary>The rule also checks pictures (AI moderation design §17).</summary>
+    bool CheckPictures { get; }
+
+    /// <summary>Every flag this rule raises opens a review (AI moderation design §19).</summary>
+    bool OpenReviewForEachFlag { get; }
+
     DateTimeOffset UpdatedAt { get; }
+}
+
+/// <summary>How much of the conversation a rule sends with a message (AI moderation design §16).</summary>
+public static class ContextMessageCounts
+{
+    /// <summary>What a rule starts on: the five messages before the one being checked.</summary>
+    public const int Default = 5;
+
+    /// <summary>The counts the settings page offers. Zero is "none".</summary>
+    public static IReadOnlyList<int> All { get; } = [0, 3, 5, 10];
+
+    public static bool IsCount(int count) => All.Contains(count);
 }
 
 /// <summary>Which Discord channels a rule runs in (AI moderation design §13.3).</summary>
@@ -154,6 +178,15 @@ public class ModerationTermList : IModerationRule
 
     public bool ExemptRolesSkipFlag { get; set; }
 
+    /// <summary>How many messages before the checked one go to the model (AI moderation design §16).</summary>
+    public int ContextMessages { get; set; } = ContextMessageCounts.Default;
+
+    /// <summary>The rule also checks pictures (AI moderation design §17).</summary>
+    public bool CheckPictures { get; set; }
+
+    /// <summary>Every flag this rule raises opens a review (AI moderation design §19).</summary>
+    public bool OpenReviewForEachFlag { get; set; }
+
     // ── Cloud lists only ────────────────────────────────────────────────────────────────────
 
     /// <summary>The Hub's id for the list, e.g. <c>modbot_harassment_terms</c>.</summary>
@@ -233,15 +266,28 @@ public class ModerationTopic : IModerationRule
 
     public bool ExemptRolesSkipFlag { get; set; }
 
+    /// <summary>How many messages before the checked one go to the model (AI moderation design §16).</summary>
+    public int ContextMessages { get; set; } = ContextMessageCounts.Default;
+
+    /// <summary>The rule also checks pictures (AI moderation design §17).</summary>
+    public bool CheckPictures { get; set; }
+
+    /// <summary>Every flag this rule raises opens a review (AI moderation design §19).</summary>
+    public bool OpenReviewForEachFlag { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
+/// <summary><para><strong>Persisted as smallint. Never renumber a member.</strong></para></summary>
 public enum ModerationFlagState : short
 {
     Open = 1,
     Dismissed = 2,
+
+    /// <summary>A moderator closed the flag's review as right (AI moderation design §19).</summary>
+    Confirmed = 3,
 }
 
 /// <summary>
@@ -290,6 +336,32 @@ public class ModerationFlag
 
     public string? Reason { get; set; }
 
+    /// <summary>
+    /// The language of the text that was checked, as an ISO 639-3 code, or null when the detector
+    /// could not tell (AI moderation design §18). M8 §4.4: false positives cluster in text that is
+    /// not English, and a rule's dismissal rate only shows that if the language is on the flag.
+    /// </summary>
+    public string? Language { get; set; }
+
+    /// <summary>
+    /// The ids of the messages sent to the model as context, oldest first, as a JSON array
+    /// (AI moderation design §16). Empty for a term list, a profile check and a rule with no
+    /// context. Kept so a moderator can see what the model saw.
+    /// </summary>
+    public string ContextMessageIds { get; set; } = "[]";
+
+    /// <summary>
+    /// Which picture matched, in plain words — "Attachment cat.png", "Discord avatar", "VRChat
+    /// profile picture" (AI moderation design §17). Null when the text matched.
+    /// </summary>
+    public string? Picture { get; set; }
+
+    /// <summary>Where that picture was, so a moderator can open it. Null when the text matched.</summary>
+    public string? PictureUrl { get; set; }
+
+    /// <summary>The review opened for this flag, or null when none was (AI moderation design §19).</summary>
+    public Guid? ReviewId { get; set; }
+
     public bool MessageDeleted { get; set; }
 
     public int? TimedOutMinutes { get; set; }
@@ -315,4 +387,11 @@ public class ModerationFlag
     public Guid? DismissedByUserId { get; set; }
 
     public string? DismissedByUsername { get; set; }
+
+    /// <summary>When a moderator closed the flag's review as right (AI moderation design §19).</summary>
+    public DateTimeOffset? ConfirmedAt { get; set; }
+
+    public Guid? ConfirmedByUserId { get; set; }
+
+    public string? ConfirmedByUsername { get; set; }
 }

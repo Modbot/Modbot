@@ -28,27 +28,39 @@ const SENSITIVITIES: { value: Sensitivity; label: string }[] = [
 export function TopicDialog({
   topic,
   open,
+  picturesAvailable,
   onClose,
   onSaved,
 }: {
   topic: TopicView | null
   open: boolean
+  picturesAvailable: boolean
   onClose: () => void
   onSaved: () => void
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      {open && <TopicForm key={topic?.id ?? 'new'} topic={topic} onClose={onClose} onSaved={onSaved} />}
+      {open && (
+        <TopicForm
+          key={topic?.id ?? 'new'}
+          topic={topic}
+          picturesAvailable={picturesAvailable}
+          onClose={onClose}
+          onSaved={onSaved}
+        />
+      )}
     </Dialog>
   )
 }
 
 function TopicForm({
   topic,
+  picturesAvailable,
   onClose,
   onSaved,
 }: {
   topic: TopicView | null
+  picturesAvailable: boolean
   onClose: () => void
   onSaved: () => void
 }) {
@@ -62,6 +74,9 @@ function TopicForm({
     timeoutMinutes: topic?.timeoutMinutes ?? null,
     scope: topic?.scope ?? NO_SCOPE,
     trialDays: topic?.trial?.days ?? null,
+    contextMessages: topic?.contextMessages ?? 5,
+    checkPictures: topic?.checkPictures ?? false,
+    openReviewForEachFlag: topic?.openReviewForEachFlag ?? false,
   })
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -117,7 +132,12 @@ function TopicForm({
         </div>
       </Group>
 
-      <RuleActionFields value={rule} onChange={setRule} acting={topic?.acting ?? false} />
+      <RuleActionFields
+        value={rule}
+        onChange={setRule}
+        acting={topic?.acting ?? false}
+        picturesAvailable={picturesAvailable}
+      />
 
       <div className="flex items-center gap-2">
         <Button size="sm" disabled={busy} onClick={save}>

@@ -37,6 +37,8 @@ public static class AiModerationRuleHistory
             ["channels"] = Parse(list.Channels),
             ["exemptRoles"] = Parse(list.ExemptRoles),
             ["exemptRolesSkipFlag"] = list.ExemptRolesSkipFlag,
+            ["contextMessages"] = list.ContextMessages,
+            ["checkPictures"] = list.CheckPictures,
         };
     }
 
@@ -55,6 +57,8 @@ public static class AiModerationRuleHistory
             ["channels"] = Parse(topic.Channels),
             ["exemptRoles"] = Parse(topic.ExemptRoles),
             ["exemptRolesSkipFlag"] = topic.ExemptRolesSkipFlag,
+            ["contextMessages"] = topic.ContextMessages,
+            ["checkPictures"] = topic.CheckPictures,
         };
     }
 

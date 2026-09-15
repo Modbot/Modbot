@@ -880,6 +880,17 @@ public static class AiModerationEndpoints
                 body.ExcludedTerms.Where(ids.Contains).Distinct(StringComparer.Ordinal).ToList());
         }
 
+        if (body.ContextMessages is { } listContext)
+        {
+            if (!ContextMessageCounts.IsCount(listContext))
+                return "Choose how many earlier messages to send.";
+
+            list.ContextMessages = listContext;
+        }
+
+        list.CheckPictures = body.CheckPictures;
+        list.OpenReviewForEachFlag = body.OpenReviewForEachFlag;
+
         list.Enabled = body.Enabled;
         list.Targets = (int)targets;
         SetAction(list.DeleteMessage, list.TimeoutMinutes, body.DeleteMessage, body.TimeoutMinutes, user, now,
@@ -970,6 +981,17 @@ public static class AiModerationEndpoints
             topic.ExemptRoles = SerializeIds(scope.ExemptRoles);
             topic.ExemptRolesSkipFlag = scope.ExemptRolesSkipFlag;
         }
+
+        if (body.ContextMessages is { } topicContext)
+        {
+            if (!ContextMessageCounts.IsCount(topicContext))
+                return "Choose how many earlier messages to send.";
+
+            topic.ContextMessages = topicContext;
+        }
+
+        topic.CheckPictures = body.CheckPictures;
+        topic.OpenReviewForEachFlag = body.OpenReviewForEachFlag;
 
         topic.Name = name;
         topic.Instructions = instructions;
@@ -1233,15 +1255,17 @@ public static class AiModerationEndpoints
         var lists = await db.ModerationTermLists.AsNoTracking().OrderBy(l => l.CreatedAt).ToListAsync(ct);
         var topics = await db.ModerationTopics.AsNoTracking().OrderBy(t => t.CreatedAt).ToListAsync(ct);
         var extras = await ExtrasAsync(db, [.. lists.Cast<IModerationRule>(), .. topics], ct);
-        var aiReady = await ai.GetChatAsync(ct) is not null;
+        var chat = await ai.GetChatAsync(ct);
 
         return new AiModerationResponse(
             settings.AiModerationEnabled,
             settings.AiModerationDailyCallLimit,
             AiCallAllowance.UsedToday(settings, clock.UtcNow),
-            aiReady,
+            chat is not null,
             [.. lists.Select(l => ListView(l, extras))],
-            [.. topics.Select(t => TopicViewOf(t, extras))]);
+            [.. topics.Select(t => TopicViewOf(t, extras))],
+            chat is not null && await ReadsPicturesAsync(db, chat.Model, ct),
+            ContextMessageCounts.All);
     }
 
     /// <summary>
@@ -1335,6 +1359,21 @@ public static class AiModerationEndpoints
     private static async Task<TopicView> TopicViewAsync(ModbotContext db, ModerationTopic topic, CancellationToken ct)
         => TopicViewOf(topic, await ExtrasAsync(db, [topic], ct));
 
+    /// <summary>Whether the model in use reads pictures, as the model list last said (design §17).</summary>
+    /// <remarks>
+    /// A model the catalogue has never heard of reads none, as far as this page is concerned:
+    /// offering a box that cannot work is worse than not offering it.
+    /// </remarks>
+    private static async Task<bool> ReadsPicturesAsync(ModbotContext db, string model, CancellationToken ct)
+    {
+        var modalities = await db.AiCatalogModels.AsNoTracking()
+            .Where(m => m.Model == model)
+            .Select(m => m.InputModalities)
+            .FirstOrDefaultAsync(ct);
+
+        return modalities is not null && modalities.Contains("image", StringComparer.OrdinalIgnoreCase);
+    }
+
     private static RuleScope ScopeOf(IModerationRule rule) => new(
         rule.ChannelMode, RuleGuards.Ids(rule.Channels), RuleGuards.Ids(rule.ExemptRoles), rule.ExemptRolesSkipFlag);
 
@@ -1355,6 +1394,14 @@ public static class AiModerationEndpoints
             run is { Samples: > 0, WronglyFlagged: 0 } && run.RuleVersion == rule.Version);
     }
 
+    /// <summary>
+    /// Each rule's flags, dismissals and confirmations, whole and broken down by language
+    /// (M8 §4.4, AI moderation design §18 and §19).
+    /// </summary>
+    /// <remarks>
+    /// One query grouped by rule and language, summed here for the whole-rule figures: a rule whose
+    /// dismissal rate is fine in English and terrible in Russian reads as fine until it is split.
+    /// </remarks>
     private static async Task<Dictionary<Guid, RuleStats>> StatsAsync(ModbotContext db, IReadOnlyList<Guid>? ids, CancellationToken ct)
     {
         var query = db.ModerationFlags.AsNoTracking();
@@ -1362,11 +1409,26 @@ public static class AiModerationEndpoints
             query = query.Where(f => ids.Contains(f.RuleId));
 
         var rows = await query
-            .GroupBy(f => f.RuleId)
-            .Select(g => new { RuleId = g.Key, Flags = g.Count(), Dismissed = g.Count(f => f.State == ModerationFlagState.Dismissed) })
+            .GroupBy(f => new { f.RuleId, f.Language })
+            .Select(g => new
+            {
+                g.Key.RuleId,
+                g.Key.Language,
+                Flags = g.Count(),
+                Dismissed = g.Count(f => f.State == ModerationFlagState.Dismissed),
+                Confirmed = g.Count(f => f.State == ModerationFlagState.Confirmed),
+            })
             .ToListAsync(ct);
 
-        return rows.ToDictionary(r => r.RuleId, r => new RuleStats(r.Flags, r.Dismissed));
+        return rows
+            .GroupBy(r => r.RuleId)
+            .ToDictionary(g => g.Key, g => new RuleStats(
+                g.Sum(r => r.Flags),
+                g.Sum(r => r.Dismissed),
+                g.Sum(r => r.Confirmed),
+                [.. g.OrderByDescending(r => r.Flags)
+                    .Select(r => new RuleLanguageStats(
+                        r.Language, LanguageNames.Label(r.Language), r.Flags, r.Dismissed, r.Confirmed))]));
     }
 
     private static TermListView ListView(ModerationTermList l, RuleExtras extras)
@@ -1398,7 +1460,10 @@ public static class AiModerationEndpoints
             ScopeOf(l),
             extras.Trials.GetValueOrDefault(l.Id),
             PauseOf(l),
-            TestsOf(l, extras));
+            TestsOf(l, extras),
+            l.ContextMessages,
+            l.CheckPictures,
+            l.OpenReviewForEachFlag);
     }
 
     private static TermListDetail Detail(ModerationTermList l, RuleExtras extras)
@@ -1420,7 +1485,10 @@ public static class AiModerationEndpoints
         ScopeOf(t),
         extras.Trials.GetValueOrDefault(t.Id),
         PauseOf(t),
-        TestsOf(t, extras));
+        TestsOf(t, extras),
+        t.ContextMessages,
+        t.CheckPictures,
+        t.OpenReviewForEachFlag);
 
     // ── Facts ───────────────────────────────────────────────────────────────────────────────
 
@@ -1433,6 +1501,9 @@ public static class AiModerationEndpoints
         ["targets"] = new JsonArray([.. ModerationTargetNames.NamesOf((ModerationTargets)l.Targets).Select(n => JsonValue.Create(n))]),
         ["termCount"] = StoredTerm.ParseList(l.Terms).Count,
         ["excludedTerms"] = JsonNode.Parse(l.ExcludedTerms),
+        ["contextMessages"] = l.ContextMessages,
+        ["checkPictures"] = l.CheckPictures,
+        ["openReviewForEachFlag"] = l.OpenReviewForEachFlag,
         ["deleteMessage"] = l.DeleteMessage,
         ["timeoutMinutes"] = l.TimeoutMinutes,
     };
@@ -1443,6 +1514,9 @@ public static class AiModerationEndpoints
         ["sensitivity"] = t.Sensitivity,
         ["enabled"] = t.Enabled,
         ["targets"] = new JsonArray([.. ModerationTargetNames.NamesOf((ModerationTargets)t.Targets).Select(n => JsonValue.Create(n))]),
+        ["contextMessages"] = t.ContextMessages,
+        ["checkPictures"] = t.CheckPictures,
+        ["openReviewForEachFlag"] = t.OpenReviewForEachFlag,
         ["deleteMessage"] = t.DeleteMessage,
         ["timeoutMinutes"] = t.TimeoutMinutes,
     };

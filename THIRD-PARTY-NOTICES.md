@@ -6,8 +6,11 @@ notices those terms ask for.
 
 Library code pulled in as NuGet packages (Avalonia, SkiaSharp, HarfBuzzSharp, Vortice, Serilog,
 Velopack, and the .NET runtime itself) carries its licence inside each package; all of them are
-MIT-licensed, and the notices are in the packages' own `LICENSE` files. The one thing copied into
-this repository as a binary is listed in full below.
+MIT-licensed, and the notices are in the packages' own `LICENSE` files. The one exception is
+`LanguageDetection.Ai`, the offline language detector the server uses to mark the language on a
+moderation flag: it is Apache-2.0, a port of Nakatani Shuyo's `language-detection`, and its notice
+is in its own package. The one thing copied into this repository as a binary is listed in full
+below.
 
 ## OpenVR (`openvr_api.dll`)
 

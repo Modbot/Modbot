@@ -224,6 +224,7 @@ public static class AuditVisibility
         // about that person; a rule being changed is a setting, and goes with the other settings.
         [FactType.AiModerationFlag] = AuditCategory.Moderation,
         [FactType.AiModerationFlagDismissed] = AuditCategory.Moderation,
+        [FactType.AiModerationFlagConfirmed] = AuditCategory.Moderation,
         [FactType.AiModerationMessageDeleted] = AuditCategory.Moderation,
         [FactType.AiModerationTimeout] = AuditCategory.Moderation,
         [FactType.AiModerationRuleChanged] = AuditCategory.Operational,

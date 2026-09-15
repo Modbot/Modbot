@@ -1,6 +1,6 @@
 ---
 title: Flags
-description: The Flags page lists what your moderation rules caught in Discord messages and VRChat profiles, and lets you dismiss a flag for good.
+description: The Flags page lists what your moderation rules caught in Discord messages and VRChat profiles, filters them by language, and lets you dismiss a flag for good or send it to Reviews.
 ---
 
 A **flag** is a note Modbot writes when one of your [moderation rules](/ai/moderation-rules) matches
@@ -10,7 +10,7 @@ some text: a Discord message, or a VRChat user's display name, bio, status or pr
 | To | You need |
 |---|---|
 | Open the **Flags** page | [**See profiles**](/accounts/roles-and-permissions#see-profiles) |
-| Press **Dismiss** | [**Review tickets**](/accounts/roles-and-permissions#review-tickets) |
+| Press **Dismiss** or **Open a review** | [**Review tickets**](/accounts/roles-and-permissions#review-tickets) |
 
 A flag is a note, not a finding. Nobody is judged by it.
 
@@ -39,8 +39,11 @@ a moderation rule flag.
 
 ## Reading the page
 
-There are two tabs: **Open**, with the number waiting, and **Dismissed**. Each shows the newest
-200 flags.
+There are three tabs: **Open**, with the number waiting, **Dismissed**, and **Confirmed**. Each
+shows the newest 200 flags.
+
+When the flags are in more than one language, a row of buttons above the list filters by language,
+with the number of flags in each.
 
 Each flag shows:
 
@@ -48,13 +51,16 @@ Each flag shows:
   for a VRChat user, or a Discord person popup for a Discord user.
 - **Where.** A **VRChat** or **Discord** badge, and what was checked: **Discord messages**,
   **Display name**, **Bio**, **Status** or **Pronouns**.
+- **The language** of the text that was checked, or **Unknown** when it was too short to tell.
 - **Which rule**, by name.
 - **What the rule did**, when it was set to act on Discord messages: **Message deleted** and
   **Timed out** with the number of minutes.
-- **The matched words**, in quotes. For a term list, the term that matched follows in grey.
+- **The matched words**, in quotes. For a term list, the term that matched follows in grey. When a
+  picture matched instead, a **Picture** badge and the picture's name, which links to it.
+- **The messages before it**, when the rule was set to send them, so you can see what the model saw.
 - **The reason**, when there is one: a Modbot Hub term's note, or the AI model's one-sentence
   explanation.
-- **When** it was flagged. On the **Dismissed** tab, also who dismissed it and when.
+- **When** it was flagged. On the **Dismissed** and **Confirmed** tabs, also who decided it and when.
 - **AI call**, on a flag an AI topic raised: a link to that call in the
   [call log](/ai/call-log), where you can read exactly what the model was sent and what it answered.
 
@@ -80,10 +86,20 @@ leave it open, or act on it in Discord or VRChat as you normally would.
 Every dismissal is recorded in the [audit log](/moderation/audit-log) against your account, with
 the rule, the term and the matched words.
 
+## Sending a flag to Reviews
+
+Press **Open a review** beside an open flag to hand it to your team's [Reviews](/moderation/reviews)
+page. A rule can also be set to open a review for every flag it raises.
+
+Closing that review asks which way it went. **The rule was wrong** dismisses the flag, with
+everything that means above. **The rule was right** confirms it: the flag moves to the
+**Confirmed** tab, and the rule's card counts it beside its dismissal rate.
+
 ## Good to know
 
 - A rule that is mostly dismissed is mostly noise. The **Term lists** and **AI topics** cards in
-  Settings show how often each rule has flagged and how many of those were dismissed.
+  Settings show how often each rule has flagged, how many of those were dismissed, how many were
+  confirmed, and the dismissal rate for each language separately.
 - Deleting a term list or topic keeps the flags it already made.
 - Modbot never kicks, warns or bans anybody in VRChat because of a flag. The only actions a rule can
   take are on Discord messages.

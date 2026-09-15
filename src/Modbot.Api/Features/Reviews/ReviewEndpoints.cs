@@ -4,9 +4,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Facts;
 using Modbot.Analytics.Reviews;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Analytics;
+using Modbot.Api.Features.Flags;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -105,6 +107,8 @@ public static class ReviewEndpoints
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
                 [FromServices] ReviewFacts? facts,
+                [FromServices] IFactWriter flagFacts,
+                [FromServices] EventPartitionMaintainer partitions,
                 CancellationToken ct) =>
             {
                 var note = body.Note?.Trim() ?? string.Empty;
@@ -127,8 +131,24 @@ public static class ReviewEndpoints
                 if (review.State == ReviewState.Closed)
                     return Results.Conflict(new { error = "This review is already closed." });
 
+                var outcome = string.IsNullOrWhiteSpace(body.Outcome) ? null : body.Outcome.Trim().ToLowerInvariant();
+                var flagReview = review.Signal == ReviewSignal.AiFlag;
+
+                // Only a flag's review asks what you concluded, because only there does the answer
+                // change something (AI moderation design §19).
+                if (flagReview && !ReviewOutcome.IsOutcome(outcome))
+                    return Results.BadRequest(new { error = "Say whether the rule was right or wrong." });
+                if (!flagReview && outcome is not null)
+                    return Results.BadRequest(new { error = "This kind of review has no right or wrong." });
+
+                var flag = flagReview && Guid.TryParse(review.About, out var flagId)
+                    ? await db.ModerationFlags.FirstOrDefaultAsync(f => f.Id == flagId, ct)
+                    : null;
+
                 var username = http.User.Identity?.Name ?? string.Empty;
                 var now = clock.UtcNow;
+
+                await partitions.EnsureForAsync(now, ct);
 
                 // The row and the fact commit together: a review closed with no record of who
                 // closed it is the failure spec 5.8 exists to prevent.
@@ -139,6 +159,18 @@ public static class ReviewEndpoints
                 review.ClosedByUserId = userId;
                 review.ClosedByUsername = username;
                 review.Note = note;
+                review.Outcome = outcome;
+
+                // The flag goes with its review: closing it as wrong is a dismissal, and a
+                // dismissal stops that rule and term flagging this person ever again.
+                if (flag is { State: ModerationFlagState.Open })
+                {
+                    if (outcome == ReviewOutcome.Wrong)
+                        await FlagDecisions.DismissAsync(flagFacts, flag, userId, username, now, ct);
+                    else
+                        await FlagDecisions.ConfirmAsync(flagFacts, flag, userId, username, now, ct);
+                }
+
                 await db.SaveChangesAsync(ct);
 
                 await facts.ClosedAsync(review, userId, username, ct);
@@ -192,6 +224,7 @@ public static class ReviewEndpoints
             review.UpdatedAt,
             review.ClosedAt,
             review.ClosedByUsername,
-            review.Note);
+            review.Note,
+            review.Outcome);
     }
 }

@@ -7,7 +7,9 @@ import {
   actionLabel,
   failure,
   moderationApi,
+  languageStatsLabel,
   scopeLabel,
+  seesLabel,
   statsLabel,
   targetLabel,
   TARGETS,
@@ -63,8 +65,17 @@ export function AiModerationSettings() {
         <>
           <SwitchCard settings={data} onSaved={setData} />
           <TryCard />
-          <TermListsCard lists={data.lists} onChanged={() => void load()} />
-          <TopicsCard topics={data.topics} aiReady={data.aiReady} onChanged={() => void load()} />
+          <TermListsCard
+            lists={data.lists}
+            picturesAvailable={data.picturesAvailable}
+            onChanged={() => void load()}
+          />
+          <TopicsCard
+            topics={data.topics}
+            aiReady={data.aiReady}
+            picturesAvailable={data.picturesAvailable}
+            onChanged={() => void load()}
+          />
         </>
       )}
     </SettingsSection>
@@ -191,6 +202,7 @@ function safetyDetails(rule: RuleSafety): (string | null)[] {
     rule.trial ? trialLabel(rule.trial) : null,
     testsLabel(rule.tests),
     scopeLabel(rule.scope),
+    seesLabel(rule),
   ]
 }
 
@@ -227,7 +239,15 @@ function SafetyButtons({
   )
 }
 
-function TermListsCard({ lists, onChanged }: { lists: TermListView[]; onChanged: () => void }) {
+function TermListsCard({
+  lists,
+  picturesAvailable,
+  onChanged,
+}: {
+  lists: TermListView[]
+  picturesAvailable: boolean
+  onChanged: () => void
+}) {
   const [editing, setEditing] = useState<{ id: string | null } | null>(null)
   const [testing, setTesting] = useState<{ kind: RuleKind; id: string; name: string } | null>(null)
   const [hubOpen, setHubOpen] = useState(false)
@@ -253,6 +273,9 @@ function TermListsCard({ lists, onChanged }: { lists: TermListView[]; onChanged:
         timeoutMinutes: list.timeoutMinutes,
         scope: list.scope,
         trialDays: null,
+        contextMessages: list.contextMessages,
+        checkPictures: list.checkPictures,
+        openReviewForEachFlag: list.openReviewForEachFlag,
       }),
     )
 
@@ -308,6 +331,7 @@ function TermListsCard({ lists, onChanged }: { lists: TermListView[]; onChanged:
                 `${list.termCount - list.excludedCount} terms`,
                 list.targets.map((t) => targetLabel(t)).join(', '),
                 statsLabel(list.stats),
+                languageStatsLabel(list.stats),
                 ...safetyDetails(list),
                 list.source === 'cloud' ? `Fetched ${ago(list.hubFetchedAt, now)}` : null,
                 list.hubError,
@@ -371,6 +395,7 @@ function TermListsCard({ lists, onChanged }: { lists: TermListView[]; onChanged:
       <TermListDialog
         listId={editing?.id ?? null}
         open={editing !== null}
+        picturesAvailable={picturesAvailable}
         onClose={() => setEditing(null)}
         onSaved={onChanged}
       />
@@ -383,10 +408,12 @@ function TermListsCard({ lists, onChanged }: { lists: TermListView[]; onChanged:
 function TopicsCard({
   topics,
   aiReady,
+  picturesAvailable,
   onChanged,
 }: {
   topics: TopicView[]
   aiReady: boolean
+  picturesAvailable: boolean
   onChanged: () => void
 }) {
   const [editing, setEditing] = useState<{ topic: TopicView | null } | null>(null)
@@ -447,6 +474,7 @@ function TopicsCard({
               details={[
                 topic.targets.map((t) => targetLabel(t)).join(', '),
                 statsLabel(topic.stats),
+                languageStatsLabel(topic.stats),
                 ...safetyDetails(topic),
               ]}
             >
@@ -478,6 +506,7 @@ function TopicsCard({
       <TopicDialog
         topic={editing?.topic ?? null}
         open={editing !== null}
+        picturesAvailable={picturesAvailable}
         onClose={() => setEditing(null)}
         onSaved={onChanged}
       />

@@ -11,7 +11,23 @@ export const TARGETS: { value: ModerationTarget; label: string }[] = [
   { value: 'pronouns', label: 'Pronouns' },
 ]
 
-export type RuleStats = { flags: number; dismissed: number }
+export type RuleLanguageStats = {
+  language: string | null
+  label: string
+  flags: number
+  dismissed: number
+  confirmed: number
+}
+
+export type RuleStats = {
+  flags: number
+  dismissed: number
+  confirmed: number
+  byLanguage: RuleLanguageStats[] | null
+}
+
+/** How many earlier messages a rule sends with the one it checks. */
+export const CONTEXT_CHOICES = [0, 3, 5, 10] as const
 
 /** Where a rule runs and who it never acts on. */
 export type RuleScope = {
@@ -57,6 +73,9 @@ export type RuleSafety = {
   trial: RuleTrial | null
   paused: RulePause | null
   tests: RuleTestSummary
+  contextMessages: number
+  checkPictures: boolean
+  openReviewForEachFlag: boolean
 }
 
 export type HubChanges = { added: number; removed: number; changed: number }
@@ -120,6 +139,8 @@ export type AiModeration = {
   aiReady: boolean
   lists: TermListView[]
   topics: TopicView[]
+  picturesAvailable: boolean
+  contextChoices: number[] | null
 }
 
 export type TermInput = {
@@ -136,6 +157,9 @@ export type RuleAction = {
   scope: RuleScope
   trialDays: number | null
   actWithoutTest?: boolean
+  contextMessages: number
+  checkPictures: boolean
+  openReviewForEachFlag: boolean
 }
 
 export type TermListInput = RuleAction & {
@@ -262,7 +286,7 @@ export type ModerationFlag = {
   reason: string | null
   messageDeleted: boolean
   timedOutMinutes: number | null
-  state: 'open' | 'dismissed'
+  state: 'open' | 'dismissed' | 'confirmed'
   dismissedAt: string | null
   dismissedBy: string | null
   ruleVersion: number
@@ -272,7 +296,29 @@ export type ModerationFlag = {
   wouldTimeOutMinutes: number | null
   /** The AI call that produced it, in the call log. Null for a term list. */
   callId: string | null
+  language: string | null
+  languageLabel: string
+  picture: string | null
+  pictureUrl: string | null
+  context: FlagContextMessage[] | null
+  reviewId: string | null
+  confirmedAt: string | null
+  confirmedBy: string | null
 }
+
+/** One message the model was shown so it could read the flagged one in context. */
+export type FlagContextMessage = { messageId: string; author: string; text: string }
+
+export type FlagLanguageCount = { language: string | null; label: string; flags: number }
+
+export type FlagList = {
+  flags: ModerationFlag[]
+  open: number
+  languages: FlagLanguageCount[]
+}
+
+/** What the Flags page calls a flag whose language could not be told. */
+export const UNKNOWN_LANGUAGE = 'unknown'
 
 const base = '/api/settings/ai/moderation'
 
@@ -328,10 +374,14 @@ export const moderationApi = {
 
   resume: (kind: RuleKind, id: string) => http.post<unknown>(`${base}/rules/${kind}/${id}/resume`),
 
-  flags: (state: 'open' | 'dismissed') =>
-    http.request<{ flags: ModerationFlag[]; open: number }>(`/api/moderation-flags?state=${state}`),
+  flags: (state: 'open' | 'dismissed' | 'confirmed', language?: string | null) =>
+    http.request<FlagList>(
+      `/api/moderation-flags?state=${state}${language ? `&language=${encodeURIComponent(language)}` : ''}`,
+    ),
 
   dismissFlag: (id: string) => http.post<ModerationFlag>(`/api/moderation-flags/${id}/dismiss`),
+
+  openFlagReview: (id: string) => http.post<ModerationFlag>(`/api/moderation-flags/${id}/review`),
 }
 
 /** "Flag only", "Delete", "Time out 60 min", "Delete, time out 60 min". */
@@ -351,7 +401,31 @@ export function targetLabel(target: ModerationTarget): string {
 export function statsLabel(stats: RuleStats): string {
   if (stats.flags === 0) return 'No flags'
   const percent = Math.round((stats.dismissed / stats.flags) * 100)
-  return `${stats.flags} ${stats.flags === 1 ? 'flag' : 'flags'} · ${percent}% dismissed`
+  const counted = `${stats.flags} ${stats.flags === 1 ? 'flag' : 'flags'} · ${percent}% dismissed`
+  return stats.confirmed > 0 ? `${counted} · ${stats.confirmed} confirmed` : counted
+}
+
+/** "English 58% dismissed · Russian 91% dismissed". Null when there is nothing to split. */
+export function languageStatsLabel(stats: RuleStats): string | null {
+  const rows = (stats.byLanguage ?? []).filter((r) => r.flags > 0)
+  if (rows.length < 2) return null
+  return rows
+    .map((r) => `${r.label} ${Math.round((r.dismissed / r.flags) * 100)}% dismissed`)
+    .join(' · ')
+}
+
+/** "5 messages of context", "Pictures", "Review each flag". Null when the rule does none of it. */
+export function seesLabel(rule: {
+  contextMessages: number
+  checkPictures: boolean
+  openReviewForEachFlag: boolean
+}): string | null {
+  const parts = [
+    rule.contextMessages > 0 ? `${rule.contextMessages} messages of context` : null,
+    rule.checkPictures ? 'Pictures' : null,
+    rule.openReviewForEachFlag ? 'Review each flag' : null,
+  ].filter(Boolean)
+  return parts.length ? parts.join(' · ') : null
 }
 
 /** "9 of 10 caught · 1 wrongly flagged", or "No test run". */

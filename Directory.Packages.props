@@ -60,6 +60,14 @@
          with InvariantGlobalization, TimeZoneInfo cannot read IANA names on Windows, and this
          does not depend on the container having time zone files either. -->
     <PackageVersion Include="NodaTime" Version="3.3.4" />
+    <!-- Works out what language a piece of text is in, offline, from language profiles built into
+         the assembly: no data file to ship and no request to anybody. Used to mark the language on
+         every moderation flag (M8 4.4). Apache-2.0, a .NET Standard port of Nakatani Shuyo's
+         language-detection, targeting net8.0 with no dependencies of its own. The alternatives
+         were a .NET Framework 4.5 assembly that will not load on .NET 10, one that needs a 2.4 MB
+         corpus file committed for fourteen languages, one whose package is 73 MB, and two that
+         drag in a Newtonsoft.Json with a known high-severity advisory. -->
+    <PackageVersion Include="LanguageDetection.Ai" Version="1.1.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="9.1.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />

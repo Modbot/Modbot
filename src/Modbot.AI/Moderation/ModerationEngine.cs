@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
+using Modbot.Analytics.Reviews;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -65,6 +67,9 @@ public sealed class ModerationEngine : IModerationChecker
     private readonly IAiUsage _usage;
     private readonly AiCallRunner _runner;
     private readonly IAiCallLog _calls;
+    private readonly TextLanguage _language;
+    private readonly ModerationPictures _pictures;
+    private readonly ReviewFacts _reviewFacts;
     private readonly ILogger _log;
 
     public ModerationEngine(
@@ -77,10 +82,16 @@ public sealed class ModerationEngine : IModerationChecker
         CompiledTermLists compiled,
         IAiUsage usage,
         AiCallRunner runner,
-        IAiCallLog calls)
+        IAiCallLog calls,
+        TextLanguage language,
+        ModerationPictures pictures,
+        ReviewFacts reviewFacts)
     {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(calls);
+        ArgumentNullException.ThrowIfNull(language);
+        ArgumentNullException.ThrowIfNull(pictures);
+        ArgumentNullException.ThrowIfNull(reviewFacts);
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(ai);
         ArgumentNullException.ThrowIfNull(facts);
@@ -100,6 +111,9 @@ public sealed class ModerationEngine : IModerationChecker
         _usage = usage;
         _runner = runner;
         _calls = calls;
+        _language = language;
+        _pictures = pictures;
+        _reviewFacts = reviewFacts;
         _log = Log.Logger.ForContext(LogArea.Name, LogArea.Moderation);
     }
 
@@ -114,7 +128,8 @@ public sealed class ModerationEngine : IModerationChecker
         var where = new Where(message.ChannelId, await RolesOfAsync(message.GuildId, message.AuthorId, ct).ConfigureAwait(false));
 
         var evaluation = await EvaluateAsync(
-            rules, [new TextItem(0, ModerationTargets.DiscordMessage, message.Text)], where, new Asker(), ct)
+            rules, [new TextItem(0, ModerationTargets.DiscordMessage, message.Text)], where, new Asker(),
+            [CheckSubject.Of(message)], ct)
             .ConfigureAwait(false);
 
         if (evaluation.Matches.Count == 0)
@@ -165,7 +180,8 @@ public sealed class ModerationEngine : IModerationChecker
             return nothing;
 
         var rules = await RulesAsync(onlyEnabled: true, ct).ConfigureAwait(false);
-        var evaluation = await EvaluateAsync(rules, texts, Where.Nowhere, new Asker(), ct).ConfigureAwait(false);
+        var evaluation = await EvaluateAsync(
+            rules, texts, Where.Nowhere, new Asker(), [.. profiles.Select(CheckSubject.Of)], ct).ConfigureAwait(false);
 
         var outcomes = new List<ModerationOutcome>(profiles.Count);
 
@@ -217,7 +233,8 @@ public sealed class ModerationEngine : IModerationChecker
             rules = rules with { Topics = [] };
 
         var evaluation = await EvaluateAsync(
-            rules, [new TextItem(0, target, text)], Where.Nowhere, new Asker(userId, username, KeepText: true), ct)
+            rules, [new TextItem(0, target, text)], Where.Nowhere, new Asker(userId, username, KeepText: true),
+            [CheckSubject.None], ct)
             .ConfigureAwait(false);
 
         var enabled = rules.Lists.Where(l => l.Enabled).Select(l => l.Id)
@@ -275,7 +292,8 @@ public sealed class ModerationEngine : IModerationChecker
             // narrowed to display names should stop flagging the bio samples.
             var target = ModerationTargetNames.Parse(sample.Target) ?? ModerationTargets.DiscordMessage;
             var evaluation = await EvaluateAsync(
-                rules, [new TextItem(0, target, sample.Text)], Where.Nowhere, new Asker(userId, username, KeepText: true), ct)
+                rules, [new TextItem(0, target, sample.Text)], Where.Nowhere, new Asker(userId, username, KeepText: true),
+                [CheckSubject.None], ct)
                 .ConfigureAwait(false);
 
             model ??= evaluation.Model;
@@ -355,6 +373,20 @@ public sealed class ModerationEngine : IModerationChecker
     /// <summary>One piece of text to check, and which of the people being checked it belongs to.</summary>
     private sealed record TextItem(int Subject, ModerationTargets Target, string Text);
 
+    /// <summary>
+    /// Who one piece of text belongs to, for the parts of a check that are not the text itself: the
+    /// messages around it (design §16) and the pictures that belong to it (§17).
+    /// </summary>
+    private sealed record CheckSubject(DiscordMessageToCheck? Message, string? VRChatUserId)
+    {
+        /// <summary>"Try it" and a test run: a piece of text with nothing around it.</summary>
+        public static CheckSubject None { get; } = new(null, null);
+
+        public static CheckSubject Of(DiscordMessageToCheck message) => new(message, null);
+
+        public static CheckSubject Of(ProfileToCheck profile) => new(null, profile.UserId);
+    }
+
     /// <summary>One rule match, and the AI call that found it. Null for a term list, which makes none.</summary>
     private sealed record SubjectMatch(int Subject, ModerationMatch Match, Guid? CallId);
 
@@ -403,15 +435,42 @@ public sealed class ModerationEngine : IModerationChecker
         return roles is null ? [] : [.. RuleGuards.Ids(roles)];
     }
 
+    /// <summary>
+    /// One piece of text as it will be asked about: the topics that want the same amount of
+    /// context and the same answer about pictures, with the context and pictures they get.
+    /// </summary>
+    /// <remarks>
+    /// Topics are grouped by what they ask for rather than all asked at once, because context and
+    /// pictures change the answer: a topic whose operator asked for no context must not be judged
+    /// on a conversation, and one that does not check pictures must not be shown them. Rules left
+    /// on the defaults share a group, so the ordinary check is still one piece of text (§16.3).
+    /// </remarks>
+    private sealed record AiAsk(
+        TextItem Item,
+        List<ModerationTopic> Topics,
+        IReadOnlyList<ContextMessage> Context,
+        IReadOnlyList<PictureToCheck> Pictures);
+
     /// <summary>Term lists first; AI topics only for text no term list matched (design §4.2).</summary>
     private async Task<Evaluation> EvaluateAsync(
-        Rules rules, IReadOnlyList<TextItem> texts, Where where, Asker asker, CancellationToken ct)
+        Rules rules,
+        IReadOnlyList<TextItem> texts,
+        Where where,
+        Asker asker,
+        IReadOnlyList<CheckSubject> subjects,
+        CancellationToken ct)
     {
         var matches = new List<SubjectMatch>();
         var forAi = new List<(TextItem Item, List<ModerationTopic> Topics)>();
 
+        // Worked out once for each piece of text, not once per match: the language is the text's,
+        // not the rule's (design §18).
+        var languages = new Dictionary<string, string?>(StringComparer.Ordinal);
+
         foreach (var item in texts)
         {
+            var language = _language.Of(item.Text);
+            languages[Key(item)] = language;
             var found = false;
 
             foreach (var list in Applicable(rules.Lists, item.Target, where))
@@ -419,7 +478,7 @@ public sealed class ModerationEngine : IModerationChecker
                 foreach (var hit in TermMatcher.Check(_compiled.For(list), item.Text, item.Target))
                 {
                     found = true;
-                    if (Build(list, ModerationRuleKind.TermList, hit.TermKey, hit.Term, item.Target, hit.Matched, hit.Reason, where) is { } match)
+                    if (Build(list, ModerationRuleKind.TermList, hit.TermKey, hit.Term, item.Target, hit.Matched, hit.Reason, where, language) is { } match)
                         matches.Add(new SubjectMatch(item.Subject, match, null));
                 }
             }
@@ -436,28 +495,143 @@ public sealed class ModerationEngine : IModerationChecker
         if (chat is null)
             return new Evaluation(matches, "AI is off.", null, []);
 
+        // A rule may only check pictures if the model reads them; the settings page will not offer
+        // it otherwise, but the model can be changed after the rule was saved (design §17). Asked
+        // only when some rule wants pictures, so the ordinary check is not a query heavier.
+        var wantsPictures = forAi.Any(f => f.Topics.Any(t => t.CheckPictures));
+        var readsPictures = wantsPictures && await ModelReadsPicturesAsync(chat.Model, ct).ConfigureAwait(false);
+
+        var asks = new List<AiAsk>();
+
+        foreach (var (item, topics) in forAi)
+        {
+            var subject = item.Subject < subjects.Count ? subjects[item.Subject] : CheckSubject.None;
+
+            foreach (var group in topics.GroupBy(t => (Context: ContextFor(t, item.Target), t.CheckPictures)))
+            {
+                var context = subject.Message is { } message && group.Key.Context > 0
+                    ? await MessageContext.BeforeAsync(_db, message.ChannelId, message.MessageId, group.Key.Context, ct)
+                        .ConfigureAwait(false)
+                    : [];
+
+                var pictures = group.Key.CheckPictures && readsPictures
+                    ? await _pictures.ReadyAsync(
+                            await PictureSourcesAsync(subject, item.Target, ct).ConfigureAwait(false),
+                            ModerationPictures.SendsLinks(chat.Provider),
+                            ct)
+                        .ConfigureAwait(false)
+                    : [];
+
+                asks.Add(new AiAsk(item, [.. group], context, pictures));
+            }
+        }
+
         // One key per topic across the whole request, so the topics are listed once however many
         // pieces of text are checked against them.
         var keys = forAi.SelectMany(f => f.Topics).DistinctBy(t => t.Id)
             .Select((t, i) => new TopicToCheck($"t{i + 1}", t.Id, t.Name, t.Instructions, t.Sensitivity))
             .ToDictionary(t => t.Id);
 
-        var toAsk = forAi
-            .Select((f, i) => (f.Item, f.Topics, Text: new TopicText($"x{i + 1}", f.Item.Target, f.Item.Text, [.. f.Topics.Select(t => keys[t.Id])])))
+        var toAsk = asks
+            .Select((a, i) => (a.Item, a.Topics, a.Context, Text: new TopicText(
+                $"x{i + 1}", a.Item.Target, a.Item.Text, [.. a.Topics.Select(t => keys[t.Id])], a.Context, a.Pictures)))
             .ToList();
 
         var asked = await AskAsync(chat, [.. toAsk.Select(a => a.Text)], asker, ct).ConfigureAwait(false);
 
         foreach (var (hit, callId) in asked.Hits)
         {
-            var (item, topics, _) = toAsk.First(a => a.Text.Key == hit.TextKey);
+            var (item, topics, context, _) = toAsk.First(a => a.Text.Key == hit.TextKey);
             var topic = topics.First(t => t.Id == hit.Topic.Id);
+            var contextIds = context.Count == 0 ? null : context.Select(c => c.MessageId).ToList();
 
-            if (Build(topic, ModerationRuleKind.Topic, string.Empty, topic.Name, item.Target, hit.Quote, hit.Why, where) is { } match)
-                matches.Add(new SubjectMatch(item.Subject, match, callId));
+            var built = Build(
+                topic, ModerationRuleKind.Topic, string.Empty, topic.Name, item.Target,
+                hit.Quote, hit.Why, where, languages.GetValueOrDefault(Key(item)), contextIds);
+
+            if (built is null)
+                continue;
+
+            matches.Add(new SubjectMatch(
+                item.Subject,
+                hit.Picture is { } picture ? built with { Picture = picture.Label, PictureUrl = picture.Url } : built,
+                callId));
         }
 
         return new Evaluation(matches, asked.Error, asked.Model ?? chat.Model, asked.CallTexts);
+
+        static string Key(TextItem item) => $"{item.Subject}:{(int)item.Target}";
+    }
+
+    /// <summary>
+    /// How much context this rule wants. Only Discord chat has any: a profile has no conversation
+    /// around it (design §16).
+    /// </summary>
+    private static int ContextFor(IModerationRule rule, ModerationTargets target)
+        => target == ModerationTargets.DiscordMessage && ContextMessageCounts.IsCount(rule.ContextMessages)
+            ? rule.ContextMessages
+            : 0;
+
+    /// <summary>Whether the model in use reads pictures, as the model list last said (design §17).</summary>
+    /// <remarks>
+    /// A model the catalogue has never heard of is treated as reading none: a picture sent to a
+    /// model that cannot read it is a bill for nothing and an answer about the words alone.
+    /// </remarks>
+    private async Task<bool> ModelReadsPicturesAsync(string model, CancellationToken ct)
+    {
+        var modalities = await _db.AiCatalogModels.AsNoTracking()
+            .Where(m => m.Model == model)
+            .Select(m => m.InputModalities)
+            .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+        return modalities is not null && modalities.Contains("image", StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The pictures that belong to what is being checked: a Discord message's image attachments
+    /// and its author's avatar, or a VRChat profile picture and avatar picture (design §17).
+    /// </summary>
+    private async Task<IReadOnlyList<PictureSource>> PictureSourcesAsync(
+        CheckSubject subject, ModerationTargets target, CancellationToken ct)
+    {
+        if (target == ModerationTargets.DiscordMessage && subject.Message is { } message)
+        {
+            var row = await _db.DiscordMessages.AsNoTracking()
+                .Where(m => m.MessageId == message.MessageId)
+                .Select(m => m.Attachments)
+                .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+            var sources = new List<PictureSource>(ModerationPictures.Attachments(row));
+
+            var avatar = await _db.DiscordMembers.AsNoTracking()
+                .Where(m => m.GuildId == message.GuildId && m.UserId == message.AuthorId)
+                .Select(m => m.AvatarUrl)
+                .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+            if (avatar is { Length: > 0 })
+                sources.Add(new PictureSource("Discord avatar", avatar));
+
+            return sources;
+        }
+
+        if (subject.VRChatUserId is not { Length: > 0 } userId)
+            return [];
+
+        var profile = await _db.VRChatUsers.AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => new { u.ProfilePictureUrl, u.CurrentAvatarThumbnailImageUrl })
+            .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+        if (profile is null)
+            return [];
+
+        var pictures = new List<PictureSource>();
+        if (profile.ProfilePictureUrl is { Length: > 0 } picture)
+            pictures.Add(new PictureSource("VRChat profile picture", picture));
+        if (profile.CurrentAvatarThumbnailImageUrl is { Length: > 0 } thumbnail)
+            pictures.Add(new PictureSource("VRChat avatar picture", thumbnail));
+
+        return pictures;
     }
 
     /// <summary>What one batched topic check answers, and what its calls were sent.</summary>
@@ -571,11 +745,13 @@ public sealed class ModerationEngine : IModerationChecker
             [
                 AiPromptCache.Instructions(TopicClassifier.SystemPrompt, chat.Provider),
                 new UserChatMessage(prompt.Instructions),
-                .. prompt.Contents.Select(c => new UserChatMessage(c)),
+                .. TopicClassifier.ContentMessages(prompt, batch),
             ];
 
             ChatCompletion completion = await client.CompleteChatAsync(
-                messages, TopicClassifier.Options(chat.Provider, batch.Count), token).ConfigureAwait(false);
+                messages,
+                TopicClassifier.Options(chat.Provider, batch.Count, TopicClassifier.AnyPictures(batch)),
+                token).ConfigureAwait(false);
 
             var reply = string.Concat(completion.Content
                 .Where(p => p.Kind == ChatMessageContentPartKind.Text)
@@ -627,7 +803,9 @@ public sealed class ModerationEngine : IModerationChecker
         ModerationTargets target,
         string matched,
         string? reason,
-        Where where)
+        Where where,
+        string? language = null,
+        IReadOnlyList<string>? contextMessageIds = null)
     {
         var exempt = RuleGuards.ExemptBy(rule, where.RoleIds) is not null;
 
@@ -654,7 +832,9 @@ public sealed class ModerationEngine : IModerationChecker
             Acting: asks && !exempt && !trial && !paused,
             Trial: trial,
             Exempt: exempt,
-            Paused: paused);
+            Paused: paused,
+            Language: language,
+            ContextMessageIds: contextMessageIds);
     }
 
     // ── Flags, actions, facts ──────────────────────────────────────────────────────────────
@@ -737,6 +917,10 @@ public sealed class ModerationEngine : IModerationChecker
             ChannelId = message?.ChannelId,
             MessageId = message?.MessageId,
             Matched = Clip(m.Matched, 1000),
+            Language = m.Language,
+            ContextMessageIds = JsonSerializer.Serialize(m.ContextMessageIds ?? []),
+            Picture = m.Picture is null ? null : Clip(m.Picture, 300),
+            PictureUrl = m.PictureUrl is null ? null : Clip(m.PictureUrl, 2000),
             Reason = m.Reason is null ? null : Clip(m.Reason, 2000),
             Trial = m.Trial,
             WouldDeleteMessage = m.DeleteMessage,
@@ -786,6 +970,8 @@ public sealed class ModerationEngine : IModerationChecker
         _db.ModerationFlags.AddRange(flags);
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
+        await OpenReviewsAsync(rules, flags, now, ct).ConfigureAwait(false);
+
         foreach (var flag in flags)
             await _facts.WriteAsync(FlagFact(flag, now), ct).ConfigureAwait(false);
 
@@ -822,6 +1008,33 @@ public sealed class ModerationEngine : IModerationChecker
             flags.Count, person.Platform, person.Id, deleted, timedOut);
 
         return new ModerationOutcome(results, flags.Count, deleted, timedOut, aiSkipped);
+    }
+
+    /// <summary>
+    /// Opens a review for each flag whose rule asks for one (design §19).
+    /// </summary>
+    /// <remarks>
+    /// Inside the same transaction as the flags: a flag whose rule says "open a review for each
+    /// flag" and has none is a flag nobody will be asked about.
+    /// </remarks>
+    private async Task OpenReviewsAsync(
+        Rules rules, IReadOnlyList<ModerationFlag> flags, DateTimeOffset now, CancellationToken ct)
+    {
+        foreach (var flag in flags)
+        {
+            IModerationRule? rule = (IModerationRule?)rules.Lists.FirstOrDefault(l => l.Id == flag.RuleId)
+                                   ?? rules.Topics.FirstOrDefault(t => t.Id == flag.RuleId);
+
+            if (rule is null || !rule.OpenReviewForEachFlag)
+                continue;
+
+            var review = FlagReviews.For(flag, now);
+            _db.Reviews.Add(review);
+            flag.ReviewId = review.Id;
+
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            await _reviewFacts.OpenedAsync(review, ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -917,6 +1130,11 @@ public sealed class ModerationEngine : IModerationChecker
             ["target"] = flag.Target,
             ["matched"] = flag.Matched,
             ["reason"] = flag.Reason,
+            ["language"] = flag.Language,
+            ["picture"] = flag.Picture,
+            ["pictureUrl"] = flag.PictureUrl,
+            ["contextMessageIds"] = JsonNode.Parse(flag.ContextMessageIds),
+            ["reviewId"] = flag.ReviewId?.ToString(),
             ["subjectName"] = flag.SubjectName,
             ["channelId"] = flag.ChannelId,
             ["messageId"] = flag.MessageId,

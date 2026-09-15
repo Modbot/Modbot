@@ -1,7 +1,21 @@
 namespace Modbot.Api.Features.Settings;
 
-/// <summary>How often a rule has flagged, and how many of those a moderator dismissed (M8 §4.4).</summary>
-public sealed record RuleStats(int Flags, int Dismissed);
+/// <summary>
+/// How often a rule has flagged, how many of those a moderator dismissed and how many were
+/// confirmed (M8 §4.4, AI moderation design §19).
+/// </summary>
+/// <param name="ByLanguage">
+/// The same numbers for each language the rule has flagged. M8 §4.4 says false positives cluster
+/// in text that is not English, so one figure for the whole rule hides the problem it warns about.
+/// </param>
+public sealed record RuleStats(
+    int Flags,
+    int Dismissed,
+    int Confirmed = 0,
+    IReadOnlyList<RuleLanguageStats>? ByLanguage = null);
+
+/// <param name="Language">The ISO 639-3 code, or null when the language could not be told.</param>
+public sealed record RuleLanguageStats(string? Language, string Label, int Flags, int Dismissed, int Confirmed);
 
 /// <summary>Where a rule runs and who it never acts on (AI moderation design §13.3).</summary>
 /// <param name="ChannelMode"><c>all</c>, <c>only</c> or <c>except</c>.</param>
@@ -59,7 +73,10 @@ public sealed record TermListView(
     RuleScope Scope,
     RuleTrial? Trial,
     RulePause? Paused,
-    RuleTestSummary Tests);
+    RuleTestSummary Tests,
+    int ContextMessages = 0,
+    bool CheckPictures = false,
+    bool OpenReviewForEachFlag = false);
 
 /// <param name="Label">The term as a moderator reads it: the words, the pattern, or the combination.</param>
 /// <param name="Excluded">Switched off on this deployment.</param>
@@ -92,16 +109,26 @@ public sealed record TopicView(
     RuleScope Scope,
     RuleTrial? Trial,
     RulePause? Paused,
-    RuleTestSummary Tests);
+    RuleTestSummary Tests,
+    int ContextMessages = 0,
+    bool CheckPictures = false,
+    bool OpenReviewForEachFlag = false);
 
 /// <param name="AiReady">Whether AI base settings are on and complete, so AI topics can run at all.</param>
+/// <param name="PicturesAvailable">
+/// Whether the model in use reads pictures, as the model list last said (AI moderation design §17).
+/// False makes the "Check pictures" box unavailable rather than letting it fail at run time.
+/// </param>
+/// <param name="ContextChoices">The amounts of context a rule may be set to.</param>
 public sealed record AiModerationResponse(
     bool Enabled,
     int DailyAiCallLimit,
     int AiCallsToday,
     bool AiReady,
     IReadOnlyList<TermListView> Lists,
-    IReadOnlyList<TopicView> Topics);
+    IReadOnlyList<TopicView> Topics,
+    bool PicturesAvailable = false,
+    IReadOnlyList<int>? ContextChoices = null);
 
 public sealed record AiModerationUpdate(bool Enabled, int DailyAiCallLimit);
 
@@ -129,7 +156,10 @@ public sealed record TermListInput(
     IReadOnlyList<string>? ExcludedTerms,
     RuleScope? Scope = null,
     int? TrialDays = null,
-    bool ActWithoutTest = false);
+    bool ActWithoutTest = false,
+    int? ContextMessages = null,
+    bool CheckPictures = false,
+    bool OpenReviewForEachFlag = false);
 
 public sealed record HubSubscribe(string HubId);
 
@@ -154,7 +184,10 @@ public sealed record TopicInput(
     int? TimeoutMinutes,
     RuleScope? Scope = null,
     int? TrialDays = null,
-    bool ActWithoutTest = false);
+    bool ActWithoutTest = false,
+    int? ContextMessages = null,
+    bool CheckPictures = false,
+    bool OpenReviewForEachFlag = false);
 
 // ── Test sets (AI moderation design §12) ────────────────────────────────────────────────────
 

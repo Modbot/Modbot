@@ -1357,6 +1357,18 @@ export type ReviewEvidence = {
   actions: number
   byKind: Record<string, number>
   factIds: number[]
+  /** Set only on a review opened by a moderation flag (AI moderation design §19). */
+  flagId?: string
+  ruleName?: string
+  ruleVersion?: number
+  term?: string
+  target?: string
+  matched?: string
+  reason?: string | null
+  language?: string | null
+  picture?: string | null
+  pictureUrl?: string | null
+  subjectName?: string | null
   firstAt: string
   lastAt: string
   threshold: Record<string, number>
@@ -1388,6 +1400,8 @@ export type ReviewView = {
   closedAt: string | null
   closedByUsername: string | null
   note: string | null
+  /** "right" or "wrong" for a review opened by a moderation flag; null for every other kind. */
+  outcome: 'right' | 'wrong' | null
 }
 
 export type ReviewList = {
@@ -3053,7 +3067,8 @@ export const api = {
   openReviewCount: () => request<{ open: number }>('/api/reviews/open-count'),
 
   /** The note is required: it is kept with the review and recorded as a fact against your account. */
-  closeReview: (id: string, note: string) => post<ReviewView>(`/api/reviews/${encodeURIComponent(id)}/close`, { note }),
+  closeReview: (id: string, note: string, outcome?: 'right' | 'wrong') =>
+    post<ReviewView>(`/api/reviews/${encodeURIComponent(id)}/close`, { note, outcome }),
 
   /** People acted on more than once, most recent action first. Needs ViewProfile. */
   repeatOffenders: (query: { status?: 'all' | 'repeat' | 'more-than-once'; offset?: number; limit?: number } = {}) => {

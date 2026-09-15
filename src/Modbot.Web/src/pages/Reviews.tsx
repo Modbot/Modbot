@@ -137,7 +137,9 @@ function ReviewCard({
   const [problem, setProblem] = useState<string | null>(null)
   const [showFacts, setShowFacts] = useState(false)
 
-  const close = () => {
+  const flagReview = review.signal === 'ai-flag'
+
+  const close = (outcome?: 'right' | 'wrong') => {
     if (!note.trim()) {
       setProblem('Write a note first.')
       return
@@ -145,7 +147,7 @@ function ReviewCard({
     setBusy(true)
     setProblem(null)
     api
-      .closeReview(review.id, note.trim())
+      .closeReview(review.id, note.trim(), outcome)
       .then(() => onClosed())
       .catch((e: unknown) =>
         setProblem(
@@ -165,7 +167,12 @@ function ReviewCard({
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="font-medium">{review.signalLabel}</span>
           <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            <SubjectLink id={review.moderator.id} name={review.moderator.name} onOpen={onOpenSubject} />
+            {/* The "moderator" of a flag review is the rule, not a person, so it is not a link. */}
+            {flagReview ? (
+              (review.evidence.ruleName ?? '')
+            ) : (
+              <SubjectLink id={review.moderator.id} name={review.moderator.name} onOpen={onOpenSubject} />
+            )}
             {review.aboutPerson && (
               <>
                 {' '}and{' '}
@@ -183,27 +190,38 @@ function ReviewCard({
 
         <p className="mt-2 max-w-3xl">{review.summary}</p>
 
-        <Evidence review={review} onOpenSubject={onOpenSubject} />
+        {flagReview ? (
+          <FlagEvidence review={review} />
+        ) : (
+          <>
+            <Evidence review={review} onOpenSubject={onOpenSubject} />
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          <span>
-            Covers {formatDay(review.windowStart)}
-            {formatDay(review.windowStart) !== formatDay(review.windowEnd) ? ` – ${formatDay(review.windowEnd)}` : ''}
-          </span>
-          <button type="button" className="hover:underline" onClick={() => setShowFacts((v) => !v)}>
-            {showFacts ? 'Hide' : 'Show'} the {review.evidence.factIds.length} fact id{review.evidence.factIds.length === 1 ? '' : 's'}
-          </button>
-        </div>
-        {showFacts && (
-          <p className="mt-1 break-all font-mono text-muted-foreground" style={{ fontSize: '0.6875rem' }}>
-            {review.evidence.factIds.join(', ')}
-          </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              <span>
+                Covers {formatDay(review.windowStart)}
+                {formatDay(review.windowStart) !== formatDay(review.windowEnd) ? ` – ${formatDay(review.windowEnd)}` : ''}
+              </span>
+              <button type="button" className="hover:underline" onClick={() => setShowFacts((v) => !v)}>
+                {showFacts ? 'Hide' : 'Show'} the {review.evidence.factIds.length} fact id{review.evidence.factIds.length === 1 ? '' : 's'}
+              </button>
+            </div>
+            {showFacts && (
+              <p className="mt-1 break-all font-mono text-muted-foreground" style={{ fontSize: '0.6875rem' }}>
+                {review.evidence.factIds.join(', ')}
+              </p>
+            )}
+          </>
         )}
 
         {review.state === 'Closed' ? (
           <div className="mt-3 rounded-md bg-muted/40 px-3 py-2" style={{ fontSize: 'var(--text-small)' }}>
             <span className="text-muted-foreground">{review.closedByUsername ?? 'Somebody'} wrote: </span>
             <span className="whitespace-pre-wrap break-words">{review.note}</span>
+            {review.outcome && (
+              <span className="ml-2 text-muted-foreground">
+                ({review.outcome === 'right' ? 'rule was right' : 'rule was wrong'})
+              </span>
+            )}
           </div>
         ) : (
           <div className="mt-3 flex flex-col gap-2">
@@ -218,9 +236,20 @@ function ReviewCard({
               />
             </label>
             <div className="flex items-center gap-2">
-              <Button size="xs" onClick={close} disabled={busy}>
-                Close review
-              </Button>
+              {flagReview ? (
+                <>
+                  <Button size="xs" onClick={() => close('right')} disabled={busy}>
+                    The rule was right
+                  </Button>
+                  <Button size="xs" variant="outline" onClick={() => close('wrong')} disabled={busy}>
+                    The rule was wrong
+                  </Button>
+                </>
+              ) : (
+                <Button size="xs" onClick={() => close()} disabled={busy}>
+                  Close review
+                </Button>
+              )}
               {problem && (
                 <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
                   {problem}
@@ -243,6 +272,36 @@ const KIND_WORDS: Record<string, string> = {
 }
 
 /** The numbers, laid out, so the sentence above can be checked against them. */
+/** What a review opened by a moderation flag was opened on (AI moderation design §19). */
+function FlagEvidence({ review }: { review: ReviewView }) {
+  const e = review.evidence
+
+  return (
+    <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+      {e.ruleName && <Pair label="Rule" value={`${e.ruleName} v${e.ruleVersion ?? 1}`} />}
+      {e.target && <Pair label="Checked" value={e.target} />}
+      {e.language && <Pair label="Language" value={e.language} />}
+      {e.picture ? (
+        <Pair
+          label="Picture"
+          value={
+            e.pictureUrl ? (
+              <a href={e.pictureUrl} target="_blank" rel="noreferrer noopener" className="underline">
+                {e.picture}
+              </a>
+            ) : (
+              e.picture
+            )
+          }
+        />
+      ) : (
+        e.matched && <Pair label="Matched" value={`“${e.matched}”`} />
+      )}
+      {e.reason && <Pair label="Reason" value={e.reason} />}
+    </dl>
+  )
+}
+
 function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject: (id: string) => void }) {
   const e: ReviewEvidence = review.evidence
   const kinds = Object.entries(e.byKind).filter(([, n]) => n > 0)

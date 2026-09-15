@@ -1,6 +1,6 @@
 ---
 title: Reviews and repeat offenders
-description: The list of people acted on more than once, the History block on a person, and the Reviews page that asks the team to look when a moderator's pattern seems unusual.
+description: The list of people acted on more than once, the History block on a person, and the Reviews page that asks the team to look when a moderator's pattern seems unusual or a moderation rule flags somebody.
 ---
 
 Modbot reads your group's audit log from VRChat, so it knows every kick, warn, ban and removal any
@@ -112,6 +112,12 @@ anything. Today is left out, so a busy day cannot raise the usual it is compared
 
 The numbers in this section are the defaults. There is no screen for changing them yet.
 
+**Flagged by a moderation rule.** A third kind does not come from detection at all: a
+[flag](/moderation/flags) sent here, either by a rule set to open a review for each flag or by a
+moderator pressing **Open a review** on one. The "moderator" in that review is the rule. It shows
+the rule and version, what was checked, the language, the words or picture that matched and the
+model's reason.
+
 ### Reading a review
 
 Switch between **Waiting** (with a count) and **Closed**. At the top right: **Detection last ran**
@@ -159,6 +165,11 @@ A note is required, up to 2,000 characters.
 ### Press Close review
 
 The review moves to **Closed**, showing who closed it, when, and the note.
+
+A review that came from a moderation flag has two buttons instead: **The rule was right** and
+**The rule was wrong**. Wrong dismisses the flag, which stops that rule and term flagging that
+person ever again; right confirms it. Both feed the rule's numbers under **Settings**, **AI**,
+**Moderation**.
 
 </Step>
 

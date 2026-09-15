@@ -168,6 +168,7 @@ public static class FactLabels
         // AI moderation (AI moderation design §7).
         [FactType.AiModerationFlag] = "Flagged by a moderation rule",
         [FactType.AiModerationFlagDismissed] = "Moderation flag dismissed",
+        [FactType.AiModerationFlagConfirmed] = "Moderation flag confirmed",
         [FactType.AiModerationMessageDeleted] = "Discord message deleted by a moderation rule",
         [FactType.AiModerationTimeout] = "Timed out on Discord by a moderation rule",
         [FactType.AiModerationRuleChanged] = "Moderation rule changed",

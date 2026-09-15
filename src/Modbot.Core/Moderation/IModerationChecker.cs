@@ -106,6 +106,15 @@ public sealed record ProfileToCheck(
 /// <param name="Trial">The rule wants to act and is still in its trial, so it only recorded what it would do.</param>
 /// <param name="Exempt">The person holds a role this rule never acts on.</param>
 /// <param name="Paused">The rule paused itself and is waiting for an operator.</param>
+/// <param name="Language">
+/// The checked text's language, as an ISO 639-3 code, or null when it could not be told
+/// (AI moderation design §18).
+/// </param>
+/// <param name="Picture">Which picture matched, in plain words. Null when the words matched.</param>
+/// <param name="PictureUrl">Where that picture is.</param>
+/// <param name="ContextMessageIds">
+/// The messages sent with this one as context, oldest first (AI moderation design §16).
+/// </param>
 public sealed record ModerationMatch(
     string RuleKind,
     Guid RuleId,
@@ -122,7 +131,11 @@ public sealed record ModerationMatch(
     bool Acting = false,
     bool Trial = false,
     bool Exempt = false,
-    bool Paused = false);
+    bool Paused = false,
+    string? Language = null,
+    string? Picture = null,
+    string? PictureUrl = null,
+    IReadOnlyList<string>? ContextMessageIds = null);
 
 /// <summary>What a check found and did.</summary>
 /// <param name="AiSkipped">Why AI topics did not run, when there were topics that could have.</param>
