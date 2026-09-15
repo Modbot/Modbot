@@ -134,6 +134,12 @@ public interface IDiscordGateway : IAsyncDisposable
     /// <summary>The session is signed in and the guild list has arrived. May fire again after a reconnect.</summary>
     event Func<Task>? Ready;
 
+    /// <summary>
+    /// A dropped session came back without signing in again. Usable again, and no Ready follows:
+    /// Discord.Net raises Ready only for a fresh sign-in, never for a resume.
+    /// </summary>
+    event Func<Task>? Resumed;
+
     event Func<DiscordDisconnect, Task>? Disconnected;
 
     event Func<DiscordCommandCall, Task>? CommandReceived;

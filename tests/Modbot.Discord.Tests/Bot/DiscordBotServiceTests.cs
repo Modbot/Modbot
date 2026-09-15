@@ -263,4 +263,85 @@ public class DiscordBotServiceTests
         Assert.Contains("not in that server", snapshot.LastError, StringComparison.Ordinal);
         Assert.NotNull(bot.ReadyGateway);
     }
+
+    /// <summary>
+    /// The bug this guards: Discord.Net resumes a dropped session with no Ready, and the bot used to
+    /// sit on "reconnecting" with posting stopped for as long as the process lived.
+    /// </summary>
+    [Fact]
+    public async Task AResumedSession_IsConnectedAgain_WithoutRegisteringCommandsTwice()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateways = new FakeGatewayFactory();
+        var gateway = gateways.Next();
+        var bot = Service(services, gateways);
+
+        await ConfigureBotAsync(services, "token", "424242", ct);
+        await bot.TickAsync(ct);
+        await gateway.RaiseReadyAsync();
+        Assert.Equal(1, gateway.RegisterCalls);
+
+        await gateway.RaiseDisconnectedAsync("The gateway connection closed.");
+        Assert.Equal(DiscordBotState.Disconnected, services.Status.Snapshot().State);
+        Assert.Null(bot.ReadyGateway);
+
+        services.Clock.Advance(TimeSpan.FromSeconds(20));
+        await gateway.RaiseResumedAsync();
+
+        var snapshot = services.Status.Snapshot();
+        Assert.Equal(DiscordBotState.Connected, snapshot.State);
+        Assert.Equal(3, snapshot.CommandsRegistered);
+        Assert.Null(snapshot.LastError);
+        Assert.Same(gateway, bot.ReadyGateway);
+        Assert.Equal(1, gateway.RegisterCalls);
+
+        // Resumed, so not rebuilt later as if it had stayed down.
+        services.Clock.Advance(TimeSpan.FromMinutes(5));
+        await bot.TickAsync(ct);
+        Assert.False(gateway.Disposed);
+        Assert.Single(gateways.Created);
+    }
+
+    [Fact]
+    public async Task ASessionWhoseSocketReturnsButNeverBecomesReady_IsRebuilt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateways = new FakeGatewayFactory();
+        var gateway = gateways.Next(g => g.ReadyOnConnect = true);
+        var rebuilt = gateways.Next(g => g.ReadyOnConnect = true);
+        var bot = Service(services, gateways);
+
+        await ConfigureBotAsync(services, "token", "424242", ct);
+        await bot.TickAsync(ct);
+
+        await gateway.RaiseDisconnectedAsync("The gateway connection closed.");
+        gateway.State = DiscordGatewayState.Connecting;
+
+        services.Clock.Advance(TimeSpan.FromMinutes(4));
+        await bot.TickAsync(ct);
+
+        Assert.True(gateway.Disposed);
+        Assert.Same(rebuilt, bot.ReadyGateway);
+    }
+
+    [Fact]
+    public async Task AReadyGatewayTheStatusMissed_IsReportedConnectedOnTheNextTick()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateways = new FakeGatewayFactory();
+        var gateway = gateways.Next();
+        var bot = Service(services, gateways);
+
+        await ConfigureBotAsync(services, "token", "424242", ct);
+        await bot.TickAsync(ct);
+        Assert.Equal(DiscordBotState.Connecting, services.Status.Snapshot().State);
+
+        gateway.State = DiscordGatewayState.Ready;
+        await bot.TickAsync(ct);
+
+        Assert.Equal(DiscordBotState.Connected, services.Status.Snapshot().State);
+    }
 }

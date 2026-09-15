@@ -14,6 +14,8 @@ public sealed class FakeGateway : IDiscordGateway
 
     public event Func<Task>? Ready;
 
+    public event Func<Task>? Resumed;
+
     public event Func<DiscordDisconnect, Task>? Disconnected;
 
     public event Func<DiscordCommandCall, Task>? CommandReceived;
@@ -143,6 +145,13 @@ public sealed class FakeGateway : IDiscordGateway
     {
         State = DiscordGatewayState.Ready;
         return Ready?.Invoke() ?? Task.CompletedTask;
+    }
+
+    /// <summary>The session came back without a fresh sign-in, which raises no Ready.</summary>
+    public Task RaiseResumedAsync()
+    {
+        State = DiscordGatewayState.Ready;
+        return Resumed?.Invoke() ?? Task.CompletedTask;
     }
 
     public Task RaiseDisconnectedAsync(string reason, bool fatal = false)

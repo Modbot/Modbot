@@ -38,6 +38,9 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     private volatile DiscordGatewayState _state = DiscordGatewayState.Disconnected;
 
+    /// <summary>Whether this session has been ready at least once, so a later connect is a resume.</summary>
+    private volatile bool _sessionReady;
+
     public DiscordNetGateway(ILogger? log = null)
     {
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
@@ -61,6 +64,8 @@ public sealed class DiscordNetGateway : IDiscordGateway
     public DiscordGatewayState State => _state;
 
     public event Func<Task>? Ready;
+
+    public event Func<Task>? Resumed;
 
     public event Func<DiscordDisconnect, Task>? Disconnected;
 
@@ -247,13 +252,31 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     private Task OnConnected()
     {
-        // Connected is the socket; Ready is the session. Nothing is usable until Ready.
-        _state = DiscordGatewayState.Connecting;
+        // Connected is the socket; Ready is the session. On the first connect nothing is usable
+        // until Ready.
+        //
+        // A reconnect is different. Discord.Net resumes a dropped session where it can, and its
+        // RESUMED handler raises no Ready -- only this. Treating that as "still connecting" left
+        // the session marked not ready for good, which stopped every post and showed the bot as
+        // reconnecting while it was online.
+        if (!_sessionReady)
+        {
+            _state = DiscordGatewayState.Connecting;
+            return Task.CompletedTask;
+        }
+
+        _state = DiscordGatewayState.Ready;
+
+        var handler = Resumed;
+        if (handler is not null)
+            _ = Task.Run(() => Guard(handler(), "resumed"));
+
         return Task.CompletedTask;
     }
 
     private Task OnReady()
     {
+        _sessionReady = true;
         _state = DiscordGatewayState.Ready;
 
         var handler = Ready;

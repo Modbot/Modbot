@@ -406,9 +406,8 @@ function DiscordBot({ bot, now }: { bot: DiscordBotHealth; now: string }) {
         </div>
         {bot.state !== 'NotConfigured' && (
           <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {bot.logChannelConfigured
-              ? `Posted to the log channel: ${bot.postedInThisProcess}${bot.lastPostedAt ? `, last ${ago(bot.lastPostedAt, now)}` : ''}`
-              : 'No log channel set'}
+            {`Posted to Discord: ${bot.postedInThisProcess}${bot.lastPostedAt ? `, last ${ago(bot.lastPostedAt, now)}` : ''}`}
+            {!bot.logChannelConfigured && ' · No log channel set'}
           </p>
         )}
         {bot.lastError && (

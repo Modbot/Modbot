@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Modbot.Core.Data;
+using Modbot.Core.Discord;
 using Modbot.Core.Logging;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
@@ -55,6 +56,7 @@ public sealed class DiscordBotService : BackgroundService
     private DateTimeOffset? _nextAttemptAt;
     private TimeSpan _retry;
     private bool _stopped;
+    private int _commandsRegistered;
 
     public DiscordBotService(
         IServiceScopeFactory scopes,
@@ -157,7 +159,17 @@ public sealed class DiscordBotService : BackgroundService
             _retry = _options.FirstRetry;
         }
 
-        if (_gateway is { State: DiscordGatewayState.Disconnected }
+        // An event can be missed. If the gateway can post but the status says otherwise, the
+        // status is what is wrong.
+        if (_gateway is { State: DiscordGatewayState.Ready } && _status.State != DiscordBotState.Connected)
+        {
+            _disconnectedAt = null;
+            _status.Connected(now, _commandsRegistered);
+        }
+
+        // Not ready for too long after a drop, whatever state it is stuck in. A socket that came
+        // back without its session returning sits in Connecting, not Disconnected.
+        if (_gateway is { State: not DiscordGatewayState.Ready }
             && _disconnectedAt is { } since
             && now - since >= _options.RebuildAfterDisconnected)
         {
@@ -182,6 +194,7 @@ public sealed class DiscordBotService : BackgroundService
 
         var gateway = _gateways.Create();
         gateway.Ready += OnReadyAsync;
+        gateway.Resumed += OnResumedAsync;
         gateway.Disconnected += OnDisconnectedAsync;
         gateway.CommandReceived += OnCommandAsync;
 
@@ -223,6 +236,7 @@ public sealed class DiscordBotService : BackgroundService
                 .RegisterGuildCommandsAsync(guildId, DiscordCommands.All, CancellationToken.None)
                 .ConfigureAwait(false);
 
+            _commandsRegistered = count;
             _status.Connected(_clock.UtcNow, count);
             _log.Information("Discord bot connected; {Count} slash commands registered on the guild", count);
         }
@@ -230,10 +244,29 @@ public sealed class DiscordBotService : BackgroundService
         {
             // Connected but useless. Say so and stay signed in: the channel poster still works,
             // and a fixed guild id is picked up by the settings poll without a restart.
+            _commandsRegistered = 0;
             _status.Connected(_clock.UtcNow, 0);
             _status.Problem($"Could not register the slash commands: {e.Message}", _clock.UtcNow);
             _log.Warning("Discord bot connected but could not register its commands: {Reason}", e.Message);
         }
+    }
+
+    /// <summary>
+    /// The session came back without signing in again. The slash commands registered at sign-in
+    /// still stand, so they are not registered again: Discord limits how often a guild's commands
+    /// may be replaced.
+    /// </summary>
+    private Task OnResumedAsync()
+    {
+        if (_gateway is null)
+            return Task.CompletedTask;
+
+        _disconnectedAt = null;
+        _retry = _options.FirstRetry;
+        _status.Connected(_clock.UtcNow, _commandsRegistered);
+        _log.Information("Discord bot resumed its session");
+
+        return Task.CompletedTask;
     }
 
     private async Task OnDisconnectedAsync(DiscordDisconnect disconnect)
@@ -293,6 +326,7 @@ public sealed class DiscordBotService : BackgroundService
             return;
 
         gateway.Ready -= OnReadyAsync;
+        gateway.Resumed -= OnResumedAsync;
         gateway.Disconnected -= OnDisconnectedAsync;
         gateway.CommandReceived -= OnCommandAsync;
 

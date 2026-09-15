@@ -72,6 +72,13 @@ public sealed class DiscordBotStatus : IDiscordBotStatus
     {
         lock (_gate)
         {
+            // Back from being down or failing: whatever took it down is over.
+            if (_state != DiscordBotState.Connected)
+            {
+                _lastError = null;
+                _lastErrorAt = null;
+            }
+
             _state = DiscordBotState.Connected;
             _connectedSince ??= at;
             _commandsRegistered = commandsRegistered;
