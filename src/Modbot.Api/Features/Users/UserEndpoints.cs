@@ -149,6 +149,9 @@ public static class UserEndpoints
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
+                // Ids as well as names, so a Discord route can tell which roles the account held
+                // before this change even after a role is renamed (Discord event routes design §3).
+                var beforeIds = user.Roles.Select(r => r.RoleId).Order().ToList();
                 var (before, now) = await accounts.SetRolesAsync(user, body.RoleIds ?? [], ct);
 
                 await facts.RecordAsync(
@@ -159,6 +162,8 @@ public static class UserEndpoints
                     {
                         ["before"] = string.Join(", ", before),
                         ["after"] = string.Join(", ", now),
+                        ["beforeRoleIds"] = new JsonArray(beforeIds.Select(r => (JsonNode?)r.ToString()).ToArray()),
+                        ["afterRoleIds"] = new JsonArray(roles.Select(r => r.Id).Order().Select(r => (JsonNode?)r.ToString()).ToArray()),
                     },
                     ct);
 

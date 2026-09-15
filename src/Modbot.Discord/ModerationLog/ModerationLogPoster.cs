@@ -227,7 +227,12 @@ public sealed class ModerationLogPoster
         var candidates = rows.Where(r => types.Contains(r.Type) && DiscordEventTypes.CanSend(r.Type)).ToList();
 
         var people = candidates.Count > 0 && routes.Any(r => r.HasPeopleFilters)
-            ? await RoutePeople.LoadAsync(_db, candidates, ct).ConfigureAwait(false)
+            ? await RoutePeople.LoadAsync(
+                    _db,
+                    candidates,
+                    withRoles: routes.Any(r => r.SubjectVRChatRoleIds.Count > 0 || r.ActorVRChatRoleIds.Count > 0 || r.ActorModbotRoleIds.Count > 0),
+                    ct)
+                .ConfigureAwait(false)
             : RoutePeople.Empty;
 
         var matching = candidates.Where(f => EventRouteMatch.AnyMatches(routes, f, people)).ToList();

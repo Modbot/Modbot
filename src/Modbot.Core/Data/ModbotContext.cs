@@ -1087,7 +1087,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // Short lists read and written whole, like modbot_one_time_link.role_ids.
             entity.Property(e => e.EventTypes).HasColumnType("jsonb");
             entity.Property(e => e.SubjectIds).HasColumnType("jsonb");
+            entity.Property(e => e.SubjectDiscordIds).HasColumnType("jsonb");
             entity.Property(e => e.ActorIds).HasColumnType("jsonb");
+            entity.Property(e => e.ActorDiscordIds).HasColumnType("jsonb");
             entity.Property(e => e.SubjectVRChatRoleIds).HasColumnType("jsonb");
             entity.Property(e => e.ActorVRChatRoleIds).HasColumnType("jsonb");
             entity.Property(e => e.ActorModbotRoleIds).HasColumnType("jsonb");

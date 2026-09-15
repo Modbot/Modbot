@@ -14,6 +14,8 @@ using Modbot.VRChat.Sync;
 namespace Modbot.Api.Features.DiscordRoutes;
 
 /// <summary>One rule for sending events to a Discord channel, as the settings page reads and writes it.</summary>
+/// <param name="SubjectIds">VRChat accounts it must be about.</param>
+/// <param name="SubjectDiscordIds">Discord accounts it must be about.</param>
 /// <param name="ActorAutomatic">Also match events nobody did -- Modbot and the syncs on their own.</param>
 public sealed record DiscordRouteView(
     Guid Id,
@@ -22,7 +24,9 @@ public sealed record DiscordRouteView(
     bool Enabled,
     IReadOnlyList<string> EventTypes,
     IReadOnlyList<string> SubjectIds,
+    IReadOnlyList<string> SubjectDiscordIds,
     IReadOnlyList<string> ActorIds,
+    IReadOnlyList<string> ActorDiscordIds,
     bool ActorAutomatic,
     IReadOnlyList<string> SubjectVRChatRoleIds,
     IReadOnlyList<string> ActorVRChatRoleIds,
@@ -35,7 +39,9 @@ public sealed record DiscordRouteView(
         route.Enabled,
         route.EventTypes,
         route.SubjectIds,
+        route.SubjectDiscordIds,
         route.ActorIds,
+        route.ActorDiscordIds,
         route.ActorAutomatic,
         route.SubjectVRChatRoleIds,
         route.ActorVRChatRoleIds,
@@ -53,7 +59,9 @@ public sealed record DiscordRouteRequest(
     bool? ActorAutomatic,
     IReadOnlyList<string>? SubjectVRChatRoleIds,
     IReadOnlyList<string>? ActorVRChatRoleIds,
-    IReadOnlyList<Guid>? ActorModbotRoleIds);
+    IReadOnlyList<Guid>? ActorModbotRoleIds,
+    IReadOnlyList<string>? SubjectDiscordIds = null,
+    IReadOnlyList<string>? ActorDiscordIds = null);
 
 public sealed record DiscordRouteEventType(string Type, string Label);
 
@@ -61,8 +69,15 @@ public sealed record DiscordRouteEventGroup(string Name, IReadOnlyList<DiscordRo
 
 public sealed record DiscordRouteOption(string Id, string Name);
 
+public static class DiscordRoutePlatform
+{
+    public const string VRChat = "vrchat";
+    public const string Discord = "discord";
+}
+
 /// <summary>A person a route names, with the name Modbot has for them, if any.</summary>
-public sealed record DiscordRoutePerson(string Id, string? Name, string? PictureUrl);
+/// <param name="Platform"><c>vrchat</c> or <c>discord</c>: which list the id belongs in.</param>
+public sealed record DiscordRoutePerson(string Id, string? Name, string? PictureUrl, string Platform = DiscordRoutePlatform.VRChat);
 
 /// <param name="People">Names for every person the routes name, so the list reads as names rather than ids.</param>
 public sealed record DiscordRoutesResponse(
@@ -133,7 +148,9 @@ public static class DiscordRouteEndpoints
                     .ToListAsync(ct);
 
                 var named = routes.SelectMany(r => r.SubjectIds.Concat(r.ActorIds)).Distinct(StringComparer.Ordinal).ToList();
+                var namedDiscord = routes.SelectMany(r => r.SubjectDiscordIds.Concat(r.ActorDiscordIds)).Distinct(StringComparer.Ordinal).ToList();
                 var people = await PeopleAsync(db, named, ct);
+                people.AddRange(await DiscordPeopleAsync(db, namedDiscord, ct));
 
                 return Results.Ok(new DiscordRoutesResponse(
                     routes.Select(DiscordRouteView.From).ToList(),
@@ -273,8 +290,40 @@ public static class DiscordRouteEndpoints
                     .Select(u => new DiscordRoutePerson(
                         u.UserId,
                         u.DisplayName,
-                        u.ProfilePictureUrl ?? u.CurrentAvatarThumbnailImageUrl))
+                        u.ProfilePictureUrl ?? u.CurrentAvatarThumbnailImageUrl,
+                        DiscordRoutePlatform.VRChat))
                     .ToListAsync(ct);
+
+                // Discord accounts: the server's member list, whether or not they linked anything,
+                // then linked accounts no longer in the server. Anybody else is picked by typing
+                // their Discord id, which the picker offers as it is.
+                var members = await db.DiscordMembers.AsNoTracking()
+                    .Where(m => !m.IsBot
+                        && (m.UserId == term
+                            || EF.Functions.ILike(m.Username, pattern, "\\")
+                            || EF.Functions.ILike(m.DisplayName, pattern, "\\")
+                            || (m.GlobalName != null && EF.Functions.ILike(m.GlobalName, pattern, "\\"))
+                            || (m.Nickname != null && EF.Functions.ILike(m.Nickname, pattern, "\\"))))
+                    .OrderBy(m => m.UserId != term)
+                    .ThenBy(m => m.LeftAt != null)
+                    .ThenBy(m => m.DisplayName)
+                    .Select(m => new { m.UserId, m.DisplayName, m.AvatarUrl })
+                    .Take(PeopleSearchLimit * 2)
+                    .ToListAsync(ct);
+
+                var linked = await db.DiscordAccountLinks.AsNoTracking()
+                    .Where(l => l.DiscordUserId == term || EF.Functions.ILike(l.DiscordUsername, pattern, "\\"))
+                    .OrderByDescending(l => l.UnlinkedAt == null)
+                    .ThenByDescending(l => l.LinkedAt)
+                    .Select(l => new { l.DiscordUserId, l.DiscordUsername })
+                    .Take(PeopleSearchLimit * 2)
+                    .ToListAsync(ct);
+
+                found.AddRange(members
+                    .Select(m => new DiscordRoutePerson(m.UserId, m.DisplayName, m.AvatarUrl, DiscordRoutePlatform.Discord))
+                    .Concat(linked.Select(l => new DiscordRoutePerson(l.DiscordUserId, l.DiscordUsername, null, DiscordRoutePlatform.Discord)))
+                    .DistinctBy(p => p.Id)
+                    .Take(PeopleSearchLimit));
 
                 return Results.Ok(new DiscordRoutePeopleResponse(found));
             })
@@ -282,7 +331,9 @@ public static class DiscordRouteEndpoints
             .WithSummary("People to pick for a channel's filters, by name or id")
             .WithDescription(
                 "Searches the VRChat profiles Modbot has stored, the same way the member list "
-                + "searches: case-insensitively on the display name and the id.")
+                + "searches: case-insensitively on the display name and the id. Also searches the "
+                + "Discord server's members and the Discord accounts members linked, by name and id. "
+                + "`platform` says which list an id goes in.")
             .Produces<DiscordRoutePeopleResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -328,6 +379,12 @@ public static class DiscordRouteEndpoints
         if (body.ActorIds is not null)
             route.ActorIds = Ids(body.ActorIds);
 
+        if (body.SubjectDiscordIds is not null)
+            route.SubjectDiscordIds = Ids(body.SubjectDiscordIds);
+
+        if (body.ActorDiscordIds is not null)
+            route.ActorDiscordIds = Ids(body.ActorDiscordIds);
+
         if (body.ActorAutomatic is { } automatic)
             route.ActorAutomatic = automatic;
 
@@ -359,11 +416,39 @@ public static class DiscordRouteEndpoints
 
         var known = await db.VRChatUsers.AsNoTracking()
             .Where(u => ids.Contains(u.UserId))
-            .Select(u => new DiscordRoutePerson(u.UserId, u.DisplayName, u.ProfilePictureUrl ?? u.CurrentAvatarThumbnailImageUrl))
+            .Select(u => new DiscordRoutePerson(u.UserId, u.DisplayName, u.ProfilePictureUrl ?? u.CurrentAvatarThumbnailImageUrl, DiscordRoutePlatform.VRChat))
             .ToListAsync(ct);
 
         var byId = known.ToDictionary(p => p.Id, StringComparer.Ordinal);
-        return ids.Select(id => byId.GetValueOrDefault(id) ?? new DiscordRoutePerson(id, null, null)).ToList();
+        return ids.Select(id => byId.GetValueOrDefault(id) ?? new DiscordRoutePerson(id, null, null, DiscordRoutePlatform.VRChat)).ToList();
+    }
+
+    /// <summary>Discord accounts with their name in the server, or else the username they were linked under.</summary>
+    private static async Task<List<DiscordRoutePerson>> DiscordPeopleAsync(ModbotContext db, List<string> ids, CancellationToken ct)
+    {
+        if (ids.Count == 0)
+            return [];
+
+        var members = await db.DiscordMembers.AsNoTracking()
+            .Where(m => ids.Contains(m.UserId))
+            .OrderBy(m => m.LeftAt != null)
+            .Select(m => new { m.UserId, m.DisplayName, m.AvatarUrl })
+            .ToListAsync(ct);
+
+        var fromServer = members.DistinctBy(m => m.UserId).ToDictionary(m => m.UserId, StringComparer.Ordinal);
+
+        var links = await db.DiscordAccountLinks.AsNoTracking()
+            .Where(l => ids.Contains(l.DiscordUserId))
+            .OrderByDescending(l => l.LinkedAt)
+            .Select(l => new { l.DiscordUserId, l.DiscordUsername })
+            .ToListAsync(ct);
+
+        var names = links.DistinctBy(l => l.DiscordUserId).ToDictionary(l => l.DiscordUserId, l => l.DiscordUsername, StringComparer.Ordinal);
+        return ids
+            .Select(id => fromServer.TryGetValue(id, out var member)
+                ? new DiscordRoutePerson(id, member.DisplayName, member.AvatarUrl, DiscordRoutePlatform.Discord)
+                : new DiscordRoutePerson(id, names.GetValueOrDefault(id), null, DiscordRoutePlatform.Discord))
+            .ToList();
     }
 
     private static Task RecordAsync(AccountFacts facts, HttpContext http, string action, DiscordEventRoute route, CancellationToken ct)
@@ -381,7 +466,9 @@ public static class DiscordRouteEndpoints
                 ["enabled"] = route.Enabled,
                 ["eventTypes"] = new JsonArray(route.EventTypes.Select(t => (JsonNode?)t).ToArray()),
                 ["subjectIds"] = new JsonArray(route.SubjectIds.Select(t => (JsonNode?)t).ToArray()),
+                ["subjectDiscordIds"] = new JsonArray(route.SubjectDiscordIds.Select(t => (JsonNode?)t).ToArray()),
                 ["actorIds"] = new JsonArray(route.ActorIds.Select(t => (JsonNode?)t).ToArray()),
+                ["actorDiscordIds"] = new JsonArray(route.ActorDiscordIds.Select(t => (JsonNode?)t).ToArray()),
                 ["actorAutomatic"] = route.ActorAutomatic,
                 ["subjectVRChatRoleIds"] = new JsonArray(route.SubjectVRChatRoleIds.Select(t => (JsonNode?)t).ToArray()),
                 ["actorVRChatRoleIds"] = new JsonArray(route.ActorVRChatRoleIds.Select(t => (JsonNode?)t).ToArray()),

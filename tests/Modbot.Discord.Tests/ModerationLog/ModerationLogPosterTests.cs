@@ -428,7 +428,7 @@ public class ModerationLogPosterTests
     }
 
     [Fact]
-    public async Task ASubjectRoleFilter_ReadsTheGroupsCurrentRoles()
+    public async Task ASubjectRoleFilter_ReadsTheRolesSavedWithTheFact()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);

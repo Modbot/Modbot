@@ -1,5 +1,5 @@
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -8,7 +8,7 @@ namespace Modbot.Discord.ModerationLog;
 
 /// <summary>
 /// Whether one fact goes to one route (Discord event routes design §3). Pure: everything it needs
-/// to know about people arrives in a <see cref="RoutePeople"/>.
+/// to know about people and their roles arrives in a <see cref="RoutePeople"/>.
 /// </summary>
 public static class EventRouteMatch
 {
@@ -22,30 +22,35 @@ public static class EventRouteMatch
         if (!DiscordEventTypes.CanSend(fact.Type) || !route.EventTypes.Contains(fact.Type, StringComparer.Ordinal))
             return false;
 
-        var subject = people.PersonOf(fact.SubjectPlatform, fact.SubjectId);
+        var subject = people.Of(fact.SubjectPlatform, fact.SubjectId);
 
-        if (route.SubjectIds.Count > 0 && (subject is null || !route.SubjectIds.Contains(subject, StringComparer.Ordinal)))
+        if ((route.SubjectIds.Count > 0 || route.SubjectDiscordIds.Count > 0)
+            && !Named(subject, route.SubjectIds, route.SubjectDiscordIds))
             return false;
 
-        if (route.SubjectVRChatRoleIds.Count > 0 && (subject is null || !people.GroupRolesOf(subject).Overlaps(route.SubjectVRChatRoleIds)))
+        var roles = people.RolesOf(fact);
+
+        if (route.SubjectVRChatRoleIds.Count > 0 && !roles.SubjectVRChatRoles.Intersect(route.SubjectVRChatRoleIds, StringComparer.Ordinal).Any())
             return false;
 
-        var actor = fact.ActorId is null ? null : people.PersonOf(fact.ActorPlatform, fact.ActorId);
+        var actor = fact.ActorId is null ? PersonIdentities.Nobody : people.Of(fact.ActorPlatform, fact.ActorId);
 
-        if (route.ActorIds.Count > 0 || route.ActorAutomatic)
+        if (route.ActorIds.Count > 0 || route.ActorDiscordIds.Count > 0 || route.ActorAutomatic)
         {
             var byNobody = route.ActorAutomatic && fact.ActorId is null;
-            var byListed = actor is not null && route.ActorIds.Contains(actor, StringComparer.Ordinal);
+            var byListed = fact.ActorId is not null && Named(actor, route.ActorIds, route.ActorDiscordIds);
 
             if (!byNobody && !byListed)
                 return false;
         }
 
-        if (route.ActorVRChatRoleIds.Count > 0 && (actor is null || !people.GroupRolesOf(actor).Overlaps(route.ActorVRChatRoleIds)))
+        if (route.ActorVRChatRoleIds.Count > 0
+            && (fact.ActorId is null || !roles.ActorVRChatRoles.Intersect(route.ActorVRChatRoleIds, StringComparer.Ordinal).Any()))
             return false;
 
         if (route.ActorModbotRoleIds.Count > 0
-            && (fact.ActorId is null || !people.ModbotRolesOf(fact.ActorPlatform, fact.ActorId).Overlaps(route.ActorModbotRoleIds)))
+            && (fact.ActorId is null
+                || !roles.ActorModbotRoles.Any(r => Guid.TryParse(r, out var id) && route.ActorModbotRoleIds.Contains(id))))
             return false;
 
         return true;
@@ -57,184 +62,95 @@ public static class EventRouteMatch
         ArgumentNullException.ThrowIfNull(routes);
         return routes.Any(r => Matches(r, fact, people));
     }
+
+    /// <summary>A person matches a list when any account they stand for is on it.</summary>
+    private static bool Named(PersonIdentities person, IReadOnlyCollection<string> vrchat, IReadOnlyCollection<string> discord)
+        => person.VRChatIds.Any(vrchat.Contains) || person.DiscordIds.Any(discord.Contains);
 }
 
-/// <summary>A Modbot account as the route filters see it: which VRChat and Discord accounts it stored, and its roles.</summary>
-public sealed record RouteAccount(Guid Id, string? VRChatUserId, string? DiscordUserId, IReadOnlySet<Guid> RoleIds);
-
 /// <summary>
-/// What the route filters know about the people named in a batch of facts: their Modbot accounts,
-/// and the VRChat group roles they hold now.
+/// What the route filters know about a batch of facts: who the people in them are, across
+/// platforms, and the roles they held when each fact happened.
 /// </summary>
-/// <remarks>
-/// A subject or actor is read as a VRChat user id. A VRChat id is used as it is; a Modbot account
-/// id is read as the VRChat account that account linked; a Discord user id through the Modbot
-/// account that stored it. Anything else -- a group, a location, a channel -- is nobody.
-/// </remarks>
 public sealed class RoutePeople
 {
-    private static readonly IReadOnlySet<string> NoRoles = new HashSet<string>();
-    private static readonly IReadOnlySet<Guid> NoModbotRoles = new HashSet<Guid>();
+    private readonly PeopleDirectory _directory;
+    private readonly IReadOnlyDictionary<long, HeldRoles> _roles;
 
-    private readonly Dictionary<Guid, RouteAccount> _byId;
-    private readonly Dictionary<string, RouteAccount> _byVRChat;
-    private readonly Dictionary<string, RouteAccount> _byDiscord;
-    private readonly IReadOnlyDictionary<string, IReadOnlySet<string>> _groupRoles;
-
-    public RoutePeople(
-        IEnumerable<RouteAccount> accounts,
-        IReadOnlyDictionary<string, IReadOnlySet<string>> groupRoles)
+    /// <param name="roles">By fact id: the roles its people held when it happened.</param>
+    public RoutePeople(PeopleDirectory directory, IReadOnlyDictionary<long, HeldRoles> roles)
     {
-        ArgumentNullException.ThrowIfNull(accounts);
-        ArgumentNullException.ThrowIfNull(groupRoles);
+        ArgumentNullException.ThrowIfNull(directory);
+        ArgumentNullException.ThrowIfNull(roles);
 
-        var list = accounts.ToList();
-        _byId = list.ToDictionary(a => a.Id);
-        _byVRChat = list.Where(a => !string.IsNullOrEmpty(a.VRChatUserId))
-            .GroupBy(a => a.VRChatUserId!, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
-        _byDiscord = list.Where(a => !string.IsNullOrEmpty(a.DiscordUserId))
-            .GroupBy(a => a.DiscordUserId!, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
-        _groupRoles = groupRoles;
+        _directory = directory;
+        _roles = roles;
     }
 
-    /// <summary>Nobody known: no accounts, no roles. Enough for routes without people filters.</summary>
-    public static RoutePeople Empty { get; } = new([], new Dictionary<string, IReadOnlySet<string>>());
+    /// <summary>Nobody known and no roles. Enough for routes without people filters.</summary>
+    public static RoutePeople Empty { get; } = new(PeopleDirectory.Empty, new Dictionary<long, HeldRoles>());
 
-    /// <summary>The VRChat user id a subject or actor stands for, or null when it is not a known person.</summary>
-    public string? PersonOf(FactPlatform? platform, string? id)
+    public PersonIdentities Of(FactPlatform? platform, string? id) => _directory.Of(platform, id);
+
+    /// <summary>The roles held when the fact happened. None known reads as no roles, so a role filter does not match.</summary>
+    public HeldRoles RolesOf(ModbotEvent fact)
     {
-        if (string.IsNullOrEmpty(id))
-            return null;
-
-        return platform switch
-        {
-            FactPlatform.VRChat => id,
-            FactPlatform.Modbot => Guid.TryParse(id, out var guid) && _byId.TryGetValue(guid, out var account)
-                ? Blank(account.VRChatUserId)
-                : null,
-            FactPlatform.Discord => _byDiscord.TryGetValue(id, out var linked) ? Blank(linked.VRChatUserId) : null,
-            _ => null,
-        };
-    }
-
-    /// <summary>The managed group's roles this VRChat user holds now. Empty for somebody who is not a member.</summary>
-    public IReadOnlySet<string> GroupRolesOf(string vrchatUserId)
-        => _groupRoles.TryGetValue(vrchatUserId, out var roles) ? roles : NoRoles;
-
-    /// <summary>The Modbot roles of the account behind a subject or actor. Empty when there is no account.</summary>
-    public IReadOnlySet<Guid> ModbotRolesOf(FactPlatform? platform, string? id)
-    {
-        if (string.IsNullOrEmpty(id))
-            return NoModbotRoles;
-
-        var account = platform switch
-        {
-            FactPlatform.Modbot => Guid.TryParse(id, out var guid) ? _byId.GetValueOrDefault(guid) : null,
-            FactPlatform.VRChat => _byVRChat.GetValueOrDefault(id),
-            FactPlatform.Discord => _byDiscord.GetValueOrDefault(id),
-            _ => null,
-        };
-
-        return account?.RoleIds ?? NoModbotRoles;
+        ArgumentNullException.ThrowIfNull(fact);
+        return _roles.GetValueOrDefault(fact.Id) ?? HeldRoles.None;
     }
 
     /// <summary>
-    /// Everything the filters need for these facts, in three queries: the Modbot accounts named or
-    /// linked, and the group roles of every VRChat person among them.
+    /// People for these facts, and when <paramref name="withRoles"/> the roles of each: the ones
+    /// saved in the fact when it was written, or for an older fact without them, worked out from
+    /// the role changes recorded since (<see cref="RoleHistory"/>).
     /// </summary>
-    public static async Task<RoutePeople> LoadAsync(ModbotContext db, IReadOnlyCollection<ModbotEvent> facts, CancellationToken ct)
+    public static async Task<RoutePeople> LoadAsync(
+        ModbotContext db, IReadOnlyCollection<ModbotEvent> facts, bool withRoles, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
 
-        var named = facts
-            .Select(f => (f.SubjectPlatform as FactPlatform?, (string?)f.SubjectId))
-            .Concat(facts.Select(f => (f.ActorPlatform, f.ActorId)))
-            .Where(p => !string.IsNullOrEmpty(p.Item2))
-            .Distinct()
-            .ToList();
-
-        var modbotIds = named.Where(p => p.Item1 == FactPlatform.Modbot)
-            .Select(p => Guid.TryParse(p.Item2, out var g) ? g : Guid.Empty)
-            .Where(g => g != Guid.Empty)
-            .Distinct()
-            .ToList();
-        var vrchatIds = named.Where(p => p.Item1 == FactPlatform.VRChat).Select(p => p.Item2!).Distinct(StringComparer.Ordinal).ToList();
-        var discordIds = named.Where(p => p.Item1 == FactPlatform.Discord).Select(p => p.Item2!).Distinct(StringComparer.Ordinal).ToList();
-
-        var accounts = await db.Users.AsNoTracking()
-            .Where(u => modbotIds.Contains(u.Id)
-                || (u.VRChatUserId != null && vrchatIds.Contains(u.VRChatUserId))
-                || (u.DiscordUserId != null && discordIds.Contains(u.DiscordUserId)))
-            .Select(u => new
-            {
-                u.Id,
-                u.VRChatUserId,
-                u.DiscordUserId,
-                Roles = u.Roles.Select(r => r.RoleId).ToList(),
-            })
-            .ToListAsync(ct)
+        var directory = await PeopleDirectory.LoadAsync(
+                db,
+                facts.Select(f => ((FactPlatform?)f.SubjectPlatform, (string?)f.SubjectId))
+                    .Concat(facts.Select(f => (f.ActorPlatform, f.ActorId))),
+                ct)
             .ConfigureAwait(false);
 
-        var routeAccounts = accounts
-            .Select(a => new RouteAccount(a.Id, a.VRChatUserId, a.DiscordUserId, a.Roles.ToHashSet()))
-            .ToList();
+        var roles = new Dictionary<long, HeldRoles>();
 
-        var people = vrchatIds
-            .Concat(routeAccounts.Select(a => a.VRChatUserId).Where(id => !string.IsNullOrEmpty(id)).Select(id => id!))
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-
-        var groupId = await db.Settings.AsNoTracking()
-            .Where(s => s.Id == 1)
-            .Select(s => s.ManagedGroupId)
-            .FirstOrDefaultAsync(ct)
-            .ConfigureAwait(false);
-
-        var roles = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
-
-        if (!string.IsNullOrEmpty(groupId) && people.Count > 0)
+        if (withRoles)
         {
-            var members = await db.GroupMembers.AsNoTracking()
-                .Where(m => m.GroupId == groupId && m.LeftAt == null && people.Contains(m.UserId))
-                .Select(m => new { m.UserId, m.Roles })
-                .ToListAsync(ct)
-                .ConfigureAwait(false);
+            string? groupId = null;
+            var groupRead = false;
 
-            foreach (var member in members)
-                roles[member.UserId] = ReadRoles(member.Roles);
-        }
-
-        return new RoutePeople(routeAccounts, roles);
-    }
-
-    /// <summary><c>group_member.roles</c>: a JSON array of role id strings. Anything else reads as no roles.</summary>
-    private static HashSet<string> ReadRoles(string? json)
-    {
-        var set = new HashSet<string>(StringComparer.Ordinal);
-        if (string.IsNullOrWhiteSpace(json))
-            return set;
-
-        try
-        {
-            using var document = JsonDocument.Parse(json);
-            if (document.RootElement.ValueKind != JsonValueKind.Array)
-                return set;
-
-            foreach (var item in document.RootElement.EnumerateArray())
+            foreach (var fact in facts)
             {
-                if (item.ValueKind == JsonValueKind.String && item.GetString() is { Length: > 0 } id)
-                    set.Add(id);
+                if (HeldRoles.Read(fact.Data) is { } saved)
+                {
+                    roles[fact.Id] = saved;
+                    continue;
+                }
+
+                if (!groupRead)
+                {
+                    groupId = await db.Settings.AsNoTracking()
+                        .Where(s => s.Id == 1)
+                        .Select(s => s.ManagedGroupId)
+                        .FirstOrDefaultAsync(ct)
+                        .ConfigureAwait(false);
+                    groupRead = true;
+                }
+
+                if (await RoleHistory.ForFactAsync(
+                        db, directory, groupId, fact.SubjectPlatform, fact.SubjectId, fact.ActorPlatform, fact.ActorId, fact.OccurredAt, ct)
+                    .ConfigureAwait(false) is { } worked)
+                {
+                    roles[fact.Id] = worked;
+                }
             }
         }
-        catch (JsonException)
-        {
-        }
 
-        return set;
+        return new RoutePeople(directory, roles);
     }
-
-    private static string? Blank(string? value) => string.IsNullOrEmpty(value) ? null : value;
 }

@@ -3,7 +3,15 @@ import { X } from 'lucide-react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { api, ApiError, type DiscordRoute, type DiscordRouteBody, type DiscordRoutePerson, type DiscordRoutes } from '@/lib/api'
+import {
+  api,
+  ApiError,
+  type DiscordRoute,
+  type DiscordRouteBody,
+  type DiscordRoutePerson,
+  type DiscordRoutePlatform,
+  type DiscordRoutes,
+} from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Checkbox, Field, Outcome } from '../fields'
 import { EVENT_POST_NEEDS } from '@/lib/discordLists'
@@ -27,8 +35,14 @@ export function RouteEditor({
   const [channelId, setChannelId] = useState(route?.channelId ?? '')
   const [name, setName] = useState(route?.name ?? '')
   const [eventTypes, setEventTypes] = useState<string[]>(route?.eventTypes ?? [])
-  const [subjectIds, setSubjectIds] = useState<string[]>(route?.subjectIds ?? [])
-  const [actorIds, setActorIds] = useState<string[]>(route?.actorIds ?? [])
+  const [subjects, setSubjects] = useState<Picked>({
+    vrchat: route?.subjectIds ?? [],
+    discord: route?.subjectDiscordIds ?? [],
+  })
+  const [actors, setActors] = useState<Picked>({
+    vrchat: route?.actorIds ?? [],
+    discord: route?.actorDiscordIds ?? [],
+  })
   const [actorAutomatic, setActorAutomatic] = useState(route?.actorAutomatic ?? false)
   const [subjectRoles, setSubjectRoles] = useState<string[]>(route?.subjectVRChatRoleIds ?? [])
   const [actorRoles, setActorRoles] = useState<string[]>(route?.actorVRChatRoleIds ?? [])
@@ -36,9 +50,10 @@ export function RouteEditor({
 
   // Names for chips: what the list already knew, plus anybody picked from a search since.
   const [people, setPeople] = useState<Map<string, DiscordRoutePerson>>(
-    () => new Map(options.people.map((p) => [p.id, p])),
+    () => new Map(options.people.map((p) => [personKey(p.platform, p.id), p])),
   )
-  const remember = (person: DiscordRoutePerson) => setPeople((current) => new Map(current).set(person.id, person))
+  const remember = (person: DiscordRoutePerson) =>
+    setPeople((current) => new Map(current).set(personKey(person.platform, person.id), person))
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -52,8 +67,10 @@ export function RouteEditor({
       name,
       channelId,
       eventTypes,
-      subjectIds,
-      actorIds,
+      subjectIds: subjects.vrchat,
+      subjectDiscordIds: subjects.discord,
+      actorIds: actors.vrchat,
+      actorDiscordIds: actors.discord,
       actorAutomatic,
       subjectVRChatRoleIds: subjectRoles,
       actorVRChatRoleIds: actorRoles,
@@ -80,8 +97,8 @@ export function RouteEditor({
       <div className="flex flex-col gap-4">
         <PeoplePicker
           label="Happened to"
-          value={subjectIds}
-          onChange={setSubjectIds}
+          value={subjects}
+          onChange={setSubjects}
           people={people}
           onPicked={remember}
         />
@@ -92,7 +109,7 @@ export function RouteEditor({
           onChange={setSubjectRoles}
         />
         <div className="flex flex-col gap-2">
-          <PeoplePicker label="Done by" value={actorIds} onChange={setActorIds} people={people} onPicked={remember} />
+          <PeoplePicker label="Done by" value={actors} onChange={setActors} people={people} onPicked={remember} />
           <Checkbox checked={actorAutomatic} onChange={setActorAutomatic}>
             Modbot (automatic)
           </Checkbox>
@@ -255,9 +272,20 @@ function Chips({
   )
 }
 
+/** People picked for one filter, by the kind of account each id is. */
+type Picked = { vrchat: string[]; discord: string[] }
+
+const PLATFORM_LABEL: Record<DiscordRoutePlatform, string> = { vrchat: 'VRChat', discord: 'Discord' }
+
+function personKey(platform: DiscordRoutePlatform, id: string) {
+  return `${platform}:${id}`
+}
+
 /**
- * People picked by name or id from Modbot's stored profiles. Anything typed can also be used as an
- * id as it is, since VRChat ids have no fixed shape and a person may not have a stored profile.
+ * People picked by name or id: VRChat accounts from Modbot's stored profiles, Discord accounts
+ * from the ones members linked. Anything typed can also be used as either kind of id as it is,
+ * since VRChat ids have no fixed shape and most Discord members are not linked. Each account is
+ * kept on its own list, so a Discord-only or VRChat-only person can be picked.
  */
 function PeoplePicker({
   label,
@@ -267,8 +295,8 @@ function PeoplePicker({
   onPicked,
 }: {
   label: string
-  value: string[]
-  onChange: (ids: string[]) => void
+  value: Picked
+  onChange: (picked: Picked) => void
   people: Map<string, DiscordRoutePerson>
   onPicked: (person: DiscordRoutePerson) => void
 }) {
@@ -301,34 +329,51 @@ function PeoplePicker({
     }
   }, [term])
 
+  const has = (platform: DiscordRoutePlatform, id: string) => value[platform].includes(id)
+
   const add = (person: DiscordRoutePerson) => {
     onPicked(person)
-    if (!value.includes(person.id)) onChange([...value, person.id])
+    if (!has(person.platform, person.id))
+      onChange({ ...value, [person.platform]: [...value[person.platform], person.id] })
     setQuery('')
     setResults([])
   }
 
-  const shown = term ? results.filter((p) => !value.includes(p.id)) : []
-  const typed = term && !value.includes(term) && !results.some((p) => p.id === term) ? term : null
+  const remove = (platform: DiscordRoutePlatform, id: string) =>
+    onChange({ ...value, [platform]: value[platform].filter((v) => v !== id) })
+
+  const shown = term ? results.filter((p) => !has(p.platform, p.id)) : []
+  const typed = (['vrchat', 'discord'] as const)
+    .filter((platform) => term && !has(platform, term) && !results.some((p) => p.platform === platform && p.id === term))
+    .map((platform): DiscordRoutePerson => ({ id: term, name: null, pictureUrl: null, platform }))
+
+  const chips = (['vrchat', 'discord'] as const).flatMap((platform) => value[platform].map((id) => ({ platform, id })))
 
   return (
     <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
       <span className="text-muted-foreground">{label}</span>
-      {value.length > 0 && (
+      {chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {value.map((id) => (
-            <span key={id} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs">
-              {people.get(id)?.name ?? id}
-              <button
-                type="button"
-                aria-label={`Remove ${people.get(id)?.name ?? id}`}
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => onChange(value.filter((v) => v !== id))}
+          {chips.map(({ platform, id }) => {
+            const name = people.get(personKey(platform, id))?.name ?? id
+            return (
+              <span
+                key={personKey(platform, id)}
+                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs"
               >
-                <X className="size-3" />
-              </button>
-            </span>
-          ))}
+                {name}
+                <span className="text-muted-foreground">{PLATFORM_LABEL[platform]}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${name}`}
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => remove(platform, id)}
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            )
+          })}
         </div>
       )}
       <Input
@@ -338,16 +383,16 @@ function PeoplePicker({
         onKeyDown={(e) => {
           if (e.key !== 'Enter') return
           e.preventDefault()
-          const first = shown[0] ?? (typed ? { id: typed, name: null, pictureUrl: null } : null)
+          const first = shown[0] ?? typed[0]
           if (first) add(first)
         }}
       />
-      {term && (error || shown.length > 0 || typed) && (
+      {term && (error || shown.length > 0 || typed.length > 0) && (
         <div className="flex max-h-48 flex-col overflow-y-auto rounded-md border p-1">
           {error && <span className="px-2 py-1 text-destructive">{error}</span>}
           {shown.map((person) => (
             <button
-              key={person.id}
+              key={personKey(person.platform, person.id)}
               type="button"
               onClick={() => add(person)}
               className="flex items-center gap-2 rounded-sm px-2 py-1 text-left hover:bg-accent"
@@ -358,18 +403,20 @@ function PeoplePicker({
                 <span className="size-5 shrink-0 rounded-full bg-secondary" />
               )}
               <span className="truncate">{person.name ?? person.id}</span>
-              <span className="ml-auto truncate text-xs text-muted-foreground">{person.id}</span>
+              <span className="ml-auto shrink-0 text-xs text-muted-foreground">{PLATFORM_LABEL[person.platform]}</span>
+              <span className="truncate text-xs text-muted-foreground">{person.id}</span>
             </button>
           ))}
-          {typed && (
+          {typed.map((person) => (
             <button
+              key={personKey(person.platform, 'typed')}
               type="button"
-              onClick={() => add({ id: typed, name: null, pictureUrl: null })}
+              onClick={() => add(person)}
               className="rounded-sm px-2 py-1 text-left hover:bg-accent"
             >
-              Use {typed}
+              Use {person.id} as a {PLATFORM_LABEL[person.platform]} id
             </button>
-          )}
+          ))}
         </div>
       )}
     </div>

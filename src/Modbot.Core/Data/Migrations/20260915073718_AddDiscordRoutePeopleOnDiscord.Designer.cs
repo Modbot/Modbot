@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260915073718_AddDiscordRoutePeopleOnDiscord")]
+    partial class AddDiscordRoutePeopleOnDiscord
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -644,10 +647,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("integer")
                         .HasColumnName("id");
-
-                    b.Property<DateTimeOffset?>("MessagesStoredThrough")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("messages_stored_through");
 
                     b.Property<DateTimeOffset?>("ObservedThrough")
                         .HasColumnType("timestamp with time zone")

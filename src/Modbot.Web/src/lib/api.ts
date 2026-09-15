@@ -294,8 +294,12 @@ export type DiscordRoute = {
   channelId: string
   enabled: boolean
   eventTypes: string[]
+  /** VRChat accounts. */
   subjectIds: string[]
+  subjectDiscordIds: string[]
+  /** VRChat accounts. */
   actorIds: string[]
+  actorDiscordIds: string[]
   /** Also match events nobody did. */
   actorAutomatic: boolean
   subjectVRChatRoleIds: string[]
@@ -305,7 +309,14 @@ export type DiscordRoute = {
 
 export type DiscordRouteBody = Partial<Omit<DiscordRoute, 'id'>>
 
-export type DiscordRoutePerson = { id: string; name: string | null; pictureUrl: string | null }
+export type DiscordRoutePlatform = 'vrchat' | 'discord'
+
+export type DiscordRoutePerson = {
+  id: string
+  name: string | null
+  pictureUrl: string | null
+  platform: DiscordRoutePlatform
+}
 
 export type DiscordRoutes = {
   routes: DiscordRoute[]

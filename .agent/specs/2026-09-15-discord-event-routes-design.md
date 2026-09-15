@@ -24,8 +24,10 @@ the card **Channels**, because that is what a moderator is choosing; "route" is 
 | `name` | Optional label shown in the list. |
 | `enabled` | Off keeps the route and sends nothing. |
 | `event_types` | The fact types to send. The API asks for at least one. |
-| `subject_ids` | VRChat user ids. Empty means anyone. |
+| `subject_ids` | VRChat user ids. |
+| `subject_discord_ids` | Discord user ids. Both subject lists empty means anyone. |
 | `actor_ids` | VRChat user ids. |
+| `actor_discord_ids` | Discord user ids. |
 | `actor_automatic` | Also match events nobody did (no actor): sync inferences, reviews Modbot opened, snapshots. |
 | `subject_vr_chat_role_ids` | VRChat group role ids. |
 | `actor_vr_chat_role_ids` | VRChat group role ids. |
@@ -40,33 +42,86 @@ An event goes to a route when **every filter that is set matches**. Inside one f
 the listed values** is enough. An empty filter matches everything.
 
 - **Event type** — the fact's type is in `event_types` *and* is sendable (§4).
-- **Subject** — the subject, read as a VRChat user id (below), is in `subject_ids`.
-- **Actor** — the actor, read as a VRChat user id, is in `actor_ids`; or the fact has no actor
-  and `actor_automatic` is on. The actor filter is set when either part is.
-- **Subject VRChat roles** — the subject is a current member of the managed group holding any of
-  the roles.
+- **Subject** — any account the subject stands for (below) is on `subject_ids` or
+  `subject_discord_ids`.
+- **Actor** — the same for the actor, on `actor_ids` or `actor_discord_ids`; or the fact has no
+  actor and `actor_automatic` is on. The actor filter is set when any of the three is.
+- **Subject VRChat roles** — the subject held any of the roles **when the event happened**.
 - **Actor VRChat roles** — the same, for the actor. An event with no actor never matches.
-- **Actor Modbot roles** — the actor's Modbot account holds any of the roles. An event with no
-  actor, or whose actor has no Modbot account, never matches.
+- **Actor Modbot roles** — the actor's Modbot account held any of the roles when the event
+  happened. An event with no actor, or whose actor has no Modbot account, never matches.
 
-**Reading a subject or actor as a person.** Facts name people on three platforms. A VRChat id is
-used as it is. A Modbot account id is read as the VRChat account that account linked (accounts and
-access §4.3). A Discord user id is read through the Modbot account that stored that Discord id. A
-subject that is not a person — a group, a location, a channel, `settings` — reads as nobody, so it
-never matches a person or role filter, and always matches a route without one.
+### 3.1 People across platforms
 
-The Modbot account for a Modbot role filter is found the same way: by id, by linked VRChat id, or by
-stored Discord id.
+Not every VRChat member is on Discord, not every Discord member is in VRChat, and most people will
+never link the two. A person filter therefore works on accounts, and a link only adds:
 
-**Roles are read when the event is sent, not when it happened.** Facts do not record the roles a
-person held, and `group_member` is current state. An event caught up after a long outage is
-therefore matched against roles as they are now. That is accepted: the alternative is a roles
-history nobody has asked for, and the difference only shows for someone whose roles changed
-between an event and its post.
+- **A VRChat account stands for itself.** Picking TeaSpoon's VRChat account matches every fact whose
+  subject (or actor) is that VRChat id — kicks, bans, warnings, arrivals, profile flags — whether or
+  not TeaSpoon has a Discord account.
+- **A Discord account stands for itself.** Picking a Discord account matches every fact on that
+  Discord id, for somebody who never linked or has no VRChat account at all. The picker finds
+  Discord accounts in the server's member list (`discord_member`) and among linked accounts, by name or
+  id, and takes any typed Discord id.
+- **A link adds the other side.** An active row in `discord_account_link` makes a VRChat account and a
+  Discord account the same person, so a filter on either matches events on both. An ended link adds
+  nothing.
+- **A Modbot account** in a fact (Modbot's own actions name the account that did them) stands for
+  the VRChat account it linked and the Discord id stored on it, plus whatever those are linked to.
+- **Anything else** — a group, a location, a channel, `settings` — is nobody: it never matches a
+  person or role filter, and always matches a route without one.
 
-**One message per channel.** When several enabled routes send to the same channel, the channel
-receives each event once if any of them matches. Two routes to two channels send it twice, once
-to each.
+VRChat ids and Discord ids are kept on separate lists rather than one list of prefixed strings: a
+VRChat id has no fixed shape (foundation §3.1.1), so no prefix could be told apart from one.
+
+`PeopleDirectory.Of` in `Modbot.Analytics` is the one place this is worked out.
+
+### 3.2 Roles as of the event
+
+Wren bans TeaSpoon while a Moderator. The bot is offline, Wren stops being a Moderator, and catch-up
+runs. A channel for "bans by Moderators" must still get that ban: it was a Moderator's ban. Roles are
+therefore decided as they were when the event happened, never as they are when the post goes out.
+
+**Saved with the fact.** When the fact writer appends a fact with a person in it, it saves the
+roles of the moment in the fact's own payload under `heldRoles`:
+
+```json
+"heldRoles": {
+  "subjectVRChatRoles": ["grol_..."],
+  "actorVRChatRoles": ["grol_..."],
+  "actorModbotRoles": ["0199..."]
+}
+```
+
+In the payload rather than a table beside the log because facts are written once and never changed
+(foundation §5.2), and the roles are part of what was true at the time. They go wherever the fact
+goes: the retention move-out keeps them, a user purge deletes them with the fact, and there is no
+second table to keep in step with partitions being dropped.
+
+The saved roles are "the roles as of `occurred_at`", worked out the same way as §3.3 at write time,
+so an audit-log entry caught up days late is saved with the roles of its own moment and not of the
+catch-up.
+
+Client presence reports are not given roles when written. They are by far the busiest ingest,
+and a lookup per report is poor value when §3.3 can answer for the few a route asks about.
+
+**Facts without saved roles** — every fact written before this, and presence reports — use §3.3.
+
+### 3.3 Roles from history
+
+Start from the roles held now: `group_member.roles` (a member who left keeps their last roles
+there) and the account's rows in `modbot_user_role`. Then walk back through every change recorded
+after the event, newest first, undoing each:
+
+- VRChat: a `vrchat.group.role.assign` for that person after the event means the role was not held
+  yet; a `vrchat.group.role.unassign` after it means it still was. Both audit-log and sweep-inferred
+  changes count; undoing the same change twice changes nothing.
+- Modbot: the first `modbot.user.roles.change` for the account after the event holds the roles
+  before it — `beforeRoleIds` since this change, and on older facts the role names in `before`,
+  read against the roles as they are named now.
+
+With no change recorded after the event, the roles now are the answer. That is the final fallback,
+for somebody Modbot has no role history for; it is only wrong for a change Modbot never saw.
 
 ## 4. Which event types can be sent
 
@@ -140,8 +195,9 @@ email and the public address; `#integrations` still opens it.
 Channels card: one row per route — channel, name, how many events, on/off switch, Edit, Delete —
 and **Add channel**, which opens the editor: channel picker (needs View Channel, Send Messages,
 Embed Links), event types by group, then filters. People are found by name or id among Modbot's
-stored VRChat profiles; the actor list also offers **Modbot (automatic)**. VRChat roles come from
-the group's last-read roles; Modbot roles from the role list.
+stored VRChat profiles, the Discord member list and linked Discord accounts, each marked VRChat or Discord; a
+typed id can be used as either. The actor list also offers **Modbot (automatic)**. VRChat roles come
+from the group's last-read roles; Modbot roles from the role list.
 
 All of it is under `ManageSettings`, like every other Discord setting. Every create, change and
 delete is recorded as `modbot.settings.change`.

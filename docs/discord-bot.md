@@ -75,14 +75,22 @@ On the **Channels** card, press **Add channel**:
 | Filter | Sends an event only when |
 |---|---|
 | **Happened to** | it happened to one of these people. |
-| **Happened to someone with these VRChat roles** | the person it happened to holds one of these group roles now. |
+| **Happened to someone with these VRChat roles** | the person it happened to held one of these group roles at the time. |
 | **Done by** | one of these people did it. Tick **Modbot (automatic)** to include events nobody did, such as what Modbot noticed on its own. |
-| **Done by someone with these VRChat roles** | the person who did it holds one of these group roles now. |
-| **Done by someone with these Modbot roles** | the Modbot account of the person who did it holds one of these roles. |
+| **Done by someone with these VRChat roles** | the person who did it held one of these group roles at the time. |
+| **Done by someone with these Modbot roles** | the Modbot account of the person who did it held one of these roles at the time. |
 
 When several filters are set, an event has to pass all of them. Inside one filter, any of the
-people or roles listed is enough. A moderator's actions in Modbot count as done by the VRChat
-account they linked.
+people or roles listed is enough.
+
+People are picked as a VRChat account or a Discord account; the search shows which. Picking a
+VRChat account matches that account's events, and picking a Discord account matches that Discord
+account's events, whether or not the person ever linked the two. When a member has linked their
+accounts, picking either one also matches the other's events. A moderator's actions in Modbot count
+as done by the VRChat account they linked.
+
+Roles are the ones held when the event happened. A ban by a Moderator is still posted to a
+"bans by Moderators" channel if the moderator loses the role before the bot gets to it.
 
 You can add as many channels as you like, and more than one rule for the same channel. If two
 rules for one channel both match an event, the channel still gets it once.

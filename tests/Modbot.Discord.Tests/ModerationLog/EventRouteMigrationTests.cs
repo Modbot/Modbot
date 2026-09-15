@@ -35,7 +35,7 @@ public class EventRouteMigrationTests
         var ct = TestContext.Current.CancellationToken;
         var database = await OldDatabaseAsync(" 1234567890 ", null, 4711, ct);
 
-        await MigrateToAsync(database, Routes, ct);
+        await MigrateToAsync(database, null, ct);
 
         await using var db = database.NewContext();
         var route = Assert.Single(await db.DiscordEventRoutes.AsNoTracking().ToListAsync(ct));
@@ -45,6 +45,8 @@ public class EventRouteMigrationTests
         Assert.Equal(ModerationLogEvents.Allowed, route.EventTypes);
         Assert.Empty(route.SubjectIds);
         Assert.Empty(route.ActorIds);
+        Assert.Empty(route.SubjectDiscordIds);
+        Assert.Empty(route.ActorDiscordIds);
         Assert.False(route.ActorAutomatic);
         Assert.Empty(route.SubjectVRChatRoleIds);
         Assert.Empty(route.ActorVRChatRoleIds);
@@ -66,7 +68,7 @@ public class EventRouteMigrationTests
             null,
             ct);
 
-        await MigrateToAsync(database, Routes, ct);
+        await MigrateToAsync(database, null, ct);
 
         await using var db = database.NewContext();
         var route = Assert.Single(await db.DiscordEventRoutes.AsNoTracking().ToListAsync(ct));
@@ -82,7 +84,7 @@ public class EventRouteMigrationTests
         var ct = TestContext.Current.CancellationToken;
         var database = await OldDatabaseAsync("1234567890", string.Empty, 12, ct);
 
-        await MigrateToAsync(database, Routes, ct);
+        await MigrateToAsync(database, null, ct);
 
         await using var db = database.NewContext();
         var route = Assert.Single(await db.DiscordEventRoutes.AsNoTracking().ToListAsync(ct));
@@ -97,7 +99,7 @@ public class EventRouteMigrationTests
         var ct = TestContext.Current.CancellationToken;
         var database = await OldDatabaseAsync(channel, null, 99, ct);
 
-        await MigrateToAsync(database, Routes, ct);
+        await MigrateToAsync(database, null, ct);
 
         await using var db = database.NewContext();
         Assert.Empty(await db.DiscordEventRoutes.AsNoTracking().ToListAsync(ct));
@@ -178,7 +180,8 @@ public class EventRouteMigrationTests
         _ => "''",
     };
 
-    private static async Task MigrateToAsync(IsolatedDatabase database, string migration, CancellationToken ct)
+    /// <summary>Migrates up or down to <paramref name="migration"/>, or to the newest when null, so the context can read the tables.</summary>
+    private static async Task MigrateToAsync(IsolatedDatabase database, string? migration, CancellationToken ct)
     {
         await using var context = database.NewContext();
         await context.GetService<IMigrator>().MigrateAsync(migration, ct);

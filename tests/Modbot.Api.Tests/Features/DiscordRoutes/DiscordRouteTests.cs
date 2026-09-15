@@ -94,6 +94,7 @@ public class DiscordRouteTests
             channelId = " " + Channel + " ",
             eventTypes = new[] { FactType.MemberKicked, FactType.MemberBanned, FactType.Login, FactType.MemberBanned },
             subjectIds = new[] { "usr_a", " usr_a", "" },
+            subjectDiscordIds = new[] { "900000000000000777" },
             actorAutomatic = true,
             actorModbotRoleIds = new[] { role },
         }, cookie, Ct));
@@ -103,6 +104,8 @@ public class DiscordRouteTests
         Assert.True(created.Enabled);
         Assert.Equal([FactType.MemberBanned, FactType.MemberKicked], created.EventTypes);
         Assert.Equal(["usr_a"], created.SubjectIds);
+        Assert.Equal(["900000000000000777"], created.SubjectDiscordIds);
+        Assert.Empty(created.ActorDiscordIds);
         Assert.True(created.ActorAutomatic);
         Assert.Equal([role], created.ActorModbotRoleIds);
 
@@ -118,6 +121,7 @@ public class DiscordRouteTests
         Assert.Equal("Staff log", changed.Name);
         Assert.Equal([FactType.MemberBanned, FactType.MemberKicked], changed.EventTypes);
         Assert.Empty(changed.SubjectIds);
+        Assert.Equal(["900000000000000777"], changed.SubjectDiscordIds);
         Assert.Equal(["grol_mod"], changed.ActorVRChatRoleIds);
         Assert.True(changed.ActorAutomatic);
 
@@ -189,11 +193,30 @@ public class DiscordRouteTests
                 new VRChatUser { UserId = "usr_alice", DisplayName = "Alice_Wonder", FirstSeenAt = at, LastSeenAt = at, LastRefreshedAt = at },
                 new VRChatUser { UserId = "usr_bob", DisplayName = "Bob", FirstSeenAt = at, LastSeenAt = at, LastRefreshedAt = at },
                 new VRChatUser { UserId = "8JoV9XEdpo", DisplayName = "Legacy", FirstSeenAt = at, LastSeenAt = at, LastRefreshedAt = at });
+            db.DiscordMembers.Add(new DiscordMember
+            {
+                GuildId = "1", UserId = "900000000000000777", Username = "onlydiscord", DisplayName = "Only Discord",
+                FirstSeenAt = at,
+            });
+            db.DiscordAccountLinks.Add(new DiscordAccountLink
+            {
+                DiscordUserId = "900000000000000555", DiscordUsername = "alice.discord", VRChatUserId = "usr_alice", LinkedAt = at,
+            });
             await db.SaveChangesAsync(Ct);
         }
 
         var byName = await host.GetJsonAsync<DiscordRoutePeopleResponse>("/api/discord/routes/people?search=alice_", cookie, Ct);
         Assert.Equal(["usr_alice"], byName.People.Select(p => p.Id));
+        Assert.Equal(DiscordRoutePlatform.VRChat, byName.People[0].Platform);
+
+        // Discord accounts come from links, by username or id, and say they are Discord.
+        var discord = await host.GetJsonAsync<DiscordRoutePeopleResponse>("/api/discord/routes/people?search=alice.disc", cookie, Ct);
+        var found = Assert.Single(discord.People);
+        Assert.Equal(("900000000000000555", "alice.discord", DiscordRoutePlatform.Discord), (found.Id, found.Name, found.Platform));
+
+        // A member of the Discord server who never linked anything is found too.
+        var member = Assert.Single((await host.GetJsonAsync<DiscordRoutePeopleResponse>("/api/discord/routes/people?search=only", cookie, Ct)).People);
+        Assert.Equal(("900000000000000777", "Only Discord", DiscordRoutePlatform.Discord), (member.Id, member.Name, member.Platform));
 
         var byId = await host.GetJsonAsync<DiscordRoutePeopleResponse>("/api/discord/routes/people?search=8JoV9XEdpo", cookie, Ct);
         Assert.Equal("Legacy", Assert.Single(byId.People).Name);

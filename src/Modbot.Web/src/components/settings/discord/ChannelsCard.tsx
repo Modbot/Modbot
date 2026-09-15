@@ -13,7 +13,9 @@ import { RouteEditor } from './RouteEditor'
 function filtered(route: DiscordRoute): boolean {
   return (
     route.subjectIds.length > 0 ||
+    route.subjectDiscordIds.length > 0 ||
     route.actorIds.length > 0 ||
+    route.actorDiscordIds.length > 0 ||
     route.actorAutomatic ||
     route.subjectVRChatRoleIds.length > 0 ||
     route.actorVRChatRoleIds.length > 0 ||

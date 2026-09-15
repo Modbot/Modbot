@@ -31,22 +31,32 @@ public class DiscordEventRoute
     /// <summary>Fact types to send. Only <c>DiscordEventTypes.CanSend</c> types are ever honoured.</summary>
     public List<string> EventTypes { get; set; } = [];
 
-    /// <summary>VRChat user ids the event must be about. Empty: anyone.</summary>
+    /// <summary>
+    /// VRChat accounts the event must be about. Empty here and in <see cref="SubjectDiscordIds"/>:
+    /// anyone. An account matches its own events whether or not it is linked; a link adds the other
+    /// account's events.
+    /// </summary>
     public List<string> SubjectIds { get; set; } = [];
 
-    /// <summary>VRChat user ids the event must be done by.</summary>
+    /// <summary>Discord accounts the event must be about, alongside <see cref="SubjectIds"/>.</summary>
+    public List<string> SubjectDiscordIds { get; set; } = [];
+
+    /// <summary>VRChat accounts the event must be done by.</summary>
     public List<string> ActorIds { get; set; } = [];
+
+    /// <summary>Discord accounts the event must be done by, alongside <see cref="ActorIds"/>.</summary>
+    public List<string> ActorDiscordIds { get; set; } = [];
 
     /// <summary>Also match events nobody did -- the ones Modbot or a sync recorded on its own.</summary>
     public bool ActorAutomatic { get; set; }
 
-    /// <summary>VRChat group roles, any of which the person the event is about must hold now.</summary>
+    /// <summary>VRChat group roles, any of which the person the event is about held when it happened.</summary>
     public List<string> SubjectVRChatRoleIds { get; set; } = [];
 
-    /// <summary>VRChat group roles, any of which the person who did it must hold now.</summary>
+    /// <summary>VRChat group roles, any of which the person who did it held when it happened.</summary>
     public List<string> ActorVRChatRoleIds { get; set; } = [];
 
-    /// <summary>Modbot roles, any of which the account of the person who did it must hold now.</summary>
+    /// <summary>Modbot roles, any of which the account of the person who did it held when it happened.</summary>
     public List<Guid> ActorModbotRoleIds { get; set; } = [];
 
     /// <summary>Order in the list. New routes go last.</summary>
@@ -55,7 +65,9 @@ public class DiscordEventRoute
     /// <summary>Whether any filter beyond the event types is set.</summary>
     public bool HasPeopleFilters =>
         SubjectIds.Count > 0
+        || SubjectDiscordIds.Count > 0
         || ActorIds.Count > 0
+        || ActorDiscordIds.Count > 0
         || ActorAutomatic
         || SubjectVRChatRoleIds.Count > 0
         || ActorVRChatRoleIds.Count > 0

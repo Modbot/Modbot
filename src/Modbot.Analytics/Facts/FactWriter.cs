@@ -178,6 +178,8 @@ public sealed class FactWriter : IFactWriter
 
     private async Task<long> InsertAsync(FactRecord fact, CancellationToken ct)
     {
+        var data = await WithHeldRolesAsync(fact, ct);
+
         var entity = new ModbotEvent
         {
             OccurredAt = fact.OccurredAt,
@@ -192,7 +194,7 @@ public sealed class FactWriter : IFactWriter
             WorldId = fact.WorldId,
             InstanceId = fact.InstanceId,
             Source = fact.Source,
-            Data = fact.Data?.ToJsonString() ?? "{}",
+            Data = data?.ToJsonString() ?? "{}",
         };
 
         _db.Events.Add(entity);
@@ -213,6 +215,47 @@ public sealed class FactWriter : IFactWriter
 
         return entity.Id;
     }
+
+    /// <summary>
+    /// The payload with the roles its people held when it happened saved alongside (see
+    /// <see cref="HeldRoles"/>), so a Discord route decides on the roles of the moment rather than
+    /// the roles when it posts.
+    /// </summary>
+    /// <remarks>
+    /// Skipped for client presence reports: they are the busiest ingest there is, and a route that
+    /// meets one works the roles out from the recorded role changes instead. Skipped too when the
+    /// producer already supplied roles, and when nobody in the fact is a person.
+    /// </remarks>
+    private async Task<System.Text.Json.Nodes.JsonObject?> WithHeldRolesAsync(FactRecord fact, CancellationToken ct)
+    {
+        if (fact.Source == FactSource.Client || fact.Data?.ContainsKey(HeldRoles.Key) == true)
+            return fact.Data;
+
+        var people = await PeopleDirectory.LoadAsync(
+            _db, [(fact.SubjectPlatform, fact.SubjectId), (fact.ActorPlatform, fact.ActorId)], ct);
+
+        _groupId ??= await _db.Settings
+            .AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.ManagedGroupId)
+            .FirstOrDefaultAsync(ct) ?? string.Empty;
+
+        var roles = await RoleHistory.ForFactAsync(
+            _db, people, _groupId, fact.SubjectPlatform, fact.SubjectId, fact.ActorPlatform, fact.ActorId, fact.OccurredAt, ct);
+
+        if (roles is null)
+            return fact.Data;
+
+        // A copy: the caller's object may be reused for the next fact.
+        var data = fact.Data is null
+            ? new System.Text.Json.Nodes.JsonObject()
+            : (System.Text.Json.Nodes.JsonObject)fact.Data.DeepClone();
+
+        data[HeldRoles.Key] = roles.ToJson();
+        return data;
+    }
+
+    private string? _groupId;
 
     private async Task<int> WindowSecondsAsync(CancellationToken ct)
     {
