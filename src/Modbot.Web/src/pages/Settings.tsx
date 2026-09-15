@@ -16,7 +16,7 @@ import { api, type OnboardingStatus } from '@/lib/api'
  * Adding a topic means one entry here and one line in `Panel` below.
  */
 const TABS = [
-  { value: 'data', label: 'Data' },
+  { value: 'data', label: 'Host & Database' },
   { value: 'vrchat', label: 'VRChat Service Account' },
   { value: 'integrations', label: 'Integrations' },
   { value: 'discord', label: 'Discord' },

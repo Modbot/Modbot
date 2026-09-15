@@ -5,7 +5,8 @@ import { Checkbox, Fact, Field, Outcome, PasswordField, Placeholder } from './fi
 import { SettingsCard, SettingsSection } from './SettingsCard'
 
 /**
- * Email and the public address — spec 7.1 step 5, re-run. Discord has its own tab since event
+ * Email — spec 7.1 step 5, re-run. The public address moved to Host & Database.
+ * Discord has its own tab since event
  * channels arrived (Discord event routes design §7).
  *
  * SMTP is not validated by connecting, here or in the wizard: sending mail is slow and fails for
@@ -43,7 +44,6 @@ function IntegrationsForm({
   const [smtpPassword, setSmtpPassword] = useState('')
   const [fromAddress, setFromAddress] = useState('')
   const [useTls, setUseTls] = useState(true)
-  const [publicAddress, setPublicAddress] = useState(status.integrations.publicAddress ?? '')
 
   const [testTo, setTestTo] = useState('')
   const [testing, setTesting] = useState(false)
@@ -75,8 +75,6 @@ function IntegrationsForm({
 
     api
       .saveIntegrations({
-        // Sent as typed: empty clears it, which stops reset links being sent until it is set again.
-        publicAddress,
         smtp: {
           host,
           ...(port ? { port: Number(port) } : {}),
@@ -97,7 +95,7 @@ function IntegrationsForm({
       .finally(() => setSaving(false))
   }
 
-  // One form around both cards, because the API saves them as one body. `contents` keeps the
+  // One form around the card and its Save row. `contents` keeps the
   // form element out of the layout so the cards stay direct children of the grid. A blank password
   // field is left out, so opening this page and pressing Save never clears a stored one.
   return (
@@ -142,31 +140,6 @@ function IntegrationsForm({
           <Outcome tone="ok">{testResult?.sent && 'Sent.'}</Outcome>
           <Outcome tone="problem">{testResult && !testResult.sent ? testResult.error : null}</Outcome>
         </div>
-      </SettingsCard>
-
-      <SettingsCard title="Public address">
-        <Fact
-          label="Address"
-          value={status.integrations.publicAddress ?? 'Not set'}
-        />
-        <div className="max-w-lg">
-          <Field
-            label="Public address"
-            value={publicAddress}
-            onChange={setPublicAddress}
-            placeholder={status.integrations.publicAddressSuggestion ?? window.location.origin}
-          />
-        </div>
-        {status.integrations.publicAddressSuggestion && !publicAddress && (
-          <button
-            type="button"
-            className="mt-2 text-primary underline-offset-2 hover:underline"
-            style={{ fontSize: 'var(--text-small)' }}
-            onClick={() => setPublicAddress(status.integrations.publicAddressSuggestion ?? '')}
-          >
-            Use {status.integrations.publicAddressSuggestion}
-          </button>
-        )}
       </SettingsCard>
 
       <div className="col-span-12 flex flex-wrap items-center gap-3">

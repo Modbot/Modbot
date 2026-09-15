@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { api, ApiError, type DataSettings } from '@/lib/api'
+import { api, ApiError, type DataSettings, type PublicAddressView } from '@/lib/api'
 import { followLink } from '@/lib/router'
 import { Fact, Field, Hint, Outcome, Placeholder, Row } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
@@ -40,10 +40,7 @@ export function DataSection() {
   useEffect(() => load(), [load])
 
   return (
-    <SettingsSection
-      id="data"
-      title="Data"
-    >
+    <SettingsSection id="data" title="Host & Database">
       {error ? (
         <Placeholder>{error}</Placeholder>
       ) : !data ? (
@@ -65,6 +62,7 @@ export function DataSection() {
           />
           <RetentionCard current={data.retention} onSaved={load} />
           <DeploymentCard deployment={data.deployment} />
+          <PublicAddressCard />
         </>
       )}
     </SettingsSection>
@@ -239,6 +237,85 @@ function RetentionCard({
         />
       </div>
       <Hint>0 keeps forever.</Hint>
+    </SettingsCard>
+  )
+}
+
+/**
+ * The address people use to reach this Modbot, used to build links sent by email or Discord
+ * (accounts and access design §4.2). Saved through its own endpoint, which records the change in
+ * the audit log, rather than with the email settings it used to share a form with.
+ */
+function PublicAddressCard() {
+  const [view, setView] = useState<PublicAddressView | null>(null)
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api
+      .publicAddress()
+      .then((next) => {
+        setView(next)
+        setValue(next.publicAddress ?? '')
+      })
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load the public address.'))
+  }, [])
+
+  const save = (event: React.FormEvent) => {
+    event.preventDefault()
+    setSaving(true)
+    setSaved(false)
+    setError(null)
+
+    api
+      .setPublicAddress(value)
+      .then((next) => {
+        setView((current) => ({ publicAddress: next.publicAddress, suggestion: current?.suggestion ?? null }))
+        setValue(next.publicAddress ?? '')
+        setSaved(true)
+      })
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setSaving(false))
+  }
+
+  const suggestion = view?.suggestion ?? null
+
+  return (
+    <SettingsCard
+      title="Public address"
+      footer={
+        <>
+          <Button type="submit" form="public-address-form" size="sm" disabled={saving || !view}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+          <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
+          <Outcome tone="problem">{error}</Outcome>
+        </>
+      }
+    >
+      <form id="public-address-form" onSubmit={save} className="flex flex-col gap-3">
+        <Fact label="Address" value={view ? (view.publicAddress ?? 'Not set') : '…'} />
+        <div className="max-w-lg">
+          <Field
+            label="Public address"
+            value={value}
+            onChange={setValue}
+            placeholder={suggestion ?? window.location.origin}
+          />
+        </div>
+        {suggestion && !value && (
+          <button
+            type="button"
+            className="self-start text-primary underline-offset-2 hover:underline"
+            style={{ fontSize: 'var(--text-small)' }}
+            onClick={() => setValue(suggestion)}
+          >
+            Use {suggestion}
+          </button>
+        )}
+      </form>
     </SettingsCard>
   )
 }
