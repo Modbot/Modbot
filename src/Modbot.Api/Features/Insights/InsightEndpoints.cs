@@ -69,7 +69,7 @@ public static class InsightEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
-        var settings = app.MapGroup("/api/settings/ai/insights").WithTags("Settings");
+        var settings = app.MapGroup("/api/settings/ai/insights").WithTags("AI settings");
 
         settings.MapGet("", async (
                 [FromServices] ModbotContext db,

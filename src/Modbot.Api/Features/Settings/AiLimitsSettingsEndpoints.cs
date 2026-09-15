@@ -116,7 +116,7 @@ public static class AiLimitsSettingsEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var group = app.MapGroup("/api/settings/ai").WithTags("Settings");
+        var group = app.MapGroup("/api/settings/ai").WithTags("AI settings");
 
         group.MapGet("/limits", async (
                 [FromServices] ModbotContext db,

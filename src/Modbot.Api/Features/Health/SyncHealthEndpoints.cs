@@ -144,6 +144,8 @@ public static class SyncHealthEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
+            // The inside of each sync job, for the Health page: left out of the public API reference.
+            .ExcludeFromDescription()
             .WithSummary("Producer poll rate, last runs, bucket budgets, and unmapped audit-log event types")
             .WithDescription(
                 "`unmappedAuditEvents` lists audit-log event types VRChat has sent that Modbot has "

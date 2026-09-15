@@ -12,6 +12,8 @@ public static class CreateAdminEndpoint
 
         app.MapPost("/api/onboarding/administrator", CreateAdminHandler.HandleAsync)
             .WithTags("Onboarding")
+            // The setup wizard's own steps, for the web app only: left out of the public API reference.
+            .ExcludeFromDescription()
             .WithName("CreateAdministrator")
             .WithSummary("Create the first staff account (spec 7.1, step 1)")
             .WithDescription(

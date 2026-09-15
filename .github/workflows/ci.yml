@@ -21,6 +21,16 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
+      # Building Modbot.Host rewrites docs/openapi/modbot.json from the endpoints themselves. The
+      # docs site is built from the committed copy, so a change here means an endpoint changed and
+      # the document was not rebuilt and committed with it.
+      - name: Check the OpenAPI document is current
+        run: |
+          if ! git diff --exit-code -- docs/openapi/modbot.json; then
+            echo "::error file=docs/openapi/modbot.json::The OpenAPI document is out of date. Build Modbot.Host and commit docs/openapi/modbot.json."
+            exit 1
+          fi
+
       # `dotnet test` does not drive Microsoft.Testing.Platform v2 on SDK 10.0.400 -- it
       # reports zero tests and exits 5. Run each suite directly instead. Docker is present
       # on ubuntu-latest, which Testcontainers needs for the real PostgreSQL the data tests

@@ -7,7 +7,28 @@
 
   <ItemGroup>
     <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
+
+  <!--
+    The OpenAPI document, written at build time to docs/openapi/modbot.json for the documentation
+    site. It is committed, so the docs build needs no .NET, and CI fails when a build changes it
+    (the committed copy is out of date).
+
+    The build starts Program.cs with a server that listens on nothing; Program.cs recognises that
+    run (BuildTimeDocument) and skips the database and the background services.
+
+    Off in Docker and wherever ModbotOpenApiDocument=false is passed: the image has no docs folder
+    to write into, and a container build has no use for the file.
+  -->
+  <PropertyGroup>
+    <OpenApiGenerateDocuments Condition="'$(ModbotOpenApiDocument)' == 'false' or '$(DOTNET_RUNNING_IN_CONTAINER)' == 'true'">false</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)..\..\docs\openapi</OpenApiDocumentsDirectory>
+    <OpenApiGenerateDocumentsOptions>--file-name modbot</OpenApiGenerateDocumentsOptions>
+  </PropertyGroup>
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

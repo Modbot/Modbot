@@ -24,6 +24,9 @@
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <!-- Writes the OpenAPI document to docs/openapi/modbot.json on every build of Modbot.Host, so
+         the documentation site's API reference is made from the endpoints themselves. -->
+    <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="10.0.12" />
     <!-- Npgsql 10.0.3 asks for EF Core 10.0.4 while the Design package asks for 10.0.12; pinned

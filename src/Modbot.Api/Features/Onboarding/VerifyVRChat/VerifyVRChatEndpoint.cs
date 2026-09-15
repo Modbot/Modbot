@@ -12,6 +12,8 @@ public static class VerifyVRChatEndpoint
 
         app.MapPost("/api/onboarding/vrchat", VerifyVRChatHandler.HandleAsync)
             .WithTags("Onboarding")
+            // The setup wizard's own steps, for the web app only: left out of the public API reference.
+            .ExcludeFromDescription()
             .WithName("VerifyVRChatAccount")
             .WithSummary("Store the VRChat account and log in with it (spec 7.1, step 2)")
             .WithDescription(

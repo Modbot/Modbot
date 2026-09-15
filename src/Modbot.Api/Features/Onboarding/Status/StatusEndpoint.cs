@@ -12,6 +12,8 @@ public static class StatusEndpoint
 
         app.MapGet("/api/onboarding/status", StatusHandler.HandleAsync)
             .WithTags("Onboarding")
+            // The setup wizard's own steps, for the web app only: left out of the public API reference.
+            .ExcludeFromDescription()
             .WithName("GetOnboardingStatus")
             .WithSummary("What is configured, and what the wizard should show next")
             .WithDescription(

@@ -44,7 +44,7 @@ public static class AiModerationEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var group = app.MapGroup("/api/settings/ai/moderation").WithTags("Settings");
+        var group = app.MapGroup("/api/settings/ai/moderation").WithTags("AI settings");
 
         group.MapGet("", async (
                 [FromServices] ModbotContext db,

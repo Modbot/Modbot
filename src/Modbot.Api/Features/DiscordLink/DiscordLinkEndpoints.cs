@@ -68,6 +68,9 @@ public static class DiscordLinkEndpoints
 
         var group = app.MapGroup(LinkCookies.CookiePath)
             .WithTags("Discord account link")
+            // The member-facing link page's own browser flow, driven by its cookie and Discord's
+            // redirects: left out of the public API reference.
+            .ExcludeFromDescription()
             .AllowAnonymous();
 
         group.MapGet("", async (

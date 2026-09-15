@@ -12,6 +12,8 @@ public static class SelectGroupEndpoint
 
         app.MapGet("/api/onboarding/groups", ListGroupsHandler.HandleAsync)
             .WithTags("Onboarding")
+            // The setup wizard's own steps, for the web app only: left out of the public API reference.
+            .ExcludeFromDescription()
             .WithName("ListManageableGroups")
             .WithSummary("Groups where the VRChat account holds moderator permissions (spec 7.1, step 4)")
             .WithDescription(
@@ -30,6 +32,8 @@ public static class SelectGroupEndpoint
 
         app.MapPost("/api/onboarding/group", SelectGroupHandler.HandleAsync)
             .WithTags("Onboarding")
+            // The setup wizard's own steps, for the web app only: left out of the public API reference.
+            .ExcludeFromDescription()
             .WithName("SelectManagedGroup")
             .WithSummary("Choose the group this deployment manages (spec 2.4, 7.1 step 4)")
             .WithDescription(

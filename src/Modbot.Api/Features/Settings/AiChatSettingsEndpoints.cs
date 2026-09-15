@@ -45,7 +45,7 @@ public static class AiChatSettingsEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var group = app.MapGroup("/api/settings/ai/chat").WithTags("Settings");
+        var group = app.MapGroup("/api/settings/ai/chat").WithTags("AI settings");
 
         group.MapGet("", async (
                 [FromServices] ModbotContext db,

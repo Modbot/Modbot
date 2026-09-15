@@ -47,7 +47,9 @@ public static class PairingCodesEndpoint
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var codes = app.MapGroup("/api/client-devices").WithTags(ClientApi.Tag);
+        // Pairing belongs to the desktop client's protocol, and API keys are refused here: left out
+        // of the public API reference.
+        var codes = app.MapGroup("/api/client-devices").WithTags(ClientApi.Tag).ExcludeFromDescription();
 
         codes.MapPost("/pairing-code", async (
                 HttpContext context,

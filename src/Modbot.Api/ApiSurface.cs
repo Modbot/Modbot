@@ -77,28 +77,8 @@ public static class ApiSurface
         services.TryAddSingleton<DiscordLinkSignal>();
         services.AddHttpClient(DiscordOAuth.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(20));
 
-        services.AddOpenApi(DocumentName, options =>
-        {
-            options.AddDocumentTransformer((document, _, _) =>
-            {
-                document.Info = new()
-                {
-                    Title = "Modbot API",
-                    Version = ModbotVersion.Release,
-                    Description =
-                        "Cached VRChat group data, moderation history and analytics for a single "
-                        + "group.\n\n"
-                        + "This is one self-hosted deployment's API. There is no central Modbot "
-                        + "service and no shared endpoint — you are talking to somebody's own "
-                        + "server.\n\n"
-                        + $"API version {ModbotVersion.Api} (minimum supported "
-                        + $"{ModbotVersion.ApiMinimum}). The API version is a plain integer, "
-                        + "separate from the calendar release version, and increments only on a "
-                        + "breaking change.",
-                };
-                return Task.CompletedTask;
-            });
-        });
+        // Its wording, sign-in schemes, error shape and section order are in OpenApiReference.
+        services.AddOpenApi(DocumentName, options => options.AddModbotReference());
 
         // The live event WebSocket (API keys design §5). Tickets and the connection count are held
         // in memory: a restart forgets both, and so do the connections they belong to.

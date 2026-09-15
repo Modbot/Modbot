@@ -67,7 +67,7 @@ public static class AiSettingsEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var group = app.MapGroup("/api/settings/ai").WithTags("Settings");
+        var group = app.MapGroup("/api/settings/ai").WithTags("AI settings");
 
         group.MapGet("", async (
                 [FromServices] ModbotContext db,

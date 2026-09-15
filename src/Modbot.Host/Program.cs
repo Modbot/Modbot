@@ -25,6 +25,11 @@ using Serilog;
 
 var env = ModbotEnvironment.Read();
 
+// The build writing the OpenAPI document runs this file too (BuildTimeDocument). It needs a
+// database address to get past the check below, and never connects to it.
+if (BuildTimeDocument.IsRunning)
+    env = new ModbotEnvironment { DatabaseUrl = BuildTimeDocument.PlaceholderDatabaseUrl };
+
 // Logging comes up before anything else, so a failure during startup is recorded rather than lost.
 // The clock is constructed here rather than resolved from DI: logging must exist before the
 // container does, and SystemModbotClock is the only implementation permitted to read the machine.
@@ -51,7 +56,8 @@ Log.Logger = ModbotLogging.Create(
     {
         Debug = env.DebugLogging,
         SeqUrl = env.SeqUrl,
-        WriteFiles = writeLogFiles,
+        // The build writing the OpenAPI document leaves no log files behind.
+        WriteFiles = writeLogFiles && !BuildTimeDocument.IsRunning,
     },
     clock);
 
@@ -247,27 +253,36 @@ try
     // fact log each pass, so a deployment with no webhooks does one small query every two seconds.
     builder.Services.AddWebhookDelivery();
 
+    if (BuildTimeDocument.IsRunning)
+        BuildTimeDocument.RemoveBackgroundServices(builder.Services);
+
     var app = builder.Build();
 
     // Spec 8.2: migrations run here, before the first request, because a self-hosted appliance
     // must not require the operator to run a migration command. The partition maintainer starts
     // with the rest of the hosted services immediately afterwards, so the fact log has somewhere
     // to write from the first fact.
-    if (await DatabaseMigrator.ApplyAsync(app.Services, connectionString, Log.Logger) is { } failure)
+    if (!BuildTimeDocument.IsRunning)
     {
-        Log.Fatal("{Problem}", failure);
-        return 1;
-    }
+        if (await DatabaseMigrator.ApplyAsync(app.Services, connectionString, Log.Logger) is { } failure)
+        {
+            Log.Fatal("{Problem}", failure);
+            return 1;
+        }
 
-    _ = app.Services.GetRequiredService<ISecretProtector>();
+        _ = app.Services.GetRequiredService<ISecretProtector>();
+    }
 
     // Now that the schema exists and the protector is warm, the stored evidence configuration can
     // be read and the store built from it, and the store marker probed (§8.3). Nothing here can
     // stop the host: a deployment whose evidence store is missing still ingests the audit log,
     // still records presence and still syncs bans -- §8.4 is explicit that trading live collection
     // that cannot be filled in later for a gesture about data already lost is the wrong trade.
-    var evidence = await app.Services.LoadEvidenceSettingsAsync();
-    Log.Information("Evidence store: {Explanation}", evidence.Explanation);
+    if (!BuildTimeDocument.IsRunning)
+    {
+        var evidence = await app.Services.LoadEvidenceSettingsAsync();
+        Log.Information("Evidence store: {Explanation}", evidence.Explanation);
+    }
 
     // The live event WebSocket (API keys design §5). Keep-alive pings are set per connection.
     app.UseWebSockets();

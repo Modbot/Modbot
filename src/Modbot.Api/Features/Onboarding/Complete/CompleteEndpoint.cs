@@ -49,6 +49,8 @@ public static class CompleteEndpoint
                 return Results.Ok(new CompleteResponse(true));
             })
             .WithTags("Onboarding")
+            // The setup wizard's own steps, for the web app only: left out of the public API reference.
+            .ExcludeFromDescription()
             .WithName("CompleteOnboarding")
             .WithSummary("Mark setup as finished (spec 7.1)")
             .WithDescription(

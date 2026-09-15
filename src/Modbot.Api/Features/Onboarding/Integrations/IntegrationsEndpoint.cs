@@ -12,6 +12,8 @@ public static class IntegrationsEndpoint
 
         app.MapPost("/api/onboarding/integrations", IntegrationsHandler.HandleAsync)
             .WithTags("Onboarding")
+            // The setup wizard's own steps, for the web app only: left out of the public API reference.
+            .ExcludeFromDescription()
             .WithName("ConfigureIntegrations")
             .WithSummary("Discord bot and SMTP, both optional (spec 7.1, step 5)")
             .WithDescription(

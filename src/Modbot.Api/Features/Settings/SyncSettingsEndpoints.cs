@@ -263,6 +263,9 @@ public static class SyncSettingsEndpoints
             .RequireAuthorization()
             .WithTags("Settings")
             .WithName("GetSyncSettings")
+            // How Modbot paces its VRChat requests: an administrator's internal, left out of the
+            // public API reference.
+            .ExcludeFromDescription()
             .WithSummary("How often the producers poll, and what each endpoint class is budgeted")
             .WithDescription(
                 "Every rate is shown three ways: spec 4.2's hard cap, the operator's configured "
@@ -310,6 +313,9 @@ public static class SyncSettingsEndpoints
             .RequireAuthorization()
             .WithTags("Settings")
             .WithName("SetSyncSettings")
+            // How Modbot paces its VRChat requests: an administrator's internal, left out of the
+            // public API reference.
+            .ExcludeFromDescription()
             .WithSummary("Lower a sync rate or a poll interval")
             .WithDescription(
                 "Partial: every field is optional and an omitted one is left alone. A rate above "

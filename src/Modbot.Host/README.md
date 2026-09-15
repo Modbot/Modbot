@@ -62,5 +62,6 @@ release branch on Settings → Data → Deployment.
 | `RAILWAY_GIT_COMMIT_SHA`, `RAILWAY_GIT_BRANCH` | Docker build args (`--build-arg`) | Recorded as the version commit and release branch. Railway passes them automatically. |
 | `ModbotCommit`, `ModbotBranch` | MSBuild (`-p:ModbotCommit=...`) | The same, and they win over everything else. Without them, a local build asks git. |
 | `ModbotRelease` | MSBuild (`-p:ModbotRelease=2026.9.0`) | Stamps the release version on every assembly. |
+| `ModbotOpenApiDocument` | MSBuild (`-p:ModbotOpenApiDocument=false`) | Stops the build rewriting `docs/openapi/modbot.json`, the OpenAPI document the docs site is built from. Docker builds never write it. |
 
 The image clears `ASPNETCORE_HTTP_PORTS`, so `PORT` is the only port setting.

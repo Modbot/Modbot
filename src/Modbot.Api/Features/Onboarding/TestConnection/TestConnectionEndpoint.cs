@@ -12,6 +12,8 @@ public static class TestConnectionEndpoint
 
         app.MapPost("/api/onboarding/connection-test", TestConnectionHandler.HandleAsync)
             .WithTags("Onboarding")
+            // The setup wizard's own steps, for the web app only: left out of the public API reference.
+            .ExcludeFromDescription()
             .WithName("TestVRChatConnection")
             .WithSummary("Test this host's egress to VRChat, with or without a proxy (spec 7.1.1)")
             .WithDescription(
