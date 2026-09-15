@@ -209,6 +209,9 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.CaseFiles.ExecuteDeleteAsync(ct);
         await context.BanReasons.ExecuteDeleteAsync(ct);
         await context.EvidenceBlobs.ExecuteDeleteAsync(ct);
+        await context.DiscordChannels.ExecuteDeleteAsync(ct);
+        await context.DiscordRoles.ExecuteDeleteAsync(ct);
+        await context.DiscordServers.ExecuteDeleteAsync(ct);
         await context.Settings.ExecuteDeleteAsync(ct);
     }
 

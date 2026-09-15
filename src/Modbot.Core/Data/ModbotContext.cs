@@ -101,6 +101,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The write-up of each ban: reasons, the moderator's words, the profile at the time (spec 5.8.3).</summary>
     public DbSet<CaseFile> CaseFiles => Set<CaseFile>();
 
+    /// <summary>The Discord server the bot serves, as last seen, so settings can offer its channels and roles.</summary>
+    public DbSet<DiscordServer> DiscordServers => Set<DiscordServer>();
+
+    /// <summary>The server's channels and the bot's permissions in each. Removed channels are marked, never deleted.</summary>
+    public DbSet<DiscordChannel> DiscordChannels => Set<DiscordChannel>();
+
+    /// <summary>The server's roles and whether the bot could hand each out. Removed roles are marked, never deleted.</summary>
+    public DbSet<DiscordRole> DiscordRoles => Set<DiscordRole>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -719,6 +728,41 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // The day is the key, so recording a day a second time can only ever update it.
             entity.HasKey(e => e.Day).HasName("pk_modbot_storage_day");
+        });
+
+        builder.Entity<DiscordServer>(entity =>
+        {
+            entity.ToTable("discord_server");
+            entity.HasKey(e => e.GuildId);
+
+            // Discord's ids are opaque text here, as everywhere else Modbot stores one.
+            entity.Property(e => e.GuildId).HasColumnType("text");
+            entity.Property(e => e.Name).HasColumnType("text");
+        });
+
+        builder.Entity<DiscordChannel>(entity =>
+        {
+            entity.ToTable("discord_channel");
+            entity.HasKey(e => e.ChannelId);
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.GuildId).HasColumnType("text");
+            entity.Property(e => e.Name).HasColumnType("text");
+            entity.Property(e => e.Type).HasMaxLength(16);
+            entity.Property(e => e.CategoryId).HasColumnType("text");
+
+            // The only question asked of it: every channel in this server.
+            entity.HasIndex(e => e.GuildId).HasDatabaseName("ix_discord_channel_guild");
+        });
+
+        builder.Entity<DiscordRole>(entity =>
+        {
+            entity.ToTable("discord_role");
+            entity.HasKey(e => e.RoleId);
+            entity.Property(e => e.RoleId).HasColumnType("text");
+            entity.Property(e => e.GuildId).HasColumnType("text");
+            entity.Property(e => e.Name).HasColumnType("text");
+
+            entity.HasIndex(e => e.GuildId).HasDatabaseName("ix_discord_role_guild");
         });
 
         base.OnModelCreating(builder);

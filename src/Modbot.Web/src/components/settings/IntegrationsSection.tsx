@@ -3,6 +3,17 @@ import { Button } from '@/components/ui/button'
 import { api, ApiError, type OnboardingStatus } from '@/lib/api'
 import { Checkbox, Fact, Field, LongField, Outcome, PasswordField, Placeholder, Switch } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
+import { ChannelPicker } from '@/components/discord/ChannelPicker'
+import type { DiscordChannelPermission } from '@/lib/api'
+
+/** The moderation log posts embeds. */
+const POST_NEEDS: DiscordChannelPermission[] = ['viewChannel', 'sendMessages', 'embedLinks']
+
+/**
+ * Instance cards are posted, then fetched by id and rewritten -- and fetching a message needs
+ * Read Message History, which posting alone does not.
+ */
+const ANNOUNCE_NEEDS: DiscordChannelPermission[] = ['viewChannel', 'sendMessages', 'embedLinks', 'readMessageHistory']
 
 /**
  * Discord and SMTP — spec 7.1 step 5, re-run.
@@ -133,11 +144,11 @@ function IntegrationsForm({
         <div className="flex max-w-lg flex-col gap-3">
           <PasswordField label="Bot token" value={botToken} onChange={setBotToken} />
           <Field label="Guild id" value={guildId} onChange={setGuildId} placeholder="" />
-          <Field
+          <ChannelPicker
             label="Post moderation events to this channel"
             value={logChannelId}
             onChange={setLogChannelId}
-            placeholder=""
+            needs={POST_NEEDS}
           />
         </div>
         <div className="mt-3 flex flex-col gap-1">
@@ -164,11 +175,11 @@ function IntegrationsForm({
 
       <SettingsCard title="Instance announcements">
         <div className="flex max-w-lg flex-col gap-3">
-          <Field
+          <ChannelPicker
             label="Announce open instances in this channel"
             value={instanceChannelId}
             onChange={setInstanceChannelId}
-            placeholder=""
+            needs={ANNOUNCE_NEEDS}
           />
           <LongField
             label="Message above each announcement"

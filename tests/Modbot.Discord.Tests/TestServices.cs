@@ -56,6 +56,7 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<Modbot.Discord.Instances.InstanceAnnouncer>();
+        services.AddScoped<Modbot.Discord.ServerIndex.DiscordServerIndex>();
 
         var provider = services.BuildServiceProvider();
         var built = new TestServices(database, provider, clock, status);

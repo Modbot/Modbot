@@ -4,6 +4,7 @@ using Discord;
 using Discord.Net;
 using Discord.WebSocket;
 using Modbot.Core.Logging;
+using DiscordChannelTypes = Modbot.Core.Data.Entities.DiscordChannelTypes;
 using Serilog;
 using Serilog.Events;
 
@@ -59,9 +60,24 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.Ready += OnReady;
         _client.Disconnected += OnDisconnected;
         _client.SlashCommandExecuted += OnSlashCommand;
+
+        _client.ChannelCreated += OnChannelCreated;
+        _client.ChannelUpdated += OnChannelUpdated;
+        _client.ChannelDestroyed += OnChannelDestroyed;
+        _client.RoleCreated += OnRoleCreated;
+        _client.RoleUpdated += OnRoleUpdated;
+        _client.RoleDeleted += OnRoleDeleted;
+        _client.GuildUpdated += OnGuildUpdated;
+        _client.GuildMemberUpdated += OnGuildMemberUpdated;
     }
 
     public DiscordGatewayState State => _state;
+
+    public event Func<string, DiscordChannelSnapshot, Task>? ChannelChanged;
+
+    public event Func<string, string, Task>? ChannelRemoved;
+
+    public event Func<string, Task>? ServerChanged;
 
     public event Func<Task>? Ready;
 
@@ -255,8 +271,177 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.Ready -= OnReady;
         _client.Disconnected -= OnDisconnected;
         _client.SlashCommandExecuted -= OnSlashCommand;
+        _client.ChannelCreated -= OnChannelCreated;
+        _client.ChannelUpdated -= OnChannelUpdated;
+        _client.ChannelDestroyed -= OnChannelDestroyed;
+        _client.RoleCreated -= OnRoleCreated;
+        _client.RoleUpdated -= OnRoleUpdated;
+        _client.RoleDeleted -= OnRoleDeleted;
+        _client.GuildUpdated -= OnGuildUpdated;
+        _client.GuildMemberUpdated -= OnGuildMemberUpdated;
 
         _client.Dispose();
+    }
+
+    public DiscordServerSnapshot? ReadServer(string guildId)
+    {
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))
+            return null;
+
+        if (_client.GetGuild(id) is not { } guild)
+            return null;
+
+        // The bot's own member arrives with the server under the Guilds intent. Until it does,
+        // every permission reads as missing rather than guessed.
+        var me = guild.CurrentUser;
+        var serverWide = me?.GuildPermissions ?? GuildPermissions.None;
+
+        var channels = guild.Channels
+            .Select(Describe)
+            .OfType<DiscordChannelSnapshot>()
+            .ToArray();
+
+        var roles = guild.Roles
+            .Select(r => Describe(r, me))
+            .ToArray();
+
+        return new DiscordServerSnapshot(
+            Text(guild.Id),
+            guild.Name,
+            serverWide.ViewAuditLog,
+            serverWide.ManageRoles,
+            channels,
+            roles);
+    }
+
+    // ── Channel and role changes ───────────────────────────────────────────────────────────
+    //
+    // Each is described on the gateway task, from the library's cache, and handed on. A change
+    // that can move the bot's permissions everywhere -- a role, the server, the bot's own roles --
+    // is passed on as "the server changed" and read again whole, because working out which
+    // channels one role edit touched is exactly the permission arithmetic the library already does.
+
+    private Task OnChannelCreated(SocketChannel channel) => ChannelChangedTo(channel);
+
+    private Task OnChannelUpdated(SocketChannel before, SocketChannel after) => ChannelChangedTo(after);
+
+    private Task ChannelChangedTo(SocketChannel channel)
+    {
+        if (channel is SocketGuildChannel inServer && Describe(inServer) is { } snapshot)
+        {
+            var handler = ChannelChanged;
+            if (handler is not null)
+                _ = Task.Run(() => Guard(handler(Text(inServer.Guild.Id), snapshot), "channel changed"));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnChannelDestroyed(SocketChannel channel)
+    {
+        if (channel is SocketGuildChannel inServer)
+        {
+            var handler = ChannelRemoved;
+            if (handler is not null)
+                _ = Task.Run(() => Guard(handler(Text(inServer.Guild.Id), Text(inServer.Id)), "channel removed"));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnRoleCreated(SocketRole role) => ServerChangedIn(role.Guild.Id);
+
+    private Task OnRoleUpdated(SocketRole before, SocketRole after) => ServerChangedIn(after.Guild.Id);
+
+    private Task OnRoleDeleted(SocketRole role) => ServerChangedIn(role.Guild.Id);
+
+    private Task OnGuildUpdated(SocketGuild before, SocketGuild after) => ServerChangedIn(after.Id);
+
+    private Task OnGuildMemberUpdated(Cacheable<SocketGuildUser, ulong> before, SocketGuildUser after)
+    {
+        // Only the bot's own roles matter here, and only its own updates arrive without the
+        // privileged members intent anyway.
+        return after.Id == _client.CurrentUser?.Id
+            ? ServerChangedIn(after.Guild.Id)
+            : Task.CompletedTask;
+    }
+
+    private Task ServerChangedIn(ulong guildId)
+    {
+        var handler = ServerChanged;
+        if (handler is not null)
+            _ = Task.Run(() => Guard(handler(Text(guildId)), "server changed"));
+
+        return Task.CompletedTask;
+    }
+
+    private static string Text(ulong id) => id.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>A channel in the shape Modbot keeps, or null for a thread or anything else not offered.</summary>
+    private static DiscordChannelSnapshot? Describe(SocketGuildChannel channel)
+    {
+        var type = channel.GetChannelType() switch
+        {
+            ChannelType.Text => DiscordChannelTypes.Text,
+            ChannelType.News => DiscordChannelTypes.Announcement,
+            ChannelType.Forum => DiscordChannelTypes.Forum,
+            ChannelType.Media => DiscordChannelTypes.Media,
+            ChannelType.Voice => DiscordChannelTypes.Voice,
+            ChannelType.Stage => DiscordChannelTypes.Stage,
+            ChannelType.Category => DiscordChannelTypes.Category,
+            _ => null,
+        };
+
+        if (type is null)
+            return null;
+
+        var nsfw = channel switch
+        {
+            SocketForumChannel forum => forum.IsNsfw,
+            ITextChannel text => text.IsNsfw,
+            _ => false,
+        };
+
+        // Effective permissions: server roles, then category and channel overwrites, with
+        // Administrator granting everything -- the library's own resolution.
+        var permissions = channel.Guild.CurrentUser is { } me
+            ? me.GetPermissions(channel)
+            : ChannelPermissions.None;
+
+        return new DiscordChannelSnapshot(
+            Text(channel.Id),
+            channel.Name,
+            type,
+            (channel as INestedChannel)?.CategoryId is { } category ? Text(category) : null,
+            channel.Position,
+            nsfw,
+            new DiscordChannelPermissions(
+                permissions.ViewChannel,
+                permissions.ReadMessageHistory,
+                permissions.SendMessages,
+                permissions.EmbedLinks,
+                permissions.AttachFiles,
+                permissions.ManageMessages));
+    }
+
+    private static DiscordRoleSnapshot Describe(SocketRole role, SocketGuildUser? me)
+    {
+        // Discord's own rule for handing out a role: Manage Roles, and the role strictly below
+        // the bot's highest. Managed roles and @everyone cannot be given by anybody.
+        var canAssign = me is not null
+            && me.GuildPermissions.ManageRoles
+            && !role.IsManaged
+            && !role.IsEveryone
+            && role.Position < me.Hierarchy;
+
+        return new DiscordRoleSnapshot(
+            Text(role.Id),
+            role.Name,
+            (int)role.Colors.PrimaryColor.RawValue,
+            role.Position,
+            role.IsManaged,
+            role.IsEveryone,
+            canAssign);
     }
 
     private Task OnConnected()

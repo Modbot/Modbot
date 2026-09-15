@@ -20,6 +20,32 @@ public sealed class FakeGateway : IDiscordGateway
 
     public event Func<DiscordCommandCall, Task>? CommandReceived;
 
+    public event Func<string, DiscordChannelSnapshot, Task>? ChannelChanged;
+
+    public event Func<string, string, Task>? ChannelRemoved;
+
+    public event Func<string, Task>? ServerChanged;
+
+    /// <summary>What <see cref="ReadServer"/> answers. Null means the bot is not in the server.</summary>
+    public DiscordServerSnapshot? Server { get; set; }
+
+    public int ReadServerCalls { get; private set; }
+
+    public DiscordServerSnapshot? ReadServer(string guildId)
+    {
+        ReadServerCalls++;
+        return Server is { } server && server.GuildId == guildId ? server : null;
+    }
+
+    public Task RaiseChannelChangedAsync(string guildId, DiscordChannelSnapshot channel)
+        => ChannelChanged?.Invoke(guildId, channel) ?? Task.CompletedTask;
+
+    public Task RaiseChannelRemovedAsync(string guildId, string channelId)
+        => ChannelRemoved?.Invoke(guildId, channelId) ?? Task.CompletedTask;
+
+    public Task RaiseServerChangedAsync(string guildId)
+        => ServerChanged?.Invoke(guildId) ?? Task.CompletedTask;
+
     public List<(string ChannelId, IReadOnlyList<DiscordEmbedContent> Embeds)> Posts { get; } = [];
 
     /// <summary>Every message posted with a line of text above it, in order, with its id.</summary>

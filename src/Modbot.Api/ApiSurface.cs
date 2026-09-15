@@ -10,6 +10,7 @@ using Modbot.Api.Features.Auth.VRChatLink;
 using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Cases;
+using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.Reviews;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
@@ -113,6 +114,10 @@ public static class ApiSurface
         app.MapPublicAddressSettings();
         app.MapEmailSettings();
         app.MapAiSettings();
+
+        // The Discord server's channels and roles as the bot last stored them, so a setting picks
+        // a channel by name and sees which permission the bot lacks there (M5 spec §7).
+        app.MapDiscordLists();
 
         // The read surface over the fact log and the daily totals derived from it. Sync health resolves
         // SyncDiagnostics optionally, so a host that maps the API without registering the

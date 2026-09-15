@@ -6,6 +6,7 @@ using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.Instances;
 using Modbot.Discord.ModerationLog;
+using Modbot.Discord.ServerIndex;
 
 namespace Modbot.Discord;
 
@@ -46,6 +47,7 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<InstanceAnnouncer>();
+        services.AddScoped<DiscordServerIndex>();
 
         return services;
     }

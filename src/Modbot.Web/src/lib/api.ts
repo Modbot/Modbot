@@ -183,6 +183,64 @@ export type LinkCheckResult = { linked: boolean; message: string; status: VRChat
 
 export type PublicAddressView = { publicAddress: string | null; suggestion: string | null }
 
+export type DiscordChannelType = 'text' | 'announcement' | 'forum' | 'media' | 'voice' | 'stage' | 'category'
+
+/** What the bot may do in a channel after overwrites, by Discord's permission names. */
+export type DiscordChannelPermissions = {
+  viewChannel: boolean
+  readMessageHistory: boolean
+  sendMessages: boolean
+  embedLinks: boolean
+  attachFiles: boolean
+  manageMessages: boolean
+}
+
+export type DiscordChannelPermission = keyof DiscordChannelPermissions
+
+export type DiscordChannel = {
+  id: string
+  name: string
+  type: DiscordChannelType
+  categoryId: string | null
+  position: number
+  nsfw: boolean
+  /** Deleted in Discord; kept so a saved setting can still show its name. */
+  removed: boolean
+  botPermissions: DiscordChannelPermissions
+}
+
+export type DiscordChannels = {
+  guildId: string | null
+  serverName: string | null
+  /** When the bot last read every channel and role in one go, or null if it never has. */
+  refreshedAt: string | null
+  updatedAt: string | null
+  botCanViewAuditLog: boolean
+  botCanManageRoles: boolean
+  channels: DiscordChannel[]
+}
+
+export type DiscordRole = {
+  id: string
+  name: string
+  /** 0xRRGGBB, zero for none. */
+  color: number
+  position: number
+  managed: boolean
+  everyone: boolean
+  botCanAssign: boolean
+  removed: boolean
+}
+
+export type DiscordRoles = {
+  guildId: string | null
+  serverName: string | null
+  refreshedAt: string | null
+  updatedAt: string | null
+  botCanManageRoles: boolean
+  roles: DiscordRole[]
+}
+
 export type GroupCandidate = {
   id: string
   name: string
@@ -1710,6 +1768,11 @@ export const api = {
 
   /** Read-only in this build: a control whose value is silently discarded is worse than no control. */
   syncSettings: () => request<SyncSettings>('/api/settings/sync'),
+
+  /** The Discord server's channels as the bot last stored them. Use the pickers rather than calling this. */
+  discordChannels: () => request<DiscordChannels>('/api/discord/channels'),
+
+  discordRoles: () => request<DiscordRoles>('/api/discord/roles'),
 
   /**
    * The merged timeline.

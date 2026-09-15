@@ -10,6 +10,7 @@ using Modbot.Core.Security;
 using Modbot.Core.Time;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
+using Modbot.Discord.ServerIndex;
 using Serilog;
 
 namespace Modbot.Discord.Bot;
@@ -57,6 +58,12 @@ public sealed class DiscordBotService : BackgroundService
     private TimeSpan _retry;
     private bool _stopped;
     private int _commandsRegistered;
+
+    /// <summary>
+    /// One write to the channel and role lists at a time. The gateway raises its events on the
+    /// thread pool, and a full refresh racing a channel update would insert the same row twice.
+    /// </summary>
+    private readonly SemaphoreSlim _indexing = new(1, 1);
 
     public DiscordBotService(
         IServiceScopeFactory scopes,
@@ -197,6 +204,9 @@ public sealed class DiscordBotService : BackgroundService
         gateway.Resumed += OnResumedAsync;
         gateway.Disconnected += OnDisconnectedAsync;
         gateway.CommandReceived += OnCommandAsync;
+        gateway.ChannelChanged += OnChannelChangedAsync;
+        gateway.ChannelRemoved += OnChannelRemovedAsync;
+        gateway.ServerChanged += OnServerChangedAsync;
 
         try
         {
@@ -249,6 +259,8 @@ public sealed class DiscordBotService : BackgroundService
             _status.Problem($"Could not register the slash commands: {e.Message}", _clock.UtcNow);
             _log.Warning("Discord bot connected but could not register its commands: {Reason}", e.Message);
         }
+
+        await RefreshServerIndexAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -256,17 +268,93 @@ public sealed class DiscordBotService : BackgroundService
     /// still stand, so they are not registered again: Discord limits how often a guild's commands
     /// may be replaced.
     /// </summary>
-    private Task OnResumedAsync()
+    /// <remarks>
+    /// The channel and role lists are read again in full, though: whatever changed while the
+    /// session was away is only certain to be caught by looking.
+    /// </remarks>
+    private async Task OnResumedAsync()
     {
         if (_gateway is null)
-            return Task.CompletedTask;
+            return;
 
         _disconnectedAt = null;
         _retry = _options.FirstRetry;
         _status.Connected(_clock.UtcNow, _commandsRegistered);
         _log.Information("Discord bot resumed its session");
 
-        return Task.CompletedTask;
+        await RefreshServerIndexAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>Reads every channel and role from the session and stores them.</summary>
+    private Task RefreshServerIndexAsync()
+    {
+        var gateway = _gateway;
+        var guildId = _guildId;
+        if (gateway is null || guildId is null)
+            return Task.CompletedTask;
+
+        return IndexAsync(async (index, ct) =>
+        {
+            // Read inside the lock, so the stored picture is never older than one already saved.
+            if (gateway.ReadServer(guildId) is not { } server)
+            {
+                _log.Debug("The Discord session does not know server {GuildId}; not reading its channels", guildId);
+                return;
+            }
+
+            await index.RefreshAsync(server, ct).ConfigureAwait(false);
+            _log.Information(
+                "Read {Channels} Discord channels and {Roles} roles",
+                server.Channels.Count,
+                server.Roles.Count);
+        });
+    }
+
+    private Task OnChannelChangedAsync(string guildId, DiscordChannelSnapshot channel)
+    {
+        if (!IsOurServer(guildId))
+            return Task.CompletedTask;
+
+        // A category's overwrites flow down to the channels synced with it, and Discord does not
+        // promise an update for each of those, so a changed category means reading everything.
+        if (channel.Type == Core.Data.Entities.DiscordChannelTypes.Category)
+            return RefreshServerIndexAsync();
+
+        return IndexAsync((index, ct) => index.SaveChannelAsync(guildId, channel, ct));
+    }
+
+    private Task OnChannelRemovedAsync(string guildId, string channelId)
+        => IsOurServer(guildId)
+            ? IndexAsync((index, ct) => index.RemoveChannelAsync(guildId, channelId, ct))
+            : Task.CompletedTask;
+
+    private Task OnServerChangedAsync(string guildId)
+        => IsOurServer(guildId) ? RefreshServerIndexAsync() : Task.CompletedTask;
+
+    /// <summary>The bot may sit in more than one server; only the one in settings is kept.</summary>
+    private bool IsOurServer(string guildId)
+        => _guildId is { } ours && string.Equals(ours, guildId, StringComparison.Ordinal);
+
+    private async Task IndexAsync(Func<DiscordServerIndex, CancellationToken, Task> work)
+    {
+        await _indexing.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var index = scope.ServiceProvider.GetRequiredService<DiscordServerIndex>();
+            await work(index, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // The lists go stale until the next change or sign-in; nothing else stops.
+            _log.Warning(e, "Could not save the Discord server's channels and roles");
+            _status.Problem($"Could not save the Discord server's channels and roles: {e.Message}", _clock.UtcNow);
+        }
+        finally
+        {
+            _indexing.Release();
+        }
     }
 
     private async Task OnDisconnectedAsync(DiscordDisconnect disconnect)
@@ -329,6 +417,9 @@ public sealed class DiscordBotService : BackgroundService
         gateway.Resumed -= OnResumedAsync;
         gateway.Disconnected -= OnDisconnectedAsync;
         gateway.CommandReceived -= OnCommandAsync;
+        gateway.ChannelChanged -= OnChannelChangedAsync;
+        gateway.ChannelRemoved -= OnChannelRemovedAsync;
+        gateway.ServerChanged -= OnServerChangedAsync;
 
         try
         {

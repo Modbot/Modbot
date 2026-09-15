@@ -130,6 +130,51 @@ public sealed record DiscordPostOutcome(bool Sent, string? Error, bool Permanent
 /// </param>
 public sealed record DiscordDisconnect(string Reason, bool Fatal);
 
+/// <summary>What the bot may do in one channel, after the category's and the channel's overwrites.</summary>
+public sealed record DiscordChannelPermissions(
+    bool ViewChannel,
+    bool ReadMessageHistory,
+    bool SendMessages,
+    bool EmbedLinks,
+    bool AttachFiles,
+    bool ManageMessages)
+{
+    public static DiscordChannelPermissions None { get; } = new(false, false, false, false, false, false);
+}
+
+/// <summary>One channel as the bot sees it right now.</summary>
+/// <param name="Type">One of <c>DiscordChannelTypes</c>.</param>
+/// <param name="CategoryId">The category it sits under, or null.</param>
+public sealed record DiscordChannelSnapshot(
+    string Id,
+    string Name,
+    string Type,
+    string? CategoryId,
+    int Position,
+    bool Nsfw,
+    DiscordChannelPermissions BotPermissions);
+
+/// <summary>One role as the bot sees it right now.</summary>
+/// <param name="Color">0xRRGGBB, zero for none.</param>
+/// <param name="BotCanAssign">Manage Roles held, role below the bot's highest, not managed, not @everyone.</param>
+public sealed record DiscordRoleSnapshot(
+    string Id,
+    string Name,
+    int Color,
+    int Position,
+    bool Managed,
+    bool Everyone,
+    bool BotCanAssign);
+
+/// <summary>Every channel and role in one server, and the bot's server-wide permissions.</summary>
+public sealed record DiscordServerSnapshot(
+    string GuildId,
+    string Name,
+    bool BotCanViewAuditLog,
+    bool BotCanManageRoles,
+    IReadOnlyList<DiscordChannelSnapshot> Channels,
+    IReadOnlyList<DiscordRoleSnapshot> Roles);
+
 /// <summary>
 /// One gateway session: connect with a token, register the guild's commands, answer them, post
 /// to a channel. The bot's hosted service drives it; the tests drive a fake.
@@ -150,6 +195,28 @@ public interface IDiscordGateway : IAsyncDisposable
     event Func<DiscordDisconnect, Task>? Disconnected;
 
     event Func<DiscordCommandCall, Task>? CommandReceived;
+
+    /// <summary>
+    /// A channel was created or changed -- renamed, moved, or its permission overwrites edited.
+    /// Carries the server's id and the channel as it is now.
+    /// </summary>
+    event Func<string, DiscordChannelSnapshot, Task>? ChannelChanged;
+
+    /// <summary>A channel was deleted. Carries the server's id and the channel's id.</summary>
+    event Func<string, string, Task>? ChannelRemoved;
+
+    /// <summary>
+    /// Something changed that can move the bot's permissions or the role list across the whole
+    /// server: a role created, changed or deleted, the server itself changed, or the bot's own
+    /// roles changed. Carries the server's id; <see cref="ReadServer"/> gives the new picture.
+    /// </summary>
+    event Func<string, Task>? ServerChanged;
+
+    /// <summary>
+    /// Every channel and role in the server as the session holds them, or null when the bot is
+    /// not in that server. Read from the session's memory, so it costs no request to Discord.
+    /// </summary>
+    DiscordServerSnapshot? ReadServer(string guildId);
 
     /// <summary>Signs in and starts the session. Returns once the connection is under way; <see cref="Ready"/> says when it is usable.</summary>
     Task ConnectAsync(string token, CancellationToken ct);
