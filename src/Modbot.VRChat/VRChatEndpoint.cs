@@ -56,6 +56,28 @@ public static class VRChatEndpointClass
     /// </remarks>
     public const string InstancesRead = "instances.read";
 
+    /// <summary>
+    /// Opening a group instance -- <c>POST /instances</c>. Used by the calendar to open an event's
+    /// instance a few minutes before it starts (calendar design §4).
+    /// </summary>
+    /// <remarks>Measured at one request per five seconds by the maintainer on 2026-09-15.</remarks>
+    public const string InstancesCreate = "instances.create";
+
+    /// <summary>
+    /// Creating, changing and deleting the group's VRChat calendar events --
+    /// <c>POST/PUT/DELETE /calendar/{groupId}/…</c> (calendar design §3.1).
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> VRChat's calendar is known to be strict, and the maintainer
+    /// asked for a very gentle default until the real number is known. One class for all three
+    /// writes, so they share one allowance.
+    /// </remarks>
+    public const string CalendarWrite = "calendar.write";
+
+    /// <summary>Reading the group's VRChat calendar events. <strong>Not measured.</strong></summary>
+    /// <remarks>Nothing reads the calendar yet (calendar design §3.1); the budget is set so a later read-back has one.</remarks>
+    public const string CalendarRead = "calendar.read";
+
     /// <summary>Profile fetches. Runs in its own lane, exempt from the global ceiling (spec 4.2.5).</summary>
     public const string UsersRead = "users.read";
 

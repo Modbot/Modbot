@@ -22,6 +22,8 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 22, (long)ModbotPermissions.ManageDiscordLinks);
         Assert.Equal(1L << 23, (long)ModbotPermissions.UseAiPastLimits);
         Assert.Equal(1L << 24, (long)ModbotPermissions.ReadDiscordMessages);
+        Assert.Equal(1L << 25, (long)ModbotPermissions.ViewCalendar);
+        Assert.Equal(1L << 26, (long)ModbotPermissions.ManageCalendar);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -61,5 +63,13 @@ public class ModbotPermissionsTests
     {
         Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ReadDiscordMessages));
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ReadDiscordMessages));
+    }
+
+    /// <summary>An event can open an instance and post in the group's name, so managing it is granted on purpose.</summary>
+    [Fact]
+    public void TheCalendarPermissions_AreNotInTheEditableBuiltInRoles()
+    {
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ManageCalendar));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ManageCalendar));
     }
 }

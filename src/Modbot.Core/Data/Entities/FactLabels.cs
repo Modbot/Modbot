@@ -124,6 +124,16 @@ public static class FactLabels
         [FactType.WebhookDeleted] = "Webhook deleted",
         [FactType.WebhookDisabled] = "Webhook turned off",
         [FactType.SettingsChanged] = "Settings changed",
+        [FactType.PlannedEventCreated] = "Event planned",
+        [FactType.PlannedEventChanged] = "Planned event changed",
+        [FactType.PlannedEventCancelled] = "Planned event cancelled",
+        [FactType.PlannedEventDeleted] = "Planned event deleted",
+        [FactType.PlannedEventOpened] = "Planned event opened",
+        [FactType.PlannedEventFinished] = "Planned event finished",
+        [FactType.PlannedEventInstanceOpened] = "Instance opened for an event",
+        [FactType.PlannedEventInstanceFailed] = "Instance for an event failed to open",
+        [FactType.PlannedEventPublishFailed] = "Event failed to publish",
+        [FactType.CalendarFeedRegenerated] = "Calendar feed link replaced",
 
         // Reviews of a moderator's pattern (spec 5.8.5). Both are about the moderator.
         [FactType.ReviewOpened] = "Review opened",

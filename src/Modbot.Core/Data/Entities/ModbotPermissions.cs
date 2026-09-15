@@ -180,6 +180,20 @@ public enum ModbotPermissions : long
     /// </remarks>
     ReadDiscordMessages = 1L << 24,
 
+    // --- Calendar (calendar design §7) ---
+
+    /// <summary>See the calendar page: every event, where it is published and how that went.</summary>
+    ViewCalendar = 1L << 25,
+
+    /// <summary>
+    /// Create, edit, cancel and delete events, and see and replace the calendar feed link.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="ViewCalendar"/> because an event can open an instance by itself and
+    /// posts to VRChat and Discord in the group's name. Not added to the built-in roles.
+    /// </remarks>
+    ManageCalendar = 1L << 26,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

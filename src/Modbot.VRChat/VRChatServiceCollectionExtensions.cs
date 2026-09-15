@@ -293,6 +293,25 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<IVRChatGate>(),
             provider.GetRequiredService<IDelayScheduler>()));
 
+        // The calendar's VRChat side (calendar design §9): moving events along, opening their
+        // instances, and VRChat calendar writes, each on its own budget.
+        services.AddScoped<Calendar.CalendarFacts>();
+        services.AddScoped<Calendar.CalendarScheduler>();
+        services.AddScoped<Calendar.CalendarOpener>(provider => new Calendar.CalendarOpener(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Data.PlaceStore>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<Calendar.CalendarFacts>()));
+        services.AddScoped<Calendar.CalendarVRChatPublisher>(provider => new Calendar.CalendarVRChatPublisher(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<Calendar.CalendarFacts>()));
+        services.AddHostedService(provider => new Calendar.CalendarService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<IDelayScheduler>()));
+
         services.AddHostedService(provider => new GroupBanSyncService(
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),

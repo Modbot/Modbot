@@ -238,6 +238,56 @@ public sealed class FakeGateway : IDiscordGateway
         return Task.FromResult(DiscordPostOutcome.Ok);
     }
 
+    // ── Server events ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>A server event as the fake holds it: what it says, and whether it started or ended.</summary>
+    public sealed record FakeServerEvent(string GuildId, string Id, DiscordScheduledEventDetails Details, bool Started, bool Ended);
+
+    /// <summary>Every server event the bot made, by id, as it stands now.</summary>
+    public Dictionary<string, FakeServerEvent> ServerEvents { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Every create, update and end, in order: <c>create</c>, <c>update</c> or <c>end</c>, and the event id.</summary>
+    public List<(string Action, string EventId)> ServerEventCalls { get; } = [];
+
+    /// <summary>Set to make every server event call fail with this sentence.</summary>
+    public string? ServerEventError { get; set; }
+
+    public Task<DiscordPostOutcome> CreateEventAsync(string guildId, DiscordScheduledEventDetails details, CancellationToken ct)
+    {
+        if (ServerEventError is { } error)
+            return Task.FromResult(DiscordPostOutcome.Failed(error, permanent: true));
+
+        var id = (_nextMessageId++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        ServerEvents[id] = new FakeServerEvent(guildId, id, details, Started: false, Ended: false);
+        ServerEventCalls.Add(("create", id));
+
+        return Task.FromResult(DiscordPostOutcome.Posted(id));
+    }
+
+    public Task<DiscordPostOutcome> UpdateEventAsync(
+        string guildId, string eventId, DiscordScheduledEventDetails details, bool start, CancellationToken ct)
+    {
+        if (ServerEventError is { } error)
+            return Task.FromResult(DiscordPostOutcome.Failed(error, permanent: true));
+
+        if (!ServerEvents.TryGetValue(eventId, out var existing) || existing.Ended)
+            return Task.FromResult(DiscordPostOutcome.Failed(DiscordScheduledEventDetails.Gone, permanent: true));
+
+        ServerEvents[eventId] = existing with { Details = details, Started = existing.Started || start };
+        ServerEventCalls.Add(("update", eventId));
+
+        return Task.FromResult(DiscordPostOutcome.Posted(eventId));
+    }
+
+    public Task<DiscordPostOutcome> EndEventAsync(string guildId, string eventId, CancellationToken ct)
+    {
+        if (ServerEvents.TryGetValue(eventId, out var existing))
+            ServerEvents[eventId] = existing with { Ended = true };
+
+        ServerEventCalls.Add(("end", eventId));
+        return Task.FromResult(DiscordPostOutcome.Ok);
+    }
+
     public Task<DiscordPostOutcome> TimeOutAsync(string guildId, string userId, TimeSpan duration, string reason, CancellationToken ct)
     {
         TimedOut.Add((guildId, userId, duration, reason));

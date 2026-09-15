@@ -345,6 +345,26 @@ public static class FactType
     public const string WebhookDisabled = "modbot.webhook.disable";
     public const string SettingsChanged = "modbot.settings.change";
 
+    // ── Modbot's own calendar (calendar design §8). The subject is the event's id. ──────────
+    //
+    // "Planned event" in the names, because the CalendarEvent* names above are VRChat's own
+    // audit-log entries about its calendar -- a different record from a different source.
+    public const string PlannedEventCreated = "modbot.calendar.event.create";
+    public const string PlannedEventChanged = "modbot.calendar.event.change";
+    public const string PlannedEventCancelled = "modbot.calendar.event.cancel";
+    public const string PlannedEventDeleted = "modbot.calendar.event.delete";
+
+    /// <summary>An occurrence opened. Written by the scheduler; no actor.</summary>
+    public const string PlannedEventOpened = "modbot.calendar.event.open";
+
+    /// <summary>The last occurrence ended. Written by the scheduler; no actor.</summary>
+    public const string PlannedEventFinished = "modbot.calendar.event.finish";
+
+    public const string PlannedEventInstanceOpened = "modbot.calendar.instance.open";
+    public const string PlannedEventInstanceFailed = "modbot.calendar.instance.fail";
+    public const string PlannedEventPublishFailed = "modbot.calendar.publish.fail";
+    public const string CalendarFeedRegenerated = "modbot.calendar.feed.regenerate";
+
     // ── Reviews of a moderator's pattern (spec 5.8.5, accountability signals design) ───────
     //
     // The subject is the moderator being reviewed, on the VRChat platform, because the review is

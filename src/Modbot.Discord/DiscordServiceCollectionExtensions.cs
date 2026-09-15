@@ -48,6 +48,10 @@ public static class DiscordServiceCollectionExtensions
         // moderation log, which is the record rather than a notice board.
         services.AddHostedService<InstanceAnnounceService>();
 
+        // The calendar's server events and channel posts (calendar design §9). Its own loop too.
+        services.AddScoped<Calendar.CalendarDiscordPublisher>();
+        services.AddHostedService<Calendar.CalendarDiscordService>();
+
         // Scheduled AI insights that name a channel (AI insights design §4). Its own loop too.
         services.AddHostedService<InsightPostService>();
 

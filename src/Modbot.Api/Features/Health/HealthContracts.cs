@@ -238,7 +238,17 @@ public sealed record SyncHealth(
     // reached (AI chat design §10.7). Empty when none is.
     IReadOnlyList<AiSpendWarningView>? AiSpend = null,
     // The email queue under the daily email limit (accounts and access design §4.4).
-    EmailHealth? Email = null);
+    EmailHealth? Email = null,
+    // Calendar events that could not be published or opened, and whether the bot lacks Manage
+    // Events while an event wants a Discord event (calendar design §3.2, §4). Null when there is
+    // nothing to say.
+    CalendarHealth? Calendar = null);
+
+/// <param name="MissingManageEvents">An event wants a Discord event and the bot does not hold Manage Events.</param>
+public sealed record CalendarHealth(bool MissingManageEvents, IReadOnlyList<CalendarProblem> Problems);
+
+/// <param name="Place"><c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c>, or <c>instance</c> for an instance that did not open.</param>
+public sealed record CalendarProblem(Guid EventId, string Title, string Place, string Error, DateTimeOffset? At);
 
 /// <summary>Emails waiting under the daily limit, and emails given up on.</summary>
 /// <param name="Queued">Messages waiting for room or for their next try.</param>

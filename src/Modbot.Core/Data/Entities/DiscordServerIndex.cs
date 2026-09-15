@@ -48,6 +48,9 @@ public class DiscordServer
     /// <summary>Whether the bot holds Manage Roles for the whole server.</summary>
     public bool BotCanManageRoles { get; set; }
 
+    /// <summary>Whether the bot holds Manage Events for the whole server, which calendar events need.</summary>
+    public bool BotCanManageEvents { get; set; }
+
     /// <summary>When every channel and role was last read in one go -- on sign-in and on resume.</summary>
     public DateTimeOffset RefreshedAt { get; set; }
 

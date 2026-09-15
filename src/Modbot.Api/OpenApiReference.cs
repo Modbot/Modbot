@@ -49,6 +49,7 @@ internal static class OpenApiReference
         ("Members", "The group's member list and ban list, as Modbot last read them."),
         ("VRChat users", "What Modbot has stored about one VRChat user."),
         ("Live", "The group's open instances right now."),
+        ("Calendar", "Planned events, where each is published, and the calendar feed."),
         ("Places", "One world or one instance."),
         ("Audit", "The audit log: who did what to whom, and when."),
         ("Case files", "The write-up of each ban."),

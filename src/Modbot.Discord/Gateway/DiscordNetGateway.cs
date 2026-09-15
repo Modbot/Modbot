@@ -304,6 +304,130 @@ public sealed class DiscordNetGateway : IDiscordGateway
         }
     }
 
+    // ── Server events (calendar design §3.2) ───────────────────────────────────────────────
+
+    public Task<DiscordPostOutcome> CreateEventAsync(
+        string guildId, DiscordScheduledEventDetails details, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+
+        return InGuildAsync(guildId, async guild =>
+        {
+            using var cover = await CoverImages.FetchAsync(details.CoverImageUrl, ct).ConfigureAwait(false);
+
+            var created = await guild.CreateEventAsync(
+                    details.Name,
+                    details.StartsAt,
+                    GuildScheduledEventType.External,
+                    GuildScheduledEventPrivacyLevel.Private,
+                    details.Description,
+                    details.EndsAt,
+                    channelId: null,
+                    location: details.Location,
+                    coverImage: cover?.Image,
+                    options: new RequestOptions { CancelToken = ct })
+                .ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(Text(created.Id));
+        });
+    }
+
+    public Task<DiscordPostOutcome> UpdateEventAsync(
+        string guildId, string eventId, DiscordScheduledEventDetails details, bool start, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+
+        if (ParseId(eventId) is not { } id)
+            return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord event id.", permanent: true));
+
+        return InGuildAsync(guildId, async guild =>
+        {
+            if (await guild.GetEventAsync(id, new RequestOptions { CancelToken = ct }).ConfigureAwait(false) is not { } found)
+                return DiscordPostOutcome.Failed(DiscordScheduledEventDetails.Gone, permanent: true);
+
+            if (found.Status is GuildScheduledEventStatus.Completed or GuildScheduledEventStatus.Cancelled)
+                return DiscordPostOutcome.Failed(DiscordScheduledEventDetails.Gone, permanent: true);
+
+            using var cover = await CoverImages.FetchAsync(details.CoverImageUrl, ct).ConfigureAwait(false);
+
+            await found.ModifyAsync(e =>
+            {
+                e.Name = details.Name;
+                e.Description = details.Description ?? string.Empty;
+                e.Location = details.Location;
+                e.EndTime = details.EndsAt;
+
+                // A started event's start cannot move. The caller never sends a start in the past:
+                // it knows the time, and this class does not read the clock.
+                if (found.Status == GuildScheduledEventStatus.Scheduled)
+                    e.StartTime = details.StartsAt;
+
+                if (cover is not null)
+                    e.CoverImage = cover.Image;
+            }, new RequestOptions { CancelToken = ct }).ConfigureAwait(false);
+
+            if (start && found.Status == GuildScheduledEventStatus.Scheduled)
+                await found.StartAsync(new RequestOptions { CancelToken = ct }).ConfigureAwait(false);
+
+            return DiscordPostOutcome.Posted(eventId);
+        });
+    }
+
+    public Task<DiscordPostOutcome> EndEventAsync(string guildId, string eventId, CancellationToken ct)
+    {
+        if (ParseId(eventId) is not { } id)
+            return Task.FromResult(DiscordPostOutcome.Ok);
+
+        return InGuildAsync(guildId, async guild =>
+        {
+            // Gone already is what ending wanted.
+            if (await guild.GetEventAsync(id, new RequestOptions { CancelToken = ct }).ConfigureAwait(false) is not { } found)
+                return DiscordPostOutcome.Ok;
+
+            if (found.Status is GuildScheduledEventStatus.Completed or GuildScheduledEventStatus.Cancelled)
+                return DiscordPostOutcome.Ok;
+
+            // Completed when it had started, cancelled when it had not: Discord.Net picks by status.
+            await found.EndAsync(new RequestOptions { CancelToken = ct }).ConfigureAwait(false);
+            return DiscordPostOutcome.Ok;
+        }, goneIsOk: true);
+    }
+
+    private async Task<DiscordPostOutcome> InGuildAsync(
+        string guildId, Func<SocketGuild, Task<DiscordPostOutcome>> work, bool goneIsOk = false)
+    {
+        if (ParseId(guildId) is not { } id || _client.GetGuild(id) is not { } guild)
+            return DiscordPostOutcome.Failed("The bot is not in that server.", permanent: true);
+
+        try
+        {
+            return await work(guild).ConfigureAwait(false);
+        }
+        catch (HttpException e) when (goneIsOk && e.HttpCode == HttpStatusCode.NotFound)
+        {
+            return DiscordPostOutcome.Ok;
+        }
+        catch (HttpException e)
+        {
+            var permanent = e.HttpCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound;
+            return DiscordPostOutcome.Failed(
+                e.HttpCode == HttpStatusCode.Forbidden
+                    ? "The bot may not manage server events; it needs Manage Events."
+                    : e.HttpCode == HttpStatusCode.NotFound
+                        ? DiscordScheduledEventDetails.Gone
+                        : $"Discord answered {(int)e.HttpCode}: {e.Reason ?? e.Message}",
+                permanent);
+        }
+        catch (RateLimitedException)
+        {
+            return DiscordPostOutcome.Failed("Discord is rate limiting the bot.");
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return DiscordPostOutcome.Failed($"Could not change the server event: {e.Message}");
+        }
+    }
+
     private async Task<DiscordPostOutcome> InChannelAsync(
         string channelId, Func<IMessageChannel, Task<DiscordPostOutcome>> work)
     {
@@ -532,7 +656,8 @@ public sealed class DiscordNetGateway : IDiscordGateway
             serverWide.ViewAuditLog,
             serverWide.ManageRoles,
             channels,
-            roles);
+            roles,
+            BotCanManageEvents: serverWide.ManageEvents);
     }
 
     // ── Channel and role changes ───────────────────────────────────────────────────────────

@@ -220,13 +220,34 @@ public sealed record DiscordRoleSnapshot(
     bool BotCanAssign);
 
 /// <summary>Every channel and role in one server, and the bot's server-wide permissions.</summary>
+/// <param name="BotCanManageEvents">Manage Events, which the calendar's Discord events need (calendar design §3.2).</param>
 public sealed record DiscordServerSnapshot(
     string GuildId,
     string Name,
     bool BotCanViewAuditLog,
     bool BotCanManageRoles,
     IReadOnlyList<DiscordChannelSnapshot> Channels,
-    IReadOnlyList<DiscordRoleSnapshot> Roles);
+    IReadOnlyList<DiscordRoleSnapshot> Roles,
+    bool BotCanManageEvents = false);
+
+/// <summary>
+/// A server event as the calendar describes it: an external event whose location is a line of text.
+/// </summary>
+/// <param name="Name">Up to 100 characters.</param>
+/// <param name="Description">Up to 1000 characters, or null.</param>
+/// <param name="Location">The join link once the instance is open, the world's name before. Up to 100 characters.</param>
+/// <param name="CoverImageUrl">An https picture link for the cover, or null for none.</param>
+public sealed record DiscordScheduledEventDetails(
+    string Name,
+    string? Description,
+    DateTimeOffset StartsAt,
+    DateTimeOffset EndsAt,
+    string Location,
+    string? CoverImageUrl)
+{
+    /// <summary>The error an update comes back with when the event was deleted or ended in Discord.</summary>
+    public const string Gone = "That server event is gone, or has already ended.";
+}
 
 /// <summary>
 /// One gateway session: connect with a token, register the guild's commands, answer them, post
@@ -349,6 +370,26 @@ public interface IDiscordGateway : IAsyncDisposable
     /// </summary>
     Task<DiscordPostOutcome> MentionAsync(
         string channelId, string userId, string text, IReadOnlyList<DiscordLinkButton>? links, CancellationToken ct);
+
+    // ── Server events (calendar design §3.2) ─────────────────────────────────────────────
+    //
+    // All three need Manage Events. The outcome's MessageId carries Discord's event id.
+
+    /// <summary>Creates an external server event.</summary>
+    Task<DiscordPostOutcome> CreateEventAsync(string guildId, DiscordScheduledEventDetails details, CancellationToken ct);
+
+    /// <summary>
+    /// Changes a server event the bot created, and starts it when <paramref name="start"/> is set
+    /// and it has not started. A deleted event comes back as a permanent failure.
+    /// </summary>
+    Task<DiscordPostOutcome> UpdateEventAsync(
+        string guildId, string eventId, DiscordScheduledEventDetails details, bool start, CancellationToken ct);
+
+    /// <summary>
+    /// Ends a server event: completed when it had started, cancelled when it had not. An event that
+    /// is already gone counts as ended.
+    /// </summary>
+    Task<DiscordPostOutcome> EndEventAsync(string guildId, string eventId, CancellationToken ct);
 
     /// <summary>Gives a member a role. Needs Manage Roles and the role below the bot's highest.</summary>
     Task<DiscordRoleOutcome> AddRoleAsync(string guildId, string userId, string roleId, CancellationToken ct);

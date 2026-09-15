@@ -141,7 +141,8 @@ public static class SyncHealthEndpoints
                             w.Estimate,
                             w.Reached,
                             w.PartUnknown))],
-                    await EmailAsync(db, clock.UtcNow, ct)));
+                    await EmailAsync(db, clock.UtcNow, ct),
+                    await CalendarHealthAsync(db, settings?.DiscordGuildId, ct)));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
@@ -214,6 +215,55 @@ public static class SyncHealthEndpoints
         }
 
         return problems;
+    }
+
+    /// <summary>
+    /// Calendar places that failed, instances that did not open for the current occurrence, and a
+    /// missing Manage Events while an event wants a Discord event (calendar design §3.2, §4).
+    /// </summary>
+    private static async Task<CalendarHealth?> CalendarHealthAsync(ModbotContext db, string? guildId, CancellationToken ct)
+    {
+        var live = await db.CalendarEvents.AsNoTracking()
+            .Where(e => e.DeletedAt == null
+                && (e.State == Modbot.Core.Data.Entities.CalendarEventStates.Scheduled
+                    || e.State == Modbot.Core.Data.Entities.CalendarEventStates.Open))
+            .Select(e => new { e.Id, e.Title, e.PublishToDiscord, e.OccurrenceStartsAt })
+            .ToListAsync(ct);
+
+        if (live.Count == 0)
+            return null;
+
+        var titles = live.ToDictionary(e => e.Id, e => e.Title);
+        var ids = titles.Keys.ToList();
+
+        var failedPlaces = await db.CalendarEventPlaces.AsNoTracking()
+            .Where(p => ids.Contains(p.EventId) && p.State == Modbot.Core.Data.Entities.CalendarPlaceStates.Failed)
+            .ToListAsync(ct);
+
+        var failedOpenings = await db.CalendarOpenings.AsNoTracking()
+            .Where(o => ids.Contains(o.EventId) && o.Error != null)
+            .ToListAsync(ct);
+
+        var problems = failedPlaces
+            .Select(p => new CalendarProblem(p.EventId, titles[p.EventId], p.Place, p.Error ?? "Failed", p.ErrorAt))
+            .Concat(failedOpenings
+                .Where(o => live.Any(e => e.Id == o.EventId && e.OccurrenceStartsAt == o.OccurrenceStartsAt))
+                .Select(o => new CalendarProblem(o.EventId, titles[o.EventId], "instance", o.Error!, o.AttemptedAt)))
+            .OrderByDescending(p => p.At)
+            .ToList();
+
+        var missingManageEvents = false;
+
+        if (live.Any(e => e.PublishToDiscord) && !string.IsNullOrWhiteSpace(guildId))
+        {
+            var guild = guildId.Trim();
+            var server = await db.DiscordServers.AsNoTracking().FirstOrDefaultAsync(s => s.GuildId == guild, ct);
+
+            // A server the bot has never listed is not reported: before it first connects nothing is.
+            missingManageEvents = server is { BotCanManageEvents: false };
+        }
+
+        return problems.Count == 0 && !missingManageEvents ? null : new CalendarHealth(missingManageEvents, problems);
     }
 
     /// <summary>The read-back's progress for the server in settings, summed from its per-channel rows.</summary>

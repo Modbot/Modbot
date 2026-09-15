@@ -230,6 +230,10 @@ public static class ApiSurface
         app.MapBanReasons();
         app.MapCaseFiles();
 
+        // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
+        // the calendar's own loops; these only store what a person decides.
+        Features.Calendar.CalendarEndpoints.MapCalendar(app);
+
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and
         // modelling them as one endpoint with a step counter would make the "re-run just the

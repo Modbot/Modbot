@@ -189,6 +189,18 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The Discord server's members as last seen. Current state; the history is in <see cref="Events"/>.</summary>
     public DbSet<DiscordMember> DiscordMembers => Set<DiscordMember>();
 
+    /// <summary>Planned events and their repeat rules (calendar design §2).</summary>
+    public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
+
+    /// <summary>Where each event is published and what was last written there (calendar design §3).</summary>
+    public DbSet<CalendarEventPlace> CalendarEventPlaces => Set<CalendarEventPlace>();
+
+    /// <summary>One row per occurrence whose instance Modbot tried to open (calendar design §4).</summary>
+    public DbSet<CalendarOpening> CalendarOpenings => Set<CalendarOpening>();
+
+    /// <summary>The calendar feed's secret link. One row.</summary>
+    public DbSet<CalendarFeed> CalendarFeeds => Set<CalendarFeed>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -1338,6 +1350,81 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.GuildId)
                 .HasDatabaseName("ix_discord_member_in_voice")
                 .HasFilter("voice_channel_id IS NOT NULL");
+        });
+
+        builder.Entity<CalendarEvent>(entity =>
+        {
+            entity.ToTable("calendar_event");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Title).HasMaxLength(CalendarEvent.MaxTitleLength);
+            entity.Property(e => e.Description).HasMaxLength(CalendarEvent.MaxDescriptionLength);
+            entity.Property(e => e.TimeZone).HasMaxLength(64);
+            entity.Property(e => e.Repeat).HasMaxLength(16);
+            entity.Property(e => e.RepeatDays).HasColumnType("jsonb");
+            entity.Property(e => e.WorldId).HasColumnType("text");
+            entity.Property(e => e.AccessType).HasMaxLength(16);
+            entity.Property(e => e.Region).HasMaxLength(16);
+            entity.Property(e => e.ImageUrl).HasMaxLength(2048);
+            entity.Property(e => e.VRChatImageId).HasColumnType("text").HasColumnName("vrchat_image_id");
+            entity.Property(e => e.PublishToVRChat).HasColumnName("publish_to_vrchat");
+            entity.Property(e => e.Category).HasMaxLength(32);
+            entity.Property(e => e.Languages).HasColumnType("jsonb");
+            entity.Property(e => e.Platforms).HasColumnType("jsonb");
+            entity.Property(e => e.Tags).HasColumnType("jsonb");
+            entity.Property(e => e.Visibility).HasMaxLength(16);
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.State).HasMaxLength(16);
+
+            // The scheduler's question every pass: which events are still live.
+            entity.HasIndex(e => e.State).HasDatabaseName("ix_calendar_event_state");
+        });
+
+        builder.Entity<CalendarEventPlace>(entity =>
+        {
+            entity.ToTable("calendar_event_place");
+            entity.HasKey(e => new { e.EventId, e.Place });
+
+            entity.Property(e => e.Place).HasMaxLength(16);
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.ExternalId).HasColumnType("text");
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.SentFingerprint).HasMaxLength(64);
+            entity.Property(e => e.FailedFingerprint).HasMaxLength(64);
+            entity.Property(e => e.Error).HasMaxLength(1024);
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CalendarOpening>(entity =>
+        {
+            entity.ToTable("calendar_opening");
+
+            // The key is the promise: one attempt per occurrence, however many restarts.
+            entity.HasKey(e => new { e.EventId, e.OccurrenceStartsAt });
+
+            entity.Property(e => e.Location).HasColumnType("text");
+            entity.Property(e => e.Error).HasMaxLength(1024);
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<CalendarFeed>(entity =>
+        {
+            entity.ToTable("calendar_feed", t =>
+                t.HasCheckConstraint("ck_calendar_feed_singleton", "id = 1"));
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.TokenHash).HasMaxLength(64);
+            entity.Property(e => e.TokenEncrypted).HasColumnType("text");
         });
 
         base.OnModelCreating(builder);

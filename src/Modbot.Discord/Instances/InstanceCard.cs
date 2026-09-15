@@ -161,30 +161,15 @@ public static class InstanceCard
     public static string? JoinLink(VRChatInstance room)
     {
         ArgumentNullException.ThrowIfNull(room);
-
-        var colon = room.Location.IndexOf(':');
-        if (colon < 0 || colon == room.Location.Length - 1)
-            return null;
-
-        var worldId = room.WorldId is { Length: > 0 } world ? world : room.Location[..colon];
-        var instanceId = room.Location[(colon + 1)..];
-
-        var link = $"https://vrchat.com/home/launch?worldId={QueryValue(worldId)}&instanceId={QueryValue(instanceId)}";
-
-        // Discord refuses the whole message when a link button's address is too long, so a room with
-        // a very long custom instance id gets its card without the link rather than no card at all.
-        return link.Length <= MaxLinkLength ? link : null;
+        return InstanceJoinLink.For(room.Location, room.WorldId);
     }
 
     /// <summary>The longest address Discord accepts for a link button.</summary>
-    public const int MaxLinkLength = 512;
+    public const int MaxLinkLength = InstanceJoinLink.MaxLength;
 
     /// <summary>Cuts a value to fit one embed field.</summary>
     private static string Fit(string value) =>
         value.Length <= FieldValueLimit ? value : value[..(FieldValueLimit - 1)] + "…";
-
-    private static string QueryValue(string value) =>
-        Uri.EscapeDataString(value).Replace("%28", "(", StringComparison.Ordinal).Replace("%29", ")", StringComparison.Ordinal);
 
     /// <summary>
     /// The names as one field value: escaped, one per line, at most <see cref="NamesListed"/>, then

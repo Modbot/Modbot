@@ -8456,6 +8456,553 @@
           }
         ]
       }
+    },
+    "/api/calendar": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Every event, with its occurrences in the range, where it is published and how that went",
+        "description": "Needs the `ViewCalendar` permission.",
+        "operationId": "GetCalendar",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/events/{id}": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "One event",
+        "description": "Needs the `ViewCalendar` permission.",
+        "operationId": "GetCalendarEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Change an event",
+        "description": "Publishing follows on its own. Several changes close together are sent to VRChat as one.\n\nNeeds the `ManageCalendar` permission.",
+        "operationId": "UpdateCalendarEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Delete an event. It is taken off everywhere it was published.",
+        "description": "Needs the `ManageCalendar` permission.",
+        "operationId": "DeleteCalendarEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/events": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Plan an event",
+        "description": "Needs the `ManageCalendar` permission.",
+        "operationId": "CreateCalendarEvent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarEventView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/events/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Cancel an event. It is taken off VRChat's calendar and ended in Discord.",
+        "description": "Needs the `ManageCalendar` permission.",
+        "operationId": "CancelCalendarEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/worlds": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Worlds Modbot knows, most recently seen first, to pick an event's world from",
+        "description": "Needs the `ManageCalendar` permission.",
+        "operationId": "ListCalendarWorlds",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarWorldView"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/feed": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "The calendar feed's link, or nulls when none has been made",
+        "description": "Needs the `ManageCalendar` permission.",
+        "operationId": "GetCalendarFeed",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarFeedView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Make a new calendar feed link. The old one stops working at once.",
+        "description": "Needs the `ManageCalendar` permission.",
+        "operationId": "RegenerateCalendarFeed",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarFeedView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/feed/{token}.ics": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "The calendar feed as iCalendar. No sign-in: the token in the address is the key.",
+        "operationId": "GetCalendarFeedFile",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/calendar": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/api/calendar/join/{id}": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Sends a person on to the open instance of an event, for a Discord event's location",
+        "operationId": "JoinCalendarEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Found"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
     }
   },
   "components": {
@@ -10523,6 +11070,590 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "CalendarEventRequest": {
+        "required": [
+          "title",
+          "description",
+          "startsAt",
+          "endsAt",
+          "timeZone",
+          "repeat",
+          "repeatDays",
+          "repeatUntil",
+          "worldId",
+          "accessType",
+          "region",
+          "imageUrl",
+          "vrChatImageId",
+          "category",
+          "languages",
+          "platforms",
+          "tags",
+          "visibility",
+          "notifyMembers",
+          "publishToVRChat",
+          "publishToDiscord",
+          "postToChannel",
+          "channelId",
+          "autoOpen",
+          "openMinutesBefore",
+          "draft"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "startsAt": {
+            "type": "string"
+          },
+          "endsAt": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "repeat": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "repeatDays": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "repeatUntil": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "worldId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "accessType": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatImageId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "languages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "platforms": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "visibility": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "notifyMembers": {
+            "type": "boolean"
+          },
+          "publishToVRChat": {
+            "type": "boolean"
+          },
+          "publishToDiscord": {
+            "type": "boolean"
+          },
+          "postToChannel": {
+            "type": "boolean"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "autoOpen": {
+            "type": "boolean"
+          },
+          "openMinutesBefore": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "draft": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CalendarEventView": {
+        "required": [
+          "id",
+          "title",
+          "description",
+          "startsAt",
+          "endsAt",
+          "startsAtLocal",
+          "endsAtLocal",
+          "timeZone",
+          "repeat",
+          "repeatDays",
+          "repeatUntil",
+          "worldId",
+          "worldName",
+          "worldThumbnailUrl",
+          "accessType",
+          "region",
+          "imageUrl",
+          "vrChatImageId",
+          "category",
+          "languages",
+          "platforms",
+          "tags",
+          "visibility",
+          "notifyMembers",
+          "publishToVRChat",
+          "publishToDiscord",
+          "postToChannel",
+          "channelId",
+          "autoOpen",
+          "openMinutesBefore",
+          "state",
+          "occurrenceStartsAt",
+          "occurrenceEndsAt",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "places",
+          "opening",
+          "occurrences"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startsAtLocal": {
+            "type": "string"
+          },
+          "endsAtLocal": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "repeat": {
+            "type": "string"
+          },
+          "repeatDays": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "repeatUntil": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "worldId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "worldName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "worldThumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "accessType": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "imageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatImageId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "visibility": {
+            "type": "string"
+          },
+          "notifyMembers": {
+            "type": "boolean"
+          },
+          "publishToVRChat": {
+            "type": "boolean"
+          },
+          "publishToDiscord": {
+            "type": "boolean"
+          },
+          "postToChannel": {
+            "type": "boolean"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "autoOpen": {
+            "type": "boolean"
+          },
+          "openMinutesBefore": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "state": {
+            "type": "string"
+          },
+          "occurrenceStartsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "occurrenceEndsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "places": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarPlaceView"
+            }
+          },
+          "opening": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarOpeningView"
+              }
+            ]
+          },
+          "occurrences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarOccurrenceView"
+            }
+          }
+        }
+      },
+      "CalendarFeedView": {
+        "required": [
+          "path",
+          "url"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarOccurrenceView": {
+        "required": [
+          "startsAt",
+          "endsAt"
+        ],
+        "type": "object",
+        "properties": {
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CalendarOpeningView": {
+        "required": [
+          "occurrenceStartsAt",
+          "attemptedAt",
+          "roomId",
+          "joinLink",
+          "closed",
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "occurrenceStartsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "attemptedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "roomId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "joinLink": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "closed": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CalendarPlaceView": {
+        "required": [
+          "place",
+          "state",
+          "error",
+          "errorAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "place": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errorAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CalendarView": {
+        "required": [
+          "events",
+          "canManage",
+          "categories",
+          "platforms",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarEventView"
+            }
+          },
+          "canManage": {
+            "type": "boolean"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CalendarWorldView": {
+        "required": [
+          "worldId",
+          "name",
+          "thumbnailUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "worldId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "thumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -19422,6 +20553,10 @@
     {
       "name": "Live",
       "description": "The group's open instances right now."
+    },
+    {
+      "name": "Calendar",
+      "description": "Planned events, where each is published, and the calendar feed."
     },
     {
       "name": "Places",

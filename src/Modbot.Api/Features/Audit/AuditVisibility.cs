@@ -166,6 +166,16 @@ public static class AuditVisibility
         [FactType.WebhookDeleted] = AuditCategory.Operational,
         [FactType.WebhookDisabled] = AuditCategory.Operational,
         [FactType.SettingsChanged] = AuditCategory.Operational,
+        [FactType.PlannedEventCreated] = AuditCategory.Operational,
+        [FactType.PlannedEventChanged] = AuditCategory.Operational,
+        [FactType.PlannedEventCancelled] = AuditCategory.Operational,
+        [FactType.PlannedEventDeleted] = AuditCategory.Operational,
+        [FactType.PlannedEventOpened] = AuditCategory.Operational,
+        [FactType.PlannedEventFinished] = AuditCategory.Operational,
+        [FactType.PlannedEventInstanceOpened] = AuditCategory.Operational,
+        [FactType.PlannedEventInstanceFailed] = AuditCategory.Operational,
+        [FactType.PlannedEventPublishFailed] = AuditCategory.Operational,
+        [FactType.CalendarFeedRegenerated] = AuditCategory.Operational,
 
         // System: operational noise, and the row spec 5.9.2 gives the short retention class.
         [FactType.SyncFailed] = AuditCategory.Operational,

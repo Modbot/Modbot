@@ -177,6 +177,18 @@ public static class VRChatRateLimits
     public const string PlacesLane = "places";
 
     /// <summary>
+    /// VRChat calendar writes. Its own queue, because a write waits up to a minute for its turn and
+    /// must not hold anything else up while it does.
+    /// </summary>
+    public const string CalendarLane = "calendar";
+
+    /// <summary>VRChat calendar reads, apart from the writes for the same reason.</summary>
+    public const string CalendarReadLane = "calendar.read";
+
+    /// <summary>Opening instances for calendar events.</summary>
+    public const string InstancesCreateLane = "instances.create";
+
+    /// <summary>
     /// The classes spec 4.2's table schedules as background sync, in its order.
     /// </summary>
     /// <remarks>
@@ -290,6 +302,27 @@ public static class VRChatRateLimits
             [VRChatEndpointClass.InstancesRead] = new(
                 VRChatEndpointClass.InstancesRead, PlacesLane,
                 HardMaxPerSecond: 1.0, DefaultCeilingPerSecond: CeilingFor(1.0)),
+
+            // Measured by the maintainer on 2026-09-15: one instance created per five seconds. The
+            // calendar opens at most one instance per event occurrence, so this is never close.
+            [VRChatEndpointClass.InstancesCreate] = new(
+                VRChatEndpointClass.InstancesCreate, InstancesCreateLane,
+                HardMaxPerSecond: PerSeconds(5), DefaultCeilingPerSecond: CeilingFor(PerSeconds(5))),
+
+            // NOT MEASURED -- these must be confirmed. VRChat's calendar is strict, and the
+            // maintainer asked for "a very lax rate limit by default" until the real number is
+            // known: one write a minute, shared by create, update and delete, and one read every ten
+            // seconds. Scoped to the group, counted against the global backstop, and a 429 is a cold
+            // stop like everywhere else -- never retried (calendar design §5).
+            [VRChatEndpointClass.CalendarWrite] = new(
+                VRChatEndpointClass.CalendarWrite, CalendarLane,
+                HardMaxPerSecond: PerSeconds(60), DefaultCeilingPerSecond: CeilingFor(PerSeconds(60)),
+                ResourceScoped: true),
+
+            [VRChatEndpointClass.CalendarRead] = new(
+                VRChatEndpointClass.CalendarRead, CalendarReadLane,
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
+                ResourceScoped: true),
 
             [VRChatEndpointClass.UsersSearch] = new(
                 VRChatEndpointClass.UsersSearch, SearchLane,
