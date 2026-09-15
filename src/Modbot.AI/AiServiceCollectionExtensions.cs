@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.AI.Insights;
 
 namespace Modbot.AI;
 
@@ -18,6 +19,23 @@ public static class AiServiceCollectionExtensions
 
         services.AddHttpClient(AiClients.HttpClientName);
         services.AddScoped<IAiClients, AiClients>();
+
+        services.AddScoped<InsightFigureReader>();
+        services.AddScoped<InsightWriter>();
+        services.AddScoped<InsightScheduler>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Writes scheduled insights (AI insights design §3). Separate from <see cref="AddModbotAi"/> so
+    /// a test host can use the insight classes without a loop running underneath it.
+    /// </summary>
+    public static IServiceCollection AddModbotAiInsightSchedule(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.AddHostedService<InsightScheduleService>();
 
         return services;
     }

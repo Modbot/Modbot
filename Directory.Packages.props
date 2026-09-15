@@ -53,6 +53,10 @@
          OpenRouter, xAI, Anthropic's compatibility layer, or a local server such as Ollama
          (M8 4.2). One client library rather than one per provider. -->
     <PackageVersion Include="OpenAI" Version="2.13.0" />
+    <!-- Time zones for AI insight schedules, from its own copy of the IANA time zone database:
+         with InvariantGlobalization, TimeZoneInfo cannot read IANA names on Windows, and this
+         does not depend on the container having time zone files either. -->
+    <PackageVersion Include="NodaTime" Version="3.3.4" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="9.1.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />

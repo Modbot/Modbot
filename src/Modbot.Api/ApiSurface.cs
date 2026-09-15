@@ -18,6 +18,7 @@ using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Members;
+using Modbot.Api.Features.Insights;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Live;
 using Modbot.Api.Features.Places;
@@ -123,6 +124,9 @@ public static class ApiSurface
         // The Discord server's channels and roles as the bot last stored them, so a setting picks
         // a channel by name and sees which permission the bot lacks there (M5 spec §7).
         app.MapDiscordLists();
+
+        // AI insights: reading them, and when they are written (AI insights design).
+        app.MapInsights();
 
         // The read surface over the fact log and the daily totals derived from it. Sync health resolves
         // SyncDiagnostics optionally, so a host that maps the API without registering the

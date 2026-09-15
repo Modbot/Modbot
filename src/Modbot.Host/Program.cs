@@ -174,6 +174,10 @@ try
     // call and hands out nothing while AI is off, so it needs nothing from startup.
     builder.Services.AddModbotAi();
 
+    // Scheduled AI insights (AI insights design §3). Nothing is written while AI is off or no kind
+    // of insight is switched on.
+    builder.Services.AddModbotAiInsightSchedule();
+
     builder.Services.AddModbotAuth();
 
     // Persist the data protection key ring in Postgres. Without this the keys live in memory and

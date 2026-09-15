@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { DailyBars, DailyLine, Legend, RankedList, compactNumber, longDay, percent } from '@/components/charts'
 import { api } from '@/lib/api'
 import { ago } from '@/lib/format'
+import { InsightsPanel } from './InsightsPanel'
 import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 
@@ -47,6 +48,8 @@ export function MyGroup() {
             <Stat label="Left" value={compactNumber(left)} />
             <Stat label="Net change" value={`${joined - left >= 0 ? '+' : ''}${compactNumber(joined - left)}`} />
           </div>
+
+          <InsightsPanel />
 
           <Panel title="Member count">
             <DailyLine

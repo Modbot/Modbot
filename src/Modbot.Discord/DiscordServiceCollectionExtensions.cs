@@ -4,6 +4,7 @@ using Modbot.Core.Discord;
 using Modbot.Discord.Bot;
 using Modbot.Discord.Commands;
 using Modbot.Discord.Gateway;
+using Modbot.Discord.Insights;
 using Modbot.Discord.Instances;
 using Modbot.Discord.ModerationLog;
 using Modbot.Discord.ServerIndex;
@@ -43,11 +44,15 @@ public static class DiscordServiceCollectionExtensions
         // moderation log, which is the record rather than a notice board.
         services.AddHostedService<InstanceAnnounceService>();
 
+        // Scheduled AI insights that name a channel (AI insights design §4). Its own loop too.
+        services.AddHostedService<InsightPostService>();
+
         services.AddScoped<LookupQuery>();
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<InstanceAnnouncer>();
         services.AddScoped<DiscordServerIndex>();
+        services.AddScoped<InsightPoster>();
 
         return services;
     }

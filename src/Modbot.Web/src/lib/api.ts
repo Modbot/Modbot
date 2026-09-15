@@ -1503,6 +1503,69 @@ export type AiConnectionInput = {
 
 export type AiSettingsInput = AiConnectionInput & { enabled: boolean; removeApiKey?: boolean }
 
+/** One number for the days an insight covers and the same number for the days before. Null means nothing was recorded. */
+export type InsightFigure = { name: string; now: number | null; before: number | null }
+
+export type InsightFigures = {
+  kind: string
+  firstDay: string
+  lastDay: string
+  beforeFirstDay: string
+  beforeLastDay: string
+  figures: InsightFigure[]
+  lists: { name: string; items: { name: string; value: number }[] }[]
+}
+
+export type InsightKind = 'group' | 'team' | 'rooms'
+
+/** An AI-written summary of the group's own figures, stored with the figures it was written from. */
+export type Insight = {
+  id: string
+  kind: InsightKind
+  label: string
+  firstDay: string
+  lastDay: string
+  createdAt: string
+  startedBy: 'schedule' | 'button'
+  requestedBy: string | null
+  model: string | null
+  /** Null when the attempt failed; `error` says why. */
+  text: string | null
+  error: string | null
+  figures: InsightFigures | null
+  discordPostedAt: string | null
+  discordError: string | null
+}
+
+export type InsightEvery = 'day' | 'week'
+
+export type InsightKindSettings = {
+  kind: InsightKind
+  label: string
+  enabled: boolean
+  every: InsightEvery
+  /** 0 to 23, in the time zone. */
+  hour: number
+  /** 0 is Sunday. */
+  weekday: number
+  discordChannelId: string | null
+  last: Insight | null
+}
+
+export type AiInsightsSettings = {
+  timeZone: string | null
+  model: string | null
+  baseModel: string | null
+  aiOn: boolean
+  kinds: InsightKindSettings[]
+}
+
+export type AiInsightsSettingsInput = {
+  timeZone: string | null
+  model: string | null
+  kinds: Omit<InsightKindSettings, 'label' | 'last'>[]
+}
+
 /**
  * A non-2xx response, carrying whatever the server said about it.
  *
@@ -1740,6 +1803,18 @@ export const api = {
 
   aiModels: (body: AiConnectionInput) =>
     post<{ models: string[]; error: string | null }>('/api/settings/ai/models', body),
+
+  aiInsightsSettings: () => request<AiInsightsSettings>('/api/settings/ai/insights'),
+
+  setAiInsightsSettings: (body: AiInsightsSettingsInput) =>
+    put<AiInsightsSettings>('/api/settings/ai/insights', body),
+
+  /** Waits for the model. A 200 either way; `text` or `error` says which. 409 while AI is off. */
+  generateInsight: (kind: InsightKind) => post<Insight>(`/api/settings/ai/insights/${kind}/generate`),
+
+  /** Written insights only, newest first. */
+  insights: (kind?: InsightKind, limit = 10) =>
+    request<{ insights: Insight[] }>(`/api/insights?limit=${limit}${kind ? `&kind=${kind}` : ''}`),
 
   // ── Desktop client ──────────────────────────────────────────────────────────────────────
 

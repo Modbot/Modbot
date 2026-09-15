@@ -113,6 +113,13 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The server's roles and whether the bot could hand each out. Removed roles are marked, never deleted.</summary>
     public DbSet<DiscordRole> DiscordRoles => Set<DiscordRole>();
 
+    /// <summary>AI-written summaries of Modbot's own figures (AI insights design).</summary>
+    public DbSet<Insight> Insights => Set<Insight>();
+
+    public DbSet<InsightSettings> InsightSettings => Set<InsightSettings>();
+
+    public DbSet<InsightSchedule> InsightSchedules => Set<InsightSchedule>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -783,6 +790,56 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Name).HasColumnType("text");
 
             entity.HasIndex(e => e.GuildId).HasDatabaseName("ix_discord_role_guild");
+        });
+
+        builder.Entity<Insight>(entity =>
+        {
+            entity.ToTable("modbot_insight");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Kind).HasMaxLength(32);
+            entity.Property(e => e.StartedBy).HasMaxLength(16);
+            entity.Property(e => e.RequestedByUsername).HasMaxLength(64);
+            entity.Property(e => e.Model).HasMaxLength(200);
+            entity.Property(e => e.Provider).HasMaxLength(32);
+            entity.Property(e => e.Figures).HasColumnType("jsonb");
+            entity.Property(e => e.Text).HasColumnType("text");
+            entity.Property(e => e.Error).HasMaxLength(1000);
+            entity.Property(e => e.DiscordChannelId).HasMaxLength(32);
+            entity.Property(e => e.DiscordError).HasMaxLength(1000);
+
+            // "The latest of each kind" and "earlier ones" on the My Group page.
+            entity.HasIndex(e => new { e.Kind, e.CreatedAt })
+                .HasDatabaseName("ix_modbot_insight_kind_created")
+                .IsDescending(false, true);
+
+            // What the Discord poster still has to do. Small, because almost every row is done.
+            entity.HasIndex(e => e.CreatedAt)
+                .HasDatabaseName("ix_modbot_insight_discord_waiting")
+                .HasFilter("discord_channel_id IS NOT NULL AND discord_posted_at IS NULL AND discord_error IS NULL AND text IS NOT NULL");
+        });
+
+        builder.Entity<InsightSettings>(entity =>
+        {
+            entity.ToTable("modbot_insight_settings", t =>
+                t.HasCheckConstraint("ck_modbot_insight_settings_singleton", "id = 1"));
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.TimeZone).HasMaxLength(64);
+            entity.Property(e => e.Model).HasMaxLength(200);
+        });
+
+        builder.Entity<InsightSchedule>(entity =>
+        {
+            entity.ToTable("modbot_insight_schedule");
+
+            entity.HasKey(e => e.Kind).HasName("pk_modbot_insight_schedule");
+            entity.Property(e => e.Kind).HasMaxLength(32);
+            entity.Property(e => e.Every).HasMaxLength(8);
+            entity.Property(e => e.DiscordChannelId).HasMaxLength(32);
         });
 
         base.OnModelCreating(builder);

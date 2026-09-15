@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Tabs } from '@/components/ui/tabs'
 import { AiBaseSettings } from './AiBaseSettings'
+import { AiInsightsSettings } from './AiInsightsSettings'
 
 /**
  * The AI sub-tabs, in order. The id is the part after the slash in `/settings#ai/base`.
@@ -8,7 +9,10 @@ import { AiBaseSettings } from './AiBaseSettings'
  * Adding a sub-tab is one entry here and one panel component in this folder. Every AI feature
  * gets its client from the settings on Base, so Base stays first.
  */
-const AI_TABS = [{ value: 'base', label: 'Base', panel: AiBaseSettings }] as const
+const AI_TABS = [
+  { value: 'base', label: 'Base', panel: AiBaseSettings },
+  { value: 'insights', label: 'Insights', panel: AiInsightsSettings },
+] as const
 
 type AiTabId = (typeof AI_TABS)[number]['value']
 
