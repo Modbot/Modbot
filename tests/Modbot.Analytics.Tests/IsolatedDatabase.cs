@@ -62,8 +62,15 @@ public sealed class IsolatedDatabase : IAsyncDisposable
     }
 
     /// <summary>
-    /// Nothing to tear down: the container takes the database with it, and dropping it here would
-    /// only fight with Npgsql's connection pool.
+    /// The database is left for the container to take with it, since dropping it here would only
+    /// fight with Npgsql's connection pool -- but the pool's idle connections are closed. Every test
+    /// makes its own database, and a pool left open per test runs the shared server out of
+    /// connections part way through the suite.
     /// </summary>
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public ValueTask DisposeAsync()
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        NpgsqlConnection.ClearPool(connection);
+        return ValueTask.CompletedTask;
+    }
 }

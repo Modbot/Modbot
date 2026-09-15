@@ -26,6 +26,13 @@ public class DailyTotalsState
     /// </summary>
     public DateTimeOffset? ObservedThrough { get; set; }
 
+    /// <summary>
+    /// The highest <c>stored_at</c> of a Discord message already folded in, or null before the first
+    /// run. Messages are not facts, so they need a mark of their own; read back from years ago, a
+    /// message is stored today and belongs to a day long past.
+    /// </summary>
+    public DateTimeOffset? MessagesStoredThrough { get; set; }
+
     /// <summary>When the last run finished, from <c>IModbotClock</c>. Operational detail only.</summary>
     public DateTimeOffset? UpdatedAt { get; set; }
 }

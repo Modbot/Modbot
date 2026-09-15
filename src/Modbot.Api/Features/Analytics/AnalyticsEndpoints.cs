@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Analytics.Group;
 using Modbot.Api.Features.Analytics.Instances;
+using Modbot.Api.Features.Analytics.Server;
 using Modbot.Api.Features.Analytics.Team;
 using Modbot.Api.Features.Analytics.Worlds;
 using Modbot.Core.Data;
@@ -68,6 +69,34 @@ public static class AnalyticsEndpoints
                 + "role changes, tenure and invite follow-up come from the fact log, which a "
                 + "retention window can shorten. `coverage` reports both ranges.")
             .Produces<GroupAnalytics>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        group.MapGet("/server", async (
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromQuery] int? days,
+                [FromQuery] bool? all,
+                [FromQuery] DateOnly? from,
+                [FromQuery] DateOnly? to,
+                CancellationToken ct) =>
+            {
+                var window = await WindowAsync(db, clock, days, all, from, to, ct);
+                if (window.Error is not null) return window.Error;
+
+                return Results.Ok(await new ServerAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, ct));
+            })
+            .RequiresFlag(ModbotPermissions.ViewAnalytics)
+            .WithName("GetServerAnalytics")
+            .WithSummary("My Server: is the Discord server healthy, and who keeps it going?")
+            .WithDescription(
+                "Discord's member count, joins and leaves, messages and voice minutes per day, people "
+                + "active each day and over the week and thirty days before it, the busiest channels and "
+                + "hours (UTC), moderation actions, the people who sent the most, new members who "
+                + "stayed after 7 and 30 days, and member health now: how many members were active in "
+                + "the last thirty days and who went quiet. Active means sent a message or spent time "
+                + "in voice; bots are left out. Series come from daily totals.")
+            .Produces<ServerAnalytics>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 

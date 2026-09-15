@@ -15,6 +15,9 @@ namespace Modbot.Analytics.Tests.Retention;
 [Collection(nameof(PostgresCollection))]
 public class UserPurgerTests : AnalyticsTestBase
 {
+    /// <summary>A metric with no fact behind it, counted directly.</summary>
+    private const string CountedMetric = "test.counted";
+
     public UserPurgerTests(PostgresFixture fixture) : base(fixture) { }
 
     private const string Subject = "usr_purge_me";
@@ -125,13 +128,13 @@ public class UserPurgerTests : AnalyticsTestBase
         var counter = new DailyTotalCounter(context, Clock);
 
         await counter.IncrementAsync(
-            DailyTotalMetrics.DiscordMessages,
+            CountedMetric,
             DailyTotalDimensions.ForUser(FactPlatform.VRChat, Subject),
             120m,
             ct: Ct);
 
         await counter.IncrementAsync(
-            DailyTotalMetrics.DiscordMessages,
+            CountedMetric,
             DailyTotalDimensions.ForUser(FactPlatform.VRChat, Bystander),
             7m,
             ct: Ct);
@@ -142,9 +145,9 @@ public class UserPurgerTests : AnalyticsTestBase
 
         var today = DayOf(Clock.UtcNow);
         Assert.Null(await ValueAsync(
-            today, DailyTotalMetrics.DiscordMessages, DailyTotalDimensions.ForUser(FactPlatform.VRChat, Subject)));
+            today, CountedMetric, DailyTotalDimensions.ForUser(FactPlatform.VRChat, Subject)));
         Assert.Equal(7m, await ValueAsync(
-            today, DailyTotalMetrics.DiscordMessages, DailyTotalDimensions.ForUser(FactPlatform.VRChat, Bystander)));
+            today, CountedMetric, DailyTotalDimensions.ForUser(FactPlatform.VRChat, Bystander)));
     }
 
     /// <summary>

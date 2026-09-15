@@ -55,6 +55,35 @@ public sealed record FactCountMetric(
     FactCondition Condition = FactCondition.Any,
     bool CountDistinctSubjects = false);
 
+/// <summary>How a metric counted from stored Discord messages is broken down.</summary>
+public enum MessageDimensionKind
+{
+    /// <summary>One row per day.</summary>
+    None,
+
+    /// <summary>Per channel, the channel id; a message in a thread counts for the thread's channel.</summary>
+    Channel,
+
+    /// <summary>Per author, as <c>discord:&lt;id&gt;</c> (see <see cref="DailyTotalDimensions"/>).</summary>
+    Author,
+
+    /// <summary>Per UTC hour of the day, <c>00</c> to <c>23</c>: the day gives the weekday, so a week of rows is a heatmap.</summary>
+    Hour,
+}
+
+/// <summary>
+/// A metric counted from <c>discord_message</c>: messages people sent on each day, bots and webhooks
+/// left out. Deleted messages count -- they were sent.
+/// </summary>
+public sealed record MessageCountMetric(string Name, MessageDimensionKind Dimension);
+
+/// <summary>
+/// Minutes in Discord voice, from the voice facts: each stretch from a join or a move to the next
+/// voice fact for the same person, counted on the day it ended, at most a day long.
+/// </summary>
+/// <param name="PerPerson">Broken down by person as <c>discord:&lt;id&gt;</c>, or one row per day.</param>
+public sealed record VoiceMinutesMetric(string Name, bool PerPerson);
+
 /// <summary>
 /// A running total: yesterday's value plus today's <paramref name="Plus"/> minus today's
 /// <paramref name="Minus"/>.
@@ -136,11 +165,35 @@ public static class DailyTotalMetrics
     public const string ModeratorRejections = "moderator.rejections";
     public const string ModeratorRoleChanges = "moderator.role-changes";
 
-    /// <summary>
-    /// Discord message volume -- the metric the counted-only path exists for (spec 5.2.1).
-    /// Incremented through <see cref="IDailyTotalCounter"/>; no fact is ever written for a message.
-    /// </summary>
+    // ── The Discord server (M5 spec §6) ────────────────────────────────────────────────────
+    //
+    // Messages per day were to be the counted-only path's one use (spec 5.2.1), with no row per
+    // message. Messages are stored in full since 2026-09-15 (M5 spec §5.1), so these are computed
+    // from discord_message like any other daily total, and a rebuild reproduces them -- for as far
+    // back as messages are still kept.
+
+    /// <summary>Messages people sent, per day.</summary>
     public const string DiscordMessages = "discord.messages";
+
+    public const string DiscordChannelMessages = "discord.channel.messages";
+
+    /// <summary>Messages per person per day. With voice minutes, what "active" means on the My Server page.</summary>
+    public const string DiscordMemberMessages = "discord.member.messages";
+
+    public const string DiscordMessagesByHour = "discord.messages.by-hour";
+
+    public const string DiscordVoiceMinutes = "discord.voice.minutes";
+
+    public const string DiscordMemberVoiceMinutes = "discord.member.voice-minutes";
+
+    public const string DiscordMembersJoined = "discord.members.joined";
+    public const string DiscordMembersLeft = "discord.members.left";
+    public const string DiscordBans = "discord.bans";
+    public const string DiscordKicks = "discord.kicks";
+    public const string DiscordTimeouts = "discord.timeouts";
+
+    /// <summary>Times a moderator removed messages: each removal, whatever its size.</summary>
+    public const string DiscordMessagesRemoved = "discord.messages.removed";
 
     /// <summary>
     /// The Discord server's member count as Discord reported it, the last reading of each day. A
@@ -209,7 +262,35 @@ public static class DailyTotalMetrics
             [FactType.JoinRequestRejected, FactType.JoinRequestBlocked]),
         new(ModeratorRoleChanges, DailyTotalDimensionKind.Actor,
             [FactType.RoleGranted, FactType.RoleRevoked]),
+
+        new(DiscordMembersJoined, DailyTotalDimensionKind.None, [FactType.DiscordMemberJoined]),
+        new(DiscordMembersLeft, DailyTotalDimensionKind.None, [FactType.DiscordMemberLeft]),
+        new(DiscordBans, DailyTotalDimensionKind.None, [FactType.DiscordMemberBanned]),
+        new(DiscordKicks, DailyTotalDimensionKind.None, [FactType.DiscordMemberKicked]),
+        new(DiscordTimeouts, DailyTotalDimensionKind.None, [FactType.DiscordMemberTimedOut]),
+        new(DiscordMessagesRemoved, DailyTotalDimensionKind.None,
+            [FactType.DiscordMessagesRemoved, FactType.DiscordMessagesBulkRemoved]),
     ];
+
+    /// <summary>Metrics counted from stored Discord messages.</summary>
+    public static IReadOnlyList<MessageCountMetric> MessageCounts { get; } =
+    [
+        new(DiscordMessages, MessageDimensionKind.None),
+        new(DiscordChannelMessages, MessageDimensionKind.Channel),
+        new(DiscordMemberMessages, MessageDimensionKind.Author),
+        new(DiscordMessagesByHour, MessageDimensionKind.Hour),
+    ];
+
+    /// <summary>Minutes in voice.</summary>
+    public static IReadOnlyList<VoiceMinutesMetric> VoiceMinutes { get; } =
+    [
+        new(DiscordVoiceMinutes, PerPerson: false),
+        new(DiscordMemberVoiceMinutes, PerPerson: true),
+    ];
+
+    /// <summary>The voice facts a stretch in voice is read from.</summary>
+    public static IReadOnlyList<string> VoiceTypes { get; } =
+        [FactType.DiscordVoiceJoined, FactType.DiscordVoiceMoved, FactType.DiscordVoiceLeft];
 
     /// <summary>
     /// Running totals, computed from <see cref="FactCounts"/> rows rather than from facts.
@@ -243,9 +324,13 @@ public static class DailyTotalMetrics
 
     /// <summary>Every metric name the daily totals job owns and will delete and rewrite at will.</summary>
     public static IReadOnlySet<string> Computed { get; } =
-        FactCounts.Select(m => m.Name).Concat(Cumulative.Select(m => m.Name)).ToHashSet(StringComparer.Ordinal);
+        FactCounts.Select(m => m.Name)
+            .Concat(Cumulative.Select(m => m.Name))
+            .Concat(MessageCounts.Select(m => m.Name))
+            .Concat(VoiceMinutes.Select(m => m.Name))
+            .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Every fact type that feeds a computed metric.</summary>
     public static IReadOnlyList<string> ComputedTypes { get; } =
-        FactCounts.SelectMany(m => m.Types).Distinct().Order().ToList();
+        FactCounts.SelectMany(m => m.Types).Concat(VoiceTypes).Distinct().Order().ToList();
 }

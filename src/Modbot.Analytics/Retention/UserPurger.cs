@@ -112,6 +112,16 @@ public sealed class UserPurger : IUserPurger
             // Collected before the delete: afterwards there is nothing left to ask.
             var days = await _dailyTotals.DaysTouchedBySubjectAsync(platform, subjectId, ct);
 
+            // A Discord user's messages are in the message totals too.
+            if (platform == FactPlatform.Discord)
+            {
+                days = days
+                    .Concat(await _dailyTotals.MessageDaysByAuthorAsync(subjectId, ct))
+                    .Distinct()
+                    .Order()
+                    .ToList();
+            }
+
             var factsDeleted = await ExecuteAsync(
                 """
                 DELETE FROM modbot_event

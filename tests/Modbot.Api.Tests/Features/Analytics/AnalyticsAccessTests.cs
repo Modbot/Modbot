@@ -18,6 +18,7 @@ public class AnalyticsAccessTests
         "/api/analytics/team",
         "/api/analytics/worlds",
         "/api/analytics/instances",
+        "/api/analytics/server",
     ];
 
     private readonly PostgresFixture _db;

@@ -805,6 +805,37 @@ export type LiveView = {
   generatedAt: string
 }
 
+/** People active on one day, and over the 7 and 30 days ending on it. Distinct people. */
+export type ServerActiveDay = { day: string; daily: number; weekly: number; monthly: number }
+
+export type ServerContributor = { who: Person; messages: number; voiceMinutes: number }
+
+/** New members followed for 7 or 30 days after joining. */
+export type NewMembersStayed = { days: number; joined: number; stillHere: number; stillActive: number }
+
+export type ServerAnalytics = {
+  from: string
+  to: string
+  memberCount: DayValue[]
+  joined: DayValue[]
+  left: DayValue[]
+  messages: DayValue[]
+  voiceMinutes: DayValue[]
+  active: ServerActiveDay[]
+  busiestChannels: { id: string; name: string | null; messages: number }[]
+  /** 168 buckets, UTC, Monday 00:00 first. */
+  hourOfWeek: { messages: number[] }
+  newMembers: NewMembersStayed[]
+  bans: DayValue[]
+  kicks: DayValue[]
+  timeouts: DayValue[]
+  messagesRemoved: DayValue[]
+  topContributors: ServerContributor[]
+  health: { members: number; activeLast30Days: number; wentQuiet: number; quiet: ServerContributor[] }
+  coverage: AnalyticsCoverage
+  generatedAt: string
+}
+
 export type InstancesAnalytics = {
   from: string
   to: string
@@ -2399,6 +2430,7 @@ export const api = {
   teamAnalytics: (query: string) => request<TeamAnalytics>(`/api/analytics/team?${query}`),
   worldsAnalytics: (query: string) => request<WorldsAnalytics>(`/api/analytics/worlds?${query}`),
   instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),
+  serverAnalytics: (query: string) => request<ServerAnalytics>(`/api/analytics/server?${query}`),
 
   // One world and one room, for the popup. Read from Modbot's own tables; neither costs VRChat
   // budget, so a popup may be opened as often as a moderator likes.

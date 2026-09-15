@@ -23,6 +23,8 @@ export const NAV = [
   // One page per question (spec 10.1), not one "metrics" page. Tracked Groups is a later
   // feature (spec 10.3) and has no entry until it exists.
   { id: 'analytics-group', label: 'My Group', group: 'Analytics', needs: 'ViewAnalytics' },
+  // The Discord server, beside the group: its own members, messages and voice (M5 spec §6).
+  { id: 'analytics-server', label: 'My Server', needs: 'ViewAnalytics' },
   { id: 'analytics-team', label: 'My Team', needs: 'ViewAnalytics' },
   { id: 'analytics-worlds', label: 'Worlds', needs: 'ViewAnalytics' },
   { id: 'analytics-instances', label: 'Instances', needs: 'ViewAnalytics' },

@@ -196,6 +196,30 @@ per-moderator activity across both platforms.
 The cross-platform view is the point. "Our VRChat group grew but Discord activity fell" is a question
 no group can currently answer, and it is answerable the moment both sides are facts in one log.
 
+### 6.1 My Server (added 2026-09-15)
+
+The server gets its own page under Analytics, beside My Group, because the maintainer asked for rich
+server analytics and a Discord server is its own community rather than a column of the group's. It
+uses the same daily totals, range control and charts as the other pages:
+
+- **Members over time** is Discord's own member count, kept as a counted daily total (the last
+  reading of each day), since a count built from joins and leaves starts at zero on install day.
+- **Messages** per day, per channel and per UTC hour are computed from stored messages, bots and
+  webhooks left out. They are recomputable like any daily total for as long as messages are kept;
+  totals on days whose messages retention has dropped are kept, not rebuilt to zero.
+- **Voice minutes** are each stretch from a join or move to the next voice fact, counted on the day
+  it ended and capped at a day. Counting on the end day keeps an incremental run and a rebuild in
+  agreement: the day the closing fact lands is the day that gets recomputed.
+- **Active** means sent a message or spent time in voice. Daily, weekly and monthly active are
+  distinct people across one, seven and thirty days of per-person totals, never a sum of days.
+- **New members still here** follows joins in the range for 7 and 30 days: not left, kicked or
+  banned by then, and active in the week from then.
+- **Member health** is about now, whatever the range: the share of current members active in the
+  last thirty days, and the members active in the thirty days before that who have said nothing
+  since.
+- **Top contributors** are the people who sent the most messages, with their voice time. Anybody
+  listed opens the person popup.
+
 ---
 
 ## 7. Permissions and safety

@@ -23,6 +23,7 @@ import { Login } from '@/pages/Login'
 import { Members } from '@/pages/Members'
 import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
+import { MyServer } from '@/pages/analytics/MyServer'
 import { MyTeam } from '@/pages/analytics/MyTeam'
 import { Worlds } from '@/pages/analytics/Worlds'
 import { Pair } from '@/pages/Pair'
@@ -42,6 +43,7 @@ const TITLES: Record<PageId, string> = {
   flags: 'Flags',
   audit: 'Audit log',
   'analytics-group': 'My Group',
+  'analytics-server': 'My Server',
   'analytics-team': 'My Team',
   'analytics-worlds': 'Worlds',
   'analytics-instances': 'Instances',
@@ -68,6 +70,7 @@ const PATHS: Record<PageId, string> = {
   flags: '/flags',
   audit: '/audit',
   'analytics-group': '/analytics/group',
+  'analytics-server': '/analytics/server',
   'analytics-team': '/analytics/team',
   'analytics-worlds': '/analytics/worlds',
   'analytics-instances': '/analytics/instances',
@@ -284,6 +287,7 @@ function Shell({
           {page === 'flags' && <Flags me={me} onOpenSubject={setSubject} />}
           {page === 'audit' && <AuditLog />}
           {page === 'analytics-group' && <MyGroup />}
+          {page === 'analytics-server' && <MyServer onOpenSubject={setSubject} />}
           {page === 'analytics-team' && (
             <MyTeam onOpenSubject={setSubject} onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined} />
           )}
