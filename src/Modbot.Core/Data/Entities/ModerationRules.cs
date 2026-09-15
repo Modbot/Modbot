@@ -16,10 +16,84 @@ public static class ModerationRuleKind
     public const string TermList = "termList";
 
     public const string Topic = "topic";
+
+    public static bool IsKind(string? kind)
+        => string.Equals(kind, TermList, StringComparison.Ordinal) || string.Equals(kind, Topic, StringComparison.Ordinal);
+}
+
+/// <summary>
+/// What a rule and a version row share, so the engine and the endpoints can hold either kind of
+/// rule without knowing which one it is.
+/// </summary>
+public interface IModerationRule
+{
+    Guid Id { get; }
+
+    string Name { get; }
+
+    bool Enabled { get; }
+
+    /// <summary>A <c>ModerationTargets</c> value.</summary>
+    int Targets { get; }
+
+    bool DeleteMessage { get; }
+
+    int? TimeoutMinutes { get; }
+
+    /// <summary>The rule's text version (AI moderation design §14).</summary>
+    int Version { get; }
+
+    Guid? ActSetByUserId { get; }
+
+    string? ActSetByUsername { get; }
+
+    DateTimeOffset? ActSetAt { get; }
+
+    DateTimeOffset? TrialStartedAt { get; }
+
+    int TrialDays { get; }
+
+    DateTimeOffset? TrialEndedAt { get; }
+
+    string? TrialEndedByUsername { get; }
+
+    DateTimeOffset? PausedAt { get; }
+
+    string? PausedReason { get; }
+
+    /// <summary><see cref="ChannelScope"/>.</summary>
+    string ChannelMode { get; }
+
+    /// <summary>Channel ids, as a JSON array.</summary>
+    string Channels { get; }
+
+    /// <summary>Discord role ids whose members are never acted on, as a JSON array.</summary>
+    string ExemptRoles { get; }
+
+    /// <summary>Exempt members are not flagged either.</summary>
+    bool ExemptRolesSkipFlag { get; }
+
+    DateTimeOffset UpdatedAt { get; }
+}
+
+/// <summary>Which Discord channels a rule runs in (AI moderation design §13.3).</summary>
+public static class ChannelScope
+{
+    /// <summary>Every channel.</summary>
+    public const string All = "all";
+
+    /// <summary>Only the channels listed.</summary>
+    public const string Only = "only";
+
+    /// <summary>Every channel but the ones listed.</summary>
+    public const string Except = "except";
+
+    public static bool IsMode(string? mode)
+        => mode is All or Only or Except;
 }
 
 /// <summary>A term list (AI moderation design §2).</summary>
-public class ModerationTermList
+public class ModerationTermList : IModerationRule
 {
     public Guid Id { get; set; }
 
@@ -53,6 +127,33 @@ public class ModerationTermList
 
     public DateTimeOffset? ActSetAt { get; set; }
 
+    /// <summary>The rule's text version (AI moderation design §14). Starts at 1.</summary>
+    public int Version { get; set; } = 1;
+
+    // ── Trial, pause and scope (AI moderation design §13) ───────────────────────────────────
+
+    public DateTimeOffset? TrialStartedAt { get; set; }
+
+    public int TrialDays { get; set; } = 7;
+
+    public DateTimeOffset? TrialEndedAt { get; set; }
+
+    public Guid? TrialEndedByUserId { get; set; }
+
+    public string? TrialEndedByUsername { get; set; }
+
+    public DateTimeOffset? PausedAt { get; set; }
+
+    public string? PausedReason { get; set; }
+
+    public string ChannelMode { get; set; } = ChannelScope.All;
+
+    public string Channels { get; set; } = "[]";
+
+    public string ExemptRoles { get; set; } = "[]";
+
+    public bool ExemptRolesSkipFlag { get; set; }
+
     // ── Cloud lists only ────────────────────────────────────────────────────────────────────
 
     /// <summary>The Hub's id for the list, e.g. <c>modbot_harassment_terms</c>.</summary>
@@ -80,7 +181,7 @@ public class ModerationTermList
 }
 
 /// <summary>An AI topic: a name and what to catch, in the operator's words (AI moderation design §2).</summary>
-public class ModerationTopic
+public class ModerationTopic : IModerationRule
 {
     public Guid Id { get; set; }
 
@@ -104,6 +205,33 @@ public class ModerationTopic
     public string? ActSetByUsername { get; set; }
 
     public DateTimeOffset? ActSetAt { get; set; }
+
+    /// <summary>The rule's text version (AI moderation design §14). Starts at 1.</summary>
+    public int Version { get; set; } = 1;
+
+    // ── Trial, pause and scope (AI moderation design §13) ───────────────────────────────────
+
+    public DateTimeOffset? TrialStartedAt { get; set; }
+
+    public int TrialDays { get; set; } = 7;
+
+    public DateTimeOffset? TrialEndedAt { get; set; }
+
+    public Guid? TrialEndedByUserId { get; set; }
+
+    public string? TrialEndedByUsername { get; set; }
+
+    public DateTimeOffset? PausedAt { get; set; }
+
+    public string? PausedReason { get; set; }
+
+    public string ChannelMode { get; set; } = ChannelScope.All;
+
+    public string Channels { get; set; } = "[]";
+
+    public string ExemptRoles { get; set; } = "[]";
+
+    public bool ExemptRolesSkipFlag { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
@@ -137,6 +265,9 @@ public class ModerationFlag
     /// <summary>The rule's name when it flagged. The rule may have been renamed or deleted since.</summary>
     public string RuleName { get; set; } = string.Empty;
 
+    /// <summary>The rule version that flagged (AI moderation design §14), so the rule text as it was then can be shown.</summary>
+    public int RuleVersion { get; set; }
+
     /// <summary>Which term in the list. Empty for a topic, so the dismissal lookup has one shape.</summary>
     public string TermKey { get; set; } = string.Empty;
 
@@ -162,6 +293,14 @@ public class ModerationFlag
     public bool MessageDeleted { get; set; }
 
     public int? TimedOutMinutes { get; set; }
+
+    /// <summary>The rule was in its trial, so nothing was done (AI moderation design §13.1).</summary>
+    public bool Trial { get; set; }
+
+    /// <summary>What the rule would have done, while it is in its trial or paused.</summary>
+    public bool WouldDeleteMessage { get; set; }
+
+    public int? WouldTimeOutMinutes { get; set; }
 
     public ModerationFlagState State { get; set; } = ModerationFlagState.Open;
 

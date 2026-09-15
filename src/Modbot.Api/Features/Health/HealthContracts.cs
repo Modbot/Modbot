@@ -242,7 +242,19 @@ public sealed record SyncHealth(
     // Calendar events that could not be published or opened, and whether the bot lacks Manage
     // Events while an event wants a Discord event (calendar design §3.2, §4). Null when there is
     // nothing to say.
-    CalendarHealth? Calendar = null);
+    CalendarHealth? Calendar = null,
+    // Moderation rules that stopped themselves after acting far more in an hour than usual
+    // (AI moderation design §13.2). Empty when none has.
+    IReadOnlyList<PausedRule>? PausedRules = null);
+
+/// <summary>A moderation rule that paused itself and is waiting for an operator (design §13.2).</summary>
+/// <param name="RuleKind"><c>termList</c> or <c>topic</c>.</param>
+public sealed record PausedRule(
+    string RuleKind,
+    Guid RuleId,
+    string RuleName,
+    DateTimeOffset PausedAt,
+    string? Reason);
 
 /// <param name="MissingManageEvents">An event wants a Discord event and the bot does not hold Manage Events.</param>
 public sealed record CalendarHealth(bool MissingManageEvents, IReadOnlyList<CalendarProblem> Problems);

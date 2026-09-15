@@ -448,6 +448,18 @@ public static class FactType
 
     public const string AiModerationRuleChanged = "modbot.ai-moderation.rule.change";
 
+    /// <summary>
+    /// A rule paused itself because it acted far more in an hour than it usually does
+    /// (AI moderation design §13.2). No actor: Modbot did it, and an operator has to resume it.
+    /// </summary>
+    public const string AiModerationRulePaused = "modbot.ai-moderation.rule.pause";
+
+    /// <summary>
+    /// An operator confirmed what member text is sent to the AI provider (M8 §4.5). Written once,
+    /// the first time AI is switched on, and kept: it is the record of who made that decision.
+    /// </summary>
+    public const string AiAcknowledged = "modbot.ai.acknowledge";
+
     // ── Modbot operational events ──────────────────────────────────────────────────────────
     public const string SyncFailed = "modbot.sync.failed";
     public const string RateLimitColdStop = "modbot.ratelimit.coldstop";

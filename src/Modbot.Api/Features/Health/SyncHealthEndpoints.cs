@@ -142,7 +142,8 @@ public static class SyncHealthEndpoints
                             w.Reached,
                             w.PartUnknown))],
                     await EmailAsync(db, clock.UtcNow, ct),
-                    await CalendarHealthAsync(db, settings?.DiscordGuildId, ct)));
+                    await CalendarHealthAsync(db, settings?.DiscordGuildId, ct),
+                    await PausedRulesAsync(db, ct)));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
@@ -162,6 +163,28 @@ public static class SyncHealthEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         return app;
+    }
+
+    /// <summary>
+    /// Moderation rules that stopped themselves (AI moderation design §13.2).
+    /// </summary>
+    /// <remarks>
+    /// A paused rule is not doing what the operator told it to do, and nothing else on the screen
+    /// would say so: the flags keep arriving and the actions quietly stop.
+    /// </remarks>
+    private static async Task<IReadOnlyList<PausedRule>> PausedRulesAsync(ModbotContext db, CancellationToken ct)
+    {
+        var lists = await db.ModerationTermLists.AsNoTracking()
+            .Where(l => l.PausedAt != null)
+            .Select(l => new PausedRule(ModerationRuleKind.TermList, l.Id, l.Name, l.PausedAt!.Value, l.PausedReason))
+            .ToListAsync(ct);
+
+        var topics = await db.ModerationTopics.AsNoTracking()
+            .Where(t => t.PausedAt != null)
+            .Select(t => new PausedRule(ModerationRuleKind.Topic, t.Id, t.Name, t.PausedAt!.Value, t.PausedReason))
+            .ToListAsync(ct);
+
+        return [.. lists.Concat(topics).OrderByDescending(r => r.PausedAt)];
     }
 
     /// <summary>

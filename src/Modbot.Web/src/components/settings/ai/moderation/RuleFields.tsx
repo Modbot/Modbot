@@ -1,6 +1,7 @@
 import { Input } from '@/components/ui/input'
 import { TARGETS, type RuleAction } from '@/lib/aiModeration'
 import { Checkbox, Switch } from '../../fields'
+import { RuleScopeFields } from './RuleScopeFields'
 
 /** A small labelled group, so the dialogs read as sections without a paragraph of text. */
 export function Group({ label, children }: { label: string; children: React.ReactNode }) {
@@ -21,11 +22,15 @@ export function Group({ label, children }: { label: string; children: React.Reac
 export function RuleActionFields({
   value,
   onChange,
+  acting,
 }: {
   value: RuleAction
   onChange: (next: RuleAction) => void
+  /** The rule already acts, so setting an action here does not start a new trial. */
+  acting?: boolean
 }) {
   const chat = value.targets.includes('discordMessage')
+  const acts = value.deleteMessage || value.timeoutMinutes !== null
 
   const toggleTarget = (target: RuleAction['targets'][number], on: boolean) => {
     const targets = on ? [...value.targets, target] : value.targets.filter((t) => t !== target)
@@ -98,6 +103,34 @@ export function RuleActionFields({
           <span className="text-muted-foreground">minutes</span>
         </div>
       </Group>
+
+      {acts && !acting && (
+        <Group label="Trial">
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              max={90}
+              className="h-7 w-24"
+              aria-label="Trial days"
+              value={value.trialDays ?? 7}
+              onChange={(e) => {
+                const days = Number.parseInt(e.target.value, 10)
+                onChange({ ...value, trialDays: Number.isNaN(days) ? 7 : days })
+              }}
+            />
+            <span className="text-muted-foreground">days</span>
+          </div>
+          <Checkbox
+            checked={value.actWithoutTest ?? false}
+            onChange={(actWithoutTest) => onChange({ ...value, actWithoutTest })}
+          >
+            Act without a passing test run
+          </Checkbox>
+        </Group>
+      )}
+
+      <RuleScopeFields value={value.scope} onChange={(scope) => onChange({ ...value, scope })} />
     </>
   )
 }

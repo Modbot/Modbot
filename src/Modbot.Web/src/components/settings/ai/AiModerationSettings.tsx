@@ -7,11 +7,16 @@ import {
   actionLabel,
   failure,
   moderationApi,
+  scopeLabel,
   statsLabel,
   targetLabel,
   TARGETS,
+  testsLabel,
+  trialLabel,
   type AiModeration,
   type ModerationTarget,
+  type RuleKind,
+  type RuleSafety,
   type TermListView,
   type TopicView,
   type TryResult,
@@ -21,6 +26,7 @@ import { Checkbox, LongField, Outcome, Placeholder, Row, Switch } from '../field
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { HubListsDialog } from './moderation/HubListsDialog'
 import { TermListDialog } from './moderation/TermListDialog'
+import { TestSetDialog } from './moderation/TestSetDialog'
 import { TopicDialog } from './moderation/TopicDialog'
 
 /**
@@ -168,8 +174,62 @@ function RuleRow({
   )
 }
 
+/** The trial, a pause and the test set, shown the same way on both kinds of rule. */
+function SafetyBadges({ rule }: { rule: RuleSafety }) {
+  return (
+    <>
+      {rule.paused && <Badge variant="destructive">Paused</Badge>}
+      {rule.trial && <Badge variant="secondary">Trial</Badge>}
+      {rule.acting && <Badge variant="destructive">Acting</Badge>}
+    </>
+  )
+}
+
+function safetyDetails(rule: RuleSafety): (string | null)[] {
+  return [
+    rule.paused?.reason ?? null,
+    rule.trial ? trialLabel(rule.trial) : null,
+    testsLabel(rule.tests),
+    scopeLabel(rule.scope),
+  ]
+}
+
+/** End trial and Resume: the two buttons only a person may press (design §13). */
+function SafetyButtons({
+  kind,
+  rule,
+  busy,
+  onTests,
+  onRun,
+}: {
+  kind: RuleKind
+  rule: RuleSafety & { id: string }
+  busy: boolean
+  onTests: () => void
+  onRun: (work: () => Promise<unknown>) => void
+}) {
+  return (
+    <>
+      {rule.paused && (
+        <Button size="xs" disabled={busy} onClick={() => onRun(() => moderationApi.resume(kind, rule.id))}>
+          Resume
+        </Button>
+      )}
+      {rule.trial && (
+        <Button size="xs" disabled={busy} onClick={() => onRun(() => moderationApi.endTrial(kind, rule.id))}>
+          End trial
+        </Button>
+      )}
+      <Button size="xs" variant="ghost" disabled={busy} onClick={onTests}>
+        Test set
+      </Button>
+    </>
+  )
+}
+
 function TermListsCard({ lists, onChanged }: { lists: TermListView[]; onChanged: () => void }) {
   const [editing, setEditing] = useState<{ id: string | null } | null>(null)
+  const [testing, setTesting] = useState<{ kind: RuleKind; id: string; name: string } | null>(null)
   const [hubOpen, setHubOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -191,6 +251,8 @@ function TermListsCard({ lists, onChanged }: { lists: TermListView[]; onChanged:
         targets: list.targets,
         deleteMessage: list.deleteMessage,
         timeoutMinutes: list.timeoutMinutes,
+        scope: list.scope,
+        trialDays: null,
       }),
     )
 
@@ -239,16 +301,25 @@ function TermListsCard({ lists, onChanged }: { lists: TermListView[]; onChanged:
                       {actionLabel(list)}
                     </Badge>
                   )}
+                  <SafetyBadges rule={list} />
                 </>
               }
               details={[
                 `${list.termCount - list.excludedCount} terms`,
                 list.targets.map((t) => targetLabel(t)).join(', '),
                 statsLabel(list.stats),
+                ...safetyDetails(list),
                 list.source === 'cloud' ? `Fetched ${ago(list.hubFetchedAt, now)}` : null,
                 list.hubError,
               ]}
             >
+              <SafetyButtons
+                kind="termList"
+                rule={list}
+                busy={busy !== null}
+                onTests={() => setTesting({ kind: 'termList', id: list.id, name: list.name })}
+                onRun={(work) => run(list.id, work)}
+              />
               {list.hubAvailableVersion && (
                 <Button
                   size="xs"
@@ -304,6 +375,7 @@ function TermListsCard({ lists, onChanged }: { lists: TermListView[]; onChanged:
         onSaved={onChanged}
       />
       <HubListsDialog open={hubOpen} onClose={() => setHubOpen(false)} onAdded={onChanged} />
+      <TestSetDialog rule={testing} open={testing !== null} onClose={() => setTesting(null)} onRan={onChanged} />
     </SettingsCard>
   )
 }
@@ -318,6 +390,7 @@ function TopicsCard({
   onChanged: () => void
 }) {
   const [editing, setEditing] = useState<{ topic: TopicView | null } | null>(null)
+  const [testing, setTesting] = useState<{ kind: RuleKind; id: string; name: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
@@ -356,7 +429,7 @@ function TopicsCard({
               name={topic.name}
               enabled={topic.enabled}
               busy={busy}
-              onToggle={(enabled) => run(() => moderationApi.updateTopic(topic.id, { ...topic, enabled }))}
+              onToggle={(enabled) => run(() => moderationApi.updateTopic(topic.id, { ...topic, enabled, trialDays: null }))}
               badges={
                 <>
                   <Badge variant="outline">Sensitivity {topic.sensitivity}</Badge>
@@ -368,10 +441,22 @@ function TopicsCard({
                       {actionLabel(topic)}
                     </Badge>
                   )}
+                  <SafetyBadges rule={topic} />
                 </>
               }
-              details={[topic.targets.map((t) => targetLabel(t)).join(', '), statsLabel(topic.stats)]}
+              details={[
+                topic.targets.map((t) => targetLabel(t)).join(', '),
+                statsLabel(topic.stats),
+                ...safetyDetails(topic),
+              ]}
             >
+              <SafetyButtons
+                kind="topic"
+                rule={topic}
+                busy={busy}
+                onTests={() => setTesting({ kind: 'topic', id: topic.id, name: topic.name })}
+                onRun={(work) => run(work)}
+              />
               <Button size="xs" variant="ghost" disabled={busy} onClick={() => setEditing({ topic })}>
                 Edit
               </Button>
@@ -396,6 +481,7 @@ function TopicsCard({
         onClose={() => setEditing(null)}
         onSaved={onChanged}
       />
+      <TestSetDialog rule={testing} open={testing !== null} onClose={() => setTesting(null)} onRan={onChanged} />
     </SettingsCard>
   )
 }

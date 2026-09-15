@@ -157,6 +157,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>What the rules matched, and whether a moderator dismissed it (design §5).</summary>
     public DbSet<ModerationFlag> ModerationFlags => Set<ModerationFlag>();
 
+    /// <summary>Sample texts a rule is tried against before it is allowed to act (design §12).</summary>
+    public DbSet<ModerationTestSample> ModerationTestSamples => Set<ModerationTestSample>();
+
+    /// <summary>Each run of a rule's test set, with the model that answered (design §12.3).</summary>
+    public DbSet<ModerationTestRun> ModerationTestRuns => Set<ModerationTestRun>();
+
+    /// <summary>Each version of a rule's text, so a flag can show the rule as it was (design §14).</summary>
+    public DbSet<ModerationRuleVersion> ModerationRuleVersions => Set<ModerationRuleVersion>();
+
     /// <summary>Token counts of every AI request, by feature, for spend limits and cost estimates.</summary>
     public DbSet<AiUsage> AiUsage => Set<AiUsage>();
 
@@ -1097,7 +1106,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
         });
 
         builder.Entity<Settings>(entity =>
-            entity.Property(e => e.AiChatToolSwitches).HasColumnType("jsonb"));
+        {
+            entity.Property(e => e.AiChatToolSwitches).HasColumnType("jsonb");
+            entity.Property(e => e.AiAcknowledgedByUsername).HasMaxLength(64);
+        });
 
         builder.Entity<ModerationTermList>(entity =>
         {
@@ -1117,6 +1129,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.HubAvailableTerms).HasColumnType("jsonb");
             entity.Property(e => e.HubAvailableChanges).HasColumnType("jsonb");
             entity.Property(e => e.HubError).HasMaxLength(500);
+            entity.Property(e => e.TrialEndedByUsername).HasMaxLength(64);
+            entity.Property(e => e.PausedReason).HasMaxLength(500);
+            entity.Property(e => e.ChannelMode).HasMaxLength(16);
+            entity.Property(e => e.Channels).HasColumnType("jsonb");
+            entity.Property(e => e.ExemptRoles).HasColumnType("jsonb");
 
             // A Hub list is subscribed once; a second subscription would flag everything twice.
             entity.HasIndex(e => e.HubId)
@@ -1136,6 +1153,65 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Instructions).HasMaxLength(2000);
             entity.Property(e => e.Sensitivity).HasMaxLength(16);
             entity.Property(e => e.ActSetByUsername).HasMaxLength(64);
+            entity.Property(e => e.TrialEndedByUsername).HasMaxLength(64);
+            entity.Property(e => e.PausedReason).HasMaxLength(500);
+            entity.Property(e => e.ChannelMode).HasMaxLength(16);
+            entity.Property(e => e.Channels).HasColumnType("jsonb");
+            entity.Property(e => e.ExemptRoles).HasColumnType("jsonb");
+        });
+
+        builder.Entity<ModerationTestSample>(entity =>
+        {
+            entity.ToTable("ai_test_sample");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.RuleKind).HasMaxLength(16);
+            entity.Property(e => e.Text).HasMaxLength(4000);
+            entity.Property(e => e.Note).HasMaxLength(500);
+            entity.Property(e => e.Target).HasMaxLength(32);
+
+            // The whole set is read at once, to show it and to run it.
+            entity.HasIndex(e => new { e.RuleId, e.CreatedAt })
+                .HasDatabaseName("ix_ai_test_sample_rule");
+        });
+
+        builder.Entity<ModerationTestRun>(entity =>
+        {
+            entity.ToTable("ai_test_run");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.RuleKind).HasMaxLength(16);
+            entity.Property(e => e.Model).HasMaxLength(200);
+            entity.Property(e => e.AiSkipped).HasMaxLength(500);
+            entity.Property(e => e.Results).HasColumnType("jsonb");
+            entity.Property(e => e.RanByUsername).HasMaxLength(64);
+
+            // "The newest run for this rule", asked by the acting gate and by the card.
+            entity.HasIndex(e => new { e.RuleId, e.RanAt })
+                .HasDatabaseName("ix_ai_test_run_rule");
+        });
+
+        builder.Entity<ModerationRuleVersion>(entity =>
+        {
+            entity.ToTable("ai_rule_version");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.RuleKind).HasMaxLength(16);
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Text).HasMaxLength(8000);
+            entity.Property(e => e.Snapshot).HasColumnType("jsonb");
+            entity.Property(e => e.ChangedByUsername).HasMaxLength(64);
+
+            // A flag names one rule and one version, and that pair is looked up to show its text.
+            entity.HasIndex(e => new { e.RuleId, e.Version })
+                .HasDatabaseName("ux_ai_rule_version")
+                .IsUnique();
         });
 
         builder.Entity<ModerationFlag>(entity =>
@@ -1170,6 +1246,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.MessageId)
                 .HasDatabaseName("ix_ai_flag_message")
                 .HasFilter("message_id IS NOT NULL");
+
+            // "What has this rule done in the last hour, and in the last seven days?" -- asked
+            // after every action to decide whether the rule has run away (design §13.2), and for
+            // the trial counts on the rule's card.
+            entity.HasIndex(e => new { e.RuleId, e.FlaggedAt })
+                .HasDatabaseName("ix_ai_flag_rule_time");
         });
 
         builder.Entity<AiUsage>(entity =>

@@ -1,6 +1,6 @@
 ---
 title: Moderation rules
-description: Term lists and AI topics that check Discord messages and VRChat profiles, what they can do, the daily AI call limit and the Try it box.
+description: Term lists and AI topics that check Discord messages and VRChat profiles, test sets, the trial before a rule acts, channel and role limits, the daily AI call limit and the Try it box.
 ---
 
 Moderation rules read text your group already has, Discord messages and VRChat profiles, and check
@@ -123,12 +123,37 @@ How AI topics run:
 - **One request per piece of text**, covering every topic that applies to it.
 - **The model must quote the text.** It answers with the topic, one sentence saying why, and the
   words it matched. If those words are not really in the text, Modbot throws the match away.
-- The text is sent as data, and the model is told to ignore any instructions written in it.
+- **The member's text is sent on its own.** It never shares a message with Modbot's instructions,
+  and the two are separated by a marker that is different every request, so nothing written in a
+  message can pretend to be an instruction. The model is told that everything inside is untrusted
+  text to check and never something to obey. Member text is sent to the AI provider you choose.
+- **An answer Modbot cannot read is thrown away.** If the model answers in the wrong shape, or names
+  a topic nobody asked about, the whole answer is discarded rather than half-read.
 - Before each request, Modbot checks the daily AI call limit and the
   [spend limits](/ai/limits-and-spend) for everyone and for **Moderation**. When any is reached, AI
   topics stop and term lists carry on.
 
 [AI settings](/ai/settings#what-is-sent-to-the-provider) lists exactly what is sent.
+
+## Test sets
+
+Every rule has a **test set**: short sample texts you mark **should flag** or **should not flag**.
+Press **Test set** on a rule to open it.
+
+- Add a sample, choose what kind of text it is, and add a note if you want. Up to 200 per rule.
+- **Run** checks every sample against the rule as it is now, and shows each one as **Caught**,
+  **Missed**, **Wrongly flagged** or **Not flagged**, with the totals. For an AI topic it shows the
+  words the model quoted and the reason it gave.
+- Runs are kept with the model that answered and the version of the rule, so you can compare a run
+  after a model change with the run before it.
+
+Running an AI topic's test set is one real AI request per sample. It uses today's AI calls and counts
+towards your [spend limits](/ai/limits-and-spend) like any other request. A term list's test set
+costs nothing.
+
+Every new AI topic starts with four samples marked **should not flag**, each one an attempt to talk
+the model out of its instructions. A topic that flags one of those is reading the text as
+instructions rather than checking it.
 
 ## Actions
 
@@ -139,6 +164,43 @@ Every rule starts as flag only. For **Discord messages**, a rule's **Action** ca
 
 Both are greyed out until **Discord messages** is ticked. VRChat profiles only ever get a flag, and
 Modbot never takes any action in VRChat because of a rule.
+
+### Before a rule can act
+
+A rule can only be switched from flag only to acting when its test set has been run against the rule
+as it is now, with nothing wrongly flagged. If you change the rule's terms, what it checks or where
+it runs, run the test set again before setting it to act.
+
+Tick **Act without a passing test run** to go ahead anyway. That is recorded in the
+[audit log](/moderation/audit-log) with your name on it.
+
+### The trial
+
+Switching a rule to acting starts a **trial**, 7 days by default — set the length beside the action.
+During the trial the rule flags as usual and records what it *would* have done instead of doing it.
+The rule's card shows how many it would have deleted, how many it would have timed out, and how many
+of those flags a moderator dismissed.
+
+Press **End trial** on the rule when you are happy with it. From then on it really deletes and times
+out. A rule set back to flag only loses its trial.
+
+### If a rule runs away
+
+An acting rule that suddenly acts far more in an hour than it usually does pauses itself: more than
+10 actions in an hour, and more than 4 times its own hourly average over the last 7 days. A paused
+rule keeps flagging and stops acting, shows **Paused** on its card with the reason, and appears on
+the [Health](/self-hosting/health) page. Press **Resume** when you have looked at it.
+
+### Where a rule runs
+
+Each rule has **Channels** and **Never act on**:
+
+- **Channels**: every channel, only the channels you list, or all but the channels you list. A rule
+  outside its channels does nothing at all there, not even flag.
+- **Never act on**: Discord roles whose members the rule never deletes or times out. They are still
+  flagged, unless you also tick **Do not flag them either**.
+
+## Who set a rule to act
 
 - A rule that acts shows a red badge, such as "Delete, time out 60 min". Hover over it to see who set
   it to act. Changing the action records the person who changed it; setting it back to flag only
@@ -162,6 +224,8 @@ there is one, the matched words and the reason (a Hub term's note, or the model'
   of a profile, is flagged once.
 - **Dismissing is permanent for that person.** Once a flag is dismissed, that rule and term (or
   topic) never flags or acts on that person again.
+- A flag shows the rule **as it read when it flagged**, even if the rule has been changed or deleted
+  since.
 
 Seeing flags needs **See profiles**; dismissing them needs **Review tickets**. See
 [Flags](/moderation/flags).

@@ -215,6 +215,20 @@ public class Settings
     /// <summary>The model features use unless they ask for another.</summary>
     public string? AiModel { get; set; }
 
+    /// <summary>
+    /// When an operator confirmed what member text Modbot sends to the provider (M8 §4.5). Null
+    /// until somebody has; AI cannot be switched on before then.
+    /// </summary>
+    /// <remarks>
+    /// One confirmation for the deployment, not one per person and not one per visit: it is a
+    /// decision about where members' text goes, and it is recorded as a fact naming who made it.
+    /// </remarks>
+    public DateTimeOffset? AiAcknowledgedAt { get; set; }
+
+    public Guid? AiAcknowledgedByUserId { get; set; }
+
+    public string? AiAcknowledgedByUsername { get; set; }
+
     // --- AI chat (AI chat design §5) ---
 
     /// <summary>Whether the Chat page answers. Off by default, and needs <see cref="AiEnabled"/> too.</summary>

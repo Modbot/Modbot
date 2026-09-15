@@ -3,6 +3,38 @@ namespace Modbot.Api.Features.Settings;
 /// <summary>How often a rule has flagged, and how many of those a moderator dismissed (M8 §4.4).</summary>
 public sealed record RuleStats(int Flags, int Dismissed);
 
+/// <summary>Where a rule runs and who it never acts on (AI moderation design §13.3).</summary>
+/// <param name="ChannelMode"><c>all</c>, <c>only</c> or <c>except</c>.</param>
+public sealed record RuleScope(
+    string ChannelMode,
+    IReadOnlyList<string> Channels,
+    IReadOnlyList<string> ExemptRoles,
+    bool ExemptRolesSkipFlag);
+
+/// <summary>A running trial: what the rule would have done, and how much of it was dismissed (design §13.1).</summary>
+public sealed record RuleTrial(
+    DateTimeOffset StartedAt,
+    int Days,
+    DateTimeOffset EndsAt,
+    int Flags,
+    int WouldDelete,
+    int WouldTimeOut,
+    int Dismissed);
+
+/// <summary>A rule that stopped itself (design §13.2).</summary>
+public sealed record RulePause(DateTimeOffset At, string? Reason);
+
+/// <summary>The rule's test set and its newest run (design §12).</summary>
+/// <param name="Passes">A run exists for the rule as it stands now, with nothing wrongly flagged.</param>
+public sealed record RuleTestSummary(
+    int Samples,
+    DateTimeOffset? LastRunAt,
+    string? LastRunModel,
+    int? Caught,
+    int? ShouldFlag,
+    int? WronglyFlagged,
+    bool Passes);
+
 public sealed record TermListView(
     Guid Id,
     string Name,
@@ -21,7 +53,13 @@ public sealed record TermListView(
     string? HubAvailableVersion,
     Modbot.AI.Moderation.HubListChanges? HubAvailableChanges,
     string? HubError,
-    RuleStats Stats);
+    RuleStats Stats,
+    int Version,
+    bool Acting,
+    RuleScope Scope,
+    RuleTrial? Trial,
+    RulePause? Paused,
+    RuleTestSummary Tests);
 
 /// <param name="Label">The term as a moderator reads it: the words, the pattern, or the combination.</param>
 /// <param name="Excluded">Switched off on this deployment.</param>
@@ -48,7 +86,13 @@ public sealed record TopicView(
     int? TimeoutMinutes,
     string? SetToActBy,
     DateTimeOffset? SetToActAt,
-    RuleStats Stats);
+    RuleStats Stats,
+    int Version,
+    bool Acting,
+    RuleScope Scope,
+    RuleTrial? Trial,
+    RulePause? Paused,
+    RuleTestSummary Tests);
 
 /// <param name="AiReady">Whether AI base settings are on and complete, so AI topics can run at all.</param>
 public sealed record AiModerationResponse(
@@ -69,6 +113,12 @@ public sealed record TermInput(string? Id, string Kind, string Text);
 /// <param name="Name">Ignored for a Hub list.</param>
 /// <param name="Terms">Ignored for a Hub list. Null keeps the terms as they are.</param>
 /// <param name="ExcludedTerms">Hub lists only: the ids of terms to switch off. Null keeps them as they are.</param>
+/// <param name="Scope">Null keeps the scope as it is.</param>
+/// <param name="TrialDays">How long the trial should run when this switches the rule to acting. Null means 7.</param>
+/// <param name="ActWithoutTest">
+/// Switch the rule to acting without a passing test run. Recorded as a fact naming the operator
+/// (AI moderation design §12.4).
+/// </param>
 public sealed record TermListInput(
     string? Name,
     bool Enabled,
@@ -76,7 +126,10 @@ public sealed record TermListInput(
     bool DeleteMessage,
     int? TimeoutMinutes,
     IReadOnlyList<TermInput>? Terms,
-    IReadOnlyList<string>? ExcludedTerms);
+    IReadOnlyList<string>? ExcludedTerms,
+    RuleScope? Scope = null,
+    int? TrialDays = null,
+    bool ActWithoutTest = false);
 
 public sealed record HubSubscribe(string HubId);
 
@@ -98,7 +151,67 @@ public sealed record TopicInput(
     bool Enabled,
     IReadOnlyList<string>? Targets,
     bool DeleteMessage,
-    int? TimeoutMinutes);
+    int? TimeoutMinutes,
+    RuleScope? Scope = null,
+    int? TrialDays = null,
+    bool ActWithoutTest = false);
+
+// ── Test sets (AI moderation design §12) ────────────────────────────────────────────────────
+
+public sealed record TestSampleView(Guid Id, string Text, bool ShouldFlag, string? Note, string Target, bool Seeded);
+
+public sealed record TestSampleInput(string? Text, bool ShouldFlag, string? Note, string? Target);
+
+/// <param name="Flagged">Whether the rule flagged it on the run.</param>
+/// <param name="Matched">The words that matched, or the model's quote.</param>
+/// <param name="Reason">The Hub note for a term, or the model's sentence for a topic.</param>
+public sealed record TestRunSampleView(
+    Guid SampleId,
+    string Text,
+    bool ShouldFlag,
+    string? Note,
+    string Target,
+    bool Flagged,
+    string? Term,
+    string? Matched,
+    string? Reason);
+
+public sealed record TestRunView(
+    Guid Id,
+    DateTimeOffset RanAt,
+    string? Model,
+    int RuleVersion,
+    int Samples,
+    int ShouldFlagCount,
+    int Caught,
+    int Missed,
+    int ShouldNotFlagCount,
+    int WronglyFlagged,
+    string? AiSkipped,
+    string? RanBy,
+    IReadOnlyList<TestRunSampleView> Results);
+
+public sealed record RuleTestsResponse(
+    string RuleKind,
+    Guid RuleId,
+    string RuleName,
+    int RuleVersion,
+    bool Acting,
+    IReadOnlyList<TestSampleView> Samples,
+    IReadOnlyList<TestRunView> Runs);
+
+/// <summary>One version of a rule's text (AI moderation design §14).</summary>
+public sealed record RuleVersionView(
+    int Version,
+    DateTimeOffset ChangedAt,
+    string? ChangedBy,
+    string Name,
+    string Text);
+
+public sealed record RuleVersionList(string RuleKind, Guid RuleId, IReadOnlyList<RuleVersionView> Versions);
+
+/// <param name="Days">How long the trial should run. Null keeps what the rule has.</param>
+public sealed record TrialInput(int? Days);
 
 public sealed record TryRequest(string? Text, string? Target, bool IncludeAi);
 

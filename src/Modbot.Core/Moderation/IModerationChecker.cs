@@ -91,15 +91,26 @@ public sealed record ProfileToCheck(
 
 /// <summary>One rule that matched.</summary>
 /// <param name="RuleKind"><c>termList</c> or <c>topic</c>.</param>
+/// <param name="RuleVersion">The rule's text version when it matched (AI moderation design §14).</param>
 /// <param name="TermKey">Which term in the list; empty for a topic.</param>
 /// <param name="Term">The term as written, or the topic name.</param>
 /// <param name="Matched">The words in the text that matched.</param>
 /// <param name="Reason">The Hub note for a term, or the model's reason for a topic.</param>
+/// <param name="DeleteMessage">The rule asks for the message to be deleted.</param>
+/// <param name="TimeoutMinutes">The rule asks for the author to be timed out for this long.</param>
 /// <param name="Suppressed">A moderator dismissed this flag for this person before, so nothing happens.</param>
+/// <param name="Acting">
+/// The rule's action is really being taken. False while the rule only flags, during its trial,
+/// while it is paused, and for somebody an exempt role covers (design §13).
+/// </param>
+/// <param name="Trial">The rule wants to act and is still in its trial, so it only recorded what it would do.</param>
+/// <param name="Exempt">The person holds a role this rule never acts on.</param>
+/// <param name="Paused">The rule paused itself and is waiting for an operator.</param>
 public sealed record ModerationMatch(
     string RuleKind,
     Guid RuleId,
     string RuleName,
+    int RuleVersion,
     string TermKey,
     string Term,
     ModerationTargets Target,
@@ -107,7 +118,11 @@ public sealed record ModerationMatch(
     string? Reason,
     bool DeleteMessage,
     int? TimeoutMinutes,
-    bool Suppressed = false);
+    bool Suppressed = false,
+    bool Acting = false,
+    bool Trial = false,
+    bool Exempt = false,
+    bool Paused = false);
 
 /// <summary>What a check found and did.</summary>
 /// <param name="AiSkipped">Why AI topics did not run, when there were topics that could have.</param>

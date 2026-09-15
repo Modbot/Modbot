@@ -111,6 +111,17 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
                       {flag.timedOutMinutes && (
                         <Badge variant="destructive">Timed out {flag.timedOutMinutes} min</Badge>
                       )}
+                      {flag.trial && (
+                        <Badge variant="secondary">
+                          {[
+                            'Trial',
+                            flag.wouldDeleteMessage ? 'would delete' : null,
+                            flag.wouldTimeOutMinutes ? `would time out ${flag.wouldTimeOutMinutes} min` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </Badge>
+                      )}
                     </div>
                     <div className="mt-1">
                       “{flag.matched}”
@@ -119,6 +130,11 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
                       )}
                     </div>
                     {flag.reason && <div className="mt-0.5 text-muted-foreground">{flag.reason}</div>}
+                    {flag.ruleText && (
+                      <div className="mt-0.5 break-words text-muted-foreground">
+                        {flag.ruleName} v{flag.ruleVersion}: {flag.ruleText}
+                      </div>
+                    )}
                     <div className="mt-0.5 text-muted-foreground">
                       {ago(flag.flaggedAt, now)}
                       {flag.state === 'dismissed' &&

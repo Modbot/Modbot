@@ -2,7 +2,14 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { failure, moderationApi, type RuleAction, type Sensitivity, type TopicView } from '@/lib/aiModeration'
+import {
+  failure,
+  moderationApi,
+  NO_SCOPE,
+  type RuleAction,
+  type Sensitivity,
+  type TopicView,
+} from '@/lib/aiModeration'
 import { LongField, Outcome } from '../../fields'
 import { Group, RuleActionFields } from './RuleFields'
 
@@ -53,6 +60,8 @@ function TopicForm({
     targets: topic?.targets ?? ['discordMessage'],
     deleteMessage: topic?.deleteMessage ?? false,
     timeoutMinutes: topic?.timeoutMinutes ?? null,
+    scope: topic?.scope ?? NO_SCOPE,
+    trialDays: topic?.trial?.days ?? null,
   })
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -108,7 +117,7 @@ function TopicForm({
         </div>
       </Group>
 
-      <RuleActionFields value={rule} onChange={setRule} />
+      <RuleActionFields value={rule} onChange={setRule} acting={topic?.acting ?? false} />
 
       <div className="flex items-center gap-2">
         <Button size="sm" disabled={busy} onClick={save}>

@@ -221,6 +221,8 @@ public static class AuditVisibility
         [FactType.AiModerationMessageDeleted] = AuditCategory.Moderation,
         [FactType.AiModerationTimeout] = AuditCategory.Moderation,
         [FactType.AiModerationRuleChanged] = AuditCategory.Operational,
+        [FactType.AiModerationRulePaused] = AuditCategory.Operational,
+        [FactType.AiAcknowledged] = AuditCategory.Operational,
 
         // An upstream event Modbot has no name for yet. Its TypeRaw comes from the group's own
         // audit log, which is moderation history by definition -- an instance kick Modbot does

@@ -1219,7 +1219,17 @@ export type SyncHealth = {
   email?: EmailHealth | null
   /** Calendar places that failed, instances that did not open, and a missing Manage Events. */
   calendar?: CalendarHealth | null
+  /** Moderation rules that stopped themselves after acting far more in an hour than usual. */
+  pausedRules?: PausedRule[] | null
   now: string
+}
+
+export type PausedRule = {
+  ruleKind: 'termList' | 'topic'
+  ruleId: string
+  ruleName: string
+  pausedAt: string
+  reason: string | null
 }
 
 export type CalendarHealth = {
@@ -1798,6 +1808,16 @@ export type AiSettings = {
   model: string | null
   apiKeyStored: boolean
   providers: AiProviderOption[]
+  acknowledgement: AiAcknowledgement
+}
+
+/** The one-time confirmation of what member text goes to the provider. */
+export type AiAcknowledgement = {
+  confirmed: boolean
+  at: string | null
+  by: string | null
+  endpoint: string
+  sends: { feature: string; text: string }[]
 }
 
 /** The form's values for the Test button and the model list. Nothing is saved. */
@@ -2594,6 +2614,8 @@ export const api = {
   aiSettings: () => request<AiSettings>('/api/settings/ai'),
 
   setAiSettings: (body: AiSettingsInput) => put<AiSettings>('/api/settings/ai', body),
+
+  acknowledgeAi: (endpoint: string) => post<AiSettings>('/api/settings/ai/acknowledge', { endpoint }),
 
   /** One short chat message through the endpoint on the form. A 200 either way; `message` says what happened. */
   testAi: (body: AiConnectionInput) =>

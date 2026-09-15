@@ -144,8 +144,7 @@ public class AiModerationTests
         var (user, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
         await SwitchOnAsync(host, cookie);
-        await host.SendJsonAsync(HttpMethod.Post, $"{Path}/lists",
-            List("Scams", [Term("word", "free nitro")], delete: true, timeout: 45), cookie, Ct);
+        await ActingListAsync(host, cookie, "Scams", [Term("word", "free nitro")], delete: true, timeout: 45);
 
         var outcome = await CheckAsync(host, Message("m1", "author-1", "hey FREE nitro at this link"));
 
@@ -191,7 +190,7 @@ public class AiModerationTests
         var (reviewer, reviewerCookie) = await host.SignedInAsync(ModbotPermissions.ViewProfile | ModbotPermissions.ReviewTickets, Ct);
 
         await SwitchOnAsync(host, admin);
-        await host.SendJsonAsync(HttpMethod.Post, $"{Path}/lists", List("Words", [Term("word", "scunthorpe")], delete: true), admin, Ct);
+        await ActingListAsync(host, admin, "Words", [Term("word", "scunthorpe")], delete: true);
 
         await CheckAsync(host, Message("m1", "local-1", "I live in Scunthorpe"));
         Assert.Single(discord.Deleted);
@@ -230,8 +229,8 @@ public class AiModerationTests
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
         await SwitchOnAsync(host, cookie);
-        await host.SendJsonAsync(HttpMethod.Post, $"{Path}/lists",
-            List("Ads", [Term("contains", "discord.gg")], targets: ["discordMessage", "bio"], delete: true, timeout: 10), cookie, Ct);
+        await ActingListAsync(host, cookie, "Ads", [Term("contains", "discord.gg")],
+            targets: ["discordMessage", "bio"], delete: true, timeout: 10);
 
         await using var scope = host.Services.CreateAsyncScope();
         var outcome = await scope.ServiceProvider.GetRequiredService<IModerationChecker>()
@@ -421,6 +420,9 @@ public class AiModerationTests
         await using (var db = _db.NewContext())
         {
             await db.ModerationFlags.ExecuteDeleteAsync(Ct);
+            await db.ModerationTestSamples.ExecuteDeleteAsync(Ct);
+            await db.ModerationTestRuns.ExecuteDeleteAsync(Ct);
+            await db.ModerationRuleVersions.ExecuteDeleteAsync(Ct);
             await db.ModerationTermLists.ExecuteDeleteAsync(Ct);
             await db.ModerationTopics.ExecuteDeleteAsync(Ct);
             await db.AiUsage.ExecuteDeleteAsync(Ct);
@@ -463,7 +465,29 @@ public class AiModerationTests
             deleteMessage = delete,
             timeoutMinutes = timeout,
             terms,
+            // The acting gate (design §12.4) is exercised by its own tests; the rest of these say
+            // plainly that they are skipping it rather than each building a test set first.
+            actWithoutTest = true,
         };
+
+    /// <summary>Creates a list that really acts: past the gate and past the trial.</summary>
+    private async Task<Guid> ActingListAsync(
+        ApiTestHost host, string cookie, string name, object[] terms,
+        string[]? targets = null, bool delete = false, int? timeout = null)
+    {
+        var created = await JsonAsync(await host.SendJsonAsync(HttpMethod.Post, $"{Path}/lists",
+            List(name, terms, targets, delete, timeout), cookie, Ct));
+
+        var id = created.GetProperty("list").GetProperty("id").GetGuid();
+
+        if (delete || timeout is not null)
+        {
+            var ended = await host.SendJsonAsync(HttpMethod.Post, $"{Path}/rules/termList/{id}/end-trial", null, cookie, Ct);
+            Assert.Equal(HttpStatusCode.OK, ended.StatusCode);
+        }
+
+        return id;
+    }
 
     private static async Task<JsonElement> JsonAsync(HttpResponseMessage response)
     {

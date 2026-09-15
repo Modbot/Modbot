@@ -13,6 +13,7 @@ import {
   type DiscordReadBackHealth,
   type CalendarHealth,
   type EmailHealth,
+  type PausedRule,
   type SyncHealth,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -148,6 +149,10 @@ export function Health() {
 
       {health.calendar && health.calendar.problems.length > 0 && (
         <CalendarProblems calendar={health.calendar} now={health.now} />
+      )}
+
+      {health.pausedRules && health.pausedRules.length > 0 && (
+        <PausedRules rules={health.pausedRules} now={health.now} />
       )}
 
       <Card>
@@ -435,6 +440,27 @@ const CALENDAR_PLACE: Record<string, string> = {
   discordEvent: 'Discord event',
   channelPost: 'Channel post',
   instance: 'Instance',
+}
+
+/**
+ * Moderation rules that stopped themselves (AI moderation design §13.2).
+ *
+ * A paused rule keeps flagging and quietly stops acting, so nothing else on this screen would say
+ * that what the operator asked for is not happening.
+ */
+function PausedRules({ rules, now }: { rules: PausedRule[]; now: string }) {
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <div className="font-medium">Paused moderation rules</div>
+        {rules.map((r) => (
+          <p key={r.ruleId} className="mt-1 max-w-3xl text-warn" style={{ fontSize: 'var(--text-small)' }}>
+            {r.ruleName} · {r.reason ?? 'Paused'} ({ago(r.pausedAt, now)})
+          </p>
+        ))}
+      </CardContent>
+    </Card>
+  )
 }
 
 /** Calendar events that did not publish or whose instance did not open (calendar design §3, §4). */

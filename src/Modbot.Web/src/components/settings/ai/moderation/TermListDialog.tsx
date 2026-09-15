@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import {
   failure,
   moderationApi,
+  NO_SCOPE,
   type RuleAction,
   type TermInput,
   type TermListDetail,
@@ -24,6 +25,8 @@ const NEW_LIST: RuleAction = {
   targets: ['discordMessage'],
   deleteMessage: false,
   timeoutMinutes: null,
+  scope: NO_SCOPE,
+  trialDays: null,
 }
 
 /**
@@ -83,6 +86,8 @@ function TermListForm({
           targets: d.list.targets,
           deleteMessage: d.list.deleteMessage,
           timeoutMinutes: d.list.timeoutMinutes,
+          scope: d.list.scope,
+          trialDays: d.list.trial?.days ?? null,
         })
         setTerms(
           d.terms
@@ -143,7 +148,7 @@ function TermListForm({
         </label>
       )}
 
-      <RuleActionFields value={rule} onChange={setRule} />
+      <RuleActionFields value={rule} onChange={setRule} acting={detail?.list.acting ?? false} />
 
       {hub ? (
         <Group label={`Terms · ${detail ? detail.terms.length - excluded.size : 0} on`}>

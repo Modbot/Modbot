@@ -13,6 +13,13 @@ using Modbot.Core.Time;
 namespace Modbot.Api.Features.Flags;
 
 /// <param name="SubjectPlatform"><c>vrchat</c> or <c>discord</c>.</param>
+/// <param name="RuleVersion">The rule version that flagged (AI moderation design §14).</param>
+/// <param name="RuleText">
+/// The rule as it read at that version — the terms, or what to catch. Null when the version is not
+/// recorded, which is every flag from before rule versions existed.
+/// </param>
+/// <param name="Trial">The rule was in its trial, so nothing was done.</param>
+/// <param name="WouldDeleteMessage">What the rule would have done, during a trial or while paused.</param>
 public sealed record FlagView(
     Guid Id,
     DateTimeOffset FlaggedAt,
@@ -32,7 +39,12 @@ public sealed record FlagView(
     int? TimedOutMinutes,
     string State,
     DateTimeOffset? DismissedAt,
-    string? DismissedBy);
+    string? DismissedBy,
+    int RuleVersion = 0,
+    string? RuleText = null,
+    bool Trial = false,
+    bool WouldDeleteMessage = false,
+    int? WouldTimeOutMinutes = null);
 
 public sealed record FlagList(IReadOnlyList<FlagView> Flags, int Open);
 
@@ -69,8 +81,9 @@ public static class FlagEndpoints
                     .ToListAsync(ct);
 
                 var open = await db.ModerationFlags.CountAsync(f => f.State == ModerationFlagState.Open, ct);
+                var text = await RuleTextAsync(db, flags, ct);
 
-                return Results.Ok(new FlagList([.. flags.Select(View)], open));
+                return Results.Ok(new FlagList([.. flags.Select(f => View(f, text))], open));
             })
             .WithName("ListModerationFlags")
             .WithSummary("The newest flags, open or dismissed")
@@ -132,7 +145,7 @@ public static class FlagEndpoints
 
                 await transaction.CommitAsync(ct);
 
-                return Results.Ok(View(flag));
+                return Results.Ok(View(flag, await RuleTextAsync(db, [flag], ct)));
             })
             .WithName("DismissModerationFlag")
             .WithSummary("Dismiss a flag. The same rule and term never flags this person again.")
@@ -145,7 +158,36 @@ public static class FlagEndpoints
         return app;
     }
 
-    private static FlagView View(ModerationFlag f) => new(
+    /// <summary>
+    /// The rule text each flag's version read, keyed by rule and version (AI moderation design §14).
+    /// </summary>
+    /// <remarks>
+    /// Read from the version rows rather than from the rule, because the rule may have been changed
+    /// or deleted since. A flag that says "matched by this rule" and shows today's rule is a flag
+    /// that misrepresents itself.
+    /// </remarks>
+    private static async Task<Dictionary<(Guid, int), string>> RuleTextAsync(
+        ModbotContext db, IReadOnlyList<ModerationFlag> flags, CancellationToken ct)
+    {
+        var ids = flags.Where(f => f.RuleVersion > 0).Select(f => f.RuleId).Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        var versions = flags.Where(f => f.RuleVersion > 0).Select(f => f.RuleVersion).Distinct().ToList();
+
+        var rows = await db.ModerationRuleVersions.AsNoTracking()
+            .Where(v => ids.Contains(v.RuleId) && versions.Contains(v.Version))
+            .Select(v => new { v.RuleId, v.Version, v.Text })
+            .ToListAsync(ct);
+
+        var text = new Dictionary<(Guid, int), string>();
+        foreach (var row in rows)
+            text[(row.RuleId, row.Version)] = row.Text;
+
+        return text;
+    }
+
+    private static FlagView View(ModerationFlag f, IReadOnlyDictionary<(Guid, int), string>? ruleText = null) => new(
         f.Id,
         f.FlaggedAt,
         f.RuleKind,
@@ -169,5 +211,10 @@ public static class FlagEndpoints
         f.TimedOutMinutes,
         f.State == ModerationFlagState.Dismissed ? "dismissed" : "open",
         f.DismissedAt,
-        f.DismissedByUsername);
+        f.DismissedByUsername,
+        f.RuleVersion,
+        ruleText is not null && ruleText.TryGetValue((f.RuleId, f.RuleVersion), out var text) ? text : null,
+        f.Trial,
+        f.WouldDeleteMessage,
+        f.WouldTimeOutMinutes);
 }

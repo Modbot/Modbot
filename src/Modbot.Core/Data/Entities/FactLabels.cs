@@ -170,6 +170,8 @@ public static class FactLabels
         [FactType.AiModerationMessageDeleted] = "Discord message deleted by a moderation rule",
         [FactType.AiModerationTimeout] = "Timed out on Discord by a moderation rule",
         [FactType.AiModerationRuleChanged] = "Moderation rule changed",
+        [FactType.AiModerationRulePaused] = "Moderation rule paused itself",
+        [FactType.AiAcknowledged] = "What is sent to the AI provider was confirmed",
     };
 
     public static string For(string type)

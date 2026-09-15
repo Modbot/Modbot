@@ -38,6 +38,19 @@ public static class AiModerationEndpoints
     /// <summary>Discord's own longest timeout: 28 days.</summary>
     public const int MaxTimeoutMinutes = 28 * 24 * 60;
 
+    /// <summary>How many channels or roles one rule's scope may name.</summary>
+    public const int MaxScopeIds = 200;
+
+    public const int MaxSampleLength = 4000;
+
+    public const int MaxSampleNoteLength = 500;
+
+    /// <summary>How many samples one rule's test set may hold.</summary>
+    public const int MaxSamples = 200;
+
+    /// <summary>How many runs the tests screen shows.</summary>
+    public const int RunsShown = 10;
+
     private static readonly string[] Sensitivities = ["low", "medium", "high"];
 
     public static IEndpointRouteBuilder MapAiModerationSettings(this IEndpointRouteBuilder app)
@@ -103,8 +116,7 @@ public static class AiModerationEndpoints
                 if (list is null)
                     return NotFound("No such term list.");
 
-                var stats = await StatsAsync(db, [id], ct);
-                return Results.Ok(Detail(list, stats));
+                return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("GetTermList")
             .WithSummary("One term list with its terms")
@@ -130,12 +142,21 @@ public static class AiModerationEndpoints
                 if (ApplyList(list, body, http.User, now) is { } problem)
                     return Error(problem);
 
+                AiModerationRuleHistory.Version(
+                    db, list, null, AiModerationRuleHistory.SnapshotOf(list), AiModerationRuleHistory.TextOf(list),
+                    ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, now);
+
+                var gate = await ActingAsync(db, list, wasActing: false, body.TrialDays, body.ActWithoutTest, now, ct);
+                if (gate.Problem is { } why)
+                    return Error(why);
+
                 db.ModerationTermLists.Add(list);
                 await db.SaveChangesAsync(ct);
 
                 await RuleChangedAsync(http, facts, partitions, clock, ModerationRuleKind.TermList, list.Id, list.Name, "created", ListData(list), ct);
+                await OverrideFactAsync(http, facts, partitions, clock, ModerationRuleKind.TermList, list, gate, ct);
 
-                return Results.Ok(Detail(list, new Dictionary<Guid, RuleStats>()));
+                return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("CreateTermList")
             .WithSummary("Create a local term list")
@@ -161,14 +182,26 @@ public static class AiModerationEndpoints
                     return NotFound("No such term list.");
 
                 var now = clock.UtcNow;
+                var before = AiModerationRuleHistory.SnapshotOf(list);
+                var wasActing = RuleGuards.WantsAction(list);
+
                 if (ApplyList(list, body, http.User, now) is { } problem)
                     return Error(problem);
+
+                AiModerationRuleHistory.Version(
+                    db, list, before, AiModerationRuleHistory.SnapshotOf(list), AiModerationRuleHistory.TextOf(list),
+                    ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, now);
+
+                var gate = await ActingAsync(db, list, wasActing, body.TrialDays, body.ActWithoutTest, now, ct);
+                if (gate.Problem is { } why)
+                    return Error(why);
 
                 await db.SaveChangesAsync(ct);
 
                 await RuleChangedAsync(http, facts, partitions, clock, ModerationRuleKind.TermList, list.Id, list.Name, "changed", ListData(list), ct);
+                await OverrideFactAsync(http, facts, partitions, clock, ModerationRuleKind.TermList, list, gate, ct);
 
-                return Results.Ok(Detail(list, await StatsAsync(db, [id], ct)));
+                return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("UpdateTermList")
             .WithSummary("Change a term list. A Hub list keeps its name and terms; only its switches, targets, action and switched-off terms change.")
@@ -190,6 +223,10 @@ public static class AiModerationEndpoints
                 var list = await db.ModerationTermLists.FirstOrDefaultAsync(l => l.Id == id, ct);
                 if (list is null)
                     return NotFound("No such term list.");
+
+                // The test set goes with the rule; the versions and the runs stay, because a flag
+                // that named this rule still has to be able to show the rule as it was.
+                await db.ModerationTestSamples.Where(s => s.RuleId == id).ExecuteDeleteAsync(ct);
 
                 db.ModerationTermLists.Remove(list);
                 await db.SaveChangesAsync(ct);
@@ -269,12 +306,16 @@ public static class AiModerationEndpoints
                     UpdatedAt = now,
                 };
 
+                AiModerationRuleHistory.Version(
+                    db, list, null, AiModerationRuleHistory.SnapshotOf(list), AiModerationRuleHistory.TextOf(list),
+                    ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, now);
+
                 db.ModerationTermLists.Add(list);
                 await db.SaveChangesAsync(ct);
 
                 await RuleChangedAsync(http, facts, partitions, clock, ModerationRuleKind.TermList, list.Id, list.Name, "added-from-hub", ListData(list), ct);
 
-                return Results.Ok(Detail(list, new Dictionary<Guid, RuleStats>()));
+                return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("AddHubTermList")
             .WithSummary("Add a term list from Modbot Hub")
@@ -299,7 +340,7 @@ public static class AiModerationEndpoints
                 await updates.RefreshAsync(list, ct);
                 await db.SaveChangesAsync(ct);
 
-                return Results.Ok(Detail(list, await StatsAsync(db, [id], ct)));
+                return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("RefreshHubTermList")
             .WithSummary("Fetch a Hub list again. A newer version waits to be applied.")
@@ -324,8 +365,16 @@ public static class AiModerationEndpoints
                     return NotFound("No such term list.");
 
                 var changes = list.HubAvailableChanges;
+                var before = AiModerationRuleHistory.SnapshotOf(list);
+
                 if (!updates.Apply(list))
                     return Error("There is no newer version to apply.");
+
+                // A Hub update changes what the rule catches, so it is a new version of the rule
+                // like any other change -- and one that costs an acting rule its passing test run.
+                AiModerationRuleHistory.Version(
+                    db, list, before, AiModerationRuleHistory.SnapshotOf(list), AiModerationRuleHistory.TextOf(list),
+                    ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, clock.UtcNow);
 
                 await db.SaveChangesAsync(ct);
 
@@ -333,7 +382,7 @@ public static class AiModerationEndpoints
                 data["changes"] = changes is null ? null : JsonNode.Parse(changes);
                 await RuleChangedAsync(http, facts, partitions, clock, ModerationRuleKind.TermList, list.Id, list.Name, "updated-from-hub", data, ct);
 
-                return Results.Ok(Detail(list, await StatsAsync(db, [id], ct)));
+                return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("ApplyHubTermListUpdate")
             .WithSummary("Put the newer version of a Hub list into use")
@@ -362,12 +411,26 @@ public static class AiModerationEndpoints
                 if (ApplyTopic(topic, body, http.User, now) is { } problem)
                     return Error(problem);
 
+                AiModerationRuleHistory.Version(
+                    db, topic, null, AiModerationRuleHistory.SnapshotOf(topic), AiModerationRuleHistory.TextOf(topic),
+                    ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, now);
+
+                var gate = await ActingAsync(db, topic, wasActing: false, body.TrialDays, body.ActWithoutTest, now, ct);
+                if (gate.Problem is { } why)
+                    return Error(why);
+
                 db.ModerationTopics.Add(topic);
+
+                // Every new topic starts with the injection samples, so a topic that can be talked
+                // out of its instructions is caught by its own test set (design §15.5).
+                AiModerationRuleHistory.SeedInjectionSamples(db, topic, now);
+
                 await db.SaveChangesAsync(ct);
 
                 await RuleChangedAsync(http, facts, partitions, clock, ModerationRuleKind.Topic, topic.Id, topic.Name, "created", TopicData(topic), ct);
+                await OverrideFactAsync(http, facts, partitions, clock, ModerationRuleKind.Topic, topic, gate, ct);
 
-                return Results.Ok(TopicViewOf(topic, new Dictionary<Guid, RuleStats>()));
+                return Results.Ok(await TopicViewAsync(db, topic, ct));
             })
             .WithName("CreateAiTopic")
             .WithSummary("Create an AI topic")
@@ -392,14 +455,27 @@ public static class AiModerationEndpoints
                 if (topic is null)
                     return NotFound("No such topic.");
 
-                if (ApplyTopic(topic, body, http.User, clock.UtcNow) is { } problem)
+                var now = clock.UtcNow;
+                var before = AiModerationRuleHistory.SnapshotOf(topic);
+                var wasActing = RuleGuards.WantsAction(topic);
+
+                if (ApplyTopic(topic, body, http.User, now) is { } problem)
                     return Error(problem);
+
+                AiModerationRuleHistory.Version(
+                    db, topic, before, AiModerationRuleHistory.SnapshotOf(topic), AiModerationRuleHistory.TextOf(topic),
+                    ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, now);
+
+                var gate = await ActingAsync(db, topic, wasActing, body.TrialDays, body.ActWithoutTest, now, ct);
+                if (gate.Problem is { } why)
+                    return Error(why);
 
                 await db.SaveChangesAsync(ct);
 
                 await RuleChangedAsync(http, facts, partitions, clock, ModerationRuleKind.Topic, topic.Id, topic.Name, "changed", TopicData(topic), ct);
+                await OverrideFactAsync(http, facts, partitions, clock, ModerationRuleKind.Topic, topic, gate, ct);
 
-                return Results.Ok(TopicViewOf(topic, await StatsAsync(db, [id], ct)));
+                return Results.Ok(await TopicViewAsync(db, topic, ct));
             })
             .WithName("UpdateAiTopic")
             .WithSummary("Change an AI topic")
@@ -421,6 +497,8 @@ public static class AiModerationEndpoints
                 var topic = await db.ModerationTopics.FirstOrDefaultAsync(t => t.Id == id, ct);
                 if (topic is null)
                     return NotFound("No such topic.");
+
+                await db.ModerationTestSamples.Where(s => s.RuleId == id).ExecuteDeleteAsync(ct);
 
                 db.ModerationTopics.Remove(topic);
                 await db.SaveChangesAsync(ct);
@@ -469,6 +547,282 @@ public static class AiModerationEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
+        // ── Test sets, the trial and pauses ─────────────────────────────────────────────────
+        //
+        // These work the same way for both kinds of rule, so they share one set of routes rather
+        // than being written twice with "list" and "topic" in the path.
+
+        var rules = group.MapGroup("/rules/{kind}/{id:guid}");
+
+        rules.MapGet("/tests", async (
+                [FromRoute] string kind,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                if (await FindRuleAsync(db, kind, id, ct) is not { } rule)
+                    return NotFound("No such rule.");
+
+                return Results.Ok(new RuleTestsResponse(
+                    kind, id, rule.Name, rule.Version, RuleGuards.ActsNow(rule),
+                    await SamplesAsync(db, id, ct),
+                    await RunsAsync(db, id, ct)));
+            })
+            .WithName("GetRuleTestSet")
+            .WithSummary("A rule's sample texts and its last runs")
+            .Produces<RuleTestsResponse>()
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ManageSettings);
+
+        rules.MapPost("/samples", async (
+                [FromRoute] string kind,
+                [FromRoute] Guid id,
+                [FromBody] TestSampleInput body,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                if (await FindRuleAsync(db, kind, id, ct) is null)
+                    return NotFound("No such rule.");
+
+                if (await db.ModerationTestSamples.CountAsync(s => s.RuleId == id, ct) >= MaxSamples)
+                    return Error($"A test set can hold at most {MaxSamples} samples.");
+
+                var now = clock.UtcNow;
+                var sample = new ModerationTestSample
+                {
+                    Id = Guid.CreateVersion7(now),
+                    RuleKind = kind,
+                    RuleId = id,
+                    CreatedAt = now,
+                };
+
+                if (ApplySample(sample, body, now) is { } problem)
+                    return Error(problem);
+
+                db.ModerationTestSamples.Add(sample);
+                await db.SaveChangesAsync(ct);
+
+                return Results.Ok(SampleView(sample));
+            })
+            .WithName("AddTestSample")
+            .WithSummary("Add a sample text to a rule's test set")
+            .Produces<TestSampleView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ManageSettings);
+
+        rules.MapPut("/samples/{sampleId:guid}", async (
+                [FromRoute] Guid id,
+                [FromRoute] Guid sampleId,
+                [FromBody] TestSampleInput body,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                var sample = await db.ModerationTestSamples.FirstOrDefaultAsync(s => s.Id == sampleId && s.RuleId == id, ct);
+                if (sample is null)
+                    return NotFound("No such sample.");
+
+                if (ApplySample(sample, body, clock.UtcNow) is { } problem)
+                    return Error(problem);
+
+                await db.SaveChangesAsync(ct);
+
+                return Results.Ok(SampleView(sample));
+            })
+            .WithName("UpdateTestSample")
+            .WithSummary("Change a sample text")
+            .Produces<TestSampleView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ManageSettings);
+
+        rules.MapDelete("/samples/{sampleId:guid}", async (
+                [FromRoute] Guid id,
+                [FromRoute] Guid sampleId,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                var removed = await db.ModerationTestSamples
+                    .Where(s => s.Id == sampleId && s.RuleId == id)
+                    .ExecuteDeleteAsync(ct);
+
+                return removed == 0 ? NotFound("No such sample.") : Results.NoContent();
+            })
+            .WithName("DeleteTestSample")
+            .WithSummary("Remove a sample text")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ManageSettings);
+
+        rules.MapPost("/tests/run", async (
+                HttpContext http,
+                [FromRoute] string kind,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                [FromServices] ModerationEngine engine,
+                CancellationToken ct) =>
+            {
+                if (await FindRuleAsync(db, kind, id, ct) is null)
+                    return NotFound("No such rule.");
+
+                if (!await db.ModerationTestSamples.AnyAsync(s => s.RuleId == id, ct))
+                    return Error("Add at least one sample first.");
+
+                var run = await engine.RunTestSetAsync(kind, id, ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, ct);
+
+                return run is null ? NotFound("No such rule.") : Results.Ok(RunView(run));
+            })
+            .WithName("RunRuleTestSet")
+            .WithSummary("Check every sample against the rule as it stands now. AI topics cost a real request.")
+            .Produces<TestRunView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ManageSettings);
+
+        rules.MapGet("/versions", async (
+                [FromRoute] string kind,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                var versions = await db.ModerationRuleVersions.AsNoTracking()
+                    .Where(v => v.RuleId == id)
+                    .OrderByDescending(v => v.Version)
+                    .ToListAsync(ct);
+
+                return Results.Ok(new RuleVersionList(kind, id,
+                    [.. versions.Select(v => new RuleVersionView(v.Version, v.ChangedAt, v.ChangedByUsername, v.Name, v.Text))]));
+            })
+            .WithName("ListRuleVersions")
+            .WithSummary("Every version of a rule's text, newest first")
+            .Produces<RuleVersionList>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ManageSettings);
+
+        rules.MapPost("/end-trial", async (
+                HttpContext http,
+                [FromRoute] string kind,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] IFactWriter facts,
+                [FromServices] EventPartitionMaintainer partitions,
+                CancellationToken ct) =>
+            {
+                var list = kind == ModerationRuleKind.TermList
+                    ? await db.ModerationTermLists.FirstOrDefaultAsync(l => l.Id == id, ct) : null;
+                var topic = kind == ModerationRuleKind.Topic
+                    ? await db.ModerationTopics.FirstOrDefaultAsync(t => t.Id == id, ct) : null;
+
+                if (list is null && topic is null)
+                    return NotFound("No such rule.");
+
+                IModerationRule rule = (IModerationRule?)list ?? topic!;
+                if (!RuleGuards.InTrial(rule))
+                    return Error("This rule is not in a trial.");
+
+                var now = clock.UtcNow;
+                var userId = ModbotAuth.UserIdOf(http.User);
+                var username = Clip(http.User.Identity?.Name ?? string.Empty, 64);
+
+                if (list is not null)
+                {
+                    list.TrialEndedAt = now;
+                    list.TrialEndedByUserId = userId;
+                    list.TrialEndedByUsername = username;
+                }
+                else
+                {
+                    topic!.TrialEndedAt = now;
+                    topic.TrialEndedByUserId = userId;
+                    topic.TrialEndedByUsername = username;
+                }
+
+                await db.SaveChangesAsync(ct);
+
+                await RuleChangedAsync(http, facts, partitions, clock, kind, id, rule.Name, "trial-ended", new JsonObject
+                {
+                    ["trialStartedAt"] = rule.TrialStartedAt?.ToString("O"),
+                    ["trialDays"] = rule.TrialDays,
+                    ["deleteMessage"] = rule.DeleteMessage,
+                    ["timeoutMinutes"] = rule.TimeoutMinutes,
+                }, ct);
+
+                return list is not null
+                    ? Results.Ok(await DetailAsync(db, list, ct))
+                    : Results.Ok(await TopicViewAsync(db, topic!, ct));
+            })
+            .WithName("EndRuleTrial")
+            .WithSummary("End a rule's trial. From now on it really deletes and times out.")
+            .Produces<TermListDetail>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ManageSettings);
+
+        rules.MapPost("/resume", async (
+                HttpContext http,
+                [FromRoute] string kind,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] IFactWriter facts,
+                [FromServices] EventPartitionMaintainer partitions,
+                CancellationToken ct) =>
+            {
+                var list = kind == ModerationRuleKind.TermList
+                    ? await db.ModerationTermLists.FirstOrDefaultAsync(l => l.Id == id, ct) : null;
+                var topic = kind == ModerationRuleKind.Topic
+                    ? await db.ModerationTopics.FirstOrDefaultAsync(t => t.Id == id, ct) : null;
+
+                if (list is null && topic is null)
+                    return NotFound("No such rule.");
+
+                IModerationRule rule = (IModerationRule?)list ?? topic!;
+                if (rule.PausedAt is null)
+                    return Error("This rule is not paused.");
+
+                var was = rule.PausedReason;
+
+                if (list is not null)
+                {
+                    list.PausedAt = null;
+                    list.PausedReason = null;
+                }
+                else
+                {
+                    topic!.PausedAt = null;
+                    topic.PausedReason = null;
+                }
+
+                await db.SaveChangesAsync(ct);
+
+                await RuleChangedAsync(http, facts, partitions, clock, kind, id, rule.Name, "resumed",
+                    new JsonObject { ["pausedBecause"] = was }, ct);
+
+                return list is not null
+                    ? Results.Ok(await DetailAsync(db, list, ct))
+                    : Results.Ok(await TopicViewAsync(db, topic!, ct));
+            })
+            .WithName("ResumeRule")
+            .WithSummary("Let a paused rule act again")
+            .Produces<TermListDetail>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ManageSettings);
+
         return app;
     }
 
@@ -484,6 +838,17 @@ public static class AiModerationEndpoints
 
         if (ActionProblem(targets, body.DeleteMessage, body.TimeoutMinutes) is { } actionProblem)
             return actionProblem;
+
+        if (ScopeProblem(body.Scope) is { } scopeProblem)
+            return scopeProblem;
+
+        if (body.Scope is { } scope)
+        {
+            list.ChannelMode = scope.ChannelMode;
+            list.Channels = SerializeIds(scope.Channels);
+            list.ExemptRoles = SerializeIds(scope.ExemptRoles);
+            list.ExemptRolesSkipFlag = scope.ExemptRolesSkipFlag;
+        }
 
         if (list.Source == TermListSource.Local)
         {
@@ -591,6 +956,17 @@ public static class AiModerationEndpoints
         if (ActionProblem(targets, body.DeleteMessage, body.TimeoutMinutes) is { } actionProblem)
             return actionProblem;
 
+        if (ScopeProblem(body.Scope) is { } scopeProblem)
+            return scopeProblem;
+
+        if (body.Scope is { } scope)
+        {
+            topic.ChannelMode = scope.ChannelMode;
+            topic.Channels = SerializeIds(scope.Channels);
+            topic.ExemptRoles = SerializeIds(scope.ExemptRoles);
+            topic.ExemptRolesSkipFlag = scope.ExemptRolesSkipFlag;
+        }
+
         topic.Name = name;
         topic.Instructions = instructions;
         topic.Sensitivity = sensitivity;
@@ -648,6 +1024,203 @@ public static class AiModerationEndpoints
         apply(delete, minutes, setBy, setByName, setAt);
     }
 
+    private static string? ScopeProblem(RuleScope? scope)
+    {
+        if (scope is null)
+            return null;
+
+        if (!ChannelScope.IsMode(scope.ChannelMode))
+            return "Choose which channels this rule runs in.";
+
+        var channels = scope.Channels ?? [];
+        var roles = scope.ExemptRoles ?? [];
+
+        if (scope.ChannelMode != ChannelScope.All && channels.Count == 0)
+            return "Choose at least one channel.";
+        if (channels.Count > MaxScopeIds)
+            return $"A rule can name at most {MaxScopeIds} channels.";
+        if (roles.Count > MaxScopeIds)
+            return $"A rule can name at most {MaxScopeIds} roles.";
+        if (channels.Concat(roles).Any(id => string.IsNullOrWhiteSpace(id) || id.Length > 32))
+            return "That is not a Discord id.";
+
+        return null;
+    }
+
+    private static string SerializeIds(IReadOnlyList<string>? ids)
+        => JsonSerializer.Serialize((ids ?? []).Where(i => !string.IsNullOrWhiteSpace(i)).Distinct(StringComparer.Ordinal).ToList());
+
+    /// <summary>The acting gate and the trial, once the form has been applied (design §12.4, §13.1).</summary>
+    /// <param name="Problem">Why the rule may not start acting, or null.</param>
+    /// <param name="Overridden">The operator went ahead without a passing test run.</param>
+    private sealed record ActingCheck(string? Problem, bool Overridden)
+    {
+        public static ActingCheck Fine { get; } = new(null, false);
+    }
+
+    /// <summary>
+    /// Stops a rule going from flag only to acting until its test set says it is safe, and starts
+    /// the trial when it does (design §12.4 and §13.1).
+    /// </summary>
+    /// <remarks>
+    /// The gate is checked against the version the rule is on <em>after</em> the form was applied,
+    /// so a save that changes the rule's text and sets it to act in one go is refused: the run that
+    /// would have let it act was a run of a different rule.
+    /// </remarks>
+    private static async Task<ActingCheck> ActingAsync(
+        ModbotContext db, IModerationRule rule, bool wasActing, int? trialDays, bool actWithoutTest,
+        DateTimeOffset now, CancellationToken ct)
+    {
+        var willAct = RuleGuards.WantsAction(rule);
+
+        if (!willAct)
+        {
+            // Back to flag only: nothing to trial, nothing to pause.
+            SetTrial(rule, null, RuleGuards.DefaultTrialDays, clearPause: true);
+            return ActingCheck.Fine;
+        }
+
+        if (wasActing)
+            return ActingCheck.Fine;
+
+        var overridden = false;
+
+        if (actWithoutTest)
+        {
+            overridden = true;
+        }
+        else if (await AiModerationRuleHistory.WhyCannotActAsync(db, rule.Id, rule.Version, ct) is { } why)
+        {
+            return new ActingCheck(why, false);
+        }
+
+        SetTrial(rule, now, Math.Clamp(trialDays ?? RuleGuards.DefaultTrialDays, RuleGuards.MinTrialDays, RuleGuards.MaxTrialDays), clearPause: true);
+        return new ActingCheck(null, overridden);
+    }
+
+    private static void SetTrial(IModerationRule rule, DateTimeOffset? startedAt, int days, bool clearPause)
+    {
+        switch (rule)
+        {
+            case ModerationTermList list:
+                list.TrialStartedAt = startedAt;
+                list.TrialDays = days;
+                list.TrialEndedAt = null;
+                list.TrialEndedByUserId = null;
+                list.TrialEndedByUsername = null;
+                if (clearPause)
+                {
+                    list.PausedAt = null;
+                    list.PausedReason = null;
+                }
+
+                break;
+
+            case ModerationTopic topic:
+                topic.TrialStartedAt = startedAt;
+                topic.TrialDays = days;
+                topic.TrialEndedAt = null;
+                topic.TrialEndedByUserId = null;
+                topic.TrialEndedByUsername = null;
+                if (clearPause)
+                {
+                    topic.PausedAt = null;
+                    topic.PausedReason = null;
+                }
+
+                break;
+        }
+    }
+
+    private static string? ApplySample(ModerationTestSample sample, TestSampleInput body, DateTimeOffset now)
+    {
+        var text = body.Text?.Trim() ?? string.Empty;
+        if (text.Length == 0)
+            return "Enter some text.";
+        if (text.Length > MaxSampleLength)
+            return $"The text is too long (at most {MaxSampleLength} characters).";
+
+        var note = body.Note?.Trim();
+        if (note is { Length: > MaxSampleNoteLength })
+            return $"The note is too long (at most {MaxSampleNoteLength} characters).";
+
+        if (ModerationTargetNames.Parse(body.Target) is null)
+            return "Choose what kind of text this is.";
+
+        sample.Text = text;
+        sample.ShouldFlag = body.ShouldFlag;
+        sample.Note = string.IsNullOrEmpty(note) ? null : note;
+        sample.Target = body.Target!;
+        sample.UpdatedAt = now;
+
+        if (sample.CreatedAt == default)
+            sample.CreatedAt = now;
+
+        return null;
+    }
+
+    // ── Test sets ───────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Either kind of rule, or null when there is no such rule of that kind.</summary>
+    private static async Task<IModerationRule?> FindRuleAsync(ModbotContext db, string kind, Guid id, CancellationToken ct)
+    {
+        if (!ModerationRuleKind.IsKind(kind))
+            return null;
+
+        return kind == ModerationRuleKind.TermList
+            ? await db.ModerationTermLists.AsNoTracking().FirstOrDefaultAsync(l => l.Id == id, ct)
+            : await db.ModerationTopics.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, ct);
+    }
+
+    private static async Task<IReadOnlyList<TestSampleView>> SamplesAsync(ModbotContext db, Guid ruleId, CancellationToken ct)
+        => [.. (await db.ModerationTestSamples.AsNoTracking()
+                .Where(s => s.RuleId == ruleId)
+                .OrderBy(s => s.CreatedAt)
+                .ToListAsync(ct))
+            .Select(SampleView)];
+
+    private static async Task<IReadOnlyList<TestRunView>> RunsAsync(ModbotContext db, Guid ruleId, CancellationToken ct)
+        => [.. (await db.ModerationTestRuns.AsNoTracking()
+                .Where(r => r.RuleId == ruleId)
+                .OrderByDescending(r => r.RanAt)
+                .Take(RunsShown)
+                .ToListAsync(ct))
+            .Select(RunView)];
+
+    private static TestSampleView SampleView(ModerationTestSample s)
+        => new(s.Id, s.Text, s.ShouldFlag, s.Note, s.Target, s.Seeded);
+
+    private static TestRunView RunView(ModerationTestRun r) => new(
+        r.Id, r.RanAt, r.Model, r.RuleVersion, r.Samples, r.ShouldFlagCount, r.Caught, r.Missed,
+        r.ShouldNotFlagCount, r.WronglyFlagged, r.AiSkipped, r.RanByUsername, RunResults(r.Results));
+
+    private static IReadOnlyList<TestRunSampleView> RunResults(string? json)
+    {
+        if (JsonNode.Parse(string.IsNullOrWhiteSpace(json) ? "[]" : json) is not JsonArray rows)
+            return [];
+
+        var results = new List<TestRunSampleView>(rows.Count);
+
+        foreach (var row in rows)
+        {
+            if (row is not JsonObject o)
+                continue;
+
+            results.Add(new TestRunSampleView(
+                Guid.TryParse(o["sampleId"]?.GetValue<string>(), out var id) ? id : Guid.Empty,
+                o["text"]?.GetValue<string>() ?? string.Empty,
+                o["shouldFlag"]?.GetValue<bool>() ?? false,
+                o["note"]?.GetValue<string>(),
+                o["target"]?.GetValue<string>() ?? string.Empty,
+                o["flagged"]?.GetValue<bool>() ?? false,
+                o["term"]?.GetValue<string>(),
+                o["matched"]?.GetValue<string>(),
+                o["reason"]?.GetValue<string>()));
+        }
+
+        return results;
+    }
+
     // ── Views ───────────────────────────────────────────────────────────────────────────────
 
     private static async Task<AiModerationResponse> ViewAsync(ModbotContext db, IAiClients ai, IModbotClock clock, CancellationToken ct)
@@ -655,7 +1228,7 @@ public static class AiModerationEndpoints
         var settings = await db.GetSettingsAsync(ct);
         var lists = await db.ModerationTermLists.AsNoTracking().OrderBy(l => l.CreatedAt).ToListAsync(ct);
         var topics = await db.ModerationTopics.AsNoTracking().OrderBy(t => t.CreatedAt).ToListAsync(ct);
-        var stats = await StatsAsync(db, null, ct);
+        var extras = await ExtrasAsync(db, [.. lists.Cast<IModerationRule>(), .. topics], ct);
         var aiReady = await ai.GetChatAsync(ct) is not null;
 
         return new AiModerationResponse(
@@ -663,8 +1236,119 @@ public static class AiModerationEndpoints
             settings.AiModerationDailyCallLimit,
             AiCallAllowance.UsedToday(settings, clock.UtcNow),
             aiReady,
-            [.. lists.Select(l => ListView(l, stats))],
-            [.. topics.Select(t => TopicViewOf(t, stats))]);
+            [.. lists.Select(l => ListView(l, extras))],
+            [.. topics.Select(t => TopicViewOf(t, extras))]);
+    }
+
+    /// <summary>
+    /// Everything a rule's card shows that is not on the rule row: its flags, its trial so far and
+    /// its test set (design §12, §13).
+    /// </summary>
+    private sealed record RuleExtras(
+        IReadOnlyDictionary<Guid, RuleStats> Stats,
+        IReadOnlyDictionary<Guid, RuleTrial> Trials,
+        IReadOnlyDictionary<Guid, int> Samples,
+        IReadOnlyDictionary<Guid, ModerationTestRun> LastRuns)
+    {
+        public static RuleExtras None { get; } = new(
+            new Dictionary<Guid, RuleStats>(),
+            new Dictionary<Guid, RuleTrial>(),
+            new Dictionary<Guid, int>(),
+            new Dictionary<Guid, ModerationTestRun>());
+    }
+
+    private static async Task<RuleExtras> ExtrasAsync(ModbotContext db, IReadOnlyList<IModerationRule> rules, CancellationToken ct)
+    {
+        var ids = rules.Select(r => r.Id).ToList();
+        if (ids.Count == 0)
+            return RuleExtras.None;
+
+        var stats = await StatsAsync(db, ids, ct);
+
+        var samples = (await db.ModerationTestSamples.AsNoTracking()
+                .Where(s => ids.Contains(s.RuleId))
+                .GroupBy(s => s.RuleId)
+                .Select(g => new { RuleId = g.Key, Count = g.Count() })
+                .ToListAsync(ct))
+            .ToDictionary(r => r.RuleId, r => r.Count);
+
+        // The newest run of each rule, in two translatable queries rather than one per rule.
+        var newest = await db.ModerationTestRuns.AsNoTracking()
+            .Where(r => ids.Contains(r.RuleId))
+            .GroupBy(r => r.RuleId)
+            .Select(g => new { RuleId = g.Key, RanAt = g.Max(r => r.RanAt) })
+            .ToListAsync(ct);
+
+        var lastRuns = new Dictionary<Guid, ModerationTestRun>();
+        if (newest.Count > 0)
+        {
+            var times = newest.Select(n => n.RanAt).Distinct().ToList();
+            var rows = await db.ModerationTestRuns.AsNoTracking()
+                .Where(r => ids.Contains(r.RuleId) && times.Contains(r.RanAt))
+                .ToListAsync(ct);
+
+            foreach (var n in newest)
+            {
+                if (rows.Find(r => r.RuleId == n.RuleId && r.RanAt == n.RanAt) is { } row)
+                    lastRuns[n.RuleId] = row;
+            }
+        }
+
+        // One small query for each rule that is actually in a trial, and none at all otherwise.
+        var trials = new Dictionary<Guid, RuleTrial>();
+        foreach (var rule in rules.Where(RuleGuards.InTrial))
+        {
+            var started = rule.TrialStartedAt!.Value;
+
+            var counts = await db.ModerationFlags.AsNoTracking()
+                .Where(f => f.RuleId == rule.Id && f.Trial && f.FlaggedAt >= started)
+                .GroupBy(f => f.RuleId)
+                .Select(g => new
+                {
+                    Flags = g.Count(),
+                    Delete = g.Count(f => f.WouldDeleteMessage),
+                    Timeout = g.Count(f => f.WouldTimeOutMinutes != null),
+                    Dismissed = g.Count(f => f.State == ModerationFlagState.Dismissed),
+                })
+                .FirstOrDefaultAsync(ct);
+
+            trials[rule.Id] = new RuleTrial(
+                started,
+                rule.TrialDays,
+                RuleGuards.TrialEndsAt(rule) ?? started,
+                counts?.Flags ?? 0,
+                counts?.Delete ?? 0,
+                counts?.Timeout ?? 0,
+                counts?.Dismissed ?? 0);
+        }
+
+        return new RuleExtras(stats, trials, samples, lastRuns);
+    }
+
+    private static async Task<TermListDetail> DetailAsync(ModbotContext db, ModerationTermList list, CancellationToken ct)
+        => Detail(list, await ExtrasAsync(db, [list], ct));
+
+    private static async Task<TopicView> TopicViewAsync(ModbotContext db, ModerationTopic topic, CancellationToken ct)
+        => TopicViewOf(topic, await ExtrasAsync(db, [topic], ct));
+
+    private static RuleScope ScopeOf(IModerationRule rule) => new(
+        rule.ChannelMode, RuleGuards.Ids(rule.Channels), RuleGuards.Ids(rule.ExemptRoles), rule.ExemptRolesSkipFlag);
+
+    private static RulePause? PauseOf(IModerationRule rule)
+        => rule.PausedAt is { } at ? new RulePause(at, rule.PausedReason) : null;
+
+    private static RuleTestSummary TestsOf(IModerationRule rule, RuleExtras extras)
+    {
+        var run = extras.LastRuns.GetValueOrDefault(rule.Id);
+
+        return new RuleTestSummary(
+            extras.Samples.GetValueOrDefault(rule.Id),
+            run?.RanAt,
+            run?.Model,
+            run?.Caught,
+            run?.ShouldFlagCount,
+            run?.WronglyFlagged,
+            run is { Samples: > 0, WronglyFlagged: 0 } && run.RuleVersion == rule.Version);
     }
 
     private static async Task<Dictionary<Guid, RuleStats>> StatsAsync(ModbotContext db, IReadOnlyList<Guid>? ids, CancellationToken ct)
@@ -681,7 +1365,7 @@ public static class AiModerationEndpoints
         return rows.ToDictionary(r => r.RuleId, r => new RuleStats(r.Flags, r.Dismissed));
     }
 
-    private static TermListView ListView(ModerationTermList l, IReadOnlyDictionary<Guid, RuleStats> stats)
+    private static TermListView ListView(ModerationTermList l, RuleExtras extras)
     {
         var terms = StoredTerm.ParseList(l.Terms);
         var excluded = StoredTerm.ParseIds(l.ExcludedTerms);
@@ -704,23 +1388,35 @@ public static class AiModerationEndpoints
             l.DeleteMessage, l.TimeoutMinutes, l.ActSetByUsername, l.ActSetAt,
             terms.Count, excluded.Count(id => terms.Any(t => t.Id == id)),
             l.HubId, l.HubVersion, l.HubFetchedAt, l.HubAvailableVersion, changes, l.HubError,
-            stats.GetValueOrDefault(l.Id) ?? new RuleStats(0, 0));
+            extras.Stats.GetValueOrDefault(l.Id) ?? new RuleStats(0, 0),
+            l.Version,
+            RuleGuards.ActsNow(l),
+            ScopeOf(l),
+            extras.Trials.GetValueOrDefault(l.Id),
+            PauseOf(l),
+            TestsOf(l, extras));
     }
 
-    private static TermListDetail Detail(ModerationTermList l, IReadOnlyDictionary<Guid, RuleStats> stats)
+    private static TermListDetail Detail(ModerationTermList l, RuleExtras extras)
     {
         var excluded = StoredTerm.ParseIds(l.ExcludedTerms).ToHashSet(StringComparer.Ordinal);
 
         return new TermListDetail(
-            ListView(l, stats),
+            ListView(l, extras),
             [.. StoredTerm.ParseList(l.Terms).Select(t => new TermView(
                 t.Id, t.Kind, t.Text, t.Pattern, t.Label, t.Category, t.Note, excluded.Contains(t.Id)))]);
     }
 
-    private static TopicView TopicViewOf(ModerationTopic t, IReadOnlyDictionary<Guid, RuleStats> stats) => new(
+    private static TopicView TopicViewOf(ModerationTopic t, RuleExtras extras) => new(
         t.Id, t.Name, t.Instructions, t.Sensitivity, t.Enabled, ModerationTargetNames.NamesOf((ModerationTargets)t.Targets),
         t.DeleteMessage, t.TimeoutMinutes, t.ActSetByUsername, t.ActSetAt,
-        stats.GetValueOrDefault(t.Id) ?? new RuleStats(0, 0));
+        extras.Stats.GetValueOrDefault(t.Id) ?? new RuleStats(0, 0),
+        t.Version,
+        RuleGuards.ActsNow(t),
+        ScopeOf(t),
+        extras.Trials.GetValueOrDefault(t.Id),
+        PauseOf(t),
+        TestsOf(t, extras));
 
     // ── Facts ───────────────────────────────────────────────────────────────────────────────
 
@@ -781,6 +1477,36 @@ public static class AiModerationEndpoints
             ActorId = userId.ToString(),
             Source = FactSource.Modbot,
             Data = data,
+        }, ct);
+    }
+
+    /// <summary>
+    /// Records that an operator let a rule act without a passing test run (design §12.4).
+    /// </summary>
+    /// <remarks>
+    /// The override is allowed — the operator owns the group — but it is not quiet. This is the
+    /// fact somebody reads afterwards when a rule that was never tried deleted the wrong thing.
+    /// </remarks>
+    private static Task OverrideFactAsync(
+        HttpContext http,
+        IFactWriter facts,
+        EventPartitionMaintainer partitions,
+        IModbotClock clock,
+        string ruleKind,
+        IModerationRule rule,
+        ActingCheck check,
+        CancellationToken ct)
+    {
+        if (!check.Overridden)
+            return Task.CompletedTask;
+
+        return RuleChangedAsync(http, facts, partitions, clock, ruleKind, rule.Id, rule.Name, "act-without-test", new JsonObject
+        {
+            ["ruleVersion"] = rule.Version,
+            ["deleteMessage"] = rule.DeleteMessage,
+            ["timeoutMinutes"] = rule.TimeoutMinutes,
+            ["trialStartedAt"] = rule.TrialStartedAt?.ToString("O"),
+            ["trialDays"] = rule.TrialDays,
         }, ct);
     }
 
