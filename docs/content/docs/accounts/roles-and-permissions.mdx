@@ -49,8 +49,8 @@ Three roles exist on every Modbot from the start. They cannot be deleted or rena
 | **Viewer** | **See members**, **See profiles**, **See analytics**, **See the audit log**. | Yes: its description and permissions. |
 
 Some permissions are deliberately not in Moderator or Viewer, because they reach further than
-day-to-day moderation: **See live instances**, **Use AI chat**, **Read Discord messages**, **Manage
-Discord links**, and the evidence and administration permissions not listed above. Grant them on
+day-to-day moderation: **See live instances**, **See calendar**, **Use AI chat**, **Read Discord
+messages**, **Manage Discord links**, and the evidence and administration permissions not listed above. Grant them on
 purpose, to a role of your own or by editing a built-in one.
 
 ## Administrator covers everything
@@ -134,6 +134,15 @@ Name: `ViewLiveRooms`
 - Live join, leave and avatar events (where somebody is right now) in the
   [event stream](/api/events-websocket) and [webhooks](/api/webhooks). Those events also need
   **See the audit log**.
+
+Not in the built-in Moderator or Viewer roles.
+
+### See calendar
+
+Name: `ViewCalendar`
+
+- The **Calendar** page: planned events, each place an event is published (VRChat's calendar, a
+  Discord event, a channel post), and whether that worked.
 
 Not in the built-in Moderator or Viewer roles.
 
@@ -301,6 +310,16 @@ A sync can set the mark but never clears it, so clearing it is always a person's
 recorded with their name.
 
 ## Administration
+
+### Manage calendar
+
+Name: `ManageCalendar`
+
+- Plan, change, cancel and delete events on the **Calendar** page. An event can publish to VRChat's
+  calendar and Discord in the group's name and open a group instance by itself.
+- See and replace the calendar feed link.
+
+Not in the built-in Moderator or Viewer roles.
 
 ### Manage users
 
