@@ -2,8 +2,9 @@
 
 - **Date:** 2026-09-15
 - **Status:** First version built
-- **Covers:** the Chat page, the tool-using loop behind it, its settings (Settings → AI → Chat) and
-  the `UseAiChat` permission
+- **Covers:** the Chat page, the tool-using loop behind it, its settings (Settings → AI → Chat),
+  the `UseAiChat` and `UseAiPastLimits` permissions, and AI usage and spend limits (Settings → AI →
+  Limits)
 - **Depends on:** M8 §2, §4 and §6; accounts and access §3; AI Base settings (`IAiClients`)
 
 ---
@@ -99,6 +100,9 @@ Not added to the built-in Moderator or Viewer roles. Using Chat sends group data
 provider the operator chose, so it is granted on purpose, like `ViewLiveRooms`. Administrator
 holds it.
 
+`UseAiPastLimits` (`1L << 23`), "Use AI in excess of usage limits", is §10's way past a spend limit.
+Not in the built-in Moderator or Viewer roles either.
+
 ## 5. Settings — Settings → AI → Chat
 
 Needs `ManageSettings`. Chat on/off (off by default), model (blank means the Base model), extra
@@ -112,6 +116,8 @@ tool.
 - the user's messages and the model's replies, as text;
 - each tool call's name and arguments, and the result sent back (capped as in §2), with the
   people, worlds and rooms it named and how long it took.
+
+Every provider call is also a row in `ai_usage` (§10).
 
 Only the owner can list, open, continue or delete a conversation; anybody else gets a 404, the
 same answer as for one that does not exist. Deleting the Modbot account deletes its
@@ -136,5 +142,64 @@ duration. Message text and tool arguments are never logged.
 ## 9. Not in this version
 
 - Tools that act (§3.3).
+- Stopping a reply part-way when it crosses a spend limit (§10.3).
 - Sharing a conversation with another moderator.
 - A retention window for conversations; they stay until the owner deletes them.
+
+## 10. Usage and spend limits
+
+Added 2026-09-15 at the maintainer's request. Usage is recorded through the shared ledger in
+`Modbot.AI/Usage` (`IAiUsage`, table `ai_usage`) that AI moderation introduced and every AI feature
+writes to; the money limits and prices below sit beside it in the same folder. A separate piece of
+work builds the shared cost pieces on top of them.
+
+### 10.1 What is recorded
+
+Every call to the provider writes one `ai_usage` row through `IAiUsage.RecordAsync`: when, the
+feature (`chat`), the account (null for a call nobody asked for, such as a scheduled insight), the
+model id that was asked for, the provider, and the input, cached input and output tokens the
+provider reported. Chat asks for usage on every streamed request, so a round with tool calls is
+recorded like a final answer.
+
+Money comes from prices the operator enters per model in `ai_model_price`, per million input,
+cached input and output tokens; OpenAI-compatible providers do not send a price back. Providers
+count cached tokens inside the input count, so those are charged at the cached price. Usage is
+priced **when it is read**: the ledger stores tokens only, so a price entered today also prices what
+was used earlier in the month, and a model with no price counts as nothing towards a money limit.
+Settings → AI → Limits shows tokens beside the money so an unpriced model is still visible.
+
+Chat also honours the ledger's own per-feature monthly token limit (`ai_feature_limit`), the one
+every AI feature asks before a request; when it is reached Chat answers "Chat's monthly AI limit is
+reached."
+
+### 10.2 Limits
+
+A limit is a daily and/or monthly amount of money, set for:
+
+| Applies to | Compared with |
+|---|---|
+| Everyone | everyone's spend together |
+| A role | the spend of each person holding the role, separately — not a pot the role shares |
+| A user | that person's spend |
+
+Days and months are UTC. **A person is stopped by the tightest limit that applies to them**: their
+own, any of their roles', or the one for everyone. When one is reached, Chat refuses new turns with
+HTTP 429 and a short sentence naming it — "Your daily AI spend limit is reached.", "The Moderator
+role's monthly AI spend limit is reached.", "This Modbot's daily AI spend limit is reached." The
+provider is not called.
+
+### 10.3 `UseAiPastLimits`
+
+Takes away the limits on the person and on their roles. **The limit for everyone still applies**,
+Administrator included. It is the operator's ceiling on what the deployment's AI key may cost; a
+permission that could spend past it would turn the ceiling into a suggestion, and no case came up
+where going past it is what an operator would want from a single account.
+
+The check runs before a turn starts. A turn that starts just under a limit can finish a little over
+it; the next one is refused.
+
+### 10.4 Settings → AI → Limits
+
+Needs `ManageSettings`. Shows what AI cost today and this month (money and tokens), the spend limits
+with what each is compared with today and this month, and the price list. Limits and prices are
+each saved as a whole list.

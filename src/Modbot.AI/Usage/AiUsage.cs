@@ -13,6 +13,8 @@ public static class AiFeatures
 
     /// <summary>AI insights (AI insights design §6). A scheduled one has no user.</summary>
     public const string Insights = "insights";
+
+    public const string Chat = "chat";
 }
 
 /// <summary>

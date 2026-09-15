@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Modbot.AI;
 using Modbot.AI.Chat;
+using Modbot.AI.Usage;
 using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -154,13 +155,14 @@ public static class ChatEndpoints
                 "Events: `conversation` {id, title}; `message` for each stored message, the question "
                 + "first; `text` {text} as the reply is written; `tool` {callId, name, label} as a "
                 + "tool starts; `done` {outcome, error} last. Refused before streaming with 400 for an "
-                + "empty or too long message, 404 for a conversation that is not yours, and 409 when "
-                + "Chat is off or the conversation is full.")
+                + "empty or too long message, 404 for a conversation that is not yours, 409 when "
+                + "Chat is off or the conversation is full, and 429 when a spend limit is reached.")
             .Produces(StatusCodes.Status200OK, contentType: "text/event-stream")
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces(StatusCodes.Status409Conflict);
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests);
 
         return app;
     }
@@ -172,6 +174,8 @@ public static class ChatEndpoints
         [FromServices] IAiClients ai,
         [FromServices] ChatToolRegistry registry,
         [FromServices] ChatLoop loop,
+        [FromServices] AiSpendLimits limits,
+        [FromServices] IAiUsage usage,
         [FromServices] IModbotClock clock,
         [FromServices] IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
         CancellationToken ct)
@@ -209,6 +213,15 @@ public static class ChatEndpoints
         if (chat is null)
             return Results.Conflict(new { error = "AI is not set up." });
 
+        // Checked before the turn starts, never in the middle of one (AI chat design §10). The
+        // feature's own token limit is the shared one every AI feature asks; the spend limits in
+        // money are the ones set for everyone, a role or an account.
+        if (await usage.LimitReachedAsync(AiFeatures.Chat, ct))
+            return Results.Json(new { error = "Chat's monthly AI limit is reached." }, statusCode: StatusCodes.Status429TooManyRequests);
+
+        if (await limits.CheckAsync(userId, held, ct) is { } reached)
+            return Results.Json(new { error = reached.Message }, statusCode: StatusCodes.Status429TooManyRequests);
+
         var now = clock.UtcNow;
         var history = conversation?.Messages.Select(Turn).ToList() ?? [];
 
@@ -222,9 +235,8 @@ public static class ChatEndpoints
         await db.SaveChangesAsync(ct);
         history.Add(ChatTurn.User(text));
 
-        var client = string.IsNullOrWhiteSpace(settings.AiChatModel)
-            ? chat.Chat
-            : chat.Client.GetChatClient(settings.AiChatModel.Trim());
+        var model = string.IsNullOrWhiteSpace(settings.AiChatModel) ? chat.Model : settings.AiChatModel.Trim();
+        var client = model == chat.Model ? chat.Chat : chat.Client.GetChatClient(model);
 
         var request = new ChatRequest(
             client,
@@ -234,7 +246,8 @@ public static class ChatEndpoints
             ChatSettingsRules.Limits(settings.AiChatMaxToolCalls, settings.AiChatMaxReplyTokens, settings.AiChatTimeLimitSeconds),
             new ChatToolContext(userId, held, http.RequestServices),
             conversation.Id,
-            Uri.TryCreate(settings.AiEndpoint, UriKind.Absolute, out var address) ? address : null);
+            Uri.TryCreate(settings.AiEndpoint, UriKind.Absolute, out var address) ? address : null,
+            model);
 
         var json = jsonOptions.Value.SerializerOptions;
 
@@ -258,6 +271,11 @@ public static class ChatEndpoints
             {
                 case ChatTextEvent t:
                     await SendEvent("text", new { text = t.Text });
+                    break;
+
+                case ChatUsageEvent used:
+                    // Not the request's token either: the provider has already charged for it.
+                    await usage.RecordAsync(AiFeatures.Chat, userId, used.Model, chat.Provider, used.Usage, CancellationToken.None);
                     break;
 
                 case ChatToolStartedEvent s:

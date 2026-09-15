@@ -1633,6 +1633,49 @@ export type AiChatSettingsInput = {
   tools: Record<string, boolean>
 }
 
+/** Money and tokens spent over a day or a month. */
+export type AiSpent = { cost: number; inputTokens: number; cachedInputTokens: number; outputTokens: number }
+
+/** Per million tokens. A null cached price means cached input costs the same as other input. */
+export type AiPrice = {
+  model: string
+  inputPerMillion: number
+  cachedInputPerMillion: number | null
+  outputPerMillion: number
+}
+
+export type AiLimitAppliesTo = 'everyone' | 'role' | 'user'
+
+export type AiLimit = {
+  appliesTo: AiLimitAppliesTo
+  roleId: string | null
+  userId: string | null
+  name: string | null
+  perDay: number | null
+  perMonth: number | null
+  /** What the limit is compared with. Null for a role limit, which counts each member separately. */
+  today: AiSpent | null
+  month: AiSpent | null
+}
+
+export type AiLimits = {
+  today: AiSpent
+  month: AiSpent
+  prices: AiPrice[]
+  modelsUsed: string[]
+  limits: AiLimit[]
+  roles: { id: string; name: string }[]
+  users: { id: string; name: string }[]
+}
+
+export type AiLimitInput = {
+  appliesTo: AiLimitAppliesTo
+  roleId: string | null
+  userId: string | null
+  perDay: number | null
+  perMonth: number | null
+}
+
 /** Something a tool result named that opens a popup. */
 export type ChatReference = { kind: 'person' | 'world' | 'instance'; id: string; label: string | null }
 
@@ -2091,6 +2134,14 @@ export const api = {
     request<{ insights: Insight[] }>(`/api/insights?limit=${limit}${kind ? `&kind=${kind}` : ''}`),
 
   aiChatSettings: () => request<AiChatSettings>('/api/settings/ai/chat'),
+
+  aiLimits: () => request<AiLimits>('/api/settings/ai/limits'),
+
+  /** Replaces every limit. */
+  setAiLimits: (limits: AiLimitInput[]) => put<AiLimits>('/api/settings/ai/limits', { limits }),
+
+  /** Replaces every price. Usage already recorded keeps the cost it was given. */
+  setAiPrices: (prices: AiPrice[]) => put<AiLimits>('/api/settings/ai/prices', { prices }),
 
   setAiChatSettings: (body: AiChatSettingsInput) => put<AiChatSettings>('/api/settings/ai/chat', body),
 

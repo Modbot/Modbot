@@ -157,6 +157,16 @@ public enum ModbotPermissions : long
     ManageDiscordLinks = 1L << 22,
 
     /// <summary>
+    /// Not stopped by AI spend limits set on this account or on any of its roles.
+    /// </summary>
+    /// <remarks>
+    /// The limit for everyone together still applies. That one is the operator's ceiling on the
+    /// bill, and a permission that could spend past it would make it a suggestion (AI chat design
+    /// §10). Not in the built-in Moderator or Viewer roles; Administrator holds it.
+    /// </remarks>
+    UseAiPastLimits = 1L << 23,
+
+    /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go
     /// ungranted to the one account that is supposed to have everything.

@@ -96,6 +96,23 @@ public static class Sse
 
     public static object Finish(string reason) => Chunk(new { }, reason);
 
+    /// <summary>The last piece a provider sends when asked to include usage: no choices, only counts.</summary>
+    public static object Usage(int input, int cached, int output) => new
+    {
+        id = "chatcmpl-1",
+        @object = "chat.completion.chunk",
+        created = 1_700_000_000,
+        model = "test-model",
+        choices = Array.Empty<object>(),
+        usage = new
+        {
+            prompt_tokens = input,
+            completion_tokens = output,
+            total_tokens = input + output,
+            prompt_tokens_details = new { cached_tokens = cached },
+        },
+    };
+
     /// <summary>The first piece of a tool call: its id, its name and the start of its arguments.</summary>
     public static object ToolCall(int index, string id, string name, string arguments) => Chunk(new
     {
@@ -166,7 +183,8 @@ public static class ChatTestKit
         limits ?? new ChatLimits(8, 1000, TimeSpan.FromSeconds(30)),
         new ChatToolContext(Guid.Parse("11111111-1111-1111-1111-111111111111"), ModbotPermissions.Administrator, EmptyServices.Instance),
         Guid.Parse("22222222-2222-2222-2222-222222222222"),
-        Endpoint);
+        Endpoint,
+        "test-model");
 }
 
 public sealed class EmptyServices : IServiceProvider

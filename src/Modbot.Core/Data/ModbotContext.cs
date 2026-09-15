@@ -150,6 +150,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Each AI feature's spend limit. No row means no limit.</summary>
     public DbSet<AiFeatureLimit> AiFeatureLimits => Set<AiFeatureLimit>();
 
+    /// <summary>What each model costs per million tokens, as the operator entered it.</summary>
+    public DbSet<AiModelPrice> AiModelPrices => Set<AiModelPrice>();
+
+    /// <summary>Daily and monthly caps on AI spend, for everyone, a role or one account (AI chat design §10).</summary>
+    public DbSet<AiSpendLimit> AiSpendLimits => Set<AiSpendLimit>();
+
     /// <summary>Discord and VRChat accounts proved to be the same person. Ended links are kept.</summary>
     public DbSet<DiscordAccountLink> DiscordAccountLinks => Set<DiscordAccountLink>();
 
@@ -1199,6 +1205,43 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.LastError).HasColumnType("text");
 
             entity.HasIndex(e => e.GuildId).HasDatabaseName("ix_discord_read_back_guild");
+        });
+
+        // One person's spend since a time, asked before each Chat turn when a limit applies to them.
+        builder.Entity<AiUsage>(entity =>
+            entity.HasIndex(e => new { e.UserId, e.At }).HasDatabaseName("ix_ai_usage_user_at"));
+
+        builder.Entity<AiModelPrice>(entity =>
+        {
+            entity.ToTable("ai_model_price");
+
+            entity.HasKey(e => e.Model);
+            entity.Property(e => e.Model).HasMaxLength(200);
+            entity.Property(e => e.InputPerMillion).HasPrecision(18, 6);
+            entity.Property(e => e.CachedInputPerMillion).HasPrecision(18, 6);
+            entity.Property(e => e.OutputPerMillion).HasPrecision(18, 6);
+        });
+
+        builder.Entity<AiSpendLimit>(entity =>
+        {
+            entity.ToTable("ai_spend_limit");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.AppliesTo).HasMaxLength(16);
+            entity.Property(e => e.PerDay).HasPrecision(18, 6);
+            entity.Property(e => e.PerMonth).HasPrecision(18, 6);
+
+            // A limit on a role or an account that no longer exists limits nobody.
+            entity.HasOne(e => e.RoleRow)
+                .WithMany()
+                .HasForeignKey(e => e.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.UserRow)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         base.OnModelCreating(builder);

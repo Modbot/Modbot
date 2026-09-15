@@ -67,6 +67,24 @@ public class ChatLoopTests
     }
 
     [Fact]
+    public async Task EveryProviderCall_ReportsTheTokensItUsed()
+    {
+        var provider = new StreamingProvider()
+            .Then(Sse.Of(Sse.ToolCall(0, "call_1", "find_person", "{}"), Sse.Finish("tool_calls"), Sse.Usage(1200, 1000, 40)))
+            .Then(Sse.Of(Sse.Text("Done."), Sse.Finish("stop"), Sse.Usage(1500, 1200, 90)));
+
+        var (_, events) = await RunAsync(ChatTestKit.Request(provider, [new FakeTool("find_person", ModbotPermissions.None)]));
+
+        var usage = events.OfType<ChatUsageEvent>()
+            .Select(e => (e.Model, e.Usage.InputTokenCount, e.Usage.InputTokenDetails.CachedTokenCount, e.Usage.OutputTokenCount))
+            .ToList();
+        Assert.Equal([("test-model", 1200, 1000, 40), ("test-model", 1500, 1200, 90)], usage);
+
+        // Streamed usage only arrives when asked for.
+        Assert.All(provider.Requests, r => Assert.True(r.GetProperty("stream_options").GetProperty("include_usage").GetBoolean()));
+    }
+
+    [Fact]
     public async Task OnlyTheToolsOffered_AreSentToTheProvider()
     {
         var provider = new StreamingProvider().Then(Sse.Of(Sse.Text("Nothing to look up."), Sse.Finish("stop")));

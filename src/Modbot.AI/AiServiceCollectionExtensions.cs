@@ -28,6 +28,10 @@ public static class AiServiceCollectionExtensions
         // Token counts by feature, and each feature's spend limit. Every AI feature records here.
         services.TryAddScoped<IAiUsage, AiUsageLedger>();
 
+        // Spend limits in money for everyone, a role or an account, checked before a Chat turn
+        // (AI chat design §10).
+        services.AddScoped<AiSpendLimits>();
+
         services.AddScoped<InsightFigureReader>();
         services.AddScoped<InsightWriter>();
         services.AddScoped<InsightScheduler>();

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Tabs } from '@/components/ui/tabs'
 import { AiBaseSettings } from './AiBaseSettings'
 import { AiInsightsSettings } from './AiInsightsSettings'
+import { AiLimitsSettings } from './AiLimitsSettings'
 import { AiChatSettings } from './AiChatSettings'
 import { AiModerationSettings } from './AiModerationSettings'
 
@@ -16,6 +17,7 @@ const AI_TABS = [
   { value: 'insights', label: 'Insights', panel: AiInsightsSettings },
   { value: 'chat', label: 'Chat', panel: AiChatSettings },
   { value: 'moderation', label: 'Moderation', panel: AiModerationSettings },
+  { value: 'limits', label: 'Limits', panel: AiLimitsSettings },
 ] as const
 
 type AiTabId = (typeof AI_TABS)[number]['value']

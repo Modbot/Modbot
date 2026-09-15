@@ -20,6 +20,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 20, (long)ModbotPermissions.ViewLiveRooms);
         Assert.Equal(1L << 21, (long)ModbotPermissions.UseAiChat);
         Assert.Equal(1L << 22, (long)ModbotPermissions.ManageDiscordLinks);
+        Assert.Equal(1L << 23, (long)ModbotPermissions.UseAiPastLimits);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -45,9 +46,11 @@ public class ModbotPermissionsTests
     /// purpose rather than arriving with a built-in role (AI chat design §4).
     /// </summary>
     [Fact]
-    public void UseAiChat_IsNotInTheEditableBuiltInRoles()
+    public void TheAiPermissions_AreNotInTheEditableBuiltInRoles()
     {
         Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.UseAiChat));
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.UseAiChat));
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.UseAiPastLimits));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.UseAiPastLimits));
     }
 }

@@ -66,6 +66,9 @@ public sealed record ChatTextEvent(string Text) : ChatEvent;
 /// <summary>A tool is about to run.</summary>
 public sealed record ChatToolStartedEvent(string CallId, string Tool) : ChatEvent;
 
+/// <summary>What one provider call used, as the provider reported it. One per round.</summary>
+public sealed record ChatUsageEvent(string Model, ChatTokenUsage Usage) : ChatEvent;
+
 /// <summary>A message to store: the model's reply or tool request, or a tool's result.</summary>
 public sealed record ChatTurnEvent(ChatTurn Turn) : ChatEvent;
 
@@ -77,6 +80,7 @@ public sealed record ChatFinishedEvent(ChatOutcome Outcome, string? Error, int T
 /// <param name="Tools">What this person is offered. Nothing else will run.</param>
 /// <param name="ConversationId">For the log line only.</param>
 /// <param name="ProviderAddress">For error messages: which host refused.</param>
+/// <param name="Model">The model id <paramref name="Chat"/> was made for, which usage is recorded under.</param>
 public sealed record ChatRequest(
     ChatClient Chat,
     string SystemPrompt,
@@ -85,7 +89,8 @@ public sealed record ChatRequest(
     ChatLimits Limits,
     ChatToolContext Context,
     Guid? ConversationId = null,
-    Uri? ProviderAddress = null);
+    Uri? ProviderAddress = null,
+    string Model = "");
 
 /// <summary>
 /// Writes one reply: asks the model, runs the tools it asks for, and asks again until it answers
@@ -154,7 +159,10 @@ public sealed class ChatLoop
                         options.Tools.Add(ChatTool.CreateFunctionTool(tool.Name, tool.Description, tool.Parameters));
                 }
 
-                var (text, calls) = await StreamRoundAsync(request.Chat, messages, options, onEvent, token);
+                var (text, calls, usage) = await StreamRoundAsync(request.Chat, messages, options, onEvent, token);
+
+                if (usage is not null)
+                    await onEvent(new ChatUsageEvent(request.Model, usage));
 
                 if (calls.Count == 0)
                 {
@@ -280,7 +288,7 @@ public sealed class ChatLoop
     private static ChatTurn Refused(ChatToolCallRecord call, string content) =>
         new(ChatRole.Tool, content, [], call.Id, Shorten(call.Name), [], false, 0);
 
-    private static async Task<(string Text, IReadOnlyList<ChatToolCallRecord> Calls)> StreamRoundAsync(
+    private static async Task<(string Text, IReadOnlyList<ChatToolCallRecord> Calls, ChatTokenUsage? Usage)> StreamRoundAsync(
         ChatClient chat,
         List<ChatMessage> messages,
         ChatCompletionOptions options,
@@ -289,9 +297,14 @@ public sealed class ChatLoop
     {
         var text = new StringBuilder();
         var calls = new SortedDictionary<int, (string? Id, string? Name, StringBuilder Arguments)>();
+        ChatTokenUsage? usage = null;
 
         await foreach (var update in chat.CompleteChatStreamingAsync(messages, options, ct))
         {
+            // Sent on the last piece, when the provider sends it at all.
+            if (update.Usage is not null)
+                usage = update.Usage;
+
             foreach (var part in update.ContentUpdate)
             {
                 if (part.Kind != ChatMessageContentPartKind.Text || string.IsNullOrEmpty(part.Text))
@@ -324,7 +337,7 @@ public sealed class ChatLoop
             .Select(c => new ChatToolCallRecord(c.Value.Id ?? $"call_{c.Key}", c.Value.Name!, c.Value.Arguments.ToString()))
             .ToList();
 
-        return (text.ToString(), finished);
+        return (text.ToString(), finished, usage);
     }
 
     /// <summary>

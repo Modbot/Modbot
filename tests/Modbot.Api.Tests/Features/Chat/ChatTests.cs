@@ -278,7 +278,286 @@ public class ChatTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // ── Usage and spend limits ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task EveryProviderCall_IsRecordedWithItsTokensAndCost()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+
+        var provider = new ScriptedProvider()
+            .Then(StreamWithUsage([ToolCall("call_1", "find_person", """{"query":"x"}""")], Usage(2_000_000, 1_000_000, 100_000)))
+            .Then(StreamWithUsage([Text("Nobody.")], Usage(3_000_000, 0, 1_000_000)));
+
+        await using var host = await StartWithProviderAsync(provider);
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile, Ct);
+
+        // $1 per million in, $0.10 per million cached, $4 per million out.
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var priced = await host.SendJsonAsync(HttpMethod.Put, "/api/settings/ai/prices", new
+        {
+            prices = new[] { new { model = "test-model", inputPerMillion = 1m, cachedInputPerMillion = 0.1m, outputPerMillion = 4m } },
+        }, admin, Ct);
+        Assert.Equal(HttpStatusCode.OK, priced.StatusCode);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Who is x?" }, cookie, Ct);
+        await response.Content.ReadAsStringAsync(Ct);
+
+        // The stream asked for usage, or there would be none to record.
+        Assert.Contains("\"include_usage\":true", provider.Bodies[0], StringComparison.Ordinal);
+
+        await using var context = _db.NewContext();
+        var rows = await context.AiUsage.OrderBy(u => u.Id).ToListAsync(Ct);
+
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, r => Assert.Equal(("chat", user.Id, "test-model", "custom"), (r.Feature, r.UserId!.Value, r.Model, r.Provider)));
+        Assert.Equal((2_000_000, 1_000_000, 100_000), (rows[0].InputTokens, rows[0].CachedInputTokens, rows[0].OutputTokens));
+        Assert.Equal((3_000_000, 0, 1_000_000), (rows[1].InputTokens, rows[1].CachedInputTokens, rows[1].OutputTokens));
+
+        // 1M uncached at $1 + 1M cached at $0.10 + 0.1M out at $4 = $1.50; then 3M in + 1M out = $7.
+        var limits = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/settings/ai/limits", null, admin, Ct), Ct);
+        Assert.Equal(8.5m, limits.GetProperty("today").GetProperty("cost").GetDecimal());
+        Assert.Equal(5_000_000, limits.GetProperty("month").GetProperty("inputTokens").GetInt64());
+        Assert.Equal(1_000_000, limits.GetProperty("month").GetProperty("cachedInputTokens").GetInt64());
+    }
+
+    [Fact]
+    public async Task AUsersOwnLimit_StopsNewTurns_WithoutCallingTheProvider()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        var provider = new ScriptedProvider();
+        await using var host = await StartWithProviderAsync(provider);
+
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+        await SpendAsync(host, user.Id, 2m);
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.User, UserId = user.Id, PerDay = 2m });
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "hi" }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Equal("Your daily AI spend limit is reached.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+        Assert.Empty(provider.Bodies);
+    }
+
+    [Fact]
+    public async Task ChatsOwnFeatureLimit_IsHonouredToo()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        var provider = new ScriptedProvider();
+        await using var host = await StartWithProviderAsync(provider);
+
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.UseAiPastLimits, Ct);
+        await SpendAsync(host, user.Id, 1m);
+
+        await using (var context = _db.NewContext())
+        {
+            context.AiFeatureLimits.Add(new AiFeatureLimit { Feature = "chat", MonthlyTokenLimit = 1000 });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "hi" }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Empty(provider.Bodies);
+    }
+
+    [Fact]
+    public async Task UnderEveryLimit_ATurnGoesAhead()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        var provider = new ScriptedProvider().Then(Stream(Text("Hello.")));
+        await using var host = await StartWithProviderAsync(provider);
+
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+        await SpendAsync(host, user.Id, 1.99m);
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.User, UserId = user.Id, PerDay = 2m });
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.Everyone, PerMonth = 100m });
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "hi" }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>
+    /// The tightest limit that applies wins, whichever kind it is: here a role's daily limit is
+    /// reached while the person's own monthly one and everyone's are not. Another member's spend
+    /// does not count against this person's role limit.
+    /// </summary>
+    [Fact]
+    public async Task ARolesLimit_AppliesToEachPersonHoldingIt_AndTheTightestLimitIsTheOneNamed()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await StartWithProviderAsync(new ScriptedProvider().Then(Stream(Text("Hi."))));
+
+        var held = ModbotPermissions.UseAiChat | ModbotPermissions.ViewMembers;
+        var (user, cookie) = await host.SignedInAsync(held, Ct);
+        var (other, otherCookie) = await host.SignedInAsync(held, Ct);
+
+        Guid role;
+        await using (var context = _db.NewContext())
+            role = await TestAccounts.RoleForAsync(context, held, Ct);
+
+        await SpendAsync(host, user.Id, 3m);
+        await SpendAsync(host, other.Id, 1m);
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.Role, RoleId = role, PerDay = 3m });
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.User, UserId = user.Id, PerMonth = 100m });
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.Everyone, PerDay = 1000m });
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "hi" }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Equal($"The test:{(long)held} role's daily AI spend limit is reached.",
+            (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+
+        var others = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "hi" }, otherCookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, others.StatusCode);
+    }
+
+    [Fact]
+    public async Task UseAiPastLimits_GoesPastUserAndRoleLimits_ButNotTheLimitForEveryone()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        var provider = new ScriptedProvider().Then(Stream(Text("Hello.")));
+        await using var host = await StartWithProviderAsync(provider);
+
+        var held = ModbotPermissions.UseAiChat | ModbotPermissions.UseAiPastLimits;
+        var (user, cookie) = await host.SignedInAsync(held, Ct);
+
+        Guid role;
+        await using (var context = _db.NewContext())
+            role = await TestAccounts.RoleForAsync(context, held, Ct);
+
+        await SpendAsync(host, user.Id, 10m);
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.User, UserId = user.Id, PerDay = 1m });
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.Role, RoleId = role, PerMonth = 1m });
+
+        var allowed = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "hi" }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        await allowed.Content.ReadAsStringAsync(Ct);
+
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.Everyone, PerMonth = 10m });
+
+        var refused = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "again" }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.TooManyRequests, refused.StatusCode);
+        Assert.Equal("This Modbot's monthly AI spend limit is reached.",
+            (await ApiTestHost.BodyOf(refused, Ct)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task YesterdaysSpend_DoesNotCountTowardsToday_ButDoesTowardsTheMonth()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await StartWithProviderAsync(new ScriptedProvider());
+        host.Clock.UtcNow = new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
+
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+        await SpendAsync(host, user.Id, 5m, host.Clock.UtcNow.AddDays(-1));
+        await LimitAsync(host, new AiSpendLimit { AppliesTo = AiSpendLimit.User, UserId = user.Id, PerDay = 5m, PerMonth = 5m });
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "hi" }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Equal("Your monthly AI spend limit is reached.", (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task LimitsAndPrices_NeedManageSettings_AndReadBackWhatWasSaved()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await StartWithProviderAsync(new ScriptedProvider());
+
+        var (_, chatter) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.UseAiPastLimits, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Get, "/api/settings/ai/limits", null, chatter, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Put, "/api/settings/ai/limits", new { limits = Array.Empty<object>() }, chatter, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(HttpMethod.Put, "/api/settings/ai/prices", new { prices = Array.Empty<object>() }, chatter, Ct)).StatusCode);
+
+        var (admin, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var saved = await host.SendJsonAsync(HttpMethod.Put, "/api/settings/ai/limits", new
+        {
+            limits = new object[]
+            {
+                new { appliesTo = "everyone", perMonth = 50m },
+                new { appliesTo = "user", userId = admin.Id, perDay = 1.25m },
+            },
+        }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+        var body = await ApiTestHost.BodyOf(saved, Ct);
+        var limits = body.GetProperty("limits").EnumerateArray().ToList();
+        Assert.Equal(["everyone", "user"], limits.Select(l => l.GetProperty("appliesTo").GetString()));
+        Assert.Equal(50m, limits[0].GetProperty("perMonth").GetDecimal());
+        Assert.Equal(admin.Username, limits[1].GetProperty("name").GetString());
+        Assert.Contains("test-model", body.GetProperty("modelsUsed").EnumerateArray().Select(m => m.GetString()));
+
+        var twice = await host.SendJsonAsync(HttpMethod.Put, "/api/settings/ai/limits", new
+        {
+            limits = new object[] { new { appliesTo = "everyone", perDay = 1m }, new { appliesTo = "everyone", perMonth = 2m } },
+        }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, twice.StatusCode);
+
+        var negative = await host.SendJsonAsync(HttpMethod.Put, "/api/settings/ai/prices", new
+        {
+            prices = new[] { new { model = "m", inputPerMillion = -1m, outputPerMillion = 1m } },
+        }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, negative.StatusCode);
+    }
+
     // ── Pieces ───────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Usage worth <paramref name="cost"/> dollars: input tokens of a model priced at $1 per million.
+    /// </summary>
+    private static async Task SpendAsync(ApiTestHost host, Guid userId, decimal cost, DateTimeOffset? at = null)
+    {
+        const string model = "spend-model";
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        if (!await db.AiModelPrices.AnyAsync(p => p.Model == model, Ct))
+            db.AiModelPrices.Add(new AiModelPrice { Model = model, InputPerMillion = 1m, OutputPerMillion = 1m, UpdatedAt = host.Clock.UtcNow });
+
+        db.AiUsage.Add(new AiUsage
+        {
+            At = at ?? host.Clock.UtcNow,
+            Feature = "chat",
+            UserId = userId,
+            Model = model,
+            InputTokens = (int)(cost * 1_000_000m),
+        });
+
+        await db.SaveChangesAsync(Ct);
+    }
+
+    private static async Task LimitAsync(ApiTestHost host, AiSpendLimit limit)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        limit.UpdatedAt = host.Clock.UtcNow;
+        db.AiSpendLimits.Add(limit);
+        await db.SaveChangesAsync(Ct);
+    }
+
+    private static string StreamWithUsage(object[] deltas, object usage) =>
+        Stream(deltas).Replace("data: [DONE]", "data: " + JsonSerializer.Serialize(usage) + "\n\ndata: [DONE]", StringComparison.Ordinal);
+
+    private static object Usage(int input, int cached, int output) => new
+    {
+        id = "chatcmpl-1",
+        @object = "chat.completion.chunk",
+        created = 1_700_000_000,
+        model = "test-model",
+        choices = Array.Empty<object>(),
+        usage = new
+        {
+            prompt_tokens = input,
+            completion_tokens = output,
+            total_tokens = input + output,
+            prompt_tokens_details = new { cached_tokens = cached },
+        },
+    };
 
     private static object Settings(
         bool enabled = false,
@@ -299,6 +578,13 @@ public class ChatTests
 
         using var scope = host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        // Roles outlive ResetDeploymentAsync, and a role limit with them; usage and prices too.
+        await db.AiSpendLimits.ExecuteDeleteAsync(Ct);
+        await db.AiUsage.ExecuteDeleteAsync(Ct);
+        await db.AiModelPrices.ExecuteDeleteAsync(Ct);
+        await db.AiFeatureLimits.ExecuteDeleteAsync(Ct);
+
         var settings = await db.GetSettingsAsync(Ct);
 
         settings.AiEnabled = true;
