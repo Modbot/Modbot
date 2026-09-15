@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modbot for VRChat groups</title>
+<meta name="description" content="Self-hosted moderation, analytics and automation for one VRChat group. Live instances, ban case files, a Discord bot and a SteamVR overlay, on your own server.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f7f6fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f0e15" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="{{asset:vector-mark.svg}}">
+
+<!-- Iteration only: the real site bundles these through @fontsource and loads nothing from a
+     third party (src/Modbot.Landing/Web/src/index.css). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script>
+  // Before first paint, so a dark-mode visitor never sees a light flash.
+  try {
+    var t = localStorage.getItem('modbot-theme');
+    if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+  } catch (e) {}
+  // ?theme=dark or ?theme=light, for screenshots while iterating.
+  var q = new URLSearchParams(location.search).get('theme');
+  if (q === 'dark' || q === 'light') document.documentElement.dataset.theme = q;
+</script>
+
+<style>
+/* ── Tokens ───────────────────────────────────────────────────────────────────
+   The same violet as the app (#5b4bd6 light, #6d5cf0 dark), flat everywhere. The
+   mascot is the only place a gradient appears. Neutrals lean lavender so the mark
+   and the page share one temperature. Contrast checked with explore/design/brand/contrast.py. */
+:root {
+  --font-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Malgun Gothic", system-ui, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+
+  --ground: #f7f6fb;
+  --card: #ffffff;
+  --fg: #111113;
+  --muted: #f1eff8;
+  --muted-fg: #5c6475;
+  --primary: #5b4bd6;
+  --primary-fg: #ffffff;
+  --link: #5b4bd6;
+  --accent: #edebff;
+  --accent-fg: #4a3cc2;
+  --border: #e4e2ee;
+  --border-strong: #cfcbe0;
+  --ring: #5b4bd6;
+  --danger: #dc2626;
+  --danger-fg: #b91c1c;
+  --ok: #15803d;
+  --warn: #b45309;
+  --info: #0369a1;
+  --shadow: 0 30px 80px -40px rgb(30 24 70 / 0.35);
+  --radius: 0.375rem;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0f0e15;
+    --card: #17151f;
+    --fg: #e6e6eb;
+    --muted: #1e1b29;
+    --muted-fg: #a5a3b8;
+    --primary: #6d5cf0;
+    --primary-fg: #ffffff;
+    --link: #a78bfa;
+    --accent: #2a2547;
+    --accent-fg: #b6acff;
+    --border: #2a2738;
+    --border-strong: #3a3650;
+    --ring: #8f82ff;
+    --danger: #dc2626;
+    --danger-fg: #f87171;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --info: #38bdf8;
+    --shadow: 0 30px 80px -40px rgb(0 0 0 / 0.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #0f0e15;
+  --card: #17151f;
+  --fg: #e6e6eb;
+  --muted: #1e1b29;
+  --muted-fg: #a5a3b8;
+  --primary: #6d5cf0;
+  --primary-fg: #ffffff;
+  --link: #a78bfa;
+  --accent: #2a2547;
+  --accent-fg: #b6acff;
+  --border: #2a2738;
+  --border-strong: #3a3650;
+  --ring: #8f82ff;
+  --danger: #dc2626;
+  --danger-fg: #f87171;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --info: #38bdf8;
+  --shadow: 0 30px 80px -40px rgb(0 0 0 / 0.7);
+  color-scheme: dark;
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; border-color: var(--border); }
+html { background: var(--ground); scroll-behavior: smooth; scroll-padding-top: 5rem; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; text-decoration: none; }
+p a, li a, dd a { color: var(--link); text-decoration: underline; text-underline-offset: 0.15em; }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 2px; }
+::selection { background: color-mix(in oklab, var(--primary) 28%, transparent); }
+img { display: block; max-width: 100%; height: auto; }
+ul, ol, dl, dd { margin: 0; padding: 0; }
+li { list-style: none; }
+h1, h2, h3 { margin: 0; }
+p { margin: 0; }
+strong { font-weight: 600; }
+code { font-family: var(--font-mono); font-size: 0.92em; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.skip { position: absolute; left: 0.5rem; top: 0.5rem; z-index: 100; padding: 0.5rem 0.75rem; background: var(--primary); color: var(--primary-fg); border-radius: var(--radius); transform: translateY(-200%); }
+.skip:focus { transform: none; }
+
+.wrap { max-width: 72rem; margin: 0 auto; padding: 0 1rem; }
+.hero-grid > *, .two-col > *, .feature-grid > *, .stack, .closing .wrap > * { min-width: 0; }
+@media (min-width: 640px) { .wrap { padding: 0 1.5rem; } }
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 640;
+  font-variation-settings: "wdth" 96;
+  font-optical-sizing: auto;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+h1.display { font-size: clamp(2.75rem, 7vw, 5rem); line-height: 0.98; }
+h2.display { font-size: clamp(2rem, 4.2vw, 2.875rem); line-height: 1.04; letter-spacing: -0.018em; }
+h2.display.small { font-size: clamp(1.75rem, 3.2vw, 2.25rem); }
+.lead { font-size: 1.1875rem; color: var(--muted-fg); text-wrap: pretty; max-width: 36rem; }
+@media (min-width: 640px) { .lead { font-size: 1.25rem; } }
+.muted { color: var(--muted-fg); }
+.small { font-size: 0.9375rem; }
+.pretty { text-wrap: pretty; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  height: 2.75rem; padding: 0 1.125rem; border-radius: var(--radius);
+  font-weight: 500; font-size: 0.9375rem; white-space: nowrap; border: 1px solid transparent;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.btn.primary { background: var(--primary); color: var(--primary-fg); }
+.btn.primary:hover { background: color-mix(in oklab, var(--primary) 88%, black); }
+.btn.outline { border-color: var(--border-strong); background: var(--card); color: var(--fg); }
+.btn.outline:hover { background: var(--muted); }
+.btn.ghost { height: 2.25rem; padding: 0 0.75rem; color: var(--fg); }
+.btn.ghost:hover { background: var(--muted); }
+.btn.sm { height: 2.25rem; padding: 0 0.875rem; font-size: 0.875rem; }
+.btn.icon { width: 2.25rem; height: 2.25rem; padding: 0; }
+.btn svg { width: 1rem; height: 1rem; }
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.site-header {
+  position: sticky; top: 0; z-index: 40;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--ground) 78%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.site-header .wrap { display: flex; align-items: center; gap: 1rem; height: 3.5rem; }
+.brand { display: inline-flex; align-items: center; gap: 0.5rem; font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; letter-spacing: -0.01em; }
+.brand img { width: 1.875rem; height: 1.875rem; }
+.site-nav { display: none; flex: 1; justify-content: center; gap: 0.125rem; }
+@media (min-width: 768px) { .site-nav { display: flex; } }
+.site-nav a { font-size: 0.875rem; }
+.header-tools { margin-left: auto; display: flex; align-items: center; gap: 0.375rem; }
+@media (max-width: 639px) { .header-tools .host { display: none; } }
+@media (min-width: 768px) { .header-tools { margin-left: 0; } }
+[data-theme="dark"] .sun, .moon { display: block; }
+[data-theme="dark"] .moon, .sun { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sun { display: block; }
+  :root:not([data-theme="light"]) .moon { display: none; }
+}
+
+/* ── Hero ───────────────────────────────────────────────────────────────── */
+.hero { padding-top: 3rem; }
+@media (min-width: 768px) { .hero { padding-top: 5rem; } }
+.hero-grid { display: grid; gap: 2rem; align-items: center; }
+@media (min-width: 900px) { .hero-grid { grid-template-columns: 8fr 4fr; gap: 3rem; } }
+.eyebrow { font-size: 0.9375rem; color: var(--muted-fg); }
+.hero h1 { margin-top: 0.875rem; }
+.hero .lead { margin-top: 1.5rem; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+.facts-line { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; margin-top: 1.5rem; font-size: 0.9375rem; color: var(--muted-fg); }
+.facts-line li:not(:last-child)::after { content: "·"; margin-left: 0.75rem; }
+@media (max-width: 639px) { .facts-line { flex-direction: column; gap: 0.125rem; } .facts-line li::after { content: none !important; } }
+
+.mascot-card {
+  position: relative; display: grid; place-items: center;
+  aspect-ratio: 1 / 1; max-width: 20rem; margin: 0 auto;
+  border-radius: 1.25rem;
+  background: radial-gradient(70% 70% at 50% 45%, color-mix(in oklab, var(--accent) 80%, transparent), transparent 72%);
+}
+.mascot-card img { width: 84%; height: auto; filter: drop-shadow(0 18px 30px rgb(40 30 90 / 0.18)); }
+@media (max-width: 899px) { .mascot-card { max-width: 9rem; margin: 0 0 0.5rem; order: -1; aspect-ratio: auto; background: none; } .mascot-card img { width: 7rem; filter: none; } }
+
+.hero-mock { margin-top: 3.5rem; }
+@media (min-width: 768px) { .hero-mock { margin-top: 4.5rem; } }
+.caption { margin-top: 0.875rem; text-align: center; font-size: 0.875rem; color: var(--muted-fg); }
+
+/* ── Sections ───────────────────────────────────────────────────────────── */
+.section { padding: 4.5rem 0; }
+@media (min-width: 768px) { .section { padding: 6.5rem 0; } }
+.section-head { display: grid; gap: 1.25rem; }
+@media (min-width: 900px) { .section-head { grid-template-columns: 1fr 1fr; align-items: end; } }
+.section-head h2 { max-width: 20ch; }
+.section-head .lead { max-width: 34rem; }
+
+.badges { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.badge {
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  height: 1.5rem; padding: 0 0.5rem; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--card); font-size: 0.8125rem; font-weight: 500; color: var(--muted-fg);
+}
+.badge::before { content: ""; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--dot, var(--muted-fg)); }
+.badge.vrchat { --dot: var(--info); }
+.badge.client { --dot: var(--ok); }
+.badge.sync { --dot: var(--warn); }
+.badge.discord { --dot: #7a8393; }
+.badge.modbot { --dot: var(--primary); }
+
+/* Facts under a heading */
+.facts { margin-top: 1.75rem; border-top: 1px solid var(--border); max-width: 34rem; }
+.facts li { padding: 0.625rem 0; border-bottom: 1px solid var(--border); font-size: 0.96875rem; text-wrap: pretty; }
+.facts b { font-weight: 600; }
+
+/* Comparison table */
+.compare { margin-top: 2.5rem; border: 1px solid var(--border); border-radius: 0.75rem; overflow: hidden; background: var(--card); }
+.compare-row { display: grid; gap: 0.5rem 1.5rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
+.compare-row:first-child { border-top: 0; background: var(--muted); font-size: 0.8125rem; font-weight: 600; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.04em; padding-top: 0.625rem; padding-bottom: 0.625rem; }
+.compare-row > :first-child { font-weight: 600; }
+.compare-row p { font-size: 0.96875rem; text-wrap: pretty; }
+@media (min-width: 768px) { .compare-row { grid-template-columns: 11rem 1fr 1fr; } }
+@media (max-width: 767px) { .compare-row:first-child { display: none; } .compare-row p::before { display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted-fg); } .compare-row p:nth-child(2)::before { content: "VRChat"; } .compare-row p:nth-child(3)::before { content: "Modbot"; } }
+
+/* Feature: words one side, product the other */
+.feature { padding: 4.5rem 0; }
+@media (min-width: 768px) { .feature { padding: 6.5rem 0; } }
+.feature-grid { display: grid; gap: 2.5rem; align-items: center; }
+@media (min-width: 960px) { .feature-grid { grid-template-columns: 5fr 7fr; gap: 3.5rem; } .feature.flip .feature-words { order: 2; } }
+.feature-words h2 { margin-top: 1.25rem; }
+.feature-words .lead { margin-top: 1rem; font-size: 1.125rem; }
+.feature-visual { min-width: 0; }
+
+/* Grid of everyday parts */
+.band { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--card); }
+.tiles { display: grid; gap: 1px; margin-top: 3rem; border: 1px solid var(--border); border-radius: 0.75rem; overflow: hidden; background: var(--border); }
+@media (min-width: 640px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
+.tiles > div { background: var(--card); padding: 1.25rem; }
+.tiles dt { font-weight: 600; }
+.tiles dd { margin-top: 0.375rem; font-size: 0.9375rem; color: var(--muted-fg); text-wrap: pretty; }
+
+/* Self-host */
+.two-col { display: grid; gap: 3rem; }
+@media (min-width: 960px) { .two-col { grid-template-columns: 1fr 1fr; } }
+.terminal { overflow: hidden; border-radius: 0.75rem; border: 1px solid #272b36; background: #0d0e12; color: #e6e8ee; box-shadow: var(--shadow); }
+.terminal-bar { padding: 0.625rem 1rem; border-bottom: 1px solid #272b36; font-size: 0.875rem; color: #9aa1b1; }
+.terminal pre { margin: 0; padding: 1rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.875rem; line-height: 1.75; }
+.terminal .k { color: #b6acff; }
+.terminal .c { color: #9aa1b1; }
+.card { border: 1px solid var(--border); border-radius: 0.75rem; background: var(--card); padding: 1.25rem; }
+.card h3 { font-weight: 600; font-size: 1.0625rem; }
+.steps { margin-top: 0.75rem; counter-reset: step; }
+.steps li { display: flex; gap: 0.75rem; padding: 0.5rem 0; border-top: 1px solid var(--border); font-size: 0.9375rem; }
+.steps li::before { counter-increment: step; content: counter(step); width: 1rem; flex: none; font-family: var(--font-mono); color: var(--muted-fg); font-variant-numeric: tabular-nums; }
+.stack { display: flex; flex-direction: column; gap: 1rem; }
+
+/* Definition list with headings */
+.qa { display: grid; gap: 2rem 3rem; margin-top: 2.5rem; }
+@media (min-width: 768px) { .qa { grid-template-columns: 1fr 1fr; } }
+.qa dt { font-weight: 600; font-size: 1.0625rem; }
+.qa dd { margin-top: 0.5rem; font-size: 0.96875rem; color: var(--muted-fg); text-wrap: pretty; }
+.qa dd + dd { margin-top: 0.375rem; }
+
+/* Not built yet */
+.dashed { border: 1px dashed var(--border-strong); border-radius: 1rem; padding: 1.5rem; }
+@media (min-width: 640px) { .dashed { padding: 2.5rem; } }
+.dashed dl { display: grid; gap: 1.25rem 2rem; margin-top: 2rem; }
+@media (min-width: 640px) { .dashed dl { grid-template-columns: 1fr 1fr; } }
+.dashed dt { font-weight: 600; }
+.dashed dd { margin-top: 0.25rem; font-size: 0.9375rem; color: var(--muted-fg); }
+
+/* Closing band */
+.closing { background: var(--primary); color: var(--primary-fg); }
+.closing .wrap { display: grid; gap: 2rem; padding-top: 4rem; padding-bottom: 4rem; align-items: end; }
+@media (min-width: 768px) { .closing .wrap { grid-template-columns: 2fr 1fr; padding-top: 5rem; padding-bottom: 5rem; } .closing .cta-row { justify-content: end; margin-top: 0; } }
+.closing p { margin-top: 0.75rem; font-size: 1.125rem; max-width: 34rem; }
+.closing .btn { background: #fff; color: #3f31a8; }
+.closing .btn:hover { background: #f1eff8; }
+
+/* Footer */
+.site-footer { border-top: 1px solid var(--border); }
+.site-footer .wrap { display: grid; gap: 2rem; padding-top: 3rem; padding-bottom: 3rem; font-size: 0.875rem; color: var(--muted-fg); }
+@media (min-width: 768px) { .site-footer .wrap { grid-template-columns: 1fr auto; } }
+.site-footer .brand { font-size: 1.0625rem; color: var(--fg); }
+.site-footer .brand img { width: 1.5rem; height: 1.5rem; }
+.site-footer p { margin-top: 0.75rem; max-width: 42rem; text-wrap: pretty; }
+.site-footer nav { display: flex; flex-direction: column; gap: 0.5rem; }
+@media (min-width: 768px) { .site-footer nav { align-items: end; } }
+.site-footer nav a:hover { color: var(--fg); text-decoration: underline; }
+
+/* ── The product, drawn in its own tokens ───────────────────────────────── */
+.app { font-size: 0.8125rem; line-height: 1.45; font-variant-numeric: tabular-nums; color: var(--fg); }
+.window { overflow: hidden; border: 1px solid var(--border); border-radius: 0.75rem; background: var(--card); box-shadow: var(--shadow); }
+.titlebar { display: flex; align-items: center; gap: 0.75rem; height: 2.5rem; padding: 0 0.875rem; border-bottom: 1px solid var(--border); font-weight: 500; }
+.titlebar .dots { display: flex; gap: 0.375rem; }
+.titlebar .dots i { width: 0.625rem; height: 0.625rem; border-radius: 50%; background: var(--border-strong); }
+.titlebar .url { margin-left: auto; padding: 0.125rem 0.625rem; border-radius: 999px; background: var(--muted); color: var(--muted-fg); font-size: 0.75rem; }
+.frame { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .frame { grid-template-columns: 10rem 1fr; } }
+.sidebar { display: none; border-right: 1px solid var(--border); padding: 0.75rem 0.5rem; background: var(--muted); }
+@media (min-width: 640px) { .sidebar { display: block; } }
+.sidebar .group { padding: 0.75rem 0.5rem 0.25rem; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted-fg); }
+.sidebar a { display: block; padding: 0.3125rem 0.5rem; border-radius: var(--radius); color: var(--muted-fg); }
+.sidebar a.on { background: var(--card); color: var(--fg); font-weight: 500; box-shadow: 0 1px 0 rgb(0 0 0 / 0.04); }
+.main { padding: 0.875rem 1rem 1rem; min-width: 0; }
+.main-head { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.75rem; }
+.main-head h3 { font-size: 1.0625rem; font-weight: 600; }
+.live-dot { display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--ok); margin-right: 0.375rem; animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.rooms { display: grid; gap: 0.75rem; }
+@media (min-width: 900px) { .rooms { grid-template-columns: 1fr 1fr; } }
+.room { border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; }
+.room-head { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.75rem; border-bottom: 1px solid var(--border); }
+.room-head .pic { width: 2.25rem; height: 1.5rem; border-radius: 0.25rem; flex: none; }
+.room-head .name { font-weight: 600; }
+.room-head .sub { color: var(--muted-fg); font-size: 0.75rem; }
+.room-head .count { margin-left: auto; text-align: right; }
+.room-head .count b { font-size: 1rem; font-weight: 600; }
+.room-head .count span { display: block; color: var(--muted-fg); font-size: 0.6875rem; }
+.people { padding: 0.25rem 0; }
+.person { display: flex; align-items: center; gap: 0.5rem; height: 2rem; padding: 0 0.75rem; }
+.person + .person { border-top: 1px solid var(--border); }
+.person .t { margin-left: auto; color: var(--muted-fg); font-variant-numeric: tabular-nums; }
+.person .dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--border-strong); flex: none; }
+.person .dot.staff { background: var(--primary); }
+.person .dot.member { background: var(--ok); }
+.person .dot.flag { background: var(--danger); }
+.pill { display: inline-flex; align-items: center; height: 1.125rem; padding: 0 0.375rem; border-radius: 999px; background: var(--muted); color: var(--muted-fg); font-size: 0.6875rem; font-weight: 500; }
+.pill.flag { background: color-mix(in oklab, var(--danger) 12%, transparent); color: var(--danger-fg); }
+.pill.on { background: var(--primary); color: var(--primary-fg); }
+.arrived { background: color-mix(in oklab, var(--ok) 14%, transparent); }
+
+/* Popup stack */
+.stage { position: relative; min-height: 32rem; overflow: hidden; border-radius: 0.75rem; border: 1px solid var(--border); background: var(--muted); }
+.popup { position: absolute; border: 1px solid var(--border); border-radius: 0.75rem; background: var(--card); box-shadow: var(--shadow); overflow: hidden; }
+.popup.back { inset: 1.25rem auto auto 1.25rem; width: min(24rem, 78%); opacity: 0.75; transform: scale(0.97); transform-origin: top left; }
+.popup.front { inset: 3.25rem 1.25rem auto auto; width: min(26rem, 84%); }
+.popup-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 0.875rem; border-bottom: 1px solid var(--border); }
+.popup-head .back-btn { color: var(--muted-fg); }
+.popup-head .title { font-weight: 600; }
+.popup-head .kind { margin-left: auto; color: var(--muted-fg); font-size: 0.75rem; }
+.popup-body { padding: 0.875rem; }
+.kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem 0.75rem; }
+.kv div span { display: block; color: var(--muted-fg); font-size: 0.6875rem; }
+.kv div b { font-weight: 600; }
+.counts { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+.counts div { flex: 1; padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: 0.375rem; }
+.counts div b { display: block; font-size: 1.125rem; font-weight: 600; }
+.counts div span { color: var(--muted-fg); font-size: 0.6875rem; }
+.counts .warn b { color: var(--warn); }
+.timeline { margin-top: 0.875rem; border-top: 1px solid var(--border); }
+.timeline li { display: flex; gap: 0.625rem; padding: 0.4375rem 0; border-bottom: 1px solid var(--border); }
+.timeline .when { width: 2.75rem; flex: none; color: var(--muted-fg); font-variant-numeric: tabular-nums; }
+.timeline a { color: var(--link); text-decoration: underline; text-underline-offset: 0.15em; }
+.timeline .src { margin-left: auto; align-self: center; }
+
+/* Discord */
+.chat { overflow: hidden; border-radius: 0.75rem; border: 1px solid var(--border); background: var(--card); box-shadow: var(--shadow); }
+.channel { display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; font-weight: 500; }
+.channel + .messages { border-top: 0; }
+.messages { display: flex; flex-direction: column; gap: 1.25rem; padding: 1rem 1.125rem; }
+.messages + .channel { border-top: 1px solid var(--border); }
+.msg { display: flex; gap: 0.75rem; }
+.avatar { width: 2.25rem; height: 2.25rem; border-radius: 50%; flex: none; background: var(--accent); display: grid; place-items: center; overflow: hidden; }
+.avatar img { width: 1.625rem; height: 1.625rem; }
+.msg-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; font-size: 0.875rem; }
+.msg-head b { font-weight: 600; }
+.msg-head .bot { padding: 0 0.25rem; border-radius: 0.1875rem; background: var(--primary); color: var(--primary-fg); font-size: 0.625rem; font-weight: 600; }
+.msg-head .time { color: var(--muted-fg); font-size: 0.75rem; }
+.embed { margin-top: 0.375rem; max-width: 30rem; padding: 0.875rem; border-left: 4px solid var(--edge); border-radius: 0.375rem; background: var(--muted); font-size: 0.875rem; }
+.embed .title { font-weight: 600; }
+.embed .title.link { color: var(--info); }
+.embed .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr)); gap: 0.5rem 1rem; margin-top: 0.75rem; }
+.embed .fields div span { display: block; font-weight: 600; }
+.embed .fields div { color: var(--muted-fg); }
+.embed .who { margin-top: 0.75rem; }
+.embed .who span { display: block; font-weight: 600; color: var(--fg); }
+.embed .who { color: var(--muted-fg); }
+.embed .scene { margin-top: 0.75rem; aspect-ratio: 16 / 5; border-radius: 0.375rem; background: radial-gradient(120% 90% at 20% 15%, #f6a45c, transparent 60%), linear-gradient(160deg, #5b4bd6, #16181f); }
+.embed .foot { margin-top: 0.5rem; font-size: 0.75rem; color: var(--muted-fg); }
+.embed .quote { margin-top: 0.5rem; padding-left: 0.5rem; border-left: 2px solid var(--border-strong); color: var(--muted-fg); }
+.join { display: inline-flex; align-items: center; gap: 0.375rem; height: 2rem; margin-top: 0.5rem; padding: 0 0.75rem; border-radius: 0.375rem; background: var(--muted); font-size: 0.875rem; font-weight: 500; }
+
+/* Case file */
+.case { padding: 1rem 1.125rem; }
+.case-head { display: flex; align-items: flex-start; gap: 0.75rem; }
+.case-head .title { font-size: 1rem; font-weight: 600; }
+.case-head .sub { color: var(--muted-fg); font-size: 0.75rem; }
+.case-head .status { margin-left: auto; }
+.case h4 { margin: 1rem 0 0.375rem; font-size: 0.8125rem; font-weight: 600; }
+.reasons { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.case p.note { font-size: 0.8125rem; color: var(--fg); text-wrap: pretty; }
+.evidence { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.evidence div { aspect-ratio: 16 / 9; border-radius: 0.375rem; display: grid; place-items: end start; padding: 0.375rem; color: #fff; font-size: 0.6875rem; }
+.evidence .e1 { background: radial-gradient(80% 80% at 70% 20%, #e87ba4, transparent 60%), linear-gradient(160deg, #2a2547, #0d0e12); }
+.evidence .e2 { background: radial-gradient(80% 80% at 20% 80%, #2a78d6, transparent 60%), linear-gradient(200deg, #1baf7a55, #0d0e12); }
+.hash { display: flex; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.75rem; color: var(--muted-fg); }
+.hash code { font-size: 0.75rem; }
+.snapshot { margin-top: 1rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--muted); font-size: 0.8125rem; }
+.snapshot b { font-weight: 600; }
+.snapshot .row { display: flex; gap: 0.75rem; margin-top: 0.25rem; color: var(--muted-fg); }
+
+/* Overlay: always dark, it floats in a headset */
+.overlay-scene { position: relative; overflow: hidden; border-radius: 0.75rem; border: 1px solid var(--border); padding: 2.5rem 1rem; background: radial-gradient(90% 70% at 15% 10%, rgb(246 164 92 / 0.55), transparent 60%), radial-gradient(80% 80% at 90% 90%, rgb(42 120 214 / 0.5), transparent 60%), linear-gradient(160deg, #2a2547, #0d0e12); }
+@media (min-width: 640px) { .overlay-scene { padding: 2.5rem; } }
+.hud { max-width: 26rem; margin: 0 auto; display: flex; flex-direction: column; gap: 0.75rem; color: #f2f4f8; font-size: 1rem; }
+.hud .panel { padding: 1rem 1.25rem; border-radius: 0.5rem; background: rgb(28 31 40 / 0.94); border: 1px solid #363c4a; }
+.hud .alert { border-left: 6px solid #f0526a; }
+.hud .alert .h { font-size: 0.875rem; font-weight: 600; color: #b9c0cf; }
+.hud .alert .n { font-size: 1.5rem; font-weight: 600; }
+.hud .alert .d { font-size: 0.875rem; color: #b9c0cf; }
+.hud .roster .h { display: flex; justify-content: space-between; margin-bottom: 0.375rem; font-size: 0.875rem; font-weight: 600; color: #b9c0cf; }
+.hud .roster .h span { font-weight: 400; }
+.hud .roster div.r { display: flex; align-items: center; gap: 0.75rem; height: 2.25rem; }
+.hud .roster i { width: 0.75rem; height: 0.75rem; border-radius: 50%; flex: none; }
+.hud .roster .name { color: #b9c0cf; }
+.hud .roster .flag .name { color: #fff; font-weight: 600; }
+.hud .roster .flag em { font-style: normal; font-size: 0.875rem; color: #f0526a; }
+
+/* AI chat */
+.ai { padding: 1rem 1.125rem; display: flex; flex-direction: column; gap: 0.875rem; }
+.ai .q { align-self: flex-end; max-width: 80%; padding: 0.625rem 0.875rem; border-radius: 0.75rem 0.75rem 0.25rem 0.75rem; background: var(--primary); color: var(--primary-fg); font-size: 0.875rem; }
+.ai .a { max-width: 90%; padding: 0.75rem 0.875rem; border-radius: 0.75rem 0.75rem 0.75rem 0.25rem; background: var(--muted); font-size: 0.875rem; }
+.ai .a ul { margin-top: 0.5rem; padding-left: 1rem; }
+.ai .a li { list-style: disc; margin-top: 0.25rem; }
+.ai .a .cite { margin-top: 0.5rem; font-size: 0.75rem; color: var(--muted-fg); }
+.ai .input { display: flex; align-items: center; gap: 0.5rem; height: 2.5rem; padding: 0 0.75rem; border: 1px solid var(--border-strong); border-radius: 0.5rem; color: var(--muted-fg); font-size: 0.875rem; }
+.ai .input span { margin-left: auto; width: 1.75rem; height: 1.75rem; border-radius: 0.375rem; background: var(--primary); }
+
+/* Analytics */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; padding: 1rem 1.125rem 0; }
+.stat { padding: 0.625rem 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; }
+.stat span { display: block; color: var(--muted-fg); font-size: 0.6875rem; }
+.stat b { display: block; font-size: 1.25rem; font-weight: 600; }
+.stat small { color: var(--ok); font-size: 0.6875rem; }
+.heat { padding: 1rem 1.125rem 1.125rem; }
+.heat .h { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-weight: 600; }
+.heat .h span { font-weight: 400; color: var(--muted-fg); }
+.heat-grid { display: grid; grid-template-columns: 2rem repeat(24, minmax(0, 1fr)); gap: 2px; }
+.heat-grid .lbl { font-size: 0.625rem; color: var(--muted-fg); align-self: center; }
+.heat-grid i { display: block; aspect-ratio: 1; border-radius: 2px; background: color-mix(in oklab, var(--primary) calc(var(--v) * 1%), var(--muted)); }
+.heat .axis { display: grid; grid-template-columns: 2rem repeat(4, 1fr); margin-top: 0.25rem; font-size: 0.625rem; color: var(--muted-fg); }
+
+/* Motion */
+@keyframes enter { from { opacity: 0; transform: translateY(1.25rem); } to { opacity: 1; transform: none; } }
+.enter-late { animation: enter 900ms 120ms cubic-bezier(0.2, 0.7, 0.1, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body>
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a href="#top" class="brand"><img src="{{asset:vector-mark.svg}}" alt="" width="30" height="30">Modbot</a>
+    <nav class="site-nav" aria-label="Sections">
+      <a href="#live" class="btn ghost">Live</a>
+      <a href="#discord" class="btn ghost">Discord</a>
+      <a href="#case-files" class="btn ghost">Case files</a>
+      <a href="#client" class="btn ghost">Client</a>
+      <a href="#self-host" class="btn ghost">Self-host</a>
+    </nav>
+    <div class="header-tools">
+      <button type="button" class="btn ghost icon" id="theme" aria-label="Switch theme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      </button>
+      <a href="https://my.modbot.co/go" class="btn outline sm">Open my server</a>
+      <a href="#self-host" class="btn primary sm host">Host your own</a>
+    </div>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+
+<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+<section id="top" class="hero" aria-labelledby="hero-title">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">Open source, under AGPL-3.0</p>
+        <h1 id="hero-title" class="display">Self-hosted moderation for VRChat groups.</h1>
+        <p class="lead">Modbot records why each person was banned and who was in the instance at the time. It keeps that record for as long as you want, in one container and one PostgreSQL database on a server you control.</p>
+        <div class="cta-row">
+          <a href="#self-host" class="btn primary">Host your own</a>
+          <a href="#compare" class="btn outline">Compare with VRChat</a>
+        </div>
+        <ul class="facts-line" aria-label="At a glance">
+          <li>One setting to start</li>
+          <li>Web app, Discord bot, Windows client</li>
+          <li>Not affiliated with VRChat Inc.</li>
+        </ul>
+      </div>
+      <div class="mascot-card" aria-hidden="true">
+        <img src="{{asset:mascot-refined-flat-512.png}}" alt="" width="512" height="512">
+      </div>
+    </div>
+
+    <div class="hero-mock enter-late">
+      <div class="app window" role="img" aria-label="Sample of Modbot's Live page: two open instances and who is in each">
+        <div class="titlebar"><span class="dots"><i></i><i></i><i></i></span>Modbot · Lantern Social<span class="url">modbot.lantern.example</span></div>
+        <div class="frame">
+          <nav class="sidebar" aria-hidden="true">
+            <a class="on">Live</a><a>Members</a><a>Bans</a><a>Audit log</a>
+            <div class="group">Analytics</div><a>My Group</a><a>My Team</a><a>Worlds</a><a>Instances</a>
+            <div class="group">Team</div><a>Reviews</a>
+            <div class="group">Setup</div><a>Sync health</a><a>Settings</a>
+          </nav>
+          <div class="main">
+            <div class="main-head"><h3><span class="live-dot"></span>Live</h3><span class="muted">2 open instances · updated 5 s ago</span></div>
+            <div class="rooms">
+              <div class="room">
+                <div class="room-head">
+                  <span class="pic" style="background: linear-gradient(135deg, #f6a45c, #5b4bd6)"></span>
+                  <div><div class="name">Lantern Harbor</div><div class="sub">Group Public · 48213 · US · open 1h 45m</div></div>
+                  <div class="count"><b>6</b><span>of 40</span></div>
+                </div>
+                <div class="people">
+                  <div class="person arrived"><i class="dot flag"></i>TeaSpoon <span class="pill flag">2 prior actions</span><span class="t">22:45</span></div>
+                  <div class="person"><i class="dot staff"></i>Oto <span class="pill">Moderator</span><span class="t">21:00</span></div>
+                  <div class="person"><i class="dot member"></i>Juniper.exe<span class="t">21:04</span></div>
+                  <div class="person"><i class="dot member"></i>mossfox<span class="t">21:22</span></div>
+                  <div class="person"><i class="dot"></i>Kiri<span class="t">21:37</span></div>
+                  <div class="person"><i class="dot member"></i>pebble<span class="t">22:10</span></div>
+                </div>
+              </div>
+              <div class="room">
+                <div class="room-head">
+                  <span class="pic" style="background: linear-gradient(135deg, #2a78d6, #1baf7a)"></span>
+                  <div><div class="name">Quiet Orbit Lounge</div><div class="sub">Group+ · 20997 · EU · open 32m</div></div>
+                  <div class="count"><b>4</b><span>of 32</span></div>
+                </div>
+                <div class="people">
+                  <div class="person"><i class="dot staff"></i>Wren <span class="pill">Moderator</span><span class="t">21:41</span></div>
+                  <div class="person"><i class="dot member"></i>NovaDrift<span class="t">21:44</span></div>
+                  <div class="person"><i class="dot"></i>Sable<span class="t">21:58</span></div>
+                  <div class="person"><i class="dot member"></i>Haze<span class="t">22:12</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">Sample data. Names and worlds are made up.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── What VRChat keeps, what Modbot keeps ─────────────────────────────── -->
+<section id="compare" class="section" aria-labelledby="compare-title">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 id="compare-title" class="display">Compared with VRChat's group tools.</h2>
+      <p class="lead">Four records a moderator team asks for, and how far back each tool can answer.</p>
+    </div>
+    <div class="compare" role="table" aria-label="VRChat's group tools compared with Modbot">
+      <div class="compare-row" role="row"><span role="columnheader">Record</span><span role="columnheader">VRChat</span><span role="columnheader">Modbot</span></div>
+      <div class="compare-row" role="row">
+        <span role="rowheader">Ban list</span>
+        <p role="cell">A list of profiles. No search, and no reason on record.</p>
+        <p role="cell">Search by name or id, and a case file for each ban with the reasons, a write-up and the evidence.</p>
+      </div>
+      <div class="compare-row" role="row">
+        <span role="rowheader">Audit log</span>
+        <p role="cell">About a month of events, with no filter by what happened.</p>
+        <p role="cell">Every event, parsed with its data, kept for as long as you choose. Filter by type, source, person and date.</p>
+      </div>
+      <div class="compare-row" role="row">
+        <span role="rowheader">Who did what</span>
+        <p role="cell">The moderator who took an action is not kept with it.</p>
+        <p role="cell">Each action carries the moderator who took it, so the owner can read what the team did.</p>
+      </div>
+      <div class="compare-row" role="row">
+        <span role="rowheader">Who was in the room</span>
+        <p role="cell">You see the people in an instance while you are inside it.</p>
+        <p role="cell">While a moderator's desktop client is in the room, it reports who arrives and leaves, and Modbot keeps that.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Live ─────────────────────────────────────────────────────────────── -->
+<section id="live" class="feature" aria-labelledby="live-title">
+  <div class="wrap">
+    <div class="badges"><span class="badge vrchat">VRChat</span><span class="badge client">Client</span></div>
+    <div class="section-head" style="margin-top: 1.25rem">
+      <h2 id="live-title" class="display">Every instance, as it happens.</h2>
+      <p class="lead">The Live page shows every room the group has open, how full it is, and who arrived last.</p>
+    </div>
+    <dl class="tiles" style="margin-top: 2.5rem">
+      <div><dt>Every open instance</dt><dd>Each group instance appears as it opens, with VRChat's own head count.</dd></div>
+      <div><dt>Who is inside</dt><dd>While a moderator's desktop client is in the room, you see each person and when they arrived.</dd></div>
+      <div><dt>Earlier actions stand out</dt><dd>People with earlier moderation actions stand out in the list.</dd></div>
+      <div><dt>Refreshes on its own</dt><dd>The page refreshes every five seconds, and stops while its tab is hidden.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ── Popups ───────────────────────────────────────────────────────────── -->
+<section id="popups" class="feature" aria-labelledby="popups-title">
+  <div class="wrap feature-grid">
+    <div class="feature-words">
+      <div class="badges"><span class="badge vrchat">VRChat</span><span class="badge sync">Sync</span><span class="badge client">Client</span><span class="badge modbot">Modbot</span></div>
+      <h2 id="popups-title" class="display">Open a name without losing the page.</h2>
+      <p class="lead">A person, a world or an instance opens over the page you are on. Open another from inside it and they stack. Back takes you down one.</p>
+      <ul class="facts">
+        <li><b>A person:</b> their VRChat profile, membership and roles, everything recorded about them, case files and time in world.</li>
+        <li><b>A world:</b> every group instance it has hosted, and visitors per day.</li>
+        <li><b>An instance:</b> who was seen in it, and what happened there.</li>
+        <li>The stack is part of the address, so a link opens the same popups.</li>
+      </ul>
+    </div>
+    <div class="feature-visual app">
+      <div class="stage" role="img" aria-label="Sample of Modbot's popups: a person opened on top of a world">
+        <div class="popup back">
+          <div class="popup-head"><span class="title">Lantern Harbor</span><span class="kind">World</span></div>
+          <div class="popup-body">
+            <div class="kv"><div><span>By</span><b>saltwater</b></div><div><span>Capacity</span><b>40</b></div><div><span>Group instances</span><b>31</b></div></div>
+            <ul class="timeline"><li><span class="when">21:00</span><span>Opened by <a>Oto</a></span></li><li><span class="when">Sat</span><span>Instance 47990 closed after 3h 10m</span></li></ul>
+          </div>
+        </div>
+        <div class="popup front">
+          <div class="popup-head"><span class="back-btn">‹ Back</span><span class="title">TeaSpoon</span><span class="kind">Person</span></div>
+          <div class="popup-body">
+            <div class="kv"><div><span>Status</span><b>Ask me</b></div><div><span>On VRChat since</span><b>Aug 2025</b></div><div><span>Platform</span><b>Quest</b></div><div><span>Member</span><b>No, left ~Fri</b></div><div><span>Time seen</span><b>4h 05m</b></div><div><span>Instances</span><b>7</b></div></div>
+            <div class="counts"><div class="warn"><b>1</b><span>Warning</span></div><div class="warn"><b>1</b><span>Kick</span></div><div><b>0</b><span>Bans</span></div></div>
+            <ul class="timeline">
+              <li><span class="when">22:45</span><span>Arrived in <a>Lantern Harbor</a>, <a>room 48213</a></span><span class="badge client src">Client</span></li>
+              <li><span class="when">Sun</span><span>Kicked from <a>room 48213</a> by <a>Oto</a></span><span class="badge vrchat src">VRChat</span></li>
+              <li><span class="when">Sun</span><span>Warned in <a>Pixel Karaoke Hall</a> by <a>Wren</a></span><span class="badge vrchat src">VRChat</span></li>
+              <li><span class="when">~Fri</span><span>Left the group, inferred from the member list</span><span class="badge sync src">Sync</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Discord ──────────────────────────────────────────────────────────── -->
+<section id="discord" class="feature flip" aria-labelledby="discord-title">
+  <div class="wrap feature-grid">
+    <div class="feature-words">
+      <div class="badges"><span class="badge discord">Discord</span></div>
+      <h2 id="discord-title" class="display">Instance cards in your Discord.</h2>
+      <p class="lead">The bot posts a card for each group instance and updates it as people come and go. A Join button on the card opens VRChat.</p>
+      <ul class="facts">
+        <li>Send bans, kicks, joins, role changes and case files to the channels you choose. Each channel can be limited to certain people or roles.</li>
+        <li><code>/lookup</code> a person or see <code>/recent</code> actions, with replies only you can see.</li>
+        <li>Names appear on a card only while a moderator is watching, and you can turn them off.</li>
+        <li>Commands follow the same permissions as the web app.</li>
+      </ul>
+    </div>
+    <div class="feature-visual">
+      <div class="chat" role="img" aria-label="Sample of what the Discord bot posts: an instance card and a ban notice">
+        <div class="channel"><span class="muted">#</span>instances</div>
+        <div class="messages">
+          <div class="msg">
+            <span class="avatar"><img src="{{asset:vector-mark.svg}}" alt=""></span>
+            <div>
+              <div class="msg-head"><b>Modbot</b><span class="bot">BOT</span><span class="time">Today at 21:00</span></div>
+              <div class="embed" style="--edge: #3ba55d">
+                <div class="title link">Lantern Harbor</div>
+                <div class="fields">
+                  <div><span>People here now</span>6 people</div><div><span>Most at once</span>9</div><div><span>Open for</span>1h 45m</div>
+                  <div><span>Who can join</span>Members and friends</div><div><span>Region</span>US</div><div><span>Instance</span>48213</div>
+                </div>
+                <div class="who"><span>Who is here</span>Juniper.exe, Kiri, mossfox, NovaDrift, Oto, pebble</div>
+                <div class="scene" aria-hidden="true"></div>
+                <div class="foot">Open now</div>
+              </div>
+              <span class="join">Join ↗</span>
+            </div>
+          </div>
+        </div>
+        <div class="channel"><span class="muted">#</span>mod-log</div>
+        <div class="messages">
+          <div class="msg">
+            <span class="avatar"><img src="{{asset:vector-mark.svg}}" alt=""></span>
+            <div>
+              <div class="msg-head"><b>Modbot</b><span class="bot">BOT</span><span class="time">Today at 22:51</span></div>
+              <div class="embed" style="--edge: #ed4245">
+                <div class="title">Banned</div>
+                <div class="quote">Crashing or malicious avatars</div>
+                <div class="fields"><div><span>Who</span>TeaSpoon</div><div><span>By</span>Wren</div><div><span>When</span>Today at 22:50</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Case files ───────────────────────────────────────────────────────── -->
+<section id="case-files" class="feature" aria-labelledby="case-title">
+  <div class="wrap feature-grid">
+    <div class="feature-words">
+      <div class="badges"><span class="badge modbot">Modbot</span></div>
+      <h2 id="case-title" class="display">Every ban gets a case file.</h2>
+      <p class="lead">Pick the reasons, write it up, attach screenshots and clips. Modbot keeps a copy of the person's profile as it was at that moment.</p>
+      <ul class="facts">
+        <li>PNG, JPEG, WebP, GIF, MP4 and WebM, checked by their contents, so a renamed file does not pass.</li>
+        <li>Stored in an S3-compatible bucket, a mounted folder or PostgreSQL. Every file is fingerprinted.</li>
+        <li>Every edit is kept. A case file can be withdrawn with a note, and it stays on record.</li>
+        <li>The Bans page counts recent bans that still have no case file.</li>
+      </ul>
+    </div>
+    <div class="feature-visual app">
+      <div class="window case" role="img" aria-label="Sample case file for a ban">
+        <div class="case-head">
+          <div><div class="title">TeaSpoon · banned from the group</div><div class="sub">By Wren · Today at 22:50 · Case file 0142</div></div>
+          <span class="pill status">Open</span>
+        </div>
+        <h4>Why they were banned</h4>
+        <div class="reasons"><span class="pill on">Crashing or malicious avatars</span><span class="pill on">Repeated after a warning</span></div>
+        <h4>Write-up</h4>
+        <p class="note">Switched to a known crasher avatar in Lantern Harbor at 22:41. Two people on Quest dropped within a minute. Warned on Sunday for the same thing in Pixel Karaoke Hall.</p>
+        <h4>Evidence</h4>
+        <div class="evidence"><div class="e1">avatar-switch.png · 1.4 MB</div><div class="e2">drop-log.mp4 · 38 MB</div></div>
+        <div class="hash">fingerprint <code>sha256 9f2c41e0b7d3a8…</code></div>
+        <div class="snapshot"><b>Profile at the time</b><div class="row"><span>Status: Ask me</span><span>Quest</span><span>Not a member; left 11 Sep 2026</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Client ───────────────────────────────────────────────────────────── -->
+<section id="client" class="feature flip" aria-labelledby="client-title">
+  <div class="wrap feature-grid">
+    <div class="feature-words">
+      <div class="badges"><span class="badge client">Client</span><span class="badge">Windows and PC VR</span></div>
+      <h2 id="client-title" class="display">Who is in the room, from a moderator's own PC.</h2>
+      <p class="lead">The Windows client reads VRChat's own log as you play and reports who comes and goes. In SteamVR, an overlay lists the room and warns you when someone with a record walks in.</p>
+      <ul class="facts">
+        <li>Windows 10 and 11, installed without administrator rights. Quest and phone players are covered by the web app and the Discord bot.</li>
+        <li>Pairs with your server through my.modbot.co, using a one-time link that lasts five minutes.</li>
+        <li>Its token can only report presence and read the room list, and is stored encrypted to your Windows account.</li>
+        <li>Pair it with more than one group.</li>
+      </ul>
+    </div>
+    <div class="feature-visual">
+      <div class="overlay-scene" role="img" aria-label="Sample of the SteamVR overlay: an alert and the room roster">
+        <div class="hud">
+          <div class="panel alert"><div class="h">Flagged user joined · Lantern Social</div><div class="n">TeaSpoon</div><div class="d">2 prior moderation actions</div></div>
+          <div class="panel roster">
+            <div class="h"><span>Lantern Social</span><span>up to date</span></div>
+            <div class="r flag"><i style="background:#f0526a"></i><span class="name">TeaSpoon</span><em>2 prior actions</em></div>
+            <div class="r"><i style="background:#b6acff"></i><span class="name">Oto</span></div>
+            <div class="r"><i style="background:#3fbf8f"></i><span class="name">Juniper.exe</span></div>
+            <div class="r"><i style="background:#3fbf8f"></i><span class="name">mossfox</span></div>
+            <div class="r"><i style="background:#3fbf8f"></i><span class="name">pebble</span></div>
+            <div class="r"><i style="background:#4a5261"></i><span class="name">Kiri</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── AI ───────────────────────────────────────────────────────────────── -->
+<section id="ai" class="feature" aria-labelledby="ai-title">
+  <div class="wrap feature-grid">
+    <div class="feature-words">
+      <div class="badges"><span class="badge vrchat">VRChat</span><span class="badge modbot">Modbot</span></div>
+      <h2 id="ai-title" class="display">AI help, with a provider you choose.</h2>
+      <p class="lead">Connect a provider of your choice. Nothing goes to it until you do.</p>
+      <ul class="facts">
+        <li><b>Chat:</b> ask about a person, a world or the group. It looks things up with the asker's own permissions and never takes an action.</li>
+        <li><b>Flags:</b> VRChat names and bios checked against term lists you write or subscribe to, and against AI topics. A moderator reviews every flag.</li>
+        <li><b>Insights:</b> scheduled summaries of your group's own figures.</li>
+        <li>A daily call limit for moderation, and every call's usage recorded by feature.</li>
+      </ul>
+    </div>
+    <div class="feature-visual app">
+      <div class="window" role="img" aria-label="Sample of the AI chat answering from Modbot's records">
+        <div class="titlebar">Chat<span class="url">Answers use your permissions</span></div>
+        <div class="ai">
+          <div class="q">Has TeaSpoon been in trouble here before? They just walked into Lantern Harbor.</div>
+          <div class="a">Yes. Modbot has two moderation actions for TeaSpoon, both on Sunday:
+            <ul><li>Kicked from room 48213 by Oto.</li><li>Warned in Pixel Karaoke Hall by Wren.</li></ul>
+            They left the group around Friday, and have no case file. I can show the instance's timeline if you want it.
+            <div class="cite">From the audit log and the client's presence records. No action was taken.</div>
+          </div>
+          <div class="input">Ask about a person, a world or the group<span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Analytics ────────────────────────────────────────────────────────── -->
+<section id="analytics" class="feature flip" aria-labelledby="analytics-title">
+  <div class="wrap feature-grid">
+    <div class="feature-words">
+      <div class="badges"><span class="badge vrchat">VRChat</span><span class="badge client">Client</span><span class="badge modbot">Modbot</span></div>
+      <h2 id="analytics-title" class="display">Four pages of numbers.</h2>
+      <p class="lead">Each one answers a single question about your group.</p>
+      <ul class="facts">
+        <li><b>My Group:</b> members, joins and leaves, invites and join requests, how long people stay.</li>
+        <li><b>My Team:</b> actions per moderator, and the gaps when the last moderator left and people stayed.</li>
+        <li><b>Worlds:</b> where your people spend their time.</li>
+        <li><b>Instances:</b> how long they run, and the busiest hours in your time zone.</li>
+      </ul>
+    </div>
+    <div class="feature-visual app">
+      <div class="window" role="img" aria-label="Sample analytics: three totals and the busiest hours of the week">
+        <div class="titlebar">Analytics · Instances<span class="url">Last 30 days · Europe/Berlin</span></div>
+        <div class="stats">
+          <div class="stat"><span>Instances opened</span><b>148</b><small>+9 on the month before</small></div>
+          <div class="stat"><span>Median open time</span><b>2h 10m</b></div>
+          <div class="stat"><span>Time with no moderator</span><b>5h 40m</b></div>
+        </div>
+        <div class="heat">
+          <div class="h">Busiest hours<span>people in group instances</span></div>
+          <div class="heat-grid" aria-hidden="true">
+            <span class="lbl">Mon</span><i style="--v:4"></i><i style="--v:3"></i><i style="--v:2"></i><i style="--v:1"></i><i style="--v:1"></i><i style="--v:1"></i><i style="--v:2"></i><i style="--v:3"></i><i style="--v:5"></i><i style="--v:6"></i><i style="--v:8"></i><i style="--v:10"></i><i style="--v:12"></i><i style="--v:12"></i><i style="--v:14"></i><i style="--v:18"></i><i style="--v:24"></i><i style="--v:32"></i><i style="--v:44"></i><i style="--v:56"></i><i style="--v:62"></i><i style="--v:58"></i><i style="--v:40"></i><i style="--v:18"></i>
+            <span class="lbl">Tue</span><i style="--v:6"></i><i style="--v:3"></i><i style="--v:2"></i><i style="--v:1"></i><i style="--v:1"></i><i style="--v:1"></i><i style="--v:2"></i><i style="--v:3"></i><i style="--v:4"></i><i style="--v:6"></i><i style="--v:8"></i><i style="--v:9"></i><i style="--v:11"></i><i style="--v:12"></i><i style="--v:15"></i><i style="--v:20"></i><i style="--v:28"></i><i style="--v:36"></i><i style="--v:48"></i><i style="--v:60"></i><i style="--v:66"></i><i style="--v:60"></i><i style="--v:38"></i><i style="--v:16"></i>
+            <span class="lbl">Wed</span><i style="--v:5"></i><i style="--v:2"></i><i style="--v:1"></i><i style="--v:1"></i><i style="--v:1"></i><i style="--v:1"></i><i style="--v:2"></i><i style="--v:3"></i><i style="--v:5"></i><i style="--v:6"></i><i style="--v:9"></i><i style="--v:10"></i><i style="--v:12"></i><i style="--v:13"></i><i style="--v:16"></i><i style="--v:22"></i><i style="--v:30"></i><i style="--v:40"></i><i style="--v:52"></i><i style="--v:64"></i><i style="--v:70"></i><i style="--v:62"></i><i style="--v:42"></i><i style="--v:18"></i>
+            <span class="lbl">Thu</span><i style="--v:6"></i><i style="--v:3"></i><i style="--v:2"></i><i style="--v:1"></i><i style="--v:1"></i><i style="--v:1"></i><i style="--v:2"></i><i style="--v:3"></i><i style="--v:5"></i><i style="--v:7"></i><i style="--v:9"></i><i style="--v:11"></i><i style="--v:13"></i><i style="--v:14"></i><i style="--v:18"></i><i style="--v:24"></i><i style="--v:34"></i><i style="--v:44"></i><i style="--v:58"></i><i style="--v:70"></i><i style="--v:76"></i><i style="--v:68"></i><i style="--v:46"></i><i style="--v:20"></i>
+            <span class="lbl">Fri</span><i style="--v:10"></i><i style="--v:5"></i><i style="--v:3"></i><i style="--v:2"></i><i style="--v:1"></i><i style="--v:1"></i><i style="--v:2"></i><i style="--v:3"></i><i style="--v:5"></i><i style="--v:7"></i><i style="--v:10"></i><i style="--v:12"></i><i style="--v:14"></i><i style="--v:16"></i><i style="--v:20"></i><i style="--v:28"></i><i style="--v:40"></i><i style="--v:54"></i><i style="--v:70"></i><i style="--v:86"></i><i style="--v:96"></i><i style="--v:92"></i><i style="--v:70"></i><i style="--v:36"></i>
+            <span class="lbl">Sat</span><i style="--v:22"></i><i style="--v:12"></i><i style="--v:6"></i><i style="--v:3"></i><i style="--v:2"></i><i style="--v:2"></i><i style="--v:3"></i><i style="--v:5"></i><i style="--v:8"></i><i style="--v:12"></i><i style="--v:16"></i><i style="--v:20"></i><i style="--v:24"></i><i style="--v:28"></i><i style="--v:34"></i><i style="--v:42"></i><i style="--v:54"></i><i style="--v:68"></i><i style="--v:82"></i><i style="--v:100"></i><i style="--v:100"></i><i style="--v:94"></i><i style="--v:76"></i><i style="--v:44"></i>
+            <span class="lbl">Sun</span><i style="--v:24"></i><i style="--v:12"></i><i style="--v:6"></i><i style="--v:3"></i><i style="--v:2"></i><i style="--v:2"></i><i style="--v:3"></i><i style="--v:6"></i><i style="--v:10"></i><i style="--v:14"></i><i style="--v:18"></i><i style="--v:22"></i><i style="--v:26"></i><i style="--v:30"></i><i style="--v:36"></i><i style="--v:44"></i><i style="--v:54"></i><i style="--v:64"></i><i style="--v:74"></i><i style="--v:82"></i><i style="--v:80"></i><i style="--v:66"></i><i style="--v:46"></i><i style="--v:24"></i>
+          </div>
+          <div class="axis"><span></span><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Everyday ─────────────────────────────────────────────────────────── -->
+<section id="everyday" class="band section" aria-labelledby="everyday-title">
+  <div class="wrap">
+    <h2 id="everyday-title" class="display">The everyday parts.</h2>
+    <dl class="tiles">
+      <div><dt>Audit log</dt><dd>One timeline from VRChat, the syncs, the client and Modbot itself. Filter by type, source, person and date.</dd></div>
+      <div><dt>Members and bans</dt><dd>Search the member list by name or id, filter by role, and see who left and when.</dd></div>
+      <div><dt>Roles</dt><dd>Administrator, Moderator and Viewer, or your own roles built from 21 permissions.</dd></div>
+      <div><dt>Staff accounts</dt><dd>Every moderator signs in as themselves, after proving their VRChat account with a code in their bio.</dd></div>
+      <div><dt>Reviews</dt><dd>Repeat offenders counted over 30 days, and a review when a moderator's actions look unusual.</dd></div>
+      <div><dt>Your own tools</dt><dd>API keys that carry a person's permissions, and every new event over a live WebSocket.</dd></div>
+      <div><dt>Sync health</dt><dd>Each background sync and VRChat's rate limits, in one place. Modbot stops at VRChat's first "slow down" and waits.</dd></div>
+      <div><dt>VR mode</dt><dd>Dense, comfortable or VR: bigger targets and text for using the web app from a headset.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ── Self-host ────────────────────────────────────────────────────────── -->
+<section id="self-host" class="section" aria-labelledby="self-host-title">
+  <div class="wrap two-col">
+    <div>
+      <h2 id="self-host-title" class="display">Runs on your own server.</h2>
+      <p class="lead" style="margin-top: 1.25rem">Modbot is one container and one PostgreSQL database, and your group's records are stored there.</p>
+      <ul class="facts">
+        <li>Every record Modbot keeps is in your database. Evidence files go to an S3-compatible bucket, a mounted folder or that same database.</li>
+        <li>The server talks to VRChat. It also talks to Discord, to your mail server and to an AI provider when you set each one up. It never contacts modbot.co.</li>
+        <li>Usage reports have no field for your group or its members, and you can turn them off.</li>
+        <li>The desktop client sends VRChat's own log lines to Modbot Cloud as a backup. This is on by default, and the client has a switch for it.</li>
+        <li>PostgreSQL is the only other service it needs.</li>
+      </ul>
+    </div>
+    <div class="stack">
+      <div class="terminal">
+        <div class="terminal-bar">The one setting</div>
+        <pre><code><span class="k">DATABASE_URL</span>=postgres://user:password@host:5432/modbot
+<span class="c"># PORT is optional and defaults to 8080</span></code></pre>
+      </div>
+      <div class="card">
+        <h3>Everything else is set up in your browser</h3>
+        <ol class="steps">
+          <li>Create your administrator account</li>
+          <li>Connect a VRChat account</li>
+          <li>Check the connection</li>
+          <li>Link your VRChat account</li>
+          <li>Choose the group to manage</li>
+          <li>Public address, Discord and email</li>
+        </ol>
+      </div>
+      <p class="small muted pretty">Runs anywhere Docker does. On Railway it reads the platform's own settings, including a storage bucket for evidence.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Rules ────────────────────────────────────────────────────────────── -->
+<section id="rules" class="band section" aria-labelledby="rules-title">
+  <div class="wrap">
+    <div class="section-head">
+      <h2 id="rules-title" class="display">Modbot and VRChat's rules.</h2>
+      <p class="lead">What Modbot does with the VRChat account it is given, and with your Discord server.</p>
+    </div>
+    <dl class="qa">
+      <div>
+        <dt>The VRChat client</dt>
+        <dd>Modbot does not modify the game. The server reads VRChat's API the way the VRChat website does, and the desktop client reads the log file VRChat writes on your PC.</dd>
+      </div>
+      <div>
+        <dt>The VRChat account</dt>
+        <dd>Modbot signs in as one account you give it, and that account must be a moderator of the group. VRChat has no limited-access login for tools, so the account's password and two-factor secret are stored encrypted in your database.</dd>
+        <dd>It uses that one account, with one optional proxy for hosts VRChat's firewall blocks. When VRChat answers "slow down", it stops.</dd>
+      </div>
+      <div>
+        <dt>VRChat's API</dt>
+        <dd>VRChat offers no support for third-party use of its API. Modbot is an independent, community-made tool. It is not affiliated with, endorsed by or supported by VRChat Inc.</dd>
+      </div>
+      <div>
+        <dt>The Discord bot's permissions</dt>
+        <dd>View Channels, Send Messages, Embed Links, Read Message History and View Audit Log. It does not ask for Administrator.</dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<!-- ── Not built yet ────────────────────────────────────────────────────── -->
+<section id="coming" class="section" aria-labelledby="coming-title">
+  <div class="wrap">
+    <div class="dashed">
+      <h2 id="coming-title" class="display small">Not built yet</h2>
+      <p class="muted" style="margin-top: 0.5rem; max-width: 36rem">Designed and planned, but not in Modbot today.</p>
+      <dl>
+        <div><dt>Actions from Modbot</dt><dd>Kick, ban and warn without switching to VRChat.</dd></div>
+        <div><dt>Discord sync</dt><dd>Linked accounts, roles and bans kept in step with the group, and your rules applied to Discord chat.</dd></div>
+        <div><dt>Segments and giveaways</dt><dd>Find "regulars with 10+ hours this month and no bans", then draw fairly.</dd></div>
+        <div><dt>Shared warnings</dt><dd>Flags from the groups someone belongs to, and warnings shared between groups.</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- ── Closing ──────────────────────────────────────────────────────────── -->
+<section class="closing" aria-labelledby="closing-title">
+  <div class="wrap">
+    <div>
+      <h2 id="closing-title" class="display">Open your server.</h2>
+      <p>If your group already runs Modbot, pick your server on my.modbot.co and go straight to it.</p>
+    </div>
+    <div class="cta-row"><a href="https://my.modbot.co/go" class="btn">Open my server</a></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <span class="brand"><img src="{{asset:vector-mark.svg}}" alt="" width="24" height="24">Modbot</span>
+      <p>Open source under AGPL-3.0.</p>
+      <p>Modbot is not endorsed by or affiliated with VRChat Inc. or Discord Inc. VRChat is a trademark of VRChat Inc. Discord is a trademark of Discord Inc. SteamVR is a trademark of Valve Corporation. Windows is a trademark of Microsoft Corporation. Docker is a trademark of Docker, Inc. PostgreSQL is a trademark of the PostgreSQL Community Association of Canada. Railway is a trademark of Railway Corp. Modbot and its logo are trademarks of the Modbot project.</p>
+    </div>
+    <nav aria-label="Footer">
+      <a href="https://my.modbot.co/go">Open my server</a>
+      <a href="https://my.modbot.co">my.modbot.co</a>
+      <a href="#self-host">Host your own</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById('theme');
+    function current() {
+      if (root.dataset.theme) return root.dataset.theme;
+      return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    btn.addEventListener('click', function () {
+      var next = current() === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = next;
+      try { localStorage.setItem('modbot-theme', next); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>

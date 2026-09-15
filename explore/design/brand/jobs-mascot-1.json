@@ -1,0 +1,50 @@
+[
+  {
+    "name": "mascot-refined-flat",
+    "model": "openai/gpt-image-2.5-sunburst",
+    "refs": ["reference-mascot.png"],
+    "aspect_ratio": "1:1",
+    "quality": "high",
+    "output_format": "png",
+    "background": "transparent",
+    "prompt": "Redraw the exact same robot character from the reference image as a clean flat vector sticker on a transparent background: the retro-television-shaped head, the big off-white screen face with two tall black oval eyes, the pink blush ovals, the small cat-like smile, the two antennae with rounded tips, and the round headphone-like ear on its right side. Keep its colours: a smooth gradient of indigo #5B4BD6 into violet #8B5CF6 into soft pink #F0A6C8 on the body, with a dark indigo outline of even thickness. The character floats alone, centered and large, facing slightly to the viewer's right. Crisp edges, consistent line weight, soft cel shading, polished sticker look, no text."
+  },
+  {
+    "name": "mascot-refined-cloud",
+    "model": "openai/gpt-image-2.5-sunburst",
+    "refs": ["reference-mascot.png"],
+    "aspect_ratio": "1:1",
+    "quality": "high",
+    "output_format": "png",
+    "background": "transparent",
+    "prompt": "Recreate the same robot character from the reference image as a polished vector illustration on a transparent background, keeping everything that makes it recognisable: the retro-television head with rounded corners, the off-white screen face with two tall black oval eyes, pink blush and a small cat-like smile, two antennae with round tips, the round headphone-like ear, the small lavender cloud it sits on, and a few pastel sparkles and one small pink heart floating around it. Use a clean gradient of indigo #5B4BD6, violet #8B5CF6, sky blue #60A5FA and soft pink #F0A6C8 with a dark indigo outline of even thickness. Centered, large, crisp edges, soft cel shading, no text."
+  },
+  {
+    "name": "mascot-refined-icon",
+    "model": "openai/gpt-image-2.5-sunburst",
+    "refs": ["reference-mascot.png"],
+    "aspect_ratio": "1:1",
+    "quality": "high",
+    "output_format": "png",
+    "background": "transparent",
+    "prompt": "Turn the robot character from the reference image into an app icon on a transparent background: only the retro-television head, facing straight forward, filling most of the frame. Rounded-square body with a smooth vertical gradient from indigo #4F46E5 at the top to violet #7C6CF5 and a hint of pink #E879B9 at the bottom right, one soft highlight along the top edge. Large off-white screen with two tall black oval eyes, faint pink blush and a small smile. Two short antennae with round tips and one round ear dial on the right. Smooth shading, thin dark outline, simple geometry, polished and friendly, no sparkles, no cloud, no text."
+  },
+  {
+    "name": "mascot-refined-mark",
+    "model": "openai/gpt-image-2.5-sunburst",
+    "refs": ["reference-mascot.png"],
+    "aspect_ratio": "1:1",
+    "quality": "high",
+    "output_format": "png",
+    "background": "transparent",
+    "prompt": "Reduce the robot character from the reference image to a minimal flat logo mark on a transparent background, readable at 16 pixels: a solid indigo #5B4BD6 rounded-square television head facing straight forward, two stubby indigo antennae with round tips, a big white rounded screen, two tall black oval eyes and a tiny indigo smile. Exactly three colours: indigo, white, black. Chunky simple geometry, flat fill, hard edges, centered and large, no text."
+  },
+  {
+    "name": "mascot-nano-flat",
+    "model": "google/gemini-3-pro-image",
+    "refs": ["reference-mascot.png"],
+    "aspect_ratio": "1:1",
+    "resolution": "1K",
+    "prompt": "Redraw the exact same robot character from the reference image as a clean flat vector sticker on a plain pure white background: the retro-television-shaped head, the big off-white screen face with two tall black oval eyes, the pink blush ovals, the small cat-like smile, the two antennae with rounded tips, and the round headphone-like ear on its right side. Keep its colours: a smooth gradient of indigo #5B4BD6 into violet #8B5CF6 into soft pink #F0A6C8 on the body, with a dark indigo outline of even thickness. The character floats alone, centered and large, facing slightly to the viewer's right. Crisp edges, consistent line weight, soft cel shading, polished sticker look, no text."
+  }
+]

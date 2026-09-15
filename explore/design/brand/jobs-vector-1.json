@@ -1,0 +1,18 @@
+[
+  {
+    "name": "vector-icon",
+    "model": "recraft/recraft-v4.1-pro-vector",
+    "refs": ["mascot-refined-icon.png"],
+    "aspect_ratio": "1:1",
+    "output_format": "svg",
+    "prompt": "Vector logo of the friendly robot mascot in the reference image: a retro-television-shaped head facing forward, rounded-square body with a smooth gradient from indigo #4F46E5 to violet #7C6CF5 and a hint of pink at the bottom right, a large off-white screen with two tall black oval eyes, faint pink blush and a small smile, two short antennae with round tips, one round ear dial on the right. Clean flat vector shapes with a thin dark indigo outline, centered on a plain white background, no text."
+  },
+  {
+    "name": "vector-mark",
+    "model": "recraft/recraft-v4.1-pro-vector",
+    "refs": ["mascot-refined-mark.png"],
+    "aspect_ratio": "1:1",
+    "output_format": "svg",
+    "prompt": "Minimal flat vector logo mark of the robot in the reference image: a solid indigo #5B4BD6 rounded-square television head facing forward, two stubby indigo antennae with round tips, a big white rounded screen, two tall black oval eyes and a tiny indigo smile. Three flat colours only, chunky simple geometry readable at 16 pixels, centered on a plain white background, no text."
+  }
+]
