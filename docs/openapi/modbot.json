@@ -202,62 +202,6 @@
         ]
       }
     },
-    "/api/settings/email/test": {
-      "post": {
-        "tags": [
-          "Settings"
-        ],
-        "summary": "Send a test message with the saved SMTP settings",
-        "description": "Needs the `ManageSettings` permission.",
-        "operationId": "SendTestEmail",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TestEmailRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TestEmailResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "401": {
-            "description": "Not signed in, or the API key is not valid."
-          }
-        },
-        "security": [
-          {
-            "apiKey": [ ]
-          },
-          {
-            "session": [ ]
-          }
-        ]
-      }
-    },
     "/api/events/types": {
       "get": {
         "tags": [
@@ -2200,6 +2144,154 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PublicAddressView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/email/test": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Send a test message with the saved SMTP settings",
+        "description": "Counts against the daily email limit as other email, and is queued when the limit is used up.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SendTestEmail",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestEmailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/email": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "The daily email limit, how much of it is used, and the email queue",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetEmailSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/email/limit": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Set the most emails sent in any 24 hours",
+        "description": "At least 20. 20 of the limit are always kept for account email -- reset links, invite links, sign-in and security notices -- and other email may use only the rest. Email over its share is queued and sent when the 24 hours have room again.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetEmailLimit",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetEmailLimitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailSettingsView"
                 }
               }
             }
@@ -12715,6 +12807,126 @@
           }
         }
       },
+      "EmailQueueRow": {
+        "required": [
+          "id",
+          "to",
+          "kind",
+          "queuedAt",
+          "state",
+          "attempts",
+          "nextAttemptAt",
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "to": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "queuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "state": {
+            "type": "string"
+          },
+          "attempts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nextAttemptAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "EmailSettingsView": {
+        "required": [
+          "limitPer24Hours",
+          "minimumLimit",
+          "sentInLast24Hours",
+          "queued",
+          "failed",
+          "nextSendAt",
+          "emails"
+        ],
+        "type": "object",
+        "properties": {
+          "limitPer24Hours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "minimumLimit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sentInLast24Hours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "queued": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "failed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nextSendAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "emails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmailQueueRow"
+            }
+          }
+        }
+      },
       "Error": {
         "type": "object",
         "properties": {
@@ -17125,6 +17337,22 @@
           }
         }
       },
+      "SetEmailLimitRequest": {
+        "required": [
+          "limitPer24Hours"
+        ],
+        "type": "object",
+        "properties": {
+          "limitPer24Hours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "SetPublicAddressRequest": {
         "required": [
           "publicAddress"
@@ -17790,6 +18018,17 @@
               "null",
               "string"
             ]
+          },
+          "queued": {
+            "type": "boolean",
+            "default": false
+          },
+          "sendsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
