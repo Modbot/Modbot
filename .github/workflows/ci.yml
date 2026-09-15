@@ -60,3 +60,22 @@ jobs:
       - run: npx tsc --noEmit -p tsconfig.app.json
       - run: npm run build
       - run: npm run lint
+
+  # my.modbot.co's web app. `npm run build` type-checks before bundling; `npm test` runs the
+  # /go path-safety and instance-list tests on Node's own test runner.
+  my-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/Modbot.My.Web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/Modbot.My.Web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint
+      - run: npm test

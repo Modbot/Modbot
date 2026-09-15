@@ -34,8 +34,9 @@ TestResults/
 **/.vite/
 *.tsbuildinfo
 
-# Built SPA. The web stage regenerates it; a stale local copy would silently ship instead.
+# Built SPAs. The web stages regenerate them; a stale local copy would silently ship instead.
 src/Modbot.Host/wwwroot/
+src/Modbot.My/wwwroot/
 
 # Local run artefacts.
 **/logs/
