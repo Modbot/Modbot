@@ -15,6 +15,7 @@ using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Cases;
 using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.Chat;
+using Modbot.Api.Features.DiscordRoutes;
 using Modbot.Api.Features.Reviews;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
@@ -141,6 +142,7 @@ public static class ApiSurface
         // The Discord server's channels and roles as the bot last stored them, so a setting picks
         // a channel by name and sees which permission the bot lacks there (M5 spec §7).
         app.MapDiscordLists();
+        app.MapDiscordRoutes();
 
         // AI insights: reading them, and when they are written (AI insights design).
         app.MapInsights();

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { statusOf, TONE } from '@/lib/gate'
 import { ago, duration, formatDay } from '@/lib/format'
-import { api, ApiError, type DiscordBotHealth, type SyncHealth } from '@/lib/api'
+import { api, ApiError, type DiscordBotHealth, type DiscordChannelProblem, type SyncHealth } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /**
@@ -97,7 +97,9 @@ export function Health() {
 
       {!health.syncRunningInThisProcess && <Note>Sync is not running in this process.</Note>}
 
-      {health.discordBot && <DiscordBot bot={health.discordBot} now={health.now} />}
+      {health.discordBot && (
+        <DiscordBot bot={health.discordBot} channels={health.discordChannelProblems ?? []} now={health.now} />
+      )}
 
       <Card>
         <CardContent className="py-4">
@@ -379,7 +381,15 @@ const BOT_TONE: Record<'ok' | 'warn' | 'problem' | 'muted', string> = {
  * else about Modbot is affected. "Stopped" means Discord refused the token or the intents, and
  * the bot waits for the settings to change rather than knocking every thirty seconds.
  */
-function DiscordBot({ bot, now }: { bot: DiscordBotHealth; now: string }) {
+function DiscordBot({
+  bot,
+  channels,
+  now,
+}: {
+  bot: DiscordBotHealth
+  channels: DiscordChannelProblem[]
+  now: string
+}) {
   // Not BOT_STATE[bot.state] directly. That Record is a compile-time claim about a value which
   // arrives over HTTP, and the two part company whenever the server sends something this build
   // does not know -- an added state, or an enum written as its number. A miss returned undefined
@@ -407,9 +417,22 @@ function DiscordBot({ bot, now }: { bot: DiscordBotHealth; now: string }) {
         {bot.state !== 'NotConfigured' && (
           <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {`Posted to Discord: ${bot.postedInThisProcess}${bot.lastPostedAt ? `, last ${ago(bot.lastPostedAt, now)}` : ''}`}
-            {!bot.logChannelConfigured && ' · No log channel set'}
+            {!bot.logChannelConfigured && ' · No channels set'}
           </p>
         )}
+        {channels.map((channel) => (
+          <p
+            key={channel.channelId}
+            className="mt-1 max-w-3xl text-warn"
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            {channel.name ? `#${channel.name}` : channel.channelId}
+            {channel.removed && ' · Removed'}
+            {channel.missing.length > 0 && ` · Missing ${channel.missing.join(', ')}`}
+            {channel.lastError &&
+              ` · ${channel.lastError}${channel.lastErrorAt ? ` (${ago(channel.lastErrorAt, now)})` : ''}`}
+          </p>
+        ))}
         {bot.lastError && (
           <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             Last problem{bot.lastErrorAt ? ` (${ago(bot.lastErrorAt, now)})` : ''}: {bot.lastError}

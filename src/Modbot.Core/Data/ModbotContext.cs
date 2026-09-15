@@ -124,6 +124,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     public DbSet<AiChatConversation> AiChatConversations => Set<AiChatConversation>();
 
     public DbSet<AiChatMessage> AiChatMessages => Set<AiChatMessage>();
+    /// <summary>Rules for which events go to which Discord channel (Discord event routes design).</summary>
+    public DbSet<DiscordEventRoute> DiscordEventRoutes => Set<DiscordEventRoute>();
+
+    /// <summary>How far each routed channel has been sent, and its last refusal.</summary>
+    public DbSet<DiscordEventChannel> DiscordEventChannels => Set<DiscordEventChannel>();
 
     /// <summary>AI moderation term lists, local and from Modbot Hub (AI moderation design §2).</summary>
     public DbSet<ModerationTermList> ModerationTermLists => Set<ModerationTermList>();
@@ -995,6 +1000,33 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.HasKey(e => e.Feature).HasName("pk_ai_feature_limit");
             entity.Property(e => e.Feature).HasMaxLength(32);
+        });
+
+        builder.Entity<DiscordEventRoute>(entity =>
+        {
+            entity.ToTable("discord_event_route");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+
+            // Short lists read and written whole, like modbot_one_time_link.role_ids.
+            entity.Property(e => e.EventTypes).HasColumnType("jsonb");
+            entity.Property(e => e.SubjectIds).HasColumnType("jsonb");
+            entity.Property(e => e.ActorIds).HasColumnType("jsonb");
+            entity.Property(e => e.SubjectVRChatRoleIds).HasColumnType("jsonb");
+            entity.Property(e => e.ActorVRChatRoleIds).HasColumnType("jsonb");
+            entity.Property(e => e.ActorModbotRoleIds).HasColumnType("jsonb");
+
+            entity.Ignore(e => e.HasPeopleFilters);
+        });
+
+        builder.Entity<DiscordEventChannel>(entity =>
+        {
+            entity.ToTable("discord_event_channel");
+            entity.HasKey(e => e.ChannelId);
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.LastError).HasColumnType("text");
         });
 
         base.OnModelCreating(builder);

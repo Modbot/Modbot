@@ -57,19 +57,14 @@ public static class ModerationEventEmbed
             "Modbot");
     }
 
-    /// <summary>Plain words for each event type. The same wording the web app's audit log uses.</summary>
+    /// <summary>
+    /// Plain words for each event type: the audit log's own labels, except where a card read on its
+    /// own needs to say more than a row in a list does.
+    /// </summary>
     public static string LabelFor(string type) => type switch
     {
-        FactType.MemberBanned => "Banned",
-        FactType.MemberUnbanned => "Unbanned",
         FactType.MemberKicked => "Kicked from the group",
-        FactType.GroupInstanceKick => "Kicked from an instance",
-        FactType.GroupInstanceWarn => "Warned in an instance",
-        FactType.JoinRequestRejected => "Join request rejected",
-        FactType.JoinRequestBlocked => "Join request blocked",
-        FactType.RoleGranted => "Role granted",
-        FactType.RoleRevoked => "Role revoked",
-        _ => type,
+        _ => FactLabels.For(type),
     };
 
     public static uint ColorFor(string type) => type switch

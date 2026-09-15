@@ -202,4 +202,22 @@ public sealed record SyncHealth(
     Modbot.Core.Discord.DiscordBotSnapshot? DiscordBot,
     SweepHealth? MemberSweep,
     SweepHealth? BanSweep,
-    DateTimeOffset Now);
+    DateTimeOffset Now,
+    // Channels an enabled route sends to that cannot be posted in (Discord event routes design §6).
+    // Empty when every channel is fine or none is set.
+    IReadOnlyList<DiscordChannelProblem>? DiscordChannelProblems = null);
+
+/// <summary>
+/// A channel events are sent to that has something wrong with it.
+/// </summary>
+/// <param name="Name">The channel's name as the bot last saw it, or null when the bot has never seen it.</param>
+/// <param name="Missing">Discord's names for the permissions the bot lacks there, of View Channel, Send Messages and Embed Links.</param>
+/// <param name="Removed">The channel was deleted in Discord.</param>
+/// <param name="LastError">Why the last post was refused, until a post goes through.</param>
+public sealed record DiscordChannelProblem(
+    string ChannelId,
+    string? Name,
+    IReadOnlyList<string> Missing,
+    bool Removed,
+    string? LastError,
+    DateTimeOffset? LastErrorAt);

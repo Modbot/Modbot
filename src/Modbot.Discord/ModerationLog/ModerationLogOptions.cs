@@ -6,7 +6,7 @@ public sealed class ModerationLogOptions
     /// <summary>How often new facts are looked for while the bot is connected.</summary>
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(5);
 
-    /// <summary>How long to leave it after a post was refused before trying again.</summary>
+    /// <summary>How long to leave a channel after it refused a post before trying it again.</summary>
     public TimeSpan RetryAfterFailure { get; init; } = TimeSpan.FromSeconds(30);
 
     /// <summary>Facts read per pass, all types. The cursor moves past the ones not posted.</summary>

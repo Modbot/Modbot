@@ -1,26 +1,15 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type OnboardingStatus } from '@/lib/api'
-import { Checkbox, Fact, Field, LongField, Outcome, PasswordField, Placeholder, Switch } from './fields'
+import { Checkbox, Fact, Field, Outcome, PasswordField, Placeholder } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
-import { ChannelPicker } from '@/components/discord/ChannelPicker'
-import type { DiscordChannelPermission } from '@/lib/api'
-
-/** The moderation log posts embeds. */
-const POST_NEEDS: DiscordChannelPermission[] = ['viewChannel', 'sendMessages', 'embedLinks']
 
 /**
- * Instance cards are posted, then fetched by id and rewritten -- and fetching a message needs
- * Read Message History, which posting alone does not.
- */
-const ANNOUNCE_NEEDS: DiscordChannelPermission[] = ['viewChannel', 'sendMessages', 'embedLinks', 'readMessageHistory']
-
-/**
- * Discord and SMTP — spec 7.1 step 5, re-run.
+ * Email and the public address — spec 7.1 step 5, re-run. Discord has its own tab since event
+ * channels arrived (Discord event routes design §7).
  *
- * Neither is validated by connecting, here or in the wizard. A Discord token is checked by
- * starting a gateway session and SMTP by sending mail; both are slow, both fail for reasons
- * unrelated to the value being wrong, and neither is worth blocking a settings save on.
+ * SMTP is not validated by connecting, here or in the wizard: sending mail is slow and fails for
+ * reasons unrelated to the value being wrong, and is not worth blocking a settings save on.
  */
 export function IntegrationsSection({
   status,
@@ -48,17 +37,6 @@ function IntegrationsForm({
   status: OnboardingStatus
   refresh: () => Promise<void>
 }) {
-  const [botToken, setBotToken] = useState('')
-  const [guildId, setGuildId] = useState(status.integrations.discordGuildId ?? '')
-  const [logChannelId, setLogChannelId] = useState(status.integrations.discordLogChannelId ?? '')
-  const [logEventTypes, setLogEventTypes] = useState<string[]>(status.integrations.discordLogEventTypes)
-  const [instanceChannelId, setInstanceChannelId] = useState(
-    status.integrations.discordInstanceChannelId ?? '',
-  )
-  const [instanceMessage, setInstanceMessage] = useState(
-    status.integrations.discordInstanceMessage ?? '',
-  )
-  const [instanceShowNames, setInstanceShowNames] = useState(status.integrations.discordInstanceShowNames)
   const [host, setHost] = useState(status.integrations.smtpHost ?? '')
   const [port, setPort] = useState('')
   const [smtpUsername, setSmtpUsername] = useState('')
@@ -99,18 +77,6 @@ function IntegrationsForm({
       .saveIntegrations({
         // Sent as typed: empty clears it, which stops reset links being sent until it is set again.
         publicAddress,
-        // Omitted when untouched, sent empty to clear. A blank secret field means "leave it
-        // alone", because the alternative is that opening this page and pressing Save silently
-        // disconnects Discord.
-        discord: {
-          ...(botToken ? { botToken } : {}),
-          guildId,
-          logChannelId,
-          logEventTypes,
-          instanceChannelId,
-          instanceMessage,
-          instanceShowNames,
-        },
         smtp: {
           host,
           ...(port ? { port: Number(port) } : {}),
@@ -122,7 +88,6 @@ function IntegrationsForm({
       })
       .then(async () => {
         setSaved(true)
-        setBotToken('')
         setSmtpPassword('')
         await refresh()
       })
@@ -133,66 +98,10 @@ function IntegrationsForm({
   }
 
   // One form around both cards, because the API saves them as one body. `contents` keeps the
-  // form element out of the layout so the cards stay direct children of the grid.
+  // form element out of the layout so the cards stay direct children of the grid. A blank password
+  // field is left out, so opening this page and pressing Save never clears a stored one.
   return (
     <form onSubmit={save} className="contents">
-      <SettingsCard title="Discord">
-        <Fact
-          label="Bot"
-          value={status.integrations.discordConfigured ? 'Token stored' : 'Not configured'}
-        />
-        <div className="flex max-w-lg flex-col gap-3">
-          <PasswordField label="Bot token" value={botToken} onChange={setBotToken} />
-          <Field label="Guild id" value={guildId} onChange={setGuildId} placeholder="" />
-          <ChannelPicker
-            label="Post moderation events to this channel"
-            value={logChannelId}
-            onChange={setLogChannelId}
-            needs={POST_NEEDS}
-          />
-        </div>
-        <div className="mt-3 flex flex-col gap-1">
-          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Which events to post
-          </span>
-          {status.integrations.discordLogEventChoices.map((choice) => (
-            <Checkbox
-              key={choice.type}
-              checked={logEventTypes.includes(choice.type)}
-              onChange={(checked) =>
-                setLogEventTypes((current) =>
-                  checked
-                    ? [...current.filter((t) => t !== choice.type), choice.type]
-                    : current.filter((t) => t !== choice.type),
-                )
-              }
-            >
-              {choice.label}
-            </Checkbox>
-          ))}
-        </div>
-      </SettingsCard>
-
-      <SettingsCard title="Instance announcements">
-        <div className="flex max-w-lg flex-col gap-3">
-          <ChannelPicker
-            label="Announce open instances in this channel"
-            value={instanceChannelId}
-            onChange={setInstanceChannelId}
-            needs={ANNOUNCE_NEEDS}
-          />
-          <LongField
-            label="Message above each announcement"
-            value={instanceMessage}
-            onChange={setInstanceMessage}
-            placeholder="Come and join us!"
-          />
-          <Switch checked={instanceShowNames} onChange={setInstanceShowNames}>
-            Show names
-          </Switch>
-        </div>
-      </SettingsCard>
-
       <SettingsCard title="Email (SMTP)">
         <Fact
           label="Relay"

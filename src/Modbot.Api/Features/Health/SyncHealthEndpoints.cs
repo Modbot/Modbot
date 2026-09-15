@@ -123,7 +123,8 @@ public static class SyncHealthEndpoints
                         ColdStopped(buckets, VRChatEndpointClass.GroupsBans),
                         settings?.BanSweepPolledAt,
                         Run(diagnostics.LastBanSweepRun)),
-                    clock.UtcNow));
+                    clock.UtcNow,
+                    await DiscordChannelProblemsAsync(db, ct)));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
@@ -141,6 +142,59 @@ public static class SyncHealthEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         return app;
+    }
+
+    /// <summary>
+    /// Each channel an enabled route sends to where the bot is missing a permission it needs, the
+    /// channel is gone, or the last post was refused.
+    /// </summary>
+    private static async Task<IReadOnlyList<DiscordChannelProblem>> DiscordChannelProblemsAsync(
+        ModbotContext db, CancellationToken ct)
+    {
+        var channelIds = await db.DiscordEventRoutes.AsNoTracking()
+            .Where(r => r.Enabled && r.ChannelId != "")
+            .Select(r => r.ChannelId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (channelIds.Count == 0)
+            return [];
+
+        var known = await db.DiscordChannels.AsNoTracking()
+            .Where(c => channelIds.Contains(c.ChannelId))
+            .ToDictionaryAsync(c => c.ChannelId, ct);
+
+        var places = await db.DiscordEventChannels.AsNoTracking()
+            .Where(p => channelIds.Contains(p.ChannelId))
+            .ToDictionaryAsync(p => p.ChannelId, ct);
+
+        var problems = new List<DiscordChannelProblem>();
+
+        foreach (var id in channelIds.Order(StringComparer.Ordinal))
+        {
+            known.TryGetValue(id, out var channel);
+            places.TryGetValue(id, out var place);
+
+            // A channel the bot has never listed is not reported as missing permissions: before
+            // the bot first connects nothing is listed, and the refusal, if any, says the rest.
+            var missing = new List<string>();
+            if (channel is not null && channel.RemovedAt is null)
+            {
+                if (!channel.BotCanView) missing.Add("View Channel");
+                if (!channel.BotCanSend) missing.Add("Send Messages");
+                if (!channel.BotCanEmbedLinks) missing.Add("Embed Links");
+            }
+
+            var removed = channel?.RemovedAt is not null;
+
+            if (missing.Count == 0 && !removed && place?.LastError is null)
+                continue;
+
+            problems.Add(new DiscordChannelProblem(
+                id, channel?.Name, missing, removed, place?.LastError, place?.LastErrorAt));
+        }
+
+        return problems;
     }
 
     private static PollRateReport? PollRate(PollRateDecision? decision)

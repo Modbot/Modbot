@@ -224,7 +224,7 @@ public class DiscordCommandHandlerTests
 
         Assert.Contains("connected", reply.Text, StringComparison.Ordinal);
         Assert.Contains("3 slash commands", reply.Text, StringComparison.Ordinal);
-        Assert.Contains("being posted to the log channel", reply.Text, StringComparison.Ordinal);
+        Assert.Contains("being posted to Discord channels", reply.Text, StringComparison.Ordinal);
         Assert.Contains("Web app: https://modbot.example.com", reply.Text, StringComparison.Ordinal);
     }
 

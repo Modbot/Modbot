@@ -14,54 +14,76 @@ namespace Modbot.Discord.ModerationLog;
 
 public enum ModerationLogPassOutcome
 {
-    /// <summary>No channel is set. Nothing read.</summary>
+    /// <summary>No enabled route sends anywhere. Nothing read.</summary>
     NoChannel = 1,
 
-    /// <summary>The channel was just turned on: the cursor moved to the newest fact and nothing was posted.</summary>
+    /// <summary>A channel was just turned on: its place moved to the newest fact and nothing was posted.</summary>
     StartedFromNow = 2,
 
-    /// <summary>Nothing new since the cursor, or nothing new of a type the channel carries.</summary>
+    /// <summary>Nothing new since the channel's place, or nothing new that its routes take.</summary>
     NothingNew = 3,
 
     /// <summary>At least one message went out.</summary>
     Posted = 4,
 
-    /// <summary>The first message was refused. The cursor did not move.</summary>
+    /// <summary>The first message was refused. The channel's place did not move.</summary>
     Failed = 5,
+
+    /// <summary>The channel was refused a short while ago and is not tried again yet.</summary>
+    Waiting = 6,
 }
 
-/// <param name="Read">Facts read past the cursor this pass, of every type.</param>
+/// <param name="ChannelId">The channel this part of the pass was for.</param>
+/// <param name="Read">Facts read past the channel's place, of every type.</param>
 /// <param name="Posted">Events that reached the channel.</param>
-/// <param name="Error">Why posting stopped, when it did. Set on <see cref="ModerationLogPassOutcome.Failed"/> and on a pass that posted some but not all.</param>
-public sealed record ModerationLogPass(ModerationLogPassOutcome Outcome, int Read, int Posted, string? Error);
+/// <param name="Error">Why posting stopped, when it did.</param>
+public sealed record ModerationLogChannelPass(
+    string ChannelId, ModerationLogPassOutcome Outcome, int Read, int Posted, string? Error);
+
+/// <summary>One pass over every routed channel.</summary>
+/// <param name="Outcome">
+/// The pass as a whole: <see cref="ModerationLogPassOutcome.Posted"/> when anything went out,
+/// otherwise <see cref="ModerationLogPassOutcome.Failed"/> when a channel refused, otherwise
+/// whatever the channels agree on.
+/// </param>
+/// <param name="Read">Facts read, summed over channels.</param>
+/// <param name="Posted">Events posted, summed over channels.</param>
+/// <param name="Error">The first refusal of the pass, if any.</param>
+public sealed record ModerationLogPass(
+    ModerationLogPassOutcome Outcome,
+    int Read,
+    int Posted,
+    string? Error,
+    IReadOnlyList<ModerationLogChannelPass> Channels);
 
 /// <summary>
-/// Reads new facts from the log and posts the moderation events among them to the configured
-/// channel, one pass at a time.
+/// Reads new facts from the log and posts each one to the Discord channels whose routes take it,
+/// one pass at a time (Discord event routes design §5).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>The cursor is a fact id on the settings row</strong>, the same shape the profile sync
-/// uses to discover people: "every row after this one" is an index range on the log's primary
-/// key. Facts are read in id order regardless of type and the cursor moves past all of them, so
-/// a busy night of instance joins does not leave the poster re-reading the same page.
+/// <strong>Each channel keeps its own place</strong>, a fact id in <c>discord_event_channel</c>:
+/// "every row after this one" is an index range on the log's primary key. Facts are read in id
+/// order regardless of type and the place moves past all of them, so a busy night of instance
+/// joins does not leave a channel re-reading the same page. One place per channel rather than one
+/// for all, so a channel that lost its permissions waits on its own.
 /// </para>
 /// <para>
-/// <strong>Turning the channel on posts nothing.</strong> A cursor of zero means the poster has not
-/// started; it jumps to the newest fact and says so. The alternative -- replaying months of
-/// bans into a channel the moment somebody pastes an id -- is what every operator would expect
-/// to be protected from, and the setting's hint says as much.
+/// <strong>Turning a channel on posts nothing.</strong> A channel with no row has not started; it
+/// jumps to the newest fact. A channel no enabled route sends to loses its row, so turning it back
+/// on starts from then too. Replaying months of bans into a channel the moment somebody picks it is
+/// what every operator expects to be protected from.
 /// </para>
 /// <para>
-/// <strong>Only listed types leave the building.</strong> The chosen set is read through
-/// <see cref="ModerationLogEvents.Parse"/>, which cuts it down to group audit-log types. Account
-/// facts, reset links and sign-ins are not in that list and cannot be added to it from the
-/// outside, so they never reach Discord whatever the column says.
+/// <strong>Some types never leave the building.</strong> Every fact is checked against
+/// <see cref="DiscordEventTypes.CanSend"/> as well as against the route, so sign-ins and reset links
+/// never reach Discord whatever a route row says.
 /// </para>
 /// <para>
 /// <strong>Pacing.</strong> A backlog goes out ten events to a message, a second and a bit apart,
-/// at most a handful of messages per pass. A refused post stops the pass with the cursor at the
-/// last event that did go out, so nothing is skipped and nothing is repeated.
+/// at most a handful of messages per channel per pass. A refused post stops that channel with its
+/// place at the last event that did go out, so nothing is skipped and nothing is repeated, and the
+/// channel is left alone for a while before it is tried again.
 /// </para>
 /// </remarks>
 public sealed class ModerationLogPoster
@@ -102,36 +124,94 @@ public sealed class ModerationLogPoster
         ArgumentNullException.ThrowIfNull(gateway);
         ArgumentNullException.ThrowIfNull(delay);
 
-        var settings = await _db.GetSettingsAsync(ct).ConfigureAwait(false);
-        var channelId = settings.DiscordLogChannelId?.Trim();
+        var routes = await _db.DiscordEventRoutes.AsNoTracking()
+            .Where(r => r.Enabled)
+            .OrderBy(r => r.Position)
+            .ThenBy(r => r.Id)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
 
-        if (string.IsNullOrEmpty(channelId))
+        // One entry per channel, in the order its first route is listed.
+        var channels = routes
+            .Where(r => !string.IsNullOrWhiteSpace(r.ChannelId))
+            .GroupBy(r => r.ChannelId.Trim(), StringComparer.Ordinal)
+            .Select(g => (ChannelId: g.Key, Routes: g.ToList()))
+            .ToList();
+
+        var places = await _db.DiscordEventChannels.ToListAsync(ct).ConfigureAwait(false);
+        var wanted = channels.Select(c => c.ChannelId).ToHashSet(StringComparer.Ordinal);
+
+        // Turned off or deleted: forget where it was, so turning it back on starts from then.
+        var forgotten = places.Where(p => !wanted.Contains(p.ChannelId)).ToList();
+        if (forgotten.Count > 0)
         {
-            // Cleared. Forget where we were, so turning it back on later starts from then.
-            if (settings.DiscordLogPostedThrough is not null)
+            _db.DiscordEventChannels.RemoveRange(forgotten);
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+
+        if (channels.Count == 0)
+            return new ModerationLogPass(ModerationLogPassOutcome.NoChannel, 0, 0, null, []);
+
+        var settings = await _db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => new { s.PublicAddress })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        var results = new List<ModerationLogChannelPass>();
+        long? newest = null;
+
+        foreach (var (channelId, channelRoutes) in channels)
+        {
+            var place = places.FirstOrDefault(p => string.Equals(p.ChannelId, channelId, StringComparison.Ordinal));
+
+            if (place is null)
             {
-                settings.DiscordLogPostedThrough = null;
+                // An empty log has no newest fact; zero -- everything after fact 0 -- is then right.
+                newest ??= await _db.Events.AsNoTracking().MaxAsync(e => (long?)e.Id, ct).ConfigureAwait(false) ?? 0;
+
+                _db.DiscordEventChannels.Add(new DiscordEventChannel { ChannelId = channelId, PostedThrough = newest.Value });
                 await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+                _log.Information(
+                    "Discord channel {Channel} turned on; posting events from now on (after fact #{Id}) and none of the history before it",
+                    channelId, newest.Value);
+
+                results.Add(new ModerationLogChannelPass(channelId, ModerationLogPassOutcome.StartedFromNow, 0, 0, null));
+                continue;
             }
 
-            return new ModerationLogPass(ModerationLogPassOutcome.NoChannel, 0, 0, null);
+            if (place.RetryAt is { } retryAt && retryAt > _clock.UtcNow)
+            {
+                results.Add(new ModerationLogChannelPass(channelId, ModerationLogPassOutcome.Waiting, 0, 0, place.LastError));
+                continue;
+            }
+
+            results.Add(await PostChannelAsync(gateway, delay, place, channelRoutes, settings?.PublicAddress, ct).ConfigureAwait(false));
         }
 
-        if (settings.DiscordLogPostedThrough is not { } cursor)
-        {
-            // An empty log has no newest fact; zero -- everything after fact 0 -- is then right.
-            var newest = await _db.Events.AsNoTracking().MaxAsync(e => (long?)e.Id, ct).ConfigureAwait(false) ?? 0;
-            settings.DiscordLogPostedThrough = newest;
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        var posted = results.Sum(r => r.Posted);
+        var failed = results.FirstOrDefault(r => r.Outcome == ModerationLogPassOutcome.Failed || r.Error is not null);
 
-            _log.Information(
-                "Discord moderation log channel turned on; posting events from now on (after fact #{Id}) and none of the history before it",
-                newest);
+        var outcome = posted > 0 ? ModerationLogPassOutcome.Posted
+            : results.Any(r => r.Outcome == ModerationLogPassOutcome.Failed) ? ModerationLogPassOutcome.Failed
+            : results.Any(r => r.Outcome == ModerationLogPassOutcome.StartedFromNow) ? ModerationLogPassOutcome.StartedFromNow
+            : results.All(r => r.Outcome == ModerationLogPassOutcome.Waiting) ? ModerationLogPassOutcome.Waiting
+            : ModerationLogPassOutcome.NothingNew;
 
-            return new ModerationLogPass(ModerationLogPassOutcome.StartedFromNow, 0, 0, null);
-        }
+        return new ModerationLogPass(outcome, results.Sum(r => r.Read), posted, failed?.Error, results);
+    }
 
-        var wanted = ModerationLogEvents.Parse(settings.DiscordLogEventTypes);
+    private async Task<ModerationLogChannelPass> PostChannelAsync(
+        IDiscordGateway gateway,
+        Func<TimeSpan, CancellationToken, Task> delay,
+        DiscordEventChannel place,
+        IReadOnlyList<DiscordEventRoute> routes,
+        string? publicAddress,
+        CancellationToken ct)
+    {
+        var channelId = place.ChannelId;
+        var cursor = place.PostedThrough;
 
         var rows = await _db.Events.AsNoTracking()
             .Where(e => e.Id > cursor)
@@ -141,15 +221,22 @@ public sealed class ModerationLogPoster
             .ConfigureAwait(false);
 
         if (rows.Count == 0)
-            return new ModerationLogPass(ModerationLogPassOutcome.NothingNew, 0, 0, null);
+            return new ModerationLogChannelPass(channelId, ModerationLogPassOutcome.NothingNew, 0, 0, null);
 
-        var matching = rows.Where(r => wanted.Contains(r.Type)).ToList();
+        var types = routes.SelectMany(r => r.EventTypes).ToHashSet(StringComparer.Ordinal);
+        var candidates = rows.Where(r => types.Contains(r.Type) && DiscordEventTypes.CanSend(r.Type)).ToList();
+
+        var people = candidates.Count > 0 && routes.Any(r => r.HasPeopleFilters)
+            ? await RoutePeople.LoadAsync(_db, candidates, ct).ConfigureAwait(false)
+            : RoutePeople.Empty;
+
+        var matching = candidates.Where(f => EventRouteMatch.AnyMatches(routes, f, people)).ToList();
 
         if (matching.Count == 0)
         {
-            settings.DiscordLogPostedThrough = rows[^1].Id;
+            place.PostedThrough = rows[^1].Id;
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-            return new ModerationLogPass(ModerationLogPassOutcome.NothingNew, rows.Count, 0, null);
+            return new ModerationLogChannelPass(channelId, ModerationLogPassOutcome.NothingNew, rows.Count, 0, null);
         }
 
         var names = await DisplayNames.LoadAsync(
@@ -157,7 +244,7 @@ public sealed class ModerationLogPoster
             .ConfigureAwait(false);
 
         var embeds = matching
-            .Select(m => (m.Id, Embed: ModerationEventEmbed.For(ModerationEventView.From(m, names), settings.PublicAddress)))
+            .Select(m => (m.Id, Embed: ModerationEventEmbed.For(ModerationEventView.From(m, names), publicAddress)))
             .ToList();
 
         var posted = 0;
@@ -179,8 +266,6 @@ public sealed class ModerationLogPoster
             if (!outcome.Sent)
             {
                 error = outcome.Error ?? "Discord refused the message.";
-                _status.Problem(error, _clock.UtcNow);
-                _log.Warning("Could not post to the Discord moderation log channel: {Reason}", error);
                 break;
             }
 
@@ -188,15 +273,36 @@ public sealed class ModerationLogPoster
             postedThrough = chunk[^1].Id;
         }
 
-        if (posted == 0)
-            return new ModerationLogPass(ModerationLogPassOutcome.Failed, rows.Count, 0, error);
+        var now = _clock.UtcNow;
 
-        // Everything that matched went out, so the trailing facts of other types are read too.
+        if (error is not null)
+        {
+            place.LastError = error;
+            place.LastErrorAt = now;
+            place.RetryAt = now + _options.RetryAfterFailure;
+            _status.Problem(error, now);
+            _log.Warning("Could not post to Discord channel {Channel}: {Reason}", channelId, error);
+        }
+
+        if (posted == 0)
+        {
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            return new ModerationLogChannelPass(channelId, ModerationLogPassOutcome.Failed, rows.Count, 0, error);
+        }
+
+        // Everything that matched went out, so the trailing facts it did not take are read too.
         if (postedThrough == matching[^1].Id)
             postedThrough = rows[^1].Id;
 
-        var now = _clock.UtcNow;
-        settings.DiscordLogPostedThrough = postedThrough;
+        place.PostedThrough = postedThrough;
+        place.LastPostedAt = now;
+
+        if (error is null)
+        {
+            place.LastError = null;
+            place.LastErrorAt = null;
+            place.RetryAt = null;
+        }
 
         await _facts.WriteAsync(new FactRecord
             {
@@ -217,6 +323,6 @@ public sealed class ModerationLogPoster
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
         _status.Posted(posted, now);
 
-        return new ModerationLogPass(ModerationLogPassOutcome.Posted, rows.Count, posted, error);
+        return new ModerationLogChannelPass(channelId, ModerationLogPassOutcome.Posted, rows.Count, posted, error);
     }
 }

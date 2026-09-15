@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { DataSection } from '@/components/settings/DataSection'
 import { EvidenceSection } from '@/components/settings/EvidenceSection'
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection'
+import { DiscordSection } from '@/components/settings/discord/DiscordSection'
 import { ModerationSection } from '@/components/settings/ModerationSection'
 import { SyncSection } from '@/components/settings/SyncSection'
 import { VRChatSection } from '@/components/settings/VRChatSection'
@@ -17,6 +18,7 @@ const TABS = [
   { value: 'data', label: 'Data' },
   { value: 'vrchat', label: 'VRChat Service Account' },
   { value: 'integrations', label: 'Integrations' },
+  { value: 'discord', label: 'Discord' },
   { value: 'moderation', label: 'Moderation' },
   { value: 'evidence', label: 'Evidence' },
   { value: 'sync', label: 'Sync' },
@@ -93,6 +95,8 @@ function Panel({
       return <VRChatSection status={status} refresh={refresh} />
     case 'integrations':
       return <IntegrationsSection status={status} refresh={refresh} />
+    case 'discord':
+      return <DiscordSection status={status} refresh={refresh} />
     case 'moderation':
       return <ModerationSection />
     case 'evidence':

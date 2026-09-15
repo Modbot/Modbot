@@ -68,43 +68,12 @@ public class Settings
     public string? DiscordGuildId { get; set; }
 
     /// <summary>
-    /// The Discord channel moderation events are posted to (foundation §9). Null means the bot
-    /// answers commands but posts nothing.
-    /// </summary>
-    public string? DiscordLogChannelId { get; set; }
-
-    /// <summary>
-    /// Which event types are posted to that channel, comma-separated fact types. Null means the
-    /// default set: bans, unbans, kicks, warns, join-request rejections and role changes.
-    /// </summary>
-    /// <remarks>
-    /// Only group audit-log types are ever honoured, whatever this column says: the poster
-    /// filters against a closed list, so an account or sign-in fact can never reach Discord even
-    /// if somebody writes its type here by hand.
-    /// </remarks>
-    public string? DiscordLogEventTypes { get; set; }
-
-    /// <summary>
-    /// The largest fact id the channel poster has read. Same shape as
-    /// <see cref="UserProfileEventsReadThrough"/>, for the same reason.
-    /// </summary>
-    /// <remarks>
-    /// Null means "not started". When the poster finds it null with a channel configured it
-    /// jumps to the newest fact and posts nothing, so turning the channel on never replays the
-    /// group's whole history into Discord. Clearing the channel sets it back to null, so turning
-    /// it back on later starts from that moment too. Null rather than zero because an empty log
-    /// has no newest fact to jump to, and zero -- "everything after fact 0" -- is then exactly the
-    /// right cursor.
-    /// </remarks>
-    public long? DiscordLogPostedThrough { get; set; }
-
-    /// <summary>
     /// The Discord channel that open instances are announced in. Null means no announcements,
     /// which is the default and is not a fault.
     /// </summary>
     /// <remarks>
-    /// Separate from <see cref="DiscordLogChannelId"/> on purpose. The moderation log is a record
-    /// for the team and reads like a ledger; this is a notice board for members, saying "we are
+    /// Separate from the event channels (<see cref="DiscordEventRoute"/>) on purpose. Those are a
+    /// record for the team and read like a ledger; this is a notice board for members, saying "we are
     /// in here right now", and the two want different channels and usually different audiences.
     /// </remarks>
     public string? DiscordInstanceChannelId { get; set; }

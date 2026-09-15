@@ -1,6 +1,4 @@
-using Modbot.Core.Data.Entities;
-
-namespace Modbot.Api.Features.Audit;
+namespace Modbot.Core.Data.Entities;
 
 /// <summary>
 /// A short human label for each fact type.
@@ -11,6 +9,10 @@ namespace Modbot.Api.Features.Audit;
 /// narrowed by permission before it is sent (spec 5.9.4) — and a browser-side label table would
 /// have to be kept in step with an enum it cannot see. One list, in the same place as the
 /// permission decision.
+/// </para>
+/// <para>
+/// In Core rather than the API since Discord event routes: the bot titles each post with the same
+/// words the settings page offers and the audit log shows.
 /// </para>
 /// <para>
 /// The fallback is the enum name, not a placeholder. A type added without a label reads as
@@ -108,6 +110,10 @@ public static class FactLabels
         [FactType.ReportSnapshotRecaptured] = "Case file profile snapshot taken again",
         [FactType.BanReasonsChanged] = "Ban reason list changed",
 
+        [FactType.EvidenceAttached] = "Evidence attached",
+        [FactType.EvidenceAccessed] = "Evidence opened",
+        [FactType.EvidenceDestroyed] = "Evidence destroyed",
+
         [FactType.SyncFailed] = "Sync failed",
         [FactType.RateLimitColdStop] = "Rate-limit cold stop",
         [FactType.WafBlocked] = "Blocked by Cloudflare",
@@ -115,6 +121,7 @@ public static class FactLabels
         [FactType.RetentionPruned] = "Retention pruned",
         [FactType.PartitionCreated] = "Partition created",
         [FactType.UserPurged] = "User data purged",
+        [FactType.Unrecognised] = "Event Modbot has no name for yet",
 
         [FactType.DiscordCommandRun] = "Discord command used",
         [FactType.DiscordLogPosted] = "Posted to the Discord log channel",

@@ -439,7 +439,7 @@ public sealed class DiscordBotService : BackgroundService
 
         var settings = await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId, s.DiscordLogChannelId })
+            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
@@ -448,10 +448,14 @@ public sealed class DiscordBotService : BackgroundService
 
         var token = protector.Unprotect(settings.DiscordBotTokenEncrypted);
 
+        var sendsEvents = await db.DiscordEventRoutes.AsNoTracking()
+            .AnyAsync(r => r.Enabled && r.ChannelId != "", ct)
+            .ConfigureAwait(false);
+
         return new BotConfig(
             string.IsNullOrWhiteSpace(token) ? null : token,
             string.IsNullOrWhiteSpace(settings.DiscordGuildId) ? null : settings.DiscordGuildId.Trim(),
-            !string.IsNullOrWhiteSpace(settings.DiscordLogChannelId));
+            sendsEvents);
     }
 
     private static string Fingerprint(string token, string guildId)

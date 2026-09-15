@@ -78,6 +78,45 @@ public sealed class TestServices : IAsyncDisposable
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>Adds a route sending to <paramref name="channelId"/>. Every moderation action unless told otherwise.</summary>
+    public async Task<DiscordEventRoute> AddRouteAsync(
+        string channelId,
+        IEnumerable<string>? types = null,
+        Action<DiscordEventRoute>? more = null,
+        CancellationToken ct = default)
+    {
+        await using var db = Database.NewContext();
+        var position = await db.DiscordEventRoutes.MaxAsync(r => (int?)r.Position, ct) ?? -1;
+
+        var route = new DiscordEventRoute
+        {
+            Id = Guid.NewGuid(),
+            ChannelId = channelId,
+            EventTypes = (types ?? Modbot.Core.Discord.ModerationLogEvents.Allowed).ToList(),
+            Position = position + 1,
+        };
+        more?.Invoke(route);
+
+        db.DiscordEventRoutes.Add(route);
+        await db.SaveChangesAsync(ct);
+        return route;
+    }
+
+    public async Task ChangeRouteAsync(Guid id, Action<DiscordEventRoute> change, CancellationToken ct)
+    {
+        await using var db = Database.NewContext();
+        var route = await db.DiscordEventRoutes.FirstAsync(r => r.Id == id, ct);
+        change(route);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Where a channel has got to, or null when it has no row.</summary>
+    public async Task<DiscordEventChannel?> ChannelPlaceAsync(string channelId, CancellationToken ct)
+    {
+        await using var db = Database.NewContext();
+        return await db.DiscordEventChannels.AsNoTracking().FirstOrDefaultAsync(c => c.ChannelId == channelId, ct);
+    }
+
     public async Task<Settings> SettingsAsync(CancellationToken ct)
     {
         await using var db = Database.NewContext();

@@ -60,10 +60,9 @@ public sealed class ModerationLogService : BackgroundService
                 {
                     using var scope = _scopes.CreateScope();
                     var poster = scope.ServiceProvider.GetRequiredService<ModerationLogPoster>();
-                    var pass = await poster.RunOnceAsync(gateway, _delay, stoppingToken).ConfigureAwait(false);
-
-                    if (pass.Outcome == ModerationLogPassOutcome.Failed)
-                        wait = _options.RetryAfterFailure;
+                    // A refused channel waits on its own -- its retry time is on its row -- so one
+                    // broken channel does not slow the others down.
+                    await poster.RunOnceAsync(gateway, _delay, stoppingToken).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -71,8 +70,8 @@ public sealed class ModerationLogService : BackgroundService
                 }
                 catch (Exception e)
                 {
-                    _log.Error(e, "The Discord moderation log pass failed; trying again shortly");
-                    _status.Problem($"Posting to the log channel failed: {e.Message}", _clock.UtcNow);
+                    _log.Error(e, "The Discord event posting pass failed; trying again shortly");
+                    _status.Problem($"Posting events to Discord failed: {e.Message}", _clock.UtcNow);
                     wait = _options.RetryAfterFailure;
                 }
             }

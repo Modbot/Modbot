@@ -13,7 +13,7 @@ namespace Modbot.Discord;
 
 /// <summary>
 /// Registers what Modbot does with Discord: a direct message to one person, and the bot of
-/// foundation §9 -- a gateway session, three slash commands, and a moderation log channel.
+/// foundation §9 -- a gateway session, three slash commands, and events sent to channels by route.
 /// </summary>
 /// <remarks>
 /// Registered unconditionally, like the VRChat gate: the bot reads its token from the database

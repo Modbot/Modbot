@@ -74,7 +74,10 @@ public sealed record ModerationEventView(
             : null;
 }
 
-/// <summary>Display names from <c>vrchat_user</c> for a set of ids, in one query.</summary>
+/// <summary>
+/// Display names for a set of ids: from <c>vrchat_user</c>, and for a Modbot account id the
+/// account's username.
+/// </summary>
 public static class DisplayNames
 {
     public static async Task<Dictionary<string, string?>> LoadAsync(
@@ -93,6 +96,27 @@ public static class DisplayNames
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        return rows.ToDictionary(r => r.UserId, r => r.DisplayName, StringComparer.Ordinal);
+        var names = rows.ToDictionary(r => r.UserId, r => r.DisplayName, StringComparer.Ordinal);
+
+        // Modbot's own actions name the account that did them by its id.
+        var accountIds = wanted
+            .Where(id => !names.ContainsKey(id))
+            .Select(id => Guid.TryParse(id, out var guid) ? guid : Guid.Empty)
+            .Where(guid => guid != Guid.Empty)
+            .ToArray();
+
+        if (accountIds.Length > 0)
+        {
+            var accounts = await db.Users.AsNoTracking()
+                .Where(u => accountIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.Username })
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+
+            foreach (var account in accounts)
+                names[account.Id.ToString()] = account.Username;
+        }
+
+        return names;
     }
 }

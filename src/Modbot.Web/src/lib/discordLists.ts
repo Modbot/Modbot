@@ -77,6 +77,9 @@ export function useDiscordRoles(): { data: DiscordRoles | null; error: string | 
   return useShared(roles)
 }
 
+/** What a channel events are sent to needs: posts are embeds. */
+export const EVENT_POST_NEEDS: readonly DiscordChannelPermission[] = ['viewChannel', 'sendMessages', 'embedLinks']
+
 /** Discord's own names for the permissions, as a moderator sees them in Discord's settings. */
 export const channelPermissionNames: Record<DiscordChannelPermission, string> = {
   viewChannel: 'View Channel',

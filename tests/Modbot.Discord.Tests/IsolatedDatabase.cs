@@ -15,7 +15,8 @@ public sealed class IsolatedDatabase : IAsyncDisposable
 
     private IsolatedDatabase(string connectionString) => _connectionString = connectionString;
 
-    public static async Task<IsolatedDatabase> CreateAsync(PostgresFixture fixture, CancellationToken ct)
+    /// <param name="migrate">False leaves the database empty, for a test that migrates it one step at a time.</param>
+    public static async Task<IsolatedDatabase> CreateAsync(PostgresFixture fixture, CancellationToken ct, bool migrate = true)
     {
         ArgumentNullException.ThrowIfNull(fixture);
 
@@ -33,8 +34,11 @@ public sealed class IsolatedDatabase : IAsyncDisposable
         var builder = new NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Database = name };
         var database = new IsolatedDatabase(builder.ConnectionString);
 
-        await using var context = database.NewContext();
-        await context.Database.MigrateAsync(ct);
+        if (migrate)
+        {
+            await using var context = database.NewContext();
+            await context.Database.MigrateAsync(ct);
+        }
 
         return database;
     }

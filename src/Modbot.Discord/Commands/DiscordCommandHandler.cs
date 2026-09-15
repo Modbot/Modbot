@@ -231,8 +231,8 @@ public sealed class DiscordCommandHandler
         });
 
         sb.Append('\n').Append(snapshot.LogChannelConfigured
-            ? "Moderation events are being posted to the log channel."
-            : "No moderation log channel is set.");
+            ? "Events are being posted to Discord channels."
+            : "No channel is set to receive events.");
 
         sb.Append('\n').Append(publicAddress is null
             ? "Web app: no public address is set in Modbot's settings yet."

@@ -359,7 +359,7 @@ public static class MemberEndpoints
     /// special are escaped, because a moderator typing an underscore into the search box means an
     /// underscore -- and legacy VRChat ids contain anything at all (spec 3.1.1).
     /// </summary>
-    private static string Pattern(string term) =>
+    internal static string Pattern(string term) =>
         "%" + term.Replace("\\", "\\\\", StringComparison.Ordinal)
                   .Replace("%", "\\%", StringComparison.Ordinal)
                   .Replace("_", "\\_", StringComparison.Ordinal) + "%";

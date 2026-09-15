@@ -65,12 +65,6 @@ export type OnboardingStatus = {
   integrations: {
     discordConfigured: boolean
     discordGuildId: string | null
-    /** The channel moderation events are posted to, or null. */
-    discordLogChannelId: string | null
-    /** The event types posted there now -- the defaults when nothing was chosen. */
-    discordLogEventTypes: string[]
-    /** Everything that can be chosen, in display order, with labels. */
-    discordLogEventChoices: { type: string; label: string }[]
     discordInstanceChannelId: string | null
     discordInstanceMessage: string | null
     discordInstanceShowNames: boolean
@@ -239,6 +233,46 @@ export type DiscordRoles = {
   updatedAt: string | null
   botCanManageRoles: boolean
   roles: DiscordRole[]
+}
+
+/** One rule for sending events to a Discord channel. Empty lists match everyone. */
+export type DiscordRoute = {
+  id: string
+  name: string | null
+  channelId: string
+  enabled: boolean
+  eventTypes: string[]
+  subjectIds: string[]
+  actorIds: string[]
+  /** Also match events nobody did. */
+  actorAutomatic: boolean
+  subjectVRChatRoleIds: string[]
+  actorVRChatRoleIds: string[]
+  actorModbotRoleIds: string[]
+}
+
+export type DiscordRouteBody = Partial<Omit<DiscordRoute, 'id'>>
+
+export type DiscordRoutePerson = { id: string; name: string | null; pictureUrl: string | null }
+
+export type DiscordRoutes = {
+  routes: DiscordRoute[]
+  eventGroups: { name: string; types: { type: string; label: string }[] }[]
+  vrChatRoles: { id: string; name: string }[]
+  modbotRoles: { id: string; name: string }[]
+  /** Names for the people the routes already name. */
+  people: DiscordRoutePerson[]
+}
+
+/** A channel events are sent to that cannot be posted in. */
+export type DiscordChannelProblem = {
+  channelId: string
+  name: string | null
+  /** Discord's names for what the bot lacks there. */
+  missing: string[]
+  removed: boolean
+  lastError: string | null
+  lastErrorAt: string | null
 }
 
 export type GroupCandidate = {
@@ -950,6 +984,8 @@ export type SyncHealth = {
   userProfiles: UserProfileHealth | null
   /** Null when no bot is registered in this host at all. */
   discordBot: DiscordBotHealth | null
+  /** Channels an enabled route sends to that cannot be posted in. */
+  discordChannelProblems?: DiscordChannelProblem[] | null
   memberSweep: SweepHealth | null
   banSweep: SweepHealth | null
   now: string
@@ -1815,8 +1851,6 @@ export const api = {
     discord?: {
       botToken?: string
       guildId?: string
-      logChannelId?: string
-      logEventTypes?: string[]
       instanceChannelId?: string
       instanceMessage?: string
       instanceShowNames?: boolean
@@ -2004,6 +2038,23 @@ export const api = {
   discordChannels: () => request<DiscordChannels>('/api/discord/channels'),
 
   discordRoles: () => request<DiscordRoles>('/api/discord/roles'),
+
+  /** The channels events are sent to, with the event types, roles and names the editor needs. */
+  discordRoutes: () => request<DiscordRoutes>('/api/discord/routes'),
+
+  createDiscordRoute: (body: DiscordRouteBody) => post<DiscordRoute>('/api/discord/routes', body),
+
+  /** Fields left out stay as they are. */
+  updateDiscordRoute: (id: string, body: DiscordRouteBody) =>
+    put<DiscordRoute>(`/api/discord/routes/${encodeURIComponent(id)}`, body),
+
+  deleteDiscordRoute: (id: string) => del<void>(`/api/discord/routes/${encodeURIComponent(id)}`),
+
+  /** Stored VRChat profiles by name or id, for a channel's filters. */
+  discordRoutePeople: (search: string) =>
+    request<{ people: DiscordRoutePerson[] }>(
+      `/api/discord/routes/people?search=${encodeURIComponent(search)}`,
+    ),
 
   /**
    * The merged timeline.
