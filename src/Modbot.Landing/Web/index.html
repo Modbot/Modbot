@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Modbot: moderation that remembers, for VRChat groups</title>
+    <meta name="description" content="Open-source moderation and analytics for one VRChat group. Live instances, stacking popups, ban case files, a Discord bot and a SteamVR overlay, on your own server." />
+    <link rel="canonical" href="https://modbot.co/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#fafbfc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d0e12" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Modbot" />
+    <meta property="og:url" content="https://modbot.co/" />
+    <meta property="og:title" content="Modbot: moderation that remembers" />
+    <meta property="og:description" content="Open-source moderation and analytics for VRChat groups, on your own server." />
+    <meta property="og:image" content="https://modbot.co/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Modbot: moderation that remembers. Open-source moderation for VRChat groups, on your own server." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Modbot: moderation that remembers" />
+    <meta name="twitter:description" content="Open-source moderation and analytics for VRChat groups, on your own server." />
+    <meta name="twitter:image" content="https://modbot.co/og.png" />
+
+    <!-- Before first paint, so a dark-mode visitor never sees a white flash. The server allows this
+         script by its hash (Features/Pages/BuiltPages.cs); the key matches src/lib/theme.ts. -->
+    <script>try{var t=localStorage.getItem('modbot-theme');if(t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark')}</script>
+
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Modbot","applicationCategory":"BusinessApplication","operatingSystem":"Linux, Windows","description":"Open-source moderation and analytics for VRChat groups, self-hosted.","license":"https://www.gnu.org/licenses/agpl-3.0.html","url":"https://modbot.co/"}</script>
+  </head>
+  <body>
+    <div id="root"><!--app--></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

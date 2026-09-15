@@ -9,6 +9,7 @@
     <Project Path="src/Modbot.Discord/Modbot.Discord.csproj" />
     <Project Path="src/Modbot.Evidence/Modbot.Evidence.csproj" />
     <Project Path="src/Modbot.Host/Modbot.Host.csproj" />
+    <Project Path="src/Modbot.Landing/Modbot.Landing.csproj" />
     <Project Path="src/Modbot.My/Modbot.My.csproj" />
     <Project Path="src/Modbot.Overlay/Modbot.Overlay.csproj" />
     <Project Path="src/Modbot.Shared/Modbot.Shared.csproj" />
@@ -23,6 +24,7 @@
     <Project Path="tests/Modbot.Discord.Tests/Modbot.Discord.Tests.csproj" />
     <Project Path="tests/Modbot.Overlay.Tests/Modbot.Overlay.Tests.csproj" />
     <Project Path="tests/Modbot.Evidence.Tests/Modbot.Evidence.Tests.csproj" />
+    <Project Path="tests/Modbot.Landing.Tests/Modbot.Landing.Tests.csproj" />
     <Project Path="tests/Modbot.My.Tests/Modbot.My.Tests.csproj" />
     <Project Path="tests/Modbot.TestSupport/Modbot.TestSupport.csproj" />
     <Project Path="tests/Modbot.VRChat.Tests/Modbot.VRChat.Tests.csproj" />

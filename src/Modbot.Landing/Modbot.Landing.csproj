@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <!-- Web/ is the npm project that builds wwwroot. Without this the Web SDK globs its
+         node_modules into the build as content, which is slow and would publish them. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Web\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Modbot.Landing.Tests" />
+  </ItemGroup>
+
+</Project>

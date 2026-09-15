@@ -1,0 +1,3 @@
+/* Styles for the pages rendered once at build with no script: not found and the privacy policy.
+   The same tokens and utilities as the landing page. */
+@import "./index.css";

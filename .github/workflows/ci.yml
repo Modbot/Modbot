@@ -79,3 +79,22 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm test
+
+  # modbot.co's landing page. `npm run build` type-checks, bundles and prerenders the page into
+  # src/Modbot.Landing/wwwroot; `npm test` runs the sample-evening and popup-stack tests.
+  landing-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/Modbot.Landing/Web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/Modbot.Landing/Web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint
+      - run: npm test

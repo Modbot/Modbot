@@ -80,6 +80,8 @@ node_modules/
 src/Modbot.Host/wwwroot/
 # Built by src/Modbot.My.Web.
 src/Modbot.My/wwwroot/
+# Built by src/Modbot.Landing/Web.
+src/Modbot.Landing/wwwroot/
 
 # Local scratch: live-data pulls, transcripts, anything that must never be committed.
 /.local/

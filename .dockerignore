@@ -37,6 +37,7 @@ TestResults/
 # Built SPAs. The web stages regenerate them; a stale local copy would silently ship instead.
 src/Modbot.Host/wwwroot/
 src/Modbot.My/wwwroot/
+src/Modbot.Landing/wwwroot/
 
 # Local run artefacts.
 **/logs/
