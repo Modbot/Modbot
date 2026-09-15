@@ -16,6 +16,7 @@ namespace Modbot.Core.Configuration;
 /// <c>RAILWAY_PUBLIC_DOMAIN</c>). A suggestion for the operator to confirm, never used on its own:
 /// links are built only from the address a person saved (<see cref="PublicAddress"/>).
 /// </param>
+/// <param name="Build">The git commit and branch this build was made from. Unknown when null.</param>
 /// <remarks>
 /// Registered as a singleton because it describes the process, not the request. It is deliberately
 /// a snapshot: re-probing per request would let the answer drift from the configuration the logger
@@ -25,4 +26,5 @@ public sealed record DeploymentInfo(
     HostPlatform Platform,
     PersistenceEvidence Persistence,
     bool LogFilesWritten,
-    string? PublicAddressSuggestion = null);
+    string? PublicAddressSuggestion = null,
+    BuildSource? Build = null);

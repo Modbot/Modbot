@@ -18,11 +18,15 @@ namespace Modbot.Api.Features.Settings;
 public sealed record RetentionSettings(int ModerationFactRetentionDays, int PresenceFactRetentionDays);
 
 /// <param name="Version">Calendar release, so a bug report can name it.</param>
+/// <param name="Commit">The full git commit id the running build was made from, or null when unknown.</param>
+/// <param name="Branch">The branch that build came from, or null when unknown.</param>
 /// <param name="Platform">Detected host, e.g. "Railway" or "self-hosted".</param>
 /// <param name="PlatformEvidence">The variable that produced the match, or null.</param>
 /// <param name="LogFilesWritten">Whether the six file streams are being written at all.</param>
 public sealed record DeploymentSummary(
     string Version,
+    string? Commit,
+    string? Branch,
     string Platform,
     string? PlatformEvidence,
     bool LogFilesWritten);
@@ -128,6 +132,8 @@ public static class DataSettingsEndpoints
                         days.Select(d => new StorageDayReport(d.Day, d.Bytes)).ToArray()),
                     new DeploymentSummary(
                         ModbotVersion.Release,
+                        deployment.Build?.Commit,
+                        deployment.Build?.Branch,
                         deployment.Platform.Name,
                         deployment.Platform.Evidence,
                         deployment.LogFilesWritten)));

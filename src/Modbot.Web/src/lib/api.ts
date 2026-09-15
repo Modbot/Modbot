@@ -230,6 +230,8 @@ export type DataSettings = {
   }
   deployment: {
     version: string
+    commit: string | null
+    branch: string | null
     platform: string
     platformEvidence: string | null
     logFilesWritten: boolean

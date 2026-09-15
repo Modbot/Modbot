@@ -130,7 +130,8 @@ try
     // access design §4.2). Same rule as the bucket variables in §8.1 -- a prefill, not a setting.
     builder.Services.AddSingleton(new DeploymentInfo(
         platform, persistence.Evidence, writeLogFiles,
-        PublicAddress.Suggest()));
+        PublicAddress.Suggest(),
+        BuildSource.Detect(BuildSource.ReadFrom(typeof(Program).Assembly))));
 
     builder.Services.AddDbContext<ModbotContext>(options => options
         .UseNpgsql(connectionString)

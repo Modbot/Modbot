@@ -38,6 +38,14 @@ RUN dotnet restore src/Modbot.Host/Modbot.Host.csproj
 COPY src/ src/
 COPY --from=web /src/src/Modbot.Host/wwwroot/ src/Modbot.Host/wwwroot/
 
+# The commit and branch shown on the Deployment card. .git is not in the build context, so the build
+# cannot ask git; Railway supplies these to a Dockerfile that declares them, and anyone else can pass
+# them with --build-arg. They reach MSBuild as environment variables (see Modbot.Host.csproj).
+# Declared here, after the restore and the source copy, so a new commit does not throw away those
+# layers. Unset is fine: the running container falls back to the same variables at runtime.
+ARG RAILWAY_GIT_COMMIT_SHA
+ARG RAILWAY_GIT_BRANCH
+
 RUN dotnet publish src/Modbot.Host/Modbot.Host.csproj \
         --configuration Release \
         --no-restore \

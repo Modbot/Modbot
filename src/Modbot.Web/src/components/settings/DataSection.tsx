@@ -140,6 +140,12 @@ function DeploymentCard({ deployment }: { deployment: DataSettings['deployment']
     <SettingsCard title="Deployment">
       <div>
         <Row label="Version" value={deployment.version} />
+        <Row
+          label="Version commit"
+          value={deployment.commit ? deployment.commit.slice(0, 7) : 'Unknown'}
+          title={deployment.commit ?? undefined}
+        />
+        <Row label="Release branch" value={deployment.branch ?? 'Unknown'} />
         <Row label="Host" value={deployment.platform} />
         <Row
           label="Log files"

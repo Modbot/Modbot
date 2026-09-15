@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils'
 /** The small furniture every settings card is built from. */
 
 /** A label and a value on one line, for lists of read-only facts. */
-export function Row({ label, value }: { label: string; value: string }) {
+export function Row({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
     <div className="flex justify-between gap-4 py-1" style={{ fontSize: 'var(--text-small)' }}>
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right tabular-nums">{value}</span>
+      <span className="text-right tabular-nums" title={title}>{value}</span>
     </div>
   )
 }

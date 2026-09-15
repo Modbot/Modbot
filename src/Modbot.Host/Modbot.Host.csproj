@@ -15,4 +15,58 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!--
+    The git commit and branch this build was made from, stamped into the assembly as metadata and
+    read back by BuildSource for the Deployment card.
+
+    First answer wins: the ModbotCommit / ModbotBranch properties (`-p:ModbotCommit=...`), then
+    Railway's build variables (the Dockerfile declares them as build arguments, which makes them
+    environment variables, which MSBuild reads as properties), then GitHub Actions', then git
+    itself. git is only asked when a .git exists here, and a failure is ignored: the Docker build
+    context has no .git, and a machine without git must still build. Nothing found means nothing is
+    stamped, and BuildSource falls back to the same variables at runtime.
+
+    Stamped here and not in Modbot.Shared, because nothing references Modbot.Host. A value in a
+    shared assembly would change with every commit and rebuild every project that depends on it.
+  -->
+  <Target Name="StampModbotBuildSource" BeforeTargets="GetAssemblyAttributes">
+    <PropertyGroup>
+      <ModbotCommit Condition="'$(ModbotCommit)' == ''">$(RAILWAY_GIT_COMMIT_SHA)</ModbotCommit>
+      <ModbotCommit Condition="'$(ModbotCommit)' == ''">$(GITHUB_SHA)</ModbotCommit>
+      <ModbotBranch Condition="'$(ModbotBranch)' == ''">$(RAILWAY_GIT_BRANCH)</ModbotBranch>
+      <!-- On a pull request GITHUB_REF_NAME is "123/merge"; on a tag push it is the tag. -->
+      <ModbotBranch Condition="'$(ModbotBranch)' == ''">$(GITHUB_HEAD_REF)</ModbotBranch>
+      <ModbotBranch Condition="'$(ModbotBranch)' == '' and '$(GITHUB_REF_TYPE)' == 'branch'">$(GITHUB_REF_NAME)</ModbotBranch>
+      <_ModbotAskGit>false</_ModbotAskGit>
+      <_ModbotAskGit Condition="('$(ModbotCommit)' == '' or '$(ModbotBranch)' == '') and Exists('$(MSBuildThisFileDirectory)..\..\.git')">true</_ModbotAskGit>
+    </PropertyGroup>
+
+    <Exec Condition="'$(_ModbotAskGit)' == 'true' and '$(ModbotCommit)' == ''"
+          Command="git rev-parse HEAD" WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true" IgnoreExitCode="true" ContinueOnError="true" EchoOff="true"
+          StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_ModbotGitCommit" />
+      <Output TaskParameter="ExitCode" PropertyName="_ModbotGitCommitExit" />
+    </Exec>
+
+    <Exec Condition="'$(_ModbotAskGit)' == 'true' and '$(ModbotBranch)' == ''"
+          Command="git rev-parse --abbrev-ref HEAD" WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true" IgnoreExitCode="true" ContinueOnError="true" EchoOff="true"
+          StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_ModbotGitBranch" />
+      <Output TaskParameter="ExitCode" PropertyName="_ModbotGitBranchExit" />
+    </Exec>
+
+    <PropertyGroup>
+      <ModbotCommit Condition="'$(ModbotCommit)' == '' and '$(_ModbotGitCommitExit)' == '0'">$(_ModbotGitCommit.Trim())</ModbotCommit>
+      <!-- A detached checkout answers "HEAD", which is not a branch. -->
+      <ModbotBranch Condition="'$(ModbotBranch)' == '' and '$(_ModbotGitBranchExit)' == '0' and '$(_ModbotGitBranch.Trim())' != 'HEAD'">$(_ModbotGitBranch.Trim())</ModbotBranch>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <AssemblyMetadata Include="ModbotCommit" Value="$(ModbotCommit)" Condition="'$(ModbotCommit)' != ''" />
+      <AssemblyMetadata Include="ModbotBranch" Value="$(ModbotBranch)" Condition="'$(ModbotBranch)' != ''" />
+    </ItemGroup>
+  </Target>
+
 </Project>
