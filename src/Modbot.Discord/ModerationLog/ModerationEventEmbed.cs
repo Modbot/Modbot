@@ -54,7 +54,8 @@ public static class ModerationEventEmbed
             fields,
             e.OccurredAt,
             PersonLink.For(publicAddress, e.SubjectId),
-            "Modbot");
+            "Modbot",
+            FooterIconUrl: BrandIcon.For(publicAddress));
     }
 
     /// <summary>

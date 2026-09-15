@@ -120,6 +120,7 @@ jobs:
           --mainExe Modbot.exe
           --packTitle Modbot
           --packAuthors Modbot
+          --icon src/Modbot.Client.App/Assets/Modbot.ico
           --shortcuts StartMenuRoot
           --outputDir artifacts/client/releases
 

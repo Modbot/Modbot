@@ -1,3 +1,5 @@
+<img src="docs/public/icon-512.png" alt="" width="72" height="72" align="left">
+
 # Modbot
 
 Self-hosted moderation, analytics and automation for a single VRChat group.

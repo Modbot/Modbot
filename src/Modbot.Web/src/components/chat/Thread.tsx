@@ -99,7 +99,7 @@ function Question({
   return (
     <div className="group/turn ml-auto flex max-w-[85%] flex-col items-end gap-1">
       <div
-        className="rounded-2xl bg-secondary px-3.5 py-2.5 whitespace-pre-wrap"
+        className="rounded-xl bg-secondary px-3.5 py-2.5 whitespace-pre-wrap"
         title={when(message.createdAt)}
       >
         {message.content}
@@ -137,7 +137,7 @@ function Editor({
         value={draft}
         maxLength={4000}
         onChange={(e) => setDraft(e.target.value)}
-        className="min-h-20 w-full resize-none rounded-2xl border bg-card p-3 text-base outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 md:text-sm"
+        className="min-h-20 w-full resize-none rounded-xl border bg-card p-3 text-base outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 md:text-sm"
         style={{ borderWidth: 'var(--hairline)' }}
       />
       <div className="flex justify-end gap-2">

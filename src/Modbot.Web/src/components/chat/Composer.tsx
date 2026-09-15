@@ -48,7 +48,7 @@ export function Composer({
     >
       <div
         className={cn(
-          'flex items-end gap-2 rounded-2xl border bg-card p-2 shadow-sm transition-colors',
+          'flex items-end gap-2 rounded-xl border bg-card p-2 shadow-sm transition-colors',
           'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/40',
           disabled && 'opacity-60',
         )}

@@ -79,7 +79,7 @@ public static class OverlayView
         var lines = new StackPanel { Spacing = 6 };
 
         lines.Children.Add(Text(
-            groupLabel is null ? "Flagged user joined" : $"Flagged user joined — {groupLabel}",
+            groupLabel is null ? "Flagged user joined" : $"Flagged user joined · {groupLabel}",
             T.Density.TextSmall,
             T.TextDimBrush,
             FontWeight.SemiBold));

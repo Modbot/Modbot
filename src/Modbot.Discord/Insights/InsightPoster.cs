@@ -34,7 +34,8 @@ public sealed class InsightPoster
 
     public const int PerPass = 10;
 
-    private const uint Purple = 0x8E44AD;
+    /// <summary>Modbot's own violet (brand design 2026-09-16).</summary>
+    private const uint Purple = 0x5B4BD6;
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;

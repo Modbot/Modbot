@@ -483,7 +483,7 @@ function Spend({ conversationId }: { conversationId: string }) {
         <Popover.Content
           align="end"
           sideOffset={4}
-          className="z-50 w-52 rounded-lg border bg-popover p-3 text-popover-foreground shadow-md"
+          className="z-50 w-52 rounded-xl border bg-popover p-3 text-popover-foreground shadow-md"
           style={{ fontSize: 'var(--text-small)' }}
         >
           {spent ? (

@@ -99,7 +99,7 @@ function TestSet({
 
   return (
     <DialogContent
-      title={`Test set — ${rule.name}`}
+      title={`Test set · ${rule.name}`}
       className="max-w-[820px]"
       bodyClassName="flex max-h-[75vh] flex-col gap-4 overflow-y-auto"
     >

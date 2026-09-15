@@ -18,6 +18,13 @@ export const metadata: Metadata = {
     ],
     apple: '/apple-touch-icon.png',
   },
+  manifest: '/manifest.webmanifest',
+  openGraph: {
+    siteName,
+    title: siteName,
+    description: 'How to host, set up and use Modbot, and its API.',
+    images: [{ url: '/og.png', width: 1200, height: 630 }],
+  },
 };
 
 export const viewport: Viewport = {

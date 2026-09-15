@@ -34,6 +34,9 @@ namespace Modbot.Discord.Commands;
 /// </remarks>
 public sealed class DiscordCommandHandler
 {
+    /// <summary>Modbot's own violet, for a reply that is neither good nor bad news (brand design 2026-09-16).</summary>
+    private const uint Violet = 0x5B4BD6;
+
     public const string NotLinkedMessage = "Link your Discord account in Modbot first.";
 
     private readonly ModbotContext _db;
@@ -185,7 +188,7 @@ public sealed class DiscordCommandHandler
         return new DiscordEmbedContent(
             ModerationEventEmbed.Fit(title, 256),
             description,
-            summary.IsBanned ? 0xC0392Bu : 0x5865F2u,
+            summary.IsBanned ? 0xC0392Bu : Violet,
             [
                 new DiscordEmbedField("18+ verified", eighteenPlus, Inline: true),
                 new DiscordEmbedField("Profile last refreshed", refreshed, Inline: true),
@@ -195,7 +198,8 @@ public sealed class DiscordCommandHandler
             ],
             null,
             PersonLink.For(publicAddress, summary.UserId),
-            "From Modbot's stored records. Nothing was fetched from VRChat for this reply.");
+            "From Modbot's stored records. Nothing was fetched from VRChat for this reply.",
+            FooterIconUrl: BrandIcon.For(publicAddress));
     }
 
     private async Task<DiscordReply> RecentAsync(DiscordCommandCall call, CancellationToken ct)
@@ -214,7 +218,7 @@ public sealed class DiscordCommandHandler
         return DiscordReply.Card(new DiscordEmbedContent(
             events.Count == 1 ? "The latest moderation event" : $"The latest {events.Count} moderation events",
             description,
-            0x5865F2,
+            Violet,
             [],
             null,
             null,

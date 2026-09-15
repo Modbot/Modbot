@@ -80,7 +80,7 @@ function Step({ step }: { step: ToolStep }) {
 
       {open && (
         <div
-          className="ml-3 flex flex-col gap-2 rounded-lg border bg-muted/40 p-2.5"
+          className="ml-3 flex flex-col gap-2 rounded-xl border bg-muted/40 p-2.5"
           style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
         >
           <Facts heading="Asked for" json={call.arguments} />

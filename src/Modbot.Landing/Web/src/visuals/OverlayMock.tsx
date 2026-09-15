@@ -28,7 +28,7 @@ export function OverlayMock() {
     >
       <div className="mx-auto flex max-w-[26rem] flex-col gap-3 text-[#f2f4f8]">
         <div className="flex flex-col gap-1.5 rounded-xl px-5 py-4" style={{ ...panel, borderLeft: '6px solid #f0526a' }}>
-          <div className="text-sm font-semibold text-[#b9c0cf]">Flagged user joined — Lantern Social</div>
+          <div className="text-sm font-semibold text-[#b9c0cf]">Flagged user joined · Lantern Social</div>
           <div className="text-2xl font-semibold">TeaSpoon</div>
           <div>2 prior moderation actions</div>
           <div className="text-sm text-[#b9c0cf]">2 prior actions</div>

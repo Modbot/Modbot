@@ -9,6 +9,12 @@
     <PackageReference Include="Discord.Net.WebSocket" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The head-only mascot mark, given to a bot that still has Discord's default avatar
+         (Gateway/DiscordNetGateway.cs). -->
+    <EmbeddedResource Include="Assets\avatar.png" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -36,7 +36,8 @@ public static class CalendarCard
     public const int DiscordEventDescriptionLimit = 1000;
     public const int DiscordEventLocationLimit = 100;
 
-    private const uint Blurple = 0x5865F2;
+    /// <summary>Scheduled: Modbot's own violet, not Discord's.</summary>
+    private const uint Violet = 0x5B4BD6;
     private const uint Green = 0x3BA55D;
     private const uint Dark = 0x4F545C;
     private const uint Red = 0xED4245;
@@ -72,7 +73,7 @@ public static class CalendarCard
                 CalendarCardState.Open => Green,
                 CalendarCardState.Finished => Dark,
                 CalendarCardState.Cancelled => Red,
-                _ => Blurple,
+                _ => Violet,
             },
             Fields: fields,
             Timestamp: occurrence.StartsAt,

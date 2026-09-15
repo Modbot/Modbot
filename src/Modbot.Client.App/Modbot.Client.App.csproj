@@ -49,6 +49,17 @@
          being spread across many. -->
     <AssemblyName>Modbot</AssemblyName>
     <RootNamespace>Modbot.Client.App</RootNamespace>
+    <!-- The head-only mascot mark, as every Modbot surface shows it (.agent/specs/2026-09-16-brand-design.md). -->
+    <ApplicationIcon>Assets\Modbot.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The same mark for the window and the tray, and the wordmark's face: a static cut of
+         Bricolage Grotesque (OFL, see THIRD-PARTY-NOTICES.md), read from the assembly so nothing
+         depends on the fonts a machine has installed. -->
+    <AvaloniaResource Include="Assets\Modbot.ico" />
+    <AvaloniaResource Include="Assets\icon-256.png" />
+    <AvaloniaResource Include="Assets\Fonts\BricolageGrotesque-Wordmark.ttf" />
+  </ItemGroup>
 
 </Project>

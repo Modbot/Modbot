@@ -51,3 +51,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 "SteamVR" and "OpenVR" are trademarks of Valve Corporation. Modbot is not affiliated with or
 endorsed by Valve.
+
+## Fonts
+
+**Bricolage Grotesque** (Jeremy Landes, Atelier Triay), **IBM Plex Sans** and **IBM Plex Mono**
+(IBM) are used under the SIL Open Font License 1.1. The web projects bundle the Plex and Bricolage
+faces from the `@fontsource` packages; the desktop client embeds a static cut of Bricolage Grotesque
+at `src/Modbot.Client.App/Assets/Fonts/`, with the licence beside it, for its wordmark. **Inter**
+(Rasmus Andersson) reaches the desktop client through the `Avalonia.Fonts.Inter` package, also
+under the SIL Open Font License 1.1.
+
+The SIL Open Font License permits use, bundling and redistribution of the fonts, and forbids
+selling the fonts by themselves. The full text is at https://openfontlicense.org.

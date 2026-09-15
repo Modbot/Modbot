@@ -183,7 +183,7 @@ function Row({
           <Popover.Content
             align="end"
             sideOffset={4}
-            className="z-50 flex w-40 flex-col rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
+            className="z-50 flex w-40 flex-col rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
             style={{ fontSize: 'var(--text-small)' }}
           >
             <MenuItem

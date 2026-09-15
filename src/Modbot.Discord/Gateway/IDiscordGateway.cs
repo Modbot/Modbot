@@ -46,7 +46,8 @@ public sealed record DiscordEmbedContent(
     string? Url,
     string? Footer,
     string? ImageUrl = null,
-    string? ThumbnailUrl = null);
+    string? ThumbnailUrl = null,
+    string? FooterIconUrl = null);
 
 /// <summary>A button under a message that opens a web address. Only an https address is used.</summary>
 public sealed record DiscordLinkButton(string Label, string Url);

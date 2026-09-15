@@ -66,6 +66,7 @@ public sealed class MainWindow : Window
     public MainWindow()
     {
         Title = "Modbot";
+        Icon = Brand.Icon();
         Width = 900;
         Height = 660;
         MinWidth = 720;
@@ -122,20 +123,13 @@ public sealed class MainWindow : Window
             Margin = new Thickness(0, 0, 0, 20),
             Children =
             {
-                new Border
-                {
-                    Width = 22,
-                    Height = 22,
-                    CornerRadius = new CornerRadius(5),
-                    Background = Ui.T.AccentBrush,
-                    Child = Ui.Text("M", 12, Ui.T.AccentForegroundBrush, FontWeight.SemiBold, wrap: false),
-                },
+                Brand.Mark(22),
                 new StackPanel
                 {
                     VerticalAlignment = VerticalAlignment.Center,
                     Children =
                     {
-                        Ui.Text("Modbot", Ui.T.Density.TextBase, Ui.T.TextBrush, FontWeight.SemiBold, wrap: false),
+                        Brand.Wordmark(Ui.Text("Modbot", Ui.T.Density.TextBase + 1, Ui.T.TextBrush, FontWeight.Normal, wrap: false)),
                         Ui.Faint("client"),
                     },
                 },

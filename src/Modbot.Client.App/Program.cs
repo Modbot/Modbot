@@ -590,7 +590,8 @@ internal sealed class ClientHost
 
         _tray = new TrayIcon
         {
-            ToolTipText = "Modbot — reporting presence for your groups",
+            Icon = Brand.Icon(),
+            ToolTipText = "Modbot: reporting presence for your groups",
             IsVisible = true,
             Menu = [open, quit],
         };
@@ -843,6 +844,7 @@ internal static class Program
         {
             OverlayHost.ConfigureAvalonia<ModbotClientApp>()
                 .UsePlatformDetect()
+                .ConfigureFonts(Brand.RegisterFonts)
                 .StartWithClassicDesktopLifetime(args);
         }
         catch (Exception ex)

@@ -1245,11 +1245,37 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _sessionReady = true;
         _state = DiscordGatewayState.Ready;
 
+        _ = Task.Run(() => Guard(EnsureAvatarAsync(), "avatar"));
+
         var handler = Ready;
         if (handler is not null)
             _ = Task.Run(() => Guard(handler(), "ready"));
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>Whether this process has already looked at the bot's avatar, so it does so once.</summary>
+    private int _avatarChecked;
+
+    /// <summary>
+    /// Gives a bot that still has Discord's default avatar the Modbot mark, once per process.
+    /// </summary>
+    /// <remarks>
+    /// Only the default avatar is replaced: an operator who uploaded their own picture in the
+    /// developer portal keeps it. Discord limits how often an avatar may change, so the upload is
+    /// attempted once and a refusal is logged rather than retried.
+    /// </remarks>
+    private async Task EnsureAvatarAsync()
+    {
+        if (Interlocked.Exchange(ref _avatarChecked, 1) != 0 || _client.CurrentUser?.AvatarId is not null)
+            return;
+
+        await using var picture = typeof(DiscordNetGateway).Assembly.GetManifestResourceStream("Modbot.Discord.Assets.avatar.png");
+        if (picture is null)
+            return;
+
+        await _client.CurrentUser!.ModifyAsync(u => u.Avatar = new Image(picture)).ConfigureAwait(false);
+        _log.Information("Set the bot's avatar to the Modbot mark, since it still had Discord's default");
     }
 
     private Task OnDisconnected(Exception? exception)
@@ -1517,7 +1543,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
             builder.WithThumbnailUrl(content.ThumbnailUrl);
 
         if (content.Footer is { Length: > 0 })
-            builder.WithFooter(content.Footer);
+            builder.WithFooter(content.Footer, IsHttps(content.FooterIconUrl) ? content.FooterIconUrl : null);
 
         foreach (var field in content.Fields)
             builder.AddField(field.Name, field.Value, field.Inline);
