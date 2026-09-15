@@ -21,6 +21,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 21, (long)ModbotPermissions.UseAiChat);
         Assert.Equal(1L << 22, (long)ModbotPermissions.ManageDiscordLinks);
         Assert.Equal(1L << 23, (long)ModbotPermissions.UseAiPastLimits);
+        Assert.Equal(1L << 24, (long)ModbotPermissions.ReadDiscordMessages);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -52,5 +53,13 @@ public class ModbotPermissionsTests
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.UseAiChat));
         Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.UseAiPastLimits));
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.UseAiPastLimits));
+    }
+
+    /// <summary>Reading somebody's messages, deleted ones included, is granted on purpose.</summary>
+    [Fact]
+    public void ReadDiscordMessages_IsNotInTheEditableBuiltInRoles()
+    {
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ReadDiscordMessages));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ReadDiscordMessages));
     }
 }

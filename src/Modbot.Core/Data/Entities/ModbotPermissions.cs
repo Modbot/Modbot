@@ -166,6 +166,20 @@ public enum ModbotPermissions : long
     /// </remarks>
     UseAiPastLimits = 1L << 23,
 
+    // --- Discord messages (M5 spec §5.1) ---
+
+    /// <summary>
+    /// Read the Discord messages Modbot has stored, deleted ones included.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ViewProfile"/> or <see cref="ViewAnalytics"/>.
+    /// Analytics only count messages, and a profile is what Modbot recorded about somebody; this is
+    /// everything the person wrote, including what they deleted. A moderator who should see that
+    /// somebody was timed out does not automatically need to read their conversations. Not added to
+    /// the built-in roles. Bit 23 belongs to <see cref="UseAiPastLimits"/>, hence 24.
+    /// </remarks>
+    ReadDiscordMessages = 1L << 24,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

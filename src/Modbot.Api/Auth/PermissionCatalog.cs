@@ -31,6 +31,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.ViewAuditLog, "See the audit log", "Bans, kicks, role changes and other moderation history.", "Reading"),
         Describe(ModbotPermissions.UseAiChat, "Use AI chat", "Ask questions in Chat. Answers only use what this person can already see.", "Reading"),
         Describe(ModbotPermissions.UseAiPastLimits, "Use AI in excess of usage limits", "Not stopped by spend limits on this person or their roles. The limit for everyone still applies.", "Reading"),
+        Describe(ModbotPermissions.ReadDiscordMessages, "Read Discord messages", "A member's stored Discord messages, deleted ones included.", "Reading"),
         Describe(ModbotPermissions.ViewOperationalLog, "See the operational log", "Sign-ins, settings changes, sync problems and account changes.", "Reading"),
         Describe(ModbotPermissions.ViewEvidence, "View evidence", "Open the screenshots and video attached to a case.", "Evidence"),
         Describe(ModbotPermissions.UploadEvidence, "Upload evidence", "Attach screenshots and video to a case.", "Evidence"),

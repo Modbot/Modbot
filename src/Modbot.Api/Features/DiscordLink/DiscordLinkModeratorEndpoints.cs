@@ -14,7 +14,8 @@ namespace Modbot.Api.Features.DiscordLink;
 /// <summary>A role Modbot gave a linked member, with its name when the bot has read it.</summary>
 public sealed record LinkedRoleView(string Id, string? Name);
 
-/// <summary>One VRChat person's active Discord link, as the person popup shows it.</summary>
+/// <summary>One active link between a Discord account and a VRChat account, as either person popup shows it.</summary>
+/// <param name="VRChatDisplayName">The VRChat name Modbot has stored now, else the one saved with the link.</param>
 /// <param name="Roles">The roles Modbot gave and believes the member still holds.</param>
 /// <param name="RoleError">The last role change Discord refused, or null.</param>
 public sealed record DiscordLinkView(
@@ -22,6 +23,7 @@ public sealed record DiscordLinkView(
     string DiscordUserId,
     string DiscordUsername,
     string VRChatUserId,
+    string? VRChatDisplayName,
     DateTimeOffset LinkedAt,
     string StartedFrom,
     IReadOnlyList<LinkedRoleView> Roles,
@@ -48,20 +50,23 @@ public static class DiscordLinkModeratorEndpoints
 
         group.MapGet("", async (
                 [FromQuery] string? vrchatUserId,
+                [FromQuery] string? discordUserId,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
-                if (string.IsNullOrWhiteSpace(vrchatUserId))
-                    return Results.BadRequest(new { error = "vrchatUserId is required." });
+                if (string.IsNullOrWhiteSpace(vrchatUserId) == string.IsNullOrWhiteSpace(discordUserId))
+                    return Results.BadRequest(new { error = "Give one of vrchatUserId or discordUserId." });
 
-                var link = await db.ActiveAccountLinks()
-                    .FirstOrDefaultAsync(l => l.VRChatUserId == vrchatUserId, ct);
+                // From either side: the VRChat person popup asks by VRChat id, the Discord one by Discord id.
+                var link = string.IsNullOrWhiteSpace(vrchatUserId)
+                    ? await db.ActiveAccountLinks().FirstOrDefaultAsync(l => l.DiscordUserId == discordUserId, ct)
+                    : await db.ActiveAccountLinks().FirstOrDefaultAsync(l => l.VRChatUserId == vrchatUserId, ct);
 
                 return Results.Ok(new DiscordLinkLookup(link is null ? null : await ViewAsync(db, link, ct)));
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("GetDiscordLinkForPerson")
-            .WithSummary("The Discord account linked to a VRChat user, if any")
+            .WithSummary("The link between a VRChat user and a Discord account, if any, found from either side")
             .Produces<DiscordLinkLookup>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -110,11 +115,17 @@ public static class DiscordLinkModeratorEndpoints
             ? !await db.DiscordMembers.AsNoTracking().AnyAsync(m => m.GuildId == guildId && m.UserId == link.DiscordUserId && m.LeftAt == null, ct)
             : link.NotInServerAt is not null;
 
+        var vrchatName = await db.VRChatUsers.AsNoTracking()
+            .Where(u => u.UserId == link.VRChatUserId)
+            .Select(u => u.DisplayName)
+            .FirstOrDefaultAsync(ct);
+
         return new DiscordLinkView(
             link.Id,
             link.DiscordUserId,
             link.DiscordUsername,
             link.VRChatUserId,
+            vrchatName ?? link.VRChatDisplayName,
             link.LinkedAt,
             link.StartedFrom,
             [.. ids.Select(roleId => new LinkedRoleView(roleId, names.GetValueOrDefault(roleId)))],

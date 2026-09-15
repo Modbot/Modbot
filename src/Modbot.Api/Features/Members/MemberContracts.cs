@@ -3,6 +3,18 @@ namespace Modbot.Api.Features.Members;
 /// <summary>One role the group defines, as last read by the group-info producer.</summary>
 public sealed record RoleOption(string Id, string? Name);
 
+/// <summary>The Discord account a group member has linked.</summary>
+/// <param name="Name">The name the server shows them by, else the Discord username saved with the link.</param>
+/// <param name="AvatarUrl">Their picture in the server, when the bot has read the member list.</param>
+/// <param name="InServer">In the Discord server now, by the stored member list.</param>
+/// <param name="LeftAt">When they left the server, when the stored list has them as having left.</param>
+public sealed record LinkedDiscordView(
+    string UserId,
+    string Name,
+    string? AvatarUrl,
+    bool InServer,
+    DateTimeOffset? LeftAt);
+
 /// <summary>
 /// One row of the Members page.
 /// </summary>
@@ -14,6 +26,10 @@ public sealed record RoleOption(string Id, string? Name);
 /// <param name="LastSeenAt">The most recent time this person did something Modbot recorded.</param>
 /// <param name="ProfileRefreshedAt">When the profile columns were last fetched. Null means the name and picture are not known yet.</param>
 /// <param name="LeftAt">Set when a full sweep no longer listed them. Null for a current member.</param>
+/// <param name="LinkedDiscord">
+/// Their linked Discord account. Null when they have not linked, and always null for a caller
+/// without See profiles, who may not see links (Discord account linking design §11).
+/// </param>
 public sealed record MemberRow(
     string UserId,
     string? DisplayName,
@@ -27,7 +43,8 @@ public sealed record MemberRow(
     bool EighteenPlus,
     DateTimeOffset? LastSeenAt,
     DateTimeOffset? ProfileRefreshedAt,
-    DateTimeOffset? LeftAt);
+    DateTimeOffset? LeftAt,
+    LinkedDiscordView? LinkedDiscord);
 
 /// <summary>
 /// How far the member list can be trusted right now.

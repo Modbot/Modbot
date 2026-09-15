@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.DiscordLink;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.DiscordMembers;
@@ -16,6 +18,11 @@ namespace Modbot.Api.Features.DiscordMembers;
 /// <param name="Color">0xRRGGBB, zero for none.</param>
 public sealed record DiscordMemberRoleView(string Id, string? Name, int Color);
 
+/// <summary>The VRChat account a Discord member is linked to.</summary>
+/// <param name="DisplayName">The VRChat name Modbot has stored now, else the one saved with the link.</param>
+/// <param name="AvatarUrl">The VRChat picture, when the profile sync has fetched one.</param>
+public sealed record LinkedVRChatView(string UserId, string? DisplayName, string? AvatarUrl);
+
 /// <summary>One member of the Discord server, current or past.</summary>
 /// <param name="DisplayName">The name the server shows: nickname, else global name, else username.</param>
 /// <param name="JoinedAt">When Discord says they joined, for their current or last membership.</param>
@@ -23,6 +30,10 @@ public sealed record DiscordMemberRoleView(string Id, string? Name, int Color);
 /// <param name="TimedOutUntil">When a timeout ends. Null, or in the past, when they are not timed out.</param>
 /// <param name="IsPending">Still to pass membership screening.</param>
 /// <param name="FirstSeenAt">When Modbot first saw them in the server.</param>
+/// <param name="LinkedVRChat">
+/// Their linked VRChat account. Null when they have not linked, and always null for a caller
+/// without See profiles, who may not see links (Discord account linking design §11).
+/// </param>
 public sealed record DiscordMemberView(
     string UserId,
     string Username,
@@ -38,7 +49,8 @@ public sealed record DiscordMemberView(
     bool IsPending,
     DateTimeOffset? BoostingSince,
     DateTimeOffset FirstSeenAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    LinkedVRChatView? LinkedVRChat);
 
 /// <param name="GuildId">The server in settings, or null when none is set.</param>
 /// <param name="ListedAt">When the whole member list was first read. Null until then, and the list is partial.</param>
@@ -69,7 +81,10 @@ public sealed record DiscordMemberListResponse(
 /// round, so this is its own list rather than a column on the group's.
 /// </para>
 /// <para>
-/// Gated on <see cref="ModbotPermissions.ViewMembers"/>, like the group's member list.
+/// Gated on <see cref="ModbotPermissions.ViewMembers"/>, like the group's member list. The linked
+/// VRChat account and the linked filter also need <see cref="ModbotPermissions.ViewProfile"/>,
+/// because seeing a link does (Discord account linking design §11). Links are read through
+/// <see cref="AccountLinkLookup"/> so "linked" means an active link here as everywhere else.
 /// </para>
 /// </remarks>
 public static class DiscordMemberEndpoints
@@ -84,11 +99,13 @@ public static class DiscordMemberEndpoints
         var group = app.MapGroup("/api/discord/members").WithTags("Discord").RequireAuthorization();
 
         group.MapGet("/", async (
+                HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
                 [FromQuery] string? search,
                 [FromQuery] string? state,
                 [FromQuery] string? role,
+                [FromQuery] string? linked,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
                 CancellationToken ct) =>
@@ -96,7 +113,14 @@ public static class DiscordMemberEndpoints
                 if (state is not (null or "" or "in-server" or "left" or "all"))
                     return Results.BadRequest(new { error = "`state` is in-server, left or all." });
 
-                return Results.Ok(await ListAsync(db, clock, search, state, role, page, pageSize, ct));
+                if (!LinkFilter.IsValid(linked))
+                    return Results.BadRequest(new { error = LinkFilter.Error });
+
+                var seesLinks = LinkFilter.SeesLinks(http);
+                if (LinkFilter.Narrows(linked) && !seesLinks)
+                    return Results.Forbid();
+
+                return Results.Ok(await ListAsync(db, clock, search, state, role, linked, seesLinks, page, pageSize, ct));
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetDiscordMembers")
@@ -104,7 +128,9 @@ public static class DiscordMemberEndpoints
             .WithDescription(
                 "Members in the server by default; `state=left` shows people who left, `state=all` "
                 + "both. `search` matches the display name, username, global name, nickname and the "
-                + "id, case-insensitively. `role` is a Discord role id. Newest joiners first.\n\n"
+                + "id, case-insensitively. `role` is a Discord role id. `linked=linked` shows only people "
+                + "with a linked VRChat account and `linked=not-linked` only people without; both need "
+                + "See profiles, as does `linkedVRChat` on each member. Newest joiners first.\n\n"
                 + "`coverage.listedAt` is null until the bot has read the whole member list once; the "
                 + "list is partial until then.")
             .Produces<DiscordMemberListResponse>()
@@ -112,6 +138,7 @@ public static class DiscordMemberEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapGet("/{id}", async (
+                HttpContext http,
                 [FromRoute] string id,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
@@ -126,7 +153,11 @@ public static class DiscordMemberEndpoints
                     return Results.NotFound(new { error = "That person has not been seen in the Discord server." });
 
                 var roles = await RoleNamesAsync(db, row.GuildId, ct);
-                return Results.Ok(View(row, roles));
+                var links = LinkFilter.SeesLinks(http)
+                    ? await LinkedVRChatAsync(db, [row.UserId], ct)
+                    : new Dictionary<string, LinkedVRChatView>();
+
+                return Results.Ok(View(row, roles, links));
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetDiscordMember")
@@ -134,6 +165,8 @@ public static class DiscordMemberEndpoints
             .Produces<DiscordMemberView>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden);
+
+        group.MapDiscordMemberActivity();
 
         return app;
     }
@@ -144,6 +177,8 @@ public static class DiscordMemberEndpoints
         string? search,
         string? state,
         string? role,
+        string? linked,
+        bool seesLinks,
         int? page,
         int? pageSize,
         CancellationToken ct)
@@ -182,6 +217,15 @@ public static class DiscordMemberEndpoints
             query = query.Where(m => EF.Functions.JsonContains(m.Roles, holds));
         }
 
+        var links = db.ActiveAccountLinks();
+
+        query = LinkFilter.Normalised(linked) switch
+        {
+            LinkFilter.Linked => query.Where(m => links.Any(l => l.DiscordUserId == m.UserId)),
+            LinkFilter.NotLinked => query.Where(m => !links.Any(l => l.DiscordUserId == m.UserId)),
+            _ => query,
+        };
+
         var total = await query.CountAsync(ct);
 
         var rows = await query
@@ -192,9 +236,12 @@ public static class DiscordMemberEndpoints
             .ToListAsync(ct);
 
         var roles = guildId is null ? new Dictionary<string, DiscordRole>() : await RoleNamesAsync(db, guildId, ct);
+        var linkedTo = seesLinks
+            ? await LinkedVRChatAsync(db, rows.Select(r => r.UserId).ToList(), ct)
+            : new Dictionary<string, LinkedVRChatView>();
 
         return new DiscordMemberListResponse(
-            rows.Select(r => View(r, roles)).ToList(),
+            rows.Select(r => View(r, roles, linkedTo)).ToList(),
             total,
             number,
             size,
@@ -205,7 +252,39 @@ public static class DiscordMemberEndpoints
                 clock.UtcNow));
     }
 
-    private static async Task<string?> GuildIdAsync(ModbotContext db, CancellationToken ct)
+    /// <summary>The linked VRChat account of each of these Discord users that has one, in one query.</summary>
+    private static async Task<Dictionary<string, LinkedVRChatView>> LinkedVRChatAsync(
+        ModbotContext db, IReadOnlyList<string> discordUserIds, CancellationToken ct)
+    {
+        if (discordUserIds.Count == 0)
+            return [];
+
+        var rows = await (
+                from l in db.ActiveAccountLinks()
+                where discordUserIds.Contains(l.DiscordUserId)
+                join u in db.VRChatUsers.AsNoTracking() on l.VRChatUserId equals u.UserId into users
+                from u in users.DefaultIfEmpty()
+                select new
+                {
+                    l.DiscordUserId,
+                    l.VRChatUserId,
+                    Name = u != null && u.DisplayName != null ? u.DisplayName : l.VRChatDisplayName,
+                    Override = u != null ? u.ProfilePictureUrl : null,
+                    Thumbnail = u != null ? u.CurrentAvatarThumbnailImageUrl : null,
+                })
+            .ToListAsync(ct);
+
+        // At most one active link per Discord account, which a partial unique index enforces.
+        return rows.ToDictionary(
+            r => r.DiscordUserId,
+            r => new LinkedVRChatView(
+                r.VRChatUserId,
+                r.Name,
+                string.IsNullOrWhiteSpace(r.Override) ? (string.IsNullOrWhiteSpace(r.Thumbnail) ? null : r.Thumbnail) : r.Override),
+            StringComparer.Ordinal);
+    }
+
+    internal static async Task<string?> GuildIdAsync(ModbotContext db, CancellationToken ct)
     {
         var guildId = await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
@@ -220,7 +299,10 @@ public static class DiscordMemberEndpoints
             .Where(r => r.GuildId == guildId)
             .ToDictionaryAsync(r => r.RoleId, StringComparer.Ordinal, ct);
 
-    private static DiscordMemberView View(DiscordMember row, IReadOnlyDictionary<string, DiscordRole> roles)
+    private static DiscordMemberView View(
+        DiscordMember row,
+        IReadOnlyDictionary<string, DiscordRole> roles,
+        IReadOnlyDictionary<string, LinkedVRChatView> links)
     {
         string[] ids;
         try
@@ -252,7 +334,8 @@ public static class DiscordMemberEndpoints
             row.IsPending,
             row.BoostingSince,
             row.FirstSeenAt,
-            row.UpdatedAt);
+            row.UpdatedAt,
+            links.GetValueOrDefault(row.UserId));
     }
 
     /// <summary>A search typed with % or _ in it means those characters, not wildcards.</summary>

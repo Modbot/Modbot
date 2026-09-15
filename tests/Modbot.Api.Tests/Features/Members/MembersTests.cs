@@ -286,4 +286,78 @@ public class MembersTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, (await host.GetAsync("/api/members/membership?id=", cookie, Ct)).StatusCode);
     }
+
+    /// <summary>
+    /// Alice linked and is in the Discord server; Bob linked and has since left it; the legacy id
+    /// linked and unlinked, which is not linked.
+    /// </summary>
+    private static async Task LinkAsync(ReadSurfaceTestHost host)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        var settings = await db.GetSettingsAsync(Ct);
+        settings.DiscordGuildId = "424242";
+
+        db.DiscordMembers.AddRange(
+            new DiscordMember { GuildId = "424242", UserId = "d_alice", Username = "alice", DisplayName = "Alice on Discord", AvatarUrl = "https://cdn/alice.png", FirstSeenAt = Day, UpdatedAt = Day },
+            new DiscordMember { GuildId = "424242", UserId = "d_bob", Username = "bob", DisplayName = "Bob on Discord", FirstSeenAt = Day, UpdatedAt = Day, LeftAt = Day.AddDays(-1) });
+
+        db.DiscordAccountLinks.AddRange(
+            new DiscordAccountLink { DiscordUserId = "d_alice", DiscordUsername = "alice", VRChatUserId = "usr_alice", LinkedAt = Day },
+            new DiscordAccountLink { DiscordUserId = "d_bob", DiscordUsername = "bob", VRChatUserId = "usr_bob", LinkedAt = Day },
+            new DiscordAccountLink { DiscordUserId = "d_legacy", DiscordUsername = "legacy", VRChatUserId = "8JoV9XEdpo", LinkedAt = Day.AddDays(-5), UnlinkedAt = Day.AddDays(-4), UnlinkedBy = LinkEndedBy.Member });
+
+        await db.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
+    public async Task TheLinkedFilter_AndEachRowsDiscordAccount_ComeFromActiveLinks()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+        await LinkAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile, Ct);
+
+        var linked = await host.GetJsonAsync<MemberListResponse>("/api/members?linked=linked", cookie, Ct);
+        Assert.Equal(["usr_bob", "usr_alice"], linked.Members.Select(m => m.UserId));
+        Assert.Equal(2, linked.Total);
+
+        var alice = linked.Members.Single(m => m.UserId == "usr_alice").LinkedDiscord;
+        Assert.NotNull(alice);
+        Assert.Equal("d_alice", alice.UserId);
+        Assert.Equal("Alice on Discord", alice.Name);
+        Assert.Equal("https://cdn/alice.png", alice.AvatarUrl);
+        Assert.True(alice.InServer);
+
+        var bob = linked.Members.Single(m => m.UserId == "usr_bob").LinkedDiscord;
+        Assert.NotNull(bob);
+        Assert.False(bob.InServer);
+        Assert.Equal(Day.AddDays(-1), bob.LeftAt);
+
+        var notLinked = await host.GetJsonAsync<MemberListResponse>("/api/members?linked=not-linked", cookie, Ct);
+        Assert.Equal(["8JoV9XEdpo"], notLinked.Members.Select(m => m.UserId));
+        Assert.Null(notLinked.Members[0].LinkedDiscord);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.GetAsync("/api/members?linked=sometimes", cookie, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Links_OnTheMemberList_NeedViewProfile()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+        await LinkAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var list = await host.GetJsonAsync<MemberListResponse>("/api/members", cookie, Ct);
+        Assert.All(list.Members, m => Assert.Null(m.LinkedDiscord));
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/members?linked=linked", cookie, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/members?linked=not-linked", cookie, Ct)).StatusCode);
+    }
 }

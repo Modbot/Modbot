@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.DiscordLink;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Time;
 using Modbot.VRChat.Sync;
 using SettingsRow = Modbot.Core.Data.Entities.Settings;
@@ -48,16 +50,27 @@ public static class MemberEndpoints
         var members = app.MapGroup("/api/members").WithTags("Members").RequireAuthorization();
 
         members.MapGet("/", async (
+                HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
                 [FromQuery] string? search,
                 [FromQuery] string? role,
                 [FromQuery] string? status,
                 [FromQuery] string? sort,
+                [FromQuery] string? linked,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
                 CancellationToken ct) =>
-                Results.Ok(await ListMembersAsync(db, clock, search, role, status, sort, page, pageSize, ct)))
+            {
+                if (!LinkFilter.IsValid(linked))
+                    return Results.BadRequest(new { error = LinkFilter.Error });
+
+                var seesLinks = LinkFilter.SeesLinks(http);
+                if (LinkFilter.Narrows(linked) && !seesLinks)
+                    return Results.Forbid();
+
+                return Results.Ok(await ListMembersAsync(db, clock, search, role, status, sort, page, pageSize, ct, linked, seesLinks));
+            })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetMembers")
             .WithSummary("The group's member list, as last swept, with search")
@@ -65,11 +78,14 @@ public static class MemberEndpoints
                 "Current members by default; `status=left` shows people a full sweep no longer "
                 + "listed, `status=all` both. `search` matches the display name and the id, "
                 + "case-insensitively. `role` is a role id. Sorted by join date, newest first, "
-                + "unless `sort=name` or `sort=seen`.\n\n"
+                + "unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked "
+                + "Discord account and `linked=not-linked` only people without; both need See profiles, "
+                + "as does `linkedDiscord` on each row.\n\n"
                 + "`coverage.firstSweepComplete` is false until the first full sweep has finished; "
                 + "the list is partial until then. Names and pictures come from the profile sync "
                 + "and are null for people it has not fetched yet.")
             .Produces<MemberListResponse>()
+            .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
         members.MapGet("/membership", async (
@@ -128,7 +144,9 @@ public static class MemberEndpoints
         string? sort,
         int? page,
         int? pageSize,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? linked = null,
+        bool seesLinks = false)
     {
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var groupId = settings?.ManagedGroupId ?? string.Empty;
@@ -163,6 +181,15 @@ public static class MemberEndpoints
             query = query.Where(x => EF.Functions.JsonContains(x.m.Roles, needle));
         }
 
+        var links = db.ActiveAccountLinks();
+
+        query = LinkFilter.Normalised(linked) switch
+        {
+            LinkFilter.Linked => query.Where(x => links.Any(l => l.VRChatUserId == x.m.UserId)),
+            LinkFilter.NotLinked => query.Where(x => !links.Any(l => l.VRChatUserId == x.m.UserId)),
+            _ => query,
+        };
+
         query = Trimmed(sort)?.ToLowerInvariant() switch
         {
             "name" => query
@@ -186,6 +213,10 @@ public static class MemberEndpoints
             .Take(size)
             .ToListAsync(ct);
 
+        var discord = seesLinks
+            ? await LinkedDiscordAsync(db, settings?.DiscordGuildId, rows.Select(x => x.m.UserId).ToList(), ct)
+            : new Dictionary<string, LinkedDiscordView>();
+
         var list = rows.Select(x =>
         {
             var ids = GroupMemberSync.RoleIds(x.m.Roles);
@@ -203,7 +234,8 @@ public static class MemberEndpoints
                 x.u?.Is18PlusVerified ?? false,
                 x.u?.LastSeenAt,
                 x.u?.LastRefreshedAt,
-                x.m.LeftAt);
+                x.m.LeftAt,
+                discord.GetValueOrDefault(x.m.UserId));
         }).ToList();
 
         return new MemberListResponse(
@@ -213,6 +245,48 @@ public static class MemberEndpoints
             size,
             roles.Select(r => new RoleOption(r.Key, r.Value)).OrderBy(r => r.Name ?? r.Id, StringComparer.OrdinalIgnoreCase).ToList(),
             MemberCoverage(settings, clock.UtcNow));
+    }
+
+    /// <summary>
+    /// The linked Discord account of each of these VRChat users that has one, with how the stored
+    /// Discord member list has them, in two queries.
+    /// </summary>
+    private static async Task<Dictionary<string, LinkedDiscordView>> LinkedDiscordAsync(
+        ModbotContext db, string? guildId, IReadOnlyList<string> vrchatUserIds, CancellationToken ct)
+    {
+        if (vrchatUserIds.Count == 0)
+            return [];
+
+        var links = await db.ActiveAccountLinks()
+            .Where(l => vrchatUserIds.Contains(l.VRChatUserId))
+            .Select(l => new { l.VRChatUserId, l.DiscordUserId, l.DiscordUsername })
+            .ToListAsync(ct);
+
+        if (links.Count == 0)
+            return [];
+
+        guildId = string.IsNullOrWhiteSpace(guildId) ? null : guildId.Trim();
+        var discordIds = links.Select(l => l.DiscordUserId).ToList();
+
+        var listed = guildId is null
+            ? []
+            : await db.DiscordMembers.AsNoTracking()
+                .Where(m => m.GuildId == guildId && discordIds.Contains(m.UserId))
+                .ToDictionaryAsync(m => m.UserId, StringComparer.Ordinal, ct);
+
+        return links.ToDictionary(
+            l => l.VRChatUserId,
+            l =>
+            {
+                var member = listed.GetValueOrDefault(l.DiscordUserId);
+                return new LinkedDiscordView(
+                    l.DiscordUserId,
+                    member?.DisplayName ?? l.DiscordUsername,
+                    member?.AvatarUrl,
+                    member is { LeftAt: null },
+                    member?.LeftAt);
+            },
+            StringComparer.Ordinal);
     }
 
     internal static async Task<MembershipView> MembershipAsync(

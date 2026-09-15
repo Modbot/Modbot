@@ -1,5 +1,9 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Facts;
+using Modbot.Analytics.Messages;
+using Modbot.Api.Features.Audit;
+using Modbot.Api.Features.DiscordLink;
 using Modbot.Api.Features.DiscordMembers;
 using Modbot.Api.Tests.Features.Audit;
 using Modbot.Core.Data;
@@ -153,5 +157,268 @@ public class DiscordMemberTests
 
         var members = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
         Assert.Equal(HttpStatusCode.OK, (await host.GetAsync(path, members, Ct)).StatusCode);
+    }
+
+    // ── Linked VRChat accounts ──────────────────────────────────────────────────────────────────
+
+    /// <summary>Ada has linked; Bo linked and unlinked, which is not linked; Cy never did.</summary>
+    private static async Task LinkAsync(ReadSurfaceTestHost host)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var at = host.Clock.UtcNow;
+
+        db.VRChatUsers.Add(new VRChatUser
+        {
+            UserId = "usr_ada", DisplayName = "Ada in VRChat", CurrentAvatarThumbnailImageUrl = "https://img/ada",
+            FirstSeenAt = at, LastSeenAt = at, LastRefreshedAt = at,
+        });
+
+        db.DiscordAccountLinks.AddRange(
+            new DiscordAccountLink { DiscordUserId = "1", DiscordUsername = "ada", VRChatUserId = "usr_ada", VRChatDisplayName = "Ada then", LinkedAt = at.AddDays(-3) },
+            new DiscordAccountLink { DiscordUserId = "2", DiscordUsername = "bo", VRChatUserId = "usr_bo", LinkedAt = at.AddDays(-9), UnlinkedAt = at.AddDays(-8), UnlinkedBy = LinkEndedBy.Member });
+
+        await db.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
+    public async Task TheLinkedFilter_AndTheLinkedAccount_ComeFromActiveLinks()
+    {
+        await using var host = await StartAsync(_db);
+        await LinkAsync(host);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile, Ct);
+
+        var linked = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?state=all&linked=linked", cookie, Ct);
+        Assert.Equal(["1"], linked.Members.Select(m => m.UserId));
+        Assert.Equal(1, linked.Total);
+
+        // The name VRChat has now, not the one saved with the link.
+        var ada = linked.Members[0].LinkedVRChat;
+        Assert.NotNull(ada);
+        Assert.Equal("usr_ada", ada.UserId);
+        Assert.Equal("Ada in VRChat", ada.DisplayName);
+        Assert.Equal("https://img/ada", ada.AvatarUrl);
+
+        var notLinked = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?state=all&linked=not-linked", cookie, Ct);
+        Assert.Equal(["2", "3"], notLinked.Members.Select(m => m.UserId));
+        Assert.All(notLinked.Members, m => Assert.Null(m.LinkedVRChat));
+
+        var one = await host.GetJsonAsync<DiscordMemberView>("/api/discord/members/1", cookie, Ct);
+        Assert.Equal("usr_ada", one.LinkedVRChat?.UserId);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.GetAsync("/api/discord/members?linked=maybe", cookie, Ct)).StatusCode);
+    }
+
+    /// <summary>Seeing a link needs See profiles, so a caller with only See members gets neither.</summary>
+    [Fact]
+    public async Task Links_NeedViewProfile()
+    {
+        await using var host = await StartAsync(_db);
+        await LinkAsync(host);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var list = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members", cookie, Ct);
+        Assert.All(list.Members, m => Assert.Null(m.LinkedVRChat));
+
+        Assert.Null((await host.GetJsonAsync<DiscordMemberView>("/api/discord/members/1", cookie, Ct)).LinkedVRChat);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/discord/members?linked=linked", cookie, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/discord/members?linked=not-linked", cookie, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.GetAsync("/api/discord/members?linked=all", cookie, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task TheLinkLookup_WorksFromTheDiscordSide()
+    {
+        await using var host = await StartAsync(_db);
+        await LinkAsync(host);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        var found = await host.GetJsonAsync<DiscordLinkLookup>("/api/discord-links?discordUserId=1", cookie, Ct);
+        Assert.Equal("usr_ada", found.Link?.VRChatUserId);
+        Assert.Equal("Ada in VRChat", found.Link?.VRChatDisplayName);
+
+        // An ended link is no link.
+        Assert.Null((await host.GetJsonAsync<DiscordLinkLookup>("/api/discord-links?discordUserId=2", cookie, Ct)).Link);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.GetAsync("/api/discord-links", cookie, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.GetAsync("/api/discord-links?discordUserId=1&vrchatUserId=usr_ada", cookie, Ct)).StatusCode);
+    }
+
+    // ── Messages ────────────────────────────────────────────────────────────────────────────────
+
+    private static async Task MessagesAsync(ReadSurfaceTestHost host)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var at = host.Clock.UtcNow;
+
+        db.DiscordChannels.Add(new DiscordChannel { ChannelId = "500", GuildId = Guild, Name = "general", FirstSeenAt = at, UpdatedAt = at });
+        db.DiscordReadBacks.Add(new DiscordReadBack { ChannelId = "600", GuildId = Guild, ParentChannelId = "500", Name = "events thread", StartedAt = at, UpdatedAt = at });
+        await db.SaveChangesAsync(Ct);
+
+        var times = new[] { at.AddDays(-40), at.AddDays(-2), at.AddDays(-1), at.AddHours(-1) };
+        await new MessagePartitionMaintainer(db).EnsureForAsync(times, Ct);
+
+        DiscordMessage Message(string id, DateTimeOffset sent, string author = "1", string guild = Guild) => new()
+        {
+            MessageId = id, SentAt = sent, GuildId = guild, ChannelId = "500", AuthorId = author, AuthorName = author,
+            Text = "message " + id, StoredAt = at,
+        };
+
+        var edited = Message("11", times[1]);
+        edited.EditedAt = times[1].AddMinutes(5);
+        var deleted = Message("12", times[2]);
+        deleted.DeletedAt = times[2].AddMinutes(1);
+        var inThread = Message("13", times[3]);
+        inThread.ThreadId = "600";
+        inThread.Attachments = """[{"name":"cat.png","type":"image/png","size":1024,"url":"https://cdn/cat.png"}]""";
+
+        db.DiscordMessages.AddRange(
+            Message("10", times[0]),
+            edited,
+            deleted,
+            inThread,
+            Message("20", times[3], author: "2"),
+            Message("30", times[3], author: "9", guild: "777"));
+
+        await db.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
+    public async Task Messages_AreNewestFirst_WithDeletedOnesMarked_AndPaged()
+    {
+        await using var host = await StartAsync(_db);
+        await MessagesAsync(host);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ReadDiscordMessages, Ct);
+
+        var body = await host.GetJsonAsync<DiscordMemberMessagesResponse>("/api/discord/members/1/messages", cookie, Ct);
+
+        Assert.Equal(4, body.Total);
+        Assert.Equal(["13", "12", "11", "10"], body.Messages.Select(m => m.MessageId));
+
+        var thread = body.Messages[0];
+        Assert.Equal("general", thread.ChannelName);
+        Assert.Equal("600", thread.ThreadId);
+        Assert.Equal("events thread", thread.ThreadName);
+        var file = Assert.Single(thread.Attachments);
+        Assert.Equal("cat.png", file.Name);
+        Assert.Equal(1024, file.Size);
+
+        Assert.NotNull(body.Messages[1].DeletedAt);
+        Assert.Equal("message 12", body.Messages[1].Text);
+        Assert.NotNull(body.Messages[2].EditedAt);
+        Assert.Null(body.Messages[2].DeletedAt);
+
+        var second = await host.GetJsonAsync<DiscordMemberMessagesResponse>("/api/discord/members/1/messages?pageSize=3&page=2", cookie, Ct);
+        Assert.Equal(["10"], second.Messages.Select(m => m.MessageId));
+        Assert.Equal(4, second.Total);
+    }
+
+    [Fact]
+    public async Task Messages_NeedReadDiscordMessages()
+    {
+        await using var host = await StartAsync(_db);
+        const string Path = "/api/discord/members/1/messages";
+
+        var everythingElse = await host.SignedInAsync(
+            ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile | ModbotPermissions.ViewAnalytics | ModbotPermissions.ViewAuditLog, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync(Path, everythingElse, Ct)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await host.Client.GetAsync(Path, Ct)).StatusCode);
+
+        var reader = await host.SignedInAsync(ModbotPermissions.ReadDiscordMessages, Ct);
+        Assert.Equal(HttpStatusCode.OK, (await host.GetAsync(Path, reader, Ct)).StatusCode);
+    }
+
+    // ── Metrics ─────────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Metrics_CountMessagesAndVoicePerDay_AndListJoinsAndLeaves()
+    {
+        await using var host = await StartAsync(_db);
+        await MessagesAsync(host);
+
+        var now = host.Clock.UtcNow;
+
+        FactRecord Fact(string type, DateTimeOffset at, DateTimeOffset? before = null) => new()
+        {
+            Type = type, OccurredAt = at, OccurredBefore = before, SubjectPlatform = FactPlatform.Discord, SubjectId = "1", Source = FactSource.Discord,
+        };
+
+        await host.WriteFactAsync(Fact(FactType.DiscordMemberJoined, now.AddDays(-30)), Ct);
+        await host.WriteFactAsync(Fact(FactType.DiscordMemberLeft, now.AddDays(-20), now.AddDays(-19)), Ct);
+        await host.WriteFactAsync(Fact(FactType.DiscordMemberJoined, now.AddDays(-10)), Ct);
+        await host.WriteFactAsync(Fact(FactType.DiscordVoiceJoined, now.AddDays(-2).AddHours(-12)), Ct);
+        await host.WriteFactAsync(Fact(FactType.DiscordVoiceLeft, now.AddDays(-2).AddHours(-11).AddMinutes(-30)), Ct);
+        await host.RebuildDailyTotalsAsync(Ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+        var body = await host.GetJsonAsync<DiscordMemberMetrics>("/api/discord/members/1/metrics", cookie, Ct);
+
+        Assert.Equal(DiscordMemberActivity.Days, body.MessagesPerDay.Count);
+        Assert.Equal(DateOnly.FromDateTime(now.UtcDateTime), body.MessagesPerDay[^1].Day);
+
+        // Three messages in the last thirty days, a deleted one included; the one forty days ago counts all time.
+        Assert.Equal(3m, body.MessagesPerDay.Sum(d => d.Value));
+        Assert.Equal(4m, body.MessagesAllTime);
+        Assert.Equal(30m, body.VoiceMinutesPerDay.Sum(d => d.Value));
+        Assert.Equal(30m, body.VoiceMinutesAllTime);
+
+        Assert.Equal(["joined", "left", "joined"], body.History.Select(h => h.Change));
+        Assert.Equal(now.AddDays(-19), body.History[1].Before);
+        Assert.Equal(now.AddDays(-30), body.FirstSeenAt);
+    }
+
+    [Fact]
+    public async Task Metrics_NeedViewProfile()
+    {
+        await using var host = await StartAsync(_db);
+        const string Path = "/api/discord/members/1/metrics";
+
+        var members = await host.SignedInAsync(ModbotPermissions.ViewMembers | ModbotPermissions.ReadDiscordMessages, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync(Path, members, Ct)).StatusCode);
+
+        var profiles = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+        Assert.Equal(HttpStatusCode.OK, (await host.GetAsync(Path, profiles, Ct)).StatusCode);
+    }
+
+    // ── Names in the log ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A Discord person in a fact is named from the stored member list, and never from a VRChat
+    /// profile that happens to share the id.
+    /// </summary>
+    [Fact]
+    public async Task TheAuditLog_NamesDiscordPeople_FromTheMemberList()
+    {
+        await using var host = await StartAsync(_db);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.VRChatUsers.Add(new VRChatUser { UserId = "3", DisplayName = "Not Cy", FirstSeenAt = host.Clock.UtcNow, LastSeenAt = host.Clock.UtcNow });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await host.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.DiscordMemberKicked,
+            OccurredAt = host.Clock.UtcNow.AddMinutes(-5),
+            SubjectPlatform = FactPlatform.Discord,
+            SubjectId = "3",
+            ActorPlatform = FactPlatform.Discord,
+            ActorId = "1",
+            Source = FactSource.Discord,
+        }, Ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, Ct);
+        var page = await host.GetJsonAsync<AuditPage>("/api/audit?subject=3&subjectPlatform=Discord", cookie, Ct);
+
+        var entry = Assert.Single(page.Entries);
+        Assert.Equal(SubjectKind.Person, entry.SubjectKind);
+        Assert.Equal("Discord", entry.SubjectPlatform);
+        Assert.Equal("Cy", entry.SubjectName);
+        Assert.Equal("Ada the Brave", entry.ActorName);
     }
 }

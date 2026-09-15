@@ -99,11 +99,9 @@ public static class FactSubjects
         [FactType.DiscordRoleChanged] = SubjectKind.Other,
         [FactType.DiscordRoleDeleted] = SubjectKind.Other,
 
-        // A Discord account, not a VRChat person: opening the person popup on a Discord id would
-        // show somebody else or nobody. The link facts themselves are about the VRChat person.
-        [FactType.DiscordLinkRoleGranted] = SubjectKind.Other,
-        [FactType.DiscordLinkRoleRemoved] = SubjectKind.Other,
-        [FactType.DiscordLinkPrompted] = SubjectKind.Other,
+        // The link role and prompt facts are about a Discord account, so they take the default:
+        // a person, with the subject platform saying Discord, which opens the Discord person popup
+        // rather than the VRChat one. The link facts themselves are about the VRChat person.
         [FactType.EvidenceAttached] = SubjectKind.Other,
         [FactType.EvidenceAccessed] = SubjectKind.Other,
         [FactType.EvidenceDestroyed] = SubjectKind.Other,

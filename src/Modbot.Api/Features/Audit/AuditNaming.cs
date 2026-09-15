@@ -42,6 +42,7 @@ public static class AuditNaming
             return entries;
 
         var people = await PeopleAsync(db, entries, ct);
+        var discord = await DiscordPeopleAsync(db, entries, ct);
         var accounts = await AccountsAsync(db, entries, ct);
         var worlds = await WorldsAsync(db, entries, ct);
         var rooms = await RoomsAsync(db, entries, ct);
@@ -49,8 +50,10 @@ public static class AuditNaming
         return entries
             .Select(e => e with
             {
-                SubjectName = NameOf(e, people, accounts),
-                ActorName = e.ActorName ?? (e.ActorId is { } actor ? people.GetValueOrDefault(actor) : null),
+                SubjectName = NameOf(e, people, discord, accounts),
+                ActorName = e.ActorName ?? (e.ActorId is { } actor
+                    ? (IsDiscord(e.ActorPlatform) ? discord : people).GetValueOrDefault(actor)
+                    : null),
                 WorldName = e.WorldId is { } world ? worlds.GetValueOrDefault(world) : null,
                 RoomId = RoomOf(e, rooms),
             })
@@ -60,13 +63,20 @@ public static class AuditNaming
     private static string? NameOf(
         AuditEntry entry,
         IReadOnlyDictionary<string, string> people,
+        IReadOnlyDictionary<string, string> discord,
         IReadOnlyDictionary<Guid, string> accounts)
     {
         if (entry.SubjectKind == SubjectKind.Account)
             return Guid.TryParse(entry.SubjectId, out var id) ? accounts.GetValueOrDefault(id) : null;
 
-        return entry.SubjectKind == SubjectKind.Person ? people.GetValueOrDefault(entry.SubjectId) : null;
+        if (entry.SubjectKind != SubjectKind.Person)
+            return null;
+
+        return (IsDiscord(entry.SubjectPlatform) ? discord : people).GetValueOrDefault(entry.SubjectId);
     }
+
+    private static bool IsDiscord(string? platform)
+        => string.Equals(platform, nameof(FactPlatform.Discord), StringComparison.Ordinal);
 
     /// <summary>Display names for every VRChat person named as a subject or an actor.</summary>
     private static async Task<IReadOnlyDictionary<string, string>> PeopleAsync(
@@ -75,9 +85,9 @@ public static class AuditNaming
         CancellationToken ct)
     {
         var ids = entries
-            .Where(e => e.SubjectKind == SubjectKind.Person)
+            .Where(e => e.SubjectKind == SubjectKind.Person && !IsDiscord(e.SubjectPlatform))
             .Select(e => e.SubjectId)
-            .Concat(entries.Where(e => e.ActorId is not null).Select(e => e.ActorId!))
+            .Concat(entries.Where(e => e.ActorId is not null && !IsDiscord(e.ActorPlatform)).Select(e => e.ActorId!))
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
@@ -88,6 +98,42 @@ public static class AuditNaming
             .Where(u => ids.Contains(u.UserId) && u.DisplayName != null)
             .Select(u => new { u.UserId, u.DisplayName })
             .ToDictionaryAsync(u => u.UserId, u => u.DisplayName!, StringComparer.Ordinal, ct);
+    }
+
+    /// <summary>
+    /// The name the Discord server shows for every Discord person named as a subject or an actor.
+    /// </summary>
+    /// <remarks>
+    /// From the stored member list, which keeps people who left. Not narrowed to the server in
+    /// settings: a person from a server Modbot used to watch is still better named than shown as an
+    /// id, and the newest row wins where there are several.
+    /// </remarks>
+    private static async Task<IReadOnlyDictionary<string, string>> DiscordPeopleAsync(
+        ModbotContext db,
+        IReadOnlyList<AuditEntry> entries,
+        CancellationToken ct)
+    {
+        var ids = entries
+            .Where(e => e.SubjectKind == SubjectKind.Person && IsDiscord(e.SubjectPlatform))
+            .Select(e => e.SubjectId)
+            .Concat(entries.Where(e => e.ActorId is not null && IsDiscord(e.ActorPlatform)).Select(e => e.ActorId!))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (ids.Count == 0)
+            return Empty<string>();
+
+        var rows = await db.DiscordMembers.AsNoTracking()
+            .Where(m => ids.Contains(m.UserId))
+            .OrderByDescending(m => m.UpdatedAt)
+            .Select(m => new { m.UserId, m.DisplayName })
+            .ToListAsync(ct);
+
+        var names = Empty<string>();
+        foreach (var row in rows)
+            names.TryAdd(row.UserId, row.DisplayName);
+
+        return names;
     }
 
     /// <summary>Usernames for the Modbot accounts Modbot's own entries are about.</summary>
