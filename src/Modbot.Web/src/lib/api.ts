@@ -608,6 +608,53 @@ export type InstanceRow = {
   minutesOpen: number
 }
 
+/** A moderator whose client is in an open room right now. */
+export type LiveWatcher = {
+  userId: string
+  displayName: string | null
+  since: string
+}
+
+/**
+ * Somebody in a live room. Exactly one of `arrivedAt` and `hereBefore` is set: `arrivedAt` when a
+ * moderator saw them walk in, `hereBefore` when they were already there -- they arrived at some
+ * earlier time nobody saw.
+ */
+export type LivePerson = {
+  userId: string
+  displayName: string | null
+  arrivedAt: string | null
+  hereBefore: string | null
+  standing: string
+  priorActions: number
+  flags: string[]
+}
+
+/** One open group room on the Live page. */
+export type LiveRoom = {
+  id: string
+  worldId: string
+  worldName: string | null
+  worldImageUrl: string | null
+  vrChatInstanceId: string | null
+  groupAccessType: string | null
+  region: string | null
+  openedAt: string
+  headCount: number | null
+  watching: LiveWatcher[]
+  /** Empty whenever nobody is watching. */
+  people: LivePerson[]
+  /** When the last moderator stopped watching; null while somebody is. */
+  lastWatchedAt: string | null
+  /** Who was there at `lastWatchedAt`. Not "here now". */
+  lastSeen: LivePerson[]
+}
+
+export type LiveView = {
+  rooms: LiveRoom[]
+  generatedAt: string
+}
+
 export type InstancesAnalytics = {
   from: string
   to: string
@@ -1704,6 +1751,8 @@ export const api = {
   world: (id: string) => request<WorldView>(`/api/worlds?id=${encodeURIComponent(id)}`),
 
   instance: (id: string) => request<InstanceView>(`/api/instances/${encodeURIComponent(id)}`),
+
+  live: () => request<LiveView>('/api/live'),
 
   userMetrics: (id: string) =>
     request<PersonMetrics>(`/api/vrchat-users/metrics?id=${encodeURIComponent(id)}`),

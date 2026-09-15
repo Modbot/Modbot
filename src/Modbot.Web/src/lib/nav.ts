@@ -11,6 +11,8 @@ import { can, canAny } from '@/lib/permissions'
 // bits -- see lib/permissions.ts for why.
 export const NAV = [
   { id: 'members', label: 'Members', needs: 'ViewMembers' },
+  // The group's open instances right now and who is in each.
+  { id: 'live', label: 'Live', needs: 'ViewLiveRooms' },
   { id: 'bans', label: 'Bans', needs: 'ViewAuditLog' },
   { id: 'audit', label: 'Audit log', needsAny: ['ViewAuditLog', 'ViewOperationalLog'] },
   // One page per question (spec 10.1), not one "metrics" page. Tracked Groups is a later

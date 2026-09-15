@@ -27,6 +27,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.ViewMembers, "See members", "The member list and who is in the group.", "Reading"),
         Describe(ModbotPermissions.ViewProfile, "See profiles", "A member's history, notes and past actions.", "Reading"),
         Describe(ModbotPermissions.ViewAnalytics, "See analytics", "Charts and daily totals.", "Reading"),
+        Describe(ModbotPermissions.ViewLiveRooms, "See live instances", "Open instances right now and who is in each.", "Reading"),
         Describe(ModbotPermissions.ViewAuditLog, "See the audit log", "Bans, kicks, role changes and other moderation history.", "Reading"),
         Describe(ModbotPermissions.ViewOperationalLog, "See the operational log", "Sign-ins, settings changes, sync problems and account changes.", "Reading"),
         Describe(ModbotPermissions.ViewEvidence, "View evidence", "Open the screenshots and video attached to a case.", "Evidence"),

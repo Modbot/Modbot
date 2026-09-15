@@ -115,6 +115,20 @@ public enum ModbotPermissions : long
     /// <remarks>Bit 18 belongs to the user-profile work (<c>EditAgeVerification</c>), hence 19.</remarks>
     ManageRoles = 1L << 19,
 
+    // --- Live (M3 section 7.4) ---
+
+    /// <summary>
+    /// See the group's open instances right now, their head counts, which moderators are in each
+    /// and who is there.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ViewAnalytics"/>. Analytics are totals after the
+    /// fact; this is where people are standing at this moment, which is a narrower thing to hand
+    /// out. Not added to the built-in Moderator or Viewer roles by this change: an operator grants
+    /// it on purpose, and Administrator already holds it.
+    /// </remarks>
+    ViewLiveRooms = 1L << 20,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go
