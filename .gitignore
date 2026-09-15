@@ -78,6 +78,8 @@ logs/
 # Node
 node_modules/
 src/Modbot.Host/wwwroot/
+# Built by src/Modbot.My.Web.
+src/Modbot.My/wwwroot/
 
 # Local scratch: live-data pulls, transcripts, anything that must never be committed.
 /.local/
