@@ -14,8 +14,10 @@ public class RootApiKeyTests(PostgresFixture db)
     [
         "/api/instances",
         "/api/instances/some-id",
+        "/api/instances/some-id/ip-history",
         "/api/register-page-instances",
         "/api/stats",
+        "/api/admin/session",
     ];
 
     [Theory]

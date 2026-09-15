@@ -25,6 +25,12 @@ public sealed class RegisteredInstance
 
     public DateTimeOffset LastSeenAt { get; set; }
 
+    /// <summary>
+    /// The address its last register or usage call came from. Every address it has used is in
+    /// <c>registered_instance_ip</c>.
+    /// </summary>
+    public string? IpAddress { get; set; }
+
     // ── Usage analytics (spec 5.2). All empty for a deployment that has never reported. ──
 
     public bool AnalyticsEnabled { get; set; }
@@ -56,6 +62,7 @@ internal sealed class RegisteredInstanceConfiguration : IEntityTypeConfiguration
         entity.Property(i => i.InstanceUrl).HasMaxLength(Common.InstanceUrl.MaxLength);
         entity.Property(i => i.Version).HasMaxLength(InstanceEndpoints.MaxVersionLength);
         entity.Property(i => i.ScaleBucket).HasMaxLength(32);
+        entity.Property(i => i.IpAddress).HasMaxLength(Common.ClientAddress.MaxLength);
 
         // The list reads newest first, and the stats count what was seen in the last 30 days.
         entity.HasIndex(i => i.LastSeenAt);

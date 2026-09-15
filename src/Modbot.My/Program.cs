@@ -49,7 +49,7 @@ if (await DatabaseMigrator.ApplyAsync(app.Services, app.Logger) is { } problem)
 if (environment.RootApiKey is null)
 {
     app.Logger.LogWarning(
-        "{Variable} is not set, so every endpoint that reads the registry refuses all requests.",
+        "{Variable} is not set, so /admin and every endpoint that reads the registry refuse all requests.",
         MyEnvironment.RootApiKeyVariable);
 }
 

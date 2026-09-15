@@ -29,11 +29,12 @@ public sealed class PostgresFixture : IAsyncLifetime
     public MyContext NewContext() =>
         new(new DbContextOptionsBuilder<MyContext>().UseNpgsql(ConnectionString).Options);
 
-    /// <summary>Empties both tables. Tests in the collection run one at a time.</summary>
+    /// <summary>Empties every table. Tests in the collection run one at a time.</summary>
     public async Task ResetAsync()
     {
         await using var db = NewContext();
-        await db.Database.ExecuteSqlRawAsync("TRUNCATE registered_instance, register_page_instance");
+        await db.Database.ExecuteSqlRawAsync(
+            "TRUNCATE registered_instance_ip, registered_instance, register_page_instance, visitor_instance, admin_session");
     }
 }
 
