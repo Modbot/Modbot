@@ -51,6 +51,7 @@ public static class StatusHandler
                 .ToList(),
             settings.DiscordInstanceChannelId,
             settings.DiscordInstanceMessage,
+            settings.DiscordInstanceShowNames,
             settings.SmtpHost is { Length: > 0 },
             settings.SmtpHost,
             settings.PublicAddress,

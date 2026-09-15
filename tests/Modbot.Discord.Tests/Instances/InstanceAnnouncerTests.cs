@@ -1,5 +1,7 @@
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Facts;
 using Modbot.Core.Data.Entities;
 using Modbot.Discord.Instances;
 using Modbot.Discord.Tests.Fakes;
@@ -295,4 +297,122 @@ public class InstanceAnnouncerTests
         Assert.Equal(InstanceAnnouncePassOutcome.Posted, second.Outcome);
         Assert.Single(gateway.Messages);
     }
+
+    /// <summary>
+    /// A moderator's paired client reporting the room as watched, with these people already there.
+    /// </summary>
+    private static async Task WatchedAsync(
+        TestServices services,
+        string number,
+        DateTimeOffset at,
+        CancellationToken ct,
+        params (string Id, string Name)[] people)
+    {
+        Guid device;
+        string moderator;
+
+        await using (var db = services.Database.NewContext())
+        {
+            var user = await TestAccounts.CreateAsync(
+                db, "mod_" + Guid.NewGuid().ToString("n")[..8], TestAccounts.Password, ModbotPermissions.None, linked: true, ct);
+
+            device = Guid.NewGuid();
+            db.ClientDevices.Add(new ClientDeviceRecord
+            {
+                Id = device,
+                TokenHash = Guid.NewGuid().ToString("n"),
+                ClientVersion = "2026.9.0",
+                Platform = "windows",
+                IssuedToUserId = user.Id,
+                IssuedAt = at,
+            });
+
+            await db.SaveChangesAsync(ct);
+            moderator = user.VRChatUserId!;
+        }
+
+        await services.WriteFactAsync(Presence(FactType.InstanceJoined, moderator, "Mod", number, at, device), ct);
+
+        foreach (var (id, name) in people)
+            await services.WriteFactAsync(Presence(FactType.InstancePresenceObserved, id, name, number, at, device), ct);
+    }
+
+    private static FactRecord Presence(string type, string subject, string name, string number, DateTimeOffset at, Guid device) => new()
+    {
+        Type = type,
+        OccurredAt = at,
+        SubjectPlatform = FactPlatform.VRChat,
+        SubjectId = subject,
+        WorldId = World,
+        InstanceId = number,
+        Source = FactSource.Client,
+        Data = new JsonObject { ["deviceId"] = device.ToString(), ["displayName"] = name },
+    };
+
+    [Fact]
+    public async Task WhileAModeratorIsWatching_TheCardListsWhoIsHere_Escaped()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
+        await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
+        await WatchedAsync(services, "68681", services.Clock.UtcNow, ct, ("usr_ada", "Ada"), ("usr_bob", "**Bob**"));
+
+        await RunAsync(services, gateway, ct);
+
+        var card = Assert.Single(Assert.Single(gateway.Messages).Embeds);
+        var who = Assert.Single(card.Fields, f => f.Name == "Who is here");
+
+        var lines = who.Value.Split('\n');
+        Assert.Equal(3, lines.Length);
+        Assert.Contains("Ada", lines);
+        Assert.Contains("Mod", lines);
+        Assert.Contains(@"\*\*Bob\*\*", lines);
+        Assert.Contains(card.Fields, f => f.Name == "People here now" && f.Value == "3 people");
+    }
+
+    [Fact]
+    public async Task WithNamesTurnedOff_TheCardShowsTheHeadCountOnly()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await services.ConfigureAsync(s =>
+        {
+            s.DiscordInstanceChannelId = Channel;
+            s.DiscordInstanceShowNames = false;
+        }, ct);
+
+        await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
+        await WatchedAsync(services, "68681", services.Clock.UtcNow, ct, ("usr_ada", "Ada"));
+
+        await RunAsync(services, gateway, ct);
+
+        var card = Assert.Single(Assert.Single(gateway.Messages).Embeds);
+        Assert.DoesNotContain(card.Fields, f => f.Name == "Who is here");
+        Assert.Contains(card.Fields, f => f.Name == "People here now" && f.Value == "3 people");
+    }
+
+    [Fact]
+    public async Task NobodyWatching_TheCardShowsTheHeadCountOnly()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
+        await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
+
+        await RunAsync(services, gateway, ct);
+
+        var card = Assert.Single(Assert.Single(gateway.Messages).Embeds);
+        Assert.DoesNotContain(card.Fields, f => f.Name == "Who is here");
+    }
+
+    [Fact]
+    public void NamesAreOnByDefault()
+        => Assert.True(new Settings().DiscordInstanceShowNames);
 }

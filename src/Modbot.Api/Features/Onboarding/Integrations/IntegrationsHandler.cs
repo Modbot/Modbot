@@ -27,13 +27,17 @@ namespace Modbot.Api.Features.Onboarding.Integrations;
 /// The operator's own line, posted above each card. Null leaves it alone; empty clears it and
 /// posts the card on its own. Always sent with mentions disabled.
 /// </param>
+/// <param name="InstanceShowNames">
+/// Whether a card lists who is in a room while a moderator is watching it. Null leaves it alone.
+/// </param>
 public sealed record DiscordSettings(
     string? BotToken = null,
     string? GuildId = null,
     string? LogChannelId = null,
     IReadOnlyList<string>? LogEventTypes = null,
     string? InstanceChannelId = null,
-    string? InstanceMessage = null);
+    string? InstanceMessage = null,
+    bool? InstanceShowNames = null);
 
 /// <param name="Password">Same null-versus-empty rule as the Discord token.</param>
 /// <param name="UseTls">
@@ -143,6 +147,9 @@ public static class IntegrationsHandler
 
                 settings.DiscordInstanceMessage = message.Length == 0 ? null : message;
             }
+
+            if (discord.InstanceShowNames is { } showNames)
+                settings.DiscordInstanceShowNames = showNames;
         }
 
         if (request?.Smtp is { } smtp)

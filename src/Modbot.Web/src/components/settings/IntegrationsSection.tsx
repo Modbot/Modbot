@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type OnboardingStatus } from '@/lib/api'
-import { Checkbox, Fact, Field, LongField, Outcome, PasswordField, Placeholder } from './fields'
+import { Checkbox, Fact, Field, LongField, Outcome, PasswordField, Placeholder, Switch } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 
 /**
@@ -47,6 +47,7 @@ function IntegrationsForm({
   const [instanceMessage, setInstanceMessage] = useState(
     status.integrations.discordInstanceMessage ?? '',
   )
+  const [instanceShowNames, setInstanceShowNames] = useState(status.integrations.discordInstanceShowNames)
   const [host, setHost] = useState(status.integrations.smtpHost ?? '')
   const [port, setPort] = useState('')
   const [smtpUsername, setSmtpUsername] = useState('')
@@ -97,6 +98,7 @@ function IntegrationsForm({
           logEventTypes,
           instanceChannelId,
           instanceMessage,
+          instanceShowNames,
         },
         smtp: {
           host,
@@ -174,6 +176,9 @@ function IntegrationsForm({
             onChange={setInstanceMessage}
             placeholder="Come and join us!"
           />
+          <Switch checked={instanceShowNames} onChange={setInstanceShowNames}>
+            Show names
+          </Switch>
         </div>
       </SettingsCard>
 

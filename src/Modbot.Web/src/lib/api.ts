@@ -73,6 +73,7 @@ export type OnboardingStatus = {
     discordLogEventChoices: { type: string; label: string }[]
     discordInstanceChannelId: string | null
     discordInstanceMessage: string | null
+    discordInstanceShowNames: boolean
     smtpConfigured: boolean
     smtpHost: string | null
     /** The saved public address, or null. The only thing an emailed link is built from. */
@@ -1481,6 +1482,7 @@ export const api = {
       logEventTypes?: string[]
       instanceChannelId?: string
       instanceMessage?: string
+      instanceShowNames?: boolean
     }
     smtp?: {
       host?: string
