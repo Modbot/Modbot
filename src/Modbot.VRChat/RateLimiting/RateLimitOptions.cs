@@ -256,10 +256,12 @@ public static class VRChatRateLimits
 
             // Measured at 1 req/s by the maintainer on 2026-09-13, so these are findings rather
             // than spec 4.3.4 guesses -- but they still count against the global backstop, which
-            // exists for the account-wide limit Modbot cannot see (spec 4.3.1). Neither is a
-            // steady consumer: a world is read once and then never again, and an instance only
-            // when a client reports one the group's own list does not carry. They are therefore
-            // deliberately absent from `Scheduled` below.
+            // exists for the account-wide limit Modbot cannot see (spec 4.3.1). A world is read
+            // once and then never again. An instance page is read about once every thirty seconds
+            // per open group room, for its head count (RoomHeadCountSync), so its steady rate is
+            // the number of open rooms divided by thirty -- which moves with the evening rather
+            // than being a fixed schedule, and is capped by this bucket either way. Both are
+            // therefore absent from `Scheduled` below.
             [VRChatEndpointClass.WorldsRead] = new(
                 VRChatEndpointClass.WorldsRead, PlacesLane,
                 HardMaxPerSecond: 1.0, DefaultCeilingPerSecond: CeilingFor(1.0)),

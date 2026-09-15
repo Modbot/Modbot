@@ -115,6 +115,12 @@ public sealed class GroupInstanceSync
                 fromGroupList: true,
                 ct).ConfigureAwait(false);
 
+            // The list's count stands in as the head count until the room's own page has been read,
+            // and again whenever those reads fail or go stale -- so a room is never shown without a
+            // number. A fresh page read wins over it (HeadCounts).
+            if (room is not null && HeadCounts.ListMayUpdate(room, now))
+                HeadCounts.Record(_db, room, instance.MemberCount, HeadCounts.FromList, now);
+
             if (room is null || known)
                 continue;
 

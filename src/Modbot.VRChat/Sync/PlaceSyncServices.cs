@@ -155,6 +155,37 @@ public sealed class GroupInstanceSyncService : PlaceSyncService
 }
 
 /// <summary>
+/// Reads open group rooms' own pages for their head counts, a few rooms a pass.
+/// </summary>
+/// <remarks>
+/// Every five seconds, because a pass only reads rooms whose last read is thirty seconds old
+/// (<see cref="RoomHeadCountSync.ReadEvery"/>): the loop comes round often and usually finds
+/// little to do, which keeps each room close to its thirty seconds without a timer per room.
+/// </remarks>
+public sealed class RoomHeadCountSyncService : PlaceSyncService
+{
+    public static readonly TimeSpan Interval = TimeSpan.FromSeconds(5);
+
+    public RoomHeadCountSyncService(
+        IServiceScopeFactory scopes,
+        IMonotonicClock? elapsed = null,
+        IDelayScheduler? delays = null,
+        ILogger? log = null)
+        : base(scopes, Interval, elapsed, delays, log)
+    {
+    }
+
+    protected override string What => "room head count read";
+
+    protected override async Task<SyncOutcome> RunOnceAsync(IServiceProvider scope, CancellationToken ct)
+    {
+        var sync = scope.GetRequiredService<RoomHeadCountSync>();
+        var result = await sync.RunOnceAsync(ct).ConfigureAwait(false);
+        return result.Outcome;
+    }
+}
+
+/// <summary>
 /// Puts names to worlds that have only ever been seen as an id, and closes rooms that have gone
 /// quiet for long enough to count as finished.
 /// </summary>

@@ -157,6 +157,20 @@ public abstract class SyncTestBase : IAsyncLifetime
         return await sync.RunOnceAsync(housekeeping, Ct);
     }
 
+    /// <summary>One poll of the group's instance list, in its own scope.</summary>
+    protected async Task<GroupInstanceRunResult> RunGroupInstancesAsync()
+    {
+        await using var context = Database.NewContext();
+        return await new GroupInstanceSync(_gate, new PlaceStore(context, Clock), context, Clock).RunOnceAsync(Ct);
+    }
+
+    /// <summary>One pass of the room head count read, in its own scope.</summary>
+    protected async Task<RoomHeadCountRunResult> RunRoomHeadCountsAsync()
+    {
+        await using var context = Database.NewContext();
+        return await new RoomHeadCountSync(_gate, context, Clock).RunOnceAsync(Ct);
+    }
+
     /// <summary>The member sweep's options for this test. Unpaced page overlap and size as shipped unless a test says otherwise.</summary>
     protected GroupMemberSyncOptions MemberOptions { get; set; } = new();
 

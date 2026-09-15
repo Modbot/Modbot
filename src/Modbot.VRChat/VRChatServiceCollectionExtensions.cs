@@ -269,6 +269,18 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<IMonotonicClock>()));
 
+        // Each open group room's own page, for its head count. Its own bucket (instances.read) and
+        // its own service, so a cold stop here leaves the group list -- and the list's count as the
+        // fallback -- untouched.
+        services.AddScoped<RoomHeadCountSync>(provider => new RoomHeadCountSync(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>()));
+
+        services.AddHostedService(provider => new RoomHeadCountSyncService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<IMonotonicClock>()));
+
         services.AddHostedService(provider => new GroupBanSyncService(
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
