@@ -49,6 +49,10 @@
          need the socket client and the REST client it carries, not the text-command or
          interaction frameworks the metapackage adds. -->
     <PackageVersion Include="Discord.Net.WebSocket" Version="3.20.1" />
+    <!-- The official OpenAI SDK, used against any OpenAI-compatible endpoint: OpenAI itself,
+         OpenRouter, xAI, Anthropic's compatibility layer, or a local server such as Ollama
+         (M8 4.2). One client library rather than one per provider. -->
+    <PackageVersion Include="OpenAI" Version="2.13.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="9.1.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />

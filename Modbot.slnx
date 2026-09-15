@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Modbot.AI/Modbot.AI.csproj" />
     <Project Path="src/Modbot.Analytics/Modbot.Analytics.csproj" />
     <Project Path="src/Modbot.Api/Modbot.Api.csproj" />
     <Project Path="src/Modbot.Client/Modbot.Client.csproj" />
@@ -14,6 +15,7 @@
     <Project Path="src/Modbot.VRChat/Modbot.VRChat.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Modbot.AI.Tests/Modbot.AI.Tests.csproj" />
     <Project Path="tests/Modbot.Analytics.Tests/Modbot.Analytics.Tests.csproj" />
     <Project Path="tests/Modbot.Api.Tests/Modbot.Api.Tests.csproj" />
     <Project Path="tests/Modbot.Client.Tests/Modbot.Client.Tests.csproj" />

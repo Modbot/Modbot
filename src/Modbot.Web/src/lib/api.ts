@@ -1420,6 +1420,31 @@ export type EvidenceUploadTicket = {
 
 export type EvidenceCommitted = { hash: string; byteSize: number; contentType: string }
 
+/** One preset on the AI provider list. `endpoint` is empty for Custom. */
+export type AiProviderOption = { id: string; label: string; endpoint: string }
+
+/** Settings → AI → Base as stored. The key itself is never sent to the browser. */
+export type AiSettings = {
+  enabled: boolean
+  provider: string
+  /** Null when nothing has been saved; the form fills it from the preset. */
+  endpoint: string | null
+  model: string | null
+  apiKeyStored: boolean
+  providers: AiProviderOption[]
+}
+
+/** The form's values for the Test button and the model list. Nothing is saved. */
+export type AiConnectionInput = {
+  provider: string
+  endpoint: string
+  model?: string
+  /** Omitted to use the stored key, which the server sends only to the endpoint it was saved with. */
+  apiKey?: string
+}
+
+export type AiSettingsInput = AiConnectionInput & { enabled: boolean; removeApiKey?: boolean }
+
 /**
  * A non-2xx response, carrying whatever the server said about it.
  *
@@ -1644,6 +1669,19 @@ export const api = {
     put<PublicAddressView>('/api/settings/public-address', { publicAddress }),
 
   sendTestEmail: (to: string) => post<{ sent: boolean; error: string | null }>('/api/settings/email/test', { to }),
+
+  // ── AI ──────────────────────────────────────────────────────────────────────────────────
+
+  aiSettings: () => request<AiSettings>('/api/settings/ai'),
+
+  setAiSettings: (body: AiSettingsInput) => put<AiSettings>('/api/settings/ai', body),
+
+  /** One short chat message through the endpoint on the form. A 200 either way; `message` says what happened. */
+  testAi: (body: AiConnectionInput) =>
+    post<{ worked: boolean; message: string }>('/api/settings/ai/test', body),
+
+  aiModels: (body: AiConnectionInput) =>
+    post<{ models: string[]; error: string | null }>('/api/settings/ai/models', body),
 
   // ── Desktop client ──────────────────────────────────────────────────────────────────────
 

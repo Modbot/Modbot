@@ -112,6 +112,7 @@ public static class ApiSurface
         app.MapSyncSettings();
         app.MapPublicAddressSettings();
         app.MapEmailSettings();
+        app.MapAiSettings();
 
         // The read surface over the fact log and the daily totals derived from it. Sync health resolves
         // SyncDiagnostics optionally, so a host that maps the API without registering the

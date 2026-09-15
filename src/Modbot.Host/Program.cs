@@ -10,6 +10,7 @@ using Modbot.Core.Data;
 using Modbot.Api.Features.Client;
 using Modbot.Api.Features.Evidence;
 using Modbot.Core.Logging;
+using Modbot.AI;
 using Modbot.Discord;
 using Modbot.Evidence;
 using Modbot.Evidence.Upload;
@@ -168,6 +169,10 @@ try
     // registered first to win. Today it sends one person a direct message with the stored bot
     // token, which is all the forgot-password flow needs (accounts and access design §4.2).
     builder.Services.AddModbotDiscord();
+
+    // Where every AI feature gets its client (M8 section 4). It reads the settings row on each
+    // call and hands out nothing while AI is off, so it needs nothing from startup.
+    builder.Services.AddModbotAi();
 
     builder.Services.AddModbotAuth();
 

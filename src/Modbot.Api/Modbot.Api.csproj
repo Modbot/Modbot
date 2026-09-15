@@ -5,6 +5,7 @@
     <ProjectReference Include="..\Modbot.VRChat\Modbot.VRChat.csproj" />
     <ProjectReference Include="..\Modbot.Analytics\Modbot.Analytics.csproj" />
     <ProjectReference Include="..\Modbot.Evidence\Modbot.Evidence.csproj" />
+    <ProjectReference Include="..\Modbot.AI\Modbot.AI.csproj" />
   </ItemGroup>
 
   <ItemGroup>

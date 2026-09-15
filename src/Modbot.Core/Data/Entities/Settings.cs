@@ -130,6 +130,36 @@ public class Settings
     /// </remarks>
     public bool DiscordInstanceShowNames { get; set; } = true;
 
+    // --- AI (M8 section 4) ---
+
+    /// <summary>
+    /// Whether anything in Modbot may call the AI endpoint. Off by default: sending members'
+    /// profile text anywhere is a choice a deployment makes, not one it inherits (M8 4.2).
+    /// </summary>
+    public bool AiEnabled { get; set; }
+
+    /// <summary>
+    /// Which preset the endpoint was filled from: <c>openrouter</c>, <c>xai</c>, <c>anthropic</c>,
+    /// <c>openai</c> or <c>custom</c>. Text rather than a number so a new preset is not a
+    /// migration. See <c>AiProviders</c> in <c>Modbot.AI</c>.
+    /// </summary>
+    public string? AiProvider { get; set; }
+
+    /// <summary>The OpenAI-compatible base address, e.g. <c>https://openrouter.ai/api/v1</c>.</summary>
+    public string? AiEndpoint { get; set; }
+
+    /// <summary>
+    /// The API key. Encrypted like every other secret, and never returned by the API.
+    /// </summary>
+    /// <remarks>
+    /// Cleared whenever the endpoint changes without a new key being typed, so a stored key is
+    /// only ever sent to the address it was entered for.
+    /// </remarks>
+    public string? AiApiKeyEncrypted { get; set; }
+
+    /// <summary>The model features use unless they ask for another.</summary>
+    public string? AiModel { get; set; }
+
     // --- Operator-supplied SMTP (spec 7.4) ---
     public string? SmtpHost { get; set; }
     public int? SmtpPort { get; set; }

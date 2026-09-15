@@ -43,7 +43,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.EditAgeVerification, "Edit 18+ verified", "Set or clear the 18+ verified mark on a VRChat user by hand. Syncs can only set it.", "Moderation"),
         Describe(ModbotPermissions.ManageUsers, "Manage users", "Add people, invite them, disable them and change their roles.", "Administration"),
         Describe(ModbotPermissions.ManageRoles, "Manage roles", "Create roles and decide what each one allows.", "Administration"),
-        Describe(ModbotPermissions.ManageSettings, "Change settings", "VRChat account, group, proxy, retention, evidence storage and integrations.", "Administration"),
+        Describe(ModbotPermissions.ManageSettings, "Change settings", "VRChat account, group, proxy, retention, evidence storage, AI and integrations.", "Administration"),
         Describe(ModbotPermissions.ManageApiKeys, "Manage API keys", "Create and revoke keys for the read API.", "Administration"),
         Describe(ModbotPermissions.Administrator, "Administrator", "Everything, including things added in future versions.", "Administration"),
     ];

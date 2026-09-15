@@ -12,6 +12,7 @@ Modbot stores several secrets on your behalf:
 - your Discord bot token
 - your SMTP password
 - your egress proxy's credentials, if you use one
+- your AI provider's API key, if you set one
 
 These live in the `settings` table, encrypted with AES-256-GCM.
 
