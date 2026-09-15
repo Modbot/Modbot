@@ -242,12 +242,23 @@ Two different fact types, because they carry different certainty:
 | Observed someone leave while still present | `InstanceLeft` | exact |
 | Still present when the local user left | *(nothing — the session simply stops being observed)* | |
 
-This maps directly onto foundation §5.3's precision model. And the deduplication rules already
-handle the cross-moderator case correctly: if moderator A was present from the start and saw B
-arrive precisely, A's exact `InstanceJoined` **supersedes** C's later `InstancePresenceObserved` for
-the same person — same event, better source.
+This maps directly onto foundation §5.3's precision model.
 
-That is the payoff for having built precision into the schema before knowing this problem existed.
+> **Corrected 2026-09-14.** This section used to say that moderator A's exact `InstanceJoined`
+> **supersedes** a later moderator C's `InstancePresenceObserved` for the same person. It does not,
+> and nothing was ever built to make it. `FactWriter`'s duplicate check matches on the fact type as
+> well as the person, room and ±5 s window, so an `InstanceJoined` and an `InstancePresenceObserved`
+> are never duplicates of each other and **both are stored**.
+>
+> That is harmless, and it was decided to leave it that way rather than build the replacement:
+>
+> - **Rosters** read both types as "present", so a second fact about somebody already present
+>   changes nothing.
+> - **Time sums** treat both as the start of a presence, and a later "already here" inside a stay
+>   that began with an exact arrival adds no time.
+> - **The Live page** shows "arrived <time>" or "here before <time>" from the *first* fact of a
+>   person's current stay, so A's exact arrival is what a moderator sees even when C's snapshot
+>   is also on record.
 
 ---
 

@@ -487,9 +487,11 @@ Both bursts are cleanly delimited:
 character apart, opposite meanings.
 
 Roster observations become `InstancePresenceObserved` with an open-ended earlier bound, which is
-exactly foundation §5.3's precision model. The existing supersede rule then resolves the
-cross-moderator case for free: a moderator present from the start who saw the genuine arrival
-supersedes a later moderator's roster snapshot of the same person.
+exactly foundation §5.3's precision model. A moderator present from the start who saw the genuine
+arrival does **not** replace a later moderator's roster snapshot of the same person: the duplicate
+check matches the fact type, so both are stored. Both mean "present", so rosters and time sums are
+unaffected, and screens take the first fact of a stay — the exact one — as the answer (research
+note §3.5, corrected 2026-09-14).
 
 Full evidence: `.agent/research/vrchat-log-events.md` §3.
 
