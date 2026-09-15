@@ -7,3 +7,10 @@
 export const OPEN_MY_SERVER = 'https://my.modbot.co/go'
 export const MY_MODBOT = 'https://my.modbot.co'
 export const SITE = 'https://modbot.co'
+
+/**
+ * The documentation site. Its address is not final; this is the one place to change it. "Host your
+ * own" goes to its self-hosting guide.
+ */
+export const DOCS = 'https://docs.modbot.co'
+export const SELF_HOSTING_GUIDE = `${DOCS}/self-hosting/`

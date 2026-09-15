@@ -2,7 +2,7 @@ import { ArrowDown } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Feature, SiteFooter, SiteHeader } from '@/components/Site'
 import { SourceBadge } from '@/components/SourceBadge'
-import { OPEN_MY_SERVER } from '@/lib/links'
+import { OPEN_MY_SERVER, SELF_HOSTING_GUIDE } from '@/lib/links'
 import { cn } from '@/lib/utils'
 import { AppMock } from '@/mock/AppMock'
 import { AnalyticsPanel } from '@/visuals/AnalyticsPanel'
@@ -64,7 +64,7 @@ function Hero() {
               the tools it doesn&rsquo;t. It runs on your own server.
             </p>
             <div className="flex flex-wrap gap-3 md:col-span-5 md:justify-end">
-              <a href="#self-host" className={buttonVariants({ size: 'lg' })}>
+              <a href={SELF_HOSTING_GUIDE} className={buttonVariants({ size: 'lg' })}>
                 Host your own
               </a>
               <a href={OPEN_MY_SERVER} className={buttonVariants({ variant: 'outline', size: 'lg' })}>
@@ -308,7 +308,10 @@ function SelfHost() {
             </ol>
           </div>
           <p className="text-[0.9375rem] text-pretty text-muted-foreground">
-            Runs anywhere Docker does. On Railway it reads the platform&rsquo;s own settings, including a storage bucket for evidence.
+            Runs anywhere Docker does. On Railway it reads the platform&rsquo;s own settings, including a storage bucket for evidence.{' '}
+            <a href={SELF_HOSTING_GUIDE} className="font-medium text-foreground underline underline-offset-4">
+              Read the self-hosting guide
+            </a>
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { Moon, Sun } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { SourceBadge, type Source } from '@/components/SourceBadge'
-import { MY_MODBOT, OPEN_MY_SERVER } from '@/lib/links'
+import { DOCS, MY_MODBOT, OPEN_MY_SERVER, SELF_HOSTING_GUIDE } from '@/lib/links'
 import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
@@ -138,8 +138,11 @@ export function SiteFooter({ privacy = false }: { privacy?: boolean }) {
           <a href={MY_MODBOT} className="hover:text-foreground hover:underline">
             my.modbot.co
           </a>
-          <a href="/#self-host" className="hover:text-foreground hover:underline">
+          <a href={SELF_HOSTING_GUIDE} className="hover:text-foreground hover:underline">
             Host your own
+          </a>
+          <a href={DOCS} className="hover:text-foreground hover:underline">
+            Docs
           </a>
           {privacy && (
             <a href="/privacy" className="hover:text-foreground hover:underline">
