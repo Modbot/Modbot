@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { api, ApiError, type AiSettings, type AiSettingsInput } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Field, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+import { ModelField } from './ModelField'
 
 /**
  * Settings → AI → Base: where AI requests go, with which key, to which model, and whether they go
@@ -73,17 +74,9 @@ function ConnectionCard({
   const [problem, setProblem] = useState<string | null>(null)
   const [test, setTest] = useState<{ worked: boolean; message: string } | null>(null)
 
-  const [models, setModels] = useState<string[]>([])
-  const [modelsFor, setModelsFor] = useState<string | null>(null)
-  const [modelsError, setModelsError] = useState<string | null>(null)
-  const listId = useId()
-
   const chooseProvider = (id: string) => {
     setProvider(id)
     setEndpoint(presetEndpoint(id))
-    setModels([])
-    setModelsFor(null)
-    setModelsError(null)
   }
 
   const failure = (e: unknown) =>
@@ -99,25 +92,6 @@ function ConnectionCard({
     model: model.trim(),
     ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
   })
-
-  // Loaded when the model box is first used for this provider, address and key, so an endpoint
-  // that has no model list costs one quiet failure rather than one per keystroke.
-  const loadModels = () => {
-    const wanted = `${provider}|${endpoint.trim()}|${apiKey.trim()}`
-    if (!endpoint.trim() || modelsFor === wanted) return
-    setModelsFor(wanted)
-
-    api
-      .aiModels(connection())
-      .then((r) => {
-        setModels(r.models)
-        setModelsError(r.error)
-      })
-      .catch((e: unknown) => {
-        setModels([])
-        setModelsError(failure(e))
-      })
-  }
 
   const save = (body: AiSettingsInput, what: 'save' | 'remove') => {
     setBusy(what)
@@ -209,6 +183,11 @@ function ConnectionCard({
             }}
           >
             {p.label}
+            {p.recommended && (
+              <Badge variant="secondary" className="ml-1.5">
+                Recommended
+              </Badge>
+            )}
           </button>
         ))}
       </div>
@@ -225,22 +204,14 @@ function ConnectionCard({
           value={apiKey}
           onChange={setApiKey}
         />
-        <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-          <span className="text-muted-foreground">Model</span>
-          <Input
-            list={listId}
-            value={model}
-            autoComplete="off"
-            onFocus={loadModels}
-            onChange={(e) => setModel(e.target.value)}
-          />
-          <datalist id={listId}>
-            {models.map((m) => (
-              <option key={m} value={m} />
-            ))}
-          </datalist>
-        </label>
-        <Outcome tone="problem">{modelsError}</Outcome>
+        <ModelField
+          feature="base"
+          value={model}
+          provider={provider}
+          endpoint={endpoint.trim()}
+          apiKey={apiKey.trim()}
+          onChange={setModel}
+        />
       </div>
     </SettingsCard>
   )

@@ -1783,7 +1783,7 @@ export type EvidenceUploadTicket = {
 export type EvidenceCommitted = { hash: string; byteSize: number; contentType: string }
 
 /** One preset on the AI provider list. `endpoint` is empty for Custom. */
-export type AiProviderOption = { id: string; label: string; endpoint: string }
+export type AiProviderOption = { id: string; label: string; endpoint: string; recommended: boolean }
 
 /** Settings → AI → Base as stored. The key itself is never sent to the browser. */
 export type AiSettings = {
@@ -1860,6 +1860,56 @@ export type AiFetchedPrice = {
 
 /** A model in use, set in settings or priced. The entered price wins over the fetched one. */
 export type AiModelPrices = { model: string; entered: AiPrice | null; fetched: AiFetchedPrice | null }
+
+/** Which model box the picker was opened from. */
+export type AiModelFeature = 'base' | 'moderation' | 'insights' | 'chat'
+
+/** One model on OpenRouter's list, as the picker shows it. */
+export type AiCatalogModel = {
+  id: string
+  name: string | null
+  /** The part of the id before the `/`. */
+  maker: string
+  contextLength: number | null
+  maxOutputTokens: number | null
+  inputModalities: string[]
+  outputModalities: string[]
+  addedAt: string | null
+  inputPerMillion: number | null
+  cachedInputPerMillion: number | null
+  outputPerMillion: number | null
+  /** `entered`, `openrouter`, or null when there is no price. */
+  priceSource: string | null
+  priceVaries: boolean
+  free: boolean
+  tools: boolean
+  structuredOutput: boolean
+  imagesIn: boolean
+  recommended: boolean
+  /** What the feature needs that this model cannot do: `tools`, `structuredOutput`. */
+  missing: string[]
+  costPerThousandCalls: number | null
+}
+
+/** What one call of the feature has used on average, per call. */
+export type AiTokenAverage = {
+  calls: number
+  inputTokens: number
+  cachedInputTokens: number
+  outputTokens: number
+}
+
+export type AiCatalog = {
+  feature: AiModelFeature
+  needs: string[]
+  now: string
+  fetchedAt: string | null
+  /** Null when there is no usage to work the per-thousand-calls cost out from. */
+  average: AiTokenAverage | null
+  models: AiCatalogModel[]
+  /** The prices the operator entered, for models OpenRouter's list does not carry. */
+  prices: AiPrice[]
+}
 
 export type AiLimitAppliesTo = 'everyone' | 'feature' | 'role' | 'user'
 
@@ -2467,6 +2517,10 @@ export const api = {
 
   aiModels: (body: AiConnectionInput) =>
     post<{ models: string[]; error: string | null }>('/api/settings/ai/models', body),
+
+  /** OpenRouter's models as last fetched, ordered for the feature the picker was opened from. */
+  aiCatalog: (feature: AiModelFeature) =>
+    request<AiCatalog>(`/api/settings/ai/catalog?feature=${feature}`),
 
   aiInsightsSettings: () => request<AiInsightsSettings>('/api/settings/ai/insights'),
 

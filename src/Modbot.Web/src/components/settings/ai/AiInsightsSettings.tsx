@@ -13,8 +13,9 @@ import {
   type InsightKind,
   type InsightKindSettings,
 } from '@/lib/api'
-import { Field, Outcome, Placeholder, Switch } from '../fields'
+import { Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+import { ModelField } from './ModelField'
 
 /**
  * Settings → AI → Insights: when each kind of AI-written summary is written, in which time zone,
@@ -174,7 +175,7 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
               ))}
             </Select>
           </label>
-          <Field label="Model" value={model} placeholder={stored.baseModel ?? ''} onChange={setModel} />
+          <ModelField feature="insights" value={model} placeholder={stored.baseModel ?? ''} onChange={setModel} />
         </div>
       </SettingsCard>
 

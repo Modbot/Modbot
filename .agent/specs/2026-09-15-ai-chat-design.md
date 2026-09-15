@@ -292,3 +292,62 @@ in use, set in settings or priced, with the entered price in the boxes, the fetc
 boxes' placeholder, and where the price in use comes from ("Entered", "OpenRouter · 3h ago" or "No
 price"). Limits and entered prices are each saved as a whole list; clearing a model's boxes removes
 its entered price.
+
+### 10.9 The model picker
+
+Added 2026-09-15 at the maintainer's request: **OpenRouter is the recommended provider**, and the
+model boxes on the AI pages offer OpenRouter's whole list with prices, so a moderator picks a model
+knowing what it will cost and what it can do rather than typing an id from memory.
+
+OpenRouter is first on the provider list, carries a **Recommended** badge, and is what a new
+deployment starts on (`AiProviders.Default`); a deployment that already saved another provider keeps
+it.
+
+**What is stored.** The daily price fetch (§10.2) now also stores the list itself, in
+`ai_catalog_model`: the id, OpenRouter's name for it, the maker (the part of the id before the `/`,
+with OpenRouter's leading `~` for an alias taken off), the context length, the most tokens one answer
+may be, what it reads and writes, the request fields it takes (`tools`, `structured_outputs`, …),
+when OpenRouter added it, the three prices per million, and every price field OpenRouter listed, per
+unit as listed, as JSON. The table is replaced as a whole on each fetch, so it is what OpenRouter
+lists today; `ai_fetched_price` is untouched by that and keeps a dropped model's last price, so past
+spend stays priced. Unlike `ai_fetched_price` it also holds routers priced `-1` and models with no
+price at all, marked as such, because the picker has to show them for what they are.
+
+**`GET /api/settings/ai/catalog?feature=`** (`ManageSettings`) serves it, so opening the picker calls
+nobody: the models in the order below, what the feature needs, when the list was fetched, this
+deployment's average tokens per call, and the prices the operator entered. `feature` is `base`,
+`moderation`, `insights` or `chat`. An entered price still wins over a fetched one, and a model with
+an entered price is never "price varies". Refresh on the picker is the existing
+`POST /api/settings/ai/prices/fetch`, which is never retried after a 429.
+
+**Recommended for a feature.** No favourite model is ever named. A model is recommended when all
+three hold:
+
+1. it does what the feature needs — `tools` for Chat, `structured_outputs` for Moderation and
+   Insights, and both for Base, because every feature without a model of its own runs on the Base
+   model and Moderation always does;
+2. it has a real price — not a router priced `-1`, and not a model OpenRouter prices not at all,
+   since neither can be compared on cost;
+3. OpenRouter added it less than eighteen months ago.
+
+Recommended models come first, cheapest first inside each group, then the rest on the same footing,
+with unpriced models last. "Cheapest" is what a thousand calls would cost this deployment where
+there is usage to work that out from, and otherwise the input and output prices added together. The
+rule is one function, `AiModelCatalog.Order`.
+
+**What this deployment would pay.** When `ai_usage` has rows from the last thirty days, the picker
+adds a column: the cost of a thousand calls of the feature the picker was opened from, at that
+feature's own average input, cached input and output tokens, priced by the same `AiPrices.CostOf`
+spend is priced with. Base averages every feature together apart from the Test button, which is one
+short message and no work. With no usage the column is not shown.
+
+**The picker.** A dialog with a search box and a dense table: the model's name with its id beneath
+it, the maker, input, output and cached input per million tokens, the context length written as
+"200K", and the cost per thousand calls. Any column can be sorted; the list starts in the
+recommended-first order above. It filters by maker, Tools, Structured output, Free, and a highest
+price per million. What a model can or cannot do is a chip, never a sentence: "Tools", "Structured
+output", "Images in", "Free", and, where it matters for the feature the picker was opened from, "No
+tools", "No structured output" and "Price varies". Picking a row fills the model box; the model
+already saved is marked, and a model id typed by hand that OpenRouter does not list is kept and
+shown as "Not in list". Every other provider keeps a plain list of the ids its own endpoint returns,
+with the operator's entered price beside each, or "No price".

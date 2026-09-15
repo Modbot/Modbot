@@ -3711,6 +3711,61 @@
         ]
       }
     },
+    "/api/settings/ai/catalog": {
+      "get": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "OpenRouter's models, their prices, and what a thousand calls would cost",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetAiCatalog",
+        "parameters": [
+          {
+            "name": "feature",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiCatalogResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord/channels": {
       "get": {
         "tags": [
@@ -9102,6 +9157,204 @@
           }
         }
       },
+      "AiCatalogModelView": {
+        "required": [
+          "id",
+          "name",
+          "maker",
+          "contextLength",
+          "maxOutputTokens",
+          "inputModalities",
+          "outputModalities",
+          "addedAt",
+          "inputPerMillion",
+          "cachedInputPerMillion",
+          "outputPerMillion",
+          "priceSource",
+          "priceVaries",
+          "free",
+          "tools",
+          "structuredOutput",
+          "imagesIn",
+          "recommended",
+          "missing",
+          "costPerThousandCalls"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "maker": {
+            "type": "string"
+          },
+          "contextLength": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "maxOutputTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "inputModalities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outputModalities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "addedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "inputPerMillion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "cachedInputPerMillion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "outputPerMillion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "priceSource": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "priceVaries": {
+            "type": "boolean"
+          },
+          "free": {
+            "type": "boolean"
+          },
+          "tools": {
+            "type": "boolean"
+          },
+          "structuredOutput": {
+            "type": "boolean"
+          },
+          "imagesIn": {
+            "type": "boolean"
+          },
+          "recommended": {
+            "type": "boolean"
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "costPerThousandCalls": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "AiCatalogResponse": {
+        "required": [
+          "feature",
+          "needs",
+          "now",
+          "fetchedAt",
+          "average",
+          "models",
+          "prices"
+        ],
+        "type": "object",
+        "properties": {
+          "feature": {
+            "type": "string"
+          },
+          "needs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fetchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "average": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiTokenAverageView"
+              }
+            ]
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiCatalogModelView"
+            }
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiPriceView"
+            }
+          }
+        }
+      },
       "AiChatSettingsResponse": {
         "required": [
           "enabled",
@@ -9995,7 +10248,8 @@
         "required": [
           "id",
           "label",
-          "endpoint"
+          "endpoint",
+          "recommended"
         ],
         "type": "object",
         "properties": {
@@ -10007,6 +10261,9 @@
           },
           "endpoint": {
             "type": "string"
+          },
+          "recommended": {
+            "type": "boolean"
           }
         }
       },
@@ -10157,6 +10414,49 @@
           },
           "message": {
             "type": "string"
+          }
+        }
+      },
+      "AiTokenAverageView": {
+        "required": [
+          "calls",
+          "inputTokens",
+          "cachedInputTokens",
+          "outputTokens"
+        ],
+        "type": "object",
+        "properties": {
+          "calls": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "inputTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "cachedInputTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "outputTokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },

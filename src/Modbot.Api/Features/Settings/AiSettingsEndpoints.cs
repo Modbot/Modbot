@@ -12,7 +12,8 @@ using Modbot.Core.Security;
 namespace Modbot.Api.Features.Settings;
 
 /// <summary>One preset on the provider list.</summary>
-public sealed record AiProviderView(string Id, string Label, string Endpoint);
+/// <param name="Recommended">The preset a new deployment starts on, marked as such on the page.</param>
+public sealed record AiProviderView(string Id, string Label, string Endpoint, bool Recommended);
 
 /// <summary>Settings → AI → Base, as stored.</summary>
 /// <param name="Endpoint">Null when nothing has been saved; the page fills it from the preset.</param>
@@ -185,7 +186,7 @@ public static class AiSettingsEndpoints
         settings.AiEndpoint,
         settings.AiModel,
         settings.AiApiKeyEncrypted is not null,
-        [.. AiProviders.All.Select(p => new AiProviderView(p.Id, p.Label, p.Endpoint))]);
+        [.. AiProviders.All.Select(p => new AiProviderView(p.Id, p.Label, p.Endpoint, p.Id == AiProviders.Default.Id))]);
 
     private static async Task<(AiConnection? Connection, string? Error)> ConnectionAsync(
         AiConnectionCheck body, bool requireModel, ModbotContext db, ISecretProtector protector, CancellationToken ct)

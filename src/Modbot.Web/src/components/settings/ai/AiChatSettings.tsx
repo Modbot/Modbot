@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api, ApiError, type AiChatSettings as Settings } from '@/lib/api'
-import { Field, LongField, Outcome, Placeholder, Switch } from '../fields'
+import { LongField, Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+import { ModelField } from './ModelField'
 
 /**
  * Settings → AI → Chat: whether the Chat page answers, with which model, what it is told, how far
@@ -113,7 +114,7 @@ function ChatForm({ settings, onSaved }: { settings: Settings; onSaved: (next: S
         {!settings.aiEnabled && <Outcome tone="problem">AI is off on Base.</Outcome>}
 
         <div className="flex max-w-lg flex-col gap-3">
-          <Field label="Model" value={model} placeholder={settings.baseModel ?? ''} onChange={setModel} />
+          <ModelField feature="chat" value={model} placeholder={settings.baseModel ?? ''} onChange={setModel} />
           <LongField
             label="Extra instructions"
             value={instructions}

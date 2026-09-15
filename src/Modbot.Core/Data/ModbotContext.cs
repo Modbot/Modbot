@@ -162,6 +162,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>What each model costs per million tokens, as fetched from OpenRouter.</summary>
     public DbSet<AiFetchedPrice> AiFetchedPrices => Set<AiFetchedPrice>();
 
+    /// <summary>OpenRouter's model list as last fetched, for the model picker (AI chat design §10.9).</summary>
+    public DbSet<AiCatalogModel> AiCatalogModels => Set<AiCatalogModel>();
+
     /// <summary>Daily and monthly caps on AI spend, for everyone, a feature, a role or one account (AI chat design §10).</summary>
     public DbSet<AiSpendLimit> AiSpendLimits => Set<AiSpendLimit>();
 
@@ -1292,6 +1295,26 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.InputPerMillion).HasPrecision(18, 6);
             entity.Property(e => e.CachedInputPerMillion).HasPrecision(18, 6);
             entity.Property(e => e.OutputPerMillion).HasPrecision(18, 6);
+        });
+
+        builder.Entity<AiCatalogModel>(entity =>
+        {
+            entity.ToTable("ai_catalog_model");
+
+            entity.HasKey(e => e.Model);
+            entity.Property(e => e.Model).HasMaxLength(200);
+            entity.Property(e => e.Name).HasMaxLength(300);
+            entity.Property(e => e.Maker).HasMaxLength(200);
+            entity.Property(e => e.InputModalities).HasColumnType("jsonb");
+            entity.Property(e => e.OutputModalities).HasColumnType("jsonb");
+            entity.Property(e => e.SupportedParameters).HasColumnType("jsonb");
+            entity.Property(e => e.Prices).HasColumnType("jsonb");
+            entity.Property(e => e.InputPerMillion).HasPrecision(18, 6);
+            entity.Property(e => e.CachedInputPerMillion).HasPrecision(18, 6);
+            entity.Property(e => e.OutputPerMillion).HasPrecision(18, 6);
+
+            // The picker groups and filters by maker.
+            entity.HasIndex(e => e.Maker).HasDatabaseName("ix_ai_catalog_model_maker");
         });
 
         builder.Entity<AiLimitReachedRecord>(entity =>

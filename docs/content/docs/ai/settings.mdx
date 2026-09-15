@@ -20,13 +20,18 @@ Modbot talks to any service that understands the OpenAI chat format (often calle
 
 | Preset | Endpoint it fills in |
 |---|---|
-| **OpenRouter** (the default) | `https://openrouter.ai/api/v1` |
+| **OpenRouter** (recommended, and the default) | `https://openrouter.ai/api/v1` |
 | **xAI** | `https://api.x.ai/v1` |
 | **Anthropic** | `https://api.anthropic.com/v1/` |
 | **OpenAI** | `https://api.openai.com/v1` |
 | **Custom** | Nothing. You type the address. |
 
 A preset only fills in the **Endpoint** box. You can edit the address afterwards.
+
+**OpenRouter is the one we recommend**, and a new Modbot starts on it. One key reaches almost every
+model there is, which is why Modbot can show you the whole list with prices (see
+[Choosing a model](#choosing-a-model)) and why it knows what each request cost. Nothing stops you
+using another provider, and a Modbot that has already saved one keeps it.
 
 Choose **Custom** for anything else, including a model server on your own machine or network, such
 as Ollama (`http://localhost:11434/v1`). **Custom** is the only preset that accepts a plain `http://`
@@ -67,8 +72,8 @@ key.
 
 ### Choose a model
 
-Click into **Model**. Modbot asks the endpoint for its list of models and offers them as you type.
-You can also type a model name the list does not show.
+Press **Choose** beside **Model** and pick one from the list, or type a model name yourself. See
+[Choosing a model](#choosing-a-model) below.
 
 </Step>
 <Step>
@@ -114,6 +119,57 @@ redirected to another server.
 **Model** is the model every feature uses unless you choose another one for it.
 [Insights](/ai/insights) and [Chat](/ai/chat) each have their own **Model** box; left empty, they use
 this one.
+
+## Choosing a model
+
+Every **Model** box has a **Choose** button. What it opens depends on your provider.
+
+### On OpenRouter
+
+You get OpenRouter's whole list, as Modbot last fetched it, with:
+
+| Column | What it is |
+|---|---|
+| **Model** | The model's name, its id underneath, and chips for what it can do |
+| **Maker** | Who makes it — the part of the id before the `/` |
+| **Input $/1M** | US dollars per million tokens you send |
+| **Output $/1M** | US dollars per million tokens it writes back |
+| **Cached $/1M** | What input the provider already has cached costs instead |
+| **Context** | How much a request and its answer can hold together, such as "200K" |
+| **Per 1,000 calls** | What a thousand calls would cost *you* — see below |
+
+Search by name or id, filter by maker, by **Tools**, by **Structured output**, by **Free**, or by a
+highest price per million; sort by any column. Click a row to choose that model.
+
+The chips are the short version of what a model can do: **Tools**, **Structured output**,
+**Images in**, **Free**. Where a model cannot do something the feature needs, the chip says so
+instead — **No tools** on a model Chat could not use, **No structured output** on one moderation
+rules could not use — and a router whose price depends on the model it picks shows **Price varies**.
+
+**The order.** Models recommended for the box you opened come first, cheapest first. A model is
+recommended when it can do what that feature needs (tools for Chat, structured output for moderation
+rules and insights, both for the **Base** box that everything falls back to), when it has a real
+price, and when OpenRouter added it less than eighteen months ago. Modbot never favours a particular
+model by name.
+
+**Per 1,000 calls** appears once Modbot has AI usage of its own to work from: it takes the average
+request that feature has actually made over the last thirty days — input, cached input and output
+tokens — and prices a thousand of them on each model, using the same sums as
+[Limits and spend](/ai/limits-and-spend). With no usage yet, the column is not shown.
+
+**Fetched** in the corner says how old the list is; **Refresh** fetches it again from OpenRouter,
+which is the same fetch the **Limits** tab's **Fetch prices** button makes. Modbot fetches on its own
+once a day while AI is on and set to OpenRouter.
+
+### On any other provider
+
+Modbot asks your endpoint for its own list of models and shows it, with the price beside any model
+you entered a price for on the [Limits](/ai/limits-and-spend) tab, or **No price**.
+
+### A model that is not on the list
+
+You can always type a model id yourself, whatever the list says: the box keeps what you type, and the
+picker marks it **Not in list**. Use **Test** to check it works.
 
 ## The Test button
 

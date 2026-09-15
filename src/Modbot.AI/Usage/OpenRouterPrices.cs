@@ -15,6 +15,26 @@ namespace Modbot.AI.Usage;
 /// <summary>One model's price as OpenRouter lists it, per million tokens.</summary>
 public sealed record OpenRouterPrice(string Model, decimal InputPerMillion, decimal? CachedInputPerMillion, decimal OutputPerMillion);
 
+/// <summary>
+/// One model on OpenRouter's list: what it is, what it can do, and what it costs.
+/// </summary>
+/// <param name="Price">Null when OpenRouter lists no usable price, including when it varies.</param>
+/// <param name="PriceVaries">OpenRouter priced it <c>-1</c>, which a router does.</param>
+/// <param name="Prices">Every price field, per unit exactly as listed, <c>-1</c> included.</param>
+/// <param name="AddedAt">When OpenRouter added it, from <c>created</c>.</param>
+public sealed record OpenRouterModel(
+    string Id,
+    string? Name,
+    int? ContextLength,
+    int? MaxOutputTokens,
+    IReadOnlyList<string> InputModalities,
+    IReadOnlyList<string> OutputModalities,
+    IReadOnlyList<string> SupportedParameters,
+    DateTimeOffset? AddedAt,
+    OpenRouterPrice? Price,
+    bool PriceVaries,
+    IReadOnlyDictionary<string, decimal> Prices);
+
 /// <summary>What a fetch did.</summary>
 /// <param name="Saved">How many prices were saved.</param>
 /// <param name="Error">What went wrong, as a sentence, or null.</param>
@@ -106,26 +126,35 @@ public sealed class OpenRouterPrices
             return new AiPriceFetchResult(0, $"Could not reach openrouter.ai: {e.Message}");
         }
 
-        IReadOnlyList<OpenRouterPrice> prices;
+        IReadOnlyList<OpenRouterModel> models;
         try
         {
-            prices = Read(body);
+            models = ReadModels(body);
         }
         catch (JsonException)
         {
             return new AiPriceFetchResult(0, "openrouter.ai answered with something that is not a model list.");
         }
 
+        var prices = models.Select(m => m.Price).OfType<OpenRouterPrice>().ToList();
+
         if (prices.Count == 0)
             return new AiPriceFetchResult(0, "openrouter.ai listed no prices.");
 
-        await SaveAsync(prices, ct).ConfigureAwait(false);
+        await SaveAsync(models, prices, ct).ConfigureAwait(false);
         return new AiPriceFetchResult(prices.Count, null);
     }
 
     /// <summary>The prices in a model list. Models without a usable price are left out.</summary>
     /// <exception cref="JsonException">The body is not JSON.</exception>
-    public static IReadOnlyList<OpenRouterPrice> Read(ReadOnlySpan<byte> json)
+    public static IReadOnlyList<OpenRouterPrice> Read(ReadOnlySpan<byte> json) =>
+        [.. ReadModels(json).Select(m => m.Price).OfType<OpenRouterPrice>()];
+
+    /// <summary>
+    /// Every model in a model list, whether or not it has a price. The first listing of an id wins.
+    /// </summary>
+    /// <exception cref="JsonException">The body is not JSON.</exception>
+    public static IReadOnlyList<OpenRouterModel> ReadModels(ReadOnlySpan<byte> json)
     {
         var reader = new Utf8JsonReader(json);
         using var document = JsonDocument.ParseValue(ref reader);
@@ -137,7 +166,7 @@ public sealed class OpenRouterPrices
             return [];
         }
 
-        var prices = new List<OpenRouterPrice>();
+        var models = new List<OpenRouterModel>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var model in data.EnumerateArray())
@@ -146,50 +175,145 @@ public sealed class OpenRouterPrices
                 || !model.TryGetProperty("id", out var idElement)
                 || idElement.ValueKind != JsonValueKind.String
                 || idElement.GetString() is not { Length: > 0 and <= AiSettingsRules.MaxModelLength } id
-                || !model.TryGetProperty("pricing", out var pricing)
-                || pricing.ValueKind != JsonValueKind.Object)
+                || !seen.Add(id))
             {
                 continue;
             }
 
-            var input = PerMillion(pricing, "prompt");
-            var output = PerMillion(pricing, "completion");
-            if (input is null || output is null || !seen.Add(id))
-                continue;
+            var hasPricing = model.TryGetProperty("pricing", out var pricing) && pricing.ValueKind == JsonValueKind.Object;
 
-            prices.Add(new OpenRouterPrice(id, input.Value, PerMillion(pricing, "input_cache_read"), output.Value));
+            OpenRouterPrice? price = null;
+            var varies = false;
+            IReadOnlyDictionary<string, decimal> prices = new Dictionary<string, decimal>(StringComparer.Ordinal);
+
+            if (hasPricing)
+            {
+                var input = PerMillion(pricing, "prompt");
+                var output = PerMillion(pricing, "completion");
+
+                if (input is not null && output is not null)
+                    price = new OpenRouterPrice(id, input.Value, PerMillion(pricing, "input_cache_read"), output.Value);
+
+                varies = PerUnit(pricing, "prompt") < 0 || PerUnit(pricing, "completion") < 0;
+                prices = AllPrices(pricing);
+            }
+
+            var top = Nested(model, "top_provider");
+            var architecture = Nested(model, "architecture");
+
+            models.Add(new OpenRouterModel(
+                id,
+                Text(model, "name", MaxNameLength),
+                Whole(model, "context_length") ?? Whole(top, "context_length"),
+                Whole(top, "max_completion_tokens"),
+                Words(architecture, "input_modalities"),
+                Words(architecture, "output_modalities"),
+                Words(model, "supported_parameters", MaxParameters),
+                AddedAt(model),
+                price,
+                varies,
+                prices));
+        }
+
+        return models;
+    }
+
+    private const int MaxNameLength = 300;
+    private const int MaxWordLength = 64;
+    private const int MaxModalities = 16;
+    private const int MaxParameters = 64;
+    private const int MaxPriceFields = 32;
+
+    /// <summary>The value of a nested object, or nothing when it is missing or not an object.</summary>
+    private static JsonElement? Nested(JsonElement parent, string name) =>
+        parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Object ? value : null;
+
+    private static string? Text(JsonElement parent, string name, int maxLength)
+    {
+        if (!parent.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String)
+            return null;
+
+        var text = value.GetString();
+        return string.IsNullOrWhiteSpace(text) ? null : text.Length <= maxLength ? text : text[..maxLength];
+    }
+
+    private static int? Whole(JsonElement? parent, string name) =>
+        parent is { } element
+        && element.TryGetProperty(name, out var value)
+        && value.ValueKind == JsonValueKind.Number
+        && value.TryGetInt32(out var number)
+        && number > 0
+            ? number
+            : null;
+
+    /// <summary>A list of short words, e.g. the modalities or the parameters a model takes.</summary>
+    private static IReadOnlyList<string> Words(JsonElement? parent, string name, int max = MaxModalities)
+    {
+        if (parent is not { } element || !element.TryGetProperty(name, out var array) || array.ValueKind != JsonValueKind.Array)
+            return [];
+
+        var words = new List<string>();
+
+        foreach (var item in array.EnumerateArray())
+        {
+            if (words.Count == max)
+                break;
+            if (item.ValueKind == JsonValueKind.String && item.GetString() is { Length: > 0 } word && word.Length <= MaxWordLength)
+                words.Add(word);
+        }
+
+        return words;
+    }
+
+    private static DateTimeOffset? AddedAt(JsonElement model)
+    {
+        if (!model.TryGetProperty("created", out var created) || created.ValueKind != JsonValueKind.Number || !created.TryGetInt64(out var seconds))
+            return null;
+
+        return seconds is >= 0 and <= 4_102_444_800 ? DateTimeOffset.FromUnixTimeSeconds(seconds) : null;
+    }
+
+    /// <summary>Every price field as listed, per unit. The time-of-day <c>overrides</c> are left out.</summary>
+    private static IReadOnlyDictionary<string, decimal> AllPrices(JsonElement pricing)
+    {
+        var prices = new Dictionary<string, decimal>(StringComparer.Ordinal);
+
+        foreach (var field in pricing.EnumerateObject())
+        {
+            if (prices.Count == MaxPriceFields)
+                break;
+            if (field.Name.Length <= MaxWordLength && PerUnit(pricing, field.Name) is { } value)
+                prices[field.Name] = value;
         }
 
         return prices;
     }
 
-    /// <summary>A per-token price turned into a price per million, or null when missing or not a real price.</summary>
-    private static decimal? PerMillion(JsonElement pricing, string name)
+    /// <summary>A price exactly as listed, or null when it is missing or not a number.</summary>
+    private static decimal? PerUnit(JsonElement pricing, string name)
     {
         if (!pricing.TryGetProperty(name, out var value))
             return null;
 
-        decimal perToken;
-        switch (value.ValueKind)
+        return value.ValueKind switch
         {
-            case JsonValueKind.String when decimal.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed):
-                perToken = parsed;
-                break;
-            case JsonValueKind.Number when value.TryGetDecimal(out var number):
-                perToken = number;
-                break;
-            default:
-                return null;
-        }
+            JsonValueKind.String when decimal.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) => parsed,
+            JsonValueKind.Number when value.TryGetDecimal(out var number) => number,
+            _ => null,
+        };
+    }
 
-        if (perToken < 0)
+    /// <summary>A per-token price turned into a price per million, or null when missing or not a real price.</summary>
+    private static decimal? PerMillion(JsonElement pricing, string name)
+    {
+        if (PerUnit(pricing, name) is not { } perToken || perToken < 0)
             return null;
 
         var perMillion = Math.Round(perToken * Million, 6, MidpointRounding.AwayFromZero);
         return perMillion > AiPriceRules.MaxAmount ? null : perMillion;
     }
 
-    private async Task SaveAsync(IReadOnlyList<OpenRouterPrice> prices, CancellationToken ct)
+    private async Task SaveAsync(IReadOnlyList<OpenRouterModel> models, IReadOnlyList<OpenRouterPrice> prices, CancellationToken ct)
     {
         var now = _clock.UtcNow;
         var existing = await _db.AiFetchedPrices.ToDictionaryAsync(p => p.Model, StringComparer.Ordinal, ct).ConfigureAwait(false);
@@ -207,6 +331,36 @@ public sealed class OpenRouterPrices
             row.OutputPerMillion = price.OutputPerMillion;
             row.FetchedAt = now;
         }
+
+        // The model list itself is replaced as a whole, so the picker shows what OpenRouter lists
+        // today; the prices above are only ever added to, so past spend keeps its price.
+        var listed = await _db.AiCatalogModels.ToDictionaryAsync(m => m.Model, StringComparer.Ordinal, ct).ConfigureAwait(false);
+
+        foreach (var model in models)
+        {
+            if (!listed.Remove(model.Id, out var row))
+            {
+                row = new AiCatalogModel { Model = model.Id };
+                _db.AiCatalogModels.Add(row);
+            }
+
+            row.Name = model.Name;
+            row.Maker = AiModelCatalog.MakerOf(model.Id);
+            row.ContextLength = model.ContextLength;
+            row.MaxOutputTokens = model.MaxOutputTokens;
+            row.InputModalities = [.. model.InputModalities];
+            row.OutputModalities = [.. model.OutputModalities];
+            row.SupportedParameters = [.. model.SupportedParameters];
+            row.AddedAt = model.AddedAt;
+            row.InputPerMillion = model.Price?.InputPerMillion;
+            row.CachedInputPerMillion = model.Price?.CachedInputPerMillion;
+            row.OutputPerMillion = model.Price?.OutputPerMillion;
+            row.PriceVaries = model.PriceVaries;
+            row.Prices = JsonSerializer.Serialize(model.Prices);
+            row.FetchedAt = now;
+        }
+
+        _db.AiCatalogModels.RemoveRange(listed.Values);
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }

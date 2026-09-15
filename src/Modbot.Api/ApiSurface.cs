@@ -160,6 +160,7 @@ public static class ApiSurface
         app.MapAiModerationSettings();
         app.MapModerationFlags();
         app.MapAiLimitsSettings();
+        app.MapAiCatalog();
 
         // The Discord server's channels and roles as the bot last stored them, so a setting picks
         // a channel by name and sees which permission the bot lacks there (M5 spec §7).
