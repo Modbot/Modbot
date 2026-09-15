@@ -10,6 +10,7 @@ import {
   type DiscordBotHealth,
   type DiscordChannelProblem,
   type DiscordReadBackHealth,
+  type CalendarHealth,
   type EmailHealth,
   type SyncHealth,
 } from '@/lib/api'
@@ -137,8 +138,13 @@ export function Health() {
           bot={health.discordBot}
           channels={health.discordChannelProblems ?? []}
           readBack={health.discordReadBack}
+          missingManageEvents={health.calendar?.missingManageEvents ?? false}
           now={health.now}
         />
+      )}
+
+      {health.calendar && health.calendar.problems.length > 0 && (
+        <CalendarProblems calendar={health.calendar} now={health.now} />
       )}
 
       <Card>
@@ -421,15 +427,45 @@ const BOT_TONE: Record<'ok' | 'warn' | 'problem' | 'muted', string> = {
  * else about Modbot is affected. "Stopped" means Discord refused the token or the intents, and
  * the bot waits for the settings to change rather than knocking every thirty seconds.
  */
+const CALENDAR_PLACE: Record<string, string> = {
+  vrchat: 'VRChat calendar',
+  discordEvent: 'Discord event',
+  channelPost: 'Channel post',
+  instance: 'Instance',
+}
+
+/** Calendar events that did not publish or whose instance did not open (calendar design §3, §4). */
+function CalendarProblems({ calendar, now }: { calendar: CalendarHealth; now: string }) {
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <div className="font-medium">Calendar</div>
+        {calendar.problems.map((p) => (
+          <p
+            key={`${p.eventId}-${p.place}`}
+            className="mt-1 max-w-3xl text-warn"
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            {p.title} · {CALENDAR_PLACE[p.place] ?? p.place} · {p.error}
+            {p.at ? ` (${ago(p.at, now)})` : ''}
+          </p>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
 function DiscordBot({
   bot,
   channels,
   readBack,
+  missingManageEvents,
   now,
 }: {
   bot: DiscordBotHealth
   channels: DiscordChannelProblem[]
   readBack: DiscordReadBackHealth | null
+  missingManageEvents: boolean
   now: string
 }) {
   // Not BOT_STATE[bot.state] directly. That Record is a compile-time claim about a value which
@@ -475,6 +511,11 @@ function DiscordBot({
               ` · ${channel.lastError}${channel.lastErrorAt ? ` (${ago(channel.lastErrorAt, now)})` : ''}`}
           </p>
         ))}
+        {missingManageEvents && (
+          <p className="mt-1 max-w-3xl text-warn" style={{ fontSize: 'var(--text-small)' }}>
+            Missing Manage Events
+          </p>
+        )}
         {bot.missingIntents && bot.missingIntents.length > 0 && (
           <p className="mt-1 max-w-3xl text-destructive" style={{ fontSize: 'var(--text-small)' }}>
             Intents off in the Developer Portal: {bot.missingIntents.join(', ')}

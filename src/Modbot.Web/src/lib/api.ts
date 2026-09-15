@@ -1213,7 +1213,14 @@ export type SyncHealth = {
   aiSpend?: AiSpendWarning[] | null
   /** Emails held under the daily email limit, and emails given up on. */
   email?: EmailHealth | null
+  /** Calendar places that failed, instances that did not open, and a missing Manage Events. */
+  calendar?: CalendarHealth | null
   now: string
+}
+
+export type CalendarHealth = {
+  missingManageEvents: boolean
+  problems: { eventId: string; title: string; place: string; error: string; at: string | null }[]
 }
 
 export type EmailHealth = {

@@ -20,6 +20,7 @@ import { Join } from '@/pages/Join'
 import { LinkAccounts } from '@/pages/LinkAccounts'
 import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Live } from '@/pages/Live'
+import { Calendar } from '@/pages/Calendar'
 import { Login } from '@/pages/Login'
 import { DiscordMembers } from '@/pages/DiscordMembers'
 import { Members } from '@/pages/Members'
@@ -41,6 +42,7 @@ const TITLES: Record<PageId, string> = {
   members: 'Members',
   'discord-members': 'Discord members',
   live: 'Live',
+  calendar: 'Calendar',
   chat: 'Chat',
   bans: 'Bans',
   flags: 'Flags',
@@ -69,6 +71,7 @@ const PATHS: Record<PageId, string> = {
   members: '/',
   'discord-members': '/discord/members',
   live: '/live',
+  calendar: '/calendar',
   chat: '/chat',
   bans: '/bans',
   flags: '/flags',
@@ -279,6 +282,7 @@ function Shell({
           {page === 'members' && <Members me={me} onOpenSubject={setSubject} />}
           {page === 'discord-members' && <DiscordMembers me={me} />}
           {page === 'live' && <Live />}
+          {page === 'calendar' && <Calendar />}
           {page === 'chat' && <Chat />}
           {page === 'bans' && (
             <Bans me={me} onOpenSubject={setSubject} onOpenCase={(id) => navigate(`${PATHS.cases}/${id}`)} />
