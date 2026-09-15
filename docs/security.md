@@ -113,7 +113,7 @@ Modbot reads exactly three, and none of them is a secret in the usual sense:
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `PORT` | yes | the port to listen on; supplied by the hosting platform |
+| `PORT` | no | the port to listen on; defaults to `8080` |
 | `DATABASE_URL` | yes | PostgreSQL connection, as a `postgres://` URL or an ADO.NET string |
 | `SEQ_URL` | no | a [Seq](https://datalust.co/seq) endpoint to ship structured logs to |
 
@@ -141,8 +141,8 @@ credential. That is deliberate: a variable edit that silently repointed the file
 bucket is precisely the kind of quiet data loss the marker-file check above exists to catch, and it
 would be perverse to introduce it through a convenience feature.
 
-None of these five is ever required. `PORT` and `DATABASE_URL` remain the only variables Modbot
-cannot start without.
+None of these five is ever required. `DATABASE_URL` remains the only variable Modbot cannot start
+without.
 
 ## Logs
 

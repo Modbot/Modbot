@@ -28,9 +28,9 @@ with the foundation milestone in [`.agent/plans/`](.agent/plans/).
 
 ## Deploying
 
-Modbot runs as **one service plus one PostgreSQL database**. It needs exactly two environment
-variables — `PORT` and `DATABASE_URL` — and everything else is configured in the app through a setup
-wizard the first time you open it.
+Modbot runs as **one service plus one PostgreSQL database**. It needs one environment variable,
+`DATABASE_URL` (`PORT` is optional and defaults to `8080`), and everything else is configured in the
+app through a setup wizard the first time you open it.
 
 No Redis, no search server, no message broker, no hosted auth, no third-party account.
 
