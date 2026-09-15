@@ -99,6 +99,7 @@ public static class AuditVisibility
         [FactType.InstanceLeft] = AuditCategory.Moderation,
         [FactType.AvatarChanged] = AuditCategory.Moderation,
         [FactType.InstancePresenceObserved] = AuditCategory.Moderation,
+        [FactType.InstanceLogStopped] = AuditCategory.Moderation,
 
         // Discord, once the bot is a second fact source (spec 9.1).
         [FactType.DiscordMemberJoined] = AuditCategory.Moderation,

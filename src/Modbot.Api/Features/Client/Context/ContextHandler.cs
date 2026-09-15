@@ -6,6 +6,7 @@ using Modbot.Api.Features.Client.Alerts;
 using Modbot.Api.Features.Client.Devices;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Live;
 using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Client.Context;
@@ -43,13 +44,19 @@ public sealed record UserSummaryDto(
 /// takes.</para>
 /// <para><strong>A pairing sees exactly one group's context</strong>, which is the same boundary
 /// the client's local routing enforces, arriving from the other side.</para>
+/// <para><strong>A roster is only believed while a moderator is watching.</strong> This used to be
+/// "last fact per person wins" over twelve hours, and because nobody is told that anyone left once
+/// the last moderator walks out, everyone that moderator last saw stayed "present" for up to twelve
+/// hours -- after the room had closed. The roster is now <see cref="RoomWatching"/>'s: everyone
+/// present, from facts reported during the current watch, and nobody at all when nobody is
+/// watching. The Live page and the Discord card use the same rule.</para>
 /// </remarks>
 public static class ContextHandler
 {
     /// <summary>
     /// How far back to look for the presence that makes up a roster. An instance that has been
-    /// running longer than this is unusual; one whose roster needs more history than this is not
-    /// a roster any more.
+    /// watched without a break for longer than this is unusual; one whose roster needs more history
+    /// than this is not a roster any more.
     /// </summary>
     public static readonly TimeSpan RosterWindow = TimeSpan.FromHours(12);
 
@@ -88,37 +95,28 @@ public static class ContextHandler
 
         var since = clock.UtcNow - RosterWindow;
 
-        var presence = await database.Events
+        // Whether the room this number names has closed. Every row with the number that could
+        // still matter is consulted: if any is open, the room is open. A number whose rows have all
+        // closed ends every watch at the latest close.
+        var closes = await database.VRChatInstances
             .AsNoTracking()
-            .Where(e => e.InstanceId == instanceId
-                     && e.OccurredAt >= since
-                     && (e.Type == FactType.InstanceJoined
-                      || e.Type == FactType.InstanceLeft
-                      || e.Type == FactType.InstancePresenceObserved))
-            .OrderBy(e => e.OccurredAt)
-            .Select(e => new { e.Type, e.SubjectId, e.OccurredAt, e.Data })
+            .Where(i => i.VRChatInstanceId == instanceId && (i.ClosedAt == null || i.ClosedAt >= since))
+            .Select(i => i.ClosedAt)
             .ToListAsync(ct);
 
-        // Last event per person wins: somebody whose most recent mark in this instance is a leave
-        // is not in the roster, and somebody who left and came back is.
-        var present = new Dictionary<string, string?>(StringComparer.Ordinal);
-        foreach (var fact in presence)
-        {
-            if (fact.Type == FactType.InstanceLeft)
-                present.Remove(fact.SubjectId);
-            else
-                present[fact.SubjectId] = ReadDisplayName(fact.Data) ?? present.GetValueOrDefault(fact.SubjectId);
-        }
+        DateTimeOffset? closedAt = closes.Count > 0 && closes.All(c => c is not null) ? closes.Max() : null;
 
-        if (present.Count == 0)
+        var people = await new RoomPeopleReader(database).ForNumberAsync(instanceId, null, since, closedAt, ct);
+
+        if (people.Here.Count == 0)
             return Results.Ok(new InstanceContextDto(instanceId, []));
 
-        var subjects = present.Keys.ToList();
+        var subjects = people.Here.Select(p => p.UserId).ToList();
         var priorActions = await CountPriorActionsAsync(database, subjects, ct);
         var members = await CurrentMembersAsync(database, subjects, ct);
 
-        var roster = present
-            .Select(entry => Describe(entry.Key, entry.Value, priorActions, members))
+        var roster = people.Here
+            .Select(person => Describe(person.UserId, person.DisplayName, priorActions, members))
             .ToList();
 
         return Results.Ok(new InstanceContextDto(instanceId, roster));
@@ -207,7 +205,8 @@ public static class ContextHandler
             .Select(g => new { SubjectId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.SubjectId, g => g.Count, StringComparer.Ordinal, ct);
 
-    private static async Task<HashSet<string>> CurrentMembersAsync(
+    /// <summary>Which of these people are group members, as the fact log last said.</summary>
+    internal static async Task<HashSet<string>> CurrentMembersAsync(
         ModbotContext database,
         IReadOnlyCollection<string> subjectIds,
         CancellationToken ct)
@@ -233,7 +232,7 @@ public static class ContextHandler
         return members;
     }
 
-    private static RosterMemberDto Describe(
+    internal static RosterMemberDto Describe(
         string subjectId,
         string? displayName,
         Dictionary<string, int> priorActions,

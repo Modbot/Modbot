@@ -133,7 +133,11 @@ public static class EventsHandler
         // go to the moderators who can act on it instead of to every paired device. It is read out
         // of a request the client was making anyway -- no extra field, no extra call, and nothing
         // a paused client discloses, because a paused client sends no batches.
-        if (Newest(candidates)?.InstanceId is { Length: > 0 } here)
+        // A stopped log is the opposite: this device can no longer see anywhere, so it is forgotten
+        // rather than credited with the room it stopped in, and is offered no more alerts for it.
+        if (Newest(candidates) is { Type: FactType.InstanceLogStopped })
+            locations.Forget(authentication.Device!.Id);
+        else if (Newest(candidates)?.InstanceId is { Length: > 0 } here)
             locations.Record(authentication.Device!.Id, here, clock.UtcNow);
 
         var results = await facts.WriteManyAsync(candidates, ct);
@@ -318,6 +322,7 @@ public static class EventsHandler
         "InstancePresenceObserved" => FactType.InstancePresenceObserved,
         "InstanceLeft" => FactType.InstanceLeft,
         "AvatarChanged" => FactType.AvatarChanged,
+        "LogStopped" => FactType.InstanceLogStopped,
         _ => null,
     };
 }

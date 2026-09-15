@@ -461,6 +461,7 @@ and a disabled overlay notifies nobody.
 | `InstancePresenceObserved` | `Client` | Present when the local user arrived. **Arrival time unknown and earlier** — see §7.1 |
 | `InstanceLeft` | `Client` | A genuine departure. Session duration derived from the pair. |
 | `AvatarChanged` | `Client` | Avatar **display name** only, from the log. Resolved to `avtr_…` server-side — see §7.2 |
+| `vrchat.instance.log-stopped` | `Client` | VRChat's log stopped while the moderator was in this instance. Subject is the moderator. Sent once per stop — see §7.4 |
 
 All carry `subject_platform = VRChat` (foundation §5.3), fall under the **Presence** retention class
 (kept forever unless an operator configures a window, foundation §5.5), and are covered by
@@ -635,6 +636,86 @@ That last point is what keeps this compatible with foundation §5.5's position. 
 *avatar*, never about a person.
 
 ---
+
+### 7.4 Who is watching a room, and who is in it
+
+*(Added 2026-09-14 with the Live page.)*
+
+A client only reports people while its moderator is standing in the room. When the last moderator
+walks out, VRChat logs a leave for everyone still there and the client rightly drops those as not
+real (§7.1) — so **nobody is ever told that anyone else left.** The overlay's roster used "last fact
+per person wins" over twelve hours and therefore kept everyone the last moderator saw "present" for
+up to twelve hours, after the room had closed. The Live page must not inherit that, and the overlay
+no longer does.
+
+#### 7.4.1 Watching
+
+A moderator is **watching** a room from the moment their own presence arrives for it: an
+`InstanceJoined` or `InstancePresenceObserved` whose subject is the VRChat account linked to the
+Modbot account the reporting device was issued to. A moderator seen by somebody else's client is in
+the room but not watching it. A device whose owner has no VRChat link can never start a watch,
+because nothing says which subject is the moderator.
+
+Watching ends at the first of:
+
+| Ends when | Because |
+|---|---|
+| their own `InstanceLeft` arrives | they walked out |
+| the room closes (the group's list drops it) | there is no room |
+| their own presence turns up in a different room | they are somewhere else |
+| their client reports `LogStopped` | VRChat stopped and nothing more can be seen (research note §7) |
+
+`LogStopped` is sent **once** when the client notices the log has been silent for two minutes, and
+never repeated. There is no periodic "still here" report: that was rejected on `DeviceLocations`
+and stays rejected. When the same log starts growing again the client restates its roster once as
+`InstancePresenceObserved`, which starts the watch again. Protocol §4.2 has the wire details and how
+old clients and old servers behave.
+
+Overlapping watches are one watch: A from eight, B from half past, A leaves at nine — the room has
+been watched without a break since eight.
+
+#### 7.4.2 The roster
+
+While a room is watched, its roster is everyone present, **counting only facts reported during the
+current watch** (plus ten seconds before its start, because VRChat logs the people already there a
+moment before the moderator's own join). A person's time is the first fact of their current stay:
+
+- **seen arriving** (`InstanceJoined`) — "arrived <time>", exact;
+- **already there** (`InstancePresenceObserved`) — "here before <time>", and nothing about when they
+  actually arrived. No earlier time is invented, stored or shown.
+
+When watching ends, the people then present become **last seen**, dated at the moment the last
+moderator stopped watching — never "here now". The rule lives in `RoomWatching` and is shared by the
+overlay roster, the Live page and the Discord card. It reads the fact log and changes nothing in it,
+so the analytics count time exactly as before.
+
+#### 7.4.3 Rooms nobody is watching
+
+Every open group room is on the Live page whether or not anyone has the client open. The room comes
+from the group's instance list and its **head count** from `GET /instances/{location}`, read about
+every thirty seconds per open room (`RoomHeadCountSync`, `instances.read`). `n_users` is used as the
+head count with `userCount` kept beside it; that `n_users` counts everybody is a reading of one probe
+(research: vrchat-instance-findings.md §3), not a confirmed fact. Only rooms the list currently
+carries are read, and a body saying `active: false` is not believed, because that endpoint answers
+200 for rooms that never existed. When a read fails, is inactive, or goes stale (for example a 429,
+which is never retried), the list's `memberCount` stands in.
+
+Every change in a room's head count is one row in `instance_head_count`, keyed on Modbot's own room
+id. Only the people list needs a moderator watching, because `Instance.Users` is empty for anyone who
+is not the world's owner or staff (§7.2.1). A room nobody watches shows its head count and "Nobody
+watching", with the last-seen people if anybody watched it earlier.
+
+The Live page needs `ViewLiveRooms`. It reads Modbot's own tables only and refreshes every five
+seconds while the tab is visible, which is why the client now sends arrivals and departures within
+about two seconds (protocol §4.4).
+
+#### 7.4.4 The Discord room card
+
+While a moderator is watching, the instance card lists the display names of the people present,
+capped at twenty and then "and N more", escaped for Discord markdown and kept inside Discord's
+1,024-character field limit, with mentions disabled as they always are. Nobody watching: the head
+count only. **Show names** is on by default and can be turned off under Settings → Integrations →
+Instance announcements.
 
 ## 8. Distribution, signing, and not being flagged
 

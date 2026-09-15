@@ -193,7 +193,7 @@ means *this person was here when I arrived*, arrival time unknown and earlier. I
 `LogStopped` (added 2026-09-14) means *VRChat's log stopped growing while I was in this instance*.
 The subject is the moderator themselves, `occurredAt` is VRChat's timestamp on the last line the
 log wrote, and `data` carries the moderator's display name when it is known. The server stores it
-as `vrchat.instance.log-stopped` and uses it to end that moderator's watch of the room (M3 §7.3).
+as `vrchat.instance.log-stopped` and uses it to end that moderator's watch of the room (M3 §7.4).
 
 - **Sent once per stop.** The client notices after `PresenceObserver.InstanceStaleAfter` (two
   minutes, about twelve of the frame-rate lines VRChat writes every ten seconds — research note
@@ -292,6 +292,12 @@ GET /api/v1/client/user/{subjectId}       →  profile summary for one person
 Both are **read-only and small**. The profile summary is deliberately not the full web profile: an
 overlay card shows prior actions, roles, join date and current flags, and nothing that needs
 scrolling in a headset.
+
+**The roster is only as good as the watch** (M3 §7.4, changed 2026-09-14). It lists everyone present
+from facts reported during the room's current watch, and nobody at all when no moderator is
+watching. It used to be "last fact per person wins" over twelve hours, which kept everyone the last
+moderator saw "present" for up to twelve hours after they left, because nobody is told that anyone
+else left once the last moderator walks out.
 
 ### 6.1 Push, only where it earns it
 

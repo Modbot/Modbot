@@ -53,8 +53,16 @@ public class OverlayReadTests
         string subject,
         DateTimeOffset at,
         string? displayName = null,
-        string? instance = Instance)
-        => new()
+        string? instance = Instance,
+        Guid? device = null)
+    {
+        var data = new System.Text.Json.Nodes.JsonObject();
+        if (displayName is not null)
+            data["displayName"] = displayName;
+        if (device is { } reporter)
+            data["deviceId"] = reporter.ToString();
+
+        return new()
         {
             Type = type,
             OccurredAt = at,
@@ -63,10 +71,9 @@ public class OverlayReadTests
             WorldId = "wrld_4b34",
             InstanceId = instance,
             Source = FactSource.Modbot,
-            Data = displayName is null
-                ? null
-                : new System.Text.Json.Nodes.JsonObject { ["displayName"] = displayName },
+            Data = data.Count == 0 ? null : data,
         };
+    }
 
     private static async Task<T> GetAsync<T>(
         ClientApiTestHost host, string token, string path, CancellationToken ct)
@@ -128,17 +135,84 @@ public class OverlayReadTests
         var (host, token) = await ReadyAsync(ct);
         await using var _ = host;
 
+        var moderator = await host.PairModeratorAsync(ct);
+
         await WriteAsync(host,
-            Fact(FactType.InstanceJoined, "usr_stay", Noon.AddMinutes(-30), "Staying"),
-            Fact(FactType.InstanceJoined, "usr_gone", Noon.AddMinutes(-25), "Leaving"),
-            Fact(FactType.InstanceLeft, "usr_gone", Noon.AddMinutes(-5), "Leaving"));
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-40), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_stay", Noon.AddMinutes(-30), "Staying", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_gone", Noon.AddMinutes(-25), "Leaving", device: moderator.DeviceId),
+            Fact(FactType.InstanceLeft, "usr_gone", Noon.AddMinutes(-5), "Leaving", device: moderator.DeviceId));
 
         var roster = await GetAsync<InstanceContextDto>(
             host, token, $"/api/v1/client/context?instanceId={Instance}", ct);
 
-        var member = Assert.Single(roster.Members);
+        Assert.Equal(2, roster.Members.Count);
+        var member = Assert.Single(roster.Members, m => m.SubjectId != moderator.VRChatUserId);
         Assert.Equal("usr_stay", member.SubjectId);
         Assert.Equal("Staying", member.DisplayName);
+    }
+
+    /// <summary>
+    /// The ghost-roster bug. When the last moderator walks out nobody is told that anybody else
+    /// left, so "last fact per person wins" kept everyone they saw present for twelve hours, long
+    /// after the room had closed.
+    /// </summary>
+    [Fact]
+    public async Task WhenTheLastModeratorLeaves_NobodyIsStillListedAsHere()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var moderator = await host.PairModeratorAsync(ct);
+
+        await WriteAsync(host,
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddHours(-3), device: moderator.DeviceId),
+            Fact(FactType.InstancePresenceObserved, "usr_ghost", Noon.AddHours(-3), "Ghost", device: moderator.DeviceId),
+            Fact(FactType.InstanceLeft, moderator.VRChatUserId, Noon.AddHours(-2), device: moderator.DeviceId));
+
+        var roster = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/client/context?instanceId={Instance}", ct);
+
+        Assert.Empty(roster.Members);
+    }
+
+    [Fact]
+    public async Task PresenceNoModeratorWasWatching_IsNotARoster()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        await WriteAsync(host, Fact(FactType.InstanceJoined, "usr_seen", Noon.AddMinutes(-5), "Seen"));
+
+        var roster = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/client/context?instanceId={Instance}", ct);
+
+        Assert.Empty(roster.Members);
+    }
+
+    [Fact]
+    public async Task AModeratorsLogStopping_EndsTheRoster()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var moderator = await host.PairModeratorAsync(ct);
+
+        await WriteAsync(host,
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-30), device: moderator.DeviceId),
+            Fact(FactType.InstancePresenceObserved, "usr_there", Noon.AddMinutes(-30), device: moderator.DeviceId));
+
+        Assert.Equal(2, (await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/client/context?instanceId={Instance}", ct)).Members.Count);
+
+        await WriteAsync(host,
+            Fact(FactType.InstanceLogStopped, moderator.VRChatUserId, Noon.AddMinutes(-10), device: moderator.DeviceId));
+
+        Assert.Empty((await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/client/context?instanceId={Instance}", ct)).Members);
     }
 
     [Fact]
@@ -148,15 +222,18 @@ public class OverlayReadTests
         var (host, token) = await ReadyAsync(ct);
         await using var _ = host;
 
+        var moderator = await host.PairModeratorAsync(ct);
+
         await WriteAsync(host,
-            Fact(FactType.InstanceJoined, "usr_back", Noon.AddMinutes(-30)),
-            Fact(FactType.InstanceLeft, "usr_back", Noon.AddMinutes(-20)),
-            Fact(FactType.InstanceJoined, "usr_back", Noon.AddMinutes(-10)));
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-40), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_back", Noon.AddMinutes(-30), device: moderator.DeviceId),
+            Fact(FactType.InstanceLeft, "usr_back", Noon.AddMinutes(-20), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_back", Noon.AddMinutes(-10), device: moderator.DeviceId));
 
         var roster = await GetAsync<InstanceContextDto>(
             host, token, $"/api/v1/client/context?instanceId={Instance}", ct);
 
-        Assert.Equal("usr_back", Assert.Single(roster.Members).SubjectId);
+        Assert.Contains(roster.Members, m => m.SubjectId == "usr_back");
     }
 
     [Fact]
@@ -168,15 +245,18 @@ public class OverlayReadTests
         var (host, token) = await ReadyAsync(ct);
         await using var _ = host;
 
+        var moderator = await host.PairModeratorAsync(ct);
+
         await WriteAsync(host,
             Fact(FactType.MemberKicked, "usr_flag", Noon.AddDays(-40), instance: null),
             Fact(FactType.MemberKicked, "usr_flag", Noon.AddDays(-20), instance: null),
-            Fact(FactType.InstanceJoined, "usr_flag", Noon.AddMinutes(-5), "Trouble"));
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-10), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_flag", Noon.AddMinutes(-5), "Trouble", device: moderator.DeviceId));
 
         var roster = await GetAsync<InstanceContextDto>(
             host, token, $"/api/v1/client/context?instanceId={Instance}", ct);
 
-        var member = Assert.Single(roster.Members);
+        var member = Assert.Single(roster.Members, m => m.SubjectId == "usr_flag");
         Assert.Equal("Flagged", member.Standing);
         Assert.Equal(2, member.PriorActions);
         Assert.Equal("2 prior actions", Assert.Single(member.Flags));
