@@ -8,6 +8,11 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Invariant mode throws for any named culture unless this is off. Discord.Net builds one from
+         the server's preferred language as the server arrives, and the throw stopped the bot
+         loading the server at all. With this off a named culture is created, carrying invariant
+         data, and nothing needs ICU. -->
+    <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
