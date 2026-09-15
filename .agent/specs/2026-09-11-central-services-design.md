@@ -49,6 +49,10 @@ ordinary, useful, and how a maintainer decides what to support.
 - **No public directory.** The registry is not browsable and not enumerable by third parties (§4.3).
 - **No content of any kind from a group's database.**
 
+> **Narrowed 2026-09-15.** Modbot Cloud (`cloud.modbot.co`) is operated centrally and stores the raw
+> VRChat log lines desktop clients send it, from every instance, by default. It still holds nothing from
+> a group's database. See `2026-09-15-cloud-log-backup-design.md`.
+
 ### 1.2 The governing rule still holds
 
 > **Modbot never requires contact with a project-operated service.**

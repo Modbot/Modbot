@@ -169,6 +169,11 @@ left your machine" does not.
 managed group, are dropped locally and never reported.** The client is a group moderation tool; it
 has no business observing a moderator's personal VRChat use, and it does not.
 
+> **Narrowed 2026-09-15.** This table still describes everything sent to a **Modbot server**. It no
+> longer describes everything that leaves the machine: the client now sends every raw log line, from
+> every instance, to Modbot Cloud unless the moderator turns that off. See
+> `2026-09-15-cloud-log-backup-design.md`.
+
 #### 3.1.1 "Screenshots" here means capture, not a file a human chose to attach
 
 Modbot stores screenshots and video as moderation evidence — see
