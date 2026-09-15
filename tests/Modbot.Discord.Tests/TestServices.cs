@@ -61,6 +61,7 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<Modbot.Discord.Instances.InstanceAnnouncer>();
+        services.AddScoped<Modbot.Discord.Calendar.CalendarDiscordPublisher>();
         services.AddScoped<Modbot.Discord.ServerIndex.DiscordServerIndex>();
         services.AddSingleton<Modbot.Core.Discord.DiscordLinkSignal>();
         services.AddScoped<Modbot.Discord.Linking.LinkedRoles>();

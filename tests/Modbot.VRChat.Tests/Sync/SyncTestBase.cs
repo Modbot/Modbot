@@ -63,6 +63,9 @@ public abstract class SyncTestBase : IAsyncLifetime
 
     private VRChatGate _gate = null!;
 
+    /// <summary>The gate the producers use, for producers a test builds itself.</summary>
+    protected IVRChatGate Gate => _gate;
+
     public async ValueTask InitializeAsync()
     {
         Database = await IsolatedDatabase.CreateAsync(Fixture, Ct);

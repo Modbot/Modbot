@@ -19,6 +19,12 @@ public sealed class FakeInstances
     /// <summary>Every location asked for, in order.</summary>
     public List<string> Requests { get; } = [];
 
+    /// <summary>Every instance Modbot asked VRChat to create, in order.</summary>
+    public List<CreateInstanceRequest> Created { get; } = [];
+
+    /// <summary>What creating an instance answers. 200 makes one; anything else refuses.</summary>
+    public HttpStatusCode CreateStatus { get; set; } = HttpStatusCode.OK;
+
     /// <summary>What a live room's page says.</summary>
     public FakeInstances Page(string location, int nUsers, int userCount, bool active = true)
     {
@@ -62,6 +68,24 @@ public sealed class FakeInstances
                     : (HttpStatusCode.OK, Body(active: false, nUsers: 0, userCount: 0));
 
                 return Task.FromResult(new ApiResponse<Instance>(status, new Multimap<string, string>(), body!, "{}"));
+            });
+
+        instances
+            .CreateInstanceWithHttpInfoAsync(Arg.Any<CreateInstanceRequest>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var request = call.Arg<CreateInstanceRequest>();
+                Created.Add(request);
+
+                if (CreateStatus != HttpStatusCode.OK)
+                    return Task.FromResult(new ApiResponse<Instance>(CreateStatus, new Multimap<string, string>(), null!, "{\"error\":{\"message\":\"no\"}}"));
+
+                var body = Body(active: true, nUsers: 0, userCount: 0);
+                body.WorldId = request.WorldId;
+                body.InstanceId = $"{Created.Count}~group({request.OwnerId})~groupAccessType(members)~region(us)";
+                body.Location = $"{request.WorldId}:{body.InstanceId}";
+
+                return Task.FromResult(new ApiResponse<Instance>(HttpStatusCode.OK, new Multimap<string, string>(), body, "{}"));
             });
 
         return instances;

@@ -72,12 +72,14 @@ public sealed class FakeVRChat
         var groups = Groups.Build();
         var users = Users.Build();
         var instances = Instances.Build();
+        var calendar = Calendar.Build();
 
         Client = Substitute.For<IVRChat>();
         Client.Authentication.Returns(authentication);
         Client.Groups.Returns(groups);
         Client.Users.Returns(users);
         Client.Instances.Returns(instances);
+        Client.Calendar.Returns(calendar);
         Client.GetCookies().Returns(_ => Cookies);
     }
 
@@ -91,6 +93,9 @@ public sealed class FakeVRChat
 
     /// <summary>Rooms' own pages, for their head counts.</summary>
     public FakeInstances Instances { get; } = new();
+
+    /// <summary>The group calendar's writes.</summary>
+    public FakeCalendar Calendar { get; } = new();
 
     /// <summary>When set, every GetCurrentUser fails with this instead of answering.</summary>
     public Exception? ThrowOnGetCurrentUser { get; set; }
