@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# cloud.modbot.co: the event backup API desktop clients send to, and /admin.
+# cloud.modbot.co: accounts, the Modbot server registry, the term lists, the event backup API
+# desktop clients send to, and /admin.
 #
 # Build from the repository root, like the other images, because package versions are pinned once in
 # Directory.Packages.props:
@@ -10,7 +11,8 @@
 # On Railway it is its own service, not part of .railway/railway.ts. Leave the Root Directory empty,
 # set RAILWAY_DOCKERFILE_PATH=src/Modbot.Cloud/Dockerfile and point the health check at /health/ready.
 # It needs two Postgres databases: DATABASE_URL (installs, sessions, settings) and
-# DATABASE_ENGINE_URL (backed-up events). ROOT_API_KEY unlocks /admin.
+# DATABASE_ENGINE_URL (backed-up events). ROOT_API_KEY unlocks /admin, PROXY_API_KEY lets
+# my.modbot.co read, and RESEND_API_KEY with MAIL_FROM lets it send account mail.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1 — the web app. Vite writes it straight into Modbot.Cloud/wwwroot (see
@@ -73,5 +75,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD wget --quiet --spider "http://127.0.0.1:${PORT:-8080}/health/ready" || exit 1
 
-# Content root is the working directory, which is where publish put wwwroot/.
+# Content root is the working directory, which is where publish put wwwroot/ and termlists/.
 ENTRYPOINT ["dotnet", "/app/Modbot.Cloud.dll"]

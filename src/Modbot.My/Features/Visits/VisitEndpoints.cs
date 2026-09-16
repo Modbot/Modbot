@@ -1,17 +1,31 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Modbot.My.Cloud;
 using Modbot.My.Common;
-using Modbot.My.Data;
 
 namespace Modbot.My.Features.Visits;
 
+public sealed record LocalRegisterRequest(string? Url);
+
 /// <summary>
-/// The app's own save after it renders, and the instances seen from the caller's IP address.
+/// The app's own save after it renders, and the instances Cloud has seen from the caller's address.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Both go straight to Modbot Cloud; my.modbot.co keeps nothing (central services spec 2.1.1). The
+/// visitor's address is worked out here, by the rule in spec 2.3.1, and passed on — Cloud sees
+/// my.modbot.co as its caller and cannot work it out for itself.
+/// </para>
+/// <para>
+/// Both are limited per address, so that one address cannot make my.modbot.co hammer Cloud.
+/// </para>
+/// </remarks>
 public static class VisitEndpoints
 {
     public static IEndpointRouteBuilder MapVisits(this IEndpointRouteBuilder app)
     {
+        ArgumentNullException.ThrowIfNull(app);
+
         app.MapPost("/api/local-register", LocalRegisterAsync);
 
         // Open, and only ever about the address asking. Nothing in the request names another.
@@ -22,47 +36,47 @@ public static class VisitEndpoints
 
     internal static async Task<IResult> LocalRegisterAsync(
         [FromBody] LocalRegisterRequest request,
-        [FromServices] MyContext db,
-        [FromServices] TimeProvider time,
+        [FromServices] CloudClient cloud,
+        [FromServices] SiteLimits limits,
         HttpContext http,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
         if (!InstanceUrl.TryNormalise(request.Url, out var url))
             return Results.BadRequest(new { error = "url must be an absolute https URL." });
 
-        await InstanceVisits.RecordAsync(db, ClientAddress.From(http), url, time.GetUtcNow(), ct);
+        var address = ClientAddress.From(http)?.ToString();
+
+        if (limits.Saves.TryTake(address ?? "unknown") is { } wait)
+            return TooMany(http, wait);
+
+        await cloud.RecordVisitAsync(address, url, ct);
         return Results.NoContent();
     }
 
     internal static async Task<IResult> MyInstancesAsync(
-        [FromServices] MyContext db,
-        [FromServices] TimeProvider time,
+        [FromServices] CloudClient cloud,
+        [FromServices] SiteLimits limits,
         HttpContext http,
         CancellationToken ct)
     {
         http.Response.Headers.CacheControl = "no-store";
 
-        var ip = ClientAddress.From(http)?.ToString();
-        if (ip is null)
-            return Results.Ok(new MyInstances([]));
+        var address = ClientAddress.From(http)?.ToString();
 
-        var since = time.GetUtcNow() - InstanceVisits.HistoryReach;
+        if (limits.Reads.TryTake(address ?? "unknown") is { } wait)
+            return TooMany(http, wait);
 
-        var items = await db.VisitorInstances
-            .AsNoTracking()
-            .Where(v => v.IpAddress == ip && v.LastSeenAt >= since)
-            .OrderByDescending(v => v.LastSeenAt)
-            .ThenBy(v => v.InstanceUrl)
-            .Take(InstanceVisits.HistoryLimit)
-            .Select(v => new MyInstance(v.InstanceUrl, v.FirstSeenAt, v.LastSeenAt, v.Visits))
-            .ToListAsync(ct);
+        return Results.Ok(await cloud.KnownInstancesAsync(address, ct));
+    }
 
-        return Results.Ok(new MyInstances(items));
+    private static IResult TooMany(HttpContext http, TimeSpan wait)
+    {
+        var seconds = Math.Max(1, (int)Math.Ceiling(wait.TotalSeconds));
+        http.Response.Headers.RetryAfter = seconds.ToString(CultureInfo.InvariantCulture);
+
+        return Results.Json(
+            new { error = "Too many requests from this address." }, statusCode: StatusCodes.Status429TooManyRequests);
     }
 }
-
-public sealed record LocalRegisterRequest(string? Url);
-
-public sealed record MyInstance(string InstanceUrl, DateTimeOffset FirstSeenAt, DateTimeOffset LastSeenAt, int Visits);
-
-public sealed record MyInstances(IReadOnlyList<MyInstance> Items);

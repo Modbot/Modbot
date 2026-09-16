@@ -1,20 +1,22 @@
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Text.Json;
+using System.Net;
+using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.My.Cloud;
+using Modbot.My.Configuration;
 
 namespace Modbot.My.Tests;
 
 /// <summary>
-/// The app that ships, built through <see cref="MyApp"/> over a test server and the real database.
+/// The app that ships, built through <see cref="MyApp"/> over a test server, with a stand-in for
+/// Modbot Cloud.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Requests go through the helpers here, which carry the test's cancellation token, rather than
-/// through <see cref="HttpClient"/> directly.
+/// There is no database: my.modbot.co keeps nothing and reads everything from Cloud (central
+/// services spec 2.1.1). <see cref="Cloud"/> answers in its place and records what was asked.
 /// </para>
 /// <para>
 /// The test server has no connection address, so a test gives a request its client address as an
@@ -23,42 +25,41 @@ namespace Modbot.My.Tests;
 /// </remarks>
 public sealed class MyTestHost : IAsyncDisposable
 {
-    public const string RootKey = "a-root-key-for-tests-only-0123456789";
-
     /// <summary>Stands in for the Vite build, which the .NET tests do not run.</summary>
     public const string AppHtml =
         "<!doctype html><html><head><title>my.modbot.co</title></head><body><div id=\"root\"></div></body></html>";
 
     public const string AssetPath = "/assets/app-test.js";
 
-    /// <summary>The Modbot Cloud the test server reads from. No request ever reaches it.</summary>
+    public const string ApiKey = "a-cloud-key-for-tests-only-0123456789";
+
+    /// <summary>The Modbot Cloud the test server reads from. No request ever leaves the process.</summary>
     public static readonly Uri CloudEndpoint = new("https://cloud.modbot.test/");
 
     private readonly WebApplication _app;
     private readonly HttpClient _client;
     private readonly DirectoryInfo _webRoot;
 
-    private MyTestHost(WebApplication app, HttpClient client, ManualTime time, DirectoryInfo webRoot)
+    private MyTestHost(WebApplication app, HttpClient client, ManualTime time, DirectoryInfo webRoot, FakeCloud cloud)
     {
         _app = app;
         _client = client;
         _webRoot = webRoot;
         Time = time;
+        Cloud = cloud;
     }
 
     public ManualTime Time { get; }
 
+    /// <summary>What my.modbot.co asked Cloud, and what Cloud answered.</summary>
+    public FakeCloud Cloud { get; }
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    /// <param name="rootApiKey">The server's ROOT_API_KEY. Null starts a server with none set.</param>
-    /// <param name="resetDatabase">False keeps what an earlier host in the same test wrote.</param>
-    public static async Task<MyTestHost> StartAsync(PostgresFixture db, string? rootApiKey = RootKey, bool resetDatabase = true)
+    /// <param name="apiKey">The key sent to Cloud. Null starts a service with none configured.</param>
+    public static async Task<MyTestHost> StartAsync(string? apiKey = ApiKey)
     {
-        if (resetDatabase)
-            await db.ResetAsync();
-
-        var source = SourceDirectory();
-        var time = new ManualTime(new DateTimeOffset(2026, 9, 14, 12, 0, 0, TimeSpan.Zero));
+        var time = new ManualTime(new DateTimeOffset(2026, 9, 16, 12, 0, 0, TimeSpan.Zero));
 
         var webRoot = Directory.CreateTempSubdirectory("modbot-my-tests-");
         await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "index.html"), AppHtml, Ct);
@@ -67,7 +68,6 @@ public sealed class MyTestHost : IAsyncDisposable
 
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
-            ContentRootPath = source,
             WebRootPath = webRoot.FullName,
             EnvironmentName = "Testing",
         });
@@ -75,64 +75,34 @@ public sealed class MyTestHost : IAsyncDisposable
         builder.WebHost.UseTestServer();
         builder.Services.AddSingleton<TimeProvider>(time);
 
-        MyApp.AddServices(
-            builder.Services,
-            db.ConnectionString,
-            rootApiKey,
-            new Modbot.My.Configuration.CloudAddress(CloudEndpoint, "a-cloud-key-for-tests-only"));
+        MyApp.AddServices(builder.Services, new CloudAddress(CloudEndpoint, apiKey));
+
+        // After AddServices, so this configures the named client it registered rather than replacing
+        // it: nothing in a test reaches the network.
+        var cloud = new FakeCloud();
+        builder.Services.AddHttpClient(CloudClient.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => cloud);
 
         var app = builder.Build();
         MyApp.MapEndpoints(app);
         await app.StartAsync(Ct);
 
-        return new MyTestHost(app, app.GetTestClient(), time, webRoot);
+        return new MyTestHost(app, app.GetTestClient(), time, webRoot, cloud);
     }
 
-    /// <summary>A request with an optional JSON body, client address, cookie, bearer key and headers.</summary>
-    public Task<HttpResponseMessage> SendAsync(
-        HttpMethod method,
-        string path,
-        object? body = null,
-        string? ip = null,
-        string? cookie = null,
-        string? bearer = null,
-        IReadOnlyDictionary<string, string>? headers = null)
+    public Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body = null, string? ip = null)
     {
         var request = new HttpRequestMessage(method, path);
 
         if (body is not null)
-            request.Content = JsonContent.Create(body);
+            request.Content = System.Net.Http.Json.JsonContent.Create(body);
         if (ip is not null)
             request.Headers.TryAddWithoutValidation("X-Forwarded-For", ip);
-        if (cookie is not null)
-            request.Headers.TryAddWithoutValidation("Cookie", cookie);
-        if (bearer is not null)
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
-
-        foreach (var (name, value) in headers ?? new Dictionary<string, string>())
-            request.Headers.TryAddWithoutValidation(name, value);
 
         return _client.SendAsync(request, Ct);
     }
 
-    public Task<HttpResponseMessage> GetAsync(string path, string? ip = null) => SendAsync(HttpMethod.Get, path, ip: ip);
-
-    public Task<string> GetStringAsync(string path) => _client.GetStringAsync(path, Ct);
-
-    public Task<HttpResponseMessage> PostJsonAsync(string path, object body, string? ip = null) =>
-        SendAsync(HttpMethod.Post, path, body, ip);
-
-    /// <summary>A GET carrying <c>Authorization: Bearer &lt;key&gt;</c>, or no header when the key is null.</summary>
-    public Task<HttpResponseMessage> GetWithKeyAsync(string path, string? key = RootKey) =>
-        SendAsync(HttpMethod.Get, path, bearer: key);
-
-    /// <summary>A GET with the root key, read as JSON.</summary>
-    public async Task<JsonElement> ReadWithKeyAsync(string path)
-    {
-        using var response = await GetWithKeyAsync(path);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
-    }
+    public Task<HttpResponseMessage> GetAsync(string path, string? ip = null) =>
+        SendAsync(HttpMethod.Get, path, ip: ip);
 
     public async ValueTask DisposeAsync()
     {
@@ -148,17 +118,55 @@ public sealed class MyTestHost : IAsyncDisposable
             // A temp folder left behind is not a test failure.
         }
     }
+}
 
-    /// <summary>The Modbot.My source folder, used as the content root.</summary>
-    private static string SourceDirectory()
+/// <summary>One call my.modbot.co made to Cloud.</summary>
+public sealed record CloudCall(HttpMethod Method, Uri Url, string? Authorization, string Body);
+
+/// <summary>
+/// Stands in for Modbot Cloud. Records every call and answers what the test told it to.
+/// </summary>
+public sealed class FakeCloud : HttpMessageHandler
+{
+    private readonly List<CloudCall> _calls = [];
+
+    public IReadOnlyList<CloudCall> Calls
     {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        get
         {
-            if (File.Exists(Path.Combine(dir.FullName, "Modbot.slnx")))
-                return Path.Combine(dir.FullName, "src", "Modbot.My");
+            lock (_calls)
+                return [.. _calls];
+        }
+    }
+
+    public CloudCall Last => Calls[^1];
+
+    public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
+
+    public string Body { get; set; } = """{"items":[]}""";
+
+    /// <summary>True to fail the way an unreachable Cloud does.</summary>
+    public bool Unreachable { get; set; }
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var body = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(ct);
+
+        lock (_calls)
+        {
+            _calls.Add(new CloudCall(
+                request.Method, request.RequestUri!, request.Headers.Authorization?.ToString(), body));
         }
 
-        throw new InvalidOperationException("Could not find the repository root above the test output.");
+        if (Unreachable)
+            throw new HttpRequestException("Modbot Cloud is unreachable in this test.");
+
+        return new HttpResponseMessage(Status)
+        {
+            Content = new StringContent(Body, Encoding.UTF8, "application/json"),
+        };
     }
 }
 

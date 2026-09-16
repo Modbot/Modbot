@@ -2,13 +2,12 @@ import { useEffect, useRef } from 'react'
 import { api } from '@/lib/api'
 import { normaliseInstanceUrl } from '@/lib/instanceUrl'
 import { useLocation } from '@/lib/router'
-import { Admin } from '@/pages/admin/Admin'
 import { Go } from '@/pages/Go'
 import { Home } from '@/pages/Home'
 import { NotFound } from '@/pages/NotFound'
 import { Register } from '@/pages/Register'
 
-/** The routes that record an instance URL carried in `url`. The server records it on load too. */
+/** The routes that note an instance address carried in `url`. The server notes it on load too. */
 const RECORDING_ROUTES = new Set(['/', '/register', '/go'])
 
 export default function App() {
@@ -31,6 +30,5 @@ export default function App() {
   if (path === '/') return <Home />
   if (path === '/register') return <Register key={search.get('url') ?? ''} url={search.get('url')} />
   if (path === '/go') return <Go key={search.get('redir') ?? ''} redir={search.get('redir')} />
-  if (path === '/admin' || path.startsWith('/admin/')) return <Admin path={path} />
   return <NotFound />
 }

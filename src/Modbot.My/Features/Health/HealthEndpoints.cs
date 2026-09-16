@@ -1,8 +1,13 @@
-using Microsoft.AspNetCore.Mvc;
-using Modbot.My.Data;
-
 namespace Modbot.My.Features.Health;
 
+/// <summary>
+/// Liveness and readiness.
+/// </summary>
+/// <remarks>
+/// Both answer as long as the process is up. my.modbot.co has no database to check, and a Modbot
+/// Cloud that cannot be reached is a page with fewer instances on it — not a service that should be
+/// taken out of rotation, which is what a failing readiness check would do.
+/// </remarks>
 public static class HealthEndpoints
 {
     public const string Live = "/health/live";
@@ -10,14 +15,10 @@ public static class HealthEndpoints
 
     public static IEndpointRouteBuilder MapHealth(this IEndpointRouteBuilder app)
     {
-        // The process is up.
-        app.MapGet(Live, () => Results.Ok());
+        ArgumentNullException.ThrowIfNull(app);
 
-        // The process is up and can reach its database. This is the one to point a deploy at.
-        app.MapGet(Ready, async ([FromServices] MyContext db, CancellationToken ct) =>
-            await db.Database.CanConnectAsync(ct)
-                ? Results.Ok()
-                : Results.StatusCode(StatusCodes.Status503ServiceUnavailable));
+        app.MapGet(Live, () => Results.Ok());
+        app.MapGet(Ready, () => Results.Ok());
 
         return app;
     }

@@ -5,8 +5,7 @@ namespace Modbot.My.Tests;
 /// <summary>
 /// Only the app's own routes serve it. Everything else is a 404, and under /api a JSON one.
 /// </summary>
-[Collection(nameof(PostgresCollection))]
-public class PageTests(PostgresFixture db)
+public class PageTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -15,12 +14,9 @@ public class PageTests(PostgresFixture db)
     [InlineData("/register")]
     [InlineData("/go")]
     [InlineData("/go?redir=/pair")]
-    [InlineData("/admin")]
-    [InlineData("/admin/instances/some-id")]
-    [InlineData("/admin/register-page")]
     public async Task EachAppRouteServesTheAppOnFirstLoad(string path)
     {
-        await using var host = await MyTestHost.StartAsync(db);
+        await using var host = await MyTestHost.StartAsync();
 
         using var response = await host.GetAsync(path);
 
@@ -32,20 +28,23 @@ public class PageTests(PostgresFixture db)
 
     /// <summary>
     /// /go replaced /pair and /instanceredirect; one route redirects to an instance, not three. A
-    /// fallback that served the app for any path would bring both back as pages.
+    /// fallback that served the app for any path would bring both back as pages. /admin is gone with
+    /// the registry, which moved to Modbot Cloud (central services spec 4.4).
     /// </summary>
     [Theory]
     [InlineData("/pair")]
     [InlineData("/pair?code=123456")]
     [InlineData("/instanceredirect")]
     [InlineData("/instanceredirect?path=/audit")]
+    [InlineData("/admin")]
+    [InlineData("/admin/instances/some-id")]
     [InlineData("/index.html")]
     [InlineData("/register/extra")]
     [InlineData("/nothing-here")]
     [InlineData("/missing.js")]
     public async Task EveryOtherPathIsNotFound(string path)
     {
-        await using var host = await MyTestHost.StartAsync(db);
+        await using var host = await MyTestHost.StartAsync();
 
         using var response = await host.GetAsync(path);
 
@@ -55,12 +54,13 @@ public class PageTests(PostgresFixture db)
 
     [Theory]
     [InlineData("GET", "/api/nothing")]
-    [InlineData("GET", "/api/instances/some-id/nothing")]
-    [InlineData("POST", "/api/nothing")]
+    [InlineData("GET", "/api/instances")]
+    [InlineData("GET", "/api/stats")]
+    [InlineData("POST", "/api/admin/login")]
     [InlineData("DELETE", "/api/admin")]
     public async Task AnUnknownApiPathIsAJsonNotFound(string method, string path)
     {
-        await using var host = await MyTestHost.StartAsync(db);
+        await using var host = await MyTestHost.StartAsync();
 
         using var response = await host.SendAsync(new HttpMethod(method), path);
 
@@ -71,7 +71,7 @@ public class PageTests(PostgresFixture db)
     [Fact]
     public async Task BuiltAssetsAreServedAndCachedForGood()
     {
-        await using var host = await MyTestHost.StartAsync(db);
+        await using var host = await MyTestHost.StartAsync();
 
         using var response = await host.GetAsync(MyTestHost.AssetPath);
 
@@ -82,7 +82,7 @@ public class PageTests(PostgresFixture db)
     [Fact]
     public async Task TermListsRedirectToCloud()
     {
-        await using var host = await MyTestHost.StartAsync(db);
+        await using var host = await MyTestHost.StartAsync();
 
         // The lists moved to Cloud; these routes stay so that anything already pointed at them
         // keeps working (Cloud accounts and registry spec 4).
@@ -101,11 +101,17 @@ public class PageTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.NotFound, (await host.GetAsync("/termlists/..%2Fsecret.json")).StatusCode);
     }
 
+    /// <summary>
+    /// Readiness does not depend on Cloud. A Cloud that is down is a page with fewer instances on
+    /// it, not a service that should be taken out of rotation.
+    /// </summary>
     [Fact]
-    public async Task ReadyAnswersWhenTheDatabaseIsReachable()
+    public async Task ReadyAnswersEvenWhenCloudIsUnreachable()
     {
-        await using var host = await MyTestHost.StartAsync(db);
+        await using var host = await MyTestHost.StartAsync();
+        host.Cloud.Unreachable = true;
 
         Assert.Equal(HttpStatusCode.OK, (await host.GetAsync("/health/ready")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.GetAsync("/health/live")).StatusCode);
     }
 }

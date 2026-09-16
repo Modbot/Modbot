@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# my.modbot.co: the web app (/, /register, /go and /admin), the instance registry and Modbot Hub.
+# my.modbot.co: the web app (/, /register and /go). It has no database and reads everything from
+# Modbot Cloud.
 #
 # Build from the repository root, like the main image, because package versions are pinned once in
 # Directory.Packages.props and the web app is a sibling project under src/:
@@ -8,7 +9,7 @@
 #   docker build -f src/Modbot.My/Dockerfile -t modbot-my .
 #
 # On Railway, leave the service's Root Directory empty and set the variable
-# RAILWAY_DOCKERFILE_PATH=src/Modbot.My/Dockerfile. The service needs DATABASE_URL and ROOT_API_KEY.
+# RAILWAY_DOCKERFILE_PATH=src/Modbot.My/Dockerfile. The service needs MODBOT_CLOUD_API_KEY.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1 — the web app. Vite writes it straight into Modbot.My/wwwroot (see
@@ -71,5 +72,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD wget --quiet --spider "http://127.0.0.1:${PORT:-8080}/health/ready" || exit 1
 
-# Content root is the working directory, which is where publish put wwwroot/ and termlists/.
+# Content root is the working directory, which is where publish put wwwroot/.
 ENTRYPOINT ["dotnet", "/app/Modbot.My.dll"]

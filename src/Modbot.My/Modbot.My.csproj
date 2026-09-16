@@ -6,12 +6,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="EFCore.NamingConventions" />
+    <!-- No EF Core and no Npgsql: my.modbot.co has no database. It reads from Modbot Cloud. -->
     <PackageReference Include="Serilog.AspNetCore" />
-    <!-- Compile assets are needed: MyContextFactory implements IDesignTimeDbContextFactory.
-         PrivateAssets keeps it out of the published app; nothing loads the factory at runtime. -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
 
   <ItemGroup>

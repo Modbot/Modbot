@@ -1,29 +1,24 @@
 namespace Modbot.My.Configuration;
 
-/// <summary>The environment variables Modbot.My reads, and nothing else.</summary>
-/// <param name="DatabaseUrl">PostgreSQL, as a <c>postgres://</c> URL or a keyword string. Required.</param>
-/// <param name="RootApiKey">
-/// The key that unlocks every endpoint that reads the registry. When unset, those endpoints refuse
-/// everyone.
-/// </param>
+/// <summary>
+/// The environment variables Modbot.My reads, and nothing else.
+/// </summary>
+/// <remarks>
+/// <c>DATABASE_URL</c> and <c>ROOT_API_KEY</c> are gone. my.modbot.co had a PostgreSQL database and
+/// an <c>/admin</c> area from 2026-09-14 until 2026-09-16; both moved to Modbot Cloud (central
+/// services spec 2.1.1).
+/// </remarks>
 /// <param name="CloudProxyUrl">
 /// The Modbot Cloud this service reads from. Default <c>https://cloud.modbot.co</c>. Anything that is
 /// not a full <c>http</c> or <c>https</c> address means the default.
 /// </param>
 /// <param name="CloudApiKey">
-/// The key sent to Cloud. Server-side only: it is never returned by an endpoint and never reaches a
-/// browser.
+/// The key sent to Cloud. Required: without it there is nothing this service can show. Server-side
+/// only — it is never returned by an endpoint, never logged, and never rendered into the page.
 /// </param>
 /// <param name="Port">The port to listen on. Railway injects it.</param>
-public sealed record MyEnvironment(
-    string? DatabaseUrl,
-    string? RootApiKey,
-    string? CloudProxyUrl,
-    string? CloudApiKey,
-    int Port)
+public sealed record MyEnvironment(string? CloudProxyUrl, string? CloudApiKey, int Port)
 {
-    public const string DatabaseUrlVariable = "DATABASE_URL";
-    public const string RootApiKeyVariable = "ROOT_API_KEY";
     public const string CloudProxyUrlVariable = "MODBOT_CLOUD_PROXY_URL";
     public const string CloudApiKeyVariable = "MODBOT_CLOUD_API_KEY";
     public const string PortVariable = "PORT";
@@ -38,8 +33,6 @@ public sealed record MyEnvironment(
             : DefaultPort;
 
         return new MyEnvironment(
-            Blank(get(DatabaseUrlVariable)),
-            Blank(get(RootApiKeyVariable)),
             Blank(get(CloudProxyUrlVariable)),
             Blank(get(CloudApiKeyVariable)),
             port);
