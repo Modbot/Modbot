@@ -1,0 +1,291 @@
+# Privacy policy
+
+Last updated 16 September 2026.
+
+Modbot is a moderation tool for VRChat groups. Anyone can run a copy of it on their own server, and
+most copies are run by the moderators of one group, not by us.
+
+That makes two very different questions, so this document answers both.
+
+- **You are in a group whose moderators use Modbot.** Start at
+  [If you are in a group that uses Modbot](#if-you-are-in-a-group-that-uses-modbot).
+- **You run Modbot yourself.** Start at [If you run Modbot](#if-you-run-modbot).
+
+Everything here describes what the code actually does today. Where something is planned but not
+built, it says so.
+
+## Who is behind Modbot
+
+Modbot is written and operated by **Sarmad Wahab (bin)**.
+
+- Email: **me@bin.moe**
+- Web: **https://bin.moe**
+- Source: **https://github.com/binn**
+
+The services the project itself runs are `modbot.co` (this site), `docs.modbot.co`, `my.modbot.co`
+and `cloud.modbot.co`. Every copy of Modbot that a group runs is someone else's.
+
+---
+
+# If you are in a group that uses Modbot
+
+## Who holds my information?
+
+**The group's operator does — not us.** They chose to run Modbot, they own the server it runs on,
+and the database is theirs. We have no access to it and cannot read it, search it or delete from it.
+
+If you want to know what a group holds about you, or want it removed, ask that group's moderators.
+We cannot do it for you and we cannot make them.
+
+Modbot is open source, which means you can read exactly what the software is able to record. What a
+particular group has switched on is up to them.
+
+## What does Modbot record about me?
+
+It depends on what the group has set up. At most:
+
+**From VRChat**
+
+- Your display name, and the names you had before.
+- Your VRChat user id, your bio, your status and status message, your pronouns.
+- Your profile picture and current avatar picture addresses.
+- The date you joined VRChat, your account tags, and the platform you were last on.
+- Whether VRChat says you are age-verified.
+- VRChat's raw answer about your profile, stored as it arrived.
+
+**About the group**
+
+- That you are a member, when you joined, which roles you have, and whether you left.
+- Any moderator notes VRChat holds on your membership.
+- Bans and unbans, when they happened and who did them.
+
+**Where you have been**
+
+- Which of the group's rooms you joined and left, and when — so how long you were in each.
+- When you changed avatar, and the avatar's name.
+- Which room you were in when something happened, and who else was there at the time.
+
+This comes from two places: the group's own instance list, and the Windows client some moderators
+run, which reads the VRChat log file on their PC. That log names everyone in the room with them,
+which is how a group learns you were there even if no moderator interacted with you.
+
+**Moderation**
+
+- Every warning, kick, ban and unban, with the reason and the moderator's name.
+- Case files: a written record of why someone was banned.
+- Evidence a moderator attached — screenshots, clips, files.
+- Flags raised by the group's AI rules, including the exact text or picture that matched.
+
+**Discord, if the group connected a Discord server**
+
+- **Your messages, in full.** Their text, their attachments, who you replied to, when you edited
+  them and when you deleted them. An edit keeps the old text. A delete keeps the message.
+- Your Discord account id, username and nickname, your roles, and when you joined.
+- **Voice presence, not voice.** When you joined, moved between and left a voice channel, and how
+  many minutes that adds up to. **Modbot does not record, listen to or transcribe audio.** There is
+  no code in it that touches a microphone or a voice stream, in Discord or in VRChat.
+- If you linked your Discord and VRChat accounts through Modbot, the link between them.
+
+## Is any of that sent anywhere else?
+
+Three places, and each is a choice the operator made.
+
+**To an AI provider, if the group turned AI on.** AI is off when Modbot is installed. The operator
+picks the provider and the model — OpenRouter, xAI, Anthropic, OpenAI, or any compatible endpoint
+including one running on their own machine. What is sent depends on the feature:
+
+- **Moderation rules.** The text being checked — a Discord message, a display name, a bio, a status
+  line or pronouns — up to 4,000 characters, together with the rule's own instructions. **Your name
+  and id are not sent.** If the rule is set to read the conversation, the messages before yours in
+  that channel are sent too, and those carry their authors' names. If the rule is set to look at
+  pictures (off unless switched on for that rule), up to four pictures go with it — Discord
+  attachments, Discord avatars, VRChat profile pictures.
+- **Chat.** When a moderator asks Modbot's assistant a question, the assistant looks things up and
+  sends what it found to the provider. That can include names, bios, ban history and who was in a
+  room.
+- **Insights and alerts.** Counts and world names only. No person's name, id or message.
+
+Word lists are matched on the group's own server. Nothing is sent to a provider for those.
+
+**To Modbot Cloud, if the group's moderators run the Windows client.** The client reads the VRChat
+log on that moderator's PC and sends us the events in it: someone joined an instance, someone was
+seen there, someone left, someone changed avatar. Each event carries the person's VRChat id, their
+display name, the world and the instance — **including you, if you were in a room with that
+moderator, and including rooms that have nothing to do with the group.** No raw log lines, no chat,
+no friends list. See [What the desktop client sends](#what-does-the-desktop-client-send) for what it
+is and how it is turned off. We keep these events for 365 days.
+
+**To modbot.co, if the group left the open rooms setting on.** A group whose Modbot has this on
+sends us the rooms it has open **that anyone can join**, so they can be listed on
+[modbot.co/rooms](https://modbot.co/rooms). That is the world, the join link, the region, when the
+room opened, and the group's name and pictures. **Nobody is counted and nobody is named.** A room
+limited to group members, or to members and their friends, is never sent. See
+[What does my server send to Modbot Cloud?](#what-does-my-server-send-to-modbot-cloud)
+
+## How long is it kept?
+
+**As long as the operator wants.** Modbot ships with no deletion schedule at all: moderation
+records, presence records and stored Discord messages are kept forever unless an operator sets a
+window. Case files and evidence are never deleted by any automatic rule.
+
+The one exception is the AI call log, which Modbot trims to 30 days by default.
+
+## How do I get my information removed?
+
+**Ask the group's moderators.** They control the database.
+
+Being honest about what the software can do for them today: **Modbot has no "delete everything about
+this person" button.** An operator who wants to erase someone has to do it with database commands.
+What is built is narrower — a moderator can destroy a piece of evidence (the file goes, a record
+that it existed and who destroyed it stays), and an account link can be ended (the link is marked
+ended, the row stays).
+
+If the law where you live gives you a right to have your data erased, that right is against the
+group's operator, who decides what is kept. We cannot act on it for you, because we do not hold it.
+
+If the group sent events to Modbot Cloud through a moderator's Windows client, those copies are
+ours, and you can write to **me@bin.moe** about them.
+
+## Who can see it?
+
+People the operator has given an account on their Modbot, with whatever permissions they gave them.
+Nothing in Modbot is public by default. The one thing a group can choose to publish is its open
+public rooms, described above, and that names nobody.
+
+---
+
+# If you run Modbot
+
+This half is about what your own copy sends out, and what you are choosing when you connect
+something to it.
+
+## What does my server send to Modbot Cloud?
+
+**One thing today: the rooms your group has open that anyone can join.** That is the feature behind
+[modbot.co/rooms](https://modbot.co/rooms).
+
+What each report carries:
+
+| | |
+|---|---|
+| Your group | Its VRChat id, its name, its icon and its banner |
+| Each open public room | The world's id, name and picture; the VRChat join link; the region; when the room opened |
+
+What it does not carry: any head count, any member count, any person's name or id, your server's
+address, any moderation record, and any room that is not open to everyone. A room set to group
+members, or to members and their friends, is filtered out before the report is built.
+
+A report is sent every five minutes, and again whenever a room opens or closes. It replaces the
+whole list, so a room that closes leaves the page on the next report; a Modbot that stops reporting
+drops off within twenty minutes and is forgotten after seven days.
+
+**How to turn it off.** Settings → Integrations → Modbot Cloud, "List this group's public rooms on
+modbot.co". It is on when Modbot is installed. Turning it off asks Cloud to drop what it has
+straight away.
+
+**Nothing else goes to Cloud from the server.** Usage reporting and analytics are designed but not
+built, and nothing in Modbot sends them. Shipping your application logs to Cloud is designed but not
+built either — there is no setting for it, because there is nothing to switch. If that changes, this
+document changes with it.
+
+## What about `MODBOT_CLOUD_DISABLED`?
+
+Set `MODBOT_CLOUD_DISABLED=1` (or `true`, `yes`, `on`) and your server talks to Modbot Cloud not at
+all, whatever any setting says. It beats the open rooms setting.
+
+It applies to your server only. **It does not reach the desktop clients paired with it** — a client's
+Cloud settings live on the moderator's own PC and your server has no say in them.
+
+## What about my.modbot.co?
+
+`my.modbot.co` is the page that remembers which Modbot deployments you use, so you can pick one.
+
+**Your server never calls it.** What happens is that Modbot offers you a button — during setup, and
+on your account page — that opens `my.modbot.co/register?url=<your deployment's address>` **in your
+browser**. If you click it, that page records your deployment's address, the address your browser
+came from, and when it was seen. That is all it records: no group, no version, no moderation data,
+no account.
+
+The IP address is what makes the list work without an account, which also means everyone behind one
+office or household address shares one list.
+
+**How to avoid it:** do not click the button. Nothing else contacts `my.modbot.co` except the term
+list download below.
+
+## What about the word lists?
+
+If you use Modbot's AI moderation, it can download the project's shared word lists from
+`my.modbot.co/termlists/`. That is a plain download: your server asks for a file and receives it. It
+sends no data about your group, and no key. Like any web request it reveals your server's IP address
+to us and which list it asked for.
+
+This download is a separate setting from `MODBOT_CLOUD_DISABLED`, and is not stopped by it today.
+Don't import a shared list and nothing is downloaded.
+
+## What does the desktop client send?
+
+The Windows client is a separate program a moderator installs on their own PC. **By default it sends
+every instance event it reads to Modbot Cloud** — someone joined, someone was seen, someone left,
+someone changed avatar — with each person's VRChat id and display name, the world and the instance.
+
+Two things worth being blunt about:
+
+- **It is every instance, not just your group's.** A public world the moderator wandered into, a
+  friends-only room, a private one: if the VRChat log names it, the client reports it.
+- **It names other players.** People who have never heard of your group end up in these events
+  because they were in a room with someone running the client.
+
+It does not send raw log lines, chat, the friends list, avatar ids, instance secrets, file paths,
+machine names or anything about the PC itself. An install is a random id; we do not store the address
+it registered from.
+
+**How to turn it off — on that PC, by the person using it.** Your server cannot do it for them.
+Either:
+
+- put `"cloud": { "disabled": true }` in that PC's `settings.json`, or
+- set `MODBOT_CLOUD_DISABLED=1` in that PC's environment.
+
+The environment variable wins over the file. Turning it off also deletes anything the client had
+queued to send.
+
+We keep events sent this way for 365 days by default.
+
+## What else does my Modbot talk to?
+
+Everything below is something you connect, with credentials you provide. Modbot stores them
+encrypted in its own database.
+
+| | What it is for | What Modbot sends |
+|---|---|---|
+| **VRChat** | The service account Modbot acts as | API calls as that account, identifying itself in the User-Agent with the project's repository address |
+| **Discord** | The bot, and account linking | Bot calls to Discord for the server you name |
+| **An AI provider** | AI moderation, chat, insights and alerts | See [Is any of that sent anywhere else?](#is-any-of-that-sent-anywhere-else) — off until you switch it on, and you choose the endpoint |
+| **An SMTP relay** | Sending invitations and reset links | The emails it sends |
+| **S3-compatible storage** | Evidence files, if you choose it over disk | The evidence files themselves |
+| **Seq** | A durable copy of the logs, if you set `SEQ_URL` | Modbot's own application logs |
+
+You are the one handing data to each of these. Their privacy policies are theirs.
+
+## What does modbot.co itself collect?
+
+- **modbot.co** serves pages and an open feed of the rooms described above. It sets no cookies and
+  runs no analytics script. The one thing kept in your browser is which theme you picked.
+- **docs.modbot.co** serves documentation. Same: no cookies, no analytics script.
+- **my.modbot.co** stores what [What about my.modbot.co?](#what-about-mymodbotco) describes,
+  including visitor IP addresses.
+- **cloud.modbot.co** stores desktop client registrations (a random id, a version, the word
+  `windows`) and the events those clients send, for 365 days, and the open rooms reports described
+  above.
+
+Like any web server, these keep short-lived request logs.
+
+## Changes
+
+This document is in the repository at `PRIVACY_POLICY.md` and its history is the history of this
+page. Meaningful changes will be noted in the release notes.
+
+## Asking about any of this
+
+Write to **me@bin.moe**.
+
+If your question is about what a particular group holds, ask that group — we cannot see it.

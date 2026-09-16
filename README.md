@@ -155,6 +155,13 @@ this project holds to.
 Contributions are covered by [`CLA.md`](CLA.md): you keep your copyright, and the project gets a
 licence broad enough to keep its licensing coherent over time.
 
+## Privacy
+
+[`PRIVACY_POLICY.md`](PRIVACY_POLICY.md), also published at
+[modbot.co/privacy](https://modbot.co/privacy). It answers two sets of questions: one for people in
+a group whose moderators run Modbot, and one for operators running it — what a copy of Modbot
+records, what it sends out, and how to stop each of those.
+
 ## Licence
 
 [AGPL-3.0](LICENSE). You may use, modify, self-host and fork Modbot. If you run a **modified** Modbot
