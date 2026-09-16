@@ -195,6 +195,13 @@ public static class VRChatRateLimits
     public const string InstancesCreateLane = "instances.create";
 
     /// <summary>
+    /// Kicks, bans and unbans a moderator presses. Its own queue, so the one thing a human is
+    /// actually waiting on is never behind a member sweep, and a slow moderation write never holds
+    /// the sweeps up either.
+    /// </summary>
+    public const string GroupsModerateLane = "groups.moderate";
+
+    /// <summary>
     /// The classes spec 4.2's table schedules as background sync, in its order.
     /// </summary>
     /// <remarks>
@@ -268,6 +275,17 @@ public static class VRChatRateLimits
             [VRChatEndpointClass.ModerationWrite] = new(
                 VRChatEndpointClass.ModerationWrite, GroupLane,
                 HardMaxPerSecond: 0.3, DefaultCeilingPerSecond: CeilingFor(0.3),
+                ResourceScoped: true),
+
+            // NOT MEASURED -- the group kick, ban and unban a moderator presses (M4 §4). Nobody has
+            // asked VRChat what these allow, and spec 4.3.4 forbids borrowing a neighbour's number,
+            // so the maintainer set a deliberately low starting rate: one request per two seconds,
+            // shared by all three. Its own lane, so the moderator waiting on it never queues behind
+            // a member sweep; scoped to the group; still counted against the global backstop. A 429
+            // cold stops this class and nothing else, and is never retried -- the action failed.
+            [VRChatEndpointClass.GroupsModerate] = new(
+                VRChatEndpointClass.GroupsModerate, GroupsModerateLane,
+                HardMaxPerSecond: PerSeconds(2), DefaultCeilingPerSecond: CeilingFor(PerSeconds(2)),
                 ResourceScoped: true),
 
             // Exempt from the global ceiling, deliberately and on evidence (spec 4.2.5). If 429s

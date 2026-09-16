@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260916040950_AddModerationActions")]
+    partial class AddModerationActions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4743,17 +4746,9 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_seen_at");
 
-                    b.Property<DateTimeOffset?>("LastUserReadAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_user_read_at");
-
                     b.Property<DateTimeOffset?>("NotFoundAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("not_found_at");
-
-                    b.Property<DateTimeOffset?>("ProfileNotFoundAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("profile_not_found_at");
 
                     b.Property<string>("ProfilePictureUrl")
                         .HasColumnType("text")
@@ -4766,10 +4761,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("RawProfile")
                         .HasColumnType("jsonb")
                         .HasColumnName("raw_profile");
-
-                    b.Property<string>("RawPublicProfile")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("raw_public_profile");
 
                     b.Property<string>("RefreshError")
                         .HasMaxLength(512)
@@ -4793,19 +4784,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("tags");
 
-                    b.Property<DateTimeOffset?>("UserNotFoundAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("user_not_found_at");
-
-                    b.Property<string>("UserReadError")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("user_read_error");
-
-                    b.Property<DateTimeOffset?>("UserReadErrorAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("user_read_error_at");
-
                     b.HasKey("UserId")
                         .HasName("pk_vrchat_user");
 
@@ -4814,9 +4792,6 @@ namespace Modbot.Core.Data.Migrations
 
                     b.HasIndex("LastSeenAt")
                         .HasDatabaseName("ix_vrchat_user_last_seen");
-
-                    b.HasIndex("LastUserReadAt")
-                        .HasDatabaseName("ix_vrchat_user_last_user_read");
 
                     b.ToTable("vrchat_user", (string)null);
                 });

@@ -3,12 +3,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { CaseFileCell } from '@/components/CaseFileCell'
+import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { UnwrittenCaseFiles } from '@/components/UnwrittenCaseFiles'
 import { FactTime, SourceBadge, SubjectLink } from '@/components/facts'
 import { RepeatOffendersTab } from '@/pages/RepeatOffenders'
 import { useCaseFiles } from '@/lib/caseFiles'
 import { ago, formatDay } from '@/lib/format'
-import { can } from '@/lib/permissions'
+import { can, canAny } from '@/lib/permissions'
 import {
   api,
   ApiError,
@@ -132,6 +133,10 @@ function GroupBans({
   const [list, setList] = useState<GroupBanList | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Bumped after an unban. The server has already marked the ban as lifted, so this re-reads the
+  // list rather than editing the row in place and hoping the two agree.
+  const [lifted, setLifted] = useState(0)
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(typed.trim())
@@ -162,7 +167,7 @@ function GroupBans({
     return () => {
       cancelled = true
     }
-  }, [search, status, page])
+  }, [search, status, page, lifted])
 
   const cases = useCaseFiles(list?.bans.map((b) => b.userId) ?? [], can(me, 'ViewProfile'))
 
@@ -171,6 +176,8 @@ function GroupBans({
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
   const showCases = can(me, 'ViewProfile')
+  // Lifting a ban, and re-banning somebody whose ban was lifted, both live in this column.
+  const canAct = canAny(me, ['Ban', 'Unban'])
 
   return (
     <>
@@ -241,6 +248,7 @@ function GroupBans({
                     <th className="px-3 py-2 text-left font-normal">Modbot first saw it</th>
                     {status !== 'current' && <th className="px-3 py-2 text-left font-normal">Lifted</th>}
                     {showCases && <th className="px-3 py-2 text-left font-normal">Case file</th>}
+                    {canAct && <th className="px-3 py-2 text-left font-normal"><span className="sr-only">Actions</span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -289,6 +297,17 @@ function GroupBans({
                             canWrite={can(me, 'Ban')}
                             onOpenCase={onOpenCase}
                             onWritten={onWritten}
+                          />
+                        </td>
+                      )}
+                      {canAct && (
+                        <td className="px-3 text-right">
+                          <ModerationActions
+                            me={me}
+                            person={{ userId: ban.userId, banned: !ban.liftedAt }}
+                            name={ban.displayName ?? ban.userId}
+                            onDone={() => setLifted((n) => n + 1)}
+                            size="xs"
                           />
                         </td>
                       )}

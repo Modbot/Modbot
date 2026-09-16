@@ -152,6 +152,11 @@ public static class VRChatServiceCollectionExtensions
         // else could see.
         services.AddSingleton<UserRefreshQueue>();
 
+        // Kick, ban and unban. Holds nothing but the gate, so a singleton is enough; it is here
+        // rather than in the API so that the endpoint class, the interactive priority and the
+        // ...WithHttpInfoAsync rule are decided once beside the syncs (M4 §4).
+        services.AddSingleton<Moderation.GroupModeration>();
+
         // The one writer of vrchat_user rows. Scoped, because it holds a ModbotContext; used by
         // the profile sync, by the API's manual 18+ flag and refresh endpoints, and by anything
         // else that fetches a user object and should record having seen it.

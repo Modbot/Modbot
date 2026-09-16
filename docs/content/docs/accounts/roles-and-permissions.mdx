@@ -241,8 +241,9 @@ There is no button for this in the web app yet. It is available through the [API
 
 Name: `Kick`
 
-Reserved: nothing in Modbot uses this yet. It is in the built-in Moderator role so that the role is
-ready when Modbot gains kick actions.
+Remove a person from the VRChat group, from the person's page or the **Members** list. Modbot asks
+you to confirm, offers the group's [ban reasons](/moderation/case-files) and a note, and records the
+kick only once VRChat has accepted it.
 
 ### Warn
 
@@ -254,9 +255,9 @@ Reserved: nothing in Modbot uses this yet. It is in the built-in Moderator role.
 
 Name: `Ban`
 
-Modbot does not ban people in VRChat itself yet. Today this permission is about
-[case files](/moderation/case-files):
-
+- Banning a person from the VRChat group, from the person's page or the **Members** list. A reason
+  is required, and the ban's [case file](/moderation/case-files) is written from the reason and the
+  note.
 - Writing a case file for a ban (the **Bans** page offers this for bans with no case file).
 - Changing or withdrawing **any** case file. Without **Ban**, a person can only change or withdraw
   case files they wrote themselves.
@@ -265,7 +266,8 @@ Modbot does not ban people in VRChat itself yet. Today this permission is about
 
 Name: `Unban`
 
-Reserved: nothing in Modbot uses this yet. It is in the built-in Moderator role.
+Lift a person's ban, from the **Bans** page or the person's page. Separate from **Ban**, because
+letting somebody back in is a different decision from keeping them out.
 
 ### Act on many at once
 

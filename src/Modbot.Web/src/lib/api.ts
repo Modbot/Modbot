@@ -696,6 +696,43 @@ export type MembershipView = {
   bans: GroupBanCoverage
 }
 
+/** What Modbot can do to somebody in the VRChat group (M4 §2). */
+export type ModerationActionName = 'kick' | 'ban' | 'unban'
+
+/**
+ * How a kick, ban or unban went.
+ *
+ * `done` is true only when VRChat accepted it. Anything else means nothing changed in VRChat,
+ * whatever the rest of this says — a moderator must never read a success that has not happened.
+ */
+export type ModerationActionResult = {
+  action: ModerationActionName
+  userId: string
+  done: boolean
+  at: string
+  /** The case file a ban wrote or updated. */
+  caseId: string | null
+  /** What VRChat said when it refused. */
+  error: string | null
+  /** VRChat rate limited it, or Modbot was already waiting one out. Nothing was retried. */
+  rateLimited: boolean
+  /** This key had already been used: the answer is the first press's, and nothing was sent again. */
+  repeat: boolean
+}
+
+/**
+ * What one press of a confirmation sends.
+ *
+ * `key` is made once when the dialog opens and travels with every press of its button, so a double
+ * click, a retry after a timeout and an impatient reload all produce one action (M4 §4.3).
+ */
+export type ModerationActionBody = {
+  userId: string
+  key: string
+  reasonIds: string[]
+  note: string
+}
+
 /** One row of the group's ban list, as the ban sweep last read it. */
 export type GroupBanRow = {
   userId: string
@@ -3174,4 +3211,12 @@ export const api = {
 
   /** Where the bytes of a piece of evidence are served from. Same-origin, authenticated by the cookie. */
   evidenceUrl: (hash: string) => `/api/evidence/${encodeURIComponent(hash)}`,
+
+  // ── Moderation actions (M4 §4). The only calls that change anything in VRChat. ────────────
+
+  kickPerson: (body: ModerationActionBody) => post<ModerationActionResult>('/api/moderation/kick', body),
+
+  banPerson: (body: ModerationActionBody) => post<ModerationActionResult>('/api/moderation/ban', body),
+
+  unbanPerson: (body: ModerationActionBody) => post<ModerationActionResult>('/api/moderation/unban', body),
 }

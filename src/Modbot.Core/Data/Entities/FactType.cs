@@ -405,6 +405,42 @@ public static class FactType
     /// <summary>The ban reason list changed: a reason added, reworded, switched off or reordered.</summary>
     public const string BanReasonsChanged = "modbot.ban-reasons.change";
 
+    // ── Moderation done from Modbot (M4 §2, §4.1) ──────────────────────────────────────────
+    //
+    // These are the record that a moderator pressed a button here, and are deliberately separate
+    // from the `vrchat.group.member.*` facts the audit-log sync writes. VRChat attributes
+    // everything Modbot does to Modbot's own account, so its audit log says "Modbot banned X" and
+    // cannot say who decided to; that is what these carry (§5.9.1). Both facts end up in the
+    // person's history, and they are two different statements: one that Modbot asked, one that
+    // VRChat did it.
+    //
+    // The subject is the person acted on, on the VRChat platform. The actor is the Modbot account
+    // of the moderator who pressed the button. Payload: the action, the reasons picked from the
+    // group's list, the note, and the key that made the confirmation single-use.
+    //
+    // Only written once VRChat has accepted (M4 §4.1). A refusal is `ActionFailed` instead, which
+    // is not a claim that anything happened.
+
+    /// <summary>A moderator kicked somebody out of the group from Modbot, and VRChat accepted.</summary>
+    public const string ActionKick = "modbot.action.kick";
+
+    /// <summary>A moderator banned somebody from the group from Modbot, and VRChat accepted.</summary>
+    public const string ActionBan = "modbot.action.ban";
+
+    /// <summary>A moderator lifted a ban from Modbot, and VRChat accepted.</summary>
+    public const string ActionUnban = "modbot.action.unban";
+
+    /// <summary>
+    /// A moderator asked for an action and it did not happen: VRChat refused it, a bucket was cold
+    /// stopped, or the request never left. Payload carries what VRChat said.
+    /// </summary>
+    /// <remarks>
+    /// Its own type rather than a flag on the others, so that no query for "who was banned" can
+    /// ever count an attempt that failed. A moderation tool that silently fails to ban somebody is
+    /// worse than one that cannot ban at all (M4 §1), and the log has to be able to show that.
+    /// </remarks>
+    public const string ActionFailed = "modbot.action.failed";
+
     // ── Evidence (evidence design §6, §14.1) ───────────────────────────────────────────────
 
     /// <summary>Evidence was attached to a case file.</summary>

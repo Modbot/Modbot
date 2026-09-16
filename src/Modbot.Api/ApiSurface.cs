@@ -26,6 +26,7 @@ using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Flags;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Members;
+using Modbot.Api.Features.Moderation;
 using Modbot.Api.Features.Alerts;
 using Modbot.Api.Features.Insights;
 using Modbot.Api.Features.Settings;
@@ -235,6 +236,11 @@ public static class ApiSurface
         // the review close does; a host without them reads case files and refuses to write one.
         app.MapBanReasons();
         app.MapCaseFiles();
+
+        // Kick, ban and unban (M4 §4). The only endpoints that change anything in VRChat, so the
+        // gate and the fact log resolve optionally and a host without them refuses to act rather
+        // than pretending to.
+        app.MapModerationActions();
 
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.

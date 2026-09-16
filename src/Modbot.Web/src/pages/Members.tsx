@@ -5,9 +5,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
+import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type LinkedDiscord, type LinkedFilter, type MemberList, type MemberQuery } from '@/lib/api'
-import { can } from '@/lib/permissions'
+import { can, canAny } from '@/lib/permissions'
 import { useQueryParam } from '@/lib/router'
 import { cn } from '@/lib/utils'
 
@@ -30,6 +31,10 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
   // Links are for people who may see profiles; the server leaves them out for anybody else.
   const seesLinks = can(me, 'ViewProfile')
 
+  // Whether this moderator has anything to offer on a row at all, so an empty column is not drawn
+  // for everybody who cannot act.
+  const canAct = canAny(me, ['Kick', 'Ban'])
+
   // The stretch an unusual-activity alert links to. In the address bar rather than in state, so
   // the link a moderator was sent lands on the same list they were meant to see.
   const [joinedFrom, setJoinedFrom] = useQueryParam('joinedFrom')
@@ -45,6 +50,10 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
   const [page, setPage] = useState(1)
   const [list, setList] = useState<MemberList | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Bumped after a kick or a ban. The server has already marked the person as gone, so this
+  // re-reads the list rather than editing the row in place and hoping the two agree.
+  const [acted, setActed] = useState(0)
 
   // Typing waits a moment before it asks, so a name typed at speed is one request, not nine.
   useEffect(() => {
@@ -87,7 +96,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
     return () => {
       cancelled = true
     }
-  }, [search, role, status, sort, linked, joined?.from, joined?.to, page])
+  }, [search, role, status, sort, linked, joined?.from, joined?.to, page, acted])
 
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
@@ -208,6 +217,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                     <th className="px-3 py-2 text-left font-normal">Joined</th>
                     <th className="px-3 py-2 text-left font-normal">Last seen by Modbot</th>
                     {status !== 'current' && <th className="px-3 py-2 text-left font-normal">Left</th>}
+                    {canAct && <th className="px-3 py-2 text-left font-normal"><span className="sr-only">Actions</span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -288,6 +298,18 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                       </td>
                       {status !== 'current' && (
                         <td className="px-3 tabular-nums">{m.leftAt ? formatDay(m.leftAt) : ''}</td>
+                      )}
+                      {canAct && (
+                        <td className="px-3 text-right">
+                          <ModerationActions
+                            me={me}
+                            person={{ userId: m.userId, isMember: !m.leftAt }}
+                            name={m.displayName ?? m.userId}
+                            onDone={() => setActed((n) => n + 1)}
+                            size="xs"
+                            layout="menu"
+                          />
+                        </td>
                       )}
                     </tr>
                   ))}

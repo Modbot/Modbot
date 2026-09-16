@@ -76,6 +76,9 @@ with **Previous** and **Next** at the bottom and the total on the right.
 
 Click a name to open the [person popup](/moderation/popups#person-popup).
 
+The last column on each row opens a menu with **Kick** and **Ban**. See
+[Kicking, banning and unbanning](#kicking-banning-and-unbanning).
+
 Names and pictures come from Modbot's profile refresh, which works through people one at a time.
 In a big group, some rows show only an id for a while after Modbot is first set up.
 
@@ -103,7 +106,8 @@ Above it: when it was last synced and how many bans the last complete read found
 **Bans that were lifted** are bans a complete read no longer listed.
 
 The columns are **Person**, **Banned on**, **Modbot first saw it**, **Lifted** (when you are
-looking at lifted bans), and **Case file** (with **See profiles**). 50 bans a page.
+looking at lifted bans), and **Case file** (with **See profiles**). 50 bans a page. With **Unban**,
+each standing ban also has an **Unban** button.
 
 ### What the audit log recorded
 
@@ -132,9 +136,40 @@ and unbanned after. It is proof of a ban this tab cannot show.
 Everyone who has been kicked, warned, banned, removed from the group or turned away more than
 once. See [Reviews and repeat offenders](/moderation/reviews#people-acted-on-more-than-once).
 
+## Kicking, banning and unbanning
+
+Modbot can do three things to a person in your VRChat group, each behind its own permission:
+
+| Action | Needs | Where |
+|---|---|---|
+| **Kick** | **Kick** | The person popup, and the **Members** row menu. |
+| **Ban** | **Ban** | The person popup, and the **Members** row menu. |
+| **Unban** | **Unban** | The person popup, and the **Bans** page. |
+
+Somebody who is already banned is offered **Unban** instead of **Ban**.
+
+Every action opens a confirmation naming the person, with the group's
+[ban reasons](/moderation/case-files#the-reason-list) and an optional note. A reason is required on
+a ban and optional on a kick or an unban.
+
+Modbot asks VRChat, waits, and then tells you what happened. If VRChat refuses, the screen says what
+VRChat said and **nothing is recorded as done** — there is no case where Modbot shows a ban that did
+not happen. A kick or a ban marks the person as gone from the member list straight away, and a ban
+adds them to the ban list; the next sweep confirms it.
+
+A ban also writes its [case file](/moderation/case-files) from the reason and the note, so the ban
+is written up at the moment it is made rather than chased up afterwards.
+
+Pressing the button twice does one thing. Each confirmation carries a key, and Modbot refuses a
+second action under the same key and shows you the first one's answer.
+
+Modbot will not act on the VRChat account it signs in as.
+
 ## Who banned somebody, and why
 
 - The **Ban list** knows who is banned, but not who banned them.
+- A ban **made from Modbot** knows who decided it: VRChat records every action Modbot takes as
+  Modbot's own account, so the moderator's name lives in Modbot's audit log and nowhere else.
 - **What the audit log recorded** knows who banned them, but only inside its window.
 - Neither knows **why**. VRChat's audit log has nowhere to put a reason, so your group writes one
   itself in a [case file](/moderation/case-files).

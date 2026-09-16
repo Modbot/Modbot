@@ -102,7 +102,7 @@ public static class DiscordEventTypes
         ArgumentNullException.ThrowIfNull(type);
 
         if (ModerationActions.Contains(type)
-            || Starts(type, "modbot.report", "modbot.evidence", "modbot.review", "modbot.user-profile", "modbot.ai-moderation"))
+            || Starts(type, "modbot.action", "modbot.report", "modbot.evidence", "modbot.review", "modbot.user-profile", "modbot.ai-moderation"))
             return Moderation;
 
         if (Starts(type,

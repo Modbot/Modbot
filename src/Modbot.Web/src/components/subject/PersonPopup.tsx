@@ -7,6 +7,7 @@ import { SubjectCaseFiles } from '@/components/SubjectCaseFiles'
 import { SubjectHistory } from '@/components/SubjectHistory'
 import { UserProfileCard } from '@/components/UserProfileCard'
 import { DiscordLinkCard } from '@/components/subject/DiscordLinkCard'
+import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { FactList, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser } from '@/lib/api'
@@ -24,6 +25,10 @@ type Tab = 'logs' | 'cases' | 'metrics'
  */
 export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
   const [tab, setTab] = useState<Tab>('logs')
+
+  // Bumped after a kick, ban or unban, which remounts the cards that read what Modbot stores.
+  // The server has already written the change, so this reads it back rather than guessing at it.
+  const [acted, setActed] = useState(0)
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'logs', label: 'Logs' },
@@ -43,12 +48,14 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
           <UserProfileCard subjectId={id} me={me} />
           {can(me, 'ViewProfile') && <DiscordLinkCard subjectId={id} me={me} />}
 
-          {can(me, 'ViewMembers') && <MembershipCard subjectId={id} />}
+          {can(me, 'ViewMembers') && (
+            <MembershipCard key={acted} subjectId={id} me={me} onActed={() => setActed((n) => n + 1)} />
+          )}
         </>
       }
     >
       <Tabs value={tab} onChange={setTab} tabs={tabs}>
-        {tab === 'logs' && <Logs id={id} />}
+        {tab === 'logs' && <Logs key={acted} id={id} />}
         {tab === 'cases' && (
           <div className="p-4">
             <SubjectCaseFiles subjectId={id} />
@@ -130,9 +137,22 @@ function Metrics({ id }: { id: string }) {
  * "Not a member" from a list synced an hour ago and "not a member" from a list still being read
  * for the first time are different claims, so the age travels with the answer.
  */
-function MembershipCard({ subjectId }: { subjectId: string }) {
+function MembershipCard({
+  subjectId,
+  me,
+  onActed,
+}: {
+  subjectId: string
+  me: CurrentUser
+  onActed: () => void
+}) {
   const load = useCallback(() => api.membership(subjectId), [subjectId])
   const { data: view, error } = useLoad(load)
+
+  // The name for the confirmation. Read here rather than passed down, because the standing this
+  // card already knows and the name are wanted in the same sentence.
+  const loadProfile = useCallback(() => api.userProfile(subjectId), [subjectId])
+  const { data: profile } = useLoad(loadProfile)
 
   return (
     <div
@@ -197,6 +217,14 @@ function MembershipCard({ subjectId }: { subjectId: string }) {
             Member list synced {ago(view.members.lastSyncedAt, view.members.now)}; ban list synced{' '}
             {ago(view.bans.lastSyncedAt, view.bans.now)}.
           </p>
+
+          <ModerationActions
+            me={me}
+            person={{ userId: subjectId, banned: view.banned, isMember: view.isMember }}
+            name={profile?.displayName ?? subjectId}
+            onDone={onActed}
+            size="xs"
+          />
         </div>
       )}
     </div>

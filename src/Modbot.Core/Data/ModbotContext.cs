@@ -116,6 +116,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The write-up of each ban: reasons, the moderator's words, the profile at the time (spec 5.8.3).</summary>
     public DbSet<CaseFile> CaseFiles => Set<CaseFile>();
 
+    /// <summary>Each kick, ban and unban a moderator asked Modbot to perform, and how it went (M4 §4.1).</summary>
+    public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
+
     /// <summary>The Discord server the bot serves, as last seen, so settings can offer its channels and roles.</summary>
     public DbSet<DiscordServer> DiscordServers => Set<DiscordServer>();
 
@@ -734,6 +737,36 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.CreatedAt)
                 .HasDatabaseName("ix_case_file_created")
                 .IsDescending();
+        });
+
+        builder.Entity<ModerationAction>(entity =>
+        {
+            entity.ToTable("moderation_action");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            // VRChat ids are opaque text with no length assumption (spec 3.1.1).
+            entity.Property(e => e.UserId).HasColumnType("text");
+            entity.Property(e => e.GroupId).HasColumnType("text");
+
+            entity.Property(e => e.Action).HasMaxLength(16);
+            entity.Property(e => e.Key).HasMaxLength(128);
+            entity.Property(e => e.ModeratorUsername).HasMaxLength(64);
+            entity.Property(e => e.Note).HasColumnType("text");
+            entity.Property(e => e.FailureMessage).HasColumnType("text");
+
+            // The whole double-action guard. The row is claimed on this index before anything is
+            // sent to VRChat, so a second press of the same confirmation cannot get past it
+            // (M4 §4.3) -- and a moderator who clicks twice gets the first press's answer.
+            entity.HasIndex(e => e.Key)
+                .HasDatabaseName("ux_moderation_action_key")
+                .IsUnique();
+
+            // "What has been done to this person", newest first, for the person's own page.
+            entity.HasIndex(e => new { e.UserId, e.StartedAt })
+                .HasDatabaseName("ix_moderation_action_user")
+                .IsDescending(false, true);
         });
 
         builder.Entity<ModbotEvent>(entity =>

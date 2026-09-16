@@ -562,6 +562,38 @@ const SENTENCES: Record<string, Sentence> = {
 
   'modbot.ban-reasons.change': (p) => <>{p.actor} changed the list of ban reasons.</>,
 
+  // ── Moderation done from Modbot ─────────────────────────────────────────────────────────────
+  //
+  // Worded so these read differently from VRChat's own entries for the same moment. VRChat's say
+  // Modbot's account did it; these say who decided to.
+  'modbot.action.kick': (p) => (
+    <>
+      {p.actor} kicked {p.subject} from the group
+      {reasons(p) ? <>: {reasons(p)}</> : null}.
+    </>
+  ),
+
+  'modbot.action.ban': (p) => (
+    <>
+      {p.actor} banned {p.subject} from the group
+      {reasons(p) ? <>: {reasons(p)}</> : null}.
+    </>
+  ),
+
+  'modbot.action.unban': (p) => (
+    <>
+      {p.actor} unbanned {p.subject}
+      {reasons(p) ? <>: {reasons(p)}</> : null}.
+    </>
+  ),
+
+  'modbot.action.failed': (p) => (
+    <>
+      {p.actor} tried to {p.text('action') ?? 'act on'} {p.subject} and VRChat refused
+      {p.text('vrchatSaid') ? <>: {p.text('vrchatSaid')}</> : null}.
+    </>
+  ),
+
   // ── Evidence ────────────────────────────────────────────────────────────────────────────────
   'modbot.evidence.attach': (p) => (
     <>

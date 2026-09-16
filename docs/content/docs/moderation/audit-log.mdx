@@ -116,5 +116,10 @@ Desktop client and Discord entries arrive as they are reported.
 
 - **Why** somebody was banned. VRChat's audit log has no reason. Write a
   [case file](/moderation/case-files).
-- Kicks, warns and bans done **through Modbot**. Modbot does not perform them; moderators act in
-  VRChat and the entry comes from VRChat's audit log.
+- **Warnings.** Modbot cannot warn anybody yet.
+
+A kick, ban or unban made **from Modbot** appears twice, and the two entries say different things.
+Modbot's own entry names the moderator who pressed the button and the reasons they picked; VRChat's
+entry, which arrives with the next audit-log sync, says only that Modbot's account did it. VRChat
+records every action Modbot takes as Modbot's own account, so the moderator's name exists in
+Modbot's entry and nowhere else.

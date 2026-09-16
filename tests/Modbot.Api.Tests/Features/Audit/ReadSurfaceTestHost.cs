@@ -99,6 +99,10 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         builder.Services.AddSingleton<IMonotonicClock, StopwatchMonotonicClock>();
         builder.Services.AddSingleton<IVRChatGate>(gate);
 
+        // The three kick/ban/unban calls, over the scripted gate. Registered here rather than
+        // through AddModbotVRChat, which would bring the hosted syncs with it.
+        builder.Services.AddSingleton<Modbot.VRChat.Moderation.GroupModeration>();
+
         builder.Services.AddSingleton<ISecretProtector>(services =>
         {
             using var scope = services.CreateScope();
@@ -209,6 +213,7 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.ModeratorBaselines.ExecuteDeleteAsync(ct);
         await context.ReviewRunState.ExecuteDeleteAsync(ct);
         await context.CaseFiles.ExecuteDeleteAsync(ct);
+        await context.ModerationActions.ExecuteDeleteAsync(ct);
         await context.BanReasons.ExecuteDeleteAsync(ct);
         await context.EvidenceBlobs.ExecuteDeleteAsync(ct);
         await context.DiscordChannels.ExecuteDeleteAsync(ct);

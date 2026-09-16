@@ -132,7 +132,35 @@ public static class VRChatEndpointClass
     public const string UsersSearch = "users.search";
 
     /// <summary>Bans, kicks, role changes — interactive, low volume, preempts sync.</summary>
+    /// <remarks>
+    /// Declared by spec 4.2 and still unused. The group kick, ban and unban a moderator presses in
+    /// the Modbot UI are <see cref="GroupsModerate"/> instead: the maintainer asked for those three
+    /// to be paced on a lane of their own until somebody measures them, and a class that shared a
+    /// bucket with role changes would have handed them a number nobody has checked.
+    /// </remarks>
     public const string ModerationWrite = "moderation.write";
+
+    /// <summary>
+    /// Kicking, banning and unbanning a person in the managed group —
+    /// <c>DELETE /groups/{groupId}/members/{userId}</c>, <c>POST /groups/{groupId}/bans</c>,
+    /// <c>DELETE /groups/{groupId}/bans/{userId}</c> (M4 §4).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Not measured.</strong> Spec 4.3.4 forbids inferring a limit from a neighbouring
+    /// endpoint, and nobody has asked VRChat what these three allow. The maintainer set the
+    /// starting number deliberately low — one request per two seconds, shared by all three — to be
+    /// replaced when the real one is known. Treat it as a guess that is meant to be too low.
+    /// </para>
+    /// <para>
+    /// Its own lane, so a moderator pressing Ban never waits behind a member sweep and never holds
+    /// one up; resource-scoped on the group; counted against the global backstop, because the
+    /// account-wide limit Modbot cannot see applies to these as much as to anything. A 429 cold
+    /// stops this class alone, and is never retried (spec 4.3.1) — the action simply failed, and
+    /// the moderator is told so.
+    /// </para>
+    /// </remarks>
+    public const string GroupsModerate = "groups.moderate";
 
     /// <summary>Login and re-login only.</summary>
     public const string Auth = "auth";

@@ -1,7 +1,7 @@
 # Modbot M4 — Moderation Actions
 
 - **Date:** 2026-09-11
-- **Status:** Draft, awaiting review
+- **Status:** Kick, ban and unban implemented 2026-09-16 (§12). Everything else still a draft.
 - **Covers:** M4 — performing moderation through Modbot, classification capture, ban reports, accountability tickets
 - **Depends on:** M0 (`IVRChatGate`, fact log, `INotifier`), M1 (member/ban cache), M2 (audit log), M3 (avatar facts, overlay)
 - **Implements:** foundation §5.8 capture side
@@ -94,10 +94,18 @@ action **fails fast with an explanation** rather than queueing into a penalty th
 extend. The message says what happened, that it is a VRChat rate limit rather than a Modbot fault,
 and roughly when it will clear.
 
-### 4.3 Idempotency
+### 4.3 One confirmation, one action
 
-Every action carries a client-generated idempotency key. A double-submitted ban, a retried request
-after a timeout, or an impatient second click results in one ban and one fact — not two.
+Every action carries a key the browser generates when the confirmation opens. A double-submitted
+ban, a retried request after a timeout, or an impatient second click results in one ban and one
+fact — not two.
+
+**Settled 2026-09-16.** The key is claimed as a row in `moderation_action`, on a unique index,
+*before* anything is sent to VRChat; a second request carrying the same key finds that row and is
+answered from it. The disabled button in the browser is a courtesy on top; the row is the
+guarantee, because a browser retry the page never saw would get past the button and not past the
+index. The same row is also §4.1's attempt-and-outcome pair: it is written when the action starts
+and finished when VRChat answers.
 
 ---
 
@@ -209,12 +217,76 @@ inherits the same accountability treatment.
 
 ## 11. Open questions
 
-1. **Which actions VRChat's group API actually exposes** — confirm ban, unban, and instance kick, and
-   whether roles can be granted/revoked via API. Per foundation §4.3.4, **ask about the rate limit
-   for each of these endpoints before building against them.**
+1. ~~**Which actions VRChat's group API actually exposes**~~ — **settled for three of them
+   (2026-09-16).** Group kick, ban and unban exist and are used: `KickGroupMember`,
+   `BanGroupMember`, `UnbanGroupMember`. Role grant and revoke, and instance kick, are still open.
+   The maintainer set the rate limit for the three at **one request per two seconds, shared, on a
+   lane of their own and marked not measured** — a deliberately low guess, not a finding, to be
+   replaced when somebody asks VRChat the real number (§12).
 2. **Whether instance kick requires presence in the instance**, which would make it an overlay-first
    feature rather than a web-first one.
 3. **Warn delivery when no Discord link and no moderator present** — queue until next seen, or record
    silently? Leaning record-silently, since the record is the primary purpose.
 4. **Ticket thresholds** and their defaults, which foundation §5.8.5 requires to be conservative and
    asymmetric. Needs real data from M2.5 detection running before numbers are chosen.
+
+---
+
+## 12. What was built on 2026-09-16
+
+Kick, ban and unban, one person at a time, from the web app. Not warn, not bulk, not roles.
+
+### 12.1 The endpoints
+
+`POST /api/moderation/kick`, `/ban` and `/unban`, gated on `Kick`, `Ban` and `Unban` — the flags
+§8.3 reserved when the bitfield was written, now real. Each takes the person's VRChat id, the
+confirmation's key, the reasons picked from the group's ban reason list, and an optional note. The
+id travels in the body, never the path: a route constraint on it would be a format check, which
+foundation §3.1.1 forbids.
+
+### 12.2 Through the gate, on a budget of its own
+
+A new endpoint class, `groups.moderate`, on its own lane, resource-scoped to the group, counted
+against the global backstop, at **one request per two seconds**. **Not measured** — see §11.1. All
+three actions go through `IVRChatGate` at interactive priority, using the `…WithHttpInfoAsync`
+overloads, and a 429 is a cold stop that is never retried: the action failed, and the moderator is
+told so.
+
+### 12.3 What is recorded
+
+`modbot.action.kick`, `.ban` and `.unban` on success, and `modbot.action.failed` on a refusal.
+Subject is the person; actor is the Modbot account of the moderator who pressed the button, which is
+the only place that attribution exists (§5.9.1 — VRChat records everything Modbot does as Modbot).
+Payload carries the action, the reasons, the note and the key.
+
+A failure is its own type rather than a flag on the others, so no query for "who was banned" can
+count an attempt that did not happen. The audit log shows all four as moderation history about the
+person, and the Discord event routes list them under Moderation.
+
+A successful ban writes its case file straight away, citing the fact id of the ban it is the
+write-up of rather than waiting for the audit log to publish the ban and then matching them up. This
+is the mechanism §9 of the ban case files design said would exist "when Modbot performs bans": the
+report is made *with* the ban rather than chased up afterwards.
+
+### 12.4 What Modbot stores
+
+A kick or a ban marks the `group_member` row as left; a ban writes or revives the `group_ban` row;
+an unban marks it lifted. Deliberately the same marks the sweeps themselves use, and nothing more —
+a sweep that lists the person again clears the mark by its ordinary rules. If VRChat did not really
+do it, the tables go back to the truth without anybody intervening.
+
+### 12.5 Safety
+
+- **Never the service account.** Kicking or banning the account Modbot signs in as would take away
+  the access every sync depends on, from inside the thing doing the kicking. Refused before
+  anything is sent.
+- **Never an empty id.** A ban with no person would reach VRChat as a request against the group.
+- **A ban always needs a reason** (§6); a kick or an unban needs one only where
+  `RequireModerationClassification` is on. That setting is read but has no control in the web app
+  yet, so today it is off everywhere.
+
+### 12.6 Still open
+
+Warn, bulk actions, role changes, instance kick, reversal classifications (§9), and the
+accountability context at the moment of action (§8.1). The reason list is the ban list for now,
+which is open question 2 of the ban case files design.

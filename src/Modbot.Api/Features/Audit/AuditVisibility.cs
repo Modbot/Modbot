@@ -209,6 +209,15 @@ public static class AuditVisibility
         [FactType.ReportSnapshotRecaptured] = AuditCategory.Moderation,
         [FactType.BanReasonsChanged] = AuditCategory.Operational,
 
+        // A kick, ban or unban pressed in Modbot is moderation history about the person it was
+        // done to, and belongs in their timeline beside VRChat's own record of it. A refused one
+        // is too: "this was attempted and did not happen" is exactly what a moderator who thinks
+        // they banned somebody needs to be able to find.
+        [FactType.ActionKick] = AuditCategory.Moderation,
+        [FactType.ActionBan] = AuditCategory.Moderation,
+        [FactType.ActionUnban] = AuditCategory.Moderation,
+        [FactType.ActionFailed] = AuditCategory.Moderation,
+
         // Looking somebody up through Chat is the same kind of access record as opening a piece of
         // evidence, and it belongs in the timeline of the person who was looked at rather than in
         // the operator's log: a moderator reading their own history should see who has been asking

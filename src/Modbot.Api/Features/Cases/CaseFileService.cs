@@ -98,8 +98,28 @@ public sealed class CaseFileService
 
     // ── Writing ────────────────────────────────────────────────────────────────────────────
 
-    public async Task<CaseFileCreatedResponse> CreateAsync(
+    public Task<CaseFileCreatedResponse> CreateAsync(
         CreateCaseFileRequest request, Caller caller, CancellationToken ct)
+        => CreateAsync(request, caller, known: null, ct);
+
+    /// <summary>
+    /// Writes up the ban Modbot has just performed, citing the fact that recorded it rather than
+    /// hunting the audit log for a ban VRChat has not published yet (M4 §7).
+    /// </summary>
+    /// <remarks>
+    /// The ordinary path finds the ban by looking for a <c>vrchat.group.member.ban</c> fact, which
+    /// the audit-log sync writes minutes later. A ban issued through Modbot knows its own fact id
+    /// at the moment it succeeds, so it hands it over instead of writing a case file that names no
+    /// ban and hoping the two are matched up afterwards.
+    /// </remarks>
+    /// <param name="banFactId">The <c>modbot.action.ban</c> fact this case file is the write-up of.</param>
+    /// <param name="bannedAt">When the ban was accepted, on Modbot's clock.</param>
+    public Task<CaseFileCreatedResponse> CreateForActionAsync(
+        CreateCaseFileRequest request, Caller caller, long banFactId, DateTimeOffset bannedAt, CancellationToken ct)
+        => CreateAsync(request, caller, new BanReference(null, banFactId, bannedAt), ct);
+
+    private async Task<CaseFileCreatedResponse> CreateAsync(
+        CreateCaseFileRequest request, Caller caller, BanReference? known, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(caller);
@@ -115,7 +135,7 @@ public sealed class CaseFileService
         var settings = await _db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var groupId = settings?.ManagedGroupId;
 
-        var ban = await FindBanAsync(userId, groupId, request.AuditEntryId?.Trim(), ct);
+        var ban = known ?? await FindBanAsync(userId, groupId, request.AuditEntryId?.Trim(), ct);
         await RefuseDuplicateAsync(userId, ban, ct);
 
         var now = _clock.UtcNow;

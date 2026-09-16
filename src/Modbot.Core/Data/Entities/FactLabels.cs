@@ -146,6 +146,13 @@ public static class FactLabels
         [FactType.ReportSnapshotRecaptured] = "Case file profile snapshot taken again",
         [FactType.BanReasonsChanged] = "Ban reason list changed",
 
+        // Moderation done from Modbot (M4 §2). Worded so a reader can tell these apart from the
+        // audit log's own "Banned", which says VRChat did it and not who decided to.
+        [FactType.ActionKick] = "Kicked from Modbot",
+        [FactType.ActionBan] = "Banned from Modbot",
+        [FactType.ActionUnban] = "Unbanned from Modbot",
+        [FactType.ActionFailed] = "Action failed",
+
         [FactType.EvidenceAttached] = "Evidence attached",
         [FactType.EvidenceAccessed] = "Evidence opened",
         [FactType.EvidenceDestroyed] = "Evidence destroyed",
