@@ -3,7 +3,9 @@ using Modbot.Cloud.Features.Accounts;
 using Modbot.Cloud.Features.Admin;
 using Modbot.Cloud.Features.Installs;
 using Modbot.Cloud.Features.PublicRooms;
+using Modbot.Cloud.Features.Registry;
 using Modbot.Cloud.Features.Retention;
+using Modbot.Cloud.Features.Site;
 
 namespace Modbot.Cloud.Data;
 
@@ -34,6 +36,18 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
 
     /// <summary>The one-time tokens Cloud emailed.</summary>
     public DbSet<AccountToken> AccountTokens => Set<AccountToken>();
+
+    /// <summary>Modbot servers that registered themselves.</summary>
+    public DbSet<RegisteredServer> RegisteredServers => Set<RegisteredServer>();
+
+    /// <summary>Every report those servers have sent.</summary>
+    public DbSet<ServerReport> ServerReports => Set<ServerReport>();
+
+    /// <summary>Modbot addresses noted by a my.modbot.co page visit.</summary>
+    public DbSet<PageInstance> PageInstances => Set<PageInstance>();
+
+    /// <summary>Modbot addresses opened from each visitor's IP address.</summary>
+    public DbSet<VisitorInstance> VisitorInstances => Set<VisitorInstance>();
 
     /// <summary>Signed-in <c>/admin</c> browsers.</summary>
     public DbSet<AdminSession> AdminSessions => Set<AdminSession>();
@@ -67,5 +81,9 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
         modelBuilder.ApplyConfiguration(new AccountConfiguration());
         modelBuilder.ApplyConfiguration(new AccountSessionConfiguration());
         modelBuilder.ApplyConfiguration(new AccountTokenConfiguration());
+        modelBuilder.ApplyConfiguration(new RegisteredServerConfiguration());
+        modelBuilder.ApplyConfiguration(new ServerReportConfiguration());
+        modelBuilder.ApplyConfiguration(new PageInstanceConfiguration());
+        modelBuilder.ApplyConfiguration(new VisitorInstanceConfiguration());
     }
 }

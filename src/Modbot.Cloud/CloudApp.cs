@@ -6,15 +6,18 @@ using Modbot.Cloud.Data;
 using Modbot.Cloud.Engine;
 using Modbot.Cloud.Features.Accounts;
 using Modbot.Cloud.Features.Admin;
-using Modbot.Cloud.Features.Mail;
 using Modbot.Cloud.Features.AdminInstalls;
+using Modbot.Cloud.Features.AdminRegistry;
+using Modbot.Cloud.Features.EventBackup;
 using Modbot.Cloud.Features.Health;
 using Modbot.Cloud.Features.InstanceLogs;
 using Modbot.Cloud.Features.Installs;
-using Modbot.Cloud.Features.EventBackup;
+using Modbot.Cloud.Features.Mail;
 using Modbot.Cloud.Features.Pages;
 using Modbot.Cloud.Features.PublicRooms;
+using Modbot.Cloud.Features.Registry;
 using Modbot.Cloud.Features.Retention;
+using Modbot.Cloud.Features.Site;
 using Modbot.Cloud.Features.Time;
 
 namespace Modbot.Cloud;
@@ -76,6 +79,7 @@ public static class CloudApp
         services.AddSingleton<AccountSessions>();
         services.AddSingleton<AccountTokens>();
         services.AddSingleton<AccountLimits>();
+        services.AddSingleton<RegistryLimits>();
 
         services.AddScoped<EventBatchWriter>();
         services.AddScoped<RetentionPruner>();
@@ -127,5 +131,8 @@ public static class CloudApp
         app.MapInstanceLogs();
         app.MapAdminLogs();
         app.MapAccounts();
+        app.MapRegistry();
+        app.MapSite();
+        app.MapAdminRegistry();
     }
 }
