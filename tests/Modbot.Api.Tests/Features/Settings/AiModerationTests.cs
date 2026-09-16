@@ -95,8 +95,10 @@ public class AiModerationTests
             List("Scams", [Term("word", "free nitro")]), cookie, Ct));
         Assert.Equal(JsonValueKind.Null, flagOnly.GetProperty("list").GetProperty("setToActBy").ValueKind);
 
+        // Three: created, then the override fact for skipping the test-run gate (design §12.4,
+        // since List() always passes actWithoutTest), then changed when it went back to flag only.
         var facts = await host.FactsAsync(FactType.AiModerationRuleChanged, user.Id.ToString(), Ct);
-        Assert.Equal(2, facts.Count);
+        Assert.Equal(3, facts.Count);
         Assert.True(ApiTestHost.DataOf(facts[^1]).GetProperty("deleteMessage").GetBoolean());
     }
 

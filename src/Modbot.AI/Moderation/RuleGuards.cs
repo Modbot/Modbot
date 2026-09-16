@@ -108,13 +108,14 @@ public static class RuleGuards
 /// matches more than its author thought, a Hub list updated under it, a raid that makes every
 /// message match. The check has to work from a standing start, when the rule has no history to be
 /// measured against, so it is two conditions and both must hold: more than ten actions in an hour,
-/// <em>and</em> more than four times the rule's own hourly average over the last seven days.
+/// <em>and</em> more than sixteen times the rule's own hourly average over the last seven days.
 /// </para>
 /// <para>
 /// A brand new rule has an average of zero, so the first condition is the one that decides: eleven
-/// actions in an hour and it stops. A rule that normally acts twice an hour has to reach nine an
-/// hour before the second condition holds, and eleven before it stops. Both numbers are Modbot's,
-/// not the operator's: a number somebody can raise is a number somebody raises.
+/// actions in an hour and it stops. A rule that normally acts twice an hour clears the first
+/// condition long before the second, so the second is what decides for it: it has to reach 33 in
+/// an hour before it stops. Both numbers are Modbot's, not the operator's: a number somebody can
+/// raise is a number somebody raises.
 /// </para>
 /// </remarks>
 public static class RunawayGuard
@@ -123,7 +124,7 @@ public static class RunawayGuard
     public const int ActionsInAnHour = 10;
 
     /// <summary>More than this many times the last seven days' hourly average is the second.</summary>
-    public const double TimesTheAverage = 4;
+    public const double TimesTheAverage = 16;
 
     private const double HoursInSevenDays = 7 * 24;
 

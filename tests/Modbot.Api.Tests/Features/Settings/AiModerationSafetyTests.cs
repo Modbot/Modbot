@@ -46,9 +46,14 @@ public class AiModerationSafetyTests
 
         var id = await ListAsync(host, cookie, "Scams", "free nitro");
 
+        // The existing term's own id, echoed back on every PUT below exactly as a real form
+        // would: a term sent with no id reads as a new one, which is a text change and would
+        // start a new version -- one the clean run below never tested.
+        var termId = await TermIdAsync(host, cookie, id);
+
         // No test set at all.
         var refused = await host.SendJsonAsync(HttpMethod.Put, $"{Path}/lists/{id}",
-            List("Scams", "free nitro", delete: true), cookie, Ct);
+            List("Scams", "free nitro", delete: true, termId: termId), cookie, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
         Assert.Contains("test set", await refused.Content.ReadAsStringAsync(Ct), StringComparison.OrdinalIgnoreCase);
 
@@ -61,7 +66,7 @@ public class AiModerationSafetyTests
         Assert.Equal(1, wrong.GetProperty("wronglyFlagged").GetInt32());
 
         var stillRefused = await host.SendJsonAsync(HttpMethod.Put, $"{Path}/lists/{id}",
-            List("Scams", "free nitro", delete: true), cookie, Ct);
+            List("Scams", "free nitro", delete: true, termId: termId), cookie, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, stillRefused.StatusCode);
 
         // Take the sample the rule was always going to flag out, run again, and the gate opens.
@@ -69,12 +74,22 @@ public class AiModerationSafetyTests
         var bad = samples.GetProperty("samples").EnumerateArray().First(s => !s.GetProperty("shouldFlag").GetBoolean());
         await host.SendJsonAsync(HttpMethod.Delete, $"{Path}/rules/termList/{id}/samples/{bad.GetProperty("id").GetGuid()}", null, cookie, Ct);
 
+        // The clock has to move between the two runs: "the newest run" is read back by its time,
+        // and a fake clock that never ticks would leave both runs tied at the same instant.
+        host.Clock.Advance(TimeSpan.FromSeconds(1));
+
         var clean = await JsonAsync(await host.SendJsonAsync(HttpMethod.Post, $"{Path}/rules/termList/{id}/tests/run", null, cookie, Ct));
         Assert.Equal(0, clean.GetProperty("wronglyFlagged").GetInt32());
 
         var allowed = await JsonAsync(await host.SendJsonAsync(HttpMethod.Put, $"{Path}/lists/{id}",
-            List("Scams", "free nitro", delete: true), cookie, Ct));
+            List("Scams", "free nitro", delete: true, termId: termId), cookie, Ct));
         Assert.True(allowed.GetProperty("list").GetProperty("tests").GetProperty("passes").GetBoolean());
+    }
+
+    private static async Task<string> TermIdAsync(ApiTestHost host, string cookie, Guid listId)
+    {
+        var detail = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, $"{Path}/lists/{listId}", null, cookie, Ct));
+        return detail.GetProperty("terms")[0].GetProperty("id").GetString()!;
     }
 
     [Fact]
@@ -248,10 +263,12 @@ public class AiModerationSafetyTests
     // From a standing start: ten is not enough, eleven is.
     [InlineData(10, 0, false)]
     [InlineData(11, 0, true)]
-    // A rule that normally acts twice an hour: 336 in seven days is an average of 2.
+    // A rule that normally acts twice an hour: 336 in seven days is an average of 2, and the
+    // second condition does not hold until 33 an hour (AI moderation design §13.2).
     [InlineData(8, 336, false)]
     [InlineData(11, 336, false)]
-    [InlineData(20, 336, true)]
+    [InlineData(32, 336, false)]
+    [InlineData(33, 336, true)]
     public void TheRunawayNumbersWorkFromAStandingStartAndFromAHistory(int hour, int week, bool pauses)
         => Assert.Equal(pauses, RunawayGuard.ShouldPause(hour, week));
 
@@ -362,8 +379,16 @@ public class AiModerationSafetyTests
         await using var host = await StartAsync();
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
-        var id = await ListAsync(host, cookie, "Scams", "free nitro");
-        await host.SendJsonAsync(HttpMethod.Put, $"{Path}/lists/{id}", List("Scams", "free nitro", enabled: false), cookie, Ct);
+        var created = await JsonAsync(await host.SendJsonAsync(HttpMethod.Post, $"{Path}/lists",
+            List("Scams", "free nitro"), cookie, Ct));
+        var id = created.GetProperty("list").GetProperty("id").GetGuid();
+
+        // The existing term's own id, echoed back exactly as a real form would: a term sent with
+        // no id at all reads as a new one, which is a text change and would be its own version.
+        var termId = created.GetProperty("terms")[0].GetProperty("id").GetString();
+
+        await host.SendJsonAsync(HttpMethod.Put, $"{Path}/lists/{id}",
+            List("Scams", "free nitro", enabled: false, termId: termId), cookie, Ct);
 
         var versions = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, $"{Path}/rules/termList/{id}/versions", null, cookie, Ct));
         Assert.Equal(1, versions.GetProperty("versions").GetArrayLength());
@@ -383,6 +408,12 @@ public class AiModerationSafetyTests
 
         await using var host = await StartAsync(ai: ai);
         var (user, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        // A test run costs a real call whether or not moderation is switched on (an operator earns
+        // the right to act before turning a rule on), but it still needs the daily call limit's
+        // settings row to exist -- otherwise there is nothing for the limit check to find, and it
+        // reads exactly like the limit being spent.
+        await SwitchOnAsync(host, cookie);
 
         var topic = await JsonAsync(await host.SendJsonAsync(HttpMethod.Post, $"{Path}/topics", new
         {
@@ -557,14 +588,14 @@ public class AiModerationSafetyTests
 
     private static object List(
         string name, string term, bool enabled = true, bool delete = false, int? timeout = null,
-        object? scope = null, bool withoutTest = false, int? trialDays = null) => new
+        object? scope = null, bool withoutTest = false, int? trialDays = null, string? termId = null) => new
         {
             name,
             enabled,
             targets = new[] { "discordMessage" },
             deleteMessage = delete,
             timeoutMinutes = timeout,
-            terms = new[] { new { id = (string?)null, kind = "word", text = term } },
+            terms = new[] { new { id = termId, kind = "word", text = term } },
             scope,
             trialDays,
             actWithoutTest = withoutTest,

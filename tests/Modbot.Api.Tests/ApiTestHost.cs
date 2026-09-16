@@ -96,6 +96,11 @@ public sealed class ApiTestHost : IAsyncDisposable
         builder.Services.AddScoped<Modbot.Analytics.Facts.IFactWriter, Modbot.Analytics.Facts.FactWriter>();
         builder.Services.AddScoped<Modbot.Analytics.Facts.EventPartitionMaintainer>();
 
+        // ModerationEngine opens a review when a rule's dismissal rate calls for one, so it needs
+        // the writer of the review facts too -- without the rest of AddModbotAnalytics, which
+        // would also add the hosted maintenance services this host deliberately leaves out.
+        builder.Services.AddScoped<Modbot.Analytics.Reviews.ReviewFacts>();
+
         // The one writer of vrchat_user rows, without the hosted sync that would drain its queue:
         // linking a VRChat account records the fetched profile as a sighting, and the test host
         // has to be able to resolve the recorder for that endpoint to map.

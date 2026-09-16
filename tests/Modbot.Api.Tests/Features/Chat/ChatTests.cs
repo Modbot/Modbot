@@ -199,7 +199,9 @@ public class ChatTests
         var events = ParseEvents(await response.Content.ReadAsStringAsync(Ct));
         Assert.Equal("conversation", events[0].Name);
         Assert.Equal("Answered", events[^1].Data.GetProperty("outcome").GetString());
-        Assert.Contains(events, e => e.Name == "tool" && e.Data.GetProperty("name").GetString() == "find_person");
+        Assert.Contains(events, e => e.Name == "message"
+            && e.Data.GetProperty("role").GetString() == "tool"
+            && e.Data.GetProperty("toolName").GetString() == "find_person");
 
         // What was offered: this person's tools, nothing needing a permission they lack.
         var offered = provider.ToolNames(0);
@@ -248,9 +250,10 @@ public class ChatTests
         var events = ParseEvents(await response.Content.ReadAsStringAsync(Ct));
 
         Assert.DoesNotContain("find_person", provider.ToolNames(0));
-        Assert.DoesNotContain(events, e => e.Name == "tool");
         Assert.DoesNotContain("SecretName", provider.Bodies[1], StringComparison.Ordinal);
 
+        // The refusal still shows up as a tool turn -- just one that did not work -- rather than
+        // as a separate event type, so this is where "the tool did not run" is actually checked.
         var tool = events.Where(e => e.Name == "message").Select(e => e.Data)
             .Single(m => m.GetProperty("role").GetString() == "tool");
         Assert.False(tool.GetProperty("worked").GetBoolean());
@@ -888,7 +891,9 @@ public class ChatTests
         Assert.True(result.GetProperty("more").GetBoolean());
 
         var messages = result.GetProperty("messages").EnumerateArray().ToList();
-        Assert.Equal(["m3", "m2"], messages.Select(m => m.GetProperty("messageId").GetString()));
+        Assert.Equal(
+            [$"{author}_m3", $"{author}_m2"],
+            messages.Select(m => m.GetProperty("messageId").GetString()));
         Assert.True(messages[0].GetProperty("deleted").GetBoolean());
         Assert.False(messages[1].GetProperty("deleted").GetBoolean());
     }
@@ -971,7 +976,7 @@ public class ChatTests
         var references = tool.GetProperty("references").EnumerateArray().ToList();
 
         var message = references.Single(r => r.GetProperty("kind").GetString() == "message"
-                                             && r.GetProperty("id").GetString() == "m3");
+                                             && r.GetProperty("id").GetString() == $"{author}_m3");
 
         // A message opens in its author's messages, so the chip carries whose it is.
         Assert.Equal(author, message.GetProperty("author").GetString());
@@ -1033,14 +1038,18 @@ public class ChatTests
         var provider = new ScriptedProvider().Then(Stream(Text("Nothing to look up.")));
         await using var host = await StartWithProviderAsync(provider);
 
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile, Ct);
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile, Ct);
 
         await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "Hello" }, cookie, Ct);
 
         using var scope = host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
 
-        Assert.Equal(0, await db.Events.CountAsync(e => e.Type == FactType.ChatLookup, Ct));
+        // Scoped to this test's own asker: ResetDeploymentAsync does not clear the facts table
+        // (other tests' audit history has to survive a reset too), so a plain count of every
+        // ChatLookup fact in the shared database is one other test's lookups away from failing.
+        Assert.Equal(0, await db.Events.CountAsync(
+            e => e.Type == FactType.ChatLookup && e.ActorId == user.Id.ToString(), Ct));
     }
 
     [Fact]
@@ -1151,16 +1160,18 @@ public class ChatTests
             StoredAt = at,
         };
 
-        var deleted = Message("m3", times[2], "the last thing", guild);
+        // The message ids are per-author rather than literally "m1".."m4": the table is shared by
+        // the whole assembly, and a fixed id collides with the same seed running in another test.
+        var deleted = Message($"{author}_m3", times[2], "the last thing", guild);
         deleted.DeletedAt = times[2].AddMinutes(1);
 
         db.DiscordMessages.AddRange(
-            Message("m1", times[0], "the first thing", guild),
-            Message("m2", times[1], "the second thing", guild),
+            Message($"{author}_m1", times[0], "the first thing", guild),
+            Message($"{author}_m2", times[1], "the second thing", guild),
             deleted);
 
         if (elsewhere is not null)
-            db.DiscordMessages.Add(Message("m4", times[2], elsewhere, $"other_{Guid.NewGuid():N}"));
+            db.DiscordMessages.Add(Message($"{author}_m4", times[2], elsewhere, $"other_{Guid.NewGuid():N}"));
 
         await db.SaveChangesAsync(Ct);
     }

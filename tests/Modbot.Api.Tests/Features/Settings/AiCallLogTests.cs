@@ -139,13 +139,16 @@ public class AiCallLogTests
         var calls = await db.AiCalls.OrderBy(c => c.Id).ToListAsync(Ct);
         Assert.Equal(2, calls.Count);
 
-        Assert.True(calls[0].Flagged);
-        Assert.Contains("vote for me", calls[0].Prompt!, StringComparison.Ordinal);
-        Assert.NotNull(calls[0].Answer);
+        // Found by which one flagged, not by array position: the fake clock does not move
+        // between the two calls, so their ids -- Guid.CreateVersion7 of the same instant --
+        // are not reliably in call order.
+        var flagged = Assert.Single(calls, c => c.Flagged);
+        Assert.Contains("vote for me", flagged.Prompt!, StringComparison.Ordinal);
+        Assert.NotNull(flagged.Answer);
 
-        Assert.False(calls[1].Flagged);
-        Assert.Null(calls[1].Prompt);
-        Assert.Null(calls[1].Answer);
+        var clean = Assert.Single(calls, c => !c.Flagged);
+        Assert.Null(clean.Prompt);
+        Assert.Null(clean.Answer);
 
         // Counts are kept either way, cached input included.
         Assert.All(calls, c => Assert.Equal(120, c.InputTokens));

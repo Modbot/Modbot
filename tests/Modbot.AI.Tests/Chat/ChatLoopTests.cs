@@ -198,7 +198,8 @@ public class ChatLoopTests
             limits: new ChatLimits(8, 1000, TimeSpan.FromMilliseconds(200))));
 
         Assert.Equal(ChatOutcome.TimedOut, outcome);
-        Assert.Equal(ChatOutcome.TimedOut, Assert.IsType<ChatFinishedEvent>(Assert.Single(events)).Outcome);
+        Assert.Equal(ChatOutcome.TimedOut, Assert.IsType<ChatFinishedEvent>(events[^1]).Outcome);
+        Assert.Equal(AiCallOutcomes.TimedOut, Assert.IsType<ChatCallEvent>(events[0]).Outcome);
     }
 
     [Fact]

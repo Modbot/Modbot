@@ -1,8 +1,10 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.AI;
+using Modbot.AI.Moderation;
 using Modbot.Analytics.Messages;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Moderation;
@@ -47,6 +49,7 @@ public class AiModerationContextTests
 
         await using var host = await StartAsync(ai);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, reader) = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
 
         await SwitchOnAsync(host, cookie);
         await TopicAsync(host, cookie, contextMessages: 5);
@@ -69,7 +72,7 @@ public class AiModerationContextTests
         Assert.Equal(["m7", "m8"], ids);
 
         // And a moderator is shown what the model saw, not just the ids.
-        var list = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, Flags, null, cookie, Ct));
+        var list = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, Flags, null, reader, Ct));
         var context = list.GetProperty("flags")[0].GetProperty("context").EnumerateArray().ToList();
         Assert.Equal(2, context.Count);
         Assert.Equal("that shop is a scam by the way", context[1].GetProperty("text").GetString());
@@ -181,8 +184,10 @@ public class AiModerationContextTests
         sent.Clear();
         await CheckAsync(host, Message("m10", "author-1", "look at this too"));
 
+        // FakeAi's provider is "custom", one of the ones that takes bytes rather than a link
+        // (design §17), so the picture goes as fetched bytes -- the link itself is never repeated.
         var request = Assert.Single(sent);
-        Assert.Contains("https://cdn.example/cat.png", request, StringComparison.Ordinal);
+        Assert.Contains("image_url", request, StringComparison.Ordinal);
         Assert.Contains("p1:", request, StringComparison.Ordinal);
     }
 
@@ -245,6 +250,7 @@ public class AiModerationContextTests
     {
         await using var host = await StartAsync();
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, reader) = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
 
         await SwitchOnAsync(host, cookie);
         await ListAsync(host, cookie, "Scams", "nitro");
@@ -252,7 +258,7 @@ public class AiModerationContextTests
         await CheckAsync(host, Message("m1", "author-1", "free nitro here, just log in with your account"));
         await CheckAsync(host, Message("m2", "author-2", "бесплатный nitro здесь, просто войдите в свою учётную запись"));
 
-        var all = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, Flags, null, cookie, Ct));
+        var all = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, Flags, null, reader, Ct));
         Assert.Equal(2, all.GetProperty("flags").GetArrayLength());
 
         var languages = all.GetProperty("languages").EnumerateArray()
@@ -260,7 +266,7 @@ public class AiModerationContextTests
         Assert.Equal(1, languages["eng"]);
         Assert.Equal(1, languages["rus"]);
 
-        var russian = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, $"{Flags}?language=rus", null, cookie, Ct));
+        var russian = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, $"{Flags}?language=rus", null, reader, Ct));
         var only = Assert.Single(russian.GetProperty("flags").EnumerateArray());
         Assert.Equal("author-2", only.GetProperty("subjectId").GetString());
         Assert.Equal("Russian", only.GetProperty("languageLabel").GetString());
@@ -480,7 +486,39 @@ public class AiModerationContextTests
         {
             if (ai is not null)
                 services.AddScoped<IAiClients>(_ => ai);
+
+            // FakeAi answers as a "custom" provider, which is one of the ones that takes bytes
+            // rather than a link (design §17), so a picture test needs something to actually
+            // answer the fetch: a real request to cdn.example would only ever fail.
+            services.AddHttpClient(ModerationPictures.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => new FakePictureHandler());
         });
+    }
+
+    /// <summary>Answers every picture fetch with a one-pixel PNG, whatever the URL.</summary>
+    private sealed class FakePictureHandler : HttpMessageHandler
+    {
+        // A minimal but real PNG, so the byte cap and content checks in ModerationPictures see a
+        // genuine image rather than a handful of arbitrary bytes.
+        private static readonly byte[] OnePixelPng =
+        [
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+            0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+            0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+            0x42, 0x60, 0x82,
+        ];
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(OnePixelPng),
+            };
+            response.Content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            return Task.FromResult(response);
+        }
     }
 
     /// <summary>What the model reads, as the model list last said.</summary>

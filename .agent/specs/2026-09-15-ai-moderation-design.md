@@ -304,7 +304,7 @@ A rule that was right on Monday can be wrong about a whole server on Tuesday —
 matches more than its author thought, a Hub list updated under it, a raid where every message
 matches. So a rule watches itself, and stops when it has run away:
 
-> **More than 10 actions in an hour, and more than 4 times the rule's own hourly average over the
+> **More than 10 actions in an hour, and more than 16 times the rule's own hourly average over the
 > last 7 days.**
 
 Both conditions must hold. The check has to work from a standing start, where the rule has no

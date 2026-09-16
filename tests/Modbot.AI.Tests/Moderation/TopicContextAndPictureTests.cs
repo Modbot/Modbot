@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.ClientModel.Primitives;
 using Modbot.AI.Moderation;
 using Modbot.Core.Moderation;
 using OpenAI.Chat;
@@ -116,7 +116,7 @@ public class TopicContextAndPictureTests
         Assert.False(TopicClassifier.AnyPictures([withoutPictures]));
 
         var options = TopicClassifier.Options("custom", 1, withPictures: true);
-        var schema = JsonDocument.Parse(options.ResponseFormat.ToString()!).RootElement.ToString();
+        var schema = ModelReaderWriter.Write(options.ResponseFormat).ToString();
         Assert.Contains("picture", schema, StringComparison.Ordinal);
     }
 
