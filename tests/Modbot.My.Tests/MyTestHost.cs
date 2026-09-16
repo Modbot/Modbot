@@ -31,6 +31,9 @@ public sealed class MyTestHost : IAsyncDisposable
 
     public const string AssetPath = "/assets/app-test.js";
 
+    /// <summary>The Modbot Cloud the test server reads from. No request ever reaches it.</summary>
+    public static readonly Uri CloudEndpoint = new("https://cloud.modbot.test/");
+
     private readonly WebApplication _app;
     private readonly HttpClient _client;
     private readonly DirectoryInfo _webRoot;
@@ -72,7 +75,11 @@ public sealed class MyTestHost : IAsyncDisposable
         builder.WebHost.UseTestServer();
         builder.Services.AddSingleton<TimeProvider>(time);
 
-        MyApp.AddServices(builder.Services, db.ConnectionString, rootApiKey);
+        MyApp.AddServices(
+            builder.Services,
+            db.ConnectionString,
+            rootApiKey,
+            new Modbot.My.Configuration.CloudAddress(CloudEndpoint, "a-cloud-key-for-tests-only"));
 
         var app = builder.Build();
         MyApp.MapEndpoints(app);
@@ -142,7 +149,7 @@ public sealed class MyTestHost : IAsyncDisposable
         }
     }
 
-    /// <summary>The Modbot.My source folder, so the test server serves the real <c>termlists</c>.</summary>
+    /// <summary>The Modbot.My source folder, used as the content root.</summary>
     private static string SourceDirectory()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)

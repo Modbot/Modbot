@@ -18,6 +18,7 @@ using Modbot.Cloud.Features.PublicRooms;
 using Modbot.Cloud.Features.Registry;
 using Modbot.Cloud.Features.Retention;
 using Modbot.Cloud.Features.Site;
+using Modbot.Cloud.Features.TermLists;
 using Modbot.Cloud.Features.Time;
 
 namespace Modbot.Cloud;
@@ -80,6 +81,7 @@ public static class CloudApp
         services.AddSingleton<AccountTokens>();
         services.AddSingleton<AccountLimits>();
         services.AddSingleton<RegistryLimits>();
+        services.AddSingleton<TermListCatalog>();
 
         services.AddScoped<EventBatchWriter>();
         services.AddScoped<RetentionPruner>();
@@ -134,5 +136,6 @@ public static class CloudApp
         app.MapRegistry();
         app.MapSite();
         app.MapAdminRegistry();
+        app.MapTermLists();
     }
 }

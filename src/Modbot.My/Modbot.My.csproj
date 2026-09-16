@@ -1,10 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
-    <Content Update="termlists\**\*.json" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
-  <ItemGroup>
     <!-- Shared logging: CONSOLE_LOG_MODE, LOG_LEVEL and the three console shapes. -->
     <ProjectReference Include="..\Modbot.Shared\Modbot.Shared.csproj" />
   </ItemGroup>

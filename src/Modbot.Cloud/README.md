@@ -1,9 +1,19 @@
 # Modbot.Cloud
 
-Modbot Cloud (`cloud.modbot.co`): receives the desktop clients' event backup and the log each Modbot
-deployment sends and keeps both, takes each Modbot server's report of the rooms its group has open to
-everyone, and has an `/admin` area. The web app lives in `src/Modbot.Cloud/Web` and is built into this project's
-`wwwroot`. The image is built by `src/Modbot.Cloud/Dockerfile` from the repository root.
+Modbot Cloud (`cloud.modbot.co`):
+
+- receives the desktop clients' event backup and the log each Modbot deployment sends, and keeps both
+- takes each Modbot server's report of the rooms its group has open to everyone
+- holds **accounts** — an email address and a password, confirmed by mail
+- holds the **server registry**: Modbot servers register themselves, report every six hours, and can
+  be claimed by the account that owns them
+- serves the **term lists** at `/termlists/index.json`, `/termlists/_schema.json` and
+  `/termlists/{id}.json`, moved here from my.modbot.co on 2026-09-16 with their shapes unchanged
+- answers my.modbot.co and the landing page under `/api/v1/site`, behind `PROXY_API_KEY`
+- has an `/admin` area behind `ROOT_API_KEY`
+
+The web app lives in `src/Modbot.Cloud/Web` and is built into this project's `wwwroot`. The image is
+built by `src/Modbot.Cloud/Dockerfile` from the repository root.
 
 ## Environment variables
 

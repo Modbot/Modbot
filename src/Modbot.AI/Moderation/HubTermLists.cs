@@ -5,12 +5,25 @@ using System.Text.RegularExpressions;
 
 namespace Modbot.AI.Moderation;
 
-/// <summary>Where Modbot Hub is. my.modbot.co unless a test or a private hub says otherwise.</summary>
+/// <summary>
+/// Where the term lists are read from.
+/// </summary>
+/// <remarks>
+/// Modbot Cloud, from <c>MODBOT_CLOUD_ENDPOINT</c>. They were served by my.modbot.co until
+/// 2026-09-16 and moved to Cloud with their routes and their file shapes unchanged; my.modbot.co
+/// still redirects the old routes here, so an address somebody saved keeps working.
+/// </remarks>
 public sealed class TermListHubOptions
 {
-    public const string DefaultAddress = "https://my.modbot.co/";
+    public const string DefaultAddress = "https://cloud.modbot.co/";
 
     public Uri Address { get; set; } = new(DefaultAddress);
+
+    /// <summary>
+    /// True when <c>MODBOT_CLOUD_DISABLED</c> is set: this server fetches nothing, and says so
+    /// rather than showing an empty catalogue that looks like a Cloud with no lists on it.
+    /// </summary>
+    public bool Disabled { get; set; }
 }
 
 /// <summary>One list on Modbot Hub's index.</summary>
@@ -38,9 +51,14 @@ public sealed record HubListChanges(int Added, int Removed, int Changed)
 }
 
 /// <summary>
-/// Reads term lists from Modbot Hub (<c>/termlists/index.json</c> and <c>/termlists/{id}.json</c>,
-/// served by <c>Modbot.My</c>) and turns their rules into terms (AI moderation design §2, §9).
+/// Reads term lists from Modbot Cloud (<c>/termlists/index.json</c> and <c>/termlists/{id}.json</c>)
+/// and turns their rules into terms (AI moderation design §2, §9).
 /// </summary>
+/// <remarks>
+/// The type and the stored <c>HubId</c> keep their names. The catalogue is the same catalogue; only
+/// where it is served from changed, and renaming a database column and an API field for that would
+/// be a migration and a screenful of edits in exchange for nothing.
+/// </remarks>
 public sealed partial class HubTermLists
 {
     public const string HttpClientName = "Modbot.Hub";
@@ -59,11 +77,14 @@ public sealed partial class HubTermLists
         _options = options;
     }
 
-    /// <summary>The Hub's list ids are lower-case letters, digits and underscores. Anything else never reaches a URL.</summary>
+    /// <summary>A list id is lower-case letters, digits and underscores. Anything else never reaches a URL.</summary>
     public static bool IsHubId(string? id) => id is { Length: > 0 and <= 100 } && HubIdPattern().IsMatch(id);
 
     public async Task<(IReadOnlyList<HubListSummary> Lists, string? Error)> IndexAsync(CancellationToken ct)
     {
+        if (_options.Disabled)
+            return ([], TurnedOff);
+
         try
         {
             using var client = Client();
@@ -93,8 +114,11 @@ public sealed partial class HubTermLists
 
     public async Task<HubListFetch> FetchAsync(string hubId, CancellationToken ct)
     {
+        if (_options.Disabled)
+            return new HubListFetch(null, null, [], 0, TurnedOff);
+
         if (!IsHubId(hubId))
-            return new HubListFetch(null, null, [], 0, "That is not a Modbot Hub list id.");
+            return new HubListFetch(null, null, [], 0, "That is not a term list id.");
 
         try
         {
@@ -102,7 +126,7 @@ public sealed partial class HubTermLists
             using var response = await client.GetAsync($"termlists/{hubId}.json", ct).ConfigureAwait(false);
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                return new HubListFetch(null, null, [], 0, "Modbot Hub has no list with that id.");
+                return new HubListFetch(null, null, [], 0, "There is no list with that id.");
 
             response.EnsureSuccessStatusCode();
 
@@ -115,7 +139,7 @@ public sealed partial class HubTermLists
         }
     }
 
-    /// <summary>A Hub list's JSON as terms. Public so it can be tested against the lists in the repository.</summary>
+    /// <summary>A list's JSON as terms. Public so it can be tested against the lists in the repository.</summary>
     public static HubListFetch Convert(string json)
     {
         JsonObject? root;
@@ -125,11 +149,11 @@ public sealed partial class HubTermLists
         }
         catch (JsonException)
         {
-            return new HubListFetch(null, null, [], 0, "Modbot Hub answered with something that is not a term list.");
+            return new HubListFetch(null, null, [], 0, NotATermList);
         }
 
         if (root?["rules"] is not JsonArray rules)
-            return new HubListFetch(null, null, [], 0, "Modbot Hub answered with something that is not a term list.");
+            return new HubListFetch(null, null, [], 0, NotATermList);
 
         var terms = new List<StoredTerm>();
         var topics = 0;
@@ -187,6 +211,10 @@ public sealed partial class HubTermLists
             old.Keys.Count(k => !next.ContainsKey(k)),
             next.Count(p => old.TryGetValue(p.Key, out var was) && was != p.Value));
     }
+
+    private const string TurnedOff = "This server is set not to talk to Modbot Cloud.";
+
+    private const string NotATermList = "That is not a term list.";
 
     private HttpClient Client()
     {

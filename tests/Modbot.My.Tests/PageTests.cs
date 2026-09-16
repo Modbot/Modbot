@@ -80,13 +80,25 @@ public class PageTests(PostgresFixture db)
     }
 
     [Fact]
-    public async Task TermListsAreServedToAnyone()
+    public async Task TermListsRedirectToCloud()
     {
         await using var host = await MyTestHost.StartAsync(db);
 
-        Assert.Equal(HttpStatusCode.OK, (await host.GetAsync("/termlists/index.json")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await host.GetAsync("/termlists/modbot_profanity_mild.json")).StatusCode);
+        // The lists moved to Cloud; these routes stay so that anything already pointed at them
+        // keeps working (Cloud accounts and registry spec 4).
+        using var index = await host.GetAsync("/termlists/index.json");
+        Assert.Equal(HttpStatusCode.PermanentRedirect, index.StatusCode);
+        Assert.Equal(new Uri(MyTestHost.CloudEndpoint, "termlists/index.json"), index.Headers.Location);
+
+        using var list = await host.GetAsync("/termlists/modbot_profanity_mild.json");
+        Assert.Equal(HttpStatusCode.PermanentRedirect, list.StatusCode);
+
+        using var schema = await host.GetAsync("/termlists/_schema.json");
+        Assert.Equal(HttpStatusCode.PermanentRedirect, schema.StatusCode);
+
+        // Nothing a caller invented is turned into a redirect.
         Assert.Equal(HttpStatusCode.NotFound, (await host.GetAsync("/termlists/not-a-list.json")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await host.GetAsync("/termlists/..%2Fsecret.json")).StatusCode);
     }
 
     [Fact]

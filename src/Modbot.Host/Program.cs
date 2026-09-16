@@ -17,6 +17,7 @@ using Modbot.Api.Features.Evidence;
 using Modbot.Core.Logging;
 using Modbot.Core.Logging.Store;
 using Modbot.AI;
+using Modbot.AI.Moderation;
 using Modbot.Discord;
 using Modbot.Evidence;
 using Modbot.Evidence.Upload;
@@ -226,6 +227,22 @@ try
     else
         builder.Services.AddSingleton<IDiscordMessenger, DemoDiscordMessenger>();
 
+    // Where this server talks to Modbot Cloud for its own purposes, and whether it does, from
+    // MODBOT_CLOUD_ENDPOINT and MODBOT_CLOUD_DISABLED (central services spec 1.1). Desktop clients
+    // are never told it: they have their own settings.
+    var cloud = ModbotCloudAddress.From(env);
+    builder.Services.AddSingleton(cloud);
+
+    // The term lists come from Cloud, and MODBOT_CLOUD_DISABLED stops the fetch. Registered before
+    // AddModbotAi, whose TryAdd would otherwise win with the default address.
+    builder.Services.AddSingleton(new TermListHubOptions
+    {
+        Address = cloud.Endpoint.AbsoluteUri.EndsWith('/')
+            ? cloud.Endpoint
+            : new Uri(cloud.Endpoint.AbsoluteUri + "/"),
+        Disabled = cloud.Disabled,
+    });
+
     // Where every AI feature gets its client (M8 section 4). It reads the settings row on each
     // call and hands out nothing while AI is off, so it needs nothing from startup.
     builder.Services.AddModbotAi();
@@ -303,12 +320,6 @@ try
     // resolved, and minimal APIs report that by throwing while mapping routes, taking every
     // other endpoint in the host down with it. Composition is the host's job (spec 2.5).
     builder.Services.AddClientApi();
-
-    // Where this server talks to Modbot Cloud for its own purposes, and whether it does, from
-    // MODBOT_CLOUD_ENDPOINT and MODBOT_CLOUD_DISABLED (central services spec 1.1). The public
-    // rooms report is the first feature to read it. Desktop clients are never told it: they have
-    // their own settings.
-    builder.Services.AddSingleton(ModbotCloudAddress.From(env));
 
     // Which of the group's rooms anyone can join, sent to Cloud so modbot.co can list them
     // (central services design §4.6). On by default, off with the setting or MODBOT_CLOUD_DISABLED.

@@ -78,6 +78,8 @@ public sealed class CloudTestHost : IAsyncDisposable
 
         var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
         {
+            // The project folder, so the test server serves the real term lists from src/.
+            ContentRootPath = SourceDirectory(),
             WebRootPath = webRoot.FullName,
             EnvironmentName = "Testing",
         });
@@ -247,6 +249,18 @@ public sealed class CloudTestHost : IAsyncDisposable
         modbotServerId = (string?)null,
         events,
     };
+
+    /// <summary>The Modbot.Cloud source folder, used as the content root.</summary>
+    private static string SourceDirectory()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "Modbot.slnx")))
+                return Path.Combine(dir.FullName, "src", "Modbot.Cloud");
+        }
+
+        throw new InvalidOperationException("Could not find the repository root above the test output.");
+    }
 
     public async ValueTask DisposeAsync()
     {

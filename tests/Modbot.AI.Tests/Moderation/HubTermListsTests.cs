@@ -6,8 +6,8 @@ using Modbot.Core.Moderation;
 namespace Modbot.AI.Tests.Moderation;
 
 /// <summary>
-/// Modbot Hub lists, read from the copies in this repository (<c>src/Modbot.My/termlists</c>) and
-/// through a scripted HTTP handler. Nothing reaches my.modbot.co.
+/// The curated term lists, read from the copies in this repository (<c>src/Modbot.Cloud/termlists</c>) and
+/// through a scripted HTTP handler. Nothing reaches cloud.modbot.co.
 /// </summary>
 public class HubTermListsTests
 {
@@ -16,11 +16,11 @@ public class HubTermListsTests
     private static string ListsDirectory()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "src", "Modbot.My", "termlists")))
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "src", "Modbot.Cloud", "termlists")))
             dir = dir.Parent;
 
         Assert.NotNull(dir);
-        return Path.Combine(dir.FullName, "src", "Modbot.My", "termlists");
+        return Path.Combine(dir.FullName, "src", "Modbot.Cloud", "termlists");
     }
 
     public static TheoryData<string> Lists()

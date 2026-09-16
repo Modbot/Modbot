@@ -1,4 +1,4 @@
-namespace Modbot.My.Features.TermLists;
+namespace Modbot.Cloud.Features.TermLists;
 
 /// <summary>
 /// Loads the curated term lists from disk once at startup and serves them from memory.
@@ -26,7 +26,7 @@ public sealed class TermListCatalog
         var dir = Path.Combine(environment.ContentRootPath, "termlists");
         if (!Directory.Exists(dir))
         {
-            logger.LogWarning("Term list directory not found at {Directory}; Hub will serve nothing", dir);
+            logger.LogWarning("Term list directory not found at {Directory}; Cloud will serve nothing", dir);
             return;
         }
 
@@ -40,7 +40,7 @@ public sealed class TermListCatalog
             else _lists[id] = body;
         }
 
-        logger.LogInformation("Modbot Hub loaded {Count} term lists", _lists.Count);
+        logger.LogInformation("Loaded {Count} term lists", _lists.Count);
     }
 
     public int Count => _lists.Count;

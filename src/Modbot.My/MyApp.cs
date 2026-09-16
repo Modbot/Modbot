@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.My.Auth;
+using Modbot.My.Configuration;
 using Modbot.My.Data;
 using Modbot.My.Features.Admin;
 using Modbot.My.Features.Health;
@@ -19,7 +20,11 @@ namespace Modbot.My;
 /// </summary>
 public static class MyApp
 {
-    public static void AddServices(IServiceCollection services, string connectionString, string? rootApiKey)
+    public static void AddServices(
+        IServiceCollection services,
+        string connectionString,
+        string? rootApiKey,
+        CloudAddress cloud)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
@@ -29,10 +34,10 @@ public static class MyApp
 
         services.AddDbContext<MyContext>(o => o.UseNpgsql(connectionString));
         services.AddSingleton(new RootApiKey(rootApiKey));
+        services.AddSingleton(cloud);
         services.AddSingleton<AppPage>();
         services.AddSingleton<AdminSessions>();
         services.AddSingleton<LoginAttempts>();
-        services.AddSingleton<TermListCatalog>();
 
         services.AddCors(o => o.AddDefaultPolicy(policy => policy
             // Term lists are public data fetched by self-hosted deployments at arbitrary origins.

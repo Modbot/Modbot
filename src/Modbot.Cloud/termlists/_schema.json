@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://my.modbot.co/termlists/_schema.json",
+  "$id": "https://cloud.modbot.co/termlists/_schema.json",
   "title": "Modbot term list",
   "description": "A shareable set of rules for screening VRChat profile text (bio, display name, status, pronouns). Lists are data, not code: Modbot ships none enabled by default, and a group chooses which to import. See foundation spec 4.2.6.",
   "type": "object",
