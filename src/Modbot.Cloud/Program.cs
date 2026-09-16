@@ -48,7 +48,8 @@ try
     builder.Logging.ClearProviders();
     builder.Services.AddSerilog(Log.Logger);
 
-    CloudApp.AddServices(builder.Services, connectionString, engineConnectionString, environment.RootApiKey);
+    CloudApp.AddServices(
+        builder.Services, connectionString, engineConnectionString, environment.RootApiKey, environment.RoomsApiKey);
 
     var app = builder.Build();
 

@@ -23,6 +23,9 @@ public sealed class CloudTestHost : IAsyncDisposable
 {
     public const string RootKey = "a-root-key-for-tests-only-0123456789";
 
+    /// <summary>The read-only key for the public rooms feed, which is all the landing page holds.</summary>
+    public const string RoomsKey = "a-rooms-key-for-tests-only-0123456789";
+
     public const string AppHtml = "<!doctype html><html><head><title>Modbot Cloud</title></head><body><div id=\"root\"></div></body></html>";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -47,7 +50,11 @@ public sealed class CloudTestHost : IAsyncDisposable
 
     public static readonly DateTimeOffset Start = new(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
 
-    public static async Task<CloudTestHost> StartAsync(PostgresFixture db, string? rootApiKey = RootKey, DateTimeOffset? now = null)
+    public static async Task<CloudTestHost> StartAsync(
+        PostgresFixture db,
+        string? rootApiKey = RootKey,
+        DateTimeOffset? now = null,
+        string? roomsApiKey = RoomsKey)
     {
         await db.ResetAsync();
 
@@ -65,7 +72,8 @@ public sealed class CloudTestHost : IAsyncDisposable
         builder.WebHost.UseTestServer();
         builder.Services.AddSingleton<TimeProvider>(time);
 
-        CloudApp.AddServices(builder.Services, db.ConnectionString, db.EngineConnectionString, rootApiKey, runDailyUpkeep: false);
+        CloudApp.AddServices(
+            builder.Services, db.ConnectionString, db.EngineConnectionString, rootApiKey, roomsApiKey, runDailyUpkeep: false);
 
         var app = builder.Build();
 

@@ -23,7 +23,7 @@ try
     builder.Logging.ClearProviders();
     builder.Services.AddSerilog(Log.Logger);
 
-    LandingApp.AddServices(builder.Services);
+    LandingApp.AddServices(builder.Services, environment);
 
     var app = builder.Build();
 

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Cloud.Features.Admin;
 using Modbot.Cloud.Features.Installs;
+using Modbot.Cloud.Features.PublicRooms;
 using Modbot.Cloud.Features.Retention;
 
 namespace Modbot.Cloud.Data;
@@ -27,6 +28,12 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
     /// <summary>Signed-in <c>/admin</c> browsers.</summary>
     public DbSet<AdminSession> AdminSessions => Set<AdminSession>();
 
+    /// <summary>Modbot servers that report which of their group's rooms anyone can join.</summary>
+    public DbSet<RoomsServer> RoomsServers => Set<RoomsServer>();
+
+    /// <summary>Those groups' open public rooms, as last reported.</summary>
+    public DbSet<PublicRoom> PublicRooms => Set<PublicRoom>();
+
     /// <summary>The one row of settings an admin can change.</summary>
     public DbSet<CloudSettings> Settings => Set<CloudSettings>();
 
@@ -45,5 +52,7 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
         modelBuilder.ApplyConfiguration(new InstallConfiguration());
         modelBuilder.ApplyConfiguration(new AdminSessionConfiguration());
         modelBuilder.ApplyConfiguration(new CloudSettingsConfiguration());
+        modelBuilder.ApplyConfiguration(new RoomsServerConfiguration());
+        modelBuilder.ApplyConfiguration(new PublicRoomConfiguration());
     }
 }

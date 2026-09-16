@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Core.Cloud;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Logging;
@@ -50,13 +51,19 @@ public sealed class GroupInstanceSync
     private readonly PlaceStore _places;
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
+    private readonly PublicRoomsNudge? _publicRooms;
     private readonly ILogger _log;
 
+    /// <param name="publicRooms">
+    /// Poked when a room opened or closed, so modbot.co hears about a public room as it happens
+    /// rather than at the end of the report's own wait. Null where nothing reports rooms.
+    /// </param>
     public GroupInstanceSync(
         IVRChatGate gate,
         PlaceStore places,
         ModbotContext db,
         IModbotClock clock,
+        PublicRoomsNudge? publicRooms = null,
         ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(gate);
@@ -68,6 +75,7 @@ public sealed class GroupInstanceSync
         _places = places;
         _db = db;
         _clock = clock;
+        _publicRooms = publicRooms;
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
     }
 
@@ -145,6 +153,11 @@ public sealed class GroupInstanceSync
 
         if (opened > 0 || closed > 0)
         {
+            // What is on modbot.co is the list this poll just read, so the report goes now. It
+            // filters the members-only and members-and-friends rooms out for itself; this only
+            // says that the list moved.
+            _publicRooms?.Poke();
+
             _log.Information(
                 "The group has {Open} instances open; {Opened} opened and {Closed} closed since the last poll",
                 openNow.Count, opened, closed);

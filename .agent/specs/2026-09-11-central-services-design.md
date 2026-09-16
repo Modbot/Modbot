@@ -47,6 +47,8 @@ ordinary, useful, and how a maintainer decides what to support.
 - **No central moderation data.** No bans, no member lists, no facts, no profile text. That is M8
   §5.1's rule and it is unaffected — the registry knows a deployment *exists*, never who is in it.
 - **No public directory.** The registry is not browsable and not enumerable by third parties (§4.3).
+  The open rooms page (§4.6) is not an exception: it lists groups that chose to be listed, and it
+  never carries a deployment's address.
 - **No content of any kind from a group's database.**
 
 > **Narrowed 2026-09-15, corrected the same day.** Modbot Cloud (`cloud.modbot.co`) is operated
@@ -72,6 +74,7 @@ A Modbot server talks to Cloud for its own purposes. The maintainer's words:
 
 | What | Linking | Built? |
 |---|---|---|
+| Open rooms on modbot.co (§4.6) | none | **Yes**, since 2026-09-16. The first thing a server sends Cloud. On by default; `MODBOT_CLOUD_DISABLED` and the `share_public_rooms` setting each stop it. |
 | Usage reporting and analytics (§5) | none | **No.** `UsageReportingService` (`Modbot.Core/Analytics`) exists but nothing registers it or implements `IUsageConfiguration`, and it posts to my.modbot.co's `/api/instances/…` endpoints through `HubUrl`, which Cloud does not serve. When it is wired up it moves to Cloud and takes its address from `MODBOT_CLOUD_ENDPOINT`. |
 | Sending its structured app logs, for remote support and backups | needed | **No.** The "server log feed" in the cloud event backup spec §0. |
 | Downloading the default term lists | needed | **No.** AI moderation fetches lists from Modbot Hub on my.modbot.co today (`HubTermLists`, `TermListHubOptions`), with no linking. |
@@ -85,7 +88,8 @@ them:
 | `MODBOT_CLOUD_ENDPOINT` | The Cloud this server talks to. Default `https://cloud.modbot.co`; anything that is not a full `http` or `https` address means the default. |
 | `MODBOT_CLOUD_DISABLED` | `1`, `true`, `yes` or `on`: this server does not talk to Cloud at all. Every feature above must honour it, including one the operator has otherwise turned on. |
 
-They are read today and registered as a singleton, and nothing uses them yet. **A server never passes
+They are read today and registered as a singleton. The open rooms report (§4.6) is the first
+feature to use them; everything else in the table above still does not. **A server never passes
 either value to its desktop clients** — an earlier revision did, and was reversed (cloud event backup
 spec §0.1). Cloud still holds nothing read from a group's database; what the app log feed may carry is
 for that feature's own spec to settle.
@@ -490,6 +494,62 @@ the calling address (by §2.3.1's rule) is stored on its `registered_instance` r
 and counted in `registered_instance_ip`: one row per deployment and address, with first seen, last
 seen and a request count. A deployment that moves to a new address starts a new row; the old row
 keeps when it was last used.
+
+### 4.6 Open rooms — the one public list
+
+> **Added 2026-09-16.** The maintainer asked for it in these words: "Modbot can *optionally, default
+> enabled* send your Group Public instances to Modbot Cloud which landing page using same env vars
+> can pull and show a cool page of every group using Modbot and current events you can join."
+
+A Modbot server tells Modbot Cloud which of its group's rooms are **open to everyone**, and
+`modbot.co/rooms` lists them. It is the first and so far only thing a server sends Cloud.
+
+**This does not reopen §4.4.** The rule there is that *the registry* is not a directory: a list of
+deployments is a map of moderation infrastructure, and knowing a group runs Modbot is not the same
+as knowing the address of the server that does. Nothing here carries a deployment's address, and a
+group appears only because its operator left a switch on. What the page shows is a group's name, its
+pictures and a join link — things a group hands out in its own Discord.
+
+**What is reported**
+
+| | |
+|---|---|
+| The group | VRChat group id, name, icon, banner |
+| Each open public room | World id, world name, world picture, join link, region, when it opened |
+
+**What is not, and has no field to be:** any head count or member count, anybody's name or id, the
+server's address, and any room that is not `groupAccessType(public)`. A room limited to members, or
+to members and their friends, is filtered out in `PublicRoomsReportBuilder` before a report exists.
+A room whose access type VRChat did not state is treated as not public — not known to be public is
+not public.
+
+**How it is sent.** `PUT /api/v1/public-rooms`, every five minutes and on any change to the group's
+live instance list. One report replaces the server's whole list, so there is no "closed" message
+that can be lost: a room that closes is simply absent next time. A server that stops reporting drops
+off the feed after twenty minutes and is deleted after seven days, which is what makes a Modbot that
+is switched off take its rooms off the page by itself.
+
+**Identity without an account.** The server makes up a UUID and a secret on its first report and
+keeps both in its settings row (the secret encrypted). Cloud stores a hash of the secret and treats
+the first report under an id as the one that claims it, and one group may only be reported by one
+live server. No registration endpoint, no account, no linking — this is a page of open events, and
+requiring an account to be on it would be a heavier promise than the feature is worth.
+
+**Reading it.** `GET /api/v1/public-rooms`, behind `ROOMS_API_KEY` — a read-only key separate from
+`ROOT_API_KEY`, because the reader is a public web server and giving it the admin key would trade
+the whole of Cloud for a listing page. `ROOT_API_KEY` opens the feed as well, for a maintainer with
+one key in hand.
+
+**The landing page** reads the feed on the server with `MODBOT_CLOUD_PROXY_URL` and
+`MODBOT_CLOUD_API_KEY`, holds one answer for a minute for every visitor, and serves it to browsers
+at its own `/api/rooms`. The key never reaches a page. With either variable unset the page says no
+groups are listed and Cloud is never asked.
+
+**Off switches**, in order of precedence: `MODBOT_CLOUD_DISABLED` on the server; the
+`share_public_rooms` setting (Settings → Integrations → Modbot Cloud), which ships **on** and, when
+turned off, asks Cloud to drop the group at once rather than waiting for it to age out. A public
+demo never reports: its rooms are made up, and a made-up event on a public page is one somebody
+would try to join.
 
 ---
 

@@ -1,0 +1,62 @@
+---
+title: Open rooms
+description: Listing your group's rooms that anyone can join on modbot.co, and how to turn it off.
+---
+
+Modbot can tell Modbot Cloud which of your group's rooms are **open to everyone**, so they appear on
+[modbot.co/rooms](https://modbot.co/rooms) alongside every other group that has this on. It is a way
+for people to find your events without being in your Discord.
+
+It is **on** when you install Modbot.
+
+## What is sent
+
+| | |
+|---|---|
+| Your group | Its VRChat id, its name, its icon and its banner |
+| Each open public room | The world's id, name and picture; the VRChat join link; the region; when the room opened |
+
+## What is not sent
+
+- **Any room that is not open to everyone.** A room set to group members only, or to members and
+  their friends, is filtered out before the report is built. Only `groupAccessType(public)` is sent,
+  and a room whose access type VRChat did not state is treated as not public.
+- **Any count of people.** No head count, no member count. The report has no field for one.
+- **Anybody's name or id.** No members, no moderators, no visitors.
+- **Your server's address**, and anything at all from your moderation records.
+
+## How often
+
+Every five minutes, and again the moment a room opens or closes.
+
+Each report replaces the whole list, so:
+
+- A room that closes is gone from the page on the next report.
+- A Modbot that stops reporting — switched off, redeployed, offline — has its rooms dropped after
+  twenty minutes, and is forgotten entirely after seven days.
+
+## Turning it off
+
+**Settings → Integrations → Modbot Cloud**, the switch **List this group's public rooms on
+modbot.co**.
+
+Turning it off asks Cloud to drop what it already has, so the group leaves the page straight away
+rather than waiting to be dropped.
+
+Setting `MODBOT_CLOUD_DISABLED=1` stops it too, along with everything else this server would send to
+Modbot Cloud. See [Environment variables](/self-hosting/environment-variables).
+
+A public demo (`MODBOT_DEMO`) never reports anything: its rooms are made up.
+
+## Running your own
+
+The whole path is in this repository, so you can run it end to end yourself.
+
+- `MODBOT_CLOUD_ENDPOINT` on your Modbot points it at your own Cloud.
+- Your Cloud takes reports at `PUT /api/v1/public-rooms` and serves them at
+  `GET /api/v1/public-rooms`, which needs `ROOMS_API_KEY` (or `ROOT_API_KEY`).
+- Your landing page reads that feed with `MODBOT_CLOUD_PROXY_URL` and `MODBOT_CLOUD_API_KEY`, holds
+  the answer for a minute, and serves it to browsers at `/api/rooms`. The key stays on the server.
+
+A Modbot claims its place on Cloud with an id and a secret it makes up on its first report. Cloud
+keeps only a hash of the secret, and one group can only be reported by one Modbot at a time.

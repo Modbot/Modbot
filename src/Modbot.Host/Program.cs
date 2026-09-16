@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Modbot.Api;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Demo;
+using Modbot.Core.Cloud;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Discord;
@@ -296,9 +297,18 @@ try
     builder.Services.AddClientApi();
 
     // Where this server talks to Modbot Cloud for its own purposes, and whether it does, from
-    // MODBOT_CLOUD_ENDPOINT and MODBOT_CLOUD_DISABLED (central services spec 1.1). Nothing reads it
-    // yet. Desktop clients are never told it: they have their own settings.
+    // MODBOT_CLOUD_ENDPOINT and MODBOT_CLOUD_DISABLED (central services spec 1.1). The public
+    // rooms report is the first feature to read it. Desktop clients are never told it: they have
+    // their own settings.
     builder.Services.AddSingleton(ModbotCloudAddress.From(env));
+
+    // Which of the group's rooms anyone can join, sent to Cloud so modbot.co can list them
+    // (central services design §4.6). On by default, off with the setting or MODBOT_CLOUD_DISABLED.
+    //
+    // Never on a demo. Its rooms are made up, and a made-up event on a public page is a lie
+    // somebody would try to join.
+    if (!demo.IsOn)
+        builder.Services.AddPublicRooms();
 
     builder.Services.AddModbotApi();
 

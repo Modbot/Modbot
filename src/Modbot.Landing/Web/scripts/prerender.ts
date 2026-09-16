@@ -16,8 +16,27 @@ const out = path.resolve(here, '../../wwwroot')
 const policyFile = path.resolve(here, '../../../../PRIVACY_POLICY.md')
 const entry = pathToFileURL(path.resolve(here, '../node_modules/.prerender/entry-server.js')).href
 
+// Headings get an id, so the policy's own "see the section below" links work on the page as well as
+// they do on GitHub. The rule is GitHub's: lower case, punctuation dropped, spaces to dashes.
+marked.use({
+  renderer: {
+    heading({ tokens, depth }) {
+      const text = this.parser.parseInline(tokens)
+      const id = text
+        .replace(/<[^>]*>/g, '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '-')
+
+      return `<h${depth} id="${id}">${text}</h${depth}>\n`
+    },
+  },
+})
+
 const server = (await import(entry)) as {
   renderLanding: (privacy: boolean) => string
+  renderRooms: (privacy: boolean) => string
   renderNotFound: () => string
   renderPrivacy: (html: string) => string
 }
@@ -56,7 +75,10 @@ const policy = await access(policyFile).then(
   () => null,
 )
 
-await fill('index.html', server.renderLanding(policy !== null), policy !== null ? ' data-privacy="yes"' : '')
+const privacyAttribute = policy !== null ? ' data-privacy="yes"' : ''
+
+await fill('index.html', server.renderLanding(policy !== null), privacyAttribute)
+await fill('rooms.html', server.renderRooms(policy !== null), privacyAttribute)
 await fill('404.html', server.renderNotFound())
 
 if (policy !== null) {

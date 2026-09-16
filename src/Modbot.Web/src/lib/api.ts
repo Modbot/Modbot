@@ -249,6 +249,14 @@ export type DiscordLinkingSettingsInput = {
 
 export type PublicAddressView = { publicAddress: string | null; suggestion: string | null }
 
+/** Whether the group's public rooms are listed on modbot.co. */
+export type PublicRoomsView = {
+  shared: boolean
+  /** MODBOT_CLOUD_DISABLED is set, so nothing is sent whatever the switch says. */
+  cloudDisabled: boolean
+  lastSentAt: string | null
+}
+
 export type DiscordChannelType = 'text' | 'announcement' | 'forum' | 'media' | 'voice' | 'stage' | 'category'
 
 /** What the bot may do in a channel after overwrites, by Discord's permission names. */
@@ -2762,6 +2770,10 @@ export const api = {
 
   setPublicAddress: (publicAddress: string) =>
     put<PublicAddressView>('/api/settings/public-address', { publicAddress }),
+
+  publicRooms: () => request<PublicRoomsView>('/api/settings/public-rooms'),
+
+  setPublicRooms: (shared: boolean) => put<PublicRoomsView>('/api/settings/public-rooms', { shared }),
 
   sendTestEmail: (to: string) => post<TestEmailResult>('/api/settings/email/test', { to }),
 

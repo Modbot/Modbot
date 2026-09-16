@@ -2175,6 +2175,86 @@
         ]
       }
     },
+    "/api/settings/public-rooms": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Whether the group's public rooms are listed on modbot.co",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetPublicRooms",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRoomsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Turn the modbot.co listing on or off",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "SetPublicRooms",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPublicRoomsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRoomsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/email/test": {
       "post": {
         "tags": [
@@ -20441,6 +20521,29 @@
           }
         }
       },
+      "PublicRoomsView": {
+        "required": [
+          "shared",
+          "cloudDisabled",
+          "lastSentAt"
+        ],
+        "type": "object",
+        "properties": {
+          "shared": {
+            "type": "boolean"
+          },
+          "cloudDisabled": {
+            "type": "boolean"
+          },
+          "lastSentAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "RefreshRequestResult": {
         "required": [
           "outcome",
@@ -21686,6 +21789,17 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "SetPublicRoomsRequest": {
+        "required": [
+          "shared"
+        ],
+        "type": "object",
+        "properties": {
+          "shared": {
+            "type": "boolean"
           }
         }
       },

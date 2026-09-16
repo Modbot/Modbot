@@ -172,6 +172,7 @@ repository.
 | `DATABASE_URL` | Yes | none | The main PostgreSQL database: installs, admin sessions and settings. |
 | `DATABASE_ENGINE_URL` | Yes | none | A second, separate PostgreSQL database that stores the events. |
 | `ROOT_API_KEY` | No | none | The key that signs in to `/admin`. Unset means admin is refused to everyone. |
+| `ROOMS_API_KEY` | No | none | The read-only key for the [open rooms](/self-hosting/open-rooms) feed, which is the key the landing page holds. `ROOT_API_KEY` opens the feed as well; with neither set, the feed is refused to everyone. |
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. |
 | `CONSOLE_LOG_MODE` | No | `serilog` | `serilog`, `json` or `railway_json`. See [Console log modes](#console-log-modes). |
@@ -191,9 +192,14 @@ variable.
 | Variable | Required | Default | What it does |
 |---|---|---|---|
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. |
+| `MODBOT_CLOUD_PROXY_URL` | No | none | The Modbot Cloud the `/rooms` page reads from, as a full `http` or `https` address. Anything else is ignored. |
+| `MODBOT_CLOUD_API_KEY` | No | none | The key sent to that Cloud — its `ROOMS_API_KEY`. It is read on the server and never written into a page. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. |
 | `CONSOLE_LOG_MODE` | No | `serilog` | `serilog`, `json` or `railway_json`. See [Console log modes](#console-log-modes). |
 | `LOG_LEVEL` | No | `Information` | `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. |
+
+With either of the two Cloud variables unset, `/rooms` says no groups are listed and Cloud is never
+asked.
 
 On Railway: leave the root directory empty, set `RAILWAY_DOCKERFILE_PATH=src/Modbot.Landing/Dockerfile`,
 and set the health check to `/health/ready`.

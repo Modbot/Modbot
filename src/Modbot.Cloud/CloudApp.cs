@@ -9,6 +9,7 @@ using Modbot.Cloud.Features.Health;
 using Modbot.Cloud.Features.Installs;
 using Modbot.Cloud.Features.EventBackup;
 using Modbot.Cloud.Features.Pages;
+using Modbot.Cloud.Features.PublicRooms;
 using Modbot.Cloud.Features.Retention;
 using Modbot.Cloud.Features.Time;
 
@@ -24,12 +25,14 @@ public static class CloudApp
     /// <param name="connectionString">Cloud's main database.</param>
     /// <param name="engineConnectionString">The event storage database.</param>
     /// <param name="rootApiKey">Unlocks admin. Null closes it to everyone.</param>
+    /// <param name="roomsApiKey">Reads the public rooms feed. Null leaves only the root key.</param>
     /// <param name="runDailyUpkeep">False in tests, which run retention themselves against a fake clock.</param>
     public static void AddServices(
         IServiceCollection services,
         string connectionString,
         string engineConnectionString,
         string? rootApiKey,
+        string? roomsApiKey = null,
         bool runDailyUpkeep = true)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -42,12 +45,15 @@ public static class CloudApp
         services.AddDbContext<CloudContext>(o => o.UseNpgsql(connectionString));
         services.AddDbContext<EngineContext>(o => EngineContext.Use(o, engineConnectionString));
 
-        services.AddSingleton(new RootApiKey(rootApiKey));
+        var root = new RootApiKey(rootApiKey);
+        services.AddSingleton(root);
+        services.AddSingleton(new RoomsApiKey(roomsApiKey, root));
         services.AddSingleton<AppPage>();
         services.AddSingleton<AdminSessions>();
         services.AddSingleton<LoginAttempts>();
         services.AddSingleton<RegistrationLimit>();
         services.AddSingleton<EventBackupLimits>();
+        services.AddSingleton<PublicRoomsLimit>();
 
         services.AddScoped<EventBatchWriter>();
         services.AddScoped<RetentionPruner>();
@@ -89,5 +95,6 @@ public static class CloudApp
         app.MapTime();
         app.MapInstalls();
         app.MapEventBackup();
+        app.MapPublicRooms();
     }
 }

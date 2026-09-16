@@ -10,12 +10,23 @@ namespace Modbot.Cloud.Configuration;
 /// grows with every client and is pruned on its own schedule. Required.
 /// </param>
 /// <param name="RootApiKey">The key that unlocks <c>/admin</c>. When unset, admin refuses everyone.</param>
+/// <param name="RoomsApiKey">
+/// The key that reads the public rooms feed — the landing page's key. Read-only and worth far less
+/// than the root key, which is the point of it being separate. When unset, only the root key opens
+/// the feed; when both are unset the feed refuses everyone.
+/// </param>
 /// <param name="Port">The port to listen on. Railway injects it.</param>
-public sealed record CloudEnvironment(string? DatabaseUrl, string? EngineDatabaseUrl, string? RootApiKey, int Port)
+public sealed record CloudEnvironment(
+    string? DatabaseUrl,
+    string? EngineDatabaseUrl,
+    string? RootApiKey,
+    string? RoomsApiKey,
+    int Port)
 {
     public const string DatabaseUrlVariable = "DATABASE_URL";
     public const string EngineDatabaseUrlVariable = "DATABASE_ENGINE_URL";
     public const string RootApiKeyVariable = "ROOT_API_KEY";
+    public const string RoomsApiKeyVariable = "ROOMS_API_KEY";
     public const string PortVariable = "PORT";
     public const int DefaultPort = 8080;
 
@@ -31,6 +42,7 @@ public sealed record CloudEnvironment(string? DatabaseUrl, string? EngineDatabas
             Blank(get(DatabaseUrlVariable)),
             Blank(get(EngineDatabaseUrlVariable)),
             Blank(get(RootApiKeyVariable)),
+            Blank(get(RoomsApiKeyVariable)),
             port);
     }
 

@@ -265,7 +265,10 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<IVRChatGate>(),
             provider.GetRequiredService<Core.Data.PlaceStore>(),
             provider.GetRequiredService<Core.Data.ModbotContext>(),
-            provider.GetRequiredService<Core.Time.IModbotClock>()));
+            provider.GetRequiredService<Core.Time.IModbotClock>(),
+            // Optional: a host that does not report public rooms registers no nudge, and the poll
+            // is unchanged.
+            provider.GetService<Core.Cloud.PublicRoomsNudge>()));
 
         services.AddScoped<WorldSync>(provider => new WorldSync(
             provider.GetRequiredService<IVRChatGate>(),

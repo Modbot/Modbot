@@ -5,16 +5,17 @@ using System.Text.RegularExpressions;
 namespace Modbot.Landing.Features.Pages;
 
 /// <summary>
-/// The HTML files <c>Web/</c> builds into <c>wwwroot</c>: the landing page, the not-found page, and the
-/// privacy policy when <c>PRIVACY_POLICY.md</c> existed at build time.
+/// The HTML files <c>Web/</c> builds into <c>wwwroot</c>: the landing page, the rooms page, the
+/// not-found page, and the privacy policy when <c>PRIVACY_POLICY.md</c> existed at build time.
 /// </summary>
 public sealed partial class BuiltPages(IWebHostEnvironment environment)
 {
     public const string LandingFile = "index.html";
     public const string NotFoundFile = "404.html";
     public const string PrivacyFile = "privacy.html";
+    public const string RoomsFile = "rooms.html";
 
-    public static readonly string[] All = [LandingFile, NotFoundFile, PrivacyFile];
+    public static readonly string[] All = [LandingFile, NotFoundFile, PrivacyFile, RoomsFile];
 
     private readonly Dictionary<string, BuiltPage> _pages = new(StringComparer.Ordinal);
     private readonly Lock _gate = new();
@@ -36,7 +37,15 @@ public sealed partial class BuiltPages(IWebHostEnvironment environment)
             if (!File.Exists(path))
                 return null;
 
-            var page = BuiltPage.From(File.ReadAllText(path));
+            // The rooms page shows worlds and group icons, which are pictures on VRChat's own
+            // servers. Which host names those are is VRChat's to change, and a page that quietly
+            // stopped showing pictures because a CDN moved is a fault nobody would find -- so
+            // pictures over https are allowed from anywhere, on this one page. Everything else is
+            // still 'self', and every address the page is given has already been checked to be an
+            // https URL twice: by the Modbot that reported it and by the Cloud that stored it.
+            var page = BuiltPage.From(
+                File.ReadAllText(path),
+                file == RoomsFile ? "https:" : null);
             _pages[file] = page;
             return page;
         }
@@ -55,7 +64,9 @@ public sealed partial class BuiltPages(IWebHostEnvironment environment)
 /// </param>
 public sealed record BuiltPage(string Html, string ContentSecurityPolicy)
 {
-    public static BuiltPage From(string html)
+    /// <param name="html">The built page.</param>
+    /// <param name="extraImageSources">Extra <c>img-src</c> entries, or null for none.</param>
+    public static BuiltPage From(string html, string? extraImageSources = null)
     {
         var hashes = BuiltPages.InlineScript()
             .Matches(html)
@@ -69,7 +80,7 @@ public sealed record BuiltPage(string Html, string ContentSecurityPolicy)
             $"script-src {string.Join(' ', ["'self'", .. hashes])}",
             // React writes style attributes into the prerendered markup.
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data:",
+            $"img-src 'self' data:{(extraImageSources is null ? "" : $" {extraImageSources}")}",
             // Vite inlines the smallest font subsets into the stylesheet as data: URLs.
             "font-src 'self' data:",
             "connect-src 'self'",

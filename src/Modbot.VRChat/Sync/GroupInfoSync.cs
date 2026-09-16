@@ -94,6 +94,11 @@ public sealed class GroupInfoSync
                 ct).ConfigureAwait(false);
         }
 
+        // The pictures, kept beside the snapshot rather than in it. They change on their own
+        // schedule and are not worth a fact, but the public rooms report needs them: without an
+        // icon and a banner a group is a grey box on modbot.co.
+        RecordPictures(settings, group.IconUrl, group.BannerUrl);
+
         var current = GroupInfoSnapshot.From(group);
         var previous = GroupInfoSnapshot.Parse(settings.GroupInfoSnapshot);
         var lastSeen = settings.GroupInfoPolledAt;
@@ -133,6 +138,25 @@ public sealed class GroupInfoSync
             settings,
             new GroupInfoRunResult(SyncOutcome.Produced, changed),
             ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Keeps the group's icon and banner up to date, ignoring anything that is not an
+    /// <c>https</c> address.
+    /// </summary>
+    /// <remarks>
+    /// The check is here, where VRChat's answer first lands, so that nothing else downstream has
+    /// to wonder whether a stored picture address is safe to put in an <c>img src</c>.
+    /// </remarks>
+    private static void RecordPictures(Settings settings, string? icon, string? banner)
+    {
+        settings.ManagedGroupIconUrl = Picture(icon) ?? settings.ManagedGroupIconUrl;
+        settings.ManagedGroupBannerUrl = Picture(banner) ?? settings.ManagedGroupBannerUrl;
+
+        static string? Picture(string? url) =>
+            Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme == Uri.UriSchemeHttps
+                ? parsed.AbsoluteUri
+                : null;
     }
 
     private async Task<GroupInfoRunResult> FailedAsync<T>(

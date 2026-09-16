@@ -288,6 +288,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.AuditLogCatchUpComplete).HasColumnName("audit_log_catch_up_complete");
             entity.Property(e => e.AuditLogCatchUpVersion).HasColumnName("audit_log_catch_up_version");
             entity.Property(e => e.AuditLogBacklogOffset).HasColumnName("audit_log_backlog_offset");
+
+            // The one setting that ships on. The database default matters as well as the C# one:
+            // the column is added to a row that already exists, and without it every Modbot that
+            // upgraded would silently have the listing off.
+            entity.Property(e => e.SharePublicRooms).HasDefaultValue(true);
         });
 
         builder.Entity<ProtectorKey>(entity =>

@@ -98,6 +98,60 @@ public class Settings
     public string? ManagedGroupId { get; set; }
     public string? ManagedGroupName { get; set; }
 
+    /// <summary>
+    /// The group's icon and banner, as VRChat last gave them.
+    /// </summary>
+    /// <remarks>
+    /// Kept out of <c>GroupInfoSnapshot</c> on purpose — a picture address
+    /// changes on its own schedule and would make every poll look like a change — but recorded
+    /// here, because the public rooms report is how the landing page knows what a group looks
+    /// like, and a group with no picture is a grey box on that page.
+    /// </remarks>
+    public string? ManagedGroupIconUrl { get; set; }
+
+    /// <inheritdoc cref="ManagedGroupIconUrl"/>
+    public string? ManagedGroupBannerUrl { get; set; }
+
+    // --- Public rooms on modbot.co (central services design 4.6) ---
+
+    /// <summary>
+    /// Whether this server tells Modbot Cloud which of the group's rooms are open to everyone, so
+    /// they are listed on modbot.co. On unless somebody turns it off.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only rooms anyone can join are ever sent. A room limited to group members, or to members
+    /// and their friends, is not a public room and never leaves this server — putting a link to
+    /// one on a public web page would hand out an address the group deliberately kept inside.
+    /// </para>
+    /// <para>
+    /// Nobody is counted. No head count, no member count, no list of who is in the room: the page
+    /// says a room is open, not how many people are in it.
+    /// </para>
+    /// <para>
+    /// <c>MODBOT_CLOUD_DISABLED</c> beats this setting. A server told not to talk to Cloud sends
+    /// nothing, whatever is saved here.
+    /// </para>
+    /// </remarks>
+    public bool SharePublicRooms { get; set; } = true;
+
+    /// <summary>
+    /// This server's id on Modbot Cloud for the public rooms report, made up here on the first
+    /// report and kept afterwards, with the secret that proves it is the same server.
+    /// </summary>
+    /// <remarks>
+    /// Cloud keeps only a hash of the secret, and takes the first report under an id as the one
+    /// that claims it. So a server that keeps its row keeps its rooms, and nobody else can
+    /// overwrite them.
+    /// </remarks>
+    public Guid? PublicRoomsServerId { get; set; }
+
+    /// <inheritdoc cref="PublicRoomsServerId"/>
+    public string? PublicRoomsSecretEncrypted { get; set; }
+
+    /// <summary>When the public rooms report last reached Cloud.</summary>
+    public DateTimeOffset? PublicRoomsReportedAt { get; set; }
+
     // --- Optional egress proxy (spec 2.3.1) ---
     public string? ProxyUrl { get; set; }
     public string? ProxyUsername { get; set; }

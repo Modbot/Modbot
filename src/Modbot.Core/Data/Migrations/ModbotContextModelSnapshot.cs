@@ -4330,6 +4330,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("group_instances_polled_at");
 
+                    b.Property<string>("ManagedGroupBannerUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("managed_group_banner_url");
+
+                    b.Property<string>("ManagedGroupIconUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("managed_group_icon_url");
+
                     b.Property<string>("ManagedGroupId")
                         .HasColumnType("text")
                         .HasColumnName("managed_group_id");
@@ -4394,6 +4402,18 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("public_address");
 
+                    b.Property<DateTimeOffset?>("PublicRoomsReportedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("public_rooms_reported_at");
+
+                    b.Property<string>("PublicRoomsSecretEncrypted")
+                        .HasColumnType("text")
+                        .HasColumnName("public_rooms_secret_encrypted");
+
+                    b.Property<Guid?>("PublicRoomsServerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("public_rooms_server_id");
+
                     b.Property<bool>("RequireModerationClassification")
                         .HasColumnType("boolean")
                         .HasColumnName("require_moderation_classification");
@@ -4401,6 +4421,12 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("ReviewThresholds")
                         .HasColumnType("jsonb")
                         .HasColumnName("review_thresholds");
+
+                    b.Property<bool>("SharePublicRooms")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("share_public_rooms");
 
                     b.Property<string>("SmtpFromAddress")
                         .HasColumnType("text")

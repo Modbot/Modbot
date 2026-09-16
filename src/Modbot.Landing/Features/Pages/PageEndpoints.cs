@@ -3,8 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace Modbot.Landing.Features.Pages;
 
 /// <summary>
-/// <c>/</c> serves the landing page and <c>/privacy</c> the privacy policy. Every other path no file
-/// claimed is a 404, with the built not-found page for anything a person might have typed.
+/// <c>/</c> serves the landing page, <c>/rooms</c> the open rooms and <c>/privacy</c> the privacy
+/// policy. Every other path no file claimed is a 404, with the built not-found page for anything a
+/// person might have typed.
 /// </summary>
 public static class PageEndpoints
 {
@@ -20,6 +21,13 @@ public static class PageEndpoints
             ([FromServices] BuiltPages pages, HttpContext http) =>
                 pages.Find(BuiltPages.PrivacyFile) is { } policy
                     ? Html(policy, http, StatusCodes.Status200OK)
+                    : NotFound(pages, http));
+
+        // The groups using Modbot and the rooms they have open right now.
+        app.MapMethods("/rooms", [HttpMethods.Get, HttpMethods.Head],
+            ([FromServices] BuiltPages pages, HttpContext http) =>
+                pages.Find(BuiltPages.RoomsFile) is { } rooms
+                    ? Html(rooms, http, StatusCodes.Status200OK)
                     : NotFound(pages, http));
 
         // Lowest priority, so it only answers what no other route claimed.

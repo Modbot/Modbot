@@ -9,6 +9,7 @@
     "postgres",
     "storage-buckets",
     "data-retention",
+    "open-rooms",
     "health",
     "updating"
   ]
