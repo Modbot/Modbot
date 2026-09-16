@@ -194,7 +194,9 @@ public sealed class GroupMemberSync
                 ? AuditLogEntryMapper.ReadTimestamp(joined)
                 : (DateTimeOffset?)null;
 
-            var status = Text(entry, "membershipStatus") ?? member.MembershipStatus.ToString().ToLowerInvariant();
+            // Spec 1.21 stopped promising membershipStatus on every member, so a person VRChat sends
+            // without one is stored with no status, not with "member" or a made-up default.
+            var status = Text(entry, "membershipStatus") ?? member.MembershipStatus?.ToString().ToLowerInvariant();
             var visibility = Text(entry, "visibility") ?? Blank(member.Visibility);
             var notes = Blank(member.ManagerNotes);
             var rawJson = entry?.ToJsonString() ?? member.ToJson();

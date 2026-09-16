@@ -5,10 +5,11 @@
   notes and the published pages on <https://vrchat.community>. Read on 2026-09-16. The earlier
   version of this note was written on 2026-09-15 against the SDK's 2.20.9 models and is superseded:
   the line between the two calls moved.
-- **The SDK has not caught up.** The newest `VRChat.API` on NuGet is **2.20.9**, published
-  2026-09-03 and generated from specification v1.20.9; the generator repository's last commit is
-  2026-09-12 and it has not been regenerated for v1.21.0. So the SDK still has C# properties for
-  fields VRChat no longer sends, and Modbot must not read them (see §3).
+- **The SDK caught up on 2026-09-16.** `VRChat.API` **2.21.0** is generated from specification
+  v1.21.0 and Modbot pins it. The `User` model has lost the C# properties for the fields VRChat
+  no longer sends, so reading them is now a compile error rather than a rule to remember (§3).
+  `GroupMember.MembershipStatus` became optional in the same release; the member sync stores
+  nothing when it is absent.
 - **Endpoints:**
   - `GET /users/{userId}` → `IUsersApi.GetUserWithHttpInfoAsync(userId)`. Class `users.read`.
   - `GET /profile/{userId}` → `IUsersApi.GetPublicProfileWithHttpInfoAsync(userId)`. Class
@@ -86,10 +87,13 @@ else, so it is available without a second fetch if a screen ever wants it.
 
 `getPublicProfile` gained an `asSelf` parameter in v1.21.0. It returns the owner's own view of
 their profile — the `self` rows above — and **VRChat ignores it on anybody else's profile**, so it
-can never fill those fields for a member. Modbot cannot send it in any case: the pinned SDK 2.20.9
-generates `GetPublicProfileWithHttpInfoAsync(string, CancellationToken)` with no such parameter.
+can never fill those fields for a member. SDK 2.21.0 generates it as
+`GetPublicProfileWithHttpInfoAsync(string, bool? asSelf, bool? withGroupsAndWorlds, CancellationToken)`;
+Modbot leaves both flags unset and names the cancellation token, since a token passed by position
+would land on `asSelf`. `withGroupsAndWorlds` adds the person's groups, public worlds and world
+favourite lists to the body -- nothing Modbot stores, and more bytes per read.
 
-Nothing in Modbot wants it even when the SDK catches up. The connection check reads no fields at
+Nothing in Modbot wants either flag. The connection check reads no fields at
 all — it asks Verify Auth Token, then Get User, then Get Group, and only looks at the status codes
 — and the account Modbot is signed in as is named by Get Current User, which still carries the id,
 the display name and the current avatar.
@@ -124,11 +128,12 @@ the two calls look like a profile change and would write a change fact for somet
 changed. Whether Modbot should keep `iconUrl` in a column of its own, so member lists and case
 files have a face again, is a design question for the maintainer and is not decided here.
 
-**Modbot must not read the lost fields off the SDK's `User`.** The pinned 2.20.9 still has
+**Modbot must not read the lost fields off the SDK's `User`.** Under 2.20.9 the model still had
 `Bio`, `ProfilePicOverride` and `CurrentAvatar*` properties, and a body that still sent
 `"bio": ""` out of habit would wipe the bio the public profile had just filled in, once a week,
 for everybody. `VRChatUserSnapshot.Fields.OnUser` therefore lists only what the user object
-carries, and `From(User)` no longer reads the rest.
+carries, and `From(User)` reads nothing else; 2.21.0 removed the properties, so the compiler
+now holds that line too.
 
 ## 4. Absent is not empty
 

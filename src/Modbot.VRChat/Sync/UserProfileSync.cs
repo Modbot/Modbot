@@ -353,7 +353,7 @@ public sealed class UserProfileSync
 
         var result = await _gate.ExecuteAsync(
             endpoint,
-            (client, token) => client.Users.GetPublicProfileWithHttpInfoAsync(userId, token),
+            (client, token) => client.Users.GetPublicProfileWithHttpInfoAsync(userId, cancellationToken: token),
             VRChatCallPriority.Background,
             ct).ConfigureAwait(false);
 

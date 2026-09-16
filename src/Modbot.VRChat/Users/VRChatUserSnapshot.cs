@@ -181,9 +181,9 @@ public sealed record VRChatUserSnapshot
             Source = VRChatReadKind.User,
             Carried = CarriedBy(Fields.OnUser, raw),
             DisplayName = Blank(user.DisplayName),
-            // The bio, the avatar pictures and the profile picture are deliberately not read from
-            // this object. They left it in API specification v1.21.0 and the properties the SDK
-            // still has for them will go with the next package -- see Fields.OnUser.
+            // The bio, the avatar pictures and the profile picture are not read from this object:
+            // they left it in API specification v1.21.0, and SDK 2.21.0 no longer has properties
+            // for them -- see Fields.OnUser.
             StatusDescription = Blank(user.StatusDescription),
             Pronouns = Blank(user.Pronouns),
             DateJoined = user.DateJoined == default ? null : user.DateJoined,
