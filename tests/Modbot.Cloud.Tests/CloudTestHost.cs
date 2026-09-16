@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Modbot.Cloud.Features.Mail;
 
 namespace Modbot.Cloud.Tests;
 
@@ -30,19 +31,28 @@ public sealed class CloudTestHost : IAsyncDisposable
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
+    /// <summary>What my.modbot.co and the landing page send.</summary>
+    public const string ProxyKey = "a-proxy-key-for-tests-only-0123456789";
+
+    public static readonly Uri PublicAddress = new("https://cloud.modbot.test");
+
     private readonly WebApplication _app;
     private readonly HttpClient _client;
     private readonly DirectoryInfo _webRoot;
 
-    private CloudTestHost(WebApplication app, HttpClient client, ManualTime time, DirectoryInfo webRoot)
+    private CloudTestHost(WebApplication app, HttpClient client, ManualTime time, DirectoryInfo webRoot, TestMailer mail)
     {
         _app = app;
         _client = client;
         _webRoot = webRoot;
         Time = time;
+        Mail = mail;
     }
 
     public ManualTime Time { get; }
+
+    /// <summary>Every message Cloud sent, in order, instead of a network call to Resend.</summary>
+    public TestMailer Mail { get; }
 
     public IServiceProvider Services => _app.Services;
 
@@ -50,11 +60,14 @@ public sealed class CloudTestHost : IAsyncDisposable
 
     public static readonly DateTimeOffset Start = new(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
 
+    /// <param name="canSendMail">False builds a Cloud with no Resend key, which sends nothing.</param>
     public static async Task<CloudTestHost> StartAsync(
         PostgresFixture db,
         string? rootApiKey = RootKey,
         DateTimeOffset? now = null,
-        string? roomsApiKey = RoomsKey)
+        string? roomsApiKey = RoomsKey,
+        string? proxyApiKey = ProxyKey,
+        bool canSendMail = true)
     {
         await db.ResetAsync();
 
@@ -72,8 +85,19 @@ public sealed class CloudTestHost : IAsyncDisposable
         builder.WebHost.UseTestServer();
         builder.Services.AddSingleton<TimeProvider>(time);
 
+        // Registered first, so CloudApp's TryAdd leaves it alone and no test ever reaches Resend.
+        var mailer = new TestMailer(canSendMail);
+        builder.Services.AddSingleton<ICloudMailer>(mailer);
+
         CloudApp.AddServices(
-            builder.Services, db.ConnectionString, db.EngineConnectionString, rootApiKey, roomsApiKey, runDailyUpkeep: false);
+            builder.Services,
+            db.ConnectionString,
+            db.EngineConnectionString,
+            rootApiKey,
+            roomsApiKey,
+            proxyApiKey,
+            new MailSettings(canSendMail ? "test-key" : null, "Modbot <noreply@modbot.test>", PublicAddress),
+            runDailyUpkeep: false);
 
         var app = builder.Build();
 
@@ -83,7 +107,7 @@ public sealed class CloudTestHost : IAsyncDisposable
         CloudApp.MapEndpoints(app);
         await app.StartAsync(Ct);
 
-        return new CloudTestHost(app, app.GetTestClient(), time, webRoot);
+        return new CloudTestHost(app, app.GetTestClient(), time, webRoot, mailer);
     }
 
     public Task<HttpResponseMessage> SendAsync(
@@ -237,6 +261,38 @@ public sealed class CloudTestHost : IAsyncDisposable
         {
             // A temp folder left behind is not a test failure.
         }
+    }
+}
+
+/// <summary>Keeps every message instead of sending it, so a test can read the link out of one.</summary>
+public sealed class TestMailer(bool canSend) : ICloudMailer
+{
+    private readonly List<(string To, string Subject, string Body)> _sent = [];
+
+    public bool CanSend { get; } = canSend;
+
+    public IReadOnlyList<(string To, string Subject, string Body)> Sent => _sent;
+
+    public (string To, string Subject, string Body) Last => _sent[^1];
+
+    public Task<bool> SendAsync(string to, string subject, string body, CancellationToken ct)
+    {
+        lock (_sent)
+            _sent.Add((to, subject, body));
+
+        return Task.FromResult(true);
+    }
+
+    /// <summary>The <c>token=</c> value in the newest message's link.</summary>
+    public string LastToken()
+    {
+        var body = Last.Body;
+        var at = body.IndexOf("token=", StringComparison.Ordinal);
+        Assert.True(at >= 0, "The message carried no token.");
+
+        var value = body[(at + "token=".Length)..];
+        var end = value.IndexOfAny([' ', '\r', '\n']);
+        return Uri.UnescapeDataString(end < 0 ? value : value[..end]);
     }
 }
 

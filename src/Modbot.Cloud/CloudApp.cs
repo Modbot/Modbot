@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Cloud.Auth;
 using Modbot.Cloud.Data;
 using Modbot.Cloud.Engine;
+using Modbot.Cloud.Features.Accounts;
 using Modbot.Cloud.Features.Admin;
+using Modbot.Cloud.Features.Mail;
 using Modbot.Cloud.Features.AdminInstalls;
 using Modbot.Cloud.Features.Health;
 using Modbot.Cloud.Features.InstanceLogs;
@@ -27,6 +30,10 @@ public static class CloudApp
     /// <param name="engineConnectionString">The event storage database.</param>
     /// <param name="rootApiKey">Unlocks admin. Null closes it to everyone.</param>
     /// <param name="roomsApiKey">Reads the public rooms feed. Null leaves only the root key.</param>
+    /// <param name="proxyApiKey">
+    /// What my.modbot.co and the landing page send. Null closes <c>/api/v1/site</c> to everyone.
+    /// </param>
+    /// <param name="mail">Where Cloud's mail goes out through. Without a key it sends nothing.</param>
     /// <param name="runDailyUpkeep">False in tests, which run retention themselves against a fake clock.</param>
     public static void AddServices(
         IServiceCollection services,
@@ -34,6 +41,8 @@ public static class CloudApp
         string engineConnectionString,
         string? rootApiKey,
         string? roomsApiKey = null,
+        string? proxyApiKey = null,
+        MailSettings? mail = null,
         bool runDailyUpkeep = true)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -49,6 +58,7 @@ public static class CloudApp
         var root = new RootApiKey(rootApiKey);
         services.AddSingleton(root);
         services.AddSingleton(new RoomsApiKey(roomsApiKey, root));
+        services.AddSingleton(new ProxyApiKey(proxyApiKey));
         services.AddSingleton<AppPage>();
         services.AddSingleton<AdminSessions>();
         services.AddSingleton<LoginAttempts>();
@@ -56,6 +66,16 @@ public static class CloudApp
         services.AddSingleton<EventBackupLimits>();
         services.AddSingleton<PublicRoomsLimit>();
         services.AddSingleton<InstanceLogLimits>();
+
+        // Accounts. The hasher is Identity's, standalone: Cloud wants the hash function and none of
+        // the rest of Identity, the same way a Modbot server uses it for its own staff accounts.
+        services.AddSingleton(mail ?? new MailSettings(null, null, new Uri(Configuration.CloudEnvironment.DefaultPublicUrl)));
+        services.AddHttpClient();
+        services.TryAddSingleton<ICloudMailer, ResendMailer>();
+        services.AddSingleton<IPasswordHasher<Account>, PasswordHasher<Account>>();
+        services.AddSingleton<AccountSessions>();
+        services.AddSingleton<AccountTokens>();
+        services.AddSingleton<AccountLimits>();
 
         services.AddScoped<EventBatchWriter>();
         services.AddScoped<RetentionPruner>();
@@ -106,5 +126,6 @@ public static class CloudApp
         app.MapPublicRooms();
         app.MapInstanceLogs();
         app.MapAdminLogs();
+        app.MapAccounts();
     }
 }

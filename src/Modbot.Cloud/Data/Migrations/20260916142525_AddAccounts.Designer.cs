@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Cloud.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Cloud.Data.Migrations
 {
     [DbContext(typeof(CloudContext))]
-    partial class CloudContextModelSnapshot : ModelSnapshot
+    [Migration("20260916142525_AddAccounts")]
+    partial class AddAccounts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -213,120 +216,6 @@ namespace Modbot.Cloud.Data.Migrations
                     b.ToTable("install", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Cloud.Features.PublicRooms.PublicRoom", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("JoinLink")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("join_link");
-
-                    b.Property<string>("Location")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("location");
-
-                    b.Property<DateTimeOffset>("OpenedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("opened_at");
-
-                    b.Property<string>("Region")
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("region");
-
-                    b.Property<DateTimeOffset>("ReportedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("reported_at");
-
-                    b.Property<Guid>("ServerId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("server_id");
-
-                    b.Property<string>("WorldId")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("world_id");
-
-                    b.Property<string>("WorldImageUrl")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("world_image_url");
-
-                    b.Property<string>("WorldName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("world_name");
-
-                    b.HasKey("Id")
-                        .HasName("pk_public_room");
-
-                    b.HasIndex("ServerId", "Location")
-                        .IsUnique()
-                        .HasDatabaseName("ix_public_room_server_id_location");
-
-                    b.ToTable("public_room", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Cloud.Features.PublicRooms.RoomsServer", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("FirstReportedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("first_reported_at");
-
-                    b.Property<string>("GroupBannerUrl")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("group_banner_url");
-
-                    b.Property<string>("GroupIconUrl")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("group_icon_url");
-
-                    b.Property<string>("GroupId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("group_id");
-
-                    b.Property<string>("GroupName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("group_name");
-
-                    b.Property<DateTimeOffset>("LastReportedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_reported_at");
-
-                    b.Property<string>("SecretHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("secret_hash");
-
-                    b.HasKey("Id")
-                        .HasName("pk_rooms_server");
-
-                    b.HasIndex("GroupId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_rooms_server_group_id");
-
-                    b.HasIndex("LastReportedAt")
-                        .HasDatabaseName("ix_rooms_server_last_reported_at");
-
-                    b.ToTable("rooms_server", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Cloud.Features.Retention.CloudSettings", b =>
                 {
                     b.Property<int>("Id")
@@ -336,10 +225,6 @@ namespace Modbot.Cloud.Data.Migrations
                     b.Property<int>("EventKeepDays")
                         .HasColumnType("integer")
                         .HasColumnName("event_keep_days");
-
-                    b.Property<int>("LogKeepDays")
-                        .HasColumnType("integer")
-                        .HasColumnName("log_keep_days");
 
                     b.HasKey("Id")
                         .HasName("pk_settings");

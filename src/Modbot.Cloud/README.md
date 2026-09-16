@@ -13,6 +13,10 @@ everyone, and has an `/admin` area. The web app lives in `src/Modbot.Cloud/Web` 
 | `DATABASE_ENGINE_URL` | Yes | — | A second, separate PostgreSQL database for the events and the deployments' log lines. Same formats. |
 | `ROOT_API_KEY` | No | none | The key that signs in to `/admin`. Unset means admin refuses everyone. |
 | `ROOMS_API_KEY` | No | none | The read-only key for `GET /api/v1/public-rooms`, which is the key the landing page holds. `ROOT_API_KEY` opens that feed too; with neither set it refuses everyone. |
+| `PROXY_API_KEY` | No | none | The key my.modbot.co and the landing page send as `Authorization: Bearer`. It opens the endpoints under `/api/v1/site` and nothing else. Set it to the same value as my.modbot.co's `MODBOT_CLOUD_API_KEY`. Unset means those endpoints refuse everyone. |
+| `RESEND_API_KEY` | No | none | The [Resend](https://resend.com) key Cloud sends account mail with. **Unset means Cloud sends no mail**, so registering an account, confirming an address and resetting a password are all refused. |
+| `MAIL_FROM` | With `RESEND_API_KEY` | — | The From address, such as `Modbot <noreply@modbot.co>`. Cloud refuses to start with a Resend key and no From address. |
+| `CLOUD_PUBLIC_URL` | No | `https://cloud.modbot.co` | Where Cloud is reachable, for the links in its mail. |
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value falls back to 8080. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. Unset means no Seq. |
 | `CONSOLE_LOG_MODE` | No | `serilog` | The shape of the console output: `serilog` (readable lines), `json` (Serilog's compact JSON) or `railway_json` (the JSON Railway parses). Case, spaces, hyphens and underscores are ignored; anything else means `serilog`. |

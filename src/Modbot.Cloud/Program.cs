@@ -1,6 +1,7 @@
 using Modbot.Cloud;
 using Modbot.Cloud.Configuration;
 using Modbot.Cloud.Data;
+using Modbot.Cloud.Features.Mail;
 using Modbot.Core.Logging;
 using Serilog;
 
@@ -49,7 +50,13 @@ try
     builder.Services.AddSerilog(Log.Logger);
 
     CloudApp.AddServices(
-        builder.Services, connectionString, engineConnectionString, environment.RootApiKey, environment.RoomsApiKey);
+        builder.Services,
+        connectionString,
+        engineConnectionString,
+        environment.RootApiKey,
+        environment.RoomsApiKey,
+        environment.ProxyApiKey,
+        new MailSettings(environment.ResendApiKey, environment.MailFrom, environment.PublicAddress));
 
     var app = builder.Build();
 
@@ -64,6 +71,20 @@ try
         app.Logger.LogWarning(
             "{Variable} is not set, so /admin refuses all requests.",
             CloudEnvironment.RootApiKeyVariable);
+    }
+
+    if (environment.ProxyApiKey is null)
+    {
+        app.Logger.LogWarning(
+            "{Variable} is not set, so my.modbot.co and the landing page cannot read anything.",
+            CloudEnvironment.ProxyApiKeyVariable);
+    }
+
+    if (environment.ResendApiKey is null)
+    {
+        app.Logger.LogWarning(
+            "{Variable} is not set, so Modbot Cloud sends no mail and nobody can register an account.",
+            CloudEnvironment.ResendApiKeyVariable);
     }
 
     // One line per request. See ModbotRequestLog for why the policy is shared and the wiring is not.

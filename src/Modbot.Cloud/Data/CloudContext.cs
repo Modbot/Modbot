@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Cloud.Features.Accounts;
 using Modbot.Cloud.Features.Admin;
 using Modbot.Cloud.Features.Installs;
 using Modbot.Cloud.Features.PublicRooms;
@@ -24,6 +25,15 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
 {
     /// <summary>Clients that registered to send their logs.</summary>
     public DbSet<Install> Installs => Set<Install>();
+
+    /// <summary>People who signed up on Cloud.</summary>
+    public DbSet<Account> Accounts => Set<Account>();
+
+    /// <summary>Signed-in account browsers.</summary>
+    public DbSet<AccountSession> AccountSessions => Set<AccountSession>();
+
+    /// <summary>The one-time tokens Cloud emailed.</summary>
+    public DbSet<AccountToken> AccountTokens => Set<AccountToken>();
 
     /// <summary>Signed-in <c>/admin</c> browsers.</summary>
     public DbSet<AdminSession> AdminSessions => Set<AdminSession>();
@@ -54,5 +64,8 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
         modelBuilder.ApplyConfiguration(new CloudSettingsConfiguration());
         modelBuilder.ApplyConfiguration(new RoomsServerConfiguration());
         modelBuilder.ApplyConfiguration(new PublicRoomConfiguration());
+        modelBuilder.ApplyConfiguration(new AccountConfiguration());
+        modelBuilder.ApplyConfiguration(new AccountSessionConfiguration());
+        modelBuilder.ApplyConfiguration(new AccountTokenConfiguration());
     }
 }

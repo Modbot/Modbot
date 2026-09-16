@@ -12,6 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- PasswordHasher<T> for Cloud accounts comes from the ASP.NET Core shared framework, which
+         this project already targets; referencing Microsoft.Extensions.Identity.Core explicitly is
+         an error (NU1510). Cloud uses the hash function and none of the rest of Identity, the same
+         way the Modbot server uses it for its own staff accounts. -->
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Serilog.AspNetCore" />
     <!-- Compile assets are needed: the two design-time factories implement
