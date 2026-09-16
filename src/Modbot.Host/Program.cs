@@ -324,6 +324,14 @@ try
     {
         builder.Services.AddSingleton(databaseLog);
         builder.Services.AddHostedService<LogRetentionService>();
+
+        // The same lines, sent on to Modbot Cloud. On unless the operator turns it off, and off
+        // entirely when MODBOT_CLOUD_DISABLED is set -- the shipper checks both every pass, so a
+        // change takes effect without a restart.
+        builder.Services.AddScoped<CloudLogShipper>();
+        builder.Services.AddHttpClient(CloudLogShipper.HttpClientName, client =>
+            client.Timeout = TimeSpan.FromSeconds(30));
+        builder.Services.AddHostedService<CloudLogShipService>();
     }
 
     builder.Services.AddModbotApi();

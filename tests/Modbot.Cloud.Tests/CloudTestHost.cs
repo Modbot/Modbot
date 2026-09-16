@@ -141,6 +141,64 @@ public sealed class CloudTestHost : IAsyncDisposable
         return _client.SendAsync(request, Ct);
     }
 
+    /// <summary>Registers a Modbot deployment (rather than a desktop client) and returns its bearer.</summary>
+    public async Task<(Guid Id, string Bearer)> RegisterServerAsync(string ip = "203.0.113.20")
+    {
+        using var response = await SendAsync(
+            HttpMethod.Post, "/api/v1/installs", new { clientVersion = "2026.9.0", platform = "server" }, ip);
+
+        Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        var id = body.GetProperty("installId").GetGuid();
+        return (id, $"{id}.{body.GetProperty("secret").GetString()}");
+    }
+
+    /// <summary>Posts a log batch, gzipped the way a deployment sends it.</summary>
+    public Task<HttpResponseMessage> PostLogsAsync(string? bearer, object batch)
+    {
+        var json = JsonSerializer.SerializeToUtf8Bytes(batch, Json);
+
+        using var buffer = new MemoryStream();
+        using (var gzip = new GZipStream(buffer, CompressionLevel.Fastest, leaveOpen: true))
+            gzip.Write(json);
+
+        var content = new ByteArrayContent(buffer.ToArray());
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
+        content.Headers.ContentEncoding.Add("gzip");
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/logs") { Content = content };
+        if (bearer is not null)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+
+        return _client.SendAsync(request, Ct);
+    }
+
+    /// <summary>One log line in the shape a Modbot deployment sends.</summary>
+    public static object LogLine(
+        DateTimeOffset at,
+        string message = "Stored 42 facts",
+        string level = "Information",
+        string? source = "Modbot.VRChat.Sync.AuditLogProducer",
+        string? area = "Sync",
+        string? exception = null,
+        object? properties = null) =>
+        new
+        {
+            at,
+            level,
+            message,
+            template = message,
+            source,
+            area,
+            service = "Modbot",
+            exception,
+            properties = properties ?? new { Count = 42 },
+        };
+
+    public object LogBatch(params object[] lines) =>
+        new { sentAt = Time.GetUtcNow(), serverVersion = "2026.9.0", lines };
+
     /// <summary>One event in the client protocol's shape, for any instance.</summary>
     public static object Event(
         string id,

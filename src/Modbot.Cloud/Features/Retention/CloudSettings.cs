@@ -26,10 +26,22 @@ public sealed class CloudSettings
     /// </summary>
     public const int DefaultEventKeepDays = 365;
 
+    /// <summary>
+    /// Six months, the same window a Modbot keeps its own copy for. Logs are far more numerous than
+    /// events and are only useful while somebody still remembers the problem.
+    /// </summary>
+    public const int DefaultLogKeepDays = 180;
+
     public int Id { get; set; } = SingleRowId;
 
     /// <summary>Days to keep events, counted from when Cloud received them. 0 keeps them forever.</summary>
     public int EventKeepDays { get; set; } = DefaultEventKeepDays;
+
+    /// <summary>
+    /// Days to keep the log lines Modbot deployments send, counted from when Cloud received them.
+    /// 0 keeps them forever.
+    /// </summary>
+    public int LogKeepDays { get; set; } = DefaultLogKeepDays;
 
     public static bool IsValidKeepDays(int days) => days is >= 0 and <= MaxKeepDays;
 }

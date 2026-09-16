@@ -63,7 +63,41 @@ export type EventView = {
 
 export type DayCount = { day: string; events: number }
 
-export type Settings = { eventKeepDays: number }
+export type Settings = { eventKeepDays: number; logKeepDays: number }
+
+export type LogLevel = 'Verbose' | 'Debug' | 'Information' | 'Warning' | 'Error' | 'Fatal'
+
+/** One log line a Modbot deployment sent. Every field is somebody else's text. */
+export type LogLineView = {
+  id: number
+  installId: string
+  receivedAt: string
+  at: string
+  level: LogLevel
+  message: string
+  template: string | null
+  source: string | null
+  area: string | null
+  service: string | null
+  version: string | null
+  exception: string | null
+  properties: string
+}
+
+export type LogLinePage = { items: LogLineView[]; next: number | null }
+
+export type LogSenderView = { installId: string; version: string; lastSeenAt: string }
+
+export type LogQuery = {
+  installId?: string
+  level?: LogLevel
+  source?: string
+  text?: string
+  from?: string
+  to?: string
+  before?: number
+  limit?: number
+}
 
 export const api = {
   login: (key: string) => request<void>('POST', '/api/admin/login', { key }),
@@ -76,6 +110,20 @@ export const api = {
   events: (id: string, limit: number) =>
     request<{ items: EventView[] }>('GET', `/api/admin/installs/${encodeURIComponent(id)}/events?limit=${limit}`),
   eventsPerDay: (days: number) => request<{ items: DayCount[] }>('GET', `/api/admin/events-per-day?days=${days}`),
+  logs: (query: LogQuery = {}) => {
+    const q = new URLSearchParams()
+    if (query.installId) q.set('installId', query.installId)
+    if (query.level) q.set('level', query.level)
+    if (query.source) q.set('source', query.source)
+    if (query.text) q.set('text', query.text)
+    if (query.from) q.set('from', query.from)
+    if (query.to) q.set('to', query.to)
+    if (query.before) q.set('before', String(query.before))
+    if (query.limit) q.set('limit', String(query.limit))
+    const search = q.toString()
+    return request<LogLinePage>('GET', `/api/admin/logs${search ? `?${search}` : ''}`)
+  },
+  logSenders: () => request<{ items: LogSenderView[] }>('GET', '/api/admin/logs/senders'),
   settings: () => request<Settings>('GET', '/api/admin/settings'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', '/api/admin/settings', settings),
 }

@@ -216,6 +216,10 @@ namespace Modbot.Cloud.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("event_keep_days");
 
+                    b.Property<int>("LogKeepDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("log_keep_days");
+
                     b.HasKey("Id")
                         .HasName("pk_settings");
 

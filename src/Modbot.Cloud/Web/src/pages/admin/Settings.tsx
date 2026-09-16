@@ -21,6 +21,7 @@ export function Settings() {
 
 function RetentionForm({ initial }: { initial: SettingsValues }) {
   const [eventDays, setEventDays] = useState(String(initial.eventKeepDays))
+  const [logDays, setLogDays] = useState(String(initial.logKeepDays))
   const [status, setStatus] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -31,8 +32,12 @@ function RetentionForm({ initial }: { initial: SettingsValues }) {
     setStatus(null)
     setFailure(null)
     try {
-      const saved = await api.saveSettings({ eventKeepDays: Number(eventDays) })
+      const saved = await api.saveSettings({
+        eventKeepDays: Number(eventDays),
+        logKeepDays: Number(logDays),
+      })
       setEventDays(String(saved.eventKeepDays))
+      setLogDays(String(saved.logKeepDays))
       setStatus('Saved')
     } catch (e) {
       setFailure(e instanceof ApiError ? e.message : 'Could not reach the server.')
@@ -51,13 +56,19 @@ function RetentionForm({ initial }: { initial: SettingsValues }) {
           </label>
           <Input id="event-days" type="number" min={0} value={eventDays} onChange={(e) => setEventDays(e.target.value)} />
         </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="log-days" className="font-medium">
+            Keep logs (days, 0 = forever)
+          </label>
+          <Input id="log-days" type="number" min={0} value={logDays} onChange={(e) => setLogDays(e.target.value)} />
+        </div>
         {failure && (
           <p role="alert" className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
             {failure}
           </p>
         )}
         <div className="flex items-center gap-3">
-          <Button type="submit" disabled={busy || eventDays === ''}>
+          <Button type="submit" disabled={busy || eventDays === '' || logDays === ''}>
             Save
           </Button>
           {status && <span className="text-muted-foreground">{status}</span>}

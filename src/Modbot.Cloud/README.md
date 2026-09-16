@@ -1,7 +1,8 @@
 # Modbot.Cloud
 
-Modbot Cloud (`cloud.modbot.co`): receives the desktop clients' backup and keeps it, takes each
-Modbot server's report of the rooms its group has open to everyone, and has an `/admin` area. The web app lives in `src/Modbot.Cloud/Web` and is built into this project's
+Modbot Cloud (`cloud.modbot.co`): receives the desktop clients' event backup and the log each Modbot
+deployment sends and keeps both, takes each Modbot server's report of the rooms its group has open to
+everyone, and has an `/admin` area. The web app lives in `src/Modbot.Cloud/Web` and is built into this project's
 `wwwroot`. The image is built by `src/Modbot.Cloud/Dockerfile` from the repository root.
 
 ## Environment variables
@@ -9,7 +10,7 @@ Modbot server's report of the rooms its group has open to everyone, and has an `
 | Variable | Required | Default | What it does |
 |---|---|---|---|
 | `DATABASE_URL` | Yes | — | Cloud's main PostgreSQL database: installs, admin sessions and settings. A `postgres://user:password@host:5432/database` URL or a keyword connection string. |
-| `DATABASE_ENGINE_URL` | Yes | — | A second, separate PostgreSQL database for event storage. Same formats. |
+| `DATABASE_ENGINE_URL` | Yes | — | A second, separate PostgreSQL database for the events and the deployments' log lines. Same formats. |
 | `ROOT_API_KEY` | No | none | The key that signs in to `/admin`. Unset means admin refuses everyone. |
 | `ROOMS_API_KEY` | No | none | The read-only key for `GET /api/v1/public-rooms`, which is the key the landing page holds. `ROOT_API_KEY` opens that feed too; with neither set it refuses everyone. |
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value falls back to 8080. |

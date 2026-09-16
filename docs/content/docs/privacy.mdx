@@ -10,6 +10,33 @@ repository, and that file is what the page is built from.
 It answers two sets of questions: one for people in a group whose moderators run Modbot, and one for
 operators running it. It is not repeated here, so there is only ever one version of it.
 
+## What a self-hosted Modbot sends to Modbot Cloud
+
+**Modbot sends its own log to Modbot Cloud by default.** This is the one thing a Modbot you run
+yourself sends anywhere the project operates. The facts about your members — bans, joins, messages,
+case files, evidence — never leave your own database.
+
+1. **What is sent is the log, unchanged.** The same lines you can read on the **Logs** page:
+   Information level and above, with the message, the time, which part of Modbot wrote it, the
+   exception if there was one, and the values the line carried. Not warnings only, and not
+   anonymised.
+2. **Log lines can name a member.** They are Modbot talking about its own work, and that work is
+   about people — "banned usr_…", "read 40 members of grp_…". A VRChat user id or a display name can
+   appear in a line.
+3. **Requests Modbot sends to VRChat and Discord are not included.** Those are a separate stream and
+   are never sent.
+4. **Credentials are taken out before a line is stored at all**, so they are never sent: a property
+   whose name looks like a password, a secret, a token, an API key, an authorisation header or a
+   cookie is replaced, and a bearer token or a connection-string password written into a message is
+   removed from the text.
+5. **You can turn it off**, in **Settings**, **Host & Database**, **Logs**, or by setting
+   `MODBOT_CLOUD_DISABLED` on the server. Nothing is sent after that, and nothing else about Modbot
+   changes.
+6. **Your deployment is identified by a random id**, made the first time it sends. It is not your
+   group, your domain or your name.
+7. **Cloud keeps them 180 days** by default, and only a Modbot Cloud administrator can read them.
+   See [Logs](/self-hosting/logs).
+
 ## What a self-hosted Modbot stores
 
 A Modbot you run yourself keeps its data in your own PostgreSQL database, and evidence files

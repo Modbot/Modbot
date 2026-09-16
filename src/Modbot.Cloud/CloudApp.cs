@@ -6,6 +6,7 @@ using Modbot.Cloud.Engine;
 using Modbot.Cloud.Features.Admin;
 using Modbot.Cloud.Features.AdminInstalls;
 using Modbot.Cloud.Features.Health;
+using Modbot.Cloud.Features.InstanceLogs;
 using Modbot.Cloud.Features.Installs;
 using Modbot.Cloud.Features.EventBackup;
 using Modbot.Cloud.Features.Pages;
@@ -54,9 +55,16 @@ public static class CloudApp
         services.AddSingleton<RegistrationLimit>();
         services.AddSingleton<EventBackupLimits>();
         services.AddSingleton<PublicRoomsLimit>();
+        services.AddSingleton<InstanceLogLimits>();
 
         services.AddScoped<EventBatchWriter>();
         services.AddScoped<RetentionPruner>();
+
+        // The log feed Modbot deployments send: the writer, the months it writes into, and the
+        // retention that drops whole months of them.
+        services.AddScoped<LogBatchWriter>();
+        services.AddScoped<LogPartitionMaintainer>();
+        services.AddScoped<LogRetention>();
 
         if (runDailyUpkeep)
             services.AddHostedService<DailyUpkeepService>();
@@ -96,5 +104,7 @@ public static class CloudApp
         app.MapInstalls();
         app.MapEventBackup();
         app.MapPublicRooms();
+        app.MapInstanceLogs();
+        app.MapAdminLogs();
     }
 }

@@ -63,6 +63,38 @@ Once a day, Modbot deletes the lines past the window, ten thousand rows at a tim
 The setting covers the database copy only. Log files have their own limit on how many are kept (see
 [Checking a deployment](/self-hosting/health#log-files)), and Seq has its own retention.
 
+## Sending logs to Modbot Cloud
+
+Modbot sends the same lines on to [Modbot Cloud](https://cloud.modbot.co). It is **on unless you
+turn it off**, in **Settings**, **Host & Database**, **Logs**, **Send logs to Modbot Cloud**, and it
+is off entirely when `MODBOT_CLOUD_DISABLED` is set — that variable wins over the switch.
+
+Why it is there: a deployment the project cannot reach is a deployment nobody can help with. You
+write "it stopped syncing yesterday", and the one thing that would answer it was in a container that
+has since been redeployed. Cloud holds a copy so the answer survives, and so you can read it from
+somewhere your own Modbot is not.
+
+**What is sent is exactly what is in your own table**, unchanged: the same lines, the same
+properties, the same secrets already taken out. Nothing is filtered to warnings only and nothing is
+anonymised. See [Privacy](/privacy).
+
+Your Modbot registers itself with Cloud the first time it sends, and keeps an id and a secret in its
+own settings. Cloud identifies your deployment by that id and nothing else.
+
+### When Cloud cannot be reached
+
+Nothing stops and nothing is queued twice. Modbot remembers the last line it sent and carries on
+from there, so a Cloud that is down for an afternoon costs nothing but freshness. It tries again on
+a backoff that grows from thirty seconds to ten minutes.
+
+If Cloud stays unreachable long enough for **50,000** lines to pile up — about a fortnight for a
+quiet deployment — Modbot gives up on the oldest ones and counts them. The newest are the ones
+somebody is asking about. A batch Cloud refuses outright is skipped for the same reason: retrying it
+would never work and would block every line behind it.
+
+**Sync health** says whether sending is on, when the last batch went, how many lines are waiting and
+how many were given up on.
+
 ## What it costs
 
 A line is about half a kilobyte stored. A quiet deployment writes a few thousand a day, so six

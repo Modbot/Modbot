@@ -9,8 +9,8 @@ namespace Modbot.Cloud.Engine;
 /// <remarks>
 /// <para>
 /// A database of its own because it grows with every client and is pruned on its own schedule, while
-/// the main database is a few megabytes of installs and settings (cloud event backup spec 4.1).
-/// Later, the structured logs Modbot deployments send for remote support belong beside these too.
+/// the main database is a few megabytes of installs and settings (cloud event backup spec 4.1). The
+/// structured logs Modbot deployments send for remote support live here too, for the same reason.
 /// </para>
 /// <para>
 /// Rows here name an install by its id and nothing else. There is no foreign key to the main
@@ -33,6 +33,9 @@ public sealed class EngineContext(DbContextOptions<EngineContext> options) : DbC
     public DbSet<EventDayTotal> EventDayTotals => Set<EventDayTotal>();
 
     public DbSet<EventHourTotal> EventHourTotals => Set<EventHourTotal>();
+
+    /// <summary>The log lines Modbot deployments send. Partitioned by month on <c>received_at</c>.</summary>
+    public DbSet<InstanceLogLine> InstanceLogs => Set<InstanceLogLine>();
 
     /// <summary>
     /// The one way this context is pointed at a database, so the app, the design-time factory and
@@ -60,5 +63,6 @@ public sealed class EngineContext(DbContextOptions<EngineContext> options) : DbC
         modelBuilder.ApplyConfiguration(new InstallClockConfiguration());
         modelBuilder.ApplyConfiguration(new EventDayTotalConfiguration());
         modelBuilder.ApplyConfiguration(new EventHourTotalConfiguration());
+        modelBuilder.ApplyConfiguration(new InstanceLogLineConfiguration());
     }
 }

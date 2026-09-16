@@ -36,8 +36,9 @@ services:
       # serilog (readable lines, the default), json or railway_json. Console only.
       CONSOLE_LOG_MODE: ${CONSOLE_LOG_MODE:-}
       LOG_LEVEL: ${LOG_LEVEL:-}
-      # Which Modbot Cloud this server talks to for its own use, and whether it does. Not passed to
-      # desktop clients, which keep their own Cloud settings.
+      # Which Modbot Cloud this server talks to for its own use, and whether it does. Sending this
+      # server's own log there is on unless MODBOT_CLOUD_DISABLED is set or you turn it off in
+      # Settings. Not passed to desktop clients, which keep their own Cloud settings.
       MODBOT_CLOUD_ENDPOINT: ${MODBOT_CLOUD_ENDPOINT:-}
       MODBOT_CLOUD_DISABLED: ${MODBOT_CLOUD_DISABLED:-}
       # 1 fills a fresh database with made-up data and opens the app with no sign-in, so everyone

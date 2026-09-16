@@ -41,7 +41,9 @@ public sealed record EventView(
 
 public sealed record DayCount(DateOnly Day, long Events);
 
-public sealed record SettingsView(int EventKeepDays);
+/// <param name="EventKeepDays">Days to keep the events desktop clients back up. 0 keeps them forever.</param>
+/// <param name="LogKeepDays">Days to keep the log lines Modbot deployments send. 0 keeps them forever.</param>
+public sealed record SettingsView(int EventKeepDays, int LogKeepDays = CloudSettings.DefaultLogKeepDays);
 
 /// <summary>
 /// Cloud admin: installs, events per day, one install's recent events, and retention.
@@ -176,12 +178,14 @@ public static class AdminInstallEndpoints
     internal static async Task<IResult> SettingsAsync([FromServices] CloudContext cloud, CancellationToken ct)
     {
         var settings = await cloud.GetSettingsAsync(ct);
-        return Results.Ok(new SettingsView(settings.EventKeepDays));
+        return Results.Ok(new SettingsView(settings.EventKeepDays, settings.LogKeepDays));
     }
 
     internal static async Task<IResult> SaveSettingsAsync([FromBody] SettingsView? request, [FromServices] CloudContext cloud, CancellationToken ct)
     {
-        if (request is null || !CloudSettings.IsValidKeepDays(request.EventKeepDays))
+        if (request is null
+            || !CloudSettings.IsValidKeepDays(request.EventKeepDays)
+            || !CloudSettings.IsValidKeepDays(request.LogKeepDays))
         {
             return Results.Json(
                 new { error = $"Days must be between 0 and {CloudSettings.MaxKeepDays}." },
@@ -196,9 +200,10 @@ public static class AdminInstallEndpoints
         }
 
         settings.EventKeepDays = request.EventKeepDays;
+        settings.LogKeepDays = request.LogKeepDays;
         await cloud.SaveChangesAsync(ct);
 
-        return Results.Ok(new SettingsView(settings.EventKeepDays));
+        return Results.Ok(new SettingsView(settings.EventKeepDays, settings.LogKeepDays));
     }
 
     private static string? DisplayName(string data)

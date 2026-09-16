@@ -16,6 +16,7 @@ import {
   type AiCallsHealth,
   type DemoStatus,
   type EmailHealth,
+  type LogHealth,
   type PausedRule,
   type SyncHealth,
 } from '@/lib/api'
@@ -180,6 +181,7 @@ export function Health() {
       </div>
 
       {health.email && (health.email.queued > 0 || health.email.failed > 0) && <EmailQueue email={health.email} />}
+      {health.logs && <Logs logs={health.logs} />}
 
       {health.discordBot && (
         <DiscordBot
@@ -763,6 +765,46 @@ function EmailQueue({ email }: { email: EmailHealth }) {
           {email.nextSendAt && ` · next at ${new Date(email.nextSendAt).toLocaleString()}`}
           {email.failed > 0 && ` · ${email.failed} failed`}
         </p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function Logs({ logs }: { logs: LogHealth }) {
+  const storeProblem = logs.storeError !== null || logs.storedDropped > 0
+  const cloudProblem = logs.sendingToCloud && (logs.cloudError !== null || logs.cloudDropped > 0)
+
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <div className="mb-3 font-medium">Logs</div>
+        <dl
+          className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-muted-foreground"
+          style={{ fontSize: 'var(--text-small)' }}
+        >
+          <dt>Stored</dt>
+          <dd className={cn('tabular-nums', storeProblem ? 'text-warn' : 'text-foreground')}>
+            {logs.storing ? `${logs.storedWritten.toLocaleString()} written` : 'Not writing'}
+            {logs.storedDropped > 0 && ` · ${logs.storedDropped.toLocaleString()} dropped`}
+            {logs.storeError && ` · ${logs.storeError}`}
+          </dd>
+
+          <dt>To Modbot Cloud</dt>
+          <dd className={cn('tabular-nums', cloudProblem ? 'text-warn' : 'text-foreground')}>
+            {!logs.cloudAllowed
+              ? 'Off'
+              : !logs.sendingToCloud
+                ? 'Off'
+                : logs.cloudSentAt
+                  ? `Last sent ${new Date(logs.cloudSentAt).toLocaleString()}`
+                  : logs.cloudRegistered
+                    ? 'Nothing sent yet'
+                    : 'Not registered yet'}
+            {logs.sendingToCloud && logs.cloudWaiting > 0 && ` · ${logs.cloudWaiting.toLocaleString()} waiting`}
+            {logs.cloudDropped > 0 && ` · ${logs.cloudDropped.toLocaleString()} dropped`}
+            {logs.sendingToCloud && logs.cloudError && ` · ${logs.cloudError}`}
+          </dd>
+        </dl>
       </CardContent>
     </Card>
   )

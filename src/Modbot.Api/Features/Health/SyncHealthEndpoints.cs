@@ -68,6 +68,9 @@ public static class SyncHealthEndpoints
                 [FromServices] Modbot.Core.Discord.IDiscordBotStatus? discordBot,
                 // Optional like the rest: a host without AI registered has no spend to warn about.
                 [FromServices] Modbot.AI.Usage.AiSpendReport? aiSpend,
+                // Optional for the same reason: a test host has no log store and no Cloud address.
+                [FromServices] Modbot.Core.Logging.Store.DatabaseLogSink? logStore,
+                [FromServices] Modbot.Core.Configuration.ModbotCloudAddress? cloudAddress,
                 CancellationToken ct) =>
             {
                 var (health, buckets) = await GateHealthReader.ReadAsync(gate, ct);
@@ -146,7 +149,8 @@ public static class SyncHealthEndpoints
                     await CalendarHealthAsync(db, settings?.DiscordGuildId, ct),
                     await PausedRulesAsync(db, ct),
                     Run(diagnostics?.LastUserReadRun),
-                    UserReads(diagnostics)));
+                    UserReads(diagnostics),
+                    await LogsAsync(db, logStore, cloudAddress, ct)));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
@@ -166,6 +170,45 @@ public static class SyncHealthEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         return app;
+    }
+
+    /// <summary>
+    /// The log store and the copy sent to Modbot Cloud.
+    /// </summary>
+    /// <remarks>
+    /// Null when this host has no log store at all, which is every test host and the build that
+    /// writes the OpenAPI document. On a real deployment it is always present, because the answer
+    /// "sending is off" is itself worth showing.
+    /// </remarks>
+    private static async Task<LogHealth?> LogsAsync(
+        ModbotContext db,
+        Modbot.Core.Logging.Store.DatabaseLogSink? store,
+        Modbot.Core.Configuration.ModbotCloudAddress? cloud,
+        CancellationToken ct)
+    {
+        if (store is null)
+            return null;
+
+        var status = store.Status;
+
+        var shipping = await Modbot.Core.Logging.Store.CloudLogStatus.ReadAsync(
+            db, cloud ?? Modbot.Core.Configuration.ModbotCloudAddress.Default, ct);
+
+        return new LogHealth(
+            status.Storing,
+            status.Written,
+            status.Dropped,
+            status.LastWriteAt,
+            status.LastError,
+            status.LastErrorAt,
+            shipping.On,
+            shipping.Allowed,
+            shipping.Registered,
+            shipping.LastSentAt,
+            shipping.Waiting,
+            shipping.Dropped,
+            shipping.LastError,
+            shipping.LastErrorAt);
     }
 
     /// <summary>

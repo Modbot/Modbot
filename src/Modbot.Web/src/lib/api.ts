@@ -1295,7 +1295,26 @@ export type SyncHealth = {
   pausedRules?: PausedRule[] | null
   lastUserReadRun?: SyncRunSummary | null
   userReads?: UserReadHealth | null
+  /** The log Modbot keeps in its own database, and the copy it sends Modbot Cloud. */
+  logs?: LogHealth | null
   now: string
+}
+
+export type LogHealth = {
+  storing: boolean
+  storedWritten: number
+  storedDropped: number
+  storedAt: string | null
+  storeError: string | null
+  storeErrorAt: string | null
+  sendingToCloud: boolean
+  cloudAllowed: boolean
+  cloudRegistered: boolean
+  cloudSentAt: string | null
+  cloudWaiting: number
+  cloudDropped: number
+  cloudError: string | null
+  cloudErrorAt: string | null
 }
 
 export type LogLine = {

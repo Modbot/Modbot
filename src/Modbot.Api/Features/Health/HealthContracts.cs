@@ -251,7 +251,42 @@ public sealed record SyncHealth(
     IReadOnlyList<PausedRule>? PausedRules = null,
     // The rarer of the two profile reads: the full user object, on its own budget.
     SyncRunSummary? LastUserReadRun = null,
-    UserReadHealth? UserReads = null);
+    UserReadHealth? UserReads = null,
+    // The log Modbot keeps in its own database, and the copy it sends Modbot Cloud. Null when this
+    // host has no log store registered at all.
+    LogHealth? Logs = null);
+
+/// <summary>
+/// Modbot's own log: what the store is doing, and what is happening to the copy sent to Cloud.
+/// </summary>
+/// <param name="Storing">The sink is connected to the database and writing.</param>
+/// <param name="StoredDropped">
+/// Lines thrown away since this Modbot started because the queue was full — the database was slow
+/// or unreachable for long enough to fill it. Shown because a log with gaps in it must say so.
+/// </param>
+/// <param name="StoreError">Why the last write failed, if one did. Null once a write succeeds.</param>
+/// <param name="SendingToCloud">Sending the same lines to Modbot Cloud is on and allowed.</param>
+/// <param name="CloudAllowed">False when <c>MODBOT_CLOUD_DISABLED</c> is set.</param>
+/// <param name="CloudRegistered">This deployment has registered with Cloud.</param>
+/// <param name="CloudSentAt">When the last batch reached Cloud.</param>
+/// <param name="CloudWaiting">Lines stored but not yet sent.</param>
+/// <param name="CloudDropped">Lines given up on because Cloud was unreachable for long, or refused them.</param>
+/// <param name="CloudError">Why the last attempt to send failed. Null once one succeeds.</param>
+public sealed record LogHealth(
+    bool Storing,
+    long StoredWritten,
+    long StoredDropped,
+    DateTimeOffset? StoredAt,
+    string? StoreError,
+    DateTimeOffset? StoreErrorAt,
+    bool SendingToCloud,
+    bool CloudAllowed,
+    bool CloudRegistered,
+    DateTimeOffset? CloudSentAt,
+    long CloudWaiting,
+    long CloudDropped,
+    string? CloudError,
+    DateTimeOffset? CloudErrorAt);
 
 /// <summary>
 /// What the rarer read is doing: the full user object, read about once a week per person.
