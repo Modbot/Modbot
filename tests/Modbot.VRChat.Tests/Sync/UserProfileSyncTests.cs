@@ -532,6 +532,30 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
     }
 
     /// <summary>
+    /// A row whose id is a room's location -- however it got there -- is never fetched as a
+    /// person. Housekeeping found such a row never refreshed and offered it every pass, and VRChat
+    /// answered 400 every time.
+    /// </summary>
+    [Fact]
+    public async Task ARoomsLocationInTheUserTableIsNeverFetchedAsAPerson()
+    {
+        const string room = "wrld_06c991da-951b-4ca5-b7d2-e3f5a9839e28:03044~group(grp_0a17232e)~groupAccessType(plus)~region(use)";
+
+        VRChat.Users.Has("usr_a", displayName: "Trinity");
+        await SeedRowAsync(room, lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
+        await SeedRowAsync("usr_a", lastSeen: Now.AddMinutes(-2), lastRefreshed: null);
+
+        // Housekeeping on: this is the pass that re-offers every never-refreshed row.
+        var first = await RunUserProfileAsync(housekeeping: true);
+        var second = await RunUserProfileAsync(housekeeping: true);
+
+        Assert.Equal("usr_a", first.UserId);
+        Assert.Null(second.UserId);
+        Assert.Equal(["usr_a"], VRChat.Users.ProfileRequests);
+        Assert.Null(Queue.PendingFor(room));
+    }
+
+    /// <summary>
     /// The rare read fills what only it carries and overwrites nothing else -- including a bio
     /// VRChat has stopped sending on it.
     /// </summary>

@@ -58,6 +58,19 @@ public readonly record struct InstanceLocationParts(
     /// Splits a location string. Never throws: a shape this does not understand degrades to
     /// "world only" or to nothing, and the verbatim string is still in the payload either way.
     /// </summary>
+    /// <summary>
+    /// Whether a string is a room's location rather than a person's id: it has a <c>:</c> with
+    /// an instance id after it.
+    /// </summary>
+    /// <remarks>
+    /// Delimiters again, not a shape check. A VRChat user id -- <c>usr_</c> and a GUID today, ten
+    /// letters and digits in the legacy form -- has never contained a colon, and a location cannot
+    /// do without one, so the colon alone tells the two apart. This exists because a location that
+    /// gets into the profile queue is fetched as a person, answered 400, and offered again on the
+    /// next housekeeping pass for as long as its row lasts.
+    /// </remarks>
+    public static bool LooksLikeALocation(string? value) => Split(value).InstanceId is not null;
+
     public static InstanceLocationParts Split(string? location)
     {
         if (string.IsNullOrWhiteSpace(location))

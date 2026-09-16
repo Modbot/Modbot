@@ -9,6 +9,25 @@ namespace Modbot.Core.Tests.Data;
 /// </summary>
 public class InstanceLocationPartsTests
 {
+    /// <summary>
+    /// A person's id has never had a colon in it and a location cannot do without one. This is
+    /// what keeps a room out of the profile queue, so both shapes of user id are pinned here.
+    /// </summary>
+    [Theory]
+    [InlineData("wrld_06c991da-951b-4ca5-b7d2-e3f5a9839e28:03044~group(grp_0a17232e)~groupAccessType(plus)~region(use)", true)]
+    [InlineData("wrld_a:12345", true)]
+    [InlineData("Old Lobby:VIP Lounge~group(grp_x)", true)]
+    [InlineData("usr_e94e15c9-d26b-4ebc-8906-b2f9162ef335", false)]
+    [InlineData("8JoV9XEdpo", false)]
+    [InlineData("wrld_a", false)]
+    [InlineData("wrld_a:", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void ARoomHasAColonWithAnInstanceAfterIt_APersonNever(string? value, bool isLocation)
+    {
+        Assert.Equal(isLocation, InstanceLocationParts.LooksLikeALocation(value));
+    }
+
     [Theory]
     [InlineData("wrld_44f4a344-2d1b-4c7e-9a3f-8b5e6d7c0f12:93927~group(grp_a)~groupAccessType(public)~region(us)", "wrld_44f4a344-2d1b-4c7e-9a3f-8b5e6d7c0f12", "93927")]
     [InlineData("wrld_a:12345", "wrld_a", "12345")]

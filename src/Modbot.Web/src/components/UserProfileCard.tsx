@@ -129,7 +129,7 @@ export function UserProfileCard({
             return
           }
 
-          if (asked.outcome === 'NotAvailable') {
+          if (asked.outcome === 'NotAvailable' || asked.outcome === 'NotAPerson') {
             setRefreshNote(`Couldn't refresh: ${asked.explanation}`)
             return
           }

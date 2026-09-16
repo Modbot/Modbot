@@ -131,6 +131,7 @@ public static class VRChatUserEndpoints
                         RefreshRequestOutcome.FreshEnough => "Fresh enough.",
                         RefreshRequestOutcome.AlreadyQueued => "Already waiting for a refresh.",
                         RefreshRequestOutcome.Promoted => "Moved up the queue.",
+                        RefreshRequestOutcome.NotAPerson => "This is a room's id, not a person's.",
                         _ => "Queued.",
                     }));
             })

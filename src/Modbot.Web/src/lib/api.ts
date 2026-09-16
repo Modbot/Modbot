@@ -1665,7 +1665,7 @@ export type SubjectHistory = {
 }
 
 export type RefreshRequestResult = {
-  outcome: 'Queued' | 'Promoted' | 'AlreadyQueued' | 'FreshEnough' | 'NotAvailable'
+  outcome: 'Queued' | 'Promoted' | 'AlreadyQueued' | 'FreshEnough' | 'NotAvailable' | 'NotAPerson'
   lastRefreshedAt: string | null
   explanation: string
 }

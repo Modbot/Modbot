@@ -13,6 +13,29 @@ public class RefreshOrderTests
     private static RefreshRequest At(string user, RefreshReason reason, int minutesAgo, int requestedMinutesAgo = 0) =>
         new(user, reason, T0.AddMinutes(-minutesAgo), T0.AddMinutes(-requestedMinutesAgo));
 
+    /// <summary>
+    /// A room's location is not a person and is never queued, at any tier and whatever the
+    /// caller says about freshness. Before this, one location row made every housekeeping pass
+    /// spend a users.profile call on a 400.
+    /// </summary>
+    [Theory]
+    [InlineData(RefreshReason.SeenInInstance)]
+    [InlineData(RefreshReason.OpenedInModbot)]
+    [InlineData(RefreshReason.SeenInFactLog)]
+    [InlineData(RefreshReason.NeverRefreshed)]
+    [InlineData(RefreshReason.ProfileIsOld)]
+    public void ARoomsLocationIsTurnedAwayAtEveryTier(RefreshReason reason)
+    {
+        var queue = new UserRefreshQueue();
+        const string room = "wrld_06c991da-951b-4ca5-b7d2-e3f5a9839e28:03044~group(grp_0a17232e)~groupAccessType(plus)~region(use)";
+
+        var outcome = queue.Offer(At(room, reason, minutesAgo: 0), null, T0, new UserProfileSyncOptions());
+
+        Assert.Equal(RefreshRequestOutcome.NotAPerson, outcome);
+        Assert.Equal(0, queue.Count);
+        Assert.Null(queue.PendingFor(room));
+    }
+
     /// <summary>The maintainer's order, top to bottom.</summary>
     [Fact]
     public void TiersComeBeforeAnythingElse()
