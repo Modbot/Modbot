@@ -769,13 +769,19 @@ public class ChatTests
 
         var sending = host.Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, stop.Token);
 
+        // Headers arrive as soon as the "conversation" event is sent -- well before the model has
+        // written anything -- so by the time the model starts writing, the send above has already
+        // finished normally with a 200. That is expected: a real browser's fetch resolves on
+        // headers the same way, and Stop is a browser-side decision to stop reading, not something
+        // the initial response promise could ever observe.
+        Assert.Equal(HttpStatusCode.OK, (await sending).StatusCode);
+
         // The model has started writing; the person presses Stop.
         await provider.Writing.Task.WaitAsync(TimeSpan.FromSeconds(30), Ct);
         await stop.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sending);
-
-        // The provider call itself was cancelled, rather than left running to the end.
+        // The provider call itself was cancelled, rather than left running to the end -- this, not
+        // the send above, is where "Stop means stop at the provider" is actually checked.
         await provider.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(30), Ct);
 
         var stored = await EventuallyAsync(async () =>

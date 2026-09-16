@@ -72,6 +72,7 @@ public sealed class ApiTestHost : IAsyncDisposable
 
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
+        builder.Logging.QuietForTests();
 
         builder.Services.AddDbContext<ModbotContext>(o => o.UseNpgsql(db.ConnectionString));
         builder.Services.AddSingleton<IModbotClock>(clock);

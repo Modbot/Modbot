@@ -817,7 +817,7 @@
           "Auth"
         ],
         "summary": "Read the bio and confirm the link if the code is there",
-        "description": "One profile fetch through the gate on users.profile. Six checks per code, at most one every ten seconds. A failed fetch -- rate limit, Cloudflare, network -- is reported in words and never retried.",
+        "description": "One profile fetch through the gate on users.read. Six checks per code, at most one every ten seconds. A failed fetch -- rate limit, Cloudflare, network -- is reported in words and never retried.",
         "operationId": "CheckVRChatLink",
         "responses": {
           "200": {

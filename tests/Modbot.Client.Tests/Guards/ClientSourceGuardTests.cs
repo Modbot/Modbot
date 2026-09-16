@@ -291,10 +291,18 @@ public class ClientSourceGuardTests
     public void TheWindowHasNoModbotCloudSwitch()
     {
         // Where the event backup goes, and whether it is sent, is set in settings.json or the
-        // environment on this PC (cloud event backup spec 3.1). There is no switch for it on screen.
+        // environment on this PC (cloud event backup spec 3.1) -- never a control in the window.
+        // The Events page is allowed to say that Modbot Cloud is one of the places an event went
+        // (spec: "show every event the client handled"), so the guard looks for a toggle bound to
+        // it rather than for the word itself.
         var window = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "Modbot.Client.App", "MainWindow.cs"));
 
-        Assert.DoesNotContain("Cloud", window, StringComparison.OrdinalIgnoreCase);
+        var toggles = window.Split('\n')
+            .Where(line => line.Contains("CheckBox", StringComparison.Ordinal)
+                || line.Contains("ToggleSwitch", StringComparison.Ordinal)
+                || line.Contains("ToggleButton", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(toggles, line => line.Contains("Cloud", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

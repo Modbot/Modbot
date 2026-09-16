@@ -148,37 +148,43 @@ public class AiModerationTests
         await SwitchOnAsync(host, cookie);
         await ActingListAsync(host, cookie, "Scams", [Term("word", "free nitro")], delete: true, timeout: 45);
 
-        var outcome = await CheckAsync(host, Message("m1", "author-1", "hey FREE nitro at this link"));
+        // A subject of its own, not the "author-1" other tests in this file and in
+        // AiModerationContextTests/AiModerationSafetyTests reuse: the facts table is shared across
+        // the whole run and nothing clears it between tests, so a name that many tests write
+        // FactType.AiModerationFlag facts for is a name whose fact count depends on run order.
+        const string author = "operator-named-1";
+
+        var outcome = await CheckAsync(host, Message("m1", author, "hey FREE nitro at this link"));
 
         Assert.Equal(1, outcome.FlagsWritten);
         Assert.True(outcome.MessageDeleted);
         Assert.Equal(45, outcome.TimedOutMinutes);
         Assert.Equal((Channel, "m1"), Assert.Single(discord.Deleted));
-        Assert.Equal((Guild, "author-1", TimeSpan.FromMinutes(45)), Assert.Single(discord.TimedOut));
+        Assert.Equal((Guild, author, TimeSpan.FromMinutes(45)), Assert.Single(discord.TimedOut));
 
         await using (var db = _db.NewContext())
         {
-            var flag = await db.ModerationFlags.SingleAsync(Ct);
+            var flag = await db.ModerationFlags.SingleAsync(f => f.SubjectId == author, Ct);
             Assert.Equal("FREE nitro", flag.Matched);
             Assert.Equal(FactPlatform.Discord, flag.SubjectPlatform);
             Assert.True(flag.MessageDeleted);
             Assert.Equal(45, flag.TimedOutMinutes);
         }
 
-        Assert.Single(await host.FactsAsync(FactType.AiModerationFlag, "author-1", Ct));
+        Assert.Single(await host.FactsAsync(FactType.AiModerationFlag, author, Ct));
 
-        var deleted = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiModerationMessageDeleted, "author-1", Ct)));
+        var deleted = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiModerationMessageDeleted, author, Ct)));
         Assert.True(deleted.GetProperty("done").GetBoolean());
         Assert.Equal("m1", deleted.GetProperty("messageId").GetString());
         var rule = Assert.Single(deleted.GetProperty("rules").EnumerateArray());
         Assert.Equal(user.Username, rule.GetProperty("setToActByUsername").GetString());
         Assert.Equal(user.Id.ToString(), rule.GetProperty("setToActByUserId").GetString());
 
-        var timedOut = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiModerationTimeout, "author-1", Ct)));
+        var timedOut = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiModerationTimeout, author, Ct)));
         Assert.Equal(45, timedOut.GetProperty("minutes").GetInt32());
 
         // The same message edited: already flagged, so nothing again.
-        var again = await CheckAsync(host, Message("m1", "author-1", "hey FREE nitro at this link!!") with { Edited = true });
+        var again = await CheckAsync(host, Message("m1", author, "hey FREE nitro at this link!!") with { Edited = true });
         Assert.Equal(0, again.FlagsWritten);
         Assert.Single(discord.Deleted);
     }
