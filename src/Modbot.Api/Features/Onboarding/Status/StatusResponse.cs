@@ -91,6 +91,10 @@ public sealed record IntegrationStatus(
 /// Whether the signed-in account has linked its VRChat account (design §4.3). False when nobody is
 /// signed in. The wizard's link step is done when this is true.
 /// </param>
+/// <param name="MyModbotUrl">
+/// Where my.modbot.co is, from <c>MODBOT_MY_URL</c>. Every link the app offers to the selector is
+/// built from it, so a group that runs its own points them all somewhere else with one variable.
+/// </param>
 public sealed record OnboardingStatusResponse(
     bool HasAdministrator,
     bool Authenticated,
@@ -100,4 +104,5 @@ public sealed record OnboardingStatusResponse(
     VRChatAccountStatus VRChat,
     ConnectionStatus Connection,
     ManagedGroupStatus? Group,
-    IntegrationStatus Integrations);
+    IntegrationStatus Integrations,
+    string MyModbotUrl);

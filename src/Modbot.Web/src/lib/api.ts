@@ -93,6 +93,8 @@ export type OnboardingStatus = {
     /** What the platform says it is, for the form to prefill. A person confirms it. */
     publicAddressSuggestion: string | null
   }
+  /** Where my.modbot.co is, from MODBOT_MY_URL. */
+  myModbotUrl: string
 }
 
 /**
@@ -256,6 +258,17 @@ export type PublicRoomsView = {
   cloudDisabled: boolean
   lastSentAt: string | null
 }
+
+export type CloudStatusView = {
+  disabled: boolean
+  endpoint: string
+  registered: boolean
+  lastReportAt: string | null
+  lastReportOk: boolean | null
+  lastReportProblem: string | null
+}
+
+export type LinkCodeView = { code: string; expiresInMinutes: number }
 
 export type DiscordChannelType = 'text' | 'announcement' | 'forum' | 'media' | 'voice' | 'stage' | 'category'
 
@@ -1297,6 +1310,8 @@ export type SyncHealth = {
   userReads?: UserReadHealth | null
   /** The log Modbot keeps in its own database, and the copy it sends Modbot Cloud. */
   logs?: LogHealth | null
+  /** The last report to Modbot Cloud. Null when this server is set not to talk to Cloud. */
+  cloudReport?: CloudReportHealth | null
   now: string
 }
 
@@ -1363,6 +1378,14 @@ export type LogQuery = {
   to?: string
   before?: number
   limit?: number
+}
+
+export type CloudReportHealth = {
+  sentAt: string | null
+  ok: boolean | null
+  problem: string | null
+  registered: boolean
+  endpoint: string
 }
 
 export type PausedRule = {
@@ -3219,6 +3242,8 @@ export const api = {
    * that never completed throws, and the caller shows that as unknown.
    */
   databaseHealth: async (): Promise<boolean> => (await fetch('/health/ready')).ok,
+  cloudStatus: () => request<CloudStatusView>('/api/settings/cloud'),
+  cloudLinkCode: () => post<LinkCodeView>('/api/settings/cloud/link-code', {}),
 
   /**
    * One person's stored profile. The id goes in the query string, never the path: VRChat ids are

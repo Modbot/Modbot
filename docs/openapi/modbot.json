@@ -2255,6 +2255,91 @@
         ]
       }
     },
+    "/api/settings/cloud": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Whether this server reports to Modbot Cloud, and how the last report went",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetCloudStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudStatusView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/cloud/link-code": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "A code to type into Modbot Cloud to claim this server",
+        "description": "The code is shown once and is not stored here. Modbot Cloud is told only its SHA-256, over this server's own authenticated connection, so Cloud never calls back to an address it was given.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "CreateCloudLinkCode",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkCodeView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/email/test": {
       "post": {
         "tags": [
@@ -15311,6 +15396,47 @@
           }
         }
       },
+      "CloudStatusView": {
+        "required": [
+          "disabled",
+          "endpoint",
+          "registered",
+          "lastReportAt",
+          "lastReportOk",
+          "lastReportProblem"
+        ],
+        "type": "object",
+        "properties": {
+          "disabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "registered": {
+            "type": "boolean"
+          },
+          "lastReportAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastReportOk": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "lastReportProblem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ContactRequest": {
         "type": "object",
         "properties": {
@@ -19554,6 +19680,26 @@
           },
           "status": {
             "$ref": "#/components/schemas/VRChatLinkStatus"
+          }
+        }
+      },
+      "LinkCodeView": {
+        "required": [
+          "code",
+          "expiresInMinutes"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "expiresInMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

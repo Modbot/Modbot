@@ -65,7 +65,12 @@ public static class StatusHandler
             vrchat,
             connection,
             group,
-            integrations));
+            integrations,
+            // Optional, the same way the deployment info is: a host that maps the API without one
+            // falls back to the project's own address.
+            (http.RequestServices.GetService(typeof(Modbot.Core.Configuration.ModbotEnvironment))
+                as Modbot.Core.Configuration.ModbotEnvironment)?.MyUrl
+            ?? Modbot.Core.Configuration.ModbotEnvironment.DefaultMyUrl));
     }
 
     /// <summary>

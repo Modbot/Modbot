@@ -252,6 +252,9 @@ public sealed record SyncHealth(
     // The rarer of the two profile reads: the full user object, on its own budget.
     SyncRunSummary? LastUserReadRun = null,
     UserReadHealth? UserReads = null,
+    // The last report to Modbot Cloud (central services spec 5). Null when this server is set not
+    // to talk to Cloud.
+    CloudReportHealth? CloudReport = null,
     // The log Modbot keeps in its own database, and the copy it sends Modbot Cloud. Null when this
     // host has no log store registered at all.
     LogHealth? Logs = null);
@@ -287,6 +290,21 @@ public sealed record LogHealth(
     long CloudDropped,
     string? CloudError,
     DateTimeOffset? CloudErrorAt);
+
+
+/// <summary>
+/// When this server last reported to Modbot Cloud, and whether Cloud took it.
+/// </summary>
+/// <param name="SentAt">Null before the first report was tried.</param>
+/// <param name="Ok">Whether Cloud took it. Null before the first report was tried.</param>
+/// <param name="Problem">One short sentence about the last failure, or null when it worked.</param>
+/// <param name="Registered">Whether this server has an id from Cloud.</param>
+public sealed record CloudReportHealth(
+    DateTimeOffset? SentAt,
+    bool? Ok,
+    string? Problem,
+    bool Registered,
+    string Endpoint);
 
 /// <summary>
 /// What the rarer read is doing: the full user object, read about once a week per person.

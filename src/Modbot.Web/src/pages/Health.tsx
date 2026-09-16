@@ -267,6 +267,8 @@ export function Health() {
         </CardContent>
       </Card>
 
+      {health.cloudReport && <CloudReport report={health.cloudReport} now={health.now} />}
+
       <Card>
         <CardContent className="py-4">
           <div className="mb-3 font-medium">Rate-limit budgets</div>
@@ -443,6 +445,37 @@ function waitingByReason(counts: Record<string, number>): string {
     ([key, label]) => `${counts[key]} ${label}`,
   )
   return parts.join(', ')
+}
+
+function CloudReport({
+  report,
+  now,
+}: {
+  report: NonNullable<SyncHealth['cloudReport']>
+  now: string
+}) {
+  const state = report.sentAt === null ? 'Not sent yet' : report.ok ? 'Sent' : 'Failed'
+
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <div className="mb-3 font-medium">Modbot Cloud</div>
+
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-medium">{state}</span>
+          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {report.sentAt === null ? report.endpoint : `${ago(report.sentAt, now)} · ${report.endpoint}`}
+          </span>
+        </div>
+
+        {report.problem && (
+          <p className="mt-0.5 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {report.problem}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 function Producer({

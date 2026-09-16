@@ -20,7 +20,8 @@ public sealed class LandingTestHost : IAsyncDisposable
     public const string LandingHtml =
         "<!doctype html><html><head><title>Modbot</title><script>" + ThemeScript + "</script>"
         + "<script type=\"module\" src=\"/assets/app-test.js\"></script></head>"
-        + "<body><main>Moderation for VRChat groups</main></body></html>";
+        + "<body><main>Moderation for VRChat groups</main>"
+        + "<a href=\"https://my.modbot.co/go\">Open my server</a></body></html>";
 
     public const string NotFoundHtml =
         "<!doctype html><html><head><title>Not found</title></head><body><main>Nothing here</main></body></html>";
@@ -68,7 +69,9 @@ public sealed class LandingTestHost : IAsyncDisposable
     /// <param name="built">False starts a server whose web root holds nothing, as before a build.</param>
     /// <param name="privacy">True adds the privacy page, as a build does once PRIVACY_POLICY.md exists.</param>
     /// <param name="cloud">False leaves MODBOT_CLOUD_PROXY_URL and MODBOT_CLOUD_API_KEY unset.</param>
-    public static async Task<LandingTestHost> StartAsync(bool built = true, bool privacy = false, bool cloud = true)
+    /// <param name="myUrl">MODBOT_MY_URL. Null leaves the project's own selector in the page.</param>
+    public static async Task<LandingTestHost> StartAsync(
+        bool built = true, bool privacy = false, bool cloud = true, string? myUrl = null)
     {
         var webRoot = Directory.CreateTempSubdirectory("modbot-landing-tests-");
 
@@ -107,7 +110,8 @@ public sealed class LandingTestHost : IAsyncDisposable
         var environment = new LandingEnvironment(
             LandingEnvironment.DefaultPort,
             cloud ? new Uri(CloudUrl) : null,
-            cloud ? CloudApiKey : null);
+            cloud ? CloudApiKey : null,
+            myUrl ?? LandingEnvironment.DefaultMyUrl);
 
         LandingApp.AddServices(builder.Services, environment);
 

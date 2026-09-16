@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import credits from '@/lib/credits.json'
 import { DOCS_URL } from '@/lib/docs'
-import { MY_MODBOT_ORIGIN } from '@/lib/myModbot'
+import { myModbotOrigin } from '@/lib/myModbot'
 
 /** Who made Modbot, where to find them, and the documents that say what Modbot is allowed to do. */
 
@@ -34,7 +34,7 @@ export function General() {
               <Link href={DOCS_URL}>{DOCS_URL.replace('https://', '')}</Link>
             </Line>
             <Line label="Your servers">
-              <Link href={MY_MODBOT_ORIGIN}>{MY_MODBOT_ORIGIN.replace('https://', '')}</Link>
+              <Link href={myModbotOrigin()}>{myModbotOrigin().replace('https://', '')}</Link>
             </Line>
           </dl>
         </CardContent>

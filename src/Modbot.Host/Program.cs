@@ -243,6 +243,17 @@ try
         Disabled = cloud.Disabled,
     });
 
+    // Registers this server with Cloud and reports every six hours (central services spec 5). Not
+    // through the VRChat gate and not through the egress proxy: Cloud is not VRChat, so a call to it
+    // must not spend a VRChat rate-limit budget or leave by an address set aside for VRChat.
+    builder.Services.AddHttpClient(CloudServerClient.HttpClientName);
+    builder.Services.AddSingleton<CloudServerClient>();
+    builder.Services.AddScoped<ServerReporter>();
+
+    // A demo reports nothing. Its figures are made up and its group is somebody else's.
+    if (!demo.IsOn)
+        builder.Services.AddHostedService<ServerReportingService>();
+
     // Where every AI feature gets its client (M8 section 4). It reads the settings row on each
     // call and hands out nothing while AI is off, so it needs nothing from startup.
     builder.Services.AddModbotAi();

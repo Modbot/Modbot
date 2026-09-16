@@ -93,7 +93,25 @@ client's own settings. Your Modbot server has no say in it. See
 [Client settings](/desktop-client/settings#modbot-cloud-backup).
 
 Your Modbot server's own `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` are only about your
-server: which Modbot Cloud it talks to, and whether it talks to one at all. Your server sends Cloud
-one thing today — which of your group's rooms anyone can join, so they can be listed on
-modbot.co. See [Open rooms](/self-hosting/open-rooms) and
+server: which Modbot Cloud it talks to, and whether it talks to one at all. See
 [Environment variables](/self-hosting/environment-variables).
+
+Your server uses Modbot Cloud for three things:
+
+- **The term lists.** **Settings → AI → Moderation** downloads them from there.
+- **Open rooms.** Which of your group's rooms anyone can join, so they can be listed on modbot.co.
+  See [Open rooms](/self-hosting/open-rooms).
+- **A report every six hours**: your server's address, its version, the operating system it runs on,
+  your VRChat group's id, name, description, icon and banner, whether Discord is connected, which
+  term lists you imported, how many rate-limit cold stops and WAF blocks there have been, and
+  whether AI moderation is on.
+
+**Never how many people anything has.** There is no field in the report for the number of users, the
+number of group members, or the number of people in a VRChat instance, and none for any member, any
+moderation record, any credential or any log line.
+
+Set `MODBOT_CLOUD_DISABLED=1` and none of it happens.
+
+**Settings → Data → Modbot Cloud** shows when the last report went and gives you a link code, which
+you type into `cloud.modbot.co` to claim this server on your Cloud account. The code lasts 15
+minutes and works once. **Health** shows the last report too.

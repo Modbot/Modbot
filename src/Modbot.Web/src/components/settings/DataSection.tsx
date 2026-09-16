@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { api, ApiError, type DataSettings, type LogSettings, type PublicAddressView } from '@/lib/api'
+import {
+  api,
+  ApiError,
+  type CloudStatusView,
+  type DataSettings,
+  type LinkCodeView,
+  type LogSettings,
+  type PublicAddressView,
+} from '@/lib/api'
 import { CREDITS_PATH } from '@/lib/nav'
 import { followLink } from '@/lib/router'
 import { Checkbox, Fact, Field, Hint, Outcome, Placeholder, Row } from './fields'
@@ -65,6 +73,7 @@ export function DataSection() {
           <LogsCard />
           <DeploymentCard deployment={data.deployment} />
           <PublicAddressCard />
+          <CloudCard />
         </>
       )}
     </SettingsSection>
@@ -310,6 +319,77 @@ function LogsCard() {
         Send logs to Modbot Cloud
       </Checkbox>
       <Hint>0 keeps forever.</Hint>
+    </SettingsCard>
+  )
+}
+
+/**
+ * Modbot Cloud: what this server last reported, and the code that claims it on a Cloud account
+ * (Cloud accounts and registry spec 3.3).
+ *
+ * The code is made by this server and typed into Cloud, never the other way round. Only somebody
+ * who can already sign in here and change settings sees it, which is the proof of ownership.
+ */
+function CloudCard() {
+  const [status, setStatus] = useState<CloudStatusView | null>(null)
+  const [code, setCode] = useState<LinkCodeView | null>(null)
+  const [asking, setAsking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api
+      .cloudStatus()
+      .then(setStatus)
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load.'))
+  }, [])
+
+  const ask = () => {
+    setAsking(true)
+    setError(null)
+
+    api
+      .cloudLinkCode()
+      .then(setCode)
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not get a code.'))
+      .finally(() => setAsking(false))
+  }
+
+  const reported = !status
+    ? '…'
+    : status.lastReportAt === null
+      ? 'Not sent yet'
+      : status.lastReportOk
+        ? new Date(status.lastReportAt).toLocaleString()
+        : (status.lastReportProblem ?? 'Failed')
+
+  return (
+    <SettingsCard
+      title="Modbot Cloud"
+      footer={
+        <>
+          <Button
+            type="button"
+            size="sm"
+            onClick={ask}
+            disabled={asking || !status || status.disabled}
+          >
+            {asking ? 'Working…' : 'Get link code'}
+          </Button>
+          <Outcome tone="problem">{error}</Outcome>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <Fact label="Cloud" value={status ? (status.disabled ? 'Turned off' : status.endpoint) : '…'} />
+        <Fact label="Registered" value={status ? (status.registered ? 'Yes' : 'No') : '…'} />
+        <Fact label="Last report" value={reported} />
+        {code && (
+          <Fact
+            label="Link code"
+            value={`${code.code} · ${code.expiresInMinutes} min`}
+          />
+        )}
+      </div>
     </SettingsCard>
   )
 }

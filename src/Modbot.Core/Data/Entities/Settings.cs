@@ -152,6 +152,26 @@ public class Settings
     /// <summary>When the public rooms report last reached Cloud.</summary>
     public DateTimeOffset? PublicRoomsReportedAt { get; set; }
 
+    // --- Modbot Cloud (central services spec 1.1, 5) ---
+
+    /// <summary>
+    /// The id Modbot Cloud gave this server when it registered, or null before it has. Cloud assigns
+    /// it; this server never picks one.
+    /// </summary>
+    public string? CloudServerId { get; set; }
+
+    /// <summary>The secret Cloud handed back once, encrypted at rest (spec 8.3).</summary>
+    public string? CloudServerSecretEncrypted { get; set; }
+
+    /// <summary>When the last report was sent, whether or not Cloud took it.</summary>
+    public DateTimeOffset? CloudLastReportAt { get; set; }
+
+    /// <summary>Whether Cloud took the last report. Null before the first one was tried.</summary>
+    public bool? CloudLastReportOk { get; set; }
+
+    /// <summary>One short sentence about the last failure, for the Health page. Null when it worked.</summary>
+    public string? CloudLastReportProblem { get; set; }
+
     // --- Optional egress proxy (spec 2.3.1) ---
     public string? ProxyUrl { get; set; }
     public string? ProxyUsername { get; set; }

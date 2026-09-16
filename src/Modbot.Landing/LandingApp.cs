@@ -21,6 +21,7 @@ public static class LandingApp
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(environment);
 
+        services.AddSingleton(new MyModbotAddress(environment.MyUrl));
         services.AddSingleton<BuiltPages>();
 
         services.AddSingleton(environment);

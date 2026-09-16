@@ -166,6 +166,7 @@ public static class ApiSurface
         app.MapSyncSettings();
         app.MapPublicAddressSettings();
         app.MapPublicRoomsSettings();
+        app.MapCloudSettings();
         app.MapEmailSettings();
         app.MapAiSettings();
         app.MapAiChatSettings();

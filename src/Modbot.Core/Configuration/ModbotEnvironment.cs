@@ -43,6 +43,10 @@ public sealed class ModbotEnvironment
     public const string SeqUrlVariable = "SEQ_URL";
     public const string CloudEndpointVariable = "MODBOT_CLOUD_ENDPOINT";
     public const string CloudDisabledVariable = "MODBOT_CLOUD_DISABLED";
+    public const string MyUrlVariable = "MODBOT_MY_URL";
+
+    /// <summary>Where my.modbot.co is, when nothing says otherwise.</summary>
+    public const string DefaultMyUrl = "https://my.modbot.co";
 
     /// <summary>Port to listen on. Defaults to 8080, which is what Railway and most hosts expect.</summary>
     public int Port { get; init; } = 8080;
@@ -64,6 +68,16 @@ public sealed class ModbotEnvironment
 
     /// <summary>True when <c>MODBOT_CLOUD_DISABLED</c> is set truthy: this server does not talk to Modbot Cloud.</summary>
     public bool CloudDisabled { get; init; }
+
+    /// <summary>
+    /// Where my.modbot.co is, from <c>MODBOT_MY_URL</c>, or the default. It is only ever a link this
+    /// server offers a person, never something it calls.
+    /// </summary>
+    /// <remarks>
+    /// A group that runs its own selector points every link at it with this one variable. Anything
+    /// that is not an absolute <c>http</c> or <c>https</c> address means the default.
+    /// </remarks>
+    public string MyUrl { get; init; } = DefaultMyUrl;
 
     /// <summary>
     /// True when <c>MODBOT_DEMO</c> is set truthy. Asks for demo mode; it is not granted here.
@@ -94,6 +108,7 @@ public sealed class ModbotEnvironment
             DebugLogging = Truthy(Get("MODBOT_DEBUG_LOGGING")),
             CloudEndpoint = Blank(Get(CloudEndpointVariable)),
             CloudDisabled = Truthy(Get(CloudDisabledVariable)),
+            MyUrl = Address(Get(MyUrlVariable)) ?? DefaultMyUrl,
             Demo = Truthy(Get(DemoMode.Variable)),
 
             // A year of hours is the ceiling. Anything outside it -- or not a number at all -- is
@@ -105,6 +120,12 @@ public sealed class ModbotEnvironment
         };
 
         static string? Blank(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+
+        /// <summary>An absolute http or https address with no trailing slash, or null.</summary>
+        static string? Address(string? v) =>
+            Uri.TryCreate(Blank(v), UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
+                ? uri.GetLeftPart(UriPartial.Authority) + uri.AbsolutePath.TrimEnd('/')
+                : null;
 
         static bool Truthy(string? v) =>
             v is not null && v.Trim().ToLowerInvariant() is "1" or "true" or "yes" or "on";

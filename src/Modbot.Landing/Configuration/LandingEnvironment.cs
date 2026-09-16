@@ -9,12 +9,21 @@ namespace Modbot.Landing.Configuration;
 /// The key that opens Cloud's public rooms feed. It is used only by this server, on the server
 /// side, and is never written into a page: the browser asks this site, and this site asks Cloud.
 /// </param>
-public sealed record LandingEnvironment(int Port, Uri? CloudUrl, string? CloudApiKey)
+/// <param name="MyUrl">
+/// Where my.modbot.co is, from <c>MODBOT_MY_URL</c>. Every link on the page that points at the
+/// selector is rewritten to it as the page is served, so a group running its own points them all
+/// somewhere else with one variable.
+/// </param>
+public sealed record LandingEnvironment(int Port, Uri? CloudUrl, string? CloudApiKey, string MyUrl)
 {
     public const string PortVariable = "PORT";
     public const string CloudUrlVariable = "MODBOT_CLOUD_PROXY_URL";
     public const string CloudApiKeyVariable = "MODBOT_CLOUD_API_KEY";
+    public const string MyUrlVariable = "MODBOT_MY_URL";
     public const int DefaultPort = 8080;
+
+    /// <summary>The address the page is built with, and what a missing or unusable value means.</summary>
+    public const string DefaultMyUrl = "https://my.modbot.co";
 
     /// <summary>True when the rooms page has somewhere to read from.</summary>
     public bool CanReadRooms => CloudUrl is not null && !string.IsNullOrEmpty(CloudApiKey);
@@ -36,6 +45,16 @@ public sealed record LandingEnvironment(int Port, Uri? CloudUrl, string? CloudAp
 
         var key = get(CloudApiKeyVariable);
 
-        return new LandingEnvironment(port, cloud, string.IsNullOrWhiteSpace(key) ? null : key.Trim());
+        return new LandingEnvironment(
+            port,
+            cloud,
+            string.IsNullOrWhiteSpace(key) ? null : key.Trim(),
+            MyAddress(get(MyUrlVariable)) ?? DefaultMyUrl);
     }
+
+    /// <summary>An absolute http or https address with no trailing slash, or null.</summary>
+    private static string? MyAddress(string? value) =>
+        Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
+            ? uri.GetLeftPart(UriPartial.Authority) + uri.AbsolutePath.TrimEnd('/')
+            : null;
 }

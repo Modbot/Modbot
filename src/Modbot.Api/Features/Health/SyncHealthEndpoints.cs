@@ -150,6 +150,14 @@ public static class SyncHealthEndpoints
                     await PausedRulesAsync(db, ct),
                     Run(diagnostics?.LastUserReadRun),
                     UserReads(diagnostics),
+                    cloudAddress is null || cloudAddress.Disabled
+                        ? null
+                        : new CloudReportHealth(
+                            settings?.CloudLastReportAt,
+                            settings?.CloudLastReportOk,
+                            settings?.CloudLastReportProblem,
+                            settings?.CloudServerId is { Length: > 0 },
+                            cloudAddress.Endpoint.Host),
                     await LogsAsync(db, logStore, cloudAddress, ct)));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
