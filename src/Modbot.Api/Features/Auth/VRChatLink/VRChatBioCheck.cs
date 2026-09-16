@@ -9,7 +9,7 @@ namespace Modbot.Api.Features.Auth.VRChatLink;
 /// <param name="CodeFound">The code is in the bio, in any case.</param>
 /// <param name="Profile">The profile as fetched, when it was.</param>
 /// <param name="Problem">Why the profile could not be read, in words, when it could not.</param>
-public sealed record BioCheck(bool Read, bool CodeFound, User? Profile, string? Problem);
+public sealed record BioCheck(bool Read, bool CodeFound, PublicProfile? Profile, string? Problem);
 
 /// <summary>
 /// Proves control of a VRChat account: fetch the profile and look for the code in its bio
@@ -22,10 +22,13 @@ public sealed record BioCheck(bool Read, bool CodeFound, User? Profile, string? 
 /// wherever it is asked for.
 /// </para>
 /// <para>
-/// One request through <see cref="IVRChatGate"/> on <c>users.read</c>, interactive priority,
-/// <c>GetUserWithHttpInfoAsync</c>. Its rate limit question was answered when the class was added
-/// (foundation §4.2.5). A 429 is a cold stop and nothing here retries it. The limits on how often a
-/// person may ask belong to the callers, which know who is asking.
+/// One request through <see cref="IVRChatGate"/> on <c>users.profile</c>, interactive priority,
+/// <c>GetPublicProfileWithHttpInfoAsync</c>. The public profile, not the user object: VRChat
+/// stopped returning the bio on <c>GET /users/{userId}</c>, and the bio is the whole point of this
+/// check (research: <c>vrchat-public-profile-findings.md</c>). Its rate limit came from the
+/// maintainer on 2026-09-15 — the same as <c>users.read</c>, its own budget. A 429 is a cold stop
+/// and nothing here retries it. The limits on how often a person may ask belong to the callers,
+/// which know who is asking.
 /// </para>
 /// <para>
 /// A fetched profile is recorded as a sighting whether or not the code is there: the row, the
@@ -51,9 +54,9 @@ public sealed class VRChatBioCheck
         ArgumentException.ThrowIfNullOrWhiteSpace(vrchatUserId);
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
 
-        var result = await _gate.ExecuteAsync<User>(
-            new VRChatEndpoint(VRChatEndpointClass.UsersRead, null, "GetUser"),
-            (vrchat, token) => vrchat.Users.GetUserWithHttpInfoAsync(vrchatUserId, token),
+        var result = await _gate.ExecuteAsync<PublicProfile>(
+            new VRChatEndpoint(VRChatEndpointClass.UsersProfile, null, "GetPublicProfile"),
+            (vrchat, token) => vrchat.Users.GetPublicProfileWithHttpInfoAsync(vrchatUserId, token),
             VRChatCallPriority.Interactive,
             ct);
 
@@ -63,7 +66,14 @@ public sealed class VRChatBioCheck
         var profile = result.Value;
 
         if (profile is not null)
-            await _profiles.RecordProfileAsync(VRChatUserSnapshot.From(profile), raw: null, ct);
+        {
+            // Recorded as the profile sync would have recorded it: the body decides which fields
+            // are written, so a response that carries no bio leaves the stored one alone.
+            var raw = VRChatUserSnapshot.ParseRaw(result.RawResponse);
+
+            await _profiles.RecordProfileAsync(
+                VRChatUserSnapshot.FromPublicProfile(vrchatUserId, profile, raw), raw, ct);
+        }
 
         var bio = profile?.Bio ?? string.Empty;
         return new BioCheck(true, bio.Contains(code, StringComparison.OrdinalIgnoreCase), profile, null);

@@ -352,7 +352,9 @@ public static class VRChatUserEndpoints
         // than as a refresh that silently never arrives (spec 4.3.3).
         string? blocked = null;
         var buckets = await gate.DescribeBucketsAsync(ct);
-        var lane = buckets.FirstOrDefault(b => b.Name == VRChatEndpointClass.UsersRead);
+        // The refresh button reads the public profile, so that is the lane whose stop would hold
+        // it up. The user object's lane is separate and its own stop does not block a refresh.
+        var lane = buckets.FirstOrDefault(b => b.Name == VRChatEndpointClass.UsersProfile);
 
         if (lane is { IsColdStopped: true })
         {

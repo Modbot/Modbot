@@ -11,16 +11,24 @@ using VRChat.API.Model;
 namespace Modbot.VRChat.Sync;
 
 /// <summary>
-/// One pass of the profile sync: find anyone new in the fact log, then fetch the profile of
-/// whoever the queue says is next.
+/// One pass of the profile sync: find anyone new in the fact log, read the public profile of
+/// whoever the queue says is next, and read the full user object of anybody due one.
 /// </summary>
 /// <remarks>
 /// <para>
 /// User profile sync design §3. <c>GroupMember</c> carries no profile -- no bio, no status, no
-/// avatar, no pronouns, no age verification -- and VRChat hands those out one user at a time on
-/// <c>users.read</c>, so a per-user fetch is unavoidable and the only design question is who
-/// goes first. That question is answered by <see cref="UserRefreshQueue"/> and its one
-/// comparison; this class feeds the queue and spends the requests.
+/// avatar, no pronouns, no age verification -- and VRChat hands those out one person at a time,
+/// so a per-person fetch is unavoidable and the only design question is who goes first. That
+/// question is answered by <see cref="UserRefreshQueue"/> and its one comparison; this class
+/// feeds the queue and spends the requests.
+/// </para>
+/// <para>
+/// <strong>Two reads, not one</strong> (spec 4.2.5, revised 2026-09-15). The public profile
+/// (<c>users.profile</c>) is the main read and carries the bio, the pronouns, the name and the age
+/// verification. The full user object (<c>users.read</c>) carries the status line, the join date,
+/// the tag list and the pictures, none of which changes fast enough to be worth asking about more
+/// than once a week. They have their own budgets and their own lanes, so neither starves the other
+/// and a cold stop on one leaves the other running.
 /// </para>
 /// <para>
 /// <strong>Discovery is incremental.</strong> Each pass reads the facts written since the last
@@ -107,10 +115,15 @@ public sealed class UserProfileSync
 
         var result = await RefreshNextAsync(ct).ConfigureAwait(false);
 
+        // The two reads are separate budgets on separate lanes (spec 4.3.4, answered 2026-09-15),
+        // so the rare one runs in the same pass rather than waiting for the frequent one to be
+        // idle. Almost every pass finds nobody due and spends nothing.
+        var userRead = await ReadUserIfDueAsync(ct).ConfigureAwait(false);
+
         settings.UserProfilePolledAt = _clock.UtcNow;
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        return result with { Discovered = discovered };
+        return result with { Discovered = discovered, UserRead = userRead };
     }
 
     /// <summary>
@@ -278,7 +291,9 @@ public sealed class UserProfileSync
             await users.CountAsync(u => u.LastRefreshedAt == null, ct).ConfigureAwait(false),
             await users.CountAsync(u => u.NotFoundAt != null, ct).ConfigureAwait(false),
             await users.MinAsync(u => u.LastRefreshedAt, ct).ConfigureAwait(false),
-            now));
+            now,
+            await users.CountAsync(u => u.LastUserReadAt == null, ct).ConfigureAwait(false),
+            await users.MinAsync(u => u.LastUserReadAt, ct).ConfigureAwait(false)));
     }
 
     /// <summary>Takes the next request the queue has, skips it if it is already answered, and spends one token on it.</summary>
@@ -319,38 +334,40 @@ public sealed class UserProfileSync
     {
         var userId = request.UserId;
 
-        // users.read: its own lane, its own budget, exempt from the global ceiling (spec 4.2.5).
-        // Not resource-scoped -- the limit is on the endpoint, not on the person asked about --
-        // so no id is attached; a per-user bucket would be a row in rate_limit_bucket for every
-        // member of the group.
-        var endpoint = new VRChatEndpoint(VRChatEndpointClass.UsersRead, Operation: "GetUser");
+        // users.profile: its own lane, its own budget at the same rate as users.read, exempt from
+        // the global ceiling (spec 4.2.5; the rate is the maintainer's, 2026-09-15). Not
+        // resource-scoped -- the limit is on the endpoint, not on the person asked about -- so no
+        // id is attached; a per-user bucket would be a row in rate_limit_bucket for every member
+        // of the group.
+        var endpoint = new VRChatEndpoint(VRChatEndpointClass.UsersProfile, Operation: "GetPublicProfile");
 
         var result = await _gate.ExecuteAsync(
             endpoint,
-            (client, token) => client.Users.GetUserWithHttpInfoAsync(userId, token),
+            (client, token) => client.Users.GetPublicProfileWithHttpInfoAsync(userId, token),
             VRChatCallPriority.Background,
             ct).ConfigureAwait(false);
 
         if (!result.Success)
             return await FailedAsync(request, result, ct).ConfigureAwait(false);
 
-        if (result.Value is not { } user)
+        if (result.Value is not { } profile)
         {
-            await _profiles.RecordRefreshFailedAsync(userId, "VRChat returned no user body", ct).ConfigureAwait(false);
+            await _profiles.RecordRefreshFailedAsync(
+                userId, VRChatReadKind.PublicProfile, "VRChat returned no profile body", ct).ConfigureAwait(false);
             _queue.Finish(request);
 
             return new UserProfileRunResult(
                 SyncOutcome.Quiet, UserId: userId, Reason: request.Reason, Refreshed: true,
-                Message: "VRChat returned no user body");
+                Message: "VRChat returned no profile body");
         }
 
         // The body as it arrived is the record; the typed object is a reading of it. The SDK's
         // own serialisation is the fallback for a gate that had no body to hand over.
         var raw = VRChatUserSnapshot.ParseRaw(result.RawResponse);
         if (raw is null || raw.Count == 0)
-            raw = VRChatUserSnapshot.ParseRaw(user.ToJson());
+            raw = VRChatUserSnapshot.ParseRaw(profile.ToJson());
 
-        var snapshot = VRChatUserSnapshot.From(user, raw);
+        var snapshot = VRChatUserSnapshot.FromPublicProfile(userId, profile, raw);
         var recorded = await _profiles.RecordProfileAsync(snapshot, raw, ct).ConfigureAwait(false);
 
         _queue.Finish(request);
@@ -370,9 +387,9 @@ public sealed class UserProfileSync
             AgeVerifiedObserved: recorded.AgeVerifiedObserved);
     }
 
-    private async Task<UserProfileRunResult> FailedAsync(
+    private async Task<UserProfileRunResult> FailedAsync<T>(
         RefreshRequest request,
-        VRChatResult<User> result,
+        VRChatResult<T> result,
         CancellationToken ct)
     {
         var userId = request.UserId;
@@ -385,7 +402,7 @@ public sealed class UserProfileSync
 
             _log.Information(
                 "Profile sync is paused: {Reason}",
-                result.ErrorMessage ?? "the users.read lane is cold-stopped");
+                result.ErrorMessage ?? "the users.profile lane is cold-stopped");
 
             return new UserProfileRunResult(
                 SyncOutcome.RateLimited, UserId: userId, Reason: request.Reason, Message: result.ErrorMessage);
@@ -394,13 +411,15 @@ public sealed class UserProfileSync
         if (result.StatusCode == (int)HttpStatusCode.NotFound)
         {
             // A fact about the person, not a failure of the pass: the account is gone, or the id
-            // never named one. Marked, recorded once, and left alone for a long while.
+            // never named one. Marked, recorded once, and left alone for a long while -- but only
+            // this call is marked, and the person counts as missing only when the user read
+            // cannot find them either (research: vrchat-public-profile-findings.md §6).
             const string detail = "VRChat has no account with this id.";
 
-            await _profiles.RecordNotFoundAsync(userId, detail, ct).ConfigureAwait(false);
+            await _profiles.RecordNotFoundAsync(userId, VRChatReadKind.PublicProfile, detail, ct).ConfigureAwait(false);
             _queue.Finish(request);
 
-            _log.Information("VRChat has no user {UserId}; the row is marked and will not be asked about for a while", userId);
+            _log.Information("VRChat has no profile for {UserId}; the row is marked and will not be asked about for a while", userId);
 
             return new UserProfileRunResult(
                 SyncOutcome.Produced, UserId: userId, Reason: request.Reason, Refreshed: true, NotFound: true, Message: detail);
@@ -423,11 +442,150 @@ public sealed class UserProfileSync
                 SyncOutcome.Failed, UserId: userId, Reason: request.Reason, Message: detailText);
         }
 
-        await _profiles.RecordRefreshFailedAsync(userId, detailText, ct).ConfigureAwait(false);
+        await _profiles.RecordRefreshFailedAsync(
+            userId, VRChatReadKind.PublicProfile, detailText, ct).ConfigureAwait(false);
 
         _log.Warning("Profile sync could not read {UserId}: {Status} {Reason}", userId, result.StatusCode, detailText);
 
         return new UserProfileRunResult(
             SyncOutcome.Quiet, UserId: userId, Reason: request.Reason, Refreshed: true, Message: detailText);
+    }
+
+    /// <summary>
+    /// Reads the full user object for one person, when somebody is due one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The rare half of the profile sync. A person is due when their user object has never been
+    /// read, or was read longer ago than <see cref="UserProfileSyncOptions.ReadUserEvery"/> --
+    /// seven days. What this call carries that the public profile does not barely changes, and
+    /// what does change fast (the status line, the avatar pictures) is not something Modbot
+    /// decides anything from, so a week is enough (research:
+    /// <c>vrchat-public-profile-findings.md</c> §5).
+    /// </para>
+    /// <para>
+    /// No queue and no tiers: there is nothing to order, because "due" is a week-wide window and
+    /// nobody is waiting on the answer. The oldest goes first, which on a new deployment means
+    /// everybody, once, as fast as the lane allows.
+    /// </para>
+    /// </remarks>
+    private async Task<UserReadRunResult?> ReadUserIfDueAsync(CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
+        var dueBefore = now - _options.ReadUserEvery;
+        var errorCutoff = now - _options.RetryFailedUserAfter;
+        var missingCutoff = now - _options.RetryNotFoundAfter;
+
+        // Gated on this call's own marks, not on the row's "missing" flag. A person the public
+        // profile cannot find is exactly the person worth asking the user endpoint about: if it
+        // answers, they are not missing at all, and the answer clears the flag.
+        var next = await _db.VRChatUsers.AsNoTracking()
+            .Where(u => (u.LastUserReadAt == null || u.LastUserReadAt <= dueBefore)
+                     && (u.UserReadErrorAt == null || u.UserReadErrorAt <= errorCutoff)
+                     && (u.UserNotFoundAt == null || u.UserNotFoundAt <= missingCutoff))
+            .OrderBy(u => u.LastUserReadAt).ThenBy(u => u.UserId)
+            .Select(u => u.UserId)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (next is null)
+            return null;
+
+        var started = _clock.UtcNow;
+        var result = await ReadUserAsync(next, ct).ConfigureAwait(false);
+
+        _diagnostics.RecordUserRead(
+            new SyncRunReport(result.Outcome, started, _clock.UtcNow - started, DescribeUserRead(result)),
+            result.Read);
+
+        return result;
+    }
+
+    private async Task<UserReadRunResult> ReadUserAsync(string userId, CancellationToken ct)
+    {
+        // users.read: its own lane, its own budget, exempt from the global ceiling (spec 4.2.5).
+        var endpoint = new VRChatEndpoint(VRChatEndpointClass.UsersRead, Operation: "GetUser");
+
+        var result = await _gate.ExecuteAsync(
+            endpoint,
+            (client, token) => client.Users.GetUserWithHttpInfoAsync(userId, token),
+            VRChatCallPriority.Background,
+            ct).ConfigureAwait(false);
+
+        if (result.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting)
+        {
+            // Never retried (spec 4.3.1). Nothing is written and nothing is lost: the person is
+            // still due, and the next pass that finds the lane open reads them.
+            return new UserReadRunResult(
+                SyncOutcome.RateLimited, UserId: userId,
+                Message: result.ErrorMessage ?? "the users.read lane is cold-stopped");
+        }
+
+        if (result.StatusCode == (int)HttpStatusCode.NotFound)
+        {
+            // Marks the user read and nothing else. The public profile may still be answering for
+            // this person, and if it is they are not missing.
+            const string detail = "VRChat has no account with this id.";
+
+            await _profiles.RecordNotFoundAsync(userId, VRChatReadKind.User, detail, ct).ConfigureAwait(false);
+
+            return new UserReadRunResult(
+                SyncOutcome.Produced, UserId: userId, Read: true, NotFound: true, Message: detail);
+        }
+
+        if (!result.Success || result.Value is not { } user)
+        {
+            var detail = result.ErrorMessage ?? $"VRChat returned {result.StatusCode}";
+
+            // A failure about the deployment rather than the person -- no session, a WAF block,
+            // the network -- is not written on the row: the frequent read reports those, and
+            // stamping every person Modbot happened to try would hide the real ones.
+            var aboutThePerson = result.Kind == VRChatFailureKind.Other && result.StatusCode >= 400;
+
+            if (aboutThePerson || result.Success)
+            {
+                await _profiles.RecordRefreshFailedAsync(
+                    userId, VRChatReadKind.User, result.Success ? "VRChat returned no user body" : detail, ct)
+                    .ConfigureAwait(false);
+
+                return new UserReadRunResult(
+                    SyncOutcome.Quiet, UserId: userId, Read: true, Message: detail);
+            }
+
+            return new UserReadRunResult(SyncOutcome.Failed, UserId: userId, Message: detail);
+        }
+
+        var raw = VRChatUserSnapshot.ParseRaw(result.RawResponse);
+        if (raw is null || raw.Count == 0)
+            raw = VRChatUserSnapshot.ParseRaw(user.ToJson());
+
+        var snapshot = VRChatUserSnapshot.From(user, raw);
+        var recorded = await _profiles.RecordProfileAsync(snapshot, raw, ct).ConfigureAwait(false);
+
+        if (recorded.Changed.Count > 0)
+            _log.Debug("{UserId}'s user object changed: {Fields}", userId, string.Join(", ", recorded.Changed));
+
+        return new UserReadRunResult(
+            recorded.WroteAnything ? SyncOutcome.Produced : SyncOutcome.Quiet,
+            UserId: userId,
+            Read: true,
+            Changed: recorded.Changed,
+            AgeVerifiedObserved: recorded.AgeVerifiedObserved);
+    }
+
+    private static string DescribeUserRead(UserReadRunResult result)
+    {
+        var who = result.UserId is null ? string.Empty : $" {result.UserId}";
+
+        var what = result switch
+        {
+            { NotFound: true } => "not found on VRChat",
+            { Changed.Count: > 0 } => $"changed: {string.Join(", ", result.Changed)}",
+            { Read: true, Message: { } message } => message,
+            { Read: true } => "unchanged",
+            _ => result.Message ?? result.Outcome.ToString(),
+        };
+
+        return $"{what}{who}";
     }
 }

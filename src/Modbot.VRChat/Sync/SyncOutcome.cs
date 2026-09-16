@@ -103,6 +103,9 @@ public sealed record AuditLogRunResult(
 /// Queue entries taken and discarded because the person had been refreshed since they were
 /// queued. Expected and healthy in small numbers -- one person can be seen twice in a minute.
 /// </param>
+/// <param name="UserRead">
+/// What the same pass did about the rarer read of the full user object, when it did anything.
+/// </param>
 public sealed record UserProfileRunResult(
     SyncOutcome Outcome,
     int Discovered = 0,
@@ -114,6 +117,26 @@ public sealed record UserProfileRunResult(
     bool AgeVerifiedObserved = false,
     bool NotFound = false,
     int Dropped = 0,
+    string? Message = null,
+    UserReadRunResult? UserRead = null)
+{
+    public IReadOnlyList<string> Changed { get; } = Changed ?? [];
+}
+
+/// <summary>
+/// What one pass did about the full user object -- the rare read beside the frequent one.
+/// </summary>
+/// <param name="UserId">Whose user object was read, when one was.</param>
+/// <param name="Read">True when a request was spent, even one that came back 404 or an error.</param>
+/// <param name="Changed">The watched fields this read found different.</param>
+/// <param name="NotFound">VRChat's user endpoint answered 404 for them.</param>
+public sealed record UserReadRunResult(
+    SyncOutcome Outcome,
+    string? UserId = null,
+    bool Read = false,
+    IReadOnlyList<string>? Changed = null,
+    bool AgeVerifiedObserved = false,
+    bool NotFound = false,
     string? Message = null)
 {
     public IReadOnlyList<string> Changed { get; } = Changed ?? [];

@@ -155,8 +155,14 @@ public static class VRChatRateLimits
     /// <summary>Calls in this lane pass through the global backstop bucket.</summary>
     public const string GroupLane = "group";
 
-    /// <summary>Spec 4.2.5's separate 1 req/s lane for profile fetches.</summary>
+    /// <summary>Spec 4.2.5's separate lane for the full user object.</summary>
     public const string UsersLane = "users";
+
+    /// <summary>
+    /// The public profile, apart from the user object. Same rate, separate queue, so the frequent
+    /// read and the rare one never wait on each other.
+    /// </summary>
+    public const string UsersProfileLane = "users.profile";
 
     /// <summary>
     /// Its own queue, so an interactive onboarding step is never held behind a full member sweep
@@ -273,6 +279,23 @@ public static class VRChatRateLimits
             // a 429 cold-stops it, is never retried, and still halves the global bucket.
             [VRChatEndpointClass.UsersRead] = new(
                 VRChatEndpointClass.UsersRead, UsersLane,
+                HardMaxPerSecond: Sync.UserProfileSyncOptions.RequestsPerSecondCap,
+                DefaultCeilingPerSecond: CeilingFor(Sync.UserProfileSyncOptions.RequestsPerSecondCap),
+                CountsAgainstGlobal: false),
+
+            // The public profile -- GET /profile/{userId}, the main profile read.
+            //
+            // THE RATE CAME FROM THE MAINTAINER on 2026-09-15, answering spec 4.3.4's standing
+            // question: "the same rate as users.read, but its own budget". So the numbers here
+            // are deliberately the same as the users.read bucket above and are read from the same
+            // constant rather than copied, and everything else about the two is separate: its own
+            // bucket, so a 429 on one does not spend the other's allowance; its own lane, so the
+            // two never queue behind each other and neither can starve the other.
+            //
+            // Exempt from the global ceiling for the same reason users.read is (spec 4.2.5), and
+            // withdrawing that exemption means withdrawing both.
+            [VRChatEndpointClass.UsersProfile] = new(
+                VRChatEndpointClass.UsersProfile, UsersProfileLane,
                 HardMaxPerSecond: Sync.UserProfileSyncOptions.RequestsPerSecondCap,
                 DefaultCeilingPerSecond: CeilingFor(Sync.UserProfileSyncOptions.RequestsPerSecondCap),
                 CountsAgainstGlobal: false),

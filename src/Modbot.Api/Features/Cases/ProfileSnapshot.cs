@@ -62,7 +62,7 @@ public static class ProfileSnapshot
 
         // A row with no refresh yet holds only the id and when it was seen. That is not a profile,
         // and recording it as one would make "Modbot had nothing" look like "the bio was empty".
-        var profile = user is { LastRefreshedAt: not null } ? Profile(user) : null;
+        var profile = user is { LastRefreshedAt: not null } or { LastUserReadAt: not null } ? Profile(user) : null;
 
         return new CapturedSnapshot(
             profile?.ToJsonString(),
@@ -96,8 +96,14 @@ public static class ProfileSnapshot
         ["firstSeenAt"] = Time(u.FirstSeenAt),
         ["lastSeenAt"] = Time(u.LastSeenAt),
         ["lastRefreshedAt"] = Time(u.LastRefreshedAt),
+        ["lastUserReadAt"] = Time(u.LastUserReadAt),
         ["notFoundAt"] = Time(u.NotFoundAt),
+
+        // Both bodies. VRChat answers two different calls about a person and they carry
+        // different fields, so a case file that kept only one would be missing half of what
+        // Modbot was told (research: vrchat-public-profile-findings.md).
         ["raw"] = Parse(u.RawProfile),
+        ["rawPublicProfile"] = Parse(u.RawPublicProfile),
     };
 
     private static JsonObject Membership(GroupMember m) => new()

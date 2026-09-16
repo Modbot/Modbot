@@ -41,12 +41,16 @@ public sealed record PollRateDecision(
 /// <param name="NeverRefreshed">Rows whose profile has never been fetched -- the backlog.</param>
 /// <param name="NotFound">Rows VRChat answered 404 for.</param>
 /// <param name="OldestRefreshedAt">The least recent successful refresh among people who have had one.</param>
+/// <param name="NeverUserRead">Rows whose full user object has never been read.</param>
+/// <param name="OldestUserReadAt">The least recent user read among people who have had one.</param>
 public sealed record UserProfileCounts(
     int KnownUsers,
     int NeverRefreshed,
     int NotFound,
     DateTimeOffset? OldestRefreshedAt,
-    DateTimeOffset MeasuredAt);
+    DateTimeOffset MeasuredAt,
+    int NeverUserRead = 0,
+    DateTimeOffset? OldestUserReadAt = null);
 
 /// <summary>
 /// Where a member or ban sweep has got to, in this process.
@@ -115,6 +119,9 @@ public sealed class SyncDiagnostics
     private UserProfileCounts? _userProfileCounts;
     private DateTimeOffset? _userProfileLastRateLimitedAt;
     private readonly Queue<DateTimeOffset> _refreshTimes = new();
+    private SyncRunReport? _userRead;
+    private DateTimeOffset? _userReadLastRateLimitedAt;
+    private readonly Queue<DateTimeOffset> _userReadTimes = new();
     private HistoryHorizon? _historyHorizon;
 
     public SyncDiagnostics(IModbotClock clock)
@@ -301,7 +308,7 @@ public sealed class SyncDiagnostics
         {
             lock (_gate)
             {
-                Trim(_clock.UtcNow);
+                Trim(_refreshTimes, _clock.UtcNow);
                 return _refreshTimes.Count;
             }
         }
@@ -322,7 +329,7 @@ public sealed class SyncDiagnostics
             if (refreshed)
             {
                 _refreshTimes.Enqueue(report.At);
-                Trim(report.At);
+                Trim(_refreshTimes, report.At);
             }
         }
     }
@@ -333,12 +340,62 @@ public sealed class SyncDiagnostics
         lock (_gate) _userProfileCounts = counts;
     }
 
-    /// <summary>Drops refresh timestamps older than an hour. The caller holds the lock.</summary>
-    private void Trim(DateTimeOffset now)
+    // ── The rarer read: the full user object, on its own budget and its own lane ──────────
+
+    /// <summary>What the last read of a full user object did, or null if none has run yet.</summary>
+    public SyncRunReport? LastUserReadRun
+    {
+        get { lock (_gate) return _userRead; }
+    }
+
+    /// <summary>When the users lane last answered 429, in this process.</summary>
+    public DateTimeOffset? UserReadLastRateLimitedAt
+    {
+        get { lock (_gate) return _userReadLastRateLimitedAt; }
+    }
+
+    /// <summary>
+    /// How many user objects were read in the last hour. Its own count, because the two reads
+    /// have their own budgets and a number that mixed them would hide one behind the other.
+    /// </summary>
+    public int UserReadsInLastHour
+    {
+        get
+        {
+            lock (_gate)
+            {
+                Trim(_userReadTimes, _clock.UtcNow);
+                return _userReadTimes.Count;
+            }
+        }
+    }
+
+    /// <param name="read">Whether a request was actually spent on somebody.</param>
+    public void RecordUserRead(SyncRunReport report, bool read)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+
+        lock (_gate)
+        {
+            _userRead = report;
+
+            if (report.Outcome == SyncOutcome.RateLimited)
+                _userReadLastRateLimitedAt = report.At;
+
+            if (read)
+            {
+                _userReadTimes.Enqueue(report.At);
+                Trim(_userReadTimes, report.At);
+            }
+        }
+    }
+
+    /// <summary>Drops timestamps older than an hour. The caller holds the lock.</summary>
+    private static void Trim(Queue<DateTimeOffset> times, DateTimeOffset now)
     {
         var cutoff = now - TimeSpan.FromHours(1);
-        while (_refreshTimes.Count > 0 && _refreshTimes.Peek() < cutoff)
-            _refreshTimes.Dequeue();
+        while (times.Count > 0 && times.Peek() < cutoff)
+            times.Dequeue();
     }
 
     /// <summary>

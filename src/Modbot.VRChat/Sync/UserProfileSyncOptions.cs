@@ -81,6 +81,27 @@ public sealed record UserProfileSyncOptions
     /// </summary>
     public TimeSpan FreshEnoughWhenSeenInInstance { get; init; } = TimeSpan.FromSeconds(10);
 
+    /// <summary>
+    /// How long between reads of the full user object for one person. Seven days.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The public profile is the main read and runs on the schedule above. The user object is
+    /// read once when a person is first met and then about once a week, because of what it
+    /// carries that the public profile does not: the join date, which never changes after the
+    /// account is made; the tag list, including the trust rank, which moves on a scale of weeks;
+    /// the status line, which is a line of self-description nothing acts on; and the avatar
+    /// pictures and platform, which change constantly and which nothing decides anything from.
+    /// Age verification -- the one field that would have forced a frequent user read -- is on
+    /// both calls (research: <c>vrchat-public-profile-findings.md</c> §5).
+    /// </para>
+    /// <para>
+    /// The cost is small enough not to matter: a 10,000-person group is about 1,430 user reads a
+    /// day, roughly 0.017 req/s against the lane's 3.5.
+    /// </para>
+    /// </remarks>
+    public TimeSpan ReadUserEvery { get; init; } = TimeSpan.FromDays(7);
+
     /// <summary>How long a user whose last refresh failed is left alone before being asked about again.</summary>
     public TimeSpan RetryFailedUserAfter { get; init; } = TimeSpan.FromMinutes(30);
 
@@ -128,6 +149,7 @@ public sealed record UserProfileSyncOptions
             FreshEnoughWhenSeenInInstance =
                 FreshEnoughWhenSeenInInstance < TimeSpan.Zero ? TimeSpan.Zero : FreshEnoughWhenSeenInInstance,
             RetryFailedUserAfter = RetryFailedUserAfter < interval ? interval : RetryFailedUserAfter,
+            ReadUserEvery = ReadUserEvery < TimeSpan.FromHours(1) ? TimeSpan.FromHours(1) : ReadUserEvery,
             RetryNotFoundAfter = RetryNotFoundAfter < TimeSpan.FromHours(1) ? TimeSpan.FromHours(1) : RetryNotFoundAfter,
             DiscoveryBatchSize = Math.Clamp(DiscoveryBatchSize, 1, 10_000),
             DiscoveryOverlap = Math.Max(0, DiscoveryOverlap),

@@ -193,6 +193,14 @@ export function Health() {
           />
 
           <Producer
+            name="User details"
+            polledAt={health.userProfilePolledAt}
+            now={health.now}
+            detail={health.userReads ? userReadDetail(health.userReads, health.now) : undefined}
+            run={health.lastUserReadRun ?? null}
+          />
+
+          <Producer
             name="Member list"
             polledAt={health.memberSweep?.polledAt ?? null}
             now={health.now}
@@ -364,6 +372,18 @@ function profileDetail(p: NonNullable<SyncHealth['userProfiles']>, now: string):
     `${p.refreshesInLastHour.toLocaleString()} refreshed in the last hour`,
     p.oldestRefreshedAt ? `oldest refreshed ${ago(p.oldestRefreshedAt, now)}` : null,
     p.lastRateLimitedAt ? `last rate limited ${ago(p.lastRateLimitedAt, now)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+/** The rarer read's numbers, as one line. */
+function userReadDetail(u: NonNullable<SyncHealth['userReads']>, now: string): string {
+  return [
+    `${u.neverRead.toLocaleString()} never read`,
+    `${u.readsInLastHour.toLocaleString()} read in the last hour`,
+    u.oldestReadAt ? `oldest read ${ago(u.oldestReadAt, now)}` : null,
+    u.lastRateLimitedAt ? `last rate limited ${ago(u.lastRateLimitedAt, now)}` : null,
   ]
     .filter(Boolean)
     .join(' · ')

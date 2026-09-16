@@ -795,6 +795,12 @@ not AutoMapper.
 
 #### 4.2.5 User profile sync — the expensive one
 
+> **Revised 2026-09-15.** VRChat has two reads of a person, not one, and they no longer carry the
+> same fields: `GET /users/{userId}` (`users.read`) stopped returning the bio, and
+> `GET /profile/{userId}` (`users.profile`) carries it. The public profile is now the main read and
+> the user object is read about once a week per person. The pacing, the lane and the
+> exemption described in this section apply to both classes. See "Two reads of a person" below.
+
 `GroupMember` carries membership data but **no profile**: no bio, no status, no avatar, no pronouns.
 Those live on the user object and must be fetched **one user at a time** (`users.read`).
 `Instance.Users` would have returned them in bulk, but VRChat populates it only for VRChat staff and
@@ -844,6 +850,43 @@ avatar, a screening result (§4.2.6) — the UI shows its age, and stale data is
 This matters most for the negative case: **"no flags found" on a profile last refreshed in March is
 not the same claim as "no flags found" on one refreshed an hour ago**, and a moderator must be able
 to tell the difference.
+
+##### Two reads of a person, and how often each one runs
+
+VRChat answers two different calls about somebody, and since 2026-09-15 they carry different
+fields. The full comparison is in `.agent/research/vrchat-public-profile-findings.md`; the summary
+is:
+
+| | `users.read` — `GET /users/{userId}` | `users.profile` — `GET /profile/{userId}` |
+|---|---|---|
+| Carries alone | status line, status, avatar pictures, `profilePicOverride`, join date, the full tag list, last platform | trust tags, languages, the group being represented, VRC+ |
+| Carries too | display name, **bio** (reported blank today), pronouns, age verification | display name, **bio**, pronouns, age verification |
+| How often | on first sight, then **once every seven days** per person | the existing queue and schedule — the main read |
+
+**The public profile is the main read.** It carries what Modbot uses most and what moderators look
+at: the bio, the pronouns, the name, and the age verification that feeds the sticky 18+ flag.
+
+**The user object is read rarely**, because what it carries alone either never changes (the join
+date), moves on a scale of weeks (the tag list, including the trust rank and `system_troll`), or is
+something nothing in Modbot decides anything from (the status line, the avatar pictures, the
+platform). A week of staleness on those costs nothing; a week of staleness on a bio would cost a
+moderator the thing they opened the profile to read. For a 10,000-person group the rare read is
+about 1,430 requests a day — 0.017 req/s against a 3.5 req/s budget.
+
+**Its own budget, at the same rate** (the maintainer, 2026-09-15). Two buckets rather than one, so
+the rare read cannot eat the frequent one's allowance; two lanes rather than one, so they never
+queue behind each other. Both are exempt from the global ceiling for the reason above, and
+withdrawing that exemption means withdrawing both.
+
+**Neither read may overwrite what it did not carry.** A response fills a column only when its body
+has that key — present and empty clears the column (somebody did clear their bio), absent leaves it
+alone. Without that rule the user object's missing bio would wipe the one the public profile had
+just filled in. Each read also keeps its own copy of its own body (`raw_profile` and
+`raw_public_profile`), so neither erases the other's record of what VRChat said.
+
+**A 404 from one call is not a missing account.** Each read records its own "not found" mark, and
+the person counts as gone only when both calls answered 404, or when one did and the other has
+never succeeded for them. A success on either call clears that call's mark.
 
 #### 4.2.5.1 User search — interactive only, never swept
 
@@ -1099,6 +1142,7 @@ endpoint classes §4.2 does not schedule:
 | `groups.auditlog` | **0.29 req/s** | `LogConsumer` — 3500 ms between pages |
 | `groups.invites` | **0.29 req/s** | no prior data; matched to the conservative neighbour |
 | `users.read` | **0.33 req/s** | `UserProducer` — 3000 ms |
+| `users.profile` | **3.5 req/s** | the maintainer, 2026-09-15 — the same rate as `users.read`, its own budget |
 | `users.groups` | **0.2 req/s** | **no data at all** — see §4.3.4.1 |
 | `moderation.write` | **0.3 req/s** | unknown; interactive and low-volume, kept conservative |
 | `auth` | negligible | login and re-login only; at most 4 counted requests an hour (§4.1.2) |

@@ -355,7 +355,7 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         await SeedRowAsync("usr_a", lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
 
         await RunUserProfileAsync();
-        Assert.Equal(1, VRChat.Users.RequestCount);
+        Assert.Single(VRChat.Users.ProfileRequests);
 
         // A stale entry for the same sighting, as an overlap re-read would produce.
         Queue.Offer(
@@ -366,7 +366,7 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
 
         Assert.Equal(1, run.Dropped);
         Assert.False(run.Refreshed);
-        Assert.Equal(1, VRChat.Users.RequestCount);
+        Assert.Single(VRChat.Users.ProfileRequests);
     }
 
     // ── Failures ────────────────────────────────────────────────────────────────────────────
@@ -394,13 +394,13 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         var next = await RunUserProfileAsync();
 
         Assert.False(next.Refreshed);
-        Assert.Equal(1, VRChat.Users.RequestCount);
+        Assert.Single(VRChat.Users.ProfileRequests);
 
         // A week on, one more question -- and one fact, not two.
         Clock.Advance(TimeSpan.FromDays(7));
         await RunUserProfileAsync();
 
-        Assert.Equal(2, VRChat.Users.RequestCount);
+        Assert.Equal(2, VRChat.Users.ProfileRequests.Count);
         Assert.Single(await FactsAsync(), f => f.Type == FactType.UserProfileNotFound);
     }
 
@@ -419,7 +419,7 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         var run = await RunUserProfileAsync();
 
         Assert.Equal(SyncOutcome.RateLimited, run.Outcome);
-        Assert.True((await Health(VRChatEndpointClass.UsersRead)).IsColdStopped);
+        Assert.True((await Health(VRChatEndpointClass.UsersProfile)).IsColdStopped);
         Assert.True((await Health(VRChatEndpointClass.Global)).BudgetMultiplier < 1.0);
         Assert.False((await Health(VRChatEndpointClass.Global)).IsColdStopped);
 
@@ -431,7 +431,7 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         var again = await RunUserProfileAsync();
 
         Assert.Equal(SyncOutcome.RateLimited, again.Outcome);
-        Assert.Equal(1, VRChat.Users.RequestCount);
+        Assert.Single(VRChat.Users.ProfileRequests);
 
         // The audit log is untouched.
         var audit = await RunAuditLogAsync();
@@ -470,6 +470,179 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
 
         Assert.Equal(SyncOutcome.NotConfigured, run.Outcome);
         Assert.Equal(0, VRChat.Users.RequestCount);
+    }
+
+    // ── Two reads, two budgets ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The main read is the public profile: it fills the bio, the pronouns, the name and the age
+    /// verification, and says nothing about the fields it does not carry.
+    /// </summary>
+    [Fact]
+    public async Task ThePublicProfileIsTheMainReadAndFillsTheBioAndPronouns()
+    {
+        VRChat.Users.Has("usr_a", displayName: "Trinity", bio: "hello", pronouns: "she/her", ageVerificationStatus: "18+");
+        await SeedRowAsync("usr_a", lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
+
+        // Only the profile answers, so nothing here can have come from the user object.
+        VRChat.Users.UserMissing.Add("usr_a");
+
+        var run = await RunUserProfileAsync();
+
+        Assert.Equal("usr_a", run.UserId);
+        Assert.Equal(["usr_a"], VRChat.Users.ProfileRequests);
+
+        var row = await UserRowAsync("usr_a");
+        Assert.Equal("Trinity", row!.DisplayName);
+        Assert.Equal("hello", row.Bio);
+        Assert.Equal("she/her", row.Pronouns);
+        Assert.Equal("18+", row.AgeVerificationStatus);
+        Assert.True(row.Is18PlusVerified);
+        Assert.Equal(Now, row.LastRefreshedAt);
+
+        // The fields only the user object carries are untouched, not blanked.
+        Assert.Null(row.StatusDescription);
+        Assert.Null(row.DateJoined);
+
+        // Each call keeps its own copy of what it was sent.
+        Assert.Contains("\"trustTags\"", row.RawPublicProfile);
+    }
+
+    /// <summary>
+    /// The rare read fills what only it carries and overwrites nothing else -- including a bio
+    /// VRChat has stopped sending on it.
+    /// </summary>
+    [Fact]
+    public async Task AUserReadFillsOnlyWhatItCarriesAndLeavesTheRestAlone()
+    {
+        VRChat.Users.UserOmitsBio = true;
+        VRChat.Users.Has("usr_a", displayName: "Trinity", bio: "hello", statusDescription: "at work", tags: ["system_trust_known"]);
+        await SeedRowAsync("usr_a", lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
+
+        await RunUserProfileAsync();
+
+        Assert.Equal(["usr_a"], VRChat.Users.UserRequests);
+
+        var row = await UserRowAsync("usr_a");
+
+        // From the user object.
+        Assert.Equal("at work", row!.StatusDescription);
+        Assert.Equal(new DateOnly(2020, 1, 15), row.DateJoined);
+        Assert.Contains("system_trust_known", row.Tags);
+        Assert.Equal(Now, row.LastUserReadAt);
+        Assert.Contains("\"date_joined\"", row.RawProfile);
+
+        // The bio was not in that body at all, so the one the public profile filled in stands.
+        Assert.Equal("hello", row.Bio);
+    }
+
+    /// <summary>
+    /// A read's first look at somebody the other read already recorded is a baseline for its own
+    /// fields, not a change: the timeline would otherwise say "status line changed from nothing"
+    /// for every person Modbot meets.
+    /// </summary>
+    [Fact]
+    public async Task TheFirstUserReadIsABaselineAndNotAChange()
+    {
+        VRChat.Users.Has("usr_a", statusDescription: "at work", tags: ["system_trust_known"]);
+        await SeedRowAsync("usr_a", lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
+
+        await RunUserProfileAsync();
+
+        Assert.Single(await FactsAsync(), f => f.Type == FactType.UserProfileFirstSeen);
+        Assert.DoesNotContain(await FactsAsync(), f => f.Type == FactType.UserProfileChanged);
+    }
+
+    /// <summary>
+    /// The schedule the comparison chose: once on first sight, then once a week. Nothing the user
+    /// object carries alone is worth a request more often than that.
+    /// </summary>
+    [Fact]
+    public async Task TheUserObjectIsReadOnFirstSightAndThenOnlyOnceAWeek()
+    {
+        VRChat.Users.Has("usr_a");
+        await SeedRowAsync("usr_a", lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
+
+        await RunUserProfileAsync();
+        Assert.Equal(["usr_a"], VRChat.Users.UserRequests);
+
+        // Six days of passes, every one of which refreshes the public profile, and not one of
+        // which asks the user endpoint again.
+        for (var day = 1; day <= 6; day++)
+        {
+            Clock.Advance(TimeSpan.FromDays(1));
+            await RunUserProfileAsync();
+        }
+
+        Assert.Single(VRChat.Users.UserRequests);
+        Assert.True(VRChat.Users.ProfileRequests.Count > 1);
+
+        // On the seventh day it is due again.
+        Clock.Advance(TimeSpan.FromDays(1) + TimeSpan.FromMinutes(1));
+        await RunUserProfileAsync();
+
+        Assert.Equal(2, VRChat.Users.UserRequests.Count);
+        Assert.Equal(Clock.UtcNow, (await UserRowAsync("usr_a"))!.LastUserReadAt);
+    }
+
+    /// <summary>
+    /// The two calls can disagree about whether somebody exists. One of them saying no while the
+    /// other answers is not an account that is gone.
+    /// </summary>
+    [Fact]
+    public async Task A404FromOneCallDoesNotMarkThePersonMissingWhileTheOtherAnswers()
+    {
+        VRChat.Users.Has("usr_profileless");
+        VRChat.Users.ProfileMissing.Add("usr_profileless");
+        await SeedRowAsync("usr_profileless", lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
+
+        await RunUserProfileAsync();
+
+        var row = await UserRowAsync("usr_profileless");
+        Assert.Equal(Now, row!.ProfileNotFoundAt);
+        Assert.Equal(Now, row.LastUserReadAt);
+        Assert.Null(row.NotFoundAt);
+        Assert.DoesNotContain(await FactsAsync(), f => f.Type == FactType.UserProfileNotFound);
+
+        // And the other way round: the user endpoint has nobody, the public profile does.
+        VRChat.Users.Has("usr_userless");
+        VRChat.Users.UserMissing.Add("usr_userless");
+        await SeedRowAsync("usr_userless", lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
+
+        await RunUserProfileAsync();
+
+        var other = await UserRowAsync("usr_userless");
+        Assert.Equal(Now, other!.UserNotFoundAt);
+        Assert.Equal(Now, other.LastRefreshedAt);
+        Assert.Null(other.NotFoundAt);
+        Assert.DoesNotContain(await FactsAsync(), f => f.Type == FactType.UserProfileNotFound);
+    }
+
+    /// <summary>
+    /// Separate budgets, and a cold stop on one leaves the other working. That is the whole point
+    /// of giving the public profile its own bucket rather than sharing <c>users.read</c>.
+    /// </summary>
+    [Fact]
+    public async Task ALimitOnOneReadDoesNotStopTheOther()
+    {
+        VRChat.Users.Has("usr_a");
+        await SeedRowAsync("usr_a", lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
+
+        VRChat.Users.UserObjectStatus = HttpStatusCode.TooManyRequests;
+        var run = await RunUserProfileAsync();
+
+        // The user read is cold-stopped; the profile read went through and recorded the person.
+        Assert.True((await Health(VRChatEndpointClass.UsersRead)).IsColdStopped);
+        Assert.False((await Health(VRChatEndpointClass.UsersProfile)).IsColdStopped);
+
+        Assert.Equal("usr_a", run.UserId);
+        Assert.True(run.Refreshed);
+        Assert.Equal(Now, (await UserRowAsync("usr_a"))!.LastRefreshedAt);
+
+        // Nothing is retried, and nothing about the person is written for the read that never
+        // happened: they are still due one.
+        Assert.Null((await UserRowAsync("usr_a"))!.LastUserReadAt);
+        Assert.Equal(SyncOutcome.RateLimited, run.UserRead!.Outcome);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────

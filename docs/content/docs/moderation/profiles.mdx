@@ -45,8 +45,18 @@ person's **Logs** tab shows those entries, so you can see what a bio said last w
 
 ## How profiles are refreshed
 
+VRChat answers two different questions about a person, and they do not return the same things:
+
+| | Public profile | User details |
+|---|---|---|
+| What it gives | Name, bio, pronouns, age verification | Status line, pictures, **Joined VRChat**, tags, **Last platform** |
+| How often | On the queue below | Once when Modbot first meets someone, then once a week |
+
+The public profile is the one Modbot reads often, because it carries what moderators look at. The
+user details barely change, so reading them once a week is enough.
+
 VRChat hands out profiles one person per request, so Modbot works through a queue. At most 3.5
-requests a second go to VRChat, and the queue is ordered like this:
+requests a second go to VRChat for each of the two, and the queue is ordered like this:
 
 1. People a desktop client has just seen in an instance.
 2. People a moderator has just opened in Modbot.
@@ -80,6 +90,9 @@ Other lines you may see:
 | **Profile not fetched yet.** | The same, in place of the profile. |
 | **Not seen before.** | Modbot has no record of this id at all. |
 | **No VRChat account with this id as of** a date | VRChat said the account does not exist. Modbot keeps the last profile it saw, and the person's history still mentions them. |
+
+This line only appears when **both** of VRChat's answers say the account does not exist. If one of
+them still knows the person, Modbot goes on showing them normally.
 
 ## The 18+ verified mark
 

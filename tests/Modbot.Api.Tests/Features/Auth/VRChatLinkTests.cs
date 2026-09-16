@@ -23,7 +23,9 @@ public class VRChatLinkTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static User Profile(string id, string displayName, string bio)
+    // The bio check reads the public profile, not the user object: VRChat stopped returning the
+    // bio on GET /users/{userId} (research: vrchat-public-profile-findings.md).
+    private static PublicProfile Profile(string id, string displayName, string bio)
         => new() { Id = id, DisplayName = displayName, Bio = bio };
 
     private static async Task<System.Text.Json.JsonElement> StartAsync(ApiTestHost host, string cookie, string input)
@@ -98,20 +100,20 @@ public class VRChatLinkTests
         Assert.Equal(VRChatLinkEndpoints.ProfileUrl, started.GetProperty("profileUrl").GetString());
 
         // Bio without the code: not linked, told what to do.
-        gate.Returns("GetUser", Profile(vrchatId, "Gunner24", "hello there"));
+        gate.Returns("GetPublicProfile", Profile(vrchatId, "Gunner24", "hello there"));
         var notYet = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, "/api/auth/vrchat-link/check", null, cookie, Ct), Ct);
         Assert.False(notYet.GetProperty("linked").GetBoolean());
         Assert.Contains(code, notYet.GetProperty("message").GetString(), StringComparison.Ordinal);
 
         // The call went through the gate on the users.read class, interactively.
         var call = Assert.Single(gate.Calls);
-        Assert.Equal(VRChatEndpointClass.UsersRead, call.Endpoint.Class);
+        Assert.Equal(VRChatEndpointClass.UsersProfile, call.Endpoint.Class);
         Assert.Equal(VRChatCallPriority.Interactive, call.Priority);
 
         host.Clock.Advance(VRChatLinkEndpoints.MinimumGapBetweenChecks);
 
         // Bio with the code, in any case: linked.
-        gate.Returns("GetUser", Profile(vrchatId, "Gunner24", $"hello there {code.ToLowerInvariant()} bye"));
+        gate.Returns("GetPublicProfile", Profile(vrchatId, "Gunner24", $"hello there {code.ToLowerInvariant()} bye"));
         var linked = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, "/api/auth/vrchat-link/check", null, cookie, Ct), Ct);
         Assert.True(linked.GetProperty("linked").GetBoolean());
         Assert.Contains("Gunner24", linked.GetProperty("message").GetString(), StringComparison.Ordinal);
@@ -147,7 +149,7 @@ public class VRChatLinkTests
         await using var host = await ApiTestHost.StartAsync(_db, gate);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, Ct, linked: false);
         var vrchatId = $"usr_{Guid.NewGuid():N}";
-        gate.Returns("GetUser", Profile(vrchatId, "Someone", "no code here"));
+        gate.Returns("GetPublicProfile", Profile(vrchatId, "Someone", "no code here"));
 
         await StartAsync(host, cookie, vrchatId);
 
@@ -201,7 +203,7 @@ public class VRChatLinkTests
 
         var started = await StartAsync(host, cookie, first.VRChatUserId!);
         var code = started.GetProperty("pending").GetProperty("code").GetString()!;
-        gate.Returns("GetUser", Profile(first.VRChatUserId!, "Twin", code));
+        gate.Returns("GetPublicProfile", Profile(first.VRChatUserId!, "Twin", code));
 
         var result = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, "/api/auth/vrchat-link/check", null, cookie, Ct), Ct);
 
@@ -215,7 +217,7 @@ public class VRChatLinkTests
         var gate = new FakeVRChatGate().SignedInAs();
         await using var host = await ApiTestHost.StartAsync(_db, gate);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, Ct, linked: false);
-        gate.Returns("GetUser", VRChatResult<User>.Failure(429, "Too many requests", kind: VRChatFailureKind.RateLimited));
+        gate.Returns("GetPublicProfile", VRChatResult<PublicProfile>.Failure(429, "Too many requests", kind: VRChatFailureKind.RateLimited));
 
         await StartAsync(host, cookie, "usr_whoever");
         var result = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Post, "/api/auth/vrchat-link/check", null, cookie, Ct), Ct);

@@ -6,18 +6,41 @@ using VRChat.API.Model;
 
 namespace Modbot.VRChat.Users;
 
+/// <summary>Which of VRChat's two reads a snapshot came from.</summary>
+/// <remarks>
+/// They carry different fields and they can disagree about whether a person exists, so every
+/// snapshot says which one it is (research: <c>vrchat-public-profile-findings.md</c>).
+/// </remarks>
+public enum VRChatReadKind
+{
+    /// <summary><c>GET /profile/{userId}</c> -- the main read: bio, pronouns, name, age verification.</summary>
+    PublicProfile,
+
+    /// <summary><c>GET /users/{userId}</c> -- the rare read: join date, tags, status line, pictures.</summary>
+    User,
+}
+
 /// <summary>
 /// A VRChat user's public profile, as Modbot records it: the fields worth watching for change,
 /// plus the two that are kept but not watched.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Its own type rather than the SDK's <c>User</c>, for two reasons. The SDK has several user
-/// shapes -- <c>User</c>, <c>LimitedUser</c>, <c>LimitedUserInstance</c>, <c>CurrentUser</c> --
-/// and whoever records a sighting of a user object (the sync today; account linking later)
-/// should be able to map whichever one they have into one shape. And the diff has to be over a
-/// chosen set of fields: <c>User</c> carries the person's current instance, their last login and
-/// their online state, all of which change constantly and none of which is a profile change.
+/// Its own type rather than the SDK's <c>User</c>, for three reasons. The SDK has several user
+/// shapes -- <c>User</c>, <c>PublicProfile</c>, <c>LimitedUser</c>, <c>LimitedUserInstance</c>,
+/// <c>CurrentUser</c> -- and whoever records a sighting of one should be able to map whichever
+/// they have into one shape. The diff has to be over a chosen set of fields: <c>User</c> carries
+/// the person's current instance, their last login and their online state, all of which change
+/// constantly and none of which is a profile change. And the two reads carry different fields,
+/// so a snapshot has to be able to say <em>nothing</em> about a field rather than say null.
+/// </para>
+/// <para>
+/// <strong>A snapshot only speaks for the fields its response carried</strong>
+/// (<see cref="Carried"/>). VRChat stopped returning the bio on <c>GET /users/{userId}</c>, and a
+/// snapshot that reported that as "bio: null" would wipe a bio the public profile had just filled
+/// in. Presence is read from the body, not from the typed object, because the SDK's generated
+/// models give a missing string the value <c>""</c> -- which is exactly what a person who cleared
+/// their bio also sends, and those two have to mean different things.
 /// </para>
 /// <para>
 /// <strong>Age verification is read from the raw JSON first.</strong> The SDK types
@@ -29,6 +52,15 @@ namespace Modbot.VRChat.Users;
 public sealed record VRChatUserSnapshot
 {
     public required string UserId { get; init; }
+
+    /// <summary>Which call this came from.</summary>
+    public VRChatReadKind Source { get; init; } = VRChatReadKind.PublicProfile;
+
+    /// <summary>
+    /// VRChat's own names for the fields this response actually carried. Anything not in here is
+    /// not claimed by this snapshot and is left as it is stored.
+    /// </summary>
+    public IReadOnlySet<string> Carried { get; init; } = Fields.All;
 
     public string? DisplayName { get; init; }
     public string? Bio { get; init; }
@@ -52,6 +84,51 @@ public sealed record VRChatUserSnapshot
     public string? Status { get; init; }
     public string? LastPlatform { get; init; }
 
+    /// <summary>VRChat's own field names, so one spelling serves the diff, the presence set and the row.</summary>
+    public static class Fields
+    {
+        public const string DisplayName = "displayName";
+        public const string Bio = "bio";
+        public const string StatusDescription = "statusDescription";
+        public const string Pronouns = "pronouns";
+        public const string CurrentAvatarImageUrl = "currentAvatarImageUrl";
+        public const string CurrentAvatarThumbnailImageUrl = "currentAvatarThumbnailImageUrl";
+        public const string ProfilePicOverride = "profilePicOverride";
+        public const string DateJoined = "date_joined";
+        public const string Tags = "tags";
+        public const string AgeVerificationStatus = "ageVerificationStatus";
+        public const string AgeVerified = "ageVerified";
+        public const string Status = "status";
+        public const string LastPlatform = "last_platform";
+
+        /// <summary>Everything a stored row knows about. What <see cref="FromRow"/> speaks for.</summary>
+        public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
+        {
+            DisplayName, Bio, StatusDescription, Pronouns,
+            CurrentAvatarImageUrl, CurrentAvatarThumbnailImageUrl, ProfilePicOverride,
+            DateJoined, Tags, AgeVerificationStatus, AgeVerified, Status, LastPlatform,
+        };
+
+        /// <summary>What <c>GET /users/{userId}</c> can carry.</summary>
+        public static readonly IReadOnlySet<string> OnUser = All;
+
+        /// <summary>
+        /// What <c>GET /profile/{userId}</c> can carry, of the fields Modbot stores.
+        /// </summary>
+        /// <remarks>
+        /// The public profile also carries <c>trustTags</c>, <c>languages</c>,
+        /// <c>representedGroup</c>, <c>hasVrcPlus</c> and <c>iconUrl</c>. None of those is one of
+        /// Modbot's columns, and <c>trustTags</c> and <c>iconUrl</c> are deliberately <em>not</em>
+        /// written to <c>tags</c> and <c>profile_picture_url</c>: they are different, smaller
+        /// fields, and mixing them would make every alternation between the two calls look like a
+        /// profile change. They are kept in <c>raw_public_profile</c> instead.
+        /// </remarks>
+        public static readonly IReadOnlySet<string> OnPublicProfile = new HashSet<string>(StringComparer.Ordinal)
+        {
+            DisplayName, Bio, Pronouns, AgeVerificationStatus, AgeVerified,
+        };
+    }
+
     /// <summary>
     /// Whether this profile, as it stands, says the person is 18+ verified.
     /// </summary>
@@ -62,6 +139,10 @@ public sealed record VRChatUserSnapshot
     /// 18 or over and nothing else, so every one of these is the same claim made in a different
     /// field or an older vocabulary. What none of them can say is that the person is <em>not</em>
     /// verified -- <c>hidden</c> means hidden -- which is why the flag this feeds is sticky.
+    /// </para>
+    /// <para>
+    /// Both reads carry both fields, so the sticky flag is fed by the frequent one and does not
+    /// wait a week for the rare one.
     /// </para>
     /// </remarks>
     public bool ShowsEighteenPlus =>
@@ -75,7 +156,7 @@ public sealed record VRChatUserSnapshot
     /// </summary>
     /// <param name="raw">
     /// The response body verbatim. Preferred over the typed object for the age verification
-    /// status, and the source of <see cref="StoredJson"/>.
+    /// status, and what decides which fields this response speaks for.
     /// </param>
     public static VRChatUserSnapshot From(User user, JsonObject? raw = null)
     {
@@ -84,7 +165,9 @@ public sealed record VRChatUserSnapshot
         return new VRChatUserSnapshot
         {
             UserId = user.Id,
-            DisplayName = user.DisplayName,
+            Source = VRChatReadKind.User,
+            Carried = CarriedBy(Fields.OnUser, raw),
+            DisplayName = Blank(user.DisplayName),
             Bio = Blank(user.Bio),
             StatusDescription = Blank(user.StatusDescription),
             Pronouns = Blank(user.Pronouns),
@@ -93,24 +176,54 @@ public sealed record VRChatUserSnapshot
             ProfilePictureUrl = Blank(user.ProfilePicOverride),
             DateJoined = user.DateJoined == default ? null : user.DateJoined,
             Tags = Sorted(user.Tags),
-            AgeVerificationStatus = ReadText(raw, "ageVerificationStatus") ?? StatusWord(user.AgeVerificationStatus),
-            AgeVerified = ReadBool(raw, "ageVerified") ?? user.AgeVerified,
+            AgeVerificationStatus = ReadText(raw, Fields.AgeVerificationStatus) ?? StatusWord(user.AgeVerificationStatus),
+            AgeVerified = ReadBool(raw, Fields.AgeVerified) ?? user.AgeVerified,
             Status = StatusWord(user.Status),
             LastPlatform = Blank(user.LastPlatform),
         };
     }
 
-    /// <summary>The snapshot a stored row represents, or null when the row has never been refreshed.</summary>
+    /// <summary>
+    /// Builds a snapshot from the public profile -- the main read.
+    /// </summary>
+    /// <remarks>
+    /// It speaks for five fields and says nothing about the rest, so recording one never clears a
+    /// status line, a join date, a tag list or an avatar picture that the rarer user read filled in.
+    /// </remarks>
+    public static VRChatUserSnapshot FromPublicProfile(string userId, PublicProfile profile, JsonObject? raw = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId);
+        ArgumentNullException.ThrowIfNull(profile);
+
+        return new VRChatUserSnapshot
+        {
+            // VRChat's own id for the person, not the one asked for, when it sends one back.
+            UserId = Blank(profile.Id) ?? userId,
+            Source = VRChatReadKind.PublicProfile,
+            Carried = CarriedBy(Fields.OnPublicProfile, raw),
+            DisplayName = Blank(profile.DisplayName),
+            Bio = Blank(profile.Bio),
+            Pronouns = Blank(profile.Pronouns),
+            AgeVerificationStatus =
+                ReadText(raw, Fields.AgeVerificationStatus)
+                ?? (profile.AgeVerificationStatus is { } status ? StatusWord(status) : null),
+            AgeVerified = ReadBool(raw, Fields.AgeVerified) ?? profile.AgeVerified,
+        };
+    }
+
+    /// <summary>The snapshot a stored row represents, or null when the row has never been read.</summary>
     public static VRChatUserSnapshot? FromRow(VRChatUser row)
     {
         ArgumentNullException.ThrowIfNull(row);
 
-        if (row.LastRefreshedAt is null)
+        // Either read filling the row makes it a profile there is something to diff against.
+        if (row.LastRefreshedAt is null && row.LastUserReadAt is null)
             return null;
 
         return new VRChatUserSnapshot
         {
             UserId = row.UserId,
+            Carried = Fields.All,
             DisplayName = row.DisplayName,
             Bio = row.Bio,
             StatusDescription = row.StatusDescription,
@@ -127,30 +240,33 @@ public sealed record VRChatUserSnapshot
         };
     }
 
-    /// <summary>Copies the profile onto its row. Touches nothing about the sticky flag or the timestamps.</summary>
+    /// <summary>
+    /// Copies the profile onto its row. Touches nothing about the sticky flag or the timestamps,
+    /// and nothing this response did not carry.
+    /// </summary>
     public void ApplyTo(VRChatUser row)
     {
         ArgumentNullException.ThrowIfNull(row);
 
-        row.DisplayName = DisplayName;
-        row.Bio = Bio;
-        row.Status = Status;
-        row.StatusDescription = StatusDescription;
-        row.Pronouns = Pronouns;
-        row.CurrentAvatarImageUrl = CurrentAvatarImageUrl;
-        row.CurrentAvatarThumbnailImageUrl = CurrentAvatarThumbnailImageUrl;
-        row.ProfilePictureUrl = ProfilePictureUrl;
-        row.DateJoined = DateJoined;
-        row.Tags = JsonSerializer.Serialize(Tags);
-        row.LastPlatform = LastPlatform;
-        row.AgeVerificationStatus = AgeVerificationStatus;
-        row.AgeVerified = AgeVerified;
+        if (Has(Fields.DisplayName)) row.DisplayName = DisplayName;
+        if (Has(Fields.Bio)) row.Bio = Bio;
+        if (Has(Fields.Status)) row.Status = Status;
+        if (Has(Fields.StatusDescription)) row.StatusDescription = StatusDescription;
+        if (Has(Fields.Pronouns)) row.Pronouns = Pronouns;
+        if (Has(Fields.CurrentAvatarImageUrl)) row.CurrentAvatarImageUrl = CurrentAvatarImageUrl;
+        if (Has(Fields.CurrentAvatarThumbnailImageUrl)) row.CurrentAvatarThumbnailImageUrl = CurrentAvatarThumbnailImageUrl;
+        if (Has(Fields.ProfilePicOverride)) row.ProfilePictureUrl = ProfilePictureUrl;
+        if (Has(Fields.DateJoined)) row.DateJoined = DateJoined;
+        if (Has(Fields.Tags)) row.Tags = JsonSerializer.Serialize(Tags);
+        if (Has(Fields.LastPlatform)) row.LastPlatform = LastPlatform;
+        if (Has(Fields.AgeVerificationStatus)) row.AgeVerificationStatus = AgeVerificationStatus;
+        if (Has(Fields.AgeVerified)) row.AgeVerified = AgeVerified;
     }
 
     /// <summary>
-    /// Every watched field that differs, as <c>{field: {old, new}}</c> under VRChat's own field
-    /// names -- the shape the audit-log mapper lifts under <c>changed</c>, so the timeline has one
-    /// diff shape.
+    /// Every watched field this response carried that differs, as <c>{field: {old, new}}</c> under
+    /// VRChat's own field names -- the shape the audit-log mapper lifts under <c>changed</c>, so
+    /// the timeline has one diff shape.
     /// </summary>
     public JsonObject DifferencesFrom(VRChatUserSnapshot previous)
     {
@@ -158,28 +274,28 @@ public sealed record VRChatUserSnapshot
 
         var changed = new JsonObject();
 
-        Text(changed, "displayName", previous.DisplayName, DisplayName);
-        Text(changed, "bio", previous.Bio, Bio);
-        Text(changed, "statusDescription", previous.StatusDescription, StatusDescription);
-        Text(changed, "pronouns", previous.Pronouns, Pronouns);
-        Text(changed, "currentAvatarImageUrl", previous.CurrentAvatarImageUrl, CurrentAvatarImageUrl);
-        Text(changed, "currentAvatarThumbnailImageUrl", previous.CurrentAvatarThumbnailImageUrl, CurrentAvatarThumbnailImageUrl);
-        Text(changed, "profilePicOverride", previous.ProfilePictureUrl, ProfilePictureUrl);
-        Text(changed, "ageVerificationStatus", previous.AgeVerificationStatus, AgeVerificationStatus);
+        Text(changed, Fields.DisplayName, previous.DisplayName, DisplayName);
+        Text(changed, Fields.Bio, previous.Bio, Bio);
+        Text(changed, Fields.StatusDescription, previous.StatusDescription, StatusDescription);
+        Text(changed, Fields.Pronouns, previous.Pronouns, Pronouns);
+        Text(changed, Fields.CurrentAvatarImageUrl, previous.CurrentAvatarImageUrl, CurrentAvatarImageUrl);
+        Text(changed, Fields.CurrentAvatarThumbnailImageUrl, previous.CurrentAvatarThumbnailImageUrl, CurrentAvatarThumbnailImageUrl);
+        Text(changed, Fields.ProfilePicOverride, previous.ProfilePictureUrl, ProfilePictureUrl);
+        Text(changed, Fields.AgeVerificationStatus, previous.AgeVerificationStatus, AgeVerificationStatus);
 
-        if (previous.AgeVerified != AgeVerified)
-            changed["ageVerified"] = Pair(previous.AgeVerified, AgeVerified);
+        if (Has(Fields.AgeVerified) && previous.AgeVerified != AgeVerified)
+            changed[Fields.AgeVerified] = Pair(previous.AgeVerified, AgeVerified);
 
-        if (previous.DateJoined != DateJoined)
+        if (Has(Fields.DateJoined) && previous.DateJoined != DateJoined)
         {
             changed["dateJoined"] = Pair(
                 previous.DateJoined?.ToString("O", CultureInfo.InvariantCulture),
                 DateJoined?.ToString("O", CultureInfo.InvariantCulture));
         }
 
-        if (!previous.Tags.SequenceEqual(Tags, StringComparer.Ordinal))
+        if (Has(Fields.Tags) && !previous.Tags.SequenceEqual(Tags, StringComparer.Ordinal))
         {
-            changed["tags"] = new JsonObject
+            changed[Fields.Tags] = new JsonObject
             {
                 ["old"] = new JsonArray([.. previous.Tags.Select(t => JsonValue.Create(t))]),
                 ["new"] = new JsonArray([.. Tags.Select(t => JsonValue.Create(t))]),
@@ -190,15 +306,19 @@ public sealed record VRChatUserSnapshot
     }
 
     /// <summary>The small payload the first-seen fact carries: enough to diff from, nothing that churns.</summary>
-    public JsonObject Baseline() => new()
+    public JsonObject Baseline()
     {
-        ["displayName"] = DisplayName,
-        ["pronouns"] = Pronouns,
-        ["dateJoined"] = DateJoined?.ToString("O", CultureInfo.InvariantCulture),
-        ["ageVerificationStatus"] = AgeVerificationStatus,
-        ["ageVerified"] = AgeVerified,
-        ["tags"] = new JsonArray([.. Tags.Select(t => JsonValue.Create(t))]),
-    };
+        var baseline = new JsonObject();
+
+        if (Has(Fields.DisplayName)) baseline[Fields.DisplayName] = DisplayName;
+        if (Has(Fields.Pronouns)) baseline[Fields.Pronouns] = Pronouns;
+        if (Has(Fields.DateJoined)) baseline["dateJoined"] = DateJoined?.ToString("O", CultureInfo.InvariantCulture);
+        if (Has(Fields.AgeVerificationStatus)) baseline[Fields.AgeVerificationStatus] = AgeVerificationStatus;
+        if (Has(Fields.AgeVerified)) baseline[Fields.AgeVerified] = AgeVerified;
+        if (Has(Fields.Tags)) baseline[Fields.Tags] = new JsonArray([.. Tags.Select(t => JsonValue.Create(t))]);
+
+        return baseline;
+    }
 
     /// <summary>
     /// The fields Modbot must not keep from a user object, even in the raw copy.
@@ -218,7 +338,7 @@ public sealed record VRChatUserSnapshot
         "friendKey",
     ];
 
-    /// <summary>The raw body with <see cref="NeverStored"/> removed, ready for the <c>raw_profile</c> column.</summary>
+    /// <summary>The raw body with <see cref="NeverStored"/> removed, ready for its <c>jsonb</c> column.</summary>
     public static string? StoredJson(JsonObject? raw)
     {
         if (raw is null)
@@ -247,9 +367,34 @@ public sealed record VRChatUserSnapshot
         }
     }
 
-    private static void Text(JsonObject changed, string field, string? before, string? after)
+    private bool Has(string field) => Carried.Contains(field);
+
+    /// <summary>
+    /// Which of a call's fields this particular response actually sent.
+    /// </summary>
+    /// <remarks>
+    /// With no body to look at, everything the call can carry counts as carried -- that is the
+    /// SDK's own serialisation of the typed object, which emits every property, and it is the
+    /// behaviour that was here before bodies were consulted at all.
+    /// </remarks>
+    private static IReadOnlySet<string> CarriedBy(IReadOnlySet<string> possible, JsonObject? raw)
     {
-        if (!string.Equals(before, after, StringComparison.Ordinal))
+        if (raw is null || raw.Count == 0)
+            return possible;
+
+        var carried = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var field in possible)
+        {
+            if (raw.ContainsKey(field))
+                carried.Add(field);
+        }
+
+        return carried;
+    }
+
+    private void Text(JsonObject changed, string field, string? before, string? after)
+    {
+        if (Has(field) && !string.Equals(before, after, StringComparison.Ordinal))
             changed[field] = Pair(before, after);
     }
 

@@ -34,7 +34,9 @@ public class DiscordLinkTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static User Profile(string id, string displayName, string bio)
+    // The bio check reads the public profile, not the user object: VRChat stopped returning the
+    // bio on GET /users/{userId} (research: vrchat-public-profile-findings.md).
+    private static PublicProfile Profile(string id, string displayName, string bio)
         => new() { Id = id, DisplayName = displayName, Bio = bio };
 
     private sealed record Harness(ApiTestHost Host, FakeVRChatGate Gate, FakeDiscordOAuthHandler Discord) : IAsyncDisposable
@@ -257,17 +259,17 @@ public class DiscordLinkTests
         Assert.Equal(vrchatId, pending.GetProperty("vrChatUserId").GetString());
         var code = pending.GetProperty("code").GetString()!;
 
-        h.Gate.Returns("GetUser", Profile(vrchatId, "LinkPageTester", "hello"));
+        h.Gate.Returns("GetPublicProfile", Profile(vrchatId, "LinkPageTester", "hello"));
         var notYet = await ApiTestHost.BodyOf(await PostAsync(h.Host, "/api/discord-link/check", null, session), Ct);
         Assert.False(notYet.GetProperty("linked").GetBoolean());
         Assert.Contains(code, notYet.GetProperty("message").GetString(), StringComparison.Ordinal);
 
         var call = Assert.Single(h.Gate.Calls);
-        Assert.Equal(Modbot.VRChat.VRChatEndpointClass.UsersRead, call.Endpoint.Class);
+        Assert.Equal(Modbot.VRChat.VRChatEndpointClass.UsersProfile, call.Endpoint.Class);
         Assert.Equal(Modbot.VRChat.VRChatCallPriority.Interactive, call.Priority);
 
         h.Host.Clock.Advance(VRChatLinkEndpoints.MinimumGapBetweenChecks);
-        h.Gate.Returns("GetUser", new User { Id = vrchatId, DisplayName = "LinkPageTester", Bio = $"hi {code}", AgeVerificationStatus = AgeVerificationStatus.plus18 });
+        h.Gate.Returns("GetPublicProfile", new PublicProfile { Id = vrchatId, DisplayName = "LinkPageTester", Bio = $"hi {code}", AgeVerificationStatus = AgeVerificationStatus.plus18 });
 
         var linked = await ApiTestHost.BodyOf(await PostAsync(h.Host, "/api/discord-link/check", null, session), Ct);
         Assert.True(linked.GetProperty("linked").GetBoolean());
@@ -313,7 +315,7 @@ public class DiscordLinkTests
         var status = await ApiTestHost.BodyOf(await h.Host.Client.SendAsync(Get("/api/discord-link", session), Ct), Ct);
         Assert.Equal(code, status.GetProperty("pending").GetProperty("code").GetString());
 
-        h.Gate.Returns("GetUser", Profile(vrchatId, "FromVRChat", code));
+        h.Gate.Returns("GetPublicProfile", Profile(vrchatId, "FromVRChat", code));
         var linked = await ApiTestHost.BodyOf(await PostAsync(h.Host, "/api/discord-link/check", null, session), Ct);
         Assert.True(linked.GetProperty("linked").GetBoolean());
 
@@ -346,7 +348,7 @@ public class DiscordLinkTests
         var named = await ApiTestHost.BodyOf(await PostAsync(h.Host, "/api/discord-link/vrchat", new { userIdOrUrl = vrchatId }, session), Ct);
         var code = named.GetProperty("pending").GetProperty("code").GetString()!;
 
-        h.Gate.Returns("GetUser", Profile(vrchatId, "Taken", code));
+        h.Gate.Returns("GetPublicProfile", Profile(vrchatId, "Taken", code));
         var result = await ApiTestHost.BodyOf(await PostAsync(h.Host, "/api/discord-link/check", null, session), Ct);
 
         Assert.False(result.GetProperty("linked").GetBoolean());
@@ -359,7 +361,7 @@ public class DiscordLinkTests
         await using var h = await StartAsync();
         var session = await SignInAsync(h);
         await PostAsync(h.Host, "/api/discord-link/vrchat", new { userIdOrUrl = "usr_limits" }, session);
-        h.Gate.Returns("GetUser", Profile("usr_limits", "Limits", "nothing"));
+        h.Gate.Returns("GetPublicProfile", Profile("usr_limits", "Limits", "nothing"));
 
         Assert.Equal(HttpStatusCode.OK, (await PostAsync(h.Host, "/api/discord-link/check", null, session)).StatusCode);
         Assert.Equal(HttpStatusCode.TooManyRequests, (await PostAsync(h.Host, "/api/discord-link/check", null, session)).StatusCode);
@@ -387,7 +389,7 @@ public class DiscordLinkTests
         var vrchatId = $"usr_{Guid.NewGuid():N}";
         var code = (await ApiTestHost.BodyOf(await PostAsync(h.Host, "/api/discord-link/vrchat", new { userIdOrUrl = vrchatId }, session), Ct))
             .GetProperty("pending").GetProperty("code").GetString()!;
-        h.Gate.Returns("GetUser", Profile(vrchatId, "Leaving", code));
+        h.Gate.Returns("GetPublicProfile", Profile(vrchatId, "Leaving", code));
         await PostAsync(h.Host, "/api/discord-link/check", null, session);
 
         using (var linkedScope = h.Host.Services.CreateScope())

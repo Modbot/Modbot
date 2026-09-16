@@ -17,6 +17,9 @@ public class RateLimiterTests
     private static readonly VRChatEndpoint Profile =
         new(VRChatEndpointClass.UsersRead, Operation: "GetUser");
 
+    private static readonly VRChatEndpoint PublicProfile =
+        new(VRChatEndpointClass.UsersProfile, Operation: "GetPublicProfile");
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
@@ -77,6 +80,77 @@ public class RateLimiterTests
         // Spec 4.2.5: the users lane does not pass through the backstop at all, so the global
         // bucket has never been touched and does not even exist yet.
         Assert.DoesNotContain(buckets, b => b.Name == VRChatEndpointClass.Global);
+    }
+
+    /// <summary>
+    /// The public profile is paced by its own bucket, at the rate the maintainer gave it -- the
+    /// same as <c>users.read</c>.
+    /// </summary>
+    [Fact]
+    public async Task ThePublicProfileIsPacedByItsOwnBucketAtTheUsersReadRate()
+    {
+        var harness = new LimiterHarness();
+        var limits = VRChatRateLimits.Defaults[VRChatEndpointClass.UsersProfile];
+        var allowed = Math.Min(
+            limits.HardMaxPerSecond,
+            limits.DefaultCeilingPerSecond * RateLimitOptions.DefaultFraction);
+
+        var start = harness.Clock.UtcNow;
+        const int calls = 10;
+
+        for (var i = 0; i < calls; i++)
+            await harness.CallAsync(PublicProfile, ct: Ct);
+
+        var elapsed = (harness.Clock.UtcNow - start).TotalSeconds;
+
+        Assert.True(
+            (calls - 1) / elapsed <= allowed + 1e-6,
+            $"issued {calls - 1} paced calls in {elapsed}s, above the configured {allowed} req/s");
+
+        Assert.True(elapsed <= (calls - 1) / allowed * 1.05);
+    }
+
+    /// <summary>
+    /// Same rate, separate budget: spending the public profile's allowance leaves the user
+    /// object's untouched, and the two never wait on each other.
+    /// </summary>
+    /// <remarks>
+    /// This is what the maintainer asked for on 2026-09-15 and the reason the class exists. One
+    /// shared bucket at 3.5 req/s would mean the rare read ate the frequent one's allowance, and
+    /// one shared lane would mean they queued behind each other even with two buckets.
+    /// </remarks>
+    [Fact]
+    public async Task TheTwoUserReadsDoNotShareABudgetOrALane()
+    {
+        var profiles = VRChatRateLimits.Defaults[VRChatEndpointClass.UsersProfile];
+        var users = VRChatRateLimits.Defaults[VRChatEndpointClass.UsersRead];
+
+        Assert.Equal(users.HardMaxPerSecond, profiles.HardMaxPerSecond);
+        Assert.Equal(users.DefaultCeilingPerSecond, profiles.DefaultCeilingPerSecond);
+        Assert.NotEqual(users.Lane, profiles.Lane);
+        Assert.False(profiles.CountsAgainstGlobal);
+
+        var harness = new LimiterHarness();
+
+        // Spend the public profile's bucket down to nothing.
+        for (var i = 0; i < 5; i++)
+            await harness.CallAsync(PublicProfile, ct: Ct);
+
+        var spentAt = harness.Clock.UtcNow;
+
+        // The user object's bucket is full and answers at once.
+        await harness.CallAsync(Profile, ct: Ct);
+        Assert.Equal(spentAt, harness.Clock.UtcNow);
+
+        // And a cold stop on one leaves the other working.
+        await harness.CallAsync(PublicProfile, status: 429, ct: Ct);
+
+        Assert.True((await harness.HealthAsync(VRChatEndpointClass.UsersProfile)).IsColdStopped);
+        Assert.False((await harness.HealthAsync(VRChatEndpointClass.UsersRead)).IsColdStopped);
+
+        var stillOpen = await harness.Limiter.AcquireAsync(Profile, ct: Ct);
+        await using (stillOpen)
+            Assert.True(stillOpen.IsAcquired);
     }
 
     [Fact]

@@ -179,8 +179,16 @@ public sealed class VRChatUserProfiles
     /// Records a profile as fetched: the row's columns, the facts for what changed, and -- if
     /// the profile shows it -- the sticky 18+ flag.
     /// </summary>
-    /// <param name="snapshot">The profile as it stands.</param>
+    /// <param name="snapshot">The profile as it stands, and which call it came from.</param>
     /// <param name="raw">The response body, when the caller has it. Stored minus the fields Modbot never keeps.</param>
+    /// <remarks>
+    /// <para>
+    /// Only the fields the response carried are written (<see cref="VRChatUserSnapshot.Carried"/>),
+    /// and only that call's own timestamps, error and raw copy. Recording a public profile
+    /// therefore never clears the join date the user read filled in, and recording a user read
+    /// never clears a bio the public profile filled in.
+    /// </para>
+    /// </remarks>
     public async Task<ProfileRecorded> RecordProfileAsync(
         VRChatUserSnapshot snapshot,
         JsonObject? raw,
@@ -192,14 +200,33 @@ public sealed class VRChatUserProfiles
         var row = await RowAsync(snapshot.UserId, now, ct).ConfigureAwait(false);
 
         var previous = VRChatUserSnapshot.FromRow(row);
-        var previouslyRefreshedAt = row.LastRefreshedAt;
+
+        // The window a change could have happened in is "since this call last looked", not since
+        // the other one did: the other call never sees these fields.
+        var previouslyRefreshedAt = snapshot.Source == VRChatReadKind.User
+            ? row.LastUserReadAt
+            : row.LastRefreshedAt;
 
         snapshot.ApplyTo(row);
-        row.RawProfile = VRChatUserSnapshot.StoredJson(raw);
-        row.LastRefreshedAt = now;
-        row.RefreshError = null;
-        row.RefreshErrorAt = null;
-        row.NotFoundAt = null;
+
+        if (snapshot.Source == VRChatReadKind.User)
+        {
+            row.RawProfile = VRChatUserSnapshot.StoredJson(raw) ?? row.RawProfile;
+            row.LastUserReadAt = now;
+            row.UserReadError = null;
+            row.UserReadErrorAt = null;
+            row.UserNotFoundAt = null;
+        }
+        else
+        {
+            row.RawPublicProfile = VRChatUserSnapshot.StoredJson(raw) ?? row.RawPublicProfile;
+            row.LastRefreshedAt = now;
+            row.RefreshError = null;
+            row.RefreshErrorAt = null;
+            row.ProfileNotFoundAt = null;
+        }
+
+        UpdateMissing(row);
 
         var changed = new List<string>();
         var firstSeen = previous is null;
@@ -213,6 +240,13 @@ public sealed class VRChatUserProfiles
                 since: null,
                 now,
                 ct).ConfigureAwait(false);
+        }
+        else if (previouslyRefreshedAt is null)
+        {
+            // This call's first look at a person the other call already recorded. The fields it
+            // carries were never seen before, so every one of them would diff from null -- which
+            // is a baseline, not a change, and writing it as a change would fill the timeline
+            // with "status line changed from nothing" the first time a person is read.
         }
         else
         {
@@ -267,22 +301,45 @@ public sealed class VRChatUserProfiles
         return new ProfileRecorded(firstSeen, changed, observed);
     }
 
-    /// <summary>VRChat answered 404 for this id. The row stays; it is marked and left alone for a while.</summary>
-    public async Task RecordNotFoundAsync(string userId, string detail, CancellationToken ct = default)
+    /// <summary>
+    /// One of the two calls answered 404 for this id. The row stays; that call is marked, and the
+    /// person is only treated as missing when neither call can find them.
+    /// </summary>
+    /// <remarks>
+    /// The public profile and the user object are different endpoints and can disagree. One of
+    /// them 404ing while the other answers is not an account that is gone, so a 404 marks only
+    /// the call that gave it (research: <c>vrchat-public-profile-findings.md</c> §6).
+    /// </remarks>
+    public async Task RecordNotFoundAsync(
+        string userId,
+        VRChatReadKind kind,
+        string detail,
+        CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
         var now = _clock.UtcNow;
         var row = await RowAsync(userId, now, ct).ConfigureAwait(false);
 
-        var alreadyMarked = row.NotFoundAt is not null;
+        var alreadyMissing = row.NotFoundAt is not null;
 
-        row.NotFoundAt = now;
-        row.RefreshError = detail;
-        row.RefreshErrorAt = now;
+        if (kind == VRChatReadKind.User)
+        {
+            row.UserNotFoundAt = now;
+            row.UserReadError = detail;
+            row.UserReadErrorAt = now;
+        }
+        else
+        {
+            row.ProfileNotFoundAt = now;
+            row.RefreshError = detail;
+            row.RefreshErrorAt = now;
+        }
+
+        UpdateMissing(row);
 
         // Once per disappearance, not once per week when the retry finds them still gone.
-        if (!alreadyMarked)
+        if (!alreadyMissing && row.NotFoundAt is not null)
         {
             await WriteAsync(
                 FactType.UserProfileNotFound,
@@ -296,18 +353,49 @@ public sealed class VRChatUserProfiles
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
-    /// <summary>A refresh failed for a reason that is neither a 404 nor a cold stop. Recorded on the row, no fact.</summary>
-    public async Task RecordRefreshFailedAsync(string userId, string detail, CancellationToken ct = default)
+    /// <summary>A read failed for a reason that is neither a 404 nor a cold stop. Recorded on the row, no fact.</summary>
+    public async Task RecordRefreshFailedAsync(
+        string userId,
+        VRChatReadKind kind,
+        string detail,
+        CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
         var now = _clock.UtcNow;
         var row = await RowAsync(userId, now, ct).ConfigureAwait(false);
 
-        row.RefreshError = detail;
-        row.RefreshErrorAt = now;
+        if (kind == VRChatReadKind.User)
+        {
+            row.UserReadError = detail;
+            row.UserReadErrorAt = now;
+        }
+        else
+        {
+            row.RefreshError = detail;
+            row.RefreshErrorAt = now;
+        }
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Decides whether the person is missing, from what each call last said.
+    /// </summary>
+    /// <remarks>
+    /// Missing means neither call can find them: both answered 404, or one did and the other has
+    /// never succeeded for this person. A success on either call clears that call's own mark, so
+    /// two marks standing at once really does mean neither call has answered since.
+    /// </remarks>
+    private static void UpdateMissing(VRChatUser row)
+    {
+        row.NotFoundAt = (row.ProfileNotFoundAt, row.UserNotFoundAt) switch
+        {
+            ({ } profile, { } user) => profile <= user ? profile : user,
+            ({ } profile, null) when row.LastUserReadAt is null => profile,
+            (null, { } user) when row.LastRefreshedAt is null => user,
+            _ => null,
+        };
     }
 
     /// <summary>

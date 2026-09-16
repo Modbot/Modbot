@@ -118,31 +118,74 @@ public class VRChatUser
     public DateTimeOffset LastSeenAt { get; set; }
 
     /// <summary>
-    /// When the profile columns were last filled from VRChat. Null means never. Shown beside every
-    /// profile field the UI renders, because a bio from March and a bio from an hour ago are not
-    /// the same claim (foundation §4.2.5).
+    /// When the public profile was last read. Null means never. Shown beside every profile field
+    /// the UI renders, because a bio from March and a bio from an hour ago are not the same claim
+    /// (foundation §4.2.5).
     /// </summary>
+    /// <remarks>
+    /// The public profile is the main read, so this is the freshness the card reports. The join
+    /// date, the tag list and the status line come from the rarer user read and carry
+    /// <see cref="LastUserReadAt"/> instead.
+    /// </remarks>
     public DateTimeOffset? LastRefreshedAt { get; set; }
 
-    /// <summary>What went wrong the last time a refresh was attempted, or null if it succeeded.</summary>
+    /// <summary>What went wrong the last time the public profile was read, or null if it worked.</summary>
     public string? RefreshError { get; set; }
 
     public DateTimeOffset? RefreshErrorAt { get; set; }
 
+    /// <summary>The public profile answered 404 for this id. See <see cref="NotFoundAt"/>.</summary>
+    public DateTimeOffset? ProfileNotFoundAt { get; set; }
+
+    // ── The rarer read: the full user object ─────────────────────────────────────────────
+
+    /// <summary>When the full user object was last read. Null means never.</summary>
+    /// <remarks>
+    /// Read about once a week per person rather than on the profile schedule: what it carries
+    /// alone is the join date (which never changes), the tag list and the status line (which move
+    /// slowly), and the avatar pictures (which nothing decides anything from). Research:
+    /// <c>vrchat-public-profile-findings.md</c>.
+    /// </remarks>
+    public DateTimeOffset? LastUserReadAt { get; set; }
+
+    /// <summary>What went wrong the last time the user object was read, or null if it worked.</summary>
+    public string? UserReadError { get; set; }
+
+    public DateTimeOffset? UserReadErrorAt { get; set; }
+
+    /// <summary>The user object answered 404 for this id. See <see cref="NotFoundAt"/>.</summary>
+    public DateTimeOffset? UserNotFoundAt { get; set; }
+
     /// <summary>
-    /// Set when VRChat answered 404 for this id -- usually a deleted account. The row is kept,
+    /// Set when VRChat has no account with this id -- usually a deleted account. The row is kept,
     /// because the history that mentions them is still real, and the sync leaves them alone for
     /// a long while rather than asking every pass.
     /// </summary>
+    /// <remarks>
+    /// Modbot asks two different calls about a person, and one of them answering 404 while the
+    /// other still works does not mean the account is gone. So this is set only when
+    /// <see cref="ProfileNotFoundAt"/> and <see cref="UserNotFoundAt"/> are both set, or when one
+    /// of them is set and the other call has never succeeded for this person. A success on either
+    /// call clears that call's own mark, and so clears this.
+    /// </remarks>
     public DateTimeOffset? NotFoundAt { get; set; }
 
     /// <summary>
-    /// The user object as VRChat returned it on the last successful refresh, minus the fields
+    /// The user object as VRChat returned it on the last successful user read, minus the fields
     /// Modbot must not keep (instance locations and the account's private note). Here so a
     /// question nobody has asked yet can be answered without another fetch.
     /// </summary>
     [Column(TypeName = "jsonb")]
     public string? RawProfile { get; set; }
+
+    /// <summary>The public profile as VRChat returned it on the last successful profile read.</summary>
+    /// <remarks>
+    /// Its own column rather than sharing <see cref="RawProfile"/>, so neither call erases the
+    /// other's copy. It is also the only place the fields the public profile carries alone -- the
+    /// trust tags, the languages, the group being represented -- are kept.
+    /// </remarks>
+    [Column(TypeName = "jsonb")]
+    public string? RawPublicProfile { get; set; }
 }
 
 /// <summary>Where <see cref="VRChatUser.Is18PlusVerifiedSource"/> values come from.</summary>

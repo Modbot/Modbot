@@ -515,6 +515,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.AgeVerificationStatus).HasMaxLength(32);
             entity.Property(e => e.Is18PlusVerifiedSource).HasMaxLength(16);
             entity.Property(e => e.RefreshError).HasMaxLength(512);
+            entity.Property(e => e.UserReadError).HasMaxLength(512);
 
             // The snake-case convention would write "is18_plus_verified"; the digit belongs to
             // the next word, not the previous one, and somebody grepping the schema for the flag
@@ -528,6 +529,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // 150,000-row table asked "who is oldest" once a second must not scan.
             entity.HasIndex(e => e.LastRefreshedAt).HasDatabaseName("ix_vrchat_user_last_refreshed");
             entity.HasIndex(e => e.LastSeenAt).HasDatabaseName("ix_vrchat_user_last_seen");
+
+            // The same question for the rarer read: who has not had their user object read for a
+            // week. Asked once a minute over the whole table, so it must not scan either.
+            entity.HasIndex(e => e.LastUserReadAt).HasDatabaseName("ix_vrchat_user_last_user_read");
         });
 
         builder.Entity<VRChatWorld>(entity =>

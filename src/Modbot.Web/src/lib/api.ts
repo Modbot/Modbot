@@ -1140,6 +1140,14 @@ export type UserProfileHealth = {
   countedAt: string | null
 }
 
+/** The rarer of the two profile reads: the full user object. */
+export type UserReadHealth = {
+  neverRead: number
+  oldestReadAt: string | null
+  readsInLastHour: number
+  lastRateLimitedAt: string | null
+}
+
 /**
  * The Discord bot's own account of itself. `NotConfigured` is not a fault: no token is stored.
  * `lastError` is a sentence and never the token.
@@ -1223,6 +1231,8 @@ export type SyncHealth = {
   calendar?: CalendarHealth | null
   /** Moderation rules that stopped themselves after acting far more in an hour than usual. */
   pausedRules?: PausedRule[] | null
+  lastUserReadRun?: SyncRunSummary | null
+  userReads?: UserReadHealth | null
   now: string
 }
 

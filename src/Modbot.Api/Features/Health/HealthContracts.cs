@@ -248,7 +248,23 @@ public sealed record SyncHealth(
     CalendarHealth? Calendar = null,
     // Moderation rules that stopped themselves after acting far more in an hour than usual
     // (AI moderation design §13.2). Empty when none has.
-    IReadOnlyList<PausedRule>? PausedRules = null);
+    IReadOnlyList<PausedRule>? PausedRules = null,
+    // The rarer of the two profile reads: the full user object, on its own budget.
+    SyncRunSummary? LastUserReadRun = null,
+    UserReadHealth? UserReads = null);
+
+/// <summary>
+/// What the rarer read is doing: the full user object, read about once a week per person.
+/// </summary>
+/// <param name="NeverRead">People whose user object has never been read.</param>
+/// <param name="OldestReadAt">The least recent user read among people who have had one.</param>
+/// <param name="ReadsInLastHour">Requests spent on the users lane in the last hour.</param>
+/// <param name="LastRateLimitedAt">When the users lane last answered 429, in this process.</param>
+public sealed record UserReadHealth(
+    int NeverRead,
+    DateTimeOffset? OldestReadAt,
+    int ReadsInLastHour,
+    DateTimeOffset? LastRateLimitedAt);
 
 /// <summary>A moderation rule that paused itself and is waiting for an operator (design §13.2).</summary>
 /// <param name="RuleKind"><c>termList</c> or <c>topic</c>.</param>

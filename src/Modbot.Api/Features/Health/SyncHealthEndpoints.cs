@@ -144,7 +144,9 @@ public static class SyncHealthEndpoints
                     await AiCallsAsync(db, clock.UtcNow, ct),
                     await EmailAsync(db, clock.UtcNow, ct),
                     await CalendarHealthAsync(db, settings?.DiscordGuildId, ct),
-                    await PausedRulesAsync(db, ct)));
+                    await PausedRulesAsync(db, ct),
+                    Run(diagnostics?.LastUserReadRun),
+                    UserReads(diagnostics)));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
@@ -419,5 +421,23 @@ public static class SyncHealthEndpoints
             diagnostics.UserProfileRefreshesInLastHour,
             diagnostics.UserProfileLastRateLimitedAt,
             counts?.MeasuredAt);
+    }
+
+    /// <summary>
+    /// The rarer read's own numbers. Its own budget and its own lane, so its own row on the card:
+    /// one figure covering both would hide either behind the other.
+    /// </summary>
+    private static UserReadHealth? UserReads(SyncDiagnostics? diagnostics)
+    {
+        if (diagnostics is null)
+            return null;
+
+        var counts = diagnostics.UserProfileCounts;
+
+        return new UserReadHealth(
+            counts?.NeverUserRead ?? 0,
+            counts?.OldestUserReadAt,
+            diagnostics.UserReadsInLastHour,
+            diagnostics.UserReadLastRateLimitedAt);
     }
 }

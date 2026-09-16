@@ -35,6 +35,9 @@ public class SyncPacingTests
     // 3.5, not the 1.0 spec 4.2.5 first wrote: raised by the maintainer on 2026-09-13 (user
     // profile sync design §5).
     [InlineData(VRChatEndpointClass.UsersRead, 3.5)]
+    // The public profile: the same rate as users.read and its own budget, from the maintainer on
+    // 2026-09-15 (research: vrchat-public-profile-findings.md).
+    [InlineData(VRChatEndpointClass.UsersProfile, 3.5)]
     [InlineData(VRChatEndpointClass.Global, 2.0)]
     public void WithNothingConfigured_TheRatesAreSpecFourTwos(string endpointClass, double expected)
     {

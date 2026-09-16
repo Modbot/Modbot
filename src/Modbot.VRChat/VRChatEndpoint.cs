@@ -78,8 +78,30 @@ public static class VRChatEndpointClass
     /// <remarks>Nothing reads the calendar yet (calendar design §3.1); the budget is set so a later read-back has one.</remarks>
     public const string CalendarRead = "calendar.read";
 
-    /// <summary>Profile fetches. Runs in its own lane, exempt from the global ceiling (spec 4.2.5).</summary>
+    /// <summary>
+    /// The full user object -- <c>GET /users/{userId}</c>. Runs in its own lane, exempt from the
+    /// global ceiling (spec 4.2.5).
+    /// </summary>
+    /// <remarks>
+    /// No longer the main profile read. VRChat stopped returning the bio on this call, and what it
+    /// still carries alone -- the join date, the full tag list, the status line, the avatar
+    /// pictures -- changes slowly or not at all, so it is read rarely and
+    /// <see cref="UsersProfile"/> does the frequent work (research:
+    /// <c>vrchat-public-profile-findings.md</c>).
+    /// </remarks>
     public const string UsersRead = "users.read";
+
+    /// <summary>
+    /// A person's public profile -- <c>GET /profile/{userId}</c>. The main profile read: bio,
+    /// pronouns, display name and age verification.
+    /// </summary>
+    /// <remarks>
+    /// <strong>The same rate as <see cref="UsersRead"/>, and its own budget</strong> -- the
+    /// maintainer's answer on 2026-09-15 to spec 4.3.4's standing question. Its own lane too, so a
+    /// profile read and a user read never queue behind one another and neither can starve the
+    /// other: two budgets that shared a lane would share a queue, which is most of what a budget is.
+    /// </remarks>
+    public const string UsersProfile = "users.profile";
 
     /// <summary>
     /// Which groups an account belongs to, and what it may do in each —
