@@ -228,18 +228,21 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
     }
 
     public async Task<ModbotUser> CreateUserAsync(
-        string username, string password, ModbotPermissions permissions, CancellationToken ct)
+        string username, string password, ModbotPermissions permissions, CancellationToken ct, bool linked = true)
     {
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
-        return await TestAccounts.CreateAsync(db, username, password, permissions, linked: true, ct);
+        return await TestAccounts.CreateAsync(db, username, password, permissions, linked, ct);
     }
 
-    /// <summary>Creates an account with exactly these permissions and returns its session cookie.</summary>
-    public async Task<string> SignedInAsync(ModbotPermissions permissions, CancellationToken ct)
+    /// <summary>
+    /// Creates an account with exactly these permissions and returns its session cookie. Linked
+    /// to a VRChat account unless a test about the link itself says otherwise.
+    /// </summary>
+    public async Task<string> SignedInAsync(ModbotPermissions permissions, CancellationToken ct, bool linked = true)
     {
         var name = $"u_{Guid.NewGuid():N}";
-        await CreateUserAsync(name, "hunter2", permissions, ct);
+        await CreateUserAsync(name, "hunter2", permissions, ct, linked);
 
         var response = await Client.PostAsync(
             "/api/auth/login",

@@ -36,9 +36,15 @@ public static class SyncHealthEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var group = app.MapGroup("/api/health").WithTags("Health").RequireAuthorization();
+        var health = app.MapGroup("/api/health").WithTags("Health");
 
-        group.MapGet("/gate", async (
+        // Everything but the gate needs the VRChat link like the rest of the app (the default
+        // policy). The gate is mapped on the outer group so the policy it names is the only one
+        // it carries: authorization metadata accumulates, and a policy added on the endpoint would
+        // not lift one inherited from the group.
+        var group = health.MapGroup(string.Empty).RequireAuthorization();
+
+        health.MapGet("/gate", async (
                 [FromServices] IVRChatGate gate,
                 CancellationToken ct) =>
             {
@@ -54,7 +60,12 @@ public static class SyncHealthEndpoints
                 + "block needs an egress proxy and will not clear by itself.\n\n"
                 + "Available to any signed-in account. A moderator whose action did nothing needs "
                 + "to be able to tell waiting from broken.")
-            .Produces<GateHealth>();
+            .Produces<GateHealth>()
+            // Signed in is enough, before the VRChat link as well as after. The setup wizard shows
+            // the sign-in wait banner from the moment the VRChat account step has run, which is two
+            // steps before the administrator links their own account; the group's default policy
+            // would answer 403 until then and the banner would never appear when it matters most.
+            .RequireAuthorization(ModbotAuth.SignedInPolicy);
 
         group.MapGet("/sync", async (
                 [FromServices] IVRChatGate gate,

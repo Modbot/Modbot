@@ -115,6 +115,30 @@ public class SignInWaitTests(PostgresFixture db)
         Assert.Equal(4, body.GetProperty("signInLimit").GetInt32());
     }
 
+    /// <summary>
+    /// The wizard shows the banner from the VRChat account step on, two steps before the
+    /// administrator links their own account. The rest of the API needs that link; this one
+    /// endpoint needs only a session, or the banner would answer 403 exactly when the sign-in
+    /// it reports on is happening.
+    /// </summary>
+    [Fact]
+    public async Task TheGateHealthAnswersASignedInAccountBeforeItsVRChatLink()
+    {
+        var gate = new FakeVRChatGate().WaitingToSignIn(Now, Now.AddSeconds(90));
+        await using var host = await ReadSurfaceTestHost.StartAsync(db, gate);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Administrator, Ct, linked: false);
+
+        var gateResponse = await host.GetAsync("/api/health/gate", cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, gateResponse.StatusCode);
+        var body = await gateResponse.ReadJsonAsync(Ct);
+        Assert.Equal(90, body.GetProperty("signInWait").GetProperty("secondsLeft").GetInt32());
+
+        // The detail beside it keeps the app's rule: not until the link is there.
+        var syncResponse = await host.GetAsync("/api/health/sync", cookie, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, syncResponse.StatusCode);
+    }
+
     [Fact]
     public async Task WithoutAWaitTheBannerFieldIsNull()
     {
