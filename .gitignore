@@ -82,7 +82,7 @@ explore/responses/
 
 # Node
 node_modules/
-src/Modbot.Host/wwwroot/
+src/Modbot.Server/wwwroot/
 # Built by src/Modbot.My.Web.
 src/Modbot.My/wwwroot/
 # Built by src/Modbot.Landing/Web.

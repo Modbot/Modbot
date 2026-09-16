@@ -1,4 +1,4 @@
-# Modbot.Host
+# Modbot.Server
 
 The Modbot server: the API, the web app, and the VRChat and Discord sync, all in one process. It is
 built by the `Dockerfile` at the repository root.

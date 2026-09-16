@@ -5,7 +5,7 @@
 # project and they are siblings under src/.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 1 — the SPA. Vite writes it straight into Modbot.Host/wwwroot (see
+# Stage 1 — the SPA. Vite writes it straight into Modbot.Server/wwwroot (see
 # src/Modbot.Web/vite.config.ts), which the publish stage then picks up as static web assets.
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:24-alpine AS web
@@ -34,15 +34,15 @@ COPY src/Modbot.Discord/Modbot.Discord.csproj src/Modbot.Discord/
 COPY src/Modbot.AI/Modbot.AI.csproj src/Modbot.AI/
 COPY src/Modbot.Demo/Modbot.Demo.csproj src/Modbot.Demo/
 COPY src/Modbot.Api/Modbot.Api.csproj src/Modbot.Api/
-COPY src/Modbot.Host/Modbot.Host.csproj src/Modbot.Host/
-RUN dotnet restore src/Modbot.Host/Modbot.Host.csproj
+COPY src/Modbot.Server/Modbot.Server.csproj src/Modbot.Server/
+RUN dotnet restore src/Modbot.Server/Modbot.Server.csproj
 
 COPY src/ src/
-COPY --from=web /src/src/Modbot.Host/wwwroot/ src/Modbot.Host/wwwroot/
+COPY --from=web /src/src/Modbot.Server/wwwroot/ src/Modbot.Server/wwwroot/
 
 # The commit and branch shown on the Deployment card. .git is not in the build context, so the build
 # cannot ask git; Railway supplies these to a Dockerfile that declares them, and anyone else can pass
-# them with --build-arg. They reach MSBuild as environment variables (see Modbot.Host.csproj).
+# them with --build-arg. They reach MSBuild as environment variables (see Modbot.Server.csproj).
 # Declared here, after the restore and the source copy, so a new commit does not throw away those
 # layers. Unset is fine: the running container falls back to the same variables at runtime.
 ARG RAILWAY_GIT_COMMIT_SHA
@@ -54,7 +54,7 @@ ARG RAILWAY_GIT_BRANCH
 # the version stamping on the ModbotRelease property and an empty one must mean "not a release".
 ARG MODBOT_RELEASE
 
-RUN dotnet publish src/Modbot.Host/Modbot.Host.csproj \
+RUN dotnet publish src/Modbot.Server/Modbot.Server.csproj \
         --configuration Release \
         --no-restore \
         --output /app \
@@ -96,4 +96,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # Shell form so ${PORT} is resolved when the container starts. The default matches
 # ModbotEnvironment's, and exec keeps dotnet as PID 1 so SIGTERM reaches it and shutdown is clean.
-ENTRYPOINT ["/bin/sh", "-c", "export PORT=\"${PORT:-8080}\"; exec dotnet /app/Modbot.Host.dll"]
+ENTRYPOINT ["/bin/sh", "-c", "export PORT=\"${PORT:-8080}\"; exec dotnet /app/Modbot.Server.dll"]

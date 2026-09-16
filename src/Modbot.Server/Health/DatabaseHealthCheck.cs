@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Modbot.Core.Data;
 
-namespace Modbot.Host.Health;
+namespace Modbot.Server.Health;
 
 /// <summary>
 /// Answers "can Modbot reach its database right now".

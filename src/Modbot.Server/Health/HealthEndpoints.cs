@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace Modbot.Host.Health;
+namespace Modbot.Server.Health;
 
 /// <summary>
 /// The two probes a hosting platform needs: is the process alive, and can it serve.

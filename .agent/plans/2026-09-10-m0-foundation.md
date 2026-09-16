@@ -43,7 +43,7 @@ Every task's requirements implicitly include this section. Values are copied ver
 | `src/Modbot.Analytics/` | `IFactWriter`, daily totals engine, retention job |
 | `src/Modbot.Api/` | Auth, onboarding endpoints |
 | `src/Modbot.Web/` | React + Vite SPA |
-| `src/Modbot.Host/` | Composition root, `Program.cs`, Dockerfile |
+| `src/Modbot.Server/` | Composition root, `Program.cs`, Dockerfile |
 | `tests/*.Tests/` | One test project per source project |
 
 Files that change together live together: the fact log's entity, writer and dedup logic are one unit; the gate's session, limiter and result type are another.
@@ -54,14 +54,14 @@ Files that change together live together: the fact log's entity, writer and dedu
 
 **Files:**
 - Create: `global.json`, `Directory.Build.props`, `Directory.Packages.props`, `.editorconfig`, `.gitattributes`
-- Create: `Modbot.sln`, `src/Modbot.Host/Modbot.Host.csproj`, `src/Modbot.Host/Program.cs`
-- Create: `tests/Modbot.Host.Tests/Modbot.Host.Tests.csproj`, `tests/Modbot.Host.Tests/HealthTests.cs`
+- Create: `Modbot.sln`, `src/Modbot.Server/Modbot.Server.csproj`, `src/Modbot.Server/Program.cs`
+- Create: `tests/Modbot.Server.Tests/Modbot.Server.Tests.csproj`, `tests/Modbot.Server.Tests/HealthTests.cs`
 - Create: `LICENSE`, `CLA.md`, `TRADEMARK.md`, `README.md`
 - Create: `.github/workflows/ci.yml`
 
 **Interfaces:**
 - Consumes: nothing (first task)
-- Produces: a solution that builds; `Modbot.Host` exposing `GET /health/live` returning `200 OK`; `WebApplicationFactory<Program>` usable by tests (requires `public partial class Program`)
+- Produces: a solution that builds; `Modbot.Server` exposing `GET /health/live` returning `200 OK`; `WebApplicationFactory<Program>` usable by tests (requires `public partial class Program`)
 
 - [ ] **Step 1: Create the solution skeleton and SDK pin**
 
@@ -76,10 +76,10 @@ cat > global.json <<'EOF'
 }
 EOF
 dotnet new sln --name Modbot
-dotnet new web    --output src/Modbot.Host        --name Modbot.Host    --framework net10.0
-dotnet new xunit3 --output tests/Modbot.Host.Tests --name Modbot.Host.Tests --framework net10.0
-dotnet sln add src/Modbot.Host/Modbot.Host.csproj tests/Modbot.Host.Tests/Modbot.Host.Tests.csproj
-dotnet add tests/Modbot.Host.Tests reference src/Modbot.Host
+dotnet new web    --output src/Modbot.Server        --name Modbot.Server    --framework net10.0
+dotnet new xunit3 --output tests/Modbot.Server.Tests --name Modbot.Server.Tests --framework net10.0
+dotnet sln add src/Modbot.Server/Modbot.Server.csproj tests/Modbot.Server.Tests/Modbot.Server.Tests.csproj
+dotnet add tests/Modbot.Server.Tests reference src/Modbot.Server
 ```
 
 If `dotnet new xunit3` is unavailable, run `dotnet new install xunit.v3.templates` first.
@@ -153,13 +153,13 @@ end_of_line = lf
 
 - [ ] **Step 4: Write the failing health-check test**
 
-`tests/Modbot.Host.Tests/HealthTests.cs`:
+`tests/Modbot.Server.Tests/HealthTests.cs`:
 
 ```csharp
 using System.Net;
 using Microsoft.AspNetCore.Mvc.Testing;
 
-namespace Modbot.Host.Tests;
+namespace Modbot.Server.Tests;
 
 public class HealthTests : IClassFixture<WebApplicationFactory<Program>>
 {
@@ -182,7 +182,7 @@ public class HealthTests : IClassFixture<WebApplicationFactory<Program>>
 Add the test-host package:
 
 ```bash
-dotnet add tests/Modbot.Host.Tests package Microsoft.AspNetCore.Mvc.Testing
+dotnet add tests/Modbot.Server.Tests package Microsoft.AspNetCore.Mvc.Testing
 ```
 
 Then move the resolved version into `Directory.Packages.props` as a `<PackageVersion>` and strip the
@@ -190,12 +190,12 @@ Then move the resolved version into `Directory.Packages.props` as a `<PackageVer
 
 - [ ] **Step 5: Run the test to verify it fails**
 
-Run: `dotnet test tests/Modbot.Host.Tests`
+Run: `dotnet test tests/Modbot.Server.Tests`
 Expected: FAIL — `/health/live` returns 404, so the assertion reports `NotFound` instead of `OK`.
 
 - [ ] **Step 6: Implement the minimal host**
 
-`src/Modbot.Host/Program.cs`:
+`src/Modbot.Server/Program.cs`:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
@@ -214,7 +214,7 @@ public partial class Program;
 
 - [ ] **Step 7: Run the test to verify it passes**
 
-Run: `dotnet test tests/Modbot.Host.Tests`
+Run: `dotnet test tests/Modbot.Server.Tests`
 Expected: PASS — 1 test passed.
 
 - [ ] **Step 8: Add the licence, CLA and trademark files**
@@ -1194,7 +1194,7 @@ Written in batches so each stays reviewable. Tasks 1–4 are complete above.
 | 9 | Hierarchical token buckets, `IRateLimitLease`, persisted limiter state | Cold stop survives restart; one probe per window | Global → endpoint class → resource (spec §4.3.1). State in the DB (§4.3.2). Fake must *model the punitive limiter* or the tests prove nothing. |
 | 10 | `IVRChatGate` | Non-throwing SDK verified; WAF classified; AIMD | Must include a smoke test asserting `...WithHttpInfoAsync` returns a non-success `ApiResponse` rather than throwing — pins the upstream behaviour this design depends on. |
 | 11 | Onboarding API: admin, VRChat login, connection test + proxy, group select | Wizard completable end to end | Connection test must distinguish a WAF block from DNS/timeout/bad-credentials; a proxy fixes only the first (spec §7.1.1). |
-| 12 | React/Vite SPA + setup wizard UI | Served from `wwwroot` | npm, not pnpm (not installed). Vite `build.outDir` → `../../Modbot.Host/wwwroot`. |
+| 12 | React/Vite SPA + setup wizard UI | Served from `wwwroot` | npm, not pnpm (not installed). Vite `build.outDir` → `../../Modbot.Server/wwwroot`. |
 | 13 | Host wiring, health checks, Dockerfile, `.railway/railway.ts` | One-click deployable | Resolve `PORT` in the entrypoint shell, not an `ENV` line — it is unset at build time. |
 
 ### Design notes for Task 6 (fact log)

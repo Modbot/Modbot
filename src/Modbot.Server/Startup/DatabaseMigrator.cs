@@ -5,7 +5,7 @@ using Modbot.Core.Data;
 using Npgsql;
 using Serilog;
 
-namespace Modbot.Host.Startup;
+namespace Modbot.Server.Startup;
 
 /// <summary>
 /// Applies EF Core migrations before Modbot serves its first request.

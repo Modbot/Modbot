@@ -10,7 +10,7 @@
     <Project Path="src/Modbot.Demo/Modbot.Demo.csproj" />
     <Project Path="src/Modbot.Discord/Modbot.Discord.csproj" />
     <Project Path="src/Modbot.Evidence/Modbot.Evidence.csproj" />
-    <Project Path="src/Modbot.Host/Modbot.Host.csproj" />
+    <Project Path="src/Modbot.Server/Modbot.Server.csproj" />
     <Project Path="src/Modbot.Landing/Modbot.Landing.csproj" />
     <Project Path="src/Modbot.My/Modbot.My.csproj" />
     <Project Path="src/Modbot.Overlay/Modbot.Overlay.csproj" />

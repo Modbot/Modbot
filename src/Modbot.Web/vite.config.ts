@@ -7,8 +7,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   build: {
-    // The SPA is served by Modbot.Host from wwwroot -- one container, no separate deploy.
-    outDir: '../Modbot.Host/wwwroot',
+    // The SPA is served by Modbot.Server from wwwroot -- one container, no separate deploy.
+    outDir: '../Modbot.Server/wwwroot',
     emptyOutDir: true,
   },
   server: {

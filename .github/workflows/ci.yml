@@ -23,13 +23,13 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
-      # Building Modbot.Host rewrites docs/openapi/modbot.json from the endpoints themselves. The
+      # Building Modbot.Server rewrites docs/openapi/modbot.json from the endpoints themselves. The
       # docs site is built from the committed copy, so a change here means an endpoint changed and
       # the document was not rebuilt and committed with it.
       - name: Check the OpenAPI document is current
         run: |
           if ! git diff --exit-code -- docs/openapi/modbot.json; then
-            echo "::error file=docs/openapi/modbot.json::The OpenAPI document is out of date. Build Modbot.Host and commit docs/openapi/modbot.json."
+            echo "::error file=docs/openapi/modbot.json::The OpenAPI document is out of date. Build Modbot.Server and commit docs/openapi/modbot.json."
             exit 1
           fi
 

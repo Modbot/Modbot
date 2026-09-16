@@ -114,7 +114,7 @@ Discord linking, and optionally Discord-required login as a per-deployment setti
 
 ### 2.5 Modular monolith, split-ready
 
-One deployable (`Modbot.Host`) containing API, web UI, Discord bot and sync scheduler.
+One deployable (`Modbot.Server`) containing API, web UI, Discord bot and sync scheduler.
 Railway template is **one service plus one Postgres**.
 
 The modules are separate projects behind interfaces, and `IVRChatGate` is written so its
@@ -354,8 +354,8 @@ Modbot/
 │  ├─ Modbot.Analytics/       # fact emission, daily totals engine, retention, segment queries
 │  ├─ Modbot.Discord/         # Discord.Net bot as IHostedService
 │  ├─ Modbot.Api/             # HTTP endpoints, auth, onboarding
-│  ├─ Modbot.Web/             # React + Vite + TS; builds into Modbot.Host/wwwroot
-│  └─ Modbot.Host/            # the single deployable; composition root
+│  ├─ Modbot.Web/             # React + Vite + TS; builds into Modbot.Server/wwwroot
+│  └─ Modbot.Server/            # the single deployable; composition root
 ├─ tests/
 │  ├─ Modbot.Core.Tests/
 │  ├─ Modbot.VRChat.Tests/
@@ -2237,7 +2237,7 @@ In scope for this spec:
 Deferred to M5: ban synchronisation in both directions, role synchronisation, VRChat↔Discord account
 linking and auto-invite.
 
-Runs as an `IHostedService` inside `Modbot.Host`. If no bot token is configured, it does not start
+Runs as an `IHostedService` inside `Modbot.Server`. If no bot token is configured, it does not start
 and the rest of Modbot is unaffected.
 
 ### 9.1 Discord is a second fact source, not only a second surface
@@ -2267,7 +2267,7 @@ eligibility as one running instances.
 
 ## 10. Web UI
 
-React + TypeScript + Vite, built into `Modbot.Host/wwwroot` and served by Kestrel. One container,
+React + TypeScript + Vite, built into `Modbot.Server/wwwroot` and served by Kestrel. One container,
 no separate frontend deployment.
 
 Screens in this spec: setup wizard, login, members, bans, invites, audit log viewer, the analytics

@@ -1,7 +1,7 @@
 # Modbot.Web
 
 The web app: everything your staff see in a browser, built with React, TypeScript and Vite. It has
-no server of its own — `Modbot.Host` builds it and serves the result as static files next to its API.
+no server of its own — `Modbot.Server` builds it and serves the result as static files next to its API.
 
 ## Running it in development
 
@@ -11,7 +11,7 @@ npm run dev
 ```
 
 Opens on `http://localhost:5173` and proxies `/api` to `http://localhost:8080` (see
-`vite.config.ts`), so a local `Modbot.Host` needs to be running for anything past the sign-in page
+`vite.config.ts`), so a local `Modbot.Server` needs to be running for anything past the sign-in page
 to work. Changes reload in the browser as you save.
 
 ## Building it
@@ -21,8 +21,8 @@ npm run build
 ```
 
 Runs the TypeScript project build (`tsc -b`) and then Vite, writing straight into
-`../Modbot.Host/wwwroot` — there is no separate deploy step or artifact for the web app; it is part
-of the `Modbot.Host` build and the Docker image at the repository root.
+`../Modbot.Server/wwwroot` — there is no separate deploy step or artifact for the web app; it is part
+of the `Modbot.Server` build and the Docker image at the repository root.
 
 ## Checks
 

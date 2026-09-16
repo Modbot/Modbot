@@ -123,7 +123,7 @@ its token can only report presence and read the room list —
 
 | Project | What it is |
 |---|---|
-| [`src/Modbot.Host`](src/Modbot.Host/README.md) | The server: the API, the web app, the VRChat sync and the Discord bot, in one process |
+| [`src/Modbot.Server`](src/Modbot.Server/README.md) | The server: the API, the web app, the VRChat sync and the Discord bot, in one process |
 | [`src/Modbot.Web`](src/Modbot.Web) | The web app your staff open in a browser, served by the server |
 | [`src/Modbot.Client.App`](src/Modbot.Client.App/README.md) | The Windows desktop client and its SteamVR overlay |
 | [`src/Modbot.Landing`](src/Modbot.Landing/README.md) | `modbot.co`, the landing page |

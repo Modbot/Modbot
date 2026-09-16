@@ -10,7 +10,7 @@ namespace Modbot.Core.Configuration;
 /// <param name="Branch">The branch that commit was built from, or null when nothing says.</param>
 /// <remarks>
 /// <para>
-/// <strong>What the build wrote down wins over what the process can see.</strong> Modbot.Host.csproj
+/// <strong>What the build wrote down wins over what the process can see.</strong> Modbot.Server.csproj
 /// stamps both values into the assembly as <see cref="AssemblyMetadataAttribute"/> entries, from
 /// the build properties, then Railway's and GitHub Actions' build variables, then git itself. That
 /// is the only answer tied to the code actually running: a runtime variable describes the

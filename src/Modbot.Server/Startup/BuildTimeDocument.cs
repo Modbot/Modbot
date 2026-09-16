@@ -1,7 +1,7 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Modbot.Host.Startup;
+namespace Modbot.Server.Startup;
 
 /// <summary>
 /// The run of Program.cs that only writes the OpenAPI document, during <c>dotnet build</c>.

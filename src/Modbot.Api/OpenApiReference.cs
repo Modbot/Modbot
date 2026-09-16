@@ -16,7 +16,7 @@ namespace Modbot.Api;
 /// <remarks>
 /// <para>
 /// The documentation site's API reference is made from this document (docs/openapi/modbot.json,
-/// written on every build of Modbot.Host). Everything here is read from the same metadata the
+/// written on every build of Modbot.Server). Everything here is read from the same metadata the
 /// server enforces -- <c>RequiresFlag</c>, <c>AllowAnonymous</c> and the API key rules in
 /// <see cref="ApiKeyAuthentication.KeysMayNotUse"/> -- so the reference cannot claim an endpoint
 /// takes a key that the server refuses.

@@ -49,7 +49,7 @@
     context has no .git, and a machine without git must still build. Nothing found means nothing is
     stamped, and BuildSource falls back to the same variables at runtime.
 
-    Stamped here and not in Modbot.Shared, because nothing references Modbot.Host. A value in a
+    Stamped here and not in Modbot.Shared, because nothing references Modbot.Server. A value in a
     shared assembly would change with every commit and rebuild every project that depends on it.
   -->
   <Target Name="StampModbotBuildSource" BeforeTargets="GetAssemblyAttributes">

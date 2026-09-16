@@ -1,7 +1,7 @@
 using Modbot.Core.Configuration;
 using Npgsql;
 
-namespace Modbot.Host.Data;
+namespace Modbot.Server.Data;
 
 /// <summary>
 /// Turns whatever an operator put in <c>DATABASE_URL</c> into something Npgsql will accept.

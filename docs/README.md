@@ -8,7 +8,7 @@ with [Fumadocs](https://fumadocs.dev), exported as static files.
 | Path | Contents |
 |---|---|
 | `content/docs/` | The pages, as MDX. Each folder's `meta.json` sets the order in the sidebar. |
-| `openapi/modbot.json` | The OpenAPI document the API reference is made from. Written by building `src/Modbot.Host`; do not edit it by hand. |
+| `openapi/modbot.json` | The OpenAPI document the API reference is made from. Written by building `src/Modbot.Server`; do not edit it by hand. |
 | `content/docs/api/reference/` | The reference's introduction and section order. Its endpoint pages are made from the OpenAPI document at build time. |
 | `app/`, `components/`, `lib/` | The site itself. |
 | `scripts/serve.mjs` | The server the Docker image runs. |
@@ -43,7 +43,7 @@ output needs nothing but a file server.
 Build the server and commit the document with the endpoint change:
 
 ```bash
-dotnet build src/Modbot.Host
+dotnet build src/Modbot.Server
 git add docs/openapi/modbot.json
 ```
 

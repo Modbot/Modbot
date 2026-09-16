@@ -24,7 +24,7 @@
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
-    <!-- Writes the OpenAPI document to docs/openapi/modbot.json on every build of Modbot.Host, so
+    <!-- Writes the OpenAPI document to docs/openapi/modbot.json on every build of Modbot.Server, so
          the documentation site's API reference is made from the endpoints themselves. -->
     <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.12" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.12" />
