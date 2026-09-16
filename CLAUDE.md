@@ -71,6 +71,21 @@ The data tests need **Docker** — they run against real PostgreSQL via Testcont
 than a substitute provider, because Modbot depends on table partitioning, `jsonb`, GIN indexes
 and advisory locks, and an in-memory provider implements none of them.
 
+### Tests and CI come at the end
+
+**An agent building a feature does not run the test suites and does not watch CI.** Waiting on them
+is most of an agent's wall-clock time, and several agents waiting in parallel is most of a session.
+
+Before pushing, an agent still checks that the work compiles:
+
+- `dotnet build -c Release`
+- the web project's typecheck, lint and build, for web changes
+- `dotnet ef migrations has-pending-model-changes`, for model changes
+
+Tests are still **written**; they are simply not run yet, and the agent lists in its report what it
+wrote but did not run. When a run of features has landed, one testing pass runs every suite and every
+web check, fixes what fails, and takes CI green on master.
+
 ### Which model runs end-to-end testing
 
 **Agents that run end-to-end testing use the latest Sonnet model (currently Sonnet 5,
