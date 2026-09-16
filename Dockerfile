@@ -32,6 +32,7 @@ COPY src/Modbot.Analytics/Modbot.Analytics.csproj src/Modbot.Analytics/
 COPY src/Modbot.Evidence/Modbot.Evidence.csproj src/Modbot.Evidence/
 COPY src/Modbot.Discord/Modbot.Discord.csproj src/Modbot.Discord/
 COPY src/Modbot.AI/Modbot.AI.csproj src/Modbot.AI/
+COPY src/Modbot.Demo/Modbot.Demo.csproj src/Modbot.Demo/
 COPY src/Modbot.Api/Modbot.Api.csproj src/Modbot.Api/
 COPY src/Modbot.Host/Modbot.Host.csproj src/Modbot.Host/
 RUN dotnet restore src/Modbot.Host/Modbot.Host.csproj

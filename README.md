@@ -30,7 +30,13 @@ and gives your staff tools VRChat does not have. One Modbot looks after one grou
 
 <img src="assets/person-popup.png" alt="A person opened over the page, showing everything recorded about them" width="620">
 
-<sub>Sample data. Names, worlds and instance numbers are made up.</sub>
+<img src="assets/audit-log.png" alt="The audit log: every event from VRChat next to everything that happened inside Modbot" width="880">
+
+<img src="assets/analytics.png" alt="Analytics for a Discord server, with charts for member count, joins and leaves, and messages per day" width="880">
+
+<img src="assets/discord-members.png" alt="Discord members, with their VRChat account linked where one is" width="880">
+
+<sub>Screenshots from Modbot's own demo mode. The group, the people and the history are made up.</sub>
 
 </div>
 
