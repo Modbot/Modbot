@@ -204,7 +204,8 @@ name yourself and use **Test** to check it.
 
 Everything below goes to the endpoint on **Base**, with your key. Text your members wrote — Discord
 messages, VRChat display names, bios, status lines and pronouns — is sent to the AI provider you
-choose. Your provider's own terms decide what happens to it there.
+choose, and so are pictures when a rule is set to look at them. Your provider's own terms decide
+what happens to it there.
 
 The first time you switch **AI on**, Modbot shows you this list and you have to confirm it. That
 happens once for the deployment, and it is recorded in the
@@ -215,6 +216,9 @@ happens once for the deployment, and it is recorded in the
 | **Test** | The single message "Reply with the single word OK." |
 | Model list | A request for the model list. No group data. |
 | [Moderation rules](/ai/moderation-rules) (AI topics only) | Modbot's instructions; the name, "What to catch" text and sensitivity of each AI topic that applies; which kind of text it is (a Discord message, a VRChat display name, bio, status or pronouns); and the text itself, up to 4,000 characters. The person's name and id are not sent. Term lists never send anything. |
+| Conversation, when a rule reads it | The messages before the one being checked, in the same channel or thread, and the message it replied to — each with **its author's name**, clipped to 500 characters. Only for rules set to read the conversation. |
+| Pictures, when a rule looks at them | Up to four pictures per check, each 4 MB or smaller: Discord attachments, Discord avatars and VRChat profile pictures. Sent as a link where the provider takes one, otherwise as the bytes. Off unless switched on for that rule. |
+| [Alerts](/ai/alerts) | Modbot's instructions and counts. No person's name, id or messages. |
 | [Insights](/ai/insights) | Modbot's instructions and the insight's figures: counts for the period and the period before, and short lists of the busiest worlds and rooms by world name. No person's name, id or messages. |
 | [Chat](/ai/chat) | Modbot's instructions (including the group's name, the current time and any extra instructions you wrote), the whole conversation so far, the list of tools on offer, and every tool result. Tool results are Modbot data: names, bios, ban history, audit log entries, who is in a room. The asker's Modbot account id is not sent. |
 
