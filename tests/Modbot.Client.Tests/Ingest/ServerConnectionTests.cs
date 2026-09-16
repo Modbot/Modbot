@@ -1,5 +1,6 @@
 using Modbot.Client.Ingest;
 using Modbot.Client.Instances;
+using Modbot.Client.Journal;
 using Modbot.Client.Time;
 using Modbot.TestSupport;
 
@@ -43,7 +44,10 @@ public sealed class ServerConnectionTests : IDisposable
 
     public void Dispose() => Directory.Delete(_directory, recursive: true);
 
-    private ServerConnection Connection(string serverId = "cats", string group = "grp_cats")
+    private ServerConnection Connection(
+        string serverId = "cats",
+        string group = "grp_cats",
+        SentJournal? journal = null)
     {
         var pairing = new ServerPairing(serverId, new Uri("https://modbot.example"), "token", group);
         var buffer = new FileEventBuffer(Path.Combine(_directory, $"{serverId}.jsonl"), _clock);
@@ -57,7 +61,8 @@ public sealed class ServerConnectionTests : IDisposable
             _transport,
             _clock,
             clientVersion: "2026.9.0",
-            backoff: new BackoffPolicy(TimeSpan.FromSeconds(2), TimeSpan.FromMinutes(5), 2.0, () => 0.0));
+            backoff: new BackoffPolicy(TimeSpan.FromSeconds(2), TimeSpan.FromMinutes(5), 2.0, () => 0.0),
+            journal: journal);
     }
 
     private static ObservedPresence Observation(string subjectId = "usr_a", string group = "grp_cats")
@@ -404,5 +409,35 @@ public sealed class ServerConnectionTests : IDisposable
         var pairing = new ServerPairing("cats", new Uri("https://modbot.example"), "SECRET-TOKEN", "grp_cats");
 
         Assert.DoesNotContain("SECRET-TOKEN", pairing.ToString());
+    }
+
+    [Fact]
+    public async Task OneEventGoingToTheServerAndToModbotCloudIsOneRowOnTheEventsScreen()
+    {
+        // The two halves of the client never speak to each other: one reports to the paired
+        // server, the other backs up to Modbot Cloud, and each gives the event its own
+        // clientEventId. What ties their lines together is the key both work out from the
+        // observation, so an event seen once is counted once.
+        var journal = new SentJournal(Path.Combine(_directory, "sent.jsonl"), _clock);
+        var connection = Connection(journal: journal);
+        var observation = Observation();
+
+        connection.Accept(observation);
+
+        var cloudClock = new ServerClock(_clock);
+        journal.RecordQueued(
+            SentJournal.CloudName,
+            JournalDestination.Cloud,
+            SentJournal.KeyFor(observation),
+            new PresenceEventMapper(new LogTimestampConverter(Utc), cloudClock).MapAnyInstance(observation));
+
+        _clock.Advance(ServerConnection.DefaultBatchInterval);
+        await connection.PumpAsync(TestContext.Current.CancellationToken);
+
+        var row = Assert.Single(journal.Events());
+
+        Assert.Equal("cats", row.ServerId);
+        Assert.Equal(JournalEntryKind.Sent, row.ServerState);
+        Assert.Equal(JournalEntryKind.Waiting, row.CloudState);
     }
 }

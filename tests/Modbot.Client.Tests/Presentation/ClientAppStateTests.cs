@@ -184,7 +184,7 @@ public class ClientAppStateTests : IDisposable
 
         journal.RecordSent("cats", [WireEvent()]);
 
-        Assert.Contains("Rin", Assert.Single(state.Snapshot().Journal).Summary);
+        Assert.Contains("Rin", Assert.Single(state.Snapshot().Events).Summary);
     }
 
     [Fact]

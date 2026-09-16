@@ -15,13 +15,13 @@ namespace Modbot.Client.App;
 internal enum Page
 {
     Servers,
-    Sent,
+    Events,
     Log,
     Settings,
 }
 
 /// <summary>
-/// The client window: what Modbot is reading, where it reports, and everything it has sent.
+/// The client window: what Modbot is reading, where it reports, and every event it has handled.
 /// </summary>
 /// <remarks>
 /// <para><strong>This window is the trust argument made visible.</strong> A volunteer moderator is
@@ -180,7 +180,7 @@ public sealed class MainWindow : Window
         _nav.Children.Add(NavItem(
             Page.Servers, "Servers", _snapshot.Servers.Count == 0 ? null : $"{_snapshot.Servers.Count}"));
         _nav.Children.Add(NavItem(
-            Page.Sent, "What I've sent", _snapshot.Journal.Count == 0 ? null : $"{_snapshot.Journal.Count}"));
+            Page.Events, "Events", _snapshot.Events.Count == 0 ? null : $"{_snapshot.Events.Count}"));
         _nav.Children.Add(NavItem(Page.Log, "Log", null));
         _nav.Children.Add(NavItem(Page.Settings, "Settings", null));
     }
@@ -238,8 +238,8 @@ public sealed class MainWindow : Window
 
         switch (_page)
         {
-            case Page.Sent:
-                RenderSent();
+            case Page.Events:
+                RenderEvents();
                 break;
             case Page.Log:
                 RenderLog();
@@ -457,26 +457,24 @@ public sealed class MainWindow : Window
         return Ui.Card(body, "Pair with a server");
     }
 
-    private void RenderSent()
+    /// <summary>
+    /// Every event this client processed, newest first: what it was, where it went, and how far it
+    /// got at each place. One row per event, however many places it was sent to.
+    /// </summary>
+    private void RenderEvents()
     {
-        _body.Children.Add(Ui.Card(
-            Ui.Dim(
-                "Every line here is something this program disclosed about you to a Modbot server, "
-                + "newest first, and the list is kept on your disk so it is still here tomorrow."),
-            "What Modbot has sent"));
-
-        if (_snapshot.Journal.Count == 0)
+        if (_snapshot.Events.Count == 0)
         {
-            _body.Children.Add(Ui.Card(Ui.Dim("Nothing has been sent yet.")));
+            _body.Children.Add(Ui.Card(Ui.Dim("Nothing yet.")));
             return;
         }
 
         var rows = new StackPanel { Spacing = 0 };
         var first = true;
 
-        foreach (var entry in _snapshot.Journal)
+        foreach (var row in _snapshot.Events)
         {
-            rows.Children.Add(JournalRow(entry, first));
+            rows.Children.Add(EventRow(row, first));
             first = false;
         }
 
@@ -491,40 +489,40 @@ public sealed class MainWindow : Window
         });
     }
 
-    private static Control JournalRow(JournalEntry entry, bool first)
+    private static Control EventRow(JournalRow row, bool first)
     {
-        var (colour, background, word) = entry.Kind switch
-        {
-            JournalEntryKind.Withheld => (Ui.T.Palette.TextFaint, Ui.T.Palette.Surface2, "withheld"),
-            JournalEntryKind.Note => (Ui.T.Palette.Warn, Ui.T.Palette.WarnDim, "note"),
-            _ => (Ui.T.Palette.Ok, Ui.T.Palette.OkDim, "sent"),
-        };
-
-        var pill = Ui.Pill(word, colour, background);
-        pill.HorizontalAlignment = HorizontalAlignment.Left;
+        var sent = row.ServerState is JournalEntryKind.Sent || row.CloudState is JournalEntryKind.Sent;
 
         var line = Ui.Text(
-            entry.Summary,
+            row.Summary,
             Ui.T.Density.TextSmall,
-            entry.Kind == JournalEntryKind.Sent ? Ui.T.TextBrush : Ui.T.TextDimBrush);
+            sent ? Ui.T.TextBrush : Ui.T.TextDimBrush);
 
         line.VerticalAlignment = VerticalAlignment.Center;
 
-        var server = Ui.Faint(entry.ServerId);
-        server.VerticalAlignment = VerticalAlignment.Center;
+        // One line per place this event went, so "the server has it and Modbot Cloud has not yet"
+        // is something the screen can say rather than something it has to hide behind one word.
+        var places = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Right };
+
+        if (row.IsNote)
+            places.Children.Add(Place(row.ServerId, JournalEntryKind.Note));
+
+        if (row.ServerState is { } serverState)
+            places.Children.Add(Place(row.ServerId, serverState));
+
+        if (row.CloudState is { } cloudState)
+            places.Children.Add(Place(SentJournal.CloudName, cloudState));
 
         var grid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("96,*,Auto"),
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
             ColumnSpacing = 12,
         };
 
-        Grid.SetColumn(pill, 0);
-        Grid.SetColumn(line, 1);
-        Grid.SetColumn(server, 2);
-        grid.Children.Add(pill);
+        Grid.SetColumn(line, 0);
+        Grid.SetColumn(places, 1);
         grid.Children.Add(line);
-        grid.Children.Add(server);
+        grid.Children.Add(places);
 
         return new Border
         {
@@ -533,6 +531,36 @@ public sealed class MainWindow : Window
             BorderThickness = new Thickness(0, first ? 0 : Ui.T.Density.Hairline, 0, 0),
             Child = grid,
         };
+    }
+
+    /// <summary>Where one event went, and how far it got there.</summary>
+    private static Control Place(string? name, JournalEntryKind state)
+    {
+        var (colour, background, word) = state switch
+        {
+            JournalEntryKind.Withheld => (Ui.T.Palette.TextFaint, Ui.T.Palette.Surface2, "withheld"),
+            JournalEntryKind.Waiting => (Ui.T.Palette.Info, Ui.T.Palette.InfoDim, "waiting"),
+            JournalEntryKind.Failed => (Ui.T.Palette.Danger, Ui.T.Palette.DangerDim, "failed"),
+            JournalEntryKind.Note => (Ui.T.Palette.Warn, Ui.T.Palette.WarnDim, "note"),
+            _ => (Ui.T.Palette.Ok, Ui.T.Palette.OkDim, "sent"),
+        };
+
+        var place = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            HorizontalAlignment = HorizontalAlignment.Right,
+        };
+
+        if (name is { Length: > 0 })
+        {
+            var label = Ui.Faint(name);
+            label.VerticalAlignment = VerticalAlignment.Center;
+            place.Children.Add(label);
+        }
+
+        place.Children.Add(Ui.Pill(word, colour, background));
+        return place;
     }
 
     private void RenderLog()

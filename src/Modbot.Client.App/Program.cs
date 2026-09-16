@@ -260,7 +260,8 @@ internal sealed class ClientHost
                 new DpapiSecretProtector(DpapiSecretProtector.CloudSecretPurpose)),
             ModbotVersion.Release,
             Endpoint: cloud.Endpoint,
-            Enabled: !cloud.Disabled));
+            Enabled: !cloud.Disabled,
+            Journal: _journal));
 
         var backup = _cloudBackup;
         _ = Task.Run(() => backup.RunAsync(

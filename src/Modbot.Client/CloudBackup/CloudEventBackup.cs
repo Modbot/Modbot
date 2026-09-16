@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using Modbot.Client.Ingest;
 using Modbot.Client.Instances;
+using Modbot.Client.Journal;
 using Modbot.Client.Time;
 using Modbot.Core.Time;
 
@@ -29,6 +30,10 @@ public sealed record CloudBackupStatus(CloudBackupState State, long Queued, long
 /// <param name="Endpoint">The Modbot Cloud to send to, from <see cref="CloudSettings"/>. Null is the default.</param>
 /// <param name="Enabled">False when <see cref="CloudSettings.Disabled"/>.</param>
 /// <param name="TimeZone">This PC's time zone, for reading VRChat's offset-less timestamps.</param>
+/// <param name="Journal">
+/// The Events screen's record, told what was queued for Cloud and what Cloud took. Null in tests
+/// and anywhere the screen is not running.
+/// </param>
 public sealed record CloudBackupOptions(
     string Directory,
     IModbotClock Clock,
@@ -40,7 +45,8 @@ public sealed record CloudBackupOptions(
     TimeZoneInfo? TimeZone = null,
     BackoffPolicy? Backoff = null,
     long OutboxCap = CloudOutbox.DefaultCap,
-    IClientEventIdSource? Ids = null);
+    IClientEventIdSource? Ids = null,
+    SentJournal? Journal = null);
 
 /// <summary>
 /// Where the reader hands every observation it makes, whichever instance it is in.
@@ -101,6 +107,7 @@ public sealed class CloudEventBackup : IObservationSink
     private readonly BackoffPolicy _backoff;
     private readonly LogTimestampConverter _timestamps;
     private readonly IClientEventIdSource? _ids;
+    private readonly SentJournal? _journal;
     private readonly string _clientVersion;
 
     private readonly Lock _queueGate = new();
@@ -138,6 +145,7 @@ public sealed class CloudEventBackup : IObservationSink
         _backoff = options.Backoff ?? new BackoffPolicy();
         _timestamps = new LogTimestampConverter(options.TimeZone);
         _ids = options.Ids;
+        _journal = options.Journal;
         _clientVersion = options.ClientVersion;
         _endpoint = options.Endpoint ?? CloudSettings.DefaultEndpoint;
         _enabled = options.Enabled;
@@ -286,13 +294,49 @@ public sealed class CloudEventBackup : IObservationSink
         catch (Exception ex) when (ex is JsonException or ArgumentException)
         {
             // An event on disk that is not the JSON this client wrote. Resending will not fix it.
-            Finish(batch, generation, new IngestResult(IngestOutcome.Malformed), endpoint);
+            var refused = new IngestResult(IngestOutcome.Malformed);
+            Finish(batch, generation, refused, endpoint);
+            Record(refused, events);
             return false;
         }
 
         var result = await _client.SendAsync(install, body, cancellationToken).ConfigureAwait(false);
         Finish(batch, generation, result, endpoint);
+        Record(result, events);
         return result.Outcome is IngestOutcome.Accepted;
+    }
+
+    /// <summary>
+    /// Tells the Events screen what became of a batch: taken by Cloud, or refused for good and
+    /// dropped. Anything else leaves the events waiting, which is what they are.
+    /// </summary>
+    private void Record(IngestResult result, IReadOnlyList<string> events)
+    {
+        if (_journal is null)
+            return;
+
+        if (result.Outcome is not (IngestOutcome.Accepted or IngestOutcome.Malformed or IngestOutcome.TooLarge))
+            return;
+
+        var sent = new List<ClientEvent>(events.Count);
+        foreach (var json in events)
+        {
+            try
+            {
+                if (JsonSerializer.Deserialize<ClientEvent>(json, Json) is { } clientEvent)
+                    sent.Add(clientEvent);
+            }
+            catch (JsonException)
+            {
+                // A line the outbox holds that this client cannot read back. The batch's fate is
+                // still recorded for the events that could be read.
+            }
+        }
+
+        if (result.Outcome is IngestOutcome.Accepted)
+            _journal.RecordSent(SentJournal.CloudName, sent, JournalDestination.Cloud);
+        else
+            _journal.RecordFailed(SentJournal.CloudName, sent, JournalDestination.Cloud);
     }
 
     private void MoveQueueToDisk()
@@ -315,9 +359,8 @@ public sealed class CloudEventBackup : IObservationSink
 
         // Every instance, group or not: that is what the backup is. Times are corrected to Cloud's
         // clock as far as it has been measured, exactly as a server's events are to that server's.
-        var events = taken
-            .Select(o => JsonSerializer.Serialize(_mapper.MapAnyInstance(o), Json))
-            .ToList();
+        var mapped = taken.Select(o => (Observation: o, Event: _mapper.MapAnyInstance(o))).ToList();
+        var events = mapped.Select(m => JsonSerializer.Serialize(m.Event, Json)).ToList();
 
         lock (_outboxGate)
         {
@@ -325,6 +368,18 @@ public sealed class CloudEventBackup : IObservationSink
                 return;
 
             _outbox.Append(events, since);
+        }
+
+        // Written once the events are on disk, so the screen never shows an event queued for Cloud
+        // that a crash a moment later would have lost. The key is worked out from the observation,
+        // which is how this line and the paired server's line about the same event become one row.
+        foreach (var (observation, clientEvent) in mapped)
+        {
+            _journal?.RecordQueued(
+                SentJournal.CloudName,
+                JournalDestination.Cloud,
+                SentJournal.KeyFor(observation),
+                clientEvent);
         }
     }
 

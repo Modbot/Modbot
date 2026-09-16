@@ -127,6 +127,12 @@ public sealed class ServerConnection : IIngestTarget
 
     public string ServerId => Pairing.ServerId;
 
+    /// <summary>
+    /// What the Events screen calls this server: the name the moderator gave it, or its address
+    /// when there is no name to show.
+    /// </summary>
+    public string Name => Pairing.ServerId is { Length: > 0 } name ? name : Pairing.BaseUri.Authority;
+
     public string ManagedGroupId => Pairing.ManagedGroupId;
 
     /// <summary>How many observations are waiting to be sent. Shown to the moderator.</summary>
@@ -159,14 +165,14 @@ public sealed class ServerConnection : IIngestTarget
             if (value)
             {
                 State = ConnectionState.Paused;
-                _journal?.RecordNote(ServerId, "Paused. Nothing is being captured or sent for this server.");
+                _journal?.RecordNote(Name, "Paused. Nothing is being captured or sent for this server.");
             }
             else
             {
                 if (State == ConnectionState.Paused)
                     State = ConnectionState.Healthy;
 
-                _journal?.RecordNote(ServerId, "Resumed reporting.");
+                _journal?.RecordNote(Name, "Resumed reporting.");
             }
         }
     }
@@ -190,16 +196,26 @@ public sealed class ServerConnection : IIngestTarget
         if (_paused || State is ConnectionState.Stopped)
         {
             _journal?.RecordWithheld(
-                ServerId,
-                _paused
+                serverId: Name,
+                reason: _paused
                     ? "Not sent — reporting is paused."
-                    : "Not sent — this pairing has stopped; the server rejected its token.");
+                    : "Not sent — this pairing has stopped; the server rejected its token.",
+                eventKey: SentJournal.KeyFor(observation));
             return;
         }
 
         if (_mapper.Map(observation) is { } clientEvent)
         {
             _buffer.Add(clientEvent);
+
+            // Written as soon as it is queued, so the screen shows an event from the moment this
+            // client processed it rather than only once a server has taken it. What happened to it
+            // afterwards is written on later lines and folded into the same row.
+            _journal?.RecordQueued(
+                Name,
+                JournalDestination.Server,
+                SentJournal.KeyFor(observation),
+                clientEvent);
 
             if (IsChange(clientEvent.Type))
                 _changeWaitingSince ??= _clock.UtcNow;
@@ -296,7 +312,7 @@ public sealed class ServerConnection : IIngestTarget
 
                 // Written before the buffer is cleared, so the record of a disclosure cannot be
                 // lost by a crash between the two.
-                _journal?.RecordSent(ServerId, sent);
+                _journal?.RecordSent(Name, sent);
                 _buffer.Remove(sent.Select(e => e.ClientEventId));
                 Succeeded();
                 NoteWaitingChanges();
@@ -307,8 +323,12 @@ public sealed class ServerConnection : IIngestTarget
                 // fills up forever and stops reporting anything at all, so these are dropped and
                 // counted loudly instead.
                 MalformedBatches++;
+
+                // Each event is marked failed as well as counted, so the screen says what became
+                // of the ones that were dropped rather than leaving them waiting forever.
+                _journal?.RecordFailed(Name, sent);
                 _journal?.RecordNote(
-                    ServerId,
+                    Name,
                     $"The server refused a batch of {sent.Count} as malformed. They were dropped, not retried.");
                 _buffer.Remove(sent.Select(e => e.ClientEventId));
                 Succeeded();
@@ -320,7 +340,7 @@ public sealed class ServerConnection : IIngestTarget
                 // nothing more is sent and the state is surfaced rather than retried quietly.
                 State = ConnectionState.Stopped;
                 _journal?.RecordNote(
-                    ServerId,
+                    Name,
                     "The server rejected this device token. Reporting has stopped and will not be retried.");
                 _inFlightBatchId = null;
                 break;

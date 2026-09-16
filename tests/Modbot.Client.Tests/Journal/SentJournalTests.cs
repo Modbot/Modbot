@@ -1,4 +1,5 @@
 using Modbot.Client.Ingest;
+using Modbot.Client.Instances;
 using Modbot.Client.Journal;
 using Modbot.TestSupport;
 
@@ -173,5 +174,156 @@ public class SentJournalTests : IDisposable
 
         Assert.Equal(0, journal.Count);
         Assert.Equal(0, new SentJournal(Path_, _clock).Count);
+    }
+
+    private static ObservedPresence Observation(string subject = "usr_8f2c", int second = 7)
+    {
+        Assert.True(
+            InstanceLocation.TryParse("wrld_4b34:39911~group(grp_cats)~region(eu)", out var instance));
+
+        return new ObservedPresence(
+            PresenceKind.Joined,
+            new DateTime(2026, 9, 12, 20, 14, second),
+            subject,
+            "Rin",
+            instance);
+    }
+
+    [Fact]
+    public void BothHalvesOfTheClientWorkOutTheSameKeyForTheSameEvent()
+    {
+        // Nobody hands the key over: the paired server's half and the Modbot Cloud half each work
+        // it out from what was observed. If they ever disagreed, one event would become two rows.
+        Assert.Equal(SentJournal.KeyFor(Observation()), SentJournal.KeyFor(Observation()));
+        Assert.NotEqual(SentJournal.KeyFor(Observation()), SentJournal.KeyFor(Observation("usr_other")));
+        Assert.NotEqual(SentJournal.KeyFor(Observation()), SentJournal.KeyFor(Observation(second: 8)));
+    }
+
+    [Fact]
+    public void AnEventSentToBothPlacesIsOneRowThatSaysWhereEachStands()
+    {
+        var journal = new SentJournal(Path_, _clock);
+        var key = SentJournal.KeyFor(Observation());
+        var toServer = Event();
+        var toCloud = Event();
+
+        journal.RecordQueued("cats", JournalDestination.Server, key, toServer);
+        journal.RecordQueued(SentJournal.CloudName, JournalDestination.Cloud, key, toCloud);
+        journal.RecordSent("cats", [toServer]);
+
+        var row = Assert.Single(journal.Events());
+
+        Assert.Equal("cats", row.ServerId);
+        Assert.Equal(JournalEntryKind.Sent, row.ServerState);
+        Assert.Equal(JournalEntryKind.Waiting, row.CloudState);
+        Assert.Contains("Rin (usr_8f2c)", row.Summary);
+    }
+
+    [Fact]
+    public void AnEventOnlyModbotCloudWasToldAboutIsStillOneRow()
+    {
+        // The usual case for anybody with no server paired, and for every instance outside a
+        // group: Modbot Cloud hears about it and nothing else does.
+        var journal = new SentJournal(Path_, _clock);
+        var toCloud = Event();
+
+        journal.RecordQueued(
+            SentJournal.CloudName, JournalDestination.Cloud, SentJournal.KeyFor(Observation()), toCloud);
+        journal.RecordSent(SentJournal.CloudName, [toCloud], JournalDestination.Cloud);
+
+        var row = Assert.Single(journal.Events());
+
+        Assert.Null(row.ServerId);
+        Assert.Null(row.ServerState);
+        Assert.Equal(JournalEntryKind.Sent, row.CloudState);
+    }
+
+    [Fact]
+    public void TheCountOnTheScreenIsEventsRatherThanSends()
+    {
+        var journal = new SentJournal(Path_, _clock);
+        var key = SentJournal.KeyFor(Observation());
+        var toServer = Event();
+        var toCloud = Event();
+
+        journal.RecordQueued("cats", JournalDestination.Server, key, toServer);
+        journal.RecordQueued(SentJournal.CloudName, JournalDestination.Cloud, key, toCloud);
+        journal.RecordSent("cats", [toServer]);
+        journal.RecordSent(SentJournal.CloudName, [toCloud], JournalDestination.Cloud);
+
+        Assert.Equal(4, journal.Count);
+        Assert.Single(journal.Events());
+    }
+
+    [Fact]
+    public void AJournalWrittenByAnOlderVersionStillReads()
+    {
+        // Lines from before the Cloud backup: a numbered kind, no destination and no key. Every
+        // one of them was about a paired server, and they still have to show up as rows.
+        Directory.CreateDirectory(_directory);
+        File.WriteAllLines(
+            Path_,
+            [
+                """{"at":"2026-09-12T20:14:07+00:00","kind":0,"serverId":"cats","summary":"20:14:07 — told them Rin (usr_8f2c) joined wrld_4b34:39911"}""",
+                """{"at":"2026-09-12T20:15:00+00:00","kind":2,"serverId":"cats","summary":"Paused. Nothing is being captured or sent for this server."}""",
+            ]);
+
+        var rows = new SentJournal(Path_, _clock).Events();
+
+        Assert.Equal(2, rows.Count);
+        Assert.True(rows[0].IsNote);
+        Assert.Contains("Paused", rows[0].Summary);
+        Assert.Equal(JournalEntryKind.Sent, rows[1].ServerState);
+        Assert.Equal("cats", rows[1].ServerId);
+        Assert.Contains("Rin", rows[1].Summary);
+    }
+
+    [Fact]
+    public void RefusalsAndNotesAreStillRowsOfTheirOwn()
+    {
+        var journal = new SentJournal(Path_, _clock);
+
+        journal.RecordWithheld("cats", "Not sent — reporting is paused.");
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        journal.RecordNote("cats", "Resumed reporting.");
+
+        var rows = journal.Events();
+
+        Assert.Equal(2, rows.Count);
+        Assert.True(rows[0].IsNote);
+        Assert.Contains("Resumed", rows[0].Summary);
+        Assert.Equal(JournalEntryKind.Withheld, rows[1].ServerState);
+        Assert.Contains("paused", rows[1].Summary);
+    }
+
+    [Fact]
+    public void AnEventTheServerWithheldButModbotCloudTookSaysWhatItWas()
+    {
+        // A paused server captures nothing, so its line holds only the reason. The description
+        // comes from the destination that did take the event, on the same row.
+        var journal = new SentJournal(Path_, _clock);
+        var key = SentJournal.KeyFor(Observation());
+        var toCloud = Event();
+
+        journal.RecordWithheld("cats", "Not sent — reporting is paused.", eventKey: key);
+        journal.RecordQueued(SentJournal.CloudName, JournalDestination.Cloud, key, toCloud);
+
+        var row = Assert.Single(journal.Events());
+
+        Assert.Equal(JournalEntryKind.Withheld, row.ServerState);
+        Assert.Equal(JournalEntryKind.Waiting, row.CloudState);
+        Assert.Contains("Rin (usr_8f2c)", row.Summary);
+    }
+
+    [Fact]
+    public void EventsRefusedForGoodAreMarkedFailedRatherThanLeftWaitingForever()
+    {
+        var journal = new SentJournal(Path_, _clock);
+        var toServer = Event();
+
+        journal.RecordQueued("cats", JournalDestination.Server, SentJournal.KeyFor(Observation()), toServer);
+        journal.RecordFailed("cats", [toServer]);
+
+        Assert.Equal(JournalEntryKind.Failed, Assert.Single(journal.Events()).ServerState);
     }
 }

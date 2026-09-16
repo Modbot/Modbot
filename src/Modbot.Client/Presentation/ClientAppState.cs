@@ -64,10 +64,14 @@ public enum PairingNoticeKind
 public sealed record PairingNotice(PairingNoticeKind Kind, string Message);
 
 /// <summary>What the client window is showing right now.</summary>
+/// <param name="Events">
+/// Every event this client processed, newest first — one row each, whatever became of it at each
+/// destination.
+/// </param>
 /// <param name="PairingPage">Where "Pair with a server" sends the browser. Shown so nobody has to guess.</param>
 public sealed record ClientAppSnapshot(
     IReadOnlyList<ServerRow> Servers,
-    IReadOnlyList<JournalEntry> Journal,
+    IReadOnlyList<JournalRow> Events,
     LogHealthStatus LogStatus,
     string LogDetail,
     long LinesRead,
@@ -157,7 +161,7 @@ public sealed class ClientAppState
 
         return new ClientAppSnapshot(
             [.. Connections.Select(Describe)],
-            _journal.Recent(200),
+            _journal.Events(200),
             logStatus,
             DescribeLog(logStatus),
             LogHealth.LinesRead,
