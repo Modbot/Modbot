@@ -88,7 +88,7 @@ A Modbot server talks to Cloud for its own purposes. The maintainer's words:
 |---|---|---|
 | Open rooms on modbot.co (§4.6) | none | **Yes**, since 2026-09-16. On by default; `MODBOT_CLOUD_DISABLED` and the `share_public_rooms` setting each stop it. |
 | Usage reporting and analytics (§5) | none | **Built 2026-09-16.** `ServerReportingService` registers with Cloud and reports on a schedule, at `MODBOT_CLOUD_ENDPOINT`. |
-| Sending its structured app logs, for remote support and backups | needed | **No.** The "server log feed" in the cloud event backup spec §0. |
+| Sending its structured app logs, for remote support and backups | not yet | **Built 2026-09-16**, in `2026-09-16-logs-alerts-showcase-design.md`. On by default and honours `MODBOT_CLOUD_DISABLED`. It registers as its own install rather than through the account the registry knows, because the registry's server id and a log-sending install id are still two different things; when they are joined, one method changes (that spec §3.4). |
 | Downloading the default term lists | needed | **Built 2026-09-16, without linking.** The lists moved to Cloud and `HubTermLists` reads them from `MODBOT_CLOUD_ENDPOINT`. Linking is not required: they are public data and were public on my.modbot.co, and putting an account in front of them would make a Modbot that cannot moderate until somebody signs up. |
 | Downloading shared term lists, from another Modbot server directly or through Cloud | the owner's account | **No.** |
 

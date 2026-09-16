@@ -25,7 +25,7 @@ So there are two halves of Modbot Cloud, and this spec builds one:
 | Half | What | Status |
 |---|---|---|
 | **Client event backup** | Each desktop client sends the presence events it already parses — the same ones it sends a paired Modbot server — for **every** instance, not only the group's. | This spec. |
-| **Server log feed** | Each Modbot deployment sends its own structured JSON logs to Cloud, for remote support and backups. | **Not built.** A separate part of Modbot Cloud, with its own spec, later. It will live in the engine database beside these events. |
+| **Server log feed** | Each Modbot deployment sends its own structured JSON logs to Cloud, for remote support and backups. | **Built**, 2026-09-16, in `2026-09-16-logs-alerts-showcase-design.md`. It lives in the engine database beside these events, partitioned by month. |
 
 Raw log lines were never asked for. Nothing in Cloud or the client sends, stores or reads them.
 
@@ -160,7 +160,7 @@ nothing about the backup is tied to a paired server.
 | Variable | Database | Holds |
 |---|---|---|
 | `DATABASE_URL` | Cloud's main database (`CloudContext`) | installs and secret hashes, admin sessions, settings. Later: accounts, instance registry, term lists, showcases. |
-| `DATABASE_ENGINE_URL` | The event storage (`EngineContext`) | backed-up events, per-install clocks, daily and hourly totals. Later: the server log feed (§0). |
+| `DATABASE_ENGINE_URL` | The event storage (`EngineContext`) | backed-up events, per-install clocks, daily and hourly totals, and the server log feed (§0). |
 
 Both are required; Cloud refuses to start and names whichever is missing. Each has its own migrations
 (`Data/Migrations`, `Engine/Migrations`) and history table (`__EFMigrationsHistory`,
@@ -311,8 +311,8 @@ occurred_at)`** for anything the totals do not answer, and to rebuild them.
    public view, and admin shows world and instance as plain text, never as join links.
 9. **Only the person running the client can turn this off**, or send it to a different Modbot Cloud, on
    their own PC. A Modbot server operator cannot turn it off or redirect it for their moderators.
-10. **Modbot deployments sending their own logs to Cloud** is a separate feature, not yet built, and will
-    need its own statement.
+10. **Modbot deployments sending their own logs to Cloud** is a separate feature, built on
+    2026-09-16. Its statement is §6 of `2026-09-16-logs-alerts-showcase-design.md`.
 
 This narrows two earlier statements, on purpose and at the maintainer's request:
 
