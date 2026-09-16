@@ -21,7 +21,9 @@ what Modbot needs before it can reach the database, plus a few switches.
 | `DATABASE_URL` | Yes | none | Where the PostgreSQL database is, as `postgres://user:password@host:5432/database` or a keyword connection string. Modbot refuses to start without it. See [PostgreSQL](/self-hosting/postgres). |
 | `PORT` | No | `8080` | The port to listen on. A missing value, or one that is not a number from 1 to 65535, means 8080. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. Useful when the container's disk does not survive a redeploy, and when Modbot cannot reach its database, which is exactly when settings stored in the database cannot help. |
-| `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log files and sends Debug detail to Seq. It also brings back the web server's per-request log lines and the database's query lines, which are left out otherwise. |
+| `CONSOLE_LOG_MODE` | No | `serilog` | The shape of the console output: `serilog`, `json` or `railway_json`. See [Console log modes](#console-log-modes). |
+| `LOG_LEVEL` | No | `Information` | The lowest level written anywhere: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Information`. |
+| `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log files and sends Debug detail to Seq, while the console stays at Information. It also brings back the web server's per-request log lines and the database's query lines, which are left out otherwise. `LOG_LEVEL` wins over it. |
 | `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud this server talks to for its own use. A value that is not a full `http` or `https` address is ignored and the default is used. It is not passed to desktop clients. See [Modbot Cloud](/self-hosting#modbot-cloud). |
 | `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: this server does not talk to Modbot Cloud. It does not change what desktop clients send. |
 
@@ -83,6 +85,42 @@ and evidence kept on disk. A disk that survives one restart is treated as lastin
 | `ModbotRelease` | .NET build property (`-p:ModbotRelease=2026.9.0`) | Stamps the release version, which must look like year.month.patch with no leading zeros. The root Dockerfile does not set it. |
 | `ModbotOpenApiDocument` | .NET build property (`-p:ModbotOpenApiDocument=false`) | Stops the build rewriting `docs/openapi/modbot.json`, the API description this site's API reference is built from. Docker builds never write it. |
 
+## Console log modes
+
+`CONSOLE_LOG_MODE` and `LOG_LEVEL` are read by every part of Modbot: the server, the desktop client,
+my.modbot.co, Modbot Cloud and the landing page. They are read when the program starts.
+
+`CONSOLE_LOG_MODE` changes the console only. Log files and Seq are the same in every mode. Capital
+letters, spaces, hyphens and underscores do not matter, and a value that is not one of the three
+means `serilog`.
+
+| Value | What a line looks like |
+|---|---|
+| `serilog` | `[12:30:00 INF] Modbot starting on port 8080` |
+| `json` | `{"@t":"2026-09-15T12:30:00.0000000Z","@mt":"Modbot starting on port {Port}","Port":8080,"Service":"Modbot","Version":"2026.9.0"}` |
+| `railway_json` | `{"level":"info","logLevel":"Information","timestamp":"2026-09-15T12:30:00.0000000+00:00","message":"Modbot starting on port 8080","Port":8080,"Service":"Modbot","Version":"2026.9.0"}` |
+
+`serilog` is a line of readable text, and the default.
+
+`json` is [Serilog's compact format](https://github.com/serilog/serilog-formatting-compact): one
+object per line, with the message template under `@mt`, the time under `@t`, the level under `@l`
+and the exception under `@x`. Anything that reads Serilog's JSON understands it.
+
+`railway_json` is the shape [Railway reads](https://docs.railway.com/observability/logs#structured-logs):
+`message` is the text of the line, `level` is one of `debug`, `info`, `warn` or `error`, and every
+other key becomes an attribute you can filter on in the log explorer, such as `@StatusCode:500`.
+Serilog has six levels and Railway has four, so `Verbose` arrives as `debug` and `Fatal` as `error`;
+the exact level is kept as `logLevel`, which you can filter on as `@logLevel:Fatal`.
+
+**On Railway, use `railway_json`.** On anything else, `serilog` for reading and `json` for
+collecting.
+
+`LOG_LEVEL` sets the lowest level anything is written at, for every service. `Verbose` and `Debug`
+also bring back the web server's per-request lines and the database's query lines.
+
+Every line carries `Service` — which program wrote it — and `Version`, the release it came from.
+That is how one Seq server or one log explorer can hold all of them at once.
+
 ## The web app
 
 The web app (`src/Modbot.Web`) reads no environment variables. It is built into the Modbot server's
@@ -95,7 +133,8 @@ server's own `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` do not reach it
 
 | Variable | Required | Default | What it does |
 |---|---|---|---|
-| `MODBOT_CLIENT_LOG_LEVEL` | No | `Verbose` | The lowest level written to the client's own log in `%APPDATA%\Modbot\logs`: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Verbose`. |
+| `MODBOT_CLIENT_LOG_LEVEL` | No | `Verbose` | The lowest level written to the client's own log in `%APPDATA%\Modbot\logs`: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Verbose`. The client uses this and not `LOG_LEVEL`. |
+| `CONSOLE_LOG_MODE` | No | `serilog` | The shape of what the client prints to the terminal it was started from: `serilog`, `json` or `railway_json`. Its log files are always text. See [Console log modes](#console-log-modes). |
 | `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | Where the client sends its Modbot Cloud backup. Wins over `cloud.endpoint` in the client's `settings.json`. It must be HTTPS, or plain HTTP to the same PC; anything else is ignored and the default is used. |
 | `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on` turns the client's Modbot Cloud backup off, and `0`, `false`, `no` or `off` turns it on. Wins over `cloud.disabled` in `settings.json`. Any other value is ignored. |
 
@@ -115,6 +154,9 @@ You do not run these to self-host Modbot.
 | `DATABASE_URL` | Yes | none | PostgreSQL, as a `postgres://` URL or a keyword connection string. It refuses to start without it. |
 | `ROOT_API_KEY` | No | none | The key that signs in to `/admin` and unlocks the endpoints that read registered Modbots. Unset means those are refused to everyone. |
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. |
+| `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. |
+| `CONSOLE_LOG_MODE` | No | `serilog` | `serilog`, `json` or `railway_json`. See [Console log modes](#console-log-modes). |
+| `LOG_LEVEL` | No | `Information` | `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. |
 
 On Railway: leave the root directory empty and set `RAILWAY_DOCKERFILE_PATH=src/Modbot.My/Dockerfile`.
 
@@ -129,6 +171,9 @@ repository.
 | `DATABASE_ENGINE_URL` | Yes | none | A second, separate PostgreSQL database that stores the events. |
 | `ROOT_API_KEY` | No | none | The key that signs in to `/admin`. Unset means admin is refused to everyone. |
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. |
+| `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. |
+| `CONSOLE_LOG_MODE` | No | `serilog` | `serilog`, `json` or `railway_json`. See [Console log modes](#console-log-modes). |
+| `LOG_LEVEL` | No | `Information` | `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. |
 
 It refuses to start when either database variable is missing, and names each missing one.
 `/health/ready` checks both databases.
@@ -143,7 +188,10 @@ variable.
 
 | Variable | Required | Default | What it does |
 |---|---|---|---|
-| `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. It is the only variable it reads. |
+| `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. |
+| `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. |
+| `CONSOLE_LOG_MODE` | No | `serilog` | `serilog`, `json` or `railway_json`. See [Console log modes](#console-log-modes). |
+| `LOG_LEVEL` | No | `Information` | `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. |
 
 On Railway: leave the root directory empty, set `RAILWAY_DOCKERFILE_PATH=src/Modbot.Landing/Dockerfile`,
 and set the health check to `/health/ready`.

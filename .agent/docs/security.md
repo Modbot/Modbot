@@ -131,7 +131,12 @@ entered through the onboarding wizard and stored in the database. There is no `.
 secrets to leak, and adding one is deliberately not an option.
 
 `MODBOT_DEBUG_LOGGING` additionally enables the Debug log streams. It is a diagnostic switch, not
-configuration.
+configuration. So are `CONSOLE_LOG_MODE` (`serilog`, `json` or `railway_json` — the shape of the
+console output, and nothing else) and `LOG_LEVEL` (the lowest level recorded anywhere). Both are read
+by every Modbot program, including the desktop client. Neither changes what is written down, only
+where it is legible and how much of it there is: turning on `railway_json` puts the same properties
+in a log explorer that were already going to Seq, so a log destination that was safe to read stays
+exactly as sensitive as it was.
 
 Two more are about your server and Modbot Cloud:
 

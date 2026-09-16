@@ -1,11 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The few types both halves of Modbot need: the clock the whole codebase reads time from and the
-    version numbers. No packages, on purpose. The desktop client references this and not
-    Modbot.Core, because Core carries Entity Framework, Npgsql, data protection and the Serilog
-    sinks, a server's dependencies, and a tray application that pulled those in took a minute
-    to restore on a fresh machine for three types it could have had for free.
+    The few types both halves of Modbot need: the clock the whole codebase reads time from, the
+    version numbers, and how a log line is written. The desktop client references this and not
+    Modbot.Core, because Core carries Entity Framework, Npgsql and data protection, a server's
+    dependencies, and a tray application that pulled those in took a minute to restore on a fresh
+    machine for three types it could have had for free.
+
+    The four Serilog packages below are the exception to the rule that nothing is referenced here,
+    and they earn it:
+    CONSOLE_LOG_MODE is read by all five programs, so the code that reads it has to live somewhere
+    all five can reach. They are small, and none of them carries a framework. Serilog.AspNetCore is
+    deliberately absent: it references the whole of ASP.NET Core, and the client publishes
+    self-contained, so it would put a web server in the installer. That is why ModbotRequestLog
+    holds only the policy and each service does its own four lines of wiring.
   -->
 
   <PropertyGroup>
@@ -13,6 +21,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Formatting.Compact" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Sinks.Seq" />
+  </ItemGroup>
 
   <!--
     The release version, YYYY.M.PATCH (foundation 2.7.1), becomes ModbotVersion.Release.

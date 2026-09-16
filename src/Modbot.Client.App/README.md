@@ -28,6 +28,7 @@ address it was paired with. Nothing about the Cloud backup comes from a paired s
 | Variable | Required | Default | What it does |
 |---|---|---|---|
 | `MODBOT_CLIENT_LOG_LEVEL` | No | `Verbose` | The lowest level written to the client's own log (`%APPDATA%\Modbot\logs`): `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Verbose`. |
+| `CONSOLE_LOG_MODE` | No | `serilog` | The shape of what the client prints to the terminal it was started from: `serilog` (readable lines), `json` (Serilog's compact JSON) or `railway_json` (the JSON Railway parses). Case, spaces, hyphens and underscores are ignored; anything else means `serilog`. The log files are always text. |
 | `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | Where the Modbot Cloud backup goes. |
 | `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on` turns the backup off; `0`, `false`, `no` or `off` turns it on. Any other value is ignored. |
 

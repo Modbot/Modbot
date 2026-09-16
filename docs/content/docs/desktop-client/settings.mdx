@@ -184,3 +184,8 @@ The values, from most to least: `Verbose`, `Debug`, `Information`, `Warning`, `E
 Each writes that level and everything more serious. The default, `Verbose`, writes everything,
 including a line each time the client reads new lines from VRChat's log. An unknown value means
 `Verbose`. The log never leaves your PC unless you send it to someone.
+
+`CONSOLE_LOG_MODE` changes the shape of what the client prints to a terminal it was started from —
+`serilog`, `json` or `railway_json`, described in
+[Console log modes](/self-hosting/environment-variables#console-log-modes). The log files are always
+text.

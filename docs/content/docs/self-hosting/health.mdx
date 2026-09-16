@@ -130,7 +130,13 @@ When you report a problem, include the version and the commit.
 Modbot prints its main log to the console at Information level and above. This is what your hosting
 platform's log view shows, and what `docker logs` shows. The first lines of every start say which port
 Modbot is using, which host it thinks it is on, and whether its log directory has survived a
-restart.
+restart. There is one line per request as well, with the method, path, status and how long it took;
+the health check is written at Debug, so a probe every thirty seconds does not fill the view.
+
+`CONSOLE_LOG_MODE` chooses the shape: `serilog` for readable lines (the default), `json` for
+Serilog's compact JSON, and `railway_json` for the JSON Railway parses into structured logs.
+`LOG_LEVEL` sets the lowest level written. See
+[Console log modes](/self-hosting/environment-variables#console-log-modes).
 
 ### Log files
 

@@ -1227,7 +1227,7 @@ different question, and **each written in both JSONL and plain text**. Seq is op
 
 | Profile | Level | Contents |
 |---|---|---|
-| **Console** | `Information` | What a human watching a terminal or `railway logs` needs. Concise, no noise. |
+| **Console** | `Information` | What a human watching a terminal or `railway logs` needs. Concise, no noise. Its **shape** is `CONSOLE_LOG_MODE` — see below. |
 | **Main** | `Information` | The application record — syncs, moderation, notifications, config changes. **Excludes HTTP.** |
 | **Debug** | `Debug` | Everything, verbose, including HTTP. Off in production unless an operator turns it on. |
 | **HTTP** | `Information` | VRChat and Discord API traffic **only**: method, endpoint class, status, duration, bucket state, retry-after. |
@@ -1245,6 +1245,30 @@ logs/
   modbot_log_http_09-12-2026_1757707200.jsonl
   modbot_log_http_09-12-2026_1757707200.txt
 ```
+
+#### Why the console has three shapes
+
+`CONSOLE_LOG_MODE` is `serilog` (the default, and what an unset or unrecognised value means), `json`
+or `railway_json`. It changes the console and nothing else: the files and Seq carry the same events
+at the same levels in every mode.
+
+The console is the one sink whose reader is not known in advance. On a laptop it is a person, and
+rendered text is the only shape worth printing. On Railway, Fly.io or Render it is a log explorer
+that parses JSON into searchable attributes and prints everything else as one flat string — where
+rendered text is actively worse, because it has already thrown away the properties the explorer
+would have indexed. One deployment cannot be right for both, and the file streams cannot settle it:
+on the platforms where structured console output matters most, the container's disk is discarded on
+redeploy and the console **is** the log.
+
+`railway_json` is Railway's documented shape rather than a general one: `message` and `level`, with
+`level` reduced to the four words Railway matches (`debug`, `info`, `warn`, `error`), and every other
+property as a top-level key so it becomes `@name:value` in the log explorer. Serilog's six levels do
+not fit in four, so the exact level is also kept as `logLevel`. `json` is Serilog's own compact
+format, for anything that already speaks it.
+
+The same two variables — plus `LOG_LEVEL` — are read by every Modbot program, including the desktop
+client, and the code that reads them lives in Modbot.Shared for that reason. Each event also carries
+`Service` and `Version`, so one Seq server can hold every program at once and still tell them apart.
 
 #### Why both formats of every stream
 

@@ -7,7 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Shared logging: CONSOLE_LOG_MODE, LOG_LEVEL and the three console shapes. -->
+    <ProjectReference Include="..\Modbot.Shared\Modbot.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Serilog.AspNetCore" />
     <!-- Compile assets are needed: the two design-time factories implement
          IDesignTimeDbContextFactory. PrivateAssets keeps it out of the published app. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />

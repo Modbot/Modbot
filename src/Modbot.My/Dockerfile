@@ -31,9 +31,12 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props global.json ./
+# Modbot.Shared carries the logging every Modbot program shares (CONSOLE_LOG_MODE, LOG_LEVEL).
+COPY src/Modbot.Shared/Modbot.Shared.csproj src/Modbot.Shared/
 COPY src/Modbot.My/Modbot.My.csproj src/Modbot.My/
 RUN dotnet restore src/Modbot.My/Modbot.My.csproj
 
+COPY src/Modbot.Shared/ src/Modbot.Shared/
 COPY src/Modbot.My/ src/Modbot.My/
 
 # .dockerignore keeps any local wwwroot out of the context, so the only web app in the image is the

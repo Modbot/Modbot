@@ -12,6 +12,9 @@ Modbot Cloud (`cloud.modbot.co`): receives the desktop clients' backup and keeps
 | `DATABASE_ENGINE_URL` | Yes | — | A second, separate PostgreSQL database for event storage. Same formats. |
 | `ROOT_API_KEY` | No | none | The key that signs in to `/admin`. Unset means admin refuses everyone. |
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value falls back to 8080. |
+| `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. Unset means no Seq. |
+| `CONSOLE_LOG_MODE` | No | `serilog` | The shape of the console output: `serilog` (readable lines), `json` (Serilog's compact JSON) or `railway_json` (the JSON Railway parses). Case, spaces, hyphens and underscores are ignored; anything else means `serilog`. |
+| `LOG_LEVEL` | No | `Information` | The lowest level written: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Information`. |
 
 Cloud refuses to start when either database variable is missing, and names each missing one.
 `/health/ready` checks both databases.

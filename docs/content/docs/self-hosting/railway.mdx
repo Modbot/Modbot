@@ -120,6 +120,11 @@ writes its log files to `/app/logs`, and warns at startup that they will not sur
 is mounted there. Railway keeps what Modbot prints to its console, which you can read in the
 deployment's logs.
 
+Set `CONSOLE_LOG_MODE=railway_json` on the service. Modbot then prints one JSON object per line in
+the shape Railway parses: the level colours the line, the message is the text, and everything else
+becomes an attribute you can filter on, such as `@StatusCode:500` or `@logLevel:Fatal`. See
+[Console log modes](/self-hosting/environment-variables#console-log-modes).
+
 To keep full logs across deploys, do one of these:
 
 - set `SEQ_URL` to a [Seq](https://datalust.co/seq) server, or

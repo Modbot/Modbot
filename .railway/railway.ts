@@ -33,6 +33,12 @@ export default defineRailway(() => {
       // SEQ_URL is optional -- see ModbotEnvironment. Everything else Modbot needs lives in the
       // database and is entered through the onboarding wizard (spec 2.6).
       DATABASE_URL: db.env.DATABASE_URL,
+
+      // One JSON object per line in the shape Railway parses: the level colours the line, the
+      // message is the text, and every other property becomes a searchable attribute. Railway
+      // discards the container's disk on redeploy unless a volume is mounted, so on this platform
+      // the console is the log and it is worth it being structured.
+      CONSOLE_LOG_MODE: "railway_json",
     },
   });
 

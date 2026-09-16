@@ -32,6 +32,22 @@ public sealed class ModbotLogOptions
     /// <summary>Seq endpoint, from the <c>SEQ_URL</c> environment variable. Null disables the sink.</summary>
     public string? SeqUrl { get; init; }
 
+    /// <summary>
+    /// The lowest level anything is written at, from <c>LOG_LEVEL</c>. Debug when
+    /// <see cref="Debug"/> is on and <c>LOG_LEVEL</c> is unset.
+    /// </summary>
+    public LogEventLevel Level { get; init; } = LogEventLevel.Information;
+
+    /// <summary>
+    /// The lowest level the console shows. Separate from <see cref="Level"/> so that
+    /// <c>MODBOT_DEBUG_LOGGING</c> keeps filling the Debug files without filling the terminal;
+    /// <c>LOG_LEVEL</c> sets both.
+    /// </summary>
+    public LogEventLevel ConsoleLevel { get; init; } = LogEventLevel.Information;
+
+    /// <summary>Which of the three shapes the console is written in, from <c>CONSOLE_LOG_MODE</c>.</summary>
+    public ConsoleLogMode ConsoleMode { get; init; } = ConsoleLogMode.Serilog;
+
     /// <summary>Size at which a stream rolls within a run.</summary>
     public long FileSizeLimitBytes { get; init; } = 64L * 1024 * 1024;
 
@@ -69,7 +85,7 @@ public sealed class ModbotLogOptions
 /// <remarks>
 /// <para>See foundation spec section 4.4.1. The shape is:</para>
 /// <code>
-///   Console                              rendered text, Information
+///   Console                              CONSOLE_LOG_MODE, Information
 ///   modbot_log_&lt;date&gt;_&lt;epoch&gt;.jsonl/.txt        application record, excludes Http
 ///   modbot_log_debug_&lt;date&gt;_&lt;epoch&gt;.jsonl/.txt  everything, opt-in
 ///   modbot_log_http_&lt;date&gt;_&lt;epoch&gt;.jsonl/.txt   API traffic only
@@ -93,9 +109,6 @@ public static class ModbotLogging
         "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}" +
         "{NewLine}{Exception}";
 
-    private const string ConsoleTemplate =
-        "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}";
-
     /// <param name="clock">
     /// Even the log filename comes from <see cref="IModbotClock"/>. The stamp is how an operator
     /// correlates a log file with an incident, so it must agree with the timestamps on the facts.
@@ -110,12 +123,11 @@ public static class ModbotLogging
         var now = clock.UtcNow;
         var stamp = $"{now:MM-dd-yyyy}_{now.ToUnixTimeSeconds()}";
 
-        var config = new LoggerConfiguration()
-            .MinimumLevel.Is(options.Debug ? LogEventLevel.Debug : LogEventLevel.Information)
-            .Enrich.FromLogContext()
-            .WriteTo.Console(
-                outputTemplate: ConsoleTemplate,
-                restrictedToMinimumLevel: LogEventLevel.Information);
+        // Enrichment, the noisy-library levels and the three console shapes are the same in every
+        // Modbot program; only the file streams below are the server's own. See ModbotConsoleLog.
+        var config = ModbotConsoleLog
+            .Start("Modbot", options.Level)
+            .WriteTo.ModbotConsole(options.ConsoleMode, options.ConsoleLevel);
 
         if (options.WriteFiles)
             AddFileStreams(config, options, stamp);

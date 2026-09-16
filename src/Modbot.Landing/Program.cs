@@ -1,5 +1,7 @@
+using Modbot.Core.Logging;
 using Modbot.Landing;
 using Modbot.Landing.Configuration;
+using Serilog;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modbot.Landing — modbot.co, the public page that says what Modbot is.
@@ -9,15 +11,41 @@ using Modbot.Landing.Configuration;
 // and nothing to configure beyond the port: the page is built once by Web/ into wwwroot.
 // ─────────────────────────────────────────────────────────────────────────────
 
-var environment = LandingEnvironment.Read();
+Log.Logger = ModbotServiceLog.Create("Modbot.Landing");
 
-var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls($"http://0.0.0.0:{environment.Port}");
+try
+{
+    var environment = LandingEnvironment.Read();
 
-LandingApp.AddServices(builder.Services);
+    var builder = WebApplication.CreateBuilder(args);
+    builder.WebHost.UseUrls($"http://0.0.0.0:{environment.Port}");
 
-var app = builder.Build();
+    builder.Logging.ClearProviders();
+    builder.Services.AddSerilog(Log.Logger);
 
-LandingApp.MapEndpoints(app);
+    LandingApp.AddServices(builder.Services);
 
-await app.RunAsync();
+    var app = builder.Build();
+
+    // One line per request. See ModbotRequestLog for why the policy is shared and the wiring is not.
+    app.UseSerilogRequestLogging(options =>
+    {
+        options.MessageTemplate = ModbotRequestLog.MessageTemplate;
+        options.GetLevel = (context, _, error) => ModbotRequestLog.LevelFor(
+            context.Request.Path.Value ?? "", context.Response.StatusCode, error is not null);
+    });
+
+    LandingApp.MapEndpoints(app);
+
+    await app.RunAsync();
+    return 0;
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Modbot.Landing failed to start");
+    return 1;
+}
+finally
+{
+    await Log.CloseAndFlushAsync();
+}

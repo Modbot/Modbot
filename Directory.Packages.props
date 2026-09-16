@@ -44,6 +44,10 @@
          Windows-only product by design (M3 10), so this is not a portability compromise. -->
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
     <PackageVersion Include="Serilog.Expressions" Version="5.0.0" />
+    <!-- One log line per HTTP request, replacing the four ASP.NET Core writes by itself. Referenced
+         by the web projects only: it carries a reference to the whole ASP.NET Core framework, so it
+         must never reach Modbot.Shared, which the desktop client is built on. -->
+    <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Serilog.Formatting.Compact" Version="3.0.0" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />

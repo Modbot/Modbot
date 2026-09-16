@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Modbot.Core;
+using Modbot.Core.Logging;
 using Serilog;
 using Serilog.Events;
 
@@ -22,6 +23,11 @@ namespace Modbot.Client.App;
 /// is recorded, and so is every exception with its full stack, because the failure this exists to
 /// catch is the one where the client dies on the first log file it meets and there is nothing to
 /// go on. <c>MODBOT_CLIENT_LOG_LEVEL</c> (Verbose, Debug, Information, Warning) turns it down.
+/// </para>
+/// <para>
+/// <c>CONSOLE_LOG_MODE</c> changes the shape of the terminal output, and only the terminal output:
+/// <c>serilog</c> (the default) for readable lines, <c>json</c> or <c>railway_json</c> for one JSON
+/// object per line. See <see cref="ConsoleLogMode"/>. The files are always text.
 /// </para>
 /// <para>
 /// The client is a windowed program, so it has no console of its own; it attaches to the one of
@@ -54,12 +60,19 @@ internal static class ClientLog
 
         Folder = LogFolder(appData);
 
+        // The console shape is the same choice every Modbot program offers, so a client started
+        // from a script that reads JSON gets JSON. The files are always text: they are opened by a
+        // person, on their own machine, at an hour when they will not install jq.
+        var consoleMode = ModbotConsoleLog.ReadMode();
+
         const string template = "{Timestamp:HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}";
 
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Is(level)
             .Enrich.FromLogContext()
-            .WriteTo.Console(outputTemplate: template)
+            .Enrich.WithProperty(ModbotConsoleLog.ServiceProperty, "Modbot.Client")
+            .Enrich.WithProperty(ModbotConsoleLog.VersionProperty, ModbotVersion.Release)
+            .WriteTo.ModbotConsole(consoleMode, level)
             .WriteTo.File(
                 Path.Combine(LogFolder(appData), "client-.log"),
                 rollingInterval: RollingInterval.Day,
@@ -70,8 +83,8 @@ internal static class ClientLog
             .CreateLogger();
 
         Log.Information(
-            "Modbot client {Version} starting; log level {Level}; log files in {Directory}",
-            ModbotVersion.Release, level, LogFolder(appData));
+            "Modbot client {Version} starting; log level {Level}; console {ConsoleMode}; log files in {Directory}",
+            ModbotVersion.Release, level, consoleMode, LogFolder(appData));
     }
 
     public static void Stop() => Log.CloseAndFlush();

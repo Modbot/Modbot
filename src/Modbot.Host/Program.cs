@@ -22,6 +22,7 @@ using Modbot.Host.Health;
 using Modbot.Host.Startup;
 using Scalar.AspNetCore;
 using Serilog;
+using Serilog.Events;
 
 var env = ModbotEnvironment.Read();
 
@@ -51,11 +52,21 @@ var persistence = PersistenceProbe.Probe(ModbotLogOptions.DefaultDirectory, boot
 // most need it. The warning below is the whole intervention.
 var writeLogFiles = !persistence.IsUnwritable;
 
+// LOG_LEVEL, when it is set, is the last word on how much is recorded and how much reaches the
+// terminal. When it is not, MODBOT_DEBUG_LOGGING still means what it always did: the Debug streams
+// fill up while the console stays at Information, so turning it on does not make the terminal
+// unreadable.
+var logLevel = ModbotConsoleLog.ReadLevel(env.DebugLogging ? LogEventLevel.Debug : LogEventLevel.Information);
+var consoleLevel = ModbotConsoleLog.ReadLevel(LogEventLevel.Information);
+
 Log.Logger = ModbotLogging.Create(
     new ModbotLogOptions
     {
         Debug = env.DebugLogging,
         SeqUrl = env.SeqUrl,
+        Level = logLevel,
+        ConsoleLevel = consoleLevel,
+        ConsoleMode = ModbotConsoleLog.ReadMode(),
         // The build writing the OpenAPI document leaves no log files behind.
         WriteFiles = writeLogFiles && !BuildTimeDocument.IsRunning,
     },
@@ -114,16 +125,19 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    // Serilog is attached as a logging *provider* rather than through UseSerilog(), which replaces
-    // ILoggerFactory outright and so silently discards every log filter. Without filtering,
-    // ASP.NET Core narrates four Information lines per request -- and the container's health probe
-    // is a request every thirty seconds, which is eleven thousand lines a day of nothing in the
-    // stream section 4.4.1 calls "the application record". MODBOT_DEBUG_LOGGING restores them.
+    // Serilog takes over the logging for everything ASP.NET Core and Entity Framework write, and
+    // registering it on the services (rather than only as a provider) also registers the diagnostic
+    // context that UseSerilogRequestLogging needs further down.
+    //
+    // The rule that used to be an ILoggerFactory filter here -- ASP.NET Core narrates four
+    // Information lines per request, and the container's health probe is a request every thirty
+    // seconds, which is eleven thousand lines a day of nothing in the stream section 4.4.1 calls
+    // "the application record" -- is now a MinimumLevel.Override inside the logger itself
+    // (ModbotConsoleLog.Start). Same effect, and it applies to the log files and Seq as well,
+    // instead of only to what happens to pass through Microsoft.Extensions.Logging.
+    // MODBOT_DEBUG_LOGGING and LOG_LEVEL=Debug both restore them.
     builder.Logging.ClearProviders();
-    builder.Logging.AddSerilog(Log.Logger);
-
-    if (!env.DebugLogging)
-        builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
+    builder.Services.AddSerilog(Log.Logger);
 
     builder.WebHost.UseUrls($"http://0.0.0.0:{env.Port}");
 
@@ -292,6 +306,15 @@ try
         var evidence = await app.Services.LoadEvidenceSettingsAsync();
         Log.Information("Evidence store: {Explanation}", evidence.Explanation);
     }
+
+    // One line per request, with the method, path, status and duration as properties. See
+    // ModbotRequestLog for why the policy is shared and the wiring is not.
+    app.UseSerilogRequestLogging(options =>
+    {
+        options.MessageTemplate = ModbotRequestLog.MessageTemplate;
+        options.GetLevel = (context, _, error) => ModbotRequestLog.LevelFor(
+            context.Request.Path.Value ?? "", context.Response.StatusCode, error is not null);
+    });
 
     // The live event WebSocket (API keys design §5). Keep-alive pings are set per connection.
     app.UseWebSockets();

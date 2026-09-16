@@ -33,6 +33,9 @@ services:
       SEQ_URL: http://seq:5341
       PORT: "8080"
       MODBOT_DEBUG_LOGGING: ${MODBOT_DEBUG_LOGGING:-}
+      # serilog (readable lines, the default), json or railway_json. Console only.
+      CONSOLE_LOG_MODE: ${CONSOLE_LOG_MODE:-}
+      LOG_LEVEL: ${LOG_LEVEL:-}
       # Which Modbot Cloud this server talks to for its own use, and whether it does. Not passed to
       # desktop clients, which keep their own Cloud settings.
       MODBOT_CLOUD_ENDPOINT: ${MODBOT_CLOUD_ENDPOINT:-}

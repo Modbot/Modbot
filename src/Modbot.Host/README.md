@@ -14,7 +14,9 @@ deployment switches.
 | `DATABASE_URL` | Yes | — | PostgreSQL connection, as a `postgres://user:password@host:5432/database` URL or a keyword connection string. Modbot refuses to start without it. |
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value (not 1–65535) falls back to 8080. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send structured logs to. Unset means no Seq. |
-| `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log streams. |
+| `CONSOLE_LOG_MODE` | No | `serilog` | The shape of the console output: `serilog` (readable lines), `json` (Serilog's compact JSON) or `railway_json` (the JSON Railway parses). Case, spaces, hyphens and underscores are ignored; anything else means `serilog`. Log files and Seq are unaffected. |
+| `LOG_LEVEL` | No | `Information` | The lowest level written anywhere: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Information`. |
+| `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log streams while the console stays at Information. `LOG_LEVEL` wins over it. |
 | `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud this server talks to for its own use: usage reporting, its app logs and term lists. None of those use it yet. A value that is not a full `http` or `https` address means the default. Desktop clients are not told it. |
 | `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: this server does not talk to Modbot Cloud. It does not change what desktop clients send. |
 
