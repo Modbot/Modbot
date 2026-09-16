@@ -3124,6 +3124,15 @@ export const api = {
   syncHealth: () => request<SyncHealth>('/api/health/sync'),
 
   /**
+   * Whether Modbot can reach its database, from the readiness probe a hosting platform calls.
+   *
+   * Not `request`: a Modbot that cannot reach its database answers 503, and that is an answer
+   * rather than a failure -- the process is up and is telling us what is wrong. Only a request
+   * that never completed throws, and the caller shows that as unknown.
+   */
+  databaseHealth: async (): Promise<boolean> => (await fetch('/health/ready')).ok,
+
+  /**
    * One person's stored profile. The id goes in the query string, never the path: VRChat ids are
    * opaque and a legacy one can contain anything (spec 3.1.1).
    */

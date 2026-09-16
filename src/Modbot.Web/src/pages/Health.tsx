@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { Card, CardContent } from '@/components/ui/card'
-import { statusOf, TONE } from '@/lib/gate'
+import { statusOf } from '@/lib/gate'
+import { discordState, TONE } from '@/lib/status'
 import { ago, duration, formatDay } from '@/lib/format'
 import { amountText, share } from '@/lib/aiSpend'
 import {
@@ -30,13 +31,19 @@ import { cn } from '@/lib/utils'
 
 export function Health() {
   const [health, setHealth] = useState<SyncHealth | null>(null)
+  const [databaseReachable, setDatabaseReachable] = useState<boolean | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
-    const load = () =>
+    const load = () => {
       api
+        .databaseHealth()
+        .then((ok) => !cancelled && setDatabaseReachable(ok))
+        .catch(() => !cancelled && setDatabaseReachable(null))
+
+      return api
         .syncHealth()
         .then((next) => {
           if (!cancelled) {
@@ -52,6 +59,7 @@ export function Health() {
               : 'Could not load sync health.',
           )
         })
+    }
 
     void load()
 
@@ -64,6 +72,28 @@ export function Health() {
       clearInterval(timer)
     }
   }, [])
+
+  const loaded = health !== null
+
+  // The status rows at the foot of the sidebar open this page at one part: `/health#discord`.
+  // Waiting for the answer matters -- before it arrives the card the address names is not drawn
+  // yet, and a scroll to nothing leaves the operator at the top of the page wondering.
+  useEffect(() => {
+    const scroll = () => {
+      const id = window.location.hash.slice(1)
+      if (id) document.getElementById(id)?.scrollIntoView({ block: 'start' })
+    }
+
+    if (loaded) scroll()
+
+    window.addEventListener('hashchange', scroll)
+    window.addEventListener('popstate', scroll)
+
+    return () => {
+      window.removeEventListener('hashchange', scroll)
+      window.removeEventListener('popstate', scroll)
+    }
+  }, [loaded])
 
   if (error) {
     return (
@@ -90,7 +120,7 @@ export function Health() {
 
       <AlertsCard />
 
-      <Card>
+      <Card id="vrchat" className="scroll-mt-20">
         <CardContent className="py-4">
           <div className="flex items-start gap-3">
             <Icon className={cn('mt-0.5 size-5 shrink-0', TONE[status.tone])} />
@@ -135,14 +165,19 @@ export function Health() {
         </CardContent>
       </Card>
 
+      <Database reachable={databaseReachable} />
+
       {!health.syncRunningInThisProcess && <Note>Sync is not running in this process.</Note>}
 
-      {health.aiSpend && health.aiSpend.length > 0 && <AiSpend warnings={health.aiSpend} />}
+      {/* One anchor over both AI cards, because either can be the only one on the screen. */}
+      <div id="ai" className="flex scroll-mt-20 flex-col gap-4 empty:hidden">
+        {health.aiSpend && health.aiSpend.length > 0 && <AiSpend warnings={health.aiSpend} />}
 
-      {health.aiCalls &&
-        (health.aiCalls.errors > 0 || health.aiCalls.timedOut > 0 || health.aiCalls.fallbacks > 0) && (
-          <AiCalls calls={health.aiCalls} />
-        )}
+        {health.aiCalls &&
+          (health.aiCalls.errors > 0 || health.aiCalls.timedOut > 0 || health.aiCalls.fallbacks > 0) && (
+            <AiCalls calls={health.aiCalls} />
+          )}
+      </div>
 
       {health.email && (health.email.queued > 0 || health.email.failed > 0) && <EmailQueue email={health.email} />}
 
@@ -164,7 +199,7 @@ export function Health() {
         <PausedRules rules={health.pausedRules} now={health.now} />
       )}
 
-      <Card>
+      <Card id="sync" className="scroll-mt-20">
         <CardContent className="py-4">
           <div className="mb-3 font-medium">Producers</div>
 
@@ -444,26 +479,31 @@ function Producer({
   )
 }
 
-const BOT_STATE: Record<DiscordBotHealth['state'], { label: string; tone: 'ok' | 'warn' | 'problem' | 'muted' }> = {
-  NotConfigured: { label: 'not set up', tone: 'muted' },
-  Connecting: { label: 'connecting', tone: 'warn' },
-  Connected: { label: 'connected', tone: 'ok' },
-  Disconnected: { label: 'reconnecting', tone: 'warn' },
-  Failed: { label: 'stopped, needs you', tone: 'problem' },
-}
-
-const BOT_TONE: Record<'ok' | 'warn' | 'problem' | 'muted', string> = {
-  ok: 'text-ok',
-  warn: 'text-warn',
-  problem: 'text-destructive',
-  muted: 'text-muted-foreground',
-}
-
 /**
- * The Discord bot (foundation §9). "Not set up" is not a fault: no token is stored and nothing
- * else about Modbot is affected. "Stopped" means Discord refused the token or the intents, and
- * the bot waits for the settings to change rather than knocking every thirty seconds.
+ * Whether Modbot can reach its database, from the same readiness probe a hosting platform calls.
  */
+function Database({ reachable }: { reachable: boolean | null }) {
+  const state =
+    reachable === null
+      ? { label: 'unknown', tone: 'muted' as const }
+      : reachable
+        ? { label: 'online', tone: 'ok' as const }
+        : { label: 'unreachable', tone: 'bad' as const }
+
+  return (
+    <Card id="database" className="scroll-mt-20">
+      <CardContent className="py-4">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-medium">Database</span>
+          <span className={TONE[state.tone]} style={{ fontSize: 'var(--text-small)' }}>
+            {state.label}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 const CALENDAR_PLACE: Record<string, string> = {
   vrchat: 'VRChat calendar',
   discordEvent: 'Discord event',
@@ -526,22 +566,19 @@ function DiscordBot({
   missingManageEvents: boolean
   now: string
 }) {
-  // Not BOT_STATE[bot.state] directly. That Record is a compile-time claim about a value which
-  // arrives over HTTP, and the two part company whenever the server sends something this build
-  // does not know -- an added state, or an enum written as its number. A miss returned undefined
-  // and the next line read `.tone` off it, which threw during render and took the whole screen
-  // down over one card. Exactly the failure `statusOf` in lib/gate.ts was hardened against.
-  const state = BOT_STATE[bot.state] ?? {
-    label: bot.state ? `unknown (${String(bot.state)})` : 'unknown',
-    tone: 'muted' as const,
-  }
+  // Looked up through `discordState` rather than in a Record here. That Record would be a
+  // compile-time claim about a value which arrives over HTTP, and the two part company whenever
+  // the server sends something this build does not know -- an added state, or an enum written as
+  // its number. A miss returns undefined and the next line reads `.tone` off it, which throws
+  // during render and takes the whole screen down over one card.
+  const state = discordState(bot.state)
 
   return (
-    <Card>
+    <Card id="discord" className="scroll-mt-20">
       <CardContent className="py-4">
         <div className="flex flex-wrap items-baseline gap-x-2">
           <span className="font-medium">Discord bot</span>
-          <span className={BOT_TONE[state.tone]} style={{ fontSize: 'var(--text-small)' }}>
+          <span className={TONE[state.tone]} style={{ fontSize: 'var(--text-small)' }}>
             {state.label}
           </span>
           {bot.state === 'Connected' && bot.connectedSince && (

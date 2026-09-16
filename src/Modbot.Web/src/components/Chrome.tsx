@@ -1,8 +1,10 @@
 import { Button } from '@/components/ui/button'
 import { DemoMarker } from '@/components/DemoMarker'
-import { GateIndicator } from '@/components/GateIndicator'
+import { StatusRows } from '@/components/StatusRows'
 import type { CurrentUser } from '@/lib/api'
-import { NAV, mayOpen, type NavItem, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, NAV, mayOpen, type NavItem, type PageId } from '@/lib/nav'
+import { can } from '@/lib/permissions'
+import type { StatusRowId } from '@/lib/status'
 import { cn } from '@/lib/utils'
 import { DOCS_URL } from '@/lib/docs'
 import type { Density, Theme } from '@/lib/preferences'
@@ -13,12 +15,15 @@ export function Sidebar({
   page,
   me,
   onNavigate,
+  onOpenHealth,
   groupName,
   badges,
 }: {
   page: PageId
   me: CurrentUser
   onNavigate: (p: PageId) => void
+  /** Opens the Health page at one part's card. */
+  onOpenHealth: (section: StatusRowId) => void
   groupName?: string
   /** A count to show beside an entry -- open reviews beside Reviews. Zero or absent shows nothing. */
   badges?: Partial<Record<PageId, number>>
@@ -80,15 +85,11 @@ export function Sidebar({
       ))}
 
       {/*
-        The gate's health (spec 4.3.3). Real now: it reads /api/health/gate, reports the server's
-        status rather than a colour picked here, and shows "unknown" rather than green when the
-        fetch fails. The prototype's second line -- the live request-rate room left -- is still
-        absent, because the effective rates are per bucket and there is no measured total to put
-        against the 2 req/s ceiling without inventing one.
+        Modbot's own parts, one row each (spec 4.2.3, 4.3.3). Only for somebody who may read the
+        operational log, which is the same line the Health page itself draws -- every row leads
+        there, and rows that open a page this person cannot have would be a dead end.
       */}
-      <div className="mt-auto pt-4">
-        <GateIndicator onOpen={() => onNavigate('health')} />
-      </div>
+      {can(me, 'ViewOperationalLog') && <StatusRows onOpen={onOpenHealth} />}
     </aside>
   )
 }
@@ -160,7 +161,11 @@ export function Footer() {
       <a href={DOCS_URL} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
         Docs
       </a>
-      <a href="/credits" onClick={followLink('/credits')} className="hover:text-foreground hover:underline">
+      <a
+        href={CREDITS_PATH}
+        onClick={followLink(CREDITS_PATH)}
+        className="hover:text-foreground hover:underline"
+      >
         Credits
       </a>
     </footer>

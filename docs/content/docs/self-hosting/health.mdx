@@ -52,9 +52,13 @@ this one, with a 300 second timeout. See [Railway](/self-hosting/railway).
 
 ## The Sync health page
 
-**Sync health** is in the sidebar under **Setup**. You need the
-[**See the operational log**](/accounts/roles-and-permissions) permission. The line at the bottom of
-the sidebar, **VRChat ·** followed by a status, opens it too.
+**Sync health** opens from the status rows at the bottom of the sidebar. You need the
+[**See the operational log**](/accounts/roles-and-permissions) permission, which is also what makes
+those rows appear.
+
+Each row is a part of Modbot and one word for how it is doing: **VRChat**, **Discord**,
+**Database**, **Sync**, and **AI** once this deployment is using it. Clicking a row opens this page
+at that part's card.
 
 The page refreshes itself every 20 seconds. From top to bottom:
 
@@ -76,10 +80,15 @@ To change the VRChat account or the proxy, go to **Settings**, **VRChat Service 
 
 ### Discord bot
 
-Shown when relevant. The bot is **not set up**, **connecting**, **connected**, **reconnecting**, or
+Shown when relevant. The bot is **not set up**, **connecting**, **working**, **reconnecting**, or
 **stopped — needs you**. When something is wrong it lists channels the bot cannot post in and the
 Discord permissions it is missing, and **Intents off in the Developer Portal** if Discord is not
 sending it what it needs. See [Setting up the bot](/discord/bot-setup).
+
+### Database
+
+Whether Modbot can reach its database: **online**, or **unreachable** when the process is up and the
+database is not. It is the same answer `/health/ready` gives.
 
 ### AI spend
 

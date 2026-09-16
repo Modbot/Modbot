@@ -3,10 +3,11 @@ import { Footer, Sidebar, Topbar } from '@/components/Chrome'
 import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
-import { NAV, mayOpen, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, MOVED, NAV, mayOpen, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { usePreferences } from '@/lib/preferences'
-import { useRoute } from '@/lib/router'
+import { go, useRoute } from '@/lib/router'
+import type { StatusRowId } from '@/lib/status'
 import { openPerson } from '@/lib/subject'
 import { Account } from '@/pages/Account'
 import { AuditLog } from '@/pages/AuditLog'
@@ -89,7 +90,7 @@ const PATHS: Record<PageId, string> = {
   settings: '/settings',
   account: '/account',
   cases: '/cases',
-  credits: '/credits',
+  credits: CREDITS_PATH,
 }
 
 /**
@@ -115,7 +116,8 @@ function pageFor(path: string): PageId {
   if (caseFileId(path)) return 'cases'
   if (chatConversationId(path)) return 'chat'
 
-  const match = (Object.keys(PATHS) as PageId[]).find((id) => PATHS[id] === path)
+  const wanted = MOVED[path] ?? path
+  const match = (Object.keys(PATHS) as PageId[]).find((id) => PATHS[id] === wanted)
   return match ?? 'members'
 }
 
@@ -264,6 +266,13 @@ function Shell({
 }) {
   const requested = pageFor(route)
 
+  // An address that moved still opens its page, and the bar quietly becomes the new address -- so
+  // an old bookmark works and what a moderator copies out afterwards is the one that will last.
+  useEffect(() => {
+    const moved = MOVED[route]
+    if (moved) navigate(moved, { replace: true })
+  }, [route, navigate])
+
   // A page this person may not open shows the first one they may. The server refuses the data
   // regardless; this only keeps the shell from rendering an empty page with an error in it.
   const page = mayOpen(me, requested)
@@ -296,6 +305,9 @@ function Shell({
         page={page}
         me={me}
         onNavigate={(p) => navigate(PATHS[p])}
+        // `go` rather than `navigate`: the hash names the card to open, and only `go` wakes the
+        // page already on screen when nothing but the hash changed.
+        onOpenHealth={(section: StatusRowId) => go(`${PATHS.health}#${section}`)}
         groupName={status.group?.name}
         badges={{ reviews: openReviews }}
       />

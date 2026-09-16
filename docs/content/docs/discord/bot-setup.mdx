@@ -159,14 +159,15 @@ the bot, so they are empty until it has connected once.
 
 ## Checking that it is connected
 
-Open **Sync health** in the sidebar, under **Setup**. It needs **See the operational log**. The
+Open **Sync health** from the **Discord** row at the bottom of the sidebar. It needs
+**See the operational log**. The
 **Discord bot** card shows one of these:
 
 | State | Meaning |
 |---|---|
 | **not set up** | No token or no server id is saved. This is not a fault. |
 | **connecting** | Signing in to Discord. |
-| **connected** | Working. It also shows how long it has been connected and how many slash commands were registered. |
+| **working** | Connected. It also shows how long it has been connected and how many slash commands were registered. |
 | **reconnecting** | The connection dropped and Modbot is getting it back. This usually clears within a minute. |
 | **stopped — needs you** | Discord refused to let the bot sign in, usually because the token is wrong. The bot waits until you change the settings. |
 

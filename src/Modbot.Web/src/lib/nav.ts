@@ -1,5 +1,8 @@
-import type { CurrentUser } from '@/lib/api'
-import { can, canAny } from '@/lib/permissions'
+// Relative, with the extension, rather than the '@/' alias the rest of the app uses: the Node test
+// runner resolves neither the alias nor an extensionless path, and who may open which page is
+// worth a test. `permissions.ts` imports nothing at run time, so it loads as it is too.
+import type { CurrentUser } from './api.ts'
+import { can, canAny } from './permissions.ts'
 
 // No counts beside the labels yet. The prototype shows "14,208" next to Members, and it will
 // again -- but a hardcoded number in a running deployment is indistinguishable from a real one,
@@ -38,8 +41,10 @@ export const NAV = [
   { id: 'reviews', label: 'Reviews', group: 'Team', needs: 'ReviewTickets' },
   { id: 'users', label: 'Users', group: 'Team', needs: 'ManageUsers' },
   { id: 'roles', label: 'Roles', needs: 'ManageRoles' },
-  { id: 'health', label: 'Sync health', group: 'Setup', needs: 'ViewOperationalLog' },
-  { id: 'settings', label: 'Settings', needs: 'ManageSettings' },
+  // Not in the page list: the status rows at the foot of the sidebar say what it says, and each
+  // one opens it at the part it names. The page, its address and every link to it are unchanged.
+  { id: 'health', label: 'Sync health', needs: 'ViewOperationalLog', hidden: true },
+  { id: 'settings', label: 'Settings', group: 'Setup', needs: 'ManageSettings' },
   { id: 'account', label: 'Your account', hidden: true },
   // Reached from the Bans page and the subject pane, not from the sidebar. The server gates
   // reads on ViewProfile and writes on Ban; the page shows the refusal in words.
@@ -47,6 +52,22 @@ export const NAV = [
   // Reached from the footer and from Settings. No requirement: everyone signed in may read it.
   { id: 'credits', label: 'Credits', hidden: true },
 ] as const
+
+/**
+ * Credits lives under Settings, and is open to everybody signed in.
+ *
+ * Its address says "settings" only because that is where the tabs are; the permission that gates
+ * the Settings page is on that page's own entry above, never on a path prefix, so this one is not
+ * caught by it.
+ */
+export const CREDITS_PATH = '/settings/credits'
+
+/**
+ * Addresses that moved. The old one still opens the page -- the footer and the Deployment card
+ * pointed at `/credits` for months and so does anything anyone bookmarked -- and the URL is
+ * quietly replaced with the new one.
+ */
+export const MOVED: Record<string, string> = { '/credits': CREDITS_PATH }
 
 export type NavItem = (typeof NAV)[number]
 

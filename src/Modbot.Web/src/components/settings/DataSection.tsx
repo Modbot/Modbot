@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type DataSettings, type PublicAddressView } from '@/lib/api'
+import { CREDITS_PATH } from '@/lib/nav'
 import { followLink } from '@/lib/router'
 import { Fact, Field, Hint, Outcome, Placeholder, Row } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
@@ -140,7 +141,7 @@ function DeploymentCard({ deployment }: { deployment: DataSettings['deployment']
       title="Deployment"
       footer={
         <Button asChild size="sm" variant="outline">
-          <a href="/credits" onClick={followLink('/credits')}>
+          <a href={CREDITS_PATH} onClick={followLink(CREDITS_PATH)}>
             Credits
           </a>
         </Button>

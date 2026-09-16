@@ -1,65 +1,21 @@
 import { AlertTriangle, CheckCircle2, CircleSlash, PauseCircle } from 'lucide-react'
 import type { GateStatus } from '@/lib/api'
-
-export type Tone = 'ok' | 'warn' | 'bad' | 'muted'
-
-/**
- * How each gate status is presented — one table, read by both the sidebar dot and the health
- * screen.
- *
- * The two must never disagree about whether Modbot is broken, and the surest way to guarantee
- * that is for both to read the same table, with the status itself decided by the server rather
- * than by either of them.
- */
-export const STATUS: Record<
-  GateStatus,
-  { label: string; tone: Tone; icon: typeof CheckCircle2 }
-> = {
-  Working: { label: 'Working', tone: 'ok', icon: CheckCircle2 },
-
-  // Deliberately not an error tone. Waiting out a rate limit is spec 4.3.1 behaving correctly and
-  // recovering on its own; painting it red trains an operator to intervene, and against a penalty
-  // that grows on every probe, intervening is the one thing that makes it worse.
-  WaitingOnPurpose: { label: 'Waiting on purpose', tone: 'warn', icon: PauseCircle },
-
-  // Broken. Identical to the line above from outside -- traffic stopped, data not arriving -- and
-  // the opposite meaning: nothing changes until somebody does something.
-  NeedsOperator: { label: 'Needs you', tone: 'bad', icon: AlertTriangle },
-
-  NotConfigured: { label: 'Not configured', tone: 'muted', icon: CircleSlash },
-}
-
-export const TONE: Record<Tone, string> = {
-  ok: 'text-ok',
-  warn: 'text-warn',
-  bad: 'text-destructive',
-  muted: 'text-muted-foreground',
-}
+import { vrchatState, type State } from '@/lib/status'
 
 /**
- * The status table, but safe against a value the server knows and this build does not.
+ * The gate's status with an icon on it, for the screens that draw one.
  *
- * `Record<GateStatus, …>` is a compile-time claim about a *runtime* value that arrives over
- * HTTP, and the two part company the moment a server is newer than the page holding a cached
- * bundle. A miss used to return `undefined`, and the caller read `.tone` off it — which threw
- * during render, and because this indicator sits in the app shell, it took down every screen in
- * Modbot rather than one badge.
- *
- * So an unknown status renders as unknown, which is both true and survivable.
+ * The words and the colour live in `lib/status.ts`, which every part of Modbot's health reads;
+ * this adds only the picture. Splitting them keeps the words loadable without a rendering
+ * library, so the tests can read the same table the screens do.
  */
-export function statusOf(status: string | null | undefined) {
-  return (
-    STATUS[status as GateStatus] ?? {
-      label: status ? `Unknown (${status})` : 'Unknown',
-      tone: 'muted' as Tone,
-      icon: CircleSlash,
-    }
-  )
+const ICON: Record<GateStatus, typeof CheckCircle2> = {
+  Working: CheckCircle2,
+  WaitingOnPurpose: PauseCircle,
+  NeedsOperator: AlertTriangle,
+  NotConfigured: CircleSlash,
 }
 
-export const DOT: Record<Tone, string> = {
-  ok: 'bg-ok',
-  warn: 'bg-warn',
-  bad: 'bg-destructive',
-  muted: 'bg-muted-foreground',
+export function statusOf(status: string | null | undefined): State & { icon: typeof CheckCircle2 } {
+  return { ...vrchatState(status), icon: ICON[status as GateStatus] ?? CircleSlash }
 }
