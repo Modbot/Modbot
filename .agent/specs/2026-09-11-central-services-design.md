@@ -40,10 +40,22 @@ ordinary, useful, and how a maintainer decides what to support.
 - **Term list distribution** — Modbot Hub (foundation §4.2.7).
 - **Client releases** (§3).
 
+> **Moved 2026-09-16.** All four of those now live on Modbot Cloud rather than on `my.modbot.co`.
+> The registry, usage reporting and the term lists moved; client releases were never built here. See
+> §4.7, §5.1 and `2026-09-16-cloud-accounts-and-registry-design.md`. `my.modbot.co` has no database
+> of its own any more and reads everything from Cloud.
+
 **These remain permanently out of scope:**
 
 - **No central authentication.** Accounts live in each deployment, and the registry never holds
   credentials or sessions.
+
+  > **Narrowed 2026-09-16.** Modbot Cloud now has its own accounts — an email address, a password
+  > and a verification mail — so that a person can claim the Modbot servers they own and see them
+  > in one place. This is *not* central authentication for Modbot: a Cloud account never signs
+  > anybody in to a Modbot server, a Modbot server never checks one, and a deployment with no Cloud
+  > account is unaffected in every respect. Staff accounts still live in each deployment. See the
+  > Cloud accounts and registry spec.
 - **No central moderation data.** No bans, no member lists, no facts, no profile text. That is M8
   §5.1's rule and it is unaffected — the registry knows a deployment *exists*, never who is in it.
 - **No public directory.** The registry is not browsable and not enumerable by third parties (§4.3).
@@ -74,10 +86,10 @@ A Modbot server talks to Cloud for its own purposes. The maintainer's words:
 
 | What | Linking | Built? |
 |---|---|---|
-| Open rooms on modbot.co (§4.6) | none | **Yes**, since 2026-09-16. The first thing a server sends Cloud. On by default; `MODBOT_CLOUD_DISABLED` and the `share_public_rooms` setting each stop it. |
-| Usage reporting and analytics (§5) | none | **No.** `UsageReportingService` (`Modbot.Core/Analytics`) exists but nothing registers it or implements `IUsageConfiguration`, and it posts to my.modbot.co's `/api/instances/…` endpoints through `HubUrl`, which Cloud does not serve. When it is wired up it moves to Cloud and takes its address from `MODBOT_CLOUD_ENDPOINT`. |
+| Open rooms on modbot.co (§4.6) | none | **Yes**, since 2026-09-16. On by default; `MODBOT_CLOUD_DISABLED` and the `share_public_rooms` setting each stop it. |
+| Usage reporting and analytics (§5) | none | **Built 2026-09-16.** `ServerReportingService` registers with Cloud and reports on a schedule, at `MODBOT_CLOUD_ENDPOINT`. |
 | Sending its structured app logs, for remote support and backups | needed | **No.** The "server log feed" in the cloud event backup spec §0. |
-| Downloading the default term lists | needed | **No.** AI moderation fetches lists from Modbot Hub on my.modbot.co today (`HubTermLists`, `TermListHubOptions`), with no linking. |
+| Downloading the default term lists | needed | **Built 2026-09-16, without linking.** The lists moved to Cloud and `HubTermLists` reads them from `MODBOT_CLOUD_ENDPOINT`. Linking is not required: they are public data and were public on my.modbot.co, and putting an account in front of them would make a Modbot that cannot moderate until somebody signs up. |
 | Downloading shared term lists, from another Modbot server directly or through Cloud | the owner's account | **No.** |
 
 Two server environment variables, read by `ModbotEnvironment` into `ModbotCloudAddress`, govern all of
@@ -88,9 +100,10 @@ them:
 | `MODBOT_CLOUD_ENDPOINT` | The Cloud this server talks to. Default `https://cloud.modbot.co`; anything that is not a full `http` or `https` address means the default. |
 | `MODBOT_CLOUD_DISABLED` | `1`, `true`, `yes` or `on`: this server does not talk to Cloud at all. Every feature above must honour it, including one the operator has otherwise turned on. |
 
-They are read today and registered as a singleton. The open rooms report (§4.6) is the first
-feature to use them; everything else in the table above still does not. **A server never passes
-either value to its desktop clients** — an earlier revision did, and was reversed (cloud event backup
+> **Revised 2026-09-16.** `MODBOT_CLOUD_DISABLED=1` is now the *only* way an operator turns off
+> usage reporting. There is no toggle in the onboarding wizard and none in settings; see §5.1.
+
+**A server never passes either value to its desktop clients** — an earlier revision did, and was reversed (cloud event backup
 spec §0.1). Cloud still holds nothing read from a group's database; what the app log feed may carry is
 for that feature's own spec to settle.
 
@@ -105,8 +118,11 @@ This survives the registry, because neither half of "registration" is mandatory:
 
 - The **register page** (§4.1) runs in the operator's browser and saves to their own
   `localStorage`. It is a bookmark manager. Skipping it costs a convenience.
-- The **register API** (§4.2) is called by the deployment *only when usage analytics are enabled*.
-  Turn analytics off and the call never happens.
+- The **register API** (§4.2) is called by the deployment *only when Cloud is not disabled*. Set
+  `MODBOT_CLOUD_DISABLED=1` and the call never happens.
+
+  > **Revised 2026-09-16.** This used to read "only when usage analytics are enabled", which was a
+  > setting in the database. The consent is now given by the environment instead (§5.1).
 
 An earlier draft justified the skip path by pointing at air-gapped deployments. **That was wrong** —
 Modbot cannot do anything without reaching VRChat's API, so an offline Modbot is not a degraded
@@ -135,6 +151,37 @@ JavaScript on a CDN.
 > every other path is a 404, so the retired `/pair` and `/instanceredirect` cannot come back as
 > pages that happen to render. An unknown `/api/…` path is a JSON 404. The instance list is no
 > longer only in the browser either; see §2.3.1.
+
+### 2.1.1 No database — reversed back, 2026-09-16
+
+**`my.modbot.co` has no database again.** The PostgreSQL database added on 2026-09-14 is gone, and
+with it all five tables: `registered_instance`, `registered_instance_ip`, `register_page_instance`,
+`visitor_instance` and `admin_session`. `DATABASE_URL` is no longer read and the service starts
+without one.
+
+This reverses the 2026-09-14 revision above and the one in §2.3.1, and it retires `/admin` here
+entirely (§4.4's admin area moved to Cloud's).
+
+**What replaces it.** Everything `my.modbot.co` used to store, Modbot Cloud stores. `my.modbot.co`
+is a page and a proxy: it forwards the two calls the page makes to Cloud and hands back what Cloud
+answers.
+
+| Variable | Meaning |
+|---|---|
+| `MODBOT_CLOUD_PROXY_URL` | The Cloud this service reads from. Default `https://cloud.modbot.co`. |
+| `MODBOT_CLOUD_API_KEY` | Sent to Cloud as `Authorization: Bearer`. **Server-side only.** It is never returned by an endpoint, never written to a log, and never reaches a browser. |
+
+**Why this is worth a second reversal.** Two services were each growing a copy of the same registry,
+and only one of them can be the answer to "which Modbot servers exist". Cloud already holds the
+accounts, so it is the one that can say *whose* server a row is. Keeping a second database on
+`my.modbot.co` would have meant two schemas, two admin areas and two places to look.
+
+**Rate limits.** The proxied endpoints are limited per IP address, by §2.3.1's real-address rule:
+30 saves and 60 reads an hour. Held in memory, so a restart forgets them. They exist so that one
+address cannot make `my.modbot.co` hammer Cloud, not for accounting.
+
+**The governing rule is unaffected.** A Cloud that is down means the page shows the instances the
+browser saved in `localStorage`, which is what it did before any of this existed.
 
 ### 2.2 The flow
 
@@ -198,6 +245,12 @@ opens it.
 > `/go` looked broken to everyone who had never saved an instance.
 
 #### 2.3.1 Instance history by IP address
+
+> **Revised 2026-09-16.** Everything in this section still happens, but Cloud stores it and
+> `my.modbot.co` proxies to Cloud (§2.1.1). The tables have the same shape and the same rules —
+> the twice-saved-once-counted rule, the five-minute window, the 90 days, the 50 entries and the
+> real-address rule are unchanged, and the real-address rule still decides which address a Cloud
+> request is about, since `my.modbot.co` passes the visitor's address on rather than its own.
 
 **What is stored.** `visitor_instance`: the visitor's IP address, the instance URL (its origin, by
 the same rule as §4.1), when it was first and last seen, when the last counted visit began, and a
@@ -387,6 +440,11 @@ releases are still exactly where anyone would look for them.
 Deployments register themselves with `my.modbot.co` so the project knows how many exist, what
 versions are live, and roughly how they are configured.
 
+> **Moved to Cloud 2026-09-16.** The registry is Modbot Cloud's, not `my.modbot.co`'s. Everything in
+> §4.2 to §4.5 below describes it as it was; §4.7 says what changed, and
+> `2026-09-16-cloud-accounts-and-registry-design.md` is the current design. §4.1, the register page,
+> is still `my.modbot.co`'s — it just saves through Cloud now.
+
 ### 4.1 The register page — browser-side, for the operator
 
 During onboarding (and from settings afterwards) Modbot offers a button that opens a **new tab**:
@@ -487,6 +545,10 @@ may not.
 >   `DELETE /api/instances/{instanceId}`, `DELETE /api/register-page-instances?url=`, and `search`
 >   on both lists.
 
+> **Moved 2026-09-16.** That whole admin area is Cloud's now, at `cloud.modbot.co/admin`, with the
+> same `ROOT_API_KEY` sign-in and the same session rules. `my.modbot.co/admin` is gone and is a 404
+> like any other path it does not own.
+
 ### 4.5 Where deployments call from
 
 When a deployment calls `POST /api/instances/register` or `POST /api/instances/{instanceId}/usage`,
@@ -550,15 +612,43 @@ groups are listed and Cloud is never asked.
 turned off, asks Cloud to drop the group at once rather than waiting for it to age out. A public
 demo never reports: its rooms are made up, and a made-up event on a public page is one somebody
 would try to join.
+### 4.7 What moving to Cloud changed
+
+**Reversed 2026-09-16.** §4.3 said the registry holds "no group id, no group name". It does now, and
+that is the point of the move — the maintainer asked for the group so that a person can recognise
+their own server on `my.modbot.co` and on Cloud instead of reading a random id.
+
+| Was (§4.3) | Is (Cloud) |
+|---|---|
+| `instanceId`, self-assigned | `serverId`, assigned by Cloud with a secret, so nobody can take an id that is not theirs |
+| `instanceUrl`, `version` | the same, plus the host platform |
+| nothing about the group | group id, name, description, icon URL and banner URL |
+| a scale bucket (§5.2) | **gone.** A bucketed member count is still a member count |
+| a paired-client count (§5.2) | **gone.** It is a count of people |
+| latest usage figures only | a row per report, kept, so the figures can be charted |
+
+**What is still refused, and was made refusable by construction.** There is no field anywhere in the
+report for the number of users, the number of group members, or the number of people in a VRChat
+instance. The maintainer was explicit about all three. Apart from the group, a report says nothing
+about anybody.
+
+A registered server can be **claimed by a Cloud account**, and only by someone who can already sign
+in to that Modbot as an owner. See the Cloud accounts and registry spec.
 
 ---
 
 ## 5. Usage analytics
 
-### 5.1 Opt-out, default on, disclosed at onboarding
+### 5.1 Opt-out, default on — by environment variable, not by a toggle
 
-The wizard asks, with the toggle already on, and states plainly what is sent. An operator who turns
-it off gets a working Modbot — see §5.3 for what actually changes.
+> **Reversed 2026-09-16.** This used to say "the wizard asks, with the toggle already on". There is
+> no toggle, in the wizard or in settings. The maintainer asked for the switch to be an environment
+> variable, and it is: `MODBOT_CLOUD_DISABLED=1` stops this server talking to Cloud at all, and
+> `MODBOT_CLOUD_ENDPOINT` points it somewhere else (§1.1).
+>
+> A toggle in the database was the wrong shape for it. It is one switch that governs every use a
+> server makes of Cloud — reporting, term lists, and the log feed when it is built — and an operator
+> who wants none of it wants it off before the first boot, not after finding the screen.
 
 ### 5.2 What is sent
 
@@ -571,6 +661,11 @@ A periodic report carrying:
 | Scale bucket | Member count as a bucket (`<1k`, `1k-10k`, `10k-50k`, `50k+`), never an exact figure |
 | Paired client count | How many moderators run the Windows client |
 | Health summary | Counts of rate-limit cold stops and WAF blocks |
+
+> **Revised 2026-09-16.** The scale bucket and the paired client count are **removed**, and the
+> group id, name, description, icon URL and banner URL are **added**. See §4.7 for the current list
+> and why. `UsageSnapshot` no longer has a field for either count, which is the only kind of promise
+> worth making about this.
 
 **Never sent:** group id or name, any member identity, any moderation data, any fact, any profile
 text, any credential, any VRChat instance id, any log content.
@@ -606,9 +701,17 @@ rather than a threat.
   design: manual bookmarks, GitHub Releases, and a configurable feed URL.
 - Neither service is in the critical path of any deployment's operation. A Modbot instance never
   contacts either one; only browsers and clients do.
-- `my.modbot.co` needs `DATABASE_URL` (a `postgres://` URL or a keyword string) and refuses to start
-  without it, then applies its migrations before serving. `ROOT_API_KEY` unlocks reading the
-  registry. `/health/ready` answers only while the database is reachable.
+- `my.modbot.co` needs `MODBOT_CLOUD_API_KEY` and refuses to start without it.
+  `MODBOT_CLOUD_PROXY_URL` says which Cloud to read from and defaults to `https://cloud.modbot.co`.
+  `/health/ready` answers as long as the process is up: a Cloud that is unreachable is a page with
+  fewer instances on it, not a service that should be taken out of rotation.
+
+  > **Revised 2026-09-16.** It used to need `DATABASE_URL` and a `ROOT_API_KEY`, and apply
+  > migrations before serving. It has no database now (§2.1.1).
+
+- `MODBOT_MY_URL` says where `my.modbot.co` is, for the Modbot server and the landing page, and
+  defaults to `https://my.modbot.co`. It is what makes a self-hosted selector usable: a group that
+  runs its own can point its Modbot and its landing page at it in one variable each.
 - Its image builds from the repository root, because package versions are pinned in
   `Directory.Packages.props`: `docker build -f src/Modbot.My/Dockerfile .`. On Railway, leave the
   Root Directory empty and set `RAILWAY_DOCKERFILE_PATH=src/Modbot.My/Dockerfile`.
@@ -630,6 +733,10 @@ rather than a threat.
   > **Reversed 2026-09-14.** Instance URLs are now stored against the IP address they were opened
   > from (§2.3.1), and handed back to that address. It is still not an account system and does not
   > follow a person to a different network.
+  >
+  > **Revised 2026-09-16.** Cloud stores them; `my.modbot.co` proxies (§2.1.1). Cloud does have
+  > accounts now, but they are not what the page reads: the list is still keyed by address, and
+  > signing in to Cloud changes nothing about `my.modbot.co`.
 - Hosting Modbot deployments. The project publishes software, not a service.
 - Update delivery for anything other than the Windows client. Server deployments update through
   Railway or the operator's own pipeline.
