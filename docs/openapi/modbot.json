@@ -6683,6 +6683,238 @@
         ]
       }
     },
+    "/api/logs": {
+      "get": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "Modbot's own log, newest first",
+        "description": "`level` is the lowest level shown, so `Warning` gives warnings, errors and fatal lines. `text` matches the message and the exception, anywhere in either.\n\nOutbound API traffic is not in this table. It is written to `modbot_log_http_*.jsonl` and to Seq, and there is far too much of it to keep for six months in the database.\n\nNeeds the `ViewOperationalLog` permission.",
+        "operationId": "GetLogs",
+        "parameters": [
+          {
+            "name": "level",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "area",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "text",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogPage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/logs/filters": {
+      "get": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "The sources and areas that have written a line, and how many are stored",
+        "description": "Needs the `ViewOperationalLog` permission.",
+        "operationId": "GetLogFilters",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogFilters"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/logs/settings": {
+      "get": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "How long stored log lines are kept, and whether they go to Modbot Cloud",
+        "description": "Needs the `ViewOperationalLog` permission.",
+        "operationId": "GetLogSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogSettings"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "Set how long stored log lines are kept, and whether they go to Modbot Cloud",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "SetLogSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/evidence": {
       "get": {
         "tags": [
@@ -19621,6 +19853,185 @@
           }
         }
       },
+      "LogFilters": {
+        "required": [
+          "levels",
+          "sources",
+          "areas",
+          "stored",
+          "oldest"
+        ],
+        "type": "object",
+        "properties": {
+          "levels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "areas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stored": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "oldest": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "LogLine": {
+        "required": [
+          "id",
+          "at",
+          "level",
+          "message",
+          "template",
+          "source",
+          "area",
+          "exception",
+          "properties"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "level": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "template": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "area": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "exception": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "properties": {
+            "type": "string"
+          }
+        }
+      },
+      "LogPage": {
+        "required": [
+          "lines",
+          "next",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LogLine"
+            }
+          },
+          "next": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "LogSettings": {
+        "required": [
+          "keepDays",
+          "sendToCloud",
+          "cloudAllowed"
+        ],
+        "type": "object",
+        "properties": {
+          "keepDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sendToCloud": {
+            "type": "boolean"
+          },
+          "cloudAllowed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LogSettingsUpdate": {
+        "required": [
+          "keepDays",
+          "sendToCloud"
+        ],
+        "type": "object",
+        "properties": {
+          "keepDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sendToCloud": {
+            "type": "boolean"
+          }
+        }
+      },
       "LoginRequest": {
         "required": [
           "username",
@@ -24391,6 +24802,10 @@
       "name": "AI settings",
       "description": "The AI provider, Chat, moderation rules, insights, alerts and spend limits.",
       "x-displayName": "AI settings"
+    },
+    {
+      "name": "Logs",
+      "x-displayName": "Logs"
     }
   ]
 }

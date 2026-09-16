@@ -44,7 +44,8 @@ export const NAV = [
   // Not in the page list: the status rows at the foot of the sidebar say what it says, and each
   // one opens it at the part it names. The page, its address and every link to it are unchanged.
   { id: 'health', label: 'Sync health', needs: 'ViewOperationalLog', hidden: true },
-  { id: 'settings', label: 'Settings', group: 'Setup', needs: 'ManageSettings' },
+  { id: 'logs', label: 'Logs', group: 'Setup', needs: 'ViewOperationalLog' },
+  { id: 'settings', label: 'Settings', needs: 'ManageSettings' },
   { id: 'account', label: 'Your account', hidden: true },
   // Reached from the Bans page and the subject pane, not from the sidebar. The server gates
   // reads on ViewProfile and writes on Ban; the page shows the refusal in words.

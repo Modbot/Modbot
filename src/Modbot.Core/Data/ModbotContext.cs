@@ -227,6 +227,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     public DbSet<CalendarFeed> CalendarFeeds => Set<CalendarFeed>();
 
     /// <summary>
+    /// Modbot's own log, so it can be read in the app without Seq or a disk. Written only by
+    /// <c>DatabaseLogSink</c>; outbound API traffic is left out.
+    /// </summary>
+    public DbSet<LogEntry> Logs => Set<LogEntry>();
+
+    /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
     /// </summary>
@@ -1671,6 +1677,34 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.TokenHash).HasMaxLength(64);
             entity.Property(e => e.TokenEncrypted).HasColumnType("text");
+        });
+
+        builder.Entity<LogEntry>(entity =>
+        {
+            entity.ToTable("modbot_log");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Level).HasMaxLength(Logging.Store.LogRow.MaxLevelLength);
+            entity.Property(e => e.Source).HasMaxLength(Logging.Store.LogRow.MaxSourceLength);
+            entity.Property(e => e.Area).HasMaxLength(Logging.Store.LogRow.MaxAreaLength);
+            entity.Property(e => e.Properties).HasColumnType("jsonb");
+
+            // The page reads newest first, and retention reads oldest first; one index answers both.
+            entity.HasIndex(e => e.At)
+                .HasDatabaseName("ix_modbot_log_at")
+                .IsDescending(true);
+
+            // "Show me the errors" is the first thing anybody does on a log page, and on a healthy
+            // deployment errors are a thousandth of the rows.
+            entity.HasIndex(e => new { e.Level, e.At })
+                .HasDatabaseName("ix_modbot_log_level_at")
+                .IsDescending(false, true);
+
+            // "Everything this job wrote", which is how a sync problem is read.
+            entity.HasIndex(e => new { e.Source, e.At })
+                .HasDatabaseName("ix_modbot_log_source_at")
+                .IsDescending(false, true);
         });
 
         base.OnModelCreating(builder);

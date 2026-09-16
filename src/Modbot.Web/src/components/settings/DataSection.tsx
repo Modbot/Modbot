@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { api, ApiError, type DataSettings, type PublicAddressView } from '@/lib/api'
+import { api, ApiError, type DataSettings, type LogSettings, type PublicAddressView } from '@/lib/api'
 import { CREDITS_PATH } from '@/lib/nav'
 import { followLink } from '@/lib/router'
-import { Fact, Field, Hint, Outcome, Placeholder, Row } from './fields'
+import { Checkbox, Fact, Field, Hint, Outcome, Placeholder, Row } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { StorageChart } from './StorageChart'
 import { CheckCircle2 } from 'lucide-react'
@@ -62,6 +62,7 @@ export function DataSection() {
             }}
           />
           <RetentionCard current={data.retention} onSaved={load} />
+          <LogsCard />
           <DeploymentCard deployment={data.deployment} />
           <PublicAddressCard />
         </>
@@ -237,6 +238,77 @@ function RetentionCard({
           onChange={setMessages}
         />
       </div>
+      <Hint>0 keeps forever.</Hint>
+    </SettingsCard>
+  )
+}
+
+/**
+ * How long Modbot's own log lines are kept in the database, and whether the same lines go to
+ * Modbot Cloud. Here rather than on the Logs page so every retention window is edited in one
+ * place; the Logs page reads, this writes.
+ */
+function LogsCard() {
+  const [current, setCurrent] = useState<LogSettings | null>(null)
+  const [keepDays, setKeepDays] = useState('')
+  const [sendToCloud, setSendToCloud] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const load = useCallback(
+    () =>
+      api
+        .logSettings()
+        .then((next) => {
+          setCurrent(next)
+          setKeepDays(String(next.keepDays))
+          setSendToCloud(next.sendToCloud)
+          setProblem(null)
+        })
+        .catch((e: unknown) =>
+          setProblem(e instanceof ApiError ? e.message : 'Could not load the log settings.'),
+        ),
+    [],
+  )
+
+  useEffect(() => void load(), [load])
+
+  const dirty =
+    current !== null &&
+    (keepDays !== String(current.keepDays) || sendToCloud !== current.sendToCloud)
+
+  const save = () => {
+    setSaving(true)
+    setProblem(null)
+    api
+      .setLogSettings({ keepDays: Number(keepDays) || 0, sendToCloud })
+      .then(() => load())
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setSaving(false))
+  }
+
+  return (
+    <SettingsCard
+      title="Logs"
+      footer={
+        <>
+          <Button size="sm" disabled={!dirty || saving} onClick={save}>
+            {saving ? 'Saving...' : 'Save logs'}
+          </Button>
+          <Outcome tone="problem">{problem}</Outcome>
+        </>
+      }
+    >
+      <div className="grid max-w-lg gap-3 sm:grid-cols-2">
+        <Field label="Keep for (days)" placeholder="180" value={keepDays} onChange={setKeepDays} />
+      </div>
+      <Checkbox
+        checked={sendToCloud}
+        disabled={current === null || !current.cloudAllowed}
+        onChange={setSendToCloud}
+      >
+        Send logs to Modbot Cloud
+      </Checkbox>
       <Hint>0 keeps forever.</Hint>
     </SettingsCard>
   )

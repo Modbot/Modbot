@@ -46,7 +46,13 @@ secrets.json
 # Anchored: an unanchored `data/` also matches src/Modbot.Core/Data and tests/.../Data,
 # which silently swallowed the entire EF Core model.
 /data/
-logs/
+# Anchored for the same reason as /data/ above: an unanchored `logs/` also matches
+# src/Modbot.Api/Features/Logs and tests/.../Features/Logs, and git ignores case on Windows and
+# macOS, so the whole Logs feature was invisible to git until this was anchored. The two globs
+# below are the log directories a program writes beside itself when it is run from its project.
+/logs/
+src/*/logs/
+tests/*/logs/
 *.log
 
 # ---- Editors / OS ----
@@ -73,7 +79,6 @@ explore/responses/
 # .NET build output
 [Bb]in/
 [Oo]bj/
-logs/
 
 # Node
 node_modules/

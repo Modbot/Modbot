@@ -423,6 +423,52 @@ public class Settings
     public int DiscordMessageRetentionDays { get; set; }
 
     /// <summary>
+    /// How long Modbot's own log lines are kept in the database, in days. 0 keeps them forever.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 180 days, unlike the fact classes above, which keep everything by default. A log line is not
+    /// a record of what happened to a member; it is Modbot talking about itself, and six months is
+    /// already longer than any question anybody asks of it. Keeping them forever would grow a table
+    /// nobody reads past the tables that matter.
+    /// </para>
+    /// <para>
+    /// Only the database copy. The files have their own limit on how many are kept, Seq has its own
+    /// retention, and Modbot Cloud has its own setting for the copy it holds.
+    /// </para>
+    /// </remarks>
+    public int LogRetentionDays { get; set; } = Logging.Store.LogStore.DefaultRetentionDays;
+
+    /// <summary>
+    /// Send Modbot's own log lines to Modbot Cloud. On unless somebody turns it off, and ignored
+    /// entirely when <c>MODBOT_CLOUD_DISABLED</c> is set.
+    /// </summary>
+    public bool ShipLogsToCloud { get; set; } = true;
+
+    /// <summary>The Cloud install this server registered as, for log shipping. Null until it has.</summary>
+    public string? CloudLogInstallId { get; set; }
+
+    /// <summary>The secret that goes with <see cref="CloudLogInstallId"/>, encrypted.</summary>
+    public string? CloudLogSecretEncrypted { get; set; }
+
+    /// <summary>The last <c>modbot_log</c> row id Cloud has been sent.</summary>
+    public long CloudLogSentThroughId { get; set; }
+
+    /// <summary>When the last batch reached Cloud.</summary>
+    public DateTimeOffset? CloudLogSentAt { get; set; }
+
+    /// <summary>
+    /// Lines the shipper skipped because Cloud was unreachable for long enough that the queue ran
+    /// past <c>CloudLogShipper.MostRowsBehind</c>. Counted, never silently forgotten.
+    /// </summary>
+    public long CloudLogDropped { get; set; }
+
+    /// <summary>Why the last attempt to send failed. Null once one succeeds.</summary>
+    public string? CloudLogError { get; set; }
+
+    public DateTimeOffset? CloudLogErrorAt { get; set; }
+
+    /// <summary>
     /// Deduplication half-window for client-reported facts (spec 5.7.1). Bounded above by the
     /// 15-second genuine leave-and-rejoin, below by residual clock skew after IModbotClock sync.
     /// </summary>

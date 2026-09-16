@@ -1298,6 +1298,54 @@ export type SyncHealth = {
   now: string
 }
 
+export type LogLine = {
+  id: number
+  at: string
+  level: LogLevel
+  message: string
+  template: string | null
+  source: string | null
+  area: string | null
+  exception: string | null
+  /** Everything else the line carried, as a JSON object in a string. */
+  properties: string
+}
+
+export type LogLevel = 'Verbose' | 'Debug' | 'Information' | 'Warning' | 'Error' | 'Fatal'
+
+export type LogPage = {
+  lines: LogLine[]
+  /** Pass as `before` for the next page. Null at the end. */
+  next: number | null
+  now: string
+}
+
+export type LogFilters = {
+  levels: LogLevel[]
+  sources: string[]
+  areas: string[]
+  stored: number
+  oldest: string | null
+}
+
+export type LogSettings = {
+  keepDays: number
+  sendToCloud: boolean
+  /** False when MODBOT_CLOUD_DISABLED is set. */
+  cloudAllowed: boolean
+}
+
+export type LogQuery = {
+  level?: LogLevel
+  source?: string
+  area?: string
+  text?: string
+  from?: string
+  to?: string
+  before?: number
+  limit?: number
+}
+
 export type PausedRule = {
   ruleKind: 'termList' | 'topic'
   ruleId: string
@@ -3122,6 +3170,27 @@ export const api = {
   gateHealth: () => request<GateHealth>('/api/health/gate'),
 
   syncHealth: () => request<SyncHealth>('/api/health/sync'),
+
+  logs: (query: LogQuery = {}) => {
+    const q = new URLSearchParams()
+    if (query.level) q.set('level', query.level)
+    if (query.source) q.set('source', query.source)
+    if (query.area) q.set('area', query.area)
+    if (query.text) q.set('text', query.text)
+    if (query.from) q.set('from', query.from)
+    if (query.to) q.set('to', query.to)
+    if (query.before) q.set('before', String(query.before))
+    if (query.limit) q.set('limit', String(query.limit))
+    const search = q.toString()
+    return request<LogPage>(`/api/logs${search ? `?${search}` : ''}`)
+  },
+
+  logFilters: () => request<LogFilters>('/api/logs/filters'),
+
+  logSettings: () => request<LogSettings>('/api/logs/settings'),
+
+  setLogSettings: (body: { keepDays: number; sendToCloud: boolean }) =>
+    put<LogSettings>('/api/logs/settings', body),
 
   /**
    * Whether Modbot can reach its database, from the readiness probe a hosting platform calls.

@@ -25,6 +25,7 @@ using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Flags;
 using Modbot.Api.Features.Health;
+using Modbot.Api.Features.Logs;
 using Modbot.Api.Features.Members;
 using Modbot.Api.Features.Moderation;
 using Modbot.Api.Features.Alerts;
@@ -201,6 +202,10 @@ public static class ApiSurface
         app.MapAuditLog();
         app.MapAnalytics();
         app.MapSyncHealth();
+
+        // Modbot's own log, for a deployment with no Seq and no disk that survives a redeploy.
+        app.MapLogs();
+
         app.MapEvidence();
 
         // One VRChat user's stored profile and the 18+ flag (user profile sync design §6). The

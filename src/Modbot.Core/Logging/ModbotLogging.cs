@@ -76,6 +76,17 @@ public sealed class ModbotLogOptions
     /// </para>
     /// </remarks>
     public bool WriteFiles { get; init; } = true;
+
+    /// <summary>
+    /// The sink that writes the log into Modbot's own database, so it can be read in the app. Null
+    /// leaves it out entirely — a test host, or the build that generates the OpenAPI document.
+    /// </summary>
+    /// <remarks>
+    /// Given here rather than created here because it outlives the logger's construction: it is
+    /// built before the database is reachable, queues from the first line, and is connected by
+    /// <c>DatabaseLogSink.Start</c> once the tables exist.
+    /// </remarks>
+    public Store.DatabaseLogSink? DatabaseSink { get; init; }
 }
 
 /// <summary>
@@ -137,6 +148,12 @@ public static class ModbotLogging
         //    off, which is why it survives that switch untouched.
         if (!string.IsNullOrWhiteSpace(options.SeqUrl))
             config.WriteTo.Seq(options.SeqUrl, restrictedToMinimumLevel: LogEventLevel.Debug);
+
+        // ── The database: the same events as the main stream, for the operator who has no Seq and
+        //    no disk that survives a redeploy. Information and above whatever LOG_LEVEL says, so
+        //    turning Debug on to read the console does not put a week of Debug in the database.
+        if (options.DatabaseSink is { } database)
+            config.WriteTo.Sink(database, restrictedToMinimumLevel: LogEventLevel.Information);
 
         return config.CreateLogger();
     }

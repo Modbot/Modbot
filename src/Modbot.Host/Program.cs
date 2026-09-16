@@ -15,6 +15,7 @@ using Modbot.Demo;
 using Modbot.Api.Features.Client;
 using Modbot.Api.Features.Evidence;
 using Modbot.Core.Logging;
+using Modbot.Core.Logging.Store;
 using Modbot.AI;
 using Modbot.Discord;
 using Modbot.Evidence;
@@ -64,6 +65,12 @@ var writeLogFiles = !persistence.IsUnwritable;
 var logLevel = ModbotConsoleLog.ReadLevel(env.DebugLogging ? LogEventLevel.Debug : LogEventLevel.Information);
 var consoleLevel = ModbotConsoleLog.ReadLevel(LogEventLevel.Information);
 
+// The fourth destination: the database, so the log can be read in the app by an operator with no
+// Seq and no disk that survives a redeploy. Built here, before the database is known to be
+// reachable, so the lines this startup writes are queued and land in the table once the migrations
+// have made one. Connected below, after DatabaseMigrator has run.
+var databaseLog = BuildTimeDocument.IsRunning ? null : new DatabaseLogSink(clock);
+
 Log.Logger = ModbotLogging.Create(
     new ModbotLogOptions
     {
@@ -74,6 +81,7 @@ Log.Logger = ModbotLogging.Create(
         ConsoleMode = ModbotConsoleLog.ReadMode(),
         // The build writing the OpenAPI document leaves no log files behind.
         WriteFiles = writeLogFiles && !BuildTimeDocument.IsRunning,
+        DatabaseSink = databaseLog,
     },
     clock);
 
@@ -310,6 +318,14 @@ try
     if (!demo.IsOn)
         builder.Services.AddPublicRooms();
 
+    // The log in the database: the sink itself, so the Health page can say how it is doing, and the
+    // daily job that deletes lines past the keep-for setting.
+    if (databaseLog is not null)
+    {
+        builder.Services.AddSingleton(databaseLog);
+        builder.Services.AddHostedService<LogRetentionService>();
+    }
+
     builder.Services.AddModbotApi();
 
     // Sends new events to registered webhooks (API keys design §6). Reads the settings and the
@@ -346,6 +362,10 @@ try
         }
 
         _ = app.Services.GetRequiredService<ISecretProtector>();
+
+        // The table exists now, so the queued startup lines can be written and everything after
+        // this goes straight in. Before this point the sink queues and writes nothing.
+        databaseLog?.Start(connectionString);
 
         // The demo's group, people, rooms and team, written before the first request so nobody
         // ever sees an empty demo. The year of history behind it is written afterwards, by

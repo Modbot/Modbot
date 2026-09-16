@@ -8,7 +8,7 @@ There are four places to look when you want to know whether your Modbot is worki
 - two **health check addresses** your hosting platform can call,
 - the **Sync health** page in the web app,
 - the **Deployment** card in **Settings**,
-- the **logs**.
+- the **logs**, which you can read in the app on the [Logs](/self-hosting/logs) page.
 
 ## Health check addresses
 
@@ -181,3 +181,8 @@ database, because it is how you find out why Modbot cannot reach its database. W
 `MODBOT_DEBUG_LOGGING` on, Seq also gets the Debug detail.
 
 See [Environment variables](/self-hosting/environment-variables).
+
+### The database
+
+Modbot also keeps the same lines in its own database, and the **Logs** page in the app reads them,
+so a deployment with no Seq and no disk can still search its log. See [Logs](/self-hosting/logs).

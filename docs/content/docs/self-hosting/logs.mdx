@@ -1,0 +1,80 @@
+---
+title: Logs
+description: The four places Modbot writes its log - the console, log files, Seq, and its own database, which is what the Logs page in the app reads.
+---
+
+Modbot writes one log, to as many as four places at once:
+
+| Where | Needs | Good for |
+|---|---|---|
+| **The console** | nothing | `docker logs`, and your hosting platform's log view |
+| **Log files** | a disk that survives a restart | reading a whole run, and searching with a tool |
+| **[Seq](https://datalust.co/seq)** | `SEQ_URL` | searching everything, including the times Modbot cannot reach its database |
+| **The database** | nothing | the **Logs** page in the app |
+
+The first three are described under [Checking a deployment](/self-hosting/health#logs). This page is
+about the fourth.
+
+## The Logs page
+
+**Logs** is in the sidebar under **Setup**. You need the
+[**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) permission.
+
+It exists for the deployment that has none of the other three to hand: a container whose disk is
+thrown away on every redeploy, no Seq server, and a hosting dashboard that shows the last few
+hundred lines with no way to search them.
+
+Each row is one line: the time, the level, the message and where it came from. Open a row to see the
+rest — the full message, the properties it carried, and the exception if there was one.
+
+The filters are:
+
+| Filter | What it does |
+|---|---|
+| **Search** | Matches the message and the exception, anywhere in either. |
+| **Level** | The lowest level shown. **Warning** gives warnings, errors and fatal lines. |
+| **Source** | The part of Modbot that wrote it. |
+| **Area** | **Sync**, **Moderation**, **Analytics**, **Setup** or **Discord**. |
+| **From** and **To** | Whole days. |
+
+## What is in the table, and what is not
+
+The table holds the same lines as the main log file: **Information and above**.
+
+**Requests Modbot sends to VRChat and Discord are not in it.** They are in
+`modbot_log_http_<date>_<time>.jsonl` and in Seq. A busy sync writes tens of thousands of those a
+day, and six months of them would be larger than everything else Modbot stores put together.
+
+Turning on `MODBOT_DEBUG_LOGGING` or setting `LOG_LEVEL=Debug` fills the console, the files and Seq
+with Debug detail. It does not change what goes in the database.
+
+**Secrets never reach the table.** A property whose name looks like a credential — anything with
+`password`, `secret`, `token`, `apikey`, `authorization`, `cookie` or `credential` in it — is stored
+as `[removed]`, and a bearer token or a connection-string password written into a message is taken
+out of the text as well.
+
+## How long lines are kept
+
+**Settings**, **Host & Database**, **Logs**, **Keep for**. **180 days** by default, and `0` keeps
+them forever. Changing it needs the **Change settings** permission.
+
+Once a day, Modbot deletes the lines past the window, ten thousand rows at a time.
+
+The setting covers the database copy only. Log files have their own limit on how many are kept (see
+[Checking a deployment](/self-hosting/health#log-files)), and Seq has its own retention.
+
+## What it costs
+
+A line is about half a kilobyte stored. A quiet deployment writes a few thousand a day, so six
+months is a few hundred megabytes at most — the same order as a month of presence facts. If a
+deployment is writing far more than that, the log lines themselves are the thing to look at.
+
+## When the database is the problem
+
+The Logs page is read from the database, so it cannot tell you why the database is unreachable. That
+is what `SEQ_URL` is for, and why it is an environment variable rather than a setting. See
+[Environment variables](/self-hosting/environment-variables).
+
+Lines written while the database is unreachable are held in memory — ten thousand of them — and
+written when it comes back. Past that, the oldest are dropped and counted, and the count is on the
+**Sync health** page.

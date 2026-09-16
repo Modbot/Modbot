@@ -24,6 +24,7 @@ import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Live } from '@/pages/Live'
 import { Calendar } from '@/pages/Calendar'
 import { Login } from '@/pages/Login'
+import { Logs } from '@/pages/Logs'
 import { DiscordMembers } from '@/pages/DiscordMembers'
 import { Members } from '@/pages/Members'
 import { Instances } from '@/pages/analytics/Instances'
@@ -58,6 +59,7 @@ const TITLES: Record<PageId, string> = {
   users: 'Users',
   roles: 'Roles',
   health: 'Sync health',
+  logs: 'Logs',
   settings: 'Settings',
   account: 'Your account',
   cases: 'Case file',
@@ -87,6 +89,7 @@ const PATHS: Record<PageId, string> = {
   users: '/users',
   roles: '/roles',
   health: '/health',
+  logs: '/logs',
   settings: '/settings',
   account: '/account',
   cases: '/cases',
@@ -365,6 +368,7 @@ function Shell({
           {page === 'users' && <Users me={me} />}
           {page === 'roles' && <Roles me={me} />}
           {page === 'health' && <Health />}
+          {page === 'logs' && <Logs />}
           {page === 'settings' && <Settings />}
           {page === 'account' && <Account me={me} onChanged={() => void refresh()} />}
           {page === 'credits' && <Credits />}

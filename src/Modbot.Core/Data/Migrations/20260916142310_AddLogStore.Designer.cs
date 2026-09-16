@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260916142310_AddLogStore")]
+    partial class AddLogStore
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4423,13 +4426,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("group_instances_polled_at");
 
-                    b.Property<string>("ManagedGroupBannerUrl")
-                        .HasColumnType("text")
-                        .HasColumnName("managed_group_banner_url");
-
-                    b.Property<string>("ManagedGroupIconUrl")
-                        .HasColumnType("text")
-                        .HasColumnName("managed_group_icon_url");
                     b.Property<int>("LogRetentionDays")
                         .HasColumnType("integer")
                         .HasColumnName("log_retention_days");
@@ -4498,18 +4494,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("public_address");
 
-                    b.Property<DateTimeOffset?>("PublicRoomsReportedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("public_rooms_reported_at");
-
-                    b.Property<string>("PublicRoomsSecretEncrypted")
-                        .HasColumnType("text")
-                        .HasColumnName("public_rooms_secret_encrypted");
-
-                    b.Property<Guid?>("PublicRoomsServerId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("public_rooms_server_id");
-
                     b.Property<bool>("RequireModerationClassification")
                         .HasColumnType("boolean")
                         .HasColumnName("require_moderation_classification");
@@ -4518,11 +4502,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("review_thresholds");
 
-                    b.Property<bool>("SharePublicRooms")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("share_public_rooms");
                     b.Property<bool>("ShipLogsToCloud")
                         .HasColumnType("boolean")
                         .HasColumnName("ship_logs_to_cloud");
