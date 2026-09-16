@@ -509,6 +509,29 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
     }
 
     /// <summary>
+    /// A bio with a null character in it must not stall the queue. Postgres refuses the character
+    /// in text and in jsonb, and before the context dropped it, one such bio made every pass
+    /// fetch the same person, fail to save, and leave the cursor where it was.
+    /// </summary>
+    [Fact]
+    public async Task ABioWithANullCharacterIsSavedWithoutItAndTheQueueMovesOn()
+    {
+        VRChat.Users.Has("usr_a", displayName: "Trinity", bio: "💚💙  hello", pronouns: "she/her");
+        await SeedRowAsync("usr_a", lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
+        VRChat.Users.UserMissing.Add("usr_a");
+
+        var run = await RunUserProfileAsync();
+
+        Assert.Equal("usr_a", run.UserId);
+
+        var row = await UserRowAsync("usr_a");
+        Assert.Equal("💚💙 hello", row!.Bio);
+        Assert.Equal(Now, row.LastRefreshedAt);
+        Assert.Null(row.RefreshError);
+        Assert.DoesNotContain("\u0000", row.RawPublicProfile);
+    }
+
+    /// <summary>
     /// The rare read fills what only it carries and overwrites nothing else -- including a bio
     /// VRChat has stopped sending on it.
     /// </summary>

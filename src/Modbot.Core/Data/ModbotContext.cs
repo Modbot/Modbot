@@ -280,6 +280,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
         // hand-written SQL statement, and the fact log's partitioning is hand-written SQL.
         optionsBuilder.UseSnakeCaseNamingConvention();
 
+        // Same reason: Postgres refuses a null character in text and jsonb alike, and the one
+        // writer that forgot would stall its whole queue on the first bio that had one.
+        optionsBuilder.AddInterceptors(NullCharacterInterceptor.Instance);
+
         base.OnConfiguring(optionsBuilder);
     }
 
