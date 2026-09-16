@@ -26,6 +26,8 @@ what Modbot needs before it can reach the database, plus a few switches.
 | `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log files and sends Debug detail to Seq, while the console stays at Information. It also brings back the web server's per-request log lines and the database's query lines, which are left out otherwise. `LOG_LEVEL` wins over it. |
 | `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud this server talks to for its own use. A value that is not a full `http` or `https` address is ignored and the default is used. It is not passed to desktop clients. See [Modbot Cloud](/self-hosting#modbot-cloud). |
 | `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: this server does not talk to Modbot Cloud. It does not change what desktop clients send. |
+| `MODBOT_DEMO` | No | off | `1`, `true`, `yes` or `on` starts Modbot as a public demo: made-up data, no sign-in, and every visitor is an administrator. Only on a deployment that was never set up — a staff account or a finished setup wizard makes Modbot ignore it, and nothing is seeded or removed. See [Demo mode](/self-hosting/demo-mode). |
+| `MODBOT_DEMO_RESET_HOURS` | No | `24` | How many hours between automatic resets of the demo's data. `0` never resets. Anything that is not a whole number from 0 to 8760 means 24. Only read when `MODBOT_DEMO` is on. |
 
 The image clears `ASPNETCORE_HTTP_PORTS`, so `PORT` is the only port setting.
 

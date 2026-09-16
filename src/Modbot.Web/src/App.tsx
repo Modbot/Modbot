@@ -134,6 +134,16 @@ export default function App() {
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
   const [me, setMe] = useState<CurrentUser | null>(null)
 
+  // A demo has no sign-in and no session, so it has nothing to sign out of. False everywhere else.
+  const [demo, setDemo] = useState(false)
+
+  useEffect(() => {
+    api
+      .demoStatus()
+      .then((d) => setDemo(d.on))
+      .catch(() => undefined)
+  }, [])
+
   // Theme and density are applied here rather than inside the app shell, so the wizard and the
   // sign-in page are themed too. An operator who set Modbot to dark and then re-ran a setup step
   // should not be handed a white screen at midnight.
@@ -222,7 +232,17 @@ export default function App() {
   // of the app they navigate around in.
   if (route === '/pair') return <Pair />
 
-  return <Shell status={status} me={me} prefs={prefs} route={route} navigate={navigate} refresh={refresh} />
+  return (
+    <Shell
+      status={status}
+      me={me}
+      prefs={prefs}
+      route={route}
+      navigate={navigate}
+      refresh={refresh}
+      demo={demo}
+    />
+  )
 }
 
 function Shell({
@@ -232,6 +252,7 @@ function Shell({
   route,
   navigate,
   refresh,
+  demo,
 }: {
   status: OnboardingStatus
   me: CurrentUser
@@ -239,6 +260,7 @@ function Shell({
   route: string
   navigate: (to: string, options?: { replace?: boolean }) => void
   refresh: () => Promise<OnboardingStatus>
+  demo: boolean
 }) {
   const requested = pageFor(route)
 
@@ -286,8 +308,11 @@ function Shell({
           username={me.username}
           onAccount={() => navigate(PATHS.account)}
           // A full reload rather than a state change: signing out invalidates the cookie, and
-          // every cached page in memory was rendered for the person who just left.
-          onSignOut={() => void api.logout().finally(() => window.location.assign('/'))}
+          // every cached page in memory was rendered for the person who just left. A demo has no
+          // session to end, so the control is not there.
+          onSignOut={
+            demo ? undefined : () => void api.logout().finally(() => window.location.assign('/'))
+          }
         />
         <div className="p-5">
           {page === 'members' && <Members me={me} onOpenSubject={setSubject} />}

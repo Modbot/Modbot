@@ -4,6 +4,7 @@
     "index",
     "railway",
     "docker",
+    "demo-mode",
     "environment-variables",
     "postgres",
     "storage-buckets",

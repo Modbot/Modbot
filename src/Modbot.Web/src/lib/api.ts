@@ -48,6 +48,23 @@ export type ConnectionDiagnosis = {
   elapsedMs: number
 }
 
+/**
+ * Whether this deployment is a public demo, and what it is doing.
+ *
+ * `on` is false everywhere but a demo, so the marker and the reset control simply do not exist on
+ * an ordinary deployment. See the demo mode design.
+ */
+export type DemoStatus = {
+  on: boolean
+  busy: boolean
+  step: string
+  done: number
+  total: number
+  seededAt: string | null
+  nextResetAt: string | null
+  resetHours: number
+}
+
 export type OnboardingStatus = {
   hasAdministrator: boolean
   authenticated: boolean
@@ -2562,6 +2579,10 @@ export const http = { request, post, put, del }
 
 export const api = {
   onboardingStatus: () => request<OnboardingStatus>('/api/onboarding/status'),
+
+  demoStatus: () => request<DemoStatus>('/api/demo'),
+
+  resetDemo: () => request<{ started: boolean }>('/api/demo/reset', { method: 'POST' }),
 
   createAdministrator: (body: {
     username: string

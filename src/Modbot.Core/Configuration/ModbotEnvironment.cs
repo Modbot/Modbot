@@ -28,6 +28,13 @@ namespace Modbot.Core.Configuration;
 /// set them. They say nothing to paired desktop clients, which keep their own Cloud settings. Both
 /// are optional, and Modbot runs identically without them.
 /// </para>
+/// <para>
+/// <c>MODBOT_DEMO</c> and <c>MODBOT_DEMO_RESET_HOURS</c> are the same kind of exception, for the
+/// same reason (demo mode design §2). Demo mode decides whether there is a sign-in page at all, so
+/// it cannot be a setting inside an app that has no way to sign in to it; and the whole point of
+/// the switch is that a real deployment can never turn it on by accident, which a row in the
+/// database somebody can edit would not give.
+/// </para>
 /// </remarks>
 public sealed class ModbotEnvironment
 {
@@ -58,6 +65,18 @@ public sealed class ModbotEnvironment
     /// <summary>True when <c>MODBOT_CLOUD_DISABLED</c> is set truthy: this server does not talk to Modbot Cloud.</summary>
     public bool CloudDisabled { get; init; }
 
+    /// <summary>
+    /// True when <c>MODBOT_DEMO</c> is set truthy. Asks for demo mode; it is not granted here.
+    /// <see cref="DemoMode"/> is the only thing that decides whether demo mode is on.
+    /// </summary>
+    public bool Demo { get; init; }
+
+    /// <summary>
+    /// <c>MODBOT_DEMO_RESET_HOURS</c>: hours between automatic demo resets, 0 for never. Null when
+    /// unset or not a whole number from 0 to 8760, which means the default.
+    /// </summary>
+    public int? DemoResetHours { get; init; }
+
     public static ModbotEnvironment Read(IDictionary<string, string?>? source = null)
     {
         string? Get(string key) => source is not null
@@ -65,6 +84,7 @@ public sealed class ModbotEnvironment
             : Environment.GetEnvironmentVariable(key);
 
         var rawPort = Get(PortVariable);
+        var rawResetHours = Get(DemoMode.ResetHoursVariable);
 
         return new ModbotEnvironment
         {
@@ -74,6 +94,14 @@ public sealed class ModbotEnvironment
             DebugLogging = Truthy(Get("MODBOT_DEBUG_LOGGING")),
             CloudEndpoint = Blank(Get(CloudEndpointVariable)),
             CloudDisabled = Truthy(Get(CloudDisabledVariable)),
+            Demo = Truthy(Get(DemoMode.Variable)),
+
+            // A year of hours is the ceiling. Anything outside it -- or not a number at all -- is
+            // somebody's typo, and a typo should leave the default in place rather than turn the
+            // reset off or set it a century away.
+            DemoResetHours = int.TryParse(rawResetHours, out var hours) && hours is >= 0 and <= 8760
+                ? hours
+                : null,
         };
 
         static string? Blank(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();

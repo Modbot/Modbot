@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Modbot.Core.Configuration;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Core.Email;
@@ -113,11 +114,25 @@ public static class ModbotAuth
             // API keys design §3.4: a request carrying a key goes to the key handler, everything
             // else to the cookie handler exactly as it did before keys existed. Sign-in and
             // sign-out name the cookie scheme explicitly, so they never pass through here.
+            //
+            // Demo mode is the third arm, and it is the only one that hands out a session nobody
+            // asked for: on a demo deployment every request is served as an administrator (demo
+            // mode design §3). DemoAuthentication.MayServeEveryoneAsAdministrator is the one place
+            // that decides it, here and again inside the handler.
             .AddPolicyScheme(DefaultScheme, DefaultScheme, options =>
-                options.ForwardDefaultSelector = context => ApiKeyAuthentication.Carries(context)
-                    ? ApiKeyAuthentication.Scheme
-                    : CookieAuthenticationDefaults.AuthenticationScheme)
+                options.ForwardDefaultSelector = context =>
+                {
+                    if (ApiKeyAuthentication.Carries(context))
+                        return ApiKeyAuthentication.Scheme;
+
+                    var demo = context.RequestServices.GetService<DemoMode>();
+
+                    return DemoAuthentication.MayServeEveryoneAsAdministrator(demo)
+                        ? DemoAuthentication.Scheme
+                        : CookieAuthenticationDefaults.AuthenticationScheme;
+                })
             .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthentication.Scheme, null)
+            .AddScheme<AuthenticationSchemeOptions, DemoAuthenticationHandler>(DemoAuthentication.Scheme, null)
             .AddCookie(options =>
             {
                 options.Cookie.Name = CookieName;

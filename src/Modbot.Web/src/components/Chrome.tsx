@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { DemoMarker } from '@/components/DemoMarker'
 import { GateIndicator } from '@/components/GateIndicator'
 import type { CurrentUser } from '@/lib/api'
 import { NAV, mayOpen, type NavItem, type PageId } from '@/lib/nav'
@@ -108,6 +109,10 @@ export function Topbar({
       style={{ borderBottomWidth: 'var(--hairline)' }}
     >
       <h1 className="font-display" style={{ fontSize: 'calc(var(--text-base) + 3px)' }}>{title}</h1>
+
+      {/* Nothing at all unless this deployment is a demo. */}
+      <DemoMarker />
+
       <div className="flex-1" />
 
       <Segmented

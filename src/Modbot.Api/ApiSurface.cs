@@ -79,6 +79,14 @@ public static class ApiSurface
         services.TryAddSingleton<DiscordLinkSignal>();
         services.AddHttpClient(DiscordOAuth.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(20));
 
+        // Whether this is a demo. The host decides it during startup and registers the decided one
+        // before this runs; these are the fallbacks for a host that maps the API without demo mode,
+        // and an undecided DemoMode is never on -- so the fallback cannot serve anybody as an
+        // administrator (demo mode design §3).
+        services.TryAddSingleton<Core.Configuration.DemoState>();
+        services.TryAddSingleton(sp => Core.Configuration.DemoMode.From(
+            sp.GetService<Core.Configuration.ModbotEnvironment>() ?? new Core.Configuration.ModbotEnvironment()));
+
         // Its wording, sign-in schemes, error shape and section order are in OpenApiReference.
         services.AddOpenApi(DocumentName, options => options.AddModbotReference());
 
@@ -245,6 +253,11 @@ public static class ApiSurface
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.
         Features.Calendar.CalendarEndpoints.MapCalendar(app);
+
+        // Whether this deployment is a demo, and the control that puts its data back (demo mode
+        // design §6). Mapped everywhere; on anything but a demo it answers "no" and refuses the
+        // reset, because the web app asks it on every load to decide whether to show the marker.
+        Features.Demo.DemoEndpoints.MapDemo(app);
 
         // Onboarding (spec 7.1). Each step is its own slice because each one is independently
         // re-runnable from settings later -- they are not stages of a single transaction, and

@@ -19,6 +19,17 @@ public class Settings
 
     public bool OnboardingComplete { get; set; }
 
+    /// <summary>
+    /// True when everything in this database was made up by the demo seeder.
+    /// </summary>
+    /// <remarks>
+    /// Written only by the demo seeder, and read only by <see cref="Configuration.DemoMode"/>, which
+    /// uses it to tell "a demo that has already been seeded once" from "a deployment somebody set up
+    /// for real". Without it, a demo would set <see cref="OnboardingComplete"/> during seeding and
+    /// then refuse to be a demo on its own next restart. See demo mode design §2.
+    /// </remarks>
+    public bool DemoData { get; set; }
+
     // --- VRChat account (spec 2.3) ---
     public string? VRChatUsername { get; set; }
     public string? VRChatPasswordEncrypted { get; set; }

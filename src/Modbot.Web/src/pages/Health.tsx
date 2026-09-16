@@ -13,6 +13,7 @@ import {
   type DiscordReadBackHealth,
   type CalendarHealth,
   type AiCallsHealth,
+  type DemoStatus,
   type EmailHealth,
   type PausedRule,
   type SyncHealth,
@@ -85,6 +86,8 @@ export function Health() {
 
   return (
     <div className="flex flex-col gap-4">
+      <DemoProgress />
+
       <AlertsCard />
 
       <Card>
@@ -592,6 +595,51 @@ function DiscordBot({
             Last problem{bot.lastErrorAt ? ` (${ago(bot.lastErrorAt, now)})` : ''}: {bot.lastError}
           </p>
         )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * How far the demo's data has got. Nothing on a deployment that is not a demo, and nothing on a
+ * demo whose data is already complete.
+ */
+function DemoProgress() {
+  const [demo, setDemo] = useState<DemoStatus | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const load = () =>
+      api
+        .demoStatus()
+        .then((next) => {
+          if (!cancelled) setDemo(next)
+        })
+        .catch(() => undefined)
+
+    void load()
+
+    const timer = setInterval(() => void load(), 3000)
+
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
+
+  if (!demo?.on || !demo.busy) return null
+
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-medium">Demo data</span>
+          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {demo.step}
+            {demo.total > 0 ? ` — ${demo.done.toLocaleString()} of ${demo.total.toLocaleString()}` : ''}
+          </span>
+        </div>
       </CardContent>
     </Card>
   )

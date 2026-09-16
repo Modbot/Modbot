@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260916042203_AddDemoData")]
+    partial class AddDemoData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2845,96 +2848,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("modbot_user_role", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.ModerationAction", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("action");
-
-                    b.Property<Guid?>("CaseFileId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("case_file_id");
-
-                    b.Property<string>("FailureMessage")
-                        .HasColumnType("text")
-                        .HasColumnName("failure_message");
-
-                    b.Property<DateTimeOffset?>("FinishedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("finished_at");
-
-                    b.Property<string>("GroupId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("group_id");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("key");
-
-                    b.Property<Guid>("ModeratorUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("moderator_user_id");
-
-                    b.Property<string>("ModeratorUsername")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("moderator_username");
-
-                    b.Property<string>("Note")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("note");
-
-                    b.Property<bool>("RateLimited")
-                        .HasColumnType("boolean")
-                        .HasColumnName("rate_limited");
-
-                    b.Property<string>("ReasonIds")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("reason_ids");
-
-                    b.Property<DateTimeOffset>("StartedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("started_at");
-
-                    b.Property<int>("StatusCode")
-                        .HasColumnType("integer")
-                        .HasColumnName("status_code");
-
-                    b.Property<bool?>("Succeeded")
-                        .HasColumnType("boolean")
-                        .HasColumnName("succeeded");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_moderation_action");
-
-                    b.HasIndex("Key")
-                        .IsUnique()
-                        .HasDatabaseName("ux_moderation_action_key");
-
-                    b.HasIndex("UserId", "StartedAt")
-                        .IsDescending(false, true)
-                        .HasDatabaseName("ix_moderation_action_user");
-
-                    b.ToTable("moderation_action", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModerationFlag", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4747,17 +4660,9 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_seen_at");
 
-                    b.Property<DateTimeOffset?>("LastUserReadAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_user_read_at");
-
                     b.Property<DateTimeOffset?>("NotFoundAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("not_found_at");
-
-                    b.Property<DateTimeOffset?>("ProfileNotFoundAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("profile_not_found_at");
 
                     b.Property<string>("ProfilePictureUrl")
                         .HasColumnType("text")
@@ -4770,10 +4675,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("RawProfile")
                         .HasColumnType("jsonb")
                         .HasColumnName("raw_profile");
-
-                    b.Property<string>("RawPublicProfile")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("raw_public_profile");
 
                     b.Property<string>("RefreshError")
                         .HasMaxLength(512)
@@ -4797,19 +4698,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("tags");
 
-                    b.Property<DateTimeOffset?>("UserNotFoundAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("user_not_found_at");
-
-                    b.Property<string>("UserReadError")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("user_read_error");
-
-                    b.Property<DateTimeOffset?>("UserReadErrorAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("user_read_error_at");
-
                     b.HasKey("UserId")
                         .HasName("pk_vrchat_user");
 
@@ -4818,9 +4706,6 @@ namespace Modbot.Core.Data.Migrations
 
                     b.HasIndex("LastSeenAt")
                         .HasDatabaseName("ix_vrchat_user_last_seen");
-
-                    b.HasIndex("LastUserReadAt")
-                        .HasDatabaseName("ix_vrchat_user_last_user_read");
 
                     b.ToTable("vrchat_user", (string)null);
                 });

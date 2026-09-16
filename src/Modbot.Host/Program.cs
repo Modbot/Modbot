@@ -5,8 +5,12 @@ using Modbot.Analytics;
 using Microsoft.AspNetCore.DataProtection;
 using Modbot.Api;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Demo;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
+using Modbot.Core.Discord;
+using Modbot.Core.Email;
+using Modbot.Demo;
 using Modbot.Api.Features.Client;
 using Modbot.Api.Features.Evidence;
 using Modbot.Core.Logging;
@@ -123,6 +127,17 @@ try
         return 1;
     }
 
+    // Whether this is a public demo, decided before anything is registered: a demo composes a
+    // different host -- no VRChat sync, no Discord bot, no mail -- and the decision depends on
+    // what is already in the database (demo mode design §2). The build that writes the OpenAPI
+    // document never reaches a database, so it is never a demo.
+    var demo = BuildTimeDocument.IsRunning ? new DemoMode() : DemoMode.From(env);
+
+    if (BuildTimeDocument.IsRunning)
+        demo.Decide(hasStaffAccount: false, onboardingComplete: false, holdsDemoData: false);
+    else
+        Log.Information("{Explanation}", await DemoStartup.DecideAsync(demo, connectionString));
+
     var builder = WebApplication.CreateBuilder(args);
 
     // Serilog takes over the logging for everything ASP.NET Core and Entity Framework write, and
@@ -143,6 +158,11 @@ try
 
     builder.Services.AddSingleton(env);
     builder.Services.AddSingleton<IModbotClock>(clock);
+
+    // The decision made above, for everything downstream to ask. Nothing else in Modbot works out
+    // for itself whether this is a demo.
+    builder.Services.AddSingleton(demo);
+    builder.Services.AddSingleton<DemoState>();
 
     // What startup worked out about its surroundings, so the settings page reports what this
     // process is actually doing rather than re-deriving it and possibly disagreeing with it.
@@ -188,7 +208,14 @@ try
     // Before AddModbotAuth, whose fallback Discord messenger is a TryAdd: the real one has to be
     // registered first to win. Today it sends one person a direct message with the stored bot
     // token, which is all the forgot-password flow needs (accounts and access design §4.2).
-    builder.Services.AddModbotDiscord();
+    //
+    // A demo registers neither the bot nor the messenger. The bot connects on its own schedule as
+    // soon as a token is stored, so the only sure way to keep a demo off Discord is not to have one
+    // (demo mode design §3.2); the messenger's place is taken by one that refuses, registered below.
+    if (!demo.IsOn)
+        builder.Services.AddModbotDiscord();
+    else
+        builder.Services.AddSingleton<IDiscordMessenger, DemoDiscordMessenger>();
 
     // Where every AI feature gets its client (M8 section 4). It reads the settings row on each
     // call and hands out nothing while AI is off, so it needs nothing from startup.
@@ -231,7 +258,14 @@ try
     // it and IFactWriter from AddModbotAnalytics. Safe on a fresh deployment: both read
     // Settings.ManagedGroupId, report NotConfigured and issue no requests at all until onboarding
     // has chosen a group.
-    builder.Services.AddModbotVRChatSync();
+    //
+    // A demo runs none of it, and replaces the gate itself, so that nothing anywhere -- a sync job,
+    // a chat tool, a kick from the members list -- can reach VRChat from a demo. Registered after
+    // AddModbotVRChat so the later registration wins.
+    if (demo.IsOn)
+        builder.Services.AddSingleton<IVRChatGate>(new DemoVRChatGate(clock));
+    else
+        builder.Services.AddModbotVRChatSync();
 
     // Evidence storage (evidence design §6). AddModbotEvidence resolves its options at
     // registration, which is before migrations have run and therefore before there is a Settings
@@ -276,6 +310,14 @@ try
     // access design §4.4). One small query every thirty seconds when nothing is waiting.
     builder.Services.AddEmailQueue();
 
+    // The demo: the seeder, the background fill-in and the reset schedule, plus the relay that
+    // makes sure no demo ever sends an email. AddModbotAuth registers the SMTP relay with a
+    // TryAdd, so this plain Add after it wins (demo mode design §3.2).
+    builder.Services.AddModbotDemo();
+
+    if (demo.IsOn)
+        builder.Services.AddScoped<IMailRelay, DemoMailRelay>();
+
     if (BuildTimeDocument.IsRunning)
         BuildTimeDocument.RemoveBackgroundServices(builder.Services);
 
@@ -294,6 +336,11 @@ try
         }
 
         _ = app.Services.GetRequiredService<ISecretProtector>();
+
+        // The demo's group, people, rooms and team, written before the first request so nobody
+        // ever sees an empty demo. The year of history behind it is written afterwards, by
+        // DemoDataService, with a progress line on the Health page (demo mode design §5).
+        await DemoStartup.SeedAsync(app.Services);
     }
 
     // Now that the schema exists and the protector is warm, the stored evidence configuration can
@@ -318,6 +365,9 @@ try
 
     // The live event WebSocket (API keys design §5). Keep-alive pings are set per connection.
     app.UseWebSockets();
+
+    // Before authentication, because what it turns away is signing in (demo mode design §3.2).
+    app.UseDemoRefusals();
 
     app.UseAuthentication();
     app.UseAuthorization();

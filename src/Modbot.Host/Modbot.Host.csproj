@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Modbot.Api\Modbot.Api.csproj" />
+    <ProjectReference Include="..\Modbot.Demo\Modbot.Demo.csproj" />
     <ProjectReference Include="..\Modbot.Discord\Modbot.Discord.csproj" />
   </ItemGroup>
 

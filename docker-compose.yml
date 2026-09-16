@@ -40,6 +40,10 @@ services:
       # desktop clients, which keep their own Cloud settings.
       MODBOT_CLOUD_ENDPOINT: ${MODBOT_CLOUD_ENDPOINT:-}
       MODBOT_CLOUD_DISABLED: ${MODBOT_CLOUD_DISABLED:-}
+      # 1 fills a fresh database with made-up data and opens the app with no sign-in, so everyone
+      # who can reach it is an administrator. Ignored once this Modbot has been set up for real.
+      MODBOT_DEMO: ${MODBOT_DEMO:-}
+      MODBOT_DEMO_RESET_HOURS: ${MODBOT_DEMO_RESET_HOURS:-}
     ports:
       - "${MODBOT_PORT:-8080}:8080"
     volumes:

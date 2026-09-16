@@ -1,0 +1,96 @@
+---
+title: Demo mode
+description: Running Modbot as a public demo, with a made-up group to train on, no sign-in, and a reset you can schedule.
+---
+
+Set `MODBOT_DEMO=1` on a Modbot that has never been set up and it fills its database with a made-up
+VRChat group — hundreds of people, a year of rooms, bans, case files, Discord messages and charts —
+then opens the whole app with no sign-in. It is for training moderators and for showing Modbot to
+people without pointing it at a real group.
+
+<Callout type="warn" title="Everyone who opens the site is an administrator">
+  A demo has no sign-in page, no accounts and no passwords. Every visitor gets every permission,
+  including changing settings and deleting things. Never point demo mode at a database that holds
+  real information about real people, and never put a demo on a domain people could mistake for a
+  real deployment.
+</Callout>
+
+## When it is ignored
+
+Modbot only becomes a demo if the database has never been set up for real, which means **no staff
+account exists** and **the setup wizard was never finished**. If either is true, `MODBOT_DEMO` does
+nothing at all: nothing is seeded, nothing is removed, and the log says so on the next start.
+
+A demo stays a demo across restarts. The seeder marks the database as holding demo data, so Modbot
+recognises its own demo on the next start and does not mistake the seeded staff accounts for a real
+setup.
+
+## What is in it
+
+| | |
+|---|---|
+| People | About 420 VRChat profiles, with bios, pronouns, how old the account is, trust level and 18+ flags. Pictures are plain gradients drawn in the browser, so nothing is fetched from anywhere. |
+| The group | A year of joins, leaves and role changes, and a mix of regulars, newcomers, a handful of repeat offenders and people who left. |
+| Rooms | 12 worlds and a year of instances with head counts and peaks, and a few open right now. |
+| Moderation | Warnings, kicks and bans, with case files, reasons and evidence files kept in the database. |
+| Reviews | Open and closed reviews, and the repeat-offender list they come from. |
+| Discord | A server with 14 channels, 8 roles, about 300 members, and thousands of messages and voice sessions across the year. Some accounts are linked to VRChat accounts. |
+| Calendar | 6 events — four in the past, two coming up. |
+| Programs | One API key and one webhook, so those pages are not empty. |
+
+Everything ends at the moment you start the demo, so the charts run up to today and the **Live** page
+always has something in it.
+
+The numbers are worked out from the made-up history, not typed in. The analytics pages add up for
+the same reason they add up on a real deployment.
+
+## How long it takes
+
+The group, the people and the rooms are written before Modbot answers its first request, so the app
+is usable straight away.
+
+The year of history behind it — the fact log and the Discord messages — is written in the background
+and takes about a minute. While it runs, the top bar and the
+[**Sync health**](/self-hosting/health#the-sync-health-page) page show how far it has got. The charts
+fill in behind you.
+
+## What is turned off
+
+A demo talks to nothing outside itself. Signing in, sending email, pairing a
+[desktop client](/desktop-client), and anything that would reach VRChat or Discord are all refused
+with a short message. There is no VRChat account to sign in with and no Discord bot running.
+
+## AI still works
+
+AI is the one thing in a demo that is real, so you can try it on the made-up data. Set an
+[AI provider and key](/ai/settings) exactly as you would on a real deployment, and
+[moderation rules](/ai/moderation-rules), [insights](/ai/insights) and [Chat](/ai/chat) all work
+against the seeded group.
+
+[Spending limits](/ai/limits-and-spend) and the one-time acknowledgement work as they always do. With
+no key set, AI is simply off.
+
+## Putting the data back
+
+People trying things out will change the data. There are two ways to put it back:
+
+- **Reset demo** in the top bar of the app.
+- `MODBOT_DEMO_RESET_HOURS`, which resets on a schedule. It defaults to `24`; `0` never resets.
+
+A reset clears everything the demo made up and fills it in again, and says what it is doing while it
+runs. Anything you set outside the demo's own data — the AI provider and key — is kept.
+
+## Running one
+
+With [Docker Compose](/self-hosting/docker#run-it-with-docker-compose), add one line to `.env`:
+
+```bash
+cp .env.example .env
+echo "MODBOT_DEMO=1" >> .env
+docker compose up -d --build
+```
+
+Open `http://localhost:8080`. There is no setup wizard and no sign-in — the app opens on the members
+list of the made-up group.
+
+To reset less often, or never, set `MODBOT_DEMO_RESET_HOURS` in `.env` as well.
