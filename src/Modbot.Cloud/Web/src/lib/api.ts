@@ -103,6 +103,8 @@ export type InstanceAlertView = {
   lastSentAt: string | null
   lastError: string | null
   mailConfigured: boolean
+  /** The address the next email would go to: this row's, or the owning account's. */
+  sendsTo: string | null
 }
 
 export type InstanceAlertUpdate = {
@@ -118,7 +120,7 @@ export type LogLevel = 'Verbose' | 'Debug' | 'Information' | 'Warning' | 'Error'
 /** One log line a Modbot deployment sent. Every field is somebody else's text. */
 export type LogLineView = {
   id: number
-  installId: string
+  serverId: string
   receivedAt: string
   at: string
   level: LogLevel
@@ -134,10 +136,15 @@ export type LogLineView = {
 
 export type LogLinePage = { items: LogLineView[]; next: number | null }
 
-export type LogSenderView = { installId: string; version: string; lastSeenAt: string }
+export type LogSenderView = {
+  serverId: string
+  groupName: string | null
+  version: string | null
+  lastSeenAt: string
+}
 
 export type LogQuery = {
-  installId?: string
+  serverId?: string
   level?: LogLevel
   source?: string
   text?: string
@@ -189,7 +196,7 @@ export const api = {
   eventsPerDay: (days: number) => request<{ items: DayCount[] }>('GET', `/api/admin/events-per-day?days=${days}`),
   logs: (query: LogQuery = {}) => {
     const q = new URLSearchParams()
-    if (query.installId) q.set('installId', query.installId)
+    if (query.serverId) q.set('serverId', query.serverId)
     if (query.level) q.set('level', query.level)
     if (query.source) q.set('source', query.source)
     if (query.text) q.set('text', query.text)
@@ -209,9 +216,9 @@ export const api = {
     request<void>('DELETE', `/api/admin/showcase/${encodeURIComponent(id)}`),
 
   instanceAlerts: (id: string) =>
-    request<InstanceAlertView>('GET', `/api/admin/installs/${encodeURIComponent(id)}/alerts`),
+    request<InstanceAlertView>('GET', `/api/admin/servers/${encodeURIComponent(id)}/alerts`),
   saveInstanceAlerts: (id: string, body: InstanceAlertUpdate) =>
-    request<InstanceAlertView>('PUT', `/api/admin/installs/${encodeURIComponent(id)}/alerts`, body),
+    request<InstanceAlertView>('PUT', `/api/admin/servers/${encodeURIComponent(id)}/alerts`, body),
   settings: () => request<Settings>('GET', '/api/admin/settings'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', '/api/admin/settings', settings),
 

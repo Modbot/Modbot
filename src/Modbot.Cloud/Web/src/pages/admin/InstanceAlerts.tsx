@@ -11,7 +11,7 @@ import { when } from '@/lib/format'
  * The one thing a Modbot cannot report about itself is that it is not running. Cloud sees it,
  * because the logs stop arriving.
  */
-export function InstanceAlerts({ installId }: { installId: string }) {
+export function InstanceAlerts({ serverId }: { serverId: string }) {
   const [view, setView] = useState<InstanceAlertView | null>(null)
   const [on, setOn] = useState(false)
   const [email, setEmail] = useState('')
@@ -26,7 +26,7 @@ export function InstanceAlerts({ installId }: { installId: string }) {
     let cancelled = false
 
     api
-      .instanceAlerts(installId)
+      .instanceAlerts(serverId)
       .then((next) => {
         if (cancelled) return
         setView(next)
@@ -43,7 +43,7 @@ export function InstanceAlerts({ installId }: { installId: string }) {
     return () => {
       cancelled = true
     }
-  }, [installId])
+  }, [serverId])
 
   const save = async (e: FormEvent) => {
     e.preventDefault()
@@ -52,7 +52,7 @@ export function InstanceAlerts({ installId }: { installId: string }) {
     setFailure(null)
 
     try {
-      const saved = await api.saveInstanceAlerts(installId, {
+      const saved = await api.saveInstanceAlerts(serverId, {
         on,
         email,
         silentAfterMinutes: Number(silentAfter) || 0,
@@ -80,7 +80,13 @@ export function InstanceAlerts({ installId }: { installId: string }) {
 
         <div className="grid max-w-3xl gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Labelled id="alert-email" label="Send to">
-            <Input id="alert-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input
+              id="alert-email"
+              type="email"
+              value={email}
+              placeholder={view?.sendsTo ?? ''}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </Labelled>
           <Labelled id="alert-silent" label="Quiet for (minutes)">
             <Input

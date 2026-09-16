@@ -29,13 +29,13 @@ public sealed record LogBatchResponse(int Stored);
 public sealed class LogBatchWriter(EngineContext engine, LogPartitionMaintainer partitions)
 {
     private const string Copy = """
-        COPY instance_log (received_at, install_id, at, level, message, template, source, area, service,
+        COPY instance_log (received_at, server_id, at, level, message, template, source, area, service,
                            version, exception, properties)
         FROM STDIN (FORMAT BINARY)
         """;
 
     public async Task<LogBatchResponse> WriteAsync(
-        Guid installId, CheckedLogBatch batch, DateTimeOffset receivedAt, CancellationToken ct)
+        Guid serverId, CheckedLogBatch batch, DateTimeOffset receivedAt, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(batch);
 
@@ -56,7 +56,7 @@ public sealed class LogBatchWriter(EngineContext engine, LogPartitionMaintainer 
             {
                 await writer.StartRowAsync(ct).ConfigureAwait(false);
                 await writer.WriteAsync(receivedAt, NpgsqlDbType.TimestampTz, ct).ConfigureAwait(false);
-                await writer.WriteAsync(installId, NpgsqlDbType.Uuid, ct).ConfigureAwait(false);
+                await writer.WriteAsync(serverId, NpgsqlDbType.Uuid, ct).ConfigureAwait(false);
                 await writer.WriteAsync(line.At, NpgsqlDbType.TimestampTz, ct).ConfigureAwait(false);
                 await writer.WriteAsync(line.Level, NpgsqlDbType.Varchar, ct).ConfigureAwait(false);
                 await writer.WriteAsync(line.Message, NpgsqlDbType.Text, ct).ConfigureAwait(false);

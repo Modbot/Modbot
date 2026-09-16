@@ -1,9 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Modbot.Cloud.Common;
 using Modbot.Cloud.Data;
 using Modbot.Cloud.Features.EventBackup;
-using Modbot.Cloud.Features.Installs;
+using Modbot.Cloud.Features.Registry;
 
 namespace Modbot.Cloud.Features.InstanceLogs;
 
@@ -19,11 +18,11 @@ namespace Modbot.Cloud.Features.InstanceLogs;
 /// rather than a decompression.
 /// </para>
 /// <para>
-/// The credential is the same one the desktop clients use: an install id and secret, registered at
-/// <c>POST /api/v1/installs</c>. A deployment registers with <c>platform: "server"</c>, which is how
-/// the admin viewer tells the two apart. It is a deliberately small assumption — when Cloud grows
-/// accounts and an instance registry, a deployment's credential becomes an account's, and this
-/// endpoint changes in one place.
+/// <strong>The credential is the server registry's</strong> — the same
+/// <c>Bearer &lt;serverId&gt;.&lt;secret&gt;</c> the deployment reports with. Not a desktop install's,
+/// and not one of its own: a deployment registering with Cloud twice would give Cloud two ids for
+/// one thing and no way to join them, and the join is exactly what lets the account that claimed
+/// the server read its own logs.
 /// </para>
 /// <para>
 /// A <c>200</c> is Cloud's last word on every line in the batch, and the deployment moves its
@@ -32,17 +31,11 @@ namespace Modbot.Cloud.Features.InstanceLogs;
 /// </remarks>
 public static class InstanceLogEndpoints
 {
-    /// <summary>The platform a Modbot deployment registers as, rather than <c>windows</c>.</summary>
-    public const string ServerPlatform = "server";
-
-    /// <summary>How stale <c>install.last_seen_at</c> may get before a batch updates it.</summary>
-    private static readonly TimeSpan LastSeenEvery = TimeSpan.FromMinutes(1);
-
     public static IEndpointRouteBuilder MapInstanceLogs(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        app.MapPost("/api/v1/logs", ReceiveAsync);
+        app.MapPost("/api/v1/logs", ReceiveAsync).RequireServer();
         return app;
     }
 
@@ -56,17 +49,11 @@ public static class InstanceLogEndpoints
     {
         ArgumentNullException.ThrowIfNull(http);
 
-        if (!InstallSecrets.TryRead(http.Request.Headers.Authorization.ToString(), out var installId, out var secret))
-            return Unauthorised();
-
-        var install = await cloud.Installs.SingleOrDefaultAsync(i => i.Id == installId, ct);
-        if (install is null || !InstallSecrets.Matches(install.SecretHash, secret))
-            return Unauthorised();
-
-        var key = installId.ToString("N");
+        var server = await ServerAccess.RequiredAsync(http);
+        var key = server.Id.ToString("N");
 
         if (limits.Batches.TryTake(key) is { } batchWait)
-            return CloudError.TooMany(http, batchWait, "Too many batches from this install.");
+            return CloudError.TooMany(http, batchWait, "Too many batches from this server.");
 
         var (outcome, raw) = await LogBatchReader.ReadAsync(http.Request, ct);
 
@@ -92,37 +79,20 @@ public static class InstanceLogEndpoints
         }
 
         if (limits.Lines.TryTake(key, batch.Lines.Count) is { } lineWait)
-            return CloudError.TooMany(http, lineWait, "Too many log lines from this install.");
+            return CloudError.TooMany(http, lineWait, "Too many log lines from this server.");
 
         var receivedAt = time.GetUtcNow();
-        var result = await writer.WriteAsync(installId, batch, receivedAt, ct);
+        var result = await writer.WriteAsync(server.Id, batch, receivedAt, ct);
 
-        await NoteSeenAsync(cloud, install, batch, receivedAt, ct);
+        // The registry moves "last seen" on its six-hourly report. A log batch is a far better sign
+        // of life than that, so it moves it too -- but only once it is already a minute stale, so a
+        // busy deployment does not write the main database every second.
+        if (receivedAt - server.LastSeenAt > TimeSpan.FromMinutes(1))
+        {
+            server.LastSeenAt = receivedAt;
+            await cloud.SaveChangesAsync(ct);
+        }
 
         return Results.Ok(result);
     }
-
-    /// <summary>
-    /// Keeps the install row current without writing the main database on every batch.
-    /// </summary>
-    private static async Task NoteSeenAsync(
-        CloudContext cloud, Install install, CheckedLogBatch batch, DateTimeOffset now, CancellationToken ct)
-    {
-        var version = batch.ServerVersion is { Length: > 0 } v
-            ? (v.Length > Install.MaxVersionLength ? v[..Install.MaxVersionLength] : v)
-            : install.ClientVersion;
-
-        var changed = !string.Equals(install.ClientVersion, version, StringComparison.Ordinal);
-
-        if (!changed && now - install.LastSeenAt < LastSeenEvery)
-            return;
-
-        install.ClientVersion = version;
-        install.LastSeenAt = now;
-
-        await cloud.SaveChangesAsync(ct);
-    }
-
-    private static IResult Unauthorised() =>
-        CloudError.Result(StatusCodes.Status401Unauthorized, "unauthorised", "This install is not known.");
 }

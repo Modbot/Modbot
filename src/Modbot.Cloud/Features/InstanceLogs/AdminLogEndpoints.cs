@@ -2,18 +2,20 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Cloud.Data;
 using Modbot.Cloud.Engine;
+using Modbot.Cloud.Features.Accounts;
 using Modbot.Cloud.Features.Admin;
 
 namespace Modbot.Cloud.Features.InstanceLogs;
 
 /// <summary>One stored log line, as the viewer shows it.</summary>
 /// <param name="Id">Row id. Also the paging cursor: ask for lines <c>before</c> this one.</param>
+/// <param name="ServerId">The deployment that sent it, by its id in the server registry.</param>
 /// <param name="ReceivedAt">When Cloud received it.</param>
 /// <param name="At">When the deployment wrote it, on its own clock.</param>
 /// <param name="Properties">Everything else it carried, as a JSON object in a string.</param>
 public sealed record LogLineView(
     long Id,
-    Guid InstallId,
+    Guid ServerId,
     DateTimeOffset ReceivedAt,
     DateTimeOffset At,
     string Level,
@@ -29,24 +31,23 @@ public sealed record LogLineView(
 /// <param name="Next">The id to pass as <c>before</c> for the next page. Null at the end.</param>
 public sealed record LogLinePage(IReadOnlyList<LogLineView> Items, long? Next);
 
-/// <summary>A deployment that has sent logs, for the viewer's picker.</summary>
-public sealed record LogSenderView(Guid InstallId, string Version, DateTimeOffset LastSeenAt);
+/// <summary>A deployment that sends logs, for the viewer's picker.</summary>
+public sealed record LogSenderView(Guid ServerId, string? GroupName, string? Version, DateTimeOffset LastSeenAt);
 
 /// <summary>
 /// Reading the log lines Modbot deployments sent.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Cloud administrators today.</strong> A deployment's log is its operator's, not the
-/// project's, and the only reason Cloud holds it is so the project can help with a problem on a
-/// deployment it cannot reach.
+/// <strong>A Cloud administrator, or the account that claimed the deployment.</strong> A
+/// deployment's log is its operator's, not the project's; Cloud holds it so the project can help
+/// with a problem on a deployment it cannot reach, and so the operator can read it from somewhere
+/// their own Modbot is not.
 /// </para>
 /// <para>
-/// <strong>The owner of the deployment is meant to read it too</strong>, through the Cloud account
-/// their Modbot is linked to. Accounts and the instance registry are not built yet, so there is
-/// exactly one place to add that: <see cref="MayReadAsync"/>. It answers "admin only" today; when
-/// accounts land it also answers yes for the account that owns <c>installId</c>, and nothing else in
-/// this file changes.
+/// An owner must name their server — there is no "everyone's logs" for an account — and
+/// <see cref="MayReadAsync"/> is the one place that decides. An administrator may leave the server
+/// out and read across every deployment, which is what makes "who else is seeing this?" answerable.
 /// </para>
 /// <para>
 /// The lines are somebody else's text. They are returned as plain strings and the viewer renders
@@ -62,35 +63,40 @@ public static class AdminLogEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var admin = app.MapGroup("/api/admin").RequireAdmin();
-
-        admin.MapGet("/logs", ListAsync);
-        admin.MapGet("/logs/senders", SendersAsync);
+        // Not under the admin group: an owner reads their own server's logs here too, and the check
+        // is per request because it depends on which server was asked for.
+        app.MapGet("/api/admin/logs", ListAsync);
+        app.MapGet("/api/admin/logs/senders", SendersAsync);
 
         return app;
     }
 
     /// <summary>
-    /// Whether this request may read <paramref name="installId"/>'s log.
+    /// Whether this request may read <paramref name="serverId"/>'s log.
     /// </summary>
     /// <remarks>
-    /// The one place the owner check belongs. Today the whole group is behind
-    /// <see cref="AdminAccess.RequireAdmin"/>, so this can only be reached by an administrator and
-    /// it says yes. When Cloud has accounts and knows which account a deployment belongs to, this
-    /// becomes "an administrator, or the account that owns this install", and the group above it
-    /// stops requiring admin.
+    /// The one place the rule lives. An administrator may read anything, including across every
+    /// deployment at once. An account may read a server it has claimed, and must say which.
     /// </remarks>
-    private static Task<bool> MayReadAsync(HttpContext http, Guid? installId, CancellationToken ct)
+    private static async Task<bool> MayReadAsync(HttpContext http, Guid? serverId)
     {
-        _ = http;
-        _ = installId;
-        _ = ct;
+        if (await AdminAccess.IsAdminAsync(http))
+            return true;
 
-        return Task.FromResult(true);
+        if (serverId is not { } id)
+            return false;
+
+        if (await AccountAccess.ReadAsync(http) is not { } account)
+            return false;
+
+        var cloud = http.RequestServices.GetRequiredService<CloudContext>();
+
+        return await cloud.RegisteredServers
+            .AnyAsync(s => s.Id == id && s.AccountId == account.Id, http.RequestAborted);
     }
 
     internal static async Task<IResult> ListAsync(
-        [FromQuery] Guid? installId,
+        [FromQuery] Guid? serverId,
         [FromQuery] string? level,
         [FromQuery] string? source,
         [FromQuery] string? text,
@@ -102,16 +108,16 @@ public static class AdminLogEndpoints
         HttpContext http,
         CancellationToken ct)
     {
-        if (!await MayReadAsync(http, installId, ct))
-            return Results.Json(new { error = "Not allowed." }, statusCode: StatusCodes.Status403Forbidden);
+        if (!await MayReadAsync(http, serverId))
+            return Refused(http);
 
         var take = Math.Clamp(limit ?? DefaultPageSize, 1, MaxPageSize);
         var levels = LogLevelNames.AtLeast(level);
 
         var query = engine.InstanceLogs.AsNoTracking().Where(l => levels.Contains(l.Level));
 
-        if (installId is { } id)
-            query = query.Where(l => l.InstallId == id);
+        if (serverId is { } id)
+            query = query.Where(l => l.ServerId == id);
 
         if (!string.IsNullOrWhiteSpace(source))
             query = query.Where(l => l.Source == source);
@@ -139,7 +145,7 @@ public static class AdminLogEndpoints
             .ThenByDescending(l => l.Id)
             .Take(take + 1)
             .Select(l => new LogLineView(
-                l.Id, l.InstallId, l.ReceivedAt, l.At, l.Level, l.Message, l.Template,
+                l.Id, l.ServerId, l.ReceivedAt, l.At, l.Level, l.Message, l.Template,
                 l.Source, l.Area, l.Service, l.Version, l.Exception, l.Properties))
             .ToListAsync(ct);
 
@@ -155,21 +161,43 @@ public static class AdminLogEndpoints
     }
 
     /// <summary>
-    /// The deployments that send logs, for the picker. Read from the install table rather than from
-    /// the lines: asking the log table for its distinct install ids would scan every partition.
+    /// The deployments whose logs this request may read. An administrator sees every registered
+    /// server; an account sees the ones it claimed.
     /// </summary>
+    /// <remarks>
+    /// Read from the registry rather than from the log table: asking that for its distinct server
+    /// ids would scan every month's partition.
+    /// </remarks>
     internal static async Task<IResult> SendersAsync(
         [FromServices] CloudContext cloud,
+        HttpContext http,
         CancellationToken ct)
     {
-        var senders = await cloud.Installs.AsNoTracking()
-            .Where(i => i.Platform == InstanceLogEndpoints.ServerPlatform)
-            .OrderByDescending(i => i.LastSeenAt)
+        var servers = cloud.RegisteredServers.AsNoTracking();
+
+        if (!await AdminAccess.IsAdminAsync(http))
+        {
+            if (await AccountAccess.ReadAsync(http) is not { } account)
+                return Refused(http);
+
+            servers = servers.Where(s => s.AccountId == account.Id);
+        }
+
+        var items = await servers
+            .OrderByDescending(s => s.LastSeenAt)
             .Take(500)
-            .Select(i => new LogSenderView(i.Id, i.ClientVersion, i.LastSeenAt))
+            .Select(s => new LogSenderView(s.Id, s.GroupName, s.Version, s.LastSeenAt))
             .ToListAsync(ct);
 
-        return Results.Ok(new { items = senders });
+        return Results.Ok(new { items });
+    }
+
+    private static IResult Refused(HttpContext http)
+    {
+        http.Response.Headers.WWWAuthenticate = "Bearer";
+
+        return Results.Json(
+            new { error = "Not signed in." }, statusCode: StatusCodes.Status401Unauthorized);
     }
 
     /// <summary>Makes a person's search text safe for <c>ILIKE</c>.</summary>

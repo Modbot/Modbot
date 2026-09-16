@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Cloud.Common;
 using Modbot.Cloud.Data;
+using Modbot.Cloud.Features.Accounts;
 using Modbot.Cloud.Features.Admin;
 using Modbot.Cloud.Features.Mail;
 
 namespace Modbot.Cloud.Features.InstanceAlerts;
 
 /// <param name="On">Whether Cloud emails about this deployment.</param>
-/// <param name="Email">Where the emails go.</param>
+/// <param name="Email">Where the emails go. Empty means the account that claimed this server.</param>
 /// <param name="SilentAfterMinutes">Minutes of hearing nothing before that counts as a problem.</param>
 /// <param name="ErrorsAnHour">Errors in an hour before that counts as a problem. 0 turns it off.</param>
 /// <param name="QuietHours">How long Cloud stays quiet after an email about this deployment.</param>
@@ -18,6 +19,7 @@ namespace Modbot.Cloud.Features.InstanceAlerts;
 /// <param name="LastSentAt">When the last email went.</param>
 /// <param name="LastError">Why the last email could not be sent.</param>
 /// <param name="MailConfigured">Whether Cloud can send email at all.</param>
+/// <param name="SendsTo">The address the next email would actually go to. Null when there is none.</param>
 public sealed record InstanceAlertView(
     bool On,
     string Email,
@@ -29,10 +31,11 @@ public sealed record InstanceAlertView(
     string? Detail,
     DateTimeOffset? LastSentAt,
     string? LastError,
-    bool MailConfigured);
+    bool MailConfigured,
+    string? SendsTo);
 
 /// <param name="On">Whether Cloud emails about this deployment.</param>
-/// <param name="Email">Where the emails go.</param>
+/// <param name="Email">Where the emails go. Empty means the account that claimed this server.</param>
 /// <param name="SilentAfterMinutes">5 to 10080.</param>
 /// <param name="ErrorsAnHour">0 to 1000000. 0 turns the error check off.</param>
 /// <param name="QuietHours">0 to 168.</param>
@@ -44,12 +47,12 @@ public sealed record InstanceAlertUpdate(
     int QuietHours);
 
 /// <summary>
-/// Cloud admin: watching one Modbot deployment from outside.
+/// Watching one Modbot deployment from outside: whether Cloud emails about it, and who.
 /// </summary>
 /// <remarks>
-/// Behind the admin sign-in, like everything else that reads a deployment's data. When Cloud has
-/// accounts, the owner of the deployment sets this for themselves and the address defaults to
-/// theirs — the same one place the log viewer's owner check lives.
+/// A Cloud administrator, or the account that claimed the server — the same rule the log viewer
+/// uses, decided in the same way. An owner never has to type their own address: leaving it empty
+/// sends to the account's.
 /// </remarks>
 public static class AdminInstanceAlertEndpoints
 {
@@ -57,33 +60,54 @@ public static class AdminInstanceAlertEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var admin = app.MapGroup("/api/admin").RequireAdmin();
-
-        admin.MapGet("/installs/{installId:guid}/alerts", ReadAsync);
-        admin.MapPut("/installs/{installId:guid}/alerts", SaveAsync);
+        app.MapGet("/api/admin/servers/{serverId:guid}/alerts", ReadAsync);
+        app.MapPut("/api/admin/servers/{serverId:guid}/alerts", SaveAsync);
 
         return app;
     }
 
+    /// <summary>An administrator, or the account that claimed this server.</summary>
+    private static async Task<bool> MayEditAsync(HttpContext http, Guid serverId)
+    {
+        if (await AdminAccess.IsAdminAsync(http))
+            return true;
+
+        if (await AccountAccess.ReadAsync(http) is not { } account)
+            return false;
+
+        var cloud = http.RequestServices.GetRequiredService<CloudContext>();
+
+        return await cloud.RegisteredServers
+            .AnyAsync(s => s.Id == serverId && s.AccountId == account.Id, http.RequestAborted);
+    }
+
     internal static async Task<IResult> ReadAsync(
-        [FromRoute] Guid installId,
+        [FromRoute] Guid serverId,
         [FromServices] CloudContext cloud,
         [FromServices] ICloudMailer mailer,
+        HttpContext http,
         CancellationToken ct)
     {
-        var alert = await cloud.InstanceAlerts.AsNoTracking().SingleOrDefaultAsync(a => a.InstallId == installId, ct)
-                    ?? new InstanceAlert { InstallId = installId };
+        if (!await MayEditAsync(http, serverId))
+            return Refused(http);
 
-        return Results.Ok(View(alert, mailer));
+        var alert = await cloud.InstanceAlerts.AsNoTracking().SingleOrDefaultAsync(a => a.ServerId == serverId, ct)
+                    ?? new InstanceAlert { ServerId = serverId };
+
+        return Results.Ok(View(alert, mailer, await OwnerAddressAsync(cloud, serverId, ct)));
     }
 
     internal static async Task<IResult> SaveAsync(
-        [FromRoute] Guid installId,
+        [FromRoute] Guid serverId,
         [FromBody] InstanceAlertUpdate? request,
         [FromServices] CloudContext cloud,
         [FromServices] ICloudMailer mailer,
+        HttpContext http,
         CancellationToken ct)
     {
+        if (!await MayEditAsync(http, serverId))
+            return Refused(http);
+
         if (request is null)
             return Results.Json(new { error = "Nothing to save." }, statusCode: StatusCodes.Status400BadRequest);
 
@@ -98,17 +122,28 @@ public static class AdminInstanceAlertEndpoints
 
         var email = ClientText.Clean(request.Email, InstanceAlert.MaxEmailLength) ?? "";
 
-        if (request.On && !email.Contains('@', StringComparison.Ordinal))
-            return Results.Json(new { error = "An address is needed to send to." }, statusCode: StatusCodes.Status400BadRequest);
+        if (email.Length > 0 && !email.Contains('@', StringComparison.Ordinal))
+            return Results.Json(new { error = "That is not an address." }, statusCode: StatusCodes.Status400BadRequest);
 
-        if (!await cloud.Installs.AnyAsync(i => i.Id == installId, ct))
-            return Results.Json(new { error = "Install not found." }, statusCode: StatusCodes.Status404NotFound);
+        if (!await cloud.RegisteredServers.AnyAsync(s => s.Id == serverId, ct))
+            return Results.Json(new { error = "Server not found." }, statusCode: StatusCodes.Status404NotFound);
 
-        var alert = await cloud.InstanceAlerts.SingleOrDefaultAsync(a => a.InstallId == installId, ct);
+        var owner = await OwnerAddressAsync(cloud, serverId, ct);
+
+        // Turning it on with nowhere to send is the one refusal: an alert nobody receives is worse
+        // than no alert, because it looks set up.
+        if (request.On && email.Length == 0 && string.IsNullOrWhiteSpace(owner))
+        {
+            return Results.Json(
+                new { error = "Nobody has claimed this server, so an address is needed." },
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var alert = await cloud.InstanceAlerts.SingleOrDefaultAsync(a => a.ServerId == serverId, ct);
 
         if (alert is null)
         {
-            alert = new InstanceAlert { InstallId = installId };
+            alert = new InstanceAlert { ServerId = serverId };
             cloud.InstanceAlerts.Add(alert);
         }
 
@@ -130,10 +165,24 @@ public static class AdminInstanceAlertEndpoints
 
         await cloud.SaveChangesAsync(ct);
 
-        return Results.Ok(View(alert, mailer));
+        return Results.Ok(View(alert, mailer, owner));
     }
 
-    private static InstanceAlertView View(InstanceAlert alert, ICloudMailer mailer) => new(
+    /// <summary>The address on the account that claimed this server, or null while nobody has.</summary>
+    private static Task<string?> OwnerAddressAsync(CloudContext cloud, Guid serverId, CancellationToken ct) =>
+        cloud.RegisteredServers.AsNoTracking()
+            .Where(s => s.Id == serverId && s.AccountId != null)
+            .Join(cloud.Accounts.AsNoTracking(), s => s.AccountId, a => a.Id, (_, a) => a.Email)
+            .FirstOrDefaultAsync(ct);
+
+    private static IResult Refused(HttpContext http)
+    {
+        http.Response.Headers.WWWAuthenticate = "Bearer";
+
+        return Results.Json(new { error = "Not signed in." }, statusCode: StatusCodes.Status401Unauthorized);
+    }
+
+    private static InstanceAlertView View(InstanceAlert alert, ICloudMailer mailer, string? owner) => new(
         alert.On,
         alert.Email,
         alert.SilentAfterMinutes,
@@ -144,5 +193,6 @@ public static class AdminInstanceAlertEndpoints
         alert.Detail,
         alert.LastSentAt,
         alert.LastError,
-        mailer.CanSend);
+        mailer.CanSend,
+        string.IsNullOrWhiteSpace(alert.Email) ? owner : alert.Email);
 }

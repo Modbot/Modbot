@@ -54,18 +54,22 @@ public sealed class InstanceAlertChecker(
 
     public async Task<InstanceAlertRun> RunOnceAsync(CancellationToken ct = default)
     {
-        var alerts = await cloud.InstanceAlerts.Where(a => a.On && a.Email != "").ToListAsync(ct);
+        var alerts = await cloud.InstanceAlerts.Where(a => a.On).ToListAsync(ct);
 
         if (alerts.Count == 0)
             return new InstanceAlertRun([], [], 0);
 
+        var addresses = await AddressesAsync(alerts, ct);
         var now = time.GetUtcNow();
         var problems = new List<Guid>();
         var recoveries = new List<Guid>();
-        var sending = new List<(InstanceAlert Alert, string Subject, string Body)>();
+        var sending = new List<(InstanceAlert Alert, string To, string Subject, string Body)>();
 
         foreach (var alert in alerts)
         {
+            if (addresses.GetValueOrDefault(alert.ServerId) is not { Length: > 0 } to)
+                continue;
+
             var (problem, detail) = await LookAsync(alert, now, ct);
             var quiet = TimeSpan.FromHours(Math.Clamp(alert.QuietHours, 0, 168));
 
@@ -83,12 +87,13 @@ public sealed class InstanceAlertChecker(
                     continue;
 
                 alert.LastSentAt = now;
-                problems.Add(alert.InstallId);
+                problems.Add(alert.ServerId);
 
                 sending.Add((
                     alert,
+                    to,
                     "Modbot Cloud: your Modbot needs looking at",
-                    $"{detail}\n\nDeployment: {alert.InstallId}\nSince: {alert.Since ?? now:u}\n\n"
+                    $"{detail}\n\nServer: {alert.ServerId}\nSince: {alert.Since ?? now:u}\n\n"
                     + "Modbot Cloud noticed this from outside, so it may not be able to tell you itself."));
             }
             else if (alert.Problem)
@@ -103,22 +108,23 @@ public sealed class InstanceAlertChecker(
                 if (!said)
                     continue;
 
-                recoveries.Add(alert.InstallId);
+                recoveries.Add(alert.ServerId);
 
                 sending.Add((
                     alert,
+                    to,
                     "Modbot Cloud: your Modbot is working again",
-                    $"Modbot Cloud is hearing from your deployment again.\n\nDeployment: {alert.InstallId}"));
+                    $"Modbot Cloud is hearing from your deployment again.\n\nServer: {alert.ServerId}"));
             }
         }
 
         var sent = 0;
 
-        foreach (var (alert, subject, body) in sending)
+        foreach (var (alert, to, subject, body) in sending)
         {
             // The mailer logs why it failed -- with the status and the address's domain, never the
             // key or the body -- so there is nothing to carry back here but whether it went.
-            var went = await mailer.SendAsync(alert.Email, subject, body, ct).ConfigureAwait(false);
+            var went = await mailer.SendAsync(to, subject, body, ct).ConfigureAwait(false);
 
             if (went)
             {
@@ -142,11 +148,34 @@ public sealed class InstanceAlertChecker(
         return new InstanceAlertRun(problems, recoveries, sent);
     }
 
+    /// <summary>
+    /// Where each watched deployment's mail goes: the address on its row, or the address on the
+    /// account that claimed it.
+    /// </summary>
+    /// <remarks>
+    /// An owner who turned this on for their own server should never have had to type their own
+    /// address, and an address that follows the account cannot go stale when they change it.
+    /// </remarks>
+    private async Task<Dictionary<Guid, string?>> AddressesAsync(
+        List<InstanceAlert> alerts, CancellationToken ct)
+    {
+        var ids = alerts.Select(a => a.ServerId).ToList();
+
+        var owners = await cloud.RegisteredServers.AsNoTracking()
+            .Where(s => ids.Contains(s.Id) && s.AccountId != null)
+            .Join(cloud.Accounts.AsNoTracking(), s => s.AccountId, a => a.Id, (s, a) => new { s.Id, a.Email })
+            .ToDictionaryAsync(x => x.Id, x => x.Email, ct);
+
+        return alerts.ToDictionary(
+            a => a.ServerId,
+            a => string.IsNullOrWhiteSpace(a.Email) ? owners.GetValueOrDefault(a.ServerId) : a.Email);
+    }
+
     private async Task<(bool Problem, string Detail)> LookAsync(
         InstanceAlert alert, DateTimeOffset now, CancellationToken ct)
     {
         var lastHeard = await engine.InstanceLogs.AsNoTracking()
-            .Where(l => l.InstallId == alert.InstallId)
+            .Where(l => l.ServerId == alert.ServerId)
             .MaxAsync(l => (DateTimeOffset?)l.ReceivedAt, ct);
 
         var silentAfter = TimeSpan.FromMinutes(Math.Max(5, alert.SilentAfterMinutes));
@@ -166,7 +195,7 @@ public sealed class InstanceAlertChecker(
             var since = now.AddHours(-1);
 
             var errors = await engine.InstanceLogs.AsNoTracking()
-                .Where(l => l.InstallId == alert.InstallId
+                .Where(l => l.ServerId == alert.ServerId
                             && l.ReceivedAt >= since
                             && (l.Level == LogLevelNames.Error || l.Level == LogLevelNames.Fatal))
                 .CountAsync(ct);

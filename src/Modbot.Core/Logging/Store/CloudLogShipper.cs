@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Configuration;
@@ -82,19 +81,22 @@ public sealed record ShipResult(
 ///
 /// <para><strong>Identity.</strong></para>
 /// <para>
-/// The same credential the desktop clients use: the deployment registers itself at
-/// <c>POST /api/v1/installs</c> with <c>platform: "server"</c> and keeps the id and the secret in its
-/// own settings, the secret encrypted like every other stored secret. A <c>401</c> makes it forget
-/// both and register again on the next pass. When Cloud grows accounts and an instance registry,
-/// this is the one method that changes.
+/// <strong>The credential this server already has:</strong> the id and secret it registered with in
+/// Cloud's server registry, which <c>ServerReporter</c> establishes and keeps in the same settings
+/// row. Not a second registration of its own — Cloud would then hold two ids for one deployment with
+/// no way to join them, and that join is what lets the account which claimed the server read its own
+/// logs in Cloud.
+/// </para>
+/// <para>
+/// So a server that has not registered yet sends nothing and says so; registering is
+/// <c>ServerReporter</c>'s job and happens within a few minutes of starting. A <c>401</c> is left
+/// alone for the same reason: <c>ServerReporter</c> owns that credential and re-registers when Cloud
+/// forgets it, and two things clearing the same secret would fight.
 /// </para>
 /// </remarks>
 public sealed class CloudLogShipper
 {
     public const string HttpClientName = "modbot-cloud-logs";
-
-    /// <summary>The platform a Modbot deployment registers as, rather than <c>windows</c>.</summary>
-    public const string ServerPlatform = "server";
 
     /// <summary>Lines in one batch. Well under Cloud's ceiling of a thousand.</summary>
     public const int BatchSize = 500;
@@ -110,6 +112,9 @@ public sealed class CloudLogShipper
     /// show Cloud the recent past, not six months of it.
     /// </summary>
     public const int FirstRunLines = 1_000;
+
+    /// <summary>What the Health page says while this server has not registered with Cloud yet.</summary>
+    public const string NotRegisteredYet = "This server has not registered with Modbot Cloud yet.";
 
     private readonly ModbotContext _db;
     private readonly IHttpClientFactory _http;
@@ -147,16 +152,14 @@ public sealed class CloudLogShipper
         if (!settings.ShipLogsToCloud)
             return new ShipResult(ShipOutcome.Off);
 
-        var client = _http.CreateClient(HttpClientName);
-
-        if (settings.CloudLogInstallId is null || settings.CloudLogSecretEncrypted is null)
+        // The registry's credential, made by ServerReporter. Nothing to do until it exists.
+        if (Bearer(settings) is not { } bearer)
         {
-            if (await RegisterAsync(client, settings, ct).ConfigureAwait(false) is { } problem)
-            {
-                await NoteFailureAsync(settings, problem, ct).ConfigureAwait(false);
-                return new ShipResult(ShipOutcome.Failed, Error: problem);
-            }
+            await NoteFailureAsync(settings, NotRegisteredYet, ct).ConfigureAwait(false);
+            return new ShipResult(ShipOutcome.Failed, Error: NotRegisteredYet);
         }
+
+        var client = _http.CreateClient(HttpClientName);
 
         var newest = await _db.Logs.AsNoTracking().MaxAsync(l => (long?)l.Id, ct).ConfigureAwait(false) ?? 0;
 
@@ -181,15 +184,13 @@ public sealed class CloudLogShipper
         }
 
         var body = Batch(lines, _clock.UtcNow);
-        var secret = _protector.Unprotect(settings.CloudLogSecretEncrypted);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_cloud.Endpoint, "/api/v1/logs"))
         {
             Content = body,
         };
 
-        request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Bearer", $"{settings.CloudLogInstallId}.{secret}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
 
         HttpResponseMessage response;
 
@@ -213,11 +214,10 @@ public sealed class CloudLogShipper
 
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
-                // Cloud does not know this install any more. Forget it and register next pass.
-                settings.CloudLogInstallId = null;
-                settings.CloudLogSecretEncrypted = null;
-
-                await NoteFailureAsync(settings, "Modbot Cloud did not recognise this deployment.", ct)
+                // Cloud does not know this server any more. ServerReporter owns that credential and
+                // registers again on its own next pass; clearing it here as well would mean two
+                // things racing to replace one secret.
+                await NoteFailureAsync(settings, "Modbot Cloud did not recognise this server.", ct)
                     .ConfigureAwait(false);
 
                 return new ShipResult(ShipOutcome.Failed, Dropped: skipped, Error: "Not recognised.");
@@ -268,38 +268,14 @@ public sealed class CloudLogShipper
         return (jumped, jumped - cursor);
     }
 
-    /// <summary>Registers this deployment with Cloud. Returns a problem, or null when it worked.</summary>
-    private async Task<string?> RegisterAsync(HttpClient client, Settings settings, CancellationToken ct)
+    /// <summary><c>serverId.secret</c>, or null while this server has not registered.</summary>
+    private string? Bearer(Settings settings)
     {
-        try
-        {
-            using var response = await client.PostAsJsonAsync(
-                new Uri(_cloud.Endpoint, "/api/v1/installs"),
-                new { clientVersion = ModbotVersion.Release, platform = ServerPlatform },
-                ct).ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
-                return $"Modbot Cloud answered {(int)response.StatusCode} to registering this deployment.";
-
-            var registration = await response.Content
-                .ReadFromJsonAsync<CloudRegistration>(ct)
-                .ConfigureAwait(false);
-
-            if (registration is null || registration.InstallId == Guid.Empty || string.IsNullOrWhiteSpace(registration.Secret))
-                return "Modbot Cloud's answer to registering this deployment could not be read.";
-
-            settings.CloudLogInstallId = registration.InstallId.ToString();
-            settings.CloudLogSecretEncrypted = _protector.Protect(registration.Secret);
-
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-
+        if (settings.CloudServerId is not { Length: > 0 } id || settings.CloudServerSecretEncrypted is not { } stored)
             return null;
-        }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or JsonException
-                                  && !ct.IsCancellationRequested)
-        {
-            return Short(e.Message);
-        }
+
+        var secret = _protector.Unprotect(stored);
+        return string.IsNullOrEmpty(secret) ? null : $"{id}.{secret}";
     }
 
     private async Task AdvanceAsync(Settings settings, long cursor, long dropped, bool sent, CancellationToken ct)
@@ -381,13 +357,12 @@ public sealed class CloudLogShipper
     private static string Short(string message) =>
         message.Length <= 200 ? message : message[..200];
 
-    private sealed record CloudRegistration(Guid InstallId, string Secret, DateTimeOffset ServerTime);
 }
 
 /// <summary>The value the Health page shows for log shipping.</summary>
 /// <param name="On">Sending is on and allowed.</param>
 /// <param name="Allowed">False when <c>MODBOT_CLOUD_DISABLED</c> is set.</param>
-/// <param name="Registered">This deployment has a Cloud install id.</param>
+/// <param name="Registered">This server has registered with Cloud, so it has something to send as.</param>
 /// <param name="LastSentAt">When the last batch reached Cloud.</param>
 /// <param name="Waiting">Lines stored but not yet sent.</param>
 /// <param name="Dropped">Lines given up on because Cloud was unreachable for long, or refused them.</param>
@@ -413,7 +388,7 @@ public sealed record CloudLogStatus(
             .Select(s => new
             {
                 s.ShipLogsToCloud,
-                s.CloudLogInstallId,
+                s.CloudServerId,
                 s.CloudLogSentAt,
                 s.CloudLogSentThroughId,
                 s.CloudLogDropped,
@@ -429,7 +404,7 @@ public sealed record CloudLogStatus(
         return new CloudLogStatus(
             (settings?.ShipLogsToCloud ?? true) && !cloud.Disabled,
             !cloud.Disabled,
-            settings?.CloudLogInstallId is not null,
+            settings?.CloudServerId is not null,
             settings?.CloudLogSentAt,
             Math.Max(0, newest - cursor),
             settings?.CloudLogDropped ?? 0,

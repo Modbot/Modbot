@@ -28,6 +28,11 @@ namespace Modbot.Cloud.Engine;
 /// <para>
 /// <strong>Never updated.</strong> A log line is what was written at the time.
 /// </para>
+/// <para>
+/// <see cref="ServerId"/> is the id the deployment registered with in the server registry — the same
+/// credential it reports with. That is what lets the account which claimed that server read its own
+/// logs, which is the whole point of Cloud holding them.
+/// </para>
 /// </remarks>
 public sealed class InstanceLogLine
 {
@@ -50,8 +55,8 @@ public sealed class InstanceLogLine
     /// <summary>When Cloud received the batch. Cloud's clock, and the partition key.</summary>
     public DateTimeOffset ReceivedAt { get; set; }
 
-    /// <summary>Which deployment sent it.</summary>
-    public Guid InstallId { get; set; }
+    /// <summary>Which deployment sent it: its id in the server registry.</summary>
+    public Guid ServerId { get; set; }
 
     /// <summary>When the line was written, on the sending deployment's clock.</summary>
     public DateTimeOffset At { get; set; }
@@ -105,8 +110,8 @@ internal sealed class InstanceLogLineConfiguration : IEntityTypeConfiguration<In
         entity.Property(e => e.Properties).HasColumnType("jsonb");
 
         // One deployment's recent lines: the viewer's default question.
-        entity.HasIndex(e => new { e.InstallId, e.ReceivedAt })
-            .HasDatabaseName("ix_instance_log_install_received_at")
+        entity.HasIndex(e => new { e.ServerId, e.ReceivedAt })
+            .HasDatabaseName("ix_instance_log_server_received_at")
             .IsDescending(false, true);
 
         // "Show me the errors across every deployment", which is the other one.

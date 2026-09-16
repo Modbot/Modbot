@@ -179,16 +179,22 @@ public sealed class CloudTestHost : IAsyncDisposable
         return _client.SendAsync(request, Ct);
     }
 
-    /// <summary>Registers a Modbot deployment (rather than a desktop client) and returns its bearer.</summary>
+    /// <summary>
+    /// Registers a Modbot deployment in the server registry and returns its bearer. The same
+    /// credential it reports with, and the one its log batches carry.
+    /// </summary>
     public async Task<(Guid Id, string Bearer)> RegisterServerAsync(string ip = "203.0.113.20")
     {
         using var response = await SendAsync(
-            HttpMethod.Post, "/api/v1/installs", new { clientVersion = "2026.9.0", platform = "server" }, ip);
+            HttpMethod.Post,
+            "/api/v1/servers",
+            new { version = "2026.9.0", hostPlatform = "linux-x64" },
+            ip);
 
         Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
-        var id = body.GetProperty("installId").GetGuid();
+        var id = body.GetProperty("serverId").GetGuid();
         return (id, $"{id}.{body.GetProperty("secret").GetString()}");
     }
 

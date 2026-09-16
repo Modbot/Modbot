@@ -78,8 +78,14 @@ somewhere your own Modbot is not.
 properties, the same secrets already taken out. Nothing is filtered to warnings only and nothing is
 anonymised. See [Privacy](/privacy).
 
-Your Modbot registers itself with Cloud the first time it sends, and keeps an id and a secret in its
-own settings. Cloud identifies your deployment by that id and nothing else.
+Your Modbot sends as the server it already registered as, the same one it reports with. That is
+what lets **you** read your own logs in Modbot Cloud once you have
+[claimed the server](/self-hosting#modbot-cloud): sign in there, pick your server, and the same
+filters are waiting. A Modbot Cloud administrator can read them too, which is the point of the
+copy — so somebody can help with a problem on a deployment they cannot reach.
+
+A Modbot that has not finished registering with Cloud yet sends nothing and says so on **Sync
+health**. Registering happens on its own within a few minutes of starting.
 
 ### When Cloud cannot be reached
 

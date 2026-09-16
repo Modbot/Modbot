@@ -3,8 +3,10 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Cloud.Features.Accounts;
 using Modbot.Cloud.Features.InstanceAlerts;
 using Modbot.Cloud.Features.Mail;
+using Modbot.Cloud.Features.Registry;
 
 namespace Modbot.Cloud.Tests;
 
@@ -64,7 +66,7 @@ public class InstanceAlertTests(PostgresFixture db)
 
     private static Task<HttpResponseMessage> SaveAsync(
         CloudTestHost host, Guid id, object body) =>
-        host.SendAsync(HttpMethod.Put, $"/api/admin/installs/{id}/alerts", body, bearer: CloudTestHost.RootKey);
+        host.SendAsync(HttpMethod.Put, $"/api/admin/servers/{id}/alerts", body, bearer: CloudTestHost.RootKey);
 
     [Fact]
     public async Task ADeploymentThatGoesQuietIsEmailedAboutOnce()
@@ -207,7 +209,7 @@ public class InstanceAlertTests(PostgresFixture db)
         await CheckAsync(host, mailer);
 
         await using var cloud = db.NewCloudContext();
-        var alert = await cloud.InstanceAlerts.SingleAsync(a => a.InstallId == id, Ct);
+        var alert = await cloud.InstanceAlerts.SingleAsync(a => a.ServerId == id, Ct);
 
         Assert.True(alert.Problem);
         Assert.Null(alert.LastSentAt);
@@ -261,20 +263,49 @@ public class InstanceAlertTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task AnOwnerSetsThisUpAndNeverTypesTheirOwnAddress()
+    {
+        await using var host = await CloudTestHost.StartAsync(db);
+        var (id, bearer) = await WithLogsAsync(host, CloudTestHost.Start);
+
+        var cookie = await SignUpAsync(host, "owner@example.com");
+        await ClaimAsync(host, cookie, bearer);
+
+        using (var saved = await host.SendAsync(
+            HttpMethod.Put,
+            $"/api/admin/servers/{id}/alerts",
+            new { on = true, email = "", silentAfterMinutes = 60, errorsAnHour = 0, quietHours = 6 },
+            cookie: cookie))
+        {
+            Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+            var view = await saved.Content.ReadFromJsonAsync<JsonElement>(Ct);
+            Assert.Equal("owner@example.com", view.GetProperty("sendsTo").GetString());
+        }
+
+        var mailer = new StubMailer();
+        host.Time.Advance(TimeSpan.FromHours(3));
+
+        Assert.Equal([id], (await CheckAsync(host, mailer)).Problems);
+        Assert.Equal("owner@example.com", mailer.Sent[0].To);
+    }
+
+    [Fact]
     public async Task SettingUpAlertsNeedsTheAdminSignIn()
     {
         await using var host = await CloudTestHost.StartAsync(db);
         var (id, bearer) = await host.RegisterServerAsync();
 
-        using var anonymous = await host.GetAsync($"/api/admin/installs/{id}/alerts");
+        using var anonymous = await host.GetAsync($"/api/admin/servers/{id}/alerts");
         Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
 
-        using var asInstall = await host.GetAsync($"/api/admin/installs/{id}/alerts", bearer);
-        Assert.Equal(HttpStatusCode.Unauthorized, asInstall.StatusCode);
+        // A server's own secret sends logs. It does not set up who is emailed about them.
+        using var asServer = await host.GetAsync($"/api/admin/servers/{id}/alerts", bearer);
+        Assert.Equal(HttpStatusCode.Unauthorized, asServer.StatusCode);
     }
 
     [Fact]
-    public async Task TurningItOnWithoutAnAddressIsRefused()
+    public async Task TurningItOnWithNowhereToSendIsRefused()
     {
         await using var host = await CloudTestHost.StartAsync(db);
         var (id, _) = await host.RegisterServerAsync();
@@ -289,5 +320,41 @@ public class InstanceAlertTests(PostgresFixture db)
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>Signs up, verifies and signs in, and returns the session cookie.</summary>
+    private static async Task<string> SignUpAsync(CloudTestHost host, string email)
+    {
+        const string password = "a-long-enough-password";
+
+        await host.SendAsync(HttpMethod.Post, "/api/v1/accounts", new { email, password });
+        await host.SendAsync(HttpMethod.Post, "/api/v1/accounts/verify", new { token = host.Mail.LastToken() });
+
+        using var signedIn = await host.SendAsync(
+            HttpMethod.Post, "/api/v1/accounts/session", new { email, password });
+
+        Assert.Equal(HttpStatusCode.NoContent, signedIn.StatusCode);
+
+        var setCookie = signedIn.Headers.GetValues("Set-Cookie")
+            .First(v => v.StartsWith(AccountSessions.CookieName, StringComparison.Ordinal));
+
+        return setCookie[..setCookie.IndexOf(';', StringComparison.Ordinal)];
+    }
+
+    /// <summary>Claims <paramref name="bearer"/>'s server for the account behind the cookie.</summary>
+    private static async Task ClaimAsync(CloudTestHost host, string cookie, string bearer)
+    {
+        var code = ServerSecrets.NewLinkCode();
+
+        using (var shown = await host.SendAsync(
+            HttpMethod.Post, "/api/v1/servers/link-code", new { codeHash = ServerSecrets.Hash(code) }, bearer: bearer))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, shown.StatusCode);
+        }
+
+        using var claimed = await host.SendAsync(
+            HttpMethod.Post, "/api/v1/servers/claim", new { code }, cookie: cookie);
+
+        Assert.Equal(HttpStatusCode.OK, claimed.StatusCode);
     }
 }

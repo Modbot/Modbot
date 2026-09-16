@@ -42,12 +42,22 @@ public class CloudLogShipperTests
     private async Task<(ModbotContext Db, CloudLogShipper Shipper, StubHandler Handler)> ShipperAsync(
         HttpStatusCode answer = HttpStatusCode.OK,
         bool disabled = false,
+        bool registered = true,
         CancellationToken ct = default)
     {
         var db = _db.NewContext();
 
         await db.Logs.ExecuteDeleteAsync(ct);
         await db.Settings.ExecuteDeleteAsync(ct);
+
+        // The credential ServerReporter establishes. The shipper uses it and never makes its own.
+        if (registered)
+        {
+            var settings = await db.GetSettingsAsync(ct);
+            settings.CloudServerId = Guid.NewGuid().ToString();
+            settings.CloudServerSecretEncrypted = "a-secret";
+            await db.SaveChangesAsync(ct);
+        }
 
         var handler = new StubHandler(answer);
         var clock = new FixedClock(Now);
@@ -97,7 +107,26 @@ public class CloudLogShipperTests
     }
 
     [Fact]
-    public async Task TheFirstPassRegistersAndThenSendsGzippedJson()
+    public async Task ASeverThatHasNotRegisteredSendsNothingAndSaysSo()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (db, shipper, handler) = await ShipperAsync(registered: false, ct: ct);
+        await using var _ = db;
+
+        db.Logs.Add(Line(1));
+        await db.SaveChangesAsync(ct);
+
+        var result = await shipper.RunOnceAsync(ct);
+
+        // Registering is ServerReporter's job, not this one's -- two things replacing one secret
+        // would fight. So it waits, and the Health page says why.
+        Assert.Equal(ShipOutcome.Failed, result.Outcome);
+        Assert.Equal(CloudLogShipper.NotRegisteredYet, result.Error);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task ABatchGoesAsTheRegisteredServerInGzippedJson()
     {
         var ct = TestContext.Current.CancellationToken;
         var (db, shipper, handler) = await ShipperAsync(ct: ct);
@@ -111,11 +140,13 @@ public class CloudLogShipperTests
         Assert.Equal(ShipOutcome.Sent, result.Outcome);
         Assert.Equal(3, result.Lines);
 
-        Assert.Equal("/api/v1/installs", handler.Requests[0].Path);
-        Assert.Equal("/api/v1/logs", handler.Requests[1].Path);
-        Assert.StartsWith("Bearer ", handler.Requests[1].Authorization, StringComparison.Ordinal);
+        var sent = Assert.Single(handler.Requests);
+        Assert.Equal("/api/v1/logs", sent.Path);
 
-        using var body = JsonDocument.Parse(handler.Requests[1].Body!);
+        var settings = await db.Settings.AsNoTracking().SingleAsync(ct);
+        Assert.Equal($"Bearer {settings.CloudServerId}.a-secret", sent.Authorization);
+
+        using var body = JsonDocument.Parse(sent.Body!);
         var lines = body.RootElement.GetProperty("lines");
 
         Assert.Equal(3, lines.GetArrayLength());
@@ -125,8 +156,6 @@ public class CloudLogShipperTests
         Assert.Equal(JsonValueKind.Object, lines[0].GetProperty("properties").ValueKind);
         Assert.Equal(42, lines[0].GetProperty("properties").GetProperty("Count").GetInt32());
 
-        var settings = await db.Settings.AsNoTracking().SingleAsync(ct);
-        Assert.NotNull(settings.CloudLogInstallId);
         Assert.Equal(Now, settings.CloudLogSentAt);
     }
 
@@ -179,7 +208,7 @@ public class CloudLogShipperTests
     }
 
     [Fact]
-    public async Task ACloudThatDoesNotRecogniseThisDeploymentMakesItRegisterAgain()
+    public async Task ACloudThatDoesNotRecogniseThisServerLeavesTheCredentialAlone()
     {
         var ct = TestContext.Current.CancellationToken;
         var (db, shipper, _) = await ShipperAsync(HttpStatusCode.Unauthorized, ct: ct);
@@ -190,9 +219,12 @@ public class CloudLogShipperTests
 
         Assert.Equal(ShipOutcome.Failed, (await shipper.RunOnceAsync(ct)).Outcome);
 
+        // ServerReporter owns that credential and registers again on its own next pass. Clearing it
+        // here as well would mean two things racing to replace one secret.
         var settings = await db.Settings.AsNoTracking().SingleAsync(ct);
-        Assert.Null(settings.CloudLogInstallId);
-        Assert.Null(settings.CloudLogSecretEncrypted);
+        Assert.NotNull(settings.CloudServerId);
+        Assert.NotNull(settings.CloudServerSecretEncrypted);
+        Assert.Equal(0, settings.CloudLogSentThroughId);
     }
 
     [Fact]
@@ -252,19 +284,6 @@ public class CloudLogShipperTests
                 request.RequestUri!.AbsolutePath,
                 request.Headers.Authorization?.ToString(),
                 body));
-
-            if (request.RequestUri.AbsolutePath == "/api/v1/installs")
-            {
-                return new HttpResponseMessage(HttpStatusCode.Created)
-                {
-                    Content = new StringContent(
-                        $$"""
-                        {"installId":"{{Guid.NewGuid()}}","secret":"a-secret","serverTime":"2026-09-16T12:00:00Z"}
-                        """,
-                        System.Text.Encoding.UTF8,
-                        "application/json"),
-                };
-            }
 
             return new HttpResponseMessage(Answer)
             {

@@ -154,13 +154,18 @@ A first-ever run starts 1,000 rows from the top, so turning this on does not sen
 
 ### 3.4 Identity
 
-The desktop client's credential, deliberately: `POST /api/v1/installs` with `platform: "server"`,
-and the id and secret kept in the deployment's own settings, the secret encrypted like every other
-stored secret.
+**The credential the server already has**: its id and secret in Cloud's server registry, which
+`ServerReporter` establishes and keeps in the same settings row.
 
-**This is the smallest assumption that works.** Cloud's accounts and instance registry were being
-built in parallel and had not landed. When they do, two methods change and nothing else:
-`CloudLogShipper.RegisterAsync`, and `AdminLogEndpoints.MayReadAsync` (§4.3).
+Not a registration of its own. A deployment registering with Cloud twice would give Cloud two ids
+for one thing and no way to join them — and that join is exactly what lets the account which claimed
+the server read its own logs (§4.3). An earlier revision of this feature did register separately,
+because the registry had not landed when it was written; it was reversed the same day, before
+anything shipped.
+
+So: a server that has not registered yet sends nothing and says so on the Health page, and a `401`
+is left alone — `ServerReporter` owns that credential and registers again on its own next pass, and
+two things replacing one secret would fight.
 
 ---
 
@@ -195,12 +200,13 @@ for not indexing hundreds of millions of rows.
 
 ### 4.3 Who may read them
 
-**Cloud administrators today.** A deployment's log is its operator's, not the project's.
+**A Cloud administrator, or the account that claimed the server.** A deployment's log is its
+operator's, not the project's: Cloud holds it so the project can help with a problem on a deployment
+it cannot reach, and so the operator can read it from somewhere their own Modbot is not.
 
-**The owner of the deployment is meant to read it too**, through the Cloud account their Modbot is
-linked to. Accounts are not built, so there is exactly one place to add that:
-`AdminLogEndpoints.MayReadAsync`. It answers "admin only" today; when accounts land it also answers
-yes for the account that owns the install, and the group above it stops requiring admin.
+One method decides, `AdminLogEndpoints.MayReadAsync`. An administrator may leave the server out and
+read across every deployment, which is what makes "is anyone else seeing this?" answerable; an
+account must name a server it claimed, because there is no "everybody's logs" for an account.
 
 ### 4.4 Retention
 
@@ -259,8 +265,11 @@ email about a problem nobody was told about.
 - **In Modbot:** the staff accounts somebody ticked. Not every administrator — the person who keeps
   the server running is often not the person who moderates, and mail nobody wanted is mail everybody
   filters. An account with no address cannot be ticked; a disabled one is skipped.
-- **In Cloud:** an address a Cloud administrator typed. When accounts land it defaults to the linked
-  account's.
+- **In Cloud:** the address on the account that claimed the server, unless somebody typed another
+  one. An owner setting this up for themselves never types their own address, and an address that
+  follows the account cannot go stale when they change it. Turning it on for a server nobody has
+  claimed needs an address, because an alert nobody receives is worse than no alert: it looks set
+  up.
 
 ### 5.4 Two smaller decisions
 
@@ -358,9 +367,6 @@ log going to Cloud, and stops the Credits page asking for the showcase.
 
 ## 9. What is not built
 
-- **The owner's view of their own logs in Cloud.** One method, named in §4.3.
-- **A Cloud alert an owner sets up for themselves.** The row exists; only an administrator can edit
-  it until accounts do.
 - **Trends over the stored logs.** Nothing reads `instance_log` but the viewer and retention.
 - **Anything on the desktop client.** Its log stays on the moderator's PC (M3 §10); this feature is
   about servers.

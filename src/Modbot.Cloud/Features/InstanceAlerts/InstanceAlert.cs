@@ -20,11 +20,9 @@ namespace Modbot.Cloud.Features.InstanceAlerts;
 /// up. The two halves are complements, not copies.
 /// </para>
 /// <para>
-/// <strong>The address is typed in for now.</strong> Cloud has accounts and an instance registry,
-/// but a registered instance is not yet the same thing as a log-sending install — a deployment
-/// registers with Cloud twice, once for the registry and once for its logs — so nothing here can
-/// resolve an install id to an account. When those two are joined, <see cref="Email"/> defaults to
-/// the linked account's address and is the only field that changes.
+/// <strong>Where it sends.</strong> <see cref="Email"/> empty means the address on the account that
+/// claimed this server, which is what an owner setting this up for themselves wants and never has to
+/// type. A Cloud administrator can put another address in for a server nobody has claimed yet.
 /// </para>
 /// </remarks>
 public sealed class InstanceAlert
@@ -38,13 +36,15 @@ public sealed class InstanceAlert
     /// <summary>The most errors in an hour before the error check fires. 0 turns it off.</summary>
     public const int DefaultErrorsAnHour = 0;
 
-    /// <summary>Which deployment. No foreign key: the installs live in the same database, the logs do not.</summary>
-    public Guid InstallId { get; set; }
+    /// <summary>Which deployment, by its id in the server registry.</summary>
+    public Guid ServerId { get; set; }
 
     /// <summary>Whether Cloud emails about this deployment at all.</summary>
     public bool On { get; set; }
 
-    /// <summary>Where the emails go.</summary>
+    /// <summary>
+    /// Where the emails go. Empty means the address on the account that claimed this server.
+    /// </summary>
     public string Email { get; set; } = string.Empty;
 
     /// <summary>
@@ -82,8 +82,8 @@ internal sealed class InstanceAlertConfiguration : IEntityTypeConfiguration<Inst
     {
         entity.ToTable("instance_alert");
 
-        entity.HasKey(a => a.InstallId);
-        entity.Property(a => a.InstallId).ValueGeneratedNever();
+        entity.HasKey(a => a.ServerId);
+        entity.Property(a => a.ServerId).ValueGeneratedNever();
 
         // Named by hand: the convention would give "on", a reserved word in PostgreSQL. EF quotes
         // it and it works; hand-written SQL against this table would not.

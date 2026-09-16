@@ -465,12 +465,6 @@ public class Settings
     /// </summary>
     public bool ShipLogsToCloud { get; set; } = true;
 
-    /// <summary>The Cloud install this server registered as, for log shipping. Null until it has.</summary>
-    public string? CloudLogInstallId { get; set; }
-
-    /// <summary>The secret that goes with <see cref="CloudLogInstallId"/>, encrypted.</summary>
-    public string? CloudLogSecretEncrypted { get; set; }
-
     /// <summary>The last <c>modbot_log</c> row id Cloud has been sent.</summary>
     public long CloudLogSentThroughId { get; set; }
 

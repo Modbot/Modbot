@@ -6,6 +6,7 @@ import { api, type LogLevel, type LogLinePage, type LogLineView, type LogSenderV
 import { when } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useAdminLoad } from '@/lib/useLoad'
+import { InstanceAlerts } from './InstanceAlerts'
 
 const PAGE = 100
 
@@ -27,7 +28,7 @@ const LEVEL_TONE: Record<LogLevel, string> = {
  * the same ones a deployment's own Logs page offers, so the two read the same way.
  */
 export function Logs() {
-  const [installId, setInstallId] = useState('')
+  const [serverId, setServerId] = useState('')
   const [level, setLevel] = useState<LogLevel | ''>('')
   const [typed, setTyped] = useState('')
   const [text, setText] = useState('')
@@ -46,12 +47,12 @@ export function Logs() {
 
   const query = useMemo(
     () => ({
-      installId: installId || undefined,
+      serverId: serverId || undefined,
       level: level || undefined,
       text: text || undefined,
       limit: PAGE,
     }),
-    [installId, level, text],
+    [serverId, level, text],
   )
 
   useEffect(() => {
@@ -96,6 +97,8 @@ export function Logs() {
     <>
       <h1 className="font-display text-lg">Logs</h1>
 
+      {serverId && <InstanceAlerts key={serverId} serverId={serverId} />}
+
       <Card className="gap-0 py-0">
         <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
           <Input
@@ -106,11 +109,12 @@ export function Logs() {
             aria-label="Search the log"
           />
 
-          <Picker value={installId} onChange={setInstallId} aria-label="Deployment">
-            <option value="">Any deployment</option>
+          <Picker value={serverId} onChange={setServerId} aria-label="Server">
+            <option value="">Any server</option>
             {(senders.data?.items ?? []).map((sender: LogSenderView) => (
-              <option key={sender.installId} value={sender.installId}>
-                {sender.installId.slice(0, 8)} · {sender.version}
+              <option key={sender.serverId} value={sender.serverId}>
+                {sender.groupName ?? sender.serverId.slice(0, 8)}
+                {sender.version ? ` · ${sender.version}` : ''}
               </option>
             ))}
           </Picker>
@@ -168,7 +172,7 @@ function Line({ line, open, onToggle }: { line: LogLineView; open: boolean; onTo
         <span className={cn('w-16 shrink-0 font-medium', LEVEL_TONE[line.level])}>{line.level}</span>
         <span className="min-w-0 flex-1 truncate">{line.message}</span>
         <span className="hidden shrink-0 font-mono text-muted-foreground sm:inline">
-          {line.installId.slice(0, 8)}
+          {line.serverId.slice(0, 8)}
         </span>
       </button>
 
@@ -181,8 +185,8 @@ function Line({ line, open, onToggle }: { line: LogLineView; open: boolean; onTo
             <dd className="text-foreground">{when(line.at)}</dd>
             <dt>Received</dt>
             <dd className="text-foreground">{when(line.receivedAt)}</dd>
-            <dt>Deployment</dt>
-            <dd className="font-mono text-foreground">{line.installId}</dd>
+            <dt>Server</dt>
+            <dd className="font-mono text-foreground">{line.serverId}</dd>
             {line.version && (
               <>
                 <dt>Version</dt>
