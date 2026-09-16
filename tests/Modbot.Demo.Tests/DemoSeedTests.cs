@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Configuration;
@@ -112,6 +113,23 @@ public class DemoSeedTests
             Assert.Contains(file.UserId, known);
             Assert.Contains(file.AuthorUserId, staff);
             Assert.NotEqual(string.Empty, file.WrittenReason);
+
+            // The snapshot is stored as written and read straight through by the case file page,
+            // so the demo has to write the field names the real capture writes. A snapshot with a
+            // shape of its own blanked the whole page: the page read `roleIds` and the demo had
+            // written `roles`.
+            var profile = JsonNode.Parse(file.ProfileAtBan!)!.AsObject();
+            Assert.Equal(file.UserId, profile["userId"]!.GetValue<string>());
+            Assert.IsType<JsonArray>(profile["tags"]);
+            Assert.NotNull(profile["eighteenPlus"]!["verified"]);
+            Assert.NotNull(profile["displayName"]);
+
+            var membership = JsonNode.Parse(file.MembershipAtBan!)!.AsObject();
+            Assert.IsType<JsonArray>(membership["roleIds"]);
+            Assert.NotNull(membership["joinedAt"]);
+
+            var entry = JsonNode.Parse(file.BanListEntryAtBan!)!.AsObject();
+            Assert.NotNull(entry["bannedAt"]);
         }
 
         var bans = await host.Db.GroupBans.Select(b => b.UserId).ToListAsync(ct);
@@ -157,14 +175,24 @@ public class DemoSeedTests
         var knownWorlds = new HashSet<string>(
             await host.Db.VRChatWorlds.Select(w => w.WorldId).ToListAsync(ct), StringComparer.Ordinal);
 
+        var settings = await host.Db.GetSettingsAsync(ct);
+
         var facts = await host.Db.Events.AsNoTracking()
-            .Select(e => new { e.SubjectPlatform, e.SubjectId, e.ActorPlatform, e.ActorId, e.WorldId })
+            .Select(e => new { e.Type, e.SubjectPlatform, e.SubjectId, e.ActorPlatform, e.ActorId, e.WorldId })
             .ToListAsync(ct);
 
         Assert.NotEmpty(facts);
 
         foreach (var fact in facts)
         {
+            // The group's own details are the one fact whose subject is the group rather than a
+            // person, exactly as the group-info sync writes it.
+            if (fact.Type == FactType.GroupInfoChanged)
+            {
+                Assert.Equal(settings.ManagedGroupId, fact.SubjectId);
+                continue;
+            }
+
             if (fact.SubjectPlatform == FactPlatform.VRChat)
                 Assert.Contains(fact.SubjectId, known);
 
@@ -213,6 +241,28 @@ public class DemoSeedTests
         // Repeat offenders and moderator baselines are the review job's work, from those totals.
         Assert.True(await host.Db.RepeatOffenders.AnyAsync(o => o.Actions > 1, ct));
         Assert.True(await host.Db.ModeratorBaselines.AnyAsync(ct));
+
+        // My Group's member count is read out of the group's own facts and nothing else -- it is a
+        // level, and no daily total adds up to it. A demo with none showed an empty chart and a
+        // dash where the headcount goes, beside full joins and leaves charts.
+        var group = await host.Db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.GroupInfoChanged)
+            .OrderBy(e => e.OccurredAt)
+            .Select(e => e.Data)
+            .ToListAsync(ct);
+
+        // Not every one carries a member count -- a day on which only the online count moved is a
+        // real change and a real fact, and the chart simply has no point for it.
+        var counts = group
+            .Select(d => JsonNode.Parse(d)!.AsObject())
+            .Select(o => o["changed"]?["MemberCount"]?["new"] ?? o["baseline"]?["MemberCount"])
+            .Where(n => n is not null)
+            .Select(n => n!.GetValue<int>())
+            .ToList();
+
+        Assert.True(counts.Count > 30, $"Only {counts.Count} of {group.Count} group facts carried a member count.");
+        Assert.True(counts[^1] > 100, $"The group ended the year with {counts[^1]} members.");
+        Assert.True(counts[^1] > counts[0], "The group never grew.");
     }
 
     private static async Task TheLivePageHasRoomsOpenWithPeopleInThemAsync(DemoSeedHost host, CancellationToken ct)
@@ -223,11 +273,17 @@ public class DemoSeedTests
             .Where(i => i.GroupId == settings.ManagedGroupId && i.SeenInGroupList && i.ClosedAt == null)
             .ToListAsync(ct);
 
-        Assert.NotEmpty(open);
+        // A handful, not one: the doc promises "a few open right now", and how many the dice leave
+        // open at the moment of seeding is anything from none to four.
+        Assert.True(
+            open.Count >= DemoPlan.RoomsOpenNow,
+            $"Only {open.Count} rooms are open; Live is the page the demo is judged on.");
 
         var people = await new RoomPeopleReader(host.Db).ForRoomsAsync(open, ct);
 
-        Assert.Contains(people.Values, p => p.Here.Count > 0);
+        Assert.True(
+            open.Count(r => people.TryGetValue(r.Id, out var p) && p.Here.Count > 0) >= DemoPlan.RoomsOpenNow,
+            "An open room with nobody in it reads as a dead demo.");
     }
 
     private static async Task EverythingTimeBasedEndsNowAsync(DemoSeedHost host, CancellationToken ct)

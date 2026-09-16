@@ -77,6 +77,17 @@ public sealed record DemoRoom
     public required IReadOnlyList<DemoVisit> Visits { get; init; }
     public required int Peak { get; init; }
 
+    /// <summary>
+    /// Which of the team opened it, as a place in <see cref="DemoPlan.Staff"/>.
+    /// </summary>
+    /// <remarks>
+    /// Their paired client is what reports who is in the room, so this decides whose device the
+    /// room's presence facts carry. Live shows names only while a moderator's client is in the
+    /// room (<c>RoomWatching</c>), so a room whose opener never walked into it is a head count and
+    /// nothing else.
+    /// </remarks>
+    public required int OpenedBy { get; init; }
+
     public bool IsOpen => ClosedAt is null;
 
     public string Location(string groupId) =>
@@ -120,6 +131,9 @@ public sealed class DemoPlan
     public const int StaffCount = 8;
     public const int DiscordMemberCount = 300;
     public const int DaysOfHistory = 365;
+
+    /// <summary>How many rooms the demo leaves open, so Live always has a handful in it.</summary>
+    public const int RoomsOpenNow = 4;
 
     private DemoPlan(DateTimeOffset now)
     {
@@ -351,8 +365,12 @@ public sealed class DemoPlan
                 var minutes = random.Next(45, 260);
                 var closedAt = openedAt.AddMinutes(minutes);
 
-                // Anything whose close is in the future is a room that is open right now.
-                var stillOpen = closedAt > now;
+                // Nothing the year's dice opened is left open. A room still open by chance is one
+                // nobody on the team happens to be standing in, so Live would show it as a head
+                // count with no names -- and which rooms those were would change with the hour the
+                // demo was started. The rooms that are open right now are the ones below.
+                if (closedAt > now)
+                    closedAt = now;
 
                 var here = random.Next(busy ? 6 : 3, busy ? 22 : 14);
                 var visits = new List<DemoVisit>();
@@ -375,10 +393,7 @@ public sealed class DemoPlan
                     var stayed = random.Next(12, Math.Max(20, minutes));
                     var left = arrived.AddMinutes(stayed);
 
-                    visits.Add(new DemoVisit(
-                        person,
-                        arrived,
-                        stillOpen && left > now ? null : (left > closedAt ? closedAt : left)));
+                    visits.Add(new DemoVisit(person, arrived, left > closedAt ? closedAt : left));
                 }
 
                 if (visits.Count == 0)
@@ -391,30 +406,53 @@ public sealed class DemoPlan
                     Number = (number++).ToString(CultureInfo.InvariantCulture),
                     Region = DemoWords.Regions[random.Next(DemoWords.Regions.Length)],
                     OpenedAt = openedAt,
-                    ClosedAt = stillOpen ? null : closedAt,
+                    ClosedAt = closedAt,
                     Visits = visits,
                     Peak = Math.Max(1, visits.Count - random.Next(0, 3)),
+                    OpenedBy = Spread((number - 1).ToString(CultureInfo.InvariantCulture), StaffCount),
                 });
             }
         }
 
-        // The demo must never open with an empty Live page, whatever the dice did.
-        if (!rooms.Exists(r => r.IsOpen))
+        // The rooms that are open right now. A handful, each in its own world and region, each
+        // with one of the team in it -- the doc promises "a few open right now", and Live is the
+        // page a demo is judged on.
+        var stillHere = plan.People.Where(p => p.LeftGroupAt is null && p.Kind != DemoPersonKind.Staff).ToList();
+
+        for (var extra = 0; extra < RoomsOpenNow && stillHere.Count > 0; extra++)
         {
-            var world = plan.Worlds[0];
-            var openedAt = now.AddMinutes(-40);
-            var pool = plan.People.Where(p => p.LeftGroupAt is null).Take(9).ToList();
+            var world = plan.Worlds[extra % plan.Worlds.Count];
+            var openedAt = now.AddMinutes(-random.Next(15, 150));
+            var inRoom = random.Next(4, 18);
+
+            // A different moderator in each, so no two open rooms claim the same person -- a
+            // client reported in a second room ends the watch on the first.
+            var host = plan.Staff[extra % plan.Staff.Count];
+
+            var pool = stillHere
+                .Skip(Spread(world.WorldId, Math.Max(1, stillHere.Count - inRoom)))
+                .Take(inRoom)
+                .ToList();
+
+            // The moderator is in first, because their client only reports what it saw after it
+            // walked in: anybody already there before them is a head count and no name.
+            var visits = new List<DemoVisit> { new(host, openedAt, null) };
+
+            // Everybody in an open room is still in it: Live counts a visit with no leave, and one
+            // that had already ended would be a name on a page nobody is on.
+            visits.AddRange(pool.Select((p, i) => new DemoVisit(p, openedAt.AddMinutes((i + 1) * 2), null)));
 
             rooms.Add(new DemoRoom
             {
                 Id = Guid.CreateVersion7(),
                 World = world,
                 Number = (number++).ToString(CultureInfo.InvariantCulture),
-                Region = "us",
+                Region = DemoWords.Regions[extra % DemoWords.Regions.Length],
                 OpenedAt = openedAt,
                 ClosedAt = null,
-                Visits = [.. pool.Select((p, i) => new DemoVisit(p, openedAt.AddMinutes(i * 3), null))],
-                Peak = pool.Count,
+                Visits = visits,
+                Peak = visits.Count,
+                OpenedBy = extra % plan.Staff.Count,
             });
         }
 

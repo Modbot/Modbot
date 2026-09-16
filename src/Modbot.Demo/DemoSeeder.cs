@@ -169,6 +169,20 @@ public sealed class DemoSeeder
         settings.ManagedGroupId = null;
         settings.ManagedGroupName = null;
         settings.DiscordGuildId = null;
+
+        // The sweep markers and the group snapshot go with the rows they described. Left behind,
+        // they would have an empty member list claiming four hundred members at the last sweep.
+        settings.GroupInfoSnapshot = null;
+        settings.GroupInfoPolledAt = null;
+        settings.MemberSweepCompletedAt = null;
+        settings.MemberSweepPreviousStartedAt = null;
+        settings.MemberSweepCount = 0;
+        settings.MemberSweepPolledAt = null;
+        settings.BanSweepCompletedAt = null;
+        settings.BanSweepPreviousStartedAt = null;
+        settings.BanSweepCount = 0;
+        settings.BanSweepPolledAt = null;
+
         await _db.SaveChangesAsync(ct);
     }
 
@@ -190,6 +204,27 @@ public sealed class DemoSeeder
         settings.VRChatDisplayName = "Modbot (demo)";
         settings.VRChatVerifiedAt = plan.Now.AddDays(-DemoPlan.DaysOfHistory);
         settings.ConnectionCheckedAt = plan.Now.AddDays(-DemoPlan.DaysOfHistory);
+
+        // The group as the group-info sync would have left it. Without this the member list shows
+        // roles by id and My Group has no "as of" time.
+        settings.GroupInfoSnapshot = DemoGroupInfo.At(plan, plan.Now).ToJson();
+        settings.GroupInfoPolledAt = plan.Now.AddMinutes(-2);
+
+        // The sweeps, as a finished pass would have left them. A demo's member and ban lists are
+        // filled in, so "the member list has not been read yet" is simply untrue on one -- and it
+        // is the first thing a visitor sees on two of the pages.
+        settings.MemberSweepCompletedAt = plan.Now.AddMinutes(-4);
+        settings.MemberSweepPreviousStartedAt = plan.Now.AddMinutes(-9);
+        settings.MemberSweepCount = plan.People.Count(p => p.LeftGroupAt is null);
+        settings.MemberSweepPolledAt = plan.Now.AddMinutes(-4);
+
+        settings.BanSweepCompletedAt = plan.Now.AddMinutes(-3);
+        settings.BanSweepPreviousStartedAt = plan.Now.AddMinutes(-8);
+        settings.BanSweepCount = plan.Actions
+            .Where(a => a.Type is FactType.MemberBanned or FactType.MemberUnbanned)
+            .GroupBy(a => a.Subject.UserId, StringComparer.Ordinal)
+            .Count(g => g.OrderBy(a => a.At).Last().Type == FactType.MemberBanned);
+        settings.BanSweepPolledAt = plan.Now.AddMinutes(-3);
 
         // Keep everything the demo made up, whatever the default window is: a year of charts that
         // emptied out after ninety days would make the demo look broken rather than tidy.
@@ -266,6 +301,9 @@ public sealed class DemoSeeder
 
     /// <summary>The paired client a moderator's presence reports come from. Fixed, like their ids.</summary>
     internal static Guid DeviceIdOf(int index) => new(DemoPlan.Fixed(9000 + index));
+
+    /// <summary>A time inside a stored snapshot, written the way the real capture writes it.</summary>
+    private static string Stamp(DateTimeOffset at) => at.ToString("O", CultureInfo.InvariantCulture);
 
     // --- people -----------------------------------------------------------------------------
 
@@ -490,17 +528,59 @@ public sealed class DemoSeeder
                 CreatedAt = ban.At.AddMinutes(6),
                 UpdatedAt = ban.At.AddMinutes(6),
                 SnapshotTakenAt = ban.At,
+                ProfileRefreshedAt = ban.At.AddMinutes(-20),
+
+                // The field names are the ones the real capture writes (Cases/ProfileSnapshot.cs),
+                // because the case file page reads this stored JSON straight through. A snapshot
+                // written to a shape of its own is a page that cannot show it.
                 ProfileAtBan = JsonSerializer.Serialize(new
                 {
+                    userId = ban.Subject.UserId,
                     displayName = ban.Subject.DisplayName,
                     bio = ban.Subject.Bio,
-                    tags = ban.Subject.Tags,
+                    status = ban.Subject.Status,
+                    statusDescription = ban.Subject.StatusDescription,
+                    pronouns = ban.Subject.Pronouns,
+                    avatarImageUrl = ban.Subject.Avatar,
+                    avatarThumbnailUrl = ban.Subject.Avatar,
+                    profilePictureUrl = ban.Subject.Picture,
                     dateJoined = ban.Subject.DateJoined.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    tags = ban.Subject.Tags,
+                    lastPlatform = ban.Subject.Platform,
+                    ageVerificationStatus = ban.Subject.Is18Plus ? "18+" : "unverified",
+                    ageVerified = ban.Subject.Is18Plus,
+                    eighteenPlus = new
+                    {
+                        verified = ban.Subject.Is18Plus,
+                        since = ban.Subject.Is18Plus ? Stamp(ban.Subject.JoinedGroupAt) : null,
+                        source = ban.Subject.Is18Plus ? AgeVerificationSource.VRChat : null,
+                    },
+                    firstSeenAt = Stamp(ban.Subject.JoinedGroupAt),
+                    lastSeenAt = Stamp(ban.At),
+                    lastRefreshedAt = Stamp(ban.At.AddMinutes(-20)),
+                    lastUserReadAt = Stamp(ban.At.AddMinutes(-20)),
+                    notFoundAt = (string?)null,
                 }),
                 MembershipAtBan = JsonSerializer.Serialize(new
                 {
-                    joinedAt = ban.At,
-                    roles = ban.Subject.GroupRoles,
+                    isMember = false,
+                    membershipId = "gmem_" + DemoPlan.Fixed(20000 + DemoPlan.Spread(ban.Subject.UserId, 100000)),
+                    roleIds = ban.Subject.GroupRoles,
+                    joinedAt = Stamp(ban.Subject.JoinedGroupAt),
+                    membershipStatus = "member",
+                    visibility = "visible",
+                    isRepresenting = false,
+                    managerNotes = (string?)null,
+                    firstSeenAt = Stamp(ban.Subject.JoinedGroupAt),
+                    lastSeenAt = Stamp(ban.At),
+                    leftAt = Stamp(ban.At),
+                }),
+                BanListEntryAtBan = JsonSerializer.Serialize(new
+                {
+                    bannedAt = Stamp(ban.At),
+                    firstSeenAt = Stamp(ban.At),
+                    lastSeenAt = Stamp(plan.Now),
+                    liftedAt = (string?)null,
                 }),
             });
         }

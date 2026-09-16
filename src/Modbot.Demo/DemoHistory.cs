@@ -9,6 +9,7 @@ using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
+using Modbot.VRChat.Sync;
 
 namespace Modbot.Demo;
 
@@ -134,6 +135,9 @@ public sealed class DemoHistory
         foreach (var fact in Membership(plan))
             yield return fact;
 
+        foreach (var fact in GroupInfo(plan))
+            yield return fact;
+
         foreach (var fact in Rooms(plan))
             yield return fact;
 
@@ -202,13 +206,74 @@ public sealed class DemoHistory
         }
     }
 
+    /// <summary>
+    /// The group's own headcount over the year, as the group-info sync would have recorded it.
+    /// </summary>
+    /// <remarks>
+    /// One baseline at the start of the history and then one fact a day, on the days the count
+    /// actually moved -- the same sparse series a real poll produces, because a fact per poll
+    /// saying nothing changed is exactly what <see cref="GroupInfoSnapshot.DifferencesFrom"/>
+    /// exists to prevent. My Group's member count reads these and nothing else.
+    /// </remarks>
+    private static IEnumerable<FactRecord> GroupInfo(DemoPlan plan)
+    {
+        var start = plan.Now.AddDays(-DemoPlan.DaysOfHistory);
+        GroupInfoSnapshot? previous = null;
+
+        for (var day = 0; day <= DemoPlan.DaysOfHistory; day++)
+        {
+            // Late in the day, so a day's reading comes after that day's joins and leaves, which
+            // have their own times spread through it. The last one is taken at the present moment,
+            // so the chart runs up to today rather than stopping yesterday.
+            var at = start.AddDays(day).AddHours(21);
+            var last = at >= plan.Now;
+
+            if (last)
+                at = plan.Now;
+
+            var current = DemoGroupInfo.At(plan, at);
+
+            if (previous is null)
+            {
+                yield return GroupFact(plan, at, current.BaselinePayload(), since: null);
+                previous = current;
+            }
+            else if (current.DifferencesFrom(previous) is { Count: > 0 } changed)
+            {
+                // The window is one poll, not one day: a poll knows only that the change happened
+                // since the last one, and a day-wide window would date every reading a day early.
+                yield return GroupFact(plan, at, current.ChangePayload(previous, changed), since: at.AddMinutes(-5));
+                previous = current;
+            }
+
+            if (last)
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The group is the subject and there is no actor: VRChat's group object says what the group
+    /// looks like, never who changed it (<c>GroupInfoSync</c>).
+    /// </summary>
+    private static FactRecord GroupFact(DemoPlan plan, DateTimeOffset at, JsonObject data, DateTimeOffset? since)
+        => new()
+        {
+            Type = FactType.GroupInfoChanged,
+            OccurredAt = since ?? at,
+            OccurredBefore = since is null ? null : at,
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = plan.GroupId,
+            Source = FactSource.SyncDiff,
+            Data = data,
+        };
+
     private static IEnumerable<FactRecord> Rooms(DemoPlan plan)
     {
         var staff = plan.Staff;
 
         foreach (var room in plan.Rooms)
         {
-            var opener = staff[DemoPlan.Spread(room.Number, staff.Count)];
+            var opener = staff[room.OpenedBy];
 
             yield return new FactRecord
             {
@@ -246,8 +311,7 @@ public sealed class DemoHistory
             // Presence, as a moderator's desktop client reports it. The Live page reads these and
             // nothing else, and only counts a report from a paired client whose owner has linked a
             // VRChat account -- so every report names one of the demo's own devices (§4.4).
-            var deviceIndex = DemoPlan.Spread(room.Number, DemoPlan.StaffCount);
-            var device = DemoSeeder.DeviceIdOf(deviceIndex).ToString();
+            var device = DemoSeeder.DeviceIdOf(room.OpenedBy).ToString();
 
             foreach (var visit in room.Visits)
             {
