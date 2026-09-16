@@ -1,9 +1,11 @@
 name: CI
 
+# Only master, and only when asked. Day-to-day work lands on staging, which runs no CI; staging is
+# merged into master once a batch is ready, and that merge is the run that has to be green.
 on:
   push:
     branches: [master]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:

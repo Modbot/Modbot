@@ -86,6 +86,14 @@ Tests are still **written**; they are simply not run yet, and the agent lists in
 wrote but did not run. When a run of features has landed, one testing pass runs every suite and every
 web check, fixes what fails, and takes CI green on master.
 
+### Where work lands
+
+**Push to `staging`, not `master`.** CI runs on pushes to `master` only (and on demand), because a
+run costs Actions minutes and a batch of features would otherwise pay for one per commit.
+
+`staging` is merged into `master` when a batch is ready and the testing pass has it passing. That
+merge is the CI run that matters.
+
 ### Which model runs end-to-end testing
 
 **Agents that run end-to-end testing use the latest Sonnet model (currently Sonnet 5,
