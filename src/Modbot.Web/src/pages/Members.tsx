@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
+import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type LinkedDiscord, type LinkedFilter, type MemberList, type MemberQuery } from '@/lib/api'
 import { can, canAny } from '@/lib/permissions'
@@ -361,6 +362,21 @@ function DiscordAccount({ account }: { account: LinkedDiscord }) {
  * this page most needs to not make.
  */
 function Freshness({ coverage }: { coverage: MemberList['coverage'] }) {
+  const demo = useDemo()
+
+  // A demo's member list was filled in rather than read, so there is no sync time to state and
+  // nothing is waiting to be read.
+  if (demo) {
+    return (
+      <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <span>Demo data.</span>
+        <span>
+          {coverage.memberCount.toLocaleString()} {coverage.memberCount === 1 ? 'member' : 'members'}.
+        </span>
+      </div>
+    )
+  }
+
   if (!coverage.firstSweepComplete) {
     return (
       <div

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
 import { can } from '@/lib/permissions'
@@ -33,6 +34,8 @@ export function UserProfileCard({
   /** The signed-in account, for deciding whether to draw the flag control. */
   me: CurrentUser
 }) {
+  const demo = useDemo()
+
   const [profile, setProfile] = useState<VRChatUserProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -109,6 +112,10 @@ export function UserProfileCard({
         setProfile(stored)
         baseline.current = stored.lastRefreshedAt
 
+        // A demo has no VRChat account and never will, so there is nothing to bring the profile
+        // up to date from and no refusal worth putting in front of anybody.
+        if (demo) return
+
         if (stored.refresh.blocked && !stored.refresh.pending) {
           setRefreshNote(`Couldn't refresh: ${stored.refresh.blocked}`)
           return
@@ -137,7 +144,7 @@ export function UserProfileCard({
       cancelled.current = true
       if (timer) clearTimeout(timer)
     }
-  }, [subjectId, load])
+  }, [subjectId, load, demo])
 
   if (error) {
     return (

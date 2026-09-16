@@ -3,6 +3,7 @@ import { Footer, Sidebar, Topbar } from '@/components/Chrome'
 import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
+import { DemoContext } from '@/lib/demo'
 import { setMyModbotOrigin } from '@/lib/myModbot'
 import { CREDITS_PATH, MOVED, NAV, mayOpen, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
@@ -242,15 +243,17 @@ export default function App() {
   if (route === '/pair') return <Pair />
 
   return (
-    <Shell
-      status={status}
-      me={me}
-      prefs={prefs}
-      route={route}
-      navigate={navigate}
-      refresh={refresh}
-      demo={demo}
-    />
+    <DemoContext value={demo}>
+      <Shell
+        status={status}
+        me={me}
+        prefs={prefs}
+        route={route}
+        navigate={navigate}
+        refresh={refresh}
+        demo={demo}
+      />
+    </DemoContext>
   )
 }
 

@@ -11,6 +11,7 @@ import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { FactList, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser } from '@/lib/api'
+import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
 import { can } from '@/lib/permissions'
 
@@ -146,6 +147,8 @@ function MembershipCard({
   me: CurrentUser
   onActed: () => void
 }) {
+  const demo = useDemo()
+
   const load = useCallback(() => api.membership(subjectId), [subjectId])
   const { data: view, error } = useLoad(load)
 
@@ -214,8 +217,14 @@ function MembershipCard({
           ) : null}
 
           <p className="text-muted-foreground">
-            Member list synced {ago(view.members.lastSyncedAt, view.members.now)}; ban list synced{' '}
-            {ago(view.bans.lastSyncedAt, view.bans.now)}.
+            {demo ? (
+              'Demo data.'
+            ) : (
+              <>
+                Member list synced {ago(view.members.lastSyncedAt, view.members.now)}; ban list synced{' '}
+                {ago(view.bans.lastSyncedAt, view.bans.now)}.
+              </>
+            )}
           </p>
 
           <ModerationActions

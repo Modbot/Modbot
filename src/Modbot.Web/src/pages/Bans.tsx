@@ -8,6 +8,7 @@ import { UnwrittenCaseFiles } from '@/components/UnwrittenCaseFiles'
 import { FactTime, SourceBadge, SubjectLink } from '@/components/facts'
 import { RepeatOffendersTab } from '@/pages/RepeatOffenders'
 import { useCaseFiles } from '@/lib/caseFiles'
+import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
 import { can, canAny } from '@/lib/permissions'
 import {
@@ -171,6 +172,9 @@ function GroupBans({
 
   const cases = useCaseFiles(list?.bans.map((b) => b.userId) ?? [], can(me, 'ViewProfile'))
 
+  // A demo's ban list was filled in rather than read, so there is no sync time to state.
+  const demo = useDemo()
+
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
@@ -181,7 +185,14 @@ function GroupBans({
 
   return (
     <>
-      {list.coverage.firstSweepComplete ? (
+      {demo ? (
+        <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          <span>Demo data.</span>
+          <span>
+            {list.coverage.banCount.toLocaleString()} {list.coverage.banCount === 1 ? 'ban' : 'bans'}.
+          </span>
+        </div>
+      ) : list.coverage.firstSweepComplete ? (
         <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           <span>
             Last synced {ago(list.coverage.lastSyncedAt, list.coverage.now)}
