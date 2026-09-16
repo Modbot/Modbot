@@ -8,11 +8,31 @@ namespace Modbot.Cloud.Features.Pages;
 /// </summary>
 public static class PageEndpoints
 {
+    /// <summary>
+    /// The account pages. <c>/verify</c> and <c>/reset-password</c> are where the links in Cloud's
+    /// mail land, so their spellings are fixed by <c>AccountMail</c>.
+    /// </summary>
+    public static readonly string[] AccountRoutes =
+    [
+        "/register",
+        "/sign-in",
+        "/account",
+        "/verify",
+        "/verify-email-change",
+        "/forgot-password",
+        "/reset-password",
+    ];
+
     public static IEndpointRouteBuilder MapPages(this IEndpointRouteBuilder app)
     {
         app.MapGet("/", ([FromServices] AppPage page, HttpContext http) => page.Serve(http));
         app.MapGet("/admin", ([FromServices] AppPage page, HttpContext http) => page.Serve(http));
         app.MapGet("/admin/{**rest}", ([FromServices] AppPage page, HttpContext http) => page.Serve(http));
+
+        // The account pages. Each is a real route rather than a fragment, because the links in
+        // Cloud's mail land on them directly.
+        foreach (var route in AccountRoutes)
+            app.MapGet(route, ([FromServices] AppPage page, HttpContext http) => page.Serve(http));
 
         // Lowest priority, so it only answers what no other route claimed.
         app.MapFallback("{**path}", NotFound);

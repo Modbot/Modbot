@@ -99,6 +99,35 @@ export type LogQuery = {
   limit?: number
 }
 
+export type AccountView = {
+  email: string
+  emailVerified: boolean
+  pendingEmail: string | null
+  createdAt: string
+}
+
+/** A Modbot server this account has claimed. */
+export type ServerView = {
+  serverId: string
+  publicAddress: string | null
+  version: string | null
+  hostPlatform: string | null
+  groupId: string | null
+  groupName: string | null
+  groupDescription: string | null
+  groupIconUrl: string | null
+  groupBannerUrl: string | null
+  discordConnected: boolean | null
+  termListsImported: string[] | null
+  rateLimitColdStops: number | null
+  wafBlocks: number | null
+  aiModerationEnabled: boolean | null
+  registeredAt: string
+  lastReportAt: string | null
+  lastSeenAt: string
+  claimedAt: string | null
+}
+
 export const api = {
   login: (key: string) => request<void>('POST', '/api/admin/login', { key }),
   logout: () => request<void>('POST', '/api/admin/logout'),
@@ -126,4 +155,25 @@ export const api = {
   logSenders: () => request<{ items: LogSenderView[] }>('GET', '/api/admin/logs/senders'),
   settings: () => request<Settings>('GET', '/api/admin/settings'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', '/api/admin/settings', settings),
+
+  registerAccount: (email: string, password: string) =>
+    request<void>('POST', '/api/v1/accounts', { email, password }),
+  verifyEmail: (token: string) => request<void>('POST', '/api/v1/accounts/verify', { token }),
+  verifyEmailChange: (token: string) => request<void>('POST', '/api/v1/accounts/verify-email-change', { token }),
+  signIn: (email: string, password: string) =>
+    request<void>('POST', '/api/v1/accounts/session', { email, password }),
+  signOut: () => request<void>('DELETE', '/api/v1/accounts/session'),
+  me: () => request<AccountView>('GET', '/api/v1/accounts/me'),
+  forgotPassword: (email: string) => request<void>('POST', '/api/v1/accounts/forgot-password', { email }),
+  resetPassword: (token: string, password: string) =>
+    request<void>('POST', '/api/v1/accounts/reset-password', { token, password }),
+  changePassword: (currentPassword: string, password: string) =>
+    request<void>('POST', '/api/v1/accounts/password', { currentPassword, password }),
+  changeEmail: (email: string, password: string) =>
+    request<void>('POST', '/api/v1/accounts/email', { email, password }),
+
+  myServers: () => request<{ items: ServerView[] }>('GET', '/api/v1/servers/mine'),
+  claimServer: (code: string) => request<ServerView>('POST', '/api/v1/servers/claim', { code }),
+  unclaimServer: (serverId: string) =>
+    request<void>('DELETE', `/api/v1/servers/${encodeURIComponent(serverId)}/claim`),
 }
