@@ -3,9 +3,9 @@ title: Docker
 description: Building the Modbot image from the repository and running it next to PostgreSQL and Seq with docker run or Docker Compose.
 ---
 
-Modbot is one container plus a PostgreSQL database. You build the image yourself from the
-`Dockerfile` at the root of the repository, then run it with `DATABASE_URL` pointing at your
-database.
+Modbot is one container plus a PostgreSQL database. Pull the published image, or build it yourself
+from the `Dockerfile` at the root of the repository, then run it with `DATABASE_URL` pointing at
+your database.
 
 ## What the image needs
 
@@ -23,6 +23,32 @@ Every other setting is entered in the web app and stored in the database. See
 
 Run **one** Modbot container per database. Modbot holds one VRChat session and paces its own
 requests, and a second container would send twice as many against the same rate limit.
+
+## Pull the published image
+
+Every named release is published to GitHub's container registry as
+`ghcr.io/binn/modbot-host`:
+
+| Tag | What it is |
+|---|---|
+| `latest` | The newest release. |
+| `2026.9.1` | One release, by its [version](/self-hosting/updating#version-numbers). |
+| `edge` | The newest commit on `master`, ahead of any release. |
+| `sha-1af5e1a` | One commit. |
+
+```bash
+docker pull ghcr.io/binn/modbot-host:latest
+```
+
+While the repository is private, so is the image. Sign in first with a GitHub token that has the
+`read:packages` scope:
+
+```bash
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u your-github-username --password-stdin
+```
+
+Wherever the rest of this page says `modbot`, the published image is `ghcr.io/binn/modbot-host`
+with the tag you chose.
 
 ## Build the image
 

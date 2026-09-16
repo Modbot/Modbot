@@ -27,8 +27,18 @@ Modbot's Railway configuration, a slow update is not mistaken for a failed one. 
 
 ## Updating with Docker
 
-From your copy of the repository, get the newer code, build the image again, and replace the
-container:
+With the published image, pull the newer tag and replace the container:
+
+```bash
+docker pull ghcr.io/binn/modbot-host:latest
+docker stop modbot && docker rm modbot
+docker run -d --name modbot --network modbot   -e DATABASE_URL=postgres://modbot:choose-a-long-password@modbot-db:5432/modbot   -p 8080:8080   -v modbot-logs:/app/logs   --restart unless-stopped   ghcr.io/binn/modbot-host:latest
+```
+
+To move to one release and stay on it, use its version as the tag instead of `latest`. See
+[Docker](/self-hosting/docker#pull-the-published-image) for the tags.
+
+With an image you built yourself, get the newer code, build it again, and replace the container:
 
 ```bash
 git pull

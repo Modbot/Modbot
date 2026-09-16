@@ -48,10 +48,17 @@ COPY --from=web /src/src/Modbot.Host/wwwroot/ src/Modbot.Host/wwwroot/
 ARG RAILWAY_GIT_COMMIT_SHA
 ARG RAILWAY_GIT_BRANCH
 
+# The release version, YYYY.M.PATCH, for a build that is one. The host image workflow passes it
+# from a host-v tag; anything else leaves it unset and the build carries the development version.
+# Passed as a property rather than read from the environment, because Directory.Build.props keys
+# the version stamping on the ModbotRelease property and an empty one must mean "not a release".
+ARG MODBOT_RELEASE
+
 RUN dotnet publish src/Modbot.Host/Modbot.Host.csproj \
         --configuration Release \
         --no-restore \
-        --output /app
+        --output /app \
+        ${MODBOT_RELEASE:+-p:ModbotRelease=$MODBOT_RELEASE}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3 — runtime.
