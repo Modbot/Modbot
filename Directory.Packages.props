@@ -75,6 +75,12 @@
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="9.1.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
+    <!-- The newest release there is: 2.20.9, from API specification v1.20.9. Specification v1.21.0
+         (2026-09-16) moved a person's profile behind Get Public Profile and took the bio, the
+         badges and the pictures off the user object, but the .NET SDK has not been regenerated for
+         it, so its models still have properties for fields VRChat no longer sends. Modbot reads
+         from each call only what that call carries (research:
+         vrchat-public-profile-findings.md §3), which is what makes the stale models harmless. -->
     <PackageVersion Include="VRChat.API" Version="2.20.9" />
     <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.1" />
   </ItemGroup>

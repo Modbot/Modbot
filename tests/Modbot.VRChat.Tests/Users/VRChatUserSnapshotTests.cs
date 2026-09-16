@@ -149,16 +149,50 @@ public class VRChatUserSnapshotTests
         Assert.Equal("A", row.DisplayName);
     }
 
+    /// <summary>
+    /// The user object lost the bio, the avatar pictures and the profile picture in API
+    /// specification v1.21.0, so a body that still sends them empty is not an edit and must not
+    /// wipe what the public profile filled in.
+    /// </summary>
+    [Fact]
+    public void TheUserObjectNeverSpeaksForTheBioOrThePictures()
+    {
+        var row = new VRChatUser
+        {
+            UserId = "usr_a",
+            Bio = "written by the public profile",
+            ProfilePictureUrl = "https://example.invalid/a.png",
+            CurrentAvatarImageUrl = "https://example.invalid/avatar.png",
+            LastUserReadAt = DateTimeOffset.UnixEpoch,
+        };
+
+        var user = new User { Id = "usr_a", DisplayName = "A" };
+        var raw = new JsonObject
+        {
+            ["id"] = "usr_a",
+            ["displayName"] = "A",
+            ["bio"] = string.Empty,
+            ["profilePicOverride"] = string.Empty,
+            ["currentAvatarImageUrl"] = string.Empty,
+        };
+
+        VRChatUserSnapshot.From(user, raw).ApplyTo(row);
+
+        Assert.Equal("written by the public profile", row.Bio);
+        Assert.Equal("https://example.invalid/a.png", row.ProfilePictureUrl);
+        Assert.Equal("https://example.invalid/avatar.png", row.CurrentAvatarImageUrl);
+    }
+
     /// <summary>Present and empty is a real edit, and is written.</summary>
     [Fact]
     public void AFieldTheBodyCarriedAsEmptyIsCleared()
     {
         var row = new VRChatUser { UserId = "usr_a", Bio = "old", LastRefreshedAt = DateTimeOffset.UnixEpoch };
 
-        var user = new User { Id = "usr_a", Bio = string.Empty };
+        var profile = new PublicProfile { Id = "usr_a", Bio = string.Empty };
         var raw = new JsonObject { ["id"] = "usr_a", ["bio"] = string.Empty };
 
-        VRChatUserSnapshot.From(user, raw).ApplyTo(row);
+        VRChatUserSnapshot.FromPublicProfile("usr_a", profile, raw).ApplyTo(row);
 
         Assert.Null(row.Bio);
     }

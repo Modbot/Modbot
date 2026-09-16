@@ -795,14 +795,17 @@ not AutoMapper.
 
 #### 4.2.5 User profile sync — the expensive one
 
-> **Revised 2026-09-15.** VRChat has two reads of a person, not one, and they no longer carry the
-> same fields: `GET /users/{userId}` (`users.read`) stopped returning the bio, and
+> **Revised 2026-09-15, again 2026-09-16.** VRChat has two reads of a person, not one, and they no
+> longer carry the same fields: `GET /users/{userId}` (`users.read`) stopped returning the bio, and
 > `GET /profile/{userId}` (`users.profile`) carries it. The public profile is now the main read and
-> the user object is read about once a week per person. The pacing, the lane and the
-> exemption described in this section apply to both classes. See "Two reads of a person" below.
+> the user object is read about once a week per person. API specification v1.21.0 confirmed the
+> split and widened it: the bio, the bio links, the badges, the user icon, the profile picture
+> override and the current avatar pictures have all left the user object for good. The pacing, the
+> lane and the exemption described in this section apply to both classes. See "Two reads of a
+> person" below.
 
 `GroupMember` carries membership data but **no profile**: no bio, no status, no avatar, no pronouns.
-Those live on the user object and must be fetched **one user at a time** (`users.read`).
+Those live on the two per-person reads and must be fetched **one user at a time**.
 `Instance.Users` would have returned them in bulk, but VRChat populates it only for VRChat staff and
 world owners (M3 §7.2.1).
 
@@ -859,8 +862,8 @@ is:
 
 | | `users.read` — `GET /users/{userId}` | `users.profile` — `GET /profile/{userId}` |
 |---|---|---|
-| Carries alone | status line, status, avatar pictures, `profilePicOverride`, join date, the full tag list, last platform | trust tags, languages, the group being represented, VRC+ |
-| Carries too | display name, **bio** (reported blank today), pronouns, age verification | display name, **bio**, pronouns, age verification |
+| Carries alone | status line, status, join date, the full tag list, last platform | **bio**, bio links, badges, trust tags, languages, the group being represented, VRC+ |
+| Carries too | display name, pronouns, age verification, banner and nameplate | display name, pronouns, age verification, banner and nameplate |
 | How often | on first sight, then **once every seven days** per person | the existing queue and schedule — the main read |
 
 **The public profile is the main read.** It carries what Modbot uses most and what moderators look
@@ -868,10 +871,16 @@ at: the bio, the pronouns, the name, and the age verification that feeds the sti
 
 **The user object is read rarely**, because what it carries alone either never changes (the join
 date), moves on a scale of weeks (the tag list, including the trust rank and `system_troll`), or is
-something nothing in Modbot decides anything from (the status line, the avatar pictures, the
-platform). A week of staleness on those costs nothing; a week of staleness on a bio would cost a
-moderator the thing they opened the profile to read. For a 10,000-person group the rare read is
-about 1,430 requests a day — 0.017 req/s against a 3.5 req/s budget.
+something nothing in Modbot decides anything from (the status line, the platform). A week of
+staleness on those costs nothing; a week of staleness on a bio would cost a moderator the thing
+they opened the profile to read. For a 10,000-person group the rare read is about 1,430 requests a
+day — 0.017 req/s against a 3.5 req/s budget.
+
+**Neither read carries a person's picture any more.** The profile picture override and the current
+avatar pictures left the user object in specification v1.21.0, and the public profile returns its
+own copies only to the account that owns it. The stored columns keep their last value and are never
+filled again; the one picture still on offer for somebody else is the public profile's `iconUrl`,
+the VRC+ user icon, which is a different field and is not written to them.
 
 **Its own budget, at the same rate** (the maintainer, 2026-09-15). Two buckets rather than one, so
 the rare read cannot eat the frequent one's allowance; two lanes rather than one, so they never

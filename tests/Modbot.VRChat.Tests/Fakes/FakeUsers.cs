@@ -23,7 +23,8 @@ namespace Modbot.VRChat.Tests.Fakes;
 /// <para>
 /// The two calls answer from the same person but carry different fields, exactly as VRChat does:
 /// the public profile has the bio, the pronouns and the age verification; the user object has the
-/// status line, the join date, the tag list and the pictures.
+/// status line, the join date, the tag list and the platform. Neither carries the pictures any
+/// more: API specification v1.21.0 took them off the user object and they are not on the profile.
 /// </para>
 /// </remarks>
 public sealed class FakeUsers
@@ -58,12 +59,6 @@ public sealed class FakeUsers
     public int RequestCount => Requests.Count;
 
     /// <summary>
-    /// Leave the bio out of the user object's body entirely, the way VRChat now does. What the
-    /// public profile says is then the only bio there is.
-    /// </summary>
-    public bool UserOmitsBio { get; set; }
-
-    /// <summary>
     /// Serves a profile for this id. Any field left null is left out of the body, the way VRChat
     /// leaves out nothing but tests need to say less.
     /// </summary>
@@ -75,7 +70,6 @@ public sealed class FakeUsers
         string? bio = null,
         string? pronouns = null,
         string? statusDescription = null,
-        string? avatarThumbnail = null,
         IReadOnlyList<string>? tags = null,
         string? dateJoined = "2020-01-15")
     {
@@ -83,12 +77,8 @@ public sealed class FakeUsers
         {
             Id = id,
             DisplayName = displayName,
-            Bio = bio ?? string.Empty,
             Pronouns = pronouns ?? string.Empty,
             StatusDescription = statusDescription ?? string.Empty,
-            CurrentAvatarThumbnailImageUrl = avatarThumbnail ?? string.Empty,
-            CurrentAvatarImageUrl = string.Empty,
-            ProfilePicOverride = string.Empty,
             Tags = tags?.ToList() ?? [],
             AgeVerified = ageVerified,
             AgeVerificationStatus = ageVerificationStatus switch
@@ -109,15 +99,14 @@ public sealed class FakeUsers
             FriendKey = "friendkey",
         };
 
+        // Exactly the fields VRChat's user object carries -- no bio, no avatar pictures and no
+        // profile picture, all of which left it in API specification v1.21.0.
         var raw = new JsonObject
         {
             ["id"] = id,
             ["displayName"] = displayName,
             ["pronouns"] = pronouns ?? string.Empty,
             ["statusDescription"] = statusDescription ?? string.Empty,
-            ["currentAvatarThumbnailImageUrl"] = avatarThumbnail ?? string.Empty,
-            ["currentAvatarImageUrl"] = string.Empty,
-            ["profilePicOverride"] = string.Empty,
             ["tags"] = new JsonArray([.. (tags ?? []).Select(t => JsonValue.Create(t))]),
             ["ageVerified"] = ageVerified,
             ["ageVerificationStatus"] = ageVerificationStatus,
@@ -129,11 +118,6 @@ public sealed class FakeUsers
             ["note"] = "private note",
             ["friendKey"] = "friendkey",
         };
-
-        // VRChat is reported to have stopped sending the bio here. Absent, not empty: those mean
-        // different things to a read that may only overwrite what it carried.
-        if (!UserOmitsBio)
-            raw["bio"] = bio ?? string.Empty;
 
         var publicProfile = new PublicProfile
         {

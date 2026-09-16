@@ -515,7 +515,6 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
     [Fact]
     public async Task AUserReadFillsOnlyWhatItCarriesAndLeavesTheRestAlone()
     {
-        VRChat.Users.UserOmitsBio = true;
         VRChat.Users.Has("usr_a", displayName: "Trinity", bio: "hello", statusDescription: "at work", tags: ["system_trust_known"]);
         await SeedRowAsync("usr_a", lastSeen: Now.AddMinutes(-1), lastRefreshed: null);
 

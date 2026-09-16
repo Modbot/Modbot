@@ -7,6 +7,11 @@
   `users.read`, its own lane, 3.5 req/s (user profile sync design §5). "Get public user information
   about a specific user using their ID."
 - **Companion:** `vrchat-sdk-findings.md` §5 (which user models carry which fields).
+- **Revised 2026-09-16.** API specification v1.21.0 took `bio`, `bioLinks`, `badges`, `userIcon`,
+  `profilePicOverride`, `profilePicOverrideThumbnail` and the `currentAvatar*` fields off this
+  object. The rows below marked "gone" are what this call used to answer for; the bio is now read
+  from `GET /profile/{userId}` and the pictures from nothing at all. See
+  `vrchat-public-profile-findings.md`.
 
 ---
 
@@ -16,12 +21,12 @@
 |---|---|---|
 | `id` | `user_id` (text, opaque) | key |
 | `displayName` | `display_name` | yes |
-| `bio` | `bio` | yes |
+| `bio` | `bio` | **gone from this call (v1.21.0)** — the public profile carries it |
 | `statusDescription` | `status_description` | yes |
 | `pronouns` | `pronouns` | yes |
-| `currentAvatarImageUrl` | `current_avatar_image_url` | yes |
-| `currentAvatarThumbnailImageUrl` | `current_avatar_thumbnail_image_url` | yes |
-| `profilePicOverride` | `profile_picture_url` | yes — the SDK's own note: "When profilePicOverride is not empty, use it instead" |
+| `currentAvatarImageUrl` | `current_avatar_image_url` | **gone from this call (v1.21.0)** |
+| `currentAvatarThumbnailImageUrl` | `current_avatar_thumbnail_image_url` | **gone from this call (v1.21.0)** |
+| `profilePicOverride` | `profile_picture_url` | **gone from this call (v1.21.0)**, and on no other call either |
 | `date_joined` (`DateJoined`, `DateOnly`) | `date_joined` | yes |
 | `tags` | `tags` (jsonb array, sorted) | yes, as a set |
 | `ageVerificationStatus` | `age_verification_status` | yes |

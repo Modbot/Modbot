@@ -96,7 +96,9 @@ try
 
         case "members":
             Require(groupId, "VRCHAT_GROUP_ID");
-            // OPEN QUESTION: confirm GroupMember carries no bio/profile data.
+            // OPEN QUESTION: confirm GroupMember carries no profile data. Specification v1.21.0
+            // says a foreign group's listing returns a reduced member -- id, display name, banner
+            // and nameplate -- and nothing else.
             Dump("GetGroupMembers", await vrchat.Groups.GetGroupMembersWithHttpInfoAsync(groupId!, n: 5));
             break;
 
@@ -126,9 +128,17 @@ try
             break;
 
         case "user":
-            // Confirms currentAvatarThumbnailImageUrl and bio are present per-user.
+            // Confirms the status line, the join date, the tag list and the platform are here, and
+            // that the bio and the pictures are not: they left this call in specification v1.21.0
+            // (research: vrchat-public-profile-findings.md).
             Require(arg1, "<usr_id>");
             Dump("GetUser", await vrchat.Users.GetUserWithHttpInfoAsync(arg1!));
+            break;
+
+        case "profile":
+            // The other read of a person, and the only one with the bio.
+            Require(arg1, "<usr_id>");
+            Dump("GetPublicProfile", await vrchat.Users.GetPublicProfileWithHttpInfoAsync(arg1!));
             break;
 
         case "offset-probe":
@@ -300,7 +310,8 @@ static void PrintHelp() => Console.WriteLine("""
       auditlog                last 10 audit log entries        (VRCHAT_GROUP_ID)
       instances               live group instances             (VRCHAT_GROUP_ID)
       instance <location>     instance detail  -- does it include Users?
-      user <usr_id>           full user object -- avatar thumbnail, bio
+      user <usr_id>           full user object -- status line, join date, tags
+      profile <usr_id>        public profile   -- bio, pronouns, age verification
       search <query>          user search      -- HEAVY RATE LIMIT, 1 req / 3.5s
 
     Diagnostics

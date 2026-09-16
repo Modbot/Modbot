@@ -16,7 +16,7 @@ public enum VRChatReadKind
     /// <summary><c>GET /profile/{userId}</c> -- the main read: bio, pronouns, name, age verification.</summary>
     PublicProfile,
 
-    /// <summary><c>GET /users/{userId}</c> -- the rare read: join date, tags, status line, pictures.</summary>
+    /// <summary><c>GET /users/{userId}</c> -- the rare read: join date, tags, status line, platform.</summary>
     User,
 }
 
@@ -109,8 +109,21 @@ public sealed record VRChatUserSnapshot
             DateJoined, Tags, AgeVerificationStatus, AgeVerified, Status, LastPlatform,
         };
 
-        /// <summary>What <c>GET /users/{userId}</c> can carry.</summary>
-        public static readonly IReadOnlySet<string> OnUser = All;
+        /// <summary>What <c>GET /users/{userId}</c> can carry, of the fields Modbot stores.</summary>
+        /// <remarks>
+        /// Not everything: VRChat moved a person's profile behind <c>GET /profile/{userId}</c>, and
+        /// API specification v1.21.0 (2026-09-16) took <c>bio</c>, <c>bioLinks</c>, <c>badges</c>,
+        /// <c>userIcon</c>, <c>profilePicOverride</c>, <c>profilePicOverrideThumbnail</c>,
+        /// <c>currentAvatarImageUrl</c> and <c>currentAvatarThumbnailImageUrl</c> off the user
+        /// object for good. Listing a field here that the call no longer has is not harmless: a
+        /// body that still sends <c>"bio": ""</c> out of habit would wipe the bio the public
+        /// profile filled in, once a week, for everybody.
+        /// </remarks>
+        public static readonly IReadOnlySet<string> OnUser = new HashSet<string>(StringComparer.Ordinal)
+        {
+            DisplayName, StatusDescription, Pronouns, DateJoined, Tags,
+            AgeVerificationStatus, AgeVerified, Status, LastPlatform,
+        };
 
         /// <summary>
         /// What <c>GET /profile/{userId}</c> can carry, of the fields Modbot stores.
@@ -168,12 +181,11 @@ public sealed record VRChatUserSnapshot
             Source = VRChatReadKind.User,
             Carried = CarriedBy(Fields.OnUser, raw),
             DisplayName = Blank(user.DisplayName),
-            Bio = Blank(user.Bio),
+            // The bio, the avatar pictures and the profile picture are deliberately not read from
+            // this object. They left it in API specification v1.21.0 and the properties the SDK
+            // still has for them will go with the next package -- see Fields.OnUser.
             StatusDescription = Blank(user.StatusDescription),
             Pronouns = Blank(user.Pronouns),
-            CurrentAvatarImageUrl = Blank(user.CurrentAvatarImageUrl),
-            CurrentAvatarThumbnailImageUrl = Blank(user.CurrentAvatarThumbnailImageUrl),
-            ProfilePictureUrl = Blank(user.ProfilePicOverride),
             DateJoined = user.DateJoined == default ? null : user.DateJoined,
             Tags = Sorted(user.Tags),
             AgeVerificationStatus = ReadText(raw, Fields.AgeVerificationStatus) ?? StatusWord(user.AgeVerificationStatus),
