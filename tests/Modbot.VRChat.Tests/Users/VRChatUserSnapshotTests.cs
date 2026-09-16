@@ -139,7 +139,7 @@ public class VRChatUserSnapshotTests
         };
 
         // A user object with no bio in the body at all.
-        var user = new User { Id = "usr_a", DisplayName = "A", Bio = string.Empty, StatusDescription = "away" };
+        var user = new User { Id = "usr_a", DisplayName = "A", StatusDescription = "away" };
         var raw = new JsonObject { ["id"] = "usr_a", ["displayName"] = "A", ["statusDescription"] = "away" };
 
         VRChatUserSnapshot.From(user, raw).ApplyTo(row);

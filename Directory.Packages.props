@@ -81,7 +81,7 @@
          it, so its models still have properties for fields VRChat no longer sends. Modbot reads
          from each call only what that call carries (research:
          vrchat-public-profile-findings.md §3), which is what makes the stale models harmless. -->
-    <PackageVersion Include="VRChat.API" Version="2.20.9" />
+    <PackageVersion Include="VRChat.API" Version="2.21.0" />
     <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.1" />
   </ItemGroup>
   <!-- Test-only packages. -->

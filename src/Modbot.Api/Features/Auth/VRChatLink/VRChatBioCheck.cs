@@ -63,7 +63,7 @@ public sealed class VRChatBioCheck
 
         var result = await _gate.ExecuteAsync<PublicProfile>(
             new VRChatEndpoint(VRChatEndpointClass.UsersProfile, null, "GetPublicProfile"),
-            (vrchat, token) => vrchat.Users.GetPublicProfileWithHttpInfoAsync(vrchatUserId, token),
+            (vrchat, token) => vrchat.Users.GetPublicProfileWithHttpInfoAsync(vrchatUserId, cancellationToken: token),
             VRChatCallPriority.Interactive,
             ct);
 

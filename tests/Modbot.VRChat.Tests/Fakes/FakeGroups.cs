@@ -143,7 +143,7 @@ public sealed class FakeGroups
             });
 
         groups
-            .GetGroupWithHttpInfoAsync(Arg.Any<string>(), Arg.Any<bool?>(), Arg.Any<CancellationToken>())
+            .GetGroupWithHttpInfoAsync(Arg.Any<string>(), Arg.Any<bool?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
                 GroupRequests++;

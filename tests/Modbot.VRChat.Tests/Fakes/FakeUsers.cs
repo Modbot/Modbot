@@ -177,7 +177,7 @@ public sealed class FakeUsers
             .Returns(call => Task.FromResult(Answer(call.ArgAt<string>(0))));
 
         users
-            .GetPublicProfileWithHttpInfoAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .GetPublicProfileWithHttpInfoAsync(Arg.Any<string>(), Arg.Any<bool?>(), Arg.Any<bool?>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult(AnswerProfile(call.ArgAt<string>(0))));
 
         return users;
