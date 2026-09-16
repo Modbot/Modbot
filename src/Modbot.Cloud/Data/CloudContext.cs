@@ -65,6 +65,9 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
     public DbSet<Features.InstanceAlerts.InstanceAlert> InstanceAlerts =>
         Set<Features.InstanceAlerts.InstanceAlert>();
 
+    /// <summary>The sponsors and early adopters every Modbot shows on its Credits page.</summary>
+    public DbSet<Features.Showcase.ShowcaseEntry> ShowcaseEntries => Set<Features.Showcase.ShowcaseEntry>();
+
     /// <summary>The settings, or the defaults when none have been saved.</summary>
     public async Task<CloudSettings> GetSettingsAsync(CancellationToken ct) =>
         await Settings.AsNoTracking().SingleOrDefaultAsync(s => s.Id == CloudSettings.SingleRowId, ct)
@@ -81,6 +84,7 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
         modelBuilder.ApplyConfiguration(new AdminSessionConfiguration());
         modelBuilder.ApplyConfiguration(new CloudSettingsConfiguration());
         modelBuilder.ApplyConfiguration(new Features.InstanceAlerts.InstanceAlertConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Showcase.ShowcaseEntryConfiguration());
         modelBuilder.ApplyConfiguration(new RoomsServerConfiguration());
         modelBuilder.ApplyConfiguration(new PublicRoomConfiguration());
         modelBuilder.ApplyConfiguration(new AccountConfiguration());

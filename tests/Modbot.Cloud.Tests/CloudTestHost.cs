@@ -10,6 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Modbot.Cloud.Features.Mail;
 
+using Modbot.Cloud.Features.Showcase;
+
 namespace Modbot.Cloud.Tests;
 
 /// <summary>
@@ -90,6 +92,14 @@ public sealed class CloudTestHost : IAsyncDisposable
         // Registered first, so CloudApp's TryAdd leaves it alone and no test ever reaches Resend.
         var mailer = new TestMailer(canSendMail);
         builder.Services.AddSingleton<ICloudMailer>(mailer);
+
+        // Same reason, for GitHub: the suite must never reach it, and "GitHub said no" is the
+        // answer a private repository gives anyway.
+        builder.Services.AddSingleton(_ => new GitHubContributors(
+            new HttpClient(new RefusingHandler()),
+            token: null,
+            repository: "example/none",
+            time));
 
         CloudApp.AddServices(
             builder.Services,
@@ -262,6 +272,14 @@ public sealed class CloudTestHost : IAsyncDisposable
         }
 
         throw new InvalidOperationException("Could not find the repository root above the test output.");
+    }
+
+    /// <summary>Answers every request with 404, so no test reaches the network.</summary>
+    private sealed class RefusingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
     }
 
     public async ValueTask DisposeAsync()

@@ -26,6 +26,11 @@ namespace Modbot.Cloud.Configuration;
 /// <param name="MailFrom">The From address on Cloud's mail, such as <c>Modbot &lt;noreply@modbot.co&gt;</c>.</param>
 /// <param name="PublicUrl">Where Cloud is reachable, for the links in its mail.</param>
 /// <param name="Port">The port to listen on. Railway injects it.</param>
+/// <param name="GitHubToken">
+/// Reads the repository's contributors for the showcase. Not needed for a public repository; needed
+/// while it is private, and without it the contributor list is simply empty.
+/// </param>
+/// <param name="GitHubRepository">The repository the contributors come from, as <c>owner/name</c>.</param>
 public sealed record CloudEnvironment(
     string? DatabaseUrl,
     string? EngineDatabaseUrl,
@@ -35,7 +40,9 @@ public sealed record CloudEnvironment(
     string? ResendApiKey,
     string? MailFrom,
     string? PublicUrl,
-    int Port)
+    int Port,
+    string? GitHubToken = null,
+    string? GitHubRepository = null)
 {
     public const string DatabaseUrlVariable = "DATABASE_URL";
     public const string EngineDatabaseUrlVariable = "DATABASE_ENGINE_URL";
@@ -46,6 +53,12 @@ public sealed record CloudEnvironment(
     public const string MailFromVariable = "MAIL_FROM";
     public const string PublicUrlVariable = "CLOUD_PUBLIC_URL";
     public const string PortVariable = "PORT";
+
+    /// <summary>Reads the repository's contributors. Optional; without it the list is empty.</summary>
+    public const string GitHubTokenVariable = "GITHUB_TOKEN";
+
+    /// <summary>The repository the contributors come from. Defaults to the project's own.</summary>
+    public const string GitHubRepositoryVariable = "GITHUB_REPOSITORY";
     public const int DefaultPort = 8080;
 
     public const string DefaultPublicUrl = "https://cloud.modbot.co";
@@ -67,7 +80,9 @@ public sealed record CloudEnvironment(
             Blank(get(ResendApiKeyVariable)),
             Blank(get(MailFromVariable)),
             Blank(get(PublicUrlVariable)),
-            port);
+            port,
+            Blank(get(GitHubTokenVariable)),
+            Blank(get(GitHubRepositoryVariable)));
     }
 
     /// <summary>

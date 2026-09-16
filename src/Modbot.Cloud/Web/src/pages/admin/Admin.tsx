@@ -12,10 +12,12 @@ import { Installs } from './Installs'
 import { Login } from './Login'
 import { Logs } from './Logs'
 import { Settings } from './Settings'
+import { Showcase } from './Showcase'
 
 const NAV = [
   { href: '/admin', label: 'Installs' },
   { href: '/admin/logs', label: 'Logs' },
+  { href: '/admin/showcase', label: 'Showcase' },
   { href: '/admin/settings', label: 'Settings' },
 ]
 
@@ -96,6 +98,7 @@ function AdminPage({ path }: { path: string }) {
   if (path.startsWith('/admin/installs/'))
     return <InstallDetail installId={decodeURIComponent(path.slice('/admin/installs/'.length))} />
   if (path === '/admin/logs') return <Logs />
+  if (path === '/admin/showcase') return <Showcase />
   if (path === '/admin/settings') return <Settings />
   return <h1 className="font-display text-lg">Page not found</h1>
 }

@@ -1332,6 +1332,30 @@ export type LogHealth = {
   cloudErrorAt: string | null
 }
 
+export type Contributor = {
+  login: string
+  url: string
+  avatarUrl: string
+  contributions: number
+}
+
+export type ShowcasePerson = {
+  name: string
+  link: string
+  imageUrl: string
+  vrChatGroupId: string | null
+  groupImageUrl: string | null
+  groupBannerUrl: string | null
+}
+
+export type Showcase = {
+  /** False when this Modbot has Modbot Cloud turned off, or could not reach it. */
+  available: boolean
+  contributors: Contributor[]
+  sponsors: ShowcasePerson[]
+  earlyAdopters: ShowcasePerson[]
+}
+
 export type HealthWatchView = {
   check: string
   label: string
@@ -3260,6 +3284,8 @@ export const api = {
   },
 
   logFilters: () => request<LogFilters>('/api/logs/filters'),
+
+  creditsShowcase: () => request<Showcase>('/api/credits/showcase'),
 
   healthAlerts: () => request<HealthAlertView>('/api/health/alerts'),
 

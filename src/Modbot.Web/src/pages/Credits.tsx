@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { General } from '@/components/credits/General'
 import { Libraries } from '@/components/credits/Libraries'
+import { People } from '@/components/credits/People'
 import { Services } from '@/components/credits/Services'
 import { Tabs } from '@/components/ui/tabs'
 
@@ -17,6 +18,7 @@ import { Tabs } from '@/components/ui/tabs'
  */
 const TABS = [
   { value: 'general', label: 'General' },
+  { value: 'people', label: 'People' },
   { value: 'libraries', label: 'Libraries' },
   { value: 'services', label: 'Services' },
 ] as const
@@ -58,6 +60,8 @@ function Panel({ tab }: { tab: TabId }) {
   switch (tab) {
     case 'general':
       return <General />
+    case 'people':
+      return <People />
     case 'libraries':
       return <Libraries />
     case 'services':

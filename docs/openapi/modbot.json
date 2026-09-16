@@ -7090,6 +7090,39 @@
         ]
       }
     },
+    "/api/credits/showcase": {
+      "get": {
+        "tags": [
+          "Credits"
+        ],
+        "summary": "Contributors, sponsors and early adopters, from Modbot Cloud",
+        "description": "`available` is false when this Modbot has Modbot Cloud turned off, or could not reach it. The Credits page shows nothing rather than an error: none of this changes what Modbot does.",
+        "operationId": "GetCreditsShowcase",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Showcase"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/evidence": {
       "get": {
         "tags": [
@@ -22621,6 +22654,78 @@
           }
         }
       },
+      "Showcase": {
+        "required": [
+          "available",
+          "contributors",
+          "sponsors",
+          "earlyAdopters"
+        ],
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "contributors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Contributor"
+            }
+          },
+          "sponsors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShowcasePerson"
+            }
+          },
+          "earlyAdopters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShowcasePerson"
+            }
+          }
+        }
+      },
+      "ShowcasePerson": {
+        "required": [
+          "name",
+          "link",
+          "imageUrl",
+          "vrChatGroupId",
+          "groupImageUrl",
+          "groupBannerUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "vrChatGroupId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupImageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupBannerUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "SignInWaitHealth": {
         "required": [
           "reason",
@@ -25194,6 +25299,10 @@
       "name": "AI settings",
       "description": "The AI provider, Chat, moderation rules, insights, alerts and spend limits.",
       "x-displayName": "AI settings"
+    },
+    {
+      "name": "Credits",
+      "x-displayName": "Credits"
     },
     {
       "name": "Logs",

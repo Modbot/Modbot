@@ -18,6 +18,7 @@ using Modbot.Cloud.Features.Pages;
 using Modbot.Cloud.Features.PublicRooms;
 using Modbot.Cloud.Features.Registry;
 using Modbot.Cloud.Features.Retention;
+using Modbot.Cloud.Features.Showcase;
 using Modbot.Cloud.Features.Site;
 using Modbot.Cloud.Features.TermLists;
 using Modbot.Cloud.Features.Time;
@@ -50,7 +51,9 @@ public static class CloudApp
         string? proxyApiKey = null,
         MailSettings? mail = null,
         bool runDailyUpkeep = true,
-        bool watchInstances = true)
+        bool watchInstances = true,
+        string? gitHubToken = null,
+        string? gitHubRepository = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
@@ -103,6 +106,15 @@ public static class CloudApp
         if (watchInstances)
             services.AddHostedService<InstanceAlertService>();
 
+        // The contributors on every Modbot's Credits page. One object, cached, so however many
+        // Modbots ask, GitHub is asked a few times a day.
+        services.AddHttpClient(GitHubContributors.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(15));
+        services.TryAddSingleton(sp => new GitHubContributors(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(GitHubContributors.HttpClientName),
+            gitHubToken,
+            gitHubRepository ?? GitHubContributors.DefaultRepository,
+            sp.GetRequiredService<TimeProvider>()));
+
         if (runDailyUpkeep)
             services.AddHostedService<DailyUpkeepService>();
     }
@@ -144,6 +156,8 @@ public static class CloudApp
         app.MapInstanceLogs();
         app.MapAdminLogs();
         app.MapAdminInstanceAlerts();
+        app.MapShowcase();
+        app.MapAdminShowcase();
         app.MapAccounts();
         app.MapRegistry();
         app.MapSite();

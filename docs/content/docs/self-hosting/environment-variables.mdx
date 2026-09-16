@@ -176,6 +176,8 @@ repository.
 | `ROOMS_API_KEY` | No | none | The read-only key for the [open rooms](/self-hosting/open-rooms) feed, which is the key the landing page holds. `ROOT_API_KEY` opens the feed as well; with neither set, the feed is refused to everyone. |
 | `RESEND_API_KEY` | No | none | The [Resend](https://resend.com) key Cloud's alert email is sent with. Unset means the instance checks still run and record what they found, and no email goes. See [Alerts by email](/self-hosting/alerts). |
 | `ALERT_FROM_EMAIL` | No | none | The address that alert email comes from. Unset means no email goes. |
+| `GITHUB_TOKEN` | No | none | Reads the repository's contributors for the showcase every Modbot shows on its Credits page. Not needed once the repository is public; without it while it is private, the contributor list is empty and nothing else changes. |
+| `GITHUB_REPOSITORY` | No | `binn/Modbot` | The repository those contributors come from, as `owner/name`. |
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. |
 | `CONSOLE_LOG_MODE` | No | `serilog` | `serilog`, `json` or `railway_json`. See [Console log modes](#console-log-modes). |

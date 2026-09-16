@@ -65,6 +65,32 @@ export type DayCount = { day: string; events: number }
 
 export type Settings = { eventKeepDays: number; logKeepDays: number }
 
+export type ShowcaseKind = 'sponsor' | 'early-adopter'
+
+export type ShowcaseEntry = {
+  id: string
+  kind: ShowcaseKind
+  name: string
+  link: string
+  imageUrl: string
+  vrChatGroupId: string | null
+  groupImageUrl: string | null
+  groupBannerUrl: string | null
+  sortOrder: number
+  addedAt: string
+}
+
+export type ShowcaseUpdate = {
+  kind: ShowcaseKind
+  name: string
+  link: string
+  imageUrl: string
+  vrChatGroupId: string | null
+  groupImageUrl: string | null
+  groupBannerUrl: string | null
+  sortOrder: number
+}
+
 export type InstanceAlertView = {
   on: boolean
   email: string
@@ -175,6 +201,13 @@ export const api = {
     return request<LogLinePage>('GET', `/api/admin/logs${search ? `?${search}` : ''}`)
   },
   logSenders: () => request<{ items: LogSenderView[] }>('GET', '/api/admin/logs/senders'),
+  showcase: () => request<{ items: ShowcaseEntry[] }>('GET', '/api/admin/showcase'),
+  addShowcase: (body: ShowcaseUpdate) => request<ShowcaseEntry>('POST', '/api/admin/showcase', body),
+  saveShowcase: (id: string, body: ShowcaseUpdate) =>
+    request<ShowcaseEntry>('PUT', `/api/admin/showcase/${encodeURIComponent(id)}`, body),
+  removeShowcase: (id: string) =>
+    request<void>('DELETE', `/api/admin/showcase/${encodeURIComponent(id)}`),
+
   instanceAlerts: (id: string) =>
     request<InstanceAlertView>('GET', `/api/admin/installs/${encodeURIComponent(id)}/alerts`),
   saveInstanceAlerts: (id: string, body: InstanceAlertUpdate) =>

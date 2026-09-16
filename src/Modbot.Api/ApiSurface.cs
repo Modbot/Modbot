@@ -222,6 +222,9 @@ public static class ApiSurface
         // The emails Modbot sends about its own health, and what it watches.
         Features.Health.Alerts.HealthAlertEndpoints.MapHealthAlerts(app);
 
+        // The people the project thanks, read from Modbot Cloud for the Credits page.
+        Features.Credits.CreditsEndpoints.MapCredits(app);
+
         app.MapEvidence();
 
         // One VRChat user's stored profile and the 18+ flag (user profile sync design §6). The

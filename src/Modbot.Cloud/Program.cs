@@ -56,7 +56,9 @@ try
         environment.RootApiKey,
         environment.RoomsApiKey,
         environment.ProxyApiKey,
-        new MailSettings(environment.ResendApiKey, environment.MailFrom, environment.PublicAddress));
+        new MailSettings(environment.ResendApiKey, environment.MailFrom, environment.PublicAddress),
+        gitHubToken: environment.GitHubToken,
+        gitHubRepository: environment.GitHubRepository);
 
     var app = builder.Build();
 

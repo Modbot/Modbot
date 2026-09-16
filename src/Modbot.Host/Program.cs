@@ -356,6 +356,13 @@ try
         builder.Services.AddHostedService<CloudLogShipService>();
     }
 
+    // The Credits page's sponsors, early adopters and contributors, read from Cloud and cached.
+    // Registered by the host because it needs the Cloud address registered just above.
+    builder.Services.AddSingleton<Modbot.Api.Features.Credits.CloudShowcase>();
+    builder.Services.AddHttpClient(
+        Modbot.Api.Features.Credits.CloudShowcase.HttpClientName,
+        client => client.Timeout = TimeSpan.FromSeconds(15));
+
     builder.Services.AddModbotApi();
 
     // Sends new events to registered webhooks (API keys design §6). Reads the settings and the
