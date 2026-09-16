@@ -9,6 +9,12 @@ import { WIZARD_FORM_ID, type StepProps } from './types'
  *
  * The panel does the work with its own buttons; the footer's Continue only moves on once the
  * server says the link is there.
+ *
+ * The footer's form is an empty element beside the panel, not around it. The panel has a form of
+ * its own, and a form inside a form is not something a browser will run: it hands the inner
+ * submission to the outer element as a plain page navigation, so pressing the panel's Continue
+ * reloaded the wizard at `/setup?` instead of starting the link -- every time, with no way past
+ * it. Nothing in the panel needs the wizard's form; the footer only needs something with this id.
  */
 export function LinkVRChatStep({ eyebrow, run, refresh }: StepProps) {
   const [error, setError] = useState<string | null>(null)
@@ -27,12 +33,13 @@ export function LinkVRChatStep({ eyebrow, run, refresh }: StepProps) {
   }
 
   return (
-    <form id={WIZARD_FORM_ID} onSubmit={submit}>
+    <>
+      <form id={WIZARD_FORM_ID} onSubmit={submit} />
       <WizardHeader eyebrow={eyebrow} title="Link your VRChat account" />
       <WizardBody>
         <VRChatLinkPanel onLinked={() => void refresh()} />
         <ErrorText>{error}</ErrorText>
       </WizardBody>
-    </form>
+    </>
   )
 }
