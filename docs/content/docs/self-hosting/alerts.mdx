@@ -1,0 +1,88 @@
+---
+title: Alerts by email
+description: Getting an email when Modbot stops working - what it can tell you itself, what Modbot Cloud tells you when it cannot, and how to set both up.
+---
+
+Modbot can email you when it stops working. There are two halves, and you want both, because they
+see different things.
+
+| Half | Watches | Sends through | Sees |
+|---|---|---|---|
+| **In Modbot** | VRChat, the Discord bot, sync, storage, AI spend, email, logs to Cloud | your own SMTP | everything a running Modbot knows about itself |
+| **In Modbot Cloud** | whether your Modbot has gone quiet, and errors in its log | Modbot Cloud's own mail | the one thing Modbot cannot report: that it is not running |
+
+<Callout type="info" title="Why two">
+A Modbot that is down cannot email you about being down. The process that would send the mail is
+the process that is not running, and the database holding your address is the one that cannot be
+reached. That is the whole reason the Cloud half exists.
+</Callout>
+
+## In Modbot
+
+**Settings**, **Integrations**, **Health alerts**. You need the **Change settings** permission, and
+[email set up](/self-hosting/environment-variables) — the same SMTP the reset links use.
+
+Everything is off until you turn it on.
+
+### What it can watch
+
+| Check | Fires when |
+|---|---|
+| **VRChat** | Modbot cannot reach VRChat and waiting will not fix it, or it has been waiting more than an hour |
+| **Discord bot** | the bot is disconnected or stopped |
+| **Sync** | the group's audit log has not been read for three hours, and a group is set up |
+| **Storage** | the database has grown past the size you asked to be told about |
+| **AI spend** | a spending limit has been reached |
+| **Email** | an email could not be sent, or one has been waiting more than three hours |
+| **Logs to Modbot Cloud** | sending has been failing for more than three hours |
+
+**Database bigger than (GB)** is the storage check's own number. `0` turns that check off. It is not
+the disk size on the **Host & Database** screen — that one is a what-if input your browser
+remembers, this one is a line you want to hear about.
+
+### Who is emailed
+
+The staff accounts you tick. An account with no email address cannot be ticked, and a disabled
+account is skipped.
+
+Mail goes out through the same queue as everything else Modbot sends, so it counts against the
+[daily email limit](/accounts/staff-accounts) and waits its turn if the limit is reached.
+
+### How often it repeats itself
+
+Each check has a state, so:
+
+- going wrong sends **one** email;
+- staying wrong sends nothing until the **quiet time** is up — 6 hours by default — and then says it
+  again, because a problem nobody has fixed is still a problem;
+- coming back sends **one** email saying it is over.
+
+The checks run every five minutes, starting two minutes after Modbot does — a Modbot that has just
+started has not finished a sync pass yet.
+
+Turning a check off clears what it was saying, so turning it back on later does not open with a
+recovery email about a problem you never heard about.
+
+## In Modbot Cloud
+
+Set up by a Modbot Cloud administrator, under the deployment in Cloud admin. Until Cloud has
+accounts, the address is typed in there; once it does, it is the address on the account your Modbot
+is linked to.
+
+It needs your Modbot to be [sending its logs to Cloud](/self-hosting/logs#sending-logs-to-modbot-cloud),
+which is on by default. That is what Cloud watches: if the logs stop arriving, something is wrong
+with the deployment, and Cloud is the only side that can see it.
+
+| Check | Fires when |
+|---|---|
+| **Quiet** | nothing has arrived from your Modbot for longer than the window — an hour by default |
+| **Errors** | your Modbot wrote more errors in the last hour than the number set. `0` turns it off |
+
+The same state rules apply: said once, repeated after the quiet time, and said to be over.
+
+**Silence is not proof of a problem.** Turning sending off, or setting `MODBOT_CLOUD_DISABLED`, also
+makes a deployment go quiet. That is why this check is off unless somebody turns it on, and why the
+email says what Cloud saw rather than what it concluded.
+
+An email Cloud could not send does not start the quiet time, so an outage at the mail provider does
+not swallow the one message that mattered.

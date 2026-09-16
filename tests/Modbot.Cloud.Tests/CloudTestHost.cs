@@ -99,7 +99,9 @@ public sealed class CloudTestHost : IAsyncDisposable
             roomsApiKey,
             proxyApiKey,
             new MailSettings(canSendMail ? "test-key" : null, "Modbot <noreply@modbot.test>", PublicAddress),
-            runDailyUpkeep: false);
+            runDailyUpkeep: false,
+            // The tests run the instance checks themselves, against the fake clock.
+            watchInstances: false);
 
         var app = builder.Build();
 

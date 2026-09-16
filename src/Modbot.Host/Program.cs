@@ -366,6 +366,11 @@ try
     // access design §4.4). One small query every thirty seconds when nothing is waiting.
     builder.Services.AddEmailQueue();
 
+    // Emails somebody when Modbot stops working: VRChat unreachable, the Discord bot down, sync
+    // stopped, storage past a line, a spending limit reached, email stuck, logs not reaching Cloud.
+    // Everything is off until somebody turns it on and chooses who is told.
+    builder.Services.AddHealthAlerts();
+
     // The demo: the seeder, the background fill-in and the reset schedule, plus the relay that
     // makes sure no demo ever sends an email. AddModbotAuth registers the SMTP relay with a
     // TryAdd, so this plain Add after it wins (demo mode design §3.2).

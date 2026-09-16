@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { api } from '@/lib/api'
 import { clockText, when } from '@/lib/format'
 import { useAdminLoad } from '@/lib/useLoad'
+import { InstanceAlerts } from './InstanceAlerts'
 
 const EVENTS = 200
 
@@ -39,6 +40,8 @@ export function InstallDetail({ installId }: { installId: string }) {
           </Card>
         ))}
       </div>
+
+      <InstanceAlerts installId={installId} />
 
       <Card className="gap-0 py-0">
         <h2 className="font-display border-b px-4 py-3 text-base">Recent events</h2>

@@ -127,6 +127,18 @@ public static class ApiSurface
         return services;
     }
 
+    /// <summary>
+    /// Watches Modbot's own health and emails the staff accounts that asked. Registered by the host
+    /// rather than by <see cref="AddModbotApi"/>, because the checker reads the gate, the Discord
+    /// bot, AI spend and the log store, and only the host knows which of those it registered.
+    /// </summary>
+    public static IServiceCollection AddHealthAlerts(this IServiceCollection services)
+    {
+        services.AddScoped<Features.Health.Alerts.HealthAlertChecker>();
+        services.AddHostedService<Features.Health.Alerts.HealthAlertService>();
+        return services;
+    }
+
     public static IEndpointRouteBuilder MapModbotApi(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api").WithTags("Version");
@@ -206,6 +218,9 @@ public static class ApiSurface
 
         // Modbot's own log, for a deployment with no Seq and no disk that survives a redeploy.
         app.MapLogs();
+
+        // The emails Modbot sends about its own health, and what it watches.
+        Features.Health.Alerts.HealthAlertEndpoints.MapHealthAlerts(app);
 
         app.MapEvidence();
 

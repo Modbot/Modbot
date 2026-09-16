@@ -61,6 +61,10 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
     /// <summary>The one row of settings an admin can change.</summary>
     public DbSet<CloudSettings> Settings => Set<CloudSettings>();
 
+    /// <summary>Which deployments Cloud watches from outside, and who it emails about them.</summary>
+    public DbSet<Features.InstanceAlerts.InstanceAlert> InstanceAlerts =>
+        Set<Features.InstanceAlerts.InstanceAlert>();
+
     /// <summary>The settings, or the defaults when none have been saved.</summary>
     public async Task<CloudSettings> GetSettingsAsync(CancellationToken ct) =>
         await Settings.AsNoTracking().SingleOrDefaultAsync(s => s.Id == CloudSettings.SingleRowId, ct)
@@ -76,6 +80,7 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
         modelBuilder.ApplyConfiguration(new InstallConfiguration());
         modelBuilder.ApplyConfiguration(new AdminSessionConfiguration());
         modelBuilder.ApplyConfiguration(new CloudSettingsConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.InstanceAlerts.InstanceAlertConfiguration());
         modelBuilder.ApplyConfiguration(new RoomsServerConfiguration());
         modelBuilder.ApplyConfiguration(new PublicRoomConfiguration());
         modelBuilder.ApplyConfiguration(new AccountConfiguration());

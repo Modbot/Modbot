@@ -65,6 +65,28 @@ export type DayCount = { day: string; events: number }
 
 export type Settings = { eventKeepDays: number; logKeepDays: number }
 
+export type InstanceAlertView = {
+  on: boolean
+  email: string
+  silentAfterMinutes: number
+  errorsAnHour: number
+  quietHours: number
+  problem: boolean
+  since: string | null
+  detail: string | null
+  lastSentAt: string | null
+  lastError: string | null
+  mailConfigured: boolean
+}
+
+export type InstanceAlertUpdate = {
+  on: boolean
+  email: string
+  silentAfterMinutes: number
+  errorsAnHour: number
+  quietHours: number
+}
+
 export type LogLevel = 'Verbose' | 'Debug' | 'Information' | 'Warning' | 'Error' | 'Fatal'
 
 /** One log line a Modbot deployment sent. Every field is somebody else's text. */
@@ -153,6 +175,10 @@ export const api = {
     return request<LogLinePage>('GET', `/api/admin/logs${search ? `?${search}` : ''}`)
   },
   logSenders: () => request<{ items: LogSenderView[] }>('GET', '/api/admin/logs/senders'),
+  instanceAlerts: (id: string) =>
+    request<InstanceAlertView>('GET', `/api/admin/installs/${encodeURIComponent(id)}/alerts`),
+  saveInstanceAlerts: (id: string, body: InstanceAlertUpdate) =>
+    request<InstanceAlertView>('PUT', `/api/admin/installs/${encodeURIComponent(id)}/alerts`, body),
   settings: () => request<Settings>('GET', '/api/admin/settings'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', '/api/admin/settings', settings),
 

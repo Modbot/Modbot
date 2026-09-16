@@ -60,7 +60,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     public async Task ResetAsync()
     {
         await using (var cloud = NewCloudContext())
-            await cloud.Database.ExecuteSqlRawAsync("TRUNCATE install, admin_session, settings");
+            await cloud.Database.ExecuteSqlRawAsync("TRUNCATE install, admin_session, settings, instance_alert");
 
         await using var engine = NewEngineContext();
         await engine.Database.ExecuteSqlRawAsync("TRUNCATE client_event, install_clock, event_day_total, event_hour_total, instance_log");

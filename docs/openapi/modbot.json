@@ -7000,6 +7000,96 @@
         ]
       }
     },
+    "/api/health/alerts": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "What Modbot watches about itself, who is emailed, and what is wrong now",
+        "description": "Needs the `ViewOperationalLog` permission.",
+        "operationId": "GetHealthAlerts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthAlertView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Choose what Modbot watches about itself and who is emailed",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "SetHealthAlerts",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthAlertUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthAlertView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/evidence": {
       "get": {
         "tags": [
@@ -18735,6 +18825,162 @@
           },
           "coverage": {
             "$ref": "#/components/schemas/BanListCoverage"
+          }
+        }
+      },
+      "HealthAlertUpdate": {
+        "required": [
+          "quietHours",
+          "storageWarnGb",
+          "checksOn",
+          "recipientUserIds"
+        ],
+        "type": "object",
+        "properties": {
+          "quietHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "storageWarnGb": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "checksOn": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recipientUserIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "HealthAlertView": {
+        "required": [
+          "quietHours",
+          "storageWarnGb",
+          "emailConfigured",
+          "lastCheckedAt",
+          "watches",
+          "recipients"
+        ],
+        "type": "object",
+        "properties": {
+          "quietHours": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "storageWarnGb": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "emailConfigured": {
+            "type": "boolean"
+          },
+          "lastCheckedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "watches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HealthWatchView"
+            }
+          },
+          "recipients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HealthRecipientView"
+            }
+          }
+        }
+      },
+      "HealthRecipientView": {
+        "required": [
+          "userId",
+          "username",
+          "email",
+          "chosen"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "chosen": {
+            "type": "boolean"
+          }
+        }
+      },
+      "HealthWatchView": {
+        "required": [
+          "check",
+          "label",
+          "on",
+          "problem",
+          "since",
+          "detail"
+        ],
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "on": {
+            "type": "boolean"
+          },
+          "problem": {
+            "type": "boolean"
+          },
+          "since": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

@@ -1332,6 +1332,31 @@ export type LogHealth = {
   cloudErrorAt: string | null
 }
 
+export type HealthWatchView = {
+  check: string
+  label: string
+  on: boolean
+  problem: boolean
+  since: string | null
+  detail: string | null
+}
+
+export type HealthRecipientView = {
+  userId: string
+  username: string
+  email: string | null
+  chosen: boolean
+}
+
+export type HealthAlertView = {
+  quietHours: number
+  storageWarnGb: number
+  emailConfigured: boolean
+  lastCheckedAt: string | null
+  watches: HealthWatchView[]
+  recipients: HealthRecipientView[]
+}
+
 export type LogLine = {
   id: number
   at: string
@@ -3235,6 +3260,15 @@ export const api = {
   },
 
   logFilters: () => request<LogFilters>('/api/logs/filters'),
+
+  healthAlerts: () => request<HealthAlertView>('/api/health/alerts'),
+
+  setHealthAlerts: (body: {
+    quietHours: number
+    storageWarnGb: number
+    checksOn: string[]
+    recipientUserIds: string[]
+  }) => put<HealthAlertView>('/api/health/alerts', body),
 
   logSettings: () => request<LogSettings>('/api/logs/settings'),
 

@@ -232,6 +232,14 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// </summary>
     public DbSet<LogEntry> Logs => Set<LogEntry>();
 
+    /// <summary>What Modbot watches about itself, and what each check last said.</summary>
+    public DbSet<HealthWatch> HealthWatches => Set<HealthWatch>();
+
+    public DbSet<HealthAlertSettings> HealthAlertSettings => Set<HealthAlertSettings>();
+
+    /// <summary>The staff accounts the health emails go to.</summary>
+    public DbSet<HealthAlertRecipient> HealthAlertRecipients => Set<HealthAlertRecipient>();
+
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
     /// querying <see cref="Settings"/> directly, so "the row might not exist yet" is handled once.
@@ -1677,6 +1685,45 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.TokenHash).HasMaxLength(64);
             entity.Property(e => e.TokenEncrypted).HasColumnType("text");
+        });
+
+        builder.Entity<HealthWatch>(entity =>
+        {
+            entity.ToTable("modbot_health_watch");
+
+            entity.HasKey(e => e.Check);
+
+            // Named by hand because snake_case would give "check" and "on", both of which are
+            // reserved words in PostgreSQL. EF quotes them and it works; hand-written SQL against
+            // this table would not, and one day somebody writes some.
+            entity.Property(e => e.Check).HasColumnName("check_name").HasMaxLength(32);
+            entity.Property(e => e.On).HasColumnName("watched");
+
+            entity.Property(e => e.Detail).HasMaxLength(512);
+        });
+
+        builder.Entity<HealthAlertSettings>(entity =>
+        {
+            entity.ToTable("modbot_health_alert_settings", t =>
+                t.HasCheckConstraint("ck_modbot_health_alert_settings_singleton", "id = 1"));
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+        });
+
+        builder.Entity<HealthAlertRecipient>(entity =>
+        {
+            entity.ToTable("modbot_health_alert_recipient");
+
+            entity.HasKey(e => e.UserId);
+
+            // Cascade: an account that is gone is not a recipient. Accounts are disabled rather
+            // than deleted, and a disabled account is skipped when the mail goes out, so this only
+            // fires in the rare case where a row really is removed.
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<LogEntry>(entity =>

@@ -10,6 +10,7 @@ using Modbot.Cloud.Features.AdminInstalls;
 using Modbot.Cloud.Features.AdminRegistry;
 using Modbot.Cloud.Features.EventBackup;
 using Modbot.Cloud.Features.Health;
+using Modbot.Cloud.Features.InstanceAlerts;
 using Modbot.Cloud.Features.InstanceLogs;
 using Modbot.Cloud.Features.Installs;
 using Modbot.Cloud.Features.Mail;
@@ -39,6 +40,7 @@ public static class CloudApp
     /// </param>
     /// <param name="mail">Where Cloud's mail goes out through. Without a key it sends nothing.</param>
     /// <param name="runDailyUpkeep">False in tests, which run retention themselves against a fake clock.</param>
+    /// <param name="watchInstances">False in tests, which run the instance checks themselves.</param>
     public static void AddServices(
         IServiceCollection services,
         string connectionString,
@@ -47,7 +49,8 @@ public static class CloudApp
         string? roomsApiKey = null,
         string? proxyApiKey = null,
         MailSettings? mail = null,
-        bool runDailyUpkeep = true)
+        bool runDailyUpkeep = true,
+        bool watchInstances = true)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
@@ -92,6 +95,14 @@ public static class CloudApp
         services.AddScoped<LogPartitionMaintainer>();
         services.AddScoped<LogRetention>();
 
+        // Watching those deployments from outside: the one thing a Modbot cannot do for itself is
+        // notice that it is not running. It sends through the same mailer the accounts use, so
+        // there is one Resend key and one place that talks to it.
+        services.AddScoped<InstanceAlertChecker>();
+
+        if (watchInstances)
+            services.AddHostedService<InstanceAlertService>();
+
         if (runDailyUpkeep)
             services.AddHostedService<DailyUpkeepService>();
     }
@@ -132,6 +143,7 @@ public static class CloudApp
         app.MapPublicRooms();
         app.MapInstanceLogs();
         app.MapAdminLogs();
+        app.MapAdminInstanceAlerts();
         app.MapAccounts();
         app.MapRegistry();
         app.MapSite();

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260916145932_AddHealthAlerts")]
+    partial class AddHealthAlerts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4320,18 +4323,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ban_sweep_started_at");
 
-                    b.Property<DateTimeOffset?>("CloudLastReportAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("cloud_last_report_at");
-
-                    b.Property<bool?>("CloudLastReportOk")
-                        .HasColumnType("boolean")
-                        .HasColumnName("cloud_last_report_ok");
-
-                    b.Property<string>("CloudLastReportProblem")
-                        .HasColumnType("text")
-                        .HasColumnName("cloud_last_report_problem");
-
                     b.Property<long>("CloudLogDropped")
                         .HasColumnType("bigint")
                         .HasColumnName("cloud_log_dropped");
@@ -4359,14 +4350,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<long>("CloudLogSentThroughId")
                         .HasColumnType("bigint")
                         .HasColumnName("cloud_log_sent_through_id");
-
-                    b.Property<string>("CloudServerId")
-                        .HasColumnType("text")
-                        .HasColumnName("cloud_server_id");
-
-                    b.Property<string>("CloudServerSecretEncrypted")
-                        .HasColumnType("text")
-                        .HasColumnName("cloud_server_secret_encrypted");
 
                     b.Property<DateTimeOffset?>("ConnectionCheckedAt")
                         .HasColumnType("timestamp with time zone")

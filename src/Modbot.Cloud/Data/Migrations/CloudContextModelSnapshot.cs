@@ -214,6 +214,65 @@ namespace Modbot.Cloud.Data.Migrations
                     b.ToTable("install", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Cloud.Features.InstanceAlerts.InstanceAlert", b =>
+                {
+                    b.Property<Guid>("InstallId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("install_id");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("detail");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("email");
+
+                    b.Property<int>("ErrorsAnHour")
+                        .HasColumnType("integer")
+                        .HasColumnName("errors_an_hour");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("last_error");
+
+                    b.Property<DateTimeOffset?>("LastSentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_sent_at");
+
+                    b.Property<bool>("On")
+                        .HasColumnType("boolean")
+                        .HasColumnName("watched");
+
+                    b.Property<bool>("Problem")
+                        .HasColumnType("boolean")
+                        .HasColumnName("problem");
+
+                    b.Property<int>("QuietHours")
+                        .HasColumnType("integer")
+                        .HasColumnName("quiet_hours");
+
+                    b.Property<int>("SilentAfterMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("silent_after_minutes");
+
+                    b.Property<DateTimeOffset?>("Since")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("since");
+
+                    b.HasKey("InstallId")
+                        .HasName("pk_instance_alert");
+
+                    b.HasIndex("On")
+                        .HasDatabaseName("ix_instance_alert_watched");
+
+                    b.ToTable("instance_alert", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Cloud.Features.PublicRooms.PublicRoom", b =>
                 {
                     b.Property<Guid>("Id")
