@@ -232,7 +232,7 @@ public static class VRChatLinkEndpoints
             .WithName("CheckVRChatLink")
             .WithSummary("Read the bio and confirm the link if the code is there")
             .WithDescription(
-                "One profile fetch through the gate on users.read. Six checks per code, at most one "
+                "One profile fetch through the gate on users.profile. Six checks per code, at most one "
                 + "every ten seconds. A failed fetch -- rate limit, Cloudflare, network -- is reported "
                 + "in words and never retried.")
             .Produces<LinkCheckResult>()

@@ -301,14 +301,26 @@ public sealed class VRChatUserProfiles
         return new ProfileRecorded(firstSeen, changed, observed);
     }
 
+    /// <summary>The sentence both calls use when VRChat says it has never heard of an id.</summary>
+    public const string AccountGone = "VRChat has no account with this id.";
+
     /// <summary>
-    /// One of the two calls answered 404 for this id. The row stays; that call is marked, and the
-    /// person is only treated as missing when neither call can find them.
+    /// One of the two calls answered 404 for this id. The row stays and <em>that call</em> is
+    /// marked; nothing here decides whether the person is missing.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The public profile and the user object are different endpoints and can disagree. One of
     /// them 404ing while the other answers is not an account that is gone, so a 404 marks only
     /// the call that gave it (research: <c>vrchat-public-profile-findings.md</c> §6).
+    /// </para>
+    /// <para>
+    /// <strong>The decision is deliberately not made here.</strong> Each call commits on its own,
+    /// so a 404 recorded before the other call has had its turn would write a
+    /// <c>UserProfileNotFound</c> fact that the other call's success is then unable to take back
+    /// -- facts are never rewritten. <see cref="SettleMissingAsync"/> makes the decision once,
+    /// after both calls have had their turn at that person.
+    /// </para>
     /// </remarks>
     public async Task RecordNotFoundAsync(
         string userId,
@@ -320,8 +332,6 @@ public sealed class VRChatUserProfiles
 
         var now = _clock.UtcNow;
         var row = await RowAsync(userId, now, ct).ConfigureAwait(false);
-
-        var alreadyMissing = row.NotFoundAt is not null;
 
         if (kind == VRChatReadKind.User)
         {
@@ -336,21 +346,66 @@ public sealed class VRChatUserProfiles
             row.RefreshErrorAt = now;
         }
 
-        UpdateMissing(row);
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
 
-        // Once per disappearance, not once per week when the retry finds them still gone.
-        if (!alreadyMissing && row.NotFoundAt is not null)
+    /// <summary>
+    /// Decides, once, whether these people are missing, and records the ones that newly are.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Called at the end of a pass, for everyone either call answered 404 for during it, once both
+    /// calls have had their turn. Marking somebody missing is the one thing here that cannot be
+    /// undone -- the row's flag holds them out of the queue for a week, and the fact stays in the
+    /// timeline forever -- so it is worth being the last thing decided rather than the first.
+    /// </para>
+    /// <para>
+    /// The rule is the one the research sets out: missing when both calls answered 404, or when
+    /// one did and the other has never succeeded for that person.
+    /// </para>
+    /// </remarks>
+    public async Task SettleMissingAsync(IReadOnlyCollection<string> userIds, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(userIds);
+
+        if (userIds.Count == 0)
+            return;
+
+        var wroteAnything = false;
+
+        foreach (var userId in userIds.Distinct(StringComparer.Ordinal))
         {
+            var row = await _db.VRChatUsers.FirstOrDefaultAsync(u => u.UserId == userId, ct).ConfigureAwait(false);
+            if (row is null)
+                continue;
+
+            var alreadyMissing = row.NotFoundAt is not null;
+
+            UpdateMissing(row);
+
+            if (alreadyMissing || row.NotFoundAt is not { } missingSince)
+                continue;
+
+            // Once per disappearance, not once per week when the retry finds them still gone.
+            var detail = (row.ProfileNotFoundAt is not null ? row.RefreshError : row.UserReadError) ?? AccountGone;
+
             await WriteAsync(
                 FactType.UserProfileNotFound,
                 userId,
                 new JsonObject { ["detail"] = detail },
                 since: null,
-                now,
+                missingSince,
                 ct).ConfigureAwait(false);
+
+            _log.Information(
+                "Neither of VRChat's answers knows {UserId}; the row is marked and will not be asked about for a while",
+                userId);
+
+            wroteAnything = true;
         }
 
-        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        if (wroteAnything || _db.ChangeTracker.HasChanges())
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>A read failed for a reason that is neither a 404 nor a cold stop. Recorded on the row, no fact.</summary>

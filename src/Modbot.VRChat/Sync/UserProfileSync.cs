@@ -118,7 +118,17 @@ public sealed class UserProfileSync
         // The two reads are separate budgets on separate lanes (spec 4.3.4, answered 2026-09-15),
         // so the rare one runs in the same pass rather than waiting for the frequent one to be
         // idle. Almost every pass finds nobody due and spends nothing.
-        var userRead = await ReadUserIfDueAsync(ct).ConfigureAwait(false);
+        //
+        // When the profile read has just been told there is no such account, that person goes to
+        // the front of the rare read: they are the one person whose answer decides something, and
+        // asking now means the pass can settle it rather than leaving them marked missing until
+        // some later pass gets round to them.
+        var askAbout = result.NotFound ? result.UserId : null;
+        var userRead = await ReadUserIfDueAsync(askAbout, ct).ConfigureAwait(false);
+
+        // Only now, with both calls done, is it decided whether anybody is really gone. Doing it
+        // inside either call would write a fact the other call's success could not take back.
+        await SettleMissingAsync(result, userRead, ct).ConfigureAwait(false);
 
         settings.UserProfilePolledAt = _clock.UtcNow;
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -411,15 +421,15 @@ public sealed class UserProfileSync
         if (result.StatusCode == (int)HttpStatusCode.NotFound)
         {
             // A fact about the person, not a failure of the pass: the account is gone, or the id
-            // never named one. Marked, recorded once, and left alone for a long while -- but only
-            // this call is marked, and the person counts as missing only when the user read
-            // cannot find them either (research: vrchat-public-profile-findings.md §6).
-            const string detail = "VRChat has no account with this id.";
+            // never named one. Only this call is marked; whether the person is really missing is
+            // settled at the end of the pass, once the user read has had its turn at them too
+            // (research: vrchat-public-profile-findings.md §6).
+            const string detail = VRChatUserProfiles.AccountGone;
 
             await _profiles.RecordNotFoundAsync(userId, VRChatReadKind.PublicProfile, detail, ct).ConfigureAwait(false);
             _queue.Finish(request);
 
-            _log.Information("VRChat has no profile for {UserId}; the row is marked and will not be asked about for a while", userId);
+            _log.Information("VRChat has no public profile for {UserId}", userId);
 
             return new UserProfileRunResult(
                 SyncOutcome.Produced, UserId: userId, Reason: request.Reason, Refreshed: true, NotFound: true, Message: detail);
@@ -469,7 +479,12 @@ public sealed class UserProfileSync
     /// everybody, once, as fast as the lane allows.
     /// </para>
     /// </remarks>
-    private async Task<UserReadRunResult?> ReadUserIfDueAsync(CancellationToken ct)
+    /// <param name="askAbout">
+    /// Somebody the public profile has just been told does not exist. They go first when they are
+    /// due a read at all, because their answer is the one that decides whether the person is
+    /// really gone -- and that decision is made at the end of this pass.
+    /// </param>
+    private async Task<UserReadRunResult?> ReadUserIfDueAsync(string? askAbout, CancellationToken ct)
     {
         var now = _clock.UtcNow;
         var dueBefore = now - _options.ReadUserEvery;
@@ -478,11 +493,18 @@ public sealed class UserProfileSync
 
         // Gated on this call's own marks, not on the row's "missing" flag. A person the public
         // profile cannot find is exactly the person worth asking the user endpoint about: if it
-        // answers, they are not missing at all, and the answer clears the flag.
-        var next = await _db.VRChatUsers.AsNoTracking()
+        // answers, they are not missing at all.
+        var due = _db.VRChatUsers.AsNoTracking()
             .Where(u => (u.LastUserReadAt == null || u.LastUserReadAt <= dueBefore)
                      && (u.UserReadErrorAt == null || u.UserReadErrorAt <= errorCutoff)
-                     && (u.UserNotFoundAt == null || u.UserNotFoundAt <= missingCutoff))
+                     && (u.UserNotFoundAt == null || u.UserNotFoundAt <= missingCutoff));
+
+        var next = askAbout is null
+            ? null
+            : await due.Where(u => u.UserId == askAbout).Select(u => u.UserId)
+                .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+        next ??= await due
             .OrderBy(u => u.LastUserReadAt).ThenBy(u => u.UserId)
             .Select(u => u.UserId)
             .FirstOrDefaultAsync(ct)
@@ -525,7 +547,7 @@ public sealed class UserProfileSync
         {
             // Marks the user read and nothing else. The public profile may still be answering for
             // this person, and if it is they are not missing.
-            const string detail = "VRChat has no account with this id.";
+            const string detail = VRChatUserProfiles.AccountGone;
 
             await _profiles.RecordNotFoundAsync(userId, VRChatReadKind.User, detail, ct).ConfigureAwait(false);
 
@@ -571,6 +593,33 @@ public sealed class UserProfileSync
             Read: true,
             Changed: recorded.Changed,
             AgeVerifiedObserved: recorded.AgeVerifiedObserved);
+    }
+
+    /// <summary>
+    /// Decides, once per pass and only after both calls have had their turn, whether anybody this
+    /// pass was told "no such account" about is really gone.
+    /// </summary>
+    /// <remarks>
+    /// The reason this is a step of its own rather than part of either call: each call commits its
+    /// own row write, so a 404 that recorded the decision on the spot would write a fact that the
+    /// other call's success a moment later could not take back. Facts are never rewritten, so a
+    /// person whose public profile 404s once would stay recorded as missing forever.
+    /// </remarks>
+    private async Task SettleMissingAsync(
+        UserProfileRunResult profile,
+        UserReadRunResult? userRead,
+        CancellationToken ct)
+    {
+        var gone = new List<string>(2);
+
+        if (profile is { NotFound: true, UserId: { } fromProfile })
+            gone.Add(fromProfile);
+
+        if (userRead is { NotFound: true, UserId: { } fromUserRead })
+            gone.Add(fromUserRead);
+
+        if (gone.Count > 0)
+            await _profiles.SettleMissingAsync(gone, ct).ConfigureAwait(false);
     }
 
     private static string DescribeUserRead(UserReadRunResult result)
