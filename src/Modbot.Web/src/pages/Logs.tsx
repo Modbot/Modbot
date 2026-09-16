@@ -40,7 +40,7 @@ export function Logs() {
   const [pages, setPages] = useState<LogPage[]>([])
   const [filters, setFilters] = useState<LogFilters | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState<number | null>(null)
   const [reloads, setReloads] = useState(0)
 
@@ -65,8 +65,9 @@ export function Logs() {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
 
+    // The previous page stays on screen until the new one lands, so a filter change does not
+    // blank the log for the moment in between.
     api
       .logs(query)
       .then((page) => {

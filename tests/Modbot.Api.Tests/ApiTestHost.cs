@@ -173,6 +173,12 @@ public sealed class ApiTestHost : IAsyncDisposable
         await context.AiFetchedPrices.ExecuteDeleteAsync(ct);
         await context.AiLimitsReached.ExecuteDeleteAsync(ct);
 
+        // Several test files reuse the same VRChat and Discord ids ("author-1" and the like) for
+        // an unrelated person in an unrelated scenario, the same way ReadSurfaceTestHost.ResetAsync
+        // already has to for the audit-log tests. Without this, a fact one test wrote survives to
+        // be counted by the next test that asks about the same id.
+        await context.Database.ExecuteSqlRawAsync("DELETE FROM modbot_event", ct);
+
         await ClearEmailQueueAsync(db, ct);
     }
 

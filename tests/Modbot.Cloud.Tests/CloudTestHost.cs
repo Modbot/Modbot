@@ -237,8 +237,14 @@ public sealed class CloudTestHost : IAsyncDisposable
             area,
             service = "Modbot",
             exception,
-            properties = properties ?? new { Count = 42 },
+            // A JsonElement, not an anonymous object: Serilog's own property names are whatever the
+            // code that logged them wrote (foundation, structured logging carries no naming policy),
+            // and an anonymous object here would go through the Web camelCase policy `Json` uses for
+            // everything else, sending "count" for a real deployment's "Count".
+            properties = properties ?? DefaultProperties,
         };
+
+    private static readonly JsonElement DefaultProperties = JsonDocument.Parse("""{"Count":42}""").RootElement;
 
     public object LogBatch(params object[] lines) =>
         new { sentAt = Time.GetUtcNow(), serverVersion = "2026.9.0", lines };

@@ -229,8 +229,12 @@ public sealed class RegistryTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.TooManyRequests, refused.StatusCode);
     }
 
+    // "abc-defg-h" was here as a code with a stray extra character, refused -- but the alphabet
+    // excludes only I, L, O and U (ServerSecrets.LinkCodeAlphabet), so its letters a through h all
+    // survive and it cleans to a fine 8-character code, ABCDEFGH. "abc-defghj" is the case that was
+    // meant: a ninth valid letter, so cleaning still leaves too many characters to be one.
     [Theory]
-    [InlineData("abc-defg-h", null)]
+    [InlineData("abc-defghj", null)]
     [InlineData("a1b2 c3d4", "A1B2C3D4")]
     [InlineData("a1b2-c3d4", "A1B2C3D4")]
     [InlineData("a1b2c3d", null)]

@@ -59,8 +59,17 @@ public sealed class PostgresFixture : IAsyncLifetime
     /// <summary>Empties every table. Tests in the collection run one at a time.</summary>
     public async Task ResetAsync()
     {
+        // Every table cloud_main holds. Accounts, the server registry and the public rooms
+        // feed all landed after this list was first written, and a table left off it is not
+        // reset between tests -- it is the one way a test that never touches shared fixtures
+        // can still see another test's rows (spec: fix shared-database interference with
+        // unique data per test, not by leaving a table dirty).
         await using (var cloud = NewCloudContext())
-            await cloud.Database.ExecuteSqlRawAsync("TRUNCATE install, admin_session, settings, instance_alert, showcase_entry");
+            await cloud.Database.ExecuteSqlRawAsync(
+                "TRUNCATE install, admin_session, settings, instance_alert, showcase_entry, " +
+                "account, account_session, account_token, " +
+                "public_room, rooms_server, registered_server, server_report, " +
+                "page_instance, visitor_instance");
 
         await using var engine = NewEngineContext();
         await engine.Database.ExecuteSqlRawAsync("TRUNCATE client_event, install_clock, event_day_total, event_hour_total, instance_log");

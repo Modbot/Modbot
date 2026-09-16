@@ -35,7 +35,7 @@ export function Logs() {
 
   const [pages, setPages] = useState<LogLinePage[]>([])
   const [failure, setFailure] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(true)
   const [open, setOpen] = useState<number | null>(null)
 
   const senders = useAdminLoad(() => api.logSenders(), [])
@@ -57,8 +57,9 @@ export function Logs() {
 
   useEffect(() => {
     let cancelled = false
-    setBusy(true)
 
+    // The previous page stays on screen until the new one lands, so a filter change does not
+    // blank the log for the moment in between.
     api
       .logs(query)
       .then((page) => {
