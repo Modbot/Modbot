@@ -588,6 +588,60 @@ public class CaseFilesTests
         Assert.False(withheld.CanViewEvidence);
     }
 
+    /// <summary>
+    /// A case file with nothing on it and a case file with everything on it both read back whole.
+    /// </summary>
+    /// <remarks>
+    /// The case file page reads the stored snapshot straight through, so a field it lists — a
+    /// profile's tags, a membership's roles, the 18+ flag — that is present on one case file and
+    /// absent on another is a blank page rather than a missing line. Either the whole object is
+    /// absent, which the page checks for, or it carries the fields; never half of them.
+    /// </remarks>
+    [Fact]
+    public async Task ACaseFileWithNothingOnIt_AndOneWithEverything_BothReadBackWhole()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await SeedBanAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(
+            ModbotPermissions.Ban | ModbotPermissions.ViewProfile | ModbotPermissions.ViewEvidence, ct);
+
+        // The leanest one there can be: nobody Modbot has ever heard of, so no profile, no
+        // membership and no ban-list entry; no written reason, and nothing attached.
+        var bare = await WriteAsync(host, cookie, ct, userId: "usr_never_seen", text: "");
+        var lean = await host.GetJsonAsync<CaseFileView>($"/api/cases/{bare.Id}", cookie, ct);
+
+        Assert.Equal(string.Empty, lean.WrittenReason);
+        Assert.Empty(lean.Evidence!);
+        Assert.False(lean.Withdrawn);
+        Assert.Null(lean.WithdrawnNote);
+        Assert.NotEmpty(lean.Reasons);
+        Assert.Null(lean.Snapshot.Profile);
+        Assert.Null(lean.Snapshot.Membership);
+        Assert.Null(lean.Snapshot.BanListEntry);
+        Assert.NotEqual(string.Empty, lean.Snapshot.Explanation);
+
+        // And the fullest: a banned person the syncs had read, with the ban and a write-up.
+        var full = await host.GetJsonAsync<CaseFileView>(
+            $"/api/cases/{(await WriteAsync(host, cookie, ct)).Id}", cookie, ct);
+
+        Assert.NotEqual(string.Empty, full.WrittenReason);
+        Assert.NotNull(full.BannedAt);
+        Assert.NotEmpty(full.Reasons);
+
+        var profile = full.Snapshot.Profile!.Value;
+        Assert.Equal(JsonValueKind.Array, profile.GetProperty("tags").ValueKind);
+        Assert.Equal(JsonValueKind.Object, profile.GetProperty("eighteenPlus").ValueKind);
+        Assert.Equal(Banned, profile.GetProperty("userId").GetString());
+
+        var membership = full.Snapshot.Membership!.Value;
+        Assert.Equal(JsonValueKind.Array, membership.GetProperty("roleIds").ValueKind);
+
+        Assert.True(full.Snapshot.BanListEntry!.Value.TryGetProperty("bannedAt", out _));
+    }
+
     [Fact]
     public async Task AnUnknownCaseFile_Is404()
     {

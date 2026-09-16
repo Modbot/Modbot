@@ -13,6 +13,7 @@ import {
   type CaseFileView,
   type ProfileAtBan,
 } from '@/lib/api'
+import { textList } from '@/lib/caseSnapshot'
 import { ago, formatDay } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -294,6 +295,7 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
   const [problem, setProblem] = useState<string | null>(null)
   const snapshot = view.snapshot
   const profile = snapshot.profile
+  const roleIds = textList(snapshot.membership?.roleIds)
 
   const captureAgain = () => {
     setBusy(true)
@@ -342,9 +344,9 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
             {snapshot.membership.joinedAt ? `, joined ${formatDay(snapshot.membership.joinedAt)}` : ''}
             {snapshot.membership.membershipStatus ? ` · ${snapshot.membership.membershipStatus}` : ''}.
           </p>
-          {snapshot.membership.roleIds.length > 0 && (
+          {roleIds.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
-              {snapshot.membership.roleIds.map((id) => (
+              {roleIds.map((id) => (
                 <span
                   key={id}
                   className="rounded-full border px-2 py-0.5 font-mono text-muted-foreground"
@@ -374,6 +376,7 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
 
 function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
   const picture = profile.profilePictureUrl || profile.avatarThumbnailUrl
+  const tags = textList(profile.tags)
 
   return (
     <div className="flex gap-3">
@@ -396,7 +399,7 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
             {profile.displayName ?? <span className="font-mono">{profile.userId}</span>}
           </span>
           {profile.pronouns && <span className="text-muted-foreground">{profile.pronouns}</span>}
-          {profile.eighteenPlus.verified && (
+          {profile.eighteenPlus?.verified && (
             <span
               className="inline-flex items-center rounded-full border border-transparent bg-ok/15 px-2 py-0.5 font-medium text-ok"
               style={{ borderWidth: 'var(--hairline)' }}
@@ -435,9 +438,9 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
           )}
         </dl>
 
-        {profile.tags.length > 0 && (
+        {tags.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
-            {profile.tags.map((tag) => (
+            {tags.map((tag) => (
               <span
                 key={tag}
                 className="rounded-full border px-2 py-0.5 font-mono text-muted-foreground"

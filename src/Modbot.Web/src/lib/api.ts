@@ -1824,51 +1824,58 @@ export type CaseFileSummary = {
 
 export type CaseFileList = { cases: CaseFileSummary[]; total: number; offset: number; now: string }
 
-/** The person's stored profile as it stood when the case file was written. Every field may be null. */
+/**
+ * The person's stored profile as it stood when the case file was written.
+ *
+ * Every field is optional, and that is not tidiness. The snapshot is stored as free-form JSON and
+ * handed back as it was written, so a case file written by an older Modbot, restored from a
+ * backup, or edited by hand can be missing anything in here. A reader must check.
+ */
 export type ProfileAtBan = {
-  userId: string
-  displayName: string | null
-  bio: string | null
-  status: string | null
-  statusDescription: string | null
-  pronouns: string | null
-  avatarImageUrl: string | null
-  avatarThumbnailUrl: string | null
-  profilePictureUrl: string | null
-  dateJoined: string | null
-  tags: string[]
-  lastPlatform: string | null
-  ageVerificationStatus: string | null
-  ageVerified: boolean | null
-  eighteenPlus: { verified: boolean; since: string | null; source: string | null }
-  firstSeenAt: string | null
-  lastSeenAt: string | null
-  lastRefreshedAt: string | null
-  notFoundAt: string | null
-  raw: unknown
+  userId?: string | null
+  displayName?: string | null
+  bio?: string | null
+  status?: string | null
+  statusDescription?: string | null
+  pronouns?: string | null
+  avatarImageUrl?: string | null
+  avatarThumbnailUrl?: string | null
+  profilePictureUrl?: string | null
+  dateJoined?: string | null
+  tags?: unknown
+  lastPlatform?: string | null
+  ageVerificationStatus?: string | null
+  ageVerified?: boolean | null
+  eighteenPlus?: { verified?: boolean | null; since?: string | null; source?: string | null } | null
+  firstSeenAt?: string | null
+  lastSeenAt?: string | null
+  lastRefreshedAt?: string | null
+  notFoundAt?: string | null
+  raw?: unknown
 }
 
+/** The group membership as it stood. Every field optional, for the same reason as `ProfileAtBan`. */
 export type MembershipAtBan = {
-  isMember: boolean
-  membershipId: string | null
-  roleIds: string[]
-  joinedAt: string | null
-  membershipStatus: string | null
-  visibility: string | null
-  isRepresenting: boolean
-  managerNotes: string | null
-  firstSeenAt: string | null
-  lastSeenAt: string | null
-  leftAt: string | null
-  raw: unknown
+  isMember?: boolean | null
+  membershipId?: string | null
+  roleIds?: unknown
+  joinedAt?: string | null
+  membershipStatus?: string | null
+  visibility?: string | null
+  isRepresenting?: boolean | null
+  managerNotes?: string | null
+  firstSeenAt?: string | null
+  lastSeenAt?: string | null
+  leftAt?: string | null
+  raw?: unknown
 }
 
 export type BanListEntryAtBan = {
-  bannedAt: string | null
-  firstSeenAt: string | null
-  lastSeenAt: string | null
-  liftedAt: string | null
-  raw: unknown
+  bannedAt?: string | null
+  firstSeenAt?: string | null
+  lastSeenAt?: string | null
+  liftedAt?: string | null
+  raw?: unknown
 }
 
 /**
