@@ -38,12 +38,19 @@ public sealed record BioCheck(bool Read, bool CodeFound, PublicProfile? Profile,
 public sealed class VRChatBioCheck
 {
     private readonly IVRChatGate _gate;
-    private readonly VRChatUserProfiles _profiles;
+    private readonly VRChatUserProfiles? _profiles;
 
-    public VRChatBioCheck(IVRChatGate gate, VRChatUserProfiles profiles)
+    /// <param name="profiles">
+    /// The writer of <c>vrchat_user</c> rows, when this process has one. A demo registers no
+    /// profile sync and therefore no writer, and the same is true of any host that wires the API
+    /// without it -- so the check reads the bio and simply records nothing, the way every other
+    /// endpoint that takes this writer already treats it as optional. Required rather than
+    /// optional, it makes the whole container fail to build on a demo, which is the app refusing
+    /// to start rather than one link check losing a sighting.
+    /// </param>
+    public VRChatBioCheck(IVRChatGate gate, VRChatUserProfiles? profiles = null)
     {
         ArgumentNullException.ThrowIfNull(gate);
-        ArgumentNullException.ThrowIfNull(profiles);
 
         _gate = gate;
         _profiles = profiles;
@@ -65,7 +72,7 @@ public sealed class VRChatBioCheck
 
         var profile = result.Value;
 
-        if (profile is not null)
+        if (profile is not null && _profiles is not null)
         {
             // Recorded as the profile sync would have recorded it: the body decides which fields
             // are written, so a response that carries no bio leaves the stored one alone.
