@@ -198,3 +198,17 @@ including a line each time the client reads new lines from VRChat's log. An unkn
 `serilog`, `json` or `railway_json`, described in
 [Console log modes](/self-hosting/environment-variables#console-log-modes). The log files are always
 text.
+
+## Debug mode
+
+Set the environment variable `MODBOT_DEBUG_MODE` to `1` for your account and restart the client,
+and the window gains a **Debug** page:
+
+- **Show overlay window** opens a window showing the overlay's last drawn frame: the same
+  picture SteamVR is handed, so you can see the panel without a headset.
+- **Look for SteamVR now** attaches to a running SteamVR at once.
+- **Sample screens** pin a made-up screen into the overlay: **idle**, **roster**, **flagged
+  join** or **problem**. **Live** lets the real screen back. Samples are built from constants in
+  the client; nothing is fetched or sent for them.
+
+Everything else runs as normal in debug mode, and the setting is read once, at start.

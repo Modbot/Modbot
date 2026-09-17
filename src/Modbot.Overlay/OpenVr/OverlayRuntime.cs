@@ -99,7 +99,10 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
     private ulong _handle;
     private byte[]? _rgba;
 
-    public OpenVrOverlayRuntime(string overlayName = "Modbot", float widthInMetres = 0.45f)
+    /// <summary>How wide the panel is in the headset. Sharpness is the texture's resolution, set separately.</summary>
+    public const float DefaultWidthInMetres = 0.45f;
+
+    public OpenVrOverlayRuntime(string overlayName = "Modbot", float widthInMetres = DefaultWidthInMetres)
     {
         _overlayName = overlayName;
         _widthInMetres = widthInMetres;

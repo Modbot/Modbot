@@ -67,6 +67,42 @@ public enum PairingNoticeKind
 /// </remarks>
 public sealed record PairingNotice(PairingNoticeKind Kind, string Message);
 
+/// <summary>The SteamVR overlay, as the window's SteamVR page shows it.</summary>
+/// <remarks>
+/// Plain words and counts from the overlay host, with none of its types: this library does not
+/// know OpenVR, and the page needs only what a moderator can check against the headset.
+/// </remarks>
+/// <param name="Attached">Whether the panel is up in SteamVR right now.</param>
+/// <param name="State">One short phrase: attached, SteamVR not running, SteamVR not installed, refused, not set up.</param>
+/// <param name="Detail">The sentence under it, from the overlay runtime.</param>
+/// <param name="Showing">The group the panel speaks for, or the idle screen's wording.</param>
+/// <param name="People">How many people the roster lists.</param>
+/// <param name="RosterAge">How fresh the roster is, in the overlay's own words.</param>
+/// <param name="Alert">Who the alert card names, or null.</param>
+/// <param name="Problem">The problem banner's text, or null.</param>
+/// <param name="FollowingServer">The server the overlay reads from, or null when not in a group instance.</param>
+/// <param name="PinnedSample">The sample screen the debug page has pinned over the live one, or null.</param>
+public sealed record OverlayStatus(
+    bool Attached,
+    string State,
+    string Detail,
+    DateTimeOffset? AttachedAt,
+    int FramesDrawn,
+    DateTimeOffset? LastDrawnAt,
+    string Showing,
+    int People,
+    string RosterAge,
+    string? Alert,
+    string? Problem,
+    string? FollowingServer,
+    string? PinnedSample = null)
+{
+    /// <summary>Before the overlay exists, or when it could not be set up on this PC.</summary>
+    public static OverlayStatus None { get; } = new(
+        false, "not set up", "The overlay could not be set up on this PC.", null, 0, null,
+        "Not in a group instance", 0, "not loaded", null, null, null);
+}
+
 /// <summary>What the client window is showing right now.</summary>
 /// <param name="Events">
 /// Every event this client processed, newest first — one row each, whatever became of it at each
@@ -77,6 +113,8 @@ public sealed record PairingNotice(PairingNoticeKind Kind, string Message);
 /// <param name="LogFolderConfigured">
 /// The folder named in settings, or null when the companion is looking in the well-known places.
 /// </param>
+/// <param name="Overlay">The SteamVR overlay, for the SteamVR page.</param>
+/// <param name="DebugMode">Whether the companion was started with <c>MODBOT_DEBUG_MODE=1</c>, which adds the Debug page.</param>
 public sealed record CompanionAppSnapshot(
     IReadOnlyList<ServerRow> Servers,
     IReadOnlyList<JournalRow> Events,
@@ -90,8 +128,13 @@ public sealed record CompanionAppSnapshot(
     string PairingPage,
     StartupState? Startup = null,
     string LogFolder = "",
-    string? LogFolderConfigured = null)
+    string? LogFolderConfigured = null,
+    OverlayStatus? Overlay = null,
+    bool DebugMode = false)
 {
+    /// <summary>The overlay row, never null: <see cref="OverlayStatus.None"/> until the host has said.</summary>
+    public OverlayStatus OverlayOrNone => Overlay ?? OverlayStatus.None;
+
     public static CompanionAppSnapshot Empty { get; } =
         new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, [], null, CompanionSettings.DefaultPairingPage);
 }
@@ -141,6 +184,12 @@ public sealed class CompanionAppState
     /// <summary>How the start-with-Windows switch should look; hidden unless this copy is installed.</summary>
     public StartupState Startup { get; set; } = StartupState.Hidden;
 
+    /// <summary>The SteamVR overlay as of the last render; set by the host that owns it.</summary>
+    public OverlayStatus Overlay { get; set; } = OverlayStatus.None;
+
+    /// <summary>Started with <c>MODBOT_DEBUG_MODE=1</c>: the window gets a Debug page.</summary>
+    public bool DebugMode { get; set; }
+
     public List<ServerConnection> Connections { get; }
 
     /// <summary>The last pairing attempt's outcome, or null when there has not been one this run.</summary>
@@ -185,7 +234,9 @@ public sealed class CompanionAppState
             Settings.PairingPage.ToString(),
             Startup,
             LogFolder,
-            Settings.VRChatLogFolder);
+            Settings.VRChatLogFolder,
+            Overlay,
+            DebugMode);
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)

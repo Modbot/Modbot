@@ -228,4 +228,21 @@ public class CompanionAppStateTests : IDisposable
         GroupId = "grp_cats",
         Data = new Dictionary<string, string>(StringComparer.Ordinal) { ["displayName"] = "Rin" },
     };
+
+    [Fact]
+    public void TheSnapshotCarriesTheOverlayAndTheDebugSwitch()
+    {
+        var state = State();
+
+        Assert.Same(OverlayStatus.None, state.Snapshot().OverlayOrNone);
+        Assert.False(state.Snapshot().DebugMode);
+
+        state.Overlay = OverlayStatus.None with { Attached = true, State = "attached", FramesDrawn = 3 };
+        state.DebugMode = true;
+
+        var snapshot = state.Snapshot();
+        Assert.True(snapshot.OverlayOrNone.Attached);
+        Assert.Equal(3, snapshot.OverlayOrNone.FramesDrawn);
+        Assert.True(snapshot.DebugMode);
+    }
 }

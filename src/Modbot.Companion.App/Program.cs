@@ -179,6 +179,11 @@ internal sealed class CompanionHost
     private IIngestTransport? _transport;
     private OverlayDriver? _overlay;
     private OverlayHost? _overlayHost;
+    private OverlayPreviewWindow? _preview;
+    private OverlaySample? _pinnedSample;
+    private DateTimeOffset? _overlayAttachedAt;
+    private DateTimeOffset? _overlayLastDrewAt;
+    private int _overlayFramesSeen;
     private Updates? _updates;
     private CloudEventBackup? _cloudBackup;
     private string _settingsPath = string.Empty;
@@ -198,6 +203,13 @@ internal sealed class CompanionHost
         _journal = new Journal.SentJournal(Path.Combine(_directory, "sent.jsonl"), _clock);
         _settingsPath = CompanionSettings.DefaultPath(appData);
         _state = new CompanionAppState(_clock, _journal, CompanionSettings.Load(_settingsPath));
+
+        // MODBOT_DEBUG_MODE=1 adds the Debug page: the overlay's picture in a window, sample
+        // screens to pin into it. Read once, at start, like the other environment switches.
+        _state.DebugMode = Environment.GetEnvironmentVariable("MODBOT_DEBUG_MODE") is { } debug
+            && (debug == "1" || debug.Equals("true", StringComparison.OrdinalIgnoreCase));
+        if (_state.DebugMode)
+            Log.Information("Debug mode is on (MODBOT_DEBUG_MODE); the window has a Debug page");
 
         // Only the token is encrypted; the rest of the file is left readable on purpose, so a
         // suspicious moderator can open it and see exactly which servers this client talks to.
@@ -542,6 +554,7 @@ internal sealed class CompanionHost
         try
         {
             _overlayHost = OverlayHost.Create();
+            _overlayHost.KeepLastFrame = _state?.DebugMode is true;
             AttachOverlay();
         }
         catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
@@ -591,6 +604,7 @@ internal sealed class CompanionHost
         switch (status.State)
         {
             case OverlayRuntimeState.Running:
+                _overlayAttachedAt = _clock.UtcNow;
                 Log.Information("The overlay is attached to SteamVR");
                 break;
             case OverlayRuntimeState.NoRuntime:
@@ -618,7 +632,10 @@ internal sealed class CompanionHost
             var wasRunning = _overlayHost.Status.State is OverlayRuntimeState.Running;
             _overlayHost.Poll();
             if (wasRunning && _overlayHost.Status.State is not OverlayRuntimeState.Running)
+            {
+                _overlayAttachedAt = null;
                 Log.Information("SteamVR closed; the overlay has let go and will attach again when it is back");
+            }
 
             if (_overlayHost.Status.State is OverlayRuntimeState.NotStarted
                 && _clock.UtcNow - _overlayAttachTriedAt >= OverlayAttachInterval)
@@ -765,9 +782,89 @@ internal sealed class CompanionHost
         if (_engine is not null)
             _state.LogHealth = _engine.LogHealth;
 
+        _state.Overlay = DescribeOverlay();
+
+        if (_overlayHost is not null)
+            _preview?.Refresh(_overlayHost);
+
         Window.Render(
             _state.Snapshot(),
-            new MainWindowActions(TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows, SetLogFolder));
+            new MainWindowActions(
+                TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows, SetLogFolder,
+                AttachSteamVr, ShowOverlayWindow, PinOverlaySample));
+    }
+
+    /// <summary>The overlay in the window's words: whether it is up, what it shows, how often it has drawn.</summary>
+    private OverlayStatus DescribeOverlay()
+    {
+        if (_overlayHost is null)
+            return OverlayStatus.None;
+
+        if (_overlayHost.FramesDrawn != _overlayFramesSeen)
+        {
+            _overlayFramesSeen = _overlayHost.FramesDrawn;
+            _overlayLastDrewAt = _clock.UtcNow;
+        }
+
+        var status = _overlayHost.Status;
+        var screen = _overlayHost.Showing;
+        var roster = screen.Roster;
+
+        return new OverlayStatus(
+            status.State is OverlayRuntimeState.Running,
+            status.State switch
+            {
+                OverlayRuntimeState.Running => "attached",
+                OverlayRuntimeState.NoRuntime => "SteamVR not installed",
+                OverlayRuntimeState.Refused => "refused",
+                _ => "SteamVR not running",
+            },
+            status.Detail ?? "",
+            _overlayAttachedAt,
+            _overlayHost.FramesDrawn,
+            _overlayLastDrewAt,
+            screen.GroupLabel ?? "Not in a group instance",
+            roster.Value?.Members.Count ?? 0,
+            roster.Describe(),
+            screen.Alert is { } alert ? alert.DisplayName ?? alert.SubjectId : null,
+            screen.Health,
+            _overlay?.CurrentServer?.GroupLabel,
+            _pinnedSample is { } sample ? OverlaySamples.Name(sample) : null);
+    }
+
+    /// <summary>The Debug page's "Attach to SteamVR now", and the SteamVR page's.</summary>
+    private void AttachSteamVr()
+    {
+        AttachOverlay();
+        Render();
+    }
+
+    /// <summary>Opens, or brings back, the window that shows the overlay's last frame.</summary>
+    private void ShowOverlayWindow()
+    {
+        if (_overlayHost is null)
+            return;
+
+        if (_preview is null)
+        {
+            _preview = new OverlayPreviewWindow();
+            _preview.Closed += (_, _) => _preview = null;
+            _preview.Refresh(_overlayHost);
+            _preview.Show();
+        }
+
+        _preview.Activate();
+    }
+
+    /// <summary>Pins a sample screen into the overlay, or, with null, lets the live screen back.</summary>
+    private void PinOverlaySample(OverlaySample? sample)
+    {
+        if (_overlayHost is null)
+            return;
+
+        _pinnedSample = sample;
+        _overlayHost.Pinned = sample is { } chosen ? OverlaySamples.Build(chosen) : null;
+        Render();
     }
 
     private void TogglePause(string serverId)

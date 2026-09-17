@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Modbot.Overlay.Driving;
 using Modbot.Overlay.OpenVr;
@@ -31,15 +32,23 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private readonly IOverlayRuntime _runtime;
     private readonly IOverlaySurface _surface;
 
-    private OverlayScreen _screen = OverlayScreen.Idle;
+    // What the drive loop last asked for, what the debug page has pinned over it, and what was
+    // actually drawn. Nothing counts as drawn until the first Update: an attached overlay that
+    // has never been handed a texture shows nothing at all, so even the idle screen is drawn
+    // once rather than assumed to be there.
+    private OverlayScreen? _live;
+    private OverlayScreen? _pinned;
+    private OverlayScreen? _drawn;
+    private byte[]? _lastFrame;
 
     public OverlayHost(IOverlayRuntime runtime, IOverlaySurface surface, IFrameRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(runtime);
+        ArgumentNullException.ThrowIfNull(renderer);
 
         _runtime = runtime;
         _surface = surface;
-        _compositor = new OverlayCompositor(renderer, surface);
+        _compositor = new OverlayCompositor(new FrameKeeper(renderer, this), surface);
     }
 
     /// <summary>
@@ -104,17 +113,82 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     {
         ArgumentNullException.ThrowIfNull(screen);
 
-        if (_screen.LooksTheSameAs(screen))
+        _live = screen;
+        return Draw();
+    }
+
+    /// <summary>
+    /// A screen shown in place of the live one, for the companion's debug page. Null shows the
+    /// live screen again. UI thread only, like <see cref="Update"/>.
+    /// </summary>
+    public OverlayScreen? Pinned
+    {
+        get => _pinned;
+        set
+        {
+            _pinned = value;
+            Draw();
+        }
+    }
+
+    /// <summary>What the overlay shows right now: the pinned screen, else the live one, else idle.</summary>
+    public OverlayScreen Showing => _drawn ?? OverlayScreen.Idle;
+
+    /// <summary>
+    /// Whether a copy of each drawn frame is kept for <see cref="LastFrame"/>. Off unless a
+    /// window is showing the frame, because the copy is four megabytes a draw.
+    /// </summary>
+    public bool KeepLastFrame { get; set; }
+
+    /// <summary>
+    /// The last frame drawn, premultiplied BGRA and tightly packed, while
+    /// <see cref="KeepLastFrame"/> is on. Empty otherwise, and before the first draw.
+    /// </summary>
+    public ReadOnlyMemory<byte> LastFrame => _lastFrame ?? ReadOnlyMemory<byte>.Empty;
+
+    public int Width => _surface.Width;
+
+    public int Height => _surface.Height;
+
+    private bool Draw()
+    {
+        var next = _pinned ?? _live;
+        if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next)))
             return false;
 
-        _screen = screen;
+        _drawn = next;
         _compositor.Invalidate();
 
-        if (!_compositor.DrawIfChanged(OverlayView.Build(screen)))
+        if (!_compositor.DrawIfChanged(OverlayView.Build(next)))
             return false;
 
         _runtime.Submit(_surface);
         return true;
+    }
+
+    /// <summary>Passes frames through, keeping a copy of the last one when the host asks.</summary>
+    private sealed class FrameKeeper(IFrameRenderer inner, OverlayHost host) : IFrameRenderer
+    {
+        public int Width => inner.Width;
+
+        public int Height => inner.Height;
+
+        public ReadOnlySpan<byte> Render(Control root)
+        {
+            var frame = inner.Render(root);
+
+            if (host.KeepLastFrame)
+            {
+                if (host._lastFrame is null || host._lastFrame.Length != frame.Length)
+                    host._lastFrame = new byte[frame.Length];
+
+                frame.CopyTo(host._lastFrame);
+            }
+
+            return frame;
+        }
+
+        public void Dispose() => inner.Dispose();
     }
 
     public void Show() => _runtime.Show();

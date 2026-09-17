@@ -8,6 +8,7 @@ using Modbot.Companion.Journal;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
+using Modbot.Overlay.OpenVr;
 
 namespace Modbot.Companion.App;
 
@@ -16,8 +17,12 @@ internal enum Page
 {
     Servers,
     Events,
+    SteamVr,
     Log,
     Settings,
+
+    /// <summary>Only with <c>MODBOT_DEBUG_MODE=1</c>.</summary>
+    Debug,
 }
 
 /// <summary>
@@ -111,6 +116,22 @@ public sealed class MainWindow : Window
             ColumnDefinitions = new ColumnDefinitions("216,*"),
             Children = { Sidebar(), main },
         };
+    }
+
+    /// <summary>
+    /// Closing the window hides it. Avalonia cannot show a window again once it has really
+    /// closed, and the tray's "Open Modbot" must bring this one back, so the close button hides
+    /// it and only the application shutting down closes it for good.
+    /// </summary>
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+
+        if (e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown)
+            return;
+
+        e.Cancel = true;
+        Hide();
     }
 
     /// <summary>Rebuilds the window from a snapshot. Cheap enough to call on a timer.</summary>
@@ -213,8 +234,12 @@ public sealed class MainWindow : Window
             Page.Servers, "Servers", _snapshot.Servers.Count == 0 ? null : $"{_snapshot.Servers.Count}"));
         _nav.Children.Add(NavItem(
             Page.Events, "Events", _snapshot.Events.Count == 0 ? null : $"{_snapshot.Events.Count}"));
+        _nav.Children.Add(NavItem(Page.SteamVr, "SteamVR", _snapshot.OverlayOrNone.Attached ? "on" : null));
         _nav.Children.Add(NavItem(Page.Log, "Log", null));
         _nav.Children.Add(NavItem(Page.Settings, "Settings", null));
+
+        if (_snapshot.DebugMode)
+            _nav.Children.Add(NavItem(Page.Debug, "Debug", null));
     }
 
     private Control NavItem(Page page, string caption, string? badge)
@@ -273,11 +298,17 @@ public sealed class MainWindow : Window
             case Page.Events:
                 RenderEvents();
                 break;
+            case Page.SteamVr:
+                RenderSteamVr();
+                break;
             case Page.Log:
                 RenderLog();
                 break;
             case Page.Settings:
                 RenderSettings();
+                break;
+            case Page.Debug when _snapshot.DebugMode:
+                RenderDebug();
                 break;
             default:
                 RenderServers();
@@ -730,6 +761,145 @@ public sealed class MainWindow : Window
         };
     }
 
+    /// <summary>The headset panel: whether it is up, what it shows, and where it sits.</summary>
+    private void RenderSteamVr()
+    {
+        var overlay = _snapshot.OverlayOrNone;
+
+        var pill = overlay.Attached
+            ? Ui.Pill("Attached", Ui.T.Palette.Ok, Ui.T.Palette.OkDim)
+            : overlay.State switch
+            {
+                "refused" => Ui.Pill("Refused", Ui.T.Palette.Danger, Ui.T.Palette.DangerDim),
+                "SteamVR not installed" or "not set up" => Ui.Pill("No SteamVR", Ui.T.Palette.Info, Ui.T.Palette.InfoDim),
+                _ => Ui.Pill("Not running", Ui.T.Palette.Warn, Ui.T.Palette.WarnDim),
+            };
+
+        var attach = Ui.Button("Look for SteamVR now");
+        attach.Click += (_, _) => _actions.AttachSteamVr();
+
+        var stats = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
+            ColumnSpacing = 10,
+        };
+
+        Control[] tiles =
+        [
+            Ui.Stat("attached since", Clock(overlay.AttachedAt)),
+            Ui.Stat("frames drawn", $"{overlay.FramesDrawn:N0}"),
+            Ui.Stat("last drawn", Clock(overlay.LastDrawnAt)),
+        ];
+
+        for (var index = 0; index < tiles.Length; index++)
+        {
+            Grid.SetColumn(tiles[index], index);
+            stats.Children.Add(tiles[index]);
+        }
+
+        _body.Children.Add(Ui.Card(
+            new StackPanel
+            {
+                Spacing = 12,
+                Children =
+                {
+                    Ui.Text(overlay.Detail, Ui.T.Density.TextSmall, Ui.T.TextBrush),
+                    stats,
+                },
+            },
+            "SteamVR",
+            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { pill, attach } }));
+
+        var showing = new StackPanel
+        {
+            Spacing = 6,
+            Children =
+            {
+                Line("Screen", overlay.Showing),
+                Line("People", $"{overlay.People:N0}"),
+                Line("Roster", overlay.RosterAge),
+                Line("Alert", overlay.Alert ?? "none"),
+                Line("Problem", overlay.Problem ?? "none"),
+                Line("Reading from", overlay.FollowingServer ?? "no server"),
+            },
+        };
+
+        if (overlay.PinnedSample is { } pinned)
+            showing.Children.Add(Line("Pinned sample", pinned));
+
+        _body.Children.Add(Ui.Card(showing, "Showing"));
+
+        var placement = OpenVrOverlayRuntime.Placement;
+        _body.Children.Add(Ui.Card(
+            new StackPanel
+            {
+                Spacing = 6,
+                Children =
+                {
+                    Line("Width", $"{OpenVrOverlayRuntime.DefaultWidthInMetres:0.00} m"),
+                    Line("Position", $"{placement.X:0.00} m right, {-placement.Y:0.00} m down, {-placement.Z:0.00} m ahead of the headset"),
+                    Line("Picture", $"{OverlayHost.DefaultResolution}×{OverlayHost.DefaultResolution}"),
+                },
+            },
+            "Placement"));
+    }
+
+    /// <summary>Only with <c>MODBOT_DEBUG_MODE=1</c>: the overlay's picture on the desktop, and sample screens to pin into it.</summary>
+    private void RenderDebug()
+    {
+        var overlay = _snapshot.OverlayOrNone;
+
+        var show = Ui.Button("Show overlay window", primary: true);
+        show.Click += (_, _) => _actions.ShowOverlayWindow();
+
+        var attach = Ui.Button("Look for SteamVR now");
+        attach.Click += (_, _) => _actions.AttachSteamVr();
+
+        _body.Children.Add(Ui.Card(
+            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { show, attach } },
+            "Overlay"));
+
+        var samples = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        foreach (var sample in Enum.GetValues<OverlaySample>())
+        {
+            var button = Ui.Button(OverlaySamples.Name(sample));
+            button.Click += (_, _) => _actions.PinOverlaySample(sample);
+            samples.Children.Add(button);
+        }
+
+        var live = Ui.Button("Live", primary: overlay.PinnedSample is not null);
+        live.Click += (_, _) => _actions.PinOverlaySample(null);
+        samples.Children.Add(live);
+
+        _body.Children.Add(Ui.Card(
+            new StackPanel
+            {
+                Spacing = 12,
+                Children =
+                {
+                    samples,
+                    Ui.Faint(overlay.PinnedSample is { } pinned ? $"Pinned: {pinned}" : "Showing the live screen"),
+                },
+            },
+            "Sample screens"));
+    }
+
+    private static string Clock(DateTimeOffset? at) => at is { } time ? time.ToLocalTime().ToString("HH:mm:ss") : "—";
+
+    private static Control Line(string label, string value)
+    {
+        var caption = Ui.Label(label);
+        caption.Width = 120;
+        caption.VerticalAlignment = VerticalAlignment.Center;
+
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children = { caption, Ui.Text(value, Ui.T.Density.TextSmall, Ui.T.TextBrush) },
+        };
+    }
+
     private static void DetachFromParent(Control control)
     {
         if (control.Parent is Panel panel)
@@ -753,13 +923,19 @@ public sealed class MainWindow : Window
 /// <param name="PairAsync">Pairs from a pasted pairing token or link.</param>
 /// <param name="OpenPairingPageAsync">Opens the pairing page in the moderator's browser.</param>
 /// <param name="SetLogFolder">Points the log reader at a folder; null or blank means the well-known places.</param>
+/// <param name="AttachSteamVr">Looks for SteamVR now rather than at the next ten-second look.</param>
+/// <param name="ShowOverlayWindow">Opens the window that shows the overlay's last frame. Debug page only.</param>
+/// <param name="PinOverlaySample">Pins a sample screen into the overlay, or null for the live screen. Debug page only.</param>
 public sealed record MainWindowActions(
     Action<string> TogglePause,
     Action<string> Unpair,
     Func<string, Task<PairingAttemptResult>> PairAsync,
     Func<Task> OpenPairingPageAsync,
     Action<bool> SetStartWithWindows,
-    Action<string?> SetLogFolder)
+    Action<string?> SetLogFolder,
+    Action AttachSteamVr,
+    Action ShowOverlayWindow,
+    Action<OverlaySample?> PinOverlaySample)
 {
     public static MainWindowActions None { get; } = new(
         _ => { },
@@ -767,5 +943,8 @@ public sealed record MainWindowActions(
         _ => Task.FromResult(new PairingAttemptResult(false, "Not ready yet.")),
         () => Task.CompletedTask,
         _ => { },
+        _ => { },
+        () => { },
+        () => { },
         _ => { });
 }
