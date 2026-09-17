@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { EntryDetail } from '@/components/audit/EntryDetail'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, SourceBadge } from '@/components/facts'
@@ -10,6 +12,7 @@ import { useListSelection } from '@/lib/listSelection'
 import { AUDIT_DEFAULTS, auditQueryFrom } from '@/lib/pageFilters'
 import { useLocation } from '@/lib/router'
 import { api, ApiError, type AuditEntry, type AuditFilters, type AuditPage } from '@/lib/api'
+import { useShortcuts } from '@/lib/shortcuts'
 import { openDiscordPerson, openInstance, openPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 
@@ -127,14 +130,39 @@ export function AuditLog() {
   const coverage = pages[0]?.coverage
   const next = pages[pages.length - 1]?.next
 
-  // `j`/`k` move down and up the rows; `Enter` opens what the selected row is about.
-  const { rowProps } = useListSelection(entries.length, (i) => {
+  // Rows open on click into everything the entry holds. The entry the address names opens too,
+  // because whoever followed that link came for that one.
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set())
+  const isOpen = (entry: AuditEntry) => expanded.has(entry.id) || String(entry.id) === factId
+  const toggle = (entry: AuditEntry) =>
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (isOpen(entry)) next.delete(entry.id)
+      else next.add(entry.id)
+      return next
+    })
+
+  // `j`/`k` move down and up the rows; `Enter` opens the selected row; `o` opens what it is about.
+  const { rowProps, selected } = useListSelection(entries.length, (i) => {
     const entry = entries[i]
-    if (!entry) return
-    if (entry.subjectKind === 'Person')
-      (entry.subjectPlatform.toLowerCase() === 'discord' ? openDiscordPerson : openPerson)(entry.subjectId)
-    else if (entry.subjectKind === 'Instance' && entry.roomId) openInstance(entry.roomId)
+    if (entry) toggle(entry)
   })
+
+  useShortcuts([
+    {
+      keys: 'o',
+      label: 'Open the person or instance the selected row is about',
+      group: 'Lists',
+      page: true,
+      run: () => {
+        const entry = selected === null ? undefined : entries[selected]
+        if (!entry) return
+        if (entry.subjectKind === 'Person')
+          (entry.subjectPlatform.toLowerCase() === 'discord' ? openDiscordPerson : openPerson)(entry.subjectId)
+        else if (entry.subjectKind === 'Instance' && entry.roomId) openInstance(entry.roomId)
+      },
+    },
+  ])
 
   const properties = useMemo<FilterProperty[]>(
     () => [
@@ -211,6 +239,7 @@ export function AuditLog() {
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                 <thead className="text-muted-foreground">
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                    <th className="w-6 px-2 py-2" />
                     <th className="px-3 py-2 text-left font-normal">When</th>
                     <th className="px-3 py-2 text-left font-normal">Source</th>
                     <th className="px-3 py-2 text-left font-normal">What happened</th>
@@ -218,7 +247,14 @@ export function AuditLog() {
                 </thead>
                 <tbody>
                   {entries.map((entry, i) => (
-                    <Row key={entry.id} entry={entry} marked={String(entry.id) === factId} {...rowProps(i)} />
+                    <Row
+                      key={entry.id}
+                      entry={entry}
+                      marked={String(entry.id) === factId}
+                      open={isOpen(entry)}
+                      onToggle={() => toggle(entry)}
+                      {...rowProps(i)}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -246,19 +282,25 @@ export function AuditLog() {
 }
 
 /**
- * One fact, as a sentence.
+ * One fact, as a sentence, and everything it holds underneath when the row is opened.
  *
  * It used to print the raw type and then the subject and the actor as ids in two more columns,
  * which is three things to read and none of them words. The sentence names who did what to whom
  * and where, and every name in it opens its own popup (see components/factSentence.tsx).
+ * Clicking the row itself, anywhere that is not one of those names, opens the entry's detail
+ * below it: every column, the diff, the snapshot, and the JSON.
  */
 function Row({
   entry,
   marked,
+  open,
+  onToggle,
   ...rowAttributes
 }: {
   entry: AuditEntry
   marked: boolean
+  open: boolean
+  onToggle: () => void
   'data-row-index': number
   'data-selected': boolean | undefined
   'aria-selected': boolean
@@ -273,27 +315,52 @@ function Row({
   }, [marked])
 
   return (
-    <tr
-      ref={row}
-      {...rowAttributes}
-      className={cn('border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60', marked && 'bg-accent')}
-      style={{ borderBottomWidth: 'var(--hairline)' }}
-    >
-      <td className="whitespace-nowrap px-3 align-top" style={{ height: 'var(--row-h)' }}>
-        <div className="flex flex-col py-1 leading-tight">
-          <FactTime entry={entry} />
-          <span className="text-muted-foreground/70">{formatDay(entry.occurredAt)}</span>
-        </div>
-      </td>
-      <td className="px-3 py-1 align-top">
-        <SourceBadge source={entry.source} />
-      </td>
-      <td className="max-w-3xl px-3 py-1.5 align-top" title={entry.type}>
-        {/* Payload text is user-controlled (spec 5.3). The sentence renders it as text, never as
-            markup. */}
-        <FactSentence entry={entry} />
-      </td>
-    </tr>
+    <>
+      <tr
+        ref={row}
+        {...rowAttributes}
+        onClick={(e) => {
+          // A name inside the sentence opens its popup; the rest of the row opens the entry.
+          if ((e.target as HTMLElement).closest('a, button, summary')) return
+          onToggle()
+        }}
+        aria-expanded={open}
+        className={cn(
+          'cursor-pointer border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
+          marked && 'bg-accent',
+          open && 'border-b-0',
+        )}
+        style={{ borderBottomWidth: 'var(--hairline)' }}
+      >
+        <td className="px-2 align-top" style={{ height: 'var(--row-h)' }}>
+          <ChevronRight
+            className={cn('mt-2 size-3.5 text-muted-foreground transition-transform', open && 'rotate-90')}
+            aria-hidden
+          />
+        </td>
+        <td className="whitespace-nowrap px-3 align-top">
+          <div className="flex flex-col py-1 leading-tight">
+            <FactTime entry={entry} />
+            <span className="text-muted-foreground/70">{formatDay(entry.occurredAt)}</span>
+          </div>
+        </td>
+        <td className="px-3 py-1 align-top">
+          <SourceBadge source={entry.source} />
+        </td>
+        <td className="max-w-3xl px-3 py-1.5 align-top" title={entry.type}>
+          {/* Payload text is user-controlled (spec 5.3). The sentence renders it as text, never as
+              markup. */}
+          <FactSentence entry={entry} />
+        </td>
+      </tr>
+      {open && (
+        <tr className="border-b last:border-0" style={{ borderBottomWidth: 'var(--hairline)' }}>
+          <td colSpan={4} className="p-0">
+            <EntryDetail entry={entry} />
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 

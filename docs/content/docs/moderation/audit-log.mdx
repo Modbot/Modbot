@@ -61,6 +61,18 @@ history.
 | **Source** | Where the entry came from (see below). |
 | **What happened** | A sentence naming who did what to whom, and where. Hover to see the entry's type. |
 
+**Click a row** (anywhere that is not a name) to open it. Under the row: every field the entry
+holds (type, log, source, when, when it was recorded, who it is about, who did it, the world and
+instance, the description, the entry id); a **Changed** table with each field's before and after
+for entries that record a change; the **Snapshot** the entry stands for, where it is one; and the
+entry's **Payload** and the whole **Entry** as JSON, each with a copy button. Click the row again
+to close it.
+
+For a *profile changed* or *profile recorded* entry, the snapshot is the person's VRChat profile
+as it stood after that change, and **Open in the person popup** opens them on their
+[History](/moderation/popups#profile-history) tab at that version. The words **VRChat profile** in
+the sentence do the same.
+
 The sources:
 
 | Source | Meaning |
@@ -106,7 +118,8 @@ The page shows 50 entries at a time. **Load more** at the bottom fetches the nex
 | Keys | Does |
 |---|---|
 | `j` / `k` | Move down and up the rows. |
-| `Enter` | Open the person or instance the selected row is about. |
+| `Enter` | Open or close the selected row. |
+| `o` | Open the person or instance the selected row is about. |
 | `f` | Add a filter. |
 | `g` then `a` | Open the audit log from any page. |
 | `Ctrl`+`K` (`⌘`+`K` on a Mac) | Search people, worlds and pages, and run actions. |
