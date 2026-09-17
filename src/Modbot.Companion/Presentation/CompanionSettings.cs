@@ -5,21 +5,25 @@ using System.Text.Json.Serialization;
 using Modbot.Companion.CloudBackup;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Pairing;
+using Modbot.Companion.Voice;
 
 namespace Modbot.Companion.Presentation;
 
 /// <summary>
 /// What a moderator can change about the client itself: which page "Pair with a server" opens,
-/// whether it checks for newer versions of itself, whether it starts with Windows, and where its
-/// event backup to Modbot Cloud goes.
+/// whether it checks for newer versions of itself, whether it starts with Windows, where its
+/// event backup to Modbot Cloud goes, and what its voice says.
 /// </summary>
 /// <remarks>
 /// <para><strong>What this reads and writes.</strong> One file, <c>settings.json</c>, in Modbot's own
 /// folder under your user profile — beside <c>pairings.json</c>. It is plain JSON with optional fields:
-/// <c>pairingPage</c>, <c>checkForUpdates</c>, <c>startWithWindows</c>, <c>vrchatLogFolder</c>, <c>overlay</c> and <c>cloud</c>
-/// (<c>{ "endpoint": "…", "disabled": true }</c>). If it is missing or unreadable the defaults are
+/// <c>pairingPage</c>, <c>checkForUpdates</c>, <c>startWithWindows</c>, <c>vrchatLogFolder</c>, <c>overlay</c>, <c>cloud</c>
+/// (<c>{ "endpoint": "…", "disabled": true }</c>) and <c>voice</c>
+/// (<c>{ "on": true, "joins": true, "leaves": true, "flaggedJoins": true, "volume": 80, "outputDevice": "…" }</c>).
+/// If it is missing or unreadable the defaults are
 /// used. The client writes it only when a switch on the settings screen is changed, and then changes
-/// only that switch's field, leaving anything else in the file as it was. The <c>cloud</c> object is
+/// only that switch's field — the whole <c>voice</c> object for the voice card — leaving anything
+/// else in the file as it was. The <c>cloud</c> object is
 /// never written by the client; the environment variables <c>MODBOT_CLOUD_ENDPOINT</c> and
 /// <c>MODBOT_CLOUD_DISABLED</c> are also read, and win over it (<see cref="CloudSettings"/>).</para>
 /// <para><strong>Nothing here leaves the machine.</strong> The pairing page address is what the client
@@ -54,6 +58,9 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     /// </summary>
     public CloudSettings Cloud { get; init; } = CloudSettings.Default;
 
+    /// <summary>The voice: off until turned on, then which events it speaks, how loud, and through what.</summary>
+    public VoiceSettings Voice { get; init; } = VoiceSettings.Default;
+
     /// <summary>
     /// Where the headset panel is and how big. Saved as the <c>overlay</c> object whenever a
     /// controller moves it or the settings page changes it, so it is where it was left.
@@ -71,6 +78,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string VRChatLogFolderField = "vrchatLogFolder";
 
     public const string OverlayField = "overlay";
+
+    public const string VoiceField = "voice";
 
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -99,6 +108,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             VRChatLogFolder = string.IsNullOrWhiteSpace(shape?.VRChatLogFolder) ? null : shape.VRChatLogFolder.Trim(),
             Cloud = CloudSettings.Resolve(shape?.Cloud?.Endpoint, shape?.Cloud?.Disabled, environment),
             Overlay = OverlayPlacement.FromJson(shape?.Overlay),
+            Voice = FromShape(shape?.Voice),
         };
     }
 
@@ -107,6 +117,39 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     {
         ArgumentNullException.ThrowIfNull(placement);
         return SaveField(path, OverlayField, placement.Clamped().ToJson());
+    }
+
+    private static VoiceSettings FromShape(VoiceShape? voice) => voice is null
+        ? VoiceSettings.Default
+        : new VoiceSettings(
+            voice.On ?? false,
+            voice.Joins ?? true,
+            voice.Leaves ?? true,
+            voice.FlaggedJoins ?? true,
+            VoiceSettings.ClampVolume(voice.Volume ?? VoiceSettings.DefaultVolume),
+            string.IsNullOrWhiteSpace(voice.OutputDevice) ? null : voice.OutputDevice.Trim());
+
+    /// <summary>
+    /// Writes the whole <c>voice</c> object, keeping every other field in the file. The same rules
+    /// as <see cref="SaveSwitch"/>: a file that cannot be read as JSON is left alone.
+    /// </summary>
+    public static bool SaveVoice(string path, VoiceSettings voice)
+    {
+        ArgumentNullException.ThrowIfNull(voice);
+
+        var shape = new JsonObject
+        {
+            ["on"] = voice.On,
+            ["joins"] = voice.Joins,
+            ["leaves"] = voice.Leaves,
+            ["flaggedJoins"] = voice.FlaggedJoins,
+            ["volume"] = VoiceSettings.ClampVolume(voice.Volume),
+        };
+
+        if (!string.IsNullOrWhiteSpace(voice.OutputDeviceId))
+            shape["outputDevice"] = voice.OutputDeviceId.Trim();
+
+        return SaveField(path, VoiceField, shape);
     }
 
     private static FileShape? ReadFile(string path)
@@ -196,9 +239,18 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("startWithWindows")] bool? StartWithWindows,
         [property: JsonPropertyName("vrchatLogFolder")] string? VRChatLogFolder,
         [property: JsonPropertyName("cloud")] CloudShape? Cloud,
-        [property: JsonPropertyName("overlay")] JsonObject? Overlay);
+        [property: JsonPropertyName("overlay")] JsonObject? Overlay,
+        [property: JsonPropertyName("voice")] VoiceShape? Voice);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,
         [property: JsonPropertyName("disabled")] bool? Disabled);
+
+    private sealed record VoiceShape(
+        [property: JsonPropertyName("on")] bool? On,
+        [property: JsonPropertyName("joins")] bool? Joins,
+        [property: JsonPropertyName("leaves")] bool? Leaves,
+        [property: JsonPropertyName("flaggedJoins")] bool? FlaggedJoins,
+        [property: JsonPropertyName("volume")] int? Volume,
+        [property: JsonPropertyName("outputDevice")] string? OutputDevice);
 }

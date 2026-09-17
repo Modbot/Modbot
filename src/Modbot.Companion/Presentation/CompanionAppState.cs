@@ -3,6 +3,7 @@ using Modbot.Companion.Journal;
 using Modbot.Companion.Pairing;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Startup;
+using Modbot.Companion.Voice;
 using Modbot.Core.Time;
 
 namespace Modbot.Companion.Presentation;
@@ -115,6 +116,7 @@ public sealed record OverlayStatus(
 /// </param>
 /// <param name="Overlay">The SteamVR overlay, for the SteamVR page.</param>
 /// <param name="DebugMode">Whether the companion was started with <c>MODBOT_DEBUG_MODE=1</c>, which adds the Debug page.</param>
+/// <param name="Voice">The voice, for the Settings page.</param>
 public sealed record CompanionAppSnapshot(
     IReadOnlyList<ServerRow> Servers,
     IReadOnlyList<JournalRow> Events,
@@ -130,10 +132,14 @@ public sealed record CompanionAppSnapshot(
     string LogFolder = "",
     string? LogFolderConfigured = null,
     OverlayStatus? Overlay = null,
-    bool DebugMode = false)
+    bool DebugMode = false,
+    VoiceStatus? Voice = null)
 {
     /// <summary>The overlay row, never null: <see cref="OverlayStatus.None"/> until the host has said.</summary>
     public OverlayStatus OverlayOrNone => Overlay ?? OverlayStatus.None;
+
+    /// <summary>The voice, never null: <see cref="VoiceStatus.None"/> until the host has said.</summary>
+    public VoiceStatus VoiceOrNone => Voice ?? VoiceStatus.None;
 
     public static CompanionAppSnapshot Empty { get; } =
         new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, [], null, CompanionSettings.DefaultPairingPage);
@@ -187,6 +193,9 @@ public sealed class CompanionAppState
     /// <summary>The SteamVR overlay as of the last render; set by the host that owns it.</summary>
     public OverlayStatus Overlay { get; set; } = OverlayStatus.None;
 
+    /// <summary>The voice as of the last render; set by the host that owns it.</summary>
+    public VoiceStatus Voice { get; set; } = VoiceStatus.None;
+
     /// <summary>Started with <c>MODBOT_DEBUG_MODE=1</c>: the window gets a Debug page.</summary>
     public bool DebugMode { get; set; }
 
@@ -236,7 +245,8 @@ public sealed class CompanionAppState
             LogFolder,
             Settings.VRChatLogFolder,
             Overlay,
-            DebugMode);
+            DebugMode,
+            Voice);
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)

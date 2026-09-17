@@ -15,6 +15,14 @@
     <!-- Installer hooks and the update check. Used from Updates.cs and nowhere else; the source
          guard holds that. -->
     <PackageReference Include="Velopack" />
+    <!-- The voice: text to speech in this process (Voice/SherpaVoice.cs), sound out on Windows
+         (Voice/WindowsVoiceOutput.cs) and on Linux (Voice/OpenAlVoiceOutput.cs). Nothing here
+         can record; the source guard holds that. -->
+    <PackageReference Include="org.k2fsa.sherpa.onnx" />
+    <PackageReference Include="NAudio.Wasapi" />
+    <PackageReference Include="Silk.NET.OpenAL" />
+    <PackageReference Include="Silk.NET.OpenAL.Extensions.Enumeration" />
+    <PackageReference Include="Silk.NET.OpenAL.Soft.Native" />
   </ItemGroup>
 
   <!-- Where an installed client looks for newer versions of itself. The release workflow passes
@@ -54,6 +62,8 @@
     <RootNamespace>Modbot.Companion.App</RootNamespace>
     <!-- The head-only mascot mark, as every Modbot surface shows it (.agent/specs/2026-09-16-brand-design.md). -->
     <ApplicationIcon>Assets\Modbot.ico</ApplicationIcon>
+    <!-- OpenAL names devices through raw pointers. Confined to Voice/OpenAlVoiceOutput.cs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -72,6 +82,8 @@
     <ItemGroup>
       <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$(RuntimeIdentifier.StartsWith('linux')) And '%(ResolvedFileToPublish.RelativePath)' == 'openvr_api.dll'" />
       <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$(RuntimeIdentifier.StartsWith('win')) And '%(ResolvedFileToPublish.RelativePath)' == 'libopenvr_api.so'" />
+      <!-- Windows speaks through WASAPI, so OpenAL Soft's Windows build is never loaded there. -->
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$(RuntimeIdentifier.StartsWith('win')) And '%(ResolvedFileToPublish.RelativePath)' == 'soft_oal.dll'" />
     </ItemGroup>
   </Target>
 

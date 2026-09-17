@@ -6,11 +6,12 @@ notices those terms ask for.
 
 Library code pulled in as NuGet packages (Avalonia, SkiaSharp, HarfBuzzSharp, Vortice, Serilog,
 Velopack, and the .NET runtime itself) carries its licence inside each package; all of them are
-MIT-licensed, and the notices are in the packages' own `LICENSE` files. The one exception is
+MIT-licensed, and the notices are in the packages' own `LICENSE` files. The exceptions are
 `LanguageDetection.Ai`, the offline language detector the server uses to mark the language on a
-moderation flag: it is Apache-2.0, a port of Nakatani Shuyo's `language-detection`, and its notice
-is in its own package. The one thing copied into this repository as a binary is listed in full
-below.
+moderation flag — Apache-2.0, a port of Nakatani Shuyo's `language-detection`, with its notice in
+its own package — and the packages behind the companion's voice, listed in their own section
+below because two of them are not MIT-licensed. The one thing copied into this repository as a
+binary is listed in full below.
 
 ## OpenVR (`openvr_api.dll`)
 
@@ -54,6 +55,35 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 "SteamVR" and "OpenVR" are trademarks of Valve Corporation. Modbot is not affiliated with or
 endorsed by Valve.
+
+## The companion's voice
+
+The companion can say what it sees out loud. The pieces that make that work come from NuGet and
+are not copied into this repository, but two of them are not MIT-licensed and one of them is
+fetched at run time, so they are listed here.
+
+| What | Package | Licence | Notes |
+|---|---|---|---|
+| Text to speech engine | `org.k2fsa.sherpa.onnx` 1.13.8 and its native package for each platform | Apache-2.0 | Its native library statically links ONNX Runtime (MIT), piper-phonemize (MIT) and **espeak-ng (GPL-3.0-or-later)**, which turns words into sounds. GPL-3.0 code inside an AGPL-3.0 program is permitted by both licences. |
+| Windows sound output | `NAudio.Wasapi` 3.1.0 (with `NAudio.Core`) | MIT | Playback only; the client references nothing that records. |
+| Linux sound output | `Silk.NET.OpenAL` 2.23.0, `Silk.NET.OpenAL.Extensions.Enumeration` 2.23.0 | MIT | The binding. |
+| Linux sound output | `Silk.NET.OpenAL.Soft.Native` 1.23.1 | **LGPL-2.0-or-later** | OpenAL Soft (`libopenal.so`), shipped beside the companion and loaded as a shared library, which is the use the LGPL permits without conditions on Modbot's own code. Its source is at <https://github.com/kcat/openal-soft>. |
+| Unpacking the voice | `SharpZipLib` 1.4.2 | MIT | Reads the bzip2 layer of the downloaded archive. |
+
+**The voice itself is not shipped.** It is downloaded once, when a moderator first turns the voice
+on, from one pinned address — the sherpa-onnx project's `tts-models` release on GitHub — and
+checked against a pinned SHA-256 before it is used (`src/Modbot.Companion/Voice/VoiceModel.cs`):
+
+```
+https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-kristin-medium.tar.bz2
+67,259,230 bytes, SHA-256 c2206f572df2956c50b1ae3367eebce3853c663e890cba8048cd62b1e4dbe6c7
+```
+
+That archive holds the Piper voice `en_US-kristin-medium` (model weights MIT, from
+<https://github.com/rhasspy/piper>; the voice was trained from scratch on public-domain LibriVox
+recordings, per its model card) and a copy of espeak-ng's language data (GPL-3.0-or-later, from
+<https://github.com/espeak-ng/espeak-ng>). Both sit in `%APPDATA%\Modbot\voices` on the
+moderator's PC and are never redistributed by Modbot.
 
 ## Fonts
 

@@ -38,6 +38,12 @@ public sealed class CompanionEngine
     private readonly IModbotClock _clock;
     private readonly IObservationSink? _backup;
 
+    /// <summary>
+    /// The voice, when there is one. It hears every observation the backup hears and says only
+    /// what it is set to say; it sends nothing anywhere.
+    /// </summary>
+    private readonly IObservationSink? _voice;
+
     /// <summary>Where an observation in a group nobody manages is written down as seen, when there is one.</summary>
     private readonly SentJournal? _journal;
     private readonly Dictionary<string, DateTimeOffset> _lastClockCheck = new(StringComparer.Ordinal);
@@ -51,10 +57,12 @@ public sealed class CompanionEngine
         IEnumerable<ServerConnection>? connections = null,
         IServerTimeProbe? timeProbe = null,
         IObservationSink? backup = null,
-        SentJournal? journal = null)
+        SentJournal? journal = null,
+        IObservationSink? voice = null)
     {
         _observer = observer;
         _backup = backup;
+        _voice = voice;
         _journal = journal;
         _clock = clock;
         _timeProbe = timeProbe;
@@ -83,6 +91,9 @@ public sealed class CompanionEngine
     /// reporting half already made, read a second time by a different consumer.</para>
     /// </remarks>
     public InstanceLocation? CurrentInstance => _observer.CurrentInstance;
+
+    /// <summary>The moderator's own VRChat id as the log last said, or null while unknown. See <see cref="PresenceObserver.ModeratorId"/>.</summary>
+    public string? ModeratorId => _observer.ModeratorId;
 
     public void Add(ServerConnection connection)
     {
@@ -113,6 +124,7 @@ public sealed class CompanionEngine
         // instance it is in, and whether or not anything is paired; the servers below hear only about
         // their own group's. Offer only queues, so it costs this turn nothing.
         _backup?.Offer(observations);
+        _voice?.Offer(observations);
 
         // What no server hears about still goes on the Events screen, without a group: the
         // moderator can see the companion saw it, and see that it went nowhere.

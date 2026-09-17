@@ -17,6 +17,23 @@ namespace Modbot.Overlay.Driving;
 public readonly record struct OverlayTick(bool Drew, bool ContextRefreshed, bool AlertShown);
 
 /// <summary>
+/// Told the two things the loop learns that somebody other than the panel wants to hear: the
+/// companion's voice, today.
+/// </summary>
+/// <remarks>
+/// Told after the loop has decided, so a listener hears exactly what the panel shows — an alert
+/// the loop dropped as not this room, or as a repeat, is not passed on either.
+/// </remarks>
+public interface IOverlayListener
+{
+    /// <summary>A flagged-join alert became a card.</summary>
+    void AlertShown(FlaggedJoinAlert alert);
+
+    /// <summary>A server rejected this device's token; reads from it have stopped.</summary>
+    void TokenRejected(string label);
+}
+
+/// <summary>
 /// The loop that makes the overlay run: poll one server's roster, wait on its alerts, and push a
 /// screen only when the screen would look different.
 /// </summary>
@@ -71,6 +88,7 @@ public sealed class OverlayDriver : IDisposable
     private readonly IOverlayPresenter _presenter;
     private readonly IOverlayReadClient _reads;
     private readonly IModbotClock _clock;
+    private readonly IOverlayListener? _listener;
     private readonly List<Server> _servers = [];
     private readonly Dictionary<string, DateTimeOffset> _lastAlerted = new(StringComparer.Ordinal);
 
@@ -83,13 +101,15 @@ public sealed class OverlayDriver : IDisposable
     private string? _personWanted;
     private int _rosterSkip;
 
-    public OverlayDriver(IOverlayPresenter presenter, IOverlayReadClient reads, IModbotClock clock)
+    /// <param name="listener">Told when an alert becomes a card and when a server rejects the token. Optional.</param>
+    public OverlayDriver(IOverlayPresenter presenter, IOverlayReadClient reads, IModbotClock clock, IOverlayListener? listener = null)
     {
         ArgumentNullException.ThrowIfNull(presenter);
 
         _presenter = presenter;
         _reads = reads;
         _clock = clock;
+        _listener = listener;
     }
 
     /// <summary>Adds a paired server the overlay may speak for.</summary>
@@ -301,7 +321,7 @@ public sealed class OverlayDriver : IDisposable
             case ReadOutcome.Unauthorised:
                 // Terminal for this pairing. Surfaced on the overlay, and not retried: a revoked
                 // moderator's client must stop, and be seen to stop.
-                server.TokenRejected = true;
+                RejectToken(server);
                 break;
 
             default:
@@ -367,7 +387,7 @@ public sealed class OverlayDriver : IDisposable
     {
         if (poll.Outcome is AlertPollOutcome.Unauthorised)
         {
-            server.TokenRejected = true;
+            RejectToken(server);
             return false;
         }
 
@@ -389,7 +409,18 @@ public sealed class OverlayDriver : IDisposable
         _lastAlerted[alert.SubjectId] = _clock.UtcNow;
         _showing = alert;
         _showingSince = _clock.UtcNow;
+        _listener?.AlertShown(alert);
         return true;
+    }
+
+    /// <summary>Sticky, and told once: the same rejection reaching both reads does not say it twice.</summary>
+    private void RejectToken(Server server)
+    {
+        if (server.TokenRejected)
+            return;
+
+        server.TokenRejected = true;
+        _listener?.TokenRejected(server.Label);
     }
 
     private void ExpireAlert()

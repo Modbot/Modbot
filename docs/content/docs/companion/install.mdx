@@ -119,7 +119,7 @@ The window has five pages:
 | **Events** | Every event the client has handled, newest first — one line each, with where it went (the paired server, Modbot Cloud, both or neither) and whether it was **sent**, **waiting**, **withheld** or **failed** there. Events held back, for example while paused, are listed too, along with notes such as "Paused" or "Resumed reporting". It shows the latest 200 events and keeps 1,500 lines on disk. |
 | **SteamVR** | Whether the [overlay](/companion/overlay) is attached to SteamVR, what it is showing, how many frames it has drawn, and where the panel sits. **Look for SteamVR now** attaches without waiting for the next ten-second look. |
 | **Log** | What the client makes of VRChat's log: **lines seen**, **lines Modbot looks at** and **recognised**. You can open the same file in Notepad and check the counts. |
-| **Settings** | The client's switches. See [Client settings](/companion/settings). |
+| **Settings** | The client's switches, the voice and the VRChat log folder. See [Client settings](/companion/settings). |
 
 The line at the bottom of the sidebar says **reading VRChat's log**, **VRChat not running**, or
 **log not recognised**.
@@ -224,6 +224,8 @@ client's settings file or with environment variables, is on
   version, and downloads it if so. The request does not identify you or your install.
 - **Pairing.** Pressing **Pair with a server** opens a page in your browser. The client itself only
   contacts the server named in the pairing link. See [Pairing](/companion/pairing).
+- **The voice.** The first time the voice is turned on, the client downloads the voice once from
+  GitHub, with nothing attached. See [Voice](/companion/settings#voice) for the exact file.
 
 The client does not upload its own log file anywhere.
 
@@ -262,6 +264,7 @@ checks for updates.
 | The client's own log, one file a day, last seven kept | `%APPDATA%\Modbot\logs` (`companion-YYYYMMDD.log`) |
 | Events waiting to go to Modbot Cloud (up to 20 MB) | `%APPDATA%\Modbot\cloud` |
 | The client's Modbot Cloud install id (secret encrypted) | `%APPDATA%\Modbot\cloud-installs.json` |
+| The downloaded [voice](/companion/settings#voice) (about 80 MB), only once the voice has been turned on | `%APPDATA%\Modbot\voices` |
 
 On Linux the program is the AppImage, wherever you put it, and everything else is under
 `~/.config/Modbot` with the same names. Tokens there are encrypted with a key in
