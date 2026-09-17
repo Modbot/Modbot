@@ -34,6 +34,8 @@ public sealed record PairRequest(
 public sealed record PairResponse(
     [property: JsonPropertyName("deviceToken")] string DeviceToken,
     [property: JsonPropertyName("managedGroupId")] string ManagedGroupId,
+    [property: JsonPropertyName("managedGroupName")] string ManagedGroupName,
+    [property: JsonPropertyName("managedGroupIconUrl")] string? ManagedGroupIconUrl,
     [property: JsonPropertyName("serverTime")] DateTimeOffset ServerTime);
 
 /// <summary>
@@ -99,7 +101,15 @@ public static class PairHandler
                 clock.UtcNow),
             ct);
 
-        return Results.Ok(new PairResponse(token, managedGroupId, clock.UtcNow));
+        // The group's name and icon, so the companion can show the moderator which community
+        // this server is rather than its address. Both come from what VRChat last said about the
+        // group; the id is still what decides which events this server hears.
+        return Results.Ok(new PairResponse(
+            token,
+            managedGroupId,
+            settings.ManagedGroupName ?? managedGroupId,
+            settings.ManagedGroupIconUrl,
+            clock.UtcNow));
     }
 
     /// <summary>

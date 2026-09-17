@@ -12,10 +12,14 @@ namespace Modbot.Companion.Presentation;
 /// A plain sentence for the moderator. Not a status code, not a stack trace: this window exists
 /// for somebody deciding whether to keep trusting the program.
 /// </param>
+/// <param name="GroupName">The group's name, or its id until the server has said.</param>
+/// <param name="GroupIconUrl">The group's icon, or null.</param>
 public sealed record ServerRow(
     string ServerId,
     string Address,
     string ManagedGroupId,
+    string GroupName,
+    string? GroupIconUrl,
     ConnectionState State,
     bool IsPaused,
     int Pending,
@@ -274,6 +278,8 @@ public sealed class CompanionAppState
         connection.ServerId,
         connection.Pairing.BaseUri.ToString(),
         connection.ManagedGroupId,
+        connection.Pairing.GroupLabel,
+        connection.Pairing.ManagedGroupIconUrl,
         connection.State,
         connection.IsPaused,
         connection.Pending,

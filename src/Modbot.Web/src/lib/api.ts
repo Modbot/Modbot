@@ -79,7 +79,7 @@ export type OnboardingStatus = {
     proxyUsername: string | null
     proxyPasswordStored: boolean
   }
-  group: { id: string; name: string } | null
+  group: { id: string; name: string; iconUrl: string | null; bannerUrl: string | null } | null
   integrations: {
     discordConfigured: boolean
     discordGuildId: string | null

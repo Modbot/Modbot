@@ -318,7 +318,7 @@ function Shell({
         // `go` rather than `navigate`: the hash names the card to open, and only `go` wakes the
         // page already on screen when nothing but the hash changed.
         onOpenHealth={(section: StatusRowId) => go(`${PATHS.health}#${section}`)}
-        groupName={status.group?.name}
+        group={status.group}
         badges={{ reviews: openReviews }}
       />
       <main className="flex flex-col overflow-auto">

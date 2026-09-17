@@ -54,6 +54,7 @@ public class PairingTests
         // The group comes back so the client can route locally and never has to ask a server
         // which group an instance belongs to -- asking is itself the cross-group leak.
         Assert.Equal(Group, paired.ManagedGroupId);
+        Assert.False(string.IsNullOrWhiteSpace(paired.ManagedGroupName));
         Assert.Equal(host.Clock.UtcNow, paired.ServerTime);
     }
 

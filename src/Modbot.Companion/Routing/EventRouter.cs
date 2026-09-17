@@ -81,14 +81,25 @@ public sealed class EventRouter
         return told;
     }
 
-    /// <summary>Dispatches a whole poll's worth and reports how many observations went nowhere.</summary>
-    public int DispatchAll(IEnumerable<ObservedPresence> observations)
+    /// <summary>
+    /// Dispatches a whole poll's worth and reports how many observations went nowhere.
+    /// </summary>
+    /// <param name="unmatched">
+    /// Collects the observations that were in a group's instance and had no server to go to.
+    /// Observations outside any group are counted as dropped but never collected: they are the
+    /// moderator's own VRChat use, and nothing holds them.
+    /// </param>
+    public int DispatchAll(IEnumerable<ObservedPresence> observations, ICollection<ObservedPresence>? unmatched = null)
     {
         var dropped = 0;
         foreach (var observation in observations)
         {
-            if (Dispatch(observation) == 0)
-                dropped++;
+            if (Dispatch(observation) != 0)
+                continue;
+
+            dropped++;
+            if (observation.Instance.GroupId is not null)
+                unmatched?.Add(observation);
         }
 
         return dropped;

@@ -32,7 +32,7 @@ public static class StatusHandler
             settings.ProxyPasswordEncrypted is not null);
 
         var group = settings.ManagedGroupId is { Length: > 0 } id
-            ? new ManagedGroupStatus(id, settings.ManagedGroupName ?? id)
+            ? new ManagedGroupStatus(id, settings.ManagedGroupName ?? id, settings.ManagedGroupIconUrl, settings.ManagedGroupBannerUrl)
             : null;
 
         // Optional: a host that maps the API without describing its deployment simply has no

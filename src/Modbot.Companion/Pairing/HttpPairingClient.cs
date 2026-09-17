@@ -122,7 +122,11 @@ public sealed class HttpPairingClient : IPairingClient
                 attempt.BaseUri,
                 parsed.DeviceToken,
                 parsed.ManagedGroupId,
-                apiVersion);
+                apiVersion)
+            {
+                ManagedGroupName = string.IsNullOrWhiteSpace(parsed.ManagedGroupName) ? null : parsed.ManagedGroupName.Trim(),
+                ManagedGroupIconUrl = string.IsNullOrWhiteSpace(parsed.ManagedGroupIconUrl) ? null : parsed.ManagedGroupIconUrl.Trim(),
+            };
 
             return new PairingResult(PairingOutcome.Paired, pairing, parsed.ServerTime);
         }
@@ -229,6 +233,8 @@ public sealed class HttpPairingClient : IPairingClient
     private sealed record PairResponseBody(
         [property: JsonPropertyName("deviceToken")] string DeviceToken,
         [property: JsonPropertyName("managedGroupId")] string ManagedGroupId,
+        [property: JsonPropertyName("managedGroupName")] string? ManagedGroupName,
+        [property: JsonPropertyName("managedGroupIconUrl")] string? ManagedGroupIconUrl,
         [property: JsonPropertyName("serverTime")] DateTimeOffset? ServerTime);
 
     private sealed record VersionBody(

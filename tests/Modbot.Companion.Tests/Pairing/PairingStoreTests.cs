@@ -285,7 +285,7 @@ public class PairingStoreTests : IDisposable
         var fields = document.RootElement[0].EnumerateObject().Select(p => p.Name).Order().ToList();
 
         Assert.Equal(
-            ["apiVersion", "baseUri", "deviceTokenProtected", "managedGroupId", "serverId"],
+            ["apiVersion", "baseUri", "deviceTokenProtected", "managedGroupIconUrl", "managedGroupId", "managedGroupName", "serverId"],
             fields);
     }
 }

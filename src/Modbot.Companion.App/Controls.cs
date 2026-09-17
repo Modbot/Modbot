@@ -59,7 +59,7 @@ internal static class Ui
         LetterSpacing = 0.6,
     };
 
-    internal static Border Card(Control child, string? title = null, Control? action = null)
+    internal static Border Card(Control child, string? title = null, Control? action = null, Control? picture = null)
     {
         var body = new StackPanel { Spacing = 0 };
 
@@ -67,6 +67,15 @@ internal static class Ui
         {
             var head = new DockPanel { LastChildFill = false };
             var heading = Text(title, T.Density.TextBase, T.TextBrush, FontWeight.SemiBold, wrap: false);
+            heading.VerticalAlignment = VerticalAlignment.Center;
+
+            if (picture is not null)
+            {
+                picture.Margin = new Thickness(0, 0, 10, 0);
+                DockPanel.SetDock(picture, Dock.Left);
+                head.Children.Add(picture);
+            }
+
             DockPanel.SetDock(heading, Dock.Left);
             head.Children.Add(heading);
 
@@ -97,6 +106,17 @@ internal static class Ui
             Child = body,
         };
     }
+
+    /// <summary>A picture in a rounded square, the way the web app shows a group's icon.</summary>
+    internal static Control Picture(Avalonia.Media.Imaging.Bitmap bitmap, double size) => new Border
+    {
+        Width = size,
+        Height = size,
+        CornerRadius = new CornerRadius(size / 4),
+        ClipToBounds = true,
+        VerticalAlignment = VerticalAlignment.Center,
+        Child = new Image { Source = bitmap, Stretch = Stretch.UniformToFill },
+    };
 
     /// <summary>
     /// A status pill: a dot, then a word.

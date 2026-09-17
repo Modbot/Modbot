@@ -55,6 +55,15 @@ public sealed record ServerPairing
     /// </summary>
     public string ManagedGroupId { get; }
 
+    /// <summary>The group's name as the server gave it at pairing, or null for a pairing made before servers said.</summary>
+    public string? ManagedGroupName { get; init; }
+
+    /// <summary>The group's icon, as the server gave it at pairing, or null.</summary>
+    public string? ManagedGroupIconUrl { get; init; }
+
+    /// <summary>What to call this server on a screen: the group's name, or its id until a name is known.</summary>
+    public string GroupLabel => string.IsNullOrWhiteSpace(ManagedGroupName) ? ManagedGroupId : ManagedGroupName;
+
     /// <summary>Negotiated once, at pairing. A property of the pairing, not of each request.</summary>
     public int ApiVersion { get; init; }
 

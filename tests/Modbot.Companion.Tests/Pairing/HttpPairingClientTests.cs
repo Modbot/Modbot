@@ -37,7 +37,7 @@ public class HttpPairingClientTests
     private const string GoodVersion = """{"version":"2026.9.0","apiVersion":1,"apiVersionMinimum":1}""";
 
     private const string GoodPair =
-        """{"deviceToken":"dev_abcdef","managedGroupId":"grp_cats","serverTime":"2026-09-12T20:14:07.412+00:00"}""";
+        """{"deviceToken":"dev_abcdef","managedGroupId":"grp_cats","managedGroupName":"Cats 18+","managedGroupIconUrl":"https://pictures.example/cats.png","serverTime":"2026-09-12T20:14:07.412+00:00"}""";
 
     private static async Task<(PairingResult Result, ScriptedHandler Handler)> PairAsync(
         Func<HttpRequestMessage, HttpResponseMessage> respond,
@@ -71,6 +71,9 @@ public class HttpPairingClientTests
         // The group comes back at pairing precisely so routing can be decided on this machine.
         // Asking a server "do you own this instance?" is itself the leak routing exists to stop.
         Assert.Equal("grp_cats", result.Pairing.ManagedGroupId);
+        Assert.Equal("Cats 18+", result.Pairing.ManagedGroupName);
+        Assert.Equal("https://pictures.example/cats.png", result.Pairing.ManagedGroupIconUrl);
+        Assert.Equal("Cats 18+", result.Pairing.GroupLabel);
         Assert.Equal(new DateTimeOffset(2026, 9, 12, 20, 14, 7, 412, TimeSpan.Zero), result.ServerTime);
         Assert.Equal("https://modbot.example/api/v1/companion/pair", handler.Requests[^1].RequestUri!.ToString());
     }

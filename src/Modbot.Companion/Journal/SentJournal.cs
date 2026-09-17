@@ -33,6 +33,14 @@ public enum JournalEntryKind
 
     /// <summary>One event a destination refused for good. It was dropped, not retried.</summary>
     Failed,
+
+    /// <summary>
+    /// Seen in a group's instance that no paired server manages, and sent to no server. On the
+    /// screen so the moderator can see the companion noticed it; on disk so the screen survives
+    /// a restart. The moderator's own private, friends-only and public instances never get a
+    /// line, because those are never observed at all (M3 2.3).
+    /// </summary>
+    Seen,
 }
 
 /// <summary>Where an event this client processed was headed.</summary>
@@ -87,15 +95,17 @@ public sealed record JournalEntry(
 /// </param>
 /// <param name="ServerState">What the paired server did with it, or null when it was never for one.</param>
 /// <param name="CloudState">What Modbot Cloud did with it, or null when the backup is off.</param>
+/// <param name="Seen">Observed in a group no paired server manages, so it went to no server.</param>
 public sealed record JournalRow(
     DateTimeOffset At,
     string Summary,
     string? ServerId,
     JournalEntryKind? ServerState,
-    JournalEntryKind? CloudState)
+    JournalEntryKind? CloudState,
+    bool Seen = false)
 {
     /// <summary>A line that explains a gap rather than describing an event: paused, resumed, stopped.</summary>
-    public bool IsNote => ServerState is null && CloudState is null;
+    public bool IsNote => !Seen && ServerState is null && CloudState is null;
 }
 
 /// <summary>
@@ -299,6 +309,22 @@ public sealed class SentJournal
             JournalDestination.Server)]);
     }
 
+    /// <summary>
+    /// Records an observation in a group no paired server manages. Nothing is sent for it; the
+    /// line exists so the screen shows what the companion saw, group or no group.
+    /// </summary>
+    public void RecordSeen(ObservedPresence observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+
+        Append([new JournalEntry(
+            _clock.UtcNow,
+            JournalEntryKind.Seen,
+            string.Empty,
+            Describe(observation),
+            KeyFor(observation))]);
+    }
+
     /// <summary>Records a state change worth seeing beside the events.</summary>
     public void RecordNote(string serverId, string note)
         => Append([new JournalEntry(_clock.UtcNow, JournalEntryKind.Note, serverId, note)]);
@@ -327,26 +353,45 @@ public sealed class SentJournal
         ArgumentNullException.ThrowIfNull(companionEvent);
 
         var who = companionEvent.Data.TryGetValue("displayName", out var name) && name.Length > 0
-            ? $"{name} ({companionEvent.SubjectId})"
+            ? name
             : companionEvent.SubjectId;
 
-        var where = $"{companionEvent.WorldId}:{companionEvent.InstanceId}";
-        var when = companionEvent.OccurredAt.ToString("HH:mm:ss");
+        var avatar = companionEvent.Data.TryGetValue("avatarName", out var named) && named.Length > 0 ? named : null;
 
-        return companionEvent.Type switch
+        return Sentence(companionEvent.Type switch
         {
-            CompanionEventType.InstanceJoined => $"{when} — told them {who} joined {where}",
-            CompanionEventType.InstancePresenceObserved =>
-                $"{when} — told them {who} was already in {where} when you arrived",
-            CompanionEventType.InstanceLeft => $"{when} — told them {who} left {where}",
-            CompanionEventType.LogStopped => $"{when} — told them VRChat's log stopped while you were in {where}",
-            CompanionEventType.AvatarChanged =>
-                companionEvent.Data.TryGetValue("avatarName", out var avatar) && avatar.Length > 0
-                    ? $"{when} — told them {who} switched to the avatar “{avatar}”"
-                    : $"{when} — told them {who} changed avatar",
-            _ => $"{when} — told them about {who} in {where}",
-        };
+            CompanionEventType.InstanceJoined => PresenceKind.Joined,
+            CompanionEventType.InstancePresenceObserved => PresenceKind.PresenceObserved,
+            CompanionEventType.InstanceLeft => PresenceKind.Left,
+            CompanionEventType.LogStopped => PresenceKind.LogStopped,
+            CompanionEventType.AvatarChanged => PresenceKind.AvatarChanged,
+            _ => (PresenceKind?)null,
+        }, who, avatar);
     }
+
+    /// <summary>The same sentence for an observation that was sent nowhere.</summary>
+    public static string Describe(ObservedPresence observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+
+        var who = string.IsNullOrWhiteSpace(observation.DisplayName) ? observation.SubjectId : observation.DisplayName;
+        return Sentence(observation.Kind, who, observation.AvatarName);
+    }
+
+    /// <summary>
+    /// The words: who, and what they did in the moderator's world. The time and the group the
+    /// event went to are shown beside the sentence rather than inside it, so a row reads the same
+    /// whether it went to one server, to Modbot Cloud only, or nowhere.
+    /// </summary>
+    private static string Sentence(PresenceKind? kind, string who, string? avatar) => kind switch
+    {
+        PresenceKind.Joined => $"{who} joined your world",
+        PresenceKind.PresenceObserved => $"{who} was already in your world when you arrived",
+        PresenceKind.Left => $"{who} left your world",
+        PresenceKind.LogStopped => "VRChat's log stopped while you were in this world",
+        PresenceKind.AvatarChanged => avatar is null ? $"{who} changed avatar" : $"{who} switched to the avatar “{avatar}”",
+        _ => $"{who} was in your world",
+    };
 
     private void RecordOutcome(
         string serverId,
@@ -487,12 +532,24 @@ public sealed class SentJournal
         private JournalEntryKind? _serverState;
         private JournalEntryKind? _cloudState;
 
+        private bool _seen;
+
         public void Add(JournalEntry entry)
         {
             if (entry.Kind is JournalEntryKind.Note)
             {
                 _summary = entry.Summary;
                 _serverId = entry.ServerId;
+                return;
+            }
+
+            // Seen and sent nowhere: the sentence, and no destination to report on. If Modbot
+            // Cloud also took it, its own line joins this row by the same key.
+            if (entry.Kind is JournalEntryKind.Seen)
+            {
+                _seen = true;
+                if (_summary.Length == 0)
+                    _summary = entry.Summary;
                 return;
             }
 
@@ -522,6 +579,6 @@ public sealed class SentJournal
             }
         }
 
-        public JournalRow ToRow() => new(at, _summary, _serverId, _serverState, _cloudState);
+        public JournalRow ToRow() => new(at, _summary, _serverId, _serverState, _cloudState, _seen);
     }
 }

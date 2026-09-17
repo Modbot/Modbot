@@ -209,6 +209,7 @@ internal sealed class CompanionHost
         // sockets under any real traffic, and this one is also the single place pairing requests
         // leave from.
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        Window.Pictures = new GroupPictures(_http, Render);
         _pairing = new PairingCoordinator(new HttpPairingClient(_http), store);
         _transport = new HttpIngestTransport(_http);
 
@@ -368,7 +369,7 @@ internal sealed class CompanionHost
         Log.Information("Watching VRChat's log folder {Directory}", folder);
 
         var observer = new PresenceObserver(_tail, _clock);
-        _engine = new CompanionEngine(observer, _clock, timeProbe: new HttpServerTimeProbe(_http!, _clock), backup: _cloudBackup);
+        _engine = new CompanionEngine(observer, _clock, timeProbe: new HttpServerTimeProbe(_http!, _clock), backup: _cloudBackup, journal: _journal);
 
         _engineLoop.Tick += async (_, _) => await CrashGuard.RunAsync("reading VRChat's log", EngineTickAsync);
         _engineLoop.Start();

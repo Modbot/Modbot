@@ -1,4 +1,5 @@
 using Modbot.Companion.CloudBackup;
+using Modbot.Companion.Journal;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
 using Modbot.Companion.Routing;
@@ -36,6 +37,9 @@ public sealed class CompanionEngine
     private readonly IServerTimeProbe? _timeProbe;
     private readonly IModbotClock _clock;
     private readonly IObservationSink? _backup;
+
+    /// <summary>Where an observation in a group nobody manages is written down as seen, when there is one.</summary>
+    private readonly SentJournal? _journal;
     private readonly Dictionary<string, DateTimeOffset> _lastClockCheck = new(StringComparer.Ordinal);
 
     /// <summary>How often each server's clock offset is re-measured. Not per batch.</summary>
@@ -46,10 +50,12 @@ public sealed class CompanionEngine
         IModbotClock clock,
         IEnumerable<ServerConnection>? connections = null,
         IServerTimeProbe? timeProbe = null,
-        IObservationSink? backup = null)
+        IObservationSink? backup = null,
+        SentJournal? journal = null)
     {
         _observer = observer;
         _backup = backup;
+        _journal = journal;
         _clock = clock;
         _timeProbe = timeProbe;
         _router = new EventRouter();
@@ -107,7 +113,13 @@ public sealed class CompanionEngine
         // instance it is in, and whether or not anything is paired; the servers below hear only about
         // their own group's. Offer only queues, so it costs this turn nothing.
         _backup?.Offer(observations);
-        var dropped = _router.DispatchAll(observations);
+
+        // What no server hears about still goes on the Events screen, without a group: the
+        // moderator can see the companion saw it, and see that it went nowhere.
+        var unmatched = _journal is null ? null : new List<ObservedPresence>();
+        var dropped = _router.DispatchAll(observations, unmatched);
+        foreach (var observation in unmatched ?? [])
+            _journal!.RecordSeen(observation);
 
         var sent = 0;
         foreach (var connection in Connections)

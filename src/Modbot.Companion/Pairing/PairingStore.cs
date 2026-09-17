@@ -310,6 +310,8 @@ public sealed class DpapiPairingStore : IPairingStore
             pairing.ServerId,
             pairing.BaseUri.ToString(),
             pairing.ManagedGroupId,
+            pairing.ManagedGroupName,
+            pairing.ManagedGroupIconUrl,
             pairing.ApiVersion,
             Convert.ToBase64String(_protector.Protect(Encoding.UTF8.GetBytes(pairing.DeviceToken)))));
 
@@ -348,7 +350,11 @@ public sealed class DpapiPairingStore : IPairingStore
                     new Uri(entry.BaseUri, UriKind.Absolute),
                     token,
                     entry.ManagedGroupId,
-                    entry.ApiVersion));
+                    entry.ApiVersion)
+                {
+                    ManagedGroupName = entry.ManagedGroupName,
+                    ManagedGroupIconUrl = entry.ManagedGroupIconUrl,
+                });
         }
         catch (Exception ex) when (ex is UriFormatException or ArgumentException)
         {
@@ -387,6 +393,8 @@ public sealed class DpapiPairingStore : IPairingStore
         [property: JsonPropertyName("serverId")] string ServerId,
         [property: JsonPropertyName("baseUri")] string BaseUri,
         [property: JsonPropertyName("managedGroupId")] string ManagedGroupId,
+        [property: JsonPropertyName("managedGroupName")] string? ManagedGroupName,
+        [property: JsonPropertyName("managedGroupIconUrl")] string? ManagedGroupIconUrl,
         [property: JsonPropertyName("apiVersion")] int ApiVersion,
         [property: JsonPropertyName("deviceTokenProtected")] string DeviceToken);
 }

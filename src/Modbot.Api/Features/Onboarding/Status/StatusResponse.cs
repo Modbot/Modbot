@@ -54,7 +54,9 @@ public sealed record VRChatAccountStatus(
 public sealed record ConnectionStatus(
     DateTimeOffset? CheckedAt, string? ProxyUrl, string? ProxyUsername, bool ProxyPasswordStored);
 
-public sealed record ManagedGroupStatus(string Id, string Name);
+/// <param name="IconUrl">The group's icon, as VRChat last showed it, or null.</param>
+/// <param name="BannerUrl">The group's banner, or null.</param>
+public sealed record ManagedGroupStatus(string Id, string Name, string? IconUrl = null, string? BannerUrl = null);
 
 /// <param name="DiscordConfigured">Whether a bot token is stored. The token itself never leaves.</param>
 /// <param name="DiscordInstanceChannelId">The channel open instances are announced in, or null.</param>

@@ -44,6 +44,12 @@ public sealed class MainWindow : Window
 {
     private readonly StackPanel _body = new() { Spacing = 14 };
     private readonly StackPanel _nav = new() { Spacing = 2 };
+
+    // The top of the sidebar is the group this companion reports to, like the web app's; Modbot's
+    // own mark moves to the foot. Both are rebuilt from the snapshot, because the group's name and
+    // picture arrive with pairing and the picture arrives a moment after that.
+    private readonly StackPanel _identity = new() { Spacing = 8, Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 20) };
+    private readonly StackPanel _brandFoot = new() { Spacing = 8, Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
     private readonly TextBlock _healthLine;
     private readonly Ellipse _healthDot;
 
@@ -59,6 +65,9 @@ public sealed class MainWindow : Window
     private readonly CheckBox _startupBox;
     private readonly TextBox _logFolderBox;
     private bool _renderingSwitches;
+
+    /// <summary>Set by the host once it has an HTTP client; null until then and pictures simply wait.</summary>
+    internal GroupPictures? Pictures { get; set; }
 
     private Page _page = Page.Servers;
     private CompanionAppSnapshot _snapshot = CompanionAppSnapshot.Empty;
@@ -113,6 +122,7 @@ public sealed class MainWindow : Window
         _snapshot = snapshot;
         _actions = actions;
 
+        RenderIdentity();
         RenderHealth();
         RenderNav();
         RenderPage();
@@ -120,26 +130,6 @@ public sealed class MainWindow : Window
 
     private Control Sidebar()
     {
-        var brand = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Margin = new Thickness(0, 0, 0, 20),
-            Children =
-            {
-                Brand.Mark(22),
-                new StackPanel
-                {
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Children =
-                    {
-                        Brand.Wordmark(Ui.Text("Modbot", Ui.T.Density.TextBase + 1, Ui.T.TextBrush, FontWeight.Normal, wrap: false)),
-                        Ui.Faint("companion"),
-                    },
-                },
-            },
-        };
-
         var health = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -149,9 +139,10 @@ public sealed class MainWindow : Window
         };
 
         var panel = new DockPanel();
-        panel.Children.Add(Dock(brand, Avalonia.Controls.Dock.Top));
+        panel.Children.Add(Dock(_identity, Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(_nav, Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(health, Avalonia.Controls.Dock.Bottom));
+        panel.Children.Add(Dock(_brandFoot, Avalonia.Controls.Dock.Bottom));
         panel.Children.Add(new Panel());
 
         return new Border
@@ -161,6 +152,43 @@ public sealed class MainWindow : Window
             BorderThickness = new Thickness(0, 0, Ui.T.Density.Hairline, 0),
             Padding = new Thickness(14, 16),
             Child = panel,
+        };
+    }
+
+    /// <summary>
+    /// The group at the top and Modbot at the foot, the way the web app's sidebar is laid out.
+    /// With nothing paired there is no group to name, so Modbot takes the top and the foot is empty.
+    /// </summary>
+    private void RenderIdentity()
+    {
+        _identity.Children.Clear();
+        _brandFoot.Children.Clear();
+
+        var server = _snapshot.Servers.FirstOrDefault();
+        if (server is null)
+        {
+            _identity.Children.Add(Brand.Mark(22));
+            _identity.Children.Add(Names(Brand.Wordmark(Ui.Text("Modbot", Ui.T.Density.TextBase + 1, Ui.T.TextBrush, FontWeight.Normal, wrap: false)), "companion"));
+            return;
+        }
+
+        var picture = Pictures?.For(server.GroupIconUrl);
+        _identity.Children.Add(picture is null ? Brand.Mark(22) : Ui.Picture(picture, 28));
+        _identity.Children.Add(Names(
+            Ui.Text(server.GroupName, Ui.T.Density.TextBase + 1, Ui.T.TextBrush, FontWeight.Medium, wrap: false),
+            _snapshot.Servers.Count > 1 ? $"and {_snapshot.Servers.Count - 1} more" : "companion"));
+
+        _brandFoot.Children.Add(Brand.Mark(16));
+        _brandFoot.Children.Add(Brand.Wordmark(Ui.Text("Modbot", Ui.T.Density.TextSmall, Ui.T.TextDimBrush, FontWeight.Normal, wrap: false)));
+    }
+
+    private static Control Names(TextBlock name, string under)
+    {
+        name.MaxWidth = 150;
+        return new StackPanel
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Children = { name, Ui.Faint(under) },
         };
     }
 
@@ -356,7 +384,8 @@ public sealed class MainWindow : Window
             },
         };
 
-        return Ui.Card(body, server.ServerId, StatePill(server));
+        var picture = Pictures?.For(server.GroupIconUrl);
+        return Ui.Card(body, server.GroupName, StatePill(server), picture is null ? null : Ui.Picture(picture, 24));
     }
 
     /// <summary>
@@ -476,9 +505,10 @@ public sealed class MainWindow : Window
         var rows = new StackPanel { Spacing = 0 };
         var first = true;
 
+        var groups = _snapshot.Servers.ToDictionary(s => s.ServerId, s => s.GroupName, StringComparer.Ordinal);
         foreach (var row in _snapshot.Events)
         {
-            rows.Children.Add(EventRow(row, first));
+            rows.Children.Add(EventRow(row, first, groups));
             first = false;
         }
 
@@ -493,14 +523,22 @@ public sealed class MainWindow : Window
         });
     }
 
-    private static Control EventRow(JournalRow row, bool first)
+    /// <summary>
+    /// When, what, and where it went: the time in its own column, the sentence, and one pill per
+    /// place, named by the group the server manages. An event seen in a group nobody manages has
+    /// the time and the sentence and nothing else, which is the truth of it.
+    /// </summary>
+    private static Control EventRow(JournalRow row, bool first, IReadOnlyDictionary<string, string> groups)
     {
         var sent = row.ServerState is JournalEntryKind.Sent || row.CloudState is JournalEntryKind.Sent;
+
+        var when = Ui.Text(row.At.ToLocalTime().ToString("HH:mm:ss"), Ui.T.Density.TextSmall, Ui.T.TextFaintBrush, wrap: false, mono: true);
+        when.VerticalAlignment = VerticalAlignment.Center;
 
         var line = Ui.Text(
             row.Summary,
             Ui.T.Density.TextSmall,
-            sent ? Ui.T.TextBrush : Ui.T.TextDimBrush);
+            sent || row.Seen ? Ui.T.TextBrush : Ui.T.TextDimBrush);
 
         line.VerticalAlignment = VerticalAlignment.Center;
 
@@ -509,22 +547,24 @@ public sealed class MainWindow : Window
         var places = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Right };
 
         if (row.IsNote)
-            places.Children.Add(Place(row.ServerId, JournalEntryKind.Note));
+            places.Children.Add(Place(GroupOf(row.ServerId, groups), JournalEntryKind.Note));
 
         if (row.ServerState is { } serverState)
-            places.Children.Add(Place(row.ServerId, serverState));
+            places.Children.Add(Place(GroupOf(row.ServerId, groups), serverState));
 
         if (row.CloudState is { } cloudState)
             places.Children.Add(Place(SentJournal.CloudName, cloudState));
 
         var grid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
             ColumnSpacing = 12,
         };
 
-        Grid.SetColumn(line, 0);
-        Grid.SetColumn(places, 1);
+        Grid.SetColumn(when, 0);
+        Grid.SetColumn(line, 1);
+        Grid.SetColumn(places, 2);
+        grid.Children.Add(when);
         grid.Children.Add(line);
         grid.Children.Add(places);
 
@@ -536,6 +576,10 @@ public sealed class MainWindow : Window
             Child = grid,
         };
     }
+
+    /// <summary>The group a server manages, for the pill; the server's id until its group is known.</summary>
+    private static string? GroupOf(string? serverId, IReadOnlyDictionary<string, string> groups)
+        => serverId is { Length: > 0 } && groups.TryGetValue(serverId, out var group) ? group : serverId;
 
     /// <summary>Where one event went, and how far it got there.</summary>
     private static Control Place(string? name, JournalEntryKind state)

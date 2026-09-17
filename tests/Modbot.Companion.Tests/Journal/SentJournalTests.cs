@@ -61,8 +61,30 @@ public class SentJournalTests : IDisposable
 
         var lines = journal.Recent().Select(e => e.Summary).ToList();
 
-        Assert.Contains(lines, l => l.Contains("Rin (usr_8f2c)") && l.Contains("joined"));
-        Assert.Contains(lines, l => l.Contains("Mei (usr_aa)") && l.Contains("left"));
+        Assert.Contains("Rin joined your world", lines);
+        Assert.Contains("Mei left your world", lines);
+    }
+
+    /// <summary>
+    /// An observation in a group no paired server manages is a row of its own, with the sentence
+    /// and no destination -- and if Modbot Cloud took the same event, one row, not two.
+    /// </summary>
+    [Fact]
+    public void WhatWentNowhereIsStillOnTheScreenWithoutAGroup()
+    {
+        var journal = new SentJournal(Path_, _clock);
+        Assert.True(Modbot.Companion.Instances.InstanceLocation.TryParse("wrld_4b34:39911~group(grp_dogs)~groupAccessType(members)", out var instance));
+        var observation = new Modbot.Companion.Instances.ObservedPresence(
+            Modbot.Companion.Instances.PresenceKind.Joined, new DateTime(2026, 9, 12, 20, 14, 7), "usr_8f2c", "Rin", instance);
+
+        journal.RecordSeen(observation);
+
+        var row = Assert.Single(journal.Events());
+        Assert.True(row.Seen);
+        Assert.False(row.IsNote);
+        Assert.Equal("Rin joined your world", row.Summary);
+        Assert.Null(row.ServerState);
+        Assert.Null(row.CloudState);
     }
 
     [Fact]
@@ -216,7 +238,7 @@ public class SentJournalTests : IDisposable
         Assert.Equal("cats", row.ServerId);
         Assert.Equal(JournalEntryKind.Sent, row.ServerState);
         Assert.Equal(JournalEntryKind.Waiting, row.CloudState);
-        Assert.Contains("Rin (usr_8f2c)", row.Summary);
+        Assert.Equal("Rin joined your world", row.Summary);
     }
 
     [Fact]
@@ -312,7 +334,7 @@ public class SentJournalTests : IDisposable
 
         Assert.Equal(JournalEntryKind.Withheld, row.ServerState);
         Assert.Equal(JournalEntryKind.Waiting, row.CloudState);
-        Assert.Contains("Rin (usr_8f2c)", row.Summary);
+        Assert.Equal("Rin joined your world", row.Summary);
     }
 
     [Fact]

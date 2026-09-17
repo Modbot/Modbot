@@ -11,12 +11,15 @@ import type { Density, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
 import { Headset, LogOut, Moon, Rows3, Rows2, Sun, UserRound } from 'lucide-react'
 
+/** The group this Modbot manages, as the status endpoint reports it. */
+export type SidebarGroup = { name: string; iconUrl: string | null; bannerUrl: string | null }
+
 export function Sidebar({
   page,
   me,
   onNavigate,
   onOpenHealth,
-  groupName,
+  group,
   badges,
 }: {
   page: PageId
@@ -24,7 +27,7 @@ export function Sidebar({
   onNavigate: (p: PageId) => void
   /** Opens the Health page at one part's card. */
   onOpenHealth: (section: StatusRowId) => void
-  groupName?: string
+  group?: SidebarGroup | null
   /** A count to show beside an entry -- open reviews beside Reviews. Zero or absent shows nothing. */
   badges?: Partial<Record<PageId, number>>
 }) {
@@ -41,17 +44,11 @@ export function Sidebar({
 
   return (
     <aside className="flex flex-col gap-px border-r bg-card px-3 py-4" style={{ borderRightWidth: 'var(--hairline)' }}>
-      <div className="flex items-center gap-2 px-2 pb-5">
-        <img src="/icon-512.png" alt="" width={28} height={28} className="size-7 shrink-0" />
-        <div className="leading-tight">
-          <div className="font-display text-[0.9375rem] leading-none">Modbot</div>
-          {groupName && (
-            <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {groupName}
-            </div>
-          )}
-        </div>
-      </div>
+      {/*
+        The group at the top: its banner when VRChat has one, its icon and its name. This is the
+        community's Modbot, and the sidebar says whose. Modbot's own mark moves to the foot.
+      */}
+      {group ? <GroupHeading group={group} /> : <ModbotHeading />}
 
       {rows.map(({ item, showGroup }) => (
         <div key={item.id}>
@@ -90,7 +87,41 @@ export function Sidebar({
         there, and rows that open a page this person cannot have would be a dead end.
       */}
       {can(me, 'ViewOperationalLog') && <StatusRows onOpen={onOpenHealth} />}
+
+      {group && (
+        <div className="mt-auto flex items-center gap-2 px-2 pt-4">
+          <img src="/icon-512.png" alt="" width={20} height={20} className="size-5 shrink-0" />
+          <span className="font-display text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            Modbot
+          </span>
+        </div>
+      )}
     </aside>
+  )
+}
+
+function ModbotHeading() {
+  return (
+    <div className="flex items-center gap-2 px-2 pb-5">
+      <img src="/icon-512.png" alt="" width={28} height={28} className="size-7 shrink-0" />
+      <div className="font-display text-[0.9375rem] leading-none">Modbot</div>
+    </div>
+  )
+}
+
+function GroupHeading({ group }: { group: SidebarGroup }) {
+  return (
+    <div className="pb-5">
+      {group.bannerUrl && (
+        <img src={group.bannerUrl} alt="" className="mb-3 aspect-[3/1] w-full rounded-md object-cover" />
+      )}
+      <div className="flex items-center gap-2 px-2">
+        {group.iconUrl && (
+          <img src={group.iconUrl} alt="" width={28} height={28} className="size-7 shrink-0 rounded-md object-cover" />
+        )}
+        <div className="truncate font-display text-[0.9375rem] leading-tight">{group.name}</div>
+      </div>
+    </div>
   )
 }
 
