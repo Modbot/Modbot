@@ -31,13 +31,13 @@ public sealed class CloudAddressTests : IDisposable
     [Fact]
     public void TheDefaultIsOnToModbotCloud()
     {
-        var missing = ClientSettings.Load(Path.Combine(_directory, "missing.json"), Environment());
+        var missing = CompanionSettings.Load(Path.Combine(_directory, "missing.json"), Environment());
 
         Assert.Equal(CloudSettings.Default, missing.Cloud);
         Assert.Equal(new Uri("https://cloud.modbot.co"), missing.Cloud.Endpoint);
         Assert.False(missing.Cloud.Disabled);
 
-        var other = ClientSettings.Load(SettingsFile("""{ "pairingPage": "https://modbot.example/pair" }"""), Environment());
+        var other = CompanionSettings.Load(SettingsFile("""{ "pairingPage": "https://modbot.example/pair" }"""), Environment());
         Assert.Equal(CloudSettings.Default, other.Cloud);
     }
 
@@ -46,7 +46,7 @@ public sealed class CloudAddressTests : IDisposable
     {
         var path = SettingsFile("""{ "cloud": { "endpoint": "https://cloud.group.example", "disabled": true } }""");
 
-        var cloud = ClientSettings.Load(path, Environment()).Cloud;
+        var cloud = CompanionSettings.Load(path, Environment()).Cloud;
 
         Assert.Equal(new Uri("https://cloud.group.example"), cloud.Endpoint);
         Assert.True(cloud.Disabled);
@@ -57,7 +57,7 @@ public sealed class CloudAddressTests : IDisposable
     {
         var path = SettingsFile("""{ "cloud": { "endpoint": "https://cloud.file.example", "disabled": false } }""");
 
-        var cloud = ClientSettings.Load(path, Environment(
+        var cloud = CompanionSettings.Load(path, Environment(
             (CloudSettings.EndpointVariable, "https://cloud.env.example"),
             (CloudSettings.DisabledVariable, "yes"))).Cloud;
 
@@ -66,7 +66,7 @@ public sealed class CloudAddressTests : IDisposable
 
         // Turned off in the file, and back on in the environment.
         var offInFile = SettingsFile("""{ "cloud": { "disabled": true } }""");
-        Assert.False(ClientSettings.Load(offInFile, Environment((CloudSettings.DisabledVariable, "0"))).Cloud.Disabled);
+        Assert.False(CompanionSettings.Load(offInFile, Environment((CloudSettings.DisabledVariable, "0"))).Cloud.Disabled);
     }
 
     [Theory]
@@ -76,7 +76,7 @@ public sealed class CloudAddressTests : IDisposable
     [InlineData(" on ")]
     public void TheEnvironmentAloneCanTurnItOff(string value)
     {
-        var cloud = ClientSettings.Load(Path.Combine(_directory, "missing.json"), Environment((CloudSettings.DisabledVariable, value))).Cloud;
+        var cloud = CompanionSettings.Load(Path.Combine(_directory, "missing.json"), Environment((CloudSettings.DisabledVariable, value))).Cloud;
 
         Assert.True(cloud.Disabled);
         Assert.Equal(CloudSettings.DefaultEndpoint, cloud.Endpoint);
@@ -87,8 +87,8 @@ public sealed class CloudAddressTests : IDisposable
     {
         var offInFile = SettingsFile("""{ "cloud": { "disabled": true } }""");
 
-        Assert.True(ClientSettings.Load(offInFile, Environment((CloudSettings.DisabledVariable, "ture"))).Cloud.Disabled);
-        Assert.True(ClientSettings.Load(offInFile, Environment((CloudSettings.DisabledVariable, ""))).Cloud.Disabled);
+        Assert.True(CompanionSettings.Load(offInFile, Environment((CloudSettings.DisabledVariable, "ture"))).Cloud.Disabled);
+        Assert.True(CompanionSettings.Load(offInFile, Environment((CloudSettings.DisabledVariable, ""))).Cloud.Disabled);
     }
 
     [Theory]
@@ -121,7 +121,7 @@ public sealed class CloudAddressTests : IDisposable
     {
         var path = SettingsFile("{ not json");
 
-        var cloud = ClientSettings.Load(path, Environment(
+        var cloud = CompanionSettings.Load(path, Environment(
             (CloudSettings.EndpointVariable, "https://cloud.env.example"),
             (CloudSettings.DisabledVariable, "1"))).Cloud;
 

@@ -60,7 +60,7 @@ public sealed class ServerConnectionTests : IDisposable
             serverClock,
             _transport,
             _clock,
-            clientVersion: "2026.9.0",
+            companionVersion: "2026.9.0",
             backoff: new BackoffPolicy(TimeSpan.FromSeconds(2), TimeSpan.FromMinutes(5), 2.0, () => 0.0),
             journal: journal);
     }
@@ -214,8 +214,8 @@ public sealed class ServerConnectionTests : IDisposable
 
         Assert.Equal(_transport.Sent[0].BatchId, _transport.Sent[1].BatchId);
         Assert.Equal(
-            _transport.Sent[0].Events.Select(e => e.ClientEventId),
-            _transport.Sent[1].Events.Select(e => e.ClientEventId));
+            _transport.Sent[0].Events.Select(e => e.CompanionEventId),
+            _transport.Sent[1].Events.Select(e => e.CompanionEventId));
     }
 
     [Fact]
@@ -279,7 +279,7 @@ public sealed class ServerConnectionTests : IDisposable
         connection.Renegotiated(apiVersion: 6);
         Assert.Equal(ConnectionState.Healthy, connection.State);
         Assert.Equal(6, connection.Pairing.ApiVersion);
-        Assert.EndsWith("/api/v6/client/events", connection.Pairing.EventsEndpoint.AbsolutePath);
+        Assert.EndsWith("/api/v6/companion/events", connection.Pairing.EventsEndpoint.AbsolutePath);
     }
 
     [Fact]
@@ -398,8 +398,8 @@ public sealed class ServerConnectionTests : IDisposable
     {
         var pairing = new ServerPairing("cats", new Uri("https://modbot.example"), "t", "grp_cats", apiVersion: 4);
 
-        Assert.Equal("/api/v4/client/events", pairing.EventsEndpoint.AbsolutePath);
-        Assert.Equal("/api/v4/client/time", pairing.TimeEndpoint.AbsolutePath);
+        Assert.Equal("/api/v4/companion/events", pairing.EventsEndpoint.AbsolutePath);
+        Assert.Equal("/api/v4/companion/time", pairing.TimeEndpoint.AbsolutePath);
     }
 
     [Fact]
@@ -416,7 +416,7 @@ public sealed class ServerConnectionTests : IDisposable
     {
         // The two halves of the client never speak to each other: one reports to the paired
         // server, the other backs up to Modbot Cloud, and each gives the event its own
-        // clientEventId. What ties their lines together is the key both work out from the
+        // companionEventId. What ties their lines together is the key both work out from the
         // observation, so an event seen once is counted once.
         var journal = new SentJournal(Path.Combine(_directory, "sent.jsonl"), _clock);
         var connection = Connection(journal: journal);

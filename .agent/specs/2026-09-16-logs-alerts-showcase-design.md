@@ -178,10 +178,10 @@ The **engine** database (`DATABASE_ENGINE_URL`), beside the client events, as cl
 
 ### 4.2 Partitioned by month, unlike the events beside them
 
-| | `client_event` | `instance_log` |
+| | `companion_event` | `instance_log` |
 |---|---|---|
 | Volume | a few dozen an hour per client | hundreds of times that |
-| Key | `(install_id, client_event_id)` — the client's own id, for exact retries | `(id, received_at)` — a sequence |
+| Key | `(install_id, companion_event_id)` — the client's own id, for exact retries | `(id, received_at)` — a sequence |
 | Pruned by | a sliced delete | dropping whole months |
 
 The events cannot be partitioned: a partitioned table cannot hold a unique key that leaves out its

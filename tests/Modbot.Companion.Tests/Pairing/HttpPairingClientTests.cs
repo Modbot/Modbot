@@ -72,7 +72,7 @@ public class HttpPairingClientTests
         // Asking a server "do you own this instance?" is itself the leak routing exists to stop.
         Assert.Equal("grp_cats", result.Pairing.ManagedGroupId);
         Assert.Equal(new DateTimeOffset(2026, 9, 12, 20, 14, 7, 412, TimeSpan.Zero), result.ServerTime);
-        Assert.Equal("https://modbot.example/api/v1/client/pair", handler.Requests[^1].RequestUri!.ToString());
+        Assert.Equal("https://modbot.example/api/v1/companion/pair", handler.Requests[^1].RequestUri!.ToString());
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public class HttpPairingClientTests
         using var document = System.Text.Json.JsonDocument.Parse(handler.Bodies[^1]);
         var fields = document.RootElement.EnumerateObject().Select(p => p.Name).Order().ToList();
 
-        Assert.Equal(["clientVersion", "code", "platform"], fields);
+        Assert.Equal(["code", "companionVersion", "platform"], fields);
         Assert.Equal("AB12-CD34", document.RootElement.GetProperty("code").GetString());
         Assert.Equal("windows", document.RootElement.GetProperty("platform").GetString());
     }
@@ -113,7 +113,7 @@ public class HttpPairingClientTests
             address: "http://localhost:8080");
 
         Assert.Equal(PairingOutcome.Paired, result.Outcome);
-        Assert.Equal("http://localhost:8080/api/v1/client/pair", handler.Requests[^1].RequestUri!.ToString());
+        Assert.Equal("http://localhost:8080/api/v1/companion/pair", handler.Requests[^1].RequestUri!.ToString());
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public class HttpPairingClientTests
 
         Assert.Equal(PairingOutcome.Paired, result.Outcome);
         Assert.Equal(4, result.Pairing!.ApiVersion);
-        Assert.Equal("https://modbot.example/api/v4/client/pair", handler.Requests[^1].RequestUri!.ToString());
+        Assert.Equal("https://modbot.example/api/v4/companion/pair", handler.Requests[^1].RequestUri!.ToString());
     }
 
     [Fact]

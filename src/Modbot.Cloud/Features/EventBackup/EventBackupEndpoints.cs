@@ -89,14 +89,14 @@ public static class EventBackupEndpoints
     /// </summary>
     private static async Task NoteSeenAsync(CloudContext cloud, Install install, CheckedBatch batch, DateTimeOffset now, CancellationToken ct)
     {
-        var version = batch.ClientVersion.Length > Install.MaxVersionLength ? batch.ClientVersion[..Install.MaxVersionLength] : batch.ClientVersion;
-        var changed = !string.Equals(install.ClientVersion, version, StringComparison.Ordinal)
+        var version = batch.CompanionVersion.Length > Install.MaxVersionLength ? batch.CompanionVersion[..Install.MaxVersionLength] : batch.CompanionVersion;
+        var changed = !string.Equals(install.CompanionVersion, version, StringComparison.Ordinal)
             || !string.Equals(install.ModbotServerId, batch.ModbotServerId, StringComparison.Ordinal);
 
         if (!changed && now - install.LastSeenAt < LastSeenEvery)
             return;
 
-        install.ClientVersion = version;
+        install.CompanionVersion = version;
         install.ModbotServerId = batch.ModbotServerId;
         install.LastSeenAt = now;
         await cloud.SaveChangesAsync(ct);

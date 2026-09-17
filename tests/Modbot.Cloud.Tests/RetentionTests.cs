@@ -37,7 +37,7 @@ public class RetentionTests(PostgresFixture db)
         Assert.Equal(1, result.EventsRemoved);
 
         await using var engine = db.NewEngineContext();
-        Assert.Equal(["recent"], await engine.Events.Select(e => e.ClientEventId).ToListAsync(Ct));
+        Assert.Equal(["recent"], await engine.Events.Select(e => e.CompanionEventId).ToListAsync(Ct));
         Assert.Equal(2, await engine.EventDayTotals.CountAsync(Ct));
         Assert.Equal(2, await engine.EventHourTotals.CountAsync(Ct));
     }
@@ -51,8 +51,8 @@ public class RetentionTests(PostgresFixture db)
         await using (var engine = db.NewEngineContext())
         {
             await engine.Database.ExecuteSqlInterpolatedAsync($"""
-                INSERT INTO client_event (install_id, client_event_id, received_at, sent_at, occurred_at, clock_adjustment_ms,
-                                          type, subject_id, world_id, instance_id, client_version, data)
+                INSERT INTO companion_event (install_id, companion_event_id, received_at, sent_at, occurred_at, clock_adjustment_ms,
+                                          type, subject_id, world_id, instance_id, companion_version, data)
                 SELECT {id}, 'e' || n, {host.Time.GetUtcNow()}, {host.Time.GetUtcNow()}, {host.Time.GetUtcNow()}, 0,
                        'vrchat.instance.join', 'usr_1', 'wrld_1', '1', '2026.9.0', jsonb_build_object()
                 FROM generate_series(1, {RetentionPruner.Slice + 5}) AS n

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Modbot.Analytics;
 using Modbot.AI;
 using Modbot.Api;
-using Modbot.Api.Features.Client;
+using Modbot.Api.Features.Companion;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Evidence;
 using Modbot.Core.Configuration;

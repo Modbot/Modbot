@@ -151,7 +151,7 @@ public sealed class CloudTestHost : IAsyncDisposable
     /// <summary>Registers an install and returns its bearer value, <c>id.secret</c>.</summary>
     public async Task<(Guid Id, string Bearer)> RegisterAsync(string ip = "203.0.113.10")
     {
-        using var response = await SendAsync(HttpMethod.Post, "/api/v1/installs", new { clientVersion = "2026.9.0", platform = "windows" }, ip);
+        using var response = await SendAsync(HttpMethod.Post, "/api/v1/installs", new { companionVersion = "2026.9.0", platform = "windows" }, ip);
         Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
@@ -259,14 +259,14 @@ public sealed class CloudTestHost : IAsyncDisposable
         string instanceId = "12345",
         string? groupId = null,
         object? data = null) =>
-        new { clientEventId = id, type, occurredAt, occurredBefore = (DateTimeOffset?)null, subjectId, worldId, instanceId, groupId, data = data ?? new { displayName = "Rin" } };
+        new { companionEventId = id, type, occurredAt, occurredBefore = (DateTimeOffset?)null, subjectId, worldId, instanceId, groupId, data = data ?? new { displayName = "Rin" } };
 
     public object Batch(params object[] events) => Batch(Time.GetUtcNow(), null, "unknown", events);
 
     public static object Batch(DateTimeOffset sentAt, long? clockOffsetMs, string clockConfidence, params object[] events) => new
     {
         batchId = Guid.NewGuid().ToString("n"),
-        clientVersion = "2026.9.0",
+        companionVersion = "2026.9.0",
         sentAt,
         clockOffsetMs,
         clockConfidence,

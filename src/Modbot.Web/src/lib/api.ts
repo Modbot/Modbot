@@ -3067,7 +3067,7 @@ export const api = {
   // ── Companion ──────────────────────────────────────────────────────────────────────
 
   /** Signed-in staff only. A device token can never mint another device token. */
-  issuePairingCode: () => post<IssuedPairingCode>('/api/client-devices/pairing-code'),
+  issuePairingCode: () => post<IssuedPairingCode>('/api/companion-devices/pairing-code'),
 
   /**
    * Capacity is a what-if input answered against, never stored — nothing in Modbot behaves

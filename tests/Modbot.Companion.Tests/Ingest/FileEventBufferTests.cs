@@ -14,10 +14,10 @@ public sealed class FileEventBufferTests : IDisposable
 
     private FileEventBuffer Buffer(EventBufferLimits? limits = null) => new(Path, _clock, limits);
 
-    private static ClientEvent Event(string id) => new()
+    private static CompanionEvent Event(string id) => new()
     {
-        ClientEventId = id,
-        Type = ClientEventType.InstanceJoined,
+        CompanionEventId = id,
+        Type = CompanionEventType.InstanceJoined,
         OccurredAt = new DateTimeOffset(2026, 9, 12, 20, 14, 7, TimeSpan.Zero),
         SubjectId = "usr_subject",
         WorldId = "wrld_w",
@@ -32,7 +32,7 @@ public sealed class FileEventBufferTests : IDisposable
         buffer.Add(Event("a"));
         buffer.Add(Event("b"));
 
-        Assert.Equal(["a", "b"], buffer.Peek(10).Select(e => e.ClientEventId));
+        Assert.Equal(["a", "b"], buffer.Peek(10).Select(e => e.CompanionEventId));
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class FileEventBufferTests : IDisposable
 
         buffer.Remove(["a"]);
 
-        Assert.Equal(["b"], buffer.Peek(10).Select(e => e.ClientEventId));
+        Assert.Equal(["b"], buffer.Peek(10).Select(e => e.CompanionEventId));
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public sealed class FileEventBufferTests : IDisposable
 
         var second = Buffer();
 
-        Assert.Equal("stable-id", Assert.Single(second.Peek(10)).ClientEventId);
+        Assert.Equal("stable-id", Assert.Single(second.Peek(10)).CompanionEventId);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public sealed class FileEventBufferTests : IDisposable
         first.Add(Event("b"));
         first.Remove(["a"]);
 
-        Assert.Equal(["b"], Buffer().Peek(10).Select(e => e.ClientEventId));
+        Assert.Equal(["b"], Buffer().Peek(10).Select(e => e.CompanionEventId));
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public sealed class FileEventBufferTests : IDisposable
         foreach (var id in new[] { "a", "b", "c", "d", "e" })
             buffer.Add(Event(id));
 
-        Assert.Equal(["c", "d", "e"], buffer.Peek(10).Select(e => e.ClientEventId));
+        Assert.Equal(["c", "d", "e"], buffer.Peek(10).Select(e => e.CompanionEventId));
         Assert.Equal(2, buffer.Dropped);
     }
 
@@ -105,7 +105,7 @@ public sealed class FileEventBufferTests : IDisposable
         _clock.Advance(TimeSpan.FromHours(7));
         buffer.Add(Event("fresh"));
 
-        Assert.Equal(["fresh"], buffer.Peek(10).Select(e => e.ClientEventId));
+        Assert.Equal(["fresh"], buffer.Peek(10).Select(e => e.CompanionEventId));
         Assert.Equal(1, buffer.Dropped);
     }
 
@@ -140,7 +140,7 @@ public sealed class FileEventBufferTests : IDisposable
         buffer.Add(Event("good"));
         File.AppendAllText(Path, "{\"enqueuedAt\":\"2026-09-12T20:0");
 
-        Assert.Equal(["good"], Buffer().Peek(10).Select(e => e.ClientEventId));
+        Assert.Equal(["good"], Buffer().Peek(10).Select(e => e.CompanionEventId));
     }
 
     [Fact]

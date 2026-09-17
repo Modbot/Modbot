@@ -68,7 +68,7 @@ public sealed class CloudEventBackupTests : IDisposable
         Assert.Equal("the-secret", _installs.Find(install.Endpoint)!.Secret);
 
         var root = body.RootElement;
-        Assert.Equal("2026.9.0", root.GetProperty("clientVersion").GetString());
+        Assert.Equal("2026.9.0", root.GetProperty("companionVersion").GetString());
         Assert.Equal(_clock.UtcNow, root.GetProperty("sentAt").GetDateTimeOffset());
         Assert.False(root.TryGetProperty("lines", out _));
 
@@ -77,7 +77,7 @@ public sealed class CloudEventBackupTests : IDisposable
 
         // The client protocol's event, exactly: id, type, time corrected from local, subject, place.
         var sent = root.GetProperty("events")[1];
-        Assert.Equal("event-2", sent.GetProperty("clientEventId").GetString());
+        Assert.Equal("event-2", sent.GetProperty("companionEventId").GetString());
         Assert.Equal("InstanceJoined", sent.GetProperty("type").GetString());
         Assert.Equal(new DateTimeOffset(2026, 9, 15, 8, 0, 5, TimeSpan.Zero), sent.GetProperty("occurredAt").GetDateTimeOffset());
         Assert.Equal("usr_2", sent.GetProperty("subjectId").GetString());
@@ -189,7 +189,7 @@ public sealed class CloudEventBackupTests : IDisposable
         Assert.Equal(
             ["event-1", "event-2", "event-3", "event-4"],
             _cloud.Sent.SelectMany(s => s.Body.RootElement.GetProperty("events").EnumerateArray())
-                .Select(e => e.GetProperty("clientEventId").GetString()));
+                .Select(e => e.GetProperty("companionEventId").GetString()));
         Assert.Equal(0, BatchFiles());
     }
 
@@ -223,7 +223,7 @@ public sealed class CloudEventBackupTests : IDisposable
         Assert.Equal(0, BatchFiles());
 
         // Every attempt carried the same events, so Cloud can recognise the retries.
-        Assert.All(_cloud.Sent, s => Assert.Equal("event-1", s.Body.RootElement.GetProperty("events")[0].GetProperty("clientEventId").GetString()));
+        Assert.All(_cloud.Sent, s => Assert.Equal("event-1", s.Body.RootElement.GetProperty("events")[0].GetProperty("companionEventId").GetString()));
     }
 
     [Fact]
@@ -262,7 +262,7 @@ public sealed class CloudEventBackupTests : IDisposable
         File.WriteAllText(logFile, "");
 
         var backup = Backup();
-        var engine = new ClientEngine(new PresenceObserver(new VRChatLogTail(logs), _clock), _clock, backup: backup);
+        var engine = new CompanionEngine(new PresenceObserver(new VRChatLogTail(logs), _clock), _clock, backup: backup);
 
         // The first pass primes the reader; everything after it is live.
         await engine.TickAsync(Ct);

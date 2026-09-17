@@ -1264,17 +1264,17 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("case_file", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.ClientDeviceRecord", b =>
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CompanionDeviceRecord", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<string>("ClientVersion")
+                    b.Property<string>("CompanionVersion")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
-                        .HasColumnName("client_version");
+                        .HasColumnName("companion_version");
 
                     b.Property<DateTimeOffset>("IssuedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1305,16 +1305,16 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnName("token_hash");
 
                     b.HasKey("Id")
-                        .HasName("pk_client_device");
+                        .HasName("pk_companion_device");
 
                     b.HasIndex("TokenHash")
                         .IsUnique()
-                        .HasDatabaseName("ix_client_device_token_hash");
+                        .HasDatabaseName("ix_companion_device_token_hash");
 
-                    b.ToTable("client_device", (string)null);
+                    b.ToTable("companion_device", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.ClientPairingCodeRecord", b =>
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CompanionPairingCodeRecord", b =>
                 {
                     b.Property<string>("CodeHash")
                         .HasMaxLength(128)
@@ -1338,9 +1338,9 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnName("redeemed_at");
 
                     b.HasKey("CodeHash")
-                        .HasName("pk_client_pairing_code");
+                        .HasName("pk_companion_pairing_code");
 
-                    b.ToTable("client_pairing_code", (string)null);
+                    b.ToTable("companion_pairing_code", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.DailyTotal", b =>

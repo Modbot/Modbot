@@ -27,8 +27,8 @@ public class SentJournalTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private static ClientEvent Event(
-        ClientEventType type = ClientEventType.InstanceJoined,
+    private static CompanionEvent Event(
+        CompanionEventType type = CompanionEventType.InstanceJoined,
         string subject = "usr_8f2c",
         string? displayName = "Rin",
         string? avatarName = null)
@@ -39,9 +39,9 @@ public class SentJournalTests : IDisposable
         if (avatarName is not null)
             data["avatarName"] = avatarName;
 
-        return new ClientEvent
+        return new CompanionEvent
         {
-            ClientEventId = Guid.NewGuid().ToString("n"),
+            CompanionEventId = Guid.NewGuid().ToString("n"),
             Type = type,
             OccurredAt = new DateTimeOffset(2026, 9, 12, 20, 14, 7, TimeSpan.Zero),
             SubjectId = subject,
@@ -57,7 +57,7 @@ public class SentJournalTests : IDisposable
     {
         var journal = new SentJournal(Path_, _clock);
 
-        journal.RecordSent("cats", [Event(), Event(ClientEventType.InstanceLeft, "usr_aa", "Mei")]);
+        journal.RecordSent("cats", [Event(), Event(CompanionEventType.InstanceLeft, "usr_aa", "Mei")]);
 
         var lines = journal.Recent().Select(e => e.Summary).ToList();
 
@@ -70,7 +70,7 @@ public class SentJournalTests : IDisposable
     {
         // The difference this wording protects is the one that stops one moderator walking into a
         // room becoming forty fake arrivals in the data.
-        var summary = SentJournal.Describe(Event(ClientEventType.InstancePresenceObserved));
+        var summary = SentJournal.Describe(Event(CompanionEventType.InstancePresenceObserved));
 
         Assert.Contains("was already in", summary);
         Assert.DoesNotContain("joined", summary);
@@ -80,7 +80,7 @@ public class SentJournalTests : IDisposable
     public void NamesTheAvatarOnAnAvatarChange()
     {
         var summary = SentJournal.Describe(
-            Event(ClientEventType.AvatarChanged, avatarName: "Very Normal Robot"));
+            Event(CompanionEventType.AvatarChanged, avatarName: "Very Normal Robot"));
 
         Assert.Contains("Very Normal Robot", summary);
     }

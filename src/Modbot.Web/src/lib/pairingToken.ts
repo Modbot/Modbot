@@ -3,7 +3,7 @@
  *
  * It is base64url of `{"server": "<this server's origin>", "code": "<one-time pairing code>"}`.
  * The client decodes it, checks the address, and trades the code for its own device token at
- * `POST /api/v1/client/pair` -- the same exchange as before, with the browser doing the typing.
+ * `POST /api/v1/companion/pair` -- the same exchange as before, with the browser doing the typing.
  *
  * It carries the short-lived, single-use code and never anything longer-lived. The token travels
  * inside a `modbot-companion://` link, and links end up in browser history, in shell logs and in

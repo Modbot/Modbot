@@ -4,7 +4,7 @@ using Modbot.Companion.Time;
 namespace Modbot.Companion.Ingest;
 
 /// <summary>
-/// One POST to one server: <c>POST /api/v{n}/client/events</c>.
+/// One POST to one server: <c>POST /api/v{n}/companion/events</c>.
 /// </summary>
 /// <remarks>
 /// <para><strong>This is the entire outbound surface of the client.</strong> There is no other
@@ -21,8 +21,8 @@ public sealed record EventBatch
     [JsonPropertyName("batchId")]
     public required string BatchId { get; init; }
 
-    [JsonPropertyName("clientVersion")]
-    public required string ClientVersion { get; init; }
+    [JsonPropertyName("companionVersion")]
+    public required string CompanionVersion { get; init; }
 
     /// <summary>
     /// This machine's measured correction to the server's clock, and how much to trust it. Sent so
@@ -35,19 +35,19 @@ public sealed record EventBatch
     public required string ClockConfidence { get; init; }
 
     [JsonPropertyName("events")]
-    public required IReadOnlyList<ClientEvent> Events { get; init; }
+    public required IReadOnlyList<CompanionEvent> Events { get; init; }
 
     /// <summary>Protocol section 4.4. Bigger batches are split before sending.</summary>
     public const int MaxEvents = 500;
 
     public static EventBatch Create(
         string batchId,
-        string clientVersion,
+        string companionVersion,
         ServerClock clock,
-        IReadOnlyList<ClientEvent> events) => new()
+        IReadOnlyList<CompanionEvent> events) => new()
         {
             BatchId = batchId,
-            ClientVersion = clientVersion,
+            CompanionVersion = companionVersion,
             ClockOffsetMs = (long)clock.Offset.TotalMilliseconds,
             ClockConfidence = clock.Confidence.ToWire(),
             Events = events,

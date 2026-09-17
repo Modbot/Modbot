@@ -66,8 +66,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// rotating one has nothing to do with the other.
     /// </remarks>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
-    public DbSet<ClientDeviceRecord> ClientDevices => Set<ClientDeviceRecord>();
-    public DbSet<ClientPairingCodeRecord> ClientPairingCodes => Set<ClientPairingCodeRecord>();
+    public DbSet<CompanionDeviceRecord> CompanionDevices => Set<CompanionDeviceRecord>();
+    public DbSet<CompanionPairingCodeRecord> CompanionPairingCodes => Set<CompanionPairingCodeRecord>();
     public DbSet<EvidenceBlob> EvidenceBlobs => Set<EvidenceBlob>();
 
     /// <summary>
@@ -476,15 +476,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.CreatedByUserId);
         });
 
-        builder.Entity<ClientDeviceRecord>(entity =>
+        builder.Entity<CompanionDeviceRecord>(entity =>
         {
-            entity.ToTable("client_device");
+            entity.ToTable("companion_device");
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
 
             entity.Property(e => e.TokenHash).HasMaxLength(128);
-            entity.Property(e => e.ClientVersion).HasMaxLength(32);
+            entity.Property(e => e.CompanionVersion).HasMaxLength(32);
             entity.Property(e => e.Platform).HasMaxLength(32);
 
             // Every authenticated client request resolves a device by this hash, so it is the one
@@ -493,9 +493,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.TokenHash).IsUnique();
         });
 
-        builder.Entity<ClientPairingCodeRecord>(entity =>
+        builder.Entity<CompanionPairingCodeRecord>(entity =>
         {
-            entity.ToTable("client_pairing_code");
+            entity.ToTable("companion_pairing_code");
 
             entity.HasKey(e => e.CodeHash);
             entity.Property(e => e.CodeHash).HasMaxLength(128);

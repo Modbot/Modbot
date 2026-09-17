@@ -23,7 +23,7 @@ public readonly record struct TailedLine(string Text, bool IsReplay);
 /// a byte offset so it does not re-read what it has already seen, and that offset is all the state
 /// there is. No copy of the log is made, and no line is written anywhere.</para>
 /// <para><strong>What leaves the machine.</strong> Nothing, from here. Transmission happens much
-/// later and only for the handful of recognised event types; see <c>ClientEvent</c>.</para>
+/// later and only for the handful of recognised event types; see <c>CompanionEvent</c>.</para>
 /// <para><strong>Tolerating reality.</strong> VRChat may not be installed, may not be running, may
 /// be mid-write, or may have restarted into a new log file. All four are ordinary states and none
 /// of them is an error.</para>

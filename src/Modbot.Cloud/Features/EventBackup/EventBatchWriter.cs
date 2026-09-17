@@ -11,7 +11,7 @@ namespace Modbot.Cloud.Features.EventBackup;
 /// <remarks>
 /// <para>
 /// <strong>De-duplication.</strong> Events are inserted with <c>ON CONFLICT DO NOTHING</c> on
-/// <c>(install_id, client_event_id)</c>, and only the rows actually inserted come back. A client keeps
+/// <c>(install_id, companion_event_id)</c>, and only the rows actually inserted come back. A client keeps
 /// an event's id through every retry and restart, so a batch sent twice, or an outbox that closed the
 /// same events twice after a crash, stores each event once (cloud event backup spec 4.3).
 /// </para>
@@ -24,15 +24,15 @@ namespace Modbot.Cloud.Features.EventBackup;
 public sealed class EventBatchWriter(EngineContext engine)
 {
     private const string Insert = """
-        INSERT INTO client_event (install_id, client_event_id, received_at, sent_at, occurred_at, occurred_before,
+        INSERT INTO companion_event (install_id, companion_event_id, received_at, sent_at, occurred_at, occurred_before,
                                   clock_adjustment_ms, type, type_raw, subject_id, world_id, instance_id, group_id,
-                                  client_version, data)
+                                  companion_version, data)
         SELECT $1, e.id, $2, $3, e.occurred_at, e.occurred_before, $4, e.type, e.type_raw, e.subject_id, e.world_id,
                e.instance_id, e.group_id, $5, e.data::jsonb
         FROM unnest($6::varchar[], $7::timestamptz[], $8::timestamptz[], $9::varchar[], $10::varchar[],
                     $11::varchar[], $12::varchar[], $13::varchar[], $14::varchar[], $15::text[])
              AS e(id, occurred_at, occurred_before, type, type_raw, subject_id, world_id, instance_id, group_id, data)
-        ON CONFLICT (install_id, client_event_id) DO NOTHING
+        ON CONFLICT (install_id, companion_event_id) DO NOTHING
         RETURNING type, occurred_at
         """;
 
@@ -43,7 +43,7 @@ public sealed class EventBatchWriter(EngineContext engine)
         var clock = ClockCorrection.Read(receivedAt, batch.SentAt, batch.ClockOffsetMs, batch.ClockConfidence);
         var adjustmentMs = (int)Math.Clamp(clock.Adjustment.TotalMilliseconds, int.MinValue, int.MaxValue);
         var adjustment = TimeSpan.FromMilliseconds(adjustmentMs);
-        var events = batch.Events.DistinctBy(e => e.ClientEventId, StringComparer.Ordinal).ToList();
+        var events = batch.Events.DistinctBy(e => e.CompanionEventId, StringComparer.Ordinal).ToList();
 
         await engine.Database.OpenConnectionAsync(ct);
         try
@@ -60,8 +60,8 @@ public sealed class EventBatchWriter(EngineContext engine)
                 insert.Parameters.Add(new NpgsqlParameter { Value = receivedAt });
                 insert.Parameters.Add(new NpgsqlParameter { Value = batch.SentAt });
                 insert.Parameters.Add(new NpgsqlParameter { Value = adjustmentMs });
-                insert.Parameters.Add(new NpgsqlParameter { Value = batch.ClientVersion });
-                insert.Parameters.Add(Array(events.Select(e => e.ClientEventId)));
+                insert.Parameters.Add(new NpgsqlParameter { Value = batch.CompanionVersion });
+                insert.Parameters.Add(Array(events.Select(e => e.CompanionEventId)));
                 insert.Parameters.Add(new NpgsqlParameter { Value = events.Select(e => e.OccurredAt + adjustment).ToArray() });
                 insert.Parameters.Add(new NpgsqlParameter
                 {

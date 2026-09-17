@@ -60,7 +60,7 @@ export function Installs() {
                       {install.installId.slice(0, 8)}
                     </Link>
                   </TableCell>
-                  <TableCell className="px-4 font-mono">{install.clientVersion}</TableCell>
+                  <TableCell className="px-4 font-mono">{install.companionVersion}</TableCell>
                   <TableCell className="px-4" title={when(install.firstSeenAt)}>
                     {ago(install.firstSeenAt)}
                   </TableCell>

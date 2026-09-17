@@ -25,7 +25,7 @@ public readonly record struct PairingAttempt(Uri BaseUri, string Code, string Se
 
 /// <summary>
 /// The pairing exchange: <c>GET /api/version</c> to agree a version, then
-/// <c>POST /api/v{n}/client/pair</c> to trade a one-time code for a device token.
+/// <c>POST /api/v{n}/companion/pair</c> to trade a one-time code for a device token.
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends, and where.</strong> Two requests, both to the one address the
@@ -70,7 +70,7 @@ public sealed class HttpPairingClient : IPairingClient
             return negotiated;
 
         var apiVersion = negotiated.Pairing!.ApiVersion;
-        var endpoint = new Uri(attempt.BaseUri, $"/api/v{apiVersion}/client/pair");
+        var endpoint = new Uri(attempt.BaseUri, $"/api/v{apiVersion}/companion/pair");
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
         {
@@ -223,7 +223,7 @@ public sealed class HttpPairingClient : IPairingClient
 
     private sealed record PairRequestBody(
         [property: JsonPropertyName("code")] string Code,
-        [property: JsonPropertyName("clientVersion")] string ClientVersion,
+        [property: JsonPropertyName("companionVersion")] string CompanionVersion,
         [property: JsonPropertyName("platform")] string Platform);
 
     private sealed record PairResponseBody(

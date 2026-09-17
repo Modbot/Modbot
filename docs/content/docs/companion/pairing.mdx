@@ -173,13 +173,13 @@ for this list yet. An operator can read it and revoke a device through two endpo
 signed-in account and are not listed in the [API reference](/api/reference):
 
 ```http
-GET /api/client-devices
+GET /api/companion-devices
 ```
 
 Lists every device, newest first, including revoked ones. It never shows a token.
 
 ```http
-DELETE /api/client-devices/{deviceId}
+DELETE /api/companion-devices/{deviceId}
 ```
 
 Revokes one device. It answers `204` when revoked, and `404` when there is no such device or it was

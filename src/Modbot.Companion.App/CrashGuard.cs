@@ -103,14 +103,14 @@ internal static class CrashGuard
 
     /// <summary>
     /// Writes the error to the log and shows the moderator a message box saying what happened,
-    /// whether the client is still running, and where the details are.
+    /// whether the companion is still running, and where the details are.
     /// </summary>
     public static void Report(Exception ex, string doing, bool fatal)
     {
         if (fatal)
-            Log.Fatal(ex, "The client is stopping because of an error {Doing}", doing);
+            Log.Fatal(ex, "The companion is stopping because of an error {Doing}", doing);
         else
-            Log.Error(ex, "An error {Doing}; the client is still running", doing);
+            Log.Error(ex, "An error {Doing}; the companion is still running", doing);
 
         if (!fatal)
         {
@@ -131,7 +131,7 @@ internal static class CrashGuard
                 ? "Modbot ran into a problem it could not recover from and has to close.\n\n"
                 : "Modbot ran into a problem " + doing + ". It is still running, but that part may not be working.\n\n")
             + "What happened:\n" + ex.GetType().Name + ": " + ex.Message + "\n\n"
-            + "The full details are in the client's log:\n" + (ClientLog.Folder ?? "%APPDATA%\\Modbot\\logs")
+            + "The full details are in the companion's log:\n" + (CompanionLog.Folder ?? "%APPDATA%\\Modbot\\logs")
             + "\n\nPlease send that log file when you report this.";
 
         if (fatal)

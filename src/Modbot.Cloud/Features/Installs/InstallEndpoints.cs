@@ -5,10 +5,10 @@ using Modbot.Cloud.Data;
 
 namespace Modbot.Cloud.Features.Installs;
 
-/// <param name="ClientVersion">The client's release, for the admin list.</param>
+/// <param name="CompanionVersion">The client's release, for the admin list.</param>
 /// <param name="Platform">Always <c>windows</c> today.</param>
 public sealed record RegisterInstallRequest(
-    [property: JsonPropertyName("clientVersion")] string? ClientVersion,
+    [property: JsonPropertyName("companionVersion")] string? CompanionVersion,
     [property: JsonPropertyName("platform")] string? Platform);
 
 /// <param name="Secret">Shown once, here. Cloud keeps only its hash.</param>
@@ -67,7 +67,7 @@ public static class InstallEndpoints
         {
             Id = Guid.NewGuid(),
             SecretHash = InstallSecrets.Hash(secret),
-            ClientVersion = ClientText.Clean(request?.ClientVersion, Install.MaxVersionLength) ?? "unknown",
+            CompanionVersion = ClientText.Clean(request?.CompanionVersion, Install.MaxVersionLength) ?? "unknown",
             Platform = ClientText.Clean(request?.Platform, Install.MaxPlatformLength) ?? "unknown",
             RegisteredAt = now,
             LastSeenAt = now,

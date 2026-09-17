@@ -14,7 +14,7 @@ namespace Modbot.Cloud.Features.AdminInstalls;
 /// <param name="ClockDisagrees">Its own clock measure and Cloud's are more than five minutes apart.</param>
 public sealed record InstallView(
     Guid InstallId,
-    string ClientVersion,
+    string CompanionVersion,
     DateTimeOffset FirstSeenAt,
     DateTimeOffset LastSeenAt,
     long EventsStored,
@@ -26,7 +26,7 @@ public sealed record InstallPage(int Total, int Offset, int Limit, IReadOnlyList
 
 /// <summary>One stored event, for debugging. Every field is plain text.</summary>
 public sealed record EventView(
-    string ClientEventId,
+    string CompanionEventId,
     DateTimeOffset ReceivedAt,
     DateTimeOffset SentAt,
     DateTimeOffset OccurredAt,
@@ -135,7 +135,7 @@ public static class AdminInstallEndpoints
         return Results.Ok(new
         {
             items = events.Select(e => new EventView(
-                e.ClientEventId,
+                e.CompanionEventId,
                 e.ReceivedAt,
                 e.SentAt,
                 e.OccurredAt,
@@ -251,7 +251,7 @@ public static class AdminInstallEndpoints
         [
             .. installs.Select(i => new InstallView(
                 i.Id,
-                i.ClientVersion,
+                i.CompanionVersion,
                 i.RegisteredAt,
                 i.LastSeenAt,
                 events.GetValueOrDefault(i.Id),

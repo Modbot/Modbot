@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Modbot.Cloud.Engine;
 
 /// <summary>
-/// One presence event a companion backed up. The table is <c>client_event</c>.
+/// One presence event a companion backed up. The table is <c>companion_event</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -17,7 +17,7 @@ namespace Modbot.Cloud.Engine;
 /// </para>
 /// <para>
 /// <strong>De-duplicated on the client's event id, per install.</strong> The primary key is
-/// <c>(install_id, client_event_id)</c>: a client keeps an event's id through every retry and
+/// <c>(install_id, companion_event_id)</c>: a client keeps an event's id through every retry and
 /// restart, so a batch sent twice stores nothing the second time (cloud event backup spec 4.3).
 /// </para>
 /// <para>
@@ -52,7 +52,7 @@ public sealed class StoredEvent
     public Guid InstallId { get; set; }
 
     /// <summary>The client's idempotency key for this event.</summary>
-    public string ClientEventId { get; set; } = string.Empty;
+    public string CompanionEventId { get; set; } = string.Empty;
 
     /// <summary>When Cloud received the batch. Cloud's clock.</summary>
     public DateTimeOffset ReceivedAt { get; set; }
@@ -87,7 +87,7 @@ public sealed class StoredEvent
     public string? GroupId { get; set; }
 
     /// <summary>The client's release, e.g. <c>2026.9.0</c>.</summary>
-    public string ClientVersion { get; set; } = string.Empty;
+    public string CompanionVersion { get; set; } = string.Empty;
 
     /// <summary>jsonb: the display name, and the avatar name for an avatar change. Never null.</summary>
     public string Data { get; set; } = "{}";
@@ -97,31 +97,31 @@ internal sealed class StoredEventConfiguration : IEntityTypeConfiguration<Stored
 {
     public void Configure(EntityTypeBuilder<StoredEvent> entity)
     {
-        entity.ToTable("client_event");
-        entity.HasKey(e => new { e.InstallId, e.ClientEventId });
+        entity.ToTable("companion_event");
+        entity.HasKey(e => new { e.InstallId, e.CompanionEventId });
 
-        entity.Property(e => e.ClientEventId).HasMaxLength(StoredEvent.MaxEventIdLength);
+        entity.Property(e => e.CompanionEventId).HasMaxLength(StoredEvent.MaxEventIdLength);
         entity.Property(e => e.Type).HasMaxLength(StoredEvent.MaxTypeLength);
         entity.Property(e => e.TypeRaw).HasMaxLength(StoredEvent.MaxTypeLength);
         entity.Property(e => e.SubjectId).HasMaxLength(StoredEvent.MaxIdLength);
         entity.Property(e => e.WorldId).HasMaxLength(StoredEvent.MaxIdLength);
         entity.Property(e => e.InstanceId).HasMaxLength(StoredEvent.MaxInstanceIdLength);
         entity.Property(e => e.GroupId).HasMaxLength(StoredEvent.MaxIdLength);
-        entity.Property(e => e.ClientVersion).HasMaxLength(StoredEvent.MaxVersionLength);
+        entity.Property(e => e.CompanionVersion).HasMaxLength(StoredEvent.MaxVersionLength);
         entity.Property(e => e.Data).HasColumnType("jsonb");
 
         // The trends index: events of one type across a range of time.
         entity.HasIndex(e => new { e.Type, e.OccurredAt })
-            .HasDatabaseName("ix_client_event_type_occurred_at");
+            .HasDatabaseName("ix_companion_event_type_occurred_at");
 
         // One install's recent events, for admin.
         entity.HasIndex(e => new { e.InstallId, e.ReceivedAt })
-            .HasDatabaseName("ix_client_event_install_id_received_at")
+            .HasDatabaseName("ix_companion_event_install_id_received_at")
             .IsDescending(false, true);
 
         // The daily retention delete.
         entity.HasIndex(e => e.ReceivedAt)
-            .HasDatabaseName("ix_client_event_received_at");
+            .HasDatabaseName("ix_companion_event_received_at");
     }
 }
 

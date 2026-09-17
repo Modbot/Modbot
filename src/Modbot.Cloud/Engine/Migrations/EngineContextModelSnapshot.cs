@@ -196,20 +196,20 @@ namespace Modbot.Cloud.Engine.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("install_id");
 
-                    b.Property<string>("ClientEventId")
+                    b.Property<string>("CompanionEventId")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
-                        .HasColumnName("client_event_id");
-
-                    b.Property<string>("ClientVersion")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("client_version");
+                        .HasColumnName("companion_event_id");
 
                     b.Property<int>("ClockAdjustmentMs")
                         .HasColumnType("integer")
                         .HasColumnName("clock_adjustment_ms");
+
+                    b.Property<string>("CompanionVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("companion_version");
 
                     b.Property<string>("Data")
                         .IsRequired()
@@ -266,20 +266,20 @@ namespace Modbot.Cloud.Engine.Migrations
                         .HasColumnType("character varying(128)")
                         .HasColumnName("world_id");
 
-                    b.HasKey("InstallId", "ClientEventId")
-                        .HasName("pk_client_event");
+                    b.HasKey("InstallId", "CompanionEventId")
+                        .HasName("pk_companion_event");
 
                     b.HasIndex("ReceivedAt")
-                        .HasDatabaseName("ix_client_event_received_at");
+                        .HasDatabaseName("ix_companion_event_received_at");
 
                     b.HasIndex("InstallId", "ReceivedAt")
                         .IsDescending(false, true)
-                        .HasDatabaseName("ix_client_event_install_id_received_at");
+                        .HasDatabaseName("ix_companion_event_install_id_received_at");
 
                     b.HasIndex("Type", "OccurredAt")
-                        .HasDatabaseName("ix_client_event_type_occurred_at");
+                        .HasDatabaseName("ix_companion_event_type_occurred_at");
 
-                    b.ToTable("client_event", (string)null);
+                    b.ToTable("companion_event", (string)null);
                 });
 #pragma warning restore 612, 618
         }

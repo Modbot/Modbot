@@ -51,12 +51,12 @@ internal sealed class Updates
     /// <summary>The build property the release workflow sets; see Modbot.Companion.App.csproj.</summary>
     private const string FeedMetadataKey = "ModbotUpdateFeed";
 
-    private readonly ClientAppState _state;
+    private readonly CompanionAppState _state;
     private readonly DispatcherTimer _timer = new() { Interval = FirstCheckAfter };
     private readonly UpdateManager? _manager;
     private bool _checking;
 
-    public Updates(ClientAppState state)
+    public Updates(CompanionAppState state)
     {
         _state = state;
         _manager = CreateManager();
@@ -144,9 +144,9 @@ internal sealed class Updates
             return;
 
         Log.Information(
-            "Installing Modbot {Version}, downloaded earlier, before starting. The client reopens when it is done",
+            "Installing Modbot {Version}, downloaded earlier, before starting. The companion reopens when it is done",
             ready.Version);
-        ClientLog.Stop();
+        CompanionLog.Stop();
 
         // Exits this process, swaps the files, and starts the new version with the same
         // arguments -- so a pairing link that started this copy still arrives.
@@ -161,7 +161,7 @@ internal sealed class Updates
 
         if (!_manager.IsInstalled)
         {
-            Log.Information("Not an installed copy of the client (run from source or a plain folder), so not checking for updates");
+            Log.Information("Not an installed copy of the companion (run from source or a plain folder), so not checking for updates");
             return;
         }
 
@@ -235,7 +235,7 @@ internal sealed class Updates
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "The update feed {Feed} could not be used, so this client will not check for updates", Feed);
+            Log.Warning(ex, "The update feed {Feed} could not be used, so this companion will not check for updates", Feed);
             return null;
         }
     }

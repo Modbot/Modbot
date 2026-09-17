@@ -49,7 +49,7 @@ public sealed class SendTimingTests : IDisposable
             serverClock,
             _transport,
             _clock,
-            clientVersion: "2026.9.0",
+            companionVersion: "2026.9.0",
             backoff: new BackoffPolicy(TimeSpan.FromSeconds(10), TimeSpan.FromMinutes(5), 2.0, () => 0.0));
     }
 

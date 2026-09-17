@@ -78,7 +78,7 @@ Each event is exactly the client protocol's event (protocol §4.2), built by the
 
 | Field | Notes |
 |---|---|
-| `clientEventId` | Random, made once, kept through every retry and restart. Cloud's de-duplication key (§4.3). |
+| `companionEventId` | Random, made once, kept through every retry and restart. Cloud's de-duplication key (§4.3). |
 | `type` | `InstanceJoined`, `InstancePresenceObserved`, `InstanceLeft`, `AvatarChanged`, `LogStopped`. |
 | `occurredAt`, `occurredBefore` | Corrected to Cloud's clock as far as the client has measured it (§5). |
 | `subjectId` | The VRChat user id. |
@@ -90,7 +90,7 @@ The phantom-burst rules apply exactly as for a server (M3 §7.1): what Cloud get
 facts, not its guesses. Events from log lines that were already in the file when the client started are
 not sent, to Cloud or to a server.
 
-Per batch, alongside the events: `batchId`, `clientVersion`, `sentAt` (the PC's own clock when sending,
+Per batch, alongside the events: `batchId`, `companionVersion`, `sentAt` (the PC's own clock when sending,
 uncorrected), and `clockOffsetMs` and `clockConfidence` (the client's measured correction to Cloud's
 clock). No file name or offset: the event id is enough to de-duplicate. No `modbotServerId` either (§3.3).
 
@@ -138,7 +138,7 @@ Decided only on the client's PC, from two places, for each of the two values sep
 ### 3.2 Device identity
 
 On first send to an address the client registers an **install**:
-`POST /api/v1/installs { clientVersion, platform }` → `201 { installId, secret, serverTime }`.
+`POST /api/v1/installs { companionVersion, platform }` → `201 { installId, secret, serverTime }`.
 
 - The secret is stored in `%APPDATA%\Modbot\cloud-installs.json`, **encrypted to the Windows account with
   DPAPI** like pairing tokens, under its own key purpose. The install id and address are readable.
@@ -172,9 +172,9 @@ Both are required; Cloud refuses to start and names whichever is missing. Each h
 ### 4.2 Tables in the event storage
 
 ```sql
-client_event                   -- one row per event per install; never updated
+companion_event                   -- one row per event per install; never updated
   install_id          uuid        not null
-  client_event_id     text(64)    not null
+  companion_event_id     text(64)    not null
   received_at         timestamptz not null   -- Cloud's clock
   sent_at             timestamptz not null   -- the client's clock when it sent
   occurred_at         timestamptz not null   -- when it happened, in Cloud's time (§5)
@@ -186,9 +186,9 @@ client_event                   -- one row per event per install; never updated
   world_id            text(128)   not null
   instance_id         text(256)   not null
   group_id            text(128)   null
-  client_version      text(32)    not null
+  companion_version      text(32)    not null
   data                jsonb       not null
-  PRIMARY KEY (install_id, client_event_id)  -- de-duplication
+  PRIMARY KEY (install_id, companion_event_id)  -- de-duplication
   INDEX (type, occurred_at)                  -- the trends index
   INDEX (install_id, received_at DESC)       -- admin: one install's recent events
   INDEX (received_at)                        -- retention
@@ -206,7 +206,7 @@ event_hour_total   (type, hour) PK          -- events per type per hour: trends
 
 ### 4.3 De-duplication, and why the table is not partitioned
 
-The key is **`(install_id, client_event_id)`**. The client makes an event's id once and writes it to its
+The key is **`(install_id, companion_event_id)`**. The client makes an event's id once and writes it to its
 outbox with the event, so a retried batch, a batch sent twice, or an outbox that closed the same events
 twice after a crash all carry the same ids. Cloud inserts with `ON CONFLICT DO NOTHING` and counts only what
 was inserted: `{ "stored": 37, "duplicates": 11 }`.
@@ -288,7 +288,7 @@ The per-install limits are held in memory, per Cloud process.
 ## 9. What trends will read
 
 Nothing public reads this yet. Trends will read **`event_hour_total (type, hour)`** — "events of type X per
-hour across all installs" is a primary key range scan — and fall back to **`client_event (type,
+hour across all installs" is a primary key range scan — and fall back to **`companion_event (type,
 occurred_at)`** for anything the totals do not answer, and to rebuild them.
 
 ## 10. Privacy facts for the privacy policy

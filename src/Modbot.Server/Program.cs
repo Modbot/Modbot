@@ -12,7 +12,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Discord;
 using Modbot.Core.Email;
 using Modbot.Demo;
-using Modbot.Api.Features.Client;
+using Modbot.Api.Features.Companion;
 using Modbot.Api.Features.Evidence;
 using Modbot.Core.Logging;
 using Modbot.Core.Logging.Store;

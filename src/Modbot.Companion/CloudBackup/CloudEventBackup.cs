@@ -39,13 +39,13 @@ public sealed record CloudBackupOptions(
     IModbotClock Clock,
     ICloudLogClient Client,
     ICloudInstallStore Installs,
-    string ClientVersion,
+    string CompanionVersion,
     Uri? Endpoint = null,
     bool Enabled = true,
     TimeZoneInfo? TimeZone = null,
     BackoffPolicy? Backoff = null,
     long OutboxCap = CloudOutbox.DefaultCap,
-    IClientEventIdSource? Ids = null,
+    ICompanionEventIdSource? Ids = null,
     SentJournal? Journal = null);
 
 /// <summary>
@@ -67,7 +67,7 @@ public interface IObservationSink
 /// <remarks>
 /// <para><strong>What this sends.</strong> The client's parsed presence events — joins, "already
 /// here", leaves, avatar changes and a stopped log — in exactly the shape a paired Modbot server gets
-/// them (<see cref="ClientEvent"/>): an event id, the type, a time, the VRChat user id, their display
+/// them (<see cref="CompanionEvent"/>): an event id, the type, a time, the VRChat user id, their display
 /// name, the avatar name for an avatar change, the world id, the instance id and the group id when
 /// there is one. The difference from a server is the one the moderator is told about: this covers
 /// <strong>every instance</strong> the moderator is in, public, friends-only and private ones included,
@@ -106,7 +106,7 @@ public sealed class CloudEventBackup : IObservationSink
     private readonly IModbotClock _clock;
     private readonly BackoffPolicy _backoff;
     private readonly LogTimestampConverter _timestamps;
-    private readonly IClientEventIdSource? _ids;
+    private readonly ICompanionEventIdSource? _ids;
     private readonly SentJournal? _journal;
     private readonly string _clientVersion;
 
@@ -146,7 +146,7 @@ public sealed class CloudEventBackup : IObservationSink
         _timestamps = new LogTimestampConverter(options.TimeZone);
         _ids = options.Ids;
         _journal = options.Journal;
-        _clientVersion = options.ClientVersion;
+        _clientVersion = options.CompanionVersion;
         _endpoint = options.Endpoint ?? CloudSettings.DefaultEndpoint;
         _enabled = options.Enabled;
         _queuedOnDisk = _outbox.QueuedEvents;
@@ -318,13 +318,13 @@ public sealed class CloudEventBackup : IObservationSink
         if (result.Outcome is not (IngestOutcome.Accepted or IngestOutcome.Malformed or IngestOutcome.TooLarge))
             return;
 
-        var sent = new List<ClientEvent>(events.Count);
+        var sent = new List<CompanionEvent>(events.Count);
         foreach (var json in events)
         {
             try
             {
-                if (JsonSerializer.Deserialize<ClientEvent>(json, Json) is { } clientEvent)
-                    sent.Add(clientEvent);
+                if (JsonSerializer.Deserialize<CompanionEvent>(json, Json) is { } companionEvent)
+                    sent.Add(companionEvent);
             }
             catch (JsonException)
             {
@@ -373,13 +373,13 @@ public sealed class CloudEventBackup : IObservationSink
         // Written once the events are on disk, so the screen never shows an event queued for Cloud
         // that a crash a moment later would have lost. The key is worked out from the observation,
         // which is how this line and the paired server's line about the same event become one row.
-        foreach (var (observation, clientEvent) in mapped)
+        foreach (var (observation, companionEvent) in mapped)
         {
             _journal?.RecordQueued(
                 SentJournal.CloudName,
                 JournalDestination.Cloud,
                 SentJournal.KeyFor(observation),
-                clientEvent);
+                companionEvent);
         }
     }
 
@@ -428,7 +428,7 @@ public sealed class CloudEventBackup : IObservationSink
         {
             writer.WriteStartObject();
             writer.WriteString("batchId", batch.Name);
-            writer.WriteString("clientVersion", _clientVersion);
+            writer.WriteString("companionVersion", _clientVersion);
 
             // The PC's own clock, uncorrected: Cloud compares it with its own to measure this PC.
             writer.WriteString("sentAt", _clock.UtcNow);

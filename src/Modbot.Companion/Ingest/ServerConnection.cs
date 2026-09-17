@@ -39,7 +39,7 @@ public enum ConnectionState
 /// log being read once. That separation is the point: a moderator staffing two communities must be
 /// able to pause one without pausing the other, and neither operator gains visibility into the
 /// other's instances.</para>
-/// <para><strong>What it sends.</strong> Batches of <see cref="ClientEvent"/>, to one URL, over
+/// <para><strong>What it sends.</strong> Batches of <see cref="CompanionEvent"/>, to one URL, over
 /// HTTPS, with one bearer token. Nothing else. The server never sends anything back that this
 /// client acts on — there is no command channel, by design, so the client's behaviour stays fully
 /// described by its own source.</para>
@@ -97,7 +97,7 @@ public sealed class ServerConnection : IIngestTarget
         ServerClock serverClock,
         IIngestTransport transport,
         IModbotClock clock,
-        string clientVersion,
+        string companionVersion,
         BackoffPolicy? backoff = null,
         TimeSpan? batchInterval = null,
         SentJournal? journal = null,
@@ -109,7 +109,7 @@ public sealed class ServerConnection : IIngestTarget
         ServerClock = serverClock;
         _transport = transport;
         _clock = clock;
-        _clientVersion = clientVersion;
+        _clientVersion = companionVersion;
         _backoff = backoff ?? new BackoffPolicy();
         _batchInterval = batchInterval ?? DefaultBatchInterval;
         _changeDelay = changeDelay ?? DefaultChangeDelay;
@@ -204,9 +204,9 @@ public sealed class ServerConnection : IIngestTarget
             return;
         }
 
-        if (_mapper.Map(observation) is { } clientEvent)
+        if (_mapper.Map(observation) is { } companionEvent)
         {
-            _buffer.Add(clientEvent);
+            _buffer.Add(companionEvent);
 
             // Written as soon as it is queued, so the screen shows an event from the moment this
             // client processed it rather than only once a server has taken it. What happened to it
@@ -215,9 +215,9 @@ public sealed class ServerConnection : IIngestTarget
                 Name,
                 JournalDestination.Server,
                 SentJournal.KeyFor(observation),
-                clientEvent);
+                companionEvent);
 
-            if (IsChange(clientEvent.Type))
+            if (IsChange(companionEvent.Type))
                 _changeWaitingSince ??= _clock.UtcNow;
         }
     }
@@ -226,11 +226,11 @@ public sealed class ServerConnection : IIngestTarget
     /// Whether an event changes who is in a room -- and so is worth sending within seconds rather
     /// than at the next thirty-second batch.
     /// </summary>
-    public static bool IsChange(ClientEventType type) => type is
-        ClientEventType.InstanceJoined
-        or ClientEventType.InstancePresenceObserved
-        or ClientEventType.InstanceLeft
-        or ClientEventType.LogStopped;
+    public static bool IsChange(CompanionEventType type) => type is
+        CompanionEventType.InstanceJoined
+        or CompanionEventType.InstancePresenceObserved
+        or CompanionEventType.InstanceLeft
+        or CompanionEventType.LogStopped;
 
     /// <summary>
     /// Whether there is something to send and the client is allowed to send it yet.
@@ -299,7 +299,7 @@ public sealed class ServerConnection : IIngestTarget
         return result;
     }
 
-    private void Apply(IngestResult result, IReadOnlyList<ClientEvent> sent)
+    private void Apply(IngestResult result, IReadOnlyList<CompanionEvent> sent)
     {
         switch (result.Outcome)
         {
@@ -313,7 +313,7 @@ public sealed class ServerConnection : IIngestTarget
                 // Written before the buffer is cleared, so the record of a disclosure cannot be
                 // lost by a crash between the two.
                 _journal?.RecordSent(Name, sent);
-                _buffer.Remove(sent.Select(e => e.ClientEventId));
+                _buffer.Remove(sent.Select(e => e.CompanionEventId));
                 Succeeded();
                 NoteWaitingChanges();
                 break;
@@ -330,7 +330,7 @@ public sealed class ServerConnection : IIngestTarget
                 _journal?.RecordNote(
                     Name,
                     $"The server refused a batch of {sent.Count} as malformed. They were dropped, not retried.");
-                _buffer.Remove(sent.Select(e => e.ClientEventId));
+                _buffer.Remove(sent.Select(e => e.CompanionEventId));
                 Succeeded();
                 NoteWaitingChanges();
                 break;

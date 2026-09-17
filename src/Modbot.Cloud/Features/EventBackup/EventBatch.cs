@@ -13,7 +13,7 @@ namespace Modbot.Cloud.Features.EventBackup;
 /// <remarks>Every field is nullable because this is untrusted input; <see cref="EventBatchCheck"/> decides what is required.</remarks>
 public sealed record EventBatch(
     [property: JsonPropertyName("batchId")] string? BatchId,
-    [property: JsonPropertyName("clientVersion")] string? ClientVersion,
+    [property: JsonPropertyName("companionVersion")] string? CompanionVersion,
     [property: JsonPropertyName("sentAt")] DateTimeOffset? SentAt,
     [property: JsonPropertyName("clockOffsetMs")] long? ClockOffsetMs,
     [property: JsonPropertyName("clockConfidence")] string? ClockConfidence,
@@ -22,7 +22,7 @@ public sealed record EventBatch(
 
 /// <summary>One event, in the client protocol's shape (protocol 4.2), with a group that may be null.</summary>
 public sealed record BatchEvent(
-    [property: JsonPropertyName("clientEventId")] string? ClientEventId,
+    [property: JsonPropertyName("companionEventId")] string? CompanionEventId,
     [property: JsonPropertyName("type")] string? Type,
     [property: JsonPropertyName("occurredAt")] DateTimeOffset? OccurredAt,
     [property: JsonPropertyName("occurredBefore")] DateTimeOffset? OccurredBefore,
@@ -39,7 +39,7 @@ public sealed record EventBatchResponse(
 
 /// <summary>One event, checked and ready to store.</summary>
 public sealed record CheckedEvent(
-    string ClientEventId,
+    string CompanionEventId,
     string Type,
     string? TypeRaw,
     DateTimeOffset OccurredAt,
@@ -52,7 +52,7 @@ public sealed record CheckedEvent(
 
 /// <summary>A batch, checked.</summary>
 public sealed record CheckedBatch(
-    string ClientVersion,
+    string CompanionVersion,
     DateTimeOffset SentAt,
     long? ClockOffsetMs,
     string ClockConfidence,
@@ -93,7 +93,7 @@ public static class EventBatchCheck
         foreach (var e in events)
         {
             if (e is null
-                || ClientText.Clean(e.ClientEventId, StoredEvent.MaxEventIdLength) is not { } id
+                || ClientText.Clean(e.CompanionEventId, StoredEvent.MaxEventIdLength) is not { } id
                 || string.IsNullOrWhiteSpace(e.Type)
                 || e.OccurredAt is not { } occurredAt
                 || ClientText.Clean(e.SubjectId, StoredEvent.MaxIdLength) is not { } subject
@@ -121,7 +121,7 @@ public static class EventBatchCheck
         var confidence = batch.ClockConfidence is "good" or "fair" or "poor" ? batch.ClockConfidence : "unknown";
 
         return (new CheckedBatch(
-            ClientText.Clean(batch.ClientVersion, StoredEvent.MaxVersionLength) ?? "unknown",
+            ClientText.Clean(batch.CompanionVersion, StoredEvent.MaxVersionLength) ?? "unknown",
             sentAt.ToUniversalTime(),
             batch.ClockOffsetMs,
             confidence,

@@ -12,7 +12,7 @@ public interface IServerTimeProbe
 }
 
 /// <summary>
-/// <c>GET /api/v{n}/client/time</c>, timed at both ends.
+/// <c>GET /api/v{n}/companion/time</c>, timed at both ends.
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends:</strong> a GET with a bearer token and no body. It reports

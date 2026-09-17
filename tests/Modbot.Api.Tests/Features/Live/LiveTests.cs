@@ -50,11 +50,11 @@ public class LiveTests
         var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
         var device = Guid.NewGuid();
 
-        context.ClientDevices.Add(new ClientDeviceRecord
+        context.CompanionDevices.Add(new CompanionDeviceRecord
         {
             Id = device,
             TokenHash = Guid.NewGuid().ToString("n"),
-            ClientVersion = "2026.9.0",
+            CompanionVersion = "2026.9.0",
             Platform = "windows",
             IssuedToUserId = user.Id,
             IssuedAt = host.Clock.UtcNow,

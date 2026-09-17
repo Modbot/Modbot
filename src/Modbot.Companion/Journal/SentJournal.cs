@@ -65,7 +65,7 @@ public enum JournalDestination
 /// versions.
 /// </param>
 /// <param name="SendId">
-/// The <c>clientEventId</c> this destination was given. One event has a different one per
+/// The <c>companionEventId</c> this destination was given. One event has a different one per
 /// destination, which is why it cannot be the key.
 /// </param>
 public sealed record JournalEntry(
@@ -144,7 +144,7 @@ public sealed class SentJournal
     private readonly List<JournalEntry> _entries = [];
 
     /// <summary>
-    /// Which event each destination's <c>clientEventId</c> belongs to, so the line written when a
+    /// Which event each destination's <c>companionEventId</c> belongs to, so the line written when a
     /// batch is taken can be folded into the row written when the event was processed.
     /// </summary>
     private readonly Dictionary<string, string> _keysBySendId = new(StringComparer.Ordinal);
@@ -252,31 +252,31 @@ public sealed class SentJournal
         string serverId,
         JournalDestination destination,
         string eventKey,
-        ClientEvent clientEvent)
+        CompanionEvent companionEvent)
     {
-        ArgumentNullException.ThrowIfNull(clientEvent);
+        ArgumentNullException.ThrowIfNull(companionEvent);
 
         Append([new JournalEntry(
             _clock.UtcNow,
             JournalEntryKind.Waiting,
             serverId,
-            Describe(clientEvent),
+            Describe(companionEvent),
             eventKey,
-            clientEvent.ClientEventId,
+            companionEvent.CompanionEventId,
             destination)]);
     }
 
     /// <summary>Records a batch a destination accepted — one line per event disclosed.</summary>
     public void RecordSent(
         string serverId,
-        IEnumerable<ClientEvent> events,
+        IEnumerable<CompanionEvent> events,
         JournalDestination destination = JournalDestination.Server)
         => RecordOutcome(serverId, events, destination, JournalEntryKind.Sent);
 
     /// <summary>Records events a destination refused for good, which are dropped rather than retried.</summary>
     public void RecordFailed(
         string serverId,
-        IEnumerable<ClientEvent> events,
+        IEnumerable<CompanionEvent> events,
         JournalDestination destination = JournalDestination.Server)
         => RecordOutcome(serverId, events, destination, JournalEntryKind.Failed);
 
@@ -322,26 +322,26 @@ public sealed class SentJournal
     /// moderator can check against their memory of the evening and "usr_8f2c… joined" is not. The
     /// id is still what was sent as identity; the name is history.
     /// </remarks>
-    public static string Describe(ClientEvent clientEvent)
+    public static string Describe(CompanionEvent companionEvent)
     {
-        ArgumentNullException.ThrowIfNull(clientEvent);
+        ArgumentNullException.ThrowIfNull(companionEvent);
 
-        var who = clientEvent.Data.TryGetValue("displayName", out var name) && name.Length > 0
-            ? $"{name} ({clientEvent.SubjectId})"
-            : clientEvent.SubjectId;
+        var who = companionEvent.Data.TryGetValue("displayName", out var name) && name.Length > 0
+            ? $"{name} ({companionEvent.SubjectId})"
+            : companionEvent.SubjectId;
 
-        var where = $"{clientEvent.WorldId}:{clientEvent.InstanceId}";
-        var when = clientEvent.OccurredAt.ToString("HH:mm:ss");
+        var where = $"{companionEvent.WorldId}:{companionEvent.InstanceId}";
+        var when = companionEvent.OccurredAt.ToString("HH:mm:ss");
 
-        return clientEvent.Type switch
+        return companionEvent.Type switch
         {
-            ClientEventType.InstanceJoined => $"{when} — told them {who} joined {where}",
-            ClientEventType.InstancePresenceObserved =>
+            CompanionEventType.InstanceJoined => $"{when} — told them {who} joined {where}",
+            CompanionEventType.InstancePresenceObserved =>
                 $"{when} — told them {who} was already in {where} when you arrived",
-            ClientEventType.InstanceLeft => $"{when} — told them {who} left {where}",
-            ClientEventType.LogStopped => $"{when} — told them VRChat's log stopped while you were in {where}",
-            ClientEventType.AvatarChanged =>
-                clientEvent.Data.TryGetValue("avatarName", out var avatar) && avatar.Length > 0
+            CompanionEventType.InstanceLeft => $"{when} — told them {who} left {where}",
+            CompanionEventType.LogStopped => $"{when} — told them VRChat's log stopped while you were in {where}",
+            CompanionEventType.AvatarChanged =>
+                companionEvent.Data.TryGetValue("avatarName", out var avatar) && avatar.Length > 0
                     ? $"{when} — told them {who} switched to the avatar “{avatar}”"
                     : $"{when} — told them {who} changed avatar",
             _ => $"{when} — told them about {who} in {where}",
@@ -350,7 +350,7 @@ public sealed class SentJournal
 
     private void RecordOutcome(
         string serverId,
-        IEnumerable<ClientEvent> events,
+        IEnumerable<CompanionEvent> events,
         JournalDestination destination,
         JournalEntryKind kind)
     {
@@ -361,22 +361,22 @@ public sealed class SentJournal
         lock (_gate)
         {
             var lines = new List<JournalEntry>();
-            foreach (var clientEvent in events)
+            foreach (var companionEvent in events)
             {
                 // The line the event was processed on holds its key. When that line has aged out,
                 // the send id becomes the key and the event stands as its own row rather than
                 // going unrecorded: a disclosure must never be missing from this file.
-                var key = _keysBySendId.TryGetValue(clientEvent.ClientEventId, out var known)
+                var key = _keysBySendId.TryGetValue(companionEvent.CompanionEventId, out var known)
                     ? known
-                    : clientEvent.ClientEventId;
+                    : companionEvent.CompanionEventId;
 
                 lines.Add(new JournalEntry(
                     now,
                     kind,
                     serverId,
-                    Describe(clientEvent),
+                    Describe(companionEvent),
                     key,
-                    clientEvent.ClientEventId,
+                    companionEvent.CompanionEventId,
                     destination));
             }
 

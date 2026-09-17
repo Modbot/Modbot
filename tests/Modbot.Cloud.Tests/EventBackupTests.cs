@@ -58,7 +58,7 @@ public class EventBackupTests(PostgresFixture db)
         Assert.Equal((2, 0), await ReadResultAsync(response));
 
         await using var engine = db.NewEngineContext();
-        var stored = await engine.Events.OrderBy(e => e.ClientEventId).ToListAsync(Ct);
+        var stored = await engine.Events.OrderBy(e => e.CompanionEventId).ToListAsync(Ct);
 
         var first = stored[0];
         Assert.Equal(id, first.InstallId);
@@ -272,7 +272,7 @@ public class EventBackupTests(PostgresFixture db)
 
         var batch = new
         {
-            clientVersion = "2026.9.1",
+            companionVersion = "2026.9.1",
             sentAt = host.Time.GetUtcNow(),
             modbotServerId = "server-7",
             events = new[] { CloudTestHost.Event("e", Happened) },
@@ -283,7 +283,7 @@ public class EventBackupTests(PostgresFixture db)
 
         await using var cloud = db.NewCloudContext();
         var install = await cloud.Installs.SingleAsync(i => i.Id == id, Ct);
-        Assert.Equal("2026.9.1", install.ClientVersion);
+        Assert.Equal("2026.9.1", install.CompanionVersion);
         Assert.Equal("server-7", install.ModbotServerId);
         Assert.Equal(CloudTestHost.Start.AddMinutes(5), install.LastSeenAt);
     }

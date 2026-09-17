@@ -48,7 +48,7 @@ public class AdminInstallTests(PostgresFixture db)
         host.Time.Advance(TimeSpan.FromSeconds(3));
         using (var batch = await host.PostBatchAsync(bearer, new
                {
-                   clientVersion = "2026.9.0",
+                   companionVersion = "2026.9.0",
                    sentAt = CloudTestHost.Start,
                    modbotServerId = "server-7",
                    events = new[] { CloudTestHost.Event("a", Happened), CloudTestHost.Event("b", Happened) },
@@ -98,7 +98,7 @@ public class AdminInstallTests(PostgresFixture db)
         var events = body.GetProperty("items");
 
         Assert.Equal(2, events.GetArrayLength());
-        Assert.Equal("b", events[0].GetProperty("clientEventId").GetString());
+        Assert.Equal("b", events[0].GetProperty("companionEventId").GetString());
         Assert.Equal("vrchat.instance.leave", events[0].GetProperty("type").GetString());
         Assert.Equal("Rin", events[1].GetProperty("displayName").GetString());
         Assert.Equal("wrld_1", events[1].GetProperty("worldId").GetString());

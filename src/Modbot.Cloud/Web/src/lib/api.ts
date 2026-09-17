@@ -34,7 +34,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export type InstallView = {
   installId: string
-  clientVersion: string
+  companionVersion: string
   firstSeenAt: string
   lastSeenAt: string
   eventsStored: number
@@ -47,7 +47,7 @@ export type InstallPage = { total: number; offset: number; limit: number; items:
 
 /** One stored event. Every field is plain text; nothing here is a link. */
 export type EventView = {
-  clientEventId: string
+  companionEventId: string
   receivedAt: string
   sentAt: string
   occurredAt: string

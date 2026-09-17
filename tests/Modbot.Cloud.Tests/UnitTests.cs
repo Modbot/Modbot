@@ -49,7 +49,7 @@ public class UnitTests
     }
 
     [Fact]
-    public void ClientEventTypesUseTheServersNamesAndUnknownOnesKeepTheirOwn()
+    public void CompanionEventTypesUseTheServersNamesAndUnknownOnesKeepTheirOwn()
     {
         Assert.Equal(("vrchat.instance.join", null), EventTypes.Classify("InstanceJoined"));
         Assert.Equal(("vrchat.instance.log-stopped", null), EventTypes.Classify("LogStopped"));

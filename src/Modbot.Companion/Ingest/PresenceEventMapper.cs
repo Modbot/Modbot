@@ -3,7 +3,7 @@ using Modbot.Companion.Time;
 
 namespace Modbot.Companion.Ingest;
 
-/// <summary>Where a <c>clientEventId</c> comes from.</summary>
+/// <summary>Where a <c>companionEventId</c> comes from.</summary>
 /// <remarks>
 /// An interface so tests can be deterministic. The real one is random rather than derived from the
 /// event's contents — protocol open question 3 asks whether content-derived would be better, and
@@ -11,13 +11,13 @@ namespace Modbot.Companion.Ingest;
 /// already correct for the case that matters (a retry), because the id is written to the durable
 /// buffer with the event and survives a restart.
 /// </remarks>
-public interface IClientEventIdSource
+public interface ICompanionEventIdSource
 {
     string Next();
 }
 
 /// <summary>Random ids. No clock is read, deliberately: this must not be a covert timestamp.</summary>
-public sealed class RandomClientEventIdSource : IClientEventIdSource
+public sealed class RandomClientEventIdSource : ICompanionEventIdSource
 {
     public string Next() => Guid.NewGuid().ToString("n");
 }
@@ -44,12 +44,12 @@ public sealed class PresenceEventMapper
 {
     private readonly LogTimestampConverter _timestamps;
     private readonly ServerClock _clock;
-    private readonly IClientEventIdSource _ids;
+    private readonly ICompanionEventIdSource _ids;
 
     public PresenceEventMapper(
         LogTimestampConverter timestamps,
         ServerClock clock,
-        IClientEventIdSource? ids = null)
+        ICompanionEventIdSource? ids = null)
     {
         _timestamps = timestamps;
         _clock = clock;
@@ -60,7 +60,7 @@ public sealed class PresenceEventMapper
     /// Builds the wire event, or returns <c>null</c> when the observation is not something any
     /// server may be told about — which is any instance with no owning group.
     /// </summary>
-    public ClientEvent? Map(ObservedPresence observation)
+    public CompanionEvent? Map(ObservedPresence observation)
     {
         if (observation.Instance.GroupId is not { } groupId)
             return null;
@@ -72,9 +72,9 @@ public sealed class PresenceEventMapper
     /// Builds the same wire event for any instance, group or not. Used only by the Modbot Cloud
     /// backup, which can be turned off on this PC; never by anything that sends to a Modbot server.
     /// </summary>
-    public ClientEvent MapAnyInstance(ObservedPresence observation) => Build(observation, observation.Instance.GroupId);
+    public CompanionEvent MapAnyInstance(ObservedPresence observation) => Build(observation, observation.Instance.GroupId);
 
-    private ClientEvent Build(ObservedPresence observation, string? groupId)
+    private CompanionEvent Build(ObservedPresence observation, string? groupId)
     {
         // Local wall-clock text to a real instant, then to the server's clock. Two corrections,
         // both necessary before this timestamp can be compared with another machine's.
@@ -90,9 +90,9 @@ public sealed class PresenceEventMapper
         if (observation.AvatarName is { Length: > 0 } avatarName)
             data["avatarName"] = avatarName;
 
-        return new ClientEvent
+        return new CompanionEvent
         {
-            ClientEventId = _ids.Next(),
+            CompanionEventId = _ids.Next(),
             Type = ToWireType(observation.Kind),
             OccurredAt = occurredAt,
 
@@ -109,13 +109,13 @@ public sealed class PresenceEventMapper
         };
     }
 
-    private static ClientEventType ToWireType(PresenceKind kind) => kind switch
+    private static CompanionEventType ToWireType(PresenceKind kind) => kind switch
     {
-        PresenceKind.Joined => ClientEventType.InstanceJoined,
-        PresenceKind.PresenceObserved => ClientEventType.InstancePresenceObserved,
-        PresenceKind.Left => ClientEventType.InstanceLeft,
-        PresenceKind.AvatarChanged => ClientEventType.AvatarChanged,
-        PresenceKind.LogStopped => ClientEventType.LogStopped,
+        PresenceKind.Joined => CompanionEventType.InstanceJoined,
+        PresenceKind.PresenceObserved => CompanionEventType.InstancePresenceObserved,
+        PresenceKind.Left => CompanionEventType.InstanceLeft,
+        PresenceKind.AvatarChanged => CompanionEventType.AvatarChanged,
+        PresenceKind.LogStopped => CompanionEventType.LogStopped,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown presence kind."),
     };
 }

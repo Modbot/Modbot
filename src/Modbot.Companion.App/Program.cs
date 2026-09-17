@@ -55,7 +55,7 @@ namespace Modbot.Companion.App;
 /// browser opens a <c>modbot-companion://</c> link — hands the link to the copy already running and
 /// exits. One tray icon, one log reader, one set of queues.</para>
 /// </remarks>
-internal sealed class ModbotClientApp : Application
+internal sealed class ModbotCompanionApp : Application
 {
     /// <summary>
     /// What this process was started with, if anything: a pairing link from the browser, or a
@@ -65,6 +65,19 @@ internal sealed class ModbotClientApp : Application
 
     /// <summary>Started by Windows at sign-in: stay in the tray and open no window.</summary>
     internal static bool StartHidden { get; set; }
+
+    /// <summary>
+    /// Avalonia draws a templated control -- a text box, a button, a check box -- only through a
+    /// control theme, and an application with none draws nothing where those should be. The
+    /// pairing token box was the first casualty anyone noticed: the card rendered its words and
+    /// the box between them was simply absent. The colours and sizes on every control are still
+    /// set by hand in Controls.cs; the theme supplies the templates those settings apply to.
+    /// </summary>
+    public override void Initialize()
+    {
+        Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
+        RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -84,7 +97,7 @@ internal sealed class ModbotClientApp : Application
 
             try
             {
-                Host = new ClientHost();
+                Host = new CompanionHost();
 
                 // The lifetime shows its main window at start. A start from the startup entry has none,
                 // so the client sits in the tray until the icon is clicked.
@@ -94,7 +107,7 @@ internal sealed class ModbotClientApp : Application
             }
             catch (Exception ex)
             {
-                Log.Fatal(ex, "The client could not start");
+                Log.Fatal(ex, "The companion could not start");
                 throw;
             }
         }
@@ -102,7 +115,7 @@ internal sealed class ModbotClientApp : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    internal static ClientHost? Host { get; private set; }
+    internal static CompanionHost? Host { get; private set; }
 }
 
 /// <summary>
@@ -114,7 +127,7 @@ internal sealed class ModbotClientApp : Application
 /// apart is what lets the reading and reporting half stay a small library that can be audited
 /// without reading any UI code.
 /// </remarks>
-internal sealed class ClientHost
+internal sealed class CompanionHost
 {
     /// <summary>
     /// What a second copy sends when it was started with no link: the person double-clicked the
@@ -153,10 +166,10 @@ internal sealed class ClientHost
     private readonly CancellationTokenSource _inboxStop = new();
 
     private string _directory = string.Empty;
-    private ClientAppState? _state;
+    private CompanionAppState? _state;
     private PairingCoordinator? _pairing;
     private Journal.SentJournal? _journal;
-    private ClientEngine? _engine;
+    private CompanionEngine? _engine;
     private VRChatLogTail? _tail;
     private string? _lastLoggedFile;
     private long _lastLoggedLines;
@@ -183,8 +196,8 @@ internal sealed class ClientHost
         _directory = Path.Combine(appData, "Modbot");
 
         _journal = new Journal.SentJournal(Path.Combine(_directory, "sent.jsonl"), _clock);
-        _settingsPath = ClientSettings.DefaultPath(appData);
-        _state = new ClientAppState(_clock, _journal, ClientSettings.Load(_settingsPath));
+        _settingsPath = CompanionSettings.DefaultPath(appData);
+        _state = new CompanionAppState(_clock, _journal, CompanionSettings.Load(_settingsPath));
 
         // Only the token is encrypted; the rest of the file is left readable on purpose, so a
         // suspicious moderator can open it and see exactly which servers this client talks to.
@@ -302,7 +315,7 @@ internal sealed class ClientHost
 
         _state.Settings = _state.Settings with { StartWithWindows = on };
 
-        if (!ClientSettings.SaveSwitch(_settingsPath, ClientSettings.StartWithWindowsField, on))
+        if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.StartWithWindowsField, on))
             Log.Warning("Could not save the start-with-Windows switch to {Path}", _settingsPath);
 
         ApplyStartWithWindows();
@@ -326,7 +339,7 @@ internal sealed class ClientHost
         Log.Information("Watching VRChat's log folder {Directory}", VRChatLogTail.DefaultDirectory);
 
         var observer = new PresenceObserver(_tail, _clock);
-        _engine = new ClientEngine(observer, _clock, timeProbe: new HttpServerTimeProbe(_http!, _clock), backup: _cloudBackup);
+        _engine = new CompanionEngine(observer, _clock, timeProbe: new HttpServerTimeProbe(_http!, _clock), backup: _cloudBackup);
 
         _engineLoop.Tick += async (_, _) => await CrashGuard.RunAsync("reading VRChat's log", EngineTickAsync);
         _engineLoop.Start();
@@ -384,7 +397,7 @@ internal sealed class ClientHost
                 CrashGuard.Report(
                     new InvalidOperationException(
                         "Reading VRChat's log failed five times in a row, so the reader has been stopped. "
-                        + "Restart the client once the cause is fixed. Last error: " + ex.Message, ex),
+                        + "Restart the companion once the cause is fixed. Last error: " + ex.Message, ex),
                     "reading VRChat's log",
                     fatal: false);
             }
@@ -610,7 +623,7 @@ internal sealed class ClientHost
     {
         if (_state?.Settings.CheckForUpdates is not true)
         {
-            Log.Information("Update checks are turned off in settings.json; this client will not look for newer versions");
+            Log.Information("Update checks are turned off in settings.json; this companion will not look for newer versions");
             return;
         }
 
@@ -808,7 +821,7 @@ internal static class Program
         var link = args.FirstOrDefault(PairingToken.LooksLikeLink);
         var startHidden = StartWithWindows.StartsHidden(args);
 
-        ClientLog.Start(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+        CompanionLog.Start(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
         CrashGuard.Install();
 
         using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var firstCopy);
@@ -818,12 +831,12 @@ internal static class Program
             if (startHidden && link is null)
                 return 0;
 
-            Log.Information("Another copy of the client is running; handing it {What} and leaving",
+            Log.Information("Another copy of the companion is running; handing it {What} and leaving",
                 link is null ? "a request to show its window" : "the pairing link");
             // Another copy owns the tray icon and the log. Hand it the link -- or, with no link,
             // ask it to show its window, which is what somebody double-clicking the icon again
             // wanted -- and leave. A few tries, because the other copy may still be starting.
-            var message = link ?? ClientHost.ShowCommand;
+            var message = link ?? CompanionHost.ShowCommand;
             for (var attempt = 0; attempt < 5; attempt++)
             {
                 if (PairingLinkInbox.TrySendAsync(message, timeout: TimeSpan.FromSeconds(1)).GetAwaiter().GetResult())
@@ -838,12 +851,12 @@ internal static class Program
         // and a second copy started by a browser link never swaps the files under the first.
         Updates.InstallDownloadedUpdate(args);
 
-        ModbotClientApp.StartupMessage = link;
-        ModbotClientApp.StartHidden = startHidden && link is null;
+        ModbotCompanionApp.StartupMessage = link;
+        ModbotCompanionApp.StartHidden = startHidden && link is null;
 
         try
         {
-            OverlayHost.ConfigureAvalonia<ModbotClientApp>()
+            OverlayHost.ConfigureAvalonia<ModbotCompanionApp>()
                 .UsePlatformDetect()
                 .ConfigureFonts(Brand.RegisterFonts)
                 .StartWithClassicDesktopLifetime(args);
@@ -858,7 +871,7 @@ internal static class Program
         finally
         {
             Log.Information("Modbot Companion exiting");
-            ClientLog.Stop();
+            CompanionLog.Stop();
         }
 
         return 0;

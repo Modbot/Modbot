@@ -40,10 +40,10 @@ public class HttpIngestTransportTests
 
         return EventBatch.Create("batch-1", "2026.9.0", clock,
         [
-            .. Enumerable.Range(0, events).Select(i => new ClientEvent
+            .. Enumerable.Range(0, events).Select(i => new CompanionEvent
             {
-                ClientEventId = $"event-{i}",
-                Type = ClientEventType.InstanceJoined,
+                CompanionEventId = $"event-{i}",
+                Type = CompanionEventType.InstanceJoined,
                 OccurredAt = new DateTimeOffset(2026, 9, 12, 20, 14, 7, TimeSpan.Zero),
                 SubjectId = $"usr_{i}",
                 WorldId = "wrld_w",
@@ -73,7 +73,7 @@ public class HttpIngestTransportTests
         var (_, handler) = await SendAsync(_ => Respond(HttpStatusCode.OK));
 
         Assert.Equal(HttpMethod.Post, handler.LastRequest!.Method);
-        Assert.Equal("https://modbot.example/api/v1/client/events", handler.LastRequest.RequestUri!.ToString());
+        Assert.Equal("https://modbot.example/api/v1/companion/events", handler.LastRequest.RequestUri!.ToString());
         Assert.Equal("Bearer", handler.LastRequest.Headers.Authorization!.Scheme);
         Assert.Equal("SECRET-TOKEN", handler.LastRequest.Headers.Authorization.Parameter);
     }

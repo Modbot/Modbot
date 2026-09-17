@@ -23,7 +23,7 @@ public readonly record struct EventBufferLimits(int MaxEvents, TimeSpan MaxAge)
 /// </summary>
 /// <remarks>
 /// <para><strong>What is written to your disk.</strong> One file, in Modbot's own folder, holding
-/// exactly the events queued to be sent — the same fields listed on <see cref="ClientEvent"/> and
+/// exactly the events queued to be sent — the same fields listed on <see cref="CompanionEvent"/> and
 /// nothing else. No log lines, no copies of VRChat's log, nothing about instances outside the
 /// group this file belongs to. Each server gets its own file, so one group's operator cannot be
 /// handed the other's data by accident.</para>
@@ -34,14 +34,14 @@ public readonly record struct EventBufferLimits(int MaxEvents, TimeSpan MaxAge)
 /// first, so a client left offline for a fortnight does not fill a disk. Drops are counted rather
 /// than silent, because "we quietly lost some" is exactly the failure this subsystem must not
 /// have.</para>
-/// <para>The <c>clientEventId</c> is stored with each event, so a retry after a restart carries
+/// <para>The <c>companionEventId</c> is stored with each event, so a retry after a restart carries
 /// the same idempotency key it would have carried before.</para>
 /// </remarks>
 public sealed class FileEventBuffer
 {
     private sealed record Entry(
         [property: JsonPropertyName("enqueuedAt")] DateTimeOffset EnqueuedAt,
-        [property: JsonPropertyName("event")] ClientEvent Event);
+        [property: JsonPropertyName("event")] CompanionEvent Event);
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -78,11 +78,11 @@ public sealed class FileEventBuffer
     public int Dropped { get; private set; }
 
     /// <summary>Queues one event for sending and puts it on disk before returning.</summary>
-    public void Add(ClientEvent clientEvent)
+    public void Add(CompanionEvent companionEvent)
     {
         lock (_gate)
         {
-            _entries.Add(new Entry(_clock.UtcNow, clientEvent));
+            _entries.Add(new Entry(_clock.UtcNow, companionEvent));
 
             if (Prune())
             {
@@ -98,7 +98,7 @@ public sealed class FileEventBuffer
     /// The next batch's worth, oldest first, left in the buffer until the server accepts them.
     /// Nothing is removed by reading: a send that never completes must not lose its events.
     /// </summary>
-    public IReadOnlyList<ClientEvent> Peek(int max)
+    public IReadOnlyList<CompanionEvent> Peek(int max)
     {
         lock (_gate)
         {
@@ -118,7 +118,7 @@ public sealed class FileEventBuffer
 
         lock (_gate)
         {
-            _entries.RemoveAll(e => ids.Contains(e.Event.ClientEventId));
+            _entries.RemoveAll(e => ids.Contains(e.Event.CompanionEventId));
             Prune();
             Rewrite();
         }

@@ -15,7 +15,7 @@ namespace Modbot.Companion.App;
 /// points Windows at the right file.</para>
 /// <para><strong>What this reads.</strong> The same key, to see whether it already says the right
 /// thing. Nothing else in the registry is opened — not Steam's keys, not VRChat's, not anybody
-/// else's. The client's source guard (<c>ClientSourceGuardTests</c>) holds this to being the only
+/// else's. The client's source guard (<c>CompanionSourceGuardTests</c>) holds this to being the only
 /// file in the client that mentions the registry at all.</para>
 /// <para><strong>Why.</strong> Pairing starts in the browser: the moderator presses "Open in
 /// Modbot" on their group's pairing page, and the browser asks Windows what opens a

@@ -6,7 +6,7 @@ namespace Modbot.Companion.LogReading;
 /// <remarks>
 /// This is the complete list — anything not represented here is read past and forgotten. Nothing in
 /// this file is what gets transmitted: these are the raw observations, and only some of them become
-/// a <c>ClientEvent</c> once the phantom-burst rules have been applied.
+/// a <c>CompanionEvent</c> once the phantom-burst rules have been applied.
 /// </remarks>
 public abstract record VRChatLogEvent(DateTime Timestamp);
 

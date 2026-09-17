@@ -14,7 +14,7 @@ public sealed record OutboxBatch(string Name, long Sequence, int Events);
 /// </summary>
 /// <remarks>
 /// <para><strong>What is written to your disk.</strong> One folder, <c>%APPDATA%\Modbot\cloud</c>,
-/// holding presence events not yet sent — each one the JSON of a <c>ClientEvent</c>, the same fields a
+/// holding presence events not yet sent — each one the JSON of a <c>CompanionEvent</c>, the same fields a
 /// Modbot server is sent, and nothing else. <c>open.jsonl</c> is the batch being filled, one event per
 /// row. Closed batches are <c>batch-&lt;number&gt;-&lt;events&gt;.json.gz</c>, gzipped, sent oldest first
 /// and deleted the moment Cloud accepts them.</para>

@@ -248,13 +248,13 @@ public static class ApiKeyAuthentication
 
         // Pairing a companion is a moderator's own decision on their own machine (M3), and a
         // key minting pairing codes would turn one credential into another.
-        if (path.StartsWithSegments("/api/client-devices/pairing-code", StringComparison.OrdinalIgnoreCase))
+        if (path.StartsWithSegments("/api/companion-devices/pairing-code", StringComparison.OrdinalIgnoreCase))
             return true;
 
         return IsClientPath(path);
     }
 
-    /// <summary><c>/api/v{number}/client…</c>.</summary>
+    /// <summary><c>/api/v{number}/companion…</c>.</summary>
     private static bool IsClientPath(PathString path)
     {
         var segments = (path.Value ?? string.Empty).Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -264,7 +264,7 @@ public static class ApiKeyAuthentication
             && segments[1].Length > 1
             && (segments[1][0] is 'v' or 'V')
             && int.TryParse(segments[1].AsSpan(1), NumberStyles.None, CultureInfo.InvariantCulture, out _)
-            && string.Equals(segments[2], "client", StringComparison.OrdinalIgnoreCase);
+            && string.Equals(segments[2], "companion", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The principal for a key: a session's claims, for the key's account, plus the key's id.</summary>

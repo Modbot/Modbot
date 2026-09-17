@@ -16,7 +16,7 @@ public sealed record CloudRegistration(IngestOutcome Outcome, Guid InstallId = d
 /// <summary>The three requests the event backup makes to Modbot Cloud.</summary>
 public interface ICloudLogClient
 {
-    Task<CloudRegistration> RegisterAsync(Uri endpoint, string clientVersion, CancellationToken cancellationToken);
+    Task<CloudRegistration> RegisterAsync(Uri endpoint, string companionVersion, CancellationToken cancellationToken);
 
     /// <param name="body">A whole batch, gzipped JSON.</param>
     Task<IngestResult> SendAsync(CloudInstall install, byte[] body, CancellationToken cancellationToken);
@@ -35,7 +35,7 @@ public interface ICloudLogClient
 /// <list type="bullet">
 /// <item><c>POST /api/v1/installs</c> with the client's version and the word <c>windows</c>. Nothing
 /// else: no machine name, no account, no VRChat id.</item>
-/// <item><c>POST /api/v1/events</c> with a gzipped batch of <c>ClientEvent</c> rows — the same presence
+/// <item><c>POST /api/v1/events</c> with a gzipped batch of <c>CompanionEvent</c> rows — the same presence
 /// events a Modbot server gets, but for every instance — and the install id and secret as a bearer
 /// header. These name other players and the instances you are in; never a raw log line.</item>
 /// <item><c>GET /api/v1/time</c> with no body and no credential.</item>
@@ -55,14 +55,14 @@ public sealed class HttpCloudLogClient : ICloudLogClient
         _clock = clock;
     }
 
-    public async Task<CloudRegistration> RegisterAsync(Uri endpoint, string clientVersion, CancellationToken cancellationToken)
+    public async Task<CloudRegistration> RegisterAsync(Uri endpoint, string companionVersion, CancellationToken cancellationToken)
     {
         if (!ServerAddresses.IsAllowed(endpoint))
             return new CloudRegistration(IngestOutcome.Malformed);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(endpoint, "/api/v1/installs"))
         {
-            Content = JsonContent.Create(new RegisterBody(clientVersion, "windows"), options: Json),
+            Content = JsonContent.Create(new RegisterBody(companionVersion, "windows"), options: Json),
         };
 
         try
@@ -156,7 +156,7 @@ public sealed class HttpCloudLogClient : ICloudLogClient
     };
 
     private sealed record RegisterBody(
-        [property: JsonPropertyName("clientVersion")] string ClientVersion,
+        [property: JsonPropertyName("companionVersion")] string CompanionVersion,
         [property: JsonPropertyName("platform")] string Platform);
 
     private sealed record RegisteredBody(

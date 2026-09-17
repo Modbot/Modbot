@@ -174,11 +174,11 @@ namespace Modbot.Cloud.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<string>("ClientVersion")
+                    b.Property<string>("CompanionVersion")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
-                        .HasColumnName("client_version");
+                        .HasColumnName("companion_version");
 
                     b.Property<DateTimeOffset>("LastSeenAt")
                         .HasColumnType("timestamp with time zone")

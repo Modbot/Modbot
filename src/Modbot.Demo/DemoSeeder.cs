@@ -142,8 +142,8 @@ public sealed class DemoSeeder
         await _db.AiUsage.ExecuteDeleteAsync(ct);
 
         await _db.EvidenceBlobs.ExecuteDeleteAsync(ct);
-        await _db.ClientDevices.ExecuteDeleteAsync(ct);
-        await _db.ClientPairingCodes.ExecuteDeleteAsync(ct);
+        await _db.CompanionDevices.ExecuteDeleteAsync(ct);
+        await _db.CompanionPairingCodes.ExecuteDeleteAsync(ct);
         await _db.OneTimeLinks.ExecuteDeleteAsync(ct);
         await _db.EmailQueue.ExecuteDeleteAsync(ct);
 
@@ -284,11 +284,11 @@ public sealed class DemoSeeder
 
             // A paired companion each, because the Live page only shows who is in a room when
             // a paired client reported them (Live reads facts, not VRChat).
-            _db.ClientDevices.Add(new ClientDeviceRecord
+            _db.CompanionDevices.Add(new CompanionDeviceRecord
             {
                 Id = DeviceIdOf(index),
                 TokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"demo-device-{index}"))),
-                ClientVersion = "2026.9.0",
+                CompanionVersion = "2026.9.0",
                 Platform = "windows",
                 IssuedToUserId = user.Id,
                 IssuedAt = person.JoinedGroupAt,

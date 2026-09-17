@@ -58,26 +58,26 @@ public sealed record ServerPairing
     /// <summary>Negotiated once, at pairing. A property of the pairing, not of each request.</summary>
     public int ApiVersion { get; init; }
 
-    public Uri EventsEndpoint => new(BaseUri, $"/api/v{ApiVersion}/client/events");
+    public Uri EventsEndpoint => new(BaseUri, $"/api/v{ApiVersion}/companion/events");
 
-    public Uri TimeEndpoint => new(BaseUri, $"/api/v{ApiVersion}/client/time");
+    public Uri TimeEndpoint => new(BaseUri, $"/api/v{ApiVersion}/companion/time");
 
     /// <summary>
     /// The roster-with-context read the overlay's local cache is filled from. Read-only and small.
     /// </summary>
     public Uri ContextEndpoint(string instanceId)
-        => new(BaseUri, $"/api/v{ApiVersion}/client/context?instanceId={Uri.EscapeDataString(instanceId)}");
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/context?instanceId={Uri.EscapeDataString(instanceId)}");
 
     /// <summary>One person's profile summary — prior actions, roles, join date, current flags.</summary>
     public Uri UserEndpoint(string subjectId)
-        => new(BaseUri, $"/api/v{ApiVersion}/client/user/{Uri.EscapeDataString(subjectId)}");
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/user/{Uri.EscapeDataString(subjectId)}");
 
     /// <summary>
     /// The long poll. The one case that genuinely needs push: a flagged user joining the instance
     /// the moderator is standing in, where a thirty-second poll notices after the moment has gone.
     /// </summary>
     public Uri AlertsEndpoint(int waitSeconds)
-        => new(BaseUri, $"/api/v{ApiVersion}/client/alerts?wait={waitSeconds}");
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/alerts?wait={waitSeconds}");
 
     public override string ToString() => $"{ServerId} ({BaseUri})";
 }

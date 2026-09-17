@@ -317,11 +317,11 @@ public class InstanceAnnouncerTests
                 db, "mod_" + Guid.NewGuid().ToString("n")[..8], TestAccounts.Password, ModbotPermissions.None, linked: true, ct);
 
             device = Guid.NewGuid();
-            db.ClientDevices.Add(new ClientDeviceRecord
+            db.CompanionDevices.Add(new CompanionDeviceRecord
             {
                 Id = device,
                 TokenHash = Guid.NewGuid().ToString("n"),
-                ClientVersion = "2026.9.0",
+                CompanionVersion = "2026.9.0",
                 Platform = "windows",
                 IssuedToUserId = user.Id,
                 IssuedAt = at,

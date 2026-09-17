@@ -16,7 +16,7 @@ public class InstallTests(PostgresFixture db)
     {
         await using var host = await CloudTestHost.StartAsync(db);
 
-        using var response = await host.SendAsync(HttpMethod.Post, "/api/v1/installs", new { clientVersion = "2026.9.0", platform = "windows" }, ip: "203.0.113.1");
+        using var response = await host.SendAsync(HttpMethod.Post, "/api/v1/installs", new { companionVersion = "2026.9.0", platform = "windows" }, ip: "203.0.113.1");
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
@@ -29,7 +29,7 @@ public class InstallTests(PostgresFixture db)
         var install = await cloud.Installs.SingleAsync(i => i.Id == id, Ct);
         Assert.Equal(InstallSecrets.Hash(secret), install.SecretHash);
         Assert.NotEqual(secret, install.SecretHash);
-        Assert.Equal("2026.9.0", install.ClientVersion);
+        Assert.Equal("2026.9.0", install.CompanionVersion);
         Assert.Equal("windows", install.Platform);
         Assert.Null(install.ModbotServerId);
     }

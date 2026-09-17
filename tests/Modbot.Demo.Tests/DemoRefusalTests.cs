@@ -85,8 +85,8 @@ public class DemoRefusalTests
     [InlineData("/api/join/abc")]
     [InlineData("/api/reset/abc")]
     [InlineData("/api/users/7f1f2b1e-0000-0000-0000-000000000000/reset-link")]
-    [InlineData("/api/client-devices/pairing-code")]
-    [InlineData("/api/v1/client/pair")]
+    [InlineData("/api/companion-devices/pairing-code")]
+    [InlineData("/api/v1/companion/pair")]
     [InlineData("/api/settings/email/test")]
     public void SigningInPairingAndMailAreTurnedAway(string path)
         => Assert.True(DemoRefusals.Refuses(new PathString(path)));
@@ -103,8 +103,8 @@ public class DemoRefusalTests
     [InlineData("/api/settings/email")]
     [InlineData("/api/onboarding/status")]
     [InlineData("/api/demo")]
-    [InlineData("/api/v1/client/events")]
-    [InlineData("/api/client-devices")]
+    [InlineData("/api/v1/companion/events")]
+    [InlineData("/api/companion-devices")]
     public void EverythingElseIsLeftAlone(string path)
         => Assert.False(DemoRefusals.Refuses(new PathString(path)));
 

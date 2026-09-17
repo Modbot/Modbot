@@ -40,8 +40,8 @@ public sealed class RetentionPruner(EngineContext engine, CloudContext cloud, Ti
         while (true)
         {
             var deleted = await engine.Database.ExecuteSqlInterpolatedAsync($"""
-                DELETE FROM client_event
-                WHERE ctid IN (SELECT ctid FROM client_event WHERE received_at < {cutoff} LIMIT {Slice})
+                DELETE FROM companion_event
+                WHERE ctid IN (SELECT ctid FROM companion_event WHERE received_at < {cutoff} LIMIT {Slice})
                 """, ct);
 
             removed += deleted;

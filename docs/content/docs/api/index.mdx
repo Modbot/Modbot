@@ -57,8 +57,8 @@ sign-in at all, whatever permissions it holds, so anything that needs one answer
 |---|---|
 | Everything under `/api/auth/` except `GET /api/auth/me` | Your own account: changing your password, username or contact details, signing out everywhere, linking your VRChat account. `GET /api/auth/me` is allowed, so a program can ask whose key it holds. |
 | Everything under `/api/onboarding/` | The [setup wizard](/setup-wizard). |
-| `/api/client-devices/pairing-code` | Making a code to [pair a companion](/companion/pairing). |
-| `/api/v1/client/...` (any version number) | The companion's own connection, which uses its own device sign-in. |
+| `/api/companion-devices/pairing-code` | Making a code to [pair a companion](/companion/pairing). |
+| `/api/v1/companion/...` (any version number) | The companion's own connection, which uses its own device sign-in. |
 
 Everywhere else, the key's permissions decide, exactly as a person's permissions do in the web app.
 
@@ -120,7 +120,7 @@ Neither needs a sign-in.
 A few groups of endpoints are not meant for other programs, so the reference does not list them:
 
 - the setup wizard (`/api/onboarding/...`)
-- the companion's connection and pairing (`/api/v1/client/...` and `/api/client-devices/...`)
+- the companion's connection and pairing (`/api/v1/companion/...` and `/api/companion-devices/...`)
 - the page members use to link their Discord account (`/api/discord-link/...`), which is driven by
   a browser and Discord's sign-in
 - how often Modbot asks VRChat for data (`/api/settings/sync`)

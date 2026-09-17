@@ -47,8 +47,8 @@ public class StartWithWindowsTests
     {
         var registry = new FakeRegistry();
 
-        Assert.True(ClientSettings.Default.StartWithWindows);
-        var state = new StartWithWindows(registry).Apply(installed: true, Launcher, ClientSettings.Default.StartWithWindows);
+        Assert.True(CompanionSettings.Default.StartWithWindows);
+        var state = new StartWithWindows(registry).Apply(installed: true, Launcher, CompanionSettings.Default.StartWithWindows);
 
         Assert.Equal(new StartupState(true, true, false), state);
         Assert.Equal($"\"{Launcher}\" --autostart", registry.Command);
@@ -128,10 +128,10 @@ public class StartWithWindowsTests
     {
         var path = Path.Combine(Directory.CreateTempSubdirectory("modbot-startup-").FullName, "settings.json");
 
-        Assert.True(ClientSettings.Load(path).StartWithWindows);
-        Assert.True(ClientSettings.SaveSwitch(path, ClientSettings.StartWithWindowsField, false));
-        Assert.False(ClientSettings.Load(path).StartWithWindows);
-        Assert.False(ClientSettings.Load(path).Cloud.Disabled);
+        Assert.True(CompanionSettings.Load(path).StartWithWindows);
+        Assert.True(CompanionSettings.SaveSwitch(path, CompanionSettings.StartWithWindowsField, false));
+        Assert.False(CompanionSettings.Load(path).StartWithWindows);
+        Assert.False(CompanionSettings.Load(path).Cloud.Disabled);
 
         Directory.Delete(Path.GetDirectoryName(path)!, recursive: true);
     }

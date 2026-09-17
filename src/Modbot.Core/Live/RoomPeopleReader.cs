@@ -172,7 +172,7 @@ public sealed class RoomPeopleReader
     private async Task<IReadOnlyDictionary<Guid, string>> DeviceOwnersAsync(CancellationToken ct)
     {
         var pairs = await (
-                from device in _db.ClientDevices.AsNoTracking()
+                from device in _db.CompanionDevices.AsNoTracking()
                 join user in _db.Users.AsNoTracking() on device.IssuedToUserId equals user.Id
                 where user.VRChatUserId != null
                 select new { device.Id, user.VRChatUserId })

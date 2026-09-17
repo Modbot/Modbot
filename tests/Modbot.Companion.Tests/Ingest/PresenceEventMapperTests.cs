@@ -8,7 +8,7 @@ namespace Modbot.Companion.Tests.Ingest;
 
 public class PresenceEventMapperTests
 {
-    private sealed class CountingIds : IClientEventIdSource
+    private sealed class CountingIds : ICompanionEventIdSource
     {
         private int _next;
 
@@ -52,11 +52,11 @@ public class PresenceEventMapperTests
     }
 
     [Theory]
-    [InlineData(PresenceKind.Joined, ClientEventType.InstanceJoined)]
-    [InlineData(PresenceKind.PresenceObserved, ClientEventType.InstancePresenceObserved)]
-    [InlineData(PresenceKind.Left, ClientEventType.InstanceLeft)]
-    [InlineData(PresenceKind.AvatarChanged, ClientEventType.AvatarChanged)]
-    public void MapsEachKindOntoItsProtocolType(PresenceKind kind, ClientEventType expected)
+    [InlineData(PresenceKind.Joined, CompanionEventType.InstanceJoined)]
+    [InlineData(PresenceKind.PresenceObserved, CompanionEventType.InstancePresenceObserved)]
+    [InlineData(PresenceKind.Left, CompanionEventType.InstanceLeft)]
+    [InlineData(PresenceKind.AvatarChanged, CompanionEventType.AvatarChanged)]
+    public void MapsEachKindOntoItsProtocolType(PresenceKind kind, CompanionEventType expected)
     {
         Assert.Equal(expected, Mapper().Map(Observation(kind))!.Type);
     }
@@ -133,7 +133,7 @@ public class PresenceEventMapperTests
     {
         var mapper = Mapper();
 
-        Assert.NotEqual(mapper.Map(Observation())!.ClientEventId, mapper.Map(Observation())!.ClientEventId);
+        Assert.NotEqual(mapper.Map(Observation())!.CompanionEventId, mapper.Map(Observation())!.CompanionEventId);
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public class PresenceEventMapperTests
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(mapped));
 
         Assert.Equal(
-            ["clientEventId", "type", "occurredAt", "occurredBefore", "subjectId", "worldId",
+            ["companionEventId", "type", "occurredAt", "occurredBefore", "subjectId", "worldId",
              "instanceId", "groupId", "data"],
             document.RootElement.EnumerateObject().Select(p => p.Name));
 

@@ -15,7 +15,7 @@ namespace Modbot.Companion.LogReading;
 /// <para><strong>What leaves the machine.</strong> Nothing, from here. This function returns an
 /// in-memory description of the line; the raw text is dropped on the floor. What is eventually
 /// transmitted, and to whom, is decided later — see <c>InstanceSessionTracker</c> for the
-/// filtering and <c>ClientEvent</c> for the exact field list.</para>
+/// filtering and <c>CompanionEvent</c> for the exact field list.</para>
 /// </remarks>
 public static class BehaviourEventParser
 {

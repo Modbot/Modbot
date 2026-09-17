@@ -35,7 +35,7 @@ internal enum Page
 /// other folder on the machine. A moderator attaching evidence to a case does it in the web UI, in
 /// a browser, by choosing a file — a human action in an application people already trust with file
 /// dialogs. Putting it here instead would hand this program the one capability that would make its
-/// resemblance to an infostealer complete, and <c>ClientSourceGuardTests</c> fails the build if it
+/// resemblance to an infostealer complete, and <c>CompanionSourceGuardTests</c> fails the build if it
 /// ever appears.</para>
 /// <para>Built in code rather than markup because a reader auditing this program should be able to
 /// see what it displays without also learning a XAML dialect.</para>
@@ -60,7 +60,7 @@ public sealed class MainWindow : Window
     private bool _renderingSwitches;
 
     private Page _page = Page.Servers;
-    private ClientAppSnapshot _snapshot = ClientAppSnapshot.Empty;
+    private CompanionAppSnapshot _snapshot = CompanionAppSnapshot.Empty;
     private MainWindowActions _actions = MainWindowActions.None;
 
     public MainWindow()
@@ -101,7 +101,7 @@ public sealed class MainWindow : Window
     }
 
     /// <summary>Rebuilds the window from a snapshot. Cheap enough to call on a timer.</summary>
-    public void Render(ClientAppSnapshot snapshot, MainWindowActions actions)
+    public void Render(CompanionAppSnapshot snapshot, MainWindowActions actions)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(actions);
@@ -130,7 +130,7 @@ public sealed class MainWindow : Window
                     Children =
                     {
                         Brand.Wordmark(Ui.Text("Modbot", Ui.T.Density.TextBase + 1, Ui.T.TextBrush, FontWeight.Normal, wrap: false)),
-                        Ui.Faint("client"),
+                        Ui.Faint("companion"),
                     },
                 },
             },

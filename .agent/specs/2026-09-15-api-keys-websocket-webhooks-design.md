@@ -77,7 +77,7 @@ Some endpoints are about a *person*, not a program, and refuse a key whatever it
 - `/api/auth/*` — changing a password, a username, contact details, signing out everywhere,
   linking a VRChat account — except `GET /api/auth/me`, which answers "whose key is this".
 - `/api/onboarding/*` — the setup wizard.
-- `POST /api/client-devices/pairing-code` — pairing a companion is a moderator's own decision
+- `POST /api/companion-devices/pairing-code` — pairing a companion is a moderator's own decision
   on their own machine (M3), and a key that mints pairing codes turns one credential into another.
 - `/api/v{n}/client/*` — the companion has its own device tokens (M3), and the two are never
   interchangeable.

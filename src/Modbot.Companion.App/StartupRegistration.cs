@@ -15,7 +15,7 @@ namespace Modbot.Companion.App;
 /// <c>Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run</c>, which is where
 /// Task Manager records that you turned an app off. That second key is only ever read, never
 /// written: Modbot does not overrule Windows' switch.</para>
-/// <para>Nothing here is sent anywhere. <c>ClientSourceGuardTests</c> holds this and
+/// <para>Nothing here is sent anywhere. <c>CompanionSourceGuardTests</c> holds this and
 /// <c>UrlSchemeRegistration</c> to being the only files in the client that touch the registry.</para>
 /// </remarks>
 [SupportedOSPlatform("windows")]

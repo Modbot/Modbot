@@ -75,7 +75,7 @@ public class DemoSeedTests
         Assert.Contains(administrator.Roles, r => r.RoleId == BuiltInRoles.AdministratorId);
 
         // Live reads presence reported by a paired client, so the team needs paired clients.
-        Assert.Equal(DemoPlan.StaffCount, await host.Db.ClientDevices.CountAsync(ct));
+        Assert.Equal(DemoPlan.StaffCount, await host.Db.CompanionDevices.CountAsync(ct));
     }
 
     [Fact]

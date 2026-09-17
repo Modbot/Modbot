@@ -27,7 +27,7 @@ public sealed class Install
     /// <summary>Lower-case hex SHA-256 of the secret.</summary>
     public string SecretHash { get; set; } = string.Empty;
 
-    public string ClientVersion { get; set; } = string.Empty;
+    public string CompanionVersion { get; set; } = string.Empty;
 
     public string Platform { get; set; } = string.Empty;
 
@@ -51,7 +51,7 @@ internal sealed class InstallConfiguration : IEntityTypeConfiguration<Install>
         entity.HasKey(i => i.Id);
         entity.Property(i => i.Id).ValueGeneratedNever();
         entity.Property(i => i.SecretHash).HasMaxLength(64);
-        entity.Property(i => i.ClientVersion).HasMaxLength(Install.MaxVersionLength);
+        entity.Property(i => i.CompanionVersion).HasMaxLength(Install.MaxVersionLength);
         entity.Property(i => i.Platform).HasMaxLength(Install.MaxPlatformLength);
         entity.Property(i => i.ModbotServerId).HasMaxLength(Install.MaxServerIdLength);
         entity.HasIndex(i => i.LastSeenAt);

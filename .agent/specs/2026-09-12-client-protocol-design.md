@@ -85,7 +85,7 @@ requests in a way the client would read as transient.
   moderator, in a browser          client                          server
   ───────────────────────         ──────                          ──────
   opens <server>/pair, signed in
-  page asks for a code       ─────────────────────────────▶  POST /api/client-devices/pairing-code
+  page asks for a code       ─────────────────────────────▶  POST /api/companion-devices/pairing-code
                              ◀─────────────────────────────  { code, expiresAt }   (cookie auth)
   page builds the pairing token:
     base64url {"server": origin, "code": code}
@@ -94,8 +94,8 @@ requests in a way the client would read as transient.
                                        with the link; a running copy
                                        receives it over a local pipe
                                   client checks the token, then
-                                  POST /api/v1/client/pair
-                                  { code, clientVersion, platform }
+                                  POST /api/v1/companion/pair
+                                  { code, companionVersion, platform }
                                                             ──▶  validates code
                                                             ◀──  { deviceToken,
                                                                    managedGroupId,
@@ -148,12 +148,12 @@ retrying — a revoked moderator's client must stop, visibly.
 ### 4.1 One endpoint, one batch
 
 ```http
-POST /api/v1/client/events
+POST /api/v1/companion/events
 Authorization: Bearer <device token>
 
 {
   "batchId": "0f1c…",              // client-generated UUID, stable across retries
-  "clientVersion": "2026.9.0",
+  "companionVersion": "2026.9.0",
   "clockOffsetMs": -412,           // the client's own measured correction (§5)
   "clockConfidence": "good",
   "events": [ … ]                  // 1..500
@@ -174,7 +174,7 @@ expected (M3 §5.1), not a failure to report.
 
 ```json
 {
-  "clientEventId": "b7e2…",        // stable across retries; the idempotency key
+  "companionEventId": "b7e2…",        // stable across retries; the idempotency key
   "type": "InstanceJoined",        // | InstancePresenceObserved | InstanceLeft | AvatarChanged | LogStopped
   "occurredAt": "2026-09-12T20:14:07.412+00:00",
   "occurredBefore": null,          // non-null ⇒ it happened somewhere in (occurredAt, occurredBefore]
@@ -227,7 +227,7 @@ Two different mechanisms, often confused:
 
 | | Scope | Handles |
 |---|---|---|
-| **`clientEventId`** | one client | the same client retrying after a timeout |
+| **`companionEventId`** | one client | the same client retrying after a timeout |
 | **Windowed dedup** (§5.7.1) | across clients | six moderators reporting one join |
 
 A retried batch is safe because every event carries a stable id. A batch from a *different* moderator
@@ -262,7 +262,7 @@ The client corrects to server time before sending (foundation §4.4), using the 
 estimate:
 
 ```http
-GET /api/v1/client/time  →  { "serverTime": "2026-09-12T20:14:07.412+00:00" }
+GET /api/v1/companion/time  →  { "serverTime": "2026-09-12T20:14:07.412+00:00" }
 
 offset = ((t1 − t0) + (t2 − t3)) / 2
 ```
@@ -285,8 +285,8 @@ The overlay renders from the client's **local cache**, never a live request (M3 
 keeps that cache warm.
 
 ```http
-GET /api/v1/client/context?instanceId=…   →  roster with flags, prior-action counts, staff markers
-GET /api/v1/client/user/{subjectId}       →  profile summary for one person
+GET /api/v1/companion/context?instanceId=…   →  roster with flags, prior-action counts, staff markers
+GET /api/v1/companion/user/{subjectId}       →  profile summary for one person
 ```
 
 Both are **read-only and small**. The profile summary is deliberately not the full web profile: an
@@ -304,7 +304,7 @@ else left once the last moderator walks out.
 One case genuinely needs push: **a flagged user joins the instance a moderator is currently in.** By
 the time a 30-second poll notices, the moment has passed.
 
-That is a **long-poll** (`GET /api/v1/client/alerts?wait=30`), not a websocket — one endpoint, one
+That is a **long-poll** (`GET /api/v1/companion/alerts?wait=30`), not a websocket — one endpoint, one
 concern, and it degrades to a slow poll rather than to nothing when a proxy interferes.
 
 **Everything else polls.** Roster refresh, flag updates and health all ride the normal batch cycle.
@@ -356,7 +356,7 @@ reworded.
    connections below 30 s.
 2. **Batch size in practice.** 50 events / 30 s / 2 s is a guess; the right numbers come from a
    busy instance with six moderators, not from reasoning.
-3. **Whether `clientEventId` should be content-derived** (a hash of the logical event) rather than
+3. **Whether `companionEventId` should be content-derived** (a hash of the logical event) rather than
    random. Content-derived would make retry idempotency work even across a client restart that lost
    the buffer's ids — worth it if restarts during a pending batch prove common.
 4. **Overlay alert delivery when several servers all have something to say at once.** Rare, but the

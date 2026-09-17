@@ -23,7 +23,7 @@ internal sealed class FakeCloudClient : ICloudLogClient
 
     public TaskCompletionSource SendStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    public Task<CloudRegistration> RegisterAsync(Uri endpoint, string clientVersion, CancellationToken cancellationToken)
+    public Task<CloudRegistration> RegisterAsync(Uri endpoint, string companionVersion, CancellationToken cancellationToken)
     {
         Registered.Add(endpoint);
         return Task.FromResult(Registration);
@@ -59,7 +59,7 @@ internal sealed class MemoryInstallStore : ICloudInstallStore
     public void Forget(Uri endpoint) => Installs.Remove(endpoint.GetLeftPart(UriPartial.Authority));
 }
 
-internal sealed class CountingIds : IClientEventIdSource
+internal sealed class CountingIds : ICompanionEventIdSource
 {
     private int _next;
 

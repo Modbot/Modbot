@@ -13,7 +13,7 @@ namespace Modbot.Companion.LogReading;
 /// <para><strong>Nothing here leaves the machine.</strong> The raw line — the <c>Message</c> in
 /// particular — is never transmitted and never stored by Modbot. Only a handful of fields parsed
 /// out of a handful of recognised line shapes are ever sent, and which ones is visible in
-/// <c>ClientEvent</c>. Foundation spec section 3.2.</para>
+/// <c>CompanionEvent</c>. Foundation spec section 3.2.</para>
 /// </remarks>
 public static class VRChatLogLineParser
 {

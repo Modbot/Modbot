@@ -19,7 +19,7 @@ export function InstallDetail({ installId }: { installId: string }) {
 
   const i = install.data
   const facts = [
-    { label: 'Version', value: i.clientVersion },
+    { label: 'Version', value: i.companionVersion },
     { label: 'First seen', value: when(i.firstSeenAt) },
     { label: 'Last seen', value: when(i.lastSeenAt) },
     { label: 'Events stored', value: i.eventsStored.toLocaleString() },
@@ -64,7 +64,7 @@ export function InstallDetail({ installId }: { installId: string }) {
               </TableHeader>
               <TableBody>
                 {events.data.items.map((e) => (
-                  <TableRow key={e.clientEventId}>
+                  <TableRow key={e.companionEventId}>
                     <TableCell className="px-4 whitespace-nowrap">{when(e.receivedAt)}</TableCell>
                     <TableCell className="px-4 whitespace-nowrap">{when(e.occurredAt)}</TableCell>
                     <TableCell className="px-4 font-mono whitespace-nowrap">
