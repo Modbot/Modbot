@@ -12,6 +12,8 @@ using Modbot.Companion.Presentation;
 using Modbot.Companion.Startup;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Time;
+using Modbot.Companion.Voice;
+using Modbot.Companion.App.Voice;
 using Modbot.Core;
 using Modbot.Core.Time;
 using Modbot.Overlay;
@@ -32,7 +34,8 @@ namespace Modbot.Companion.App;
 /// <para><strong>What it writes to your disk.</strong> Its own folder under your user profile,
 /// holding three things: which servers you paired with and their tokens (the tokens encrypted to
 /// your Windows account), observations queued to send, and the plain-English record of what has
-/// been sent. Plus one registry key under your own account saying that <c>modbot-companion://</c>
+/// been sent — and, once you turn the voice on, the downloaded voice under <c>voices</c>. Plus
+/// one registry key under your own account saying that <c>modbot-companion://</c>
 /// links open this program, which is how pairing from the browser reaches it, and — in an installed
 /// copy, unless you turn it off — one value under your own account's startup list so Modbot starts
 /// in the tray when you sign in. Nothing else on the machine is touched.</para>
@@ -42,7 +45,9 @@ namespace Modbot.Companion.App;
 /// VRChat use. Separately, and whether or not anything is paired, the same presence events — for
 /// every instance, private ones included, but never a raw log line — are backed up to Modbot Cloud,
 /// unless you turn that off in <c>settings.json</c> or with <c>MODBOT_CLOUD_DISABLED</c> (see
-/// <c>CloudEventBackup</c> and <c>CloudSettings</c>).
+/// <c>CloudEventBackup</c> and <c>CloudSettings</c>). And once, if you turn the voice on: one
+/// download of the voice from GitHub, with nothing attached (see <c>VoiceDownload</c>); what the
+/// voice then says is made and played on this PC and goes nowhere.
 /// Never chat, screenshots, keystrokes, your friends list or a list of your processes.</para>
 /// <para><strong>It never captures the screen.</strong> Not the desktop, not a window, not
 /// VRChat's screenshot folder, not any other folder. Attaching evidence to a moderation case is a
@@ -127,13 +132,28 @@ internal sealed class ModbotCompanionApp : Application
 /// apart is what lets the reading and reporting half stay a small library that can be audited
 /// without reading any UI code.
 /// </remarks>
-internal sealed class CompanionHost
+internal sealed class CompanionHost : IOverlayListener
 {
     /// <summary>
     /// What a second copy sends when it was started with no link: the person double-clicked the
     /// icon again, and wants the window.
     /// </summary>
     internal const string ShowCommand = "show";
+
+    /// <summary>
+    /// How often the voice is given a turn: to finish a download, to start the next line. A turn
+    /// with nothing waiting costs a few comparisons.
+    /// </summary>
+    private readonly DispatcherTimer _voiceLoop = new() { Interval = TimeSpan.FromMilliseconds(250) };
+
+    /// <summary>
+    /// Writes the voice settings a moment after the last change, so a volume slider being dragged
+    /// is one write rather than a hundred.
+    /// </summary>
+    private readonly DispatcherTimer _voiceSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
+
+    /// <summary>Which servers' token rejections the voice has already said, so each is said once.</summary>
+    private readonly HashSet<string> _tokenRejectionsSpoken = new(StringComparer.Ordinal);
 
     private readonly IModbotClock _clock = new SystemModbotClock();
     private readonly DispatcherTimer _refresh = new() { Interval = TimeSpan.FromSeconds(1) };
@@ -192,6 +212,8 @@ internal sealed class CompanionHost
     private int _overlayFramesSeen;
     private Updates? _updates;
     private CloudEventBackup? _cloudBackup;
+    private VoiceHost? _voice;
+    private bool _voiceTicking;
     private string _settingsPath = string.Empty;
 
     /// <summary>Stops the event backup's own task when this copy quits.</summary>
@@ -232,6 +254,7 @@ internal sealed class CompanionHost
         _transport = new HttpIngestTransport(_http);
 
         StartCloudBackup(appData);
+        StartVoice();
         StartEngine();
 
         // A pairing whose token will not decrypt is shown by name rather than retried or hidden.
@@ -354,6 +377,104 @@ internal sealed class CompanionHost
         Render();
     }
 
+    /// <summary>
+    /// Brings up the voice: the sound output for this platform and the announcer the engine will
+    /// feed. It says nothing until the settings say it may, and fetches the voice only then.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>What leaves the machine.</strong> One download of the voice from GitHub, the
+    /// first time the voice is turned on or tested, described on <see cref="VoiceDownload"/>.
+    /// Nothing else: what is said is made and played on this PC.</para>
+    /// <para>Built before the engine so the engine can be handed the announcer; the moderator's
+    /// own id is read back from the engine, which exists by the time anything is observed.</para>
+    /// </remarks>
+    private void StartVoice()
+    {
+        _voice = new VoiceHost(
+            _directory,
+            _http!,
+            _clock,
+            () => _state!.Settings.Voice,
+            () => _engine?.ModeratorId);
+
+        _voiceLoop.Tick += async (_, _) => await CrashGuard.RunAsync("speaking", VoiceTickAsync);
+        _voiceLoop.Start();
+
+        _voiceSave.Tick += (_, _) =>
+        {
+            _voiceSave.Stop();
+            if (_state is not null && !CompanionSettings.SaveVoice(_settingsPath, _state.Settings.Voice))
+                Log.Warning("Could not save the voice settings to {Path}", _settingsPath);
+        };
+    }
+
+    /// <summary>One turn of the voice, never overlapping itself: a line takes seconds to say.</summary>
+    private async Task VoiceTickAsync()
+    {
+        if (_voice is null || _state is null || _voiceTicking)
+            return;
+
+        _voiceTicking = true;
+        try
+        {
+            // Silent while any paired server is paused: pausing means "stop watching what I do",
+            // and a voice narrating the room would be watching.
+            await _voice.TickAsync(_state.Connections.Any(c => c.IsPaused));
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+        finally
+        {
+            _voiceTicking = false;
+        }
+    }
+
+    /// <summary>The Voice card changed. Takes effect at once; the file is written a moment later.</summary>
+    private void SetVoice(VoiceSettings voice)
+    {
+        if (_state is null || _voice is null || _state.Settings.Voice == voice)
+            return;
+
+        var before = _state.Settings.Voice;
+        _state.Settings = _state.Settings with { Voice = voice };
+        _voice.Apply(before, voice);
+
+        _voiceSave.Stop();
+        _voiceSave.Start();
+        Render();
+    }
+
+    private void TestVoice()
+    {
+        _voice?.Test();
+        Render();
+    }
+
+    /// <summary>
+    /// A server rejected this device's token: reporting to it has stopped and will not restart on
+    /// its own, which is the one problem worth hearing in the headset. Said once per server,
+    /// whichever half of the companion noticed first.
+    /// </summary>
+    private void AnnounceTokenRejected(string serverId)
+    {
+        if (_voice is null || !_tokenRejectionsSpoken.Add(serverId))
+            return;
+
+        _voice.Announcer.Problem($"{serverId} rejected this device. Modbot has stopped reporting to it.");
+    }
+
+    private void NoticeTokenRejections()
+    {
+        foreach (var stopped in _state?.Connections.Where(c => c.State is ConnectionState.Stopped) ?? [])
+            AnnounceTokenRejected(stopped.ServerId);
+    }
+
+    void IOverlayListener.AlertShown(FlaggedJoinAlert alert) => _voice?.Announcer.FlaggedJoin(alert.DisplayName);
+
+    void IOverlayListener.TokenRejected(string label) => AnnounceTokenRejected(label);
+
     private void SetStartWithWindows(bool on)
     {
         if (_state is null || _state.Settings.StartWithWindows == on && _state.Startup.On == on)
@@ -387,7 +508,13 @@ internal sealed class CompanionHost
         Log.Information("Watching VRChat's log folder {Directory}", folder);
 
         var observer = new PresenceObserver(_tail, _clock);
-        _engine = new CompanionEngine(observer, _clock, timeProbe: new HttpServerTimeProbe(_http!, _clock), backup: _cloudBackup, journal: _journal);
+        _engine = new CompanionEngine(
+            observer,
+            _clock,
+            timeProbe: new HttpServerTimeProbe(_http!, _clock),
+            backup: _cloudBackup,
+            journal: _journal,
+            voice: _voice?.Announcer);
 
         _engineLoop.Tick += async (_, _) => await CrashGuard.RunAsync("reading VRChat's log", EngineTickAsync);
         _engineLoop.Start();
@@ -415,6 +542,7 @@ internal sealed class CompanionHost
                 _state.ReadingFault = null;
 
             DescribeTick(tick);
+            NoticeTokenRejections();
         }
         catch (OperationCanceledException)
         {
@@ -570,7 +698,7 @@ internal sealed class CompanionHost
             return;
         }
 
-        _overlay = new OverlayDriver(_overlayHost, new HttpOverlayReadClient(_http!, _clock), _clock);
+        _overlay = new OverlayDriver(_overlayHost, new HttpOverlayReadClient(_http!, _clock), _clock, listener: this);
 
         foreach (var connection in _state?.Connections ?? [])
             _overlay.Add(connection.Pairing, connection.ServerId);
@@ -719,11 +847,13 @@ internal sealed class CompanionHost
             _engineLoop.Stop();
             _overlayLoop.Stop();
             _inputLoop.Stop();
+            _voiceLoop.Stop();
             _updates?.Stop();
             _inboxStop.Cancel();
             _backupStop.Cancel();
             _overlay?.Dispose();
             _overlayHost?.Dispose();
+            _voice?.Dispose();
             desktop.Shutdown();
         };
 
@@ -810,6 +940,9 @@ internal sealed class CompanionHost
 
         _state.Overlay = DescribeOverlay();
 
+        if (_voice is not null)
+            _state.Voice = _voice.Status();
+
         if (_overlayHost is not null)
             _preview?.Refresh(_overlayHost);
 
@@ -817,7 +950,7 @@ internal sealed class CompanionHost
             _state.Snapshot(),
             new MainWindowActions(
                 TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows, SetLogFolder,
-                AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay));
+                AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay, SetVoice, TestVoice));
     }
 
     /// <summary>The overlay in the window's words: whether it is up, what it shows, how often it has drawn.</summary>

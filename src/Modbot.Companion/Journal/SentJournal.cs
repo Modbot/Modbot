@@ -383,7 +383,12 @@ public sealed class SentJournal
     /// event went to are shown beside the sentence rather than inside it, so a row reads the same
     /// whether it went to one server, to Modbot Cloud only, or nowhere.
     /// </summary>
-    private static string Sentence(PresenceKind? kind, string who, string? avatar) => kind switch
+    /// <remarks>
+    /// Public because the voice says the same sentence the screen shows — "Rin joined your
+    /// world" is heard in the headset exactly as it is read on the Events page — with "who"
+    /// sometimes being several people at once.
+    /// </remarks>
+    public static string Sentence(PresenceKind? kind, string who, string? avatar = null) => kind switch
     {
         PresenceKind.Joined => $"{who} joined your world",
         PresenceKind.PresenceObserved => $"{who} was already in your world when you arrived",

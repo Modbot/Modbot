@@ -1,0 +1,134 @@
+- generic [ref=f10e1]:
+  - generic [ref=f10e4]:
+    - complementary [ref=f10e5]:
+      - generic [ref=f10e7]:
+        - generic [ref=f10e8]: Modbot
+        - generic [ref=f10e9]: The Long Porch
+      - button "Members" [ref=f10e11]
+      - button "Discord members" [ref=f10e14]
+      - button "Live" [ref=f10e17]
+      - button "Calendar" [ref=f10e20]
+      - button "Chat" [ref=f10e23]
+      - button "Bans" [ref=f10e26]
+      - button "Flags" [ref=f10e29]
+      - button "Audit log" [ref=f10e32]
+      - generic [ref=f10e34]:
+        - generic [ref=f10e35]: Analytics
+        - button "My Group" [ref=f10e36]
+      - button "My Server" [ref=f10e39]
+      - button "My Team" [ref=f10e42]
+      - button "Worlds" [ref=f10e45]
+      - button "Instances" [ref=f10e48]
+      - generic [ref=f10e50]:
+        - generic [ref=f10e51]: Team
+        - button "Reviews" [ref=f10e52]
+      - button "Users" [ref=f10e55]
+      - button "Roles" [ref=f10e58]
+      - generic [ref=f10e60]:
+        - generic [ref=f10e61]: Setup
+        - button "Sync health" [ref=f10e62]
+      - button "Settings" [ref=f10e65]
+      - button "VRChat · not configured" [ref=f10e68]
+    - main [ref=f10e71]:
+      - generic [ref=f10e72]:
+        - heading "Settings" [level=1] [ref=f10e73]
+        - generic [ref=f10e74]: Demo
+        - button "Reset demo" [ref=f10e75]
+        - group "Density" [ref=f10e76]:
+          - button "Dense" [pressed] [ref=f10e77]
+          - button "Comfy" [ref=f10e80]
+          - button "VR" [ref=f10e83]
+        - button [ref=f10e87]
+        - button "demo" [ref=f10e88]
+      - generic [ref=f10e92]:
+        - tablist [ref=f10e93]:
+          - tab "Host & Database" [ref=f10e94]
+          - tab "VRChat Service Account" [ref=f10e96]
+          - tab "Integrations" [ref=f10e97]
+          - tab "Discord" [active] [selected] [ref=f10e98]
+          - tab "Moderation" [ref=f10e99]
+          - tab "Evidence" [ref=f10e100]
+          - tab "Sync" [ref=f10e101]
+          - tab "AI" [ref=f10e102]
+          - tab "API" [ref=f10e103]
+        - tabpanel "Discord" [ref=f10e248]:
+          - region [ref=f10e249]:
+            - heading "Discord" [level=2] [ref=f10e250]
+            - generic [ref=f10e251]:
+              - generic [ref=f10e252]:
+                - generic [ref=f10e253]: Bot
+                - generic [ref=f10e255]:
+                  - generic [ref=f10e256]:
+                    - generic [ref=f10e257]: Bot
+                    - generic "Not configured" [ref=f10e258]
+                  - generic [ref=f10e259]:
+                    - generic [ref=f10e260]:
+                      - generic [ref=f10e261]: Bot token
+                      - textbox "Bot token" [ref=f10e262]
+                    - generic [ref=f10e263]:
+                      - generic [ref=f10e264]: Guild id
+                      - textbox "Guild id" [ref=f10e265]:
+                        - /placeholder: ""
+                        - text: "900000000000007919"
+                - button "Save" [ref=f10e267]
+              - generic [ref=f10e268]:
+                - generic [ref=f10e269]: Instance announcements
+                - generic [ref=f10e272]:
+                  - generic [ref=f10e273]:
+                    - generic [ref=f10e274]: Announce open instances in this channel
+                    - button "Announce open instances in this channel" [ref=f10e275]:
+                      - generic [ref=f10e276]: None
+                  - generic [ref=f10e281]:
+                    - generic [ref=f10e282]: Message above each announcement
+                    - textbox "Message above each announcement" [ref=f10e283]:
+                      - /placeholder: Come and join us!
+                  - generic [ref=f10e284] [cursor=pointer]:
+                    - switch "Show names" [checked] [ref=f10e285]
+                    - generic [ref=f10e287]: Show names
+                - button "Save" [ref=f10e289]
+              - generic [ref=f10e290]:
+                - generic [ref=f10e291]:
+                  - generic [ref=f10e292]: Channels
+                  - button "Add channel" [ref=f10e294]
+                - generic [ref=f10e295]: No channels
+              - generic [ref=f10e297]:
+                - generic [ref=f10e298]: Account linking
+                - generic [ref=f10e300]:
+                  - generic [ref=f10e301]:
+                    - generic [ref=f10e302]:
+                      - generic [ref=f10e303]: Linking
+                      - generic "Not set up" [ref=f10e304]
+                    - generic [ref=f10e305]:
+                      - generic [ref=f10e306]: Client secret
+                      - generic "Not set" [ref=f10e307]
+                  - generic [ref=f10e308]:
+                    - generic [ref=f10e309]:
+                      - generic [ref=f10e310]: OAuth client id
+                      - textbox "OAuth client id" [ref=f10e311]:
+                        - /placeholder: ""
+                    - generic [ref=f10e312]:
+                      - generic [ref=f10e313]: OAuth client secret
+                      - textbox "OAuth client secret" [ref=f10e314]
+                  - generic [ref=f10e315]:
+                    - generic [ref=f10e316] [cursor=pointer]:
+                      - switch "Prompt new joiners to link their VRChat account" [ref=f10e317]
+                      - generic [ref=f10e319]: Prompt new joiners to link their VRChat account
+                    - generic [ref=f10e320]:
+                      - generic [ref=f10e321]: Backup channel
+                      - button "Backup channel" [ref=f10e322]:
+                        - generic [ref=f10e323]: None
+                    - generic [ref=f10e328]:
+                      - generic [ref=f10e329]: Linked role
+                      - button "Linked role" [ref=f10e330]:
+                        - generic [ref=f10e331]: None
+                    - generic [ref=f10e336]:
+                      - generic [ref=f10e337]: 18+ role
+                      - button "18+ role" [ref=f10e338]:
+                        - generic [ref=f10e339]: None
+                - button "Save account linking" [ref=f10e345]
+      - generic [ref=f10e243]:
+        - link "Docs" [ref=f10e244] [cursor=pointer]:
+          - /url: https://docs.modbot.co
+        - link "Credits" [ref=f10e245] [cursor=pointer]:
+          - /url: /credits
+  - generic [aria-hidden] [ref=f10e246]: 0 TB

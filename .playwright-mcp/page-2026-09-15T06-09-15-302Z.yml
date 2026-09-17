@@ -1,0 +1,668 @@
+- generic [ref=f6e2]:
+  - link "Skip to content" [ref=f6e3] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=f6e4]:
+    - generic [ref=f6e5]:
+      - link "Modbot" [ref=f6e6] [cursor=pointer]:
+        - /url: "#top"
+        - generic [aria-hidden] [ref=f6e7]: M
+        - text: Modbot
+      - navigation "Sections" [ref=f6e8]:
+        - link "Live" [ref=f6e9] [cursor=pointer]:
+          - /url: "#live"
+        - link "Discord" [ref=f6e10] [cursor=pointer]:
+          - /url: "#discord"
+        - link "Case files" [ref=f6e11] [cursor=pointer]:
+          - /url: "#case-files"
+        - link "Client" [ref=f6e12] [cursor=pointer]:
+          - /url: "#client"
+        - link "Self-host" [ref=f6e13] [cursor=pointer]:
+          - /url: "#self-host"
+      - generic [ref=f6e14]:
+        - button "Switch to dark theme" [ref=f6e15]
+        - link "Open my server" [ref=f6e16] [cursor=pointer]:
+          - /url: https://my.modbot.co/go
+  - main [ref=f6e17]:
+    - region [ref=f6e18]:
+      - generic [ref=f6e19]:
+        - generic [ref=f6e20]:
+          - paragraph [ref=f6e21]: Open-source moderation for VRChat groups
+          - heading "Moderation that remembers." [level=1] [ref=f6e22]
+          - generic [ref=f6e23]:
+            - paragraph [ref=f6e24]: Modbot watches your group’s instances, keeps the history VRChat throws away, and gives your team the tools it doesn’t. It runs on your own server.
+            - generic [ref=f6e25]:
+              - link "Host your own" [ref=f6e26] [cursor=pointer]:
+                - /url: "#self-host"
+              - link "Open my server" [ref=f6e27] [cursor=pointer]:
+                - /url: https://my.modbot.co/go
+        - generic [ref=f6e28]:
+          - region "Sample of Modbot's Live page. Names, worlds and instance numbers open popups." [ref=f6e29]:
+            - generic [ref=f6e30]:
+              - generic [ref=f6e35]: modbot.your-group.example/live
+              - generic [ref=f6e36]: Sample data
+            - generic [ref=f6e37]:
+              - complementary "Modbot pages" [ref=f6e38]:
+                - generic [ref=f6e39]:
+                  - generic [ref=f6e40]: M
+                  - generic [ref=f6e41]:
+                    - generic [ref=f6e42]: Modbot
+                    - generic [ref=f6e43]: Lantern Social
+                - generic [ref=f6e44]: Members
+                - generic [ref=f6e46]: Live
+                - generic [ref=f6e48]: Bans
+                - generic [ref=f6e50]: Audit log
+                - generic [ref=f6e52]:
+                  - generic [ref=f6e53]: Analytics
+                  - generic [ref=f6e54]: My Group
+                - generic [ref=f6e55]: My Team
+                - generic [ref=f6e57]: Worlds
+                - generic [ref=f6e59]: Instances
+                - generic [ref=f6e61]:
+                  - generic [ref=f6e62]: Team
+                  - generic [ref=f6e63]: Reviews
+                - generic [ref=f6e64]: Users
+                - generic [ref=f6e66]: Roles
+                - generic [ref=f6e68]:
+                  - generic [ref=f6e69]: Setup
+                  - generic [ref=f6e70]: Sync health
+                - generic [ref=f6e71]: Settings
+                - generic [ref=f6e73]: VRChat · working
+              - generic [ref=f6e76]:
+                - generic [ref=f6e77]:
+                  - generic [ref=f6e78]: Live
+                  - group "Density" [ref=f6e80]:
+                    - button "Dense" [pressed] [ref=f6e81]
+                    - button "Comfy" [ref=f6e85]
+                    - button "VR" [ref=f6e89]
+                  - button "Switch to dark" [ref=f6e94]
+                - generic [ref=f6e98]:
+                  - generic [ref=f6e99]:
+                    - generic [ref=f6e100]:
+                      - button "Open Lantern Harbor" [ref=f6e101]
+                      - generic [ref=f6e102]:
+                        - button "Lantern Harbor" [ref=f6e104]
+                        - generic [ref=f6e105]:
+                          - button "48213" [ref=f6e106]
+                          - generic [ref=f6e107]: Members and friends · US
+                      - generic [ref=f6e108]:
+                        - generic [ref=f6e109]: "5"
+                        - generic [ref=f6e110]: people
+                    - generic [ref=f6e111]:
+                      - generic [ref=f6e112]: Watching
+                      - button "Oto" [ref=f6e113]
+                    - generic [ref=f6e114]:
+                      - generic [ref=f6e115]: Here now · 5
+                      - list [ref=f6e116]:
+                        - listitem [ref=f6e117]:
+                          - button "Oto" [ref=f6e118]
+                          - generic [ref=f6e119]: Staff
+                          - generic [ref=f6e120]: arrived 21:02
+                        - listitem [ref=f6e121]:
+                          - button "mossfox" [ref=f6e122]
+                          - generic [ref=f6e123]: Member
+                          - generic [ref=f6e124]: arrived 21:11
+                        - listitem [ref=f6e125]:
+                          - button "Juniper.exe" [ref=f6e126]
+                          - generic [ref=f6e127]: Member
+                          - generic [ref=f6e128]: arrived 21:37
+                        - listitem [ref=f6e129]:
+                          - button "Kiri" [ref=f6e130]
+                          - generic [ref=f6e131]: arrived 22:02
+                        - listitem [ref=f6e132]:
+                          - button "pebble" [ref=f6e133]
+                          - generic [ref=f6e134]: Member
+                          - generic [ref=f6e135]: arrived 22:28
+                  - generic [ref=f6e136]:
+                    - generic [ref=f6e137]:
+                      - button "Open Quiet Orbit Lounge" [ref=f6e138]
+                      - generic [ref=f6e139]:
+                        - button "Quiet Orbit Lounge" [ref=f6e141]
+                        - generic [ref=f6e142]:
+                          - button "07731" [ref=f6e143]
+                          - generic [ref=f6e144]: Group members · EU
+                      - generic [ref=f6e145]:
+                        - generic [ref=f6e146]: "3"
+                        - generic [ref=f6e147]: people
+                    - generic [ref=f6e148]:
+                      - generic [ref=f6e149]: Watching
+                      - generic [ref=f6e150]: Nobody watching
+                    - generic [ref=f6e151]:
+                      - generic [ref=f6e152]: Last seen 22:01 · 2
+                      - list [ref=f6e153]:
+                        - listitem [ref=f6e154]:
+                          - button "Haze" [ref=f6e155]
+                          - generic [ref=f6e156]: here before 22:01
+                        - listitem [ref=f6e157]:
+                          - button "lumen_" [ref=f6e158]
+                          - generic [ref=f6e159]: here before 22:01
+          - paragraph [ref=f6e160]: Sample data. Click a name, a world or an instance number.
+    - region [ref=f6e163]:
+      - generic [ref=f6e164]:
+        - generic [ref=f6e165]: VRChat
+        - generic [ref=f6e167]: Client
+      - heading "Every instance, as it happens." [level=2] [ref=f6e169]
+      - generic [ref=f6e170]:
+        - generic [ref=f6e171]:
+          - term [ref=f6e172]: Every open instance
+          - definition [ref=f6e173]: Each group instance appears as it opens, with VRChat’s own head count.
+        - generic [ref=f6e174]:
+          - term [ref=f6e175]: Who is inside
+          - definition [ref=f6e176]: While a moderator’s desktop client is in the room, you see each person and when they arrived.
+        - generic [ref=f6e177]:
+          - term [ref=f6e178]: Past trouble, marked
+          - definition [ref=f6e179]: People with earlier moderation actions stand out in the list.
+        - generic [ref=f6e180]:
+          - term [ref=f6e181]: Nothing wasted
+          - definition [ref=f6e182]: The page refreshes every five seconds, and stops while its tab is hidden.
+    - region [ref=f6e183]:
+      - generic [ref=f6e184]:
+        - generic [ref=f6e185]:
+          - generic [ref=f6e186]:
+            - generic [ref=f6e187]: VRChat
+            - generic [ref=f6e189]: Sync
+            - generic [ref=f6e191]: Client
+            - generic [ref=f6e193]: Modbot
+          - heading "Click any name. Keep your place." [level=2] [ref=f6e195]
+          - paragraph [ref=f6e196]: A person, a world or an instance opens over the page you're on. Open another from inside it and they stack; Back takes you down one.
+          - list [ref=f6e197]:
+            - listitem [ref=f6e198]:
+              - strong [ref=f6e199]: "A person:"
+              - text: their VRChat profile, membership and roles, everything recorded about them, case files and time in world.
+            - listitem [ref=f6e200]:
+              - strong [ref=f6e201]: "A world:"
+              - text: every group instance it has hosted, and visitors per day.
+            - listitem [ref=f6e202]:
+              - strong [ref=f6e203]: "An instance:"
+              - text: who was seen in it, and what happened there.
+            - listitem [ref=f6e204]: The stack lives in the address, so a link opens the same popups.
+        - region "Sample of Modbot's popups, opened on a person." [ref=f6e206]:
+          - generic [ref=f6e207]:
+            - generic [ref=f6e212]: modbot.your-group.example/live
+            - generic [ref=f6e213]: Sample data
+          - generic [ref=f6e214]:
+            - complementary "Modbot pages" [ref=f6e215]:
+              - generic [ref=f6e216]:
+                - generic [ref=f6e217]: M
+                - generic [ref=f6e218]:
+                  - generic [ref=f6e219]: Modbot
+                  - generic [ref=f6e220]: Lantern Social
+              - generic [ref=f6e221]: Members
+              - generic [ref=f6e223]: Live
+              - generic [ref=f6e225]: Bans
+              - generic [ref=f6e227]: Audit log
+              - generic [ref=f6e229]:
+                - generic [ref=f6e230]: Analytics
+                - generic [ref=f6e231]: My Group
+              - generic [ref=f6e232]: My Team
+              - generic [ref=f6e234]: Worlds
+              - generic [ref=f6e236]: Instances
+              - generic [ref=f6e238]:
+                - generic [ref=f6e239]: Team
+                - generic [ref=f6e240]: Reviews
+              - generic [ref=f6e241]: Users
+              - generic [ref=f6e243]: Roles
+              - generic [ref=f6e245]:
+                - generic [ref=f6e246]: Setup
+                - generic [ref=f6e247]: Sync health
+              - generic [ref=f6e248]: Settings
+              - generic [ref=f6e250]: VRChat · working
+            - generic [ref=f6e253]:
+              - generic [ref=f6e254]:
+                - generic [ref=f6e255]: Live
+                - group "Density" [ref=f6e257]:
+                  - button "Dense" [pressed] [ref=f6e258]
+                  - button "Comfy" [ref=f6e262]
+                  - button "VR" [ref=f6e266]
+                - button "Switch to dark" [ref=f6e271]
+              - generic [ref=f6e275]:
+                - generic [ref=f6e276]:
+                  - generic [ref=f6e277]:
+                    - button "Open Lantern Harbor" [ref=f6e278]
+                    - generic:
+                      - button "Lantern Harbor" [ref=f6e279]
+                      - generic:
+                        - button "48213" [ref=f6e280]
+                        - generic [ref=f6e281]: Members and friends · US
+                    - generic [ref=f6e282]:
+                      - generic [ref=f6e283]: "5"
+                      - generic [ref=f6e284]: people
+                  - generic [ref=f6e285]:
+                    - generic [ref=f6e286]: Watching
+                    - button "Oto" [ref=f6e287]
+                  - generic [ref=f6e288]:
+                    - generic [ref=f6e289]: Here now · 5
+                    - list [ref=f6e290]:
+                      - listitem [ref=f6e291]:
+                        - button "Oto" [ref=f6e292]
+                        - generic [ref=f6e293]: Staff
+                        - generic [ref=f6e294]: arrived 21:02
+                      - listitem [ref=f6e295]:
+                        - button "mossfox" [ref=f6e296]
+                        - generic [ref=f6e297]: Member
+                        - generic [ref=f6e298]: arrived 21:11
+                      - listitem [ref=f6e299]:
+                        - button "Juniper.exe" [ref=f6e300]
+                        - generic [ref=f6e301]: Member
+                        - generic [ref=f6e302]: arrived 21:37
+                      - listitem [ref=f6e303]:
+                        - button "Kiri" [ref=f6e304]
+                        - generic [ref=f6e305]: arrived 22:02
+                      - listitem [ref=f6e306]:
+                        - button "pebble" [ref=f6e307]
+                        - generic [ref=f6e308]: Member
+                        - generic [ref=f6e309]: arrived 22:28
+                - generic [ref=f6e310]:
+                  - generic [ref=f6e311]:
+                    - button "Open Quiet Orbit Lounge" [ref=f6e312]
+                    - generic:
+                      - button "Quiet Orbit Lounge" [ref=f6e313]
+                      - generic:
+                        - button "07731" [ref=f6e314]
+                        - generic [ref=f6e315]: Group members · EU
+                    - generic [ref=f6e316]:
+                      - generic [ref=f6e317]: "3"
+                      - generic [ref=f6e318]: people
+                  - generic [ref=f6e319]:
+                    - generic [ref=f6e320]: Watching
+                    - generic [ref=f6e321]: Nobody watching
+                  - generic [ref=f6e322]:
+                    - generic [ref=f6e323]: Last seen 22:01 · 2
+                    - list [ref=f6e324]:
+                      - listitem [ref=f6e325]:
+                        - button "Haze" [ref=f6e326]
+                        - generic [ref=f6e327]: here before 22:01
+                      - listitem [ref=f6e328]:
+                        - button "lumen_" [ref=f6e329]
+                        - generic [ref=f6e330]: here before 22:01
+            - generic [ref=f6e331]:
+              - button [aria-hidden] [ref=f6e332]
+              - dialog "Person" [ref=f6e333]:
+                - generic [ref=f6e334]:
+                  - button "Back to the world" [ref=f6e335]
+                  - generic [ref=f6e339]:
+                    - generic [ref=f6e340]: Person
+                    - generic [ref=f6e341]: usr_teaspoon
+                  - button "Close" [active] [ref=f6e342]
+                - generic [ref=f6e346]:
+                  - complementary [ref=f6e347]:
+                    - generic [ref=f6e348]:
+                      - generic [aria-hidden] [ref=f6e349]: T
+                      - generic [ref=f6e350]:
+                        - generic [ref=f6e351]: TeaSpoon
+                        - generic [ref=f6e352]: Ask me
+                    - generic [ref=f6e354]:
+                      - generic [ref=f6e355]:
+                        - generic [ref=f6e356]: Joined VRChat
+                        - generic [ref=f6e357]: Aug 2025
+                      - generic [ref=f6e358]:
+                        - generic [ref=f6e359]: Last platform
+                        - generic [ref=f6e360]: Quest
+                    - generic [ref=f6e361]:
+                      - generic [ref=f6e362]: Membership
+                      - paragraph [ref=f6e363]: Not a member.
+                      - paragraph [ref=f6e364]: Member list synced 4 minutes ago; ban list synced 4 minutes ago.
+                  - generic [ref=f6e365]:
+                    - tablist [ref=f6e366]:
+                      - tab "Logs" [selected] [ref=f6e367]
+                      - tab "Cases" [ref=f6e369]
+                      - tab "Metrics" [ref=f6e370]
+                    - tabpanel [ref=f6e371]:
+                      - generic [ref=f6e372]:
+                        - generic [ref=f6e373]:
+                          - generic [ref=f6e374]:
+                            - generic [ref=f6e375]: Warnings
+                            - generic [ref=f6e376]: "1"
+                          - generic [ref=f6e377]:
+                            - generic [ref=f6e378]: Kicks
+                            - generic [ref=f6e379]: "1"
+                          - generic [ref=f6e380]:
+                            - generic [ref=f6e381]: Bans
+                            - generic [ref=f6e382]: "0"
+                        - generic [ref=f6e383]: Everything recorded about this person
+                        - list [ref=f6e384]:
+                          - listitem [ref=f6e385]:
+                            - generic [ref=f6e386]:
+                              - generic [ref=f6e387]: Client
+                              - generic [ref=f6e389]: 22:45
+                            - generic [ref=f6e390]:
+                              - button "TeaSpoon" [ref=f6e391]
+                              - text: arrived in
+                              - button "Lantern Harbor" [ref=f6e392]
+                              - text: ","
+                              - button "room 48213" [ref=f6e393]
+                          - listitem [ref=f6e394]:
+                            - generic [ref=f6e395]:
+                              - generic [ref=f6e396]: VRChat
+                              - generic [ref=f6e398]: Sun
+                            - generic [ref=f6e399]:
+                              - button "TeaSpoon" [ref=f6e400]
+                              - text: was kicked from
+                              - button "room 48213" [ref=f6e401]
+                              - text: by
+                              - button "Oto" [ref=f6e402]
+                          - listitem [ref=f6e403]:
+                            - generic [ref=f6e404]:
+                              - generic [ref=f6e405]: VRChat
+                              - generic [ref=f6e407]: Sun
+                            - generic [ref=f6e408]:
+                              - button "TeaSpoon" [ref=f6e409]
+                              - text: was warned in
+                              - button "Pixel Karaoke Hall" [ref=f6e410]
+                              - text: by
+                              - button "Wren" [ref=f6e411]
+                          - listitem [ref=f6e412]:
+                            - generic [ref=f6e413]:
+                              - generic [ref=f6e414]: Sync
+                              - generic [ref=f6e416]: ~Fri
+                            - generic [ref=f6e417]:
+                              - button "TeaSpoon" [ref=f6e418]
+                              - text: left the group, inferred from the member list
+    - region [ref=f6e419]:
+      - generic [ref=f6e420]:
+        - generic [ref=f6e421]:
+          - generic [ref=f6e422]: Discord
+          - heading "Your Discord knows when the doors open." [level=2] [ref=f6e425]
+          - paragraph [ref=f6e426]: The bot posts a card for each group instance, keeps it current as people come and go, and adds a Join button that opens VRChat.
+          - list [ref=f6e427]:
+            - listitem [ref=f6e428]: A moderation log channel for bans, unbans, kicks, warnings, turned-away join requests and role changes. You pick which.
+            - listitem [ref=f6e429]:
+              - code [ref=f6e430]: /lookup
+              - text: a person or see
+              - code [ref=f6e431]: /recent
+              - text: actions, with replies only you can see.
+            - listitem [ref=f6e432]: Names appear on a card only while a moderator is watching, and you can turn them off.
+            - listitem [ref=f6e433]: Commands follow the same permissions as the web app.
+        - generic [ref=f6e435]:
+          - generic [ref=f6e436]: instances
+          - generic [ref=f6e440]:
+            - generic [ref=f6e441]:
+              - generic [aria-hidden] [ref=f6e442]: M
+              - generic [ref=f6e443]:
+                - generic [ref=f6e444]:
+                  - generic [ref=f6e445]: Modbot
+                  - generic [ref=f6e446]: bot
+                  - generic [ref=f6e447]: Today at 21:00
+                - generic [ref=f6e448]:
+                  - generic [ref=f6e450]:
+                    - generic [ref=f6e451]: Lantern Harbor
+                    - generic [ref=f6e452]:
+                      - generic [ref=f6e453]:
+                        - term [ref=f6e454]: People here now
+                        - definition [ref=f6e455]: 6 people
+                      - generic [ref=f6e456]:
+                        - term [ref=f6e457]: Most at once
+                        - definition [ref=f6e458]: "9"
+                      - generic [ref=f6e459]:
+                        - term [ref=f6e460]: Open for
+                        - definition [ref=f6e461]: 1h 45m
+                      - generic [ref=f6e462]:
+                        - term [ref=f6e463]: Who can join
+                        - definition [ref=f6e464]: Members and friends
+                      - generic [ref=f6e465]:
+                        - term [ref=f6e466]: Region
+                        - definition [ref=f6e467]: US
+                      - generic [ref=f6e468]:
+                        - term [ref=f6e469]: Capacity
+                        - definition [ref=f6e470]: "40"
+                      - generic [ref=f6e471]:
+                        - term [ref=f6e472]: Instance
+                        - definition [ref=f6e473]: "48213"
+                    - generic [ref=f6e474]:
+                      - generic [ref=f6e475]: Who is here
+                      - generic [ref=f6e476]: Juniper.exe, Kiri, mossfox, NovaDrift, Oto, pebble
+                    - generic [ref=f6e478]: Open now
+                  - generic [ref=f6e479]: Join
+            - generic [ref=f6e484]:
+              - generic [aria-hidden] [ref=f6e485]: M
+              - generic [ref=f6e486]:
+                - generic [ref=f6e487]:
+                  - generic [ref=f6e488]: Modbot
+                  - generic [ref=f6e489]: bot
+                  - generic [ref=f6e490]: Today at 22:51
+                  - generic [ref=f6e491]: in mod-log
+                - generic [ref=f6e497]:
+                  - generic [ref=f6e498]: Banned
+                  - generic [ref=f6e499]: Crashing or malicious avatars
+                  - generic [ref=f6e500]:
+                    - generic [ref=f6e501]:
+                      - term [ref=f6e502]: Who
+                      - definition [ref=f6e503]: TeaSpoon
+                    - generic [ref=f6e504]:
+                      - term [ref=f6e505]: By
+                      - definition [ref=f6e506]: Wren
+                    - generic [ref=f6e507]:
+                      - term [ref=f6e508]: When
+                      - definition [ref=f6e509]: Today at 22:50
+    - region [ref=f6e510]:
+      - generic [ref=f6e511]:
+        - generic [ref=f6e512]:
+          - generic [ref=f6e513]: Modbot
+          - heading "Every ban gets a case file." [level=2] [ref=f6e516]
+          - paragraph [ref=f6e517]: Pick the reasons, write it up, attach screenshots and clips. Modbot keeps a copy of the person's profile as it was at that moment.
+          - list [ref=f6e518]:
+            - listitem [ref=f6e519]: PNG, JPEG, WebP, GIF, MP4 and WebM, checked by what is inside the file, not its name.
+            - listitem [ref=f6e520]: Stored in an S3-compatible bucket, a mounted folder or PostgreSQL. Every file is fingerprinted.
+            - listitem [ref=f6e521]: Full edit history. A case file can be withdrawn with a note, never deleted.
+            - listitem [ref=f6e522]: The Bans page counts recent bans that still have no case file.
+        - generic [ref=f6e524]:
+          - generic [ref=f6e525]:
+            - generic [ref=f6e526]:
+              - generic [ref=f6e527]: "Case file: TeaSpoon"
+              - generic [ref=f6e528]: Banned 13 Sep 2026 by Wren
+            - generic [ref=f6e529]: Edited twice
+          - generic [ref=f6e530]:
+            - generic [ref=f6e531]:
+              - generic [ref=f6e532]:
+                - heading "Why they were banned" [level=3] [ref=f6e533]
+                - generic [ref=f6e534]:
+                  - generic [ref=f6e535]: Crashing or malicious avatars
+                  - generic [ref=f6e536]: Ban evasion
+                - generic [ref=f6e537]: Switched into an avatar that froze the room twice, about ten minutes apart. Warned after the first. Came back on a second account the next evening; the clip shows both.
+              - generic [ref=f6e538]:
+                - heading "Evidence" [level=3] [ref=f6e539]
+                - generic [ref=f6e548]: sha256 9f2c41e0b7d3a8…
+            - generic [ref=f6e559]:
+              - heading "The profile at the time" [level=3] [ref=f6e560]
+              - generic [ref=f6e561]:
+                - generic [ref=f6e562]:
+                  - generic [ref=f6e563]: Display name
+                  - generic [ref=f6e564]: TeaSpoon
+                - generic [ref=f6e565]:
+                  - generic [ref=f6e566]: Joined VRChat
+                  - generic [ref=f6e567]: Aug 2025
+                - generic [ref=f6e568]:
+                  - generic [ref=f6e569]: Last platform
+                  - generic [ref=f6e570]: Quest
+                - generic [ref=f6e571]:
+                  - generic [ref=f6e572]: Status
+                  - generic [ref=f6e573]: Ask me
+              - generic [ref=f6e574]:
+                - generic [ref=f6e575]: Membership at the time
+                - generic [ref=f6e576]: Not a member; left 11 Sep 2026.
+    - region [ref=f6e577]:
+      - generic [ref=f6e578]:
+        - generic [ref=f6e579]:
+          - generic [ref=f6e580]: Client
+          - heading "A moderator's eyes, inside the instance." [level=2] [ref=f6e583]
+          - paragraph [ref=f6e584]: The Windows client reads VRChat's own log as you play and reports who comes and goes. In SteamVR, an overlay shows who is in the room and warns you when someone with a record walks in.
+          - list [ref=f6e585]:
+            - listitem [ref=f6e586]: Windows 10 and 11, installed without administrator rights.
+            - listitem [ref=f6e587]: Pairs with your server through my.modbot.co, using a one-time link that lasts five minutes.
+            - listitem [ref=f6e588]: Its token can only report presence and read the room list, and is stored encrypted to your Windows account.
+            - listitem [ref=f6e589]: Pair it with more than one group.
+        - generic [ref=f6e592]:
+          - generic [ref=f6e593]:
+            - generic [ref=f6e594]: Flagged user joined — Lantern Social
+            - generic [ref=f6e595]: TeaSpoon
+            - generic [ref=f6e596]: 2 prior moderation actions
+            - generic [ref=f6e597]: 2 prior actions
+          - generic [ref=f6e598]:
+            - generic [ref=f6e599]:
+              - generic [ref=f6e600]: Lantern Social
+              - generic [ref=f6e601]: up to date
+            - generic [ref=f6e602]:
+              - generic [ref=f6e604]: TeaSpoon
+              - generic [ref=f6e605]: 2 prior actions
+            - generic [ref=f6e606]: Oto
+            - generic [ref=f6e609]: Juniper.exe
+            - generic [ref=f6e612]: mossfox
+            - generic [ref=f6e615]: pebble
+            - generic [ref=f6e618]: Kiri
+    - region [ref=f6e621]:
+      - generic [ref=f6e622]:
+        - generic [ref=f6e623]:
+          - generic [ref=f6e624]:
+            - generic [ref=f6e625]: VRChat
+            - generic [ref=f6e627]: Client
+            - generic [ref=f6e629]: Modbot
+          - heading "Numbers your team can act on." [level=2] [ref=f6e631]
+          - paragraph [ref=f6e632]: Four pages, each answering one question about your group.
+          - list [ref=f6e633]:
+            - listitem [ref=f6e634]:
+              - strong [ref=f6e635]: "My Group:"
+              - text: members, joins and leaves, invites and join requests, how long people stay.
+            - listitem [ref=f6e636]:
+              - strong [ref=f6e637]: "My Team:"
+              - text: actions per moderator, and the gaps when the last moderator left and people stayed.
+            - listitem [ref=f6e638]:
+              - strong [ref=f6e639]: "Worlds:"
+              - text: where your people actually spend their time.
+            - listitem [ref=f6e640]:
+              - strong [ref=f6e641]: "Instances:"
+              - text: how long they run, and the busiest hours in your time zone.
+        - generic [ref=f6e643]:
+          - tablist "Analytics pages" [ref=f6e644]:
+            - tab "My Group" [ref=f6e645]
+            - tab "My Team" [ref=f6e646]
+            - tab "Worlds" [ref=f6e647]
+            - tab "Instances" [selected] [ref=f6e648]
+          - tabpanel "Instances" [ref=f6e650]:
+            - generic [ref=f6e651]:
+              - generic [ref=f6e652]:
+                - generic [ref=f6e653]: Opened
+                - generic [ref=f6e654]: "148"
+              - generic [ref=f6e655]:
+                - generic [ref=f6e656]: Closed
+                - generic [ref=f6e657]: "146"
+              - generic [ref=f6e658]:
+                - generic [ref=f6e659]: Typical time open
+                - generic [ref=f6e660]: 2h 10m
+              - generic [ref=f6e661]:
+                - generic [ref=f6e662]: Most open at once
+                - generic [ref=f6e663]: "5"
+            - generic [ref=f6e664]: When instances are open
+            - img "Heatmap of open instances by day and hour, sample numbers" [ref=f6e666]:
+              - generic [ref=f6e667]: Mon
+              - generic [ref=f6e693]: Tue
+              - generic [ref=f6e719]: Wed
+              - generic [ref=f6e745]: Thu
+              - generic [ref=f6e771]: Fri
+              - generic [ref=f6e797]: Sat
+              - generic [ref=f6e823]: Sun
+              - generic [ref=f6e850]: "00"
+              - generic [ref=f6e856]: "06"
+              - generic [ref=f6e862]: "12"
+              - generic [ref=f6e868]: "18"
+    - region [ref=f6e874]:
+      - generic [ref=f6e875]:
+        - heading "And the everyday parts." [level=2] [ref=f6e876]
+        - generic [ref=f6e877]:
+          - generic [ref=f6e878]:
+            - term [ref=f6e879]: Audit log
+            - definition [ref=f6e880]: One timeline from VRChat, the syncs, the client and Modbot itself. Filter by type, source, person and date.
+          - generic [ref=f6e881]:
+            - term [ref=f6e882]: Members and bans
+            - definition [ref=f6e883]: Search the member list by name or id, filter by role, and see who left and when.
+          - generic [ref=f6e884]:
+            - term [ref=f6e885]: Roles
+            - definition [ref=f6e886]: Administrator, Moderator and Viewer, or your own roles built from 21 permissions.
+          - generic [ref=f6e887]:
+            - term [ref=f6e888]: Staff accounts
+            - definition [ref=f6e889]: Every moderator signs in as themselves, after proving their VRChat account with a code in their bio.
+          - generic [ref=f6e890]:
+            - term [ref=f6e891]: Reviews
+            - definition [ref=f6e892]: Raised when a moderator acts on one person again and again, or far more than usual. Closing one takes a note.
+          - generic [ref=f6e893]:
+            - term [ref=f6e894]: Repeat offenders
+            - definition [ref=f6e895]: Who keeps getting actioned, counted over the last 30 days.
+          - generic [ref=f6e896]:
+            - term [ref=f6e897]: Sync health
+            - definition [ref=f6e898]: Each background sync and VRChat’s rate limits, in one place. Modbot stops at VRChat’s first “slow down” instead of pushing on.
+          - generic [ref=f6e899]:
+            - term [ref=f6e900]: VR mode
+            - definition [ref=f6e901]: "Dense, comfortable or VR: bigger targets and text for using the web app from a headset."
+    - region [ref=f6e902]:
+      - generic [ref=f6e903]:
+        - generic [ref=f6e904]:
+          - heading "Your server. Your data." [level=2] [ref=f6e905]
+          - paragraph [ref=f6e906]: Modbot is one container and one PostgreSQL database. Your group’s records live there, and nowhere else.
+          - list [ref=f6e907]:
+            - listitem [ref=f6e908]: No Redis, no search server, no hosted sign-in, no third-party account.
+            - listitem [ref=f6e909]: Works with no contact to modbot.co at all. my.modbot.co is a shortcut, never a requirement.
+            - listitem [ref=f6e910]: Usage reports have no field for your group or its members, and you can turn them off.
+            - listitem [ref=f6e911]: "Open source under AGPL-3.0: run it, read it, change it."
+        - generic [ref=f6e912]:
+          - generic [ref=f6e913]:
+            - generic [ref=f6e914]: Two settings. That’s all.
+            - code [ref=f6e916]: PORT=8080 DATABASE_URL=postgres://user:password@host:5432/modbot
+          - generic [ref=f6e917]:
+            - heading "Everything else is set up in your browser" [level=3] [ref=f6e918]
+            - list [ref=f6e919]:
+              - listitem [ref=f6e920]:
+                - generic [ref=f6e921]: "1"
+                - text: Create your administrator account
+              - listitem [ref=f6e922]:
+                - generic [ref=f6e923]: "2"
+                - text: Connect a VRChat account
+              - listitem [ref=f6e924]:
+                - generic [ref=f6e925]: "3"
+                - text: Check the connection
+              - listitem [ref=f6e926]:
+                - generic [ref=f6e927]: "4"
+                - text: Link your VRChat account
+              - listitem [ref=f6e928]:
+                - generic [ref=f6e929]: "5"
+                - text: Choose the group to manage
+              - listitem [ref=f6e930]:
+                - generic [ref=f6e931]: "6"
+                - text: Public address, Discord and email
+          - paragraph [ref=f6e932]: Runs anywhere Docker does. On Railway it reads the platform’s own settings, including a storage bucket for evidence.
+    - region [ref=f6e933]:
+      - generic [ref=f6e934]:
+        - heading "Not built yet" [level=2] [ref=f6e935]
+        - paragraph [ref=f6e936]: Designed and planned, but not in Modbot today.
+        - generic [ref=f6e937]:
+          - generic [ref=f6e938]:
+            - term [ref=f6e939]: Actions from Modbot
+            - definition [ref=f6e940]: Kick, ban and warn without switching to VRChat.
+          - generic [ref=f6e941]:
+            - term [ref=f6e942]: Discord sync
+            - definition [ref=f6e943]: Linked accounts, and roles and bans kept in step with the group.
+          - generic [ref=f6e944]:
+            - term [ref=f6e945]: Segments and giveaways
+            - definition [ref=f6e946]: Find “regulars with 10+ hours this month and no bans”, then draw fairly.
+          - generic [ref=f6e947]:
+            - term [ref=f6e948]: Flagging and shared warnings
+            - definition [ref=f6e949]: Flags from group memberships, and warnings shared between groups.
+    - region [ref=f6e950]:
+      - generic [ref=f6e951]:
+        - generic [ref=f6e952]:
+          - heading "Already running Modbot?" [level=2] [ref=f6e953]
+          - paragraph [ref=f6e954]: Pick your server on my.modbot.co and go straight to it.
+        - link "Open my server" [ref=f6e956] [cursor=pointer]:
+          - /url: https://my.modbot.co/go
+  - contentinfo [ref=f6e957]:
+    - generic [ref=f6e958]:
+      - generic [ref=f6e959]:
+        - generic [ref=f6e960]:
+          - generic [aria-hidden] [ref=f6e961]: M
+          - text: Modbot
+        - paragraph [ref=f6e962]: Open source under AGPL-3.0. The Modbot name and logo are the project’s trademarks.
+        - paragraph [ref=f6e963]: Modbot is not affiliated with or endorsed by VRChat Inc. or Discord Inc.
+      - navigation "Footer" [ref=f6e964]:
+        - link "Open my server" [ref=f6e965] [cursor=pointer]:
+          - /url: https://my.modbot.co/go
+        - link "my.modbot.co" [ref=f6e966] [cursor=pointer]:
+          - /url: https://my.modbot.co
+        - link "Host your own" [ref=f6e967] [cursor=pointer]:
+          - /url: "#self-host"

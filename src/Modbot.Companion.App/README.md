@@ -15,7 +15,12 @@ address it was paired with. Nothing about the Cloud backup comes from a paired s
 |---|---|---|
 | `pairingPage` | `https://my.modbot.co/go?redir=/pair` | The page **Pair with a server** opens. HTTPS, or plain HTTP to this PC. |
 | `checkForUpdates` | `true` | Whether an installed client looks for newer versions. |
-| `startWithWindows` | `true` | The one switch on the Settings page. |
+| `startWithWindows` | `true` | The start-with-Windows switch on the Settings page. |
+| `vrchatLogFolder` | blank | VRChat's log folder, when it is not in the usual place. |
+| `voice.on` | `false` | The Voice card's **Voice on** switch. Turning it on downloads the voice once (see `Voice/VoiceDownload.cs` in Modbot.Companion). |
+| `voice.joins`, `voice.leaves`, `voice.flaggedJoins` | `true` | Which events the voice says. |
+| `voice.volume` | `80` | 0 to 100. |
+| `voice.outputDevice` | absent | The output device by the operating system's id; absent follows the system default. |
 | `cloud.endpoint` | `https://cloud.modbot.co` | Where the Modbot Cloud backup goes. |
 | `cloud.disabled` | `false` | `true` turns the Modbot Cloud backup off. |
 

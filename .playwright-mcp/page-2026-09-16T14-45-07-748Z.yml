@@ -1,0 +1,123 @@
+- generic [ref=f22e4]:
+  - complementary [ref=f22e5]:
+    - generic [ref=f22e7]:
+      - generic [ref=f22e8]: Modbot
+      - generic [ref=f22e9]: The Long Porch
+    - button "Members" [ref=f22e11]
+    - button "Discord members" [ref=f22e14]
+    - button "Live" [ref=f22e17]
+    - button "Calendar" [ref=f22e20]
+    - button "Chat" [ref=f22e23]
+    - button "Bans" [ref=f22e26]
+    - button "Flags" [ref=f22e29]
+    - button "Audit log" [ref=f22e32]
+    - generic [ref=f22e34]:
+      - generic [ref=f22e35]: Analytics
+      - button "My Group" [ref=f22e36]
+    - button "My Server" [ref=f22e39]
+    - button "My Team" [ref=f22e42]
+    - button "Worlds" [ref=f22e45]
+    - button "Instances" [ref=f22e48]
+    - generic [ref=f22e50]:
+      - generic [ref=f22e51]: Team
+      - button "Reviews" [ref=f22e52]
+    - button "Users" [ref=f22e55]
+    - button "Roles" [ref=f22e58]
+    - generic [ref=f22e60]:
+      - generic [ref=f22e61]: Setup
+      - button "Settings" [ref=f22e62]
+    - generic [ref=f22e64]:
+      - button "VRChat not configured" [ref=f22e65]:
+        - generic [ref=f22e67]: VRChat
+        - generic [ref=f22e68]: not configured
+      - button "Discord not set up" [ref=f22e69]:
+        - generic [ref=f22e71]: Discord
+        - generic [ref=f22e72]: not set up
+      - button "Database online" [ref=f22e73]:
+        - generic [ref=f22e75]: Database
+        - generic [ref=f22e76]: online
+      - button "Sync stopped" [ref=f22e77]:
+        - generic [ref=f22e79]: Sync
+        - generic [ref=f22e80]: stopped
+  - main [ref=f22e81]:
+    - generic [ref=f22e82]:
+      - heading "Credits" [level=1] [ref=f22e83]
+      - generic [ref=f22e84]: Demo
+      - button "Reset demo" [ref=f22e85]
+      - group "Density" [ref=f22e86]:
+        - button "Dense" [pressed] [ref=f22e87]
+        - button "Comfy" [ref=f22e90]
+        - button "VR" [ref=f22e93]
+      - button [active] [ref=f22e97]
+      - button "demo" [ref=f22e98]
+    - generic [ref=f22e102]:
+      - tablist [ref=f22e103]:
+        - tab "General" [ref=f22e104]
+        - tab "Libraries" [ref=f22e105]
+        - tab "Services" [selected] [ref=f22e107]
+      - tabpanel "Services" [ref=f22e2475]:
+        - generic [ref=f22e2478]:
+          - heading "Services and data 14" [level=2] [ref=f22e2479]:
+            - text: Services and data
+            - generic [ref=f22e2480]: "14"
+          - list [ref=f22e2482]:
+            - listitem [ref=f22e2483]:
+              - link "VRChat API" [ref=f22e2485] [cursor=pointer]:
+                - /url: https://vrchat.com
+              - paragraph [ref=f22e2486]: Modbot is not affiliated with or endorsed by VRChat Inc.
+            - listitem [ref=f22e2487]:
+              - link "VRChat API Community specification" [ref=f22e2489] [cursor=pointer]:
+                - /url: https://github.com/vrchatapi/specification
+              - generic [ref=f22e2490]: MIT
+            - listitem [ref=f22e2492]:
+              - link "VRChat API Community C# library" [ref=f22e2494] [cursor=pointer]:
+                - /url: https://github.com/vrchatapi/vrchatapi-csharp
+              - generic [ref=f22e2495]: MIT
+            - listitem [ref=f22e2497]:
+              - link "Discord" [ref=f22e2499] [cursor=pointer]:
+                - /url: https://discord.com
+            - listitem [ref=f22e2500]:
+              - link "Discord.Net" [ref=f22e2502] [cursor=pointer]:
+                - /url: https://github.com/Discord-Net/Discord.Net
+              - generic [ref=f22e2503]: MIT
+            - listitem [ref=f22e2505]:
+              - link "PostgreSQL" [ref=f22e2507] [cursor=pointer]:
+                - /url: https://www.postgresql.org
+              - generic [ref=f22e2508]: PostgreSQL
+            - listitem [ref=f22e2510]:
+              - link ".NET" [ref=f22e2512] [cursor=pointer]:
+                - /url: https://github.com/dotnet/runtime
+              - generic [ref=f22e2513]: MIT
+            - listitem [ref=f22e2515]:
+              - link "ASP.NET Core" [ref=f22e2517] [cursor=pointer]:
+                - /url: https://github.com/dotnet/aspnetcore
+              - generic [ref=f22e2518]: MIT
+            - listitem [ref=f22e2520]:
+              - link "OpenVR" [ref=f22e2522] [cursor=pointer]:
+                - /url: https://github.com/ValveSoftware/openvr
+              - generic [ref=f22e2523]: BSD-3-Clause
+              - paragraph [ref=f22e2525]: SteamVR and OpenVR are trademarks of Valve Corporation. Modbot is not affiliated with or endorsed by Valve.
+            - listitem [ref=f22e2526]:
+              - link "shadcn/ui" [ref=f22e2528] [cursor=pointer]:
+                - /url: https://github.com/shadcn-ui/ui
+              - generic [ref=f22e2529]: MIT
+            - listitem [ref=f22e2531]:
+              - link "Lucide icons" [ref=f22e2533] [cursor=pointer]:
+                - /url: https://lucide.dev
+              - generic [ref=f22e2534]: ISC
+            - listitem [ref=f22e2536]:
+              - link "IBM Plex fonts" [ref=f22e2538] [cursor=pointer]:
+                - /url: https://github.com/IBM/plex
+              - generic [ref=f22e2539]: OFL-1.1
+            - listitem [ref=f22e2541]:
+              - link "Google Fonts" [ref=f22e2543] [cursor=pointer]:
+                - /url: https://fonts.google.com
+            - listitem [ref=f22e2544]:
+              - link "Inter font" [ref=f22e2546] [cursor=pointer]:
+                - /url: https://github.com/rsms/inter
+              - generic [ref=f22e2547]: OFL-1.1
+    - generic [ref=f22e2471]:
+      - link "Docs" [ref=f22e2472] [cursor=pointer]:
+        - /url: https://docs.modbot.co
+      - link "Credits" [ref=f22e2473] [cursor=pointer]:
+        - /url: /settings/credits

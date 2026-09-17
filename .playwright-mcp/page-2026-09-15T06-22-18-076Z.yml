@@ -1,0 +1,148 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary [aria-hidden]:
+        - generic:
+          - generic: M
+          - generic:
+            - generic: Modbot
+            - generic: Demo Group
+        - generic:
+          - button:
+            - generic: Members
+        - generic:
+          - button:
+            - generic: Live
+        - generic:
+          - button:
+            - generic: Chat
+        - generic:
+          - button:
+            - generic: Bans
+        - generic:
+          - button:
+            - generic: Audit log
+        - generic:
+          - generic: Analytics
+          - button:
+            - generic: My Group
+        - generic:
+          - button:
+            - generic: My Team
+        - generic:
+          - button:
+            - generic: Worlds
+        - generic:
+          - button:
+            - generic: Instances
+        - generic:
+          - generic: Team
+          - button:
+            - generic: Reviews
+        - generic:
+          - button:
+            - generic: Users
+        - generic:
+          - button:
+            - generic: Roles
+        - generic:
+          - generic: Setup
+          - button:
+            - generic: Sync health
+        - generic:
+          - button:
+            - generic: Settings
+        - generic:
+          - button:
+            - generic: VRChat · not configured
+      - main:
+        - generic [aria-hidden]:
+          - heading [level=1]: Chat
+          - group:
+            - button [pressed]: Dense
+            - button: Comfy
+            - button: VR
+          - button
+          - button:
+            - generic: admin
+          - button
+        - generic:
+          - generic:
+            - navigation [aria-hidden]:
+              - button: New conversation
+              - list:
+                - listitem:
+                  - button: Who is Gun?
+            - generic:
+              - generic:
+                - generic [aria-hidden]:
+                  - heading [level=2]: Who is Gun?
+                  - button: Delete
+                - generic:
+                  - generic: Who is Gun?
+                  - generic:
+                    - generic:
+                      - generic:
+                        - 'generic "{\"query\": \"Gun\"}"': Find a person
+                        - button "Gunner24"
+                        - button "GunnarBee"
+                      - generic:
+                        - 'generic "{}"': Live instances
+                    - generic:
+                      - paragraph: Let me look that up.
+                  - generic:
+                    - generic:
+                      - paragraph:
+                        - text: I found
+                        - strong: Gunner24
+                        - text: (
+                        - code: usr_gunner_24
+                        - text: ),
+                        - strong: GunnarBee
+                        - text: (
+                        - code: usr_gunnar_b
+                        - text: ).
+                - generic [aria-hidden]:
+                  - textbox
+                  - button [disabled]: Send
+        - generic [aria-hidden]:
+          - link:
+            - /url: /credits
+            - text: Credits
+  - dialog [ref=f10e113]:
+    - generic [ref=f10e114]:
+      - generic [ref=f10e115]:
+        - heading "Person" [level=2] [ref=f10e116]
+        - generic [ref=f10e117]: usr_gunner_24
+      - button "Close" [active] [ref=f10e118]
+    - generic [ref=f10e122]:
+      - complementary [ref=f10e123]:
+        - generic [ref=f10e124]:
+          - generic [ref=f10e126]:
+            - generic [ref=f10e127]: Never refreshed
+            - generic [ref=f10e128]: refreshing…
+          - paragraph [ref=f10e129]: Profile not fetched yet.
+          - generic [ref=f10e130]:
+            - generic [ref=f10e131]:
+              - generic [ref=f10e132]: Not seen as 18+ verified
+              - button "Mark 18+ verified" [ref=f10e133]
+            - paragraph [ref=f10e134]: VRChat shows this person as unknown.
+        - generic [ref=f10e135]:
+          - generic [ref=f10e136]: Membership
+          - generic [ref=f10e137]:
+            - paragraph [ref=f10e138]: Member list not read yet.
+            - paragraph [ref=f10e139]: Ban list not read yet.
+            - paragraph [ref=f10e140]: Member list synced never; ban list synced never.
+      - generic [ref=f10e142]:
+        - tablist [ref=f10e143]:
+          - tab "Logs" [selected] [ref=f10e144]
+          - tab "Cases" [ref=f10e146]
+          - tab "Metrics" [ref=f10e147]
+        - tabpanel "Logs" [ref=f10e148]:
+          - generic [ref=f10e149]:
+            - generic [ref=f10e150]:
+              - generic [ref=f10e151]: History
+              - paragraph [ref=f10e152]: No actions recorded.
+              - paragraph [ref=f10e153]: Counts rebuilt 2m ago.
+            - generic [ref=f10e154]: Everything recorded about this person
+            - paragraph [ref=f10e155]: Nothing recorded yet.

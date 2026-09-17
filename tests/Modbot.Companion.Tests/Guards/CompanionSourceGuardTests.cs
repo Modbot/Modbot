@@ -219,6 +219,11 @@ public class CompanionSourceGuardTests
         Assert.Matches(ScreenCapture, "var bitmap = Graphics.CopyFromScreen(0, 0, 0, 0, size);");
         Assert.Matches(ScreenshotFolders, @"Path.Combine(pictures, ""VRChat\Screenshots"")");
         Assert.Matches(ScreenshotFolders, "Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)");
+        Assert.Matches(SoundCapture, "using var capture = new WasapiCapture(device);");
+        Assert.Matches(SoundCapture, "enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)");
+        Assert.Matches(SoundCapture, "enumerator.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active)");
+        Assert.Matches(SoundCapture, "var mic = capture.CaptureOpenDevice(null, 16000, BufferFormat.Mono16, 1024);");
+        Assert.DoesNotMatch(SoundCapture, "enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)");
     }
 
     [Fact]
@@ -263,13 +268,14 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheFiveDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheSixDeclaredPlacesMakeOutboundRequests()
     {
         // "What does this program send, and where" should have a short, complete answer findable
-        // by somebody who has never seen the codebase. Five files, each with a remarks block
+        // by somebody who has never seen the codebase. Six files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
-        // code for a token, one reads the overlay's context, and one backs the client's events up to
-        // Modbot Cloud (cloud event backup spec). Nothing else reaches the network.
+        // code for a token, one reads the overlay's context, one backs the client's events up to
+        // Modbot Cloud (cloud event backup spec), and one fetches the voice -- once, from one
+        // pinned address, with nothing attached. Nothing else reaches the network.
         var senders = ClientSources()
             .Where(f => Regex.IsMatch(File.ReadAllText(f), @"_http\.(SendAsync|GetAsync|PostAsync|PutAsync|DeleteAsync)"))
             .Select(Path.GetFileName)
@@ -283,8 +289,55 @@ public class CompanionSourceGuardTests
                 "HttpOverlayReadClient.cs",
                 "HttpPairingClient.cs",
                 "HttpServerTimeProbe.cs",
+                "VoiceDownload.cs",
             ],
             senders);
+    }
+
+    /// <summary>Anything that would open a microphone, a line-in or a loopback, by any route.</summary>
+    private static readonly Regex SoundCapture = new(
+        @"\b(WaveIn|WaveInEvent|WaveInProvider|WasapiCapture|WasapiLoopbackCapture|AudioCaptureClient|IAudioCaptureClient"
+        + @"|CaptureOpenDevice|CaptureStart|CaptureSamples|CaptureStop|CaptureCloseDevice|alcCaptureOpenDevice"
+        + @"|MediaCapture|AudioRecord|SoundRecorder|eCapture)\b"
+        + @"|DataFlow\s*\.\s*(Capture|All)\b"
+        + @"|Extensions\s*\.\s*EXT\s*\.\s*Capture\b",
+        RegexOptions.Compiled);
+
+    [Fact]
+    public void NothingTheClientShipsCanRecordSound()
+    {
+        // The voice gave the client an audio library, and an audio library has a recording half.
+        // The client plays; it never listens. Voice chat is in the never-transmitted column beside
+        // screenshots, keystrokes and the process list (M3 10), and the way to keep it there is to
+        // make the recording APIs fail the build rather than a review.
+        var offenders = EverythingTheClientShips()
+            .Where(f => SoundCapture.IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "The client must never record sound; found capture APIs in " + string.Join(", ", offenders));
+    }
+
+    [Fact]
+    public void TheOnlyEndpointsAskedForAreOutputs()
+    {
+        // Belt and braces for the ban above: every place the Windows audio system is asked for
+        // devices names the render direction explicitly, so nothing enumerates "all" and picks.
+        var audio = EverythingTheClientShips()
+            .Select(File.ReadAllText)
+            .Where(source => source.Contains("MMDeviceEnumerator", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.NotEmpty(audio);
+
+        foreach (var source in audio)
+        {
+            foreach (Match ask in Regex.Matches(source, @"(EnumerateAudioEndPoints|GetDefaultAudioEndpoint|HasDefaultAudioEndpoint)\s*\(\s*DataFlow\s*\.\s*(\w+)"))
+                Assert.Equal("Render", ask.Groups[2].Value);
+        }
     }
 
     [Fact]

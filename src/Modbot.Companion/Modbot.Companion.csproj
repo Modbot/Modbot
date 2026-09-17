@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <!-- Reads the bzip2 layer of the voice download (Voice/VoiceDownload.cs) and nothing else. -->
+    <PackageReference Include="SharpZipLib" />
   </ItemGroup>
 
   <PropertyGroup>

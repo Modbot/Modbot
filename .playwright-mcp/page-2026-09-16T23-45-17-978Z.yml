@@ -1,0 +1,16 @@
+- generic [ref=e4]:
+  - generic [ref=e5]: Modbot
+  - generic [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]: Sign in
+      - heading "Welcome back" [level=2] [ref=e11]
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]: Username
+        - textbox "Username" [active] [ref=e15]
+      - generic [ref=e16]:
+        - generic [ref=e17]: Password
+        - textbox "Password" [ref=e18]
+    - generic [ref=e19]:
+      - button "Forgot password?" [ref=e20]
+      - button "Sign in" [ref=e21]

@@ -8,6 +8,7 @@ using Modbot.Companion.Journal;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Presentation;
+using Modbot.Companion.Voice;
 using Modbot.Overlay;
 using Modbot.Overlay.OpenVr;
 
@@ -77,6 +78,17 @@ public sealed class MainWindow : Window
     private readonly Slider _widthSlider;
     private readonly Slider _opacitySlider;
     private readonly Slider _curveSlider;
+    // The Voice card, built once too: a slider being dragged and a list being opened both die
+    // under a rebuild.
+    private readonly CheckBox _voiceOn;
+    private readonly CheckBox _voiceJoins;
+    private readonly CheckBox _voiceLeaves;
+    private readonly CheckBox _voiceFlagged;
+    private readonly Slider _voiceVolume;
+    private readonly TextBlock _voiceVolumeValue;
+    private readonly ComboBox _voiceDevice;
+    private readonly TextBlock _voiceLine;
+    private readonly List<string?> _voiceDeviceIds = [];
 
     /// <summary>Set by the host once it has an HTTP client; null until then and pictures simply wait.</summary>
     internal GroupPictures? Pictures { get; set; }
@@ -118,6 +130,41 @@ public sealed class MainWindow : Window
         _widthSlider = PlacementSlider(OverlayPlacement.MinWidth, OverlayPlacement.MaxWidth, 0.05, (p, v) => p with { Width = (float)v });
         _opacitySlider = PlacementSlider(OverlayPlacement.MinOpacity, 1, 0.05, (p, v) => p with { Opacity = (float)v });
         _curveSlider = PlacementSlider(0, 1, 0.05, (p, v) => p with { Curve = (float)v });
+        _voiceOn = Switch("Voice on");
+        _voiceJoins = Switch("Joins");
+        _voiceLeaves = Switch("Leaves");
+        _voiceFlagged = Switch("Flagged joins");
+        _voiceVolumeValue = Ui.Text("", Ui.T.Density.TextSmall, Ui.T.TextDimBrush, wrap: false, mono: true);
+        _voiceVolumeValue.VerticalAlignment = VerticalAlignment.Center;
+        _voiceVolumeValue.Width = 32;
+        _voiceVolume = new Slider
+        {
+            Minimum = 0,
+            Maximum = VoiceSettings.MaxVolume,
+            TickFrequency = 1,
+            IsSnapToTickEnabled = true,
+            Width = 220,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        _voiceVolume.ValueChanged += (_, _) =>
+        {
+            _voiceVolumeValue.Text = $"{(int)_voiceVolume.Value}";
+            VoiceChanged();
+        };
+        _voiceDevice = new ComboBox
+        {
+            Height = Ui.T.Density.ControlHeight,
+            MinWidth = 260,
+            FontSize = Ui.T.Density.TextSmall,
+            FontFamily = Ui.Sans,
+            Background = Ui.T.BackgroundBrush,
+            Foreground = Ui.T.TextBrush,
+            BorderBrush = Ui.T.Border2Brush,
+            BorderThickness = new Thickness(Ui.T.Density.Hairline),
+            CornerRadius = new CornerRadius(Ui.T.Density.Radius),
+        };
+        _voiceDevice.SelectionChanged += (_, _) => VoiceChanged();
+        _voiceLine = Ui.Faint("");
 
         var main = new ScrollViewer { Padding = new Thickness(20), Content = _body };
         Grid.SetColumn(main, 1);
@@ -127,6 +174,32 @@ public sealed class MainWindow : Window
             ColumnDefinitions = new ColumnDefinitions("216,*"),
             Children = { Sidebar(), main },
         };
+    }
+
+    /// <summary>A check box on the Voice card. Every change goes through <see cref="VoiceChanged"/>.</summary>
+    private CheckBox Switch(string caption)
+    {
+        var box = new CheckBox { Content = Ui.Text(caption, Ui.T.Density.TextSmall, Ui.T.TextBrush) };
+        box.IsCheckedChanged += (_, _) => VoiceChanged();
+        return box;
+    }
+
+    /// <summary>What the Voice card's controls say right now, handed to the application as one settings record.</summary>
+    private void VoiceChanged()
+    {
+        if (_renderingSwitches)
+            return;
+
+        var index = _voiceDevice.SelectedIndex;
+        var device = index >= 0 && index < _voiceDeviceIds.Count ? _voiceDeviceIds[index] : null;
+
+        _actions.SetVoice(new VoiceSettings(
+            _voiceOn.IsChecked == true,
+            _voiceJoins.IsChecked == true,
+            _voiceLeaves.IsChecked == true,
+            _voiceFlagged.IsChecked == true,
+            (int)_voiceVolume.Value,
+            device));
     }
 
     /// <summary>
@@ -715,6 +788,8 @@ public sealed class MainWindow : Window
             _startupBox.IsVisible = startup is { Visible: true };
             _startupBox.IsChecked = startup is { On: true };
             _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
+
+            RefreshVoiceControls(_snapshot.VoiceOrNone);
         }
         finally
         {
@@ -728,7 +803,111 @@ public sealed class MainWindow : Window
             new StackPanel { Spacing = 6, Children = { _startupBox } },
             "Settings"));
 
+        _body.Children.Add(Ui.Card(VoiceSettingsCard(_snapshot.VoiceOrNone), "Voice"));
+
         _body.Children.Add(Ui.Card(LogFolderSettings(), "VRChat log folder"));
+    }
+
+    /// <summary>
+    /// Puts the snapshot into the Voice card's controls without any of them answering back.
+    /// The device list is only rebuilt when the devices changed, and never while it is open.
+    /// </summary>
+    private void RefreshVoiceControls(VoiceStatus voice)
+    {
+        var settings = voice.Settings;
+        _voiceOn.IsChecked = settings.On;
+        _voiceJoins.IsChecked = settings.Joins;
+        _voiceLeaves.IsChecked = settings.Leaves;
+        _voiceFlagged.IsChecked = settings.FlaggedJoins;
+
+        if (!_voiceVolume.IsPointerOver && !_voiceVolume.IsFocused)
+            _voiceVolume.Value = VoiceSettings.ClampVolume(settings.Volume);
+
+        _voiceVolumeValue.Text = $"{(int)_voiceVolume.Value}";
+
+        var ids = new List<string?> { null };
+        var names = new List<string> { OperatingSystem.IsWindows() ? "Windows default" : "System default" };
+        foreach (var device in voice.Devices)
+        {
+            ids.Add(device.Id);
+            names.Add(device.Name);
+        }
+
+        // A chosen device that is not plugged in right now still has to be selectable, or the
+        // list would silently show the default while the file says otherwise.
+        if (settings.OutputDeviceId is { } wanted && !ids.Contains(wanted))
+        {
+            ids.Add(wanted);
+            names.Add("Not connected");
+        }
+
+        if (!_voiceDevice.IsDropDownOpen && !ids.SequenceEqual(_voiceDeviceIds))
+        {
+            _voiceDeviceIds.Clear();
+            _voiceDeviceIds.AddRange(ids);
+            _voiceDevice.ItemsSource = names;
+        }
+
+        if (!_voiceDevice.IsDropDownOpen)
+            _voiceDevice.SelectedIndex = Math.Max(0, _voiceDeviceIds.IndexOf(settings.OutputDeviceId));
+
+        var enabled = voice.HasOutput;
+        _voiceOn.IsEnabled = enabled;
+        _voiceJoins.IsEnabled = enabled;
+        _voiceLeaves.IsEnabled = enabled;
+        _voiceFlagged.IsEnabled = enabled;
+        _voiceVolume.IsEnabled = enabled;
+        _voiceDevice.IsEnabled = enabled;
+
+        _voiceLine.Text = voice switch
+        {
+            { HasOutput: false } => "No output device on this PC",
+            { State: VoiceState.Downloading } => $"Downloading voice… {voice.DownloadProgress:P0}",
+            { State: VoiceState.Failed, Problem: { } problem } => problem,
+            { State: VoiceState.Failed } => "Voice failed",
+            { State: VoiceState.Ready } => "Voice ready",
+            _ => "Voice not downloaded",
+        };
+        _voiceLine.Foreground = voice.State is VoiceState.Failed ? Ui.T.DangerBrush : Ui.T.TextFaintBrush;
+    }
+
+    /// <summary>The Voice card: on or off, which events, how loud, through what, and a Test button.</summary>
+    private Control VoiceSettingsCard(VoiceStatus voice)
+    {
+        foreach (var control in new Control[] { _voiceOn, _voiceJoins, _voiceLeaves, _voiceFlagged, _voiceVolume, _voiceVolumeValue, _voiceDevice, _voiceLine })
+            DetachFromParent(control);
+
+        var test = Ui.Button("Test");
+        test.IsEnabled = voice.HasOutput && voice.State is not VoiceState.Downloading;
+        test.Click += (_, _) => _actions.TestVoice();
+
+        return new StackPanel
+        {
+            Spacing = 12,
+            Children =
+            {
+                _voiceOn,
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 16,
+                    Children = { _voiceJoins, _voiceLeaves, _voiceFlagged },
+                },
+                Ui.Field("Volume", new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children = { _voiceVolume, _voiceVolumeValue },
+                }),
+                Ui.Field("Output device", _voiceDevice),
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 12,
+                    Children = { test, _voiceLine },
+                },
+            },
+        };
     }
 
     /// <summary>
@@ -1031,6 +1210,8 @@ public sealed class MainWindow : Window
 /// <param name="ShowOverlayWindow">Opens the window that shows the overlay's last frame. Debug page only.</param>
 /// <param name="PinOverlaySample">Pins a sample screen into the overlay, or null for the live screen. Debug page only.</param>
 /// <param name="PlaceOverlay">Moves the panel: an anchor, a size, or back in front of the head.</param>
+/// <param name="SetVoice">The Voice card changed: the whole voice settings record as the controls now read.</param>
+/// <param name="TestVoice">Speaks one test line.</param>
 public sealed record MainWindowActions(
     Action<string> TogglePause,
     Action<string> Unpair,
@@ -1041,7 +1222,9 @@ public sealed record MainWindowActions(
     Action AttachSteamVr,
     Action ShowOverlayWindow,
     Action<OverlaySample?> PinOverlaySample,
-    Action<OverlayPlacement> PlaceOverlay)
+    Action<OverlayPlacement> PlaceOverlay,
+    Action<VoiceSettings> SetVoice,
+    Action TestVoice)
 {
     public static MainWindowActions None { get; } = new(
         _ => { },
@@ -1053,5 +1236,7 @@ public sealed record MainWindowActions(
         () => { },
         () => { },
         _ => { },
-        _ => { });
+        _ => { },
+        _ => { },
+        () => { });
 }

@@ -1,0 +1,104 @@
+- generic [ref=f22e4]:
+  - complementary [ref=f22e5]:
+    - generic [ref=f22e7]:
+      - generic [ref=f22e8]: Modbot
+      - generic [ref=f22e9]: The Long Porch
+    - button "Members" [ref=f22e11]
+    - button "Discord members" [ref=f22e14]
+    - button "Live" [ref=f22e17]
+    - button "Calendar" [ref=f22e20]
+    - button "Chat" [ref=f22e23]
+    - button "Bans" [ref=f22e26]
+    - button "Flags" [ref=f22e29]
+    - button "Audit log" [ref=f22e32]
+    - generic [ref=f22e34]:
+      - generic [ref=f22e35]: Analytics
+      - button "My Group" [ref=f22e36]
+    - button "My Server" [ref=f22e39]
+    - button "My Team" [ref=f22e42]
+    - button "Worlds" [ref=f22e45]
+    - button "Instances" [ref=f22e48]
+    - generic [ref=f22e50]:
+      - generic [ref=f22e51]: Team
+      - button "Reviews" [ref=f22e52]
+    - button "Users" [ref=f22e55]
+    - button "Roles" [ref=f22e58]
+    - generic [ref=f22e60]:
+      - generic [ref=f22e61]: Setup
+      - button "Settings" [ref=f22e62]
+    - generic [ref=f22e64]:
+      - button "VRChat not configured" [ref=f22e65]:
+        - generic [ref=f22e67]: VRChat
+        - generic [ref=f22e68]: not configured
+      - button "Discord not set up" [ref=f22e69]:
+        - generic [ref=f22e71]: Discord
+        - generic [ref=f22e72]: not set up
+      - button "Database online" [ref=f22e73]:
+        - generic [ref=f22e75]: Database
+        - generic [ref=f22e76]: online
+      - button "Sync stopped" [ref=f22e77]:
+        - generic [ref=f22e79]: Sync
+        - generic [ref=f22e80]: stopped
+  - main [ref=f22e81]:
+    - generic [ref=f22e82]:
+      - heading "Credits" [level=1] [ref=f22e83]
+      - generic [ref=f22e84]: Demo
+      - button "Reset demo" [ref=f22e85]
+      - group "Density" [ref=f22e86]:
+        - button "Dense" [pressed] [ref=f22e87]
+        - button "Comfy" [ref=f22e90]
+        - button "VR" [ref=f22e93]
+      - button [active] [ref=f22e97]
+      - button "demo" [ref=f22e98]
+    - generic [ref=f22e102]:
+      - tablist [ref=f22e103]:
+        - tab "General" [selected] [ref=f22e104]
+        - tab "Libraries" [ref=f22e105]
+        - tab "Services" [ref=f22e107]
+      - tabpanel "General" [ref=f22e2550]:
+        - generic [ref=f22e2551]:
+          - generic [ref=f22e2553]:
+            - heading "Modbot AGPL-3.0" [level=2] [ref=f22e2554]:
+              - text: Modbot
+              - generic [ref=f22e2555]: AGPL-3.0
+            - generic [ref=f22e2556]:
+              - term [ref=f22e2557]: Source
+              - definition [ref=f22e2558]:
+                - link "https://github.com/binn/Modbot" [ref=f22e2559] [cursor=pointer]:
+                  - /url: https://github.com/binn/Modbot
+              - term [ref=f22e2560]: Licence
+              - definition [ref=f22e2561]:
+                - link "AGPL-3.0" [ref=f22e2562] [cursor=pointer]:
+                  - /url: https://github.com/binn/Modbot/blob/master/LICENSE
+              - term [ref=f22e2563]: Privacy policy
+              - definition [ref=f22e2564]:
+                - link "PRIVACY_POLICY.md" [ref=f22e2565] [cursor=pointer]:
+                  - /url: https://github.com/binn/Modbot/blob/master/PRIVACY_POLICY.md
+              - term [ref=f22e2566]: Documentation
+              - definition [ref=f22e2567]:
+                - link "docs.modbot.co" [ref=f22e2568] [cursor=pointer]:
+                  - /url: https://docs.modbot.co
+              - term [ref=f22e2569]: Your servers
+              - definition [ref=f22e2570]:
+                - link "my.modbot.co" [ref=f22e2571] [cursor=pointer]:
+                  - /url: https://my.modbot.co
+          - generic [ref=f22e2573]:
+            - heading "Made by" [level=2] [ref=f22e2574]
+            - generic [ref=f22e2575]:
+              - term [ref=f22e2576]: Name
+              - definition [ref=f22e2577]: Sarmad Wahab
+              - term [ref=f22e2578]: Username
+              - definition [ref=f22e2579]: bin
+              - term [ref=f22e2580]: Website
+              - definition [ref=f22e2581]:
+                - link "bin.moe" [ref=f22e2582] [cursor=pointer]:
+                  - /url: https://bin.moe
+              - term [ref=f22e2583]: GitHub
+              - definition [ref=f22e2584]:
+                - link "github.com/binn" [ref=f22e2585] [cursor=pointer]:
+                  - /url: https://github.com/binn
+    - generic [ref=f22e2471]:
+      - link "Docs" [ref=f22e2472] [cursor=pointer]:
+        - /url: https://docs.modbot.co
+      - link "Credits" [ref=f22e2473] [cursor=pointer]:
+        - /url: /settings/credits

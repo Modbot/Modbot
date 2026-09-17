@@ -1,0 +1,111 @@
+- generic [ref=f24e4]:
+  - complementary [ref=f24e5]:
+    - generic [ref=f24e7]:
+      - generic [ref=f24e8]: Modbot
+      - generic [ref=f24e9]: The Long Porch
+    - button "Members" [ref=f24e11]
+    - button "Discord members" [ref=f24e14]
+    - button "Live" [ref=f24e17]
+    - button "Calendar" [ref=f24e20]
+    - button "Chat" [ref=f24e23]
+    - button "Bans" [ref=f24e26]
+    - button "Flags" [ref=f24e29]
+    - button "Audit log" [ref=f24e32]
+    - generic [ref=f24e34]:
+      - generic [ref=f24e35]: Analytics
+      - button "My Group" [ref=f24e36]
+    - button "My Server" [ref=f24e39]
+    - button "My Team" [ref=f24e42]
+    - button "Worlds" [ref=f24e45]
+    - button "Instances" [ref=f24e48]
+    - generic [ref=f24e50]:
+      - generic [ref=f24e51]: Team
+      - button "Reviews" [ref=f24e52]
+    - button "Users" [ref=f24e55]
+    - button "Roles" [ref=f24e58]
+    - generic [ref=f24e60]:
+      - generic [ref=f24e61]: Setup
+      - button "Sync health" [ref=f24e62]
+    - button "Settings" [ref=f24e65]
+    - button "VRChat · not configured" [ref=f24e68]
+  - main [ref=f24e71]:
+    - generic [ref=f24e72]:
+      - heading "Case file" [level=1] [ref=f24e163]
+      - generic [ref=f24e74]: Demo
+      - button "Reset demo" [ref=f24e75]
+      - group "Density" [ref=f24e76]:
+        - button "Dense" [pressed] [ref=f24e77]
+        - button "Comfy" [ref=f24e80]
+        - button "VR" [ref=f24e83]
+      - button [ref=f24e87]
+      - button "demo" [ref=f24e88]
+    - generic [ref=f24e164]:
+      - generic [ref=f24e165]:
+        - generic [ref=f24e166]:
+          - generic [ref=f24e167]:
+            - button "Quillwren" [ref=f24e169]
+            - generic [ref=f24e170]: usr_000030de-0000-0000-b901-000000000000
+          - paragraph [ref=f24e171]: Banned Sep 16, 2026
+        - button "Back to bans" [ref=f24e172]
+      - generic [ref=f24e174]:
+        - generic [ref=f24e175]: Why they were banned
+        - generic [ref=f24e176]:
+          - generic [ref=f24e177]: Threats
+          - button "Edit" [ref=f24e178]
+        - paragraph [ref=f24e180]: Spammed invites to an unrelated group in three channels and in voice. Asked to stop twice.
+        - paragraph [ref=f24e181]: Written by kit on Sep 16, 2026.
+      - generic [ref=f24e183]:
+        - generic [ref=f24e184]: Evidence
+        - generic [ref=f24e185]:
+          - list [ref=f24e186]:
+            - listitem [ref=f24e187]:
+              - generic [ref=f24e188]:
+                - generic [ref=f24e189]:
+                  - text: "Could not show this image: 'the Modbot database' holds no store marker."
+                  - link "Download" [ref=f24e190] [cursor=pointer]:
+                    - /url: /api/evidence/fb191a3a30fe27cb42707a0cf9ca160889b836bdb14794e7810bc5b2f97346b1
+                - generic [ref=f24e191]:
+                  - generic "screenshot-1.svg" [ref=f24e192]
+                  - generic [ref=f24e193]: image/svg+xml · 445 B · Sep 16, 2026 · by kit
+                  - link "Download" [ref=f24e194] [cursor=pointer]:
+                    - /url: /api/evidence/fb191a3a30fe27cb42707a0cf9ca160889b836bdb14794e7810bc5b2f97346b1
+                - generic "fb191a3a30fe27cb42707a0cf9ca160889b836bdb14794e7810bc5b2f97346b1" [ref=f24e195]: sha256 fb191a3a30fe27cb42707a0cf9ca160889b836bdb14794e7810bc5b2f97346b1
+          - generic [ref=f24e196]:
+            - generic [ref=f24e197]:
+              - generic: Attach a screenshot or video
+              - generic [ref=f24e198]: image/png, image/jpeg, image/webp, image/gif, video/mp4, video/webm · up to 100 MB each
+            - paragraph [ref=f24e199]: "Uploads are refused right now: 'the Modbot database' holds no store marker."
+      - generic [ref=f24e201]:
+        - generic [ref=f24e202]: The profile at the time
+        - generic [ref=f24e203]: Taken 16 Sep 2026 15:01 UTC. Profile fetched 20 minutes earlier.
+        - generic [ref=f24e205]:
+          - generic [ref=f24e206]:
+            - generic [ref=f24e207]: Quillwren
+            - generic [ref=f24e208]: they/them
+            - generic [ref=f24e209]: 18+ verified
+          - paragraph [ref=f24e210]: I make avatars. Ask me about shaders.
+          - generic [ref=f24e211]:
+            - generic [ref=f24e212]:
+              - term [ref=f24e213]: "Joined VRChat:"
+              - definition [ref=f24e214]: Sep 5, 2026
+            - generic [ref=f24e215]:
+              - term [ref=f24e216]: "Last platform:"
+              - definition [ref=f24e217]: standalonewindows
+            - generic [ref=f24e218]:
+              - term [ref=f24e219]: "VRChat showed:"
+              - definition [ref=f24e220]: 18+
+          - generic [ref=f24e221]:
+            - generic [ref=f24e222]: system_trust_basic
+            - generic [ref=f24e223]: system_avatar_access
+            - generic [ref=f24e224]: system_feedback_access
+        - generic [ref=f24e225]:
+          - generic [ref=f24e226]: Membership at the time
+          - paragraph [ref=f24e227]: No longer a member, joined Aug 11, 2026 · member.
+          - generic [ref=f24e228]: Member
+        - paragraph [ref=f24e230]: On the group's ban list since Sep 16, 2026.
+      - button "Withdraw this case file" [ref=f24e232]
+    - generic [ref=f24e160]:
+      - link "Docs" [ref=f24e161] [cursor=pointer]:
+        - /url: https://docs.modbot.co
+      - link "Credits" [ref=f24e162] [cursor=pointer]:
+        - /url: /credits

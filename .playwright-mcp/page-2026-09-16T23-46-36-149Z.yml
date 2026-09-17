@@ -1,0 +1,19 @@
+- generic [ref=f3e5]:
+  - generic [ref=f3e6]: Modbot
+  - generic [ref=f3e9]:
+    - progressbar [ref=f3e10]
+    - generic [ref=f3e17]:
+      - generic [ref=f3e18]:
+        - generic [ref=f3e19]: Step 4 of 6
+        - heading "Link your VRChat account" [level=2] [ref=f3e20]
+      - generic [ref=f3e22]:
+        - link "Open my VRChat profile" [ref=f3e24] [cursor=pointer]:
+          - /url: https://vrchat.com/home/user/me
+        - generic [ref=f3e25]:
+          - generic [ref=f3e26]: Your VRChat user id or profile address
+          - textbox "Your VRChat user id or profile address" [ref=f3e27]:
+            - /placeholder: usr_… or https://vrchat.com/home/user/…
+        - button "Continue" [disabled]
+    - generic [ref=f3e28]:
+      - button "Back" [ref=f3e29]
+      - button "Continue" [ref=f3e30]

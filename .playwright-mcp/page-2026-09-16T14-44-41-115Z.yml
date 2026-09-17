@@ -1,0 +1,1950 @@
+- generic [ref=f22e4]:
+  - complementary [ref=f22e5]:
+    - generic [ref=f22e7]:
+      - generic [ref=f22e8]: Modbot
+      - generic [ref=f22e9]: The Long Porch
+    - button "Members" [ref=f22e11]
+    - button "Discord members" [ref=f22e14]
+    - button "Live" [ref=f22e17]
+    - button "Calendar" [ref=f22e20]
+    - button "Chat" [ref=f22e23]
+    - button "Bans" [ref=f22e26]
+    - button "Flags" [ref=f22e29]
+    - button "Audit log" [ref=f22e32]
+    - generic [ref=f22e34]:
+      - generic [ref=f22e35]: Analytics
+      - button "My Group" [ref=f22e36]
+    - button "My Server" [ref=f22e39]
+    - button "My Team" [ref=f22e42]
+    - button "Worlds" [ref=f22e45]
+    - button "Instances" [ref=f22e48]
+    - generic [ref=f22e50]:
+      - generic [ref=f22e51]: Team
+      - button "Reviews" [ref=f22e52]
+    - button "Users" [ref=f22e55]
+    - button "Roles" [ref=f22e58]
+    - generic [ref=f22e60]:
+      - generic [ref=f22e61]: Setup
+      - button "Settings" [ref=f22e62]
+    - generic [ref=f22e64]:
+      - button "VRChat not configured" [ref=f22e65]:
+        - generic [ref=f22e67]: VRChat
+        - generic [ref=f22e68]: not configured
+      - button "Discord not set up" [ref=f22e69]:
+        - generic [ref=f22e71]: Discord
+        - generic [ref=f22e72]: not set up
+      - button "Database online" [ref=f22e73]:
+        - generic [ref=f22e75]: Database
+        - generic [ref=f22e76]: online
+      - button "Sync stopped" [ref=f22e77]:
+        - generic [ref=f22e79]: Sync
+        - generic [ref=f22e80]: stopped
+  - main [ref=f22e81]:
+    - generic [ref=f22e82]:
+      - heading "Credits" [level=1] [ref=f22e83]
+      - generic [ref=f22e84]: Demo
+      - button "Reset demo" [ref=f22e85]
+      - group "Density" [ref=f22e86]:
+        - button "Dense" [pressed] [ref=f22e87]
+        - button "Comfy" [ref=f22e90]
+        - button "VR" [ref=f22e93]
+      - button [ref=f22e97]
+      - button "demo" [ref=f22e98]
+    - generic [ref=f22e102]:
+      - tablist [ref=f22e103]:
+        - tab "General" [ref=f22e104]
+        - tab "Libraries" [active] [selected] [ref=f22e105]
+        - tab "Services" [ref=f22e107]
+      - tabpanel "Libraries" [ref=f22e108]:
+        - generic [ref=f22e109]:
+          - searchbox "Search packages" [ref=f22e110]
+          - generic [ref=f22e112]:
+            - heading "Server and desktop packages 112" [level=2] [ref=f22e113]:
+              - text: Server and desktop packages
+              - generic [ref=f22e114]: "112"
+            - generic [ref=f22e115]:
+              - heading "Used directly" [level=3] [ref=f22e116]
+              - list [ref=f22e117]:
+                - listitem [ref=f22e118]:
+                  - generic [ref=f22e119]:
+                    - link "Avalonia" [ref=f22e120] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia source" [ref=f22e121] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e126]: Desktop
+                  - generic "11.3.22" [ref=f22e127]
+                  - generic [ref=f22e128]: MIT
+                - listitem [ref=f22e130]:
+                  - generic [ref=f22e131]:
+                    - link "Avalonia.Desktop" [ref=f22e132] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.Desktop source" [ref=f22e133] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e138]: Desktop
+                  - generic "11.3.22" [ref=f22e139]
+                  - generic [ref=f22e140]: MIT
+                - listitem [ref=f22e142]:
+                  - generic [ref=f22e143]:
+                    - link "Avalonia.Fonts.Inter" [ref=f22e144] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.Fonts.Inter source" [ref=f22e145] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e150]: Desktop
+                  - generic "11.3.22" [ref=f22e151]
+                  - generic [ref=f22e152]: MIT
+                - listitem [ref=f22e154]:
+                  - generic [ref=f22e155]:
+                    - link "Avalonia.Headless" [ref=f22e156] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.Headless source" [ref=f22e157] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e162]: Desktop
+                  - generic "11.3.22" [ref=f22e163]
+                  - generic [ref=f22e164]: MIT
+                - listitem [ref=f22e166]:
+                  - generic [ref=f22e167]:
+                    - link "Avalonia.Skia" [ref=f22e168] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.Skia source" [ref=f22e169] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e174]: Desktop
+                  - generic "11.3.22" [ref=f22e175]
+                  - generic [ref=f22e176]: MIT
+                - listitem [ref=f22e178]:
+                  - generic [ref=f22e179]:
+                    - link "Avalonia.Themes.Fluent" [ref=f22e180] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.Themes.Fluent source" [ref=f22e181] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e186]: Desktop
+                  - generic "11.3.22" [ref=f22e187]
+                  - generic [ref=f22e188]: MIT
+                - listitem [ref=f22e190]:
+                  - generic [ref=f22e191]:
+                    - link "AWSSDK.S3" [ref=f22e192] [cursor=pointer]:
+                      - /url: https://github.com/aws/aws-sdk-net
+                    - generic [ref=f22e193]: Server
+                  - generic "4.0.16" [ref=f22e194]
+                  - generic [ref=f22e195]: Apache-2.0
+                - listitem [ref=f22e197]:
+                  - generic [ref=f22e198]:
+                    - link "Discord.Net.WebSocket" [ref=f22e199] [cursor=pointer]:
+                      - /url: https://github.com/Discord-Net/Discord.Net
+                    - generic [ref=f22e200]: Server
+                  - generic "3.20.1" [ref=f22e201]
+                  - generic [ref=f22e202]: MIT
+                - listitem [ref=f22e204]:
+                  - generic [ref=f22e205]:
+                    - link "EFCore.NamingConventions" [ref=f22e206] [cursor=pointer]:
+                      - /url: https://github.com/efcore/EFCore.NamingConventions
+                    - generic [ref=f22e207]: Server
+                  - generic "10.0.1" [ref=f22e208]
+                  - generic [ref=f22e209]: Apache-2.0
+                - listitem [ref=f22e211]:
+                  - generic [ref=f22e212]:
+                    - link "Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" [ref=f22e213] [cursor=pointer]:
+                      - /url: https://asp.net
+                    - link "Microsoft.AspNetCore.DataProtection.EntityFrameworkCore source" [ref=f22e214] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e219]: Server
+                  - generic "10.0.12" [ref=f22e220]
+                  - generic [ref=f22e221]: MIT
+                - listitem [ref=f22e223]:
+                  - generic [ref=f22e224]:
+                    - link "Microsoft.AspNetCore.OpenApi" [ref=f22e225] [cursor=pointer]:
+                      - /url: https://asp.net
+                    - link "Microsoft.AspNetCore.OpenApi source" [ref=f22e226] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e231]: Server
+                  - generic "10.0.12" [ref=f22e232]
+                  - generic [ref=f22e233]: MIT
+                - listitem [ref=f22e235]:
+                  - generic [ref=f22e236]:
+                    - link "Microsoft.EntityFrameworkCore.Design" [ref=f22e237] [cursor=pointer]:
+                      - /url: https://docs.microsoft.com/ef/core
+                    - link "Microsoft.EntityFrameworkCore.Design source" [ref=f22e238] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e243]: Server
+                  - generic "10.0.12" [ref=f22e244]
+                  - generic [ref=f22e245]: MIT
+                - listitem [ref=f22e247]:
+                  - generic [ref=f22e248]:
+                    - link "Microsoft.Extensions.ApiDescription.Server" [ref=f22e249] [cursor=pointer]:
+                      - /url: https://asp.net
+                    - link "Microsoft.Extensions.ApiDescription.Server source" [ref=f22e250] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e255]: Server
+                  - generic "10.0.12" [ref=f22e256]
+                  - generic [ref=f22e257]: MIT
+                - listitem [ref=f22e259]:
+                  - generic [ref=f22e260]:
+                    - link "Microsoft.Extensions.Hosting.Abstractions" [ref=f22e261] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Hosting.Abstractions source" [ref=f22e262] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e267]: Server
+                  - generic "10.0.12" [ref=f22e268]
+                  - generic [ref=f22e269]: MIT
+                - listitem [ref=f22e271]:
+                  - generic [ref=f22e272]:
+                    - link "Microsoft.Extensions.Http" [ref=f22e273] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Http source" [ref=f22e274] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e279]: Server
+                  - generic "10.0.12" [ref=f22e280]
+                  - generic [ref=f22e281]: MIT
+                - listitem [ref=f22e283]:
+                  - generic [ref=f22e284]:
+                    - link "Microsoft.Extensions.Identity.Core" [ref=f22e285] [cursor=pointer]:
+                      - /url: https://asp.net
+                    - link "Microsoft.Extensions.Identity.Core source" [ref=f22e286] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e291]: Server
+                  - generic "10.0.12" [ref=f22e292]
+                  - generic [ref=f22e293]: MIT
+                - listitem [ref=f22e295]:
+                  - generic [ref=f22e296]:
+                    - link "NodaTime" [ref=f22e297] [cursor=pointer]:
+                      - /url: https://nodatime.org
+                    - link "NodaTime source" [ref=f22e298] [cursor=pointer]:
+                      - /url: https://github.com/nodatime/nodatime
+                    - generic [ref=f22e303]: Server
+                  - generic "3.3.4" [ref=f22e304]
+                  - generic [ref=f22e305]: Apache-2.0
+                - listitem [ref=f22e307]:
+                  - generic [ref=f22e308]:
+                    - link "Npgsql.EntityFrameworkCore.PostgreSQL" [ref=f22e309] [cursor=pointer]:
+                      - /url: https://github.com/npgsql/efcore.pg
+                    - generic [ref=f22e310]: Server
+                  - generic "10.0.3" [ref=f22e311]
+                  - generic [ref=f22e312]: PostgreSQL
+                - listitem [ref=f22e314]:
+                  - generic [ref=f22e315]:
+                    - link "OpenAI" [ref=f22e316] [cursor=pointer]:
+                      - /url: https://github.com/openai/openai-dotnet/tree/OpenAI_2.13.0
+                    - link "OpenAI source" [ref=f22e317] [cursor=pointer]:
+                      - /url: https://github.com/openai/openai-dotnet
+                    - generic [ref=f22e322]: Server
+                  - generic "2.13.0" [ref=f22e323]
+                  - generic [ref=f22e324]: MIT
+                - listitem [ref=f22e326]:
+                  - generic [ref=f22e327]:
+                    - link "Scalar.AspNetCore" [ref=f22e328] [cursor=pointer]:
+                      - /url: https://scalar.com
+                    - link "Scalar.AspNetCore source" [ref=f22e329] [cursor=pointer]:
+                      - /url: https://github.com/scalar/scalar
+                    - generic [ref=f22e334]: Server
+                  - generic "2.17.3" [ref=f22e335]
+                  - generic [ref=f22e336]: MIT
+                - listitem [ref=f22e338]:
+                  - generic [ref=f22e339]:
+                    - link "Serilog" [ref=f22e340] [cursor=pointer]:
+                      - /url: https://serilog.net
+                    - link "Serilog source" [ref=f22e341] [cursor=pointer]:
+                      - /url: https://github.com/serilog/serilog
+                    - generic [ref=f22e346]: Desktop
+                    - generic [ref=f22e347]: Server
+                  - generic "4.4.0" [ref=f22e348]
+                  - generic [ref=f22e349]: Apache-2.0
+                - listitem [ref=f22e351]:
+                  - generic [ref=f22e352]:
+                    - link "Serilog.Expressions" [ref=f22e353] [cursor=pointer]:
+                      - /url: https://github.com/serilog/serilog-expressions
+                    - generic [ref=f22e354]: Server
+                  - generic "5.0.0" [ref=f22e355]
+                  - generic [ref=f22e356]: Apache-2.0
+                - listitem [ref=f22e358]:
+                  - generic [ref=f22e359]:
+                    - link "Serilog.Extensions.Hosting" [ref=f22e360] [cursor=pointer]:
+                      - /url: https://github.com/serilog/serilog-extensions-hosting
+                    - generic [ref=f22e361]: Server
+                  - generic "10.0.0" [ref=f22e362]
+                  - generic [ref=f22e363]: Apache-2.0
+                - listitem [ref=f22e365]:
+                  - generic [ref=f22e366]:
+                    - link "Serilog.Formatting.Compact" [ref=f22e367] [cursor=pointer]:
+                      - /url: https://github.com/serilog/serilog-formatting-compact
+                    - generic [ref=f22e368]: Server
+                  - generic "3.0.0" [ref=f22e369]
+                  - generic [ref=f22e370]: Apache-2.0
+                - listitem [ref=f22e372]:
+                  - generic [ref=f22e373]:
+                    - link "Serilog.Sinks.Console" [ref=f22e374] [cursor=pointer]:
+                      - /url: https://github.com/serilog/serilog-sinks-console
+                    - generic [ref=f22e375]: Desktop
+                    - generic [ref=f22e376]: Server
+                  - generic "6.1.1" [ref=f22e377]
+                  - generic [ref=f22e378]: Apache-2.0
+                - listitem [ref=f22e380]:
+                  - generic [ref=f22e381]:
+                    - link "Serilog.Sinks.File" [ref=f22e382] [cursor=pointer]:
+                      - /url: https://github.com/serilog/serilog-sinks-file
+                    - generic [ref=f22e383]: Desktop
+                    - generic [ref=f22e384]: Server
+                  - generic "7.0.0" [ref=f22e385]
+                  - generic [ref=f22e386]: Apache-2.0
+                - listitem [ref=f22e388]:
+                  - generic [ref=f22e389]:
+                    - link "Serilog.Sinks.Seq" [ref=f22e390] [cursor=pointer]:
+                      - /url: https://github.com/serilog/serilog-sinks-seq
+                    - link "Serilog.Sinks.Seq source" [ref=f22e391] [cursor=pointer]:
+                      - /url: https://github.com/datalust/serilog-sinks-seq
+                    - generic [ref=f22e396]: Server
+                  - generic "9.1.0" [ref=f22e397]
+                  - generic [ref=f22e398]: Apache-2.0
+                - listitem [ref=f22e400]:
+                  - generic [ref=f22e401]:
+                    - link "System.Security.Cryptography.ProtectedData" [ref=f22e402] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.Security.Cryptography.ProtectedData source" [ref=f22e403] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e408]: Desktop
+                  - generic "10.0.12" [ref=f22e409]
+                  - generic [ref=f22e410]: MIT
+                - listitem [ref=f22e412]:
+                  - generic [ref=f22e413]:
+                    - link "Velopack" [ref=f22e414] [cursor=pointer]:
+                      - /url: https://github.com/velopack/velopack
+                    - generic [ref=f22e415]: Desktop
+                  - generic "1.2.0" [ref=f22e416]
+                  - generic [ref=f22e417]: MIT
+                - listitem [ref=f22e419]:
+                  - generic [ref=f22e420]:
+                    - link "Vortice.Direct3D11" [ref=f22e421] [cursor=pointer]:
+                      - /url: https://github.com/amerkoleci/Vortice.Windows
+                    - generic [ref=f22e422]: Desktop
+                  - generic "3.8.3" [ref=f22e423]
+                  - generic [ref=f22e424]: MIT
+                - listitem [ref=f22e426]:
+                  - generic [ref=f22e427]:
+                    - link "VRChat.API" [ref=f22e428] [cursor=pointer]:
+                      - /url: https://github.com/vrchatapi/vrchatapi-csharp
+                    - generic [ref=f22e429]: Server
+                  - generic "2.20.9" [ref=f22e430]
+                  - generic [ref=f22e431]: MIT
+            - generic [ref=f22e433]:
+              - heading "Used by other packages" [level=3] [ref=f22e434]
+              - list [ref=f22e435]:
+                - listitem [ref=f22e436]:
+                  - generic [ref=f22e437]:
+                    - link "Avalonia.Angle.Windows.Natives" [ref=f22e438] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.Angle.Windows.Natives source" [ref=f22e439] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/angle
+                    - generic [ref=f22e444]: Desktop
+                  - generic "2.1.25547.20250602" [ref=f22e445]
+                  - generic [ref=f22e446]: BSD-3-Clause
+                - listitem [ref=f22e448]:
+                  - generic [ref=f22e449]:
+                    - link "Avalonia.BuildServices" [ref=f22e450] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.BuildServices source" [ref=f22e451] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia.BuildServices
+                    - generic [ref=f22e456]: Desktop
+                  - generic "11.3.2" [ref=f22e457]
+                  - generic [ref=f22e458]: MIT
+                - listitem [ref=f22e460]:
+                  - generic [ref=f22e461]:
+                    - link "Avalonia.FreeDesktop" [ref=f22e462] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.FreeDesktop source" [ref=f22e463] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e468]: Desktop
+                  - generic "11.3.22" [ref=f22e469]
+                  - generic [ref=f22e470]: MIT
+                - listitem [ref=f22e472]:
+                  - generic [ref=f22e473]:
+                    - link "Avalonia.Native" [ref=f22e474] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.Native source" [ref=f22e475] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e480]: Desktop
+                  - generic "11.3.22" [ref=f22e481]
+                  - generic [ref=f22e482]: MIT
+                - listitem [ref=f22e484]:
+                  - generic [ref=f22e485]:
+                    - link "Avalonia.Remote.Protocol" [ref=f22e486] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.Remote.Protocol source" [ref=f22e487] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e492]: Desktop
+                  - generic "11.3.22" [ref=f22e493]
+                  - generic [ref=f22e494]: MIT
+                - listitem [ref=f22e496]:
+                  - generic [ref=f22e497]:
+                    - link "Avalonia.Win32" [ref=f22e498] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.Win32 source" [ref=f22e499] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e504]: Desktop
+                  - generic "11.3.22" [ref=f22e505]
+                  - generic [ref=f22e506]: MIT
+                - listitem [ref=f22e508]:
+                  - generic [ref=f22e509]:
+                    - link "Avalonia.X11" [ref=f22e510] [cursor=pointer]:
+                      - /url: https://avaloniaui.net
+                    - link "Avalonia.X11 source" [ref=f22e511] [cursor=pointer]:
+                      - /url: https://github.com/AvaloniaUI/Avalonia
+                    - generic [ref=f22e516]: Desktop
+                  - generic "11.3.22" [ref=f22e517]
+                  - generic [ref=f22e518]: MIT
+                - listitem [ref=f22e520]:
+                  - generic [ref=f22e521]:
+                    - link "AWSSDK.Core" [ref=f22e522] [cursor=pointer]:
+                      - /url: https://github.com/aws/aws-sdk-net
+                    - generic [ref=f22e523]: Server
+                  - generic "4.0.3.6" [ref=f22e524]
+                  - generic [ref=f22e525]: Apache-2.0
+                - listitem [ref=f22e527]:
+                  - generic [ref=f22e528]:
+                    - link "Discord.Net.Core" [ref=f22e529] [cursor=pointer]:
+                      - /url: https://github.com/Discord-Net/Discord.Net
+                    - generic [ref=f22e530]: Server
+                  - generic "3.20.1" [ref=f22e531]
+                  - generic [ref=f22e532]: MIT
+                - listitem [ref=f22e534]:
+                  - generic [ref=f22e535]:
+                    - link "Discord.Net.Dave" [ref=f22e536] [cursor=pointer]:
+                      - /url: https://github.com/Discord-Net/Discord.Net
+                    - generic [ref=f22e537]: Server
+                  - generic "3.20.1" [ref=f22e538]
+                  - generic [ref=f22e539]: MIT
+                - listitem [ref=f22e541]:
+                  - generic [ref=f22e542]:
+                    - link "Discord.Net.Rest" [ref=f22e543] [cursor=pointer]:
+                      - /url: https://github.com/Discord-Net/Discord.Net
+                    - generic [ref=f22e544]: Server
+                  - generic "3.20.1" [ref=f22e545]
+                  - generic [ref=f22e546]: MIT
+                - listitem [ref=f22e548]:
+                  - generic [ref=f22e549]:
+                    - link "HarfBuzzSharp" [ref=f22e550] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?linkid=868515
+                    - generic [ref=f22e551]: Desktop
+                  - generic "8.3.1.1" [ref=f22e552]
+                  - generic [ref=f22e553]: MIT
+                - listitem [ref=f22e555]:
+                  - generic [ref=f22e556]:
+                    - link "HarfBuzzSharp.NativeAssets.Linux" [ref=f22e557] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?linkid=868515
+                    - generic [ref=f22e558]: Desktop
+                  - generic "8.3.1.1" [ref=f22e559]
+                  - generic [ref=f22e560]: MIT
+                - listitem [ref=f22e562]:
+                  - generic [ref=f22e563]:
+                    - link "HarfBuzzSharp.NativeAssets.macOS" [ref=f22e564] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?linkid=868515
+                    - generic [ref=f22e565]: Desktop
+                  - generic "8.3.1.1" [ref=f22e566]
+                  - generic [ref=f22e567]: MIT
+                - listitem [ref=f22e569]:
+                  - generic [ref=f22e570]:
+                    - link "HarfBuzzSharp.NativeAssets.WebAssembly" [ref=f22e571] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?linkid=868515
+                    - generic [ref=f22e572]: Desktop
+                  - generic "8.3.1.1" [ref=f22e573]
+                  - generic [ref=f22e574]: MIT
+                - listitem [ref=f22e576]:
+                  - generic [ref=f22e577]:
+                    - link "HarfBuzzSharp.NativeAssets.Win32" [ref=f22e578] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?linkid=868515
+                    - generic [ref=f22e579]: Desktop
+                  - generic "8.3.1.1" [ref=f22e580]
+                  - generic [ref=f22e581]: MIT
+                - listitem [ref=f22e583]:
+                  - generic [ref=f22e584]:
+                    - link "Humanizer.Core" [ref=f22e585] [cursor=pointer]:
+                      - /url: https://github.com/Humanizr/Humanizer
+                    - generic [ref=f22e586]: Server
+                  - generic "2.14.1" [ref=f22e587]
+                  - generic [ref=f22e588]: MIT
+                - listitem [ref=f22e590]:
+                  - generic [ref=f22e591]:
+                    - link "JsonSubTypes" [ref=f22e592] [cursor=pointer]:
+                      - /url: https://github.com/manuc66/JsonSubTypes
+                    - generic [ref=f22e593]: Server
+                  - generic "2.0.1" [ref=f22e594]
+                  - generic [ref=f22e595]: MIT
+                - listitem [ref=f22e597]:
+                  - generic [ref=f22e598]:
+                    - link "MicroCom.Runtime" [ref=f22e599] [cursor=pointer]:
+                      - /url: https://github.com/kekekeks/MicroCom
+                    - generic [ref=f22e600]: Desktop
+                  - generic "0.11.0" [ref=f22e601]
+                  - generic [ref=f22e602]: MIT
+                - listitem [ref=f22e604]:
+                  - generic [ref=f22e605]:
+                    - link "Microsoft.AspNetCore.Cryptography.Internal" [ref=f22e606] [cursor=pointer]:
+                      - /url: https://asp.net
+                    - link "Microsoft.AspNetCore.Cryptography.Internal source" [ref=f22e607] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e612]: Server
+                  - generic "10.0.12" [ref=f22e613]
+                  - generic [ref=f22e614]: MIT
+                - listitem [ref=f22e616]:
+                  - generic [ref=f22e617]:
+                    - link "Microsoft.AspNetCore.Cryptography.KeyDerivation" [ref=f22e618] [cursor=pointer]:
+                      - /url: https://asp.net
+                    - link "Microsoft.AspNetCore.Cryptography.KeyDerivation source" [ref=f22e619] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e624]: Server
+                  - generic "10.0.12" [ref=f22e625]
+                  - generic [ref=f22e626]: MIT
+                - listitem [ref=f22e628]:
+                  - generic [ref=f22e629]:
+                    - link "Microsoft.AspNetCore.DataProtection" [ref=f22e630] [cursor=pointer]:
+                      - /url: https://asp.net
+                    - link "Microsoft.AspNetCore.DataProtection source" [ref=f22e631] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e636]: Server
+                  - generic "10.0.12" [ref=f22e637]
+                  - generic [ref=f22e638]: MIT
+                - listitem [ref=f22e640]:
+                  - generic [ref=f22e641]:
+                    - link "Microsoft.AspNetCore.DataProtection.Abstractions" [ref=f22e642] [cursor=pointer]:
+                      - /url: https://asp.net
+                    - link "Microsoft.AspNetCore.DataProtection.Abstractions source" [ref=f22e643] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e648]: Server
+                  - generic "10.0.12" [ref=f22e649]
+                  - generic [ref=f22e650]: MIT
+                - listitem [ref=f22e652]:
+                  - generic [ref=f22e653]:
+                    - link "Microsoft.Build.Framework" [ref=f22e654] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?LinkId=624683
+                    - link "Microsoft.Build.Framework source" [ref=f22e655] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/msbuild
+                    - generic [ref=f22e660]: Server
+                  - generic "18.0.2" [ref=f22e661]
+                  - generic [ref=f22e662]: MIT
+                - listitem [ref=f22e664]:
+                  - generic [ref=f22e665]:
+                    - link "Microsoft.CodeAnalysis.Analyzers" [ref=f22e666] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/roslyn-analyzers
+                    - generic [ref=f22e667]: Server
+                  - generic "3.11.0" [ref=f22e668]
+                  - generic [ref=f22e669]: MIT
+                - listitem [ref=f22e671]:
+                  - generic [ref=f22e672]:
+                    - link "Microsoft.CodeAnalysis.Common" [ref=f22e673] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/roslyn
+                    - generic [ref=f22e674]: Server
+                  - generic "5.0.0" [ref=f22e675]
+                  - generic [ref=f22e676]: MIT
+                - listitem [ref=f22e678]:
+                  - generic [ref=f22e679]:
+                    - link "Microsoft.CodeAnalysis.CSharp" [ref=f22e680] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/roslyn
+                    - generic [ref=f22e681]: Server
+                  - generic "5.0.0" [ref=f22e682]
+                  - generic [ref=f22e683]: MIT
+                - listitem [ref=f22e685]:
+                  - generic [ref=f22e686]:
+                    - link "Microsoft.CodeAnalysis.CSharp.Workspaces" [ref=f22e687] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/roslyn
+                    - generic [ref=f22e688]: Server
+                  - generic "5.0.0" [ref=f22e689]
+                  - generic [ref=f22e690]: MIT
+                - listitem [ref=f22e692]:
+                  - generic [ref=f22e693]:
+                    - link "Microsoft.CodeAnalysis.Workspaces.Common" [ref=f22e694] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/roslyn
+                    - generic [ref=f22e695]: Server
+                  - generic "5.0.0" [ref=f22e696]
+                  - generic [ref=f22e697]: MIT
+                - listitem [ref=f22e699]:
+                  - generic [ref=f22e700]:
+                    - link "Microsoft.CodeAnalysis.Workspaces.MSBuild" [ref=f22e701] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/roslyn
+                    - generic [ref=f22e702]: Server
+                  - generic "5.0.0" [ref=f22e703]
+                  - generic [ref=f22e704]: MIT
+                - listitem [ref=f22e706]:
+                  - generic [ref=f22e707]:
+                    - link "Microsoft.EntityFrameworkCore" [ref=f22e708] [cursor=pointer]:
+                      - /url: https://docs.microsoft.com/ef/core
+                    - link "Microsoft.EntityFrameworkCore source" [ref=f22e709] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e714]: Server
+                  - generic "10.0.12" [ref=f22e715]
+                  - generic [ref=f22e716]: MIT
+                - listitem [ref=f22e718]:
+                  - generic [ref=f22e719]:
+                    - link "Microsoft.EntityFrameworkCore.Abstractions" [ref=f22e720] [cursor=pointer]:
+                      - /url: https://docs.microsoft.com/ef/core
+                    - link "Microsoft.EntityFrameworkCore.Abstractions source" [ref=f22e721] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e726]: Server
+                  - generic "10.0.12" [ref=f22e727]
+                  - generic [ref=f22e728]: MIT
+                - listitem [ref=f22e730]:
+                  - generic [ref=f22e731]:
+                    - link "Microsoft.EntityFrameworkCore.Analyzers" [ref=f22e732] [cursor=pointer]:
+                      - /url: https://docs.microsoft.com/ef/core
+                    - link "Microsoft.EntityFrameworkCore.Analyzers source" [ref=f22e733] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e738]: Server
+                  - generic "10.0.12" [ref=f22e739]
+                  - generic [ref=f22e740]: MIT
+                - listitem [ref=f22e742]:
+                  - generic [ref=f22e743]:
+                    - link "Microsoft.EntityFrameworkCore.Relational" [ref=f22e744] [cursor=pointer]:
+                      - /url: https://docs.microsoft.com/ef/core
+                    - link "Microsoft.EntityFrameworkCore.Relational source" [ref=f22e745] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e750]: Server
+                  - generic "10.0.12" [ref=f22e751]
+                  - generic [ref=f22e752]: MIT
+                - listitem [ref=f22e754]:
+                  - generic [ref=f22e755]:
+                    - link "Microsoft.Extensions.Caching.Abstractions" [ref=f22e756] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Caching.Abstractions source" [ref=f22e757] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e762]: Server
+                  - generic "10.0.12" [ref=f22e763]
+                  - generic [ref=f22e764]: MIT
+                - listitem [ref=f22e766]:
+                  - generic [ref=f22e767]:
+                    - link "Microsoft.Extensions.Caching.Memory" [ref=f22e768] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Caching.Memory source" [ref=f22e769] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e774]: Server
+                  - generic "10.0.12" [ref=f22e775]
+                  - generic [ref=f22e776]: MIT
+                - listitem [ref=f22e778]:
+                  - generic [ref=f22e779]:
+                    - link "Microsoft.Extensions.Configuration" [ref=f22e780] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Configuration source" [ref=f22e781] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e786]: Server
+                  - generic "10.0.12" [ref=f22e787]
+                  - generic [ref=f22e788]: MIT
+                - listitem [ref=f22e790]:
+                  - generic [ref=f22e791]:
+                    - link "Microsoft.Extensions.Configuration.Abstractions" [ref=f22e792] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Configuration.Abstractions source" [ref=f22e793] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e798]: Server
+                  - generic "10.0.12" [ref=f22e799]
+                  - generic [ref=f22e800]: MIT
+                - listitem [ref=f22e802]:
+                  - generic [ref=f22e803]:
+                    - link "Microsoft.Extensions.Configuration.Binder" [ref=f22e804] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Configuration.Binder source" [ref=f22e805] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e810]: Server
+                  - generic "10.0.12" [ref=f22e811]
+                  - generic [ref=f22e812]: MIT
+                - listitem [ref=f22e814]:
+                  - generic [ref=f22e815]:
+                    - link "Microsoft.Extensions.DependencyInjection" [ref=f22e816] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.DependencyInjection source" [ref=f22e817] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e822]: Server
+                  - generic "10.0.12" [ref=f22e823]
+                  - generic [ref=f22e824]: MIT
+                - listitem [ref=f22e826]:
+                  - generic [ref=f22e827]:
+                    - link "Microsoft.Extensions.DependencyInjection.Abstractions" [ref=f22e828] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.DependencyInjection.Abstractions source" [ref=f22e829] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e834]: Server
+                  - generic "10.0.12" [ref=f22e835]
+                  - generic [ref=f22e836]: MIT
+                - listitem [ref=f22e838]:
+                  - generic [ref=f22e839]:
+                    - link "Microsoft.Extensions.DependencyModel" [ref=f22e840] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.DependencyModel source" [ref=f22e841] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e846]: Server
+                  - generic "10.0.12" [ref=f22e847]
+                  - generic [ref=f22e848]: MIT
+                - listitem [ref=f22e850]:
+                  - generic [ref=f22e851]:
+                    - link "Microsoft.Extensions.Diagnostics" [ref=f22e852] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Diagnostics source" [ref=f22e853] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e858]: Server
+                  - generic "10.0.12" [ref=f22e859]
+                  - generic [ref=f22e860]: MIT
+                - listitem [ref=f22e862]:
+                  - generic [ref=f22e863]:
+                    - link "Microsoft.Extensions.Diagnostics.Abstractions" [ref=f22e864] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Diagnostics.Abstractions source" [ref=f22e865] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e870]: Server
+                  - generic "10.0.12" [ref=f22e871]
+                  - generic [ref=f22e872]: MIT
+                - listitem [ref=f22e874]:
+                  - generic [ref=f22e875]:
+                    - link "Microsoft.Extensions.FileProviders.Abstractions" [ref=f22e876] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.FileProviders.Abstractions source" [ref=f22e877] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e882]: Server
+                  - generic "10.0.12" [ref=f22e883]
+                  - generic [ref=f22e884]: MIT
+                - listitem [ref=f22e886]:
+                  - generic [ref=f22e887]:
+                    - link "Microsoft.Extensions.Logging" [ref=f22e888] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Logging source" [ref=f22e889] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e894]: Server
+                  - generic "10.0.12" [ref=f22e895]
+                  - generic [ref=f22e896]: MIT
+                - listitem [ref=f22e898]:
+                  - generic [ref=f22e899]:
+                    - link "Microsoft.Extensions.Logging.Abstractions" [ref=f22e900] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Logging.Abstractions source" [ref=f22e901] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e906]: Server
+                  - generic "10.0.12" [ref=f22e907]
+                  - generic [ref=f22e908]: MIT
+                - listitem [ref=f22e910]:
+                  - generic [ref=f22e911]:
+                    - link "Microsoft.Extensions.Options" [ref=f22e912] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Options source" [ref=f22e913] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e918]: Server
+                  - generic "10.0.12" [ref=f22e919]
+                  - generic [ref=f22e920]: MIT
+                - listitem [ref=f22e922]:
+                  - generic [ref=f22e923]:
+                    - link "Microsoft.Extensions.Options.ConfigurationExtensions" [ref=f22e924] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Options.ConfigurationExtensions source" [ref=f22e925] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e930]: Server
+                  - generic "10.0.12" [ref=f22e931]
+                  - generic [ref=f22e932]: MIT
+                - listitem [ref=f22e934]:
+                  - generic [ref=f22e935]:
+                    - link "Microsoft.Extensions.Primitives" [ref=f22e936] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "Microsoft.Extensions.Primitives source" [ref=f22e937] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e942]: Server
+                  - generic "10.0.12" [ref=f22e943]
+                  - generic [ref=f22e944]: MIT
+                - listitem [ref=f22e946]:
+                  - generic [ref=f22e947]:
+                    - link "Microsoft.OpenApi" [ref=f22e948] [cursor=pointer]:
+                      - /url: https://github.com/Microsoft/OpenAPI.NET
+                    - generic [ref=f22e949]: Server
+                  - generic "2.12.0" [ref=f22e950]
+                  - generic [ref=f22e951]: MIT
+                - listitem [ref=f22e953]:
+                  - generic [ref=f22e954]:
+                    - link "Microsoft.VisualStudio.SolutionPersistence" [ref=f22e955] [cursor=pointer]:
+                      - /url: https://github.com/microsoft/vs-solutionpersistence
+                    - generic [ref=f22e956]: Server
+                  - generic "1.0.52" [ref=f22e957]
+                  - generic [ref=f22e958]: MIT
+                - listitem [ref=f22e960]:
+                  - generic [ref=f22e961]:
+                    - link "Mono.TextTemplating" [ref=f22e962] [cursor=pointer]:
+                      - /url: https://github.com/mono/t4
+                    - generic [ref=f22e963]: Server
+                  - generic "3.0.0" [ref=f22e964]
+                  - generic [ref=f22e965]: MIT
+                - listitem [ref=f22e967]:
+                  - generic [ref=f22e968]:
+                    - link "Newtonsoft.Json" [ref=f22e969] [cursor=pointer]:
+                      - /url: https://www.newtonsoft.com/json
+                    - link "Newtonsoft.Json source" [ref=f22e970] [cursor=pointer]:
+                      - /url: https://github.com/JamesNK/Newtonsoft.Json
+                    - generic [ref=f22e975]: Server
+                  - generic "13.0.3, 13.0.4" [ref=f22e976]
+                  - generic [ref=f22e977]: MIT
+                - listitem [ref=f22e979]:
+                  - generic [ref=f22e980]:
+                    - link "Npgsql" [ref=f22e981] [cursor=pointer]:
+                      - /url: https://github.com/npgsql/npgsql
+                    - generic [ref=f22e982]: Server
+                  - generic "10.0.3" [ref=f22e983]
+                  - generic [ref=f22e984]: PostgreSQL
+                - listitem [ref=f22e986]:
+                  - generic [ref=f22e987]:
+                    - link "Otp.NET" [ref=f22e988] [cursor=pointer]:
+                      - /url: https://github.com/kspearrin/Otp.NET
+                    - generic [ref=f22e989]: Server
+                  - generic "1.4.0" [ref=f22e990]
+                  - generic [ref=f22e991]: MIT
+                - listitem [ref=f22e993]:
+                  - generic [ref=f22e994]:
+                    - link "Polly" [ref=f22e995] [cursor=pointer]:
+                      - /url: https://github.com/App-vNext/Polly
+                    - generic [ref=f22e996]: Server
+                  - generic "8.1.0" [ref=f22e997]
+                  - generic [ref=f22e998]: BSD-3-Clause
+                - listitem [ref=f22e1000]:
+                  - generic [ref=f22e1001]:
+                    - link "Polly.Core" [ref=f22e1002] [cursor=pointer]:
+                      - /url: https://github.com/App-vNext/Polly
+                    - generic [ref=f22e1003]: Server
+                  - generic "8.1.0" [ref=f22e1004]
+                  - generic [ref=f22e1005]: BSD-3-Clause
+                - listitem [ref=f22e1007]:
+                  - generic [ref=f22e1008]:
+                    - link "Serilog.Extensions.Logging" [ref=f22e1009] [cursor=pointer]:
+                      - /url: https://github.com/serilog/serilog-extensions-logging
+                    - generic [ref=f22e1010]: Server
+                  - generic "10.0.0" [ref=f22e1011]
+                  - generic [ref=f22e1012]: Apache-2.0
+                - listitem [ref=f22e1014]:
+                  - generic [ref=f22e1015]:
+                    - link "SharpGen.Runtime" [ref=f22e1016] [cursor=pointer]:
+                      - /url: https://github.com/SharpGenTools/SharpGenTools
+                    - generic [ref=f22e1017]: Desktop
+                  - generic "2.4.2-beta" [ref=f22e1018]
+                  - generic [ref=f22e1019]: MIT
+                - listitem [ref=f22e1021]:
+                  - generic [ref=f22e1022]:
+                    - link "SharpGen.Runtime.COM" [ref=f22e1023] [cursor=pointer]:
+                      - /url: https://github.com/SharpGenTools/SharpGenTools
+                    - generic [ref=f22e1024]: Desktop
+                  - generic "2.4.2-beta" [ref=f22e1025]
+                  - generic [ref=f22e1026]: MIT
+                - listitem [ref=f22e1028]:
+                  - generic [ref=f22e1029]:
+                    - link "SkiaSharp" [ref=f22e1030] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?linkid=868515
+                    - link "SkiaSharp source" [ref=f22e1031] [cursor=pointer]:
+                      - /url: https://github.com/mono/SkiaSharp
+                    - generic [ref=f22e1036]: Desktop
+                  - generic "2.88.9" [ref=f22e1037]
+                  - generic [ref=f22e1038]: MIT
+                - listitem [ref=f22e1040]:
+                  - generic [ref=f22e1041]:
+                    - link "SkiaSharp.NativeAssets.Linux" [ref=f22e1042] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?linkid=868515
+                    - link "SkiaSharp.NativeAssets.Linux source" [ref=f22e1043] [cursor=pointer]:
+                      - /url: https://github.com/mono/SkiaSharp
+                    - generic [ref=f22e1048]: Desktop
+                  - generic "2.88.9" [ref=f22e1049]
+                  - generic [ref=f22e1050]: MIT
+                - listitem [ref=f22e1052]:
+                  - generic [ref=f22e1053]:
+                    - link "SkiaSharp.NativeAssets.macOS" [ref=f22e1054] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?linkid=868515
+                    - link "SkiaSharp.NativeAssets.macOS source" [ref=f22e1055] [cursor=pointer]:
+                      - /url: https://github.com/mono/SkiaSharp
+                    - generic [ref=f22e1060]: Desktop
+                  - generic "2.88.9" [ref=f22e1061]
+                  - generic [ref=f22e1062]: MIT
+                - listitem [ref=f22e1064]:
+                  - generic [ref=f22e1065]:
+                    - link "SkiaSharp.NativeAssets.WebAssembly" [ref=f22e1066] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?linkid=868515
+                    - link "SkiaSharp.NativeAssets.WebAssembly source" [ref=f22e1067] [cursor=pointer]:
+                      - /url: https://github.com/mono/SkiaSharp
+                    - generic [ref=f22e1072]: Desktop
+                  - generic "2.88.9" [ref=f22e1073]
+                  - generic [ref=f22e1074]: MIT
+                - listitem [ref=f22e1076]:
+                  - generic [ref=f22e1077]:
+                    - link "SkiaSharp.NativeAssets.Win32" [ref=f22e1078] [cursor=pointer]:
+                      - /url: https://go.microsoft.com/fwlink/?linkid=868515
+                    - link "SkiaSharp.NativeAssets.Win32 source" [ref=f22e1079] [cursor=pointer]:
+                      - /url: https://github.com/mono/SkiaSharp
+                    - generic [ref=f22e1084]: Desktop
+                  - generic "2.88.9" [ref=f22e1085]
+                  - generic [ref=f22e1086]: MIT
+                - listitem [ref=f22e1088]:
+                  - generic [ref=f22e1089]:
+                    - link "System.ClientModel" [ref=f22e1090] [cursor=pointer]:
+                      - /url: https://github.com/Azure/azure-sdk-for-net/blob/System.ClientModel_1.14.0/sdk/core/System.ClientModel/README.md
+                    - link "System.ClientModel source" [ref=f22e1091] [cursor=pointer]:
+                      - /url: https://github.com/Azure/azure-sdk-for-net
+                    - generic [ref=f22e1096]: Server
+                  - generic "1.14.0" [ref=f22e1097]
+                  - generic [ref=f22e1098]: MIT
+                - listitem [ref=f22e1100]:
+                  - generic [ref=f22e1101]:
+                    - link "System.CodeDom" [ref=f22e1102] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.CodeDom source" [ref=f22e1103] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/runtime
+                    - generic [ref=f22e1108]: Server
+                  - generic "6.0.0" [ref=f22e1109]
+                  - generic [ref=f22e1110]: MIT
+                - listitem [ref=f22e1112]:
+                  - generic [ref=f22e1113]:
+                    - link "System.Composition" [ref=f22e1114] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.Composition source" [ref=f22e1115] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/runtime
+                    - generic [ref=f22e1120]: Server
+                  - generic "9.0.0" [ref=f22e1121]
+                  - generic [ref=f22e1122]: MIT
+                - listitem [ref=f22e1124]:
+                  - generic [ref=f22e1125]:
+                    - link "System.Composition.AttributedModel" [ref=f22e1126] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.Composition.AttributedModel source" [ref=f22e1127] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/runtime
+                    - generic [ref=f22e1132]: Server
+                  - generic "9.0.0" [ref=f22e1133]
+                  - generic [ref=f22e1134]: MIT
+                - listitem [ref=f22e1136]:
+                  - generic [ref=f22e1137]:
+                    - link "System.Composition.Convention" [ref=f22e1138] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.Composition.Convention source" [ref=f22e1139] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/runtime
+                    - generic [ref=f22e1144]: Server
+                  - generic "9.0.0" [ref=f22e1145]
+                  - generic [ref=f22e1146]: MIT
+                - listitem [ref=f22e1148]:
+                  - generic [ref=f22e1149]:
+                    - link "System.Composition.Hosting" [ref=f22e1150] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.Composition.Hosting source" [ref=f22e1151] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/runtime
+                    - generic [ref=f22e1156]: Server
+                  - generic "9.0.0" [ref=f22e1157]
+                  - generic [ref=f22e1158]: MIT
+                - listitem [ref=f22e1160]:
+                  - generic [ref=f22e1161]:
+                    - link "System.Composition.Runtime" [ref=f22e1162] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.Composition.Runtime source" [ref=f22e1163] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/runtime
+                    - generic [ref=f22e1168]: Server
+                  - generic "9.0.0" [ref=f22e1169]
+                  - generic [ref=f22e1170]: MIT
+                - listitem [ref=f22e1172]:
+                  - generic [ref=f22e1173]:
+                    - link "System.Composition.TypedParts" [ref=f22e1174] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.Composition.TypedParts source" [ref=f22e1175] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/runtime
+                    - generic [ref=f22e1180]: Server
+                  - generic "9.0.0" [ref=f22e1181]
+                  - generic [ref=f22e1182]: MIT
+                - listitem [ref=f22e1184]:
+                  - generic [ref=f22e1185]:
+                    - link "System.Memory.Data" [ref=f22e1186] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.Memory.Data source" [ref=f22e1187] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e1192]: Server
+                  - generic "10.0.3" [ref=f22e1193]
+                  - generic [ref=f22e1194]: MIT
+                - listitem [ref=f22e1196]:
+                  - generic [ref=f22e1197]:
+                    - link "System.Security.Cryptography.Pkcs" [ref=f22e1198] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.Security.Cryptography.Pkcs source" [ref=f22e1199] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e1204]: Server
+                  - generic "10.0.12" [ref=f22e1205]
+                  - generic [ref=f22e1206]: MIT
+                - listitem [ref=f22e1208]:
+                  - generic [ref=f22e1209]:
+                    - link "System.Security.Cryptography.Xml" [ref=f22e1210] [cursor=pointer]:
+                      - /url: https://dot.net
+                    - link "System.Security.Cryptography.Xml source" [ref=f22e1211] [cursor=pointer]:
+                      - /url: https://github.com/dotnet/dotnet
+                    - generic [ref=f22e1216]: Server
+                  - generic "10.0.12" [ref=f22e1217]
+                  - generic [ref=f22e1218]: MIT
+                - listitem [ref=f22e1220]:
+                  - generic [ref=f22e1221]:
+                    - link "Tmds.DBus.Protocol" [ref=f22e1222] [cursor=pointer]:
+                      - /url: https://github.com/tmds/Tmds.DBus
+                    - generic [ref=f22e1223]: Desktop
+                  - generic "0.21.3" [ref=f22e1224]
+                  - generic [ref=f22e1225]: MIT
+                - listitem [ref=f22e1227]:
+                  - generic [ref=f22e1228]:
+                    - link "Vortice.DirectX" [ref=f22e1229] [cursor=pointer]:
+                      - /url: https://github.com/amerkoleci/Vortice.Windows
+                    - generic [ref=f22e1230]: Desktop
+                  - generic "3.8.3" [ref=f22e1231]
+                  - generic [ref=f22e1232]: MIT
+                - listitem [ref=f22e1234]:
+                  - generic [ref=f22e1235]:
+                    - link "Vortice.DXGI" [ref=f22e1236] [cursor=pointer]:
+                      - /url: https://github.com/amerkoleci/Vortice.Windows
+                    - generic [ref=f22e1237]: Desktop
+                  - generic "3.8.3" [ref=f22e1238]
+                  - generic [ref=f22e1239]: MIT
+                - listitem [ref=f22e1241]:
+                  - generic [ref=f22e1242]:
+                    - link "Vortice.Mathematics" [ref=f22e1243] [cursor=pointer]:
+                      - /url: https://github.com/amerkoleci/Vortice.Mathematics
+                    - generic [ref=f22e1244]: Desktop
+                  - generic "2.1.0" [ref=f22e1245]
+                  - generic [ref=f22e1246]: MIT
+          - generic [ref=f22e1249]:
+            - heading "Web app packages 144" [level=2] [ref=f22e1250]:
+              - text: Web app packages
+              - generic [ref=f22e1251]: "144"
+            - generic [ref=f22e1252]:
+              - heading "Used directly" [level=3] [ref=f22e1253]
+              - list [ref=f22e1254]:
+                - listitem [ref=f22e1255]:
+                  - generic [ref=f22e1256]:
+                    - link "@fontsource-variable/bricolage-grotesque" [ref=f22e1257] [cursor=pointer]:
+                      - /url: https://fontsource.org/fonts/bricolage-grotesque
+                    - link "@fontsource-variable/bricolage-grotesque source" [ref=f22e1258] [cursor=pointer]:
+                      - /url: https://github.com/fontsource/font-files
+                  - generic "5.3.0" [ref=f22e1263]
+                  - generic [ref=f22e1264]: OFL-1.1
+                - listitem [ref=f22e1266]:
+                  - generic [ref=f22e1267]:
+                    - link "@fontsource/ibm-plex-mono" [ref=f22e1268] [cursor=pointer]:
+                      - /url: https://fontsource.org/fonts/ibm-plex-mono
+                    - link "@fontsource/ibm-plex-mono source" [ref=f22e1269] [cursor=pointer]:
+                      - /url: https://github.com/fontsource/font-files
+                  - generic "5.3.0" [ref=f22e1274]
+                  - generic [ref=f22e1275]: OFL-1.1
+                - listitem [ref=f22e1277]:
+                  - generic [ref=f22e1278]:
+                    - link "@fontsource/ibm-plex-sans" [ref=f22e1279] [cursor=pointer]:
+                      - /url: https://fontsource.org/fonts/ibm-plex-sans
+                    - link "@fontsource/ibm-plex-sans source" [ref=f22e1280] [cursor=pointer]:
+                      - /url: https://github.com/fontsource/font-files
+                  - generic "5.3.0" [ref=f22e1285]
+                  - generic [ref=f22e1286]: OFL-1.1
+                - listitem [ref=f22e1288]:
+                  - link "class-variance-authority" [ref=f22e1290] [cursor=pointer]:
+                    - /url: https://github.com/joe-bell/cva
+                  - generic "0.7.1" [ref=f22e1291]
+                  - generic [ref=f22e1292]: Apache-2.0
+                - listitem [ref=f22e1294]:
+                  - link "clsx" [ref=f22e1296] [cursor=pointer]:
+                    - /url: https://github.com/lukeed/clsx
+                  - generic "2.1.1" [ref=f22e1297]
+                  - generic [ref=f22e1298]: MIT
+                - listitem [ref=f22e1300]:
+                  - generic [ref=f22e1301]:
+                    - link "highlight.js" [ref=f22e1302] [cursor=pointer]:
+                      - /url: https://highlightjs.org
+                    - link "highlight.js source" [ref=f22e1303] [cursor=pointer]:
+                      - /url: https://github.com/highlightjs/highlight.js
+                  - generic "11.11.2" [ref=f22e1308]
+                  - generic [ref=f22e1309]: BSD-3-Clause
+                - listitem [ref=f22e1311]:
+                  - generic [ref=f22e1312]:
+                    - link "highlight.js" [ref=f22e1313] [cursor=pointer]:
+                      - /url: https://highlightjs.org
+                    - link "highlight.js source" [ref=f22e1314] [cursor=pointer]:
+                      - /url: https://github.com/highlightjs/highlight.js
+                  - generic "11.12.0" [ref=f22e1319]
+                  - generic [ref=f22e1320]: BSD-3-Clause
+                - listitem [ref=f22e1322]:
+                  - generic [ref=f22e1323]:
+                    - link "lucide-react" [ref=f22e1324] [cursor=pointer]:
+                      - /url: https://lucide.dev
+                    - link "lucide-react source" [ref=f22e1325] [cursor=pointer]:
+                      - /url: https://github.com/lucide-icons/lucide
+                  - generic "1.45.0" [ref=f22e1330]
+                  - generic [ref=f22e1331]: ISC
+                - listitem [ref=f22e1333]:
+                  - generic [ref=f22e1334]:
+                    - link "radix-ui" [ref=f22e1335] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "radix-ui source" [ref=f22e1336] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.6.7" [ref=f22e1341]
+                  - generic [ref=f22e1342]: MIT
+                - listitem [ref=f22e1344]:
+                  - generic [ref=f22e1345]:
+                    - link "react" [ref=f22e1346] [cursor=pointer]:
+                      - /url: https://react.dev
+                    - link "react source" [ref=f22e1347] [cursor=pointer]:
+                      - /url: https://github.com/react/react
+                  - generic "19.3.0" [ref=f22e1352]
+                  - generic [ref=f22e1353]: MIT
+                - listitem [ref=f22e1355]:
+                  - generic [ref=f22e1356]:
+                    - link "react-dom" [ref=f22e1357] [cursor=pointer]:
+                      - /url: https://react.dev
+                    - link "react-dom source" [ref=f22e1358] [cursor=pointer]:
+                      - /url: https://github.com/react/react
+                  - generic "19.3.0" [ref=f22e1363]
+                  - generic [ref=f22e1364]: MIT
+                - listitem [ref=f22e1366]:
+                  - link "react-markdown" [ref=f22e1368] [cursor=pointer]:
+                    - /url: https://github.com/remarkjs/react-markdown
+                  - generic "10.1.0" [ref=f22e1369]
+                  - generic [ref=f22e1370]: MIT
+                - listitem [ref=f22e1372]:
+                  - link "recharts" [ref=f22e1374] [cursor=pointer]:
+                    - /url: https://github.com/recharts/recharts
+                  - generic "3.10.1" [ref=f22e1375]
+                  - generic [ref=f22e1376]: MIT
+                - listitem [ref=f22e1378]:
+                  - link "rehype-highlight" [ref=f22e1380] [cursor=pointer]:
+                    - /url: https://github.com/rehypejs/rehype-highlight
+                  - generic "7.0.2" [ref=f22e1381]
+                  - generic [ref=f22e1382]: MIT
+                - listitem [ref=f22e1384]:
+                  - link "remark-gfm" [ref=f22e1386] [cursor=pointer]:
+                    - /url: https://github.com/remarkjs/remark-gfm
+                  - generic "4.0.1" [ref=f22e1387]
+                  - generic [ref=f22e1388]: MIT
+                - listitem [ref=f22e1390]:
+                  - link "tailwind-merge" [ref=f22e1392] [cursor=pointer]:
+                    - /url: https://github.com/dcastil/tailwind-merge
+                  - generic "3.7.0" [ref=f22e1393]
+                  - generic [ref=f22e1394]: MIT
+                - listitem [ref=f22e1396]:
+                  - generic [ref=f22e1397]:
+                    - link "tailwindcss" [ref=f22e1398] [cursor=pointer]:
+                      - /url: https://tailwindcss.com
+                    - link "tailwindcss source" [ref=f22e1399] [cursor=pointer]:
+                      - /url: https://github.com/tailwindlabs/tailwindcss
+                  - generic "4.3.3" [ref=f22e1404]
+                  - generic [ref=f22e1405]: MIT
+            - generic [ref=f22e1407]:
+              - heading "Used by other packages" [level=3] [ref=f22e1408]
+              - list [ref=f22e1409]:
+                - listitem [ref=f22e1410]:
+                  - generic [ref=f22e1411]:
+                    - link "@floating-ui/core" [ref=f22e1412] [cursor=pointer]:
+                      - /url: https://floating-ui.com
+                    - link "@floating-ui/core source" [ref=f22e1413] [cursor=pointer]:
+                      - /url: https://github.com/floating-ui/floating-ui
+                  - generic "1.8.0" [ref=f22e1418]
+                  - generic [ref=f22e1419]: MIT
+                - listitem [ref=f22e1421]:
+                  - generic [ref=f22e1422]:
+                    - link "@floating-ui/dom" [ref=f22e1423] [cursor=pointer]:
+                      - /url: https://floating-ui.com
+                    - link "@floating-ui/dom source" [ref=f22e1424] [cursor=pointer]:
+                      - /url: https://github.com/floating-ui/floating-ui
+                  - generic "1.8.0" [ref=f22e1429]
+                  - generic [ref=f22e1430]: MIT
+                - listitem [ref=f22e1432]:
+                  - generic [ref=f22e1433]:
+                    - link "@floating-ui/react-dom" [ref=f22e1434] [cursor=pointer]:
+                      - /url: https://floating-ui.com/docs/react-dom
+                    - link "@floating-ui/react-dom source" [ref=f22e1435] [cursor=pointer]:
+                      - /url: https://github.com/floating-ui/floating-ui
+                  - generic "2.1.9" [ref=f22e1440]
+                  - generic [ref=f22e1441]: MIT
+                - listitem [ref=f22e1443]:
+                  - generic [ref=f22e1444]:
+                    - link "@floating-ui/utils" [ref=f22e1445] [cursor=pointer]:
+                      - /url: https://floating-ui.com
+                    - link "@floating-ui/utils source" [ref=f22e1446] [cursor=pointer]:
+                      - /url: https://github.com/floating-ui/floating-ui
+                  - generic "0.2.12" [ref=f22e1451]
+                  - generic [ref=f22e1452]: MIT
+                - listitem [ref=f22e1454]:
+                  - generic [ref=f22e1455]:
+                    - link "@radix-ui/primitive" [ref=f22e1456] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/primitive source" [ref=f22e1457] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.7" [ref=f22e1462]
+                  - generic [ref=f22e1463]: MIT
+                - listitem [ref=f22e1465]:
+                  - generic [ref=f22e1466]:
+                    - link "@radix-ui/react-compose-refs" [ref=f22e1467] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-compose-refs source" [ref=f22e1468] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.5" [ref=f22e1473]
+                  - generic [ref=f22e1474]: MIT
+                - listitem [ref=f22e1476]:
+                  - generic [ref=f22e1477]:
+                    - link "@radix-ui/react-context" [ref=f22e1478] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-context source" [ref=f22e1479] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.2.2" [ref=f22e1484]
+                  - generic [ref=f22e1485]: MIT
+                - listitem [ref=f22e1487]:
+                  - generic [ref=f22e1488]:
+                    - link "@radix-ui/react-dialog" [ref=f22e1489] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-dialog source" [ref=f22e1490] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.23" [ref=f22e1495]
+                  - generic [ref=f22e1496]: MIT
+                - listitem [ref=f22e1498]:
+                  - generic [ref=f22e1499]:
+                    - link "@radix-ui/react-dismissable-layer" [ref=f22e1500] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-dismissable-layer source" [ref=f22e1501] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.19" [ref=f22e1506]
+                  - generic [ref=f22e1507]: MIT
+                - listitem [ref=f22e1509]:
+                  - generic [ref=f22e1510]:
+                    - link "@radix-ui/react-focus-guards" [ref=f22e1511] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-focus-guards source" [ref=f22e1512] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.6" [ref=f22e1517]
+                  - generic [ref=f22e1518]: MIT
+                - listitem [ref=f22e1520]:
+                  - generic [ref=f22e1521]:
+                    - link "@radix-ui/react-focus-scope" [ref=f22e1522] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-focus-scope source" [ref=f22e1523] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.16" [ref=f22e1528]
+                  - generic [ref=f22e1529]: MIT
+                - listitem [ref=f22e1531]:
+                  - generic [ref=f22e1532]:
+                    - link "@radix-ui/react-id" [ref=f22e1533] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-id source" [ref=f22e1534] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.4" [ref=f22e1539]
+                  - generic [ref=f22e1540]: MIT
+                - listitem [ref=f22e1542]:
+                  - generic [ref=f22e1543]:
+                    - link "@radix-ui/react-popover" [ref=f22e1544] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-popover source" [ref=f22e1545] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.23" [ref=f22e1550]
+                  - generic [ref=f22e1551]: MIT
+                - listitem [ref=f22e1553]:
+                  - generic [ref=f22e1554]:
+                    - link "@radix-ui/react-popper" [ref=f22e1555] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-popper source" [ref=f22e1556] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.3.7" [ref=f22e1561]
+                  - generic [ref=f22e1562]: MIT
+                - listitem [ref=f22e1564]:
+                  - generic [ref=f22e1565]:
+                    - link "@radix-ui/react-portal" [ref=f22e1566] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-portal source" [ref=f22e1567] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.17" [ref=f22e1572]
+                  - generic [ref=f22e1573]: MIT
+                - listitem [ref=f22e1575]:
+                  - generic [ref=f22e1576]:
+                    - link "@radix-ui/react-presence" [ref=f22e1577] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-presence source" [ref=f22e1578] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.10" [ref=f22e1583]
+                  - generic [ref=f22e1584]: MIT
+                - listitem [ref=f22e1586]:
+                  - generic [ref=f22e1587]:
+                    - link "@radix-ui/react-primitive" [ref=f22e1588] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-primitive source" [ref=f22e1589] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "2.1.10" [ref=f22e1594]
+                  - generic [ref=f22e1595]: MIT
+                - listitem [ref=f22e1597]:
+                  - generic [ref=f22e1598]:
+                    - link "@radix-ui/react-slot" [ref=f22e1599] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-slot source" [ref=f22e1600] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.3.3" [ref=f22e1605]
+                  - generic [ref=f22e1606]: MIT
+                - listitem [ref=f22e1608]:
+                  - generic [ref=f22e1609]:
+                    - link "@radix-ui/react-use-callback-ref" [ref=f22e1610] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-use-callback-ref source" [ref=f22e1611] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.4" [ref=f22e1616]
+                  - generic [ref=f22e1617]: MIT
+                - listitem [ref=f22e1619]:
+                  - generic [ref=f22e1620]:
+                    - link "@radix-ui/react-use-controllable-state" [ref=f22e1621] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-use-controllable-state source" [ref=f22e1622] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.2.6" [ref=f22e1627]
+                  - generic [ref=f22e1628]: MIT
+                - listitem [ref=f22e1630]:
+                  - generic [ref=f22e1631]:
+                    - link "@radix-ui/react-use-effect-event" [ref=f22e1632] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-use-effect-event source" [ref=f22e1633] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "0.0.5" [ref=f22e1638]
+                  - generic [ref=f22e1639]: MIT
+                - listitem [ref=f22e1641]:
+                  - generic [ref=f22e1642]:
+                    - link "@radix-ui/react-use-layout-effect" [ref=f22e1643] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-use-layout-effect source" [ref=f22e1644] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.4" [ref=f22e1649]
+                  - generic [ref=f22e1650]: MIT
+                - listitem [ref=f22e1652]:
+                  - generic [ref=f22e1653]:
+                    - link "@radix-ui/react-use-size" [ref=f22e1654] [cursor=pointer]:
+                      - /url: https://radix-ui.com/primitives
+                    - link "@radix-ui/react-use-size source" [ref=f22e1655] [cursor=pointer]:
+                      - /url: https://github.com/radix-ui/primitives
+                  - generic "1.1.4" [ref=f22e1660]
+                  - generic [ref=f22e1661]: MIT
+                - listitem [ref=f22e1663]:
+                  - generic [ref=f22e1664]:
+                    - link "@reduxjs/toolkit" [ref=f22e1665] [cursor=pointer]:
+                      - /url: https://redux-toolkit.js.org
+                    - link "@reduxjs/toolkit source" [ref=f22e1666] [cursor=pointer]:
+                      - /url: https://github.com/reduxjs/redux-toolkit
+                  - generic "2.12.0" [ref=f22e1671]
+                  - generic [ref=f22e1672]: MIT
+                - listitem [ref=f22e1674]:
+                  - link "@ungap/structured-clone" [ref=f22e1676] [cursor=pointer]:
+                    - /url: https://github.com/ungap/structured-clone
+                  - generic "1.4.0" [ref=f22e1677]
+                  - generic [ref=f22e1678]: ISC
+                - listitem [ref=f22e1680]:
+                  - link "aria-hidden" [ref=f22e1682] [cursor=pointer]:
+                    - /url: https://github.com/theKashey/aria-hidden
+                  - generic "1.2.6" [ref=f22e1683]
+                  - generic [ref=f22e1684]: MIT
+                - listitem [ref=f22e1686]:
+                  - link "bail" [ref=f22e1688] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/bail
+                  - generic "2.0.2" [ref=f22e1689]
+                  - generic [ref=f22e1690]: MIT
+                - listitem [ref=f22e1692]:
+                  - link "ccount" [ref=f22e1694] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/ccount
+                  - generic "2.0.1" [ref=f22e1695]
+                  - generic [ref=f22e1696]: MIT
+                - listitem [ref=f22e1698]:
+                  - link "comma-separated-tokens" [ref=f22e1700] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/comma-separated-tokens
+                  - generic "2.0.3" [ref=f22e1701]
+                  - generic [ref=f22e1702]: MIT
+                - listitem [ref=f22e1704]:
+                  - generic [ref=f22e1705]:
+                    - link "d3-array" [ref=f22e1706] [cursor=pointer]:
+                      - /url: https://d3js.org/d3-array
+                    - link "d3-array source" [ref=f22e1707] [cursor=pointer]:
+                      - /url: https://github.com/d3/d3-array
+                  - generic "3.2.4" [ref=f22e1712]
+                  - generic [ref=f22e1713]: ISC
+                - listitem [ref=f22e1715]:
+                  - generic [ref=f22e1716]:
+                    - link "d3-color" [ref=f22e1717] [cursor=pointer]:
+                      - /url: https://d3js.org/d3-color
+                    - link "d3-color source" [ref=f22e1718] [cursor=pointer]:
+                      - /url: https://github.com/d3/d3-color
+                  - generic "3.1.0" [ref=f22e1723]
+                  - generic [ref=f22e1724]: ISC
+                - listitem [ref=f22e1726]:
+                  - generic [ref=f22e1727]:
+                    - link "d3-format" [ref=f22e1728] [cursor=pointer]:
+                      - /url: https://d3js.org/d3-format
+                    - link "d3-format source" [ref=f22e1729] [cursor=pointer]:
+                      - /url: https://github.com/d3/d3-format
+                  - generic "3.1.2" [ref=f22e1734]
+                  - generic [ref=f22e1735]: ISC
+                - listitem [ref=f22e1737]:
+                  - generic [ref=f22e1738]:
+                    - link "d3-interpolate" [ref=f22e1739] [cursor=pointer]:
+                      - /url: https://d3js.org/d3-interpolate
+                    - link "d3-interpolate source" [ref=f22e1740] [cursor=pointer]:
+                      - /url: https://github.com/d3/d3-interpolate
+                  - generic "3.0.1" [ref=f22e1745]
+                  - generic [ref=f22e1746]: ISC
+                - listitem [ref=f22e1748]:
+                  - generic [ref=f22e1749]:
+                    - link "d3-path" [ref=f22e1750] [cursor=pointer]:
+                      - /url: https://d3js.org/d3-path
+                    - link "d3-path source" [ref=f22e1751] [cursor=pointer]:
+                      - /url: https://github.com/d3/d3-path
+                  - generic "3.1.0" [ref=f22e1756]
+                  - generic [ref=f22e1757]: ISC
+                - listitem [ref=f22e1759]:
+                  - generic [ref=f22e1760]:
+                    - link "d3-scale" [ref=f22e1761] [cursor=pointer]:
+                      - /url: https://d3js.org/d3-scale
+                    - link "d3-scale source" [ref=f22e1762] [cursor=pointer]:
+                      - /url: https://github.com/d3/d3-scale
+                  - generic "4.0.2" [ref=f22e1767]
+                  - generic [ref=f22e1768]: ISC
+                - listitem [ref=f22e1770]:
+                  - generic [ref=f22e1771]:
+                    - link "d3-shape" [ref=f22e1772] [cursor=pointer]:
+                      - /url: https://d3js.org/d3-shape
+                    - link "d3-shape source" [ref=f22e1773] [cursor=pointer]:
+                      - /url: https://github.com/d3/d3-shape
+                  - generic "3.2.0" [ref=f22e1778]
+                  - generic [ref=f22e1779]: ISC
+                - listitem [ref=f22e1781]:
+                  - generic [ref=f22e1782]:
+                    - link "d3-time" [ref=f22e1783] [cursor=pointer]:
+                      - /url: https://d3js.org/d3-time
+                    - link "d3-time source" [ref=f22e1784] [cursor=pointer]:
+                      - /url: https://github.com/d3/d3-time
+                  - generic "3.1.0" [ref=f22e1789]
+                  - generic [ref=f22e1790]: ISC
+                - listitem [ref=f22e1792]:
+                  - generic [ref=f22e1793]:
+                    - link "d3-time-format" [ref=f22e1794] [cursor=pointer]:
+                      - /url: https://d3js.org/d3-time-format
+                    - link "d3-time-format source" [ref=f22e1795] [cursor=pointer]:
+                      - /url: https://github.com/d3/d3-time-format
+                  - generic "4.1.0" [ref=f22e1800]
+                  - generic [ref=f22e1801]: ISC
+                - listitem [ref=f22e1803]:
+                  - link "decimal.js-light" [ref=f22e1805] [cursor=pointer]:
+                    - /url: https://github.com/MikeMcl/decimal.js-light
+                  - generic "2.5.1" [ref=f22e1806]
+                  - generic [ref=f22e1807]: MIT
+                - listitem [ref=f22e1809]:
+                  - link "decode-named-character-reference" [ref=f22e1811] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/decode-named-character-reference
+                  - generic "1.3.0" [ref=f22e1812]
+                  - generic [ref=f22e1813]: MIT
+                - listitem [ref=f22e1815]:
+                  - link "devlop" [ref=f22e1817] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/devlop
+                  - generic "1.1.0" [ref=f22e1818]
+                  - generic [ref=f22e1819]: MIT
+                - listitem [ref=f22e1821]:
+                  - generic [ref=f22e1822]:
+                    - link "es-toolkit" [ref=f22e1823] [cursor=pointer]:
+                      - /url: https://es-toolkit.dev
+                    - link "es-toolkit source" [ref=f22e1824] [cursor=pointer]:
+                      - /url: https://github.com/toss/es-toolkit
+                  - generic "1.52.0" [ref=f22e1829]
+                  - generic [ref=f22e1830]: MIT
+                - listitem [ref=f22e1832]:
+                  - link "escape-string-regexp" [ref=f22e1834] [cursor=pointer]:
+                    - /url: https://github.com/sindresorhus/escape-string-regexp
+                  - generic "5.0.0" [ref=f22e1835]
+                  - generic [ref=f22e1836]: MIT
+                - listitem [ref=f22e1838]:
+                  - link "estree-util-is-identifier-name" [ref=f22e1840] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/estree-util-is-identifier-name
+                  - generic "3.0.0" [ref=f22e1841]
+                  - generic [ref=f22e1842]: MIT
+                - listitem [ref=f22e1844]:
+                  - link "eventemitter3" [ref=f22e1846] [cursor=pointer]:
+                    - /url: https://github.com/primus/eventemitter3
+                  - generic "5.0.4" [ref=f22e1847]
+                  - generic [ref=f22e1848]: MIT
+                - listitem [ref=f22e1850]:
+                  - link "extend" [ref=f22e1852] [cursor=pointer]:
+                    - /url: https://github.com/justmoon/node-extend
+                  - generic "3.0.2" [ref=f22e1853]
+                  - generic [ref=f22e1854]: MIT
+                - listitem [ref=f22e1856]:
+                  - link "get-nonce" [ref=f22e1858] [cursor=pointer]:
+                    - /url: https://github.com/theKashey/get-nonce
+                  - generic "1.0.1" [ref=f22e1859]
+                  - generic [ref=f22e1860]: MIT
+                - listitem [ref=f22e1862]:
+                  - link "hast-util-is-element" [ref=f22e1864] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/hast-util-is-element
+                  - generic "3.0.0" [ref=f22e1865]
+                  - generic [ref=f22e1866]: MIT
+                - listitem [ref=f22e1868]:
+                  - link "hast-util-to-jsx-runtime" [ref=f22e1870] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/hast-util-to-jsx-runtime
+                  - generic "2.3.6" [ref=f22e1871]
+                  - generic [ref=f22e1872]: MIT
+                - listitem [ref=f22e1874]:
+                  - link "hast-util-to-text" [ref=f22e1876] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/hast-util-to-text
+                  - generic "4.0.2" [ref=f22e1877]
+                  - generic [ref=f22e1878]: MIT
+                - listitem [ref=f22e1880]:
+                  - link "hast-util-whitespace" [ref=f22e1882] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/hast-util-whitespace
+                  - generic "3.0.0" [ref=f22e1883]
+                  - generic [ref=f22e1884]: MIT
+                - listitem [ref=f22e1886]:
+                  - link "html-url-attributes" [ref=f22e1888] [cursor=pointer]:
+                    - /url: https://github.com/rehypejs/rehype-minify/tree/main/packages/html-url-attributes
+                  - generic "3.0.1" [ref=f22e1889]
+                  - generic [ref=f22e1890]: MIT
+                - listitem [ref=f22e1892]:
+                  - link "immer" [ref=f22e1894] [cursor=pointer]:
+                    - /url: https://github.com/immerjs/immer
+                  - generic "11.1.18" [ref=f22e1895]
+                  - generic [ref=f22e1896]: MIT
+                - listitem [ref=f22e1898]:
+                  - link "inline-style-parser" [ref=f22e1900] [cursor=pointer]:
+                    - /url: https://github.com/remarkablemark/inline-style-parser
+                  - generic "0.2.7" [ref=f22e1901]
+                  - generic [ref=f22e1902]: MIT
+                - listitem [ref=f22e1904]:
+                  - link "internmap" [ref=f22e1906] [cursor=pointer]:
+                    - /url: https://github.com/mbostock/internmap
+                  - generic "2.0.3" [ref=f22e1907]
+                  - generic [ref=f22e1908]: ISC
+                - listitem [ref=f22e1910]:
+                  - link "is-plain-obj" [ref=f22e1912] [cursor=pointer]:
+                    - /url: https://github.com/sindresorhus/is-plain-obj
+                  - generic "4.1.0" [ref=f22e1913]
+                  - generic [ref=f22e1914]: MIT
+                - listitem [ref=f22e1916]:
+                  - link "longest-streak" [ref=f22e1918] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/longest-streak
+                  - generic "3.1.0" [ref=f22e1919]
+                  - generic [ref=f22e1920]: MIT
+                - listitem [ref=f22e1922]:
+                  - link "lowlight" [ref=f22e1924] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/lowlight
+                  - generic "3.3.0" [ref=f22e1925]
+                  - generic [ref=f22e1926]: MIT
+                - listitem [ref=f22e1928]:
+                  - link "markdown-table" [ref=f22e1930] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/markdown-table
+                  - generic "3.0.4" [ref=f22e1931]
+                  - generic [ref=f22e1932]: MIT
+                - listitem [ref=f22e1934]:
+                  - link "mdast-util-find-and-replace" [ref=f22e1936] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-find-and-replace
+                  - generic "3.0.2" [ref=f22e1937]
+                  - generic [ref=f22e1938]: MIT
+                - listitem [ref=f22e1940]:
+                  - link "mdast-util-from-markdown" [ref=f22e1942] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-from-markdown
+                  - generic "2.0.3" [ref=f22e1943]
+                  - generic [ref=f22e1944]: MIT
+                - listitem [ref=f22e1946]:
+                  - link "mdast-util-gfm" [ref=f22e1948] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-gfm
+                  - generic "3.1.0" [ref=f22e1949]
+                  - generic [ref=f22e1950]: MIT
+                - listitem [ref=f22e1952]:
+                  - link "mdast-util-gfm-autolink-literal" [ref=f22e1954] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-gfm-autolink-literal
+                  - generic "2.0.1" [ref=f22e1955]
+                  - generic [ref=f22e1956]: MIT
+                - listitem [ref=f22e1958]:
+                  - link "mdast-util-gfm-footnote" [ref=f22e1960] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-gfm-footnote
+                  - generic "2.1.0" [ref=f22e1961]
+                  - generic [ref=f22e1962]: MIT
+                - listitem [ref=f22e1964]:
+                  - link "mdast-util-gfm-strikethrough" [ref=f22e1966] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-gfm-strikethrough
+                  - generic "2.0.0" [ref=f22e1967]
+                  - generic [ref=f22e1968]: MIT
+                - listitem [ref=f22e1970]:
+                  - link "mdast-util-gfm-table" [ref=f22e1972] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-gfm-table
+                  - generic "2.0.0" [ref=f22e1973]
+                  - generic [ref=f22e1974]: MIT
+                - listitem [ref=f22e1976]:
+                  - link "mdast-util-gfm-task-list-item" [ref=f22e1978] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-gfm-task-list-item
+                  - generic "2.0.0" [ref=f22e1979]
+                  - generic [ref=f22e1980]: MIT
+                - listitem [ref=f22e1982]:
+                  - link "mdast-util-phrasing" [ref=f22e1984] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-phrasing
+                  - generic "4.1.0" [ref=f22e1985]
+                  - generic [ref=f22e1986]: MIT
+                - listitem [ref=f22e1988]:
+                  - link "mdast-util-to-hast" [ref=f22e1990] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-to-hast
+                  - generic "13.2.1" [ref=f22e1991]
+                  - generic [ref=f22e1992]: MIT
+                - listitem [ref=f22e1994]:
+                  - link "mdast-util-to-markdown" [ref=f22e1996] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-to-markdown
+                  - generic "2.1.2" [ref=f22e1997]
+                  - generic [ref=f22e1998]: MIT
+                - listitem [ref=f22e2000]:
+                  - link "mdast-util-to-string" [ref=f22e2002] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/mdast-util-to-string
+                  - generic "4.0.0" [ref=f22e2003]
+                  - generic [ref=f22e2004]: MIT
+                - listitem [ref=f22e2006]:
+                  - link "micromark" [ref=f22e2008] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark
+                  - generic "4.0.2" [ref=f22e2009]
+                  - generic [ref=f22e2010]: MIT
+                - listitem [ref=f22e2012]:
+                  - link "micromark-core-commonmark" [ref=f22e2014] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-core-commonmark
+                  - generic "2.0.3" [ref=f22e2015]
+                  - generic [ref=f22e2016]: MIT
+                - listitem [ref=f22e2018]:
+                  - link "micromark-extension-gfm" [ref=f22e2020] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark-extension-gfm
+                  - generic "3.0.0" [ref=f22e2021]
+                  - generic [ref=f22e2022]: MIT
+                - listitem [ref=f22e2024]:
+                  - link "micromark-extension-gfm-autolink-literal" [ref=f22e2026] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark-extension-gfm-autolink-literal
+                  - generic "2.1.0" [ref=f22e2027]
+                  - generic [ref=f22e2028]: MIT
+                - listitem [ref=f22e2030]:
+                  - link "micromark-extension-gfm-footnote" [ref=f22e2032] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark-extension-gfm-footnote
+                  - generic "2.1.0" [ref=f22e2033]
+                  - generic [ref=f22e2034]: MIT
+                - listitem [ref=f22e2036]:
+                  - link "micromark-extension-gfm-strikethrough" [ref=f22e2038] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark-extension-gfm-strikethrough
+                  - generic "2.1.0" [ref=f22e2039]
+                  - generic [ref=f22e2040]: MIT
+                - listitem [ref=f22e2042]:
+                  - link "micromark-extension-gfm-table" [ref=f22e2044] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark-extension-gfm-table
+                  - generic "2.1.2" [ref=f22e2045]
+                  - generic [ref=f22e2046]: MIT
+                - listitem [ref=f22e2048]:
+                  - link "micromark-extension-gfm-task-list-item" [ref=f22e2050] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark-extension-gfm-task-list-item
+                  - generic "2.1.0" [ref=f22e2051]
+                  - generic [ref=f22e2052]: MIT
+                - listitem [ref=f22e2054]:
+                  - link "micromark-factory-destination" [ref=f22e2056] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-factory-destination
+                  - generic "2.0.1" [ref=f22e2057]
+                  - generic [ref=f22e2058]: MIT
+                - listitem [ref=f22e2060]:
+                  - link "micromark-factory-label" [ref=f22e2062] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-factory-label
+                  - generic "2.0.1" [ref=f22e2063]
+                  - generic [ref=f22e2064]: MIT
+                - listitem [ref=f22e2066]:
+                  - link "micromark-factory-space" [ref=f22e2068] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-factory-space
+                  - generic "2.0.1" [ref=f22e2069]
+                  - generic [ref=f22e2070]: MIT
+                - listitem [ref=f22e2072]:
+                  - link "micromark-factory-title" [ref=f22e2074] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-factory-title
+                  - generic "2.0.1" [ref=f22e2075]
+                  - generic [ref=f22e2076]: MIT
+                - listitem [ref=f22e2078]:
+                  - link "micromark-factory-whitespace" [ref=f22e2080] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-factory-whitespace
+                  - generic "2.0.1" [ref=f22e2081]
+                  - generic [ref=f22e2082]: MIT
+                - listitem [ref=f22e2084]:
+                  - link "micromark-util-character" [ref=f22e2086] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-character
+                  - generic "2.1.1" [ref=f22e2087]
+                  - generic [ref=f22e2088]: MIT
+                - listitem [ref=f22e2090]:
+                  - link "micromark-util-chunked" [ref=f22e2092] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-chunked
+                  - generic "2.0.1" [ref=f22e2093]
+                  - generic [ref=f22e2094]: MIT
+                - listitem [ref=f22e2096]:
+                  - link "micromark-util-classify-character" [ref=f22e2098] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-classify-character
+                  - generic "2.0.1" [ref=f22e2099]
+                  - generic [ref=f22e2100]: MIT
+                - listitem [ref=f22e2102]:
+                  - link "micromark-util-combine-extensions" [ref=f22e2104] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-combine-extensions
+                  - generic "2.0.1" [ref=f22e2105]
+                  - generic [ref=f22e2106]: MIT
+                - listitem [ref=f22e2108]:
+                  - link "micromark-util-decode-numeric-character-reference" [ref=f22e2110] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-decode-numeric-character-reference
+                  - generic "2.0.2" [ref=f22e2111]
+                  - generic [ref=f22e2112]: MIT
+                - listitem [ref=f22e2114]:
+                  - link "micromark-util-decode-string" [ref=f22e2116] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-decode-string
+                  - generic "2.0.1" [ref=f22e2117]
+                  - generic [ref=f22e2118]: MIT
+                - listitem [ref=f22e2120]:
+                  - link "micromark-util-html-tag-name" [ref=f22e2122] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-html-tag-name
+                  - generic "2.0.1" [ref=f22e2123]
+                  - generic [ref=f22e2124]: MIT
+                - listitem [ref=f22e2126]:
+                  - link "micromark-util-normalize-identifier" [ref=f22e2128] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-normalize-identifier
+                  - generic "2.0.1" [ref=f22e2129]
+                  - generic [ref=f22e2130]: MIT
+                - listitem [ref=f22e2132]:
+                  - link "micromark-util-resolve-all" [ref=f22e2134] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-resolve-all
+                  - generic "2.0.1" [ref=f22e2135]
+                  - generic [ref=f22e2136]: MIT
+                - listitem [ref=f22e2138]:
+                  - link "micromark-util-sanitize-uri" [ref=f22e2140] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-sanitize-uri
+                  - generic "2.0.1" [ref=f22e2141]
+                  - generic [ref=f22e2142]: MIT
+                - listitem [ref=f22e2144]:
+                  - link "micromark-util-subtokenize" [ref=f22e2146] [cursor=pointer]:
+                    - /url: https://github.com/micromark/micromark/tree/main/packages/micromark-util-subtokenize
+                  - generic "2.1.0" [ref=f22e2147]
+                  - generic [ref=f22e2148]: MIT
+                - listitem [ref=f22e2150]:
+                  - link "property-information" [ref=f22e2152] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/property-information
+                  - generic "7.2.0" [ref=f22e2153]
+                  - generic [ref=f22e2154]: MIT
+                - listitem [ref=f22e2156]:
+                  - generic [ref=f22e2157]:
+                    - link "react-is" [ref=f22e2158] [cursor=pointer]:
+                      - /url: https://react.dev
+                    - link "react-is source" [ref=f22e2159] [cursor=pointer]:
+                      - /url: https://github.com/react/react
+                  - generic "19.3.0" [ref=f22e2164]
+                  - generic [ref=f22e2165]: MIT
+                - listitem [ref=f22e2167]:
+                  - link "react-redux" [ref=f22e2169] [cursor=pointer]:
+                    - /url: https://github.com/reduxjs/react-redux
+                  - generic "9.3.0" [ref=f22e2170]
+                  - generic [ref=f22e2171]: MIT
+                - listitem [ref=f22e2173]:
+                  - link "react-remove-scroll" [ref=f22e2175] [cursor=pointer]:
+                    - /url: https://github.com/theKashey/react-remove-scroll
+                  - generic "2.7.2" [ref=f22e2176]
+                  - generic [ref=f22e2177]: MIT
+                - listitem [ref=f22e2179]:
+                  - link "react-remove-scroll-bar" [ref=f22e2181] [cursor=pointer]:
+                    - /url: https://github.com/theKashey/react-remove-scroll-bar
+                  - generic "2.3.8" [ref=f22e2182]
+                  - generic [ref=f22e2183]: MIT
+                - listitem [ref=f22e2185]:
+                  - link "react-style-singleton" [ref=f22e2187] [cursor=pointer]:
+                    - /url: https://github.com/theKashey/react-style-singleton
+                  - generic "2.2.3" [ref=f22e2188]
+                  - generic [ref=f22e2189]: MIT
+                - listitem [ref=f22e2191]:
+                  - generic [ref=f22e2192]:
+                    - link "redux" [ref=f22e2193] [cursor=pointer]:
+                      - /url: https://redux.js.org
+                    - link "redux source" [ref=f22e2194] [cursor=pointer]:
+                      - /url: https://github.com/reduxjs/redux
+                  - generic "5.0.1" [ref=f22e2199]
+                  - generic [ref=f22e2200]: MIT
+                - listitem [ref=f22e2202]:
+                  - link "redux-thunk" [ref=f22e2204] [cursor=pointer]:
+                    - /url: https://github.com/reduxjs/redux-thunk
+                  - generic "3.1.0" [ref=f22e2205]
+                  - generic [ref=f22e2206]: MIT
+                - listitem [ref=f22e2208]:
+                  - generic [ref=f22e2209]:
+                    - link "remark-parse" [ref=f22e2210] [cursor=pointer]:
+                      - /url: https://remark.js.org
+                    - link "remark-parse source" [ref=f22e2211] [cursor=pointer]:
+                      - /url: https://github.com/remarkjs/remark/tree/main/packages/remark-parse
+                  - generic "11.0.0" [ref=f22e2216]
+                  - generic [ref=f22e2217]: MIT
+                - listitem [ref=f22e2219]:
+                  - link "remark-rehype" [ref=f22e2221] [cursor=pointer]:
+                    - /url: https://github.com/remarkjs/remark-rehype
+                  - generic "11.1.2" [ref=f22e2222]
+                  - generic [ref=f22e2223]: MIT
+                - listitem [ref=f22e2225]:
+                  - link "reselect" [ref=f22e2227] [cursor=pointer]:
+                    - /url: https://github.com/reduxjs/reselect
+                  - generic "5.2.0" [ref=f22e2228]
+                  - generic [ref=f22e2229]: MIT
+                - listitem [ref=f22e2231]:
+                  - generic [ref=f22e2232]:
+                    - link "scheduler" [ref=f22e2233] [cursor=pointer]:
+                      - /url: https://react.dev
+                    - link "scheduler source" [ref=f22e2234] [cursor=pointer]:
+                      - /url: https://github.com/react/react
+                  - generic "0.28.0" [ref=f22e2239]
+                  - generic [ref=f22e2240]: MIT
+                - listitem [ref=f22e2242]:
+                  - link "space-separated-tokens" [ref=f22e2244] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/space-separated-tokens
+                  - generic "2.0.2" [ref=f22e2245]
+                  - generic [ref=f22e2246]: MIT
+                - listitem [ref=f22e2248]:
+                  - link "style-to-js" [ref=f22e2250] [cursor=pointer]:
+                    - /url: https://github.com/remarkablemark/style-to-js
+                  - generic "1.1.21" [ref=f22e2251]
+                  - generic [ref=f22e2252]: MIT
+                - listitem [ref=f22e2254]:
+                  - link "style-to-object" [ref=f22e2256] [cursor=pointer]:
+                    - /url: https://github.com/remarkablemark/style-to-object
+                  - generic "1.0.14" [ref=f22e2257]
+                  - generic [ref=f22e2258]: MIT
+                - listitem [ref=f22e2260]:
+                  - link "tiny-invariant" [ref=f22e2262] [cursor=pointer]:
+                    - /url: https://github.com/alexreardon/tiny-invariant
+                  - generic "1.3.3" [ref=f22e2263]
+                  - generic [ref=f22e2264]: MIT
+                - listitem [ref=f22e2266]:
+                  - link "trim-lines" [ref=f22e2268] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/trim-lines
+                  - generic "3.0.1" [ref=f22e2269]
+                  - generic [ref=f22e2270]: MIT
+                - listitem [ref=f22e2272]:
+                  - link "trough" [ref=f22e2274] [cursor=pointer]:
+                    - /url: https://github.com/wooorm/trough
+                  - generic "2.2.0" [ref=f22e2275]
+                  - generic [ref=f22e2276]: MIT
+                - listitem [ref=f22e2278]:
+                  - generic [ref=f22e2279]:
+                    - link "tslib" [ref=f22e2280] [cursor=pointer]:
+                      - /url: https://www.typescriptlang.org
+                    - link "tslib source" [ref=f22e2281] [cursor=pointer]:
+                      - /url: https://github.com/Microsoft/tslib
+                  - generic "2.8.1" [ref=f22e2286]
+                  - generic [ref=f22e2287]: 0BSD
+                - listitem [ref=f22e2289]:
+                  - generic [ref=f22e2290]:
+                    - link "unified" [ref=f22e2291] [cursor=pointer]:
+                      - /url: https://unifiedjs.com
+                    - link "unified source" [ref=f22e2292] [cursor=pointer]:
+                      - /url: https://github.com/unifiedjs/unified
+                  - generic "11.0.5" [ref=f22e2297]
+                  - generic [ref=f22e2298]: MIT
+                - listitem [ref=f22e2300]:
+                  - link "unist-util-find-after" [ref=f22e2302] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/unist-util-find-after
+                  - generic "5.0.0" [ref=f22e2303]
+                  - generic [ref=f22e2304]: MIT
+                - listitem [ref=f22e2306]:
+                  - link "unist-util-is" [ref=f22e2308] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/unist-util-is
+                  - generic "6.0.1" [ref=f22e2309]
+                  - generic [ref=f22e2310]: MIT
+                - listitem [ref=f22e2312]:
+                  - link "unist-util-position" [ref=f22e2314] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/unist-util-position
+                  - generic "5.0.0" [ref=f22e2315]
+                  - generic [ref=f22e2316]: MIT
+                - listitem [ref=f22e2318]:
+                  - link "unist-util-stringify-position" [ref=f22e2320] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/unist-util-stringify-position
+                  - generic "4.0.0" [ref=f22e2321]
+                  - generic [ref=f22e2322]: MIT
+                - listitem [ref=f22e2324]:
+                  - link "unist-util-visit" [ref=f22e2326] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/unist-util-visit
+                  - generic "5.1.0" [ref=f22e2327]
+                  - generic [ref=f22e2328]: MIT
+                - listitem [ref=f22e2330]:
+                  - link "unist-util-visit-parents" [ref=f22e2332] [cursor=pointer]:
+                    - /url: https://github.com/syntax-tree/unist-util-visit-parents
+                  - generic "6.0.2" [ref=f22e2333]
+                  - generic [ref=f22e2334]: MIT
+                - listitem [ref=f22e2336]:
+                  - link "use-callback-ref" [ref=f22e2338] [cursor=pointer]:
+                    - /url: https://github.com/theKashey/use-callback-ref
+                  - generic "1.3.3" [ref=f22e2339]
+                  - generic [ref=f22e2340]: MIT
+                - listitem [ref=f22e2342]:
+                  - link "use-sidecar" [ref=f22e2344] [cursor=pointer]:
+                    - /url: https://github.com/theKashey/use-sidecar
+                  - generic "1.1.3" [ref=f22e2345]
+                  - generic [ref=f22e2346]: MIT
+                - listitem [ref=f22e2348]:
+                  - link "use-sync-external-store" [ref=f22e2350] [cursor=pointer]:
+                    - /url: https://github.com/react/react
+                  - generic "1.7.0" [ref=f22e2351]
+                  - generic [ref=f22e2352]: MIT
+                - listitem [ref=f22e2354]:
+                  - link "vfile" [ref=f22e2356] [cursor=pointer]:
+                    - /url: https://github.com/vfile/vfile
+                  - generic "6.0.3" [ref=f22e2357]
+                  - generic [ref=f22e2358]: MIT
+                - listitem [ref=f22e2360]:
+                  - link "vfile-message" [ref=f22e2362] [cursor=pointer]:
+                    - /url: https://github.com/vfile/vfile-message
+                  - generic "4.0.3" [ref=f22e2363]
+                  - generic [ref=f22e2364]: MIT
+                - listitem [ref=f22e2366]:
+                  - generic [ref=f22e2367]:
+                    - link "victory-vendor" [ref=f22e2368] [cursor=pointer]:
+                      - /url: https://commerce.nearform.com/open-source/victory
+                    - link "victory-vendor source" [ref=f22e2369] [cursor=pointer]:
+                      - /url: https://github.com/FormidableLabs/victory
+                  - generic "37.3.6" [ref=f22e2374]
+                  - generic [ref=f22e2375]: MIT AND ISC
+          - generic [ref=f22e2378]:
+            - heading "Build tools 8" [level=2] [ref=f22e2379]:
+              - text: Build tools
+              - generic [ref=f22e2380]: "8"
+            - list [ref=f22e2382]:
+              - listitem [ref=f22e2383]:
+                - generic [ref=f22e2384]:
+                  - link "@tailwindcss/vite" [ref=f22e2385] [cursor=pointer]:
+                    - /url: https://tailwindcss.com
+                  - link "@tailwindcss/vite source" [ref=f22e2386] [cursor=pointer]:
+                    - /url: https://github.com/tailwindlabs/tailwindcss
+                - generic "4.3.3" [ref=f22e2391]
+                - generic [ref=f22e2392]: MIT
+              - listitem [ref=f22e2394]:
+                - generic [ref=f22e2395]:
+                  - link "@types/node" [ref=f22e2396] [cursor=pointer]:
+                    - /url: https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/node
+                  - link "@types/node source" [ref=f22e2397] [cursor=pointer]:
+                    - /url: https://github.com/DefinitelyTyped/DefinitelyTyped
+                - generic "24.13.4" [ref=f22e2402]
+                - generic [ref=f22e2403]: MIT
+              - listitem [ref=f22e2405]:
+                - generic [ref=f22e2406]:
+                  - link "@types/react" [ref=f22e2407] [cursor=pointer]:
+                    - /url: https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react
+                  - link "@types/react source" [ref=f22e2408] [cursor=pointer]:
+                    - /url: https://github.com/DefinitelyTyped/DefinitelyTyped
+                - generic "19.3.0" [ref=f22e2413]
+                - generic [ref=f22e2414]: MIT
+              - listitem [ref=f22e2416]:
+                - generic [ref=f22e2417]:
+                  - link "@types/react-dom" [ref=f22e2418] [cursor=pointer]:
+                    - /url: https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom
+                  - link "@types/react-dom source" [ref=f22e2419] [cursor=pointer]:
+                    - /url: https://github.com/DefinitelyTyped/DefinitelyTyped
+                - generic "19.3.0" [ref=f22e2424]
+                - generic [ref=f22e2425]: MIT
+              - listitem [ref=f22e2427]:
+                - generic [ref=f22e2428]:
+                  - link "@vitejs/plugin-react" [ref=f22e2429] [cursor=pointer]:
+                    - /url: https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react
+                  - link "@vitejs/plugin-react source" [ref=f22e2430] [cursor=pointer]:
+                    - /url: https://github.com/vitejs/vite-plugin-react
+                - generic "6.1.1" [ref=f22e2435]
+                - generic [ref=f22e2436]: MIT
+              - listitem [ref=f22e2438]:
+                - generic [ref=f22e2439]:
+                  - link "oxlint" [ref=f22e2440] [cursor=pointer]:
+                    - /url: https://oxc.rs/docs/guide/usage/linter
+                  - link "oxlint source" [ref=f22e2441] [cursor=pointer]:
+                    - /url: https://github.com/oxc-project/oxc
+                - generic "1.82.0" [ref=f22e2446]
+                - generic [ref=f22e2447]: MIT
+              - listitem [ref=f22e2449]:
+                - generic [ref=f22e2450]:
+                  - link "typescript" [ref=f22e2451] [cursor=pointer]:
+                    - /url: https://www.typescriptlang.org
+                  - link "typescript source" [ref=f22e2452] [cursor=pointer]:
+                    - /url: https://github.com/microsoft/TypeScript
+                - generic "6.0.3" [ref=f22e2457]
+                - generic [ref=f22e2458]: Apache-2.0
+              - listitem [ref=f22e2460]:
+                - generic [ref=f22e2461]:
+                  - link "vite" [ref=f22e2462] [cursor=pointer]:
+                    - /url: https://vite.dev
+                  - link "vite source" [ref=f22e2463] [cursor=pointer]:
+                    - /url: https://github.com/vitejs/vite
+                - generic "8.3.0" [ref=f22e2468]
+                - generic [ref=f22e2469]: MIT
+    - generic [ref=f22e2471]:
+      - link "Docs" [ref=f22e2472] [cursor=pointer]:
+        - /url: https://docs.modbot.co
+      - link "Credits" [ref=f22e2473] [cursor=pointer]:
+        - /url: /settings/credits

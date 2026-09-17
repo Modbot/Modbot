@@ -1,0 +1,41 @@
+- generic [ref=f8e4]:
+  - complementary [ref=f8e5]:
+    - generic [ref=f8e6]:
+      - generic [ref=f8e7]: M
+      - generic [ref=f8e8]:
+        - generic [ref=f8e9]: Modbot
+        - generic [ref=f8e10]: Group
+    - button "Members" [ref=f8e12]
+    - button "Live" [ref=f8e15]
+    - button "Chat" [active] [ref=f8e18]
+    - button "Bans" [ref=f8e21]
+    - button "Audit log" [ref=f8e24]
+    - generic [ref=f8e26]:
+      - generic [ref=f8e27]: Analytics
+      - button "My Group" [ref=f8e28]
+    - button "My Team" [ref=f8e31]
+    - button "Worlds" [ref=f8e34]
+    - button "Instances" [ref=f8e37]
+    - generic [ref=f8e39]:
+      - generic [ref=f8e40]: Team
+      - button "Reviews" [ref=f8e41]
+    - button "Users" [ref=f8e44]
+    - button "Roles" [ref=f8e47]
+    - generic [ref=f8e49]:
+      - generic [ref=f8e50]: Setup
+      - button "Sync health" [ref=f8e51]
+    - button "Settings" [ref=f8e54]
+    - button "VRChat · unknown" [ref=f8e57]
+  - main [ref=f8e60]:
+    - generic [ref=f8e61]:
+      - heading "Chat" [level=1] [ref=f8e83]
+      - group "Density" [ref=f8e63]:
+        - button "Dense" [pressed] [ref=f8e64]
+        - button "Comfy" [ref=f8e67]
+        - button "VR" [ref=f8e70]
+      - button [ref=f8e74]
+      - button "admin" [ref=f8e75]
+      - button "Sign out" [ref=f8e77]
+    - generic [ref=f8e78]: Could not load Chat.
+    - link "Credits" [ref=f8e82] [cursor=pointer]:
+      - /url: /credits

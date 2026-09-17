@@ -1,0 +1,51 @@
+- generic [ref=f3e3]:
+  - complementary [ref=f3e4]:
+    - generic [ref=f3e6]:
+      - generic [ref=f3e7]: Modbot
+      - generic [ref=f3e8]: The Long Porch
+    - button "Members" [ref=f3e10]
+    - button "Discord members" [ref=f3e13]
+    - button "Live" [ref=f3e16]
+    - button "Calendar" [ref=f3e19]
+    - button "Chat" [ref=f3e22]
+    - button "Bans" [ref=f3e25]
+    - button "Flags" [ref=f3e28]
+    - button "Audit log" [ref=f3e31]
+    - generic [ref=f3e33]:
+      - generic [ref=f3e34]: Analytics
+      - button "My Group" [ref=f3e35]
+    - button "My Server" [ref=f3e38]
+    - button "My Team" [ref=f3e41]
+    - button "Worlds" [ref=f3e44]
+    - button "Instances" [ref=f3e47]
+    - generic [ref=f3e49]:
+      - generic [ref=f3e50]: Team
+      - button "Reviews" [ref=f3e51]
+    - button "Users" [ref=f3e54]
+    - button "Roles" [ref=f3e57]
+    - generic [ref=f3e59]:
+      - generic [ref=f3e60]: Setup
+      - button "Sync health" [ref=f3e61]
+    - button "Settings" [ref=f3e64]
+    - button "VRChat · checking…" [ref=f3e67]
+  - main [ref=f3e70]:
+    - generic [ref=f3e71]:
+      - heading "My Group" [level=1] [ref=f3e72]
+      - group "Density" [ref=f3e73]:
+        - button "Dense" [pressed] [ref=f3e74]
+        - button "Comfy" [ref=f3e77]
+        - button "VR" [ref=f3e80]
+      - button [ref=f3e84]
+      - button "demo" [ref=f3e85]
+    - generic [ref=f3e88]:
+      - generic [ref=f3e89]:
+        - button "7 days" [ref=f3e90]
+        - button "30 days" [pressed] [ref=f3e91]
+        - button "90 days" [ref=f3e92]
+        - button "All time" [ref=f3e93]
+      - generic [ref=f3e94]: Loading…
+    - generic [ref=f3e96]:
+      - link "Docs" [ref=f3e97] [cursor=pointer]:
+        - /url: https://docs.modbot.co
+      - link "Credits" [ref=f3e98] [cursor=pointer]:
+        - /url: /credits

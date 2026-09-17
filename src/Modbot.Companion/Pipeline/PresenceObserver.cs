@@ -103,6 +103,12 @@ public sealed class PresenceObserver
     /// </remarks>
     public InstanceLocation? CurrentInstance => LogIsLive ? _tracker.CurrentInstance : null;
 
+    /// <summary>
+    /// The moderator's own VRChat id, once the log has said which of the people in it is them, or
+    /// null until then. The voice uses it to keep quiet about the moderator's own comings and goings.
+    /// </summary>
+    public string? ModeratorId => _tracker.LocalUserId;
+
     /// <summary>Who is in it. Used by the overlay, which renders from local state only.</summary>
     public IReadOnlyCollection<string> Roster => _tracker.Roster;
 

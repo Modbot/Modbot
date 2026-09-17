@@ -1,0 +1,23 @@
+- generic [ref=e24]:
+  - generic [ref=e25]: Modbot
+  - generic [ref=e28]:
+    - progressbar [ref=e29]
+    - generic [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]: Step 2 of 6
+        - heading "Connect a VRChat account" [level=2] [ref=e59]
+      - generic [ref=e60]:
+        - generic [ref=e61]:
+          - generic [ref=e62]: Email or username
+          - textbox "Email or username" [active] [ref=e63]
+        - generic [ref=e64]:
+          - generic [ref=e65]: Password
+          - textbox "Password" [ref=e66]
+        - generic [ref=e67]:
+          - generic [ref=e68]: Two-factor secret
+          - textbox "Two-factor secret" [ref=e69]:
+            - /placeholder: JBSWY3DPEHPK3PXP
+        - generic [ref=e70]: Use a dedicated account, not your personal one.
+    - generic [ref=e54]:
+      - button "Back" [ref=e72]
+      - button "Continue" [ref=e55]

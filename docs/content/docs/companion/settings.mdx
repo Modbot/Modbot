@@ -1,13 +1,69 @@
 ---
 title: Client settings
-description: Every setting in the companion, including starting with Windows, Modbot Cloud backup, and the ones kept in its settings file.
+description: Every setting in the companion, including starting with Windows, the voice, Modbot Cloud backup, and the ones kept in its settings file.
 ---
 
-The client's **Settings** page has one switch: starting with Windows. Everything else is set in the
-client's settings file or in environment variables on your PC: the pairing page, update checks,
-Modbot Cloud backup, and how much the client writes to its own log.
+The client's **Settings** page has the start-with-Windows switch, the **Voice** card and the VRChat
+log folder. Everything else is set in the client's settings file or in environment variables on
+your PC: the pairing page, update checks, Modbot Cloud backup, and how much the client writes to
+its own log.
 
 Nothing on this page is sent to any server. These settings decide what the client does on your PC.
+
+## Voice
+
+**Off by default.** With **Voice on**, the client says out loud what it sees, so a moderator in a
+headset hears it rather than having to look at the overlay. The speech is made on your PC by a
+small open-source text-to-speech engine that runs inside the client; nothing you hear, and nothing
+about who joined, is sent anywhere to make it.
+
+What it says, each with its own switch:
+
+| Switch | What is said | Where it comes from |
+|---|---|---|
+| **Joins** | *Rin joined your world*. Several people arriving together become *Rin and Kai joined your world*, or *five people joined your world*. | The client's own reading of VRChat's log, the same events the **Events** page shows. |
+| **Leaves** | *Rin left your world*, folded together the same way. | The same. |
+| **Flagged joins** | *Flagged user Rin joined*. | Your group's server, when it raises the same alert the [overlay](/companion/overlay) shows as a card. Only for the instance you are in. |
+
+It also says, once, when a paired server rejects the client's token, because that means reporting
+has stopped: *Cat Lounge rejected this device. Modbot has stopped reporting to it.*
+
+It never announces you. It says nothing while reporting to any server is paused, and drops
+anything it did not get to within a few seconds rather than reading out old news. Lines never
+play over each other.
+
+**Volume** is 0 to 100. **Test** speaks one line.
+
+**Output device** lists every output on your PC. **Windows default** (or **System default** on
+Linux) follows whatever your operating system currently uses, and moves with it when that
+changes, the way a voice chat program does. Pick a device and the client remembers it by its id;
+if it is not plugged in when a line is due, the line plays on the default instead, the client's
+log says so, and the device is used again as soon as it is back.
+
+### The one download
+
+The first time you turn the voice on or press **Test**, the client downloads the voice, once,
+from the sherpa-onnx project's release on GitHub:
+
+| | |
+|---|---|
+| Voice | `en_US-kristin-medium`, a US English voice from the Piper project, trained on public-domain LibriVox recordings |
+| From | `https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-kristin-medium.tar.bz2` |
+| Size | 67,259,230 bytes to download (about 64 MB); about 80 MB unpacked |
+| SHA-256 | `c2206f572df2956c50b1ae3367eebce3853c663e890cba8048cd62b1e4dbe6c7` |
+| Kept in | `%APPDATA%\Modbot\voices` |
+
+The request carries nothing: no token, no id, nothing about you or your pairings. GitHub sees your
+IP address, as it does for any download. A file whose size or SHA-256 does not match the one above
+is thrown away, and the Voice card says so. The voice is not part of the installer, so a client
+that never has the voice turned on never fetches it. The card shows the download's progress and
+then **Voice ready**.
+
+On a PC with no sound output, or a Linux PC without OpenAL's library, the card says so and the
+voice cannot speak; everything else in the client is unaffected.
+
+The voice settings are kept in the settings file's `voice` object, listed
+[below](#settings-in-the-settings-file).
 
 ## Modbot Cloud backup
 
@@ -125,13 +181,21 @@ Uninstalling the client removes the startup entry.
 ## Settings in the settings file
 
 The client keeps its settings in `%APPDATA%\Modbot\settings.json`. Every field is optional. The
-switch above writes its own field here, and the rest can only be set by editing the file:
+switches and the Voice card write their own fields here, and the rest can only be set by editing
+the file:
 
 | Field | Default | What it does |
 |---|---|---|
 | `pairingPage` | `https://my.modbot.co/go?redir=/pair` | The page **Pair with a server** opens. See [Pairing page](#pairing-page). |
 | `checkForUpdates` | `true` | Whether an installed client looks for newer versions. See [Check for updates](#check-for-updates). |
 | `startWithWindows` | `true` | The **Start Modbot Companion when my computer starts** switch. |
+| `vrchatLogFolder` | blank | The [VRChat log folder](#vrchat-log-folder). |
+| `voice.on` | `false` | The **Voice on** switch. See [Voice](#voice). |
+| `voice.joins` | `true` | The **Joins** switch. |
+| `voice.leaves` | `true` | The **Leaves** switch. |
+| `voice.flaggedJoins` | `true` | The **Flagged joins** switch. |
+| `voice.volume` | `80` | **Volume**, 0 to 100. |
+| `voice.outputDevice` | absent | The chosen **Output device**, by the id the operating system gives it. Absent means the system default. |
 | `cloud.endpoint` | `https://cloud.modbot.co` | Where Modbot Cloud backup goes. `MODBOT_CLOUD_ENDPOINT` wins over it. See [Modbot Cloud backup](#turning-it-off-or-sending-it-somewhere-else). |
 | `cloud.disabled` | `false` | `true` turns Modbot Cloud backup off. `MODBOT_CLOUD_DISABLED` wins over it. |
 
@@ -150,8 +214,9 @@ Things to know:
 
 - If the file is missing, or cannot be read as JSON, **every** setting in it uses its default. That
   includes Cloud backup and starting with Windows being on. The environment variables still apply.
-- When you flip the switch, the client changes only that switch's field and leaves the rest of the
-  file as it was. It never writes the `cloud` field.
+- When you flip a switch, the client changes only that switch's field and leaves the rest of the
+  file as it was; a change on the Voice card rewrites the whole `voice` object. It never writes
+  the `cloud` field.
 - If the file is broken, the client does not overwrite it. A switch you flip then only lasts until
   the client restarts.
 

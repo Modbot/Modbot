@@ -1,0 +1,23 @@
+- generic [ref=f4e5]:
+  - generic [ref=f4e6]: Modbot
+  - generic [ref=f4e9]:
+    - progressbar [ref=f4e11]
+    - generic [ref=f4e18]:
+      - generic [ref=f4e19]: Step 4 of 6
+      - heading "Link your VRChat account" [level=2] [ref=f4e20]
+    - generic [ref=f4e21]:
+      - generic [ref=f4e22]:
+        - generic [ref=f4e23]: Put this code in the bio of usr_11111111-2222-3333-4444-555555555555, then press Check.
+        - generic [ref=f4e24]:
+          - code [ref=f4e25]: modbot-MGJ5N6
+          - button "Copy" [ref=f4e26]
+          - link "Open my profile" [ref=f4e27] [cursor=pointer]:
+            - /url: https://vrchat.com/home/user/me
+        - generic [ref=f4e28]:
+          - button "Check" [ref=f4e29]
+          - button "Start over" [ref=f4e30]
+          - generic [ref=f4e31]: 6 checks left on this code
+      - alert [ref=f4e35]: Link your VRChat account first.
+    - generic [ref=f4e32]:
+      - button "Back" [ref=f4e33]
+      - button "Continue" [ref=f4e34]
