@@ -124,4 +124,42 @@ public class CompanionSettingsTests : IDisposable
         Assert.Equal(new Uri("https://modbot.example/pair"), settings.PairingPage);
         Assert.False(settings.CheckForUpdates);
     }
+
+    [Fact]
+    public void ThePanelIsWhereItWasLeftAndNeverOutOfBounds()
+    {
+        Write("""{ "pairingPage": "https://modbot.example/pair", "overlay": { "anchor": "world", "offset": { "x": 1, "y": 2, "z": -3 }, "width": 9, "opacity": "0.5" } }""");
+
+        var placement = CompanionSettings.Load(Path_, NoEnvironment).Overlay;
+
+        Assert.Equal(Modbot.Companion.Overlay.OverlayAnchor.World, placement.Anchor);
+        Assert.Equal(new Modbot.Companion.Overlay.OverlayPose(1, 2, -3), placement.Offset);
+        Assert.Equal(Modbot.Companion.Overlay.OverlayPlacement.MaxWidth, placement.Width);
+        Assert.Equal(0.5f, placement.Opacity);
+        Assert.Equal(0f, placement.Curve);
+    }
+
+    [Fact]
+    public void AMissingOrBrokenOverlayObjectIsTheDefaultPlacement()
+    {
+        Write("""{ "overlay": "sideways" }""");
+
+        Assert.Equal(Modbot.Companion.Overlay.OverlayPlacement.Default, CompanionSettings.Load(Path_, NoEnvironment).Overlay);
+        Assert.Equal(Modbot.Companion.Overlay.OverlayPlacement.Default, CompanionSettings.Default.Overlay);
+    }
+
+    [Fact]
+    public void SavingThePlacementKeepsEveryOtherField()
+    {
+        Write("""{ "pairingPage": "https://modbot.example/pair", "checkForUpdates": false }""");
+        var placement = new Modbot.Companion.Overlay.OverlayPlacement(
+            Modbot.Companion.Overlay.OverlayAnchor.LeftHand, new Modbot.Companion.Overlay.OverlayPose(0.1f, 0.2f, -0.3f, 0, 0.7071068f, 0, 0.7071068f), 0.6f, 0.8f, 0.2f);
+
+        Assert.True(CompanionSettings.SaveOverlay(Path_, placement));
+
+        var loaded = CompanionSettings.Load(Path_, NoEnvironment);
+        Assert.Equal(new Uri("https://modbot.example/pair"), loaded.PairingPage);
+        Assert.False(loaded.CheckForUpdates);
+        Assert.Equal(placement, loaded.Overlay);
+    }
 }

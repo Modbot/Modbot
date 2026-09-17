@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Modbot.Companion.CloudBackup;
+using Modbot.Companion.Overlay;
 using Modbot.Companion.Pairing;
 
 namespace Modbot.Companion.Presentation;
@@ -15,7 +16,7 @@ namespace Modbot.Companion.Presentation;
 /// <remarks>
 /// <para><strong>What this reads and writes.</strong> One file, <c>settings.json</c>, in Modbot's own
 /// folder under your user profile — beside <c>pairings.json</c>. It is plain JSON with optional fields:
-/// <c>pairingPage</c>, <c>checkForUpdates</c>, <c>startWithWindows</c> and <c>cloud</c>
+/// <c>pairingPage</c>, <c>checkForUpdates</c>, <c>startWithWindows</c>, <c>vrchatLogFolder</c>, <c>overlay</c> and <c>cloud</c>
 /// (<c>{ "endpoint": "…", "disabled": true }</c>). If it is missing or unreadable the defaults are
 /// used. The client writes it only when a switch on the settings screen is changed, and then changes
 /// only that switch's field, leaving anything else in the file as it was. The <c>cloud</c> object is
@@ -54,6 +55,12 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public CloudSettings Cloud { get; init; } = CloudSettings.Default;
 
     /// <summary>
+    /// Where the headset panel is and how big. Saved as the <c>overlay</c> object whenever a
+    /// controller moves it or the settings page changes it, so it is where it was left.
+    /// </summary>
+    public OverlayPlacement Overlay { get; init; } = OverlayPlacement.Default;
+
+    /// <summary>
     /// my.modbot.co's redirect route, pointed at <c>/pair</c>: it picks one of the moderator's saved
     /// servers and opens that server's own pairing page.
     /// </summary>
@@ -62,6 +69,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string StartWithWindowsField = "startWithWindows";
 
     public const string VRChatLogFolderField = "vrchatLogFolder";
+
+    public const string OverlayField = "overlay";
 
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -89,7 +98,15 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             StartWithWindows = shape?.StartWithWindows ?? true,
             VRChatLogFolder = string.IsNullOrWhiteSpace(shape?.VRChatLogFolder) ? null : shape.VRChatLogFolder.Trim(),
             Cloud = CloudSettings.Resolve(shape?.Cloud?.Endpoint, shape?.Cloud?.Disabled, environment),
+            Overlay = OverlayPlacement.FromJson(shape?.Overlay),
         };
+    }
+
+    /// <summary>Writes the panel's placement as the <c>overlay</c> object, keeping every other field.</summary>
+    public static bool SaveOverlay(string path, OverlayPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        return SaveField(path, OverlayField, placement.Clamped().ToJson());
     }
 
     private static FileShape? ReadFile(string path)
@@ -178,7 +195,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("checkForUpdates")] bool? CheckForUpdates,
         [property: JsonPropertyName("startWithWindows")] bool? StartWithWindows,
         [property: JsonPropertyName("vrchatLogFolder")] string? VRChatLogFolder,
-        [property: JsonPropertyName("cloud")] CloudShape? Cloud);
+        [property: JsonPropertyName("cloud")] CloudShape? Cloud,
+        [property: JsonPropertyName("overlay")] JsonObject? Overlay);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,
