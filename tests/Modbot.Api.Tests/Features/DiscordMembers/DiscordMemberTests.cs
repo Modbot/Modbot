@@ -130,6 +130,82 @@ public class DiscordMemberTests
     }
 
     [Fact]
+    public async Task SeveralRoles_NotRole_NoRole_AndTheCounts()
+    {
+        await using var host = await StartAsync(_db);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var either = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?role=201&role=202", cookie, Ct);
+        Assert.Equal(["2", "1"], either.Members.Select(m => m.UserId));
+
+        var notStaff = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?notRole=202", cookie, Ct);
+        Assert.Equal(["2"], notStaff.Members.Select(m => m.UserId));
+
+        var roleless = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?noRole=true&state=all", cookie, Ct);
+        Assert.Equal(["3"], roleless.Members.Select(m => m.UserId));
+
+        // Two people in the server hold Member, one holds Staff; the person who left counts for nothing.
+        Assert.Equal(2, either.Roles.Single(r => r.Id == "201").Members);
+        Assert.Equal(1, either.Roles.Single(r => r.Id == "202").Members);
+    }
+
+    [Fact]
+    public async Task Bots_Timeouts_Boosts_JoinedStretch_AndSort()
+    {
+        await using var host = await StartAsync(_db);
+        var at = host.Clock.UtcNow;
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            context.DiscordMembers.AddRange(
+                new DiscordMember
+                {
+                    GuildId = Guild, UserId = "4", Username = "beep", DisplayName = "Beep", IsBot = true,
+                    JoinedAt = at.AddDays(-100), FirstSeenAt = at, UpdatedAt = at,
+                },
+                new DiscordMember
+                {
+                    GuildId = Guild, UserId = "5", Username = "dee", DisplayName = "Dee", TimedOutUntil = at.AddHours(1),
+                    BoostingSince = at.AddDays(-3), JoinedAt = at.AddDays(-1), FirstSeenAt = at, UpdatedAt = at,
+                },
+                new DiscordMember
+                {
+                    GuildId = Guild, UserId = "6", Username = "eve", DisplayName = "Eve", TimedOutUntil = at.AddHours(-1),
+                    JoinedAt = at.AddDays(-10), FirstSeenAt = at, UpdatedAt = at,
+                });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var bots = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?bot=true", cookie, Ct);
+        Assert.Equal(["4"], bots.Members.Select(m => m.UserId));
+
+        var people = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?bot=false", cookie, Ct);
+        Assert.DoesNotContain("4", people.Members.Select(m => m.UserId));
+
+        // A timeout that has already ended is not a timeout.
+        var timedOut = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?timedOut=true", cookie, Ct);
+        Assert.Equal(["5"], timedOut.Members.Select(m => m.UserId));
+
+        var boosting = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?boosting=true", cookie, Ct);
+        Assert.Equal(["5"], boosting.Members.Select(m => m.UserId));
+
+        var lastWeek = await host.GetJsonAsync<DiscordMemberListResponse>(
+            $"/api/discord/members?joinedFrom={Uri.EscapeDataString(at.AddDays(-7).ToString("o"))}", cookie, Ct);
+        Assert.Equal(["5", "2"], lastWeek.Members.Select(m => m.UserId));
+
+        var byName = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?sort=name", cookie, Ct);
+        Assert.Equal(["Ada the Brave", "Beep", "Bo", "Dee", "Eve"], byName.Members.Select(m => m.DisplayName));
+
+        var oldest = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?sort=oldest&pageSize=1", cookie, Ct);
+        Assert.Equal(["4"], oldest.Members.Select(m => m.UserId));
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.GetAsync("/api/discord/members?sort=height", cookie, Ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task OneMember_IsFoundById_WhetherInTheServerOrNot()
     {
         await using var host = await StartAsync(_db);

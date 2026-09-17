@@ -202,6 +202,60 @@
         ]
       }
     },
+    "/api/search": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "People, Discord people and worlds by name or id, for the command palette",
+        "description": "`q` is matched against display names and ids, case-insensitively. People and Discord people need See members; worlds need See analytics. A kind the caller may not see comes back as an empty list. At most `limit` of each kind (default 8, max 25).",
+        "operationId": "Search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResults"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/events/types": {
       "get": {
         "tags": [
@@ -5113,7 +5167,7 @@
           "Discord"
         ],
         "summary": "The Discord server's members, current and past, with search",
-        "description": "Members in the server by default; `state=left` shows people who left, `state=all` both. `search` matches the display name, username, global name, nickname and the id, case-insensitively. `role` is a Discord role id. `linked=linked` shows only people with a linked VRChat account and `linked=not-linked` only people without; both need See profiles, as does `linkedVRChat` on each member. Newest joiners first.\n\n`coverage.listedAt` is null until the bot has read the whole member list once; the list is partial until then.\n\nNeeds the `ViewMembers` permission.",
+        "description": "Members in the server by default; `state=left` shows people who left, `state=all` both. `search` matches the display name, username, global name, nickname and the id, case-insensitively. `role` is a Discord role id and may be repeated: people holding any of them. `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. `bot`, `pending`, `timedOut` and `boosting` are true or false. `joinedFrom` and `joinedTo` narrow to people who joined inside that stretch. `linked=linked` shows only people with a linked VRChat account and `linked=not-linked` only people without; both need See profiles, as does `linkedVRChat` on each member. Newest joiners first unless `sort=oldest` or `sort=name`. `roles` lists the server's roles with how many current members hold each.\n\n`coverage.listedAt` is null until the bot has read the whole member list once; the list is partial until then.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetDiscordMembers",
         "parameters": [
           {
@@ -5134,11 +5188,82 @@
             "name": "role",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "notRole",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "noRole",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
             "name": "linked",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bot",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pending",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "timedOut",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "boosting",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "joinedFrom",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "joinedTo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "sort",
             "in": "query",
             "schema": {
               "type": "string"
@@ -6029,7 +6154,7 @@
           "Audit"
         ],
         "summary": "The merged fact timeline: who did what to whom, and when",
-        "description": "One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and membership history; ViewOperationalLog covers Modbot's own record — logins, settings changes, sync failures. The two are separate permissions and the filter is applied server-side on every query: asking for a type you cannot see omits it rather than refusing the request.\n\nFacts carry occurredAt and, when the time is an inference rather than a statement, occurredBefore. `precision` says which, so a window is never rendered as an instant.\n\nPaged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; both are required.",
+        "description": "One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and membership history; ViewOperationalLog covers Modbot's own record — logins, settings changes, sync failures. The two are separate permissions and the filter is applied server-side on every query: asking for a type you cannot see omits it rather than refusing the request.\n\nFacts carry occurredAt and, when the time is an inference rather than a statement, occurredBefore. `precision` says which, so a window is never rendered as an instant.\n\n`world` and `instance` narrow to one world or one VRChat room number; `category` to Moderation or Operational; `precision` to Exact or Window; `hasActor` to facts somebody is named for, or not; `q` finds a word in the payload, the subject id or the actor id.\n\nPaged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; both are required.",
         "operationId": "GetAuditLog",
         "parameters": [
           {
@@ -6094,6 +6219,48 @@
             "schema": {
               "type": "string",
               "format": "date-time"
+            }
+          },
+          {
+            "name": "world",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "instance",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "precision",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hasActor",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -8092,6 +8259,118 @@
         ]
       }
     },
+    "/api/vrchat-users/history": {
+      "get": {
+        "tags": [
+          "VRChat users"
+        ],
+        "summary": "This person's profile as it stood after each recorded change, newest first",
+        "description": "Replayed from the profile facts: the newest version is the profile as stored now, and each earlier one has that change's old values put back. `factId` is the audit log entry that recorded the change. The oldest version is marked `baseline` when it is the first sighting Modbot recorded.\n\nNeeds the `ViewProfile` permission.",
+        "operationId": "GetVRChatUserHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/vrchat-users/raw": {
+      "get": {
+        "tags": [
+          "VRChat users"
+        ],
+        "summary": "The bodies VRChat last sent for this person, as stored",
+        "description": "The public profile and the full user object, each as VRChat returned it on the last successful read. The user object is stored without instance locations, the account's private note and the friend key, which Modbot never keeps.\n\nNeeds the `ViewProfile` permission.",
+        "operationId": "GetVRChatUserRaw",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RawProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/worlds": {
       "get": {
         "tags": [
@@ -9370,7 +9649,7 @@
           "Members"
         ],
         "summary": "The group's member list, as last swept, with search",
-        "description": "Current members by default; `status=left` shows people a full sweep no longer listed, `status=all` both. `search` matches the display name and the id, case-insensitively. `role` is a role id. Sorted by join date, newest first, unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without; both need See profiles, as does `linkedDiscord` on each row. `joinedFrom` and `joinedTo` narrow the list to people who joined inside that stretch, which is what an unusual-activity alert links to.\n\n`coverage.firstSweepComplete` is false until the first full sweep has finished; the list is partial until then. Names and pictures come from the profile sync and are null for people it has not fetched yet.\n\nNeeds the `ViewMembers` permission.",
+        "description": "Current members by default; `status=left` shows people a full sweep no longer listed, `status=all` both. `search` matches the display name and the id, case-insensitively. `role` is a role id and may be repeated: people holding any of them. `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. Sorted by join date, newest first, unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without; both need See profiles, as does `linkedDiscord` on each row. `joinedFrom` and `joinedTo` narrow the list to people who joined inside that stretch, which is what an unusual-activity alert links to; `seenFrom` and `seenTo` do the same for when Modbot last saw them. `eighteenPlus` and `representing` are true or false; `profile` is `fetched` or `not-fetched`.\n\n`roles` lists the group's roles with how many current members hold each.\n\n`coverage.firstSweepComplete` is false until the first full sweep has finished; the list is partial until then. Names and pictures come from the profile sync and are null for people it has not fetched yet.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetMembers",
         "parameters": [
           {
@@ -9384,7 +9663,27 @@
             "name": "role",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "notRole",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "noRole",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -9422,6 +9721,43 @@
             "schema": {
               "type": "string",
               "format": "date-time"
+            }
+          },
+          {
+            "name": "eighteenPlus",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "representing",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "seenFrom",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "seenTo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -16319,7 +16655,7 @@
           "roles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DiscordMemberRoleView"
+              "$ref": "#/components/schemas/DiscordRoleOption"
             }
           }
         }
@@ -16684,6 +17020,42 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "DiscordRoleOption": {
+        "required": [
+          "id",
+          "name",
+          "color",
+          "members"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "color": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "members": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -21336,6 +21708,169 @@
           }
         }
       },
+      "ProfileFields": {
+        "required": [
+          "displayName",
+          "bio",
+          "statusDescription",
+          "pronouns",
+          "avatarImageUrl",
+          "avatarThumbnailUrl",
+          "profilePictureUrl",
+          "dateJoined",
+          "tags",
+          "ageVerificationStatus",
+          "ageVerified"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "statusDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pronouns": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarImageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarThumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "profilePictureUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateJoined": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ageVerificationStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ageVerified": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "ProfileHistory": {
+        "required": [
+          "userId",
+          "known",
+          "versions",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "known": {
+            "type": "boolean"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileVersion"
+            }
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProfileVersion": {
+        "required": [
+          "factId",
+          "at",
+          "before",
+          "source",
+          "changed",
+          "baseline",
+          "current",
+          "profile"
+        ],
+        "type": "object",
+        "properties": {
+          "factId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "before": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "baseline": {
+            "type": "boolean"
+          },
+          "current": {
+            "type": "boolean"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ProfileFields"
+          }
+        }
+      },
       "PublicAddressView": {
         "required": [
           "publicAddress",
@@ -21372,6 +21907,55 @@
             "type": "boolean"
           },
           "lastSentAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "RawProfile": {
+        "required": [
+          "userId",
+          "publicProfile",
+          "publicProfileReadAt",
+          "user",
+          "userReadAt"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "publicProfile": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "publicProfileReadAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "user": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "userReadAt": {
             "type": [
               "null",
               "string"
@@ -21852,7 +22436,8 @@
       "RoleOption": {
         "required": [
           "id",
-          "name"
+          "name",
+          "members"
         ],
         "type": "object",
         "properties": {
@@ -21864,6 +22449,14 @@
               "null",
               "string"
             ]
+          },
+          "members": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -22387,6 +22980,114 @@
           },
           "text": {
             "type": "string"
+          }
+        }
+      },
+      "SearchDiscordPerson": {
+        "required": [
+          "userId",
+          "displayName",
+          "username",
+          "avatarUrl",
+          "inServer"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inServer": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SearchPerson": {
+        "required": [
+          "userId",
+          "displayName",
+          "avatarUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SearchResults": {
+        "required": [
+          "people",
+          "discordPeople",
+          "worlds"
+        ],
+        "type": "object",
+        "properties": {
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchPerson"
+            }
+          },
+          "discordPeople": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchDiscordPerson"
+            }
+          },
+          "worlds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchWorld"
+            }
+          }
+        }
+      },
+      "SearchWorld": {
+        "required": [
+          "worldId",
+          "name",
+          "thumbnailImageUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "worldId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "thumbnailImageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -25307,6 +26008,10 @@
     {
       "name": "Logs",
       "x-displayName": "Logs"
+    },
+    {
+      "name": "Search",
+      "x-displayName": "Search"
     }
   ]
 }

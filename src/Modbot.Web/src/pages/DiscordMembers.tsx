@@ -1,13 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { dateTime } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
 import { SubjectLink } from '@/components/facts'
-import { api, ApiError, type CurrentUser, type DiscordMemberList, type DiscordMemberQuery, type LinkedFilter } from '@/lib/api'
+import { FilterBar } from '@/components/filters/FilterBar'
+import { api, ApiError, type CurrentUser, type DiscordMemberList, type DiscordMemberQuery } from '@/lib/api'
+import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
 import { ago, formatDay } from '@/lib/format'
+import { useListSelection } from '@/lib/listSelection'
+import { DISCORD_MEMBER_DEFAULTS, discordMemberQueryFrom } from '@/lib/pageFilters'
 import { can } from '@/lib/permissions'
+import { useShortcuts } from '@/lib/shortcuts'
 import { openDiscordPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 import { Empty, Select } from '@/pages/Members'
@@ -29,12 +34,18 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
 
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
-  const [state, setState] = useState<NonNullable<DiscordMemberQuery['state']>>('in-server')
-  const [role, setRole] = useState('')
-  const [linked, setLinked] = useState<LinkedFilter>('all')
+  const [sort, setSort] = useState<NonNullable<DiscordMemberQuery['sort']>>('joined')
   const [page, setPage] = useState(1)
   const [list, setList] = useState<DiscordMemberList | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // The chips: in the address, remembered per page (lib/filters.ts). People in the server by default.
+  const [chips, setChipsOnly] = useFilters('discord-members', DISCORD_MEMBER_DEFAULTS)
+  const setChips = (next: FilterChip[]) => {
+    setChipsOnly(next)
+    setPage(1)
+  }
+  const filter = useMemo(() => discordMemberQueryFrom(chips), [chips])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -48,7 +59,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
     let cancelled = false
 
     api
-      .discordMembers({ search, state, role, linked, page, pageSize: PAGE_SIZE })
+      .discordMembers({ ...filter, search, sort, page, pageSize: PAGE_SIZE })
       .then((next) => {
         if (cancelled) return
         setList(next)
@@ -66,13 +77,69 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
     return () => {
       cancelled = true
     }
-  }, [search, state, role, linked, page])
+  }, [search, filter, sort, page])
+
+  const properties = useMemo<FilterProperty[]>(
+    () => [
+      {
+        id: 'role',
+        label: 'Role',
+        kind: 'choice',
+        options: (list?.roles ?? []).map((r) => ({
+          value: r.id,
+          label: r.name ?? r.id,
+          count: r.members,
+          color: r.color === 0 ? null : `#${r.color.toString(16).padStart(6, '0')}`,
+        })),
+      },
+      { id: 'hasRole', label: 'Has a role', kind: 'yesno' },
+      {
+        id: 'state',
+        label: 'Status',
+        kind: 'choice',
+        multi: false,
+        negatable: false,
+        options: [
+          { value: 'in-server', label: 'In server' },
+          { value: 'left', label: 'Left' },
+        ],
+      },
+      ...(seesLinks
+        ? [
+            {
+              id: 'linked',
+              label: 'VRChat',
+              kind: 'choice' as const,
+              multi: false,
+              negatable: false,
+              options: [
+                { value: 'linked', label: 'Linked' },
+                { value: 'not-linked', label: 'Not linked' },
+              ],
+            },
+          ]
+        : []),
+      { id: 'bot', label: 'Bot', kind: 'yesno' },
+      { id: 'pending', label: 'Pending', kind: 'yesno' },
+      { id: 'timedOut', label: 'Timed out', kind: 'yesno' },
+      { id: 'boosting', label: 'Boosting', kind: 'yesno' },
+      { id: 'joined', label: 'Joined', kind: 'date' },
+    ],
+    [list?.roles, seesLinks],
+  )
+
+  const searchBox = useRef<HTMLInputElement>(null)
+  useShortcuts([{ keys: '/', label: 'Search', group: 'Filters', page: true, run: () => searchBox.current?.select() }])
+  const { rowProps } = useListSelection(list?.members.length ?? 0, (i) => {
+    const m = list?.members[i]
+    if (m) openDiscordPerson(m.userId)
+  })
 
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
-  const showLeft = state !== 'in-server'
+  const showLeft = filter.state !== 'in-server'
   const now = Date.parse(list.coverage.now)
 
   return (
@@ -87,74 +154,39 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
         </div>
       )}
 
+      <FilterBar properties={properties} chips={chips} onChange={setChips}>
+        <Input
+          ref={searchBox}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="Search by name or id"
+          className="h-7 w-56"
+          aria-label="Search Discord members"
+        />
+
+        <Select
+          value={sort}
+          onChange={(v) => {
+            setSort(v as typeof sort)
+            setPage(1)
+          }}
+          aria-label="Sort"
+        >
+          <option value="joined">Newest joiner first</option>
+          <option value="oldest">Oldest joiner first</option>
+          <option value="name">By name</option>
+        </Select>
+
+        <span className="text-muted-foreground">
+          {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
+        </span>
+      </FilterBar>
+
       <Card>
         <CardContent className="p-0">
-          <div
-            className="flex flex-wrap items-center gap-2 border-b px-3 py-2"
-            style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-          >
-            <Input
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              placeholder="Search by name or id"
-              className="h-8 w-64"
-              aria-label="Search Discord members"
-            />
-
-            <Select
-              value={state}
-              onChange={(v) => {
-                setState(v as typeof state)
-                setPage(1)
-              }}
-              aria-label="Status"
-            >
-              <option value="in-server">In server</option>
-              <option value="left">Left</option>
-              <option value="all">All</option>
-            </Select>
-
-            <Select
-              value={role}
-              onChange={(v) => {
-                setRole(v)
-                setPage(1)
-              }}
-              aria-label="Role"
-            >
-              <option value="">Any role</option>
-              {list.roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name ?? r.id}
-                </option>
-              ))}
-            </Select>
-
-            {seesLinks && (
-              <Select
-                value={linked}
-                onChange={(v) => {
-                  setLinked(v as LinkedFilter)
-                  setPage(1)
-                }}
-                aria-label="Linked"
-              >
-                <option value="all">All</option>
-                <option value="linked">Linked</option>
-                <option value="not-linked">Not linked</option>
-              </Select>
-            )}
-
-            <span className="flex-1" />
-
-            <span className="text-muted-foreground">
-              {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
-            </span>
-          </div>
-
           {list.members.length === 0 ? (
             <div className="py-10 text-center font-medium">
-              {search || role || linked !== 'all' || state !== 'in-server' ? 'Nobody matches' : 'Nobody listed yet'}
+              {search || chips.length > 0 ? 'Nobody matches' : 'Nobody listed yet'}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -171,15 +203,16 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.members.map((m) => {
+                  {list.members.map((m, i) => {
                     const timedOut = m.timedOutUntil !== null && Date.parse(m.timedOutUntil) > now
 
                     return (
                       <tr
                         key={m.userId}
+                        {...rowProps(i)}
                         onClick={() => openDiscordPerson(m.userId)}
                         className={cn(
-                          'cursor-pointer border-b last:border-0 hover:bg-muted/40',
+                          'cursor-pointer border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
                           m.leftAt && 'text-muted-foreground',
                         )}
                         style={{ borderBottomWidth: 'var(--hairline)' }}

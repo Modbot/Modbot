@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils'
 import { DOCS_URL } from '@/lib/docs'
 import type { Density, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
-import { Headset, LogOut, Moon, Rows3, Rows2, Sun, UserRound } from 'lucide-react'
+import { Headset, LogOut, Moon, Rows3, Rows2, Search, Sun, UserRound } from 'lucide-react'
+import { Kbd } from '@/components/ui/kbd'
 
 /** The group this Modbot manages, as the status endpoint reports it. */
 export type SidebarGroup = { name: string; iconUrl: string | null; bannerUrl: string | null }
@@ -18,6 +19,7 @@ export function Sidebar({
   page,
   me,
   onNavigate,
+  onSearch,
   onOpenHealth,
   group,
   badges,
@@ -25,6 +27,8 @@ export function Sidebar({
   page: PageId
   me: CurrentUser
   onNavigate: (p: PageId) => void
+  /** Opens the command palette. */
+  onSearch: () => void
   /** Opens the Health page at one part's card. */
   onOpenHealth: (section: StatusRowId) => void
   group?: SidebarGroup | null
@@ -49,6 +53,17 @@ export function Sidebar({
         community's Modbot, and the sidebar says whose. Modbot's own mark moves to the foot.
       */}
       {group ? <GroupHeading group={group} /> : <ModbotHeading />}
+
+      <button
+        type="button"
+        onClick={onSearch}
+        className="mb-2 flex w-full items-center gap-2 rounded-md border bg-background px-2 text-muted-foreground hover:text-foreground"
+        style={{ height: 'var(--control-h)', borderWidth: 'var(--hairline)' }}
+      >
+        <Search className="size-3.5 shrink-0" />
+        <span className="flex-1 text-left">Search</span>
+        <Kbd keys="mod+k" />
+      </button>
 
       {rows.map(({ item, showGroup }) => (
         <div key={item.id}>

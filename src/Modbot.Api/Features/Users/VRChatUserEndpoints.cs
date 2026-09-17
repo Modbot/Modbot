@@ -187,6 +187,9 @@ public static class VRChatUserEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
+        // The profile over time, replayed from the facts, and the raw bodies as stored.
+        group.MapVRChatUserHistory();
+
         return app;
     }
 

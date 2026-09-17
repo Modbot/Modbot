@@ -21,9 +21,7 @@ The split is on purpose. A moderator who needs to see bans does not need to see 
 changed the email settings or which API keys exist. The server removes what you may not see from
 every request, so you cannot get around it by editing the page address.
 
-When you open **More filters**, the page says what is hidden from you: **Hidden from this account:
-logins, settings changes and sync failures.** or **Hidden from this account: bans, kicks and role
-changes.**
+The **Log** filter offers only the logs you may see.
 
 ### What each one covers
 
@@ -63,6 +61,18 @@ history.
 | **Source** | Where the entry came from (see below). |
 | **What happened** | A sentence naming who did what to whom, and where. Hover to see the entry's type. |
 
+**Click a row** (anywhere that is not a name) to open it. Under the row: every field the entry
+holds (type, log, source, when, when it was recorded, who it is about, who did it, the world and
+instance, the description, the entry id); a **Changed** table with each field's before and after
+for entries that record a change; the **Snapshot** the entry stands for, where it is one; and the
+entry's **Payload** and the whole **Entry** as JSON, each with a copy button. Click the row again
+to close it.
+
+For a *profile changed* or *profile recorded* entry, the snapshot is the person's VRChat profile
+as it stood after that change, and **Open in the person popup** opens them on their
+[History](/moderation/popups#profile-history) tab at that version. The words **VRChat profile** in
+the sentence do the same.
+
 The sources:
 
 | Source | Meaning |
@@ -76,19 +86,46 @@ The sources:
 
 ## Filtering
 
-All sources are on by default. Click a source to show only that one; click more to add them back.
+Filters are chips above the table. Press **Filter** (or `f`), pick what to filter by, then pick
+the values. Each chip reads as a sentence: **Source · is any of · VRChat, Discord, Client**. Click
+the middle word to switch between **is** and **is not**; click the values to change them; click
+**×** to remove the chip. Chips combine: an entry must match every one. **Clear** removes them all.
 
-**More filters** opens the rest:
+By default the log shows **VRChat**, **Discord** and **Client** and leaves **Sync** out, because
+sync entries have a time window and no "who". Add them back by editing the **Source** chip.
 
-| Filter | How it works |
+| Filter | Values |
 |---|---|
-| **Subject id** | Only entries about this id, for example a VRChat user id. |
-| **Actor id** | Only entries done by this id. |
-| **From** and **To** | A date range. Both days are included. |
-| **Recent actors** | Up to eight people who did the most in the last 90 days, with their count. Click one to filter by them; click again to clear. |
-| **Type** | Click entry types to show only those. The list only contains types you are allowed to see. |
+| **Source** | Any of the sources below. |
+| **Type** | The entry types you are allowed to see. |
+| **Log** | **Moderation** or **Operational**. |
+| **Done by** | One person, from the people who did the most in the last 90 days (with their count), or an id you type. |
+| **About** | One id, for example a VRChat user id. |
+| **World** | One world id. |
+| **Instance number** | One VRChat instance number. |
+| **When** | A day, or a stretch of days. Both ends are included. |
+| **Time** | **Exact**, or **A window** (a change a sweep noticed between two reads). |
+| **Somebody named** | **Yes** for entries that say who did it, **No** for the rest. |
+| **Text** | A word or phrase anywhere in the entry, its ids included. |
+
+The filters are part of the page address, so a copied link opens the same view for somebody
+else, and the page remembers the filters you last used.
 
 The page shows 50 entries at a time. **Load more** at the bottom fetches the next 50.
+
+## Keyboard
+
+| Keys | Does |
+|---|---|
+| `j` / `k` | Move down and up the rows. |
+| `Enter` | Open or close the selected row. |
+| `o` | Open the person or instance the selected row is about. |
+| `f` | Add a filter. |
+| `g` then `a` | Open the audit log from any page. |
+| `Ctrl`+`K` (`⌘`+`K` on a Mac) | Search people, worlds and pages, and run actions. |
+| `?` | Every shortcut that works on the open page. |
+
+Letters never fire while you are typing in a box.
 
 The page does not refresh by itself. Change a filter or reload to see new entries.
 

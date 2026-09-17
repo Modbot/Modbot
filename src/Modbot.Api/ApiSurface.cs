@@ -33,6 +33,7 @@ using Modbot.Api.Features.Insights;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Live;
 using Modbot.Api.Features.Places;
+using Modbot.Api.Features.Search;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
 using Modbot.Api.Features.Onboarding.Integrations;
@@ -235,6 +236,10 @@ public static class ApiSurface
         // 10.2). Read entirely from Modbot's own tables -- opening a popup costs no VRChat
         // budget, however often a moderator does it.
         app.MapPlaces();
+
+        // People, Discord people and worlds by name, for the command palette. One round trip,
+        // narrowed per kind by the permission that gates the page each would be found on.
+        app.MapSearch();
 
         // Live: the group's open instances right now and who is in each. From Modbot's own tables
         // only, so a page that refreshes every five seconds costs no VRChat budget.

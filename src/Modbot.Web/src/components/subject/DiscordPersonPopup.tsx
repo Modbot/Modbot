@@ -5,15 +5,33 @@ import { Tabs } from '@/components/ui/tabs'
 import { DailyBars, compactNumber, dateTime, minutes } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
 import { SubjectLink } from '@/components/facts'
+import { JsonView } from '@/components/JsonView'
 import { FactList, Field, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { api, ApiError, type AuditEntry, type CurrentUser, type DiscordMember } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { can } from '@/lib/permissions'
-import { useMessageAt } from '@/lib/subject'
+import { useMessageAt, useOpeningTab } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 import { useLoad } from '@/lib/useLoad'
 
-type Tab = 'logs' | 'messages' | 'metrics'
+const TABS = ['overview', 'logs', 'history', 'messages', 'metrics', 'json'] as const
+type Tab = (typeof TABS)[number]
+
+/** The facts that are this account's own history in the server: coming, going, and what was done to them. */
+const HISTORY_TYPES = [
+  'discord.member.join',
+  'discord.member.leave',
+  'discord.member.nickname',
+  'discord.role.assign',
+  'discord.role.unassign',
+  'discord.member.ban',
+  'discord.member.unban',
+  'discord.member.kick',
+  'discord.member.timeout',
+  'discord.member.timeout.remove',
+  'discord.link.create',
+  'discord.link.remove',
+]
 
 /**
  * One Discord account: who they are in the server on the left, and what Modbot has recorded about
@@ -32,12 +50,15 @@ export function DiscordPersonPopup({ id, me, lead }: { id: string; me: CurrentUs
   const at = useMessageAt()
   const reads = can(me, 'ReadDiscordMessages')
 
-  const [tab, setTab] = useState<Tab>(at && reads ? 'messages' : 'logs')
+  const [tab, setTab] = useOpeningTab<Tab>(at && reads ? 'messages' : 'overview', TABS)
 
   const tabs: { value: Tab; label: string }[] = [
+    { value: 'overview', label: 'Overview' },
     { value: 'logs', label: 'Logs' },
-    ...(can(me, 'ReadDiscordMessages') ? [{ value: 'messages' as const, label: 'Messages' }] : []),
+    { value: 'history', label: 'History' },
+    ...(reads ? [{ value: 'messages' as const, label: 'Messages' }] : []),
     ...(can(me, 'ViewProfile') ? [{ value: 'metrics' as const, label: 'Metrics' }] : []),
+    { value: 'json', label: 'JSON' },
   ]
 
   return (
@@ -53,11 +74,89 @@ export function DiscordPersonPopup({ id, me, lead }: { id: string; me: CurrentUs
       }
     >
       <Tabs value={tab} onChange={setTab} tabs={tabs}>
+        {tab === 'overview' && <Overview id={id} me={me} onMore={setTab} />}
         {tab === 'logs' && <Logs id={id} />}
+        {tab === 'history' && <History id={id} />}
         {tab === 'messages' && <Messages id={id} at={at} />}
         {tab === 'metrics' && <Metrics id={id} />}
+        {tab === 'json' && <Records id={id} me={me} />}
       </Tabs>
     </PopupFrame>
+  )
+}
+
+/** The glance: the activity figures and the newest facts about this account. */
+function Overview({ id, me, onMore }: { id: string; me: CurrentUser; onMore: (tab: Tab) => void }) {
+  const seesProfile = can(me, 'ViewProfile')
+
+  const loadMetrics = useCallback(() => api.discordMemberMetrics(id), [id])
+  const metrics = useLoad(seesProfile ? loadMetrics : null)
+
+  const loadFacts = useCallback(() => api.audit({ subject: id, subjectPlatform: 'Discord', limit: 8 }), [id])
+  const facts = useLoad(loadFacts)
+
+  const sum = (points: { value: number }[]) => points.reduce((total, p) => total + p.value, 0)
+
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      {metrics.data && (
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <Figure label="Messages, 30 days" value={compactNumber(sum(metrics.data.messagesPerDay))} />
+          <Figure label="Voice, 30 days" value={minutes(sum(metrics.data.voiceMinutesPerDay))} />
+          <Figure label="Messages, all time" value={compactNumber(metrics.data.messagesAllTime)} />
+          <Figure label="First seen" value={metrics.data.firstSeenAt ? formatDay(metrics.data.firstSeenAt) : '—'} />
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <span className="font-medium">Latest</span>
+        <span className="flex-1" />
+        <button type="button" onClick={() => onMore('logs')} className="text-muted-foreground hover:text-foreground hover:underline" style={{ fontSize: 'var(--text-small)' }}>
+          All logs
+        </button>
+      </div>
+
+      {facts.error && <Note className="text-destructive">{facts.error}</Note>}
+      {!facts.error && !facts.data && <Note>Loading…</Note>}
+      {facts.data && <FactList entries={facts.data.entries} empty="Nothing recorded yet." />}
+    </div>
+  )
+}
+
+/** Coming, going, renames, roles, timeouts and links: this account's own history in the server, newest first. */
+function History({ id }: { id: string }) {
+  const load = useCallback(
+    () => api.audit({ subject: id, subjectPlatform: 'Discord', type: HISTORY_TYPES, limit: 100 }),
+    [id],
+  )
+  const { data, error } = useLoad(load)
+
+  return (
+    <Panel title="In the server">
+      {error && <Note className="text-destructive">{error}</Note>}
+      {!error && !data && <Note>Loading…</Note>}
+      {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
+    </Panel>
+  )
+}
+
+/** The stored records, verbatim: the member row as the API answers it, and the activity counts. */
+function Records({ id, me }: { id: string; me: CurrentUser }) {
+  const loadMember = useCallback(
+    () => api.discordMember(id).catch((e: unknown) => (e instanceof ApiError && e.status === 404 ? null : Promise.reject(e))),
+    [id],
+  )
+  const member = useLoad(can(me, 'ViewMembers') ? loadMember : null)
+
+  const loadMetrics = useCallback(() => api.discordMemberMetrics(id), [id])
+  const metrics = useLoad(can(me, 'ViewProfile') ? loadMetrics : null)
+
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      {can(me, 'ViewMembers') && <JsonView title="Member" value={member.error ?? member.data} />}
+      {can(me, 'ViewProfile') && <JsonView title="Activity" value={metrics.error ?? metrics.data} />}
+      {!can(me, 'ViewMembers') && !can(me, 'ViewProfile') && <Note>You do not have permission to see this.</Note>}
+    </div>
   )
 }
 

@@ -50,6 +50,12 @@ public static class AuditLogEndpoints
                 [FromQuery] string? actorPlatform,
                 [FromQuery] DateTimeOffset? from,
                 [FromQuery] DateTimeOffset? to,
+                [FromQuery] string? world,
+                [FromQuery] string? instance,
+                [FromQuery] string? category,
+                [FromQuery] string? precision,
+                [FromQuery] bool? hasActor,
+                [FromQuery] string? q,
                 [FromQuery] DateTimeOffset? beforeOccurredAt,
                 [FromQuery] long? beforeId,
                 [FromQuery] int? limit,
@@ -60,6 +66,11 @@ public static class AuditLogEndpoints
 
                 if (AuditVisibility.VisibleTypes(held).Count == 0)
                     return Results.Forbid();
+
+                // A category is a set of types, so it narrows the type list like any other
+                // request for types does: the permission filter has already run.
+                if (Enum.TryParse<AuditCategory>(category, ignoreCase: true, out var wanted))
+                    visible = visible.Where(t => AuditVisibility.CategoryOf(t) == wanted).ToList();
 
                 // A cursor is only a cursor with both halves. Half of one would page from a
                 // timestamp with no tie-break and quietly drop every entry sharing that second.
@@ -77,7 +88,12 @@ public static class AuditLogEndpoints
                     from,
                     to,
                     cursor,
-                    limit ?? AuditQuery.DefaultLimit);
+                    limit ?? AuditQuery.DefaultLimit,
+                    Trimmed(world),
+                    Trimmed(instance),
+                    Enum.TryParse<TimePrecision>(precision, ignoreCase: true, out var exactness) ? exactness : null,
+                    hasActor,
+                    Trimmed(q));
 
                 // Nothing visible left after the intersection: an honest empty page with the
                 // coverage still attached, not a 403 for asking.
@@ -97,6 +113,10 @@ public static class AuditLogEndpoints
                 + "Facts carry occurredAt and, when the time is an inference rather than a "
                 + "statement, occurredBefore. `precision` says which, so a window is never "
                 + "rendered as an instant.\n\n"
+                + "`world` and `instance` narrow to one world or one VRChat room number; "
+                + "`category` to Moderation or Operational; `precision` to Exact or Window; "
+                + "`hasActor` to facts somebody is named for, or not; `q` finds a word in the "
+                + "payload, the subject id or the actor id.\n\n"
                 + "Paged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; "
                 + "both are required.")
             .Produces<AuditPage>()

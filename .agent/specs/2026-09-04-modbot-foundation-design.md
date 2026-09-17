@@ -1992,6 +1992,12 @@ One timeline, with **source filter chips** (VRChat · Modbot · Discord · Clien
 merged view is what you get without asking. Each entry is visually attributed to its source, and
 filtering to a single source gives you the old separate-logs view whenever that is what you want.
 
+*2026-09-16:* the default is **VRChat · Discord · Client**, with Sync off. A sweep's noticed
+changes carry a time window and no actor, and shown beside the exact entries they crowd the log
+without adding a "who". One click on the Source chip brings them back. The filters are chips in a
+Linear-style bar (research `2026-09-16-linear-ui-findings.md`), kept in the address and remembered
+per page.
+
 The merged default is the right one because the questions people actually ask span sources: *"who
 changed the ban threshold just before these bans?"* is unanswerable in either log alone.
 

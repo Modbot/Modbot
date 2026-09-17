@@ -6,6 +6,11 @@ namespace Modbot.Api.Features.Audit;
 
 /// <param name="Types">Already narrowed to what the caller may see. Never empty here.</param>
 /// <param name="Before">Keyset cursor; null for the first page.</param>
+/// <param name="WorldId">Only facts that happened in this world.</param>
+/// <param name="InstanceId">Only facts that happened in a room with this VRChat number.</param>
+/// <param name="Precision">Only facts whose time is exact, or only those known to a window.</param>
+/// <param name="HasActor">Only facts somebody did, or only facts nobody is named for.</param>
+/// <param name="Text">A word or phrase to find in the payload, the subject id or the actor id.</param>
 public sealed record AuditRequest(
     IReadOnlyList<string> Types,
     IReadOnlyList<FactSource> Sources,
@@ -16,7 +21,12 @@ public sealed record AuditRequest(
     DateTimeOffset? From,
     DateTimeOffset? To,
     AuditCursor? Before,
-    int Limit);
+    int Limit,
+    string? WorldId = null,
+    string? InstanceId = null,
+    TimePrecision? Precision = null,
+    bool? HasActor = null,
+    string? Text = null);
 
 /// <summary>
 /// Reads the merged timeline out of the fact log.
@@ -200,10 +210,26 @@ public sealed class AuditQuery(ModbotContext db)
 
     private IQueryable<ModbotEvent> Filtered(AuditRequest request)
     {
-        var query = db.Events.AsNoTracking().Where(e => request.Types.Contains(e.Type));
+        var query = Searched(request.Text).AsNoTracking().Where(e => request.Types.Contains(e.Type));
 
         if (request.Sources.Count > 0)
             query = query.Where(e => request.Sources.Contains(e.Source));
+
+        if (!string.IsNullOrWhiteSpace(request.WorldId))
+            query = query.Where(e => e.WorldId == request.WorldId);
+
+        if (!string.IsNullOrWhiteSpace(request.InstanceId))
+            query = query.Where(e => e.InstanceId == request.InstanceId);
+
+        if (request.Precision is { } precision)
+        {
+            query = precision == TimePrecision.Exact
+                ? query.Where(e => e.OccurredBefore == null)
+                : query.Where(e => e.OccurredBefore != null);
+        }
+
+        if (request.HasActor is { } hasActor)
+            query = hasActor ? query.Where(e => e.ActorId != null) : query.Where(e => e.ActorId == null);
 
         // Ids are matched, never parsed or normalised (spec 3.1.1). An id that does not look like
         // a VRChat id is a legacy id, not a mistake.
@@ -235,6 +261,32 @@ public sealed class AuditQuery(ModbotContext db)
         }
 
         return query;
+    }
+
+    /// <summary>
+    /// The fact table, narrowed to rows whose payload, subject id or actor id contains the text.
+    /// </summary>
+    /// <remarks>
+    /// The payload is <c>jsonb</c>, which PostgreSQL will not compare with <c>ILIKE</c> until it
+    /// is cast to text, and the provider does not write that cast for a mapped string column. So
+    /// this one clause is SQL, and everything else composes over it as usual. The text is matched
+    /// literally: a typed <c>%</c> or <c>_</c> means that character (see
+    /// <see cref="Members.MemberEndpoints.Pattern"/>).
+    /// </remarks>
+    private IQueryable<ModbotEvent> Searched(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return db.Events;
+
+        var pattern = Members.MemberEndpoints.Pattern(text.Trim());
+
+        return db.Events.FromSqlInterpolated(
+            $"""
+             SELECT * FROM modbot_event
+             WHERE data::text ILIKE {pattern} ESCAPE '\'
+                OR subject_id ILIKE {pattern} ESCAPE '\'
+                OR actor_id ILIKE {pattern} ESCAPE '\'
+             """);
     }
 
     internal static AuditEntry Project(ModbotEvent e)

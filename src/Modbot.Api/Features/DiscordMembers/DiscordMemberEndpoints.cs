@@ -52,6 +52,31 @@ public sealed record DiscordMemberView(
     DateTimeOffset UpdatedAt,
     LinkedVRChatView? LinkedVRChat);
 
+/// <summary>One of the server's roles, offered as a filter, with how many current members hold it.</summary>
+public sealed record DiscordRoleOption(string Id, string? Name, int Color, int Members);
+
+/// <summary>
+/// The Discord member list's filters beyond search, state and the link. Every one is optional
+/// and they combine with AND.
+/// </summary>
+/// <param name="AnyRoles">People holding at least one of these roles.</param>
+/// <param name="NoneOfRoles">People holding none of these roles.</param>
+/// <param name="NoRole">True: people with no role at all; false: people with at least one.</param>
+/// <param name="TimedOut">Timed out right now, or not.</param>
+/// <param name="Boosting">Boosting the server, or not.</param>
+/// <param name="Sort"><c>joined</c> (newest first, the default), <c>oldest</c>, or <c>name</c>.</param>
+public sealed record DiscordMemberFilters(
+    IReadOnlyList<string>? AnyRoles = null,
+    IReadOnlyList<string>? NoneOfRoles = null,
+    bool? NoRole = null,
+    bool? Bot = null,
+    bool? Pending = null,
+    bool? TimedOut = null,
+    bool? Boosting = null,
+    DateTimeOffset? JoinedFrom = null,
+    DateTimeOffset? JoinedTo = null,
+    string? Sort = null);
+
 /// <param name="GuildId">The server in settings, or null when none is set.</param>
 /// <param name="ListedAt">When the whole member list was first read. Null until then, and the list is partial.</param>
 /// <param name="InServer">Members in the server now, whatever the filters.</param>
@@ -73,7 +98,7 @@ public sealed record DiscordMemberListResponse(
     int Page,
     int PageSize,
     DiscordMemberListCoverage Coverage,
-    IReadOnlyList<DiscordMemberRoleView> Roles);
+    IReadOnlyList<DiscordRoleOption> Roles);
 
 /// <summary>
 /// The Discord server's members as the bot last saw them, current and past, with search.
@@ -109,14 +134,26 @@ public static class DiscordMemberEndpoints
                 [FromServices] IModbotClock clock,
                 [FromQuery] string? search,
                 [FromQuery] string? state,
-                [FromQuery] string? role,
+                [FromQuery(Name = "role")] string[]? roles,
+                [FromQuery(Name = "notRole")] string[]? notRoles,
+                [FromQuery] bool? noRole,
                 [FromQuery] string? linked,
+                [FromQuery] bool? bot,
+                [FromQuery] bool? pending,
+                [FromQuery] bool? timedOut,
+                [FromQuery] bool? boosting,
+                [FromQuery] DateTimeOffset? joinedFrom,
+                [FromQuery] DateTimeOffset? joinedTo,
+                [FromQuery] string? sort,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
                 CancellationToken ct) =>
             {
                 if (state is not (null or "" or "in-server" or "left" or "all"))
                     return Results.BadRequest(new { error = "`state` is in-server, left or all." });
+
+                if (sort is not (null or "" or "joined" or "oldest" or "name"))
+                    return Results.BadRequest(new { error = "`sort` is joined, oldest or name." });
 
                 if (!LinkFilter.IsValid(linked))
                     return Results.BadRequest(new { error = LinkFilter.Error });
@@ -125,7 +162,10 @@ public static class DiscordMemberEndpoints
                 if (LinkFilter.Narrows(linked) && !seesLinks)
                     return Results.Forbid();
 
-                return Results.Ok(await ListAsync(db, clock, search, state, role, linked, seesLinks, page, pageSize, ct));
+                return Results.Ok(await ListAsync(
+                    db, clock, search, state, null, linked, seesLinks, page, pageSize, ct,
+                    new DiscordMemberFilters(
+                        Ids(roles), Ids(notRoles), noRole, bot, pending, timedOut, boosting, joinedFrom, joinedTo, sort)));
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetDiscordMembers")
@@ -133,9 +173,15 @@ public static class DiscordMemberEndpoints
             .WithDescription(
                 "Members in the server by default; `state=left` shows people who left, `state=all` "
                 + "both. `search` matches the display name, username, global name, nickname and the "
-                + "id, case-insensitively. `role` is a Discord role id. `linked=linked` shows only people "
+                + "id, case-insensitively. `role` is a Discord role id and may be repeated: people "
+                + "holding any of them. `notRole`, also repeatable, leaves out people holding any of "
+                + "those; `noRole=true` keeps only people with no role. `bot`, `pending`, `timedOut` "
+                + "and `boosting` are true or false. `joinedFrom` and `joinedTo` narrow to people who "
+                + "joined inside that stretch. `linked=linked` shows only people "
                 + "with a linked VRChat account and `linked=not-linked` only people without; both need "
-                + "See profiles, as does `linkedVRChat` on each member. Newest joiners first.\n\n"
+                + "See profiles, as does `linkedVRChat` on each member. Newest joiners first unless "
+                + "`sort=oldest` or `sort=name`. `roles` lists the server's roles with how many "
+                + "current members hold each.\n\n"
                 + "`coverage.listedAt` is null until the bot has read the whole member list once; the "
                 + "list is partial until then.")
             .Produces<DiscordMemberListResponse>()
@@ -201,10 +247,13 @@ public static class DiscordMemberEndpoints
         bool seesLinks,
         int? page,
         int? pageSize,
-        CancellationToken ct)
+        CancellationToken ct,
+        DiscordMemberFilters? more = null)
     {
         var size = Math.Clamp(pageSize ?? DefaultPageSize, 1, MaxPageSize);
         var number = Math.Max(page ?? 1, 1);
+        var now = clock.UtcNow;
+        more ??= new DiscordMemberFilters();
 
         var guildId = await GuildIdAsync(db, ct);
         var server = guildId is null
@@ -231,11 +280,42 @@ public static class DiscordMemberEndpoints
                 || m.UserId == search.Trim());
         }
 
-        if (!string.IsNullOrWhiteSpace(role))
+        // PostgreSQL's `?|`: whether any of these strings is an element of the roles array. One
+        // operator for "any of" and its negation for "none of".
+        var anyRoles = (more.AnyRoles ?? []).Concat(string.IsNullOrWhiteSpace(role) ? [] : [role.Trim()]).ToArray();
+        if (anyRoles.Length > 0)
+            query = query.Where(m => EF.Functions.JsonExistAny(m.Roles, anyRoles));
+
+        if (more.NoneOfRoles is { Count: > 0 } excluded)
         {
-            var holds = JsonSerializer.Serialize(new[] { role.Trim() });
-            query = query.Where(m => EF.Functions.JsonContains(m.Roles, holds));
+            var unwanted = excluded.ToArray();
+            query = query.Where(m => !EF.Functions.JsonExistAny(m.Roles, unwanted));
         }
+
+        if (more.NoRole is { } noRole)
+            query = noRole ? query.Where(m => m.Roles == "[]") : query.Where(m => m.Roles != "[]");
+
+        if (more.Bot is { } bot)
+            query = query.Where(m => m.IsBot == bot);
+
+        if (more.Pending is { } isPending)
+            query = query.Where(m => m.IsPending == isPending);
+
+        if (more.TimedOut is { } timedOut)
+        {
+            query = timedOut
+                ? query.Where(m => m.TimedOutUntil != null && m.TimedOutUntil > now)
+                : query.Where(m => m.TimedOutUntil == null || m.TimedOutUntil <= now);
+        }
+
+        if (more.Boosting is { } boosting)
+            query = query.Where(m => (m.BoostingSince != null) == boosting);
+
+        if (more.JoinedFrom is { } joinedFrom)
+            query = query.Where(m => m.JoinedAt >= joinedFrom);
+
+        if (more.JoinedTo is { } joinedTo)
+            query = query.Where(m => m.JoinedAt < joinedTo);
 
         var links = db.ActiveAccountLinks();
 
@@ -248,9 +328,14 @@ public static class DiscordMemberEndpoints
 
         var total = await query.CountAsync(ct);
 
-        var rows = await query
-            .OrderByDescending(m => m.JoinedAt ?? m.FirstSeenAt)
-            .ThenBy(m => m.UserId)
+        var ordered = more.Sort switch
+        {
+            "name" => query.OrderBy(m => m.DisplayName).ThenBy(m => m.UserId),
+            "oldest" => query.OrderBy(m => m.JoinedAt ?? m.FirstSeenAt).ThenBy(m => m.UserId),
+            _ => query.OrderByDescending(m => m.JoinedAt ?? m.FirstSeenAt).ThenBy(m => m.UserId),
+        };
+
+        var rows = await ordered
             .Skip((number - 1) * size)
             .Take(size)
             .ToListAsync(ct);
@@ -259,6 +344,8 @@ public static class DiscordMemberEndpoints
         var linkedTo = seesLinks
             ? await LinkedVRChatAsync(db, rows.Select(r => r.UserId).ToList(), ct)
             : new Dictionary<string, LinkedVRChatView>();
+
+        var held = await RoleCountsAsync(inGuild, ct);
 
         return new DiscordMemberListResponse(
             rows.Select(r => View(r, roles, linkedTo)).ToList(),
@@ -269,12 +356,55 @@ public static class DiscordMemberEndpoints
                 guildId,
                 server?.MembersListedAt,
                 await inGuild.CountAsync(m => m.LeftAt == null, ct),
-                clock.UtcNow),
+                now),
             roles.Values
                 .Where(r => !r.Everyone && r.RemovedAt == null)
                 .OrderByDescending(r => r.Position)
-                .Select(r => new DiscordMemberRoleView(r.RoleId, r.Name, r.Color))
+                .Select(r => new DiscordRoleOption(r.RoleId, r.Name, r.Color, held.GetValueOrDefault(r.RoleId)))
                 .ToList());
+    }
+
+    /// <summary>
+    /// How many people in the server hold each role, counted from the roles column: a short JSON
+    /// array per member, read once per page so a filter can say what it will show.
+    /// </summary>
+    private static async Task<Dictionary<string, int>> RoleCountsAsync(IQueryable<DiscordMember> inGuild, CancellationToken ct)
+    {
+        var rows = await inGuild
+            .Where(m => m.LeftAt == null && m.Roles != "[]")
+            .Select(m => m.Roles)
+            .ToListAsync(ct);
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var json in rows)
+        {
+            string[] ids;
+            try
+            {
+                ids = JsonSerializer.Deserialize<string[]>(json) ?? [];
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
+            foreach (var id in ids)
+                counts[id] = counts.GetValueOrDefault(id) + 1;
+        }
+
+        return counts;
+    }
+
+    /// <summary>Repeated query values, trimmed, with blanks and repeats dropped. Null when none.</summary>
+    private static IReadOnlyList<string>? Ids(string[]? values)
+    {
+        var ids = (values ?? [])
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        return ids.Count == 0 ? null : ids;
     }
 
     /// <summary>The linked VRChat account of each of these Discord users that has one, in one query.</summary>

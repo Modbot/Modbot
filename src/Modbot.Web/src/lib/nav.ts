@@ -74,6 +74,38 @@ export type NavItem = (typeof NAV)[number]
 
 export type PageId = NavItem['id']
 
+/**
+ * The letter after `g` that goes to each page (Linear's `g` then a letter, research 2026-09-16).
+ *
+ * One letter per page, and the sheet on `?` lists them, so the choice only has to be stable, not
+ * guessable. Pages this person may not open are not registered at all; an empty letter is a page
+ * with no chord, reached from elsewhere.
+ */
+export const GO_TO_KEYS: Record<PageId, string> = {
+  members: 'm',
+  'discord-members': 'd',
+  live: 'l',
+  calendar: 'e',
+  chat: 'c',
+  bans: 'b',
+  flags: 'f',
+  audit: 'a',
+  'analytics-group': 'g',
+  'analytics-server': 'v',
+  'analytics-team': 't',
+  'analytics-worlds': 'w',
+  'analytics-instances': 'i',
+  reviews: 'r',
+  users: 'u',
+  roles: 'k',
+  health: 'h',
+  logs: 'o',
+  settings: 's',
+  account: 'y',
+  cases: '',
+  credits: '',
+}
+
 /** Whether this person may open a page. Pages with no requirement are open to everyone signed in. */
 export function mayOpen(me: CurrentUser, id: PageId): boolean {
   const item = NAV.find((n) => n.id === id)

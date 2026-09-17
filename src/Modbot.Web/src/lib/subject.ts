@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useLocation, go } from '@/lib/router'
 
 /**
@@ -54,6 +55,13 @@ const PARAM = 'subject'
  */
 export const MESSAGE = 'message'
 
+/**
+ * The tab the top popup opens on, and the profile version it opens at. Beside the stack, like
+ * the message, because only the top popup is on screen.
+ */
+export const TAB = 'tab'
+export const VERSION = 'version'
+
 /** Marks a history entry this module pushed, so closing knows whether back is safe. */
 const PUSHED = { modbotSubject: true }
 
@@ -94,13 +102,21 @@ export function useSubjects(): Subject[] {
  * Re-opening the thing already on top does nothing, so a list where the same world appears twice
  * does not build a stack of identical popups.
  */
-export function openSubject(subject: Subject): void {
+export function openSubject(subject: Subject, at?: { tab?: string; version?: number }): void {
   const params = new URLSearchParams(window.location.search)
   const stack = params.getAll(PARAM)
 
-  if (stack.length > 0 && sameSubject(decodeSubject(stack[stack.length - 1]), subject)) return
+  if (stack.length > 0 && sameSubject(decodeSubject(stack[stack.length - 1]), subject) && !at) return
 
-  params.append(PARAM, encodeSubject(subject))
+  if (stack.length === 0 || !sameSubject(decodeSubject(stack[stack.length - 1]), subject))
+    params.append(PARAM, encodeSubject(subject))
+
+  // The tab and the version belong to the popup being opened, never to the one underneath.
+  params.delete(TAB)
+  params.delete(VERSION)
+  if (at?.tab) params.set(TAB, at.tab)
+  if (at?.version !== undefined) params.set(VERSION, String(at.version))
+
   go(`${window.location.pathname}?${params.toString()}`, { state: PUSHED })
 }
 
@@ -125,6 +141,28 @@ export function useMessageAt(): string | null {
   return location.search.get(MESSAGE)
 }
 
+/**
+ * The tab a popup opens on, from the address (`?tab=`), so a link can open a person on their
+ * History and the audit log can send a moderator to one version (`?version=`).
+ *
+ * Read from the address but held in state once the popup is open: switching tabs by hand should
+ * not rewrite a link somebody is about to copy into something that opens on the wrong tab.
+ */
+export function useOpeningTab<T extends string>(fallback: T, allowed: readonly T[]): [T, (next: T) => void] {
+  const [location] = useLocation()
+  const asked = location.search.get(TAB)
+  const [tab, setTab] = useState<T>(() => (allowed.includes(asked as T) ? (asked as T) : fallback))
+  return [tab, setTab]
+}
+
+/** The version the popup was opened at, when it was opened at one (`?version=<fact id>`). */
+export function useOpeningVersion(): number | null {
+  const [location] = useLocation()
+  const value = location.search.get(VERSION)
+  const parsed = value ? Number(value) : NaN
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 /** Closes the top popup, returning to the one underneath. */
 export function closeSubject(): void {
   // Modbot pushed this entry, so the browser's own back is the honest way to leave it: it keeps
@@ -141,6 +179,8 @@ export function closeSubject(): void {
 
   params.delete(PARAM)
   params.delete(MESSAGE)
+  params.delete(TAB)
+  params.delete(VERSION)
   for (const value of stack.slice(0, -1)) params.append(PARAM, value)
 
   const query = params.toString()
@@ -154,6 +194,8 @@ export function closeAllSubjects(): void {
 
   params.delete(PARAM)
   params.delete(MESSAGE)
+  params.delete(TAB)
+  params.delete(VERSION)
   const query = params.toString()
   go(window.location.pathname + (query ? `?${query}` : ''), { replace: true })
 }
@@ -161,6 +203,11 @@ export function closeAllSubjects(): void {
 /** A person, which is what most callers open. Kept as a function so lists can pass it directly. */
 export function openPerson(id: string): void {
   openSubject({ kind: 'person', id })
+}
+
+/** A person, on their History tab, at the version one fact recorded. */
+export function openPersonVersion(id: string, factId: number): void {
+  openSubject({ kind: 'person', id }, { tab: 'history', version: factId })
 }
 
 export function openWorld(id: string): void {

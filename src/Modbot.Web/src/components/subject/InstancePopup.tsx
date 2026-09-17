@@ -1,25 +1,29 @@
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { Tabs } from '@/components/ui/tabs'
 import { compactNumber, dateTime, minutes } from '@/components/charts'
 import { SubjectLink, WorldLink } from '@/components/facts'
-import { FactList, Field, Note, Panel, PopupFrame } from '@/components/subject/shared'
+import { JsonView } from '@/components/JsonView'
+import { FactList, Field, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser, type InstanceView } from '@/lib/api'
 import { access } from '@/lib/format'
 import { can } from '@/lib/permissions'
+import { useOpeningTab } from '@/lib/subject'
 
-type Tab = 'people' | 'logs'
+const TABS = ['overview', 'people', 'logs', 'json'] as const
+type Tab = (typeof TABS)[number]
 
 /**
  * One room: where and when it ran and how busy it got on the left; who was in it and what
  * happened there on the right.
  *
- * Opened by Modbot's own id for the room, never VRChat's number, which VRChat hands out again
- * once a room closes. The world is a link, so a moderator can go from "what happened in here" to
- * "what else runs in this world" without closing anything.
+ * A room's history is its log: the facts recorded there while it was open, which the Logs tab
+ * already is. Opened by Modbot's own id for the room, never VRChat's number, which VRChat hands
+ * out again once a room closes. The world is a link, so a moderator can go from "what happened
+ * in here" to "what else runs in this world" without closing anything.
  */
 export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
-  const [tab, setTab] = useState<Tab>('people')
+  const [tab, setTab] = useOpeningTab<Tab>('overview', TABS)
   const allowed = can(me, 'ViewAnalytics')
 
   const load = useCallback(() => api.instance(id), [id])
@@ -49,11 +53,14 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
         value={tab}
         onChange={setTab}
         tabs={[
+          { value: 'overview', label: 'Overview' },
           { value: 'people', label: 'People', badge: data?.people.length },
           { value: 'logs', label: 'Logs', badge: data?.log.length },
+          { value: 'json', label: 'JSON' },
         ]}
       >
-        {data && !data.canSeeWhoWasThere && (
+        {data && tab === 'overview' && <Overview view={data} onMore={setTab} />}
+        {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
           <Panel title={tab === 'people' ? 'People' : 'Logs'}>
             <Note>You do not have permission to see this.</Note>
           </Panel>
@@ -64,6 +71,11 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
             <FactList entries={data.log} empty="Nothing recorded yet." />
             {data.logTruncated && <Note>Showing the newest {data.log.length}.</Note>}
           </Panel>
+        )}
+        {tab === 'json' && (
+          <div className="p-4">
+            <JsonView title="Instance" value={error ?? data} />
+          </div>
         )}
       </Tabs>
     </PopupFrame>
@@ -112,6 +124,58 @@ function Identity({ view }: { view: InstanceView }) {
         </Field>
       )}
     </>
+  )
+}
+
+/** The glance: the figures, the people seen longest, the newest facts. */
+function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => void }) {
+  const room = view.room
+  const longest = [...view.people].sort((a, b) => b.minutesSeen - a.minutesSeen).slice(0, 6)
+
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <Figure label={room.closedAt ? 'Ran for' : 'Open for'} value={minutes(room.minutesOpen)} />
+        <Figure label="Most at once" value={room.peakPeople === null ? '—' : String(room.peakPeople)} />
+        <Figure label="People seen" value={compactNumber(view.counts.visitors)} />
+        <Figure label="Arrivals" value={compactNumber(view.counts.arrivals)} />
+      </div>
+
+      {view.canSeeWhoWasThere ? (
+        <>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Seen longest</span>
+            <span className="flex-1" />
+            <button type="button" onClick={() => onMore('people')} className="text-muted-foreground hover:text-foreground hover:underline" style={{ fontSize: 'var(--text-small)' }}>
+              Everybody
+            </button>
+          </div>
+          {longest.length === 0 ? (
+            <Note>Nobody seen.</Note>
+          ) : (
+            <ul className="flex flex-wrap gap-2" style={{ fontSize: 'var(--text-small)' }}>
+              {longest.map((p) => (
+                <li key={p.userId} className="rounded-md border px-2 py-1" style={{ borderWidth: 'var(--hairline)' }}>
+                  <SubjectLink id={p.userId} name={p.displayName} />{' '}
+                  <span className="tabular-nums text-muted-foreground">{minutes(p.minutesSeen)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Latest</span>
+            <span className="flex-1" />
+            <button type="button" onClick={() => onMore('logs')} className="text-muted-foreground hover:text-foreground hover:underline" style={{ fontSize: 'var(--text-small)' }}>
+              All logs
+            </button>
+          </div>
+          <FactList entries={view.log.slice(0, 8)} empty="Nothing recorded yet." />
+        </>
+      ) : (
+        <Note>You do not have permission to see who was here.</Note>
+      )}
+    </div>
   )
 }
 

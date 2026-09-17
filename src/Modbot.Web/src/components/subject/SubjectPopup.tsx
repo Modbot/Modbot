@@ -5,6 +5,7 @@ import { InstancePopup } from '@/components/subject/InstancePopup'
 import { PersonPopup } from '@/components/subject/PersonPopup'
 import { WorldPopup } from '@/components/subject/WorldPopup'
 import type { CurrentUser } from '@/lib/api'
+import { useModal } from '@/lib/shortcuts'
 import { closeSubject, encodeSubject, useSubjects, type Subject } from '@/lib/subject'
 
 /**
@@ -39,6 +40,15 @@ export function SubjectPopup({ me }: { me: CurrentUser }) {
   const key = `${stack.length}:${encodeSubject(top)}`
 
   return (
+    <Open key={key} top={top} me={me} lead={lead} />
+  )
+}
+
+/** The popup while one is open. Its own component so the page's keys go quiet only while it is mounted. */
+function Open({ top, me, lead }: { top: Subject; me: CurrentUser; lead: React.ReactNode }) {
+  useModal()
+
+  return (
     <Dialog
       open
       onOpenChange={(open) => {
@@ -47,10 +57,10 @@ export function SubjectPopup({ me }: { me: CurrentUser }) {
         if (!open) closeSubject()
       }}
     >
-      {top.kind === 'person' && <PersonPopup key={key} id={top.id} me={me} lead={lead} />}
-      {top.kind === 'world' && <WorldPopup key={key} id={top.id} me={me} lead={lead} />}
-      {top.kind === 'instance' && <InstancePopup key={key} id={top.id} me={me} lead={lead} />}
-      {top.kind === 'discord-person' && <DiscordPersonPopup key={key} id={top.id} me={me} lead={lead} />}
+      {top.kind === 'person' && <PersonPopup id={top.id} me={me} lead={lead} />}
+      {top.kind === 'world' && <WorldPopup id={top.id} me={me} lead={lead} />}
+      {top.kind === 'instance' && <InstancePopup id={top.id} me={me} lead={lead} />}
+      {top.kind === 'discord-person' && <DiscordPersonPopup id={top.id} me={me} lead={lead} />}
     </Dialog>
   )
 }

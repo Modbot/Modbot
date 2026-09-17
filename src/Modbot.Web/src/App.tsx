@@ -1,14 +1,17 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Footer, Sidebar, Topbar } from '@/components/Chrome'
+import { CommandPalette, type PaletteAction } from '@/components/CommandPalette'
+import { ShortcutSheet } from '@/components/ShortcutSheet'
 import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { DemoContext } from '@/lib/demo'
 import { setMyModbotOrigin } from '@/lib/myModbot'
-import { CREDITS_PATH, MOVED, NAV, mayOpen, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, GO_TO_KEYS, MOVED, NAV, mayOpen, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
-import { usePreferences } from '@/lib/preferences'
+import { usePreferences, type Density } from '@/lib/preferences'
 import { go, useRoute } from '@/lib/router'
+import { useKeyboard, useShortcuts } from '@/lib/shortcuts'
 import type { StatusRowId } from '@/lib/status'
 import { openPerson } from '@/lib/subject'
 import { Account } from '@/pages/Account'
@@ -309,12 +312,53 @@ function Shell({
     refreshReviewCount()
   }, [refreshReviewCount, page])
 
+  // The keyboard (lib/shortcuts.ts): the palette, the sheet, and `g` then a letter for every page
+  // this person may open. Pages register their own list and filter keys.
+  useKeyboard()
+
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  const signOut = demo ? undefined : () => void api.logout().finally(() => window.location.assign('/'))
+
+  useShortcuts([
+    { keys: 'mod+k', label: 'Search and commands', group: 'General', run: () => setPaletteOpen((o) => !o) },
+    { keys: '?', label: 'Keyboard shortcuts', group: 'General', run: () => setSheetOpen((o) => !o) },
+    ...NAV.filter((n) => !('hidden' in n && n.hidden) && mayOpen(me, n.id) && GO_TO_KEYS[n.id]).map((n) => ({
+      keys: `g ${GO_TO_KEYS[n.id]}`,
+      label: n.label,
+      group: 'Go to' as const,
+      run: () => navigate(PATHS[n.id]),
+    })),
+  ])
+
+  const densities: { value: Density; label: string }[] = [
+    { value: 'dense', label: 'Dense' },
+    { value: 'comfortable', label: 'Comfortable' },
+    { value: 'vr', label: 'VR' },
+  ]
+
+  const paletteActions: PaletteAction[] = [
+    {
+      id: 'theme',
+      label: prefs.theme === 'dark' ? 'Light theme' : 'Dark theme',
+      group: 'Appearance',
+      run: () => prefs.setTheme(prefs.theme === 'dark' ? 'light' : 'dark'),
+    },
+    ...densities
+      .filter((d) => d.value !== prefs.density)
+      .map((d) => ({ id: `density:${d.value}`, label: `${d.label} density`, group: 'Appearance', run: () => prefs.setDensity(d.value) })),
+    { id: 'account', label: 'Your account', group: 'Account', run: () => navigate(PATHS.account) },
+    ...(signOut ? [{ id: 'sign-out', label: 'Sign out', group: 'Account', run: signOut }] : []),
+  ]
+
   return (
     <div className="grid h-screen grid-cols-[13.5rem_1fr]">
       <Sidebar
         page={page}
         me={me}
         onNavigate={(p) => navigate(PATHS[p])}
+        onSearch={() => setPaletteOpen(true)}
         // `go` rather than `navigate`: the hash names the card to open, and only `go` wakes the
         // page already on screen when nothing but the hash changed.
         onOpenHealth={(section: StatusRowId) => go(`${PATHS.health}#${section}`)}
@@ -332,9 +376,7 @@ function Shell({
           // A full reload rather than a state change: signing out invalidates the cookie, and
           // every cached page in memory was rendered for the person who just left. A demo has no
           // session to end, so the control is not there.
-          onSignOut={
-            demo ? undefined : () => void api.logout().finally(() => window.location.assign('/'))
-          }
+          onSignOut={signOut}
         />
         <div className="p-5">
           {page === 'members' && <Members me={me} onOpenSubject={setSubject} />}
@@ -386,6 +428,15 @@ function Shell({
       {/* Over the page, never instead of it: the page stays mounted with its scroll position and
           filters, so closing the popup puts the moderator back exactly where they were. */}
       <SubjectPopup me={me} />
+
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        me={me}
+        onGoTo={(p) => navigate(PATHS[p])}
+        actions={paletteActions}
+      />
+      <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
     </div>
   )
 }

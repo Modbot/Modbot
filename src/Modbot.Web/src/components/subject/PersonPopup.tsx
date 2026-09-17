@@ -2,39 +2,50 @@ import { useCallback, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { compactNumber, dateTime, minutes } from '@/components/charts'
+import { JsonView } from '@/components/JsonView'
 import { RoomTable } from '@/components/RoomTable'
 import { SubjectCaseFiles } from '@/components/SubjectCaseFiles'
 import { SubjectHistory } from '@/components/SubjectHistory'
 import { UserProfileCard } from '@/components/UserProfileCard'
 import { DiscordLinkCard } from '@/components/subject/DiscordLinkCard'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
+import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { FactList, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser } from '@/lib/api'
 import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
 import { can } from '@/lib/permissions'
+import { useOpeningTab, useOpeningVersion } from '@/lib/subject'
 
-type Tab = 'logs' | 'cases' | 'metrics'
+const TABS = ['overview', 'logs', 'history', 'cases', 'metrics', 'json'] as const
+type Tab = (typeof TABS)[number]
 
 /**
  * One person: their VRChat profile on the left, and what Modbot has recorded about them on the
  * right.
  *
- * The profile card, the history counts and the case files are the same components the side pane
- * used, moved rather than rewritten.
+ * Overview is the glance: the repeat-offender counts, the presence figures and the newest facts.
+ * Logs is every fact; History is the profile as it stood after each recorded change, replayed
+ * from the facts; JSON is the stored records verbatim. The profile card, the history counts and
+ * the case files are the same components the side pane used, moved rather than rewritten.
  */
 export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
-  const [tab, setTab] = useState<Tab>('logs')
+  const seesProfile = can(me, 'ViewProfile')
+  const [tab, setTab] = useOpeningTab<Tab>('overview', TABS)
+  const version = useOpeningVersion()
 
   // Bumped after a kick, ban or unban, which remounts the cards that read what Modbot stores.
   // The server has already written the change, so this reads it back rather than guessing at it.
   const [acted, setActed] = useState(0)
 
   const tabs: { value: Tab; label: string }[] = [
+    { value: 'overview', label: 'Overview' },
     { value: 'logs', label: 'Logs' },
-    ...(can(me, 'ViewProfile') ? [{ value: 'cases' as const, label: 'Cases' }] : []),
-    ...(can(me, 'ViewProfile') ? [{ value: 'metrics' as const, label: 'Metrics' }] : []),
+    ...(seesProfile ? [{ value: 'history' as const, label: 'History' }] : []),
+    ...(seesProfile ? [{ value: 'cases' as const, label: 'Cases' }] : []),
+    ...(seesProfile ? [{ value: 'metrics' as const, label: 'Metrics' }] : []),
+    { value: 'json', label: 'JSON' },
   ]
 
   return (
@@ -47,7 +58,7 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
       left={
         <>
           <UserProfileCard subjectId={id} me={me} />
-          {can(me, 'ViewProfile') && <DiscordLinkCard subjectId={id} me={me} />}
+          {seesProfile && <DiscordLinkCard subjectId={id} me={me} />}
 
           {can(me, 'ViewMembers') && (
             <MembershipCard key={acted} subjectId={id} me={me} onActed={() => setActed((n) => n + 1)} />
@@ -56,15 +67,60 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
       }
     >
       <Tabs value={tab} onChange={setTab} tabs={tabs}>
+        {tab === 'overview' && <Overview key={acted} id={id} me={me} onMore={setTab} />}
         {tab === 'logs' && <Logs key={acted} id={id} />}
+        {tab === 'history' && <ProfileVersions id={id} openAt={version} />}
         {tab === 'cases' && (
           <div className="p-4">
             <SubjectCaseFiles subjectId={id} />
           </div>
         )}
         {tab === 'metrics' && <Metrics id={id} />}
+        {tab === 'json' && <Records id={id} me={me} />}
       </Tabs>
     </PopupFrame>
+  )
+}
+
+/** The glance: how often they have been acted on, where they have been, and the newest facts. */
+function Overview({ id, me, onMore }: { id: string; me: CurrentUser; onMore: (tab: Tab) => void }) {
+  const seesProfile = can(me, 'ViewProfile')
+
+  const loadFacts = useCallback(() => api.audit({ subject: id, limit: 8 }), [id])
+  const facts = useLoad(loadFacts)
+
+  const loadMetrics = useCallback(() => api.userMetrics(id), [id])
+  const metrics = useLoad(seesProfile ? loadMetrics : null)
+
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      {seesProfile && <SubjectHistory subjectId={id} />}
+
+      {metrics.data?.known && (
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <Figure label="Time seen" value={minutes(metrics.data.counts.minutesSeen)} />
+          <Figure label="Instances visited" value={compactNumber(metrics.data.counts.rooms)} />
+          <Figure label="Worlds visited" value={compactNumber(metrics.data.counts.worlds)} />
+          <Figure
+            label="Last seen"
+            value={metrics.data.counts.lastSeenAt ? ago(metrics.data.counts.lastSeenAt, metrics.data.now) : '—'}
+            note={metrics.data.counts.lastSeenAt ? dateTime(metrics.data.counts.lastSeenAt) : undefined}
+          />
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <span className="font-medium">Latest</span>
+        <span className="flex-1" />
+        <button type="button" onClick={() => onMore('logs')} className="text-muted-foreground hover:text-foreground hover:underline" style={{ fontSize: 'var(--text-small)' }}>
+          All logs
+        </button>
+      </div>
+
+      {facts.error && <Note className="text-destructive">{facts.error}</Note>}
+      {!facts.error && !facts.data && <Note>Loading…</Note>}
+      {facts.data && <FactList entries={facts.data.entries} empty="Nothing recorded yet." />}
+    </div>
   )
 }
 
@@ -74,13 +130,44 @@ function Logs({ id }: { id: string }) {
 
   return (
     <div className="flex flex-col gap-3 p-4">
-      <SubjectHistory subjectId={id} />
-
       <div className="font-medium">Everything recorded about this person</div>
 
       {error && <Note className="text-destructive">{error}</Note>}
       {!error && !data && <Note>Loading…</Note>}
       {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
+    </div>
+  )
+}
+
+/**
+ * The stored records, verbatim: the profile as the API answers it, the membership and ban
+ * standing, and the bodies VRChat last sent. Each needs the permission the screen showing it
+ * needs; what this account may not read is left out rather than shown empty.
+ */
+function Records({ id, me }: { id: string; me: CurrentUser }) {
+  const seesProfile = can(me, 'ViewProfile')
+  const seesMembers = can(me, 'ViewMembers')
+
+  const loadProfile = useCallback(() => api.userProfile(id), [id])
+  const profile = useLoad(seesProfile ? loadProfile : null)
+
+  const loadRaw = useCallback(() => api.userRaw(id), [id])
+  const raw = useLoad(seesProfile ? loadRaw : null)
+
+  const loadMembership = useCallback(() => api.membership(id), [id])
+  const membership = useLoad(seesMembers ? loadMembership : null)
+
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      {seesProfile && <JsonView title="Profile" value={profile.error ?? profile.data} />}
+      {seesMembers && <JsonView title="Membership" value={membership.error ?? membership.data} />}
+      {seesProfile && (
+        <>
+          <JsonView title="VRChat public profile, as last read" value={raw.error ?? raw.data?.publicProfile} />
+          <JsonView title="VRChat user object, as last read" value={raw.error ?? raw.data?.user} />
+        </>
+      )}
+      {!seesProfile && !seesMembers && <Note>You do not have permission to see this.</Note>}
     </div>
   )
 }
