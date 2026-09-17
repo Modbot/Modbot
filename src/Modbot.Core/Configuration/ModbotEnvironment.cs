@@ -25,7 +25,7 @@ namespace Modbot.Core.Configuration;
 /// a fourth setting in that sense (central services spec 1.1). They are not about reaching the
 /// database; they say where this server talks to Modbot Cloud for its own purposes, and whether it
 /// does, and are read from the environment because that is where the maintainer asked operators to
-/// set them. They say nothing to paired desktop clients, which keep their own Cloud settings. Both
+/// set them. They say nothing to paired companions, which keep their own Cloud settings. Both
 /// are optional, and Modbot runs identically without them.
 /// </para>
 /// <para>

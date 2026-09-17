@@ -77,8 +77,8 @@ hunting for a URL.
   saves the address in your browser. my.modbot.co also records that the address was registered.
 - **Your account** in the web app has an **Add to my.modbot.co** button that does the same thing
   later.
-- The desktop client's pairing button opens `https://my.modbot.co/go?redir=/pair`, which lists your
-  saved Modbots and sends you to the pairing page on the one you pick. See [Pairing](/desktop-client/pairing).
+- The companion's pairing button opens `https://my.modbot.co/go?redir=/pair`, which lists your
+  saved Modbots and sends you to the pairing page on the one you pick. See [Pairing](/companion/pairing).
 - AI moderation can use shared term lists published on my.modbot.co. Modbot fetches a list only if
   you choose to use one. See [Moderation rules](/ai/moderation-rules).
 
@@ -86,11 +86,11 @@ If you would rather not use it, skip the tab it opens and bookmark your Modbot's
 
 ### Modbot Cloud
 
-`cloud.modbot.co` keeps a backup of what desktop clients read from VRChat's log: presence events
+`cloud.modbot.co` keeps a backup of what companions read from VRChat's log: presence events
 for every instance their moderator is in, never raw log lines. Each client sends this straight to
 Modbot Cloud, whether or not it is paired, unless the person using that PC turns it off in the
 client's own settings. Your Modbot server has no say in it. See
-[Client settings](/desktop-client/settings#modbot-cloud-backup).
+[Client settings](/companion/settings#modbot-cloud-backup).
 
 Your Modbot server's own `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` are only about your
 server: which Modbot Cloud it talks to, and whether it talks to one at all. See

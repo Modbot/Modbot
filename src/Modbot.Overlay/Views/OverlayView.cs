@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Modbot.Client.Overlay;
+using Modbot.Companion.Overlay;
 
 namespace Modbot.Overlay.Views;
 

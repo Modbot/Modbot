@@ -87,8 +87,8 @@ function modbot() {
   if (!/GNU AFFERO GENERAL PUBLIC LICENSE\s+Version 3/.test(licence))
     throw new Error('LICENSE is no longer the AGPL-3.0; update the Modbot entry by hand.')
 
-  // The one place the repository's own address is recorded: the desktop client's update feed.
-  const app = fs.readFileSync(path.join(repo, 'src/Modbot.Client.App/Modbot.Client.App.csproj'), 'utf8')
+  // The one place the repository's own address is recorded: the companion's update feed.
+  const app = fs.readFileSync(path.join(repo, 'src/Modbot.Companion.App/Modbot.Companion.App.csproj'), 'utf8')
   const feed = app.match(/<ModbotUpdateFeed[^>]*>([^<]+)<\/ModbotUpdateFeed>/)
 
   return { name: 'Modbot', licence: 'AGPL-3.0', url: feed ? cleanUrl(feed[1]) : null }
@@ -138,7 +138,7 @@ const services = [
 // NuGet
 
 /** Which part of Modbot a project belongs to. Anything not listed here is server code. */
-const DESKTOP = new Set(['Modbot.Client', 'Modbot.Client.App', 'Modbot.Overlay'])
+const DESKTOP = new Set(['Modbot.Companion', 'Modbot.Companion.App', 'Modbot.Overlay'])
 
 function nuget() {
   const src = path.join(repo, 'src')

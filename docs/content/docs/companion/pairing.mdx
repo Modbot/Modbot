@@ -1,0 +1,205 @@
+---
+title: Pairing
+description: Connect the companion to your group's Modbot, pause or unpair it, and what happens when a server revokes it.
+---
+
+Before the companion can report to your group's Modbot, it has to be **paired** with that
+server. Pairing gives the client a token for that one server. You do not type a server address, a
+code or a name for your computer: it all happens with a button in your browser.
+
+## Before you start
+
+- [Install the client](/companion/install) and run it once. Running it is what tells Windows
+  that Modbot pairing links open the client.
+- Have a staff account on your group's Modbot. Any signed-in staff account can pair a client; no
+  particular permission is needed. The server records that the paired client is yours. See
+  [Staff accounts](/accounts/staff-accounts).
+- Link your VRChat account to your Modbot account. If you have not, signing in shows **Link your
+  VRChat account** first, and you cannot reach the pairing page until you do.
+- The server itself must be set up (the [setup wizard](/setup-wizard) finished, with a group
+  chosen). A server that is not set up refuses to pair.
+
+## Pair with one click
+
+<Steps>
+<Step>
+### Open the pairing page
+
+In the client window, on the **Servers** page, press **Pair with a server**. Your browser opens the
+pairing page. The line under the button shows which address it opens.
+
+If you know your group's Modbot address, you can instead go straight to
+`https://your-modbot-address/pair` in your browser.
+</Step>
+<Step>
+### Choose your group's Modbot, if asked
+
+By default the button opens my.modbot.co, which shows **Choose an instance**: the Modbot servers
+saved in this browser, and ones opened from your internet connection. Pick your group's server. If
+it is not listed, type its address and press **Add and open**. my.modbot.co never picks one for
+you.
+</Step>
+<Step>
+### Sign in
+
+Sign in to your group's Modbot if you are asked. You come back to the pairing page afterwards.
+</Step>
+<Step>
+### Press Open in Modbot
+
+The page is called **Pair this computer**. Press **Open in Modbot**. Your browser asks whether to
+open Modbot: say yes. Most browsers offer to remember that choice.
+</Step>
+<Step>
+### Check the client
+
+The client window comes to the front and says *Paired with* followed by the server's address. The
+server now has a card on the **Servers** page, and the client starts reporting for that group's
+instances straight away. You do not need to restart it, even if you are already in one of the
+group's instances.
+</Step>
+</Steps>
+
+A pairing link works **once**, and only for **five minutes**. The page counts down (**Expires in**)
+and shows **This link has expired.** when time is up. Press **Get a new link** for a fresh one.
+
+## If the button did nothing
+
+Some browsers refuse to open a link that goes to another program. The pairing page has a second way
+that carries exactly the same thing:
+
+1. On the pairing page, press **Copy pairing token**. The button changes to **Copied**.
+2. In the client, on the **Servers** page, paste it into the **Pairing token** box.
+3. Press **Use pairing token**.
+
+The token is the same one the link carries. It is still single-use and still expires after five
+minutes.
+
+## What my.modbot.co does here
+
+my.modbot.co only helps your browser find your group's Modbot. The client's **Pair with a server**
+button opens `https://my.modbot.co/go?redir=/pair`, which sends you on to the `/pair` page of the
+server you choose. my.modbot.co never sees the pairing code or the token, and the client never
+contacts my.modbot.co itself.
+
+If your group runs its own Modbot and you would rather the button went straight there, set
+[Pairing page](/companion/settings#pairing-page) in the client's settings file.
+
+## More than one group
+
+If you moderate several groups, pair the same client once from each group's Modbot. Each server
+gets its own token, its own card, its own queue and its own pause button. Neither group's server
+learns that the other exists, and each only hears about its own group's instances.
+
+Pairing the same server again replaces the old pairing instead of adding a second card.
+
+## The server card
+
+Each paired server has a card on the **Servers** page. Its title is the server's address, and the
+line under it shows the full address and the group the server manages.
+
+The label in the corner says how it is going:
+
+| Label | Meaning |
+|---|---|
+| **Reporting** | Working normally. |
+| **Retrying** | The last attempt to reach the server failed. Events wait on disk and nothing is lost. |
+| **Paused** | You pressed **Pause reporting**. |
+| **Stopped** | The server refused the client's token. Nothing more is sent. See [When a token is revoked](#when-a-token-is-revoked). |
+| **Needs update** | The server is newer than this client supports. Events are still queued. Update the client. |
+
+Three counts sit under it:
+
+- **recorded**: events the server accepted.
+- **already known**: events the server already had from another moderator in the same instance.
+  This is normal: several moderators in one room all report the same join, and the server keeps one.
+- **queued**: events waiting to be sent.
+
+### Pause reporting
+
+**Pause reporting** stops the client capturing or sending anything for that server, straight away.
+What happens while you are paused is not saved up for later: it is never sent. Events that were
+already queued before you paused are sent when you press **Resume reporting**. Pausing one server
+does not pause any other.
+
+### Unpair
+
+**Unpair** removes that server's token, its queue and its card from your PC, and the client stops
+reporting to it at once. It does not tell the server. The server keeps its record of the device
+until an operator [revokes it](#paired-devices-on-the-server), but the token is no longer on your
+PC to be used.
+
+## What pairing sends
+
+Pairing makes two requests, both to the server named in the pairing link, and both over HTTPS:
+
+1. It asks the server which versions of the client protocol it speaks. This request carries
+   nothing.
+2. It sends the one-time code, the client's version number and the word `windows`.
+
+It does not send your computer's name, your Windows account name, your VRChat account, anything
+from VRChat's log, or which other servers you are paired with.
+
+The server sends back a token, the id of the group it manages, and its current time. The client
+stores the token in `%APPDATA%\Modbot\pairings.json`, encrypted so only your Windows account can
+read it. The rest of that file is left readable, so you can see which servers the client talks to.
+The one-time code is never saved.
+
+The token can only send presence events to that server, ask its time, and read that group's
+roster and alerts for the overlay. It cannot ban, kick, read the member list or do anything else in
+Modbot.
+
+The pairing link itself only holds the one-time code and the server's address. Links end up in
+browser history, but a used or expired code is worthless.
+
+## Messages when pairing
+
+| The client says | What happened | What to do |
+|---|---|---|
+| *This pairing link has expired or was already used.* | The code was used, is older than five minutes, or never existed. | Open the pairing page again and use the new link. |
+| *That is not a Modbot pairing token.* | Something other than the token was pasted. | Press **Copy pairing token** again and paste all of it. |
+| *Paste the pairing token from your group's Modbot pairing page.* | **Use pairing token** was pressed with the box empty. | Paste the token first. |
+| *This pairing token points at …, which is not a secure (https) address.* | The link names a server that is not on HTTPS. | Ask your group's operator. The client only pairs over HTTPS. |
+| *… did not answer like a Modbot server.* | The address is not a Modbot server, or something in front of it answered instead. | Open the pairing page at the address you normally use for Modbot, and try again. |
+| *This client speaks API … and … speaks ….* | The client and the server have no protocol version in common. The message ends with who needs to update. | Update the client, or ask the operator to update Modbot. |
+| *Could not reach ….* | The server did not answer, or answered with an error. A server whose setup is not finished also ends up here. | Check your connection and try again. Nothing was changed. |
+| *Could not open your browser.* | Windows could not open a browser. The message names the page. | Open that page yourself, or copy the pairing token from it. |
+
+## Paired devices on the server
+
+Every paired client is recorded on the server as a device, with its client version, platform, when
+it was paired, when it last reported, and when it was revoked. The web app does not have a screen
+for this list yet. An operator can read it and revoke a device through two endpoints, which need a
+signed-in account and are not listed in the [API reference](/api/reference):
+
+```http
+GET /api/client-devices
+```
+
+Lists every device, newest first, including revoked ones. It never shows a token.
+
+```http
+DELETE /api/client-devices/{deviceId}
+```
+
+Revokes one device. It answers `204` when revoked, and `404` when there is no such device or it was
+already revoked. A revoked device stays in the list, with the time it was revoked.
+
+Removing someone from your staff does not revoke their client on its own. Revoke the device too.
+
+## When a token is revoked
+
+Revoking takes effect at the client's next request to that server: its next batch of events, its
+next time check (at most two hours away), or its next overlay read. From then on:
+
+- The server card shows **Stopped**, and the window shows a warning that the server rejected this
+  device and reporting will not restart on its own.
+- **Events** records *The server rejected this device token. Reporting has stopped and will
+  not be retried.* New events for that server are listed as withheld.
+- The client does not retry, and queues nothing new for that server.
+- If you wear a headset, the overlay shows that the server rejected this device.
+- The server drops any alerts it was holding for that device.
+
+Other paired servers are not affected. To report to that server again, get a new link from its
+pairing page and pair again. If you were removed from that group's staff on purpose, press
+**Unpair** to clear the card.

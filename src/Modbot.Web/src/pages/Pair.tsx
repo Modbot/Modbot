@@ -12,9 +12,9 @@ function secondsUntil(iso: string): number {
 }
 
 /**
- * Pairing the desktop client (`/pair`).
+ * Pairing the companion (`/pair`).
  *
- * One button. Pressing it opens a `modbot-client://` link that Windows hands to the client, which
+ * One button. Pressing it opens a `modbot-companion://` link that Windows hands to the client, which
  * decodes the address and the one-time code inside it and pairs. Nothing has to be typed, which is
  * the point: the old flow asked a moderator -- often already in a headset -- to copy a server
  * address and an eight-character code from one screen into another.
@@ -86,7 +86,7 @@ export function Pair() {
   return (
     <div className="grid min-h-screen place-items-center bg-background p-6">
       <div className="w-full max-w-[460px]">
-        <Brand subtitle="desktop client" />
+        <Brand subtitle="companion" />
         <div className="overflow-hidden rounded-xl border bg-card shadow-lg">
           <WizardHeader eyebrow="Pair" title="Pair this computer" />
 

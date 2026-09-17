@@ -58,7 +58,7 @@ public class FactWriterTests : FactTestBase
     [Fact]
     public async Task ATimeWithALocalOffsetIsStoredAndDeduplicatedAsTheSameInstant()
     {
-        // The desktop client reports what VRChat's log says, and VRChat's log is in the player's
+        // The companion reports what VRChat's log says, and VRChat's log is in the player's
         // local time. The first live batch carried -05:00 and the dedup lookup died with
         // "Cannot write DateTimeOffset with Offset=-05:00" -- PostgreSQL's timestamptz holds an
         // instant and Npgsql insists the offset be zero. Same instant in, same instant out, and a

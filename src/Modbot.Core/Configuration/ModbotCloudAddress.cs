@@ -6,7 +6,7 @@ namespace Modbot.Core.Configuration;
 /// <remarks>
 /// <para>
 /// Read from <c>MODBOT_CLOUD_ENDPOINT</c> and <c>MODBOT_CLOUD_DISABLED</c> (central services spec
-/// 1.1). They are about this server only. Desktop clients paired with it are never told either value:
+/// 1.1). They are about this server only. Companions paired with it are never told either value:
 /// a client's own Cloud settings live on the moderator's PC, in its <c>settings.json</c> and
 /// environment, and a server has no say in them.
 /// </para>

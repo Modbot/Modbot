@@ -396,8 +396,8 @@ export type GroupCandidates = {
 }
 
 /**
- * A one-time code for pairing the desktop client. Shown to nobody: the pairing page wraps it into
- * a `modbot-client://` link and a pairing token (see `lib/pairingToken.ts`). Single-use and dead
+ * A one-time code for pairing the companion. Shown to nobody: the pairing page wraps it into
+ * a `modbot-companion://` link and a pairing token (see `lib/pairingToken.ts`). Single-use and dead
  * after `expiresAt`, so a link left in a browser history is worthless within minutes.
  */
 export type IssuedPairingCode = { code: string; expiresAt: string }
@@ -3064,7 +3064,7 @@ export const api = {
   setWebhookSettings: (body: { allowPrivateAddresses: boolean }) =>
     put<{ allowPrivateAddresses: boolean }>('/api/settings/webhooks', body),
 
-  // ── Desktop client ──────────────────────────────────────────────────────────────────────
+  // ── Companion ──────────────────────────────────────────────────────────────────────
 
   /** Signed-in staff only. A device token can never mint another device token. */
   issuePairingCode: () => post<IssuedPairingCode>('/api/client-devices/pairing-code'),

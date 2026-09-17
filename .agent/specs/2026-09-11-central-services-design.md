@@ -66,7 +66,7 @@ ordinary, useful, and how a maintainer decides what to support.
 > **Narrowed 2026-09-15, corrected the same day.** Modbot Cloud (`cloud.modbot.co`) is operated
 > centrally, and two kinds of program use it, separately. Neither decides anything for the other.
 
-#### 1.1.1 Desktop clients
+#### 1.1.1 Companions
 
 By default each client sends Cloud the parsed presence events it reads, for every instance its moderator
 is in — never raw log lines. Where they go, and whether they are sent, is set only on the client's own PC
@@ -103,7 +103,7 @@ them:
 > **Revised 2026-09-16.** `MODBOT_CLOUD_DISABLED=1` is now the *only* way an operator turns off
 > usage reporting. There is no toggle in the onboarding wizard and none in settings; see §5.1.
 
-**A server never passes either value to its desktop clients** — an earlier revision did, and was reversed (cloud event backup
+**A server never passes either value to its companions** — an earlier revision did, and was reversed (cloud event backup
 spec §0.1). Cloud still holds nothing read from a group's database; what the app log feed may carry is
 for that feature's own spec to settle.
 
@@ -204,7 +204,7 @@ instances and sends the browser to that path on the one the person picks. It alw
 even when only one instance is known. `redir` must be a plain path on the instance; anything that
 could send the browser elsewhere is refused.
 
-It is the only redirect route. The desktop client's "Pair with a server" opens
+It is the only redirect route. The companion's "Pair with a server" opens
 `my.modbot.co/go?redir=/pair` (client protocol §3.1), and documentation links use the same route for
 any other page. `my.modbot.co` never sees a pairing code; the instance issues it.
 
@@ -352,7 +352,7 @@ CDN. This is deliberate — the smallest possible thing that can be attacked.
 ### 3.2 It is untrusted by design
 
 M3 §9.2 names this host as the most dangerous component in the system: it can, in principle, ship
-code to every Modbot client everywhere.
+code to every Modbot Companion everywhere.
 
 The design removes that power rather than guarding it. **Signing happens in CI, with keys the host
 never holds, and the client verifies the Authenticode signature and the pinned publisher identity
@@ -383,7 +383,7 @@ supports** (foundation §2.7.3).
       "version": "2026.1.7",
       "assemblyVersion": "2026.1.7.0",
       "msiProductVersion": "26.1.7",
-      "url": "https://…/Modbot-Client-2026.1.7.msi",
+      "url": "https://…/Modbot-Companion-2026.1.7.msi",
       "sha256": "…",
       "apiVersionMin": 3,
       "apiVersionMax": 4,

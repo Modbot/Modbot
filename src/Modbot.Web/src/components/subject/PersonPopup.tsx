@@ -88,7 +88,7 @@ function Logs({ id }: { id: string }) {
 /**
  * What Modbot can actually work out about one person's time in world.
  *
- * All of it comes from the desktop client's presence reports, the same arithmetic the Worlds page
+ * All of it comes from the companion's presence reports, the same arithmetic the Worlds page
  * uses, so it only covers time a moderator's client shared a room with them. The tab says so,
  * because "never seen" reads like "never there" and is nothing of the kind.
  */

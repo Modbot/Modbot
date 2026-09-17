@@ -22,7 +22,7 @@ namespace Modbot.Api.Features.Places;
 /// — so each report that changes the state opens a session and the next state change closes it. A
 /// session nobody saw the end of closes at the last report from that room, which is the last
 /// moment anything is known. Time nobody was watching is never counted: presence facts exist only
-/// while a moderator's desktop client is in the room.
+/// while a moderator's companion is in the room.
 /// </para>
 /// <para>
 /// The world and room filters are written into the statement rather than passed as optional

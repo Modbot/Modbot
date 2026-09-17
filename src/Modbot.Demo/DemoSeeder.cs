@@ -282,7 +282,7 @@ public sealed class DemoSeeder
 
             _db.UserRoles.Add(new ModbotUserRole { UserId = user.Id, RoleId = role });
 
-            // A paired desktop client each, because the Live page only shows who is in a room when
+            // A paired companion each, because the Live page only shows who is in a room when
             // a paired client reported them (Live reads facts, not VRChat).
             _db.ClientDevices.Add(new ClientDeviceRecord
             {

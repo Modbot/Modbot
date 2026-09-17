@@ -31,7 +31,7 @@ Two levels:
 | Head only, gradient | `icon-512.png`, `icon-192.png`, `apple-touch-icon.png` | the wordmark in every header and sidebar, favicons, app icons, the Discord bot avatar |
 | Head only, flat indigo | `favicon.svg` (`vector-mark.svg` in the kit) | the SVG favicon and any single-colour use |
 | Full mascot on its cloud | `mascot.png` (landing only) | the landing hero, the share image, the 404 page |
-| Windows icon | `src/Modbot.Client.App/Assets/Modbot.ico` (and `icon-256.png` for the window's brand row) | the desktop client's exe, window, tray and installer |
+| Windows icon | `src/Modbot.Companion.App/Assets/Modbot.ico` (and `icon-256.png` for the window's brand row) | the companion's exe, window, tray and installer |
 | Discord avatar | `src/Modbot.Discord/Assets/avatar.png` | set by the bot itself when it still has Discord's default avatar; embeds put `/icon-192.png` from the public address beside their footer |
 
 Rules:
@@ -74,7 +74,7 @@ the interface and the mark share one temperature. Every pair below was checked w
 | `--warn` | `#b45309` | `#fbbf24` | warnings, rate-limit stops |
 | `--info` | `#0369a1` | `#38bdf8` | notices; sky, so it stays apart from the violet |
 
-The desktop client and the SteamVR overlay carry the dark set by value in
+The companion and the SteamVR overlay carry the dark set by value in
 `src/Modbot.Overlay/DesignTokens.cs`; `DesignTokenDriftTests` fails when it drifts from the web
 stylesheet. Discord embeds keep their semantic colours (green open, red banned) and use the violet
 `0x5B4BD6` for a reply that is neither, never Discord's blurple.

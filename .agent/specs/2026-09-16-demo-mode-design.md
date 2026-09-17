@@ -100,13 +100,13 @@ Anything that would reach outside Modbot or let somebody into it:
 | VRChat | `DemoVRChatGate` replaces `IVRChatGate`. Every call returns "VRChat is off in the demo." with `NotConfigured`, which every caller in Modbot already handles — an unconfigured deployment is the ordinary first state of a real one |
 | Discord | The bot is simply never registered: it connects on its own schedule once a token is stored, so the only sure way to keep a demo off Discord is not to have one. `DemoDiscordMessenger` replaces the direct-message sender |
 | Email | `DemoMailRelay` replaces `IMailRelay` |
-| Signing in, invites, reset links, the test email, pairing a desktop client | A short list of paths, refused before authentication with `403` and `{"error": "Off in the demo."}` |
+| Signing in, invites, reset links, the test email, pairing a companion | A short list of paths, refused before authentication with `403` and `{"error": "Off in the demo."}` |
 
 The first three are replaced at the door rather than checked for at each call site. A demo that
 dotted "unless this is a demo" through the codebase would depend on every future caller remembering;
 replacing the gate, the relay and the messenger means no future caller can find a way round.
 
-The rest of the desktop-client surface — reporting presence, reading alerts — is left alone, so a
+The rest of the companion surface — reporting presence, reading alerts — is left alone, so a
 client somebody points at a demo still works. Only pairing is refused.
 
 ## 4. The data
@@ -161,7 +161,7 @@ ninety days and make the demo look broken.
 
 The Live page shows rooms whose `GroupId` matches the managed group, that were seen in the group's
 own list, and that have not closed. Who is in one is read from presence facts reported by a **paired
-desktop client** whose owner has a linked VRChat account, so the demo seeds a client device for each
+companion** whose owner has a linked VRChat account, so the demo seeds a client device for each
 of the eight staff accounts and names one in every presence report.
 
 ### 4.4 Evidence

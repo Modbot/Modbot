@@ -35,7 +35,7 @@ export interface RoomState {
   access: 'Group members' | 'Members and friends' | 'Anyone'
   region: string
   openedAt: number
-  /** Moderator person ids whose desktop client is in the room. */
+  /** Moderator person ids whose companion is in the room. */
   watching: string[]
   people: Presence[]
   /** From VRChat's own count. Equal to people.length while somebody is watching. */

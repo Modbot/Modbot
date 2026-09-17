@@ -1,12 +1,12 @@
 /**
- * The pairing token: what this page hands the desktop client.
+ * The pairing token: what this page hands the companion.
  *
  * It is base64url of `{"server": "<this server's origin>", "code": "<one-time pairing code>"}`.
  * The client decodes it, checks the address, and trades the code for its own device token at
  * `POST /api/v1/client/pair` -- the same exchange as before, with the browser doing the typing.
  *
  * It carries the short-lived, single-use code and never anything longer-lived. The token travels
- * inside a `modbot-client://` link, and links end up in browser history, in shell logs and in
+ * inside a `modbot-companion://` link, and links end up in browser history, in shell logs and in
  * Windows' record of protocol launches; a five-minute code found there a week later is worthless,
  * a device token would not be.
  *
@@ -15,7 +15,7 @@
  * server behind a proxy frequently does not know its own public name.
  */
 
-export const CLIENT_LINK_PREFIX = 'modbot-client://pair?token='
+export const CLIENT_LINK_PREFIX = 'modbot-companion://pair?token='
 
 function base64url(text: string): string {
   const bytes = new TextEncoder().encode(text)

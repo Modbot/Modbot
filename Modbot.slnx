@@ -3,8 +3,8 @@
     <Project Path="src/Modbot.AI/Modbot.AI.csproj" />
     <Project Path="src/Modbot.Analytics/Modbot.Analytics.csproj" />
     <Project Path="src/Modbot.Api/Modbot.Api.csproj" />
-    <Project Path="src/Modbot.Client/Modbot.Client.csproj" />
-    <Project Path="src/Modbot.Client.App/Modbot.Client.App.csproj" />
+    <Project Path="src/Modbot.Companion/Modbot.Companion.csproj" />
+    <Project Path="src/Modbot.Companion.App/Modbot.Companion.App.csproj" />
     <Project Path="src/Modbot.Cloud/Modbot.Cloud.csproj" />
     <Project Path="src/Modbot.Core/Modbot.Core.csproj" />
     <Project Path="src/Modbot.Demo/Modbot.Demo.csproj" />
@@ -21,7 +21,7 @@
     <Project Path="tests/Modbot.AI.Tests/Modbot.AI.Tests.csproj" />
     <Project Path="tests/Modbot.Analytics.Tests/Modbot.Analytics.Tests.csproj" />
     <Project Path="tests/Modbot.Api.Tests/Modbot.Api.Tests.csproj" />
-    <Project Path="tests/Modbot.Client.Tests/Modbot.Client.Tests.csproj" />
+    <Project Path="tests/Modbot.Companion.Tests/Modbot.Companion.Tests.csproj" />
     <Project Path="tests/Modbot.Cloud.Tests/Modbot.Cloud.Tests.csproj" />
     <Project Path="tests/Modbot.Core.Tests/Modbot.Core.Tests.csproj" />
     <Project Path="tests/Modbot.Demo.Tests/Modbot.Demo.Tests.csproj" />

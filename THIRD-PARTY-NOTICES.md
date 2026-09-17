@@ -1,6 +1,6 @@
 # Third-party notices
 
-Modbot is licensed under the AGPL-3.0 (see `LICENSE`). The desktop client and its installer also
+Modbot is licensed under the AGPL-3.0 (see `LICENSE`). The companion and its installer also
 ship code that belongs to other people, under their own terms. This file records what, and the
 notices those terms ask for.
 
@@ -59,9 +59,9 @@ endorsed by Valve.
 
 **Bricolage Grotesque** (Jeremy Landes, Atelier Triay), **IBM Plex Sans** and **IBM Plex Mono**
 (IBM) are used under the SIL Open Font License 1.1. The web projects bundle the Plex and Bricolage
-faces from the `@fontsource` packages; the desktop client embeds a static cut of Bricolage Grotesque
-at `src/Modbot.Client.App/Assets/Fonts/`, with the licence beside it, for its wordmark. **Inter**
-(Rasmus Andersson) reaches the desktop client through the `Avalonia.Fonts.Inter` package, also
+faces from the `@fontsource` packages; the companion embeds a static cut of Bricolage Grotesque
+at `src/Modbot.Companion.App/Assets/Fonts/`, with the licence beside it, for its wordmark. **Inter**
+(Rasmus Andersson) reaches the companion through the `Avalonia.Fonts.Inter` package, also
 under the SIL Open Font License 1.1.
 
 The SIL Open Font License permits use, bundling and redistribution of the fonts, and forbids

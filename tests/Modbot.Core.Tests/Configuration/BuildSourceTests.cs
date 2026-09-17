@@ -79,7 +79,7 @@ public class BuildSourceTests
     {
         var source = BuildSource.Detect(
             Map(),
-            Map(("GITHUB_SHA", "github-commit"), ("GITHUB_REF_TYPE", "tag"), ("GITHUB_REF_NAME", "client-v2026.9.1")));
+            Map(("GITHUB_SHA", "github-commit"), ("GITHUB_REF_TYPE", "tag"), ("GITHUB_REF_NAME", "companion-v2026.9.1")));
 
         Assert.Equal("github-commit", source.Commit);
         Assert.Null(source.Branch);

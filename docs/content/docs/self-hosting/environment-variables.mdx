@@ -24,8 +24,8 @@ what Modbot needs before it can reach the database, plus a few switches.
 | `CONSOLE_LOG_MODE` | No | `serilog` | The shape of the console output: `serilog`, `json` or `railway_json`. See [Console log modes](#console-log-modes). |
 | `LOG_LEVEL` | No | `Information` | The lowest level written anywhere: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Information`. |
 | `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log files and sends Debug detail to Seq, while the console stays at Information. It also brings back the web server's per-request log lines and the database's query lines, which are left out otherwise. `LOG_LEVEL` wins over it. |
-| `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud this server talks to for its own use. A value that is not a full `http` or `https` address is ignored and the default is used. It is not passed to desktop clients. See [Modbot Cloud](/self-hosting#modbot-cloud). |
-| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: this server does not talk to Modbot Cloud at all. Nothing is reported, no term lists are fetched, no server is registered, no rooms are listed on modbot.co, and its own log is not sent there whatever the setting says. It does not change what desktop clients send. This is how you turn usage reporting off; there is no toggle in the setup wizard or in Settings. See [Logs](/self-hosting/logs#sending-logs-to-modbot-cloud). |
+| `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud this server talks to for its own use. A value that is not a full `http` or `https` address is ignored and the default is used. It is not passed to companions. See [Modbot Cloud](/self-hosting#modbot-cloud). |
+| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: this server does not talk to Modbot Cloud at all. Nothing is reported, no term lists are fetched, no server is registered, no rooms are listed on modbot.co, and its own log is not sent there whatever the setting says. It does not change what companions send. This is how you turn usage reporting off; there is no toggle in the setup wizard or in Settings. See [Logs](/self-hosting/logs#sending-logs-to-modbot-cloud). |
 | `MODBOT_MY_URL` | No | `https://my.modbot.co` | Where the instance selector is. Every **Add to my.modbot.co** link Modbot offers points at it. A value that is not a full `http` or `https` address means the default. Modbot never calls it; it is only a link. |
 | `MODBOT_DEMO` | No | off | `1`, `true`, `yes` or `on` starts Modbot as a public demo: made-up data, no sign-in, and every visitor is an administrator. Only on a deployment that was never set up — a staff account or a finished setup wizard makes Modbot ignore it, and nothing is seeded or removed. See [Demo mode](/self-hosting/demo-mode). |
 | `MODBOT_DEMO_RESET_HOURS` | No | `24` | How many hours between automatic resets of the demo's data. `0` never resets. Anything that is not a whole number from 0 to 8760 means 24. Only read when `MODBOT_DEMO` is on. |
@@ -90,7 +90,7 @@ and evidence kept on disk. A disk that survives one restart is treated as lastin
 
 ## Console log modes
 
-`CONSOLE_LOG_MODE` and `LOG_LEVEL` are read by every part of Modbot: the server, the desktop client,
+`CONSOLE_LOG_MODE` and `LOG_LEVEL` are read by every part of Modbot: the server, the companion,
 my.modbot.co, Modbot Cloud and the landing page. They are read when the program starts.
 
 `CONSOLE_LOG_MODE` changes the console only. Log files and Seq are the same in every mode. Capital
@@ -129,20 +129,20 @@ That is how one Seq server or one log explorer can hold all of them at once.
 The web app (`src/Modbot.Web`) reads no environment variables. It is built into the Modbot server's
 image and served by it.
 
-## The desktop client
+## The companion
 
 The Windows client reads these from the PC it runs on, not from the server it is paired with. A
 server's own `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED` do not reach its clients.
 
 | Variable | Required | Default | What it does |
 |---|---|---|---|
-| `MODBOT_CLIENT_LOG_LEVEL` | No | `Verbose` | The lowest level written to the client's own log in `%APPDATA%\Modbot\logs`: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Verbose`. The client uses this and not `LOG_LEVEL`. |
+| `MODBOT_COMPANION_LOG_LEVEL` | No | `Verbose` | The lowest level written to the client's own log in `%APPDATA%\Modbot\logs`: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Verbose`. The client uses this and not `LOG_LEVEL`. |
 | `CONSOLE_LOG_MODE` | No | `serilog` | The shape of what the client prints to the terminal it was started from: `serilog`, `json` or `railway_json`. Its log files are always text. See [Console log modes](#console-log-modes). |
 | `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | Where the client sends its Modbot Cloud backup. Wins over `cloud.endpoint` in the client's `settings.json`. It must be HTTPS, or plain HTTP to the same PC; anything else is ignored and the default is used. |
 | `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on` turns the client's Modbot Cloud backup off, and `0`, `false`, `no` or `off` turns it on. Wins over `cloud.disabled` in `settings.json`. Any other value is ignored. |
 
-The client reads them when it starts. See [Client settings](/desktop-client/settings#modbot-cloud-backup)
-and [Installing the desktop client](/desktop-client/install).
+The client reads them when it starts. See [Client settings](/companion/settings#modbot-cloud-backup)
+and [Installing the companion](/companion/install).
 
 ## The project's own services
 
@@ -171,7 +171,7 @@ repository.
 | Variable | Required | Default | What it does |
 |---|---|---|---|
 | `DATABASE_URL` | Yes | none | The main PostgreSQL database: installs, admin sessions and settings. |
-| `DATABASE_ENGINE_URL` | Yes | none | A second, separate PostgreSQL database that stores the events desktop clients back up and the log lines Modbot deployments send. |
+| `DATABASE_ENGINE_URL` | Yes | none | A second, separate PostgreSQL database that stores the events companions back up and the log lines Modbot deployments send. |
 | `ROOT_API_KEY` | No | none | The key that signs in to `/admin`. Unset means admin is refused to everyone. |
 | `ROOMS_API_KEY` | No | none | The read-only key for the [open rooms](/self-hosting/open-rooms) feed, which is the key the landing page holds. `ROOT_API_KEY` opens the feed as well; with neither set, the feed is refused to everyone. |
 | `RESEND_API_KEY` | No | none | The [Resend](https://resend.com) key Cloud's alert email is sent with. Unset means the instance checks still run and record what they found, and no email goes. See [Alerts by email](/self-hosting/alerts). |

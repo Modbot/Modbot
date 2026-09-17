@@ -1,4 +1,4 @@
-using Modbot.Client.Overlay;
+using Modbot.Companion.Overlay;
 using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
 

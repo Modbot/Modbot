@@ -54,7 +54,7 @@ as a compatibility matrix.
 
 The real risk is not *supporting* a change — it is the **time between a change landing and a fixed
 client reaching moderators**. And forced updates make that risk sharper rather than softer: when
-VRChat changes the format, **every Modbot client breaks at once**, with no gradual rollout to notice
+VRChat changes the format, **every Modbot Companion breaks at once**, with no gradual rollout to notice
 it happening.
 
 That reframes two other parts of this spec. §2.2's loud-failure alarm is what makes the break
@@ -243,7 +243,7 @@ hold one.
 - **One per device, individually revocable.** A moderator leaving the team must not require rotating
   every other moderator's token.
 - **Issued by a short-lived pairing code** that the web UI hands to the client inside a
-  `modbot-client://` link (or a pasted pairing token — protocol spec §3.1), so nothing is typed and
+  `modbot-companion://` link (or a pasted pairing token — protocol spec §3.1), so nothing is typed and
   the token itself never travels through a chat message or email.
 - **One per server, per device.** A moderator staffing two groups pairs the same client twice and
   holds two unrelated tokens; neither group's operator learns of the other (5.5.1).
@@ -383,7 +383,7 @@ the web-view route buys single-UI only for as long as the answer stays PC-only.
 
 #### 6.0.1 Avalonia, for both the client window and the overlay
 
-**Decided 2026-09-12.** `Modbot.Client`'s tray window and `Modbot.Overlay`'s in-headset surface are
+**Decided 2026-09-12.** `Modbot.Companion`'s tray window and `Modbot.Overlay`'s in-headset surface are
 both **Avalonia**.
 
 The deciding argument is not performance — it is **how many UI stacks the product carries**.
@@ -842,7 +842,7 @@ The client therefore talks to **two** servers, and they are trusted for differen
 |---|---|---|
 | Purpose | Receives presence facts | Serves signed releases |
 | Chosen by | The moderator, during pairing | The project, by default |
-| Compromise means | This group's presence data is exposed | **Code execution on every Modbot client** |
+| Compromise means | This group's presence data is exposed | **Code execution on every Modbot Companion** |
 
 ### 9.2 That second column is a supply-chain surface, and is treated as one
 

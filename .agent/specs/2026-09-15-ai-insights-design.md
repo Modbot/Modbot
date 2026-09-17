@@ -307,7 +307,7 @@ Alerts hold no personal data (§8.3), so like insights they are outside retentio
 ### 8.8 Not in this version
 
 - Alerts by email. The spend-limit notices have that plumbing; nobody has asked for it here.
-- A watcher for VRChat presence dropping off, which would need the desktop clients to be a reliable
+- A watcher for VRChat presence dropping off, which would need the companions to be a reliable
   measure of anything, and they are not — they see what their moderators happen to be looking at.
 - Choosing the window length per watcher. An hour and a week cover what was asked for, and a knob
   nobody turns is a knob that goes wrong.

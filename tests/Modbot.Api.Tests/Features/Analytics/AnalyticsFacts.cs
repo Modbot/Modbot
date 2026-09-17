@@ -43,7 +43,7 @@ internal static class AnalyticsFacts
         };
     }
 
-    /// <summary>A desktop client's presence report: the device that saw it, and the name it saw.</summary>
+    /// <summary>A companion's presence report: the device that saw it, and the name it saw.</summary>
     public static FactRecord PresenceFact(
         string type,
         string subject,

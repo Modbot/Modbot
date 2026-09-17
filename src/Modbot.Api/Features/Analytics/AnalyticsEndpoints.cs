@@ -120,7 +120,7 @@ public static class AnalyticsEndpoints
             .WithDescription(
                 "Actions per moderator broken down by kind and over time, from daily totals; and "
                 + "coverage gaps -- stretches when people were in a group instance and no moderator "
-                + "was, computed from the desktop client's presence reports. A moderator is present "
+                + "was, computed from the companion's presence reports. A moderator is present "
                 + "when a paired client is reporting from the instance or when somebody recognised as "
                 + "a moderator (holds a role with moderation permissions, or has taken a moderation "
                 + "action) is seen there. Moderators without the client are not seen at all.")
@@ -148,7 +148,7 @@ public static class AnalyticsEndpoints
             .WithDescription(
                 "Time people were seen in each world, distinct visitors and instances opened, plus "
                 + "visitors per day per world from daily totals. Time and visitors come from presence "
-                + "reports, which exist only while a moderator's desktop client is in the instance.")
+                + "reports, which exist only while a moderator's companion is in the instance.")
             .Produces<WorldsAnalytics>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

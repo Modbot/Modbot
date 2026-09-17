@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Modbot.Cloud.Features.Installs;
 
 /// <summary>
-/// One copy of the desktop client that registered to send its logs. The table is <c>install</c>.
+/// One copy of the companion that registered to send its logs. The table is <c>install</c>.
 /// </summary>
 /// <remarks>
 /// <para>

@@ -610,7 +610,7 @@ h2.display.small { font-size: clamp(1.75rem, 3.2vw, 2.25rem); }
       <div class="compare-row" role="row">
         <span role="rowheader">Who was in the room</span>
         <p role="cell">You see the people in an instance while you are inside it.</p>
-        <p role="cell">While a moderator's desktop client is in the room, it reports who arrives and leaves, and Modbot keeps that.</p>
+        <p role="cell">While a moderator's companion is in the room, it reports who arrives and leaves, and Modbot keeps that.</p>
       </div>
     </div>
   </div>
@@ -626,7 +626,7 @@ h2.display.small { font-size: clamp(1.75rem, 3.2vw, 2.25rem); }
     </div>
     <dl class="tiles" style="margin-top: 2.5rem">
       <div><dt>Every open instance</dt><dd>Each group instance appears as it opens, with VRChat's own head count.</dd></div>
-      <div><dt>Who is inside</dt><dd>While a moderator's desktop client is in the room, you see each person and when they arrived.</dd></div>
+      <div><dt>Who is inside</dt><dd>While a moderator's companion is in the room, you see each person and when they arrived.</dd></div>
       <div><dt>Earlier actions stand out</dt><dd>People with earlier moderation actions stand out in the list.</dd></div>
       <div><dt>Refreshes on its own</dt><dd>The page refreshes every five seconds, and stops while its tab is hidden.</dd></div>
     </dl>
@@ -893,7 +893,7 @@ h2.display.small { font-size: clamp(1.75rem, 3.2vw, 2.25rem); }
         <li>Every record Modbot keeps is in your database. Evidence files go to an S3-compatible bucket, a mounted folder or that same database.</li>
         <li>The server talks to VRChat. It also talks to Discord, to your mail server and to an AI provider when you set each one up. It never contacts modbot.co.</li>
         <li>Usage reports have no field for your group or its members, and you can turn them off.</li>
-        <li>The desktop client sends VRChat's own log lines to Modbot Cloud as a backup. This is on by default, and the client has a switch for it.</li>
+        <li>The companion sends VRChat's own log lines to Modbot Cloud as a backup. This is on by default, and the client has a switch for it.</li>
         <li>PostgreSQL is the only other service it needs.</li>
       </ul>
     </div>
@@ -929,7 +929,7 @@ h2.display.small { font-size: clamp(1.75rem, 3.2vw, 2.25rem); }
     <dl class="qa">
       <div>
         <dt>The VRChat client</dt>
-        <dd>Modbot does not modify the game. The server reads VRChat's API the way the VRChat website does, and the desktop client reads the log file VRChat writes on your PC.</dd>
+        <dd>Modbot does not modify the game. The server reads VRChat's API the way the VRChat website does, and the companion reads the log file VRChat writes on your PC.</dd>
       </div>
       <div>
         <dt>The VRChat account</dt>

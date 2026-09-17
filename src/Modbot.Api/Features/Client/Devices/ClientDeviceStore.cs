@@ -186,7 +186,7 @@ public static class PairingCodeLifetime
     /// </summary>
     /// <remarks>
     /// Was ten minutes when the code was something a person read off a screen and retyped. It now
-    /// travels inside a <c>modbot-client://</c> link, which lands in browser history and in Windows'
+    /// travels inside a <c>modbot-companion://</c> link, which lands in browser history and in Windows'
     /// record of protocol launches, so the window it is exposed in is cut to what the flow needs:
     /// a click, not a walk between screens.
     /// </remarks>

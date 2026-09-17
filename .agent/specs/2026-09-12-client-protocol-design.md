@@ -1,8 +1,8 @@
-# Modbot Client Protocol
+# Modbot Companion Protocol
 
 - **Date:** 2026-09-12
 - **Status:** Draft, awaiting review
-- **Covers:** the wire contract between `Modbot.Client` (and the overlay) and a Modbot server
+- **Covers:** the wire contract between `Modbot.Companion` (and the overlay) and a Modbot server
 - **Depends on:** foundation §2.7.3 (API versioning), §4.4 (`IModbotClock`), §5.3 (fact schema), §5.7.1 (dedup)
 - **Consumers:** M3 client and overlay
 
@@ -90,7 +90,7 @@ requests in a way the client would read as transient.
   page builds the pairing token:
     base64url {"server": origin, "code": code}
   "Open in Modbot" =
-    modbot-client://pair?token=…  ──▶  Windows starts the client
+    modbot-companion://pair?token=…  ──▶  Windows starts the client
                                        with the link; a running copy
                                        receives it over a local pipe
                                   client checks the token, then
@@ -110,7 +110,7 @@ requests in a way the client would read as transient.
   origin, because the address the moderator reached the page at is one that reaches the server,
   while a server behind a proxy often does not know its own public name.
 - **The same token has a second route.** "Copy pairing token" on the page and a paste box in the
-  client carry the identical bytes, for a browser that will not hand a `modbot-client://` link to
+  client carry the identical bytes, for a browser that will not hand a `modbot-companion://` link to
   another program. One code path in the client; the link is unwrapped and then treated as a paste.
 - **The client checks the token before any request.** An `https` origin only (plain `http` to
   loopback is the one exception, for testing on the same PC), no path, query, fragment or user
@@ -126,9 +126,9 @@ requests in a way the client would read as transient.
   optional `settings.json`. The client never needs to know the address; the token carries it.
 - The client is **single-instance**. The copy Windows starts to deliver a link hands it to the
   running copy over a named pipe (current user only, bounded, one message per connection) and
-  exits. The scheme is registered under `HKCU\Software\Classes\modbot-client` on every start —
+  exits. The scheme is registered under `HKCU\Software\Classes\modbot-companion` on every start —
   per-user, no elevation, and the only registry key the client touches. **Confirmed working on
-  Windows 11 on 2026-09-14**: a `modbot-client://` link from a browser reaches a running client,
+  Windows 11 on 2026-09-14**: a `modbot-companion://` link from a browser reaches a running client,
   which is the one part of this design that could not be proved by a test and had to be tried.
 - `managedGroupId` comes back at pairing because the client needs it to route events **locally**
   without asking anyone (M3 §5.5.1). Asking a server "do you own this instance?" is itself the leak

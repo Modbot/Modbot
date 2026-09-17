@@ -41,7 +41,7 @@ public sealed record EventView(
 
 public sealed record DayCount(DateOnly Day, long Events);
 
-/// <param name="EventKeepDays">Days to keep the events desktop clients back up. 0 keeps them forever.</param>
+/// <param name="EventKeepDays">Days to keep the events companions back up. 0 keeps them forever.</param>
 /// <param name="LogKeepDays">Days to keep the log lines Modbot deployments send. 0 keeps them forever.</param>
 public sealed record SettingsView(int EventKeepDays, int LogKeepDays = CloudSettings.DefaultLogKeepDays);
 

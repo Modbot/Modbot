@@ -127,7 +127,7 @@ public static class DemoRefusals
             return true;
         }
 
-        // Desktop client pairing. The rest of the client surface -- reporting presence, reading
+        // Companion pairing. The rest of the client surface -- reporting presence, reading
         // alerts -- is left alone, so a client somebody points at a demo still works.
         return value.Contains("/client/pair", StringComparison.OrdinalIgnoreCase);
     }

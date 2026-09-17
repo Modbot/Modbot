@@ -18,7 +18,7 @@ namespace Modbot.Core.Data;
 /// whole of it is kept as the world id rather than guessed at.
 /// </para>
 /// <para>
-/// The client has the same grammar in <c>Modbot.Client.Instances.InstanceLocation</c>, with the
+/// The client has the same grammar in <c>Modbot.Companion.Instances.InstanceLocation</c>, with the
 /// qualifiers too. It is not referenced from here on purpose: the sync side needs two columns,
 /// not a routing decision, and a project reference for one split is the wrong price.
 /// </para>

@@ -1,7 +1,7 @@
 namespace Modbot.Cloud.Engine;
 
 /// <summary>
-/// Cloud's names for the events desktop clients send: the same strings a Modbot server stores them
+/// Cloud's names for the events companions send: the same strings a Modbot server stores them
 /// under (foundation 5.3.1), so a trend in Cloud and a chart on a server mean the same thing.
 /// </summary>
 /// <remarks>

@@ -10,7 +10,7 @@
 
 ## 1. Why this exists
 
-Modbot Cloud was built to hold the desktop clients' event backup. Three more things now live in it,
+Modbot Cloud was built to hold the companions' event backup. Three more things now live in it,
 all moved from `my.modbot.co`:
 
 1. **Accounts.** An email address and a password, verified by mail.

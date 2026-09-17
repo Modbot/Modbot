@@ -10,7 +10,7 @@ namespace Modbot.Api.Features.Client.PairingCodes;
 
 /// <param name="Code">
 /// Handed to the browser once and never stored in a form anybody can read back. The pairing page
-/// wraps it, with this server's address, into a <c>modbot-client://</c> link and a pairing token
+/// wraps it, with this server's address, into a <c>modbot-companion://</c> link and a pairing token
 /// the moderator's client redeems within minutes.
 /// </param>
 public sealed record IssuedPairingCode(string Code, DateTimeOffset ExpiresAt);
@@ -47,7 +47,7 @@ public static class PairingCodesEndpoint
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        // Pairing belongs to the desktop client's protocol, and API keys are refused here: left out
+        // Pairing belongs to the companion's protocol, and API keys are refused here: left out
         // of the public API reference.
         var codes = app.MapGroup("/api/client-devices").WithTags(ClientApi.Tag).ExcludeFromDescription();
 
@@ -75,7 +75,7 @@ public static class PairingCodesEndpoint
                 + "browser history, a screenshot or a stream is worthless by the time anybody "
                 + "sees it.\n\n"
                 + "The pairing page wraps it, with this server's address, into a "
-                + "modbot-client:// link and a pairing token. The device token it becomes is long "
+                + "modbot-companion:// link and a pairing token. The device token it becomes is long "
                 + "and never displayed: a credential a human has to read out or retype ends up "
                 + "pasted into a chat message.")
             .Produces<IssuedPairingCode>()

@@ -126,7 +126,7 @@ function Compare() {
     [
       'Who was in the room',
       'You see the people in an instance while you are inside it.',
-      "While a moderator's desktop client is in the room, it reports who arrives and leaves, and Modbot keeps that.",
+      "While a moderator's companion is in the room, it reports who arrives and leaves, and Modbot keeps that.",
     ],
   ]
 
@@ -169,7 +169,7 @@ function Compare() {
 function LiveFacts() {
   const facts: [string, string][] = [
     ['Every open instance', 'Each group instance appears as it opens, with VRChat’s own head count.'],
-    ['Who is inside', 'While a moderator’s desktop client is in the room, you see each person and when they arrived.'],
+    ['Who is inside', 'While a moderator’s companion is in the room, you see each person and when they arrived.'],
     ['Earlier actions stand out', 'People with earlier moderation actions stand out in the list.'],
     ['Refreshes on its own', 'The page refreshes every five seconds, and stops while its tab is hidden.'],
   ]
@@ -355,7 +355,7 @@ function SelfHost() {
               'Every record Modbot keeps is in your database. Evidence files go to an S3-compatible bucket, a mounted folder or that same database.',
               'The server talks to VRChat. It also talks to Discord, to your mail server and to an AI provider when you set each one up. It never contacts modbot.co.',
               'Usage reports have no field for your group or its members, and you can turn them off.',
-              'The desktop client also sends the events it reads from VRChat’s log, for every instance it is in, to Modbot Cloud as a backup. This is on by default, and the client has a switch for it.',
+              'The companion also sends the events it reads from VRChat’s log, for every instance it is in, to Modbot Cloud as a backup. This is on by default, and the client has a switch for it.',
               'PostgreSQL is the only other service it needs.',
             ].map((fact) => (
               <li key={fact} className="border-b py-2.5 text-[0.96875rem] text-pretty">
@@ -404,7 +404,7 @@ function Rules() {
     [
       'The VRChat client',
       [
-        'Modbot does not modify the game. The server reads VRChat’s API the way the VRChat website does, and the desktop client reads the log file VRChat writes on your PC.',
+        'Modbot does not modify the game. The server reads VRChat’s API the way the VRChat website does, and the companion reads the log file VRChat writes on your PC.',
       ],
     ],
     [

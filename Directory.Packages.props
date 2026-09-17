@@ -17,7 +17,7 @@
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <!-- Direct3D 11 interop for the shared texture SteamVR's compositor opens. -->
     <PackageVersion Include="Vortice.Direct3D11" Version="3.8.3" />
-    <!-- The desktop client's installer and updater (M3 spec, "Installing and updating"). Per-user,
+    <!-- The companion's installer and updater (M3 spec, "Installing and updating"). Per-user,
          no administrator rights, delta updates, and the maintained successor to Squirrel. Its
          version is pinned alongside the vpk tool the release workflow installs. -->
     <PackageVersion Include="Velopack" Version="1.2.0" />
@@ -46,7 +46,7 @@
     <PackageVersion Include="Serilog.Expressions" Version="5.0.0" />
     <!-- One log line per HTTP request, replacing the four ASP.NET Core writes by itself. Referenced
          by the web projects only: it carries a reference to the whole ASP.NET Core framework, so it
-         must never reach Modbot.Shared, which the desktop client is built on. -->
+         must never reach Modbot.Shared, which the companion is built on. -->
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Serilog.Formatting.Compact" Version="3.0.0" />

@@ -61,7 +61,7 @@ and gives your staff tools VRChat does not have. One Modbot looks after one grou
 - `/lookup` a person and `/recent` actions, with the same permissions as the web app.
 - Members link their Discord and VRChat accounts.
 
-**The desktop client**
+**The companion**
 
 - Reports who arrives and leaves your group's instances, read from VRChat's own log.
 - A SteamVR overlay that lists the room and warns you when someone with a record walks in.
@@ -111,13 +111,13 @@ no search server, no message broker, no hosted auth.
 Railway, storage buckets, updating, health checks and the rest are in the
 [self-hosting guide](docs/content/docs/self-hosting/index.mdx).
 
-## The desktop client
+## The companion
 
 Each moderator can install a small Windows program that reads VRChat's log while they play and
 reports who comes and goes in your group's instances, plus a SteamVR overlay for the same thing in
 VR. It pairs with your server through [my.modbot.co](https://my.modbot.co) using a one-time link, and
 its token can only report presence and read the room list —
-[installing and pairing](docs/content/docs/desktop-client/install.mdx).
+[installing and pairing](docs/content/docs/companion/install.mdx).
 
 ## Where things live
 
@@ -125,10 +125,10 @@ its token can only report presence and read the room list —
 |---|---|
 | [`src/Modbot.Server`](src/Modbot.Server/README.md) | The server: the API, the web app, the VRChat sync and the Discord bot, in one process |
 | [`src/Modbot.Web`](src/Modbot.Web) | The web app your staff open in a browser, served by the server |
-| [`src/Modbot.Client.App`](src/Modbot.Client.App/README.md) | The Windows desktop client and its SteamVR overlay |
+| [`src/Modbot.Companion.App`](src/Modbot.Companion.App/README.md) | The Windows companion and its SteamVR overlay |
 | [`src/Modbot.Landing`](src/Modbot.Landing/README.md) | `modbot.co`, the landing page |
 | [`src/Modbot.My`](src/Modbot.My/README.md) | `my.modbot.co`, where a moderator finds their server and pairs a client |
-| [`src/Modbot.Cloud`](src/Modbot.Cloud/README.md) | `cloud.modbot.co`, which keeps the desktop clients' backup |
+| [`src/Modbot.Cloud`](src/Modbot.Cloud/README.md) | `cloud.modbot.co`, which keeps the companions' backup |
 | [`docs`](docs/README.md) | The documentation site: hosting, setup, usage and the API reference |
 
 <details>

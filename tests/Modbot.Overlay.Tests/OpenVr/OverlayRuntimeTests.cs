@@ -4,7 +4,7 @@ using Modbot.Overlay.Rendering;
 namespace Modbot.Overlay.Tests.OpenVr;
 
 /// <summary>
-/// Most machines running the Modbot client have no SteamVR and never will — presence coverage
+/// Most machines running the Modbot Companion have no SteamVR and never will — presence coverage
 /// comes from moderators reporting, and only some of them wear a headset. So "no runtime" is the
 /// ordinary case, and it must be a state rather than an error.
 /// </summary>

@@ -411,7 +411,7 @@ files, and sends what it observes to a server. That is, accurately described, th
 The only thing separating Modbot from spyware is that its behaviour is **honest, bounded and
 verifiable** — and a moderator asked to install it is entitled to check rather than trust.
 
-Therefore, in `Modbot.Client` and `Modbot.Overlay` specifically:
+Therefore, in `Modbot.Companion` and `Modbot.Overlay` specifically:
 
 - **Every function that reads from disk, captures data, or transmits it carries a plain-language
   comment** stating what it reads, why, what leaves the machine, and what does not. Written for a

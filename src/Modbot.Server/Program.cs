@@ -228,7 +228,7 @@ try
         builder.Services.AddSingleton<IDiscordMessenger, DemoDiscordMessenger>();
 
     // Where this server talks to Modbot Cloud for its own purposes, and whether it does, from
-    // MODBOT_CLOUD_ENDPOINT and MODBOT_CLOUD_DISABLED (central services spec 1.1). Desktop clients
+    // MODBOT_CLOUD_ENDPOINT and MODBOT_CLOUD_DISABLED (central services spec 1.1). Companions
     // are never told it: they have their own settings.
     var cloud = ModbotCloudAddress.From(env);
     builder.Services.AddSingleton(cloud);

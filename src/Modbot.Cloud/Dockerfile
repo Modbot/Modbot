@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
 # cloud.modbot.co: accounts, the Modbot server registry, the term lists, the event backup API
-# desktop clients send to, and /admin.
+# companions send to, and /admin.
 #
 # Build from the repository root, like the other images, because package versions are pinned once in
 # Directory.Packages.props:

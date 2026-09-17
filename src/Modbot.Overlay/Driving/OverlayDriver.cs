@@ -1,6 +1,6 @@
-using Modbot.Client.Ingest;
-using Modbot.Client.Instances;
-using Modbot.Client.Overlay;
+using Modbot.Companion.Ingest;
+using Modbot.Companion.Instances;
+using Modbot.Companion.Overlay;
 using Modbot.Core.Time;
 using Modbot.Overlay.Views;
 

@@ -112,7 +112,7 @@ log on that moderator's PC and sends us the events in it: someone joined an inst
 seen there, someone left, someone changed avatar. Each event carries the person's VRChat id, their
 display name, the world and the instance — **including you, if you were in a room with that
 moderator, and including rooms that have nothing to do with the group.** No raw log lines, no chat,
-no friends list. See [What the desktop client sends](#what-does-the-desktop-client-send) for what it
+no friends list. See [What the companion sends](#what-does-the-companion-send) for what it
 is and how it is turned off. We keep these events for 365 days.
 
 **To modbot.co, if the group left the open rooms setting on.** A group whose Modbot has this on
@@ -193,7 +193,7 @@ document changes with it.
 Set `MODBOT_CLOUD_DISABLED=1` (or `true`, `yes`, `on`) and your server talks to Modbot Cloud not at
 all, whatever any setting says. It beats the open rooms setting.
 
-It applies to your server only. **It does not reach the desktop clients paired with it** — a client's
+It applies to your server only. **It does not reach the companions paired with it** — a client's
 Cloud settings live on the moderator's own PC and your server has no say in them.
 
 ## What about my.modbot.co?
@@ -222,7 +222,7 @@ to us and which list it asked for.
 This download is a separate setting from `MODBOT_CLOUD_DISABLED`, and is not stopped by it today.
 Don't import a shared list and nothing is downloaded.
 
-## What does the desktop client send?
+## What does the companion send?
 
 The Windows client is a separate program a moderator installs on their own PC. **By default it sends
 every instance event it reads to Modbot Cloud** — someone joined, someone was seen, someone left,
@@ -273,7 +273,7 @@ You are the one handing data to each of these. Their privacy policies are theirs
 - **docs.modbot.co** serves documentation. Same: no cookies, no analytics script.
 - **my.modbot.co** stores what [What about my.modbot.co?](#what-about-mymodbotco) describes,
   including visitor IP addresses.
-- **cloud.modbot.co** stores desktop client registrations (a random id, a version, the word
+- **cloud.modbot.co** stores companion registrations (a random id, a version, the word
   `windows`) and the events those clients send, for 365 days, and the open rooms reports described
   above.
 

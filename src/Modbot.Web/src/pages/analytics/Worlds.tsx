@@ -11,7 +11,7 @@ const THIN = 200
 /**
  * Worlds -- which of our worlds actually get used? (spec 10.1)
  *
- * Time and visitors come from the desktop client's presence reports, which exist only while a
+ * Time and visitors come from the companion's presence reports, which exist only while a
  * moderator's client is in the instance. A world nobody with the client visited reads as empty
  * however busy it was, and the page says so rather than letting a zero pass as a measurement.
  * Instances opened per world come from the audit log and are complete.

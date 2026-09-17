@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Modbot.Cloud.Engine;
 
 /// <summary>
-/// One presence event a desktop client backed up. The table is <c>client_event</c>.
+/// One presence event a companion backed up. The table is <c>client_event</c>.
 /// </summary>
 /// <remarks>
 /// <para>

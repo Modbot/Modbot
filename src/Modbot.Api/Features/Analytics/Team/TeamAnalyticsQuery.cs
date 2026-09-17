@@ -17,7 +17,7 @@ namespace Modbot.Api.Features.Analytics.Team;
 /// </para>
 /// <para>
 /// <strong>How coverage is decided.</strong> Every presence report comes from a moderator's
-/// desktop client, so a client reporting from an instance is proof a moderator is in it — that
+/// companion, so a client reporting from an instance is proof a moderator is in it — that
 /// signal needs no roster at all. A roster is still built (moderation roles from the group
 /// snapshot, people who have taken moderation actions, the owner) so that a moderator who is
 /// seen by <em>somebody else's</em> client also counts as cover. A gap begins at the moment the

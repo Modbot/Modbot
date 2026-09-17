@@ -33,7 +33,7 @@ changes.**
 - the rest of VRChat's group audit log: instance kicks and warns, join requests, group posts,
   instances opened and closed, calendar events, changes to group details;
 - profile changes and the 18+ verified mark, including changes a moderator made by hand;
-- instance joins, leaves, avatar changes and "already here" reports from desktop clients;
+- instance joins, leaves, avatar changes and "already here" reports from companions;
 - Discord joins, leaves, bans, kicks, timeouts, nickname and role changes, voice, deleted
   messages, and channel and role changes;
 - Discord account links, and the roles given or taken because of them;
@@ -69,7 +69,7 @@ The sources:
 |---|---|
 | **VRChat** | VRChat's own group audit log. Exact. |
 | **Sync** | Modbot noticed a difference between two reads of the member or ban list. It has a time window and no "who". |
-| **Client** | A moderator's desktop client. |
+| **Client** | A moderator's companion. |
 | **Discord** | Seen by the Discord bot. |
 | **Manual** | Entered by a person through Modbot, such as a case file or a change to the 18+ verified mark. |
 | **Modbot** | Something that happened inside Modbot, such as a sign-in or a settings change. |
@@ -110,7 +110,7 @@ Modbot reads VRChat's group audit log every 8 seconds while things are happening
 comes in, it slows down step by step, to once every 5 minutes at the slowest. These are the
 defaults; **Settings**, **Sync**, **Group audit log** shows the numbers your Modbot uses.
 
-Desktop client and Discord entries arrive as they are reported.
+Companion and Discord entries arrive as they are reported.
 
 ## What the audit log does not contain
 

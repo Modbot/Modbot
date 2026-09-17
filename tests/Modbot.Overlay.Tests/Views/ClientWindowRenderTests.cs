@@ -1,10 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
-using Modbot.Client.Ingest;
-using Modbot.Client.Journal;
-using Modbot.Client.Pipeline;
-using Modbot.Client.Presentation;
+using Modbot.Companion.Ingest;
+using Modbot.Companion.Journal;
+using Modbot.Companion.Pipeline;
+using Modbot.Companion.Presentation;
 using Modbot.Overlay.Rendering;
 
 namespace Modbot.Overlay.Tests.Views;

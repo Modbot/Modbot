@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Modbot.Cloud.Engine;
 
 /// <summary>
-/// The event storage, from <c>DATABASE_ENGINE_URL</c>: the presence events desktop clients back up,
+/// The event storage, from <c>DATABASE_ENGINE_URL</c>: the presence events companions back up,
 /// each install's clock, and the daily and hourly totals.
 /// </summary>
 /// <remarks>

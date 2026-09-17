@@ -11,8 +11,8 @@
 #
 # `latest` is a named release and nothing else, so an operator who pulls it gets a version somebody
 # chose to name. `edge` follows master. The version after `host-v` is stamped into the build
-# (ModbotVersion.Release, the assembly version, the Deployment card), the same way client-v tags
-# name the desktop client, so the tag is the one place a server release is named.
+# (ModbotVersion.Release, the assembly version, the Deployment card), the same way companion-v tags
+# name the companion, so the tag is the one place a server release is named.
 #
 # The package takes the repository's visibility. While the repository is private, pulling needs
 # `docker login ghcr.io` with a token that can read packages; docs/content/docs/self-hosting/docker.mdx

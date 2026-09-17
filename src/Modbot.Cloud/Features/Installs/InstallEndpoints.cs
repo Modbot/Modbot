@@ -28,7 +28,7 @@ public sealed class RegistrationLimit(TimeProvider time)
 }
 
 /// <summary>
-/// <c>POST /api/v1/installs</c>: a desktop client gets an install id and a secret.
+/// <c>POST /api/v1/installs</c>: a companion gets an install id and a secret.
 /// </summary>
 /// <remarks>
 /// <para>

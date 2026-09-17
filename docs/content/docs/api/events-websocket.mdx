@@ -261,7 +261,7 @@ Every event has this shape. Webhooks and long polling send exactly the same thin
 | `type_raw` | For an event VRChat reported that Modbot has no name for: the word VRChat used. Otherwise null. |
 | `label` | A short English label for the type, such as `Banned`. |
 | `category` | `moderation` or `operational`: which of the two logs it belongs to. |
-| `source` | Where Modbot learned of it: `AuditLog` (VRChat's group audit log), `SyncDiff` (noticed by comparing two syncs), `Client` (a moderator's desktop client), `Discord`, `Manual` (entered by a person in Modbot) or `Modbot` (Modbot's own record, such as sign-ins). |
+| `source` | Where Modbot learned of it: `AuditLog` (VRChat's group audit log), `SyncDiff` (noticed by comparing two syncs), `Client` (a moderator's companion), `Discord`, `Manual` (entered by a person in Modbot) or `Modbot` (Modbot's own record, such as sign-ins). |
 | `occurred_at` | When it happened. |
 | `occurred_before` | Null when the time is exact. Otherwise it happened somewhere between `occurred_at` and this time, for example when a change was noticed between two syncs. |
 | `observed_at` | When Modbot learned of it. |

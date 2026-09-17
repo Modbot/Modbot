@@ -133,7 +133,7 @@ public static class DailyTotalMetrics
     public const string WorldInstances = "worlds.instances";
 
     /// <summary>
-    /// Distinct people seen in each world per day, from the desktop client's presence reports.
+    /// Distinct people seen in each world per day, from the companion's presence reports.
     /// </summary>
     /// <remarks>
     /// Presence facts are the retention class an operator may age out (spec 5.5); this row is

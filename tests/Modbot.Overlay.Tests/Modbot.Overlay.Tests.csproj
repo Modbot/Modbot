@@ -15,7 +15,7 @@
     <!-- Linked rather than copied. The whole point of the end-to-end test is that the overlay is
          driven by the log VRChat actually wrote, and a second copy of a fixture is a second copy
          that can quietly drift from the first. -->
-    <Content Include="..\Modbot.Client.Tests\Fixtures\behaviour-2026-09-03.txt"
+    <Content Include="..\Modbot.Companion.Tests\Fixtures\behaviour-2026-09-03.txt"
              Link="Fixtures\behaviour-2026-09-03.txt"
              CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

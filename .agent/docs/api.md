@@ -46,7 +46,7 @@ Never put a key in an address (`?key=…`). Addresses end up in logs.
   working.
 - Anything done with a key is recorded as done **by you**.
 - A key **cannot** change your password, username or contact details, sign you out, link a VRChat
-  account, run the setup wizard, or pair a desktop client — whatever permissions it holds.
+  account, run the setup wizard, or pair a companion — whatever permissions it holds.
 - A key can have an **expiry date**. After it, the key stops working.
 - **Revoke** a key in the list and it stops working on its next request.
 

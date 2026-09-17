@@ -96,7 +96,7 @@ public static class VRChatUserEndpoints
             .WithName("GetVRChatUserMetrics")
             .WithSummary("How long this person has been seen in world, where, and how often")
             .WithDescription(
-                "Computed from the desktop client's presence reports, so it only covers time a "
+                "Computed from the companion's presence reports, so it only covers time a "
                 + "moderator's client was in the same room. Somebody who has never shared a room "
                 + "with the client reads as nothing here, which is not the same as never having "
                 + "been in one — and the screen says so.\n\n"

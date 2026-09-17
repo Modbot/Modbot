@@ -1,8 +1,8 @@
 using Avalonia.Controls;
-using Modbot.Client.Ingest;
-using Modbot.Client.LogReading;
-using Modbot.Client.Overlay;
-using Modbot.Client.Pipeline;
+using Modbot.Companion.Ingest;
+using Modbot.Companion.LogReading;
+using Modbot.Companion.Overlay;
+using Modbot.Companion.Pipeline;
 using Modbot.Overlay.Driving;
 using Modbot.Overlay.OpenVr;
 using Modbot.Overlay.Rendering;

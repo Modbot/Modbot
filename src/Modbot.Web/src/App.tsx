@@ -234,7 +234,7 @@ export default function App() {
 
   // Signed in, set up, but not yet linked to a VRChat account: the one page they can use
   // (design §4.3). The wizard handles this for the first administrator; this is everybody after.
-  // It comes before the pairing page on purpose: a desktop client reports presence under the
+  // It comes before the pairing page on purpose: a companion reports presence under the
   // moderator's VRChat identity, so an unlinked account has nothing to pair as yet.
   if (!me.vrChatLinked) return <LinkVRChat me={me} onLinked={() => void refresh()} />
 

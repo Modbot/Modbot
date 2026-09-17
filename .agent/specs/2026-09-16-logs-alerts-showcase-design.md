@@ -368,5 +368,5 @@ log going to Cloud, and stops the Credits page asking for the showcase.
 ## 9. What is not built
 
 - **Trends over the stored logs.** Nothing reads `instance_log` but the viewer and retention.
-- **Anything on the desktop client.** Its log stays on the moderator's PC (M3 §10); this feature is
+- **Anything on the companion.** Its log stays on the moderator's PC (M3 §10); this feature is
   about servers.

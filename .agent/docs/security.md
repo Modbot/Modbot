@@ -133,7 +133,7 @@ secrets to leak, and adding one is deliberately not an option.
 `MODBOT_DEBUG_LOGGING` additionally enables the Debug log streams. It is a diagnostic switch, not
 configuration. So are `CONSOLE_LOG_MODE` (`serilog`, `json` or `railway_json` — the shape of the
 console output, and nothing else) and `LOG_LEVEL` (the lowest level recorded anywhere). Both are read
-by every Modbot program, including the desktop client. Neither changes what is written down, only
+by every Modbot program, including the companion. Neither changes what is written down, only
 where it is legible and how much of it there is: turning on `railway_json` puts the same properties
 in a log explorer that were already going to Seq, so a log destination that was safe to read stays
 exactly as sensitive as it was.
@@ -146,7 +146,7 @@ Two more are about your server and Modbot Cloud:
 | `MODBOT_CLOUD_DISABLED` | set to `1` and this server does not talk to Modbot Cloud at all |
 
 Your server does not use Modbot Cloud for anything yet. Neither variable reaches your moderators'
-desktop clients. Each client sends the events it records, for every instance its moderator is in,
+companions. Each client sends the events it records, for every instance its moderator is in,
 straight to Modbot Cloud (`https://cloud.modbot.co`), whether or not it is paired, unless the person
 using that PC turns it off in the client's `settings.json` or with the same two variable names set on
 their own PC. Your server still only receives your group's events, and has no say in the backup.

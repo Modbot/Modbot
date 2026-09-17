@@ -27,7 +27,7 @@ public sealed class AnalyticsSql(ModbotContext db)
 {
     public ModbotContext Db => db;
 
-    /// <summary>The three fact types a desktop client reports about who is in an instance.</summary>
+    /// <summary>The three fact types a companion reports about who is in an instance.</summary>
     public static readonly string[] PresenceTypes =
     [
         FactType.InstanceJoined,

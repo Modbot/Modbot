@@ -6492,7 +6492,7 @@
           "Analytics"
         ],
         "summary": "My Team: who is doing the moderation work, and when is nobody covering?",
-        "description": "Actions per moderator broken down by kind and over time, from daily totals; and coverage gaps -- stretches when people were in a group instance and no moderator was, computed from the desktop client's presence reports. A moderator is present when a paired client is reporting from the instance or when somebody recognised as a moderator (holds a role with moderation permissions, or has taken a moderation action) is seen there. Moderators without the client are not seen at all.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "Actions per moderator broken down by kind and over time, from daily totals; and coverage gaps -- stretches when people were in a group instance and no moderator was, computed from the companion's presence reports. A moderator is present when a paired client is reporting from the instance or when somebody recognised as a moderator (holds a role with moderation permissions, or has taken a moderation action) is seen there. Moderators without the client are not seen at all.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetTeamAnalytics",
         "parameters": [
           {
@@ -6575,7 +6575,7 @@
           "Analytics"
         ],
         "summary": "Worlds: which of our worlds actually get used?",
-        "description": "Time people were seen in each world, distinct visitors and instances opened, plus visitors per day per world from daily totals. Time and visitors come from presence reports, which exist only while a moderator's desktop client is in the instance.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "Time people were seen in each world, distinct visitors and instances opened, plus visitors per day per world from daily totals. Time and visitors come from presence reports, which exist only while a moderator's companion is in the instance.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetWorldsAnalytics",
         "parameters": [
           {
@@ -7920,7 +7920,7 @@
           "VRChat users"
         ],
         "summary": "How long this person has been seen in world, where, and how often",
-        "description": "Computed from the desktop client's presence reports, so it only covers time a moderator's client was in the same room. Somebody who has never shared a room with the client reads as nothing here, which is not the same as never having been in one — and the screen says so.\n\nGated on ViewProfile rather than ViewAnalytics: this is one person's own record rather than an aggregate, and it sits beside the rest of their profile.\n\nNeeds the `ViewProfile` permission.",
+        "description": "Computed from the companion's presence reports, so it only covers time a moderator's client was in the same room. Somebody who has never shared a room with the client reads as nothing here, which is not the same as never having been in one — and the screen says so.\n\nGated on ViewProfile rather than ViewAnalytics: this is one person's own record rather than an aggregate, and it sits beside the rest of their profile.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetVRChatUserMetrics",
         "parameters": [
           {

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Modbot.Client\Modbot.Client.csproj" />
+    <ProjectReference Include="..\Modbot.Companion\Modbot.Companion.csproj" />
   </ItemGroup>
 
   <ItemGroup>

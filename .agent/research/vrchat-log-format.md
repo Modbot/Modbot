@@ -9,7 +9,7 @@
 VRChat's log format is undocumented and can change without notice (M3 §2.1). This file is the record
 of what has actually been observed, so a format break can be diagnosed against a known baseline
 rather than from memory. **Every confirmed line shape should gain a fixture in
-`tests/Modbot.Client.Tests/Fixtures/`.**
+`tests/Modbot.Companion.Tests/Fixtures/`.**
 
 ---
 

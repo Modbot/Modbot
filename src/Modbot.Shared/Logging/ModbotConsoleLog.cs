@@ -13,7 +13,7 @@ namespace Modbot.Core.Logging;
 /// <remarks>
 /// <para>
 /// This lives in Modbot.Shared rather than Modbot.Core because all five programs need it — the
-/// server, my.modbot.co, Modbot Cloud, the landing page and the desktop client — and Modbot.Core
+/// server, my.modbot.co, Modbot Cloud, the landing page and the companion — and Modbot.Core
 /// carries Entity Framework, Npgsql and data protection, which three of them have no use for and
 /// the client refuses on principle (see Modbot.Shared.csproj). Modbot.Shared gains four small
 /// Serilog packages and no framework of any kind.

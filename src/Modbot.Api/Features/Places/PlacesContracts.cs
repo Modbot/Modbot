@@ -5,7 +5,7 @@ using Modbot.Api.Features.Audit;
 namespace Modbot.Api.Features.Places;
 
 /// <summary>
-/// What the desktop client's presence reports say about a place.
+/// What the companion's presence reports say about a place.
 /// </summary>
 /// <remarks>
 /// All four numbers are bounded by who was watching: they exist only while a moderator's client

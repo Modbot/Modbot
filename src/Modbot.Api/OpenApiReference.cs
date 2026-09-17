@@ -23,7 +23,7 @@ namespace Modbot.Api;
 /// </para>
 /// <para>
 /// Endpoints that are not for other programs are left out where they are mapped, with
-/// <c>ExcludeFromDescription</c>: the setup wizard, the desktop client's protocol and pairing, the
+/// <c>ExcludeFromDescription</c>: the setup wizard, the companion's protocol and pairing, the
 /// member-facing Discord link page, and the sync pacing internals.
 /// </para>
 /// </remarks>

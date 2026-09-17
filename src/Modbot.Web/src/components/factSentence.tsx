@@ -340,7 +340,7 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
-  // ── VRChat: presence, from a moderator's desktop client ─────────────────────────────────────
+  // ── VRChat: presence, from a moderator's companion ─────────────────────────────────────
   'vrchat.instance.join': (p) => <>{p.subject} arrived in {p.place ?? 'a room'}.</>,
   'vrchat.instance.leave': (p) => <>{p.subject} left {p.place ?? 'a room'}.</>,
 

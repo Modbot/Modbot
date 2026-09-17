@@ -261,7 +261,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     {
         // Every DateTimeOffset reaches PostgreSQL as UTC. Npgsql refuses any other offset for a
         // "timestamp with time zone" -- the column holds an instant, not a clock reading -- and
-        // the values that arrive here are not all UTC: the desktop client reports what VRChat's
+        // the values that arrive here are not all UTC: the companion reports what VRChat's
         // log says, and VRChat's log is in the player's local time. The first live client batch
         // failed the fact writer's dedup lookup with "Cannot write DateTimeOffset with
         // Offset=-05:00". Converting at the boundary means no caller has to remember, and it

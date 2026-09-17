@@ -1,4 +1,4 @@
-using Modbot.Client.Overlay;
+using Modbot.Companion.Overlay;
 
 namespace Modbot.Overlay.Views;
 

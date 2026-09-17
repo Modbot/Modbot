@@ -308,7 +308,7 @@ public sealed class DemoHistory
                 };
             }
 
-            // Presence, as a moderator's desktop client reports it. The Live page reads these and
+            // Presence, as a moderator's companion reports it. The Live page reads these and
             // nothing else, and only counts a report from a paired client whose owner has linked a
             // VRChat account -- so every report names one of the demo's own devices (§4.4).
             var device = DemoSeeder.DeviceIdOf(room.OpenedBy).ToString();

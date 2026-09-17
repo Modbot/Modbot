@@ -190,6 +190,6 @@ public sealed class PublicRoomsSender
         }
     }
 
-    /// <summary>32 random bytes as base64url, the same shape a desktop client's install secret has.</summary>
+    /// <summary>32 random bytes as base64url, the same shape a companion's install secret has.</summary>
     private static string NewSecret() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
 }

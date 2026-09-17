@@ -17,7 +17,7 @@ namespace Modbot.Overlay;
 /// to do by a server.</para>
 /// <para><strong>It works without a headset.</strong> With no SteamVR the runtime reports a state,
 /// the compositor still draws into the texture, and nothing fails — which matters because most
-/// machines running the Modbot client are reporting presence from the desktop.</para>
+/// machines running the Modbot Companion are reporting presence from the desktop.</para>
 /// </remarks>
 public sealed class OverlayHost : IOverlayPresenter, IDisposable
 {

@@ -2,7 +2,7 @@
 
 Modbot Cloud (`cloud.modbot.co`):
 
-- receives the desktop clients' event backup and the log each Modbot deployment sends, and keeps both
+- receives the companions' event backup and the log each Modbot deployment sends, and keeps both
 - watches each of those deployments from outside and emails somebody when one goes quiet
 - takes each Modbot server's report of the rooms its group has open to everyone
 - holds **accounts** — an email address and a password, confirmed by mail

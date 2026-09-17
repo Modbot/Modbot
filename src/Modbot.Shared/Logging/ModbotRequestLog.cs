@@ -16,7 +16,7 @@ namespace Modbot.Core.Logging;
 /// The policy lives here, and each service spends four lines wiring it to
 /// <c>UseSerilogRequestLogging</c>. It is not a shared extension method because the method would
 /// need Serilog.AspNetCore, which carries a reference to the whole ASP.NET Core framework, and
-/// Modbot.Shared is also what the desktop client is built on — a tray application should not ship a
+/// Modbot.Shared is also what the companion is built on — a tray application should not ship a
 /// web server (see Modbot.Shared.csproj).
 /// </para>
 /// </remarks>

@@ -5,7 +5,7 @@ description: See your group's open instances right now, how many people are in e
 
 The **Live** page lists every instance your group has open right now. Each card shows the world,
 the instance number, who can join, the region and how many people are inside. When a moderator
-with the desktop client is in an instance, the card also lists who is there.
+with the companion is in an instance, the card also lists who is there.
 
 Live needs the [**See live instances**](/accounts/roles-and-permissions#see-live-instances)
 permission. Without it, **Live** does not appear in the sidebar.
@@ -18,7 +18,7 @@ Every open group instance gets a card, whether or not anybody from your team is 
 - **The instance number.** Click it to open the [instance popup](/moderation/popups#instance-popup).
   Beside it: who can join (**Group members**, **Members and friends** or **Anyone**) and the region.
 - **The head count**, on the right. A dash means Modbot has no number for it yet.
-- **Watching.** The moderators whose desktop client is in the instance right now, or
+- **Watching.** The moderators whose companion is in the instance right now, or
   **Nobody watching**.
 - **Here now.** Only while somebody is watching: everyone in the instance, with a count. Each name
   opens the [person popup](/moderation/popups#person-popup).
@@ -47,11 +47,11 @@ Two kinds of source feed this page, and they answer different questions.
 |---|---|---|
 | Which instances are open | Modbot asks VRChat for your group's instance list | Every 10 seconds |
 | Head count | Each instance's own VRChat page | About every 30 seconds per instance |
-| Who is inside | The desktop clients of moderators who are in the instance | As each client reports |
+| Who is inside | The companions of moderators who are in the instance | As each client reports |
 | World name and picture | VRChat's world page, read when Modbot first sees the world | Once, and again if the world turns up in a new instance 30 days or more later |
 
 VRChat tells Modbot how many people are in an instance, but not who they are. So every card has a
-head count, and names only appear when a moderator's desktop client is inside.
+head count, and names only appear when a moderator's companion is inside.
 
 If an instance's own page cannot be read, or the last good read is more than two minutes old,
 Modbot shows the number from the group's instance list instead. That number may leave some people
@@ -66,10 +66,10 @@ within about 10 seconds.
 
 ## When a moderator counts as watching
 
-Watching starts when **your own** desktop client reports that **you** are in the instance. For
+Watching starts when **your own** companion reports that **you** are in the instance. For
 that to work:
 
-1. The desktop client is installed and [paired](/desktop-client/pairing) to your Modbot account.
+1. The companion is installed and [paired](/companion/pairing) to your Modbot account.
 2. Your Modbot account is [linked to your VRChat account](/accounts/staff-accounts#linking-a-vrchat-account-required).
 3. You are in VRChat, in that instance.
 
@@ -88,7 +88,7 @@ eight.
 
 ## Common problems
 
-**It says Nobody watching, but I am in the instance.** Check that the desktop client is running,
+**It says Nobody watching, but I am in the instance.** Check that the companion is running,
 paired and not paused, and that your Modbot account is linked to the VRChat account you are
 playing on. A client paired to somebody else's Modbot account does not make you a watcher.
 

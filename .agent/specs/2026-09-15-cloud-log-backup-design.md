@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-15 (revised twice the same day; see §0)
 - **Status:** Building
-- **Covers:** the desktop client's event backup to Modbot Cloud, its settings on the client's PC, and the
+- **Covers:** the companion's event backup to Modbot Cloud, its settings on the client's PC, and the
   event storage it sends to in Modbot Cloud (`src/Modbot.Cloud`)
 - **Depends on:** foundation §4.4 (one clock), §5.3 (fact schema), §5.5 (retention); client protocol
   §4–§5; M3 §3
@@ -17,14 +17,14 @@ The first version of this spec sent **every raw VRChat log line** to Cloud. That
 The maintainer's words:
 
 > "Modbot deployed instances feed structured JSON logs to Modbot Cloud for remote support and backups,
-> and Modbot Clients also send their parsed events to Modbot Cloud as a backup instead of just Modbot,
+> and Modbot Companions also send their parsed events to Modbot Cloud as a backup instead of just Modbot,
 > but it has all instances logged instead of just that group's instances."
 
 So there are two halves of Modbot Cloud, and this spec builds one:
 
 | Half | What | Status |
 |---|---|---|
-| **Client event backup** | Each desktop client sends the presence events it already parses — the same ones it sends a paired Modbot server — for **every** instance, not only the group's. | This spec. |
+| **Client event backup** | Each companion sends the presence events it already parses — the same ones it sends a paired Modbot server — for **every** instance, not only the group's. | This spec. |
 | **Server log feed** | Each Modbot deployment sends its own structured JSON logs to Cloud, for remote support and backups. | **Built**, 2026-09-16, in `2026-09-16-logs-alerts-showcase-design.md`. It lives in the engine database beside these events, partitioned by month. |
 
 Raw log lines were never asked for. Nothing in Cloud or the client sends, stores or reads them.
@@ -38,7 +38,7 @@ stopped the client sending, and a client held sending until its paired servers h
 client also had a switch, "Send all logging to Modbot Cloud as backup", on its Settings page. That was
 wrong too. The maintainer's words:
 
-> "Modbot Client -> sends directly to cloud.modbot.co all instance events regardless of group to
+> "Modbot Companion -> sends directly to cloud.modbot.co all instance events regardless of group to
 > cloud.modbot.co, and sends each group's own logs to modbot.group-endpoint.com (whatever their paired
 > server URL is). Also remove the setting from UI and add it to settings.json and reading from
 > environment variable MODBOT_CLOUD_ENDPOINT (and settings.json) and MODBOT_CLOUD_DISABLED env var"
@@ -56,7 +56,7 @@ So:
 
 ## 1. What this is
 
-The desktop client reads VRChat's output log and turns it into presence events: someone joined, was
+The companion reads VRChat's output log and turns it into presence events: someone joined, was
 already here, left, changed avatar, or VRChat's log stopped. Today those go to a paired Modbot server, and
 only for that server's group's instances.
 
@@ -293,7 +293,7 @@ occurred_at)`** for anything the totals do not answer, and to rebuild them.
 
 ## 10. Privacy facts for the privacy policy
 
-1. **The Modbot Client sends its presence events to Modbot Cloud by default**: who joined, was already
+1. **The Modbot Companion sends its presence events to Modbot Cloud by default**: who joined, was already
    there, left, or changed avatar, and when VRChat's log stopped. It is on unless you turn it off in the
    client's `settings.json` or with the `MODBOT_CLOUD_DISABLED` environment variable on your PC, and
    restart the client. Starting with it off deletes what was queued and not yet sent.

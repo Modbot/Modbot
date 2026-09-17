@@ -38,7 +38,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-}
       # Which Modbot Cloud this server talks to for its own use, and whether it does at all. Set
       # MODBOT_CLOUD_DISABLED=1 for no report every six hours, no term list downloads, no rooms
-      # listed on modbot.co and no log sent for support. Not passed to desktop clients, which keep
+      # listed on modbot.co and no log sent for support. Not passed to companions, which keep
       # their own Cloud settings.
       MODBOT_CLOUD_ENDPOINT: ${MODBOT_CLOUD_ENDPOINT:-}
       MODBOT_CLOUD_DISABLED: ${MODBOT_CLOUD_DISABLED:-}

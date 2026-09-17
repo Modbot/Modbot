@@ -72,7 +72,7 @@ public static class ClientApi
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        // The desktop client's protocol, not an API for other programs: left out of the public API
+        // The companion's protocol, not an API for other programs: left out of the public API
         // reference, which documents what an API key can reach. Device tokens are not API keys.
         var client = app.MapGroup("/api/v{apiVersion:int}/client").WithTags(Tag).ExcludeFromDescription();
 

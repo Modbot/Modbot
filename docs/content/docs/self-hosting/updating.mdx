@@ -97,7 +97,7 @@ code you are running.
 
 ### The API version
 
-A whole number that only goes up when something the desktop client depends on changes in a way older
+A whole number that only goes up when something the companion depends on changes in a way older
 clients cannot handle. It does not change with every release.
 
 Each server speaks a range of API versions, not just one. `GET /api/version` returns it:
@@ -110,17 +110,17 @@ Each server speaks a range of API versions, not just one. `GET /api/version` ret
 }
 ```
 
-A desktop client picks the highest version both sides speak. The project's rule is that a server
+A companion picks the highest version both sides speak. The project's rule is that a server
 keeps speaking the current API version and at least the two before it, and never drops one less
-than 12 months old. That is why installing the newest desktop client is always the right choice,
+than 12 months old. That is why installing the newest companion is always the right choice,
 even for a moderator whose groups run Modbots on different versions.
 
 If a client and a server have no version in common, the client is told
 `This server speaks API versions` followed by the range.
 
-## The desktop client updates separately
+## The companion updates separately
 
-Updating your server does not update anyone's desktop client. Because servers speak a range of API
+Updating your server does not update anyone's companion. Because servers speak a range of API
 versions, a client does not need to match the server's release. The client checks for its own
 updates. See
-[Installing the desktop client](/desktop-client/install).
+[Installing the companion](/companion/install).

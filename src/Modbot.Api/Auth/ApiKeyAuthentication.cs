@@ -227,7 +227,7 @@ public static class ApiKeyAuthentication
     /// <remarks>
     /// <c>/api/auth</c> is a person's own account -- a key must not be able to change its owner's
     /// password or sign them out -- except "whose key is this". <c>/api/onboarding</c> is the setup
-    /// wizard. Pairing codes are a moderator enrolling their own machine. The desktop client's
+    /// wizard. Pairing codes are a moderator enrolling their own machine. The companion's
     /// routes take device tokens, and the two are never interchangeable.
     /// </remarks>
     public static bool KeysMayNotUse(HttpRequest request)
@@ -246,7 +246,7 @@ public static class ApiKeyAuthentication
         if (path.StartsWithSegments("/api/onboarding", StringComparison.OrdinalIgnoreCase))
             return true;
 
-        // Pairing a desktop client is a moderator's own decision on their own machine (M3), and a
+        // Pairing a companion is a moderator's own decision on their own machine (M3), and a
         // key minting pairing codes would turn one credential into another.
         if (path.StartsWithSegments("/api/client-devices/pairing-code", StringComparison.OrdinalIgnoreCase))
             return true;

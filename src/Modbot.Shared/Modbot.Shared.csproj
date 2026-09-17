@@ -2,7 +2,7 @@
 
   <!--
     The few types both halves of Modbot need: the clock the whole codebase reads time from, the
-    version numbers, and how a log line is written. The desktop client references this and not
+    version numbers, and how a log line is written. The companion references this and not
     Modbot.Core, because Core carries Entity Framework, Npgsql and data protection, a server's
     dependencies, and a tray application that pulled those in took a minute to restore on a fresh
     machine for three types it could have had for free.
