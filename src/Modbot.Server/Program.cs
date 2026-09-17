@@ -252,11 +252,15 @@ try
 
     // The one fetch the MCP sign-in makes: an AI app's published metadata document, when the
     // app identifies itself by an address rather than by registering.
+    // The address is a stranger's, so the fetch may only go to the public internet: no
+    // redirects (a public address could send it somewhere private), and every connection is
+    // made to an address checked at the moment of connecting.
     builder.Services.AddHttpClient(Modbot.Api.Features.Mcp.McpClientDocuments.HttpClientName, client =>
-    {
-        client.Timeout = TimeSpan.FromSeconds(5);
-        client.MaxResponseContentBufferSize = Modbot.Api.Features.Mcp.McpClientDocuments.MaxDocumentBytes;
-    });
+        {
+            client.Timeout = TimeSpan.FromSeconds(5);
+            client.MaxResponseContentBufferSize = Modbot.Api.Features.Mcp.McpClientDocuments.MaxDocumentBytes;
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => Modbot.Api.Features.Mcp.McpClientDocuments.PublicOnlyHandler());
     builder.Services.AddScoped<ServerReporter>();
 
     // A demo reports nothing. Its figures are made up and its group is somebody else's.

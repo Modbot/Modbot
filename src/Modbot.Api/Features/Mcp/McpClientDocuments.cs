@@ -80,19 +80,53 @@ public static class McpClientDocuments
         return known;
     }
 
-    /// <summary>An HTTPS address with a host and no fragment or user part, as the specification asks.</summary>
+    /// <summary>
+    /// An HTTPS address on the usual port with a host name and no fragment or user part, as the
+    /// specification asks. A bare IP address is not a client: a published identity has a name.
+    /// </summary>
     public static bool IsDocumentAddress(string clientId, out Uri address)
     {
         address = null!;
         if (!Uri.TryCreate(clientId, UriKind.Absolute, out var parsed))
             return false;
 
-        if (parsed.Scheme != Uri.UriSchemeHttps || parsed.Host.Length == 0 || parsed.Fragment.Length > 0 || parsed.UserInfo.Length > 0)
+        if (parsed.Scheme != Uri.UriSchemeHttps || parsed.HostNameType != UriHostNameType.Dns
+            || parsed.Host.Length == 0 || !parsed.IsDefaultPort || parsed.Fragment.Length > 0 || parsed.UserInfo.Length > 0)
             return false;
 
         address = parsed;
         return true;
     }
+
+    /// <summary>
+    /// The handler the fetch goes through: no redirects, and each connection made only to an
+    /// address of the name that is public at the moment of connecting
+    /// (<see cref="PublicAddresses"/>), so neither a redirect nor a name that resolves
+    /// differently the second time can send the fetch inside this server's network.
+    /// </summary>
+    public static SocketsHttpHandler PublicOnlyHandler() => new()
+    {
+        AllowAutoRedirect = false,
+        UseProxy = false,
+        ConnectCallback = async (context, ct) =>
+        {
+            var addresses = await PublicAddresses.ResolvePublicAsync(context.DnsEndPoint.Host, ct);
+            if (addresses.Length == 0)
+                throw new HttpRequestException($"'{context.DnsEndPoint.Host}' is not a public address.");
+
+            var socket = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp) { NoDelay = true };
+            try
+            {
+                await socket.ConnectAsync(addresses, context.DnsEndPoint.Port, ct);
+                return new System.Net.Sockets.NetworkStream(socket, ownsSocket: true);
+            }
+            catch
+            {
+                socket.Dispose();
+                throw;
+            }
+        },
+    };
 
     private static async Task<McpClientDocument?> FetchAsync(Uri address, IHttpClientFactory http, CancellationToken ct)
     {
