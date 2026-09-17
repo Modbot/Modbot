@@ -287,6 +287,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
         // writer that forgot would stall its whole queue on the first bio that had one.
         optionsBuilder.AddInterceptors(NullCharacterInterceptor.Instance);
 
+        // The searchable form of every display name and username is written beside the name
+        // itself, here rather than at each of the syncs, links and seeders that write one.
+        optionsBuilder.AddInterceptors(SearchableNamesInterceptor.Instance);
+
         base.OnConfiguring(optionsBuilder);
     }
 
@@ -536,6 +540,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // User-authored text, and VRChat's own caps on it have moved before. Unbounded text
             // rather than a guessed varchar that would one day reject a real profile.
             entity.Property(e => e.DisplayName).HasColumnType("text");
+            entity.Property(e => e.DisplayNameSearchable).HasColumnType("text");
             entity.Property(e => e.Bio).HasColumnType("text");
             entity.Property(e => e.StatusDescription).HasColumnType("text");
             entity.Property(e => e.Pronouns).HasColumnType("text");
@@ -1618,6 +1623,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.DisplayName).HasColumnType("text");
             entity.Property(e => e.Nickname).HasColumnType("text");
             entity.Property(e => e.GlobalName).HasColumnType("text");
+            entity.Property(e => e.UsernameSearchable).HasColumnType("text");
+            entity.Property(e => e.DisplayNameSearchable).HasColumnType("text");
+            entity.Property(e => e.GlobalNameSearchable).HasColumnType("text");
+            entity.Property(e => e.NicknameSearchable).HasColumnType("text");
             entity.Property(e => e.AvatarUrl).HasColumnType("text");
             entity.Property(e => e.Roles).HasColumnType("jsonb");
             entity.Property(e => e.VoiceChannelId).HasColumnType("text");

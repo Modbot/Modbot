@@ -638,6 +638,8 @@ export type RoleOption = { id: string; name: string | null; members: number }
 export type MemberRow = {
   userId: string
   displayName: string | null
+  /** The display name in plain letters, when that differs from it. */
+  plainName: string | null
   avatarThumbnailUrl: string | null
   roleIds: string[]
   roleNames: string[]
@@ -720,6 +722,8 @@ export type DiscordMember = {
   userId: string
   username: string
   displayName: string
+  /** The display name in plain letters, when that differs from it. */
+  plainName: string | null
   globalName: string | null
   nickname: string | null
   avatarUrl: string | null
@@ -865,6 +869,8 @@ export type ModerationActionBody = {
 export type GroupBanRow = {
   userId: string
   displayName: string | null
+  /** The display name in plain letters, when that differs from it. */
+  plainName: string | null
   avatarThumbnailUrl: string | null
   trustRank: TrustRank | null
   bannedAt: string | null
@@ -1642,6 +1648,8 @@ export type VRChatUserProfile = {
   userId: string
   known: boolean
   displayName: string | null
+  /** The display name in plain letters, when that differs from it. */
+  plainName: string | null
   bio: string | null
   status: string | null
   statusDescription: string | null

@@ -9,6 +9,7 @@ using Modbot.Api.Features.DiscordLink;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
+using Modbot.Core.Names;
 using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.DiscordMembers;
@@ -25,6 +26,7 @@ public sealed record LinkedVRChatView(string UserId, string? DisplayName, string
 
 /// <summary>One member of the Discord server, current or past.</summary>
 /// <param name="DisplayName">The name the server shows: nickname, else global name, else username.</param>
+/// <param name="PlainName">The display name in plain letters, when that differs from the display name. Null otherwise.</param>
 /// <param name="JoinedAt">When Discord says they joined, for their current or last membership.</param>
 /// <param name="LeftAt">When the bot saw them leave, or null while they are in the server.</param>
 /// <param name="TimedOutUntil">When a timeout ends. Null, or in the past, when they are not timed out.</param>
@@ -38,6 +40,7 @@ public sealed record DiscordMemberView(
     string UserId,
     string Username,
     string DisplayName,
+    string? PlainName,
     string? GlobalName,
     string? Nickname,
     string? AvatarUrl,
@@ -271,13 +274,28 @@ public static class DiscordMemberEndpoints
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = "%" + Escape(search.Trim()) + "%";
-            query = query.Where(m =>
-                EF.Functions.ILike(m.DisplayName, pattern, "\\")
-                || EF.Functions.ILike(m.Username, pattern, "\\")
-                || (m.GlobalName != null && EF.Functions.ILike(m.GlobalName, pattern, "\\"))
-                || (m.Nickname != null && EF.Functions.ILike(m.Nickname, pattern, "\\"))
-                || m.UserId == search.Trim());
+            var term = search.Trim();
+            var pattern = NameSearch.Pattern(term);
+
+            // The names as stored, and the same names in their searchable form, so "alex" finds
+            // 𝕬𝖑𝖊𝖝 and "adderall" finds Addеrаll.
+            query = NameSearch.SearchablePattern(term) is { } plain
+                ? query.Where(m =>
+                    EF.Functions.ILike(m.DisplayName, pattern, "\\")
+                    || EF.Functions.ILike(m.Username, pattern, "\\")
+                    || (m.GlobalName != null && EF.Functions.ILike(m.GlobalName, pattern, "\\"))
+                    || (m.Nickname != null && EF.Functions.ILike(m.Nickname, pattern, "\\"))
+                    || (m.DisplayNameSearchable != null && EF.Functions.ILike(m.DisplayNameSearchable, plain, "\\"))
+                    || (m.UsernameSearchable != null && EF.Functions.ILike(m.UsernameSearchable, plain, "\\"))
+                    || (m.GlobalNameSearchable != null && EF.Functions.ILike(m.GlobalNameSearchable, plain, "\\"))
+                    || (m.NicknameSearchable != null && EF.Functions.ILike(m.NicknameSearchable, plain, "\\"))
+                    || m.UserId == term)
+                : query.Where(m =>
+                    EF.Functions.ILike(m.DisplayName, pattern, "\\")
+                    || EF.Functions.ILike(m.Username, pattern, "\\")
+                    || (m.GlobalName != null && EF.Functions.ILike(m.GlobalName, pattern, "\\"))
+                    || (m.Nickname != null && EF.Functions.ILike(m.Nickname, pattern, "\\"))
+                    || m.UserId == term);
         }
 
         // PostgreSQL's `?|`: whether any of these strings is an element of the roles array. One
@@ -473,6 +491,7 @@ public static class DiscordMemberEndpoints
             row.UserId,
             row.Username,
             row.DisplayName,
+            PlainName.Of(row.DisplayName),
             row.GlobalName,
             row.Nickname,
             row.AvatarUrl,
@@ -492,10 +511,4 @@ public static class DiscordMemberEndpoints
             row.UpdatedAt,
             links.GetValueOrDefault(row.UserId));
     }
-
-    /// <summary>A search typed with % or _ in it means those characters, not wildcards.</summary>
-    private static string Escape(string text)
-        => text.Replace("\\", "\\\\", StringComparison.Ordinal)
-            .Replace("%", "\\%", StringComparison.Ordinal)
-            .Replace("_", "\\_", StringComparison.Ordinal);
 }

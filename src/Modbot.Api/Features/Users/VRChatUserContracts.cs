@@ -51,11 +51,13 @@ public sealed record RefreshState(
 /// <param name="TrustRank">The trust rank the tag list says. Null until the user read has filled the tags.</param>
 /// <param name="Stale">True when the profile is older than <paramref name="StaleAfterSeconds"/>, or was never fetched.</param>
 /// <param name="NotFoundAt">Set when VRChat answered 404 -- usually a deleted account.</param>
+/// <param name="PlainName">The display name in plain letters, when that differs from the display name. Null otherwise.</param>
 /// <param name="Now">The server's clock, so ages are computed against the right one (spec 4.4).</param>
 public sealed record VRChatUserProfile(
     string UserId,
     bool Known,
     string? DisplayName,
+    string? PlainName,
     string? Bio,
     string? Status,
     string? StatusDescription,

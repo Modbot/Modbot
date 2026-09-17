@@ -1,0 +1,52 @@
+---
+title: Names
+description: How Modbot shows and searches display names and usernames written in fancy lettering, other alphabets or decoration.
+---
+
+People write their names in "fonts": 𝕬𝖑𝖊𝖝, ꜱɪᴇɴɴᴀ, Ｋｅｌｌｙ, Λᴋɪᴠɪʟɪ, 亞Rebel亞, ༒ Blink ༒. Some
+use letters from another alphabet that look like ours, so Addеrаll has a Russian е and а in it.
+Modbot always keeps and shows the name exactly as VRChat or Discord gave it. Beside it, Modbot
+works out the **plain name**: the same name in ordinary letters.
+
+## What you see
+
+Where a name is written in fancy lettering, the list shows the plain name under it. A name that is
+already plain gets no second line.
+
+The plain name keeps the person's capitals and spelling. What changes:
+
+| In the name | In the plain name |
+|---|---|
+| Bold, script, full-width, circled or small-capital letters | The ordinary letters: 𝓔𝓶𝓲𝓵𝓲𝓪 is Emilia, ꜱɪᴇɴɴᴀ is sienna |
+| Letters borrowed from another alphabet because they look like ours | The letter they look like: Addеrаll is Adderall, PΛPIƬӨ is PAPITO |
+| Accents on ordinary letters | The letter without the accent: Łęmøń is Lemon |
+| Marks stacked on letters, invisible characters | Removed |
+| Hearts, brackets, stars, symbols and emoji | Removed |
+| Any kind of space | One space |
+
+A name written in its own alphabet stays that way: Принцесса Кира, 翔宇 and バハちょん are shown as
+they are, and a lone Russian or Japanese letter in an otherwise English name is treated as
+decoration.
+
+## Search
+
+Every search box that takes a name -- Members, Bans, Discord members, the Discord person picker,
+`/lookup` in Discord, and the AI chat's people tools -- matches the name as written **and** the
+plain name, with capitals and accents ignored. Typing `alex` finds 𝕬𝖑𝖊𝖝; typing `adderall` finds
+Addеrаll; pasting the fancy name finds it too.
+
+Digits are matched as digits: `dragon135` finds 𝕯𝖗𝖆𝖌𝖔𝖓135, and `l33t` does not find `leet`.
+
+## What it cannot do
+
+- A name written in a "font" that borrows Chinese characters (卂丂卄丅ㄖ几) is shown as written.
+  Those characters are real words in Chinese and Japanese, and folding them would rewrite real
+  names.
+- Two people whose names differ only in decoration have the same plain name. The plain name is a
+  way to read and find a person, never a way to identify one: the VRChat or Discord id is.
+
+## For the API
+
+The Members, Discord members and VRChat user profile responses carry `plainName`, which is null
+when the plain name would be the same as the display name. Search parameters work as the screens
+do.

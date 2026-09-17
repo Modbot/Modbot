@@ -10,6 +10,7 @@ using Modbot.Api.Features.Analytics.Instances;
 using Modbot.Api.Features.Places;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Names;
 using Modbot.Core.Time;
 using Modbot.VRChat;
 using Modbot.VRChat.Sync;
@@ -281,7 +282,7 @@ public static class VRChatUserEndpoints
         {
             return new VRChatUserProfile(
                 id, Known: false,
-                null, null, null, null, null, null, null, null, null, [], null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, [], null, null, null, null,
                 new AgeVerifiedFlag(false, null, null, null, null),
                 null, null, null,
                 Stale: true, staleAfter.TotalSeconds,
@@ -302,6 +303,7 @@ public static class VRChatUserEndpoints
             row.UserId,
             Known: true,
             row.DisplayName,
+            PlainName.Of(row.DisplayName),
             row.Bio,
             row.Status,
             row.StatusDescription,

@@ -33,6 +33,18 @@ public class DiscordMember
     /// <summary>Their nickname in this server, or null.</summary>
     public string? Nickname { get; set; }
 
+    // ── The four names as search compares them (NameNormalizer.Searchable): plain letters, lower
+    // case, no marks or decoration. Kept in step by SearchableNamesInterceptor on every save and
+    // filled for older rows by the name catch-up. Null while the name is null. ──────────────────
+
+    public string? UsernameSearchable { get; set; }
+
+    public string? DisplayNameSearchable { get; set; }
+
+    public string? GlobalNameSearchable { get; set; }
+
+    public string? NicknameSearchable { get; set; }
+
     /// <summary>The picture the server shows for them: their server picture, else their own, else Discord's default.</summary>
     public string? AvatarUrl { get; set; }
 

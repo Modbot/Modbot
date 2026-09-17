@@ -42,6 +42,13 @@ public class VRChatUser
 
     public string? DisplayName { get; set; }
 
+    /// <summary>
+    /// <see cref="DisplayName"/> as search compares it (<c>NameNormalizer.Searchable</c>): plain
+    /// letters, lower case, no marks or decoration. Kept in step by <c>SearchableNamesInterceptor</c>
+    /// on every save, and filled for older rows by the name catch-up. Null while the name is null.
+    /// </summary>
+    public string? DisplayNameSearchable { get; set; }
+
     public string? Bio { get; set; }
 
     /// <summary>

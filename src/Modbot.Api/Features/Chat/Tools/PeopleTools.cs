@@ -8,6 +8,7 @@ using Modbot.Api.Features.Members;
 using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Names;
 using Modbot.Core.Time;
 using Modbot.VRChat;
 using Modbot.VRChat.Sync;
@@ -40,9 +41,17 @@ internal sealed class FindPersonTool : ReadTool
 
         var db = Get<ModbotContext>(context);
         var pattern = Contains(query);
+        var plain = NameSearch.SearchablePattern(query);
 
-        var people = await db.VRChatUsers.AsNoTracking()
-            .Where(u => u.UserId == query || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\")))
+        // The name as stored and in its searchable form, as the Members page searches it.
+        var users = db.VRChatUsers.AsNoTracking();
+        users = plain is null
+            ? users.Where(u => u.UserId == query || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\")))
+            : users.Where(u => u.UserId == query
+                || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\"))
+                || (u.DisplayNameSearchable != null && EF.Functions.ILike(u.DisplayNameSearchable, plain, "\\")));
+
+        var people = await users
             .OrderByDescending(u => u.UserId == query)
             .ThenByDescending(u => u.LastSeenAt)
             .Take(10)

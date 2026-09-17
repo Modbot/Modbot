@@ -9,6 +9,7 @@ using Modbot.Api.Features.DiscordLink;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
+using Modbot.Core.Names;
 using Modbot.Core.Time;
 using Modbot.VRChat.Sync;
 using SettingsRow = Modbot.Core.Data.Entities.Settings;
@@ -196,9 +197,14 @@ public static class MemberEndpoints
         if (Trimmed(search) is { } term)
         {
             var pattern = Pattern(term);
-            query = query.Where(x =>
-                EF.Functions.ILike(x.m.UserId, pattern, "\\")
-                || (x.u != null && x.u.DisplayName != null && EF.Functions.ILike(x.u.DisplayName, pattern, "\\")));
+            query = NameSearch.SearchablePattern(term) is { } plain
+                ? query.Where(x =>
+                    EF.Functions.ILike(x.m.UserId, pattern, "\\")
+                    || (x.u != null && x.u.DisplayName != null && EF.Functions.ILike(x.u.DisplayName, pattern, "\\"))
+                    || (x.u != null && x.u.DisplayNameSearchable != null && EF.Functions.ILike(x.u.DisplayNameSearchable, plain, "\\")))
+                : query.Where(x =>
+                    EF.Functions.ILike(x.m.UserId, pattern, "\\")
+                    || (x.u != null && x.u.DisplayName != null && EF.Functions.ILike(x.u.DisplayName, pattern, "\\")));
         }
 
         // What an unusual-activity alert links to: the people who joined in the hour it is about.
@@ -289,6 +295,7 @@ public static class MemberEndpoints
             return new MemberRow(
                 x.m.UserId,
                 x.u?.DisplayName,
+                PlainName.Of(x.u?.DisplayName),
                 Picture(x.u),
                 ids,
                 ids.Select(id => roles.TryGetValue(id, out var name) ? name ?? id : id).ToList(),
@@ -467,9 +474,14 @@ public static class MemberEndpoints
         if (Trimmed(search) is { } term)
         {
             var pattern = Pattern(term);
-            query = query.Where(x =>
-                EF.Functions.ILike(x.b.UserId, pattern, "\\")
-                || (x.u != null && x.u.DisplayName != null && EF.Functions.ILike(x.u.DisplayName, pattern, "\\")));
+            query = NameSearch.SearchablePattern(term) is { } plain
+                ? query.Where(x =>
+                    EF.Functions.ILike(x.b.UserId, pattern, "\\")
+                    || (x.u != null && x.u.DisplayName != null && EF.Functions.ILike(x.u.DisplayName, pattern, "\\"))
+                    || (x.u != null && x.u.DisplayNameSearchable != null && EF.Functions.ILike(x.u.DisplayNameSearchable, plain, "\\")))
+                : query.Where(x =>
+                    EF.Functions.ILike(x.b.UserId, pattern, "\\")
+                    || (x.u != null && x.u.DisplayName != null && EF.Functions.ILike(x.u.DisplayName, pattern, "\\")));
         }
 
         query = query
@@ -488,6 +500,7 @@ public static class MemberEndpoints
             rows.Select(x => new BanRow(
                 x.b.UserId,
                 x.u?.DisplayName,
+                PlainName.Of(x.u?.DisplayName),
                 Picture(x.u),
                 x.u?.TrustRank,
                 x.b.BannedAt,
@@ -542,10 +555,7 @@ public static class MemberEndpoints
     /// special are escaped, because a moderator typing an underscore into the search box means an
     /// underscore -- and legacy VRChat ids contain anything at all (spec 3.1.1).
     /// </summary>
-    internal static string Pattern(string term) =>
-        "%" + term.Replace("\\", "\\\\", StringComparison.Ordinal)
-                  .Replace("%", "\\%", StringComparison.Ordinal)
-                  .Replace("_", "\\_", StringComparison.Ordinal) + "%";
+    internal static string Pattern(string term) => NameSearch.Pattern(term);
 
     private static string? Trimmed(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 

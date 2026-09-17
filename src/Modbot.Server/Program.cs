@@ -16,6 +16,7 @@ using Modbot.Api.Features.Companion;
 using Modbot.Api.Features.Evidence;
 using Modbot.Core.Logging;
 using Modbot.Core.Logging.Store;
+using Modbot.Core.Names;
 using Modbot.AI;
 using Modbot.AI.Moderation;
 using Modbot.Discord;
@@ -339,6 +340,10 @@ try
     // somebody would try to join.
     if (!demo.IsOn)
         builder.Services.AddPublicRooms();
+
+    // Fills the searchable form of every stored name for rows from before the columns existed,
+    // and again after the folding rules change. Runs once after startup and stops.
+    builder.Services.AddHostedService<NameCatchUpService>();
 
     // The log in the database: the sink itself, so the Health page can say how it is doing, and the
     // daily job that deletes lines past the keep-for setting.
