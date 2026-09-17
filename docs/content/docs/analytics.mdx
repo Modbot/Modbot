@@ -81,12 +81,19 @@ Below them, the [**Insights**](/ai/insights) panel appears if AI insights are se
 
 | Panel | What it shows | Comes from |
 |---|---|---|
-| **Member count** | The member count VRChat reported over time. A day with no change carries the last number forward. | Fact log |
+| **Member count** | The member count VRChat reported, reading by reading, with the number of members online in VRChat drawn over it in green on its own scale at the right. Hover a point for both numbers and the time it was read. | Member count readings |
 | **Joins and leaves per day** | Joins and leaves, side by side, per day. | Daily totals |
 | **Joined minus left, running** | A running total of recorded joins minus recorded leaves, counted from zero on the first day Modbot recorded. This is not the member count: a group that already had 5,000 members when Modbot started still starts at zero. | Daily totals |
 | **Invites and join requests** | **Invites sent**; **Invites accepted** (the share of invited people who joined within 7 days); **Join requests**; **Requests decided** (approved / rejected); and a chart of invites and requests per day. | Daily totals, except invites accepted (fact log) |
 | **Roles** | Each role VRChat lists for the group, with how many times it was **Given** and **Taken away** in the range. Badges mark **moderation** roles, roles **given on join** and **self-service** roles. Shows when the role list was last read. | Fact log |
 | **How long members have been members** | Current members grouped into **Under a week**, **1 to 4 weeks**, **1 to 3 months**, **3 to 12 months** and **Over a year**. | Fact log |
+
+**Member count** has range buttons of its own: **Day**, **Week** (the default), **Month** and
+**All**. Modbot reads the group's member count and online member count about every five minutes
+and keeps every reading. Long ranges show up to about 500 of them, spread evenly across the range;
+before the first stored reading, the chart shows one point per day from the group's recorded
+changes. Readings older than the presence [retention](/self-hosting/data-retention) window are
+deleted if one is set.
 
 **How long members have been members** ignores the range: it is about who is a member now. It only
 counts members whose join Modbot recorded, and says how many that is. Members who joined before

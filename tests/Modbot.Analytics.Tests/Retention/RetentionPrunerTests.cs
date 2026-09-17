@@ -298,6 +298,61 @@ public class RetentionPrunerTests : AnalyticsTestBase
         Assert.Equal(1, await CountAsync(FactType.InstanceJoined));
     }
 
+    /// <summary>
+    /// The group member count readings follow the presence window: the same kind of thing --
+    /// high-rate operational readings -- and not the moderation record.
+    /// </summary>
+    [Fact]
+    public async Task MemberCountReadingsOlderThanThePresenceWindowAreDeleted()
+    {
+        await SetRetentionAsync(moderationDays: 0, presenceDays: 90);
+        await AddReadingsAsync(Start.AddDays(-100), Start.AddDays(-91), Start.AddDays(-89), Start.AddDays(-1));
+
+        await using var context = Database.NewContext();
+        var result = await NewPruner(context).PruneAsync(Ct);
+
+        Assert.Equal(2, result.MemberCountsDeleted);
+        Assert.Equal([Start.AddDays(-89), Start.AddDays(-1)], await ReadingTimesAsync());
+    }
+
+    [Fact]
+    public async Task MemberCountReadingsAreKeptForeverWithoutAPresenceWindow()
+    {
+        await SetRetentionAsync(moderationDays: 90, presenceDays: 0);
+        await AddReadingsAsync(Start.AddDays(-400), Start.AddDays(-1));
+
+        await using var context = Database.NewContext();
+        var result = await NewPruner(context).PruneAsync(Ct);
+
+        Assert.Equal(0, result.MemberCountsDeleted);
+        Assert.Equal(2, (await ReadingTimesAsync()).Count);
+    }
+
+    private async Task AddReadingsAsync(params DateTimeOffset[] times)
+    {
+        await using var context = Database.NewContext();
+
+        context.GroupMemberCounts.AddRange(times.Select(at => new GroupMemberCount
+        {
+            GroupId = "grp_test",
+            CountedAt = at,
+            MemberCount = 100,
+            OnlineMemberCount = 5,
+        }));
+
+        await context.SaveChangesAsync(Ct);
+    }
+
+    private async Task<IReadOnlyList<DateTimeOffset>> ReadingTimesAsync()
+    {
+        await using var context = Database.NewContext();
+
+        return await context.GroupMemberCounts.AsNoTracking()
+            .OrderBy(r => r.CountedAt)
+            .Select(r => r.CountedAt)
+            .ToListAsync(Ct);
+    }
+
     private async Task SetRetentionAsync(int moderationDays, int presenceDays)
     {
         await using var context = Database.NewContext();

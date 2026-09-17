@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Modbot.VRChat.Sync;
@@ -181,6 +182,58 @@ public class GroupInfoSyncTests(PostgresFixture fixture) : SyncTestBase(fixture)
         await RunGroupInfoAsync();
 
         Assert.Equal(Clock.UtcNow, (await SettingsAsync()).GroupInfoPolledAt);
+    }
+
+    /// <summary>
+    /// The member count chart is drawn from readings, not from facts: a poll that changed nothing
+    /// still writes its two counts with the time it read them, because the chart shows every
+    /// reading and the time of each is part of what it shows.
+    /// </summary>
+    [Fact]
+    public async Task EveryPollRecordsAReadingOfBothCounts_WhetherOrNotAnythingChanged()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+
+        await RunGroupInfoAsync();
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        var quiet = await RunGroupInfoAsync();
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        VRChat.Groups.Group!.OnlineMemberCount = 41;
+        await RunGroupInfoAsync();
+
+        Assert.Equal(SyncOutcome.Quiet, quiet.Outcome);
+
+        var readings = await ReadingsAsync();
+
+        Assert.Equal([Now, Now.AddMinutes(5), Now.AddMinutes(10)], readings.Select(r => r.CountedAt));
+        Assert.Equal([8123, 8123, 8123], readings.Select(r => r.MemberCount));
+        Assert.Equal([12, 12, 41], readings.Select(r => r.OnlineMemberCount));
+        Assert.All(readings, r => Assert.Equal(GroupId, r.GroupId));
+    }
+
+    [Fact]
+    public async Task AFailedPollRecordsNoReading()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        await RunGroupInfoAsync();
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        VRChat.Groups.GroupStatus = System.Net.HttpStatusCode.InternalServerError;
+        await RunGroupInfoAsync();
+
+        Assert.Single(await ReadingsAsync());
+    }
+
+    private async Task<IReadOnlyList<GroupMemberCount>> ReadingsAsync()
+    {
+        await using var context = Database.NewContext();
+
+        return await context.GroupMemberCounts
+            .AsNoTracking()
+            .OrderBy(r => r.CountedAt)
+            .ToListAsync(Ct);
     }
 
     private static JsonObject Payload(ModbotEvent fact) => JsonNode.Parse(fact.Data)!.AsObject();

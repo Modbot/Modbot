@@ -6570,6 +6570,61 @@
         ]
       }
     },
+    "/api/analytics/group/member-count": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "My Group: the member count and online member count, reading by reading.",
+        "description": "Every reading the group-info sync took of VRChat's memberCount and onlineMemberCount, about one every five minutes, over the last `day`, `week` (the default), `month` or `all` recorded time. Long ranges are thinned to at most about 500 points: the window is cut into equal steps and the last reading in each is kept, so every point is a number VRChat reported at the time given. Time from before the first stored reading comes from group-info facts, one point per day. Readings older than the presence retention window are deleted when one is set.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetGroupMemberCount",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupMemberCountSeries"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/analytics/server": {
       "get": {
         "tags": [
@@ -19264,6 +19319,48 @@
           }
         }
       },
+      "GroupMemberCountSeries": {
+        "required": [
+          "range",
+          "from",
+          "to",
+          "stepSeconds",
+          "points",
+          "generatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stepSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberCountPoint"
+            }
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "HealthAlertUpdate": {
         "required": [
           "quietHours",
@@ -20882,6 +20979,36 @@
           },
           "password": {
             "type": "string"
+          }
+        }
+      },
+      "MemberCountPoint": {
+        "required": [
+          "at",
+          "members",
+          "online"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "members": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "online": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

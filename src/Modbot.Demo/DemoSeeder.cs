@@ -97,6 +97,7 @@ public sealed class DemoSeeder
         await _db.StorageDays.ExecuteDeleteAsync(ct);
 
         await _db.InstanceHeadCounts.ExecuteDeleteAsync(ct);
+        await _db.GroupMemberCounts.ExecuteDeleteAsync(ct);
         await _db.VRChatInstances.ExecuteDeleteAsync(ct);
         await _db.VRChatWorlds.ExecuteDeleteAsync(ct);
 

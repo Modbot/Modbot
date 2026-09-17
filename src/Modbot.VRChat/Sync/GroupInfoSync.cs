@@ -99,6 +99,18 @@ public sealed class GroupInfoSync
         // icon and a banner a group is a grey box on modbot.co.
         RecordPictures(settings, group.IconUrl, group.BannerUrl);
 
+        // The two counts, every poll, whether or not anything changed. This is a different store
+        // from the facts below with a different question behind it: the My Group chart shows the
+        // readings themselves, and a reading that said the same thing as the last one is still a
+        // point on it at a time of its own. Saved with the poll time by RecordPollAsync.
+        _db.GroupMemberCounts.Add(new GroupMemberCount
+        {
+            GroupId = groupId,
+            CountedAt = _clock.UtcNow,
+            MemberCount = group.MemberCount,
+            OnlineMemberCount = group.OnlineMemberCount,
+        });
+
         var current = GroupInfoSnapshot.From(group);
         var previous = GroupInfoSnapshot.Parse(settings.GroupInfoSnapshot);
         var lastSeen = settings.GroupInfoPolledAt;

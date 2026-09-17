@@ -105,6 +105,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Every change in a room's head count, keyed on Modbot's own room id.</summary>
     public DbSet<InstanceHeadCount> InstanceHeadCounts => Set<InstanceHeadCount>();
 
+    /// <summary>The group's member count and online member count, one row per poll.</summary>
+    public DbSet<GroupMemberCount> GroupMemberCounts => Set<GroupMemberCount>();
+
     public DbSet<GroupMember> GroupMembers => Set<GroupMember>();
 
     /// <summary>The group's ban list as last swept.</summary>
@@ -603,6 +606,21 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // "How full was this room, and when", in order -- the only question asked of it.
             entity.HasIndex(e => new { e.InstanceId, e.CountedAt })
                 .HasDatabaseName("ix_instance_head_count_room");
+        });
+
+        builder.Entity<GroupMemberCount>(entity =>
+        {
+            entity.ToTable("group_member_count");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).UseIdentityAlwaysColumn();
+
+            // VRChat's ids are opaque text here, as everywhere else Modbot stores one.
+            entity.Property(e => e.GroupId).HasColumnType("text");
+
+            // Every read is "this group's readings between two times, in order", and the pruner's
+            // delete is "everything before a time".
+            entity.HasIndex(e => new { e.GroupId, e.CountedAt })
+                .HasDatabaseName("ix_group_member_count_group_time");
         });
 
         builder.Entity<VRChatInstance>(entity =>

@@ -12,9 +12,21 @@ namespace Modbot.Api.Tests.Features.Analytics;
 [Collection(nameof(PostgresCollection))]
 public class AnalyticsAccessTests
 {
+    /// <summary>The pages, which share the whole-day window.</summary>
     public static readonly TheoryData<string> Pages =
     [
         "/api/analytics/group",
+        "/api/analytics/team",
+        "/api/analytics/worlds",
+        "/api/analytics/instances",
+        "/api/analytics/server",
+    ];
+
+    /// <summary>The pages and the one chart with a window of its own, which is gated the same way.</summary>
+    public static readonly TheoryData<string> Everything =
+    [
+        "/api/analytics/group",
+        "/api/analytics/group/member-count",
         "/api/analytics/team",
         "/api/analytics/worlds",
         "/api/analytics/instances",
@@ -26,7 +38,7 @@ public class AnalyticsAccessTests
     public AnalyticsAccessTests(PostgresFixture db) => _db = db;
 
     [Theory]
-    [MemberData(nameof(Pages))]
+    [MemberData(nameof(Everything))]
     public async Task AnUnauthenticatedCaller_Gets401(string path)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -38,7 +50,7 @@ public class AnalyticsAccessTests
     }
 
     [Theory]
-    [MemberData(nameof(Pages))]
+    [MemberData(nameof(Everything))]
     public async Task WithoutViewAnalytics_Is403(string path)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -51,7 +63,7 @@ public class AnalyticsAccessTests
     }
 
     [Theory]
-    [MemberData(nameof(Pages))]
+    [MemberData(nameof(Everything))]
     public async Task WithViewAnalytics_Answers(string path)
     {
         var ct = TestContext.Current.CancellationToken;

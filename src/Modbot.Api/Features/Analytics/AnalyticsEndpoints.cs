@@ -72,6 +72,37 @@ public static class AnalyticsEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
+        // The one chart with its own endpoint. Its window is hours to years of five-minute
+        // readings, not the whole-day window the page shares, and folding it into the page would
+        // either send every reading with every page load or make the page's range mean two things.
+        group.MapGet("/group/member-count", async (
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromQuery] string? range,
+                CancellationToken ct) =>
+            {
+                var series = await new GroupMemberCountQuery(db).RunAsync(range ?? GroupMemberCountQuery.Week, clock.UtcNow, ct);
+
+                return series is null
+                    ? Results.BadRequest(new { error = "`range` must be day, week, month or all." })
+                    : Results.Ok(series);
+            })
+            .RequiresFlag(ModbotPermissions.ViewAnalytics)
+            .WithName("GetGroupMemberCount")
+            .WithSummary("My Group: the member count and online member count, reading by reading.")
+            .WithDescription(
+                "Every reading the group-info sync took of VRChat's memberCount and "
+                + "onlineMemberCount, about one every five minutes, over the last `day`, `week` "
+                + "(the default), `month` or `all` recorded time. Long ranges are thinned to at "
+                + "most about 500 points: the window is cut into equal steps and the last reading "
+                + "in each is kept, so every point is a number VRChat reported at the time given. "
+                + "Time from before the first stored reading comes from group-info facts, one "
+                + "point per day. Readings older than the presence retention window are deleted "
+                + "when one is set.")
+            .Produces<GroupMemberCountSeries>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
+
         group.MapGet("/server", async (
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,

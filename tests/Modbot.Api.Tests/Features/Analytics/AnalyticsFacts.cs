@@ -70,14 +70,38 @@ internal static class AnalyticsFacts
         };
     }
 
-    public static FactRecord GroupInfoBaseline(int memberCount, DateTimeOffset at) => new()
+    public static FactRecord GroupInfoBaseline(int memberCount, DateTimeOffset at, int? online = null)
+    {
+        var baseline = new JsonObject { ["MemberCount"] = memberCount };
+        if (online is not null)
+            baseline["OnlineMemberCount"] = online;
+
+        return new FactRecord
+        {
+            Type = FactType.GroupInfoChanged,
+            OccurredAt = at,
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = "grp_1",
+            Source = FactSource.SyncDiff,
+            Data = new JsonObject { ["baseline"] = baseline },
+        };
+    }
+
+    /// <summary>A change to the online member count alone, the way the sync records one.</summary>
+    public static FactRecord GroupInfoOnlineChange(int from, int to, DateTimeOffset at) => new()
     {
         Type = FactType.GroupInfoChanged,
         OccurredAt = at,
         SubjectPlatform = FactPlatform.VRChat,
         SubjectId = "grp_1",
         Source = FactSource.SyncDiff,
-        Data = new JsonObject { ["baseline"] = new JsonObject { ["MemberCount"] = memberCount } },
+        Data = new JsonObject
+        {
+            ["changed"] = new JsonObject
+            {
+                ["OnlineMemberCount"] = new JsonObject { ["old"] = from, ["new"] = to },
+            },
+        },
     };
 
     public static FactRecord GroupInfoChange(int from, int to, DateTimeOffset at) => new()

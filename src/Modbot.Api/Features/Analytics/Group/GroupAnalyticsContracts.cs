@@ -35,9 +35,33 @@ public sealed record InviteFunnel(
     decimal RequestsApproved,
     decimal RequestsRejected);
 
+/// <summary>One reading of the group's counts, as VRChat reported them at <paramref name="At"/>.</summary>
+/// <param name="Members">VRChat's <c>memberCount</c>.</param>
+/// <param name="Online">VRChat's <c>onlineMemberCount</c>: members online in VRChat, anywhere.</param>
+public sealed record MemberCountPoint(DateTimeOffset At, int Members, int Online);
+
+/// <summary>
+/// The member count chart: readings from <paramref name="From"/> to <paramref name="To"/>, at
+/// most one per <paramref name="StepSeconds"/>.
+/// </summary>
+/// <param name="Range"><c>day</c>, <c>week</c>, <c>month</c> or <c>all</c>.</param>
+/// <param name="StepSeconds">
+/// The window was cut into steps this long and the last reading in each kept, so the series is
+/// never more than about 500 points. A day's steps are shorter than the poll rate, so a day is
+/// every reading.
+/// </param>
+public sealed record GroupMemberCountSeries(
+    string Range,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    int StepSeconds,
+    IReadOnlyList<MemberCountPoint> Points,
+    DateTimeOffset GeneratedAt);
+
 /// <param name="MemberCount">
 /// Observed headcounts, from the group-info sync. Real numbers VRChat reported, not a running total
-/// Modbot accumulated — see the note on <c>members.net</c> in <c>DailyTotalMetrics</c>.
+/// Modbot accumulated — see the note on <c>members.net</c> in <c>DailyTotalMetrics</c>. One per
+/// day; the chart itself reads every reading through <c>GroupMemberCountSeries</c>.
 /// </param>
 /// <param name="NetChange">
 /// Recorded joins minus recorded leaves, counted from zero on the fact log's first day. Not the

@@ -5,6 +5,7 @@ import { DailyBars, DailyLine, Legend, RankedList, compactNumber, longDay, perce
 import { api } from '@/lib/api'
 import { ago } from '@/lib/format'
 import { InsightsPanel } from './InsightsPanel'
+import { MemberCountChart } from './MemberCountChart'
 import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 
@@ -18,6 +19,9 @@ import { useAnalytics, type Range } from './useAnalytics'
  * `netChange` is deliberately labelled as recorded joins minus recorded leaves and never as the
  * member count: it starts from zero on the fact log's first day, so a group that installed Modbot
  * with 40,000 members would watch it climb from nothing. The headcount is what VRChat reported.
+ *
+ * The member count chart has a range of its own (`MemberCountChart`): it is drawn from every
+ * five-minute reading, not from the page's whole-day window.
  */
 export function MyGroup() {
   const [range, setRange] = useState<Range>(30)
@@ -54,15 +58,7 @@ export function MyGroup() {
 
           <InsightsPanel />
 
-          <Panel title="Member count">
-            <DailyLine
-              from={data.from}
-              to={data.to}
-              mode="carry"
-              zeroBased={false}
-              series={[{ key: 'members', label: 'members', points: data.memberCount, slot: 1 }]}
-            />
-          </Panel>
+          <MemberCountChart />
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Panel title="Joins and leaves per day">

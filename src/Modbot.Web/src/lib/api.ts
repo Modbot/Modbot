@@ -952,6 +952,24 @@ export type GroupAnalytics = {
   generatedAt: string
 }
 
+export type MemberCountRange = 'day' | 'week' | 'month' | 'all'
+
+/** One reading of the group's counts, as VRChat reported them at `at`. */
+export type MemberCountPoint = { at: string; members: number; online: number }
+
+/**
+ * The member count chart: readings from `from` to `to`, at most one per `stepSeconds`, so never
+ * more than about 500 points however long the range.
+ */
+export type GroupMemberCountSeries = {
+  range: MemberCountRange
+  from: string
+  to: string
+  stepSeconds: number
+  points: MemberCountPoint[]
+  generatedAt: string
+}
+
 export type ActionKind = { metric: string; label: string }
 
 export type ModeratorSummary = {
@@ -3346,6 +3364,8 @@ export const api = {
    * built by the pages' shared range control so every page means the same thing by a range.
    */
   groupAnalytics: (query: string) => request<GroupAnalytics>(`/api/analytics/group?${query}`),
+  groupMemberCount: (range: MemberCountRange) =>
+    request<GroupMemberCountSeries>(`/api/analytics/group/member-count?range=${range}`),
   teamAnalytics: (query: string) => request<TeamAnalytics>(`/api/analytics/team?${query}`),
   worldsAnalytics: (query: string) => request<WorldsAnalytics>(`/api/analytics/worlds?${query}`),
   instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),

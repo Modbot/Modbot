@@ -98,12 +98,14 @@ public sealed partial class RetentionPruner
 
         var cutoffs = await CutoffsAsync(ct);
 
+        var memberCountsDeleted = await PruneMemberCountsAsync(cutoffs[RetentionClass.Presence], ct);
+
         // Nothing expires: every class is set to keep forever. Not an error -- it is the default
         // for moderation facts, and a deployment may well choose it for everything.
         if (cutoffs.Values.All(c => c is null))
         {
             await RecordAsync([], [], messagesDropped, ct);
-            return new RetentionResult([], [], messagesDropped);
+            return new RetentionResult([], [], messagesDropped, memberCountsDeleted);
         }
 
         var dropped = new List<string>();
@@ -135,7 +137,27 @@ public sealed partial class RetentionPruner
 
         await RecordAsync(dropped, movedOut, messagesDropped, ct);
 
-        return new RetentionResult(dropped, movedOut, messagesDropped);
+        return new RetentionResult(dropped, movedOut, messagesDropped, memberCountsDeleted);
+    }
+
+    /// <summary>
+    /// Deletes the group member count readings older than the presence window, when there is one.
+    /// </summary>
+    /// <remarks>
+    /// A DELETE, and the one place in this class that is allowed to be. The readings are two
+    /// integers and a time at most 288 times a day, so a day's worth past the cutoff is a few
+    /// hundred rows, not the 10^8 the fact log's partitioning exists for. They follow the presence
+    /// window because they are the same kind of thing as presence: high-rate operational readings,
+    /// not the moderation record. With no window set, nothing is deleted (spec 5.5).
+    /// </remarks>
+    private async Task<int> PruneMemberCountsAsync(DateTimeOffset? presenceCutoff, CancellationToken ct)
+    {
+        if (presenceCutoff is not { } cutoff)
+            return 0;
+
+        return await _db.GroupMemberCounts
+            .Where(r => r.CountedAt < cutoff)
+            .ExecuteDeleteAsync(ct);
     }
 
     /// <summary>
@@ -431,7 +453,9 @@ public sealed partial class RetentionPruner
 /// retention.
 /// </param>
 /// <param name="MessagesDropped">Months of Discord messages and their earlier texts destroyed.</param>
+/// <param name="MemberCountsDeleted">Group member count readings deleted as older than the presence window.</param>
 public sealed record RetentionResult(
     IReadOnlyList<string> Dropped,
     IReadOnlyList<string> MovedOut,
-    IReadOnlyList<string> MessagesDropped);
+    IReadOnlyList<string> MessagesDropped,
+    int MemberCountsDeleted = 0);
