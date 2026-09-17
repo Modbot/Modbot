@@ -526,6 +526,16 @@ export type AuditRequest = {
   actorPlatform?: 'VRChat' | 'Discord' | 'Modbot'
   from?: string
   to?: string
+  /** Only facts that happened in this world. */
+  world?: string
+  /** Only facts that happened in a room with this VRChat number. */
+  instance?: string
+  category?: AuditCategory
+  precision?: TimePrecision
+  /** True: facts somebody is named for; false: facts nobody is. */
+  hasActor?: boolean
+  /** A word or phrase to find in the payload, the subject id or the actor id. */
+  q?: string
   limit?: number
   before?: AuditCursor | null
 }
@@ -570,7 +580,7 @@ export type BanList = {
 }
 
 /** One role the group defines, as last read by the group-info producer. */
-export type RoleOption = { id: string; name: string | null }
+export type RoleOption = { id: string; name: string | null; members: number }
 
 /**
  * One row of the Members page. `displayName` and `avatarThumbnailUrl` come from the stored
@@ -630,14 +640,24 @@ export type MemberList = {
 
 export type MemberQuery = {
   search?: string
-  role?: string
+  /** People holding any of these roles. */
+  roles?: string[]
+  /** People holding none of these roles. */
+  notRoles?: string[]
+  /** True: people with at least one role; false: people with none. */
+  hasRole?: boolean
   status?: 'current' | 'left' | 'all'
   sort?: 'joined' | 'name' | 'seen'
   linked?: LinkedFilter
+  eighteenPlus?: boolean
+  representing?: boolean
+  profile?: 'fetched' | 'not-fetched'
   /** Only people who joined at or after this moment. */
   joinedFrom?: string
   /** Only people who joined before this moment. */
   joinedTo?: string
+  seenFrom?: string
+  seenTo?: string
   page?: number
   pageSize?: number
 }
@@ -672,17 +692,29 @@ export type DiscordMemberList = {
   pageSize: number
   coverage: { guildId: string | null; listedAt: string | null; inServer: number; now: string }
   /** The server's roles to filter by, highest first. */
-  roles: DiscordMemberRole[]
+  roles: DiscordRoleOption[]
 }
 
 export type DiscordMemberQuery = {
   search?: string
   state?: 'in-server' | 'left' | 'all'
-  role?: string
+  roles?: string[]
+  notRoles?: string[]
+  hasRole?: boolean
   linked?: LinkedFilter
+  bot?: boolean
+  pending?: boolean
+  timedOut?: boolean
+  boosting?: boolean
+  joinedFrom?: string
+  joinedTo?: string
+  sort?: 'joined' | 'oldest' | 'name'
   page?: number
   pageSize?: number
 }
+
+/** One of the server's roles, as a filter: with how many people in the server hold it. */
+export type DiscordRoleOption = { id: string; name: string | null; color: number; members: number }
 
 export type DiscordMemberMessage = {
   messageId: string
@@ -3143,6 +3175,12 @@ export const api = {
     if (query.actorPlatform) q.set('actorPlatform', query.actorPlatform)
     if (query.from) q.set('from', query.from)
     if (query.to) q.set('to', query.to)
+    if (query.world) q.set('world', query.world)
+    if (query.instance) q.set('instance', query.instance)
+    if (query.category) q.set('category', query.category)
+    if (query.precision) q.set('precision', query.precision)
+    if (query.hasActor !== undefined) q.set('hasActor', String(query.hasActor))
+    if (query.q) q.set('q', query.q)
     if (query.limit) q.set('limit', String(query.limit))
     if (query.before) {
       q.set('beforeOccurredAt', query.before.occurredAt)
@@ -3173,12 +3211,19 @@ export const api = {
   members: (query: MemberQuery = {}) => {
     const q = new URLSearchParams()
     if (query.search) q.set('search', query.search)
-    if (query.role) q.set('role', query.role)
+    query.roles?.forEach((r) => q.append('role', r))
+    query.notRoles?.forEach((r) => q.append('notRole', r))
+    if (query.hasRole !== undefined) q.set('noRole', String(!query.hasRole))
     if (query.status && query.status !== 'current') q.set('status', query.status)
     if (query.sort && query.sort !== 'joined') q.set('sort', query.sort)
     if (query.linked && query.linked !== 'all') q.set('linked', query.linked)
+    if (query.eighteenPlus !== undefined) q.set('eighteenPlus', String(query.eighteenPlus))
+    if (query.representing !== undefined) q.set('representing', String(query.representing))
+    if (query.profile) q.set('profile', query.profile)
     if (query.joinedFrom) q.set('joinedFrom', query.joinedFrom)
     if (query.joinedTo) q.set('joinedTo', query.joinedTo)
+    if (query.seenFrom) q.set('seenFrom', query.seenFrom)
+    if (query.seenTo) q.set('seenTo', query.seenTo)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
     const search = q.toString()
@@ -3190,8 +3235,17 @@ export const api = {
     const q = new URLSearchParams()
     if (query.search) q.set('search', query.search)
     if (query.state && query.state !== 'in-server') q.set('state', query.state)
-    if (query.role) q.set('role', query.role)
+    query.roles?.forEach((r) => q.append('role', r))
+    query.notRoles?.forEach((r) => q.append('notRole', r))
+    if (query.hasRole !== undefined) q.set('noRole', String(!query.hasRole))
     if (query.linked && query.linked !== 'all') q.set('linked', query.linked)
+    if (query.bot !== undefined) q.set('bot', String(query.bot))
+    if (query.pending !== undefined) q.set('pending', String(query.pending))
+    if (query.timedOut !== undefined) q.set('timedOut', String(query.timedOut))
+    if (query.boosting !== undefined) q.set('boosting', String(query.boosting))
+    if (query.joinedFrom) q.set('joinedFrom', query.joinedFrom)
+    if (query.joinedTo) q.set('joinedTo', query.joinedTo)
+    if (query.sort && query.sort !== 'joined') q.set('sort', query.sort)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
     const search = q.toString()

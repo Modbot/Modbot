@@ -276,4 +276,129 @@ public class AuditLogTests
         Assert.Equal(host.Clock.UtcNow, page.Coverage.FirstObservedAt);
         Assert.False(page.Coverage.CatchUpComplete);
     }
+
+    private static FactRecord Kick(string subject, string world, string instance, DateTimeOffset at) => new()
+    {
+        Type = FactType.GroupInstanceKick,
+        OccurredAt = at,
+        SubjectPlatform = FactPlatform.VRChat,
+        SubjectId = subject,
+        ActorPlatform = FactPlatform.VRChat,
+        ActorId = "usr_mod",
+        WorldId = world,
+        InstanceId = instance,
+        Source = FactSource.AuditLog,
+        Data = new JsonObject { ["actorDisplayName"] = "RedZu", ["description"] = "kicked from The Black Cat" },
+    };
+
+    [Fact]
+    public async Task FilteringByWorldAndInstance_NarrowsToThatPlace()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        await host.WriteFactAsync(Kick("usr_a", "wrld_cat", "39047", Day), ct);
+        await host.WriteFactAsync(Kick("usr_b", "wrld_cat", "12", Day.AddMinutes(1)), ct);
+        await host.WriteFactAsync(Kick("usr_c", "wrld_dog", "39047", Day.AddMinutes(2)), ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+
+        var inWorld = await host.GetJsonAsync<AuditPage>("/api/audit?world=wrld_cat", cookie, ct);
+        Assert.Equal(["usr_b", "usr_a"], inWorld.Entries.Select(e => e.SubjectId));
+
+        var inRoom = await host.GetJsonAsync<AuditPage>("/api/audit?world=wrld_cat&instance=39047", cookie, ct);
+        Assert.Equal(["usr_a"], inRoom.Entries.Select(e => e.SubjectId));
+    }
+
+    [Fact]
+    public async Task FilteringByPrecisionAndActor_SeparatesSyncWindowsFromStatedTimes()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        await host.WriteFactAsync(Ban("usr_a", "usr_mod", Day), ct);
+        await host.WriteFactAsync(
+            new FactRecord
+            {
+                Type = FactType.MemberLeft,
+                OccurredAt = Day,
+                OccurredBefore = Day.AddMinutes(5),
+                SubjectPlatform = FactPlatform.VRChat,
+                SubjectId = "usr_gone",
+                Source = FactSource.SyncDiff,
+            },
+            ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+
+        var exact = await host.GetJsonAsync<AuditPage>("/api/audit?precision=exact", cookie, ct);
+        Assert.Equal(["usr_a"], exact.Entries.Select(e => e.SubjectId));
+
+        var windowed = await host.GetJsonAsync<AuditPage>("/api/audit?precision=window", cookie, ct);
+        Assert.Equal(["usr_gone"], windowed.Entries.Select(e => e.SubjectId));
+
+        var nobody = await host.GetJsonAsync<AuditPage>("/api/audit?hasActor=false", cookie, ct);
+        Assert.Equal(["usr_gone"], nobody.Entries.Select(e => e.SubjectId));
+
+        var somebody = await host.GetJsonAsync<AuditPage>("/api/audit?hasActor=true", cookie, ct);
+        Assert.Equal(["usr_a"], somebody.Entries.Select(e => e.SubjectId));
+    }
+
+    [Fact]
+    public async Task FilteringByCategory_KeepsOnlyThatLog_WithinWhatMayBeSeen()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        await host.WriteFactAsync(Ban("usr_a", "usr_mod", Day), ct);
+        await host.WriteFactAsync(SettingsChanged(Day.AddMinutes(1)), ct);
+
+        var cookie = await host.SignedInAsync(
+            ModbotPermissions.ViewAuditLog | ModbotPermissions.ViewOperationalLog, ct);
+
+        var moderation = await host.GetJsonAsync<AuditPage>("/api/audit?category=moderation", cookie, ct);
+        Assert.Equal([FactType.MemberBanned], moderation.Entries.Select(e => e.Type));
+
+        var operational = await host.GetJsonAsync<AuditPage>("/api/audit?category=operational", cookie, ct);
+        Assert.Contains(FactType.SettingsChanged, operational.Entries.Select(e => e.Type));
+        Assert.DoesNotContain(FactType.MemberBanned, operational.Entries.Select(e => e.Type));
+
+        // A moderator asking for the operational log gets an honest empty page, not a refusal.
+        var moderator = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+        var refusedNothing = await host.GetJsonAsync<AuditPage>("/api/audit?category=operational", moderator, ct);
+        Assert.Empty(refusedNothing.Entries);
+    }
+
+    [Fact]
+    public async Task SearchingText_LooksInThePayloadAndTheIds_Literally()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        await host.WriteFactAsync(Kick("usr_a", "wrld_cat", "39047", Day), ct);
+        await host.WriteFactAsync(Ban("8JoV9XEdpo", "usr_mod", Day.AddMinutes(1)), ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+
+        var byWords = await host.GetJsonAsync<AuditPage>("/api/audit?q=black%20cat", cookie, ct);
+        Assert.Equal(["usr_a"], byWords.Entries.Select(e => e.SubjectId));
+
+        var byId = await host.GetJsonAsync<AuditPage>("/api/audit?q=JoV9", cookie, ct);
+        Assert.Equal(["8JoV9XEdpo"], byId.Entries.Select(e => e.SubjectId));
+
+        // Both entries carry "RedZu" in the payload; the search composes with the other filters.
+        var both = await host.GetJsonAsync<AuditPage>("/api/audit?q=redzu", cookie, ct);
+        Assert.Equal(2, both.Entries.Count);
+
+        var narrowed = await host.GetJsonAsync<AuditPage>("/api/audit?q=redzu&world=wrld_cat", cookie, ct);
+        Assert.Equal(["usr_a"], narrowed.Entries.Select(e => e.SubjectId));
+
+        // A percent sign is a percent sign.
+        var percent = await host.GetJsonAsync<AuditPage>("/api/audit?q=%25", cookie, ct);
+        Assert.Empty(percent.Entries);
+    }
 }

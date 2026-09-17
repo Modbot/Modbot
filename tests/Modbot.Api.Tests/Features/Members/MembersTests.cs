@@ -133,6 +133,77 @@ public class MembersTests
     }
 
     [Fact]
+    public async Task SeveralRolesAreAnyOf_NotRoleLeavesPeopleOut_AndNoRoleKeepsTheRoleless()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var either = await host.GetJsonAsync<MemberListResponse>("/api/members?role=grol_mod&role=grol_member", cookie, Ct);
+        Assert.Equal(3, either.Total);
+
+        var notMods = await host.GetJsonAsync<MemberListResponse>("/api/members?notRole=grol_mod", cookie, Ct);
+        Assert.Equal(["usr_bob", "8JoV9XEdpo"], notMods.Members.Select(m => m.UserId));
+
+        var memberButNotMod = await host.GetJsonAsync<MemberListResponse>(
+            "/api/members?role=grol_member&notRole=grol_mod", cookie, Ct);
+        Assert.Equal(["usr_bob", "8JoV9XEdpo"], memberButNotMod.Members.Select(m => m.UserId));
+
+        // The only roleless person has left, so the filter finds them only among leavers.
+        var roleless = await host.GetJsonAsync<MemberListResponse>("/api/members?noRole=true&status=all", cookie, Ct);
+        Assert.Equal(["usr_gone"], roleless.Members.Select(m => m.UserId));
+    }
+
+    [Fact]
+    public async Task TheRoleListCountsWhoHoldsEachRoleNow()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+        var list = await host.GetJsonAsync<MemberListResponse>("/api/members", cookie, Ct);
+
+        // Three current members hold Member; one holds Moderator; the leaver counts for nothing.
+        Assert.Equal(3, list.Roles.Single(r => r.Id == "grol_member").Members);
+        Assert.Equal(1, list.Roles.Single(r => r.Id == "grol_mod").Members);
+    }
+
+    [Fact]
+    public async Task EighteenPlusRepresentingSeenAndProfileFilters()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var verified = await host.GetJsonAsync<MemberListResponse>("/api/members?eighteenPlus=true", cookie, Ct);
+        Assert.Equal(["usr_alice"], verified.Members.Select(m => m.UserId));
+
+        var unverified = await host.GetJsonAsync<MemberListResponse>("/api/members?eighteenPlus=false", cookie, Ct);
+        Assert.Equal(["usr_bob", "8JoV9XEdpo"], unverified.Members.Select(m => m.UserId));
+
+        var representing = await host.GetJsonAsync<MemberListResponse>("/api/members?representing=true", cookie, Ct);
+        Assert.Empty(representing.Members);
+
+        // Bob was seen two hours after noon; Alice at noon; the legacy id has no profile row.
+        var seenLately = await host.GetJsonAsync<MemberListResponse>(
+            $"/api/members?seenFrom={Uri.EscapeDataString(Day.AddHours(1).ToString("o"))}", cookie, Ct);
+        Assert.Equal(["usr_bob"], seenLately.Members.Select(m => m.UserId));
+
+        var fetched = await host.GetJsonAsync<MemberListResponse>("/api/members?profile=fetched", cookie, Ct);
+        Assert.Equal(["usr_bob", "usr_alice"], fetched.Members.Select(m => m.UserId));
+
+        var notFetched = await host.GetJsonAsync<MemberListResponse>("/api/members?profile=not-fetched", cookie, Ct);
+        Assert.Equal(["8JoV9XEdpo"], notFetched.Members.Select(m => m.UserId));
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await host.GetAsync("/api/members?profile=maybe", cookie, Ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task TheStatusFilterShowsWhoLeft()
     {
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);

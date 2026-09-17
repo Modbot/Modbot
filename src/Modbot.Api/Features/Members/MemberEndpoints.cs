@@ -54,12 +54,19 @@ public static class MemberEndpoints
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
                 [FromQuery] string? search,
-                [FromQuery] string? role,
+                [FromQuery(Name = "role")] string[]? roles,
+                [FromQuery(Name = "notRole")] string[]? notRoles,
+                [FromQuery] bool? noRole,
                 [FromQuery] string? status,
                 [FromQuery] string? sort,
                 [FromQuery] string? linked,
                 [FromQuery] DateTimeOffset? joinedFrom,
                 [FromQuery] DateTimeOffset? joinedTo,
+                [FromQuery] bool? eighteenPlus,
+                [FromQuery] bool? representing,
+                [FromQuery] DateTimeOffset? seenFrom,
+                [FromQuery] DateTimeOffset? seenTo,
+                [FromQuery] string? profile,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
                 CancellationToken ct) =>
@@ -67,12 +74,17 @@ public static class MemberEndpoints
                 if (!LinkFilter.IsValid(linked))
                     return Results.BadRequest(new { error = LinkFilter.Error });
 
+                if (profile is not (null or "" or "fetched" or "not-fetched"))
+                    return Results.BadRequest(new { error = "`profile` is fetched or not-fetched." });
+
                 var seesLinks = LinkFilter.SeesLinks(http);
                 if (LinkFilter.Narrows(linked) && !seesLinks)
                     return Results.Forbid();
 
                 return Results.Ok(await ListMembersAsync(
-                    db, clock, search, role, status, sort, page, pageSize, ct, linked, seesLinks, joinedFrom, joinedTo));
+                    db, clock, search, null, status, sort, page, pageSize, ct, linked, seesLinks, joinedFrom, joinedTo,
+                    new MemberFilters(
+                        Ids(roles), Ids(notRoles), noRole, eighteenPlus, representing, seenFrom, seenTo, Trimmed(profile))));
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetMembers")
@@ -80,12 +92,17 @@ public static class MemberEndpoints
             .WithDescription(
                 "Current members by default; `status=left` shows people a full sweep no longer "
                 + "listed, `status=all` both. `search` matches the display name and the id, "
-                + "case-insensitively. `role` is a role id. Sorted by join date, newest first, "
+                + "case-insensitively. `role` is a role id and may be repeated: people holding any "
+                + "of them. `notRole`, also repeatable, leaves out people holding any of those; "
+                + "`noRole=true` keeps only people with no role. Sorted by join date, newest first, "
                 + "unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked "
                 + "Discord account and `linked=not-linked` only people without; both need See profiles, "
                 + "as does `linkedDiscord` on each row. `joinedFrom` and `joinedTo` narrow the list "
                 + "to people who joined inside that stretch, which is what an unusual-activity alert "
-                + "links to.\n\n"
+                + "links to; `seenFrom` and `seenTo` do the same for when Modbot last saw them. "
+                + "`eighteenPlus` and `representing` are true or false; `profile` is `fetched` or "
+                + "`not-fetched`.\n\n"
+                + "`roles` lists the group's roles with how many current members hold each.\n\n"
                 + "`coverage.firstSweepComplete` is false until the first full sweep has finished; "
                 + "the list is partial until then. Names and pictures come from the profile sync "
                 + "and are null for people it has not fetched yet.")
@@ -153,12 +170,14 @@ public static class MemberEndpoints
         string? linked = null,
         bool seesLinks = false,
         DateTimeOffset? joinedFrom = null,
-        DateTimeOffset? joinedTo = null)
+        DateTimeOffset? joinedTo = null,
+        MemberFilters? more = null)
     {
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var groupId = settings?.ManagedGroupId ?? string.Empty;
         var roles = RolesOf(settings);
         var (pageNumber, size) = Paging(page, pageSize);
+        more ??= new MemberFilters();
 
         var query =
             from m in db.GroupMembers.AsNoTracking()
@@ -189,11 +208,43 @@ public static class MemberEndpoints
         if (joinedTo is { } to)
             query = query.Where(x => x.m.JoinedAt < to);
 
-        if (Trimmed(role) is { } roleId)
+        var anyRoles = (more.AnyRoles ?? []).Concat(Trimmed(role) is { } roleId ? [roleId] : []).ToList();
+
+        // PostgreSQL's `?|`: whether any of these strings is an element of the roles array. One
+        // operator for "any of" and its negation for "none of", both served by the GIN index.
+        if (anyRoles.Count > 0)
         {
-            var needle = JsonSerializer.Serialize(new[] { roleId });
-            query = query.Where(x => EF.Functions.JsonContains(x.m.Roles, needle));
+            var wanted = anyRoles.ToArray();
+            query = query.Where(x => EF.Functions.JsonExistAny(x.m.Roles, wanted));
         }
+
+        if (more.NoneOfRoles is { Count: > 0 } excluded)
+        {
+            var unwanted = excluded.ToArray();
+            query = query.Where(x => !EF.Functions.JsonExistAny(x.m.Roles, unwanted));
+        }
+
+        if (more.NoRole is { } noRole)
+            query = noRole ? query.Where(x => x.m.Roles == "[]") : query.Where(x => x.m.Roles != "[]");
+
+        if (more.EighteenPlus is { } eighteenPlus)
+            query = query.Where(x => (x.u != null && x.u.Is18PlusVerified) == eighteenPlus);
+
+        if (more.Representing is { } representing)
+            query = query.Where(x => x.m.IsRepresenting == representing);
+
+        if (more.SeenFrom is { } seenFrom)
+            query = query.Where(x => x.u != null && x.u.LastSeenAt >= seenFrom);
+
+        if (more.SeenTo is { } seenTo)
+            query = query.Where(x => x.u != null && x.u.LastSeenAt < seenTo);
+
+        query = more.Profile switch
+        {
+            "fetched" => query.Where(x => x.u != null && x.u.LastRefreshedAt != null),
+            "not-fetched" => query.Where(x => x.u == null || x.u.LastRefreshedAt == null),
+            _ => query,
+        };
 
         var links = db.ActiveAccountLinks();
 
@@ -252,13 +303,55 @@ public static class MemberEndpoints
                 discord.GetValueOrDefault(x.m.UserId));
         }).ToList();
 
+        var held = await RoleCountsAsync(db, groupId, ct);
+
         return new MemberListResponse(
             list,
             total,
             pageNumber,
             size,
-            roles.Select(r => new RoleOption(r.Key, r.Value)).OrderBy(r => r.Name ?? r.Id, StringComparer.OrdinalIgnoreCase).ToList(),
+            roles
+                .Select(r => new RoleOption(r.Key, r.Value, held.GetValueOrDefault(r.Key)))
+                .OrderBy(r => r.Name ?? r.Id, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
             MemberCoverage(settings, clock.UtcNow));
+    }
+
+    /// <summary>
+    /// How many current members hold each role.
+    /// </summary>
+    /// <remarks>
+    /// Counted here from the roles column rather than in SQL: the column is a short JSON array
+    /// per member, a group is thousands of rows at most, and the count is read once per page of
+    /// the list. The number is what lets a filter say what it will show before it is applied.
+    /// </remarks>
+    private static async Task<Dictionary<string, int>> RoleCountsAsync(ModbotContext db, string groupId, CancellationToken ct)
+    {
+        var rows = await db.GroupMembers.AsNoTracking()
+            .Where(m => m.GroupId == groupId && m.LeftAt == null && m.Roles != "[]")
+            .Select(m => m.Roles)
+            .ToListAsync(ct);
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var json in rows)
+        {
+            foreach (var id in GroupMemberSync.RoleIds(json))
+                counts[id] = counts.GetValueOrDefault(id) + 1;
+        }
+
+        return counts;
+    }
+
+    /// <summary>Repeated query values, trimmed, with blanks and repeats dropped. Null when none.</summary>
+    private static IReadOnlyList<string>? Ids(string[]? values)
+    {
+        var ids = (values ?? [])
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        return ids.Count == 0 ? null : ids;
     }
 
     /// <summary>

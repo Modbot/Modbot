@@ -1,7 +1,30 @@
 namespace Modbot.Api.Features.Members;
 
 /// <summary>One role the group defines, as last read by the group-info producer.</summary>
-public sealed record RoleOption(string Id, string? Name);
+/// <param name="Members">How many current members hold it, so a filter can say what it will show.</param>
+public sealed record RoleOption(string Id, string? Name, int Members);
+
+/// <summary>
+/// The member list's filters beyond search, status and sort. Every one is optional and they
+/// combine with AND.
+/// </summary>
+/// <param name="AnyRoles">People holding at least one of these roles.</param>
+/// <param name="NoneOfRoles">People holding none of these roles.</param>
+/// <param name="NoRole">True: people with no role at all; false: people with at least one.</param>
+/// <param name="EighteenPlus">Modbot's sticky 18+ verified mark, set or not.</param>
+/// <param name="Representing">Representing the group, or not.</param>
+/// <param name="SeenFrom">Last seen by Modbot at or after this moment.</param>
+/// <param name="SeenTo">Last seen by Modbot before this moment.</param>
+/// <param name="Profile"><c>fetched</c> for people whose profile has been read, <c>not-fetched</c> for the rest.</param>
+public sealed record MemberFilters(
+    IReadOnlyList<string>? AnyRoles = null,
+    IReadOnlyList<string>? NoneOfRoles = null,
+    bool? NoRole = null,
+    bool? EighteenPlus = null,
+    bool? Representing = null,
+    DateTimeOffset? SeenFrom = null,
+    DateTimeOffset? SeenTo = null,
+    string? Profile = null);
 
 /// <summary>The Discord account a group member has linked.</summary>
 /// <param name="Name">The name the server shows them by, else the Discord username saved with the link.</param>

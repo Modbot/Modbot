@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { FilterBar } from '@/components/filters/FilterBar'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, SourceBadge } from '@/components/facts'
 import { formatDay, sourceLabel } from '@/lib/format'
+import { useFilters, type FilterProperty } from '@/lib/filters'
 import { useListSelection } from '@/lib/listSelection'
+import { AUDIT_DEFAULTS, auditQueryFrom } from '@/lib/pageFilters'
 import { useLocation } from '@/lib/router'
 import { api, ApiError, type AuditEntry, type AuditFilters, type AuditPage } from '@/lib/api'
 import { openDiscordPerson, openInstance, openPerson } from '@/lib/subject'
@@ -14,9 +16,11 @@ import { cn } from '@/lib/utils'
 /**
  * The merged timeline (spec 5.9.5).
  *
- * One log with source chips on by default, because the questions people actually ask span sources:
- * *"who changed the ban threshold just before these bans?"* is unanswerable in either log alone.
- * Filtering to one source gives back the old separate-logs view whenever that is what is wanted.
+ * One log, because the questions people actually ask span sources: *"who changed the ban
+ * threshold just before these bans?"* is unanswerable in either log alone. The default chips show
+ * VRChat, Discord and Client and leave Sync out -- a sweep's noticed changes have a time window
+ * and no actor, and they crowd the exact entries when both are on. One click on the chip brings
+ * them back.
  *
  * The filters offered here come from the server and are already narrowed to what this account may
  * read. That is a convenience, not the enforcement — the server filters every query regardless,
@@ -42,12 +46,7 @@ export function AuditLog() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const [types, setTypes] = useState<string[]>([])
-  const [sources, setSources] = useState<string[]>([])
-  const [actor, setActor] = useState('')
-  const [subject, setSubject] = useState('')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
+  const [chips, setChips] = useFilters('audit', AUDIT_DEFAULTS)
 
   useEffect(() => {
     if (!factId) return
@@ -67,27 +66,16 @@ export function AuditLog() {
     }
   }, [factId])
 
-  const query = useMemo(
-    () => ({
-      type: types.length > 0 ? types : undefined,
-      source: sources.length > 0 ? sources : undefined,
-      actor: actor.trim() || undefined,
-      subject: subject.trim() || undefined,
-      from: from ? `${from}T00:00:00Z` : undefined,
-      // The server's upper bound is exclusive, so the day the operator picked is included by
-      // asking for midnight at the start of the next one. Sending the picked day directly would
-      // silently drop everything that happened on it, which is the filter people would trust
-      // least once they noticed and would not notice at all before that.
-      to: to
-        ? new Date(Date.parse(`${to}T00:00:00Z`) + 86_400_000).toISOString()
-        : openAt
-          ? // A second past it, so the entry itself is the first row rather than the one above it.
-            new Date(Date.parse(openAt.occurredAt) + 1000).toISOString()
-          : undefined,
+  const query = useMemo(() => {
+    const from = auditQueryFrom(chips)
+    return {
+      ...from,
+      // Opened at one entry: a second past it, so the entry itself is the first row rather than
+      // the one above it. A day picked in the filter still wins.
+      to: from.to ?? (openAt ? new Date(Date.parse(openAt.occurredAt) + 1000).toISOString() : undefined),
       limit: 50,
-    }),
-    [types, sources, actor, subject, from, to, openAt],
-  )
+    }
+  }, [chips, openAt])
 
   useEffect(() => {
     api.auditFilters().then(setFilters).catch(() => setFilters(null))
@@ -148,6 +136,58 @@ export function AuditLog() {
     else if (entry.subjectKind === 'Instance' && entry.roomId) openInstance(entry.roomId)
   })
 
+  const properties = useMemo<FilterProperty[]>(
+    () => [
+      { id: 'source', label: 'Source', kind: 'choice', options: SOURCES.map((s) => ({ value: s, label: sourceLabel(s) })) },
+      {
+        id: 'type',
+        label: 'Type',
+        kind: 'choice',
+        options: (filters?.types ?? []).map((t) => ({ value: t.value, label: t.label })),
+        placeholder: 'Type',
+      },
+      {
+        id: 'category',
+        label: 'Log',
+        kind: 'choice',
+        multi: false,
+        negatable: false,
+        options: [
+          ...(filters?.canViewModeration !== false ? [{ value: 'Moderation', label: 'Moderation' }] : []),
+          ...(filters?.canViewOperational !== false ? [{ value: 'Operational', label: 'Operational' }] : []),
+        ],
+      },
+      {
+        id: 'actor',
+        label: 'Done by',
+        kind: 'choice',
+        multi: false,
+        negatable: false,
+        freeText: true,
+        options: (filters?.actors ?? []).map((a) => ({ value: a.id, label: a.name ?? a.id, count: a.actions })),
+        placeholder: 'Name or id',
+      },
+      { id: 'subject', label: 'About', kind: 'id', placeholder: 'usr_…' },
+      { id: 'world', label: 'World', kind: 'id', placeholder: 'wrld_…' },
+      { id: 'instance', label: 'Instance number', kind: 'id', placeholder: '39047' },
+      { id: 'when', label: 'When', kind: 'date' },
+      {
+        id: 'precision',
+        label: 'Time',
+        kind: 'choice',
+        multi: false,
+        negatable: false,
+        options: [
+          { value: 'Exact', label: 'Exact' },
+          { value: 'Window', label: 'A window' },
+        ],
+      },
+      { id: 'hasActor', label: 'Somebody named', kind: 'yesno' },
+      { id: 'text', label: 'Text', kind: 'text', placeholder: 'A word or phrase' },
+    ],
+    [filters],
+  )
+
   if (error) {
     return (
       <Card>
@@ -158,23 +198,9 @@ export function AuditLog() {
 
   return (
     <div className="flex flex-col gap-3">
-      <Filters
-        filters={filters}
-        types={types}
-        setTypes={setTypes}
-        sources={sources}
-        setSources={setSources}
-        actor={actor}
-        setActor={setActor}
-        subject={subject}
-        setSubject={setSubject}
-        from={from}
-        setFrom={setFrom}
-        to={to}
-        setTo={setTo}
-      />
-
-      {coverage && <Coverage coverage={coverage} />}
+      <FilterBar properties={properties} chips={chips} onChange={setChips}>
+        {coverage && <Coverage coverage={coverage} />}
+      </FilterBar>
 
       <Card>
         <CardContent className="p-0">
@@ -281,169 +307,9 @@ function Coverage({ coverage }: { coverage: AuditPage['coverage'] }) {
   if (!coverage.oldestFact) return null
 
   return (
-    <p className="px-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+    <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
       Oldest recorded entry: {formatDay(coverage.oldestFact)}
       {coverage.catchUpComplete ? '' : ' · catch-up still running'}
-    </p>
-  )
-}
-
-function Filters(props: {
-  filters: AuditFilters | null
-  types: string[]
-  setTypes: (v: string[]) => void
-  sources: string[]
-  setSources: (v: string[]) => void
-  actor: string
-  setActor: (v: string) => void
-  subject: string
-  setSubject: (v: string) => void
-  from: string
-  setFrom: (v: string) => void
-  to: string
-  setTo: (v: string) => void
-}) {
-  const { filters } = props
-  const [open, setOpen] = useState(false)
-
-  const toggle = (list: string[], set: (v: string[]) => void, value: string) =>
-    set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
-
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Source
-          </span>
-          {SOURCES.map((source) => (
-            <Chip
-              key={source}
-              active={props.sources.length === 0 || props.sources.includes(source)}
-              onClick={() => toggle(props.sources, props.setSources, source)}
-            >
-              {sourceLabel(source)}
-            </Chip>
-          ))}
-          <span className="flex-1" />
-          <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)}>
-            {open ? 'Fewer filters' : 'More filters'}
-          </Button>
-        </div>
-
-        {open && (
-          <div className="flex flex-col gap-3 border-t pt-3" style={{ borderTopWidth: 'var(--hairline)' }}>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Subject id" value={props.subject} onChange={props.setSubject} placeholder="usr_…" />
-              <Field label="Actor id" value={props.actor} onChange={props.setActor} placeholder="usr_…" />
-              <Field label="From" value={props.from} onChange={props.setFrom} type="date" />
-              <Field label="To" value={props.to} onChange={props.setTo} type="date" />
-            </div>
-
-            {filters && filters.actors.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                  Recent actors
-                </span>
-                {filters.actors.slice(0, 8).map((a) => (
-                  <Chip
-                    key={a.id}
-                    active={props.actor === a.id}
-                    onClick={() => props.setActor(props.actor === a.id ? '' : a.id)}
-                  >
-                    {a.name ?? a.id} · {a.actions}
-                  </Chip>
-                ))}
-              </div>
-            )}
-
-            {filters && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                  Type
-                </span>
-                {filters.types.map((t) => (
-                  <Chip
-                    key={t.value}
-                    active={props.types.includes(t.value)}
-                    onClick={() => toggle(props.types, props.setTypes, t.value)}
-                  >
-                    {t.label}
-                  </Chip>
-                ))}
-              </div>
-            )}
-
-            {filters && !filters.canViewOperational && (
-              <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                Hidden from this account: logins, settings changes and sync failures.
-              </p>
-            )}
-            {filters && !filters.canViewModeration && (
-              <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                Hidden from this account: bans, kicks and role changes.
-              </p>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-center rounded-full border px-2.5 font-medium transition-colors',
-        active
-          ? 'border-transparent bg-accent text-accent-foreground'
-          : 'text-muted-foreground hover:text-foreground',
-      )}
-      style={{
-        fontSize: 'var(--text-small)',
-        borderWidth: 'var(--hairline)',
-        height: 'calc(var(--control-h) - 6px)',
-      }}
-    >
-      {children}
-    </button>
-  )
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-  type?: string
-}) {
-  return (
-    <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-      <span className="text-muted-foreground">{label}</span>
-      <Input
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </label>
+    </span>
   )
 }

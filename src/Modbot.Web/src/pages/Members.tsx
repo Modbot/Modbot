@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
+import { FilterBar } from '@/components/filters/FilterBar'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { useDemo } from '@/lib/demo'
+import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
 import { ago, formatDay } from '@/lib/format'
-import { api, ApiError, type CurrentUser, type LinkedDiscord, type LinkedFilter, type MemberList, type MemberQuery } from '@/lib/api'
+import { api, ApiError, type CurrentUser, type LinkedDiscord, type MemberList, type MemberQuery } from '@/lib/api'
 import { useListSelection } from '@/lib/listSelection'
+import { MEMBER_DEFAULTS, memberQueryFrom } from '@/lib/pageFilters'
 import { can, canAny } from '@/lib/permissions'
 import { useQueryParam } from '@/lib/router'
 import { useShortcuts } from '@/lib/shortcuts'
@@ -46,13 +49,18 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
 
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
-  const [role, setRole] = useState('')
-  const [status, setStatus] = useState<NonNullable<MemberQuery['status']>>('current')
   const [sort, setSort] = useState<NonNullable<MemberQuery['sort']>>('joined')
-  const [linked, setLinked] = useState<LinkedFilter>('all')
   const [page, setPage] = useState(1)
   const [list, setList] = useState<MemberList | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // The chips: in the address, remembered per page (lib/filters.ts). Current members by default.
+  const [chips, setChipsOnly] = useFilters('members', MEMBER_DEFAULTS)
+  const setChips = (next: FilterChip[]) => {
+    setChipsOnly(next)
+    setPage(1)
+  }
+  const filter = useMemo(() => memberQueryFrom(chips), [chips])
 
   // Bumped after a kick or a ban. The server has already marked the person as gone, so this
   // re-reads the list rather than editing the row in place and hoping the two agree.
@@ -72,13 +80,12 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
 
     api
       .members({
+        ...filter,
         search,
-        role,
-        status,
         sort,
-        linked,
-        joinedFrom: joined?.from,
-        joinedTo: joined?.to,
+        // An alert's hour-precise stretch wins over a day picked in the bar.
+        joinedFrom: joined?.from ?? filter.joinedFrom,
+        joinedTo: joined?.to ?? filter.joinedTo,
         page,
         pageSize: PAGE_SIZE,
       })
@@ -99,7 +106,61 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
     return () => {
       cancelled = true
     }
-  }, [search, role, status, sort, linked, joined?.from, joined?.to, page, acted])
+  }, [search, filter, sort, joined?.from, joined?.to, page, acted])
+
+  const properties = useMemo<FilterProperty[]>(
+    () => [
+      {
+        id: 'role',
+        label: 'Role',
+        kind: 'choice',
+        options: (list?.roles ?? []).map((r) => ({ value: r.id, label: r.name ?? r.id, count: r.members })),
+      },
+      { id: 'hasRole', label: 'Has a role', kind: 'yesno' },
+      {
+        id: 'status',
+        label: 'Status',
+        kind: 'choice',
+        multi: false,
+        negatable: false,
+        options: [
+          { value: 'current', label: 'Members' },
+          { value: 'left', label: 'People who left' },
+        ],
+      },
+      ...(seesLinks
+        ? [
+            {
+              id: 'linked',
+              label: 'Discord',
+              kind: 'choice' as const,
+              multi: false,
+              negatable: false,
+              options: [
+                { value: 'linked', label: 'Linked' },
+                { value: 'not-linked', label: 'Not linked' },
+              ],
+            },
+          ]
+        : []),
+      { id: 'eighteenPlus', label: '18+ verified', kind: 'yesno' },
+      { id: 'representing', label: 'Representing', kind: 'yesno' },
+      { id: 'joined', label: 'Joined', kind: 'date' },
+      { id: 'seen', label: 'Last seen', kind: 'date' },
+      {
+        id: 'profile',
+        label: 'Profile',
+        kind: 'choice',
+        multi: false,
+        negatable: false,
+        options: [
+          { value: 'fetched', label: 'Fetched' },
+          { value: 'not-fetched', label: 'Not fetched yet' },
+        ],
+      },
+    ],
+    [list?.roles, seesLinks],
+  )
 
   // The keyboard: `/` to the search box, `j`/`k` down and up the rows, `Enter` opens the person.
   const searchBox = useRef<HTMLInputElement>(null)
@@ -114,108 +175,61 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
 
+  const status = filter.status ?? 'all'
+
   return (
     <div className="flex flex-col gap-3">
       <Freshness coverage={list.coverage} />
 
+      <FilterBar properties={properties} chips={chips} onChange={setChips}>
+        {joined && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7"
+            onClick={() => {
+              setJoinedFrom(null)
+              setJoinedTo(null)
+              setPage(1)
+            }}
+          >
+            {`Joined ${new Date(joined.from).toLocaleString()} – ${new Date(joined.to).toLocaleTimeString()} ×`}
+          </Button>
+        )}
+
+        <Input
+          ref={searchBox}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="Search by name or id"
+          className="h-7 w-56"
+          aria-label="Search members"
+        />
+
+        <Select
+          value={sort}
+          onChange={(v) => {
+            setSort(v as typeof sort)
+            setPage(1)
+          }}
+          aria-label="Sort"
+        >
+          <option value="joined">Newest joiner first</option>
+          <option value="name">By name</option>
+          <option value="seen">Most recently seen first</option>
+        </Select>
+
+        <span className="text-muted-foreground">
+          {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
+        </span>
+      </FilterBar>
+
       <Card>
         <CardContent className="p-0">
-          <div
-            className="flex flex-wrap items-center gap-2 border-b px-3 py-2"
-            style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-          >
-            <Input
-              ref={searchBox}
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              placeholder="Search by name or id"
-              className="h-8 w-64"
-              aria-label="Search members"
-            />
-
-            <Select
-              value={role}
-              onChange={(v) => {
-                setRole(v)
-                setPage(1)
-              }}
-              aria-label="Role"
-            >
-              <option value="">Any role</option>
-              {list.roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name ?? r.id}
-                </option>
-              ))}
-            </Select>
-
-            <Select
-              value={status}
-              onChange={(v) => {
-                setStatus(v as typeof status)
-                setPage(1)
-              }}
-              aria-label="Status"
-            >
-              <option value="current">Members</option>
-              <option value="left">People who left</option>
-              <option value="all">Both</option>
-            </Select>
-
-            <Select
-              value={sort}
-              onChange={(v) => {
-                setSort(v as typeof sort)
-                setPage(1)
-              }}
-              aria-label="Sort"
-            >
-              <option value="joined">Newest joiner first</option>
-              <option value="name">By name</option>
-              <option value="seen">Most recently seen first</option>
-            </Select>
-
-            {joined && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8"
-                onClick={() => {
-                  setJoinedFrom(null)
-                  setJoinedTo(null)
-                  setPage(1)
-                }}
-              >
-                {`Joined ${new Date(joined.from).toLocaleString()} – ${new Date(joined.to).toLocaleTimeString()} ×`}
-              </Button>
-            )}
-
-            {seesLinks && (
-              <Select
-                value={linked}
-                onChange={(v) => {
-                  setLinked(v as LinkedFilter)
-                  setPage(1)
-                }}
-                aria-label="Linked"
-              >
-                <option value="all">All</option>
-                <option value="linked">Linked</option>
-                <option value="not-linked">Not linked</option>
-              </Select>
-            )}
-
-            <span className="flex-1" />
-
-            <span className="text-muted-foreground">
-              {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
-            </span>
-          </div>
-
           {list.members.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground">
               <div className="font-medium text-foreground">
-                {search || role || linked !== 'all' ? 'Nobody matches' : 'Nobody listed yet'}
+                {search || chips.length > 0 ? 'Nobody matches' : 'Nobody listed yet'}
               </div>
             </div>
           ) : (
