@@ -13,9 +13,10 @@ The overlay is part of the same client you [install](/companion/install) and
 
 ## What it needs
 
-- **SteamVR.** The companion never starts SteamVR itself. It looks for a running SteamVR every ten
-  seconds and attaches the panel when it finds one; when SteamVR closes, the panel lets go and
-  comes back the next time SteamVR is started. Start them in either order.
+- **SteamVR**, or on Linux **WiVRn or Monado** (see [below](#wivrn-and-monado)). The companion
+  never starts any of them itself. It looks for a running one every ten seconds and attaches the
+  panel when it finds one; when the runtime closes, the panel lets go and comes back the next time
+  it is started. Start them in either order.
 - **A paired server** for the group whose instance you are in.
 - **You in one of that group's instances.** Anywhere else, the panel shows its idle screen and no
   server is contacted.
@@ -24,11 +25,20 @@ Without SteamVR, or without a headset, the client simply runs without an overlay
 reporting presence as normal. The overlay never stops the rest of the client from working: if it
 cannot start, the client carries on without it.
 
-The client window's **SteamVR** page shows where the overlay stands: attached, SteamVR not
-running, SteamVR not installed, or refused (with SteamVR's reason), when it attached, how many
+The client window's **SteamVR** page shows where the overlay stands: attached (and to what),
+not running, not installed, or refused (with the runtime's reason), when it attached, how many
 frames it has drawn, what it is showing right now, and the panel's size and position. To see the
 panel's picture on your desktop without a headset, start the client in
 [debug mode](/companion/settings#debug-mode).
+
+### WiVRn and Monado
+
+On Linux with WiVRn or Monado, the companion draws the same panel through OpenXR instead of
+SteamVR. It needs the OpenXR loader (`libopenxr_loader.so.1`) and Vulkan, both of which a machine
+running WiVRn or Monado already has; there is nothing to install. xrizer alone is not enough,
+because it runs OpenVR games only and turns overlay programs away, so the companion goes to the
+OpenXR runtime itself. When the panel is up, the **SteamVR** page reads **Attached to WiVRn.** (or
+the name of the runtime it found).
 
 ## What it shows
 
@@ -115,9 +125,10 @@ server or quit the client.
 - **The panel is 0.45 metres wide** in the headset and drawn at 1024 by 1024 pixels.
 - **Long names are cut to one line**, so a display name full of line breaks cannot push the rest of
   the panel out of view.
-- **SteamVR only, on Windows or Linux.** The panel is an OpenVR overlay, which is what SteamVR
-  draws; VRChat and SteamVR run on the same machine as the companion. Other OpenXR runtimes have no
-  overlay that every runtime supports, so the companion has nothing to hand them.
+- **SteamVR, WiVRn or Monado, on Windows or Linux.** The panel is an OpenVR overlay for SteamVR
+  and an OpenXR overlay session for the other two; VRChat and the runtime run on the same machine
+  as the companion. Other OpenXR runtimes, SteamVR's own included, have no overlay extension, so
+  the companion has nothing to hand them.
 - **It sits below and to the right of your view**, about an arm's length away, and follows your
   head. There is no setting to move it yet.
 
