@@ -9,12 +9,25 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Longer than the server's own wait on Modbot Cloud (ten seconds), so a server that is up and
+ * waiting on Cloud gets to answer, and a server that is not answering at all is given up on.
+ */
+const REQUEST_TIMEOUT_MS = 15_000
+
+/** True for an answer that says try again later, rather than one that says this will never work. */
+export function isWorthRetrying(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true
+  return error.status >= 500 || error.status === 408 || error.status === 429
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, {
     credentials: 'same-origin',
     method,
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   })
 
   if (!response.ok) {
