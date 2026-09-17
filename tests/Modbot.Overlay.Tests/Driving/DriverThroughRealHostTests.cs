@@ -52,6 +52,8 @@ public class DriverThroughRealHostTests
 
         public nint TextureHandle => 1;
 
+        public ReadOnlyMemory<byte> Pixels => ReadOnlyMemory<byte>.Empty;
+
         public int Uploads { get; private set; }
 
         public void Upload(ReadOnlySpan<byte> bgra) => Uploads++;

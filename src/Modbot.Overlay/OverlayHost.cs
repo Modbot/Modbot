@@ -43,13 +43,16 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     }
 
     /// <summary>
-    /// The ordinary construction: Avalonia into a shared Direct3D texture, shown through SteamVR
-    /// when there is one.
+    /// The ordinary construction: Avalonia into a shared Direct3D texture on Windows, or into a
+    /// frame in memory that SteamVR is handed as bytes everywhere else; shown through SteamVR when
+    /// there is one.
     /// </summary>
     public static OverlayHost Create(int resolution = DefaultResolution, IOverlayRuntime? runtime = null)
         => new(
             runtime ?? new OpenVrOverlayRuntime(),
-            D3D11OverlaySurface.Create(resolution, resolution),
+            OperatingSystem.IsWindows()
+                ? D3D11OverlaySurface.Create(resolution, resolution)
+                : new MemoryOverlaySurface(resolution, resolution),
             new AvaloniaFrameRenderer(resolution, resolution));
 
     /// <summary>
@@ -77,7 +80,20 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     public int FramesDrawn => _compositor.FramesDrawn;
 
-    public OverlayRuntimeStatus Start() => _runtime.Start();
+    public OverlayRuntimeStatus Start()
+    {
+        var status = _runtime.Start();
+
+        // Freshly attached: whatever was drawn last is handed over again, so the panel comes back
+        // as it was rather than blank until something changes.
+        if (status.State is OverlayRuntimeState.Running && _compositor.FramesDrawn > 0)
+            _runtime.Submit(_surface);
+
+        return status;
+    }
+
+    /// <summary>Lets SteamVR be heard: a closing SteamVR detaches the overlay.</summary>
+    public void Poll() => _runtime.Poll();
 
     /// <summary>
     /// Replaces what the overlay shows. Redraws only if the new state would look different, so a

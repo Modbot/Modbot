@@ -18,6 +18,8 @@ public class OverlayRuntimeTests
 
         public nint TextureHandle => 42;
 
+        public ReadOnlyMemory<byte> Pixels => ReadOnlyMemory<byte>.Empty;
+
         public void Upload(ReadOnlySpan<byte> bgra) { }
 
         public void Dispose() { }

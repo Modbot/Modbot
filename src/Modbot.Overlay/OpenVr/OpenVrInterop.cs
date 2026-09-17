@@ -9,9 +9,10 @@ public enum VrInitError
     Unknown = 1,
     Init_InstallationNotFound = 100,
     Init_HmdNotFound = 108,
-    Init_NoServerForBackgroundApp = 111,
-    Init_PathRegistryNotFound = 114,
-    Init_VRDashboardNotFound = 132,
+    Init_NotInitialized = 109,
+    Init_PathRegistryNotFound = 110,
+    Init_NoServerForBackgroundApp = 121,
+    Init_VRDashboardNotFound = 133,
 }
 
 /// <summary>What kind of native texture <c>Texture_t.handle</c> is.</summary>
@@ -83,6 +84,21 @@ internal static partial class OpenVrInterop
 
     internal const int ApplicationTypeOverlay = 2;
 
+    /// <summary>
+    /// A background application is only ever answered by a SteamVR that is already running; asking
+    /// as one never launches it. That is what makes it the right first question.
+    /// </summary>
+    internal const int ApplicationTypeBackground = 3;
+
+    /// <summary><c>k_unTrackedDeviceIndex_Hmd</c>: the headset, for a transform relative to it.</summary>
+    internal const uint TrackedDeviceIndexHmd = 0;
+
+    /// <summary><c>VREvent_Quit</c>: SteamVR is closing and wants the overlay to let go.</summary>
+    internal const uint EventQuit = 700;
+
+    /// <summary><c>VREvent_ProcessQuit</c>: the same request, for this process in particular.</summary>
+    internal const uint EventProcessQuit = 701;
+
     [LibraryImport("openvr_api", EntryPoint = "VR_InitInternal")]
     internal static partial nint InitInternal(out VrInitError error, int applicationType);
 
@@ -124,6 +140,50 @@ internal static class OverlaySlot
     internal const int ShowOverlay = 43;
     internal const int HideOverlay = 44;
     internal const int IsOverlayVisible = 45;
+    internal const int PollNextOverlayEvent = 48;
     internal const int SetOverlayTexture = 60;
     internal const int ClearOverlayTexture = 61;
+    internal const int SetOverlayRaw = 62;
+}
+
+/// <summary>
+/// <c>HmdMatrix34_t</c>: a 3×4 row-major transform, the rotation in the first three columns and
+/// the translation in the fourth.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+public struct HmdMatrix34
+{
+    public float M00, M01, M02, M03;
+    public float M10, M11, M12, M13;
+    public float M20, M21, M22, M23;
+
+    /// <summary>No rotation, moved by the given metres along each axis.</summary>
+    public static HmdMatrix34 Translation(float x, float y, float z) => new()
+    {
+        M00 = 1, M11 = 1, M22 = 1,
+        M03 = x, M13 = y, M23 = z,
+    };
+}
+
+/// <summary>
+/// <c>VREvent_t</c>, as far as Modbot reads it: the type, and enough room for the rest.
+/// </summary>
+/// <remarks>
+/// SteamVR checks the size it is handed against its own <c>sizeof(VREvent_t)</c>, which is 64
+/// bytes with the 8-byte packing the C++ header uses on every platform at the pinned version: three
+/// 4-byte fields, 4 bytes of padding, and a 48-byte union of event data Modbot never reads.
+/// </remarks>
+[StructLayout(LayoutKind.Explicit, Size = 64)]
+public struct VrEvent
+{
+    public const uint Size = 64;
+
+    [FieldOffset(0)]
+    public uint EventType;
+
+    [FieldOffset(4)]
+    public uint TrackedDeviceIndex;
+
+    [FieldOffset(8)]
+    public float EventAgeSeconds;
 }

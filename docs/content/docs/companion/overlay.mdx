@@ -11,18 +11,11 @@ panel is how Modbot reaches you there.
 The overlay is part of the same client you [install](/companion/install) and
 [pair](/companion/pairing). There is nothing extra to download and nothing to switch on.
 
-<Callout type="warn" title="Not visible yet">
-In the current client, the overlay is registered with SteamVR and kept up to date, but the client
-never tells SteamVR to show it and never places it anywhere. There is no button, tray menu item or
-setting to open or move it. So today you will not see the panel in your headset. This page
-describes what the client already draws and how it behaves, so you know what to expect.
-</Callout>
-
 ## What it needs
 
-- **SteamVR installed and running, with a headset connected, when Modbot starts.** The client
-  looks for SteamVR once, when it starts. If you start SteamVR afterwards, quit Modbot from the tray
-  and open it again.
+- **SteamVR.** The companion never starts SteamVR itself. It looks for a running SteamVR every ten
+  seconds and attaches the panel when it finds one; when SteamVR closes, the panel lets go and
+  comes back the next time SteamVR is started. Start them in either order.
 - **A paired server** for the group whose instance you are in.
 - **You in one of that group's instances.** Anywhere else, the panel shows its idle screen and no
   server is contacted.
@@ -115,8 +108,11 @@ server or quit the client.
 - **The panel is 0.45 metres wide** in the headset and drawn at 1024 by 1024 pixels.
 - **Long names are cut to one line**, so a display name full of line breaks cannot push the rest of
   the panel out of view.
-- **Windows and SteamVR only.** The overlay needs VRChat and SteamVR running on the same PC as the
-  client.
+- **SteamVR only, on Windows or Linux.** The panel is an OpenVR overlay, which is what SteamVR
+  draws; VRChat and SteamVR run on the same machine as the companion. Other OpenXR runtimes have no
+  overlay that every runtime supports, so the companion has nothing to hand them.
+- **It sits below and to the right of your view**, about an arm's length away, and follows your
+  head. There is no setting to move it yet.
 
 ## What it sends
 

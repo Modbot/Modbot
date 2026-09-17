@@ -78,6 +78,8 @@ public sealed class LogToOverlayTests : IDisposable
 
         public nint TextureHandle => 1;
 
+        public ReadOnlyMemory<byte> Pixels => ReadOnlyMemory<byte>.Empty;
+
         public void Upload(ReadOnlySpan<byte> bgra) { }
 
         public void Dispose() { }

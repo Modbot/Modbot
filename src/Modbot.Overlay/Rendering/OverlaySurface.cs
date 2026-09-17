@@ -23,8 +23,58 @@ public interface IOverlaySurface : IDisposable
     /// </summary>
     nint TextureHandle { get; }
 
+    /// <summary>
+    /// The last uploaded frame as BGRA bytes, for a runtime with no graphics device to share --
+    /// empty when the frame lives on the GPU instead.
+    /// </summary>
+    ReadOnlyMemory<byte> Pixels { get; }
+
     /// <summary>Uploads one frame of premultiplied BGRA, tightly packed, top row first.</summary>
     void Upload(ReadOnlySpan<byte> bgra);
+}
+
+/// <summary>
+/// A frame kept in ordinary memory, for the platforms without Direct3D. SteamVR is handed the
+/// bytes themselves and uploads them on its own side.
+/// </summary>
+public sealed class MemoryOverlaySurface : IOverlaySurface
+{
+    private readonly byte[] _pixels;
+
+    public MemoryOverlaySurface(int width, int height)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
+
+        Width = width;
+        Height = height;
+        _pixels = new byte[width * height * 4];
+    }
+
+    public int Width { get; }
+
+    public int Height { get; }
+
+    /// <summary>Zero: there is no texture, and the runtime sends <see cref="Pixels"/> instead.</summary>
+    public nint TextureHandle => 0;
+
+    public ReadOnlyMemory<byte> Pixels => _pixels;
+
+    public void Upload(ReadOnlySpan<byte> bgra)
+    {
+        if (bgra.Length != _pixels.Length)
+        {
+            throw new ArgumentException(
+                $"Expected {_pixels.Length} bytes of BGRA for {Width}×{Height}, got {bgra.Length}.",
+                nameof(bgra));
+        }
+
+        bgra.CopyTo(_pixels);
+    }
+
+    public void Dispose()
+    {
+    }
 }
 
 /// <summary>
@@ -73,6 +123,9 @@ public sealed class D3D11OverlaySurface : IOverlaySurface
     public int Height { get; }
 
     public nint TextureHandle => _texture.NativePointer;
+
+    /// <summary>Empty: the frame is on the GPU, and SteamVR is handed the texture.</summary>
+    public ReadOnlyMemory<byte> Pixels => ReadOnlyMemory<byte>.Empty;
 
     /// <summary>
     /// The DXGI handle the compositor opens the texture through. Exposed so that the handoff can

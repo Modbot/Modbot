@@ -20,10 +20,14 @@
          win64 build from the openvr repository at v2.15.6 (SHA-256
          bab8ac6ef64e68a9ca53315b0014d131088584b2efdfa6db511d67ec03cfcb4a), redistributed under its
          BSD 3-clause licence; the licence file travels with it and THIRD-PARTY-NOTICES.md at the
-         repository root records the attribution. The dll is only useful on 64-bit Windows, which
-         is the only place the client runs; it is a harmless extra file everywhere else. -->
+         repository root records the attribution. Each build is a harmless extra file on the
+         other platform. -->
     <None Include="native\win-x64\openvr_api.dll" Link="openvr_api.dll" CopyToOutputDirectory="PreserveNewest" />
     <None Include="native\win-x64\openvr_api.LICENSE.txt" Link="openvr_api.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The same library, Valve's own linux64 build from the same tag (SHA-256
+         cb68c5788b0ddab32c0402e58820956a489ef6cb99ecf2e1fa997533ead54475), for a companion run on
+         Linux: .NET looks for "libopenvr_api.so" there when the code asks for "openvr_api". -->
+    <None Include="native\linux-x64\libopenvr_api.so" Link="libopenvr_api.so" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <PropertyGroup>

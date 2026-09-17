@@ -542,10 +542,11 @@ internal sealed class CompanionHost
         try
         {
             _overlayHost = OverlayHost.Create();
-            _overlayHost.Start();
+            AttachOverlay();
         }
         catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
         {
+            Log.Information(ex, "The overlay could not be set up on this machine; presence reporting is unaffected");
             _overlayHost = null;
             return;
         }
@@ -566,14 +567,65 @@ internal sealed class CompanionHost
     /// A turn holds a long poll open across many timer ticks, so without this guard the timer
     /// would stack requests on a machine that is also running a game.
     /// </remarks>
+    /// <summary>How often the companion looks for a SteamVR that was not running last time.</summary>
+    private static readonly TimeSpan OverlayAttachInterval = TimeSpan.FromSeconds(10);
+
+    private DateTimeOffset _overlayAttachTriedAt = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// Attaches to SteamVR if it is running, and says so once. Never launches it: a program that
+    /// starts with the computer must not start SteamVR too.
+    /// </summary>
+    private void AttachOverlay()
+    {
+        if (_overlayHost is null)
+            return;
+
+        _overlayAttachTriedAt = _clock.UtcNow;
+        var before = _overlayHost.Status;
+        var status = _overlayHost.Start();
+
+        if (status.State == before.State && status.Detail == before.Detail)
+            return;
+
+        switch (status.State)
+        {
+            case OverlayRuntimeState.Running:
+                Log.Information("The overlay is attached to SteamVR");
+                break;
+            case OverlayRuntimeState.NoRuntime:
+                Log.Information("No SteamVR on this machine, so no overlay: {Detail}", status.Detail);
+                break;
+            case OverlayRuntimeState.Refused:
+                Log.Warning("SteamVR refused the overlay: {Detail}", status.Detail);
+                break;
+            default:
+                Log.Information("SteamVR is not running; the overlay will attach when it is");
+                break;
+        }
+    }
+
     private async Task OverlayTickAsync()
     {
-        if (_overlay is null || _overlayTicking)
+        if (_overlay is null || _overlayHost is null || _overlayTicking)
             return;
 
         _overlayTicking = true;
         try
         {
+            // SteamVR closing detaches the overlay; a SteamVR started since the last look is picked
+            // up here, a few seconds after the moderator starts it.
+            var wasRunning = _overlayHost.Status.State is OverlayRuntimeState.Running;
+            _overlayHost.Poll();
+            if (wasRunning && _overlayHost.Status.State is not OverlayRuntimeState.Running)
+                Log.Information("SteamVR closed; the overlay has let go and will attach again when it is back");
+
+            if (_overlayHost.Status.State is OverlayRuntimeState.NotStarted
+                && _clock.UtcNow - _overlayAttachTriedAt >= OverlayAttachInterval)
+            {
+                AttachOverlay();
+            }
+
             // The instance the log reader last understood. The overlay follows the moderator: the
             // server that manages this instance is the only one it reads from or speaks for.
             _overlay.EnteredInstance(CurrentInstance);
