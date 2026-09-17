@@ -1,4 +1,5 @@
 import { PersonLink, RoomLink, WorldLink } from '@/components/facts'
+import { TrustRankBadge } from '@/components/TrustRankBadge'
 import type { AuditEntry } from '@/lib/api'
 
 /**
@@ -82,7 +83,10 @@ function parts(entry: AuditEntry): Parts {
     entry,
     subject: <Subject entry={entry} />,
     actor: entry.actorId ? (
-      <PersonLink platform={entry.actorPlatform} id={entry.actorId} name={entry.actorName} />
+      <>
+        <PersonLink platform={entry.actorPlatform} id={entry.actorId} name={entry.actorName} />
+        <TrustRankBadge rank={entry.actorTrustRank} className="ml-1 align-middle" />
+      </>
     ) : (
       <span className="text-muted-foreground">Somebody</span>
     ),
@@ -104,7 +108,12 @@ function parts(entry: AuditEntry): Parts {
  */
 function Subject({ entry }: { entry: AuditEntry }) {
   if (entry.subjectKind === 'Person')
-    return <PersonLink platform={entry.subjectPlatform} id={entry.subjectId} name={entry.subjectName} />
+    return (
+      <>
+        <PersonLink platform={entry.subjectPlatform} id={entry.subjectId} name={entry.subjectName} />
+        <TrustRankBadge rank={entry.subjectTrustRank} className="ml-1 align-middle" />
+      </>
+    )
 
   if (entry.subjectKind === 'Instance')
     return entry.instanceId ? <RoomLink roomId={entry.roomId} number={entry.instanceId} /> : <Id value={entry.subjectId} />

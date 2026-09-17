@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { SubjectLink, WorldLink } from '@/components/facts'
+import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { Card, CardContent } from '@/components/ui/card'
 import { api, ApiError, type LivePerson, type LiveRoom, type LiveView } from '@/lib/api'
 import { access } from '@/lib/format'
@@ -169,6 +170,7 @@ function People({ title, people, muted = false }: { title: string; people: LiveP
               style={{ borderTopWidth: 'var(--hairline)' }}
             >
               <SubjectLink id={p.userId} name={p.displayName} />
+              <TrustRankBadge rank={p.trustRank} className="self-center" />
               {p.standing !== 'Ordinary' && <Standing standing={p.standing} />}
               {p.flags.map((flag) => (
                 <span key={flag} className="text-destructive">

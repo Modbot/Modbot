@@ -229,8 +229,8 @@ All under the person as subject, none with an actor except the two manual ones; 
 
 | Type | When | Payload |
 |---|---|---|
-| `vrchat.user.profile.first-seen` | first successful fetch | `{baseline: {displayName, pronouns, dateJoined, ageVerificationStatus, ageVerified, tags}}` |
-| `vrchat.user.profile.changed` | a watched field differed from the last fetch | `{changed: {field: {old, new}}}` — the shape the audit-log mapper lifts under `changed`, so the timeline has one diff shape. `occurred_at`/`occurred_before` span the two refreshes (§5.3). |
+| `vrchat.user.profile.first-seen` | first successful fetch | `{baseline: {displayName, pronouns, dateJoined, ageVerificationStatus, ageVerified, tags, trustRank}}` — `trustRank` is Modbot's own field, the rank read off `tags` (research `2026-09-16-vrchat-trust-ranks.md`), carried whenever `tags` is |
+| `vrchat.user.profile.changed` | a watched field differed from the last fetch | `{changed: {field: {old, new}}}` — the shape the audit-log mapper lifts under `changed`, so the timeline has one diff shape. A tag change that moves the rank carries `trustRank: {old, new}` beside `tags`, as the rank's names (`User`, `KnownUser`). `occurred_at`/`occurred_before` span the two refreshes (§5.3). |
 | `vrchat.user.profile.not-found` | the first 404 for the id | `{detail}` |
 | `vrchat.user.age-verified` | the flag was set by a sighting | `{ageVerificationStatus, ageVerified, source: "vrchat"}` |
 | `modbot.user-profile.age-flag.set` / `.cleared` | a moderator changed the flag | `{reason, previousSource, previouslySetAt, ageVerificationStatusLastSeen}`; actor is the Modbot account; source `Manual` |

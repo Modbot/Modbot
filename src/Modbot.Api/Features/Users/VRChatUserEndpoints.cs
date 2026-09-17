@@ -278,7 +278,7 @@ public static class VRChatUserEndpoints
         {
             return new VRChatUserProfile(
                 id, Known: false,
-                null, null, null, null, null, null, null, null, null, [], null, null, null,
+                null, null, null, null, null, null, null, null, null, [], null, null, null, null,
                 new AgeVerifiedFlag(false, null, null, null, null),
                 null, null, null,
                 Stale: true, staleAfter.TotalSeconds,
@@ -308,6 +308,7 @@ public static class VRChatUserEndpoints
             row.ProfilePictureUrl,
             row.DateJoined,
             Tags(row.Tags),
+            row.TrustRank,
             row.LastPlatform,
             row.AgeVerificationStatus,
             row.AgeVerified,

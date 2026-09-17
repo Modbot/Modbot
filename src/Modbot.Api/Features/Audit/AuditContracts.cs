@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Audit;
 
@@ -91,6 +92,8 @@ public enum SubjectKind
 /// <param name="Data">
 /// The fact's own payload, verbatim. Secrets are never in it by construction (spec 5.9.3).
 /// </param>
+/// <param name="SubjectTrustRank">The subject's VRChat trust rank as stored now, when the subject is a VRChat person whose tags are known.</param>
+/// <param name="ActorTrustRank">The same for the actor.</param>
 public sealed record AuditEntry(
     long Id,
     DateTimeOffset OccurredAt,
@@ -113,7 +116,9 @@ public sealed record AuditEntry(
     string? InstanceId,
     Guid? RoomId,
     string? Description,
-    JsonNode? Data);
+    JsonNode? Data,
+    TrustRank? SubjectTrustRank = null,
+    TrustRank? ActorTrustRank = null);
 
 /// <param name="OccurredAt">Pass back as <c>beforeOccurredAt</c> for the next page.</param>
 /// <param name="Id">Pass back as <c>beforeId</c>. Both are required — see the endpoint.</param>

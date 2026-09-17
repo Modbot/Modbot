@@ -46,7 +46,7 @@ internal sealed class FindPersonTool : ReadTool
             .OrderByDescending(u => u.UserId == query)
             .ThenByDescending(u => u.LastSeenAt)
             .Take(10)
-            .Select(u => new { u.UserId, u.DisplayName, u.LastSeenAt })
+            .Select(u => new { u.UserId, u.DisplayName, u.TrustRank, u.LastSeenAt })
             .ToListAsync(ct);
 
         return ChatToolResult.Json(new { people }, people.Select(p => Person(p.UserId, p.DisplayName)));
@@ -118,6 +118,7 @@ internal sealed class GetPersonTool : ReadTool
                 profile.Pronouns,
                 profile.DateJoined,
                 profile.Tags,
+                profile.TrustRank,
                 profile.LastPlatform,
                 eighteenPlusVerified = profile.EighteenPlus,
                 profile.FirstSeenAt,
@@ -304,6 +305,7 @@ internal sealed class SearchMembersTool : ReadTool
                     m.LeftAt,
                     m.LastSeenAt,
                     eighteenPlusVerified = m.EighteenPlus,
+                    m.TrustRank,
                 }),
             },
             list.Members.Select(m => Person(m.UserId, m.DisplayName)));

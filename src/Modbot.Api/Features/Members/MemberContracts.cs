@@ -1,3 +1,5 @@
+using Modbot.Core.Users;
+
 namespace Modbot.Api.Features.Members;
 
 /// <summary>One role the group defines, as last read by the group-info producer.</summary>
@@ -23,6 +25,7 @@ public sealed record LinkedDiscordView(
 /// <param name="RoleNames">The role ids resolved against the group's roles; an id with no known name is shown as the id.</param>
 /// <param name="JoinedAt">When VRChat says they joined. Exact, and VRChat's.</param>
 /// <param name="EighteenPlus">Modbot's sticky "18+ verified" flag (user profile sync design §4).</param>
+/// <param name="TrustRank">The VRChat trust rank as last read. Null until the profile's tags are known.</param>
 /// <param name="LastSeenAt">The most recent time this person did something Modbot recorded.</param>
 /// <param name="ProfileRefreshedAt">When the profile columns were last fetched. Null means the name and picture are not known yet.</param>
 /// <param name="LeftAt">Set when a full sweep no longer listed them. Null for a current member.</param>
@@ -41,6 +44,7 @@ public sealed record MemberRow(
     string? Visibility,
     bool IsRepresenting,
     bool EighteenPlus,
+    TrustRank? TrustRank,
     DateTimeOffset? LastSeenAt,
     DateTimeOffset? ProfileRefreshedAt,
     DateTimeOffset? LeftAt,
@@ -103,6 +107,7 @@ public sealed record BanRow(
     string UserId,
     string? DisplayName,
     string? AvatarThumbnailUrl,
+    TrustRank? TrustRank,
     DateTimeOffset? BannedAt,
     DateTimeOffset FirstSeenAt,
     DateTimeOffset? LiftedAt,

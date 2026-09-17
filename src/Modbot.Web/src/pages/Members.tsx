@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
+import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
@@ -255,6 +256,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                                   18+
                                 </span>
                               )}
+                              <TrustRankBadge rank={m.trustRank} />
                               {m.isRepresenting && (
                                 <span
                                   className="text-muted-foreground"

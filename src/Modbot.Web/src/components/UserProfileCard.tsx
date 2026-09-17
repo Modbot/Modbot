@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
@@ -253,6 +254,7 @@ function Profile({ profile }: { profile: VRChatUserProfile }) {
             {profile.displayName ?? <span className="font-mono">{profile.userId}</span>}
           </span>
           {profile.pronouns && <span className="text-muted-foreground">{profile.pronouns}</span>}
+          <TrustRankBadge rank={profile.trustRank} className="self-center" />
         </div>
 
         {profile.statusDescription && (

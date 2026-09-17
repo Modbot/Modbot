@@ -9,6 +9,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Modbot.VRChat.Sync;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Tests.Features.Users;
 
@@ -47,6 +48,7 @@ public class VRChatUserProfileTests
             DisplayName = "Trinity",
             Bio = "hello",
             Tags = """["system_trust_veteran"]""",
+            TrustRank = TrustRank.TrustedUser,
             AgeVerificationStatus = "hidden",
             Is18PlusVerified = true,
             Is18PlusVerifiedAt = Day.AddDays(-2),
@@ -62,6 +64,7 @@ public class VRChatUserProfileTests
         Assert.True(profile.Known);
         Assert.Equal("Trinity", profile.DisplayName);
         Assert.Equal(["system_trust_veteran"], profile.Tags);
+        Assert.Equal(TrustRank.TrustedUser, profile.TrustRank);
         Assert.Equal(Day.AddHours(-1), profile.LastRefreshedAt);
         Assert.False(profile.Stale);
         Assert.Equal(Day, profile.Now);

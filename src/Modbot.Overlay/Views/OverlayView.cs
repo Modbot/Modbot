@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
+using Modbot.Core.Users;
 
 namespace Modbot.Overlay.Views;
 
@@ -33,6 +34,32 @@ public static class OverlayView
 {
     /// <summary>The headset's tokens: the VR palette at the VR density.</summary>
     private static DesignTokens T => DesignTokens.Vr;
+
+    /// <summary>
+    /// A trust rank as a small mark in VRChat's colour for it, with the rank's name in dim text
+    /// beside it. The colour is the second channel and the word carries the meaning, so a rank
+    /// whose VRChat colour is dark on a dark panel still reads.
+    /// </summary>
+    private static StackPanel RankLine(TrustRank rank, double size)
+    {
+        var mark = new Ellipse
+        {
+            Width = 10,
+            Height = 10,
+            VerticalAlignment = VerticalAlignment.Center,
+            Fill = DesignTokens.Brush(Color.Parse(TrustRanks.Colour(rank))),
+        };
+
+        var name = Text(TrustRanks.Name(rank), size, T.TextDimBrush);
+        name.VerticalAlignment = VerticalAlignment.Center;
+
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            Children = { mark, name },
+        };
+    }
 
     public static Control Build(OverlayScreen screen)
     {
@@ -195,6 +222,9 @@ public static class OverlayView
             T.TextBrush,
             FontWeight.SemiBold));
 
+        if (alert.TrustRank is { } rank)
+            lines.Children.Add(RankLine(rank, T.Density.TextBase));
+
         lines.Children.Add(Text(alert.Reason, T.Density.TextBase, T.TextBrush));
 
         if (alert.PriorActions > 0)
@@ -326,6 +356,14 @@ public static class OverlayView
             Height = T.Density.RowHeight,
             Children = { badge, name },
         };
+
+        // The rank in its VRChat colour, after the name and before the flags, on the same line.
+        if (member.TrustRank is { } rank)
+        {
+            var mark = RankLine(rank, T.Density.TextSmall);
+            mark.VerticalAlignment = VerticalAlignment.Center;
+            line.Children.Add(mark);
+        }
 
         if (member.Flags.Count > 0)
         {

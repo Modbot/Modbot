@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
 using VRChat.API.Model;
 
 namespace Modbot.VRChat.Users;
@@ -74,6 +75,13 @@ public sealed record VRChatUserSnapshot
     /// <summary>VRChat's tags, sorted, so two responses that differ only in order are not a change.</summary>
     public IReadOnlyList<string> Tags { get; init; } = [];
 
+    /// <summary>
+    /// The trust rank the tags say. Derived, never sent: it is on the row and in the diff so a
+    /// moderator reads "Known User" rather than a tag list, and it is only as fresh as
+    /// <see cref="Tags"/>, so it is carried exactly when they are.
+    /// </summary>
+    public TrustRank TrustRank => TrustRanks.FromTags(Tags);
+
     /// <summary><c>ageVerificationStatus</c> as text: <c>18+</c>, <c>hidden</c>, <c>verified</c>, or whatever VRChat sends next.</summary>
     public string? AgeVerificationStatus { get; init; }
 
@@ -96,6 +104,10 @@ public sealed record VRChatUserSnapshot
         public const string ProfilePicOverride = "profilePicOverride";
         public const string DateJoined = "date_joined";
         public const string Tags = "tags";
+
+        /// <summary>Modbot's own name, not VRChat's: the rank read off <see cref="Tags"/>. Carried whenever they are.</summary>
+        public const string TrustRank = "trustRank";
+
         public const string AgeVerificationStatus = "ageVerificationStatus";
         public const string AgeVerified = "ageVerified";
         public const string Status = "status";
@@ -269,7 +281,11 @@ public sealed record VRChatUserSnapshot
         if (Has(Fields.CurrentAvatarThumbnailImageUrl)) row.CurrentAvatarThumbnailImageUrl = CurrentAvatarThumbnailImageUrl;
         if (Has(Fields.ProfilePicOverride)) row.ProfilePictureUrl = ProfilePictureUrl;
         if (Has(Fields.DateJoined)) row.DateJoined = DateJoined;
-        if (Has(Fields.Tags)) row.Tags = JsonSerializer.Serialize(Tags);
+        if (Has(Fields.Tags))
+        {
+            row.Tags = JsonSerializer.Serialize(Tags);
+            row.TrustRank = TrustRank;
+        }
         if (Has(Fields.LastPlatform)) row.LastPlatform = LastPlatform;
         if (Has(Fields.AgeVerificationStatus)) row.AgeVerificationStatus = AgeVerificationStatus;
         if (Has(Fields.AgeVerified)) row.AgeVerified = AgeVerified;
@@ -314,6 +330,12 @@ public sealed record VRChatUserSnapshot
             };
         }
 
+        // Beside the tag diff, not instead of it: the tags say what VRChat sent, and the rank says
+        // what it means, and a timeline row that only listed tags would make a moderator do the
+        // off-by-one translation in their head.
+        if (Has(Fields.Tags) && previous.TrustRank != TrustRank)
+            changed[Fields.TrustRank] = Pair(previous.TrustRank.ToString(), TrustRank.ToString());
+
         return changed;
     }
 
@@ -327,7 +349,11 @@ public sealed record VRChatUserSnapshot
         if (Has(Fields.DateJoined)) baseline["dateJoined"] = DateJoined?.ToString("O", CultureInfo.InvariantCulture);
         if (Has(Fields.AgeVerificationStatus)) baseline[Fields.AgeVerificationStatus] = AgeVerificationStatus;
         if (Has(Fields.AgeVerified)) baseline[Fields.AgeVerified] = AgeVerified;
-        if (Has(Fields.Tags)) baseline[Fields.Tags] = new JsonArray([.. Tags.Select(t => JsonValue.Create(t))]);
+        if (Has(Fields.Tags))
+        {
+            baseline[Fields.Tags] = new JsonArray([.. Tags.Select(t => JsonValue.Create(t))]);
+            baseline[Fields.TrustRank] = TrustRank.ToString();
+        }
 
         return baseline;
     }

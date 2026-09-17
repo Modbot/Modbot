@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Audit;
 
@@ -50,10 +51,16 @@ public static class AuditNaming
         return entries
             .Select(e => e with
             {
-                SubjectName = NameOf(e, people, discord, accounts),
+                SubjectName = NameOf(e, people.Names, discord, accounts),
                 ActorName = e.ActorName ?? (e.ActorId is { } actor
-                    ? (IsDiscord(e.ActorPlatform) ? discord : people).GetValueOrDefault(actor)
+                    ? (IsDiscord(e.ActorPlatform) ? discord : people.Names).GetValueOrDefault(actor)
                     : null),
+                SubjectTrustRank = e.SubjectKind == SubjectKind.Person && !IsDiscord(e.SubjectPlatform)
+                    ? people.Ranks.GetValueOrDefault(e.SubjectId)
+                    : null,
+                ActorTrustRank = e.ActorId is { } ranked && !IsDiscord(e.ActorPlatform)
+                    ? people.Ranks.GetValueOrDefault(ranked)
+                    : null,
                 WorldName = e.WorldId is { } world ? worlds.GetValueOrDefault(world) : null,
                 RoomId = RoomOf(e, rooms),
             })
@@ -78,8 +85,16 @@ public static class AuditNaming
     private static bool IsDiscord(string? platform)
         => string.Equals(platform, nameof(FactPlatform.Discord), StringComparison.Ordinal);
 
-    /// <summary>Display names for every VRChat person named as a subject or an actor.</summary>
-    private static async Task<IReadOnlyDictionary<string, string>> PeopleAsync(
+    /// <summary>What the stored profiles say about the VRChat people on a page: names, and trust ranks.</summary>
+    private sealed record People(
+        IReadOnlyDictionary<string, string> Names,
+        IReadOnlyDictionary<string, TrustRank?> Ranks);
+
+    /// <summary>
+    /// Display names and trust ranks for every VRChat person named as a subject or an actor. One
+    /// query for both, because the rank rides on the same row as the name.
+    /// </summary>
+    private static async Task<People> PeopleAsync(
         ModbotContext db,
         IReadOnlyList<AuditEntry> entries,
         CancellationToken ct)
@@ -92,12 +107,18 @@ public static class AuditNaming
             .ToList();
 
         if (ids.Count == 0)
-            return Empty<string>();
+            return new People(Empty<string>(), Empty<TrustRank?>());
 
-        return await db.VRChatUsers.AsNoTracking()
-            .Where(u => ids.Contains(u.UserId) && u.DisplayName != null)
-            .Select(u => new { u.UserId, u.DisplayName })
-            .ToDictionaryAsync(u => u.UserId, u => u.DisplayName!, StringComparer.Ordinal, ct);
+        var rows = await db.VRChatUsers.AsNoTracking()
+            .Where(u => ids.Contains(u.UserId) && (u.DisplayName != null || u.TrustRank != null))
+            .Select(u => new { u.UserId, u.DisplayName, u.TrustRank })
+            .ToListAsync(ct);
+
+        return new People(
+            rows.Where(r => r.DisplayName != null)
+                .ToDictionary(r => r.UserId, r => r.DisplayName!, StringComparer.Ordinal),
+            rows.Where(r => r.TrustRank != null)
+                .ToDictionary(r => r.UserId, r => r.TrustRank, StringComparer.Ordinal));
     }
 
     /// <summary>

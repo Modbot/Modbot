@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Modbot.Core.Data.Entities;
 using Modbot.VRChat.Users;
 using VRChat.API.Model;
+using Modbot.Core.Users;
 
 namespace Modbot.VRChat.Tests.Users;
 
@@ -76,6 +77,56 @@ public class VRChatUserSnapshotTests
         var user = new User { Id = "usr_a", Tags = ["z", "a"] };
 
         Assert.Equal(["a", "z"], VRChatUserSnapshot.From(user).Tags);
+    }
+
+    /// <summary>
+    /// The rank is read off the tags and travels with them: onto the row, into the baseline, and
+    /// into the diff beside the tag diff, under Modbot's own field name.
+    /// </summary>
+    [Fact]
+    public void TheTrustRankTravelsWithTheTags()
+    {
+        var before = Snapshot("hidden", false, "language_eng", "system_trust_known");
+        var after = Snapshot("hidden", false, "language_eng", "system_trust_veteran");
+
+        Assert.Equal(TrustRank.User, before.TrustRank);
+        Assert.Equal(TrustRank.TrustedUser, after.TrustRank);
+
+        var diff = after.DifferencesFrom(before);
+        Assert.Equal(["tags", "trustRank"], diff.Select(d => d.Key));
+        Assert.Equal("User", diff["trustRank"]!["old"]!.GetValue<string>());
+        Assert.Equal("TrustedUser", diff["trustRank"]!["new"]!.GetValue<string>());
+
+        Assert.Equal("TrustedUser", after.Baseline()["trustRank"]!.GetValue<string>());
+
+        var row = new VRChatUser { UserId = "usr_a" };
+        after.ApplyTo(row);
+        Assert.Equal(TrustRank.TrustedUser, row.TrustRank);
+    }
+
+    /// <summary>A tag change that leaves the rank where it was is a tag diff and nothing more.</summary>
+    [Fact]
+    public void ATagChangeThatKeepsTheRankDoesNotClaimARankChange()
+    {
+        var before = Snapshot("hidden", false, "system_trust_known");
+        var after = Snapshot("hidden", false, "system_trust_known", "system_supporter");
+
+        Assert.Equal(["tags"], after.DifferencesFrom(before).Select(d => d.Key));
+    }
+
+    /// <summary>
+    /// The public profile does not carry the tags, so recording one never touches the rank the
+    /// user read filled in -- not even to Visitor.
+    /// </summary>
+    [Fact]
+    public void ThePublicProfileNeverSpeaksForTheRank()
+    {
+        var row = new VRChatUser { UserId = "usr_a", Tags = "[\"system_trust_trusted\"]", TrustRank = TrustRank.KnownUser };
+        var profile = new PublicProfile { Id = "usr_a", DisplayName = "Trinity", TrustTags = ["system_trust_veteran"] };
+
+        VRChatUserSnapshot.FromPublicProfile("usr_a", profile).ApplyTo(row);
+
+        Assert.Equal(TrustRank.KnownUser, row.TrustRank);
     }
 
     /// <summary>Spec 5.3: instance locations carry nonces, and Modbot never persists instance secrets.</summary>

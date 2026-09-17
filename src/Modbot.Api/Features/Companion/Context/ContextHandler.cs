@@ -8,6 +8,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Live;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Companion.Context;
 
@@ -16,7 +17,8 @@ public sealed record RosterMemberDto(
     [property: JsonPropertyName("displayName")] string? DisplayName,
     [property: JsonPropertyName("standing")] string Standing,
     [property: JsonPropertyName("priorActions")] int PriorActions,
-    [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags);
+    [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
 
 public sealed record InstanceContextDto(
     [property: JsonPropertyName("instanceId")] string InstanceId,
@@ -29,7 +31,8 @@ public sealed record UserSummaryDto(
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("joinedAt")] DateTimeOffset? JoinedAt,
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
-    [property: JsonPropertyName("roles")] IReadOnlyList<string> Roles);
+    [property: JsonPropertyName("roles")] IReadOnlyList<string> Roles,
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
 
 /// <summary>
 /// The overlay's two reads: who is in this instance, and what is known about one of them.
@@ -38,10 +41,10 @@ public sealed record UserSummaryDto(
 /// <para><strong>Small on purpose.</strong> The profile summary is deliberately not the full web
 /// profile — an overlay card shows prior actions, roles, join date and current flags, and nothing
 /// that needs scrolling in a headset.</para>
-/// <para><strong>Everything here is derived from this deployment's own fact log.</strong> No
-/// VRChat call is made to answer an overlay read: a moderator glancing at a roster must not be
-/// able to spend the group's shared API budget, and the answer has to arrive in the time a glance
-/// takes.</para>
+/// <para><strong>Everything here is derived from this deployment's own fact log</strong>, plus
+/// the trust rank off the stored profile row. No VRChat call is made to answer an overlay read: a
+/// moderator glancing at a roster must not be able to spend the group's shared API budget, and
+/// the answer has to arrive in the time a glance takes.</para>
 /// <para><strong>A pairing sees exactly one group's context</strong>, which is the same boundary
 /// the client's local routing enforces, arriving from the other side.</para>
 /// <para><strong>A roster is only believed while a moderator is watching.</strong> This used to be
@@ -114,9 +117,11 @@ public static class ContextHandler
         var subjects = people.Here.Select(p => p.UserId).ToList();
         var priorActions = await CountPriorActionsAsync(database, subjects, ct);
         var members = await CurrentMembersAsync(database, subjects, ct);
+        var ranks = await TrustRanksAsync(database, subjects, ct);
 
         var roster = people.Here
-            .Select(person => Describe(person.UserId, person.DisplayName, priorActions, members))
+            .Select(person => Describe(
+                person.UserId, person.DisplayName, priorActions, members, ranks.GetValueOrDefault(person.UserId)))
             .ToList();
 
         return Results.Ok(new InstanceContextDto(instanceId, roster));
@@ -140,6 +145,12 @@ public static class ContextHandler
         if (subjectId is not { Length: > 0 })
             return CompanionApiErrors.Malformed("A subjectId is required.");
 
+        var trustRank = await database.VRChatUsers
+            .AsNoTracking()
+            .Where(u => u.UserId == subjectId)
+            .Select(u => u.TrustRank)
+            .FirstOrDefaultAsync(ct);
+
         // One pass over this subject's facts, which the subject index serves directly. Several
         // narrower queries would each be a round trip for a card that has to arrive in the time a
         // glance takes.
@@ -154,7 +165,7 @@ public static class ContextHandler
         {
             // Nothing on record is a perfectly good answer, and saying so is better than a 404 the
             // overlay would have to translate.
-            return Results.Ok(new UserSummaryDto(subjectId, null, "Ordinary", 0, null, [], []));
+            return Results.Ok(new UserSummaryDto(subjectId, null, "Ordinary", 0, null, [], [], trustRank));
         }
 
         var priorActions = facts.Count(f => ModerationActions.Contains(f.Type));
@@ -185,7 +196,8 @@ public static class ContextHandler
             priorActions,
             joinedAt,
             Flags(priorActions),
-            roles));
+            roles,
+            trustRank));
     }
 
     /// <summary>
@@ -204,6 +216,17 @@ public static class ContextHandler
             .GroupBy(e => e.SubjectId)
             .Select(g => new { SubjectId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.SubjectId, g => g.Count, StringComparer.Ordinal, ct);
+
+    /// <summary>The stored trust rank of each of these people whose tags have been read. One query.</summary>
+    internal static async Task<Dictionary<string, TrustRank?>> TrustRanksAsync(
+        ModbotContext database,
+        IReadOnlyCollection<string> subjectIds,
+        CancellationToken ct)
+        => await database.VRChatUsers
+            .AsNoTracking()
+            .Where(u => subjectIds.Contains(u.UserId) && u.TrustRank != null)
+            .Select(u => new { u.UserId, u.TrustRank })
+            .ToDictionaryAsync(u => u.UserId, u => u.TrustRank, StringComparer.Ordinal, ct);
 
     /// <summary>Which of these people are group members, as the fact log last said.</summary>
     internal static async Task<HashSet<string>> CurrentMembersAsync(
@@ -236,7 +259,8 @@ public static class ContextHandler
         string subjectId,
         string? displayName,
         Dictionary<string, int> priorActions,
-        HashSet<string> members)
+        HashSet<string> members,
+        TrustRank? trustRank = null)
     {
         var actions = priorActions.GetValueOrDefault(subjectId);
 
@@ -245,7 +269,8 @@ public static class ContextHandler
             displayName,
             Standing(actions, members.Contains(subjectId), isStaff: false),
             actions,
-            Flags(actions));
+            Flags(actions),
+            trustRank);
     }
 
     /// <summary>

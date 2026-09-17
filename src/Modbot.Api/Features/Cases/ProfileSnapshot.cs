@@ -84,6 +84,7 @@ public static class ProfileSnapshot
         ["profilePictureUrl"] = u.ProfilePictureUrl,
         ["dateJoined"] = u.DateJoined?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         ["tags"] = Parse(u.Tags) ?? new JsonArray(),
+        ["trustRank"] = u.TrustRank?.ToString(),
         ["lastPlatform"] = u.LastPlatform,
         ["ageVerificationStatus"] = u.AgeVerificationStatus,
         ["ageVerified"] = u.AgeVerified,

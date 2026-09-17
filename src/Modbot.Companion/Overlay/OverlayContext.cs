@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Modbot.Core.Users;
 
 namespace Modbot.Companion.Overlay;
 
@@ -28,12 +29,14 @@ public enum RosterStanding
 /// </param>
 /// <param name="PriorActions">How many moderation actions this group has previously taken.</param>
 /// <param name="Flags">Short labels, already resolved server-side. Shown verbatim, never parsed.</param>
+/// <param name="TrustRank">Their VRChat trust rank as the server last stored it. Null when the server does not know it yet, or is too old to send it.</param>
 public sealed record RosterMember(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
     [property: JsonPropertyName("standing")] RosterStanding Standing,
     [property: JsonPropertyName("priorActions")] int PriorActions,
-    [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags);
+    [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
 
 /// <summary>
 /// What one server knows about the instance the moderator is standing in.
@@ -60,7 +63,8 @@ public sealed record UserSummary(
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("joinedAt")] DateTimeOffset? JoinedAt,
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
-    [property: JsonPropertyName("roles")] IReadOnlyList<string> Roles);
+    [property: JsonPropertyName("roles")] IReadOnlyList<string> Roles,
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
 
 /// <summary>
 /// The one thing that genuinely needs push: a flagged user just joined this instance.
@@ -76,4 +80,5 @@ public sealed record FlaggedJoinAlert(
     [property: JsonPropertyName("instanceId")] string InstanceId,
     [property: JsonPropertyName("reason")] string Reason,
     [property: JsonPropertyName("priorActions")] int PriorActions,
-    [property: JsonPropertyName("raisedAt")] DateTimeOffset RaisedAt);
+    [property: JsonPropertyName("raisedAt")] DateTimeOffset RaisedAt,
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
