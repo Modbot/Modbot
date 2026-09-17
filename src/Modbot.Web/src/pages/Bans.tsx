@@ -283,6 +283,11 @@ function GroupBans({
                           )}
                           <div className="min-w-0">
                             <SubjectLink id={ban.userId} name={ban.displayName} onOpen={onOpenSubject} />
+                            {ban.plainName && (
+                              <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                                {ban.plainName}
+                              </div>
+                            )}
                             {ban.displayName && (
                               <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
                                 {ban.userId}

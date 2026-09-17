@@ -4,6 +4,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Modbot.Companion.Overlay;
+using Modbot.Shared.Names;
 
 namespace Modbot.Overlay.Views;
 
@@ -167,8 +168,9 @@ public static class OverlayView
         else
         {
             // Flagged first, then staff, then everybody else: the overlay's job is to put the row
-            // that matters where the eye lands, not to reproduce a sortable table.
-            foreach (var member in context.Members.OrderBy(Priority).ThenBy(m => m.DisplayName ?? m.SubjectId, StringComparer.OrdinalIgnoreCase))
+            // that matters where the eye lands, not to reproduce a sortable table. Within a band
+            // the order is by the name in plain letters, so 𝕬𝖑𝖊𝖝 sits with the As.
+            foreach (var member in context.Members.OrderBy(Priority).ThenBy(SortName, StringComparer.OrdinalIgnoreCase))
                 rows.Children.Add(RosterRow(member));
         }
 
@@ -190,6 +192,16 @@ public static class OverlayView
         RosterStanding.Member => 2,
         _ => 3,
     };
+
+    /// <summary>The name in plain letters, else the name, else the id: what the row sorts by.</summary>
+    private static string SortName(RosterMember member)
+    {
+        if (member.DisplayName is null)
+            return member.SubjectId;
+
+        var plain = NameNormalizer.Readable(member.DisplayName);
+        return plain.Length == 0 ? member.DisplayName : plain;
+    }
 
     private static Control RosterRow(RosterMember member)
     {

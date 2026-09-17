@@ -19,6 +19,7 @@ public sealed record LinkedDiscordView(
 /// One row of the Members page.
 /// </summary>
 /// <param name="DisplayName">From the stored profile, when the profile sync has fetched one. Null until then.</param>
+/// <param name="PlainName">The display name in plain letters, when that differs from the display name. Null otherwise.</param>
 /// <param name="AvatarThumbnailUrl">The profile picture override when set, else the avatar thumbnail. Null until fetched.</param>
 /// <param name="RoleNames">The role ids resolved against the group's roles; an id with no known name is shown as the id.</param>
 /// <param name="JoinedAt">When VRChat says they joined. Exact, and VRChat's.</param>
@@ -33,6 +34,7 @@ public sealed record LinkedDiscordView(
 public sealed record MemberRow(
     string UserId,
     string? DisplayName,
+    string? PlainName,
     string? AvatarThumbnailUrl,
     IReadOnlyList<string> RoleIds,
     IReadOnlyList<string> RoleNames,
@@ -99,9 +101,11 @@ public sealed record MembershipView(
 /// <param name="BannedAt">When VRChat says the ban was issued.</param>
 /// <param name="FirstSeenAt">The first sweep that listed the ban -- for a ban older than Modbot, this is when Modbot learned of it.</param>
 /// <param name="LiftedAt">Set when a full sweep no longer listed the ban.</param>
+/// <param name="PlainName">The display name in plain letters, when that differs from the display name. Null otherwise.</param>
 public sealed record BanRow(
     string UserId,
     string? DisplayName,
+    string? PlainName,
     string? AvatarThumbnailUrl,
     DateTimeOffset? BannedAt,
     DateTimeOffset FirstSeenAt,

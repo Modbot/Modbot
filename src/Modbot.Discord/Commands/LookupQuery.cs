@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
+using Modbot.Core.Names;
 using Modbot.Discord.ModerationLog;
+using Modbot.Shared.Names;
 
 namespace Modbot.Discord.Commands;
 
@@ -74,13 +76,18 @@ public sealed class LookupQuery
         if (byId is not null)
             return [byId];
 
-        var pattern = EscapeLike(q);
+        // The whole name first, then part of one; each as typed and in its searchable form, so
+        // "adderall" finds Addеrаll and "alex" finds 𝕬𝖑𝖊𝖝.
+        var escaped = NameSearch.Escape(q);
+        var plain = NameNormalizer.Searchable(q);
+        var plainEscaped = plain.Length == 0 ? null : NameSearch.Escape(plain);
 
-        var exact = await ByNameAsync(pattern, ct).ConfigureAwait(false);
+        var exact = await ByNameAsync(escaped, plainEscaped, ct).ConfigureAwait(false);
         if (exact.Count > 0)
             return exact;
 
-        var partial = await ByNameAsync("%" + pattern + "%", ct).ConfigureAwait(false);
+        var partial = await ByNameAsync("%" + escaped + "%", plainEscaped is null ? null : "%" + plainEscaped + "%", ct)
+            .ConfigureAwait(false);
         if (partial.Count > 0)
             return partial;
 
@@ -141,14 +148,24 @@ public sealed class LookupQuery
         return await WithNamesAsync(rows, ct).ConfigureAwait(false);
     }
 
-    private async Task<IReadOnlyList<PersonMatch>> ByNameAsync(string pattern, CancellationToken ct)
-        => await _db.VRChatUsers.AsNoTracking()
-            .Where(u => u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\"))
+    /// <param name="pattern">Against the name as stored.</param>
+    /// <param name="plain">Against the searchable name; null when the term folds to nothing.</param>
+    private async Task<IReadOnlyList<PersonMatch>> ByNameAsync(string pattern, string? plain, CancellationToken ct)
+    {
+        var users = _db.VRChatUsers.AsNoTracking();
+        users = plain is null
+            ? users.Where(u => u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\"))
+            : users.Where(u =>
+                (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\"))
+                || (u.DisplayNameSearchable != null && EF.Functions.ILike(u.DisplayNameSearchable, plain, "\\")));
+
+        return await users
             .OrderByDescending(u => u.LastSeenAt)
             .Take(MaxMatches)
             .Select(u => new PersonMatch(u.UserId, u.DisplayName, true))
             .ToListAsync(ct)
             .ConfigureAwait(false);
+    }
 
     private async Task<IReadOnlyList<ModerationEventView>> WithNamesAsync(List<ModbotEvent> rows, CancellationToken ct)
     {
@@ -161,10 +178,4 @@ public sealed class LookupQuery
 
         return rows.Select(r => ModerationEventView.From(r, names)).ToList();
     }
-
-    /// <summary>A typed name is a name, not a pattern: its wildcards are matched literally.</summary>
-    private static string EscapeLike(string text)
-        => text.Replace("\\", "\\\\", StringComparison.Ordinal)
-            .Replace("%", "\\%", StringComparison.Ordinal)
-            .Replace("_", "\\_", StringComparison.Ordinal);
 }

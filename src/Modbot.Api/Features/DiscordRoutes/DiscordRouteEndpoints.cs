@@ -9,6 +9,7 @@ using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
+using Modbot.Core.Names;
 using Modbot.VRChat.Sync;
 
 namespace Modbot.Api.Features.DiscordRoutes;
@@ -277,12 +278,21 @@ public static class DiscordRouteEndpoints
                 if (string.IsNullOrEmpty(term))
                     return Results.Ok(new DiscordRoutePeopleResponse([]));
 
-                var pattern = Members.MemberEndpoints.Pattern(term);
+                var pattern = NameSearch.Pattern(term);
+                var plain = NameSearch.SearchablePattern(term);
 
-                var found = await db.VRChatUsers.AsNoTracking()
-                    .Where(u => u.UserId == term
+                // Names as stored and in their searchable form, as the Members page searches them.
+                var users = db.VRChatUsers.AsNoTracking();
+                users = plain is null
+                    ? users.Where(u => u.UserId == term
                         || EF.Functions.ILike(u.UserId, pattern, "\\")
                         || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\")))
+                    : users.Where(u => u.UserId == term
+                        || EF.Functions.ILike(u.UserId, pattern, "\\")
+                        || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\"))
+                        || (u.DisplayNameSearchable != null && EF.Functions.ILike(u.DisplayNameSearchable, plain, "\\")));
+
+                var found = await users
                     .OrderBy(u => u.UserId != term)
                     .ThenBy(u => u.DisplayName)
                     .ThenBy(u => u.UserId)
@@ -297,13 +307,24 @@ public static class DiscordRouteEndpoints
                 // Discord accounts: the server's member list, whether or not they linked anything,
                 // then linked accounts no longer in the server. Anybody else is picked by typing
                 // their Discord id, which the picker offers as it is.
-                var members = await db.DiscordMembers.AsNoTracking()
-                    .Where(m => !m.IsBot
-                        && (m.UserId == term
-                            || EF.Functions.ILike(m.Username, pattern, "\\")
-                            || EF.Functions.ILike(m.DisplayName, pattern, "\\")
-                            || (m.GlobalName != null && EF.Functions.ILike(m.GlobalName, pattern, "\\"))
-                            || (m.Nickname != null && EF.Functions.ILike(m.Nickname, pattern, "\\"))))
+                var people = db.DiscordMembers.AsNoTracking().Where(m => !m.IsBot);
+                people = plain is null
+                    ? people.Where(m => m.UserId == term
+                        || EF.Functions.ILike(m.Username, pattern, "\\")
+                        || EF.Functions.ILike(m.DisplayName, pattern, "\\")
+                        || (m.GlobalName != null && EF.Functions.ILike(m.GlobalName, pattern, "\\"))
+                        || (m.Nickname != null && EF.Functions.ILike(m.Nickname, pattern, "\\")))
+                    : people.Where(m => m.UserId == term
+                        || EF.Functions.ILike(m.Username, pattern, "\\")
+                        || EF.Functions.ILike(m.DisplayName, pattern, "\\")
+                        || (m.GlobalName != null && EF.Functions.ILike(m.GlobalName, pattern, "\\"))
+                        || (m.Nickname != null && EF.Functions.ILike(m.Nickname, pattern, "\\"))
+                        || (m.UsernameSearchable != null && EF.Functions.ILike(m.UsernameSearchable, plain, "\\"))
+                        || (m.DisplayNameSearchable != null && EF.Functions.ILike(m.DisplayNameSearchable, plain, "\\"))
+                        || (m.GlobalNameSearchable != null && EF.Functions.ILike(m.GlobalNameSearchable, plain, "\\"))
+                        || (m.NicknameSearchable != null && EF.Functions.ILike(m.NicknameSearchable, plain, "\\")));
+
+                var members = await people
                     .OrderBy(m => m.UserId != term)
                     .ThenBy(m => m.LeftAt != null)
                     .ThenBy(m => m.DisplayName)

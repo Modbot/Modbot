@@ -264,6 +264,11 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                                 </span>
                               )}
                             </div>
+                            {m.plainName && (
+                              <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                                {m.plainName}
+                              </div>
+                            )}
                             {m.displayName && (
                               <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
                                 {m.userId}

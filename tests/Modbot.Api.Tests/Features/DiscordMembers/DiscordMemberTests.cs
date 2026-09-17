@@ -423,4 +423,48 @@ public class DiscordMemberTests
         Assert.Equal("Cy", entry.SubjectName);
         Assert.Equal("Ada the Brave", entry.ActorName);
     }
+
+    /// <summary>
+    /// Every one of the four names is searched in its plain spelling as well as as written, and
+    /// the row carries the plain spelling of the name the server shows (names design).
+    /// </summary>
+    [Fact]
+    public async Task Search_FindsFancyNamesByTheirPlainSpelling_AndTheRowCarriesIt()
+    {
+        await using var host = await StartAsync(_db);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var at = host.Clock.UtcNow;
+            context.DiscordMembers.AddRange(
+                Member("4", "dragon135_racer", "𝕯𝖗𝖆𝖌𝖔𝖓135_𝕽𝖆𝖈𝖊𝖗", at.AddDays(-3), at: at),
+                Member("5", "venus", "Venus", at.AddDays(-4), nickname: "Vᴇɴᴜs ᴅᴇ Gʀᴀᴀɴ", at: at),
+                Member("6", "printsessa", "|~Принцесса Кира~|", at.AddDays(-5), at: at));
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        // The global name in a font, found by its plain spelling; digits stay digits.
+        var fraktur = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?search=dragon135", cookie, Ct);
+        Assert.Equal(["4"], fraktur.Members.Select(m => m.UserId));
+        Assert.Equal("Dragon135_Racer", fraktur.Members[0].PlainName);
+
+        // The nickname in small capitals, which is also the name the server shows.
+        var smallCaps = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?search=de%20graan", cookie, Ct);
+        Assert.Equal(["5"], smallCaps.Members.Select(m => m.UserId));
+        Assert.Equal("Venus de Graan", smallCaps.Members[0].PlainName);
+
+        // A name written in Russian is not folded: it is found in Russian and has no second spelling.
+        var russian = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?search=%D0%BA%D0%B8%D1%80%D0%B0", cookie, Ct);
+        Assert.Equal(["6"], russian.Members.Select(m => m.UserId));
+        Assert.Null(russian.Members[0].PlainName);
+        var latin = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?search=kira", cookie, Ct);
+        Assert.DoesNotContain(latin.Members, m => m.UserId == "6");
+
+        // Plain names stay plain.
+        var ada = await host.GetJsonAsync<DiscordMemberListResponse>("/api/discord/members?search=ada", cookie, Ct);
+        Assert.Null(ada.Members.Single(m => m.UserId == "1").PlainName);
+    }
 }

@@ -586,6 +586,17 @@ public class Settings
     public int AuditLogCatchUpVersion { get; set; }
 
     /// <summary>
+    /// Which version of <c>NameNormalizer</c> made the stored searchable names. Below the version
+    /// the running build carries, the name catch-up clears them all and makes them again.
+    /// </summary>
+    /// <remarks>
+    /// Zero on every deployment from before searchable names existed, so the first build with
+    /// them fills every row. A later change to the folding rules bumps the version and the same
+    /// pass re-runs, without anyone touching the database by hand.
+    /// </remarks>
+    public int NameCatchUpVersion { get; set; }
+
+    /// <summary>
     /// How far into the current backlog the poll has read, when there is more waiting than one
     /// pass may read. Zero whenever the window was last drained completely.
     /// </summary>

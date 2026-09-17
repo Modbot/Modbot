@@ -14068,6 +14068,7 @@
         "required": [
           "userId",
           "displayName",
+          "plainName",
           "avatarThumbnailUrl",
           "bannedAt",
           "firstSeenAt",
@@ -14080,6 +14081,12 @@
             "type": "string"
           },
           "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "plainName": {
             "type": [
               "null",
               "string"
@@ -16560,6 +16567,7 @@
           "userId",
           "username",
           "displayName",
+          "plainName",
           "globalName",
           "nickname",
           "avatarUrl",
@@ -16584,6 +16592,12 @@
           },
           "displayName": {
             "type": "string"
+          },
+          "plainName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "globalName": {
             "type": [
@@ -20606,6 +20620,7 @@
         "required": [
           "userId",
           "displayName",
+          "plainName",
           "avatarThumbnailUrl",
           "roleIds",
           "roleNames",
@@ -20625,6 +20640,12 @@
             "type": "string"
           },
           "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "plainName": {
             "type": [
               "null",
               "string"
@@ -24319,6 +24340,7 @@
           "userId",
           "known",
           "displayName",
+          "plainName",
           "bio",
           "status",
           "statusDescription",
@@ -24352,6 +24374,12 @@
             "type": "boolean"
           },
           "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "plainName": {
             "type": [
               "null",
               "string"

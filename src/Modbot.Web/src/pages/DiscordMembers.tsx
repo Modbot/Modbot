@@ -204,6 +204,11 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
                                   bot
                                 </span>
                               )}
+                              {m.plainName && (
+                                <div className="max-w-[18rem] truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                                  {m.plainName}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>

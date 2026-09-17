@@ -360,4 +360,55 @@ public class MembersTests
         Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/members?linked=linked", cookie, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/members?linked=not-linked", cookie, Ct)).StatusCode);
     }
+
+    /// <summary>
+    /// A name in a "font" or in look-alike letters is found by its plain spelling, and the row
+    /// carries that spelling beside the name as stored (names design; research 2026-09-16).
+    /// </summary>
+    [Fact]
+    public async Task SearchFindsFancyNamesByTheirPlainSpellingAndTheRowCarriesIt()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.GroupMembers.AddRange(
+                new GroupMember { GroupId = Group, UserId = "usr_fancy", Roles = """["grol_member"]""", JoinedAt = Day.AddDays(-1), MembershipStatus = "member", FirstSeenAt = Day, LastSeenAt = Day },
+                new GroupMember { GroupId = Group, UserId = "usr_lookalike", Roles = """["grol_member"]""", JoinedAt = Day.AddDays(-1), MembershipStatus = "member", FirstSeenAt = Day, LastSeenAt = Day });
+            db.GroupBans.Add(new GroupBan { GroupId = Group, UserId = "usr_fancy_ban", BannedAt = Day.AddDays(-3), FirstSeenAt = Day, LastSeenAt = Day });
+            db.VRChatUsers.AddRange(
+                new VRChatUser { UserId = "usr_fancy", DisplayName = "༻sᴜɢᴀʀʙᴜɴɴɪᴇ༺", FirstSeenAt = Day, LastSeenAt = Day, LastRefreshedAt = Day },
+                new VRChatUser { UserId = "usr_lookalike", DisplayName = "Addеrаll", FirstSeenAt = Day, LastSeenAt = Day, LastRefreshedAt = Day },
+                new VRChatUser { UserId = "usr_fancy_ban", DisplayName = "𝕬𝖑𝖊𝖝", FirstSeenAt = Day, LastSeenAt = Day, LastRefreshedAt = Day });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var plain = await host.GetJsonAsync<MemberListResponse>("/api/members?search=sugarbunnie", cookie, Ct);
+        Assert.Equal(["usr_fancy"], plain.Members.Select(m => m.UserId));
+        Assert.Equal("༻sᴜɢᴀʀʙᴜɴɴɪᴇ༺", plain.Members[0].DisplayName);
+        Assert.Equal("sugarbunnie", plain.Members[0].PlainName);
+
+        // Cyrillic е and а in a Latin word fold; typing the word in plain letters finds it.
+        var lookalike = await host.GetJsonAsync<MemberListResponse>("/api/members?search=adderall", cookie, Ct);
+        Assert.Equal(["usr_lookalike"], lookalike.Members.Select(m => m.UserId));
+        Assert.Equal("Adderall", lookalike.Members[0].PlainName);
+
+        // Pasting the name as written still finds it, and a plain name has no second spelling.
+        var pasted = await host.GetJsonAsync<MemberListResponse>("/api/members?search=%E1%B4%9C%C9%A2%E1%B4%80%CA%80", cookie, Ct);
+        Assert.Equal(["usr_fancy"], pasted.Members.Select(m => m.UserId));
+        Assert.Null((await host.GetJsonAsync<MemberListResponse>("/api/members?search=alice", cookie, Ct)).Members[0].PlainName);
+
+        // A term that is decoration alone matches nothing rather than everybody.
+        Assert.Empty((await host.GetJsonAsync<MemberListResponse>("/api/members?search=%E0%BC%92", cookie, Ct)).Members);
+
+        var banCookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, Ct);
+        var bans = await host.GetJsonAsync<GroupBanListResponse>("/api/bans?search=alex", banCookie, Ct);
+        Assert.Equal(["usr_fancy_ban"], bans.Bans.Select(b => b.UserId));
+        Assert.Equal("Alex", bans.Bans[0].PlainName);
+    }
 }
