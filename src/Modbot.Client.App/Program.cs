@@ -190,7 +190,7 @@ internal sealed class ClientHost
         // suspicious moderator can open it and see exactly which servers this client talks to.
         var store = new DpapiPairingStore(
             DpapiPairingStore.DefaultPath(appData),
-            new DpapiSecretProtector());
+            PairingSecretProtectors.ForThisMachine(appData));
 
         // One client, kept for the life of the process. A disposed-per-use HttpClient exhausts
         // sockets under any real traffic, and this one is also the single place pairing requests
@@ -257,7 +257,7 @@ internal sealed class ClientHost
             new HttpCloudLogClient(_http!, _clock),
             new DpapiCloudInstallStore(
                 DpapiCloudInstallStore.DefaultPath(appData),
-                new DpapiSecretProtector(DpapiSecretProtector.CloudSecretPurpose)),
+                PairingSecretProtectors.ForThisMachine(appData, SecretPurposes.CloudSecret)),
             ModbotVersion.Release,
             Endpoint: cloud.Endpoint,
             Enabled: !cloud.Disabled,

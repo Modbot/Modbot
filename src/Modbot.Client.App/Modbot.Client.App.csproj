@@ -29,11 +29,12 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <!-- Windows-only by design, not by omission. M3 10: Quest and other standalone headsets
-         cannot expose logs or host a SteamVR overlay at all, and macOS and Linux are not targets.
-         Saying so in the target framework is what makes the compiler check it: DPAPI is
-         Windows-only, and a build that silently compiled for Linux would fail at run time on the
-         one thing holding the device tokens. -->
+    <!-- Windows is the release target, by design and not by omission (M3 10): Quest and other
+         standalone headsets cannot expose logs or host a SteamVR overlay at all, and the
+         installer, the update feed, the tray, the start-with-Windows switch and the modbot://
+         link handler are Windows things. Each of those is guarded, and the device tokens have a
+         key-file store where there is no DPAPI, so a copy run from source on Linux or macOS
+         pairs and reports; it is simply not what is shipped. -->
     <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

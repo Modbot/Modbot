@@ -197,6 +197,85 @@ public class PairingStoreTests : IDisposable
         Assert.Throws<CryptographicException>(() => protector.Unprotect(cipher));
     }
 
+    // ── The key file, for the platforms without DPAPI ─────────────────────────────────────
+
+    private string KeyPath => Path.Combine(_directory, "secret.key");
+
+    [Fact]
+    public void TheKeyFileProtectorRoundTripsAndMakesItsKeyOnFirstUse()
+    {
+        var protector = new KeyFileSecretProtector(KeyPath);
+
+        var cipher = protector.Protect(Encoding.UTF8.GetBytes("dev_secret"));
+
+        Assert.True(File.Exists(KeyPath));
+        Assert.Equal(32, new FileInfo(KeyPath).Length);
+        Assert.NotEqual("dev_secret", Encoding.UTF8.GetString(cipher));
+        Assert.Equal("dev_secret", Encoding.UTF8.GetString(new KeyFileSecretProtector(KeyPath).Unprotect(cipher)));
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void TheKeyFileIsReadableByThisUserAlone()
+    {
+        Assert.SkipWhen(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "File modes are a Unix thing; Windows uses DPAPI.");
+
+        new KeyFileSecretProtector(KeyPath).Protect([1, 2, 3]);
+
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(KeyPath));
+        Assert.Equal(
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+            File.GetUnixFileMode(_directory));
+    }
+
+    [Fact]
+    public void TheKeyFileProtectorRefusesACiphertextItDidNotProduce()
+    {
+        var protector = new KeyFileSecretProtector(KeyPath);
+        var cipher = protector.Protect(Encoding.UTF8.GetBytes("dev_secret"));
+        cipher[^1] ^= 0xFF;
+
+        Assert.ThrowsAny<CryptographicException>(() => protector.Unprotect(cipher));
+    }
+
+    /// <summary>A device token must not decrypt as a Cloud secret, and the other way round.</summary>
+    [Fact]
+    public void TheKeyFileProtectorKeepsThePurposesApart()
+    {
+        var cipher = new KeyFileSecretProtector(KeyPath).Protect(Encoding.UTF8.GetBytes("dev_secret"));
+
+        Assert.ThrowsAny<CryptographicException>(
+            () => new KeyFileSecretProtector(KeyPath, SecretPurposes.CloudSecret).Unprotect(cipher));
+    }
+
+    /// <summary>
+    /// The pairings file copied to a machine without the key beside it: the same "re-pair this
+    /// server" the store reports for a DPAPI blob from another account, never a crash.
+    /// </summary>
+    [Fact]
+    public void AMissingKeyFileReadsAsAPairingThatNeedsRedoing()
+    {
+        new DpapiPairingStore(Path_, new KeyFileSecretProtector(KeyPath)).Save(Pairing());
+        File.Delete(KeyPath);
+
+        var loaded = new DpapiPairingStore(Path_, new KeyFileSecretProtector(KeyPath)).Load();
+
+        var only = Assert.Single(loaded);
+        Assert.Equal(PairingFault.TokenUndecryptable, only.Fault);
+        Assert.Equal("cats", only.ServerId);
+    }
+
+    [Fact]
+    public void ThisMachineGetsDpapiOnWindowsAndTheKeyFileElsewhere()
+    {
+        var protector = PairingSecretProtectors.ForThisMachine(_directory);
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            Assert.IsType<DpapiSecretProtector>(protector);
+        else
+            Assert.IsType<KeyFileSecretProtector>(protector);
+    }
+
     [Fact]
     public void TheStoredFileIsTheShapeAHumanCanRead()
     {

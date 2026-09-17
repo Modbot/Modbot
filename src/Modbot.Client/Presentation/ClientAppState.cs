@@ -203,7 +203,7 @@ public sealed class ClientAppState
                 {
                     PairingFault.TokenUndecryptable =>
                         $"The saved credential for “{unusable.ServerId}” cannot be decrypted on this "
-                        + "Windows account. That is what happens when the settings file is copied "
+                        + "account. That is what happens when the settings file is copied "
                         + "between accounts or machines. Pair this server again.",
                     _ => $"The saved settings for “{unusable.ServerId}” could not be read. Pair this server again.",
                 });

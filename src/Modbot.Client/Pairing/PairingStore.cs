@@ -23,6 +23,19 @@ public interface IPairingSecretProtector
     byte[] Unprotect(byte[] ciphertext);
 }
 
+/// <summary>What a stored secret is for. Every protector mixes it into the encryption.</summary>
+/// <remarks>
+/// A blob lifted out of the pairings file cannot be decrypted by a different program that happens
+/// to run as the same user, and a device token never decrypts as a Cloud secret or the other way
+/// round. Kept apart from any one protector because every platform's protector needs the same two.
+/// </remarks>
+public static class SecretPurposes
+{
+    public const string DeviceToken = "moe.bin.modbot.client.device-token.v1";
+
+    public const string CloudSecret = "moe.bin.modbot.client.cloud-secret.v1";
+}
+
 /// <summary>
 /// Windows DPAPI, <c>CurrentUser</c> scope.
 /// </summary>
@@ -40,24 +53,147 @@ public interface IPairingSecretProtector
 [SupportedOSPlatform("windows")]
 public sealed class DpapiSecretProtector : IPairingSecretProtector
 {
-    /// <summary>
-    /// Mixed into the key so a blob lifted out of this file cannot be decrypted by a different
-    /// program that happens to run as the same user and calls DPAPI with no entropy.
-    /// </summary>
-    public const string DeviceTokenPurpose = "moe.bin.modbot.client.device-token.v1";
-
-    /// <summary>A different purpose for Modbot Cloud secrets, so neither kind decrypts as the other.</summary>
-    public const string CloudSecretPurpose = "moe.bin.modbot.client.cloud-secret.v1";
-
     private readonly byte[] _entropy;
 
-    public DpapiSecretProtector(string purpose = DeviceTokenPurpose) => _entropy = Encoding.UTF8.GetBytes(purpose);
+    public DpapiSecretProtector(string purpose = SecretPurposes.DeviceToken) => _entropy = Encoding.UTF8.GetBytes(purpose);
 
     public byte[] Protect(byte[] plaintext)
         => ProtectedData.Protect(plaintext, _entropy, DataProtectionScope.CurrentUser);
 
     public byte[] Unprotect(byte[] ciphertext)
         => ProtectedData.Unprotect(ciphertext, _entropy, DataProtectionScope.CurrentUser);
+}
+
+/// <summary>
+/// A random key in a file only this user can read, for the platforms that have no DPAPI.
+/// </summary>
+/// <remarks>
+/// <para><strong>What this protects, and from whom.</strong> Device tokens are encrypted with a
+/// 256-bit key that is made once and kept in Modbot's own folder under the user's profile, with
+/// the file readable by that user alone (mode 0600, in a folder of mode 0700). Another account on
+/// the same machine cannot read the key, so it cannot read the tokens. Copying the pairings file
+/// to a different machine yields nothing without the key beside it.</para>
+/// <para><strong>Weaker than DPAPI in one way, and honestly so.</strong> DPAPI ties the key to the
+/// account's own credentials; this ties it to file permissions. Somebody who can read this
+/// user's files can read the key. That is the same boundary the rest of the user's profile has,
+/// and it is the boundary every desktop program on these platforms lives with unless it talks to
+/// a keyring, which not every desktop has.</para>
+/// <para>The purpose goes in as associated data, so a blob written for one purpose does not
+/// decrypt under another, the same way DPAPI's entropy keeps the two kinds of secret apart.</para>
+/// </remarks>
+public sealed class KeyFileSecretProtector : IPairingSecretProtector
+{
+    public const string DefaultFileName = "secret.key";
+
+    private const int KeyBytes = 32;
+    private const int NonceBytes = 12;
+    private const int TagBytes = 16;
+
+    private readonly string _keyPath;
+    private readonly byte[] _purpose;
+
+    public KeyFileSecretProtector(string keyPath, string purpose = SecretPurposes.DeviceToken)
+    {
+        _keyPath = keyPath;
+        _purpose = Encoding.UTF8.GetBytes(purpose);
+    }
+
+    /// <summary>The default location: <c>~/.config/Modbot/secret.key</c>, beside the pairings.</summary>
+    public static string DefaultPath(string applicationData)
+        => Path.Combine(applicationData, "Modbot", DefaultFileName);
+
+    public byte[] Protect(byte[] plaintext)
+    {
+        var key = LoadOrCreateKey();
+        var nonce = RandomNumberGenerator.GetBytes(NonceBytes);
+        var ciphertext = new byte[plaintext.Length];
+        var tag = new byte[TagBytes];
+
+        using (var aes = new AesGcm(key, TagBytes))
+            aes.Encrypt(nonce, plaintext, ciphertext, tag, _purpose);
+
+        var blob = new byte[NonceBytes + TagBytes + ciphertext.Length];
+        nonce.CopyTo(blob, 0);
+        tag.CopyTo(blob, NonceBytes);
+        ciphertext.CopyTo(blob, NonceBytes + TagBytes);
+        return blob;
+    }
+
+    public byte[] Unprotect(byte[] ciphertext)
+    {
+        if (ciphertext.Length < NonceBytes + TagBytes)
+            throw new CryptographicException("The stored secret is too short to be one this program wrote.");
+
+        var key = LoadKey() ?? throw new CryptographicException("The key file that protects the stored secrets is missing.");
+
+        var nonce = ciphertext.AsSpan(0, NonceBytes);
+        var tag = ciphertext.AsSpan(NonceBytes, TagBytes);
+        var payload = ciphertext.AsSpan(NonceBytes + TagBytes);
+        var plaintext = new byte[payload.Length];
+
+        // A wrong key, a wrong purpose or a changed byte all fail the tag, and AesGcm reports that
+        // as a CryptographicException -- the same exception DPAPI throws, so the store's one catch
+        // covers both.
+        using var aes = new AesGcm(key, TagBytes);
+        aes.Decrypt(nonce, payload, tag, plaintext, _purpose);
+        return plaintext;
+    }
+
+    private byte[]? LoadKey()
+    {
+        if (!File.Exists(_keyPath))
+            return null;
+
+        var key = File.ReadAllBytes(_keyPath);
+        return key.Length == KeyBytes ? key : throw new CryptographicException("The key file is not the size this program writes.");
+    }
+
+    private byte[] LoadOrCreateKey()
+    {
+        if (LoadKey() is { } existing)
+            return existing;
+
+        var directory = Path.GetDirectoryName(_keyPath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        var key = RandomNumberGenerator.GetBytes(KeyBytes);
+
+        // Created with the mode already set rather than written and then tightened, so there is
+        // no moment where the key is on disk and readable by everyone.
+        var options = new FileStreamOptions
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+        };
+        if (!OperatingSystem.IsWindows())
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+
+        using (var stream = new FileStream(_keyPath, options))
+            stream.Write(key);
+
+        return key;
+    }
+}
+
+/// <summary>Picks the protector this machine can use.</summary>
+public static class PairingSecretProtectors
+{
+    /// <summary>
+    /// DPAPI on Windows; a key file only this user can read everywhere else. The same call on
+    /// every platform, so the program never has to ask which one it is on before it can store a
+    /// token -- which is how a copy run from source on Linux stopped at the first pairing.
+    /// </summary>
+    public static IPairingSecretProtector ForThisMachine(
+        string applicationData, string purpose = SecretPurposes.DeviceToken)
+        => OperatingSystem.IsWindows()
+            ? new DpapiSecretProtector(purpose)
+            : new KeyFileSecretProtector(KeyFileSecretProtector.DefaultPath(applicationData), purpose);
 }
 
 /// <summary>Why a stored pairing could not be used.</summary>
@@ -68,7 +204,8 @@ public enum PairingFault
 
     /// <summary>
     /// The token is there but will not decrypt. Almost always because the file was copied from
-    /// another machine or another Windows account — DPAPI's key is the point, not a bug.
+    /// another machine or another account, or the key file beside it is gone — the key being
+    /// tied to this user on this machine is the point, not a bug.
     /// </summary>
     TokenUndecryptable,
 
