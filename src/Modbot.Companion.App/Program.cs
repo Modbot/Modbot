@@ -149,6 +149,12 @@ internal sealed class CompanionHost
     private readonly DispatcherTimer _overlayLoop = new() { Interval = TimeSpan.FromMilliseconds(250) };
 
     /// <summary>
+    /// The controllers, looked at thirty times a second while a VR runtime is attached, so the
+    /// cursor and a held panel move smoothly; a look costs nothing when none is attached.
+    /// </summary>
+    private readonly DispatcherTimer _inputLoop = new() { Interval = TimeSpan.FromMilliseconds(33) };
+
+    /// <summary>
     /// How often the reading half is given a turn.
     /// </summary>
     /// <remarks>
@@ -553,7 +559,7 @@ internal sealed class CompanionHost
     {
         try
         {
-            _overlayHost = OverlayHost.Create();
+            _overlayHost = OverlayHost.Create(placement: _state?.Settings.Overlay);
             _overlayHost.KeepLastFrame = _state?.DebugMode is true;
             AttachOverlay();
         }
@@ -571,6 +577,25 @@ internal sealed class CompanionHost
 
         _overlayLoop.Tick += async (_, _) => await CrashGuard.RunAsync("drawing the overlay", OverlayTickAsync);
         _overlayLoop.Start();
+
+        // A controller's doing goes to the drive loop (taps, scrolling) and to settings (where
+        // the panel was left), so it is where it was left next time.
+        _overlayHost.Tapped += target => _overlay?.Tap(target);
+        _overlayHost.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
+        _overlayHost.PlacementChanged += placement =>
+        {
+            if (_state is null)
+                return;
+
+            _state.Settings = _state.Settings with { Overlay = placement };
+            if (!CompanionSettings.SaveOverlay(_settingsPath, placement))
+                Log.Warning("The panel's placement could not be saved to {Path}", _settingsPath);
+        };
+
+        _inputLoop.Tick += (_, _) => CrashGuard.Run(
+            "reading the controllers",
+            () => _overlayHost.PollInput(TimeSpan.FromMilliseconds(Environment.TickCount64)));
+        _inputLoop.Start();
     }
 
     /// <summary>
@@ -693,6 +718,7 @@ internal sealed class CompanionHost
             // the process eventually exits.
             _engineLoop.Stop();
             _overlayLoop.Stop();
+            _inputLoop.Stop();
             _updates?.Stop();
             _inboxStop.Cancel();
             _backupStop.Cancel();
@@ -791,7 +817,7 @@ internal sealed class CompanionHost
             _state.Snapshot(),
             new MainWindowActions(
                 TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows, SetLogFolder,
-                AttachSteamVr, ShowOverlayWindow, PinOverlaySample));
+                AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay));
     }
 
     /// <summary>The overlay in the window's words: whether it is up, what it shows, how often it has drawn.</summary>
@@ -829,7 +855,24 @@ internal sealed class CompanionHost
             screen.Alert is { } alert ? alert.DisplayName ?? alert.SubjectId : null,
             screen.Health,
             _overlay?.CurrentServer?.GroupLabel,
-            _pinnedSample is { } sample ? OverlaySamples.Name(sample) : null);
+            _pinnedSample is { } sample ? OverlaySamples.Name(sample) : null,
+            _overlayHost.Placement,
+            _overlayHost.Holding switch
+            {
+                Modbot.Overlay.Interaction.Hand.Left => "left hand",
+                Modbot.Overlay.Interaction.Hand.Right => "right hand",
+                _ => null,
+            });
+    }
+
+    /// <summary>The SteamVR page moving the panel: an anchor, a size, or back in front of the head.</summary>
+    private void PlaceOverlay(OverlayPlacement placement)
+    {
+        if (_overlayHost is null)
+            return;
+
+        _overlayHost.Place(placement);
+        Render();
     }
 
     /// <summary>The Debug page's "Attach to SteamVR now", and the SteamVR page's.</summary>

@@ -199,6 +199,25 @@ including a line each time the client reads new lines from VRChat's log. An unkn
 [Console log modes](/self-hosting/environment-variables#console-log-modes). The log files are always
 text.
 
+## Overlay placement
+
+Where the headset panel sits, set on the **SteamVR** page or by [holding it](/companion/overlay#holding-it)
+with a controller, and saved as the `overlay` object in `settings.json`:
+
+```json
+"overlay": {
+  "anchor": "head",
+  "offset": { "x": 0.35, "y": -0.28, "z": -1.0, "qx": 0, "qy": 0, "qz": 0, "qw": 1 },
+  "width": 0.45,
+  "opacity": 1,
+  "curve": 0
+}
+```
+
+`anchor` is `head`, `lefthand`, `righthand` or `world`; `offset` is metres from the anchor and a
+turn as a quaternion; `width` is 0.2 to 1.5 m, `opacity` 0.1 to 1, `curve` 0 to 1. A value outside
+its range is brought inside it when the file is read.
+
 ## Debug mode
 
 Set the environment variable `MODBOT_DEBUG_MODE` to `1` for your account and restart the client,

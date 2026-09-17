@@ -1,5 +1,6 @@
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Journal;
+using Modbot.Companion.Overlay;
 using Modbot.Companion.Pairing;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Startup;
@@ -95,8 +96,13 @@ public sealed record OverlayStatus(
     string? Alert,
     string? Problem,
     string? FollowingServer,
-    string? PinnedSample = null)
+    string? PinnedSample = null,
+    OverlayPlacement? Placement = null,
+    string? Holding = null)
 {
+    /// <summary>Where the panel is, never null: the default until the host has said.</summary>
+    public OverlayPlacement PlacementOrDefault => Placement ?? OverlayPlacement.Default;
+
     /// <summary>Before the overlay exists, or when it could not be set up on this PC.</summary>
     public static OverlayStatus None { get; } = new(
         false, "not set up", "The overlay could not be set up on this PC.", null, 0, null,

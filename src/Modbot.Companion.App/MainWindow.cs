@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Journal;
+using Modbot.Companion.Overlay;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
@@ -71,6 +72,12 @@ public sealed class MainWindow : Window
     private readonly TextBox _logFolderBox;
     private bool _renderingSwitches;
 
+    // The panel's size, opacity and curve: sliders, built once so a drag is not cut short by the
+    // timer, and only refilled while nobody is on them.
+    private readonly Slider _widthSlider;
+    private readonly Slider _opacitySlider;
+    private readonly Slider _curveSlider;
+
     /// <summary>Set by the host once it has an HTTP client; null until then and pictures simply wait.</summary>
     internal GroupPictures? Pictures { get; set; }
 
@@ -107,6 +114,10 @@ public sealed class MainWindow : Window
 
         _logFolderBox = Ui.Input();
         _logFolderBox.FontFamily = Ui.Mono;
+
+        _widthSlider = PlacementSlider(OverlayPlacement.MinWidth, OverlayPlacement.MaxWidth, 0.05, (p, v) => p with { Width = (float)v });
+        _opacitySlider = PlacementSlider(OverlayPlacement.MinOpacity, 1, 0.05, (p, v) => p with { Opacity = (float)v });
+        _curveSlider = PlacementSlider(0, 1, 0.05, (p, v) => p with { Curve = (float)v });
 
         var main = new ScrollViewer { Padding = new Thickness(20), Content = _body };
         Grid.SetColumn(main, 1);
@@ -829,19 +840,112 @@ public sealed class MainWindow : Window
 
         _body.Children.Add(Ui.Card(showing, "Showing"));
 
-        var placement = OpenVrOverlayRuntime.Placement;
-        _body.Children.Add(Ui.Card(
-            new StackPanel
+        _body.Children.Add(Ui.Card(PlacementControls(overlay.PlacementOrDefault, overlay.Holding), "Placement"));
+    }
+
+    /// <summary>
+    /// Where the panel is and how it looks: the anchor as a row of choices, the offset as read,
+    /// the size, opacity and curve as sliders, and one button that brings it back in front of
+    /// the head.
+    /// </summary>
+    private Control PlacementControls(OverlayPlacement placement, string? holding)
+    {
+        _renderingSwitches = true;
+        try
+        {
+            Refill(_widthSlider, placement.Width);
+            Refill(_opacitySlider, placement.Opacity);
+            Refill(_curveSlider, placement.Curve);
+        }
+        finally
+        {
+            _renderingSwitches = false;
+        }
+
+        DetachFromParent(_widthSlider);
+        DetachFromParent(_opacitySlider);
+        DetachFromParent(_curveSlider);
+
+        var anchors = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        foreach (var (anchor, caption) in new[]
+        {
+            (OverlayAnchor.Head, "Head"),
+            (OverlayAnchor.LeftHand, "Left hand"),
+            (OverlayAnchor.RightHand, "Right hand"),
+            (OverlayAnchor.World, "Room"),
+        })
+        {
+            var button = Ui.Button(caption, primary: placement.Anchor == anchor);
+            var chosen = anchor;
+            button.Click += (_, _) => _actions.PlaceOverlay(
+                chosen == OverlayAnchor.Head
+                    ? placement with { Anchor = chosen, Offset = OverlayPlacement.Default.Offset }
+                    : placement with { Anchor = chosen });
+            anchors.Children.Add(button);
+        }
+
+        var reset = Ui.Button("Put it back in front of me");
+        reset.Click += (_, _) => _actions.PlaceOverlay(OverlayPlacement.Default with
+        {
+            Width = placement.Width,
+            Opacity = placement.Opacity,
+            Curve = placement.Curve,
+        });
+
+        var offset = placement.Offset;
+        var where = placement.Anchor switch
+        {
+            OverlayAnchor.World => $"{offset.X:0.00} m, {offset.Y:0.00} m up, {-offset.Z:0.00} m into the room",
+            _ => $"{offset.X:0.00} m right, {-offset.Y:0.00} m down, {-offset.Z:0.00} m ahead",
+        };
+
+        var lines = new StackPanel
+        {
+            Spacing = 10,
+            Children =
             {
-                Spacing = 6,
-                Children =
-                {
-                    Line("Width", $"{OpenVrOverlayRuntime.DefaultWidthInMetres:0.00} m"),
-                    Line("Position", $"{placement.X:0.00} m right, {-placement.Y:0.00} m down, {-placement.Z:0.00} m ahead of the headset"),
-                    Line("Picture", $"{OverlayHost.DefaultResolution}×{OverlayHost.DefaultResolution}"),
-                },
+                Ui.Field("Fixed to", anchors),
+                Line("Offset", where),
+                Ui.Field($"Width {placement.Width:0.00} m", _widthSlider),
+                Ui.Field($"Opacity {placement.Opacity:0%}", _opacitySlider),
+                Ui.Field($"Curve {placement.Curve:0%}", _curveSlider),
+                Line("Picture", $"{OverlayHost.DefaultResolution}×{OverlayHost.DefaultResolution}"),
+                reset,
             },
-            "Placement"));
+        };
+
+        if (holding is not null)
+            lines.Children.Insert(1, Line("Held in", holding));
+
+        return lines;
+    }
+
+    private Slider PlacementSlider(double minimum, double maximum, double step, Func<OverlayPlacement, double, OverlayPlacement> change)
+    {
+        var slider = new Slider
+        {
+            Minimum = minimum,
+            Maximum = maximum,
+            TickFrequency = step,
+            IsSnapToTickEnabled = true,
+            Width = 260,
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+
+        slider.ValueChanged += (_, e) =>
+        {
+            if (!_renderingSwitches)
+                _actions.PlaceOverlay(change(_snapshot.OverlayOrNone.PlacementOrDefault, e.NewValue));
+        };
+
+        return slider;
+    }
+
+    /// <summary>Only refilled while nobody is on the slider: the window redraws on a timer.</summary>
+    private static void Refill(Slider slider, double value)
+    {
+        if (!slider.IsPointerOver && !slider.IsFocused && Math.Abs(slider.Value - value) > 0.001)
+            slider.Value = value;
     }
 
     /// <summary>Only with <c>MODBOT_DEBUG_MODE=1</c>: the overlay's picture on the desktop, and sample screens to pin into it.</summary>
@@ -926,6 +1030,7 @@ public sealed class MainWindow : Window
 /// <param name="AttachSteamVr">Looks for SteamVR now rather than at the next ten-second look.</param>
 /// <param name="ShowOverlayWindow">Opens the window that shows the overlay's last frame. Debug page only.</param>
 /// <param name="PinOverlaySample">Pins a sample screen into the overlay, or null for the live screen. Debug page only.</param>
+/// <param name="PlaceOverlay">Moves the panel: an anchor, a size, or back in front of the head.</param>
 public sealed record MainWindowActions(
     Action<string> TogglePause,
     Action<string> Unpair,
@@ -935,7 +1040,8 @@ public sealed record MainWindowActions(
     Action<string?> SetLogFolder,
     Action AttachSteamVr,
     Action ShowOverlayWindow,
-    Action<OverlaySample?> PinOverlaySample)
+    Action<OverlaySample?> PinOverlaySample,
+    Action<OverlayPlacement> PlaceOverlay)
 {
     public static MainWindowActions None { get; } = new(
         _ => { },
@@ -946,5 +1052,6 @@ public sealed record MainWindowActions(
         _ => { },
         () => { },
         () => { },
+        _ => { },
         _ => { });
 }
