@@ -352,6 +352,50 @@ export type DiscordRouteBody = Partial<Omit<DiscordRoute, 'id'>>
 
 export type DiscordRoutePlatform = 'vrchat' | 'discord'
 
+/**
+ * One person's profile fields as they stood at a moment. A null is a field Modbot did not know
+ * then, or one that was empty; the facts cannot tell the two apart.
+ */
+export type ProfileFields = {
+  displayName: string | null
+  bio: string | null
+  statusDescription: string | null
+  pronouns: string | null
+  avatarImageUrl: string | null
+  avatarThumbnailUrl: string | null
+  profilePictureUrl: string | null
+  dateJoined: string | null
+  tags: string[]
+  ageVerificationStatus: string | null
+  ageVerified: boolean | null
+}
+
+/** The profile as it stood after one recorded change. `factId` is the audit log entry that recorded it. */
+export type ProfileVersion = {
+  factId: number
+  at: string
+  before: string | null
+  source: string
+  /** The fields this change touched, under VRChat's own names. */
+  changed: string[]
+  /** The first sighting: where the record begins. */
+  baseline: boolean
+  /** The newest version: the profile as stored now. */
+  current: boolean
+  profile: ProfileFields
+}
+
+export type ProfileHistory = { userId: string; known: boolean; versions: ProfileVersion[]; now: string }
+
+/** The bodies VRChat last sent for a person, as stored. */
+export type RawProfile = {
+  userId: string
+  publicProfile: unknown
+  publicProfileReadAt: string | null
+  user: unknown
+  userReadAt: string | null
+}
+
 /** What the command palette's search found: one list per kind, empty for a kind this account may not see. */
 export type SearchResults = {
   people: { userId: string; displayName: string | null; avatarUrl: string | null }[]
@@ -3149,6 +3193,12 @@ export const api = {
   deleteDiscordRoute: (id: string) => del<void>(`/api/discord/routes/${encodeURIComponent(id)}`),
 
   /** Stored VRChat profiles by name or id, for a channel's filters. */
+  /** This person's profile after each recorded change, newest first. Needs ViewProfile. */
+  userHistory: (id: string) => request<ProfileHistory>(`/api/vrchat-users/history?id=${encodeURIComponent(id)}`),
+
+  /** The bodies VRChat last sent for this person, as stored. Needs ViewProfile. */
+  userRaw: (id: string) => request<RawProfile>(`/api/vrchat-users/raw?id=${encodeURIComponent(id)}`),
+
   /** People, Discord people and worlds by name or id, for the command palette. */
   search: (q: string, limit?: number) =>
     request<SearchResults>(`/api/search?q=${encodeURIComponent(q)}${limit ? `&limit=${limit}` : ''}`),

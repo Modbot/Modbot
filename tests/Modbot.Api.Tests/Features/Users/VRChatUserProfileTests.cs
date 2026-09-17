@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Users;
 using Modbot.Api.Tests.Features.Audit;
@@ -90,6 +92,135 @@ public class VRChatUserProfileTests
 
         Assert.True(profile.Stale);
         Assert.Equal(TimeSpan.FromHours(6).TotalSeconds, profile.StaleAfterSeconds);
+    }
+
+    [Fact]
+    public async Task TheHistoryReplaysEachChangeBackwardsFromTheRow()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        host.Clock.UtcNow = Day;
+        await SeedAsync(host, new VRChatUser
+        {
+            UserId = "usr_a",
+            DisplayName = "Trinity",
+            Bio = "hello",
+            Pronouns = "she/her",
+            Tags = """["system_trust_veteran"]""",
+            FirstSeenAt = Day.AddDays(-10),
+            LastSeenAt = Day,
+            LastRefreshedAt = Day,
+        }, ct);
+
+        // First sighting ten days ago as Neo, with no pronouns; renamed and given a bio since.
+        await host.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.UserProfileFirstSeen,
+            OccurredAt = Day.AddDays(-10),
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = "usr_a",
+            Source = FactSource.SyncDiff,
+            Data = new JsonObject
+            {
+                ["baseline"] = new JsonObject
+                {
+                    ["displayName"] = "Neo",
+                    ["tags"] = new JsonArray("system_trust_veteran"),
+                },
+            },
+        }, ct);
+
+        await host.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.UserProfileChanged,
+            OccurredAt = Day.AddDays(-3),
+            OccurredBefore = Day.AddDays(-2),
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = "usr_a",
+            Source = FactSource.SyncDiff,
+            Data = new JsonObject
+            {
+                ["changed"] = new JsonObject
+                {
+                    ["displayName"] = new JsonObject { ["old"] = "Neo", ["new"] = "Trinity" },
+                    ["bio"] = new JsonObject { ["old"] = null, ["new"] = "hello" },
+                },
+            },
+        }, ct);
+
+        await host.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.UserProfileChanged,
+            OccurredAt = Day.AddDays(-1),
+            OccurredBefore = Day,
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = "usr_a",
+            Source = FactSource.SyncDiff,
+            Data = new JsonObject
+            {
+                ["changed"] = new JsonObject
+                {
+                    ["pronouns"] = new JsonObject { ["old"] = null, ["new"] = "she/her" },
+                },
+            },
+        }, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, ct);
+        var history = await host.GetJsonAsync<ProfileHistory>("/api/vrchat-users/history?id=usr_a", cookie, ct);
+
+        Assert.True(history.Known);
+        Assert.Equal(3, history.Versions.Count);
+
+        var newest = history.Versions[0];
+        Assert.True(newest.Current);
+        Assert.Equal(["pronouns"], newest.Changed);
+        Assert.Equal("Trinity", newest.Profile.DisplayName);
+        Assert.Equal("she/her", newest.Profile.Pronouns);
+        Assert.Equal("hello", newest.Profile.Bio);
+
+        // jsonb keeps keys in its own order, so the changed list is compared as a set.
+        var renamed = history.Versions[1];
+        Assert.Equal(["bio", "displayName"], renamed.Changed.Order());
+        Assert.Equal("Trinity", renamed.Profile.DisplayName);
+        Assert.Null(renamed.Profile.Pronouns);
+        Assert.Equal(Day.AddDays(-2), renamed.Before);
+
+        var first = history.Versions[2];
+        Assert.True(first.Baseline);
+        Assert.Equal("Neo", first.Profile.DisplayName);
+        Assert.Null(first.Profile.Bio);
+        Assert.Equal(["system_trust_veteran"], first.Profile.Tags);
+    }
+
+    [Fact]
+    public async Task TheRawBodiesAreHandedBackAsStored()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        host.Clock.UtcNow = Day;
+        await SeedAsync(host, new VRChatUser
+        {
+            UserId = "usr_a",
+            RawPublicProfile = """{"displayName":"Trinity","bio":"hello"}""",
+            FirstSeenAt = Day,
+            LastSeenAt = Day,
+            LastRefreshedAt = Day,
+        }, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, ct);
+        var raw = await host.GetJsonAsync<RawProfile>("/api/vrchat-users/raw?id=usr_a", cookie, ct);
+
+        Assert.Equal("Trinity", raw.PublicProfile?["displayName"]?.GetValue<string>());
+        Assert.Equal(Day, raw.PublicProfileReadAt);
+        Assert.Null(raw.User);
+        Assert.Null(raw.UserReadAt);
+
+        var stranger = await host.GetJsonAsync<RawProfile>("/api/vrchat-users/raw?id=usr_nobody", cookie, ct);
+        Assert.Null(stranger.PublicProfile);
     }
 
     /// <summary>Not a 404: the screen still has an id to show, a refresh to offer, and a flag to set.</summary>

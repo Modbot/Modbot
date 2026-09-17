@@ -49,9 +49,20 @@ The title is **Person**, with the person's VRChat id under it.
 
 | Tab | What it shows |
 |---|---|
-| **Logs** | The **History** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#history-on-a-persons-popup)), then **Everything recorded about this person**: the newest 50 audit log entries about them. |
+| **Overview** | The **History** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#history-on-a-persons-popup)), the main time-in-world figures, and the newest 8 audit log entries about them. |
+| **Logs** | **Everything recorded about this person**: the newest 50 audit log entries about them. |
+| **History** | Their VRChat profile as it stood after each change Modbot recorded, newest first. Pick a version on the left to see it in full; the fields that change carried are marked. **Now** is the profile as stored; **First seen** is where the record begins. See [Profile history](#profile-history). |
 | **Cases** | Their case files, withdrawn ones included and marked as such. Click one to open it. See [Bans and case files](/moderation/case-files). |
 | **Metrics** | **Time in world**: **Time seen**, **Instances visited**, **Worlds visited**, **Arrivals**, **Last seen** and **First seen**, then a table of the instances they were seen in (newest 25). |
+| **JSON** | The stored records as Modbot's API answers them: the profile, the membership and ban standing, and the two bodies VRChat last sent (the public profile and the user object). Each has a copy button. |
+
+#### Profile history
+
+Modbot keeps no separate copies of a profile. When a refresh finds a field changed, it writes an
+audit log entry with the old and new values, and the History tab replays those entries backwards
+from the profile as stored now. A version's time is the window between the two reads that noticed
+the change. Clicking **VRChat profile** in a *profile changed* entry on the audit log opens the
+person on this tab at that version.
 
 The **Metrics** tab only counts time a moderator's companion shared an instance with the
 person. **Not seen in an instance yet.** means no client has seen them, not that they have never
@@ -80,11 +91,14 @@ private or deleted world.
 
 ### Tabs
 
+- **Overview**: the four figures and the newest 5 instances.
 - **Instances**: the newest 25 instances that have run in this world. The number on the tab is the
   total.
+- **History**: the newest 50 audit log entries recorded in any of this world's instances.
 - **Metrics**: **Time seen**, **Visitors**, **Instances opened** (with how many are open now) and
   **Last seen**, then two daily charts: **Visitors per day** and **Instances opened per day**.
   Time and visitors only count time a moderator's companion was in the world.
+- **JSON**: the world's stored record as the API answers it, with a copy button.
 
 Opening a world popup never asks VRChat for anything. It shows what Modbot already has.
 
@@ -106,9 +120,17 @@ it after hearing nothing for a long time) or **Still open** with when it was las
 
 ### Tabs
 
+- **Overview**: the four figures, the six people seen longest, and the newest 8 entries.
 - **People**: **Who was seen in this instance**, with **Time seen**, **Arrivals**, **First seen**
   and **Last seen** for each person.
 - **Logs**: **What happened in this instance**, the newest 100 entries.
+- **JSON**: the instance's stored record as the API answers it, with a copy button.
+
+## Size and address
+
+A popup fills the window except for a small margin, with the thing it is about on the left and
+the tabs on the right. The tab a link opens on can be part of the address (`?tab=history`), and
+for a person the version too (`?version=`); switching tabs by hand does not change the address.
 
 ## Discord person popup
 

@@ -8259,6 +8259,118 @@
         ]
       }
     },
+    "/api/vrchat-users/history": {
+      "get": {
+        "tags": [
+          "VRChat users"
+        ],
+        "summary": "This person's profile as it stood after each recorded change, newest first",
+        "description": "Replayed from the profile facts: the newest version is the profile as stored now, and each earlier one has that change's old values put back. `factId` is the audit log entry that recorded the change. The oldest version is marked `baseline` when it is the first sighting Modbot recorded.\n\nNeeds the `ViewProfile` permission.",
+        "operationId": "GetVRChatUserHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/vrchat-users/raw": {
+      "get": {
+        "tags": [
+          "VRChat users"
+        ],
+        "summary": "The bodies VRChat last sent for this person, as stored",
+        "description": "The public profile and the full user object, each as VRChat returned it on the last successful read. The user object is stored without instance locations, the account's private note and the friend key, which Modbot never keeps.\n\nNeeds the `ViewProfile` permission.",
+        "operationId": "GetVRChatUserRaw",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RawProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/worlds": {
       "get": {
         "tags": [
@@ -21596,6 +21708,169 @@
           }
         }
       },
+      "ProfileFields": {
+        "required": [
+          "displayName",
+          "bio",
+          "statusDescription",
+          "pronouns",
+          "avatarImageUrl",
+          "avatarThumbnailUrl",
+          "profilePictureUrl",
+          "dateJoined",
+          "tags",
+          "ageVerificationStatus",
+          "ageVerified"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bio": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "statusDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pronouns": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarImageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarThumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "profilePictureUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dateJoined": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ageVerificationStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ageVerified": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
+      "ProfileHistory": {
+        "required": [
+          "userId",
+          "known",
+          "versions",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "known": {
+            "type": "boolean"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileVersion"
+            }
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProfileVersion": {
+        "required": [
+          "factId",
+          "at",
+          "before",
+          "source",
+          "changed",
+          "baseline",
+          "current",
+          "profile"
+        ],
+        "type": "object",
+        "properties": {
+          "factId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "before": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string"
+          },
+          "changed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "baseline": {
+            "type": "boolean"
+          },
+          "current": {
+            "type": "boolean"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/ProfileFields"
+          }
+        }
+      },
       "PublicAddressView": {
         "required": [
           "publicAddress",
@@ -21632,6 +21907,55 @@
             "type": "boolean"
           },
           "lastSentAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "RawProfile": {
+        "required": [
+          "userId",
+          "publicProfile",
+          "publicProfileReadAt",
+          "user",
+          "userReadAt"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "publicProfile": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "publicProfileReadAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "user": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "userReadAt": {
             "type": [
               "null",
               "string"

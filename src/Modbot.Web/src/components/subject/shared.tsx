@@ -96,18 +96,22 @@ export function FactList({ entries, empty }: { entries: AuditEntry[]; empty: str
 /**
  * The frame every popup shares: identity on the left, tabs on the right.
  *
- * Stacks to one column on a narrow screen, where the whole popup scrolls rather than each column.
+ * Nearly the whole window, because every kind now carries an Overview, a History and a JSON tab
+ * beside what it had, and a raw record or a table of versions wants room. Stacks to one column
+ * on a narrow screen, where the whole popup scrolls rather than each column.
  */
 export function PopupFrame({
   title,
   subtitle,
   lead,
+  actions,
   left,
   children,
 }: {
   title: string
   subtitle?: React.ReactNode
   lead?: React.ReactNode
+  actions?: React.ReactNode
   left: React.ReactNode
   children: React.ReactNode
 }) {
@@ -116,9 +120,10 @@ export function PopupFrame({
       title={title}
       subtitle={subtitle}
       lead={lead}
+      actions={actions}
       aria-describedby={undefined}
-      className="h-[min(50rem,calc(100dvh-2rem))] w-[calc(100vw-2rem)] max-w-6xl"
-      bodyClassName="grid overflow-auto p-0 md:grid-cols-[20rem_minmax(0,1fr)] md:overflow-hidden"
+      className="h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[100rem]"
+      bodyClassName="grid overflow-auto p-0 md:grid-cols-[22rem_minmax(0,1fr)] md:overflow-hidden"
     >
       <aside
         className="flex flex-col gap-3 border-b p-4 md:overflow-auto md:border-r md:border-b-0"
@@ -130,3 +135,4 @@ export function PopupFrame({
     </DialogContent>
   )
 }
+

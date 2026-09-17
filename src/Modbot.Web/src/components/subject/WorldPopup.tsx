@@ -1,24 +1,29 @@
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { Tabs } from '@/components/ui/tabs'
 import { DailyBars, compactNumber, dateTime, minutes } from '@/components/charts'
 import { SubjectLink } from '@/components/facts'
+import { JsonView } from '@/components/JsonView'
 import { RoomTable } from '@/components/RoomTable'
-import { Field, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
+import { FactList, Field, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser, type WorldView } from '@/lib/api'
 import { ago, formatDay } from '@/lib/format'
 import { can } from '@/lib/permissions'
+import { useOpeningTab } from '@/lib/subject'
 
-type Tab = 'instances' | 'metrics'
+const TABS = ['overview', 'instances', 'history', 'metrics', 'json'] as const
+type Tab = (typeof TABS)[number]
 
 /**
  * One world: its page as Modbot last read it on the left, the rooms that have run in it and how
  * busy it has been on the right.
  *
- * Everything shown is from Modbot's own tables. Opening this never asks VRChat for anything.
+ * A world has no versions of its own -- the page is read once and left alone -- so History is
+ * what happened in it: every fact recorded in one of its rooms, newest first. Everything shown is
+ * from Modbot's own tables. Opening this never asks VRChat for anything.
  */
 export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
-  const [tab, setTab] = useState<Tab>('instances')
+  const [tab, setTab] = useOpeningTab<Tab>('overview', TABS)
   const allowed = can(me, 'ViewAnalytics')
 
   const load = useCallback(() => api.world(id), [id])
@@ -47,10 +52,14 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
         value={tab}
         onChange={setTab}
         tabs={[
+          { value: 'overview', label: 'Overview' },
           { value: 'instances', label: 'Instances', badge: data?.roomsTotal },
+          { value: 'history', label: 'History' },
           { value: 'metrics', label: 'Metrics' },
+          { value: 'json', label: 'JSON' },
         ]}
       >
+        {data && tab === 'overview' && <Overview world={data} onMore={setTab} />}
         {data && tab === 'instances' && (
           <Panel title="Instances in this world">
             {data.rooms.length === 0 ? (
@@ -67,7 +76,13 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
             )}
           </Panel>
         )}
+        {tab === 'history' && <History id={id} />}
         {data && tab === 'metrics' && <Metrics world={data} />}
+        {tab === 'json' && (
+          <div className="p-4">
+            <JsonView title="World" value={error ?? data} />
+          </div>
+        )}
       </Tabs>
     </PopupFrame>
   )
@@ -139,6 +154,46 @@ function Identity({ world }: { world: WorldView }) {
 /** VRChat's release status, in a word a member would use. An unknown word is shown as sent. */
 function releaseWords(status: string): string {
   return { public: 'Anyone (public)', private: 'Only people given the link (private)', hidden: 'Hidden' }[status] ?? status
+}
+
+/** The glance: the figures, the newest rooms, and where to go for the rest. */
+function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => void }) {
+  const c = world.counts
+
+  return (
+    <div className="flex flex-col gap-3 p-4">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <Figure label="Time seen" value={minutes(c.minutesSeen)} />
+        <Figure label="Visitors" value={compactNumber(c.visitors)} />
+        <Figure label="Instances opened" value={compactNumber(world.roomsTotal)} note={`${world.roomsOpenNow} open now`} />
+        <Figure label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="font-medium">Newest instances</span>
+        <span className="flex-1" />
+        <button type="button" onClick={() => onMore('instances')} className="text-muted-foreground hover:text-foreground hover:underline" style={{ fontSize: 'var(--text-small)' }}>
+          All instances
+        </button>
+      </div>
+
+      {world.rooms.length === 0 ? <Note>No instances yet.</Note> : <RoomTable rooms={world.rooms.slice(0, 5)} showWorld={false} />}
+    </div>
+  )
+}
+
+/** Every fact recorded in one of this world's rooms, newest first. */
+function History({ id }: { id: string }) {
+  const load = useCallback(() => api.audit({ world: id, limit: 50 }), [id])
+  const { data, error } = useLoad(load)
+
+  return (
+    <Panel title="What happened in this world">
+      {error && <Note className="text-destructive">{error}</Note>}
+      {!error && !data && <Note>Loading…</Note>}
+      {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
+    </Panel>
+  )
 }
 
 function Metrics({ world }: { world: WorldView }) {
