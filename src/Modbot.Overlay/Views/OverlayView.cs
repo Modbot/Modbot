@@ -47,9 +47,12 @@ public static class OverlayView
 
         stack.Children.Add(RosterPanel(screen));
 
+        // Nothing behind the cards. The texture is square and the cards fill its top, so an
+        // opaque ground would hang a dark slab over half the moderator's view; each card paints
+        // its own surface, and the rest of the panel lets the world through.
         return new Border
         {
-            Background = T.BackgroundBrush,
+            Background = Brushes.Transparent,
             Padding = new Thickness(20),
             Child = stack,
         };
@@ -62,12 +65,18 @@ public static class OverlayView
     /// </summary>
     private static Control HealthBanner(string message) => new Border
     {
-        Background = new SolidColorBrush(T.Palette.Warn, 0.16),
-        BorderBrush = T.WarnBrush,
-        BorderThickness = new Thickness(T.Density.Hairline),
+        // The tint sits on the surface colour rather than on the world behind the panel.
+        Background = T.SurfaceBrush,
         CornerRadius = T.CornerRadius,
-        Padding = new Thickness(16, 12),
-        Child = Text(message, T.Density.TextBase, T.WarnBrush, FontWeight.SemiBold),
+        Child = new Border
+        {
+            Background = new SolidColorBrush(T.Palette.Warn, 0.16),
+            BorderBrush = T.WarnBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(16, 12),
+            Child = Text(message, T.Density.TextBase, T.WarnBrush, FontWeight.SemiBold),
+        },
     };
 
     /// <summary>
