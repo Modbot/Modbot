@@ -334,6 +334,12 @@ public static class FactType
     public const string ApiKeyCreated = "modbot.apikey.create";
     public const string ApiKeyRevoked = "modbot.apikey.revoke";
 
+    // MCP connections (MCP server design). The subject is the connection's id on the Modbot
+    // platform; the actor is the person who signed in through the AI app, or who ended it. The
+    // payload names the app, never a token.
+    public const string McpConnected = "modbot.mcp.connect";
+    public const string McpDisconnected = "modbot.mcp.disconnect";
+
     // Webhooks (API keys design §6.8). The subject is the webhook's id on the Modbot platform. The
     // payload names the webhook and its address, never the secret.
     public const string WebhookCreated = "modbot.webhook.create";

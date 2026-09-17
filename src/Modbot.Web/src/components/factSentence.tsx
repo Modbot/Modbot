@@ -480,13 +480,19 @@ const SENTENCES: Record<string, Sentence> = {
     const people = p.entry.data?.['people']
     const others = Array.isArray(people) ? people.length - 1 : 0
 
+    // Through the MCP server, the person's own AI app ran the tool; the payload names it.
+    const via = p.text('via') === 'mcp' ? `through ${p.text('client') ?? 'an AI app'}` : 'in chat'
+
     return (
       <>
         {p.actor} asked about {p.subject}
-        {others > 0 ? <> and {others === 1 ? '1 other person' : `${others} other people`}</> : null} in chat.
+        {others > 0 ? <> and {others === 1 ? '1 other person' : `${others} other people`}</> : null} {via}.
       </>
     )
   },
+
+  'modbot.mcp.connect': (p) => <>{p.actor} connected {p.text('client') ?? 'an AI app'} to Modbot.</>,
+  'modbot.mcp.disconnect': (p) => <>{p.actor} disconnected {p.text('client') ?? 'an AI app'} from Modbot.</>,
 
   'modbot.user.login': (p) => <>{p.subject} signed in to Modbot.</>,
 

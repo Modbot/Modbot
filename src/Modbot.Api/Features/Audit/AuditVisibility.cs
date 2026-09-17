@@ -160,6 +160,8 @@ public static class AuditVisibility
         [FactType.RoleDeleted] = AuditCategory.Operational,
         [FactType.ApiKeyCreated] = AuditCategory.Operational,
         [FactType.ApiKeyRevoked] = AuditCategory.Operational,
+        [FactType.McpConnected] = AuditCategory.Operational,
+        [FactType.McpDisconnected] = AuditCategory.Operational,
         [FactType.WebhookCreated] = AuditCategory.Operational,
         [FactType.WebhookChanged] = AuditCategory.Operational,
         [FactType.WebhookSecretChanged] = AuditCategory.Operational,

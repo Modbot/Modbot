@@ -81,7 +81,7 @@ internal static class ChatLookupFacts
     }
 
     /// <summary>Writes the fact for one question. Does nothing when no person was read.</summary>
-    public static async Task RecordAsync(
+    public static Task RecordAsync(
         IFactWriter facts,
         EventPartitionMaintainer partitions,
         DateTimeOffset now,
@@ -90,9 +90,28 @@ internal static class ChatLookupFacts
         IReadOnlyList<LookedUpPerson> people,
         IReadOnlyList<string> tools,
         CancellationToken ct)
+        => RecordAsync(
+            facts, partitions, now, asker,
+            new JsonObject { ["conversationId"] = conversationId.ToString() },
+            people, tools, ct);
+
+    /// <summary>
+    /// The same fact for a lookup that was not a Chat question: the MCP server, where the asker's
+    /// own AI app ran the tool. <paramref name="details"/> says which (<c>via</c>, <c>client</c>).
+    /// </summary>
+    public static async Task RecordAsync(
+        IFactWriter facts,
+        EventPartitionMaintainer partitions,
+        DateTimeOffset now,
+        Actor asker,
+        JsonObject details,
+        IReadOnlyList<LookedUpPerson> people,
+        IReadOnlyList<string> tools,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(facts);
         ArgumentNullException.ThrowIfNull(partitions);
+        ArgumentNullException.ThrowIfNull(details);
         ArgumentNullException.ThrowIfNull(people);
         ArgumentNullException.ThrowIfNull(tools);
 
@@ -118,22 +137,25 @@ internal static class ChatLookupFacts
         foreach (var tool in tools)
             named.Add(tool);
 
-        var records = people.Select(person => new FactRecord
+        var records = people.Select(person =>
         {
-            Type = FactType.ChatLookup,
-            OccurredAt = now,
-            SubjectPlatform = person.Platform,
-            SubjectId = person.Id,
-            ActorPlatform = FactPlatform.Modbot,
-            ActorId = asker.Id.ToString(),
-            Source = FactSource.Modbot,
-            Data = new JsonObject
+            var data = new JsonObject { ["actorDisplayName"] = asker.Username };
+            foreach (var (key, value) in details)
+                data[key] = value?.DeepClone();
+            data["people"] = everyone.DeepClone();
+            data["tools"] = named.DeepClone();
+
+            return new FactRecord
             {
-                ["actorDisplayName"] = asker.Username,
-                ["conversationId"] = conversationId.ToString(),
-                ["people"] = everyone.DeepClone(),
-                ["tools"] = named.DeepClone(),
-            },
+                Type = FactType.ChatLookup,
+                OccurredAt = now,
+                SubjectPlatform = person.Platform,
+                SubjectId = person.Id,
+                ActorPlatform = FactPlatform.Modbot,
+                ActorId = asker.Id.ToString(),
+                Source = FactSource.Modbot,
+                Data = data,
+            };
         });
 
         await facts.WriteManyAsync(records, ct);

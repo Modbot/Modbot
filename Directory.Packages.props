@@ -104,6 +104,10 @@
          from each call only what that call carries (research:
          vrchat-public-profile-findings.md §3), which is what makes the stale models harmless. -->
     <PackageVersion Include="VRChat.API" Version="2.21.0" />
+    <!-- The official MCP SDK (MCP server design, 2026-09-17): the Streamable HTTP host for
+         Modbot.Api, and the client half for the tests that talk to it. Stable since 2.0.0. -->
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.1" />
   </ItemGroup>
   <!-- Test-only packages. -->

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260917053127_AddMcpServer")]
+    partial class AddMcpServer
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2514,133 +2517,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_modbot_health_watch");
 
                     b.ToTable("modbot_health_watch", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.Import", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<byte[]>("Body")
-                        .HasColumnType("bytea")
-                        .HasColumnName("body");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<bool>("DryRun")
-                        .HasColumnType("boolean")
-                        .HasColumnName("dry_run");
-
-                    b.Property<string>("Error")
-                        .HasColumnType("text")
-                        .HasColumnName("error");
-
-                    b.Property<string>("FileName")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("file_name");
-
-                    b.Property<DateTimeOffset?>("FinishedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("finished_at");
-
-                    b.Property<int>("Imported")
-                        .HasColumnType("integer")
-                        .HasColumnName("imported");
-
-                    b.Property<int>("Received")
-                        .HasColumnType("integer")
-                        .HasColumnName("received");
-
-                    b.Property<int>("Rejected")
-                        .HasColumnType("integer")
-                        .HasColumnName("rejected");
-
-                    b.Property<string>("Rejections")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("rejections");
-
-                    b.Property<int>("Skipped")
-                        .HasColumnType("integer")
-                        .HasColumnName("skipped");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("source");
-
-                    b.Property<DateTimeOffset?>("StartedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("started_at");
-
-                    b.Property<string>("StartedByName")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("started_by_name");
-
-                    b.Property<Guid>("StartedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("started_by_user_id");
-
-                    b.Property<short>("Status")
-                        .HasColumnType("smallint")
-                        .HasColumnName("status");
-
-                    b.HasKey("Id")
-                        .HasName("pk_import");
-
-                    b.HasIndex("Status", "CreatedAt")
-                        .HasDatabaseName("ix_import_status");
-
-                    b.ToTable("import", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.ImportRecord", b =>
-                {
-                    b.Property<string>("Source")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("source");
-
-                    b.Property<string>("Key")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("key");
-
-                    b.Property<long>("FactId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("fact_id");
-
-                    b.Property<Guid>("ImportId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("import_id");
-
-                    b.Property<DateTimeOffset>("ImportedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("imported_at");
-
-                    b.Property<string>("SubjectId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("subject_id");
-
-                    b.Property<short>("SubjectPlatform")
-                        .HasColumnType("smallint")
-                        .HasColumnName("subject_platform");
-
-                    b.HasKey("Source", "Key")
-                        .HasName("pk_import_record");
-
-                    b.HasIndex("SubjectPlatform", "SubjectId")
-                        .HasDatabaseName("ix_import_record_subject");
-
-                    b.ToTable("import_record", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.Insight", b =>

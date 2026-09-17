@@ -6,6 +6,7 @@ import { AiCallLogSettings } from './AiCallLogSettings'
 import { AiInsightsSettings } from './AiInsightsSettings'
 import { AiLimitsSettings } from './AiLimitsSettings'
 import { AiChatSettings } from './AiChatSettings'
+import { AiMcpSettings } from './AiMcpSettings'
 import { AiModerationSettings } from './AiModerationSettings'
 
 /**
@@ -19,6 +20,7 @@ const AI_TABS = [
   { value: 'insights', label: 'Insights', panel: AiInsightsSettings },
   { value: 'alerts', label: 'Alerts', panel: AiAlertsSettings },
   { value: 'chat', label: 'Chat', panel: AiChatSettings },
+  { value: 'mcp', label: 'MCP', panel: AiMcpSettings },
   { value: 'moderation', label: 'Moderation', panel: AiModerationSettings },
   { value: 'limits', label: 'Limits', panel: AiLimitsSettings },
   { value: 'calls', label: 'Call log', panel: AiCallLogSettings },
