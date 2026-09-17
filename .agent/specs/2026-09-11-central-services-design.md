@@ -183,6 +183,24 @@ address cannot make `my.modbot.co` hammer Cloud, not for accounting.
 **The governing rule is unaffected.** A Cloud that is down means the page shows the instances the
 browser saved in `localStorage`, which is what it did before any of this existed.
 
+> **Revised 2026-09-16 — working while Cloud is down.** Three things changed so that a Cloud that
+> cannot be reached costs nothing but freshness.
+>
+> - **The page never waits for Cloud.** The visit carried in `url` is noted in the background as
+>   the page is served; a Cloud that hangs used to hold every page load for the ten seconds the
+>   call takes to give up.
+> - **The proxy says when Cloud did not take part.** `POST /api/local-register` answers `503`
+>   unless Cloud took the save, and `GET /api/my-instances` answers `503` unless Cloud answered —
+>   an empty list is only ever Cloud's own answer. Both used to answer as if all was well, which
+>   left the browser no way to tell "nothing to show" from "could not ask".
+> - **The browser keeps its own copies.** The server's last list is kept in `localStorage`
+>   (`modbot.server-instances`) and shown until a fresh one arrives. An address the server could
+>   not take waits in `modbot.outbox` and is sent again after 5 s, 10 s, 20 s and so on up to five
+>   minutes while the tab is open, at once when the browser comes back online, and on the next
+>   page load, until the server takes it or answers that it never will. `/register` shows *Saved on
+>   this device. Sending when my.modbot.co can be reached.* once a send has failed and until one
+>   succeeds; it never says a send went through that did not.
+
 ### 2.2 The flow
 
 A deployment that does not know who you are sends you here to be remembered:

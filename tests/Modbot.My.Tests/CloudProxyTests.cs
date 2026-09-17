@@ -42,8 +42,56 @@ public class CloudProxyTests
         using var page = await host.GetAsync("/register?url=https%3A%2F%2Fmodbot.example", Visitor);
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
 
+        var call = await host.Cloud.NextCallAsync(Ct);
+        Assert.Equal(new Uri(MyTestHost.CloudEndpoint, "api/v1/site/visits"), call.Url);
+        Assert.Equal(Visitor, JsonDocument.Parse(call.Body).RootElement.GetProperty("address").GetString());
         Assert.Single(host.Cloud.Calls);
-        Assert.Equal(new Uri(MyTestHost.CloudEndpoint, "api/v1/site/visits"), host.Cloud.Last.Url);
+    }
+
+    /// <summary>
+    /// The note is sent after the page, not before it. A Cloud that hangs would otherwise hold every
+    /// page load for as long as the call takes to give up.
+    /// </summary>
+    [Fact]
+    public async Task A_page_does_not_wait_for_cloud_to_take_the_note()
+    {
+        await using var host = await MyTestHost.StartAsync();
+        host.Cloud.Hold = new TaskCompletionSource();
+
+        using var page = await host.GetAsync("/register?url=https%3A%2F%2Fmodbot.example", Visitor)
+            .WaitAsync(TimeSpan.FromSeconds(5), Ct);
+
+        Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+        Assert.Equal(MyTestHost.AppHtml, await page.Content.ReadAsStringAsync(Ct));
+
+        await host.Cloud.NextCallAsync(Ct);
+        host.Cloud.Hold.SetResult();
+    }
+
+    /// <summary>
+    /// A save is only a save once Cloud has it. Anything else is a 503, so the app keeps the address
+    /// and sends it again later instead of telling somebody it went through.
+    /// </summary>
+    [Fact]
+    public async Task A_save_cloud_did_not_take_is_a_503()
+    {
+        await using var host = await MyTestHost.StartAsync();
+        host.Cloud.Unreachable = true;
+
+        using var unreachable = await host.SendAsync(
+            HttpMethod.Post, "/api/local-register", new { url = "https://modbot.example" }, Visitor);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, unreachable.StatusCode);
+        Assert.NotNull(unreachable.Headers.RetryAfter);
+        Assert.Equal("application/json", unreachable.Content.Headers.ContentType?.MediaType);
+
+        host.Cloud.Unreachable = false;
+        host.Cloud.Status = HttpStatusCode.InternalServerError;
+
+        using var refused = await host.SendAsync(
+            HttpMethod.Post, "/api/local-register", new { url = "https://modbot.example" }, Visitor);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, refused.StatusCode);
     }
 
     [Fact]
@@ -78,18 +126,37 @@ public class CloudProxyTests
         Assert.Equal("VRChat Kings", items[0].GetProperty("groupName").GetString());
     }
 
+    /// <summary>
+    /// An empty list is only the truth when Cloud said so. A Cloud that cannot be asked is a 503, so
+    /// the app keeps the list it last had rather than replacing it with nothing.
+    /// </summary>
     [Fact]
-    public async Task An_unreachable_cloud_is_an_empty_list_not_an_error()
+    public async Task An_unreachable_cloud_is_a_503_not_an_empty_list()
     {
         await using var host = await MyTestHost.StartAsync();
         host.Cloud.Unreachable = true;
 
         using var response = await host.GetAsync("/api/my-instances", Visitor);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.NotNull(response.Headers.RetryAfter);
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
-        Assert.Empty(body.GetProperty("items").EnumerateArray());
+        Assert.False(body.TryGetProperty("items", out _));
+        Assert.DoesNotContain(MyTestHost.ApiKey, body.GetRawText(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_cloud_that_answers_badly_is_a_503_too()
+    {
+        await using var host = await MyTestHost.StartAsync();
+
+        host.Cloud.Status = HttpStatusCode.BadGateway;
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await host.GetAsync("/api/my-instances", Visitor)).StatusCode);
+
+        host.Cloud.Status = HttpStatusCode.OK;
+        host.Cloud.Body = "not json";
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await host.GetAsync("/api/my-instances", Visitor)).StatusCode);
     }
 
     [Fact]
@@ -177,7 +244,8 @@ public class CloudProxyTests
 
         using var response = await host.GetAsync("/api/my-instances", Visitor);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        // Cloud was not asked, so there is no list to give; the page's own copy stands.
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         Assert.Empty(host.Cloud.Calls);
     }
 }

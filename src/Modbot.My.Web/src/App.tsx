@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { api } from '@/lib/api'
 import { normaliseInstanceUrl } from '@/lib/instanceUrl'
+import { outbox } from '@/lib/outbox'
 import { useLocation } from '@/lib/router'
 import { Go } from '@/pages/Go'
 import { Home } from '@/pages/Home'
@@ -16,15 +16,19 @@ export default function App() {
   const url = RECORDING_ROUTES.has(path) ? normaliseInstanceUrl(search.get('url')) : null
   const recordedFor = useRef<string | null>(null)
 
+  // Anything an earlier page load could not send goes first.
+  useEffect(() => outbox.start(), [])
+
   // The second save (central services spec 4.1): once rendered, whether the page came from the
   // server, the browser's cache or a navigation inside the app. The server collapses it into the
   // visit the page load already counted. Guarded per route and URL so a re-render does not send it
-  // again, and cleared on leaving so coming back does.
+  // again, and cleared on leaving so coming back does. It goes through the outbox, so a server that
+  // cannot take it now gets it later rather than never.
   useEffect(() => {
     const key = url ? `${path} ${url}` : null
     if (key === recordedFor.current) return
     recordedFor.current = key
-    if (url) api.localRegister(url).catch(() => {})
+    if (url) outbox.add(url)
   }, [path, url])
 
   if (path === '/') return <Home />

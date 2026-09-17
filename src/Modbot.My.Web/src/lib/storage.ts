@@ -1,5 +1,5 @@
 import { normaliseInstanceUrl } from './instanceUrl.ts'
-import type { SavedInstance } from './merge.ts'
+import type { SavedInstance, ServerInstance } from './merge.ts'
 
 /** Saved instances. The key and shape the old hand-written page used, so an old list still loads. */
 export const SAVED_KEY = 'modbot.instances'
@@ -10,7 +10,22 @@ export const HISTORY_KEY = 'modbot.history'
 /** URLs removed in this browser that the server may still list for this IP address. */
 export const HIDDEN_KEY = 'modbot.hidden'
 
+/** Instance addresses this browser still has to send to the server. Oldest first. */
+export const OUTBOX_KEY = 'modbot.outbox'
+
+/** The server's last answer for this IP address, shown while a fresh one cannot be had. */
+export const SERVER_LIST_KEY = 'modbot.server-instances'
+
 const HISTORY_LIMIT = 200
+
+const OUTBOX_LIMIT = 50
+
+export type OutboxEntry = {
+  url: string
+  addedAt: string
+  /** Sends that failed. Zero until the first one has, so a send that just works shows nothing. */
+  tries: number
+}
 
 export type HistoryAction = 'register' | 'go' | 'open'
 
@@ -74,6 +89,59 @@ export function loadHidden(): string[] {
 export function loadHistory(): HistoryEntry[] {
   const raw = read(HISTORY_KEY)
   return Array.isArray(raw) ? (raw.filter((e) => e && typeof e === 'object') as HistoryEntry[]) : []
+}
+
+export function loadOutbox(): OutboxEntry[] {
+  const raw = read(OUTBOX_KEY)
+  if (!Array.isArray(raw)) return []
+
+  const list: OutboxEntry[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const entry = item as Record<string, unknown>
+
+    const url = normaliseInstanceUrl(text(entry.url))
+    if (!url || list.some((e) => e.url === url)) continue
+
+    const tries = typeof entry.tries === 'number' && entry.tries >= 0 ? Math.floor(entry.tries) : 0
+    list.push({ url, addedAt: text(entry.addedAt) ?? new Date(0).toISOString(), tries })
+  }
+
+  return list
+}
+
+export function saveOutbox(entries: readonly OutboxEntry[]): void {
+  // The newest entries are the ones somebody is waiting on; the oldest are the ones to let go of.
+  write(OUTBOX_KEY, entries.slice(-OUTBOX_LIMIT))
+}
+
+export function loadServerList(): ServerInstance[] {
+  const raw = read(SERVER_LIST_KEY)
+  const items = raw && typeof raw === 'object' ? (raw as { items?: unknown }).items : null
+  if (!Array.isArray(items)) return []
+
+  const list: ServerInstance[] = []
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue
+    const entry = item as Record<string, unknown>
+
+    const instanceUrl = text(entry.instanceUrl)
+    const lastSeenAt = text(entry.lastSeenAt)
+    if (!instanceUrl || !lastSeenAt) continue
+
+    list.push({
+      instanceUrl,
+      firstSeenAt: text(entry.firstSeenAt) ?? lastSeenAt,
+      lastSeenAt,
+      visits: typeof entry.visits === 'number' ? entry.visits : 0,
+    })
+  }
+
+  return list
+}
+
+export function saveServerList(items: readonly ServerInstance[]): void {
+  write(SERVER_LIST_KEY, { items, savedAt: new Date().toISOString() })
 }
 
 /** Saves the instance, or marks a saved one as just used. */

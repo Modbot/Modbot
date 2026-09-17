@@ -31,9 +31,12 @@ public sealed record KnownInstances(
 /// to a log line, and not rendered into the page. A failure logs the status code and nothing else.
 /// </para>
 /// <para>
-/// Every call fails quietly. A Cloud that is slow or unreachable means a page showing the instances
-/// the browser saved for itself, which is what the page did before any of this existed — never an
-/// error in front of somebody trying to open their own Modbot.
+/// Every call fails quietly here, and says so to its caller: a save answers false and a read
+/// answers null when Cloud did not take part. The endpoints turn that into a 503, so the browser
+/// keeps what it has and tries again, rather than being told an empty list is the truth or a save
+/// went through when it did not. The page itself is never refused: a Cloud that is slow or
+/// unreachable means a page showing the instances the browser saved for itself, which is what the
+/// page did before any of this existed.
 /// </para>
 /// </remarks>
 public sealed class CloudClient(CloudAddress cloud, IHttpClientFactory factory, ILogger<CloudClient> log)
@@ -54,8 +57,33 @@ public sealed class CloudClient(CloudAddress cloud, IHttpClientFactory factory, 
         return response is not null && Ok(response);
     }
 
-    /// <summary>The instances Cloud has seen from one address. Empty when Cloud cannot be reached.</summary>
-    public async Task<KnownInstances> KnownInstancesAsync(string? address, CancellationToken ct)
+    /// <summary>
+    /// Notes a visit without making the caller wait for Cloud. For the page routes: a Cloud that
+    /// hangs must not hold the page back, and the app sends the same address again once it has
+    /// rendered, so nothing is lost if this one never lands.
+    /// </summary>
+    public void RecordVisitInBackground(string? address, string url)
+    {
+        // Not the request's token: the response is sent long before Cloud answers, and cancelling
+        // then would throw the note away every time.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await RecordVisitAsync(address, url, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                log.LogWarning(e, "Could not note a visit with Modbot Cloud.");
+            }
+        });
+    }
+
+    /// <summary>
+    /// The instances Cloud has seen from one address. Null when Cloud could not be asked or did not
+    /// answer properly; an empty list only when Cloud said there are none.
+    /// </summary>
+    public async Task<KnownInstances?> KnownInstancesAsync(string? address, CancellationToken ct)
     {
         if (address is null)
             return new KnownInstances([]);
@@ -64,17 +92,16 @@ public sealed class CloudClient(CloudAddress cloud, IHttpClientFactory factory, 
             HttpMethod.Get, $"api/v1/site/visits?address={Uri.EscapeDataString(address)}", null, ct);
 
         if (response is null || !Ok(response))
-            return new KnownInstances([]);
+            return null;
 
         try
         {
-            return await response.Content.ReadFromJsonAsync<KnownInstances>(Json, ct).ConfigureAwait(false)
-                   ?? new KnownInstances([]);
+            return await response.Content.ReadFromJsonAsync<KnownInstances>(Json, ct).ConfigureAwait(false);
         }
         catch (Exception e) when (e is JsonException or NotSupportedException)
         {
             log.LogWarning("Modbot Cloud answered with something this page could not read.");
-            return new KnownInstances([]);
+            return null;
         }
     }
 
