@@ -34,6 +34,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The last attempts per webhook.</summary>
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
+    /// <summary>Uploads of old data, and how each one went (import design §7).</summary>
+    public DbSet<Import> Imports => Set<Import>();
+
+    /// <summary>Which imported records are already in the log, so a re-upload writes nothing twice.</summary>
+    public DbSet<ImportRecord> ImportRecords => Set<ImportRecord>();
+
     /// <summary>The fact log (spec 5.3). Append-only: never update or delete a row here.</summary>
     public DbSet<ModbotEvent> Events => Set<ModbotEvent>();
 
@@ -474,6 +480,40 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // share one.
             entity.HasIndex(e => e.KeyHash).IsUnique();
             entity.HasIndex(e => e.CreatedByUserId);
+        });
+
+        builder.Entity<Import>(entity =>
+        {
+            entity.ToTable("import");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Source).HasMaxLength(Import.MaxSourceLength);
+            entity.Property(e => e.FileName).HasMaxLength(Import.MaxFileNameLength);
+            entity.Property(e => e.StartedByName).HasMaxLength(64);
+            entity.Property(e => e.Rejections).HasColumnType("jsonb");
+
+            // The job's poll: the oldest queued import. Small table, but the poll runs every
+            // few seconds for the life of the process.
+            entity.HasIndex(e => new { e.Status, e.CreatedAt })
+                .HasDatabaseName("ix_import_status");
+        });
+
+        builder.Entity<ImportRecord>(entity =>
+        {
+            entity.ToTable("import_record");
+
+            // The idempotency rule itself (import design §6): one key per source label.
+            entity.HasKey(e => new { e.Source, e.Key });
+
+            entity.Property(e => e.Source).HasMaxLength(Import.MaxSourceLength);
+            entity.Property(e => e.Key).HasMaxLength(ImportRecord.MaxKeyLength);
+            entity.Property(e => e.SubjectId).HasColumnType("text");
+
+            // Purge-user erases a person's rows here as well as their facts.
+            entity.HasIndex(e => new { e.SubjectPlatform, e.SubjectId })
+                .HasDatabaseName("ix_import_record_subject");
         });
 
         builder.Entity<CompanionDeviceRecord>(entity =>

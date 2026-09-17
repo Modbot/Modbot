@@ -58,7 +58,7 @@ test('a date chip becomes a half-open stretch that includes the last day', () =>
 })
 
 test('the audit log leaves Sync out by default and turns is-not into the rest of the list', () => {
-  assert.deepEqual(auditQueryFrom(AUDIT_DEFAULTS).source, ['AuditLog', 'Discord', 'Client'])
+  assert.deepEqual(auditQueryFrom(AUDIT_DEFAULTS).source, ['AuditLog', 'Discord', 'Client', 'Import'])
 
   const query = auditQueryFrom([
     { property: 'source', operator: 'is-not', values: ['SyncDiff'] },
@@ -67,7 +67,7 @@ test('the audit log leaves Sync out by default and turns is-not into the rest of
     { property: 'text', operator: 'contains', values: ['black cat'] },
   ])
 
-  assert.deepEqual(query.source, ['AuditLog', 'Client', 'Discord', 'Manual', 'Modbot'])
+  assert.deepEqual(query.source, ['AuditLog', 'Client', 'Discord', 'Manual', 'Modbot', 'Import'])
   assert.equal(query.actor, 'usr_mod')
   assert.equal(query.hasActor, false)
   assert.equal(query.q, 'black cat')

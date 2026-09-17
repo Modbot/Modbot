@@ -19,6 +19,7 @@ const SOURCE_SERIES: Record<string, number> = {
   Discord: 5,
   Manual: 2,
   Modbot: 2,
+  Import: 2,
 }
 
 /** Which system said so. The colour is a second channel; the label carries the identity. */

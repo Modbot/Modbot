@@ -233,7 +233,10 @@ public sealed class FactWriter : IFactWriter
     /// </remarks>
     private async Task<System.Text.Json.Nodes.JsonObject?> WithHeldRolesAsync(FactRecord fact, CancellationToken ct)
     {
-        if (fact.Source == FactSource.Client || fact.Data?.ContainsKey(HeldRoles.Key) == true)
+        // Skipped for imports too: roles at a date years back are not something the recorded
+        // role changes can answer, and it would be a query per record on a path that runs for
+        // thousands (import design §5).
+        if (fact.Source is FactSource.Client or FactSource.Import || fact.Data?.ContainsKey(HeldRoles.Key) == true)
             return fact.Data;
 
         var people = await PeopleDirectory.LoadAsync(

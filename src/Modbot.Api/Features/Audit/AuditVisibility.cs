@@ -246,6 +246,11 @@ public static class AuditVisibility
         // not map is still something a moderator did to somebody. The Operational default exists
         // for Modbot's internal events, and this is not one of those.
         [FactType.Unrecognised] = AuditCategory.Moderation,
+
+        // A note is moderation history about the person it was written about. An import
+        // finishing is the operator's business, like a settings change (import design §3.3).
+        [FactType.NoteAdded] = AuditCategory.Moderation,
+        [FactType.ImportDone] = AuditCategory.Operational,
     };
 
     /// <summary>

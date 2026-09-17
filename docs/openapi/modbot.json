@@ -2033,6 +2033,176 @@
         ]
       }
     },
+    "/api/imports": {
+      "post": {
+        "tags": [
+          "Imports"
+        ],
+        "summary": "Upload old data and start importing it",
+        "description": "The body is the file: a JSON array of records, or one record per line. Send it as the body with Content-Type application/json and the source as a query parameter, or as a multipart form with a file part and a source field. At most 64 MB. The import runs in the background; ask GET /api/imports/{id} how it is going. dryRun=true reads and counts without writing anything. The format is documented at docs.modbot.co/self-hosting/importing-old-data.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "StartImport",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dryRun",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "fileName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Imports"
+        ],
+        "summary": "The latest fifty imports, newest first",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "ListImports",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/imports/{id}": {
+      "get": {
+        "tags": [
+          "Imports"
+        ],
+        "summary": "One import: its status, counts and rejection reasons",
+        "description": "Counts move while the import runs, so asking again shows progress.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetImport",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/data": {
       "get": {
         "tags": [
@@ -19569,6 +19739,154 @@
           }
         }
       },
+      "ImportRejection": {
+        "required": [
+          "line",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "line": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "ImportStatus": {
+        "enum": [
+          "Queued",
+          "Running",
+          "Done",
+          "Failed"
+        ]
+      },
+      "ImportView": {
+        "required": [
+          "id",
+          "source",
+          "fileName",
+          "dryRun",
+          "status",
+          "received",
+          "imported",
+          "skipped",
+          "rejected",
+          "rejections",
+          "error",
+          "startedBy",
+          "createdAt",
+          "startedAt",
+          "finishedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dryRun": {
+            "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ImportStatus"
+          },
+          "received": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "imported": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "skipped": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rejected": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rejections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportRejection"
+            }
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "startedBy": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ImportsResponse": {
+        "required": [
+          "imports"
+        ],
+        "type": "object",
+        "properties": {
+          "imports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportView"
+            }
+          }
+        }
+      },
       "InsightFigure": {
         "required": [
           "name",
@@ -26071,6 +26389,11 @@
       "name": "Settings",
       "description": "Deployment settings: storage, retention, email, evidence, ban reasons and more.",
       "x-displayName": "Settings"
+    },
+    {
+      "name": "Imports",
+      "description": "Uploads of old data from another platform, and how each one went.",
+      "x-displayName": "Imports"
     },
     {
       "name": "AI settings",

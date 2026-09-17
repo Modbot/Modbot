@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils'
  * so a hand-edited request gains nothing.
  */
 
-const SOURCES = ['AuditLog', 'SyncDiff', 'Client', 'Discord', 'Manual', 'Modbot']
+const SOURCES = ['AuditLog', 'SyncDiff', 'Client', 'Discord', 'Manual', 'Modbot', 'Import']
 
 export function AuditLog() {
   const [location] = useLocation()

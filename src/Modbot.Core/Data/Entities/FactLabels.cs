@@ -167,6 +167,8 @@ public static class FactLabels
         [FactType.InsightAlert] = "Unusual activity",
         [FactType.ChatLookup] = "Asked about in chat",
         [FactType.UserPurged] = "User data purged",
+        [FactType.NoteAdded] = "Note added",
+        [FactType.ImportDone] = "Import finished",
         [FactType.Unrecognised] = "Event Modbot has no name for yet",
 
         [FactType.DiscordCommandRun] = "Discord command used",

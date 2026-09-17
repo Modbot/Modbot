@@ -50,6 +50,12 @@ public enum FactSource : short
     /// (spec 5.9).
     /// </summary>
     Modbot = 6,
+
+    /// <summary>
+    /// Uploaded by a person from an older platform's records (import design). Modbot did not see
+    /// it happen; the time is whatever the old platform said.
+    /// </summary>
+    Import = 7,
 }
 
 // FactType moved to FactType.cs and became hierarchical strings -- see the remarks there

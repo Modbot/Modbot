@@ -536,6 +536,19 @@ public static class FactType
     public const string UserPurged = "modbot.user.purged";
 
     /// <summary>
+    /// A written note about a person (import design §3.3). Subject is the person; the actor is
+    /// whoever wrote it. Payload: whatever the note said, under <c>data</c>.
+    /// </summary>
+    public const string NoteAdded = "modbot.note.add";
+
+    /// <summary>
+    /// An import of old data finished (import design §4.4). Subject is the import id; the actor
+    /// is the account that uploaded the file. Payload: the source label, the file name, the
+    /// status and the four counts. One per import, never one per record.
+    /// </summary>
+    public const string ImportDone = "modbot.import.done";
+
+    /// <summary>
     /// Something happened that Modbot does not yet have a name for.
     /// </summary>
     /// <remarks>

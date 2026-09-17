@@ -12,6 +12,7 @@ const SOURCE_LABEL: Record<string, string> = {
   Discord: 'Discord',
   Manual: 'Manual',
   Modbot: 'Modbot',
+  Import: 'Import',
 }
 
 /**

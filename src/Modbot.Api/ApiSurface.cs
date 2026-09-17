@@ -25,6 +25,7 @@ using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Evidence;
 using Modbot.Api.Features.Flags;
 using Modbot.Api.Features.Health;
+using Modbot.Api.Features.Imports;
 using Modbot.Api.Features.Logs;
 using Modbot.Api.Features.Members;
 using Modbot.Api.Features.Moderation;
@@ -108,6 +109,12 @@ public static class ApiSurface
             sp.GetService<Modbot.VRChat.Scheduling.IMonotonicClock>()));
         services.TryAddScoped<WebhookDispatcher>();
 
+        // Imports of old data (import design §8): the upload endpoint queues, the hosted loop
+        // runs, and the signal is how the first tells the second not to wait out its poll.
+        services.TryAddSingleton<Features.Imports.ImportSignal>();
+        services.TryAddScoped<Features.Imports.ImportRunner>();
+        services.AddHostedService<Features.Imports.ImportService>();
+
         return services;
     }
 
@@ -174,6 +181,9 @@ public static class ApiSurface
         // Keys for programs (API keys design §3). A key is accepted by every endpoint mapped here,
         // through the same authorisation a session goes through.
         app.MapApiKeys();
+
+        // Uploads of old data from another platform (import design §4).
+        app.MapImports();
 
         app.MapDataSettings();
         app.MapSyncSettings();

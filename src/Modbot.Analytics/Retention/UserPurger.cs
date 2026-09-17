@@ -131,6 +131,18 @@ public sealed class UserPurger : IUserPurger
                 new NpgsqlParameter("platform", (short)platform),
                 new NpgsqlParameter("subject", subjectId));
 
+            // The rows that say "this record was imported" name the person too, and leaving
+            // them would make a later upload of the same file a silent no-op for exactly the
+            // records that were erased (import design §7).
+            await ExecuteAsync(
+                """
+                DELETE FROM import_record
+                WHERE subject_platform = @platform AND subject_id = @subject
+                """,
+                ct,
+                new NpgsqlParameter("platform", (short)platform),
+                new NpgsqlParameter("subject", subjectId));
+
             var dailyTotalsDeleted = await ExecuteAsync(
                 """
                 DELETE FROM modbot_daily_total

@@ -1,0 +1,326 @@
+using System.Text.Json.Nodes;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Modbot.Analytics.Facts;
+using Modbot.Api.Features.Users;
+using Modbot.Core.Data;
+using Modbot.Core.Data.Entities;
+using Modbot.Core.Time;
+
+namespace Modbot.Api.Features.Imports;
+
+/// <summary>
+/// Runs one import: reads the upload, maps each record, skips what is already in, writes the
+/// rest (import design §8).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Records go in batches of <see cref="BatchSize"/>: one query for the keys already present, one
+/// transaction for the facts and the dedupe rows, then the row's counts. A batch that commits
+/// stays committed if a later one fails, and the dedupe rows are what make the re-upload after
+/// a failure import only what was left.
+/// </para>
+/// <para>
+/// The row's counts and status are written with <c>ExecuteUpdate</c> rather than through the
+/// change tracker, which is cleared after every batch: a hundred thousand tracked rows are a
+/// hundred thousand rows the next <c>SaveChanges</c> has to walk.
+/// </para>
+/// </remarks>
+public sealed class ImportRunner
+{
+    public const int BatchSize = 500;
+
+    private readonly ModbotContext _db;
+    private readonly IFactWriter _facts;
+    private readonly EventPartitionMaintainer _partitions;
+    private readonly AccountFacts _accountFacts;
+    private readonly IModbotClock _clock;
+    private readonly ILogger<ImportRunner> _log;
+
+    public ImportRunner(
+        ModbotContext db,
+        IFactWriter facts,
+        EventPartitionMaintainer partitions,
+        AccountFacts accountFacts,
+        IModbotClock clock,
+        ILogger<ImportRunner> log)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(facts);
+        ArgumentNullException.ThrowIfNull(partitions);
+        ArgumentNullException.ThrowIfNull(accountFacts);
+        ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(log);
+
+        _db = db;
+        _facts = facts;
+        _partitions = partitions;
+        _accountFacts = accountFacts;
+        _clock = clock;
+        _log = log;
+    }
+
+    /// <summary>Runs the oldest queued import, if there is one.</summary>
+    /// <returns>Whether there was one.</returns>
+    public async Task<bool> RunNextAsync(CancellationToken ct)
+    {
+        var next = await _db.Imports.AsNoTracking()
+            .Where(i => i.Status == ImportStatus.Queued)
+            .OrderBy(i => i.CreatedAt)
+            .Select(i => i.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (next == Guid.Empty)
+            return false;
+
+        await RunAsync(next, ct);
+        return true;
+    }
+
+    /// <summary>Runs one queued import to its end. Does nothing for an import in any other state.</summary>
+    public async Task RunAsync(Guid id, CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
+
+        // Claiming it is the one update that must not race another runner: only a Queued row
+        // becomes Running, and whoever moved it is the one that runs it.
+        var claimed = await _db.Imports
+            .Where(i => i.Id == id && i.Status == ImportStatus.Queued)
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(i => i.Status, ImportStatus.Running).SetProperty(i => i.StartedAt, now),
+                ct);
+
+        if (claimed == 0)
+            return;
+
+        var import = await _db.Imports.AsNoTracking().SingleAsync(i => i.Id == id, ct);
+        var progress = new Progress();
+
+        try
+        {
+            await ProcessAsync(import, progress, ct);
+            await FinishAsync(import.Id, ImportStatus.Done, null, progress, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            _log.LogWarning(e, "Import {ImportId} from {Source} failed", import.Id, import.Source);
+
+            _db.ChangeTracker.Clear();
+            await FinishAsync(import.Id, ImportStatus.Failed, Reason(e), progress, ct);
+        }
+
+        if (!import.DryRun)
+            await RecordAsync(import, progress, ct);
+    }
+
+    private async Task ProcessAsync(Import import, Progress progress, CancellationToken ct)
+    {
+        var body = import.Body;
+        if (body is null || body.Length == 0)
+            throw new InvalidOperationException("The upload was empty.");
+
+        var months = new HashSet<DateTimeOffset>();
+        var batch = new List<ImportItem>(BatchSize);
+
+        foreach (var item in ImportFile.Read(body))
+        {
+            batch.Add(item);
+            if (batch.Count < BatchSize)
+                continue;
+
+            await ProcessBatchAsync(import, batch, months, progress, ct);
+            batch.Clear();
+        }
+
+        if (batch.Count > 0)
+            await ProcessBatchAsync(import, batch, months, progress, ct);
+    }
+
+    private async Task ProcessBatchAsync(
+        Import import,
+        List<ImportItem> items,
+        HashSet<DateTimeOffset> months,
+        Progress progress,
+        CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
+        var records = new List<ParsedRecord>(items.Count);
+
+        foreach (var item in items)
+        {
+            progress.Received++;
+
+            if (ImportFile.TryParse(item, now, out var record, out var reason))
+                records.Add(record!);
+            else
+                progress.Reject(item.Line, reason ?? "Not a record.");
+        }
+
+        var keys = records.Select(r => r.Key).Distinct().ToList();
+        var present = keys.Count == 0
+            ? []
+            : (await _db.ImportRecords.AsNoTracking()
+                .Where(r => r.Source == import.Source && keys.Contains(r.Key))
+                .Select(r => r.Key)
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var toWrite = new List<ParsedRecord>();
+        foreach (var record in records)
+        {
+            // The same record twice in one file is a duplicate too.
+            if (present.Add(record.Key))
+                toWrite.Add(record);
+            else
+                progress.Skipped++;
+        }
+
+        if (!import.DryRun && toWrite.Count > 0)
+        {
+            // Partitions before the transaction: creating one takes its own advisory lock, and
+            // an import reaching back years creates several.
+            foreach (var record in toWrite)
+            {
+                var month = new DateTimeOffset(record.At.Year, record.At.Month, 1, 0, 0, 0, TimeSpan.Zero);
+                if (months.Add(month))
+                    await _partitions.EnsureForAsync(record.At, ct);
+            }
+
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+            foreach (var record in toWrite)
+            {
+                var written = await _facts.WriteAsync(ToFact(import, record), ct);
+
+                _db.ImportRecords.Add(new ImportRecord
+                {
+                    Source = import.Source,
+                    Key = record.Key,
+                    FactId = written.Id,
+                    ImportId = import.Id,
+                    SubjectPlatform = record.SubjectPlatform,
+                    SubjectId = record.SubjectId,
+                    ImportedAt = now,
+                });
+            }
+
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            _db.ChangeTracker.Clear();
+        }
+
+        progress.Imported += toWrite.Count;
+
+        await _db.Imports
+            .Where(i => i.Id == import.Id)
+            .ExecuteUpdateAsync(
+                s => s
+                    .SetProperty(i => i.Received, progress.Received)
+                    .SetProperty(i => i.Imported, progress.Imported)
+                    .SetProperty(i => i.Skipped, progress.Skipped)
+                    .SetProperty(i => i.Rejected, progress.Rejected)
+                    .SetProperty(i => i.Rejections, progress.RejectionsJson()),
+                ct);
+    }
+
+    private static FactRecord ToFact(Import import, ParsedRecord record)
+    {
+        var data = record.Data;
+        data["importId"] = import.Id.ToString();
+        data["importSource"] = import.Source;
+
+        if (record.ExternalId is not null)
+            data["externalId"] = record.ExternalId;
+
+        if (record.ActorName is not null && !data.ContainsKey("actorDisplayName"))
+            data["actorDisplayName"] = record.ActorName;
+
+        return new FactRecord
+        {
+            Type = record.Type,
+            TypeRaw = record.TypeRaw,
+            OccurredAt = record.At,
+            SubjectPlatform = record.SubjectPlatform,
+            SubjectId = record.SubjectId,
+            ActorPlatform = record.ActorPlatform,
+            ActorId = record.ActorId,
+            Source = FactSource.Import,
+            Data = data,
+        };
+    }
+
+    private async Task FinishAsync(Guid id, ImportStatus status, string? error, Progress progress, CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
+
+        await _db.Imports
+            .Where(i => i.Id == id)
+            .ExecuteUpdateAsync(
+                s => s
+                    .SetProperty(i => i.Status, status)
+                    .SetProperty(i => i.Error, error)
+                    .SetProperty(i => i.FinishedAt, now)
+                    .SetProperty(i => i.Body, (byte[]?)null)
+                    .SetProperty(i => i.Received, progress.Received)
+                    .SetProperty(i => i.Imported, progress.Imported)
+                    .SetProperty(i => i.Skipped, progress.Skipped)
+                    .SetProperty(i => i.Rejected, progress.Rejected)
+                    .SetProperty(i => i.Rejections, progress.RejectionsJson()),
+                ct);
+    }
+
+    /// <summary>The one audit entry per import (import design §4.4).</summary>
+    private async Task RecordAsync(Import import, Progress progress, CancellationToken ct)
+    {
+        var status = await _db.Imports.AsNoTracking()
+            .Where(i => i.Id == import.Id)
+            .Select(i => i.Status)
+            .SingleAsync(ct);
+
+        await _accountFacts.RecordAsync(
+            FactType.ImportDone,
+            import.Id.ToString(),
+            new Actor(import.StartedByUserId, import.StartedByName),
+            new JsonObject
+            {
+                ["source"] = import.Source,
+                ["fileName"] = import.FileName,
+                ["status"] = status.ToString(),
+                ["received"] = progress.Received,
+                ["imported"] = progress.Imported,
+                ["skipped"] = progress.Skipped,
+                ["rejected"] = progress.Rejected,
+            },
+            ct);
+    }
+
+    private static string Reason(Exception e) => e switch
+    {
+        System.Text.Json.JsonException json => $"The file is not JSON: {json.Message}",
+        InvalidOperationException invalid => invalid.Message,
+        _ => "The import stopped on an error. Modbot's log has the details.",
+    };
+
+    private sealed class Progress
+    {
+        private readonly List<ImportRejection> _rejections = [];
+
+        public int Received { get; set; }
+        public int Imported { get; set; }
+        public int Skipped { get; set; }
+        public int Rejected { get; private set; }
+
+        public void Reject(int line, string reason)
+        {
+            Rejected++;
+            if (_rejections.Count < Import.MaxRejectionsKept)
+                _rejections.Add(new ImportRejection(line, reason));
+        }
+
+        public string RejectionsJson() => ImportView.RejectionsJson(_rejections);
+    }
+}
