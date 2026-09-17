@@ -1085,9 +1085,9 @@ public sealed class MainWindow : Window
             {
                 Ui.Field("Fixed to", anchors),
                 Line("Offset", where),
-                Ui.Field($"Width {placement.Width:0.00} m", _widthSlider),
-                Ui.Field($"Opacity {placement.Opacity:0%}", _opacitySlider),
-                Ui.Field($"Curve {placement.Curve:0%}", _curveSlider),
+                Ui.Field($"Width {placement.Width:0.00} m", Stepper(_widthSlider, 0.05)),
+                Ui.Field($"Opacity {placement.Opacity:0%}", Stepper(_opacitySlider, 0.05)),
+                Ui.Field($"Curve {placement.Curve:0%}", Stepper(_curveSlider, 0.05)),
                 Line("Picture", $"{OverlayHost.DefaultResolution}×{OverlayHost.DefaultResolution}"),
                 reset,
             },
@@ -1099,6 +1099,36 @@ public sealed class MainWindow : Window
         return lines;
     }
 
+    /// <summary>
+    /// A slider between a minus and a plus, for a hand in a headset that cannot land a thumb: the
+    /// buttons are large, each one moves the value by a step, and the slider is there for a
+    /// mouse. The buttons and slider are rebuilt around the one slider that is kept.
+    /// </summary>
+    private static Control Stepper(Slider slider, double step)
+    {
+        var minus = StepButton("−", () => slider.Value = Math.Max(slider.Minimum, slider.Value - step));
+        var plus = StepButton("+", () => slider.Value = Math.Min(slider.Maximum, slider.Value + step));
+
+        return new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            Children = { minus, slider, plus },
+        };
+    }
+
+    private static Button StepButton(string caption, Action press)
+    {
+        var button = Ui.Button(caption);
+        button.Width = 48;
+        button.Height = 40;
+        button.FontSize = Ui.T.Density.TextBase * 1.3;
+        button.HorizontalContentAlignment = HorizontalAlignment.Center;
+        button.VerticalAlignment = VerticalAlignment.Center;
+        button.Click += (_, _) => press();
+        return button;
+    }
+
     private Slider PlacementSlider(double minimum, double maximum, double step, Func<OverlayPlacement, double, OverlayPlacement> change)
     {
         var slider = new Slider
@@ -1107,7 +1137,9 @@ public sealed class MainWindow : Window
             Maximum = maximum,
             TickFrequency = step,
             IsSnapToTickEnabled = true,
-            Width = 260,
+            Width = 300,
+            MinHeight = 40,
+            VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Left,
         };
 

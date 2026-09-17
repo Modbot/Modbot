@@ -174,6 +174,9 @@ internal sealed class CompanionHost : IOverlayListener
     /// </summary>
     private readonly DispatcherTimer _inputLoop = new() { Interval = TimeSpan.FromMilliseconds(33) };
 
+    /// <summary>Writes the panel's placement half a second after it last changed.</summary>
+    private readonly DispatcherTimer _placementSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
+
     /// <summary>
     /// How often the reading half is given a turn.
     /// </summary>
@@ -710,13 +713,24 @@ internal sealed class CompanionHost : IOverlayListener
         // the panel was left), so it is where it was left next time.
         _overlayHost.Tapped += target => _overlay?.Tap(target);
         _overlayHost.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
+        // Saved once a change has settled rather than on every tick of a drag or a held grip: a
+        // panel being moved changes thirty times a second, and the file needs the last one.
         _overlayHost.PlacementChanged += placement =>
         {
             if (_state is null)
                 return;
 
             _state.Settings = _state.Settings with { Overlay = placement };
-            if (!CompanionSettings.SaveOverlay(_settingsPath, placement))
+            _placementSave.Stop();
+            _placementSave.Start();
+        };
+        _placementSave.Tick += (_, _) =>
+        {
+            _placementSave.Stop();
+            if (_state is null)
+                return;
+
+            if (!CompanionSettings.SaveOverlay(_settingsPath, _state.Settings.Overlay))
                 Log.Warning("The panel's placement could not be saved to {Path}", _settingsPath);
         };
 
