@@ -6,8 +6,14 @@ import { chipFor, dateRange, yesNo, type FilterChip } from './filters.ts'
  * query parameter it should, without a browser.
  */
 
-/** The audit log's default: VRChat, Discord and Client on, Sync off, so a sweep's noticed changes do not crowd the exact entries. */
-export const AUDIT_DEFAULTS: FilterChip[] = [{ property: 'source', operator: 'is', values: ['AuditLog', 'Discord', 'Client'] }]
+/**
+ * The audit log's default: VRChat, Discord, Client and Import on, Sync off, so a sweep's noticed
+ * changes do not crowd the exact entries. Import is on because old data is what somebody uploaded
+ * on purpose (import design §5).
+ */
+export const AUDIT_DEFAULTS: FilterChip[] = [
+  { property: 'source', operator: 'is', values: ['AuditLog', 'Discord', 'Client', 'Import'] },
+]
 
 export function auditQueryFrom(chips: FilterChip[]): Omit<AuditRequest, 'limit' | 'before'> {
   const source = chipFor(chips, 'source')
@@ -22,7 +28,7 @@ export function auditQueryFrom(chips: FilterChip[]): Omit<AuditRequest, 'limit' 
   const when = dateRange(chips, 'when')
 
   // "Is not" on a fixed list is the rest of the list, which the server takes as a plain list.
-  const SOURCES = ['AuditLog', 'SyncDiff', 'Client', 'Discord', 'Manual', 'Modbot']
+  const SOURCES = ['AuditLog', 'SyncDiff', 'Client', 'Discord', 'Manual', 'Modbot', 'Import']
 
   return {
     source:

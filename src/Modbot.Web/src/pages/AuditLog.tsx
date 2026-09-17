@@ -39,7 +39,7 @@ const AT_TOP_PX = 40
  * so a hand-edited request gains nothing.
  */
 
-const SOURCES = ['AuditLog', 'SyncDiff', 'Client', 'Discord', 'Manual', 'Modbot']
+const SOURCES = ['AuditLog', 'SyncDiff', 'Client', 'Discord', 'Manual', 'Modbot', 'Import']
 
 export function AuditLog() {
   const [location] = useLocation()

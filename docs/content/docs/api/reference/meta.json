@@ -27,6 +27,7 @@
     "health",
     "settings",
     "ai-settings",
+    "imports",
     "..."
   ]
 }

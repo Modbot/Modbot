@@ -48,6 +48,41 @@ public class UserPurgerTests : AnalyticsTestBase
     }
 
     /// <summary>
+    /// Imported facts are ordinary facts about the person and go with the rest, and so do the
+    /// rows that say "this record was imported" (import design §7) -- otherwise a later upload of
+    /// the same file would silently skip exactly the records that were erased.
+    /// </summary>
+    [Fact]
+    public async Task ImportedFacts_AndTheirDedupeRows_GoToo()
+    {
+        await WriteAsync(
+            Fact(FactType.MemberBanned, Start.AddYears(-2), subjectId: Subject, source: FactSource.Import),
+            Fact(FactType.Unrecognised, Start.AddYears(-1), subjectId: Subject, source: FactSource.Import),
+            Fact(FactType.MemberBanned, Start.AddYears(-2), subjectId: Bystander, source: FactSource.Import));
+
+        await using (var setup = Database.NewContext())
+        {
+            setup.ImportRecords.AddRange(
+                new ImportRecord { Source = "old-bot", Key = "id:ban-1", SubjectPlatform = FactPlatform.VRChat, SubjectId = Subject, ImportedAt = Start },
+                new ImportRecord { Source = "old-bot", Key = "hash:abc", SubjectPlatform = FactPlatform.VRChat, SubjectId = Subject, ImportedAt = Start },
+                new ImportRecord { Source = "old-bot", Key = "id:ban-2", SubjectPlatform = FactPlatform.VRChat, SubjectId = Bystander, ImportedAt = Start });
+            await setup.SaveChangesAsync(Ct);
+        }
+
+        await using var context = Database.NewContext();
+        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
+
+        Assert.Equal(2, result.FactsDeleted);
+        Assert.Equal(0, await CountAsync(Subject));
+        Assert.Equal(1, await CountAsync(Bystander));
+
+        await using var read = Database.NewContext();
+        var left = await read.ImportRecords.AsNoTracking().OrderBy(r => r.Key).ToListAsync(Ct);
+        var only = Assert.Single(left);
+        Assert.Equal(Bystander, only.SubjectId);
+    }
+
+    /// <summary>
     /// The purge cuts across partitions, which is exactly why it is the one operation that gets to
     /// be a DELETE rather than a partition drop.
     /// </summary>

@@ -70,6 +70,9 @@ public static class FactSubjects
         [FactType.UserInviteRevoked] = SubjectKind.Other,
         [FactType.ResetLinkCreated] = SubjectKind.Other,
         [FactType.ResetLinkUsed] = SubjectKind.Other,
+
+        // The subject is the import's id (import design §4.4).
+        [FactType.ImportDone] = SubjectKind.Other,
         [FactType.RoleCreated] = SubjectKind.Other,
         [FactType.RoleChanged] = SubjectKind.Other,
         [FactType.RoleDeleted] = SubjectKind.Other,

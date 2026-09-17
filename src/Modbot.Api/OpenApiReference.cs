@@ -65,6 +65,7 @@ internal static class OpenApiReference
         ("Analytics", "Charts and daily totals."),
         ("Health", "Whether Modbot is reaching VRChat."),
         ("Settings", "Deployment settings: storage, retention, email, evidence, ban reasons and more."),
+        ("Imports", "Uploads of old data from another platform, and how each one went."),
         ("AI settings", "The AI provider, Chat, moderation rules, insights, alerts and spend limits."),
     ];
 

@@ -1,0 +1,259 @@
+---
+title: Importing old data
+description: Bringing bans, warnings, notes and audit entries from an older platform into Modbot as a JSON file, what each record needs, and why uploading the same file twice is safe.
+---
+
+A group moving to Modbot usually has history somewhere else: a Discord bot's ban list, a
+spreadsheet of warnings, an export from VRCX or from whatever it ran before. Modbot cannot fetch
+any of that itself. What it can do is take a plain JSON file of records and write each one into
+the same log everything else goes into.
+
+Imported records show up in the [audit log](/moderation/audit-log), on a person's
+[profile](/moderation/profiles) and in the charts, with the source **Import** so nobody mistakes
+them for something Modbot saw happen.
+
+## Who can import
+
+Importing needs the **Change settings** permission (see
+[roles and permissions](/accounts/roles-and-permissions#change-settings)). An
+[API key](/api/keys) holding it works too, so the upload can be scripted.
+
+## The file
+
+A file is either a **JSON array** of records, or **one record per line** (newline-delimited
+JSON). Both are accepted. Modbot tells them apart by the first character: `[` is an array,
+anything else is read line by line. Blank lines are ignored.
+
+Each record looks like this:
+
+```json
+{
+  "kind": "ban",
+  "at": "2024-03-01T18:22:07Z",
+  "subject": { "platform": "vrchat", "id": "usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469" },
+  "actor": { "platform": "vrchat", "id": "usr_9a2b7d3e-1f4c-4a8e-b6d2-0c5e7f8a9b1d", "name": "Alice" },
+  "externalId": "ban-1042",
+  "data": { "reason": "Harassment in the Friday event" }
+}
+```
+
+| Field | Required | What it is |
+|---|---|---|
+| `kind` | Yes | What happened. One of the words in the [kinds table](#kinds), or a full Modbot event type name. Anything else is kept as it is; see below. |
+| `at` | Yes | When it happened, as an ISO 8601 date and time, for example `2024-03-01T18:22:07Z` or `2024-03-01T18:22:07+02:00`. Without an offset it is taken as UTC. A time in the future is refused. |
+| `subject` | Yes | Who or what it happened to. `platform` is `vrchat` or `discord`; `id` is that platform's id for them. Modbot never checks what an id looks like. For an entry about the group itself, use the group's id. |
+| `actor` | No | Who did it, in the same shape as `subject`, plus an optional `name` to show. |
+| `externalId` | No | The old platform's own id for this record. See [Uploading twice](#uploading-twice). At most 200 characters. |
+| `data` | No | Anything else worth keeping, as an object. Stored with the record exactly as given. |
+
+Anything else in a record is ignored. Ids are text; do not assume a format for them.
+
+### Kinds
+
+The event type a record becomes depends on the `kind` and on the subject's platform:
+
+| `kind` | VRChat subject | Discord subject |
+|---|---|---|
+| `join` | Joined the group | Joined the server |
+| `leave` | Left the group | Left the server |
+| `remove` | Removed from the group | — |
+| `kick` | Kicked from an instance | Kicked from the server |
+| `warn` | Warned in an instance | — |
+| `ban` | Banned | Banned |
+| `unban` | Unbanned | Unbanned |
+| `timeout` | — | Timed out |
+| `note` | Note added | Note added |
+| `role-add` | Role granted | Role granted |
+| `role-remove` | Role revoked | Role revoked |
+| `invite` | Invite created | — |
+| `join-request` | Asked to join the group | — |
+
+Case does not matter: `Ban` and `ban` are the same.
+
+A `kind` with a dot in it is taken as one of Modbot's own event type names, such as
+`vrchat.group.post.create` or `vrchat.group.update`, and is used as it is when Modbot has that
+type. The [event stream](/api/events-websocket) page lists the types.
+
+**A kind Modbot does not know is never dropped.** A dash in the table, a word not in it, or a
+type name Modbot does not have is recorded as an event Modbot has no name for, with the kind
+kept exactly as you wrote it. It appears in the audit log, it is kept forever by default, and it
+can be given a proper name in a later version of Modbot. Only a malformed record is rejected.
+
+## A full example file
+
+Saved as `old-bot.json`:
+
+```json
+[
+  {
+    "kind": "join",
+    "at": "2023-11-04T20:01:15Z",
+    "subject": { "platform": "vrchat", "id": "usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469" }
+  },
+  {
+    "kind": "warn",
+    "at": "2024-01-12T22:40:00Z",
+    "subject": { "platform": "vrchat", "id": "usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469" },
+    "actor": { "platform": "vrchat", "id": "usr_9a2b7d3e-1f4c-4a8e-b6d2-0c5e7f8a9b1d", "name": "Alice" },
+    "externalId": "warn-88",
+    "data": { "reason": "Mic spam", "instance": "wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd:12345" }
+  },
+  {
+    "kind": "ban",
+    "at": "2024-03-01T18:22:07Z",
+    "subject": { "platform": "vrchat", "id": "usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469" },
+    "actor": { "platform": "vrchat", "id": "usr_9a2b7d3e-1f4c-4a8e-b6d2-0c5e7f8a9b1d", "name": "Alice" },
+    "externalId": "ban-1042",
+    "data": { "reason": "Harassment in the Friday event" }
+  },
+  {
+    "kind": "note",
+    "at": "2024-03-02T09:10:00Z",
+    "subject": { "platform": "discord", "id": "184982340221485056" },
+    "actor": { "platform": "discord", "id": "97124821490135040", "name": "Bob" },
+    "data": { "text": "Says they were hacked. Watch for a second account." }
+  },
+  {
+    "kind": "vrchat.group.post.create",
+    "at": "2024-04-10T17:00:00Z",
+    "subject": { "platform": "vrchat", "id": "grp_a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d" },
+    "data": { "title": "Friday event moved to Saturday" }
+  },
+  {
+    "kind": "verified-age",
+    "at": "2024-05-20T12:00:00Z",
+    "subject": { "platform": "vrchat", "id": "usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469" }
+  }
+]
+```
+
+The last record has a kind Modbot does not know. It is kept, with `verified-age` as the raw type.
+
+The same file, one record per line, is the same records without the surrounding `[`, `]` and
+commas.
+
+## Importing from the web app
+
+Open **Settings**, then **Host & Database**. In the **Import** card:
+
+<Steps>
+<Step>
+
+### Pick the file and name the source
+
+Choose the file and type a **Source**: the name of the platform it came from, such as `old-bot`
+or `vrcx`. At most 64 characters. The same source name is what makes a second upload of the same
+file safe; see [Uploading twice](#uploading-twice).
+
+</Step>
+<Step>
+
+### Dry run first
+
+Press **Dry run**. Modbot reads the whole file, counts what it would import, what it would skip
+and what it would reject, and writes nothing. The run appears in the list under the buttons,
+marked **Dry run**. Press **Show** on the row to read each rejection with its line number.
+
+</Step>
+<Step>
+
+### Import
+
+Press **Import**. The upload is queued and runs in the background. The row's counts move while it
+runs; the page asks again every two seconds until it is done.
+
+</Step>
+</Steps>
+
+The list shows the latest fifty imports: when, source, file, who uploaded it, its status, and the
+four counts.
+
+| Count | Meaning |
+|---|---|
+| **Received** | Records read from the file, well-formed or not. |
+| **Imported** | Records written. For a dry run, records that would have been. |
+| **Skipped** | Records that were already imported earlier. |
+| **Rejected** | Records refused because something was missing or wrong. **Show** lists the first fifty, each with its line number (in a one-record-per-line file) or its position (in an array). |
+
+A file that is not JSON at all ends as **Failed** with the parser's reason on the row.
+
+## Importing with curl
+
+With an [API key](/api/keys) that holds **Change settings**:
+
+```bash
+curl -X POST "https://modbot.example.com/api/imports?source=old-bot&fileName=old-bot.json&dryRun=true" \
+  -H "Authorization: Bearer mbk_..." \
+  -H "Content-Type: application/json" \
+  --data-binary @old-bot.json
+```
+
+The answer is the import, with its `id` and status `Queued`:
+
+```json
+{
+  "id": "0199f0d8-4c2e-7a3b-9d1e-5f6a7b8c9d0e",
+  "source": "old-bot",
+  "fileName": "old-bot.json",
+  "dryRun": true,
+  "status": "Queued",
+  "received": 0, "imported": 0, "skipped": 0, "rejected": 0,
+  "rejections": [],
+  "error": null,
+  "startedBy": "sarah",
+  "createdAt": "2026-09-17T10:00:00+00:00",
+  "startedAt": null,
+  "finishedAt": null
+}
+```
+
+Ask for it until `status` is `Done` or `Failed`:
+
+```bash
+curl -H "Authorization: Bearer mbk_..." \
+  https://modbot.example.com/api/imports/0199f0d8-4c2e-7a3b-9d1e-5f6a7b8c9d0e
+```
+
+Drop `dryRun=true` to import for real. For a one-record-per-line file send
+`Content-Type: application/x-ndjson`; the body is the file either way. A multipart form with a
+`file` part and `source`, `dryRun` and `fileName` fields is accepted too. The body is capped at
+64 MB; split a larger export into several files.
+
+`GET /api/imports` lists the latest fifty. The full detail is in the
+[API reference](/api/reference/imports/start-import).
+
+## Uploading twice
+
+Uploading the same file again writes nothing new. Each record is filed under the **source** name
+you gave, keyed by:
+
+- its `externalId`, when it has one;
+- otherwise a fingerprint of the record itself: its kind, time, subject, actor and `data`.
+
+A record whose key is already there is **skipped**, counted, and never an error. That makes it
+safe to re-upload a file after a failed import, or to upload a fresh export every month: only
+what is new goes in.
+
+Two things follow from the rule:
+
+- Give records an `externalId` whenever the old platform has one. A record with an `externalId`
+  is imported once, whatever the rest of it says. Without one, correcting a typo in `data` makes
+  a new record, because Modbot cannot tell a correction from a different event.
+- The same record under two source names is two records. Keep using the same source name for
+  the same platform.
+
+## What an import does not do
+
+- It does not change the member list or the ban list. Those are what VRChat says now; the
+  import is history.
+- It does not make case files. See [Bans and case files](/moderation/case-files).
+- It cannot be undone as a whole. Facts are append-only. An import with the wrong data is
+  corrected by purging the people concerned, or by restoring a backup taken before it. Run a dry
+  run first.
+
+Imported records follow the retention windows by their type, like every other fact: see
+[Data and retention](/self-hosting/data-retention). Purging a person removes their imported
+records with everything else.
+
+Every import writes one entry of its own in the operational log, **Import finished**, naming who
+uploaded it, the source, the file and the counts.

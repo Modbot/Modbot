@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260917051113_AddImports")]
+    partial class AddImports
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1731,10 +1734,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("display_name");
 
-                    b.Property<string>("DisplayNameSearchable")
-                        .HasColumnType("text")
-                        .HasColumnName("display_name_searchable");
-
                     b.Property<DateTimeOffset>("FirstSeenAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("first_seen_at");
@@ -1742,10 +1741,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("GlobalName")
                         .HasColumnType("text")
                         .HasColumnName("global_name");
-
-                    b.Property<string>("GlobalNameSearchable")
-                        .HasColumnType("text")
-                        .HasColumnName("global_name_searchable");
 
                     b.Property<bool>("IsBot")
                         .HasColumnType("boolean")
@@ -1767,10 +1762,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("nickname");
 
-                    b.Property<string>("NicknameSearchable")
-                        .HasColumnType("text")
-                        .HasColumnName("nickname_searchable");
-
                     b.Property<string>("Roles")
                         .IsRequired()
                         .HasColumnType("jsonb")
@@ -1788,10 +1779,6 @@ namespace Modbot.Core.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("username");
-
-                    b.Property<string>("UsernameSearchable")
-                        .HasColumnType("text")
-                        .HasColumnName("username_searchable");
 
                     b.Property<string>("VoiceChannelId")
                         .HasColumnType("text")
@@ -2406,41 +2393,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_group_member_current");
 
                     b.ToTable("group_member", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.GroupMemberCount", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTimeOffset>("CountedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("counted_at");
-
-                    b.Property<string>("GroupId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("group_id");
-
-                    b.Property<int>("MemberCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("member_count");
-
-                    b.Property<int>("OnlineMemberCount")
-                        .HasColumnType("integer")
-                        .HasColumnName("online_member_count");
-
-                    b.HasKey("Id")
-                        .HasName("pk_group_member_count");
-
-                    b.HasIndex("GroupId", "CountedAt")
-                        .HasDatabaseName("ix_group_member_count_group_time");
-
-                    b.ToTable("group_member_count", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.HealthAlertRecipient", b =>
@@ -4738,10 +4690,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("moderation_fact_retention_days");
 
-                    b.Property<int>("NameCatchUpVersion")
-                        .HasColumnType("integer")
-                        .HasColumnName("name_catch_up_version");
-
                     b.Property<bool>("OnboardingComplete")
                         .HasColumnType("boolean")
                         .HasColumnName("onboarding_complete");
@@ -5106,10 +5054,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("DisplayName")
                         .HasColumnType("text")
                         .HasColumnName("display_name");
-
-                    b.Property<string>("DisplayNameSearchable")
-                        .HasColumnType("text")
-                        .HasColumnName("display_name_searchable");
 
                     b.Property<DateTimeOffset>("FirstSeenAt")
                         .HasColumnType("timestamp with time zone")

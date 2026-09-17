@@ -9,6 +9,7 @@
     "postgres",
     "storage-buckets",
     "data-retention",
+    "importing-old-data",
     "open-rooms",
     "health",
     "logs",
