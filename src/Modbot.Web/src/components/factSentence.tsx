@@ -1,5 +1,6 @@
 import { PersonLink, RoomLink, WorldLink } from '@/components/facts'
 import type { AuditEntry } from '@/lib/api'
+import { openPersonVersion } from '@/lib/subject'
 
 /**
  * Every fact, as a sentence naming who did what to whom and where.
@@ -174,6 +175,21 @@ function Quoted({ value }: { value: string | null }) {
   return value ? <> “{value}”</> : null
 }
 
+/** The words "VRChat profile", opening the person at the version this fact recorded. */
+function VersionLink({ entry }: { entry: AuditEntry }) {
+  return (
+    <button
+      type="button"
+      onClick={() => openPersonVersion(entry.subjectId, entry.id)}
+      className="rounded-md font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+      style={{ display: 'inline' }}
+      title="The profile as it stood after this change"
+    >
+      VRChat profile
+    </button>
+  )
+}
+
 // ── The sentences ─────────────────────────────────────────────────────────────────────────────
 //
 // One per fact type. Where a clause depends on a payload field Modbot may not have kept, the
@@ -315,11 +331,17 @@ const SENTENCES: Record<string, Sentence> = {
   'vrchat.group.calendar-event.series.delete': (p) => <>{p.actor} deleted a repeating calendar entry.</>,
 
   // ── VRChat: profiles ────────────────────────────────────────────────────────────────────────
-  'vrchat.user.profile.first-seen': (p) => <>Modbot recorded {p.subject}'s VRChat profile for the first time.</>,
+  // "VRChat profile" opens the person on their History tab at this very version: the fact is
+  // the snapshot, replayed by the server from the facts around it.
+  'vrchat.user.profile.first-seen': (p) => (
+    <>
+      Modbot recorded {p.subject}'s <VersionLink entry={p.entry} /> for the first time.
+    </>
+  ),
 
   'vrchat.user.profile.changed': (p) => (
     <>
-      {p.subject}'s VRChat profile changed<Changed changed={p.changed} />.
+      {p.subject}'s <VersionLink entry={p.entry} /> changed<Changed changed={p.changed} />.
     </>
   ),
 
