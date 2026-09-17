@@ -945,9 +945,14 @@ turns out to want one.
 - Acting on VRChat's API as the moderator's own account — all API traffic goes through the server's
   single account and `IVRChatGate` (foundation §2.3).
 - Auto-moderation from the client. The client observes and reports; it never acts.
-- **Any platform other than Windows PC VRChat.** Quest and other standalone headsets cannot expose
-  logs or host a SteamVR overlay at all, so they are not a deferred target -- they are out of scope
-  permanently. Meta/Oculus-store VRChat is likewise not supported. macOS and Linux are not targets.
+- **Any platform other than PC VRChat on Windows or Linux.** Quest and other standalone headsets
+  cannot expose logs or host a SteamVR overlay at all, so they are not a deferred target -- they
+  are out of scope permanently. Meta/Oculus-store VRChat is likewise not supported. macOS is not a
+  target. Linux was added on 2026-09-16 (this document first said Windows only): VRChat runs there
+  through Proton, whose prefix holds the same log folder, SteamVR has a Linux build, and the
+  companion already ran from source on Linux with a key-file token store. The Linux build is an
+  AppImage from the same release workflow, with no start-at-sign-in switch and no browser link
+  handler; those stay Windows things.
 
   This is not a limitation to apologise for: presence coverage comes from *moderators* running the
   client, and a group needs only some of its staff on PC for coverage to work. Standalone users are

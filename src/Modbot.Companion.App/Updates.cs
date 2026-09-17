@@ -85,17 +85,23 @@ internal sealed class Updates
     /// files under the copy that is running.
     /// </remarks>
     public static void RunInstallerHooks(string[] args)
-        => VelopackApp.Build()
+    {
+        var app = VelopackApp.Build()
             .SetArgs(args)
-            .SetAutoApplyOnStartup(false)
-            // Uninstalling takes the start-with-Windows entry with it, so nothing is left starting a
-            // program that is gone.
-            .OnBeforeUninstallFastCallback(_ =>
+            .SetAutoApplyOnStartup(false);
+
+        // Uninstalling takes the start-with-Windows entry with it, so nothing is left starting a
+        // program that is gone. Only Windows has an uninstaller; an AppImage is deleted. The
+        // guard is repeated inside the callback because the analyzer does not carry it in.
+        if (OperatingSystem.IsWindows())
+            app.OnBeforeUninstallFastCallback(_ =>
             {
                 if (OperatingSystem.IsWindows())
                     StartupRegistration.Remove();
-            })
-            .Run();
+            });
+
+        app.Run();
+    }
 
     /// <summary>
     /// Where Windows should start an installed copy from, or null when this copy is not installed.

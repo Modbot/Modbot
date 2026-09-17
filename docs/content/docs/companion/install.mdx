@@ -1,21 +1,24 @@
 ---
 title: Installing the companion
-description: Download and install the Modbot companion on Windows, keep it up to date, and see exactly what it reads and sends.
+description: Download and install the Modbot companion on Windows or Linux, keep it up to date, and see exactly what it reads and sends.
 ---
 
-The Modbot companion is a small Windows program for moderators. It reads VRChat's own log
-file on your PC, works out which instance you are in and who comes and goes, and tells your
-group's Modbot. That is what fills the [Live](/moderation/live) page and each person's presence
-history. It sits in the tray (the icons near the clock) for as long as it runs.
+The Modbot companion is a small program for moderators, for Windows and for Linux. It reads
+VRChat's own log file on your PC, works out which instance you are in and who comes and goes, and
+tells your group's Modbot. That is what fills the [Live](/moderation/live) page and each person's
+presence history. On Windows it sits in the tray (the icons near the clock) for as long as it
+runs; on Linux it is an ordinary window.
 
 ## What you need
 
-- **64-bit Windows 10 or 11.** The client is built for Windows only. There is no Mac, Linux or
-  Quest version.
-- **VRChat for Windows, on the same PC.** The client reads the log that VRChat writes on that PC.
+- **64-bit Windows 10 or 11, or 64-bit Linux.** There is no Mac or Quest version.
+- **VRChat on the same PC.** The client reads the log that VRChat writes on that PC. On Linux,
+  VRChat runs through Steam's Proton, and the client looks for the log in Steam's usual folders,
+  including the Flatpak and Snap ones; if yours is somewhere else, point it there in
+  [Settings](/companion/settings#vrchat-log-folder).
 - **Nothing else installed first.** The client brings its own copy of .NET.
 - **No administrator rights.** It installs into your own user folder and only changes settings
-  for your own Windows account.
+  for your own account.
 - **SteamVR**, only if you want the [overlay](/companion/overlay). Without SteamVR the client
   still reports presence as normal.
 - **A staff account on your group's Modbot**, to [pair](/companion/pairing) the client with
@@ -28,11 +31,12 @@ Releases are published on the Modbot repository's
 
 | File | What it is |
 |---|---|
-| `Modbot-win-Setup.exe` | The installer. Use this one. |
-| `Modbot-win-Portable.zip` | The same program with no installer. Unzip it anywhere and run `Modbot.exe`. |
-| `Modbot-…-full.nupkg`, `…-delta.nupkg`, `releases.win.json`, `RELEASES` | What installed clients download when they update. You never need these. |
+| `Modbot-win-Setup.exe` | The Windows installer. Use this one on Windows. |
+| `Modbot-win-Portable.zip` | The same Windows program with no installer. Unzip it anywhere and run `Modbot.exe`. |
+| `Modbot.AppImage` | The Linux build. One file: make it runnable and run it. |
+| `Modbot-…-full.nupkg`, `…-delta.nupkg`, `releases.win.json`, `releases.linux.json`, `RELEASES`, `RELEASES-linux` | What installed clients download when they update. You never need these. |
 
-## Install
+## Install on Windows
 
 <Steps>
 <Step>
@@ -65,6 +69,38 @@ Windows Defender may also, now and then, hold back an unsigned program that read
 program's files and uses the network, which is what this client does. If Modbot disappears right
 after installing, look in **Windows Security → Protection history**.
 </Callout>
+
+## Install on Linux
+
+<Steps>
+<Step>
+### Download the AppImage
+
+Download `Modbot.AppImage` from the release and put it wherever you keep programs.
+</Step>
+<Step>
+### Make it runnable and run it
+
+```bash
+chmod +x Modbot.AppImage
+./Modbot.AppImage
+```
+
+Most file managers also offer this as **Allow executing file as program** in the file's
+properties, after which a double-click opens it.
+</Step>
+<Step>
+### Pair it with your group's Modbot
+
+The client opens on its **Servers** page. Follow [Pairing](/companion/pairing) and type the code
+in: pairing links from a browser only open the client on Windows.
+</Step>
+</Steps>
+
+The client finds VRChat's log under Proton on its own, in Steam's usual folders (including Flatpak
+and Snap installs of Steam), and the [overlay](/companion/overlay) works with SteamVR for Linux.
+There is no start-at-sign-in switch on Linux; add the AppImage to your desktop's startup
+programs if you want that.
 
 ## The client window
 
@@ -192,8 +228,8 @@ The client does not upload its own log file anywhere.
 
 ## Updates
 
-An installed client (from `Modbot-win-Setup.exe` or the portable zip) checks for a newer version
-30 seconds after it starts and every four hours after that. A newer version downloads in the
+An installed client (from `Modbot-win-Setup.exe`, the portable zip or the AppImage) checks for a
+newer version 30 seconds after it starts and every four hours after that. A newer version downloads in the
 background, and the window shows a line saying it will be installed the next time Modbot starts.
 
 Nothing is installed while Modbot is running, so an update never cuts a VRChat session short. Quit
@@ -203,7 +239,8 @@ touch `%APPDATA%\Modbot`.
 
 If a check fails (no connection, or the release feed cannot be read), the client writes
 `Could not check for updates` to its log and tries again four hours later. You can always download
-the latest `Modbot-win-Setup.exe` and run it over your current install.
+the latest `Modbot-win-Setup.exe` and run it over your current install, or the latest
+`Modbot.AppImage` in place of the one you have.
 
 To stop the client checking at all, see
 [Check for updates](/companion/settings#check-for-updates).
@@ -221,9 +258,14 @@ checks for updates.
 | Settings | `%APPDATA%\Modbot\settings.json` |
 | Events waiting to go to each server | `%APPDATA%\Modbot\queue` |
 | The **Events** list | `%APPDATA%\Modbot\sent.jsonl` |
-| The client's own log, one file a day, last seven kept | `%APPDATA%\Modbot\logs` (`client-YYYYMMDD.log`) |
+| The client's own log, one file a day, last seven kept | `%APPDATA%\Modbot\logs` (`companion-YYYYMMDD.log`) |
 | Events waiting to go to Modbot Cloud (up to 20 MB) | `%APPDATA%\Modbot\cloud` |
 | The client's Modbot Cloud install id (secret encrypted) | `%APPDATA%\Modbot\cloud-installs.json` |
+
+On Linux the program is the AppImage, wherever you put it, and everything else is under
+`~/.config/Modbot` with the same names. Tokens there are encrypted with a key in
+`~/.config/Modbot/secret.key`, a file only your user can read, in place of the Windows account
+encryption.
 
 The client also writes two things to the registry, both under your own account and neither needing
 administrator rights:
@@ -248,16 +290,19 @@ reinstall picks up where you left off. Delete that folder to remove everything. 
 `modbot-companion` registry key is also left behind. It points at a program that is no longer there,
 which does no harm, and you can delete it at any time.
 
+On Linux, delete `Modbot.AppImage` and, to remove everything, `~/.config/Modbot`.
+
 Uninstalling does not tell your group's server. The token simply stops being used. An operator
 can also [revoke it](/companion/pairing#paired-devices-on-the-server).
 
 ## Building it yourself
 
-If you would rather not run a downloaded program, build the same folder the installer contains
-from the source, with the .NET 10 SDK:
+If you would rather not run a downloaded program, build the same folder the installer or the
+AppImage contains from the source, with the .NET 10 SDK:
 
 ```bash
 dotnet publish src/Modbot.Companion.App -c Release -p:PublishProfile=win-x64
+dotnet publish src/Modbot.Companion.App -c Release -p:PublishProfile=linux-x64
 ```
 
 The output is in `artifacts/client/publish`. Run `Modbot.exe` from there. A copy built this way

@@ -29,13 +29,15 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <!-- Windows is the release target, by design and not by omission (M3 10): Quest and other
-         standalone headsets cannot expose logs or host a SteamVR overlay at all, and the
-         installer, the update feed, the tray, the start-with-Windows switch and the modbot://
-         link handler are Windows things. Each of those is guarded, and the device tokens have a
-         key-file store where there is no DPAPI, so a copy run from source on Linux or macOS
-         pairs and reports; it is simply not what is shipped. -->
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Windows and Linux are the release targets (M3 10); Quest and other standalone headsets
+         cannot expose logs or host a SteamVR overlay at all, and there is no macOS build. The
+         same code builds for both: the tray, the start-with-Windows switch and the modbot://
+         link handler are Windows things and each is guarded, the device tokens have a key-file
+         store where there is no DPAPI, VRChat's log is found under Proton (VRChatLogFolders),
+         and the overlay hands SteamVR raw pixels where there is no Direct3D. A plain net10.0
+         target rather than net10.0-windows so one project publishes both
+         (Properties/PublishProfiles). -->
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputType>WinExe</OutputType>
@@ -62,5 +64,15 @@
     <AvaloniaResource Include="Assets\icon-256.png" />
     <AvaloniaResource Include="Assets\Fonts\BricolageGrotesque-Wordmark.ttf" />
   </ItemGroup>
+
+  <!-- The overlay project ships OpenVR for both platforms, so a plain build and the tests have
+       both beside them. A published folder is for one kind of machine, and the other platform's
+       library stays out of it. -->
+  <Target Name="LeaveOutTheOtherPlatformsOpenVr" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$(RuntimeIdentifier.StartsWith('linux')) And '%(ResolvedFileToPublish.RelativePath)' == 'openvr_api.dll'" />
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="$(RuntimeIdentifier.StartsWith('win')) And '%(ResolvedFileToPublish.RelativePath)' == 'libopenvr_api.so'" />
+    </ItemGroup>
+  </Target>
 
 </Project>
