@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Modbot.Companion.Presentation;
 using Modbot.Overlay;
 
 namespace Modbot.Companion.App;
@@ -203,6 +204,99 @@ internal static class Ui
     {
         Spacing = 4,
         Children = { Dim(label), input },
+    };
+
+    /// <summary>A hairline between two things, the web app's <c>--hairline</c> border.</summary>
+    internal static Control Hairline() => new Border
+    {
+        Height = T.Density.Hairline,
+        Background = T.BorderBrush,
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+    };
+
+    /// <summary>
+    /// A key, drawn as a key. <paramref name="keys"/> is the registry's spelling: <c>mod+k</c>,
+    /// <c>g e</c>, <c>?</c>. A chord is two caps with "then" between them.
+    /// </summary>
+    internal static Control Kbd(string keys)
+    {
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        var first = true;
+        foreach (var combo in keys.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!first)
+            {
+                var then = Faint("then");
+                then.VerticalAlignment = VerticalAlignment.Center;
+                row.Children.Add(then);
+            }
+
+            first = false;
+            row.Children.Add(new Border
+            {
+                Background = T.Surface2Brush,
+                BorderBrush = T.BorderBrush,
+                BorderThickness = new Thickness(T.Density.Hairline),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(5, 1),
+                MinWidth = 20,
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = Text(KeyTokens.DescribeCombo(combo), T.Density.TextTiny, T.TextDimBrush, wrap: false),
+            });
+        }
+
+        return row;
+    }
+
+    /// <summary>
+    /// One row of a list the keyboard can move through: the palette, the filter picker. Lit when
+    /// it is the one the cursor is on.
+    /// </summary>
+    internal static Button ListRow(Control content, bool active, Action press)
+    {
+        var button = new Button
+        {
+            Content = content,
+            Height = T.Density.RowHeight,
+            Padding = new Thickness(10, 0),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Background = active ? T.Surface3Brush : Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(T.Density.Radius),
+        };
+
+        button.Click += (_, _) => press();
+        return button;
+    }
+
+    /// <summary>
+    /// A panel that opens over the window: the command palette, the shortcut sheet. Raised off
+    /// the page with a shadow rather than a heavier border.
+    /// </summary>
+    internal static Border Sheet(Control child, double maxWidth) => new()
+    {
+        Background = T.SurfaceBrush,
+        BorderBrush = T.Border2Brush,
+        BorderThickness = new Thickness(T.Density.Hairline),
+        CornerRadius = new CornerRadius(10),
+        MaxWidth = maxWidth,
+        HorizontalAlignment = HorizontalAlignment.Stretch,
+        VerticalAlignment = VerticalAlignment.Top,
+        BoxShadow = new BoxShadows(new BoxShadow
+        {
+            Blur = 32,
+            OffsetY = 12,
+            Color = Color.FromArgb(0x99, 0x00, 0x00, 0x00),
+        }),
+        Child = new Border { ClipToBounds = true, CornerRadius = new CornerRadius(10), Child = child },
     };
 
     /// <summary>A big number with a quiet label. The prototype's <c>.stat</c>.</summary>

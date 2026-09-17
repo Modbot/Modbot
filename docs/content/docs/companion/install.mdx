@@ -126,6 +126,29 @@ The window has five pages:
 The line at the bottom of the sidebar says **reading VRChat's log**, **VRChat not running**, or
 **log not recognised**.
 
+### Keyboard shortcuts
+
+Press `?` in the window for the list. Letters only work when you are not typing in a box.
+
+| Keys | Does |
+|---|---|
+| `Ctrl` `K` | Search and commands: every page, and the buttons on the open page, by name |
+| `?` | Keyboard shortcuts |
+| `Esc` | Close what is open: the palette, the filter picker, an opened row, the selection |
+| `G` then `S` / `E` / `V` / `L` / `T` | Go to Servers, Events, SteamVR, Log, Settings (`G` then `D` for Debug when it is on) |
+| `J` / `K`, `↓` / `↑` | Next or previous row on Events |
+| `Enter` | Open the selected row: every field it holds, and the row as JSON |
+| `F` | Add a filter on Events (`Shift` `F` removes the last one) |
+| `/` | Filter Events by text |
+
+### Filters on Events
+
+**Filter** on the Events page adds a chip: **Kind** (joined, already there, left, changed avatar,
+log stopped, seen, note), **Destination** (Server, Modbot Cloud), **State** (sent, waiting,
+withheld, failed), **Group**, or **Text**. Values inside a chip are "any of"; chips combine. Each
+value shows how many rows it would leave. The chips are kept in `settings.json` under
+`eventsFilters`, so the page opens the way you left it.
+
 ### Warnings in the window
 
 Warnings show at the top of every page.
