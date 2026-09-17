@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -7,7 +7,9 @@ import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
 import { SubjectLink } from '@/components/facts'
 import { api, ApiError, type CurrentUser, type DiscordMemberList, type DiscordMemberQuery, type LinkedFilter } from '@/lib/api'
 import { ago, formatDay } from '@/lib/format'
+import { useListSelection } from '@/lib/listSelection'
 import { can } from '@/lib/permissions'
+import { useShortcuts } from '@/lib/shortcuts'
 import { openDiscordPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 import { Empty, Select } from '@/pages/Members'
@@ -68,6 +70,13 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
     }
   }, [search, state, role, linked, page])
 
+  const searchBox = useRef<HTMLInputElement>(null)
+  useShortcuts([{ keys: '/', label: 'Search', group: 'Filters', page: true, run: () => searchBox.current?.select() }])
+  const { rowProps } = useListSelection(list?.members.length ?? 0, (i) => {
+    const m = list?.members[i]
+    if (m) openDiscordPerson(m.userId)
+  })
+
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
@@ -94,6 +103,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
             style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
           >
             <Input
+              ref={searchBox}
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               placeholder="Search by name or id"
@@ -171,15 +181,16 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.members.map((m) => {
+                  {list.members.map((m, i) => {
                     const timedOut = m.timedOutUntil !== null && Date.parse(m.timedOutUntil) > now
 
                     return (
                       <tr
                         key={m.userId}
+                        {...rowProps(i)}
                         onClick={() => openDiscordPerson(m.userId)}
                         className={cn(
-                          'cursor-pointer border-b last:border-0 hover:bg-muted/40',
+                          'cursor-pointer border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
                           m.leftAt && 'text-muted-foreground',
                         )}
                         style={{ borderBottomWidth: 'var(--hairline)' }}

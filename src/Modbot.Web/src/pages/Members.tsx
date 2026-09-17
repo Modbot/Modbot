@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,8 +9,10 @@ import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type LinkedDiscord, type LinkedFilter, type MemberList, type MemberQuery } from '@/lib/api'
+import { useListSelection } from '@/lib/listSelection'
 import { can, canAny } from '@/lib/permissions'
 import { useQueryParam } from '@/lib/router'
+import { useShortcuts } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 
 /**
@@ -99,6 +101,14 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
     }
   }, [search, role, status, sort, linked, joined?.from, joined?.to, page, acted])
 
+  // The keyboard: `/` to the search box, `j`/`k` down and up the rows, `Enter` opens the person.
+  const searchBox = useRef<HTMLInputElement>(null)
+  useShortcuts([{ keys: '/', label: 'Search', group: 'Filters', page: true, run: () => searchBox.current?.select() }])
+  const { rowProps } = useListSelection(list?.members.length ?? 0, (i) => {
+    const m = list?.members[i]
+    if (m) onOpenSubject(m.userId)
+  })
+
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
@@ -115,6 +125,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
             style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
           >
             <Input
+              ref={searchBox}
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               placeholder="Search by name or id"
@@ -222,11 +233,12 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                   </tr>
                 </thead>
                 <tbody>
-                  {list.members.map((m) => (
+                  {list.members.map((m, i) => (
                     <tr
                       key={m.userId}
+                      {...rowProps(i)}
                       className={cn(
-                        'border-b last:border-0 hover:bg-muted/40',
+                        'border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
                         m.leftAt && 'text-muted-foreground',
                       )}
                       style={{ borderBottomWidth: 'var(--hairline)' }}

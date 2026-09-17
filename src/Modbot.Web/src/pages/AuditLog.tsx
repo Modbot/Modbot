@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, SourceBadge } from '@/components/facts'
 import { formatDay, sourceLabel } from '@/lib/format'
+import { useListSelection } from '@/lib/listSelection'
 import { useLocation } from '@/lib/router'
 import { api, ApiError, type AuditEntry, type AuditFilters, type AuditPage } from '@/lib/api'
+import { openDiscordPerson, openInstance, openPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 
 /**
@@ -137,6 +139,15 @@ export function AuditLog() {
   const coverage = pages[0]?.coverage
   const next = pages[pages.length - 1]?.next
 
+  // `j`/`k` move down and up the rows; `Enter` opens what the selected row is about.
+  const { rowProps } = useListSelection(entries.length, (i) => {
+    const entry = entries[i]
+    if (!entry) return
+    if (entry.subjectKind === 'Person')
+      (entry.subjectPlatform.toLowerCase() === 'discord' ? openDiscordPerson : openPerson)(entry.subjectId)
+    else if (entry.subjectKind === 'Instance' && entry.roomId) openInstance(entry.roomId)
+  })
+
   if (error) {
     return (
       <Card>
@@ -180,8 +191,8 @@ export function AuditLog() {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry) => (
-                    <Row key={entry.id} entry={entry} marked={String(entry.id) === factId} />
+                  {entries.map((entry, i) => (
+                    <Row key={entry.id} entry={entry} marked={String(entry.id) === factId} {...rowProps(i)} />
                   ))}
                 </tbody>
               </table>
@@ -215,7 +226,17 @@ export function AuditLog() {
  * which is three things to read and none of them words. The sentence names who did what to whom
  * and where, and every name in it opens its own popup (see components/factSentence.tsx).
  */
-function Row({ entry, marked }: { entry: AuditEntry; marked: boolean }) {
+function Row({
+  entry,
+  marked,
+  ...rowAttributes
+}: {
+  entry: AuditEntry
+  marked: boolean
+  'data-row-index': number
+  'data-selected': boolean | undefined
+  'aria-selected': boolean
+}) {
   const row = useRef<HTMLTableRowElement>(null)
   const brought = useRef(false)
 
@@ -228,7 +249,8 @@ function Row({ entry, marked }: { entry: AuditEntry; marked: boolean }) {
   return (
     <tr
       ref={row}
-      className={cn('border-b last:border-0 hover:bg-muted/40', marked && 'bg-accent')}
+      {...rowAttributes}
+      className={cn('border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60', marked && 'bg-accent')}
       style={{ borderBottomWidth: 'var(--hairline)' }}
     >
       <td className="whitespace-nowrap px-3 align-top" style={{ height: 'var(--row-h)' }}>

@@ -352,6 +352,13 @@ export type DiscordRouteBody = Partial<Omit<DiscordRoute, 'id'>>
 
 export type DiscordRoutePlatform = 'vrchat' | 'discord'
 
+/** What the command palette's search found: one list per kind, empty for a kind this account may not see. */
+export type SearchResults = {
+  people: { userId: string; displayName: string | null; avatarUrl: string | null }[]
+  discordPeople: { userId: string; displayName: string; username: string; avatarUrl: string | null; inServer: boolean }[]
+  worlds: { worldId: string; name: string | null; thumbnailImageUrl: string | null }[]
+}
+
 export type DiscordRoutePerson = {
   id: string
   name: string | null
@@ -3110,6 +3117,10 @@ export const api = {
   deleteDiscordRoute: (id: string) => del<void>(`/api/discord/routes/${encodeURIComponent(id)}`),
 
   /** Stored VRChat profiles by name or id, for a channel's filters. */
+  /** People, Discord people and worlds by name or id, for the command palette. */
+  search: (q: string, limit?: number) =>
+    request<SearchResults>(`/api/search?q=${encodeURIComponent(q)}${limit ? `&limit=${limit}` : ''}`),
+
   discordRoutePeople: (search: string) =>
     request<{ people: DiscordRoutePerson[] }>(
       `/api/discord/routes/people?search=${encodeURIComponent(search)}`,

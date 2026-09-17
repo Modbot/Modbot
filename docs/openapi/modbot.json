@@ -202,6 +202,60 @@
         ]
       }
     },
+    "/api/search": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "People, Discord people and worlds by name or id, for the command palette",
+        "description": "`q` is matched against display names and ids, case-insensitively. People and Discord people need See members; worlds need See analytics. A kind the caller may not see comes back as an empty list. At most `limit` of each kind (default 8, max 25).",
+        "operationId": "Search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResults"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/events/types": {
       "get": {
         "tags": [
@@ -22390,6 +22444,114 @@
           }
         }
       },
+      "SearchDiscordPerson": {
+        "required": [
+          "userId",
+          "displayName",
+          "username",
+          "avatarUrl",
+          "inServer"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inServer": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SearchPerson": {
+        "required": [
+          "userId",
+          "displayName",
+          "avatarUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SearchResults": {
+        "required": [
+          "people",
+          "discordPeople",
+          "worlds"
+        ],
+        "type": "object",
+        "properties": {
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchPerson"
+            }
+          },
+          "discordPeople": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchDiscordPerson"
+            }
+          },
+          "worlds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchWorld"
+            }
+          }
+        }
+      },
+      "SearchWorld": {
+        "required": [
+          "worldId",
+          "name",
+          "thumbnailImageUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "worldId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "thumbnailImageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ServerAnalytics": {
         "required": [
           "from",
@@ -25307,6 +25469,10 @@
     {
       "name": "Logs",
       "x-displayName": "Logs"
+    },
+    {
+      "name": "Search",
+      "x-displayName": "Search"
     }
   ]
 }
