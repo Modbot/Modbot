@@ -162,4 +162,44 @@ public class CompanionSettingsTests : IDisposable
         Assert.False(loaded.CheckForUpdates);
         Assert.Equal(placement, loaded.Overlay);
     }
+
+    [Fact]
+    public void TheEventsFiltersAreReadFromTheFile()
+    {
+        Write("""{ "eventsFilters": ["kind:is:joined,left", "not a chip", "text:contains:rin"] }""");
+
+        var loaded = CompanionSettings.Load(Path_, NoEnvironment);
+
+        Assert.Equal(["kind:is:joined,left", "text:contains:rin"], loaded.EventsFilters.Encode());
+    }
+
+    [Theory]
+    [InlineData("""{ "eventsFilters": "kind:is:joined" }""")]
+    [InlineData("""{ "eventsFilters": 3 }""")]
+    [InlineData("""{ }""")]
+    public void MissingOrBrokenEventsFiltersMeanNone(string json)
+    {
+        Write(json);
+
+        Assert.Equal(EventFilterSet.Empty, CompanionSettings.Load(Path_, NoEnvironment).EventsFilters);
+    }
+
+    [Fact]
+    public void SavingTheEventsFiltersKeepsEveryOtherFieldAndNoneRemovesTheField()
+    {
+        Write("""{ "pairingPage": "https://modbot.example/pair", "checkForUpdates": false }""");
+        var filters = EventFilterSet.Parse(["kind:is:joined", "group:is:Cat%20Caf%C3%A9"]);
+
+        Assert.True(CompanionSettings.SaveEventsFilters(Path_, filters));
+
+        var loaded = CompanionSettings.Load(Path_, NoEnvironment);
+        Assert.Equal(new Uri("https://modbot.example/pair"), loaded.PairingPage);
+        Assert.False(loaded.CheckForUpdates);
+        Assert.Equal(filters, loaded.EventsFilters);
+        Assert.Contains("\"eventsFilters\"", File.ReadAllText(Path_), StringComparison.Ordinal);
+
+        Assert.True(CompanionSettings.SaveEventsFilters(Path_, EventFilterSet.Empty));
+        Assert.DoesNotContain("eventsFilters", File.ReadAllText(Path_), StringComparison.Ordinal);
+        Assert.False(CompanionSettings.Load(Path_, NoEnvironment).CheckForUpdates);
+    }
 }

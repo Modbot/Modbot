@@ -18,8 +18,9 @@ namespace Modbot.Companion.Presentation;
 /// <para><strong>What this reads and writes.</strong> One file, <c>settings.json</c>, in Modbot's own
 /// folder under your user profile — beside <c>pairings.json</c>. It is plain JSON with optional fields:
 /// <c>pairingPage</c>, <c>checkForUpdates</c>, <c>startWithWindows</c>, <c>vrchatLogFolder</c>, <c>overlay</c>, <c>cloud</c>
-/// (<c>{ "endpoint": "…", "disabled": true }</c>) and <c>voice</c>
-/// (<c>{ "on": true, "joins": true, "leaves": true, "flaggedJoins": true, "volume": 80, "outputDevice": "…" }</c>).
+/// (<c>{ "endpoint": "…", "disabled": true }</c>), <c>voice</c>
+/// (<c>{ "on": true, "joins": true, "leaves": true, "flaggedJoins": true, "volume": 80, "outputDevice": "…" }</c>)
+/// and <c>eventsFilters</c> (the Events page's filter chips, one line each, such as <c>"kind:is:joined,left"</c>).
 /// If it is missing or unreadable the defaults are
 /// used. The client writes it only when a switch on the settings screen is changed, and then changes
 /// only that switch's field — the whole <c>voice</c> object for the voice card — leaving anything
@@ -68,6 +69,12 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public OverlayPlacement Overlay { get; init; } = OverlayPlacement.Default;
 
     /// <summary>
+    /// The Events page's filter chips, saved as <c>eventsFilters</c> whenever the bar changes,
+    /// so the page opens the way it was left.
+    /// </summary>
+    public EventFilterSet EventsFilters { get; init; } = EventFilterSet.Empty;
+
+    /// <summary>
     /// my.modbot.co's redirect route, pointed at <c>/pair</c>: it picks one of the moderator's saved
     /// servers and opens that server's own pairing page.
     /// </summary>
@@ -80,6 +87,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string OverlayField = "overlay";
 
     public const string VoiceField = "voice";
+
+    public const string EventsFiltersField = "eventsFilters";
 
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -109,7 +118,18 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             Cloud = CloudSettings.Resolve(shape?.Cloud?.Endpoint, shape?.Cloud?.Disabled, environment),
             Overlay = OverlayPlacement.FromJson(shape?.Overlay),
             Voice = FromShape(shape?.Voice),
+            EventsFilters = EventFilterSet.FromJson(shape?.EventsFilters),
         };
+    }
+
+    /// <summary>
+    /// Writes the Events page's chips as the <c>eventsFilters</c> array, keeping every other
+    /// field. No chips removes the field, so the file says nothing rather than saying <c>[]</c>.
+    /// </summary>
+    public static bool SaveEventsFilters(string path, EventFilterSet filters)
+    {
+        ArgumentNullException.ThrowIfNull(filters);
+        return SaveField(path, EventsFiltersField, filters.ToJson());
     }
 
     /// <summary>Writes the panel's placement as the <c>overlay</c> object, keeping every other field.</summary>
@@ -240,7 +260,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("vrchatLogFolder")] string? VRChatLogFolder,
         [property: JsonPropertyName("cloud")] CloudShape? Cloud,
         [property: JsonPropertyName("overlay")] JsonObject? Overlay,
-        [property: JsonPropertyName("voice")] VoiceShape? Voice);
+        [property: JsonPropertyName("voice")] VoiceShape? Voice,
+        [property: JsonPropertyName("eventsFilters")] JsonArray? EventsFilters);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,

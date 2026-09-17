@@ -123,6 +123,7 @@ public sealed record OverlayStatus(
 /// <param name="Overlay">The SteamVR overlay, for the SteamVR page.</param>
 /// <param name="DebugMode">Whether the companion was started with <c>MODBOT_DEBUG_MODE=1</c>, which adds the Debug page.</param>
 /// <param name="Voice">The voice, for the Settings page.</param>
+/// <param name="EventsFilters">The Events page's chips as settings remember them; the window takes them once, when it first draws the page.</param>
 public sealed record CompanionAppSnapshot(
     IReadOnlyList<ServerRow> Servers,
     IReadOnlyList<JournalRow> Events,
@@ -139,13 +140,17 @@ public sealed record CompanionAppSnapshot(
     string? LogFolderConfigured = null,
     OverlayStatus? Overlay = null,
     bool DebugMode = false,
-    VoiceStatus? Voice = null)
+    VoiceStatus? Voice = null,
+    EventFilterSet? EventsFilters = null)
 {
     /// <summary>The overlay row, never null: <see cref="OverlayStatus.None"/> until the host has said.</summary>
     public OverlayStatus OverlayOrNone => Overlay ?? OverlayStatus.None;
 
     /// <summary>The voice, never null: <see cref="VoiceStatus.None"/> until the host has said.</summary>
     public VoiceStatus VoiceOrNone => Voice ?? VoiceStatus.None;
+
+    /// <summary>The remembered chips, never null.</summary>
+    public EventFilterSet EventsFiltersOrNone => EventsFilters ?? EventFilterSet.Empty;
 
     public static CompanionAppSnapshot Empty { get; } =
         new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, [], null, CompanionSettings.DefaultPairingPage);
@@ -252,7 +257,8 @@ public sealed class CompanionAppState
             Settings.VRChatLogFolder,
             Overlay,
             DebugMode,
-            Voice);
+            Voice,
+            Settings.EventsFilters);
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)

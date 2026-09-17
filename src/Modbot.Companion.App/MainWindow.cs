@@ -47,7 +47,7 @@ internal enum Page
 /// <para>Built in code rather than markup because a reader auditing this program should be able to
 /// see what it displays without also learning a XAML dialect.</para>
 /// </remarks>
-public sealed class MainWindow : Window
+public sealed partial class MainWindow : Window
 {
     private readonly StackPanel _body = new() { Spacing = 14 };
     private readonly StackPanel _nav = new() { Spacing = 2 };
@@ -169,10 +169,22 @@ public sealed class MainWindow : Window
         var main = new ScrollViewer { Padding = new Thickness(20), Content = _body };
         Grid.SetColumn(main, 1);
 
-        Content = new Grid
+        SetUpKeyboard();
+        SetUpEvents();
+
+        // The palette and the shortcut sheet open over the page, inside this window, so the
+        // window's own keys still reach them and nothing else appears in the taskbar.
+        Content = new Panel
         {
-            ColumnDefinitions = new ColumnDefinitions("216,*"),
-            Children = { Sidebar(), main },
+            Children =
+            {
+                new Grid
+                {
+                    ColumnDefinitions = new ColumnDefinitions("216,*"),
+                    Children = { Sidebar(), main },
+                },
+                _panelLayer,
+            },
         };
     }
 
@@ -245,6 +257,7 @@ public sealed class MainWindow : Window
 
         var panel = new DockPanel();
         panel.Children.Add(Dock(_identity, Avalonia.Controls.Dock.Top));
+        panel.Children.Add(Dock(SearchButton(), Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(_nav, Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(health, Avalonia.Controls.Dock.Bottom));
         panel.Children.Add(Dock(_brandFoot, Avalonia.Controls.Dock.Bottom));
@@ -255,9 +268,37 @@ public sealed class MainWindow : Window
             Background = Ui.T.SurfaceBrush,
             BorderBrush = Ui.T.BorderBrush,
             BorderThickness = new Thickness(0, 0, Ui.T.Density.Hairline, 0),
-            Padding = new Thickness(14, 16),
+            Padding = new Thickness(12, 16),
             Child = panel,
         };
+    }
+
+    /// <summary>The way into the command palette for a hand on the mouse, with its key beside it.</summary>
+    private Control SearchButton()
+    {
+        var caption = Ui.Dim("Search");
+        caption.VerticalAlignment = VerticalAlignment.Center;
+
+        var row = new DockPanel { LastChildFill = false };
+        row.Children.Add(Dock(caption, Avalonia.Controls.Dock.Left));
+        row.Children.Add(Dock(Ui.Kbd("mod+k"), Avalonia.Controls.Dock.Right));
+
+        var button = new Button
+        {
+            Content = row,
+            Height = Ui.T.Density.ControlHeight,
+            Padding = new Thickness(8, 0),
+            Margin = new Thickness(0, 0, 0, 8),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Background = Ui.T.BackgroundBrush,
+            BorderBrush = Ui.T.BorderBrush,
+            BorderThickness = new Thickness(Ui.T.Density.Hairline),
+            CornerRadius = new CornerRadius(Ui.T.Density.Radius),
+        };
+
+        button.Click += (_, _) => OpenPalette();
+        return button;
     }
 
     /// <summary>
@@ -324,8 +365,15 @@ public sealed class MainWindow : Window
 
         if (_snapshot.DebugMode)
             _nav.Children.Add(NavItem(Page.Debug, "Debug", null));
+
+        RegisterWindowKeys();
     }
 
+    /// <summary>
+    /// One sidebar row, drawn the way the web app's are after its Linear-style pass: labels dimmed
+    /// so the page takes precedence, and the open page lit in the accent's tint rather than
+    /// a heavier surface.
+    /// </summary>
     private Control NavItem(Page page, string caption, string? badge)
     {
         var selected = _page == page;
@@ -335,7 +383,7 @@ public sealed class MainWindow : Window
             caption,
             Ui.T.Density.TextSmall,
             selected ? Ui.T.TextBrush : Ui.T.TextDimBrush,
-            selected ? FontWeight.Medium : FontWeight.Normal,
+            FontWeight.Medium,
             wrap: false);
 
         label.VerticalAlignment = VerticalAlignment.Center;
@@ -351,23 +399,29 @@ public sealed class MainWindow : Window
         var button = new Button
         {
             Content = row,
-            Height = Ui.T.Density.RowHeight,
-            Padding = new Thickness(10, 0),
+            Height = Ui.T.Density.ControlHeight,
+            Padding = new Thickness(8, 0),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Background = selected ? Ui.T.Surface3Brush : Brushes.Transparent,
+            Background = selected ? Ui.T.AccentDimBrush : Brushes.Transparent,
             BorderThickness = new Thickness(0),
             CornerRadius = new CornerRadius(Ui.T.Density.Radius),
         };
 
-        button.Click += (_, _) =>
-        {
-            _page = page;
-            RenderNav();
-            RenderPage();
-        };
+        button.Click += (_, _) => GoTo(page);
 
         return button;
+    }
+
+    /// <summary>Shows a page: from the sidebar, the palette, or <c>g</c> then its letter.</summary>
+    private void GoTo(Page page)
+    {
+        if (page is Page.Debug && !_snapshot.DebugMode)
+            return;
+
+        _page = page;
+        RenderNav();
+        RenderPage();
     }
 
     private void RenderPage()
@@ -606,44 +660,11 @@ public sealed class MainWindow : Window
     }
 
     /// <summary>
-    /// Every event this client processed, newest first: what it was, where it went, and how far it
-    /// got at each place. One row per event, however many places it was sent to.
-    /// </summary>
-    private void RenderEvents()
-    {
-        if (_snapshot.Events.Count == 0)
-        {
-            _body.Children.Add(Ui.Card(Ui.Dim("Nothing yet.")));
-            return;
-        }
-
-        var rows = new StackPanel { Spacing = 0 };
-        var first = true;
-
-        var groups = _snapshot.Servers.ToDictionary(s => s.ServerId, s => s.GroupName, StringComparer.Ordinal);
-        foreach (var row in _snapshot.Events)
-        {
-            rows.Children.Add(EventRow(row, first, groups));
-            first = false;
-        }
-
-        _body.Children.Add(new Border
-        {
-            Background = Ui.T.SurfaceBrush,
-            BorderBrush = Ui.T.BorderBrush,
-            BorderThickness = new Thickness(Ui.T.Density.Hairline),
-            CornerRadius = new CornerRadius(10),
-            ClipToBounds = true,
-            Child = rows,
-        });
-    }
-
-    /// <summary>
     /// When, what, and where it went: the time in its own column, the sentence, and one pill per
     /// place, named by the group the server manages. An event seen in a group nobody manages has
     /// the time and the sentence and nothing else, which is the truth of it.
     /// </summary>
-    private static Control EventRow(JournalRow row, bool first, IReadOnlyDictionary<string, string> groups)
+    private static Border EventRow(JournalRow row, bool first, IReadOnlyDictionary<string, string> groups)
     {
         var sent = row.ServerState is JournalEntryKind.Sent || row.CloudState is JournalEntryKind.Sent;
 
@@ -685,7 +706,7 @@ public sealed class MainWindow : Window
 
         return new Border
         {
-            Padding = new Thickness(14, 9),
+            Padding = new Thickness(14, 8),
             BorderBrush = Ui.T.BorderBrush,
             BorderThickness = new Thickness(0, first ? 0 : Ui.T.Density.Hairline, 0, 0),
             Child = grid,
@@ -1244,6 +1265,7 @@ public sealed class MainWindow : Window
 /// <param name="PlaceOverlay">Moves the panel: an anchor, a size, or back in front of the head.</param>
 /// <param name="SetVoice">The Voice card changed: the whole voice settings record as the controls now read.</param>
 /// <param name="TestVoice">Speaks one test line.</param>
+/// <param name="SetEventsFilters">The Events page's filter bar changed; the chips are remembered in settings.</param>
 public sealed record MainWindowActions(
     Action<string> TogglePause,
     Action<string> Unpair,
@@ -1258,6 +1280,9 @@ public sealed record MainWindowActions(
     Action<VoiceSettings> SetVoice,
     Action TestVoice)
 {
+    /// <summary>Added after the positional list so nothing that builds the record has to change.</summary>
+    public Action<EventFilterSet> SetEventsFilters { get; init; } = _ => { };
+
     public static MainWindowActions None { get; } = new(
         _ => { },
         _ => { },

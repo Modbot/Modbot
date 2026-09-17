@@ -478,6 +478,18 @@ internal sealed class CompanionHost : IOverlayListener
 
     void IOverlayListener.TokenRejected(string label) => AnnounceTokenRejected(label);
 
+    /// <summary>The Events page's filter bar changed. Remembered in settings.json so the page opens the way it was left.</summary>
+    private void SetEventsFilters(EventFilterSet filters)
+    {
+        if (_state is null || _state.Settings.EventsFilters.Equals(filters))
+            return;
+
+        _state.Settings = _state.Settings with { EventsFilters = filters };
+
+        if (!CompanionSettings.SaveEventsFilters(_settingsPath, filters))
+            Log.Warning("Could not save the Events filters to {Path}", _settingsPath);
+    }
+
     private void SetStartWithWindows(bool on)
     {
         if (_state is null || _state.Settings.StartWithWindows == on && _state.Startup.On == on)
@@ -964,7 +976,10 @@ internal sealed class CompanionHost : IOverlayListener
             _state.Snapshot(),
             new MainWindowActions(
                 TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows, SetLogFolder,
-                AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay, SetVoice, TestVoice));
+                AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay, SetVoice, TestVoice)
+            {
+                SetEventsFilters = SetEventsFilters,
+            });
     }
 
     /// <summary>The overlay in the window's words: whether it is up, what it shows, how often it has drawn.</summary>
