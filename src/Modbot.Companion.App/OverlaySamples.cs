@@ -54,7 +54,8 @@ internal static class OverlaySamples
             Freshness.Stale,
             Health: $"Cannot reach {Group}. Showing what was last known."),
 
-        _ => OverlayScreen.Idle,
+        // The live idle screen draws nothing; the sample shows the card, so the panel's place can be seen.
+        _ => OverlayScreen.Idle with { ShowIdleCard = true },
     };
 
     private static InstanceContext Roster() => new(

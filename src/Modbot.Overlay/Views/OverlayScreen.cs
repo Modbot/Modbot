@@ -26,8 +26,15 @@ public sealed record OverlayScreen(
     Cached<InstanceContext> Roster,
     Freshness Freshness,
     FlaggedJoinAlert? Alert = null,
-    string? Health = null)
+    string? Health = null,
+    bool ShowIdleCard = false)
 {
+    /// <summary>
+    /// Nothing to say: no group, no roster, no alert, no problem. Drawn as nothing at all unless
+    /// <see cref="ShowIdleCard"/> asks for the card, which only the companion's debug page does.
+    /// </summary>
+    public bool IsIdle => GroupLabel is null && Roster.Value is null && Alert is null && Health is null;
+
     /// <summary>The overlay when the moderator is not in any managed group's instance.</summary>
     public static OverlayScreen Idle { get; } = new(
         null,
@@ -43,6 +50,7 @@ public sealed record OverlayScreen(
         ArgumentNullException.ThrowIfNull(other);
 
         return GroupLabel == other.GroupLabel
+            && ShowIdleCard == other.ShowIdleCard
             && Freshness == other.Freshness
             && Health == other.Health
             && Alert?.AlertId == other.Alert?.AlertId

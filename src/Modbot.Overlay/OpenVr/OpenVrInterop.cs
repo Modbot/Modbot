@@ -12,6 +12,9 @@ public enum VrInitError
     Init_NotInitialized = 109,
     Init_PathRegistryNotFound = 110,
     Init_NoServerForBackgroundApp = 121,
+
+    /// <summary>The runtime does not take this kind of application: xrizer answers this to an overlay.</summary>
+    Init_InvalidApplicationType = 130,
     Init_VRDashboardNotFound = 133,
 }
 

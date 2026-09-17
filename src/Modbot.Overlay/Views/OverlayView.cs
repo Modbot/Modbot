@@ -37,6 +37,12 @@ public static class OverlayView
     {
         ArgumentNullException.ThrowIfNull(screen);
 
+        // Outside a group instance the panel says nothing: a card reading "not in a group
+        // instance" is a card in the moderator's face for most of their VRChat time. The debug
+        // page can still ask for it, to see where the panel sits.
+        if (screen.IsIdle && !screen.ShowIdleCard)
+            return new Border { Background = Brushes.Transparent };
+
         var stack = new StackPanel { Spacing = 12 };
 
         if (screen.Health is { Length: > 0 } health)

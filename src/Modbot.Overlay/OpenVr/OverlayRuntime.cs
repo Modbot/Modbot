@@ -110,6 +110,18 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
 
     public OverlayRuntimeStatus Status { get; private set; } = new(OverlayRuntimeState.NotStarted, Detail: "SteamVR has not been looked for yet.");
 
+    /// <summary>
+    /// A refusal in words. Most are SteamVR's own and are named as they come; the one that is
+    /// not SteamVR is xrizer, the OpenVR-on-OpenXR layer used with WiVRn and Monado on Linux,
+    /// which runs games only and answers an overlay with InvalidApplicationType.
+    /// </summary>
+    private static string Refusal(VrInitError error) => error switch
+    {
+        VrInitError.Init_InvalidApplicationType =>
+            "This VR runtime runs games only and does not take overlay applications (xrizer answers this; SteamVR does not).",
+        _ => $"SteamVR answered {error}.",
+    };
+
     public OverlayRuntimeStatus Start()
     {
         if (Status.State is OverlayRuntimeState.Running)
@@ -135,14 +147,14 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
                 return Status = new(
                     state,
                     probeError,
-                    state is OverlayRuntimeState.NotStarted ? "SteamVR is not running." : $"SteamVR answered {probeError}.");
+                    state is OverlayRuntimeState.NotStarted ? "SteamVR is not running." : Refusal(probeError));
             }
 
             OpenVrInterop.ShutdownInternal();
 
             OpenVrInterop.InitInternal(out var initError, OpenVrInterop.ApplicationTypeOverlay);
             if (initError != VrInitError.None)
-                return Status = new(OverlayRuntimeState.Refused, initError, $"SteamVR answered {initError}.");
+                return Status = new(OverlayRuntimeState.Refused, initError, Refusal(initError));
 
             _fnTable = OpenVrInterop.GetGenericInterface(OpenVrInterop.OverlayInterfaceVersion, out var interfaceError);
             if (_fnTable == 0 || interfaceError != VrInitError.None)

@@ -54,10 +54,11 @@ public class OverlayViewTests
     [Fact]
     public void RendersWhenEveryServerIsUnreachableAndThereIsNothingCached()
     {
-        // The only honest blank, and it still draws a frame: an overlay that goes dark when the
-        // network does is backwards.
+        // In a group instance, with every server unreachable and nothing cached: the only honest
+        // blank, and it still draws a frame, because an overlay that goes dark when the network
+        // does is backwards. (Outside a group instance the panel draws nothing on purpose.)
         var screen = new OverlayScreen(
-            null,
+            "Cat Lounge",
             new Cached<InstanceContext>(null, Freshness.Never, TimeSpan.Zero),
             Freshness.Never);
 

@@ -27,8 +27,26 @@ public class OverlayTransparencyTests
         Freshness.Fresh,
         Health: "Cannot reach Cat Lounge. Showing what was last known.");
 
+    private static OverlayScreen IdleCard() => OverlayScreen.Idle with { ShowIdleCard = true };
+
     [Fact]
     public void TheGroundIsClearAndTheCardsAreNot()
+    {
+        var pixels = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(Size, Size);
+            return renderer.Render(OverlayView.Build(IdleCard())).ToArray();
+        });
+
+        // The idle card is one short card at the top; the bottom of the panel is the world.
+        Assert.Equal(0, Alpha(pixels, Size - 1, Size - 1));
+        Assert.Equal(0, Alpha(pixels, Size / 2, Size - 8));
+        Assert.Equal(255, Alpha(pixels, Size / 2, 40));
+    }
+
+    /// <summary>Outside a group instance the panel says nothing at all; only the debug page asks for the card.</summary>
+    [Fact]
+    public void TheLiveIdleScreenDrawsNothing()
     {
         var pixels = AvaloniaTestHost.Run(() =>
         {
@@ -36,10 +54,8 @@ public class OverlayTransparencyTests
             return renderer.Render(OverlayView.Build(OverlayScreen.Idle)).ToArray();
         });
 
-        // The idle screen is one short card at the top; the bottom of the panel is the world.
-        Assert.Equal(0, Alpha(pixels, Size - 1, Size - 1));
-        Assert.Equal(0, Alpha(pixels, Size / 2, Size - 8));
-        Assert.Equal(255, Alpha(pixels, Size / 2, 40));
+        Assert.True(OverlayScreen.Idle.IsIdle);
+        Assert.All(Enumerable.Range(0, Size * Size), i => Assert.Equal(0, pixels[(i * 4) + 3]));
     }
 
     [Fact]
@@ -49,7 +65,7 @@ public class OverlayTransparencyTests
         {
             using var renderer = new AvaloniaFrameRenderer(Size, Size);
             var first = renderer.Render(OverlayView.Build(Tall())).ToArray();
-            var second = renderer.Render(OverlayView.Build(OverlayScreen.Idle)).ToArray();
+            var second = renderer.Render(OverlayView.Build(IdleCard())).ToArray();
             return (first, second);
         });
 
