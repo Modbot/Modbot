@@ -33,7 +33,7 @@ them, but the message box is greyed out.
 Every tool runs with the permissions of the person asking. A tool is only offered to the model if
 the asker holds the permission it needs, and a tool that was not offered never runs, even if the
 model asks for it. Where a page in Modbot shows different things to different people (the audit log,
-who is in a room), the Chat tool uses the same rules as that page, with the asker's permissions.
+who is in an instance), the Chat tool uses the same rules as that page, with the asker's permissions.
 
 So two moderators asking the same question can get different answers, and Chat never reveals
 something the asker could not already open in Modbot.
@@ -51,8 +51,8 @@ something the asker could not already open in Modbot.
 | **Search the audit log** | Audit log entries, filtered by type, person, who did it and dates | **See the audit log** |
 | **Live instances** | The group's open instances right now, with head counts, which moderators are watching and who is there | **See live instances** |
 | **Find a world** | Worlds Modbot has seen, by id or part of a name (up to 10) | **See analytics** |
-| **Open a world** | One world: name, author, capacity, time people spent in it and its recent rooms | **See analytics** |
-| **Open an instance** | One room: where and when it ran, how busy it was, who was in it and what was recorded there | **See analytics** |
+| **Open a world** | One world: name, author, capacity, time people spent in it and its recent instances | **See analytics** |
+| **Open an instance** | One instance: where and when it ran, how busy it was, who was in it and what was recorded there | **See analytics** |
 | **Group figures** | The group's figures over a number of days (30 unless asked otherwise, up to 365): member count, joins, leaves, invites, join requests, roles and how long members have been members | **See analytics** |
 | **Server figures** | The Discord server's figures over a number of days: members, joins, leaves, messages, minutes in voice, active members, busiest channels, who wrote most, bans, kicks, timeouts and messages removed | **See analytics** |
 | **Search Discord messages** | Stored Discord messages, by who wrote them, the channel, words in them and dates. Deleted ones come back marked deleted | **Read Discord messages** |
@@ -64,7 +64,7 @@ something the asker could not already open in Modbot.
 | **Person's flags** | One person's AI moderation flags: which rule matched, what it matched, what was done, and whether a moderator dismissed it | **See profiles** |
 | **Recent flags** | The most recent AI moderation flags across the group, and how many are still open | **See profiles** |
 | **What's on** | Calendar events over a window of days: when each runs, its world, whether it repeats and its state | **See calendar** |
-| **Open an event** | One calendar event: its description, world and room settings, where it was published and whether Modbot opened a room for it | **See calendar** |
+| **Open an event** | One calendar event: its description, world and instance settings, where it was published and whether Modbot opened an instance for it | **See calendar** |
 
 A list of results is capped, and the answer is told when there were more. Searching Discord
 messages on words alone looks at the last 90 days unless dates are given.
@@ -91,10 +91,10 @@ the [Chat settings](#chat-settings).
 - Every lookup is a step inside the answer, with a tick when it worked. Open one to see what it was
   asked and what came back in plain words, or press **Raw** for the result as the model got it.
   Several lookups in a row are grouped as **N steps**.
-- People, worlds and rooms the lookups found are underlined in the answer and shown as buttons under
+- People, worlds and instances the lookups found are underlined in the answer and shown as buttons under
   the step. Either opens the usual [popup](/moderation/popups).
 - **Sources** under the answer are the rows it was built from. Each one opens where it lives: a
-  person, world or room in its popup, an audit log entry in the audit log at that entry, a case file
+  person, world or instance in its popup, an audit log entry in the audit log at that entry, a case file
   on its own page, a Discord message in that person's **Messages** tab with the message marked, and
   an event on the calendar. The model is told to answer only from what the lookups returned and
   never to write an id it was not given.
@@ -160,7 +160,7 @@ any extra instructions), the conversation so far, the list of tools on offer, an
 result. Naming a new conversation is one more short call, which sends the first question and the
 first answer; it is counted and limited like every other call Chat makes. If it fails, the
 conversation keeps the first words of the question as its name. Tool results are real group data: names, bios, ban history, audit log entries, who is in a
-room. The asker's Modbot account id is not sent.
+instance. The asker's Modbot account id is not sent.
 
 If that data must not leave your own servers, use a model you run yourself. See
 [AI settings](/ai/settings#providers).

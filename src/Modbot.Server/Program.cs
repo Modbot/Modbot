@@ -345,13 +345,13 @@ try
     // other endpoint in the host down with it. Composition is the host's job (spec 2.5).
     builder.Services.AddClientApi();
 
-    // Which of the group's rooms anyone can join, sent to Cloud so modbot.co can list them
+    // Which of the group's instances anyone can join, sent to Cloud so modbot.co can list them
     // (central services design §4.6). On by default, off with the setting or MODBOT_CLOUD_DISABLED.
     //
-    // Never on a demo. Its rooms are made up, and a made-up event on a public page is a lie
+    // Never on a demo. Its instances are made up, and a made-up event on a public page is a lie
     // somebody would try to join.
     if (!demo.IsOn)
-        builder.Services.AddPublicRooms();
+        builder.Services.AddPublicInstances();
 
     // Fills the searchable form of every stored name for rows from before the columns existed,
     // and again after the folding rules change. Runs once after startup and stops.
@@ -426,7 +426,7 @@ try
         // this goes straight in. Before this point the sink queues and writes nothing.
         databaseLog?.Start(connectionString);
 
-        // The demo's group, people, rooms and team, written before the first request so nobody
+        // The demo's group, people, instances and team, written before the first request so nobody
         // ever sees an empty demo. The year of history behind it is written afterwards, by
         // DemoDataService, with a progress line on the Health page (demo mode design §5).
         await DemoStartup.SeedAsync(app.Services);

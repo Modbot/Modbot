@@ -158,6 +158,20 @@ public sealed class LiveReader
                 .Where(u => nameless.Contains(u.UserId) && u.DisplayName != null)
                 .ToDictionaryAsync(u => u.UserId, u => u.DisplayName!, StringComparer.Ordinal, ct);
 
+        // The world's name as stored now, so a client can say "The Black Cat #39047" rather than
+        // print an id. One lookup for the page; a world nobody has read yet stays unnamed.
+        var worldIds = live
+            .Where(x => x.Fact.WorldId is not null)
+            .Select(x => x.Fact.WorldId!)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var worldNames = worldIds.Count == 0
+            ? new Dictionary<string, string>(StringComparer.Ordinal)
+            : await _db.VRChatWorlds.AsNoTracking()
+                .Where(w => worldIds.Contains(w.WorldId) && w.Name != null)
+                .ToDictionaryAsync(w => w.WorldId, w => w.Name!, StringComparer.Ordinal, ct);
+
         var device = scope.DeviceId?.ToString();
 
         foreach (var (fact, kind) in live)
@@ -214,6 +228,7 @@ public sealed class LiveReader
                     : null,
                 fact.InstanceId,
                 fact.WorldId,
+                fact.WorldId is { } worldId ? worldNames.GetValueOrDefault(worldId) : null,
                 person,
                 flagged,
                 reason,

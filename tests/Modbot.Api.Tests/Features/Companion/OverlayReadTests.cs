@@ -157,7 +157,7 @@ public class OverlayReadTests
     /// <summary>
     /// The ghost-roster bug. When the last moderator walks out nobody is told that anybody else
     /// left, so "last fact per person wins" kept everyone they saw present for twelve hours, long
-    /// after the room had closed.
+    /// after the instance had closed.
     /// </summary>
     [Fact]
     public async Task WhenTheLastModeratorLeaves_NobodyIsStillListedAsHere()
@@ -548,8 +548,8 @@ public class OverlayReadTests
     [Fact]
     public async Task PresenceObservedRaisesNothingEvenForAFlaggedUser()
     {
-        // Somebody already in the room when a moderator walked in is not an arrival, so alerting
-        // on it would fire a card for the whole room every time anybody entered -- the phantom
+        // Somebody already in the instance when a moderator walked in is not an arrival, so alerting
+        // on it would fire a card for the whole instance every time anybody entered -- the phantom
         // burst problem, one layer up.
         var ct = TestContext.Current.CancellationToken;
         var (host, reporter) = await ReadyAsync(ct);

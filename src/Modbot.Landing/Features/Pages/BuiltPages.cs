@@ -15,7 +15,7 @@ namespace Modbot.Landing.Features.Pages;
 public sealed record MyModbotAddress(string Url);
 
 /// <summary>
-/// The HTML files <c>Web/</c> builds into <c>wwwroot</c>: the landing page, the rooms page, the
+/// The HTML files <c>Web/</c> builds into <c>wwwroot</c>: the landing page, the instances page, the
 /// not-found page, and the privacy policy when <c>PRIVACY_POLICY.md</c> existed at build time.
 /// </summary>
 public sealed partial class BuiltPages(IWebHostEnvironment environment, MyModbotAddress myModbot)
@@ -23,9 +23,9 @@ public sealed partial class BuiltPages(IWebHostEnvironment environment, MyModbot
     public const string LandingFile = "index.html";
     public const string NotFoundFile = "404.html";
     public const string PrivacyFile = "privacy.html";
-    public const string RoomsFile = "rooms.html";
+    public const string InstancesFile = "instances.html";
 
-    public static readonly string[] All = [LandingFile, NotFoundFile, PrivacyFile, RoomsFile];
+    public static readonly string[] All = [LandingFile, NotFoundFile, PrivacyFile, InstancesFile];
 
     private readonly Dictionary<string, BuiltPage> _pages = new(StringComparer.Ordinal);
     private readonly Lock _gate = new();
@@ -54,13 +54,13 @@ public sealed partial class BuiltPages(IWebHostEnvironment environment, MyModbot
             if (!string.Equals(myModbot.Url, Configuration.LandingEnvironment.DefaultMyUrl, StringComparison.Ordinal))
                 html = html.Replace(Configuration.LandingEnvironment.DefaultMyUrl, myModbot.Url, StringComparison.Ordinal);
 
-            // The rooms page shows worlds and group icons, which are pictures on VRChat's own
+            // The instances page shows worlds and group icons, which are pictures on VRChat's own
             // servers. Which host names those are is VRChat's to change, and a page that quietly
             // stopped showing pictures because a CDN moved is a fault nobody would find -- so
             // pictures over https are allowed from anywhere, on this one page. Everything else is
             // still 'self', and every address the page is given has already been checked to be an
             // https URL twice: by the Modbot that reported it and by the Cloud that stored it.
-            var page = BuiltPage.From(html, file == RoomsFile ? "https:" : null);
+            var page = BuiltPage.From(html, file == InstancesFile ? "https:" : null);
             _pages[file] = page;
             return page;
         }

@@ -59,13 +59,13 @@ public sealed class ServerConnection : IIngestTarget
     /// How long an arrival, a departure or a stopped log waits before it is sent. Protocol 4.4.
     /// </summary>
     /// <remarks>
-    /// <para>The Live page shows who is in a room right now, and a thirty-second wait made "right
+    /// <para>The Live page shows who is in an instance right now, and a thirty-second wait made "right
     /// now" half a minute old. Two seconds is quick enough to read as live and slow enough to
     /// group the changes that land together -- a friend group walking in, the tail of an arrival
     /// burst -- into one request.</para>
     /// <para>Measured from the <em>first</em> change still waiting, not the latest, so a steady
     /// stream of arrivals cannot keep pushing the send back.</para>
-    /// <para>Avatar changes do not start this wait. They are not who is in the room, and a room
+    /// <para>Avatar changes do not start this wait. They are not who is in the instance, and an instance
     /// full of people trying on avatars would otherwise send every two seconds.</para>
     /// </remarks>
     public static readonly TimeSpan DefaultChangeDelay = TimeSpan.FromSeconds(2);
@@ -223,7 +223,7 @@ public sealed class ServerConnection : IIngestTarget
     }
 
     /// <summary>
-    /// Whether an event changes who is in a room -- and so is worth sending within seconds rather
+    /// Whether an event changes who is in an instance -- and so is worth sending within seconds rather
     /// than at the next thirty-second batch.
     /// </summary>
     public static bool IsChange(CompanionEventType type) => type is
@@ -239,9 +239,9 @@ public sealed class ServerConnection : IIngestTarget
     /// <para>Three rules, whichever comes first: fifty events, thirty seconds, or two seconds after
     /// somebody arrived or left. Walking into a busy instance produces a burst of forty
     /// observations at once and goes straight away; people coming and going go within seconds; a
-    /// quiet room sends nothing extra, because nothing is waiting.</para>
+    /// quiet instance sends nothing extra, because nothing is waiting.</para>
     /// <para>Backoff and <c>Retry-After</c> still win over all three. A server that asked for a
-    /// pause gets one, however lively the room.</para>
+    /// pause gets one, however lively the instance.</para>
     /// </remarks>
     public bool IsDueToSend()
     {

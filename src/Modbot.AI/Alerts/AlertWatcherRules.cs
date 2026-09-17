@@ -67,9 +67,9 @@ public static class AlertWatcherRules
         new(AlertWatchers.Flags, 3, [FactType.AiModerationFlag]),
         new(AlertWatchers.Actions, 3, ActionTypes),
         new(AlertWatchers.Leaves, 5, [FactType.MemberLeft, FactType.DiscordMemberLeft]),
-        new(AlertWatchers.RoomsOpened, 3, [FactType.GroupInstanceCreated]),
-        new(AlertWatchers.RoomFilling, 8, []),
-        new(AlertWatchers.RoomUnwatched, 8, []),
+        new(AlertWatchers.InstancesOpened, 3, [FactType.GroupInstanceCreated]),
+        new(AlertWatchers.InstanceFilling, 8, []),
+        new(AlertWatchers.InstanceUnwatched, 8, []),
         // Four earlier weeks is all there ever is, so the weekly watcher wants three of them rather
         // than the five an hourly watcher wants.
         new(AlertWatchers.ActiveDrop, 20, [], AlertDirection.Below, LeastEarlier: 3),
@@ -79,9 +79,9 @@ public static class AlertWatcherRules
         => All.FirstOrDefault(r => r.Watcher == watcher)
            ?? throw new ArgumentOutOfRangeException(nameof(watcher), watcher, "Not a watcher.");
 
-    /// <summary>The watchers that read the open rooms.</summary>
-    public static IReadOnlySet<string> RoomWatchers { get; } =
-        new HashSet<string>(StringComparer.Ordinal) { AlertWatchers.RoomFilling, AlertWatchers.RoomUnwatched };
+    /// <summary>The watchers that read the open instances.</summary>
+    public static IReadOnlySet<string> InstanceWatchers { get; } =
+        new HashSet<string>(StringComparer.Ordinal) { AlertWatchers.InstanceFilling, AlertWatchers.InstanceUnwatched };
 
     /// <summary>Where in Modbot to look, as a path the web app knows.</summary>
     public static string? LinkFor(string watcher, AlertWindows windows)
@@ -100,8 +100,8 @@ public static class AlertWatcherRules
             AlertWatchers.Flags => "/flags",
             AlertWatchers.Actions => "/audit",
             AlertWatchers.Leaves => "/analytics/group",
-            AlertWatchers.RoomsOpened => "/analytics/instances",
-            AlertWatchers.RoomFilling or AlertWatchers.RoomUnwatched => "/live",
+            AlertWatchers.InstancesOpened => "/analytics/instances",
+            AlertWatchers.InstanceFilling or AlertWatchers.InstanceUnwatched => "/live",
             AlertWatchers.ActiveDrop => "/analytics/server",
             _ => null,
         };

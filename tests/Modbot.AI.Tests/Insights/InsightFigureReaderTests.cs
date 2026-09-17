@@ -102,7 +102,7 @@ public class InsightFigureReaderTests : InsightTestBase
     }
 
     [Fact]
-    public async Task RoomFiguresUseTheRoomsOpenedInTheWeek()
+    public async Task InstanceFiguresUseTheInstancesOpenedInTheWeek()
     {
         await AddTotalAsync(Day(3, 9), DailyTotalMetrics.InstancesOpened, 3);
 
@@ -120,13 +120,13 @@ public class InsightFigureReaderTests : InsightTestBase
         }
 
         await using var context = NewContext();
-        var figures = await new InsightFigureReader(context).ReadAsync(InsightKinds.Rooms, Week, Ct);
+        var figures = await new InsightFigureReader(context).ReadAsync(InsightKinds.Instances, Week, Ct);
 
-        Assert.Equal(new InsightFigure("Rooms opened", 3, 0), Figure(figures, "Rooms opened"));
-        Assert.Equal(new InsightFigure("Typical minutes a room stayed open", 120, 60), Figure(figures, "Typical minutes a room stayed open"));
-        Assert.Equal(new InsightFigure("Most people in one room", 30, 50), Figure(figures, "Most people in one room"));
+        Assert.Equal(new InsightFigure("Instances opened", 3, 0), Figure(figures, "Instances opened"));
+        Assert.Equal(new InsightFigure("Typical minutes an instance stayed open", 120, 60), Figure(figures, "Typical minutes an instance stayed open"));
+        Assert.Equal(new InsightFigure("Most people in one instance", 30, 50), Figure(figures, "Most people in one instance"));
 
-        var busiest = Assert.Single(figures.Lists, l => l.Name == "Busiest rooms, by most people at once");
+        var busiest = Assert.Single(figures.Lists, l => l.Name == "Busiest instances, by most people at once");
         Assert.Equal(
             ["Club, opened Friday 9 March 20:00 UTC", "Club, opened Saturday 10 March 20:00 UTC", "wrld_other, opened Sunday 11 March 20:00 UTC"],
             busiest.Items.Select(i => i.Name));

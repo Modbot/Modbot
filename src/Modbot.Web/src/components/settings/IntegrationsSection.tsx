@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Checkbox, Fact, Field, Outcome, PasswordField, Placeholder } from './fields'
 import { HealthAlertsCard } from './HealthAlertsCard'
-import { PublicRoomsCard } from './PublicRoomsCard'
+import { PublicInstancesCard } from './PublicInstancesCard'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 
 /**
@@ -34,7 +34,7 @@ export function IntegrationsSection({
       ) : (
         <Placeholder>Loading…</Placeholder>
       )}
-      <PublicRoomsCard />
+      <PublicInstancesCard />
       <HealthAlertsCard />
     </SettingsSection>
   )

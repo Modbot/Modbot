@@ -104,7 +104,7 @@ public class Settings
     /// <remarks>
     /// Kept out of <c>GroupInfoSnapshot</c> on purpose — a picture address
     /// changes on its own schedule and would make every poll look like a change — but recorded
-    /// here, because the public rooms report is how the landing page knows what a group looks
+    /// here, because the public instances report is how the landing page knows what a group looks
     /// like, and a group with no picture is a grey box on that page.
     /// </remarks>
     public string? ManagedGroupIconUrl { get; set; }
@@ -112,45 +112,45 @@ public class Settings
     /// <inheritdoc cref="ManagedGroupIconUrl"/>
     public string? ManagedGroupBannerUrl { get; set; }
 
-    // --- Public rooms on modbot.co (central services design 4.6) ---
+    // --- Public instances on modbot.co (central services design 4.6) ---
 
     /// <summary>
-    /// Whether this server tells Modbot Cloud which of the group's rooms are open to everyone, so
+    /// Whether this server tells Modbot Cloud which of the group's instances are open to everyone, so
     /// they are listed on modbot.co. On unless somebody turns it off.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Only rooms anyone can join are ever sent. A room limited to group members, or to members
-    /// and their friends, is not a public room and never leaves this server — putting a link to
+    /// Only instances anyone can join are ever sent. An instance limited to group members, or to members
+    /// and their friends, is not a public instance and never leaves this server — putting a link to
     /// one on a public web page would hand out an address the group deliberately kept inside.
     /// </para>
     /// <para>
-    /// Nobody is counted. No head count, no member count, no list of who is in the room: the page
-    /// says a room is open, not how many people are in it.
+    /// Nobody is counted. No head count, no member count, no list of who is in the instance: the page
+    /// says an instance is open, not how many people are in it.
     /// </para>
     /// <para>
     /// <c>MODBOT_CLOUD_DISABLED</c> beats this setting. A server told not to talk to Cloud sends
     /// nothing, whatever is saved here.
     /// </para>
     /// </remarks>
-    public bool SharePublicRooms { get; set; } = true;
+    public bool SharePublicInstances { get; set; } = true;
 
     /// <summary>
-    /// This server's id on Modbot Cloud for the public rooms report, made up here on the first
+    /// This server's id on Modbot Cloud for the public instances report, made up here on the first
     /// report and kept afterwards, with the secret that proves it is the same server.
     /// </summary>
     /// <remarks>
     /// Cloud keeps only a hash of the secret, and takes the first report under an id as the one
-    /// that claims it. So a server that keeps its row keeps its rooms, and nobody else can
+    /// that claims it. So a server that keeps its row keeps its instances, and nobody else can
     /// overwrite them.
     /// </remarks>
-    public Guid? PublicRoomsServerId { get; set; }
+    public Guid? PublicInstancesServerId { get; set; }
 
-    /// <inheritdoc cref="PublicRoomsServerId"/>
-    public string? PublicRoomsSecretEncrypted { get; set; }
+    /// <inheritdoc cref="PublicInstancesServerId"/>
+    public string? PublicInstancesSecretEncrypted { get; set; }
 
-    /// <summary>When the public rooms report last reached Cloud.</summary>
-    public DateTimeOffset? PublicRoomsReportedAt { get; set; }
+    /// <summary>When the public instances report last reached Cloud.</summary>
+    public DateTimeOffset? PublicInstancesReportedAt { get; set; }
 
     // --- Modbot Cloud (central services spec 1.1, 5) ---
 
@@ -214,12 +214,12 @@ public class Settings
     /// </summary>
     /// <remarks>
     /// Sent with mentions disabled, always. A line written once and posted automatically every
-    /// time a room opens must not be able to ping a server at four in the morning.
+    /// time an instance opens must not be able to ping a server at four in the morning.
     /// </remarks>
     public string? DiscordInstanceMessage { get; set; }
 
     /// <summary>
-    /// Whether an instance card lists the display names of the people in the room while a moderator
+    /// Whether an instance card lists the display names of the people in the instance while a moderator
     /// is watching it. On by default.
     /// </summary>
     /// <remarks>
@@ -699,11 +699,11 @@ public class Settings
 
     public DateTimeOffset? BanSweepPolledAt { get; set; }
 
-    // ── Places: which rooms the group has open, and which worlds still need a name ──────────
+    // ── Places: which instances the group has open, and which worlds still need a name ──────────
 
     /// <summary>
     /// When the group's live instance list was last read. This is the only view Modbot has of a
-    /// room nobody running the client is standing in, so how fresh it is decides how quickly an
+    /// instance nobody running the client is standing in, so how fresh it is decides how quickly an
     /// unattended event shows up at all.
     /// </summary>
     public DateTimeOffset? GroupInstancesPolledAt { get; set; }

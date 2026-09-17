@@ -10,8 +10,8 @@ namespace Modbot.Cloud.Configuration;
 /// grows with every client and is pruned on its own schedule. Required.
 /// </param>
 /// <param name="RootApiKey">The key that unlocks <c>/admin</c>. When unset, admin refuses everyone.</param>
-/// <param name="RoomsApiKey">
-/// The key that reads the public rooms feed — the landing page's key. Read-only and worth far less
+/// <param name="InstancesApiKey">
+/// The key that reads the public instances feed — the landing page's key. Read-only and worth far less
 /// than the root key, which is the point of it being separate. When unset, only the root key opens
 /// the feed; when both are unset the feed refuses everyone.
 /// </param>
@@ -35,7 +35,7 @@ public sealed record CloudEnvironment(
     string? DatabaseUrl,
     string? EngineDatabaseUrl,
     string? RootApiKey,
-    string? RoomsApiKey,
+    string? InstancesApiKey,
     string? ProxyApiKey,
     string? ResendApiKey,
     string? MailFrom,
@@ -47,7 +47,10 @@ public sealed record CloudEnvironment(
     public const string DatabaseUrlVariable = "DATABASE_URL";
     public const string EngineDatabaseUrlVariable = "DATABASE_ENGINE_URL";
     public const string RootApiKeyVariable = "ROOT_API_KEY";
-    public const string RoomsApiKeyVariable = "ROOMS_API_KEY";
+    public const string InstancesApiKeyVariable = "INSTANCES_API_KEY";
+
+    /// <summary>The variable's name before 2026-09-17. Still read, so a deployment set up under it keeps working.</summary>
+    public const string OldInstancesApiKeyVariable = "ROOMS_API_KEY";
     public const string ProxyApiKeyVariable = "PROXY_API_KEY";
     public const string ResendApiKeyVariable = "RESEND_API_KEY";
     public const string MailFromVariable = "MAIL_FROM";
@@ -75,7 +78,7 @@ public sealed record CloudEnvironment(
             Blank(get(DatabaseUrlVariable)),
             Blank(get(EngineDatabaseUrlVariable)),
             Blank(get(RootApiKeyVariable)),
-            Blank(get(RoomsApiKeyVariable)),
+            Blank(get(InstancesApiKeyVariable)) ?? Blank(get(OldInstancesApiKeyVariable)),
             Blank(get(ProxyApiKeyVariable)),
             Blank(get(ResendApiKeyVariable)),
             Blank(get(MailFromVariable)),

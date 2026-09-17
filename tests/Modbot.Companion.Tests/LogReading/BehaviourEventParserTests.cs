@@ -121,7 +121,7 @@ public class BehaviourEventParserTests
     }
 
     [Fact]
-    public void JoiningOrCreatingRoomIsNotALocationLine()
+    public void JoiningOrCreatingInstanceIsNotALocationLine()
     {
         // "Joining or Creating Room: The Black Cat" carries a world display name, not a location.
         Assert.Null(Parse("Joining or Creating Room: The Black Cat"));

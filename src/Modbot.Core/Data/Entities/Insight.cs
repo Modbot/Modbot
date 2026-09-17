@@ -13,7 +13,7 @@ public class Insight
 {
     public Guid Id { get; set; } = Guid.CreateVersion7();
 
-    /// <summary><c>group</c>, <c>team</c> or <c>rooms</c>. See <c>InsightKinds</c> in Modbot.AI.</summary>
+    /// <summary><c>group</c>, <c>team</c> or <c>instances</c>. See <c>InsightKinds</c> in Modbot.AI.</summary>
     public string Kind { get; set; } = string.Empty;
 
     /// <summary>The first UTC day the figures cover.</summary>
@@ -107,7 +107,7 @@ public static class InsightKinds
 {
     public const string Group = "group";
     public const string Team = "team";
-    public const string Rooms = "rooms";
+    public const string Instances = "instances";
 
     public const string EveryDay = "day";
     public const string EveryWeek = "week";
@@ -116,7 +116,7 @@ public static class InsightKinds
     public const string StartedByButton = "button";
 
     /// <summary>In the order the settings page lists them.</summary>
-    public static IReadOnlyList<string> All { get; } = [Group, Team, Rooms];
+    public static IReadOnlyList<string> All { get; } = [Group, Team, Instances];
 
     public static bool IsKnown(string? kind) => kind is not null && All.Contains(kind, StringComparer.Ordinal);
 
@@ -124,7 +124,7 @@ public static class InsightKinds
     {
         Group => "Group",
         Team => "Moderation team",
-        Rooms => "Rooms",
+        Instances => "Instances",
         _ => kind,
     };
 

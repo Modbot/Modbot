@@ -25,7 +25,8 @@ UI text, API field names, page titles, code identifiers, spec headings and docs 
 Not `dossier` — **profile**. Not `posture` — **status**. Not `cadence` — **poll rate**. Not
 `sentinel` — **store marker**. Not `latched` — **locked**. Not `commission` — **set up**. Not
 `canary` — **test file**. Not `backfill` — **catch-up**. Not `rollup` — **daily totals**. Not
-`projection` — **estimate**. Not `headroom` — **room left**. Not `evacuate` — **move out**.
+`projection` — **estimate**. Not `headroom` — **room left**. Not `evacuate` — **move out**. Not
+`room` — **instance** (VRChat's own word; one word for one thing, since 2026-09-17).
 
 The test is simple: if you would have to explain the word to a volunteer moderator, pick a
 different word. Ordinary English words with an ordinary meaning are fine (`fact`, `event`,

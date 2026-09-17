@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Modbot.Landing.Features.Pages;
 
 /// <summary>
-/// <c>/</c> serves the landing page, <c>/rooms</c> the open rooms and <c>/privacy</c> the privacy
+/// <c>/</c> serves the landing page, <c>/instances</c> the open instances and <c>/privacy</c> the privacy
 /// policy. Every other path no file claimed is a 404, with the built not-found page for anything a
 /// person might have typed.
 /// </summary>
@@ -23,12 +23,16 @@ public static class PageEndpoints
                     ? Html(policy, http, StatusCodes.Status200OK)
                     : NotFound(pages, http));
 
-        // The groups using Modbot and the rooms they have open right now.
-        app.MapMethods("/rooms", [HttpMethods.Get, HttpMethods.Head],
+        // The groups using Modbot and the instances they have open right now.
+        app.MapMethods("/instances", [HttpMethods.Get, HttpMethods.Head],
             ([FromServices] BuiltPages pages, HttpContext http) =>
-                pages.Find(BuiltPages.RoomsFile) is { } rooms
-                    ? Html(rooms, http, StatusCodes.Status200OK)
+                pages.Find(BuiltPages.InstancesFile) is { } instances
+                    ? Html(instances, http, StatusCodes.Status200OK)
                     : NotFound(pages, http));
+
+        // The page's address until 2026-09-17. Other sites link it, so it stays as a redirect.
+        app.MapMethods("/rooms", [HttpMethods.Get, HttpMethods.Head],
+            () => Results.Redirect("/instances", permanent: true));
 
         // Lowest priority, so it only answers what no other route claimed.
         app.MapFallback(([FromServices] BuiltPages pages, HttpContext http) => NotFound(pages, http));

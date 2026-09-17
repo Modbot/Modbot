@@ -12,7 +12,7 @@ public class ChatToolRegistryTests
     [
         new FakeTool("find_person", ModbotPermissions.ViewProfile),
         new FakeTool("search_audit_log", ModbotPermissions.ViewAuditLog),
-        new FakeTool("list_live_rooms", ModbotPermissions.ViewLiveRooms),
+        new FakeTool("list_live_instances", ModbotPermissions.ViewLiveInstances),
         new FakeTool("both", ModbotPermissions.ViewProfile | ModbotPermissions.ViewAuditLog),
         new FakeTool("warn_person", ModbotPermissions.Warn, onlyReads: false),
     ]);
@@ -45,7 +45,7 @@ public class ChatToolRegistryTests
     {
         var offered = Registry().OfferedTo(ModbotPermissions.Administrator, NoSwitches).Select(t => t.Name);
 
-        Assert.Equal(["both", "find_person", "list_live_rooms", "search_audit_log"], offered);
+        Assert.Equal(["both", "find_person", "list_live_instances", "search_audit_log"], offered);
     }
 
     [Fact]

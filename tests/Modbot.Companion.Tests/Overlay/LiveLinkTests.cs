@@ -272,7 +272,7 @@ public class LiveLinkTests
     }
 
     [Fact]
-    public async Task WalkingIntoAnotherRoom_IsASubscribeOnTheOpenSocket()
+    public async Task WalkingIntoAnotherInstance_IsASubscribeOnTheOpenSocket()
     {
         var (link, sockets, _, _) = Build();
         var socket = sockets.Accept();

@@ -131,7 +131,7 @@ public sealed class AlertChecker(
     {
         var rule = AlertWatcherRules.For(watch.Watcher);
 
-        if (watch.Watcher == AlertWatchers.RoomUnwatched)
+        if (watch.Watcher == AlertWatchers.InstanceUnwatched)
             return Unwatched(watch, windows, readings, rule);
 
         var (nowValue, earlier, where) = Figures(watch.Watcher, rule, readings);
@@ -146,26 +146,26 @@ public sealed class AlertChecker(
     }
 
     /// <summary>
-    /// The busiest open room nobody is in. Not a change but a state: a room exactly as full as
+    /// The busiest open instance nobody is in. Not a change but a state: an instance exactly as full as
     /// every other Friday still wants somebody watching it.
     /// </summary>
     private static AlertFigures? Unwatched(AlertWatch watch, AlertWindows windows, AlertReadings readings, AlertWatcherRule rule)
     {
-        var room = readings.Rooms.Where(r => !r.Watched).OrderByDescending(r => r.People).FirstOrDefault();
-        if (room is null)
+        var instance = readings.Instances.Where(r => !r.Watched).OrderByDescending(r => r.People).FirstOrDefault();
+        if (instance is null)
             return null;
 
-        var normal = UnusualRule.Middle(readings.RoomPeaks);
+        var normal = UnusualRule.Middle(readings.InstancePeaks);
 
-        if (room.People < UnusualRule.BusyEnough(normal, watch.Sensitivity, rule.Minimum))
+        if (instance.People < UnusualRule.BusyEnough(normal, watch.Sensitivity, rule.Minimum))
             return null;
 
         var spread = Math.Max(
-            UnusualRule.Middle([.. readings.RoomPeaks.Select(v => Math.Abs(v - normal))]), UnusualRule.LeastSpread);
+            UnusualRule.Middle([.. readings.InstancePeaks.Select(v => Math.Abs(v - normal))]), UnusualRule.LeastSpread);
 
-        var verdict = new UnusualVerdict(true, room.People, normal, spread, Math.Max(0m, (room.People - normal) / spread));
+        var verdict = new UnusualVerdict(true, instance.People, normal, spread, Math.Max(0m, (instance.People - normal) / spread));
 
-        return Made(watch, windows, verdict, readings.RoomPeaks, room.Where);
+        return Made(watch, windows, verdict, readings.InstancePeaks, instance.Where);
     }
 
     private static (decimal Now, IReadOnlyList<decimal>? Earlier, string? Where) Figures(
@@ -176,10 +176,10 @@ public sealed class AlertChecker(
             case AlertWatchers.NewAccounts:
                 return (readings.NewAccounts.Count > 0 ? readings.NewAccounts[0] : 0m, Tail(readings.NewAccounts), null);
 
-            case AlertWatchers.RoomFilling:
+            case AlertWatchers.InstanceFilling:
             {
-                var room = readings.Rooms.OrderByDescending(r => r.People).FirstOrDefault();
-                return room is null ? (0m, null, null) : (room.People, readings.RoomPeaks, room.Where);
+                var instance = readings.Instances.OrderByDescending(r => r.People).FirstOrDefault();
+                return instance is null ? (0m, null, null) : (instance.People, readings.InstancePeaks, instance.Where);
             }
 
             case AlertWatchers.ActiveDrop:

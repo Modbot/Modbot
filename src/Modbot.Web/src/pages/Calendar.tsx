@@ -382,8 +382,8 @@ function EventDialog({
               <span className="text-muted-foreground">Instance </span>
               {event.opening.error ? (
                 <span className="text-destructive">{event.opening.error}</span>
-              ) : event.opening.roomId ? (
-                <button type="button" className="hover:underline" onClick={() => openInstance(event.opening!.roomId!)}>
+              ) : event.opening.instanceId ? (
+                <button type="button" className="hover:underline" onClick={() => openInstance(event.opening!.instanceId!)}>
                   {event.opening.closed ? 'Closed' : 'Open'}
                 </button>
               ) : (

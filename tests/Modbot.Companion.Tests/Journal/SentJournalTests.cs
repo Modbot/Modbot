@@ -91,7 +91,7 @@ public class SentJournalTests : IDisposable
     public void SaysWhenSomebodyWasAlreadyThereRatherThanCallingItAnArrival()
     {
         // The difference this wording protects is the one that stops one moderator walking into a
-        // room becoming forty fake arrivals in the data.
+        // instance becoming forty fake arrivals in the data.
         var summary = SentJournal.Describe(Event(CompanionEventType.InstancePresenceObserved));
 
         Assert.Contains("was already in", summary);

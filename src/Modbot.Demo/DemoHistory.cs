@@ -20,7 +20,7 @@ namespace Modbot.Demo;
 /// <para>
 /// This is the half that takes time — roughly eighteen thousand facts and five thousand messages —
 /// so it runs after startup rather than during it, and reports where it has got to on the Health
-/// page (demo mode design §5). The app is usable throughout: the group, the people and the rooms
+/// page (demo mode design §5). The app is usable throughout: the group, the people and the instances
 /// are already there, and the charts fill in behind them.
 /// </para>
 /// <para>
@@ -138,7 +138,7 @@ public sealed class DemoHistory
         foreach (var fact in GroupInfo(plan))
             yield return fact;
 
-        foreach (var fact in Rooms(plan))
+        foreach (var fact in Instances(plan))
             yield return fact;
 
         foreach (var fact in Moderation(plan))
@@ -267,33 +267,33 @@ public sealed class DemoHistory
             Data = data,
         };
 
-    private static IEnumerable<FactRecord> Rooms(DemoPlan plan)
+    private static IEnumerable<FactRecord> Instances(DemoPlan plan)
     {
         var staff = plan.Staff;
 
-        foreach (var room in plan.Rooms)
+        foreach (var instance in plan.Instances)
         {
-            var opener = staff[room.OpenedBy];
+            var opener = staff[instance.OpenedBy];
 
             yield return new FactRecord
             {
                 Type = FactType.GroupInstanceCreated,
-                OccurredAt = room.OpenedAt,
+                OccurredAt = instance.OpenedAt,
                 SubjectPlatform = FactPlatform.VRChat,
                 SubjectId = opener.UserId,
                 ActorPlatform = FactPlatform.VRChat,
                 ActorId = opener.UserId,
-                WorldId = room.World.WorldId,
-                InstanceId = room.Number,
+                WorldId = instance.World.WorldId,
+                InstanceId = instance.Number,
                 Source = FactSource.AuditLog,
                 Data = Held(opener.GroupRoles, opener.GroupRoles, [], new JsonObject
                 {
-                    ["worldName"] = room.World.Name,
-                    ["region"] = room.Region,
+                    ["worldName"] = instance.World.Name,
+                    ["region"] = instance.Region,
                 }),
             };
 
-            if (room.ClosedAt is { } closed)
+            if (instance.ClosedAt is { } closed)
             {
                 yield return new FactRecord
                 {
@@ -301,19 +301,19 @@ public sealed class DemoHistory
                     OccurredAt = closed,
                     SubjectPlatform = FactPlatform.VRChat,
                     SubjectId = opener.UserId,
-                    WorldId = room.World.WorldId,
-                    InstanceId = room.Number,
+                    WorldId = instance.World.WorldId,
+                    InstanceId = instance.Number,
                     Source = FactSource.AuditLog,
-                    Data = Held([], [], [], new JsonObject { ["worldName"] = room.World.Name }),
+                    Data = Held([], [], [], new JsonObject { ["worldName"] = instance.World.Name }),
                 };
             }
 
             // Presence, as a moderator's companion reports it. The Live page reads these and
             // nothing else, and only counts a report from a paired client whose owner has linked a
             // VRChat account -- so every report names one of the demo's own devices (§4.4).
-            var device = DemoSeeder.DeviceIdOf(room.OpenedBy).ToString();
+            var device = DemoSeeder.DeviceIdOf(instance.OpenedBy).ToString();
 
-            foreach (var visit in room.Visits)
+            foreach (var visit in instance.Visits)
             {
                 yield return new FactRecord
                 {
@@ -321,8 +321,8 @@ public sealed class DemoHistory
                     OccurredAt = visit.Arrived,
                     SubjectPlatform = FactPlatform.VRChat,
                     SubjectId = visit.Person.UserId,
-                    WorldId = room.World.WorldId,
-                    InstanceId = room.Number,
+                    WorldId = instance.World.WorldId,
+                    InstanceId = instance.Number,
                     Source = FactSource.Client,
                     Data = new JsonObject
                     {
@@ -339,8 +339,8 @@ public sealed class DemoHistory
                         OccurredAt = left,
                         SubjectPlatform = FactPlatform.VRChat,
                         SubjectId = visit.Person.UserId,
-                        WorldId = room.World.WorldId,
-                        InstanceId = room.Number,
+                        WorldId = instance.World.WorldId,
+                        InstanceId = instance.Number,
                         Source = FactSource.Client,
                         Data = new JsonObject
                         {
@@ -365,8 +365,8 @@ public sealed class DemoHistory
                 SubjectId = action.Subject.UserId,
                 ActorPlatform = FactPlatform.VRChat,
                 ActorId = action.Moderator.UserId,
-                WorldId = action.Room?.World.WorldId,
-                InstanceId = action.Room?.Number,
+                WorldId = action.Instance?.World.WorldId,
+                InstanceId = action.Instance?.Number,
                 Source = FactSource.AuditLog,
                 Data = Held(
                     action.Subject.GroupRoles,

@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { dateTime } from '@/components/charts'
-import { PersonLink, RoomLink, SourceBadge, WorldLink } from '@/components/facts'
+import { PersonLink, InstanceLink, SourceBadge, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { VersionCard } from '@/components/subject/ProfileVersions'
 import { api, type AuditEntry } from '@/lib/api'
@@ -72,7 +72,12 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
           )}
           {entry.instanceId && (
             <Item label="Instance">
-              <RoomLink roomId={entry.roomId} number={entry.instanceId} />
+              <InstanceLink
+                modbotInstanceId={entry.modbotInstanceId}
+                worldId={entry.worldId}
+                worldName={entry.worldName}
+                number={entry.instanceId}
+              />
             </Item>
           )}
           {entry.description && <Item label="Description">{entry.description}</Item>}

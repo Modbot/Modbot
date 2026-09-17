@@ -8,14 +8,14 @@ namespace Modbot.Api.Features.Analytics.Instances;
 public sealed record HourOfWeek(IReadOnlyList<decimal> Arrivals, IReadOnlyList<decimal> Opened);
 
 /// <summary>
-/// One room, as it happened: where it was, when, and how busy.
+/// One instance, as it happened: where it was, when, and how busy.
 /// </summary>
 /// <remarks>
 /// <para>
 /// The counts and charts on this page answer "is the community active"; this answers "what
 /// actually ran last night", which is the question a moderator opening the page usually has.
 /// It comes from <c>vrchat_instance</c> rather than from the fact log, because that table is
-/// where a room's own identity lives -- VRChat reissues instance numbers, so the fact log's
+/// where an instance's own identity lives -- VRChat reissues instance numbers, so the fact log's
 /// <c>(world_id, instance_id)</c> pair cannot tell two evenings apart and this can.
 /// </para>
 /// <para>
@@ -23,7 +23,7 @@ public sealed record HourOfWeek(IReadOnlyList<decimal> Arrivals, IReadOnlyList<d
 /// ordinary for a few minutes after a new world turns up and permanent for a private one.
 /// </para>
 /// </remarks>
-/// <param name="Id">Modbot's own id for the room, which is what makes it one room.</param>
+/// <param name="Id">Modbot's own id for the instance, which is what makes it one instance.</param>
 /// <param name="VRChatInstanceId">VRChat's number for it -- what a moderator sees in game.</param>
 /// <param name="PeopleNow">How many were in it when Modbot last counted.</param>
 /// <param name="PeakPeople">The most in it at once over its whole life.</param>
@@ -59,8 +59,8 @@ public sealed record InstanceRow(
 /// <param name="TypicalMinutesOpen">Median time from open to close, for instances with both on record.</param>
 /// <param name="InstancesWithBothEnds">How many instances that median is over.</param>
 /// <param name="InstancesOpened">Instances opened inside the window.</param>
-/// <param name="OpenNow">Rooms the group has open right now, busiest first.</param>
-/// <param name="Recent">The most recent rooms in the window, newest first.</param>
+/// <param name="OpenNow">Instances the group has open right now, busiest first.</param>
+/// <param name="Recent">The most recent instances in the window, newest first.</param>
 public sealed record InstancesAnalytics(
     DateOnly From,
     DateOnly To,

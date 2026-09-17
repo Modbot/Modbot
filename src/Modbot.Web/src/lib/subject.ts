@@ -7,7 +7,7 @@ import { useLocation, go } from '@/lib/router'
  * Spec 10.2 asks for a *person* over the current view, opened from anywhere a name appears, and
  * says why: moderation is interruption-driven, so looking something up must not cost the scroll
  * position and the filters of the scan it interrupted. That reasoning is unchanged. What changed
- * is that a person is no longer the only thing worth opening — a world and a room are too, and
+ * is that a person is no longer the only thing worth opening — a world and an instance are too, and
  * each of them names the others.
  *
  * ## The URL carries the whole stack
@@ -17,7 +17,7 @@ import { useLocation, go } from '@/lib/router'
  * - `?subject=usr_abc` — one person. **Exactly the link spec 10.2 specified**, so every URL a
  *   moderator has already pasted somewhere still opens the same thing.
  * - `?subject=world:wrld_abc` — one world.
- * - `?subject=usr_abc&subject=instance:6f3e…` — a person, then a room opened from inside it.
+ * - `?subject=usr_abc&subject=instance:6f3e…` — a person, then an instance opened from inside it.
  *
  * A repeated parameter rather than one comma-separated value, because each value is
  * percent-encoded on its own: a comma separator would be indistinguishable from a comma inside an
@@ -27,8 +27,8 @@ import { useLocation, go } from '@/lib/router'
  *
  * ## Opening stacks; closing goes back one
  *
- * A world opened from inside a room popup does not replace it — it is pushed on top, and closing
- * returns to the room underneath. Escape, the close button and the browser's back button all do
+ * A world opened from inside an instance popup does not replace it — it is pushed on top, and closing
+ * returns to the instance underneath. Escape, the close button and the browser's back button all do
  * the same thing, because they are the same thing: opening pushes a history entry, so back
  * already pops one level and closing is `history.back()` when Modbot is the one that pushed.
  *
@@ -44,7 +44,7 @@ export type SubjectKind = 'person' | 'world' | 'instance' | 'discord-person'
 
 export type Subject = { kind: SubjectKind; id: string }
 
-/** The old name, kept: a link written before worlds and rooms existed still says `subject`. */
+/** The old name, kept: a link written before worlds and instances existed still says `subject`. */
 const PARAM = 'subject'
 
 /**

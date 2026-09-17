@@ -26,7 +26,7 @@ public class RealSessionTests
     [Fact]
     public void TheWholeSessionReducesToThirtyTwoFacts()
     {
-        // 88 recognised lines, of which 40 are joins, leaves and room transitions. 18 of those 40
+        // 88 recognised lines, of which 40 are joins, leaves and instance transitions. 18 of those 40
         // are phantom -- 7 roster joins reported as arrivals plus 11 departures for people who
         // never left. Recording them would have been a 60% error in the numbers, silently.
         Assert.Equal(32, Replay().Count);

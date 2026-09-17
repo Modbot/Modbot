@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { SubjectLink, WorldLink } from '@/components/facts'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { Card, CardContent } from '@/components/ui/card'
-import { api, ApiError, type LivePerson, type LiveRoom, type LiveView } from '@/lib/api'
+import { api, ApiError, type LivePerson, type LiveInstance, type LiveView } from '@/lib/api'
 import { access } from '@/lib/format'
-import { PRESENCE_KINDS, ROOM_KINDS, stateWord, type LiveEvent } from '@/lib/liveStream'
+import { instanceNumber } from '@/lib/instanceName'
+import { PRESENCE_KINDS, INSTANCE_KINDS, stateWord, type LiveEvent } from '@/lib/liveStream'
 import { openInstance, openWorld } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { PageMessage } from '@/pages/analytics/shared'
@@ -21,11 +22,11 @@ const SETTLE_MS = 300
 /**
  * Live -- the group's open instances right now, and who is in each.
  *
- * Every open group room is listed whether or not anybody's client is in it: the room and its head
+ * Every open group instance is listed whether or not anybody's client is in it: the instance and its head
  * count come from VRChat through the server's own syncs. Only the list of people needs a
  * moderator watching, because VRChat's instance API does not say who is inside.
  *
- * Redraws when the live stream says somebody joined or left or a room opened or closed, and
+ * Redraws when the live stream says somebody joined or left or an instance opened or closed, and
  * asks again every half minute on its own while the tab is visible. The stream itself stops
  * while the tab is hidden, so a tab left open in the background costs the server nothing.
  */
@@ -53,7 +54,7 @@ export function Live() {
   const stream = useLiveStream(
     useCallback(
       (event: LiveEvent) => {
-        if (!PRESENCE_KINDS.has(event.kind) && !ROOM_KINDS.has(event.kind)) return
+        if (!PRESENCE_KINDS.has(event.kind) && !INSTANCE_KINDS.has(event.kind)) return
         window.clearTimeout(settle.current)
         settle.current = window.setTimeout(load, SETTLE_MS)
       },
@@ -98,12 +99,12 @@ export function Live() {
         </p>
       )}
 
-      {data.rooms.length === 0 ? (
+      {data.instances.length === 0 ? (
         <PageMessage>No open instances.</PageMessage>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
-          {data.rooms.map((room) => (
-            <RoomCard key={room.id} room={room} />
+          {data.instances.map((instance) => (
+            <InstanceCard key={instance.id} instance={instance} />
           ))}
         </div>
       )}
@@ -111,44 +112,44 @@ export function Live() {
   )
 }
 
-function RoomCard({ room }: { room: LiveRoom }) {
-  const where = [access(room.groupAccessType), room.region?.toUpperCase()].filter(Boolean).join(' · ')
-  const watched = room.watching.length > 0
+function InstanceCard({ instance }: { instance: LiveInstance }) {
+  const where = [access(instance.groupAccessType), instance.region?.toUpperCase()].filter(Boolean).join(' · ')
+  const watched = instance.watching.length > 0
 
   return (
     <Card className="gap-0 py-0">
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex items-start gap-3">
-          {room.worldImageUrl ? (
+          {instance.worldImageUrl ? (
             <button
               type="button"
-              onClick={() => openWorld(room.worldId)}
+              onClick={() => openWorld(instance.worldId)}
               className="shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
             >
-              <img src={room.worldImageUrl} alt="" loading="lazy" className="aspect-[4/3] w-24 rounded-md object-cover" />
+              <img src={instance.worldImageUrl} alt="" loading="lazy" className="aspect-[4/3] w-24 rounded-md object-cover" />
             </button>
           ) : null}
 
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium">
-              <WorldLink id={room.worldId} name={room.worldName} unnamed="id" />
+              <WorldLink id={instance.worldId} name={instance.worldName} unnamed="id" />
             </div>
             <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               <button
                 type="button"
-                onClick={() => openInstance(room.id)}
+                onClick={() => openInstance(instance.id)}
                 className="rounded-md font-mono font-medium text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
               >
-                {room.vrChatInstanceId ?? 'Instance'}
+                {instanceNumber(instance.vrChatInstanceId)}
               </button>
               {where && <span>{where}</span>}
             </div>
           </div>
 
           <div className="shrink-0 text-right">
-            <div className="font-mono text-2xl font-medium tabular-nums">{room.headCount ?? '—'}</div>
+            <div className="font-mono text-2xl font-medium tabular-nums">{instance.headCount ?? '—'}</div>
             <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {room.headCount === 1 ? 'person' : 'people'}
+              {instance.headCount === 1 ? 'person' : 'people'}
             </div>
           </div>
         </div>
@@ -156,10 +157,10 @@ function RoomCard({ room }: { room: LiveRoom }) {
         <div className="flex flex-wrap items-baseline gap-x-2" style={{ fontSize: 'var(--text-small)' }}>
           <span className="text-muted-foreground">Watching</span>
           {watched ? (
-            room.watching.map((w, i) => (
+            instance.watching.map((w, i) => (
               <span key={w.userId}>
                 <SubjectLink id={w.userId} name={w.displayName} />
-                {i < room.watching.length - 1 ? ',' : ''}
+                {i < instance.watching.length - 1 ? ',' : ''}
               </span>
             ))
           ) : (
@@ -167,10 +168,10 @@ function RoomCard({ room }: { room: LiveRoom }) {
           )}
         </div>
 
-        {watched && <People title="Here now" people={room.people} />}
+        {watched && <People title="Here now" people={instance.people} />}
 
-        {!watched && room.lastWatchedAt && room.lastSeen.length > 0 && (
-          <People title={`Last seen ${time(room.lastWatchedAt)}`} people={room.lastSeen} muted />
+        {!watched && instance.lastWatchedAt && instance.lastSeen.length > 0 && (
+          <People title={`Last seen ${time(instance.lastWatchedAt)}`} people={instance.lastSeen} muted />
         )}
       </CardContent>
     </Card>

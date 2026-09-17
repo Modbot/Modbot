@@ -26,8 +26,8 @@ public sealed class CloudTestHost : IAsyncDisposable
 {
     public const string RootKey = "a-root-key-for-tests-only-0123456789";
 
-    /// <summary>The read-only key for the public rooms feed, which is all the landing page holds.</summary>
-    public const string RoomsKey = "a-rooms-key-for-tests-only-0123456789";
+    /// <summary>The read-only key for the public instances feed, which is all the landing page holds.</summary>
+    public const string InstancesKey = "a-instances-key-for-tests-only-0123456789";
 
     public const string AppHtml = "<!doctype html><html><head><title>Modbot Cloud</title></head><body><div id=\"root\"></div></body></html>";
 
@@ -67,7 +67,7 @@ public sealed class CloudTestHost : IAsyncDisposable
         PostgresFixture db,
         string? rootApiKey = RootKey,
         DateTimeOffset? now = null,
-        string? roomsApiKey = RoomsKey,
+        string? instancesApiKey = InstancesKey,
         string? proxyApiKey = ProxyKey,
         bool canSendMail = true)
     {
@@ -106,7 +106,7 @@ public sealed class CloudTestHost : IAsyncDisposable
             db.ConnectionString,
             db.EngineConnectionString,
             rootApiKey,
-            roomsApiKey,
+            instancesApiKey,
             proxyApiKey,
             new MailSettings(canSendMail ? "test-key" : null, "Modbot <noreply@modbot.test>", PublicAddress),
             runDailyUpkeep: false,

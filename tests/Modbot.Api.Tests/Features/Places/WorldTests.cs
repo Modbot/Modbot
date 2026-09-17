@@ -48,12 +48,12 @@ public class WorldTests
 
         Assert.False(world.Known);
         Assert.Null(world.Name);
-        Assert.Empty(world.Rooms);
-        Assert.Equal(0, world.RoomsTotal);
+        Assert.Empty(world.Instances);
+        Assert.Equal(0, world.InstancesTotal);
     }
 
     [Fact]
-    public async Task TheRoomsInAWorld_AreListedNewestFirst_AndOnlyThatWorlds()
+    public async Task TheInstancesInAWorld_AreListedNewestFirst_AndOnlyThatWorlds()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -62,21 +62,21 @@ public class WorldTests
         var t = host.Clock.UtcNow.AddDays(-1);
 
         await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
-        await PlacesFixtures.RoomAsync(host, "wrld_a", "1", t, t.AddHours(2), t.AddHours(2), ct);
-        await PlacesFixtures.RoomAsync(host, "wrld_a", "2", t.AddHours(5), t.AddHours(6), null, ct);
-        await PlacesFixtures.RoomAsync(host, "wrld_b", "3", t.AddHours(9), t.AddHours(9), null, ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "1", t, t.AddHours(2), t.AddHours(2), ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "2", t.AddHours(5), t.AddHours(6), null, ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_b", "3", t.AddHours(9), t.AddHours(9), null, ct);
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var world = await host.GetJsonAsync<WorldView>("/api/worlds?id=wrld_a", cookie, ct);
 
         Assert.Equal("The Black Cat", world.Name);
-        Assert.Equal(2, world.RoomsTotal);
-        Assert.Equal(1, world.RoomsOpenNow);
-        Assert.Equal(["2", "1"], world.Rooms.Select(r => r.VRChatInstanceId));
+        Assert.Equal(2, world.InstancesTotal);
+        Assert.Equal(1, world.InstancesOpenNow);
+        Assert.Equal(["2", "1"], world.Instances.Select(r => r.VRChatInstanceId));
 
-        // The world's name travels onto every room row, so the popup and the Instances page
+        // The world's name travels onto every instance row, so the popup and the Instances page
         // cannot disagree about what the place is called.
-        Assert.All(world.Rooms, r => Assert.Equal("The Black Cat", r.WorldName));
+        Assert.All(world.Instances, r => Assert.Equal("The Black Cat", r.WorldName));
     }
 
     /// <summary>

@@ -13,7 +13,7 @@ using Modbot.TestSupport;
 namespace Modbot.Api.Tests.Features.Live;
 
 /// <summary>
-/// The Live page's read: every open group room, its head count whether or not anybody is in it,
+/// The Live page's read: every open group instance, its head count whether or not anybody is in it,
 /// and who is there while a moderator is watching.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
@@ -84,7 +84,7 @@ public class LiveTests
     }
 
     [Fact]
-    public async Task WithoutViewLiveRooms_ThePageIsRefused()
+    public async Task WithoutViewLiveInstances_ThePageIsRefused()
     {
         await using var host = await ReadyAsync(_db);
 
@@ -95,9 +95,9 @@ public class LiveTests
     }
 
     [Theory]
-    [InlineData(ModbotPermissions.ViewLiveRooms)]
+    [InlineData(ModbotPermissions.ViewLiveInstances)]
     [InlineData(ModbotPermissions.Administrator)]
-    public async Task ViewLiveRooms_OrAdministrator_MayReadIt(ModbotPermissions held)
+    public async Task ViewLiveInstances_OrAdministrator_MayReadIt(ModbotPermissions held)
     {
         await using var host = await ReadyAsync(_db);
 
@@ -108,31 +108,31 @@ public class LiveTests
 
     /// <summary>
     /// The case the page exists for as much as any other: a group event nobody from the team has
-    /// joined. VRChat supplies the room and its head count with no client involved, so it is on the
+    /// joined. VRChat supplies the instance and its head count with no client involved, so it is on the
     /// page -- never left off, never shown as empty.
     /// </summary>
     [Fact]
-    public async Task AnOpenRoomNobodyIsWatching_IsListedWithItsHeadCount()
+    public async Task AnOpenInstanceNobodyIsWatching_IsListedWithItsHeadCount()
     {
         await using var host = await ReadyAsync(_db);
         var t = host.Clock.UtcNow.AddHours(-1);
 
         await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, Ct);
-        var room = await PlacesFixtures.RoomAsync(host, "wrld_a", "39047", t, t, null, Ct);
+        var instance = await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t, null, Ct);
 
         await using (var context = _db.NewContext())
         {
-            var row = await context.VRChatInstances.SingleAsync(i => i.Id == room.Id, Ct);
+            var row = await context.VRChatInstances.SingleAsync(i => i.Id == instance.Id, Ct);
             row.HeadCount = 14;
-            row.HeadCountSource = HeadCounts.FromRoom;
+            row.HeadCountSource = HeadCounts.FromPage;
             await context.SaveChangesAsync(Ct);
         }
 
-        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
         var live = await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct);
 
-        var listed = Assert.Single(live.Rooms);
-        Assert.Equal(room.Id, listed.Id);
+        var listed = Assert.Single(live.Instances);
+        Assert.Equal(instance.Id, listed.Id);
         Assert.Equal("The Black Cat", listed.WorldName);
         Assert.Equal("39047", listed.VRChatInstanceId);
         Assert.Equal(14, listed.HeadCount);
@@ -143,39 +143,39 @@ public class LiveTests
     }
 
     [Fact]
-    public async Task BeforeTheRoomsPageIsRead_TheListsCountIsShown()
+    public async Task BeforeTheInstancesPageIsRead_TheListsCountIsShown()
     {
         await using var host = await ReadyAsync(_db);
         var t = host.Clock.UtcNow.AddHours(-1);
 
-        await PlacesFixtures.RoomAsync(host, "wrld_a", "39047", t, t, null, Ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t, null, Ct);
 
-        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
         var live = await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct);
 
-        Assert.Equal(3, Assert.Single(live.Rooms).HeadCount);
+        Assert.Equal(3, Assert.Single(live.Instances).HeadCount);
     }
 
     [Fact]
-    public async Task ClosedRooms_AreNotListed()
+    public async Task ClosedInstances_AreNotListed()
     {
         await using var host = await ReadyAsync(_db);
         var t = host.Clock.UtcNow.AddHours(-3);
 
-        await PlacesFixtures.RoomAsync(host, "wrld_a", "39047", t, t.AddHours(1), t.AddHours(1), Ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t.AddHours(1), t.AddHours(1), Ct);
 
-        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
 
-        Assert.Empty((await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct)).Rooms);
+        Assert.Empty((await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct)).Instances);
     }
 
     [Fact]
-    public async Task AWatchedRoom_ListsWhoIsHere_ArrivedOrHereBefore_WithFlags()
+    public async Task AWatchedInstance_ListsWhoIsHere_ArrivedOrHereBefore_WithFlags()
     {
         await using var host = await ReadyAsync(_db);
         var t = host.Clock.UtcNow.AddHours(-1);
 
-        await PlacesFixtures.RoomAsync(host, "wrld_a", "39047", t, t, null, Ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t, null, Ct);
         var (device, moderator) = await ModeratorAsync(host);
 
         await host.WriteFactAsync(Seen(FactType.InstancePresenceObserved, "usr_ada", t.AddMinutes(10).AddSeconds(-1), device, "Ada"), Ct);
@@ -190,25 +190,25 @@ public class LiveTests
             Source = FactSource.AuditLog,
         }, Ct);
 
-        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
-        var room = Assert.Single((await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct)).Rooms);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+        var instance = Assert.Single((await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct)).Instances);
 
-        var watcher = Assert.Single(room.Watching);
+        var watcher = Assert.Single(instance.Watching);
         Assert.Equal(moderator, watcher.UserId);
         Assert.Equal(t.AddMinutes(10), watcher.Since);
 
-        var ada = Assert.Single(room.People, p => p.UserId == "usr_ada");
+        var ada = Assert.Single(instance.People, p => p.UserId == "usr_ada");
         Assert.Null(ada.ArrivedAt);
         Assert.Equal(t.AddMinutes(10).AddSeconds(-1), ada.HereBefore);
         Assert.Equal("Ada", ada.DisplayName);
 
-        var bob = Assert.Single(room.People, p => p.UserId == "usr_bob");
+        var bob = Assert.Single(instance.People, p => p.UserId == "usr_bob");
         Assert.Equal(t.AddMinutes(20), bob.ArrivedAt);
         Assert.Null(bob.HereBefore);
         Assert.Equal("Flagged", bob.Standing);
         Assert.Equal("1 prior action", Assert.Single(bob.Flags));
 
-        Assert.Null(room.LastWatchedAt);
+        Assert.Null(instance.LastWatchedAt);
     }
 
     [Fact]
@@ -217,20 +217,20 @@ public class LiveTests
         await using var host = await ReadyAsync(_db);
         var t = host.Clock.UtcNow.AddHours(-1);
 
-        await PlacesFixtures.RoomAsync(host, "wrld_a", "39047", t, t, null, Ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t, null, Ct);
         var (device, moderator) = await ModeratorAsync(host);
 
         await host.WriteFactAsync(Seen(FactType.InstanceJoined, moderator, t.AddMinutes(10), device), Ct);
         await host.WriteFactAsync(Seen(FactType.InstancePresenceObserved, "usr_ada", t.AddMinutes(10), device, "Ada"), Ct);
         await host.WriteFactAsync(Seen(FactType.InstanceLeft, moderator, t.AddMinutes(30), device), Ct);
 
-        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
-        var room = Assert.Single((await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct)).Rooms);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+        var instance = Assert.Single((await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct)).Instances);
 
-        Assert.Empty(room.Watching);
-        Assert.Empty(room.People);
-        Assert.Equal(t.AddMinutes(30), room.LastWatchedAt);
-        Assert.Equal("usr_ada", Assert.Single(room.LastSeen).UserId);
-        Assert.Equal(3, room.HeadCount);
+        Assert.Empty(instance.Watching);
+        Assert.Empty(instance.People);
+        Assert.Equal(t.AddMinutes(30), instance.LastWatchedAt);
+        Assert.Equal("usr_ada", Assert.Single(instance.LastSeen).UserId);
+        Assert.Equal(3, instance.HeadCount);
     }
 }

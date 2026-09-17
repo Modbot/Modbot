@@ -6,7 +6,7 @@ using Modbot.Core.Users;
 namespace Modbot.Api.Features.Audit;
 
 /// <summary>
-/// Puts names to the ids on a page of facts, and finds the room each one happened in.
+/// Puts names to the ids on a page of facts, and finds the instance each one happened in.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -16,7 +16,7 @@ namespace Modbot.Api.Features.Audit;
 /// </para>
 /// <para>
 /// <strong>Once per page, never once per row.</strong> Everything below is three queries however
-/// many entries arrive: the people, the worlds, and the rooms. A lookup per row would turn a
+/// many entries arrive: the people, the worlds, and the instances. A lookup per row would turn a
 /// fifty-row page into a hundred and fifty round trips, and the page that noticed would be the
 /// one somebody left open.
 /// </para>
@@ -30,7 +30,7 @@ namespace Modbot.Api.Features.Audit;
 /// </remarks>
 public static class AuditNaming
 {
-    /// <summary>Fills in subject names, actor names, world names and room ids on a page of facts.</summary>
+    /// <summary>Fills in subject names, actor names, world names and instance ids on a page of facts.</summary>
     public static async Task<IReadOnlyList<AuditEntry>> ResolveAsync(
         ModbotContext db,
         IReadOnlyList<AuditEntry> entries,
@@ -46,7 +46,7 @@ public static class AuditNaming
         var discord = await DiscordPeopleAsync(db, entries, ct);
         var accounts = await AccountsAsync(db, entries, ct);
         var worlds = await WorldsAsync(db, entries, ct);
-        var rooms = await RoomsAsync(db, entries, ct);
+        var instances = await InstancesAsync(db, entries, ct);
 
         return entries
             .Select(e => e with
@@ -62,7 +62,7 @@ public static class AuditNaming
                     ? people.Ranks.GetValueOrDefault(ranked)
                     : null,
                 WorldName = e.WorldId is { } world ? worlds.GetValueOrDefault(world) : null,
-                RoomId = RoomOf(e, rooms),
+                ModbotInstanceId = InstanceOf(e, instances),
             })
             .ToList();
     }
@@ -199,14 +199,14 @@ public static class AuditNaming
     }
 
     /// <summary>
-    /// Every room that has ever carried one of the world-and-number pairs on this page.
+    /// Every instance that has ever carried one of the world-and-number pairs on this page.
     /// </summary>
     /// <remarks>
-    /// Deliberately not narrowed by time in the query. There are only ever a handful of rooms per
-    /// number, and picking the right one is a comparison against each room's own open and close
-    /// times, which <see cref="RoomOf"/> does in memory rather than as one query per fact.
+    /// Deliberately not narrowed by time in the query. There are only ever a handful of instances per
+    /// number, and picking the right one is a comparison against each instance's own open and close
+    /// times, which <see cref="InstanceOf"/> does in memory rather than as one query per fact.
     /// </remarks>
-    private static async Task<IReadOnlyList<RoomWindow>> RoomsAsync(
+    private static async Task<IReadOnlyList<InstanceWindow>> InstancesAsync(
         ModbotContext db,
         IReadOnlyList<AuditEntry> entries,
         CancellationToken ct)
@@ -230,37 +230,37 @@ public static class AuditNaming
             .Where(i => worldIds.Contains(i.WorldId)
                 && i.VRChatInstanceId != null
                 && numbers.Contains(i.VRChatInstanceId))
-            .Select(i => new RoomWindow(
+            .Select(i => new InstanceWindow(
                 i.Id, i.WorldId, i.VRChatInstanceId!, i.OpenedAt, i.ClosedAt, i.LastSeenAt))
             .ToListAsync(ct);
     }
 
     /// <summary>
-    /// Which room a fact belongs to: the one whose life the fact's time falls inside.
+    /// Which instance a fact belongs to: the one whose life the fact's time falls inside.
     /// </summary>
     /// <remarks>
-    /// VRChat reuses a room number once the room has closed, so the number alone names several
+    /// VRChat reuses an instance number once the instance has closed, so the number alone names several
     /// evenings. The time is what tells them apart, and a fact that falls inside none of them gets
-    /// no room rather than the nearest guess — an id that opens the wrong evening is worse than no
+    /// no instance rather than the nearest guess — an id that opens the wrong evening is worse than no
     /// link at all.
     /// </remarks>
-    private static Guid? RoomOf(AuditEntry entry, IReadOnlyList<RoomWindow> rooms)
+    private static Guid? InstanceOf(AuditEntry entry, IReadOnlyList<InstanceWindow> instances)
     {
-        if (entry.WorldId is null || entry.InstanceId is null || rooms.Count == 0)
+        if (entry.WorldId is null || entry.InstanceId is null || instances.Count == 0)
             return null;
 
-        foreach (var room in rooms)
+        foreach (var instance in instances)
         {
-            if (!string.Equals(room.WorldId, entry.WorldId, StringComparison.Ordinal)
-                || !string.Equals(room.Number, entry.InstanceId, StringComparison.Ordinal))
+            if (!string.Equals(instance.WorldId, entry.WorldId, StringComparison.Ordinal)
+                || !string.Equals(instance.Number, entry.InstanceId, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            var endsAt = room.ClosedAt ?? room.LastSeenAt;
+            var endsAt = instance.ClosedAt ?? instance.LastSeenAt;
 
-            if (entry.OccurredAt >= room.OpenedAt && entry.OccurredAt <= endsAt)
-                return room.Id;
+            if (entry.OccurredAt >= instance.OpenedAt && entry.OccurredAt <= endsAt)
+                return instance.Id;
         }
 
         return null;
@@ -268,7 +268,7 @@ public static class AuditNaming
 
     private static Dictionary<string, T> Empty<T>() => new(StringComparer.Ordinal);
 
-    private sealed record RoomWindow(
+    private sealed record InstanceWindow(
         Guid Id,
         string WorldId,
         string Number,

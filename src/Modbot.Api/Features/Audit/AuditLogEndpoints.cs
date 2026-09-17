@@ -113,7 +113,7 @@ public static class AuditLogEndpoints
                 + "Facts carry occurredAt and, when the time is an inference rather than a "
                 + "statement, occurredBefore. `precision` says which, so a window is never "
                 + "rendered as an instant.\n\n"
-                + "`world` and `instance` narrow to one world or one VRChat room number; "
+                + "`world` and `instance` narrow to one world or one VRChat instance number; "
                 + "`category` to Moderation or Operational; `precision` to Exact or Window; "
                 + "`hasActor` to facts somebody is named for, or not; `q` finds a word in the "
                 + "payload, the subject id or the actor id.\n\n"

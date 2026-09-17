@@ -87,18 +87,18 @@ public static class VRChatUserEndpoints
                 var now = clock.UtcNow;
                 var counts = await new PresenceCounts(db).ForPersonAsync(id, ct);
 
-                // The rooms they were seen in, newest first. Matched on the room's own open and
+                // The instances they were seen in, newest first. Matched on the instance's own open and
                 // close times rather than on VRChat's number alone, which is handed out again.
-                var rooms = await RoomsSeenInAsync(db, id, now, ct);
+                var instances = await InstancesSeenInAsync(db, id, now, ct);
 
-                return Results.Ok(new PersonMetrics(id, counts.Arrivals > 0, counts, rooms, now));
+                return Results.Ok(new PersonMetrics(id, counts.Arrivals > 0, counts, instances, now));
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("GetVRChatUserMetrics")
             .WithSummary("How long this person has been seen in world, where, and how often")
             .WithDescription(
                 "Computed from the companion's presence reports, so it only covers time a "
-                + "moderator's client was in the same room. Somebody who has never shared a room "
+                + "moderator's client was in the same instance. Somebody who has never shared an instance "
                 + "with the client reads as nothing here, which is not the same as never having "
                 + "been in one — and the screen says so.\n\n"
                 + "Gated on ViewProfile rather than ViewAnalytics: this is one person's own record "
@@ -132,7 +132,7 @@ public static class VRChatUserEndpoints
                         RefreshRequestOutcome.FreshEnough => "Fresh enough.",
                         RefreshRequestOutcome.AlreadyQueued => "Already waiting for a refresh.",
                         RefreshRequestOutcome.Promoted => "Moved up the queue.",
-                        RefreshRequestOutcome.NotAPerson => "This is a room's id, not a person's.",
+                        RefreshRequestOutcome.NotAPerson => "This is an instance's id, not a person's.",
                         _ => "Queued.",
                     }));
             })
@@ -194,20 +194,20 @@ public static class VRChatUserEndpoints
         return app;
     }
 
-    /// <summary>How many rooms a person's Metrics tab lists.</summary>
-    public const int RoomsListed = 25;
+    /// <summary>How many instances a person's Metrics tab lists.</summary>
+    public const int InstancesListed = 25;
 
     /// <summary>
-    /// The rooms this person was seen in, newest first.
+    /// The instances this person was seen in, newest first.
     /// </summary>
     /// <remarks>
-    /// Two steps rather than a join, because the fact log and the room table do not share a key:
-    /// facts record the world and VRChat's room number, which is handed out again after a room
-    /// closes, so the room is the one whose own life overlaps the stretch this person was seen
-    /// there. A person seen under a number outside every room's life gets no row rather than
+    /// Two steps rather than a join, because the fact log and the instance table do not share a key:
+    /// facts record the world and VRChat's instance number, which is handed out again after an instance
+    /// closes, so the instance is the one whose own life overlaps the stretch this person was seen
+    /// there. A person seen under a number outside every instance's life gets no row rather than
     /// somebody else's evening.
     /// </remarks>
-    private static async Task<IReadOnlyList<InstanceRow>> RoomsSeenInAsync(
+    private static async Task<IReadOnlyList<InstanceRow>> InstancesSeenInAsync(
         ModbotContext db,
         string userId,
         DateTimeOffset now,
@@ -253,12 +253,12 @@ public static class VRChatUserEndpoints
         if (ids.Count == 0)
             return [];
 
-        return await RoomRows.ReadAsync(
+        return await InstanceRows.ReadAsync(
             db,
             db.VRChatInstances.AsNoTracking()
                 .Where(i => ids.Contains(i.Id))
                 .OrderByDescending(i => i.OpenedAt)
-                .Take(RoomsListed),
+                .Take(InstancesListed),
             now,
             ct);
     }

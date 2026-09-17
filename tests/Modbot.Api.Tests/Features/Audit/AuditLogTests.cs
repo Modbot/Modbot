@@ -307,8 +307,8 @@ public class AuditLogTests
         var inWorld = await host.GetJsonAsync<AuditPage>("/api/audit?world=wrld_cat", cookie, ct);
         Assert.Equal(["usr_b", "usr_a"], inWorld.Entries.Select(e => e.SubjectId));
 
-        var inRoom = await host.GetJsonAsync<AuditPage>("/api/audit?world=wrld_cat&instance=39047", cookie, ct);
-        Assert.Equal(["usr_a"], inRoom.Entries.Select(e => e.SubjectId));
+        var inInstance = await host.GetJsonAsync<AuditPage>("/api/audit?world=wrld_cat&instance=39047", cookie, ct);
+        Assert.Equal(["usr_a"], inInstance.Entries.Select(e => e.SubjectId));
     }
 
     [Fact]

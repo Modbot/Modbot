@@ -54,7 +54,7 @@ try
         connectionString,
         engineConnectionString,
         environment.RootApiKey,
-        environment.RoomsApiKey,
+        environment.InstancesApiKey,
         environment.ProxyApiKey,
         new MailSettings(environment.ResendApiKey, environment.MailFrom, environment.PublicAddress),
         gitHubToken: environment.GitHubToken,

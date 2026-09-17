@@ -75,51 +75,51 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
             typical,
             withBothEnds.Count,
             lives.Count(l => l.OpenedAt >= AnalyticsSql.DayStart(from)),
-            await RoomsAsync(openOnly: true, from, to, now, ct),
-            await RoomsAsync(openOnly: false, from, to, now, ct),
+            await InstancesAsync(openOnly: true, from, to, now, ct),
+            await InstancesAsync(openOnly: false, from, to, now, ct),
             await HourOfWeekAsync(from, to, ct),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
     }
 
-    /// <summary>How many rooms the "recent" list carries. Enough to read, not a log.</summary>
-    public const int RecentRooms = 25;
+    /// <summary>How many instances the "recent" list carries. Enough to read, not a log.</summary>
+    public const int RecentInstances = 25;
 
     /// <summary>
-    /// The rooms themselves, from <c>vrchat_instance</c> and named from <c>vrchat_world</c>.
+    /// The instances themselves, from <c>vrchat_instance</c> and named from <c>vrchat_world</c>.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Not from the fact log, and that is the point. The fact log keys an instance on
     /// <c>(world_id, instance_id)</c>, and VRChat hands the same instance number out again after
-    /// a room closes -- so the fact log cannot tell last Tuesday's room from tonight's, while
-    /// this table gives every room an id of its own and can.
+    /// an instance closes -- so the fact log cannot tell last Tuesday's instance from tonight's, while
+    /// this table gives every instance an id of its own and can.
     /// </para>
     /// <para>
-    /// Open rooms ignore the window entirely. A room that opened before the range a moderator
+    /// Open instances ignore the window entirely. An instance that opened before the range a moderator
     /// happens to be looking at is still open now, and leaving it out of "open right now" to
     /// honour a date filter would answer a question nobody asked.
     /// </para>
     /// </remarks>
-    private async Task<IReadOnlyList<InstanceRow>> RoomsAsync(
+    private async Task<IReadOnlyList<InstanceRow>> InstancesAsync(
         bool openOnly,
         DateOnly from,
         DateOnly to,
         DateTimeOffset now,
         CancellationToken ct)
     {
-        var rooms = db.VRChatInstances.AsNoTracking();
+        var instances = db.VRChatInstances.AsNoTracking();
 
-        rooms = openOnly
-            ? rooms.Where(i => i.ClosedAt == null).OrderByDescending(i => i.LastUserCount).ThenByDescending(i => i.OpenedAt)
-            : rooms
+        instances = openOnly
+            ? instances.Where(i => i.ClosedAt == null).OrderByDescending(i => i.LastUserCount).ThenByDescending(i => i.OpenedAt)
+            : instances
                 .Where(i => i.OpenedAt >= AnalyticsSql.DayStart(from) && i.OpenedAt < AnalyticsSql.DayEnd(to))
                 .OrderByDescending(i => i.OpenedAt);
 
-        // The row shape itself is built in one place (RoomRows), because the world popup and a
-        // person's own rooms list the same row and all three must agree about how long a room has
+        // The row shape itself is built in one place (InstanceRows), because the world popup and a
+        // person's own instances list the same row and all three must agree about how long an instance has
         // been open.
-        return await RoomRows.ReadAsync(db, rooms.Take(RecentRooms), now, ct);
+        return await InstanceRows.ReadAsync(db, instances.Take(RecentInstances), now, ct);
     }
 
     private sealed record Lifetime(string WorldId, string InstanceId, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt, DateTimeOffset EndsAt);

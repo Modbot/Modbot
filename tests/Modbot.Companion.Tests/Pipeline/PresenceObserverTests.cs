@@ -192,7 +192,7 @@ public sealed class PresenceObserverTests : IDisposable
     {
         // VRChat opens a new log file on every launch, and there is a minute or two between that
         // and the first world load. Carrying the old instance across it would have the overlay
-        // fetching last night's roster from a server, and showing somebody else's room.
+        // fetching last night's roster from a server, and showing somebody else's instance.
         File.Copy(LogFixture.Path, LogPath);
         var observer = Observer();
         observer.Poll();

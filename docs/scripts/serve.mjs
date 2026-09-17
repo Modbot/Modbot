@@ -14,6 +14,15 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(fileURLToPath(new URL('../out', import.meta.url)));
 const port = Number.parseInt(process.env.PORT ?? '', 10) || 8080;
 
+/**
+ * Pages that moved. The site is static files, so the old address is answered here with a
+ * permanent redirect rather than by a page that says "this moved". Keys and values are paths
+ * without a trailing slash; the request's own slash is ignored when matching.
+ */
+const moved = new Map([
+  ['/self-hosting/open-rooms', '/self-hosting/open-instances/'],
+]);
+
 const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -87,6 +96,12 @@ const server = createServer(async (req, res) => {
 
   if (method !== 'GET' && method !== 'HEAD') {
     res.writeHead(405, { Allow: 'GET, HEAD' });
+    return res.end();
+  }
+
+  const to = moved.get(url.pathname.replace(/\/+$/, ''));
+  if (to) {
+    res.writeHead(301, { Location: to + url.search, 'Cache-Control': 'public, max-age=300' });
     return res.end();
   }
 

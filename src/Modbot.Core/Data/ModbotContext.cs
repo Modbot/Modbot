@@ -113,11 +113,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     public DbSet<VRChatWorld> VRChatWorlds => Set<VRChatWorld>();
 
     /// <summary>
-    /// Rooms, each with an id of Modbot's own because VRChat reissues instance numbers.
+    /// Instances, each with an id of Modbot's own because VRChat reissues instance numbers.
     /// </summary>
     public DbSet<VRChatInstance> VRChatInstances => Set<VRChatInstance>();
 
-    /// <summary>Every change in a room's head count, keyed on Modbot's own room id.</summary>
+    /// <summary>Every change in an instance's head count, keyed on Modbot's own instance id.</summary>
     public DbSet<InstanceHeadCount> InstanceHeadCounts => Set<InstanceHeadCount>();
 
     /// <summary>The group's member count and online member count, one row per poll.</summary>
@@ -332,7 +332,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // The one setting that ships on. The database default matters as well as the C# one:
             // the column is added to a row that already exists, and without it every Modbot that
             // upgraded would silently have the listing off.
-            entity.Property(e => e.SharePublicRooms).HasDefaultValue(true);
+            entity.Property(e => e.SharePublicInstances).HasDefaultValue(true);
         });
 
         builder.Entity<ProtectorKey>(entity =>
@@ -709,16 +709,16 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Id).UseIdentityAlwaysColumn();
             entity.Property(e => e.Source).HasMaxLength(8);
 
-            // Rows belong to their room and go with it. Rooms are never deleted in normal running,
+            // Rows belong to their instance and go with it. Instances are never deleted in normal running,
             // but a test reset or an operator's clean-up must not be blocked by the history.
             entity.HasOne<VRChatInstance>()
                 .WithMany()
                 .HasForeignKey(e => e.InstanceId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // "How full was this room, and when", in order -- the only question asked of it.
+            // "How full was this instance, and when", in order -- the only question asked of it.
             entity.HasIndex(e => new { e.InstanceId, e.CountedAt })
-                .HasDatabaseName("ix_instance_head_count_room");
+                .HasDatabaseName("ix_instance_head_count_instance");
         });
 
         builder.Entity<GroupMemberCount>(entity =>
@@ -759,26 +759,26 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.AnnouncementChannelId).HasColumnType("text");
 
             // The question asked on every single presence report, thousands of times an hour:
-            // "is there an open room at this location?" It must be an index seek, and because
-            // open rooms are a tiny fraction of all rooms ever, the filter keeps it that way.
+            // "is there an open instance at this location?" It must be an index seek, and because
+            // open instances are a tiny fraction of all instances ever, the filter keeps it that way.
             entity.HasIndex(e => new { e.Location, e.LastSeenAt })
                 .HasDatabaseName("ix_vrchat_instance_open")
                 .HasFilter("closed_at IS NULL");
 
-            // "Which rooms did this world have, newest first" -- the world's own history page.
+            // "Which instances did this world have, newest first" -- the world's own history page.
             entity.HasIndex(e => new { e.WorldId, e.OpenedAt })
                 .HasDatabaseName("ix_vrchat_instance_world")
                 .IsDescending(false, true);
 
-            // "What has the group had open lately", and the sweep that closes rooms the live
+            // "What has the group had open lately", and the sweep that closes instances the live
             // list stopped carrying.
             entity.HasIndex(e => new { e.GroupId, e.OpenedAt })
                 .HasDatabaseName("ix_vrchat_instance_group")
                 .IsDescending(false, true);
 
-            // The announcer asks twice a minute "which rooms need their message written or
+            // The announcer asks twice a minute "which instances need their message written or
             // brought up to date", and the answer is almost always none. The filter keeps that
-            // question off every finished room Modbot has ever seen.
+            // question off every finished instance Modbot has ever seen.
             entity.HasIndex(e => e.AnnouncementUpdatedAt)
                 .HasDatabaseName("ix_vrchat_instance_announcing")
                 .HasFilter("announcement_finished = false");

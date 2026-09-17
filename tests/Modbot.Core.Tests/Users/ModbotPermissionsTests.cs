@@ -17,7 +17,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 4, (long)ModbotPermissions.ViewOperationalLog);
         Assert.Equal(1L << 6, (long)ModbotPermissions.ManageUsers);
         Assert.Equal(1L << 19, (long)ModbotPermissions.ManageRoles);
-        Assert.Equal(1L << 20, (long)ModbotPermissions.ViewLiveRooms);
+        Assert.Equal(1L << 20, (long)ModbotPermissions.ViewLiveInstances);
         Assert.Equal(1L << 21, (long)ModbotPermissions.UseAiChat);
         Assert.Equal(1L << 22, (long)ModbotPermissions.ManageDiscordLinks);
         Assert.Equal(1L << 23, (long)ModbotPermissions.UseAiPastLimits);

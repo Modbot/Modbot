@@ -74,7 +74,7 @@ public class AiChatMessage
 
     public string? ToolName { get; set; }
 
-    /// <summary>For a tool result: a JSON array of the people, worlds and rooms it named.</summary>
+    /// <summary>For a tool result: a JSON array of the people, worlds and instances it named.</summary>
     public string? Mentioned { get; set; }
 
     /// <summary>For a tool result: whether the tool ran and answered.</summary>

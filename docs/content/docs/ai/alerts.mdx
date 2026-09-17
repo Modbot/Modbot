@@ -1,10 +1,10 @@
 ---
 title: Unusual activity
-description: Alerts when a figure Modbot watches runs far outside your own normal - a burst of joins or flags, a busy room nobody is watching, a drop in active members.
+description: Alerts when a figure Modbot watches runs far outside your own normal - a burst of joins or flags, a busy instance nobody is watching, a drop in active members.
 ---
 
 Insights arrive on a schedule. An **alert** arrives when something happens: a burst of joins, a run
-of flags, a room filling up with nobody watching it, a week with far fewer active members than
+of flags, an instance filling up with nobody watching it, a week with far fewer active members than
 usual.
 
 An alert is figures, not prose. It says what the figure was, what normal looks like, which stretch
@@ -24,11 +24,11 @@ permission. Everything is off until you turn it on.
 | **People joining Discord** | Discord server joins | an hour |
 | **New accounts joining** | of those joiners, the ones whose VRChat account is less than a month old | an hour |
 | **AI flags** | flags raised by your [moderation rules](/ai/moderation-rules) | an hour |
-| **Moderation actions** | bans, removals, room kicks, warnings, rejections, and Discord bans, kicks and timeouts | an hour |
+| **Moderation actions** | bans, removals, instance kicks, warnings, rejections, and Discord bans, kicks and timeouts | an hour |
 | **People leaving** | group and Discord leaves | an hour |
-| **Rooms opening** | group instances being created | an hour |
-| **A room filling up** | an open room far busier than your rooms usually get | now |
-| **Nobody watching a busy room** | a busy open room with no moderator's client in it | now |
+| **Instances opening** | group instances being created | an hour |
+| **An instance filling up** | an open instance far busier than your instances usually get | now |
+| **Nobody watching a busy instance** | a busy open instance with no moderator's client in it | now |
 | **Fewer active members** | the week just ended against the four weeks before | a week |
 
 Group joins and Discord joins are watched separately, because they are different doors.
@@ -58,8 +58,8 @@ normal — half at **Low**, about two thirds at **Normal**, three quarters at **
 Modbot says nothing at all until it has enough history to know what normal is: five matching
 stretches, or three weeks for the weekly watcher.
 
-**Nobody watching a busy room** is the one that is not a comparison. It fires on a room at or above
-your own normal busiest room — twice that at **Low**, half again at **Normal**, level with it at
+**Nobody watching a busy instance** is the one that is not a comparison. It fires on an instance at or above
+your own normal busiest instance — twice that at **Low**, half again at **Normal**, level with it at
 **High** — with no moderator's client in it.
 
 ## Sensitivity

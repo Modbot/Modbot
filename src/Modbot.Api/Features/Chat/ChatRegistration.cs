@@ -21,7 +21,7 @@ public static class ChatRegistration
         services.AddSingleton<IChatTool, PersonBansTool>();
         services.AddSingleton<IChatTool, SearchMembersTool>();
         services.AddSingleton<IChatTool, SearchAuditLogTool>();
-        services.AddSingleton<IChatTool, ListLiveRoomsTool>();
+        services.AddSingleton<IChatTool, ListLiveInstancesTool>();
         services.AddSingleton<IChatTool, FindWorldTool>();
         services.AddSingleton<IChatTool, GetWorldTool>();
         services.AddSingleton<IChatTool, GetInstanceTool>();

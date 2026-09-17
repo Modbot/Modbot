@@ -20,7 +20,7 @@ export type CalendarPlace = {
 export type CalendarOpening = {
   occurrenceStartsAt: string
   attemptedAt: string
-  roomId: string | null
+  instanceId: string | null
   joinLink: string | null
   closed: boolean
   error: string | null

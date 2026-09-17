@@ -8,7 +8,7 @@ namespace Modbot.Api.Features.Alerts;
 /// <param name="Now">The figure for the window.</param>
 /// <param name="Normal">The middle of the matching earlier windows.</param>
 /// <param name="Score">How many spreads from normal the window sits.</param>
-/// <param name="Where">The world or room, for the two room watchers.</param>
+/// <param name="Where">The world or instance, for the two instance watchers.</param>
 /// <param name="Link">Where in Modbot to look, as a path.</param>
 /// <param name="Text">One AI-written sentence, or null when none was written.</param>
 public sealed record AlertView(

@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { compactNumber, dateTime, minutes } from '@/components/charts'
 import { JsonView } from '@/components/JsonView'
-import { RoomTable } from '@/components/RoomTable'
+import { InstanceTable } from '@/components/InstanceTable'
 import { SubjectCaseFiles } from '@/components/SubjectCaseFiles'
 import { SubjectHistory } from '@/components/SubjectHistory'
 import { UserProfileCard } from '@/components/UserProfileCard'
@@ -107,7 +107,7 @@ function Overview({ id, me, onMore }: { id: string; me: CurrentUser; onMore: (ta
       {metrics.data?.known && (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <Figure label="Time seen" value={minutes(metrics.data.counts.minutesSeen)} />
-          <Figure label="Instances visited" value={compactNumber(metrics.data.counts.rooms)} />
+          <Figure label="Instances visited" value={compactNumber(metrics.data.counts.instances)} />
           <Figure label="Worlds visited" value={compactNumber(metrics.data.counts.worlds)} />
           <Figure
             label="Last seen"
@@ -184,7 +184,7 @@ function Records({ id, me }: { id: string; me: CurrentUser }) {
  * What Modbot can actually work out about one person's time in world.
  *
  * All of it comes from the companion's presence reports, the same arithmetic the Worlds page
- * uses, so it only covers time a moderator's client shared a room with them. The tab says so,
+ * uses, so it only covers time a moderator's client shared an instance with them. The tab says so,
  * because "never seen" reads like "never there" and is nothing of the kind.
  */
 function Metrics({ id }: { id: string }) {
@@ -204,7 +204,7 @@ function Metrics({ id }: { id: string }) {
         <>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             <Figure label="Time seen" value={minutes(c.minutesSeen)} />
-            <Figure label="Instances visited" value={compactNumber(c.rooms)} />
+            <Figure label="Instances visited" value={compactNumber(c.instances)} />
             <Figure label="Worlds visited" value={compactNumber(c.worlds)} />
             <Figure label="Arrivals" value={compactNumber(c.arrivals)} />
             <Figure
@@ -216,10 +216,10 @@ function Metrics({ id }: { id: string }) {
           </div>
 
           <div className="mt-2 font-medium">Instances they were seen in</div>
-          {data.recentRooms.length === 0 ? (
+          {data.recentInstances.length === 0 ? (
             <Note>No instances yet.</Note>
           ) : (
-            <RoomTable rooms={data.recentRooms} />
+            <InstanceTable instances={data.recentInstances} />
           )}
         </>
       )}

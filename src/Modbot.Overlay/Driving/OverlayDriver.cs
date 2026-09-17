@@ -22,7 +22,7 @@ public readonly record struct OverlayTick(bool Drew, bool ContextRefreshed, bool
 /// </summary>
 /// <remarks>
 /// Told after the loop has decided, so a listener hears exactly what the panel shows — an alert
-/// the loop dropped as not this room, or as a repeat, is not passed on either.
+/// the loop dropped as not this instance, or as a repeat, is not passed on either.
 /// </remarks>
 public interface IOverlayListener
 {
@@ -167,8 +167,8 @@ public sealed class OverlayDriver : IDisposable
 
         _instance = instance;
 
-        // A card about the room you just left is worse than no card. Leaving clears it, and
-        // so does an open person card and the scroll position: another room, another list.
+        // A card about the instance you just left is worse than no card. Leaving clears it, and
+        // so does an open person card and the scroll position: another instance, another list.
         _showing = null;
         _showingSince = null;
         _person = null;
@@ -273,7 +273,7 @@ public sealed class OverlayDriver : IDisposable
         if (server is null)
         {
             // Not in any paired group's instance: no server is contacted, and a link that was
-            // open for the room just left is closed.
+            // open for the instance just left is closed.
             foreach (var paired in _servers)
                 paired.Link.Follow(null);
 
@@ -370,7 +370,7 @@ public sealed class OverlayDriver : IDisposable
     /// server is.</para>
     /// <para>A join or a leave means the roster on screen is out of date, so the next roster read
     /// is due at once rather than at the next twenty-second mark. That is what turns the roster
-    /// from a poll into something that follows the room.</para>
+    /// from a poll into something that follows the instance.</para>
     /// </remarks>
     private async Task<bool> PumpLiveAsync(Server server, CancellationToken cancellationToken)
     {
@@ -421,7 +421,7 @@ public sealed class OverlayDriver : IDisposable
     /// alert is shown only when it names the instance the moderator is standing in — which means
     /// at most one server can ever qualify, because a person is in one instance at a time. That is
     /// the same boundary the roster already follows, and it is the right one on its own merits:
-    /// a flagged user walking into a room the moderator is not in is not something they can act
+    /// a flagged user walking into an instance the moderator is not in is not something they can act
     /// on, and interrupting them with it would spend the only push channel there is on something
     /// they cannot use.</para>
     /// <para>Alerts that do not qualify are dropped rather than queued. An alert is about a
@@ -430,7 +430,7 @@ public sealed class OverlayDriver : IDisposable
     /// </remarks>
     private bool Accept(FlaggedJoinAlert alert)
     {
-        // Not this room. The moderator cannot act on it, so it is not worth the one card.
+        // Not this instance. The moderator cannot act on it, so it is not worth the one card.
         if (!string.Equals(alert.InstanceId, _instance?.InstanceId, StringComparison.Ordinal))
             return false;
 

@@ -3,7 +3,7 @@ using Modbot.Core.Data.Entities;
 namespace Modbot.Api.Features.Audit;
 
 /// <summary>
-/// What each kind of fact is <em>about</em> — a person, a room, the group, a role, an account.
+/// What each kind of fact is <em>about</em> — a person, an instance, the group, a role, an account.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -15,7 +15,7 @@ namespace Modbot.Api.Features.Audit;
 /// </para>
 /// <para>
 /// So the answer comes from the fact's type, which is known. This is what lets a log row's
-/// subject be clickable and open the right thing: a room event opens the room, a member event
+/// subject be clickable and open the right thing: an instance event opens the instance, a member event
 /// opens the person.
 /// </para>
 /// <para>
@@ -29,7 +29,7 @@ public static class FactSubjects
     private static readonly Dictionary<string, SubjectKind> Kinds = new(StringComparer.Ordinal)
     {
         // The subject is the location string itself: VRChat puts it in targetId for these four,
-        // and the world and room columns are filled beside it rather than instead of it.
+        // and the world and instance columns are filled beside it rather than instead of it.
         [FactType.GroupInstanceCreated] = SubjectKind.Instance,
         [FactType.GroupInstanceClosed] = SubjectKind.Instance,
         [FactType.GroupInstanceUpdated] = SubjectKind.Instance,

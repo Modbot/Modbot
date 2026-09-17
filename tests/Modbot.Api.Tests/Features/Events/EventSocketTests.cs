@@ -216,7 +216,7 @@ public class EventSocketTests
     {
         await using var host = await StartAsync(_db);
         var auditOnly = await KeyAsync(host, ModbotPermissions.ViewAuditLog);
-        var withLive = await KeyAsync(host, ModbotPermissions.ViewAuditLog | ModbotPermissions.ViewLiveRooms);
+        var withLive = await KeyAsync(host, ModbotPermissions.ViewAuditLog | ModbotPermissions.ViewLiveInstances);
 
         using var plain = await ConnectAsync(host, auditOnly);
         using var live = await ConnectAsync(host, withLive);
@@ -228,7 +228,7 @@ public class EventSocketTests
         await WriteFactAsync(host, FactType.SettingsChanged, subject);
         await WriteFactAsync(host, FactType.MemberBanned, subject);
 
-        // Presence needs ViewLiveRooms on a live feed; operational facts need ViewOperationalLog.
+        // Presence needs ViewLiveInstances on a live feed; operational facts need ViewOperationalLog.
         Assert.Equal(FactType.MemberBanned, (await NextOfKindAsync(plain, "event")).GetProperty("event").GetProperty("type").GetString());
 
         Assert.Equal(FactType.InstanceJoined, (await NextOfKindAsync(live, "event")).GetProperty("event").GetProperty("type").GetString());

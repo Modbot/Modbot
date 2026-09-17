@@ -10,7 +10,7 @@ using Modbot.TestSupport;
 namespace Modbot.Discord.Tests.Instances;
 
 /// <summary>
-/// The notice board: one card per room, kept up to date while the room is open, given a last word
+/// The notice board: one card per instance, kept up to date while the instance is open, given a last word
 /// when it closes, and never touched again after that.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
@@ -35,7 +35,7 @@ public class InstanceAnnouncerTests
         return await announcer.RunOnceAsync(gateway, ct);
     }
 
-    private static async Task<Guid> OpenRoomAsync(
+    private static async Task<Guid> OpenInstanceAsync(
         TestServices services,
         string number,
         DateTimeOffset openedAt,
@@ -45,7 +45,7 @@ public class InstanceAnnouncerTests
     {
         await using var db = services.Database.NewContext();
 
-        var room = new VRChatInstance
+        var instance = new VRChatInstance
         {
             Id = Guid.CreateVersion7(),
             Location = Location(number),
@@ -62,12 +62,12 @@ public class InstanceAnnouncerTests
             SeenInGroupList = seenInGroupList,
         };
 
-        db.VRChatInstances.Add(room);
+        db.VRChatInstances.Add(instance);
         await db.SaveChangesAsync(ct);
-        return room.Id;
+        return instance.Id;
     }
 
-    private static async Task<VRChatInstance> RoomAsync(TestServices services, Guid id, CancellationToken ct)
+    private static async Task<VRChatInstance> InstanceAsync(TestServices services, Guid id, CancellationToken ct)
     {
         await using var db = services.Database.NewContext();
         return await db.VRChatInstances.AsNoTracking().FirstAsync(i => i.Id == id, ct);
@@ -80,7 +80,7 @@ public class InstanceAnnouncerTests
         await using var services = await TestServices.CreateAsync(_db, ct);
         var gateway = new FakeGateway();
 
-        await OpenRoomAsync(services, "68681", services.Clock.UtcNow, ct: ct);
+        await OpenInstanceAsync(services, "68681", services.Clock.UtcNow, ct: ct);
 
         var pass = await RunAsync(services, gateway, ct);
 
@@ -89,7 +89,7 @@ public class InstanceAnnouncerTests
     }
 
     [Fact]
-    public async Task ARoomThatJustOpenedGetsOneCard()
+    public async Task AnInstanceThatJustOpenedGetsOneCard()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);
@@ -101,7 +101,7 @@ public class InstanceAnnouncerTests
             s.DiscordInstanceMessage = "We are live!";
         }, ct);
 
-        var id = await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
+        var id = await OpenInstanceAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
 
         var pass = await RunAsync(services, gateway, ct);
 
@@ -115,18 +115,18 @@ public class InstanceAnnouncerTests
         var card = Assert.Single(message.Embeds);
         Assert.Contains(card.Fields, f => f.Name == "People here now" && f.Value == "3 people");
 
-        var room = await RoomAsync(services, id, ct);
-        Assert.Equal(message.MessageId, room.AnnouncementMessageId);
-        Assert.Equal(Channel, room.AnnouncementChannelId);
-        Assert.False(room.AnnouncementFinished);
+        var instance = await InstanceAsync(services, id, ct);
+        Assert.Equal(message.MessageId, instance.AnnouncementMessageId);
+        Assert.Equal(Channel, instance.AnnouncementChannelId);
+        Assert.False(instance.AnnouncementFinished);
     }
 
     /// <summary>
     /// The protection against pasting a channel id at nine in the evening and filling it with
-    /// cards for a room that has been running since five.
+    /// cards for an instance that has been running since five.
     /// </summary>
     [Fact]
-    public async Task ARoomThatHasBeenOpenTooLongIsNeverAnnounced()
+    public async Task AnInstanceThatHasBeenOpenTooLongIsNeverAnnounced()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);
@@ -135,7 +135,7 @@ public class InstanceAnnouncerTests
         await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
 
         var old = services.Clock.UtcNow - InstanceAnnouncer.AnnounceWithin - TimeSpan.FromMinutes(1);
-        var id = await OpenRoomAsync(services, "68681", old, people: 12, ct: ct);
+        var id = await OpenInstanceAsync(services, "68681", old, people: 12, ct: ct);
 
         var pass = await RunAsync(services, gateway, ct);
 
@@ -143,7 +143,7 @@ public class InstanceAnnouncerTests
         Assert.Empty(gateway.Messages);
 
         // Marked finished, so it is not reconsidered on every pass for the rest of its life.
-        Assert.True((await RoomAsync(services, id, ct)).AnnouncementFinished);
+        Assert.True((await InstanceAsync(services, id, ct)).AnnouncementFinished);
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public class InstanceAnnouncerTests
         var gateway = new FakeGateway();
 
         await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
-        var id = await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 1, ct: ct);
+        var id = await OpenInstanceAsync(services, "68681", services.Clock.UtcNow, people: 1, ct: ct);
 
         await RunAsync(services, gateway, ct);
         Assert.Single(gateway.Messages);
@@ -171,9 +171,9 @@ public class InstanceAnnouncerTests
 
         await using (var db = services.Database.NewContext())
         {
-            var room = await db.VRChatInstances.FirstAsync(i => i.Id == id, ct);
-            room.LastUserCount = 9;
-            room.PeakUserCount = 9;
+            var instance = await db.VRChatInstances.FirstAsync(i => i.Id == id, ct);
+            instance.LastUserCount = 9;
+            instance.PeakUserCount = 9;
             await db.SaveChangesAsync(ct);
         }
 
@@ -188,14 +188,14 @@ public class InstanceAnnouncerTests
     }
 
     [Fact]
-    public async Task AClosedRoomGetsALastWordAndIsThenLeftAlone()
+    public async Task AClosedInstanceGetsALastWordAndIsThenLeftAlone()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);
         var gateway = new FakeGateway();
 
         await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
-        var id = await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 4, ct: ct);
+        var id = await OpenInstanceAsync(services, "68681", services.Clock.UtcNow, people: 4, ct: ct);
 
         await RunAsync(services, gateway, ct);
 
@@ -203,9 +203,9 @@ public class InstanceAnnouncerTests
 
         await using (var db = services.Database.NewContext())
         {
-            var room = await db.VRChatInstances.FirstAsync(i => i.Id == id, ct);
-            room.ClosedAt = services.Clock.UtcNow;
-            room.ClosedBy = "list";
+            var instance = await db.VRChatInstances.FirstAsync(i => i.Id == id, ct);
+            instance.ClosedAt = services.Clock.UtcNow;
+            instance.ClosedBy = "list";
             await db.SaveChangesAsync(ct);
         }
 
@@ -218,7 +218,7 @@ public class InstanceAnnouncerTests
         Assert.Equal("This instance has closed.", card.Description);
         Assert.Contains(card.Fields, f => f.Name == "Ran for" && f.Value == "2h 0m");
 
-        Assert.True((await RoomAsync(services, id, ct)).AnnouncementFinished);
+        Assert.True((await InstanceAsync(services, id, ct)).AnnouncementFinished);
 
         // And never again, however many passes run.
         services.Clock.Advance(TimeSpan.FromHours(1));
@@ -229,18 +229,18 @@ public class InstanceAnnouncerTests
     }
 
     /// <summary>
-    /// Posting where a person happens to be is exactly what this feature must not do. Only rooms
+    /// Posting where a person happens to be is exactly what this feature must not do. Only instances
     /// the group's own list carried are announced.
     /// </summary>
     [Fact]
-    public async Task ARoomAModeratorMerelyWalkedIntoIsNeverAnnounced()
+    public async Task AnInstanceAModeratorMerelyWalkedIntoIsNeverAnnounced()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var services = await TestServices.CreateAsync(_db, ct);
         var gateway = new FakeGateway();
 
         await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
-        await OpenRoomAsync(services, "31337", services.Clock.UtcNow, people: 2, seenInGroupList: false, ct: ct);
+        await OpenInstanceAsync(services, "31337", services.Clock.UtcNow, people: 2, seenInGroupList: false, ct: ct);
 
         var pass = await RunAsync(services, gateway, ct);
 
@@ -260,7 +260,7 @@ public class InstanceAnnouncerTests
         var gateway = new FakeGateway();
 
         await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
-        var id = await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 1, ct: ct);
+        var id = await OpenInstanceAsync(services, "68681", services.Clock.UtcNow, people: 1, ct: ct);
 
         await RunAsync(services, gateway, ct);
 
@@ -269,9 +269,9 @@ public class InstanceAnnouncerTests
 
         await RunAsync(services, gateway, ct);
 
-        var room = await RoomAsync(services, id, ct);
-        Assert.Null(room.AnnouncementMessageId);
-        Assert.True(room.AnnouncementFinished);
+        var instance = await InstanceAsync(services, id, ct);
+        Assert.Null(instance.AnnouncementMessageId);
+        Assert.True(instance.AnnouncementFinished);
     }
 
     [Fact]
@@ -282,7 +282,7 @@ public class InstanceAnnouncerTests
         var gateway = new FakeGateway();
 
         await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
-        var id = await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 1, ct: ct);
+        var id = await OpenInstanceAsync(services, "68681", services.Clock.UtcNow, people: 1, ct: ct);
 
         gateway.FailNextPost("Discord is rate limiting the bot; it will try again shortly.");
 
@@ -290,7 +290,7 @@ public class InstanceAnnouncerTests
 
         Assert.Equal(InstanceAnnouncePassOutcome.Failed, refused.Outcome);
         Assert.Empty(gateway.Messages);
-        Assert.Null((await RoomAsync(services, id, ct)).AnnouncementMessageId);
+        Assert.Null((await InstanceAsync(services, id, ct)).AnnouncementMessageId);
 
         var second = await RunAsync(services, gateway, ct);
 
@@ -299,7 +299,7 @@ public class InstanceAnnouncerTests
     }
 
     /// <summary>
-    /// A moderator's paired client reporting the room as watched, with these people already there.
+    /// A moderator's paired client reporting the instance as watched, with these people already there.
     /// </summary>
     private static async Task WatchedAsync(
         TestServices services,
@@ -357,7 +357,7 @@ public class InstanceAnnouncerTests
         var gateway = new FakeGateway();
 
         await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
-        await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
+        await OpenInstanceAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
         await WatchedAsync(services, "68681", services.Clock.UtcNow, ct, ("usr_ada", "Ada"), ("usr_bob", "**Bob**"));
 
         await RunAsync(services, gateway, ct);
@@ -386,7 +386,7 @@ public class InstanceAnnouncerTests
             s.DiscordInstanceShowNames = false;
         }, ct);
 
-        await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
+        await OpenInstanceAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
         await WatchedAsync(services, "68681", services.Clock.UtcNow, ct, ("usr_ada", "Ada"));
 
         await RunAsync(services, gateway, ct);
@@ -404,7 +404,7 @@ public class InstanceAnnouncerTests
         var gateway = new FakeGateway();
 
         await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
-        await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
+        await OpenInstanceAsync(services, "68681", services.Clock.UtcNow, people: 3, ct: ct);
 
         await RunAsync(services, gateway, ct);
 
@@ -424,7 +424,7 @@ public class InstanceAnnouncerTests
         var gateway = new FakeGateway();
 
         await services.ConfigureAsync(s => s.DiscordInstanceChannelId = Channel, ct);
-        var id = await OpenRoomAsync(services, "68681", services.Clock.UtcNow, people: 2, ct: ct);
+        var id = await OpenInstanceAsync(services, "68681", services.Clock.UtcNow, people: 2, ct: ct);
 
         await RunAsync(services, gateway, ct);
 
@@ -436,9 +436,9 @@ public class InstanceAnnouncerTests
 
         await using (var db = services.Database.NewContext())
         {
-            var room = await db.VRChatInstances.FirstAsync(i => i.Id == id, ct);
-            room.ClosedAt = services.Clock.UtcNow;
-            room.ClosedBy = "list";
+            var instance = await db.VRChatInstances.FirstAsync(i => i.Id == id, ct);
+            instance.ClosedAt = services.Clock.UtcNow;
+            instance.ClosedBy = "list";
             await db.SaveChangesAsync(ct);
         }
 

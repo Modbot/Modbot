@@ -27,7 +27,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.ViewMembers, "See members", "The member list and who is in the group.", "Reading"),
         Describe(ModbotPermissions.ViewProfile, "See profiles", "A member's history, notes and past actions.", "Reading"),
         Describe(ModbotPermissions.ViewAnalytics, "See analytics", "Charts and daily totals.", "Reading"),
-        Describe(ModbotPermissions.ViewLiveRooms, "See live instances", "Open instances right now and who is in each.", "Reading"),
+        Describe(ModbotPermissions.ViewLiveInstances, "See live instances", "Open instances right now and who is in each.", "Reading"),
         Describe(ModbotPermissions.ViewCalendar, "See calendar", "Planned events and where each is published.", "Reading"),
         Describe(ModbotPermissions.ViewAuditLog, "See the audit log", "Bans, kicks, role changes and other moderation history.", "Reading"),
         Describe(ModbotPermissions.UseAiChat, "Use AI chat", "Ask questions in Chat. Answers only use what this person can already see.", "Reading"),
@@ -54,6 +54,16 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.Administrator, "Administrator", "Everything, including things added in future versions.", "Administration"),
     ];
 
+    /// <summary>
+    /// Names a permission used to go by, still accepted on the way in. A role or an API key is
+    /// stored as bits, so renaming a member changes nothing on disk; what it would break is a
+    /// script or an integration that sends the old word, and that is what this keeps working.
+    /// </summary>
+    private static readonly Dictionary<string, string> Renamed = new(StringComparer.Ordinal)
+    {
+        ["ViewLiveRooms"] = nameof(ModbotPermissions.ViewLiveInstances),
+    };
+
     /// <summary>The names of every permission <paramref name="held"/> includes, in catalogue order.</summary>
     public static IReadOnlyList<string> NamesOf(ModbotPermissions held)
         => All.Where(p => held.HasFlag((ModbotPermissions)p.Value)).Select(p => p.Name).ToList();
@@ -71,7 +81,8 @@ public static class PermissionCatalog
 
         foreach (var name in names)
         {
-            var match = All.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.Ordinal));
+            var match = All.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.Ordinal))
+                ?? (Renamed.TryGetValue(name, out var current) ? All.First(p => p.Name == current) : null);
             if (match is null)
             {
                 error = $"'{name}' is not a permission.";

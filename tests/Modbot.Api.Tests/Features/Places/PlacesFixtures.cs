@@ -6,7 +6,7 @@ using Modbot.Core.Data.Entities;
 namespace Modbot.Api.Tests.Features.Places;
 
 /// <summary>
-/// World and room rows, written the way the sweeps write them.
+/// World and instance rows, written the way the sweeps write them.
 /// </summary>
 /// <remarks>
 /// Straight into the tables rather than through the producers, because these tests are about what
@@ -42,7 +42,7 @@ internal static class PlacesFixtures
         return world;
     }
 
-    public static async Task<VRChatInstance> RoomAsync(
+    public static async Task<VRChatInstance> InstanceAsync(
         ReadSurfaceTestHost host,
         string worldId,
         string number,
@@ -51,7 +51,7 @@ internal static class PlacesFixtures
         DateTimeOffset? closedAt,
         CancellationToken ct)
     {
-        var room = new VRChatInstance
+        var instance = new VRChatInstance
         {
             Id = Guid.NewGuid(),
             Location = $"{worldId}:{number}",
@@ -72,10 +72,10 @@ internal static class PlacesFixtures
 
         using var scope = host.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
-        db.VRChatInstances.Add(room);
+        db.VRChatInstances.Add(instance);
         await db.SaveChangesAsync(ct);
 
-        return room;
+        return instance;
     }
 
     public static async Task PersonAsync(

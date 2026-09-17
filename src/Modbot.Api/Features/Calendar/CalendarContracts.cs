@@ -42,11 +42,11 @@ public sealed record CalendarEventRequest(
 public sealed record CalendarPlaceView(string Place, string State, string? Error, DateTimeOffset? ErrorAt, DateTimeOffset UpdatedAt);
 
 /// <summary>The instance Modbot opened, or tried to, for the current occurrence.</summary>
-/// <param name="RoomId">The room in <c>vrchat_instance</c>, for the instance popup.</param>
+/// <param name="InstanceId">The instance in <c>vrchat_instance</c>, for the instance popup.</param>
 public sealed record CalendarOpeningView(
     DateTimeOffset OccurrenceStartsAt,
     DateTimeOffset AttemptedAt,
-    Guid? RoomId,
+    Guid? InstanceId,
     string? JoinLink,
     bool Closed,
     string? Error);

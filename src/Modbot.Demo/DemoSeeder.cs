@@ -23,7 +23,7 @@ namespace Modbot.Demo;
 /// </para>
 /// <para>
 /// The quick half. Everything a person sees the moment they open the site — the group, the people,
-/// the rooms, the team, the case files, the calendar — is written here, synchronously during
+/// the instances, the team, the case files, the calendar — is written here, synchronously during
 /// startup. The year of history behind it is written afterwards by <see cref="DemoHistory"/>,
 /// because it is fifty times the rows and would hold the container's start open for the better part
 /// of a minute (§5).
@@ -284,7 +284,7 @@ public sealed class DemoSeeder
 
             _db.UserRoles.Add(new ModbotUserRole { UserId = user.Id, RoleId = role });
 
-            // A paired companion each, because the Live page only shows who is in a room when
+            // A paired companion each, because the Live page only shows who is in an instance when
             // a paired client reported them (Live reads facts, not VRChat).
             _db.CompanionDevices.Add(new CompanionDeviceRecord
             {
@@ -385,7 +385,7 @@ public sealed class DemoSeeder
         await _db.SaveChangesAsync(ct);
     }
 
-    // --- worlds and rooms -------------------------------------------------------------------
+    // --- worlds and instances -------------------------------------------------------------------
 
     private async Task PlacesAsync(DemoPlan plan, CancellationToken ct)
     {
@@ -414,58 +414,58 @@ public sealed class DemoSeeder
 
         await _db.SaveChangesAsync(ct);
 
-        // Rooms, in batches: a year of them is a few hundred rows plus their head-count history.
+        // Instances, in batches: a year of them is a few hundred rows plus their head-count history.
         var written = 0;
 
-        foreach (var room in plan.Rooms)
+        foreach (var instance in plan.Instances)
         {
-            var here = room.Visits.Count(v => v.Left is null);
+            var here = instance.Visits.Count(v => v.Left is null);
 
             var entity = new VRChatInstance
             {
-                Id = room.Id,
-                Location = room.Location(plan.GroupId),
-                WorldId = room.World.WorldId,
-                VRChatInstanceId = room.Number,
+                Id = instance.Id,
+                Location = instance.Location(plan.GroupId),
+                WorldId = instance.World.WorldId,
+                VRChatInstanceId = instance.Number,
                 GroupId = plan.GroupId,
                 Type = "group",
                 GroupAccessType = "members",
-                Region = room.Region,
-                OpenedAt = room.OpenedAt,
-                LastSeenAt = room.ClosedAt ?? plan.Now,
-                ClosedAt = room.ClosedAt,
-                ClosedBy = room.ClosedAt is null ? null : "list",
-                LastUserCount = room.IsOpen ? here : 0,
-                PeakUserCount = room.Peak,
-                HeadCount = room.IsOpen ? here : 0,
-                HeadCountSource = HeadCounts.FromRoom,
-                PageUserCount = room.IsOpen ? here : 0,
-                PageReadAt = room.ClosedAt ?? plan.Now.AddSeconds(-20),
-                PageCheckedAt = room.ClosedAt ?? plan.Now.AddSeconds(-20),
+                Region = instance.Region,
+                OpenedAt = instance.OpenedAt,
+                LastSeenAt = instance.ClosedAt ?? plan.Now,
+                ClosedAt = instance.ClosedAt,
+                ClosedBy = instance.ClosedAt is null ? null : "list",
+                LastUserCount = instance.IsOpen ? here : 0,
+                PeakUserCount = instance.Peak,
+                HeadCount = instance.IsOpen ? here : 0,
+                HeadCountSource = HeadCounts.FromPage,
+                PageUserCount = instance.IsOpen ? here : 0,
+                PageReadAt = instance.ClosedAt ?? plan.Now.AddSeconds(-20),
+                PageCheckedAt = instance.ClosedAt ?? plan.Now.AddSeconds(-20),
 
-                // Live only shows rooms the group's own list has been seen to hold (§4.4).
+                // Live only shows instances the group's own list has been seen to hold (§4.4).
                 SeenInGroupList = true,
-                AnnouncementFinished = !room.IsOpen,
+                AnnouncementFinished = !instance.IsOpen,
             };
 
             _db.VRChatInstances.Add(entity);
 
-            // The head-count history the room chart is drawn from: one reading every ten minutes
-            // while the room was open, counted from who was actually in it at that moment.
-            var until = room.ClosedAt ?? plan.Now;
+            // The head-count history the instance chart is drawn from: one reading every ten minutes
+            // while the instance was open, counted from who was actually in it at that moment.
+            var until = instance.ClosedAt ?? plan.Now;
 
-            for (var at = room.OpenedAt; at < until; at = at.AddMinutes(10))
+            for (var at = instance.OpenedAt; at < until; at = at.AddMinutes(10))
             {
-                var count = room.Visits.Count(v => v.Arrived <= at && (v.Left is null || v.Left > at));
+                var count = instance.Visits.Count(v => v.Arrived <= at && (v.Left is null || v.Left > at));
 
                 _db.InstanceHeadCounts.Add(new InstanceHeadCount
                 {
-                    InstanceId = room.Id,
+                    InstanceId = instance.Id,
                     CountedAt = at,
                     HeadCount = count,
                     UserCount = count,
                     MemberCount = count,
-                    Source = HeadCounts.FromRoom,
+                    Source = HeadCounts.FromPage,
                 });
             }
 

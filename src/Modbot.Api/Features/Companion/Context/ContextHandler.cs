@@ -50,7 +50,7 @@ public sealed record UserSummaryDto(
 /// <para><strong>A roster is only believed while a moderator is watching.</strong> This used to be
 /// "last fact per person wins" over twelve hours, and because nobody is told that anyone left once
 /// the last moderator walks out, everyone that moderator last saw stayed "present" for up to twelve
-/// hours -- after the room had closed. The roster is now <see cref="RoomWatching"/>'s: everyone
+/// hours -- after the instance had closed. The roster is now <see cref="InstanceWatching"/>'s: everyone
 /// present, from facts reported during the current watch, and nobody at all when nobody is
 /// watching. The Live page and the Discord card use the same rule.</para>
 /// </remarks>
@@ -90,7 +90,7 @@ public static class ContextHandler
         // Asking for an instance's roster is a device saying where it is standing, and it is the
         // steadiest such signal there is -- an overlay re-reads this every twenty seconds whether
         // or not anything is happening, where a quiet instance produces no ingest batches at all.
-        // It is what keeps a moderator watching a silent room still able to receive the one alert
+        // It is what keeps a moderator watching a silent instance still able to receive the one alert
         // that matters. No new authority is granted by taking it at face value: this token could
         // already read any of this deployment's instances, and the only consequence is which of
         // that group's own alerts it is offered.
@@ -98,8 +98,8 @@ public static class ContextHandler
 
         var since = clock.UtcNow - RosterWindow;
 
-        // Whether the room this number names has closed. Every row with the number that could
-        // still matter is consulted: if any is open, the room is open. A number whose rows have all
+        // Whether the instance this number names has closed. Every row with the number that could
+        // still matter is consulted: if any is open, the instance is open. A number whose rows have all
         // closed ends every watch at the latest close.
         var closes = await database.VRChatInstances
             .AsNoTracking()
@@ -109,7 +109,7 @@ public static class ContextHandler
 
         DateTimeOffset? closedAt = closes.Count > 0 && closes.All(c => c is not null) ? closes.Max() : null;
 
-        var people = await new RoomPeopleReader(database).ForNumberAsync(instanceId, null, since, closedAt, ct);
+        var people = await new InstancePeopleReader(database).ForNumberAsync(instanceId, null, since, closedAt, ct);
 
         if (people.Here.Count == 0)
             return Results.Ok(new InstanceContextDto(instanceId, []));

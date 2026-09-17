@@ -8,9 +8,9 @@ using VRChat.API.Model;
 namespace Modbot.VRChat.Tests.Fakes;
 
 /// <summary>
-/// Rooms' own pages -- <c>GET /instances/{worldId}:{instanceId}</c> -- served the way VRChat serves
-/// them, including the trap: a room nobody scripted answers <c>200</c> with <c>active: false</c>,
-/// exactly as a room that never existed does (research: vrchat-instance-findings.md section 1).
+/// Instances' own pages -- <c>GET /instances/{worldId}:{instanceId}</c> -- served the way VRChat serves
+/// them, including the trap: an instance nobody scripted answers <c>200</c> with <c>active: false</c>,
+/// exactly as an instance that never existed does (research: vrchat-instance-findings.md section 1).
 /// </summary>
 public sealed class FakeInstances
 {
@@ -25,14 +25,14 @@ public sealed class FakeInstances
     /// <summary>What creating an instance answers. 200 makes one; anything else refuses.</summary>
     public HttpStatusCode CreateStatus { get; set; } = HttpStatusCode.OK;
 
-    /// <summary>What a live room's page says.</summary>
+    /// <summary>What a live instance's page says.</summary>
     public FakeInstances Page(string location, int nUsers, int userCount, bool active = true)
     {
         _pages[location] = (HttpStatusCode.OK, Body(active, nUsers, userCount));
         return this;
     }
 
-    /// <summary>A status other than 200 for this room's page -- 429 for a limit, 500 for trouble.</summary>
+    /// <summary>A status other than 200 for this instance's page -- 429 for a limit, 500 for trouble.</summary>
     public FakeInstances Status(string location, HttpStatusCode status)
     {
         _pages[location] = (status, null);

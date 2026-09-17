@@ -1,4 +1,4 @@
-import { PersonLink, RoomLink, WorldLink } from '@/components/facts'
+import { PersonLink, InstanceLink, WorldLink } from '@/components/facts'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import type { AuditEntry } from '@/lib/api'
 import { openPersonVersion } from '@/lib/subject'
@@ -7,8 +7,9 @@ import { openPersonVersion } from '@/lib/subject'
  * Every fact, as a sentence naming who did what to whom and where.
  *
  * A log row that reads `vrchat.group.instance.kick` is a row a volunteer moderator cannot use. It
- * should read *Mira kicked Ada out of room 39047 in The Black Cat* — with every name in it
- * clickable, opening the person, the world or the room.
+ * should read *Mira kicked Ada out of The Black Cat #39047* — with every name in it clickable,
+ * opening the person or the instance. The world's name and VRChat's number are one link, the way
+ * VRChat shows an instance in game; a world Modbot has not read yet is named by its id.
  *
  * ## Written at read time, never stored
  *
@@ -58,8 +59,11 @@ type Parts = {
   /** True when the source named an actor — for sentences that read better in the passive without one. */
   hasActor: boolean
   world: React.ReactNode
-  room: React.ReactNode
-  /** The world and the room together: "room 39047 in The Black Cat". */
+  instance: React.ReactNode
+  /**
+   * Where it happened, as one link: "The Black Cat #39047" when the fact names an instance, the
+   * world alone when it only names a world, null when it names neither.
+   */
   place: React.ReactNode
   text: (key: string) => string | null
   changed: [string, { old?: unknown; new?: unknown }][]
@@ -78,7 +82,14 @@ function parts(entry: AuditEntry): Parts {
   }
 
   const world = entry.worldId ? <WorldLink id={entry.worldId} name={entry.worldName} /> : null
-  const room = entry.instanceId ? <RoomLink roomId={entry.roomId} number={entry.instanceId} /> : null
+  const instance = entry.instanceId ? (
+    <InstanceLink
+      modbotInstanceId={entry.modbotInstanceId}
+      worldId={entry.worldId}
+      worldName={entry.worldName}
+      number={entry.instanceId}
+    />
+  ) : null
 
   return {
     entry,
@@ -93,8 +104,8 @@ function parts(entry: AuditEntry): Parts {
     ),
     hasActor: entry.actorId !== null,
     world,
-    room,
-    place: room && world ? <>{room} in {world}</> : (room ?? world),
+    instance,
+    place: instance ?? world,
     text,
     changed: changedFields(entry),
   }
@@ -103,7 +114,7 @@ function parts(entry: AuditEntry): Parts {
 /**
  * The subject, clickable according to what it is.
  *
- * A person opens their popup; a room opens that room; a world, a group, a role and everything
+ * A person opens their popup; an instance opens that instance; a world, a group, a role and everything
  * else are shown as text, because opening a popup on an id Modbot knows nothing about would be a
  * dead end dressed up as a link.
  */
@@ -117,7 +128,16 @@ function Subject({ entry }: { entry: AuditEntry }) {
     )
 
   if (entry.subjectKind === 'Instance')
-    return entry.instanceId ? <RoomLink roomId={entry.roomId} number={entry.instanceId} /> : <Id value={entry.subjectId} />
+    return entry.instanceId ? (
+      <InstanceLink
+        modbotInstanceId={entry.modbotInstanceId}
+        worldId={entry.worldId}
+        worldName={entry.worldName}
+        number={entry.instanceId}
+      />
+    ) : (
+      <Id value={entry.subjectId} />
+    )
 
   if (entry.subjectKind === 'Account')
     return <span className="font-medium">{entry.subjectName ?? entry.subjectId}</span>
@@ -286,36 +306,36 @@ const SENTENCES: Record<string, Sentence> = {
   // ── VRChat: group instances ─────────────────────────────────────────────────────────────────
   'vrchat.group.instance.create': (p) => (
     <>
-      {p.actor} opened {p.place ?? 'a room'}
+      {p.actor} opened {p.place ?? 'an instance'}
       {access(p.text('groupAccessType'))}.
     </>
   ),
 
-  'vrchat.group.instance.close': (p) => <>{p.actor} closed {p.place ?? 'a room'}.</>,
+  'vrchat.group.instance.close': (p) => <>{p.actor} closed {p.place ?? 'an instance'}.</>,
 
   'vrchat.group.instance.update': (p) => (
     <>
-      {p.actor} changed {p.place ?? 'a room'}
+      {p.actor} changed {p.place ?? 'an instance'}
       <Changed changed={p.changed} />.
     </>
   ),
 
   'vrchat.group.instance.announcement': (p) => (
     <>
-      {p.actor} announced<Quoted value={p.text('title')} /> in {p.place ?? 'a room'}
+      {p.actor} announced<Quoted value={p.text('title')} /> in {p.place ?? 'an instance'}
       {p.text('message') ? <>: {p.text('message')}</> : null}.
     </>
   ),
 
   'vrchat.group.instance.kick': (p) => (
     <>
-      {p.actor} kicked {p.subject} out of {p.place ?? 'a room'}.
+      {p.actor} kicked {p.subject} out of {p.place ?? 'an instance'}.
     </>
   ),
 
   'vrchat.group.instance.warn': (p) => (
     <>
-      {p.actor} warned {p.subject} in {p.place ?? 'a room'}.
+      {p.actor} warned {p.subject} in {p.place ?? 'an instance'}.
     </>
   ),
 
@@ -372,12 +392,12 @@ const SENTENCES: Record<string, Sentence> = {
   ),
 
   // ── VRChat: presence, from a moderator's companion ─────────────────────────────────────
-  'vrchat.instance.join': (p) => <>{p.subject} arrived in {p.place ?? 'a room'}.</>,
-  'vrchat.instance.leave': (p) => <>{p.subject} left {p.place ?? 'a room'}.</>,
+  'vrchat.instance.join': (p) => <>{p.subject} joined {p.place ?? 'an instance'}.</>,
+  'vrchat.instance.leave': (p) => <>{p.subject} left {p.place ?? 'an instance'}.</>,
 
   'vrchat.instance.presence': (p) => (
     <>
-      {p.subject} was already in {p.place ?? 'a room'} when a moderator's client arrived.
+      {p.subject} was already in {p.place ?? 'an instance'} when a moderator's client arrived.
     </>
   ),
 
@@ -760,7 +780,7 @@ function fallback(p: Parts): React.ReactNode {
   )
 }
 
-/** How open a room is, in a word a member would use. */
+/** How open an instance is, in a word a member would use. */
 function access(groupAccessType: string | null): React.ReactNode {
   if (!groupAccessType) return null
 

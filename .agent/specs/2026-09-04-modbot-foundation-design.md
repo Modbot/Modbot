@@ -2630,3 +2630,15 @@ Recorded so they are visible rather than buried, and so they are not relitigated
     silently at bucket boundaries. The window is bounded below by a genuine 15-second leave-and-
     rejoin and is only narrow enough to fit because of §4.4 — server-time sync is a correctness
     prerequisite for deduplication, not an optimisation.
+28. **Room became Instance** (2026-09-17). Earlier specs, the code and the screens said "room" for
+    what VRChat calls an instance, and both words were in use at once: `RoomHeadCountSync` read a
+    `vrchat_instance` row, the Live page needed `ViewLiveRooms` and listed instances, the audit log
+    said *in room #91048* under a heading that said Instance. One thing, one word, and the word is
+    VRChat's own, because that is the one a moderator already knows from the game. Code, UI text,
+    the API (`/api/live/instances`, `instance_opened`, `ViewLiveInstances`, `list_live_instances`),
+    the docs and the landing page's `/instances` were renamed together; `/rooms`,
+    `/api/v1/public-rooms`, the `rooms` report field, `ROOMS_API_KEY` and the permission name
+    `ViewLiveRooms` are still accepted on the way in. Fact type strings and the keys inside stored
+    fact payloads were never "room" and are unchanged. Earlier specs are not rewritten: where one
+    says "room", read "instance". An instance is now named on every screen the way VRChat shows it,
+    *The Black Cat #19453*, as one link, never as a bare number or a bare id.

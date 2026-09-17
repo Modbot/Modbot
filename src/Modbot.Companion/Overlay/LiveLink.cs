@@ -185,7 +185,7 @@ public sealed class LiveLink : IDisposable
                     State = LiveLinkState.Live;
                     StartReceiving(result.Socket);
 
-                    // The moderator may have changed rooms while the connect was in flight.
+                    // The moderator may have changed instances while the connect was in flight.
                     if (!string.Equals(_connectingFor, instance, StringComparison.Ordinal))
                         _ = SubscribeAsync(result.Socket, instance);
                     break;

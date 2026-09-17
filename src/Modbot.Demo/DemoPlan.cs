@@ -66,7 +66,7 @@ public sealed record DemoWorld
 }
 
 /// <summary>One session of one world: when it opened, who was in it, and whether it is still open.</summary>
-public sealed record DemoRoom
+public sealed record DemoInstance
 {
     public required Guid Id { get; init; }
     public required DemoWorld World { get; init; }
@@ -81,9 +81,9 @@ public sealed record DemoRoom
     /// Which of the team opened it, as a place in <see cref="DemoPlan.Staff"/>.
     /// </summary>
     /// <remarks>
-    /// Their paired client is what reports who is in the room, so this decides whose device the
-    /// room's presence facts carry. Live shows names only while a moderator's client is in the
-    /// room (<c>RoomWatching</c>), so a room whose opener never walked into it is a head count and
+    /// Their paired client is what reports who is in the instance, so this decides whose device the
+    /// instance's presence facts carry. Live shows names only while a moderator's client is in the
+    /// instance (<c>InstanceWatching</c>), so an instance whose opener never walked into it is a head count and
     /// nothing else.
     /// </remarks>
     public required int OpenedBy { get; init; }
@@ -94,7 +94,7 @@ public sealed record DemoRoom
         $"{World.WorldId}:{Number}~group({groupId})~groupAccessType(members)~region({Region})";
 }
 
-/// <param name="Left">Null while the person is still in the room.</param>
+/// <param name="Left">Null while the person is still in the instance.</param>
 public sealed record DemoVisit(DemoPerson Person, DateTimeOffset Arrived, DateTimeOffset? Left);
 
 /// <summary>One thing a moderator did to somebody.</summary>
@@ -104,7 +104,7 @@ public sealed record DemoAction(
     DemoPerson Moderator,
     DateTimeOffset At,
     string Reason,
-    DemoRoom? Room);
+    DemoInstance? Instance);
 
 /// <summary>
 /// The whole demo group, worked out in memory before a single row is written.
@@ -112,14 +112,14 @@ public sealed record DemoAction(
 /// <remarks>
 /// <para>
 /// Everything the demo shows comes from here, which is what makes it hang together: a ban points at
-/// a person who exists, in a room that existed, by a moderator who was on the team that week. The
+/// a person who exists, in an instance that existed, by a moderator who was on the team that week. The
 /// analytics are then computed from the facts these become, so the charts add up by construction
 /// rather than by being typed in (demo mode design §4).
 /// </para>
 /// <para>
 /// The numbers are drawn from a fixed seed, so two demos started a minute apart hold the same group
 /// — but every instant is measured back from <em>now</em>, so the charts always run up to today and
-/// the Live page always has rooms open (§4.1).
+/// the Live page always has instances open (§4.1).
 /// </para>
 /// </remarks>
 public sealed class DemoPlan
@@ -132,8 +132,8 @@ public sealed class DemoPlan
     public const int DiscordMemberCount = 300;
     public const int DaysOfHistory = 365;
 
-    /// <summary>How many rooms the demo leaves open, so Live always has a handful in it.</summary>
-    public const int RoomsOpenNow = 4;
+    /// <summary>How many instances the demo leaves open, so Live always has a handful in it.</summary>
+    public const int InstancesOpenNow = 4;
 
     private DemoPlan(DateTimeOffset now)
     {
@@ -155,7 +155,7 @@ public sealed class DemoPlan
 
     public IReadOnlyList<DemoWorld> Worlds { get; private set; } = [];
 
-    public IReadOnlyList<DemoRoom> Rooms { get; private set; } = [];
+    public IReadOnlyList<DemoInstance> Instances { get; private set; } = [];
 
     public IReadOnlyList<DemoAction> Actions { get; private set; } = [];
 
@@ -171,7 +171,7 @@ public sealed class DemoPlan
         plan.People = BuildPeople(random, plan.Now);
         plan.Staff = plan.People.Where(p => p.Kind == DemoPersonKind.Staff).ToList();
         plan.Worlds = BuildWorlds(plan.Now);
-        plan.Rooms = BuildRooms(random, plan);
+        plan.Instances = BuildInstances(random, plan);
         plan.Actions = BuildActions(random, plan);
 
         return plan;
@@ -329,14 +329,14 @@ public sealed class DemoPlan
     }
 
     /// <summary>
-    /// A year of rooms, ending with a few that are still open — so Live always has something in it.
+    /// A year of instances, ending with a few that are still open — so Live always has something in it.
     /// </summary>
-    private static List<DemoRoom> BuildRooms(Random random, DemoPlan plan)
+    private static List<DemoInstance> BuildInstances(Random random, DemoPlan plan)
     {
-        var rooms = new List<DemoRoom>();
+        var instances = new List<DemoInstance>();
         var now = plan.Now;
 
-        // Who was available to be in a room on a given day: in the group, and not yet gone.
+        // Who was available to be in an instance on a given day: in the group, and not yet gone.
         var candidates = plan.People
             .Where(p => p.Kind != DemoPersonKind.Newcomer || true)
             .ToList();
@@ -349,9 +349,9 @@ public sealed class DemoPlan
 
             // Fridays and Saturdays are busier, and the group opens nothing at all some weekdays.
             var busy = day.DayOfWeek is DayOfWeek.Friday or DayOfWeek.Saturday;
-            var roomsToday = busy ? random.Next(2, 5) : random.Next(0, 3);
+            var instancesToday = busy ? random.Next(2, 5) : random.Next(0, 3);
 
-            for (var i = 0; i < roomsToday; i++)
+            for (var i = 0; i < instancesToday; i++)
             {
                 var world = plan.Worlds[random.Next(plan.Worlds.Count)];
 
@@ -365,10 +365,10 @@ public sealed class DemoPlan
                 var minutes = random.Next(45, 260);
                 var closedAt = openedAt.AddMinutes(minutes);
 
-                // Nothing the year's dice opened is left open. A room still open by chance is one
+                // Nothing the year's dice opened is left open. An instance still open by chance is one
                 // nobody on the team happens to be standing in, so Live would show it as a head
-                // count with no names -- and which rooms those were would change with the hour the
-                // demo was started. The rooms that are open right now are the ones below.
+                // count with no names -- and which instances those were would change with the hour the
+                // demo was started. The instances that are open right now are the ones below.
                 if (closedAt > now)
                     closedAt = now;
 
@@ -399,7 +399,7 @@ public sealed class DemoPlan
                 if (visits.Count == 0)
                     continue;
 
-                rooms.Add(new DemoRoom
+                instances.Add(new DemoInstance
                 {
                     Id = Guid.CreateVersion7(),
                     World = world,
@@ -414,35 +414,35 @@ public sealed class DemoPlan
             }
         }
 
-        // The rooms that are open right now. A handful, each in its own world and region, each
+        // The instances that are open right now. A handful, each in its own world and region, each
         // with one of the team in it -- the doc promises "a few open right now", and Live is the
         // page a demo is judged on.
         var stillHere = plan.People.Where(p => p.LeftGroupAt is null && p.Kind != DemoPersonKind.Staff).ToList();
 
-        for (var extra = 0; extra < RoomsOpenNow && stillHere.Count > 0; extra++)
+        for (var extra = 0; extra < InstancesOpenNow && stillHere.Count > 0; extra++)
         {
             var world = plan.Worlds[extra % plan.Worlds.Count];
             var openedAt = now.AddMinutes(-random.Next(15, 150));
-            var inRoom = random.Next(4, 18);
+            var inInstance = random.Next(4, 18);
 
-            // A different moderator in each, so no two open rooms claim the same person -- a
-            // client reported in a second room ends the watch on the first.
+            // A different moderator in each, so no two open instances claim the same person -- a
+            // client reported in a second instance ends the watch on the first.
             var host = plan.Staff[extra % plan.Staff.Count];
 
             var pool = stillHere
-                .Skip(Spread(world.WorldId, Math.Max(1, stillHere.Count - inRoom)))
-                .Take(inRoom)
+                .Skip(Spread(world.WorldId, Math.Max(1, stillHere.Count - inInstance)))
+                .Take(inInstance)
                 .ToList();
 
             // The moderator is in first, because their client only reports what it saw after it
             // walked in: anybody already there before them is a head count and no name.
             var visits = new List<DemoVisit> { new(host, openedAt, null) };
 
-            // Everybody in an open room is still in it: Live counts a visit with no leave, and one
+            // Everybody in an open instance is still in it: Live counts a visit with no leave, and one
             // that had already ended would be a name on a page nobody is on.
             visits.AddRange(pool.Select((p, i) => new DemoVisit(p, openedAt.AddMinutes((i + 1) * 2), null)));
 
-            rooms.Add(new DemoRoom
+            instances.Add(new DemoInstance
             {
                 Id = Guid.CreateVersion7(),
                 World = world,
@@ -456,7 +456,7 @@ public sealed class DemoPlan
             });
         }
 
-        return rooms;
+        return instances;
     }
 
     // --- moderation -------------------------------------------------------------------------
@@ -467,12 +467,12 @@ public sealed class DemoPlan
         var staff = plan.Staff;
         var now = plan.Now;
 
-        void Act(string type, DemoPerson subject, DateTimeOffset at, string reason, DemoRoom? room)
+        void Act(string type, DemoPerson subject, DateTimeOffset at, string reason, DemoInstance? instance)
         {
             if (at > now)
                 at = now.AddHours(-random.Next(1, 48));
 
-            actions.Add(new DemoAction(type, subject, staff[random.Next(staff.Count)], at, reason, room));
+            actions.Add(new DemoAction(type, subject, staff[random.Next(staff.Count)], at, reason, instance));
         }
 
         // Repeat offenders: several actions each, by more than one moderator, which is exactly what
@@ -484,7 +484,7 @@ public sealed class DemoPlan
 
             for (var i = 0; i < count; i++)
             {
-                var room = RoomAround(random, plan, at);
+                var instance = InstanceAround(random, plan, at);
 
                 var type = i switch
                 {
@@ -497,7 +497,7 @@ public sealed class DemoPlan
                         : Core.Data.Entities.FactType.GroupInstanceKick,
                 };
 
-                Act(type, person, at, ReasonFor(type, random), room);
+                Act(type, person, at, ReasonFor(type, random), instance);
 
                 if (type == Core.Data.Entities.FactType.MemberBanned)
                 {
@@ -530,7 +530,7 @@ public sealed class DemoPlan
                 ? Core.Data.Entities.FactType.GroupInstanceWarn
                 : Core.Data.Entities.FactType.GroupInstanceKick;
 
-            Act(type, person, at, ReasonFor(type, random), RoomAround(random, plan, at));
+            Act(type, person, at, ReasonFor(type, random), InstanceAround(random, plan, at));
         }
 
         return [.. actions.OrderBy(a => a.At)];
@@ -543,10 +543,10 @@ public sealed class DemoPlan
         _ => DemoWords.WarnReasons[random.Next(DemoWords.WarnReasons.Length)],
     };
 
-    /// <summary>A room that was open at roughly that moment, so an action has somewhere to have happened.</summary>
-    private static DemoRoom? RoomAround(Random random, DemoPlan plan, DateTimeOffset at)
+    /// <summary>An instance that was open at roughly that moment, so an action has somewhere to have happened.</summary>
+    private static DemoInstance? InstanceAround(Random random, DemoPlan plan, DateTimeOffset at)
     {
-        var near = plan.Rooms
+        var near = plan.Instances
             .Where(r => r.OpenedAt <= at && (r.ClosedAt ?? plan.Now) >= at)
             .ToList();
 
@@ -580,7 +580,7 @@ public sealed class DemoPlan
     /// </summary>
     /// <remarks>
     /// Not <c>string.GetHashCode</c>: .NET randomises that per process, so a demo rebuilt after a
-    /// restart would hand the same room to a different moderator and the seeded data would stop
+    /// restart would hand the same instance to a different moderator and the seeded data would stop
     /// matching itself between the two halves of the seeding.
     /// </remarks>
     public static int Spread(string value, int buckets)

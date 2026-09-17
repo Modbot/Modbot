@@ -15,7 +15,7 @@ public enum InstanceAnnouncePassOutcome
     /// <summary>No channel is set. Nothing read, nothing posted.</summary>
     NoChannel = 1,
 
-    /// <summary>Nothing to say: no room opened, and none was due an update.</summary>
+    /// <summary>Nothing to say: no instance opened, and none was due an update.</summary>
     NothingToSay = 2,
 
     /// <summary>At least one message was written or rewritten.</summary>
@@ -25,9 +25,9 @@ public enum InstanceAnnouncePassOutcome
     Failed = 4,
 }
 
-/// <param name="Announced">Rooms whose card was posted for the first time.</param>
+/// <param name="Announced">Instances whose card was posted for the first time.</param>
 /// <param name="Updated">Cards brought up to date.</param>
-/// <param name="Finished">Cards given their last word because the room closed.</param>
+/// <param name="Finished">Cards given their last word because the instance closed.</param>
 public sealed record InstanceAnnouncePass(
     InstanceAnnouncePassOutcome Outcome,
     int Announced = 0,
@@ -36,45 +36,45 @@ public sealed record InstanceAnnouncePass(
     string? Error = null);
 
 /// <summary>
-/// Keeps a Discord channel showing which rooms the group has open, one card each.
+/// Keeps a Discord channel showing which instances the group has open, one card each.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A room gets one message when it opens. That message is then rewritten as the room fills and
-/// empties, and rewritten a last time when the room closes -- after which it is never touched
-/// again. One message per room rather than a message per change, because a channel that posts
+/// An instance gets one message when it opens. That message is then rewritten as the instance fills and
+/// empties, and rewritten a last time when the instance closes -- after which it is never touched
+/// again. One message per instance rather than a message per change, because a channel that posts
 /// every time somebody walks in is a channel people mute.
 /// </para>
 /// <para>
-/// <strong>Only the group's own rooms are announced.</strong> A moderator's private or public
+/// <strong>Only the group's own instances are announced.</strong> A moderator's private or public
 /// instance is somewhere they happen to be, not something the group is running, and posting it
 /// would tell a channel where a specific person is. The group's live list is exactly the right
 /// filter for this and it is already being polled.
 /// </para>
 /// <para>
-/// <strong>Turning the channel on announces nothing that is already running.</strong> Only a room
+/// <strong>Turning the channel on announces nothing that is already running.</strong> Only an instance
 /// that opened within <see cref="AnnounceWithin"/> gets a card, so pasting a channel id does not
 /// fill it with notices for an evening three hours in progress -- the same protection the
 /// moderation log gives with its cursor. It also covers the case where Modbot itself was down:
-/// coming back up does not announce rooms that have been running the whole time.
+/// coming back up does not announce instances that have been running the whole time.
 /// </para>
 /// <para>
-/// <strong>Names.</strong> While a moderator is watching a room, its card lists who is there
+/// <strong>Names.</strong> While a moderator is watching an instance, its card lists who is there
 /// (<see cref="InstanceCard"/>), from the same watching rule the Live page and the overlay use
-/// (<see cref="RoomWatching"/>). Nobody watching, or <c>DiscordInstanceShowNames</c> off, and the
+/// (<see cref="InstanceWatching"/>). Nobody watching, or <c>DiscordInstanceShowNames</c> off, and the
 /// card carries the head count only.
 /// </para>
 /// <para>
 /// <strong>Pacing.</strong> Discord's limits on editing are real and per-channel, so a pass does
-/// a handful of messages and no more, and a room's card is rewritten at most once a minute
+/// a handful of messages and no more, and an instance's card is rewritten at most once a minute
 /// however often the instance poll runs. A refused message leaves the row untouched, so the next
 /// pass tries the same thing rather than skipping it -- except on a permanent refusal, where the
-/// message is gone or the bot has lost the channel, and the room's announcement is forgotten.
+/// message is gone or the bot has lost the channel, and the instance's announcement is forgotten.
 /// </para>
 /// </remarks>
 public sealed class InstanceAnnouncer
 {
-    /// <summary>How often one room's card is allowed to be rewritten.</summary>
+    /// <summary>How often one instance's card is allowed to be rewritten.</summary>
     /// <remarks>
     /// The instance poll runs every ten seconds, but a card that changes six times a minute is
     /// both unreadable and a fast way to meet Discord's edit limits. A minute is frequent enough
@@ -86,12 +86,12 @@ public sealed class InstanceAnnouncer
     public const int MessagesPerPass = 5;
 
     /// <summary>
-    /// How new a room has to be to be worth announcing at all.
+    /// How new an instance has to be to be worth announcing at all.
     /// </summary>
     /// <remarks>
-    /// "Come and join us" is worth saying about a room that just opened and pointless about one
+    /// "Come and join us" is worth saying about an instance that just opened and pointless about one
     /// that has been running since teatime. This is what stops a freshly configured channel -- or
-    /// a Modbot coming back after an outage -- from posting a wall of cards for rooms everybody
+    /// a Modbot coming back after an outage -- from posting a wall of cards for instances everybody
     /// already knows about.
     /// </remarks>
     public static readonly TimeSpan AnnounceWithin = TimeSpan.FromMinutes(15);
@@ -129,9 +129,9 @@ public sealed class InstanceAnnouncer
         var now = _clock.UtcNow;
         var message = Trim(settings.DiscordInstanceMessage);
 
-        // Rooms that still have something to say: open ones, and ones that closed without their
+        // Instances that still have something to say: open ones, and ones that closed without their
         // card having been given its last word. The filtered index answers this.
-        var rooms = await _db.VRChatInstances
+        var instances = await _db.VRChatInstances
             .Where(i => !i.AnnouncementFinished
                 && i.SeenInGroupList
                 && (i.ClosedAt == null || i.AnnouncementMessageId != null))
@@ -140,7 +140,7 @@ public sealed class InstanceAnnouncer
             .ToListAsync(ct).ConfigureAwait(false);
 
         var names = settings.DiscordInstanceShowNames
-            ? await NamesAsync(rooms, ct).ConfigureAwait(false)
+            ? await NamesAsync(instances, ct).ConfigureAwait(false)
             : [];
 
         var announced = 0;
@@ -149,33 +149,33 @@ public sealed class InstanceAnnouncer
         string? error = null;
         var sent = 0;
 
-        foreach (var room in rooms)
+        foreach (var instance in instances)
         {
             if (sent >= MessagesPerPass)
                 break;
 
-            var closed = room.ClosedAt is not null;
+            var closed = instance.ClosedAt is not null;
 
-            if (room.AnnouncementMessageId is null)
+            if (instance.AnnouncementMessageId is null)
             {
-                // A room that closed before it was ever announced is not worth a card saying an
+                // An instance that closed before it was ever announced is not worth a card saying an
                 // evening nobody heard about has ended.
                 if (closed)
                 {
-                    room.AnnouncementFinished = true;
+                    instance.AnnouncementFinished = true;
                     continue;
                 }
 
                 // Too late to be news. Marked finished so it is never reconsidered rather than
                 // being looked at again on every pass for the rest of its life.
-                if (now - room.OpenedAt > AnnounceWithin)
+                if (now - instance.OpenedAt > AnnounceWithin)
                 {
-                    room.AnnouncementFinished = true;
+                    instance.AnnouncementFinished = true;
                     continue;
                 }
 
                 var outcome = await AnnounceAsync(
-                    gateway, room, channelId, message, names.GetValueOrDefault(room.Id), now, ct).ConfigureAwait(false);
+                    gateway, instance, channelId, message, names.GetValueOrDefault(instance.Id), now, ct).ConfigureAwait(false);
                 sent++;
 
                 if (outcome.Sent)
@@ -186,18 +186,18 @@ public sealed class InstanceAnnouncer
 
                 error ??= outcome.Error;
 
-                // A permanent refusal is about the channel, not this room: the id is wrong, or the
-                // bot cannot post there. Trying the next room would produce the same answer.
+                // A permanent refusal is about the channel, not this instance: the id is wrong, or the
+                // bot cannot post there. Trying the next instance would produce the same answer.
                 if (outcome.Permanent)
                     break;
 
                 continue;
             }
 
-            if (!closed && room.AnnouncementUpdatedAt is { } written && now - written < RewriteEvery)
+            if (!closed && instance.AnnouncementUpdatedAt is { } written && now - written < RewriteEvery)
                 continue;
 
-            var edit = await RewriteAsync(gateway, room, message, names.GetValueOrDefault(room.Id), now, ct).ConfigureAwait(false);
+            var edit = await RewriteAsync(gateway, instance, message, names.GetValueOrDefault(instance.Id), now, ct).ConfigureAwait(false);
             sent++;
 
             if (edit.Sent)
@@ -219,9 +219,9 @@ public sealed class InstanceAnnouncer
                 _log.Information(
                     "Forgetting the Discord card for an instance: {Reason}", edit.Error ?? "it is gone");
 
-                room.AnnouncementMessageId = null;
-                room.AnnouncementChannelId = null;
-                room.AnnouncementFinished = true;
+                instance.AnnouncementMessageId = null;
+                instance.AnnouncementChannelId = null;
+                instance.AnnouncementFinished = true;
             }
         }
 
@@ -242,30 +242,30 @@ public sealed class InstanceAnnouncer
 
     private async Task<DiscordPostOutcome> AnnounceAsync(
         IDiscordGateway gateway,
-        VRChatInstance room,
+        VRChatInstance instance,
         string channelId,
         string? message,
         IReadOnlyList<string?>? names,
         DateTimeOffset now,
         CancellationToken ct)
     {
-        var card = InstanceCard.For(room, await WorldOfAsync(room, ct).ConfigureAwait(false), now, names);
+        var card = InstanceCard.For(instance, await WorldOfAsync(instance, ct).ConfigureAwait(false), now, names);
 
-        var outcome = await gateway.PostAsync(channelId, message, [card], InstanceCard.Links(room), ct).ConfigureAwait(false);
+        var outcome = await gateway.PostAsync(channelId, message, [card], InstanceCard.Links(instance), ct).ConfigureAwait(false);
 
         if (!outcome.Sent || outcome.MessageId is null)
             return outcome;
 
-        room.AnnouncementMessageId = outcome.MessageId;
-        room.AnnouncementChannelId = channelId;
-        room.AnnouncementUpdatedAt = now;
+        instance.AnnouncementMessageId = outcome.MessageId;
+        instance.AnnouncementChannelId = channelId;
+        instance.AnnouncementUpdatedAt = now;
 
         return outcome;
     }
 
     private async Task<DiscordPostOutcome> RewriteAsync(
         IDiscordGateway gateway,
-        VRChatInstance room,
+        VRChatInstance instance,
         string? message,
         IReadOnlyList<string?>? names,
         DateTimeOffset now,
@@ -273,28 +273,28 @@ public sealed class InstanceAnnouncer
     {
         // The channel the message is actually in, not the channel the setting names now: an
         // operator who moved the setting has not moved the messages already posted.
-        var channelId = room.AnnouncementChannelId;
+        var channelId = instance.AnnouncementChannelId;
 
-        if (channelId is not { Length: > 0 } || room.AnnouncementMessageId is not { Length: > 0 } messageId)
+        if (channelId is not { Length: > 0 } || instance.AnnouncementMessageId is not { Length: > 0 } messageId)
             return DiscordPostOutcome.Failed("The card has no message to rewrite.", permanent: true);
 
-        var card = InstanceCard.For(room, await WorldOfAsync(room, ct).ConfigureAwait(false), now, names);
+        var card = InstanceCard.For(instance, await WorldOfAsync(instance, ct).ConfigureAwait(false), now, names);
 
-        var outcome = await gateway.EditAsync(channelId, messageId, message, [card], InstanceCard.Links(room), ct).ConfigureAwait(false);
+        var outcome = await gateway.EditAsync(channelId, messageId, message, [card], InstanceCard.Links(instance), ct).ConfigureAwait(false);
 
         if (!outcome.Sent)
             return outcome;
 
-        room.AnnouncementUpdatedAt = now;
+        instance.AnnouncementUpdatedAt = now;
 
-        if (room.ClosedAt is not null)
-            room.AnnouncementFinished = true;
+        if (instance.ClosedAt is not null)
+            instance.AnnouncementFinished = true;
 
         return outcome;
     }
 
     /// <summary>
-    /// The display names of the people in each open room a moderator is watching. Rooms nobody is
+    /// The display names of the people in each open instance a moderator is watching. Instances nobody is
     /// watching are absent, so their cards show the head count only.
     /// </summary>
     /// <remarks>
@@ -302,16 +302,16 @@ public sealed class InstanceAnnouncer
     /// and otherwise left as a null the card counts in "and N more" -- never shown by id.
     /// </remarks>
     private async Task<Dictionary<Guid, IReadOnlyList<string?>>> NamesAsync(
-        IReadOnlyList<VRChatInstance> rooms,
+        IReadOnlyList<VRChatInstance> instances,
         CancellationToken ct)
     {
         var result = new Dictionary<Guid, IReadOnlyList<string?>>();
-        var open = rooms.Where(r => r.ClosedAt is null).ToList();
+        var open = instances.Where(r => r.ClosedAt is null).ToList();
 
         if (open.Count == 0)
             return result;
 
-        var people = await new RoomPeopleReader(_db).ForRoomsAsync(open, ct).ConfigureAwait(false);
+        var people = await new InstancePeopleReader(_db).ForInstancesAsync(open, ct).ConfigureAwait(false);
 
         var nameless = people.Values
             .Where(p => p.IsWatched)
@@ -328,17 +328,17 @@ public sealed class InstanceAnnouncer
                 .ToDictionaryAsync(u => u.UserId, u => u.DisplayName!, StringComparer.Ordinal, ct)
                 .ConfigureAwait(false);
 
-        foreach (var (roomId, inRoom) in people)
+        foreach (var (instanceId, inInstance) in people)
         {
-            if (inRoom.IsWatched)
-                result[roomId] = inRoom.Here.Select(p => p.DisplayName ?? stored.GetValueOrDefault(p.UserId)).ToList();
+            if (inInstance.IsWatched)
+                result[instanceId] = inInstance.Here.Select(p => p.DisplayName ?? stored.GetValueOrDefault(p.UserId)).ToList();
         }
 
         return result;
     }
 
-    private Task<VRChatWorld?> WorldOfAsync(VRChatInstance room, CancellationToken ct) =>
-        _db.VRChatWorlds.AsNoTracking().FirstOrDefaultAsync(w => w.WorldId == room.WorldId, ct);
+    private Task<VRChatWorld?> WorldOfAsync(VRChatInstance instance, CancellationToken ct) =>
+        _db.VRChatWorlds.AsNoTracking().FirstOrDefaultAsync(w => w.WorldId == instance.WorldId, ct);
 
     private static string? Trim(string? message) =>
         string.IsNullOrWhiteSpace(message) ? null : message.Trim();

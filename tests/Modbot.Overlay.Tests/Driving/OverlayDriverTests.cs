@@ -12,7 +12,7 @@ namespace Modbot.Overlay.Tests.Driving;
 /// </summary>
 /// <remarks>
 /// A server that stops answering mid-session, a long poll a proxy hangs up on, an alert about a
-/// room the moderator is not in, and — the one that would regress silently — a tick that redraws
+/// instance the moderator is not in, and — the one that would regress silently — a tick that redraws
 /// when nothing changed. That last one costs nothing visible and throws away the entire reason the
 /// CPU readback is affordable, so it is asserted on the rasteriser rather than on appearances.
 /// </remarks>
@@ -268,7 +268,7 @@ public class OverlayDriverTests
     }
 
     [Fact]
-    public async Task AnAlertAboutARoomTheModeratorIsNotInIsDropped()
+    public async Task AnAlertAboutAInstanceTheModeratorIsNotInIsDropped()
     {
         // The answer to "several servers, one headset": an alert is shown only when it names the
         // instance the moderator is standing in, so at most one server can ever qualify. A flagged
@@ -285,7 +285,7 @@ public class OverlayDriverTests
     }
 
     [Fact]
-    public async Task TwoServersWithSomethingToSayAtOnceProduceOneCardFromTheRoomYouAreIn()
+    public async Task TwoServersWithSomethingToSayAtOnceProduceOneCardFromTheInstanceYouAreIn()
     {
         var clock = new FakeClock();
         var presenter = new CountingPresenter();
@@ -306,7 +306,7 @@ public class OverlayDriverTests
         Assert.Equal("usr_flag", presenter.Last.Alert!.SubjectId);
 
         // The other server was never contacted at all -- not filtered on receipt, not asked.
-        // (The room's own server is read again after the join: a live event makes the roster due.)
+        // (The instance's own server is read again after the join: a live event makes the roster due.)
         Assert.NotEmpty(reads.ContextServers);
         Assert.All(reads.ContextServers, server => Assert.Equal("cats", server));
     }
@@ -386,7 +386,7 @@ public class OverlayDriverTests
     [Fact]
     public async Task LeavingTheInstanceClearsTheCardAboutIt()
     {
-        // A card about the room you just left is worse than no card.
+        // A card about the instance you just left is worse than no card.
         var (driver, presenter, reads, _) = Build();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
         reads.Live.Enqueue(Page(Alert()));

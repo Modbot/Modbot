@@ -103,7 +103,7 @@ public class OverlayListenerTests
     [Fact]
     public async Task AnAlertTheLoopDropsIsNotPassedOn()
     {
-        // Not this room, or the same person again within the cooldown: no card, so no word.
+        // Not this instance, or the same person again within the cooldown: no card, so no word.
         var (driver, reads, heard, _) = Build();
         reads.Live.Enqueue(Page(Alert("usr_elsewhere", instance: "11111")));
         reads.Live.Enqueue(Page(Alert("usr_flag")));

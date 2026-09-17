@@ -20,7 +20,7 @@ namespace Modbot.Api.Features.Companion.Alerts;
 /// reason: it would be a second, slower presence report under a different name, and one that kept
 /// reporting a moderator's whereabouts after they had paused everything else.</para>
 /// <para>A batch whose newest event says VRChat's log stopped (<c>LogStopped</c>, sent once per stop
-/// and never repeated) forgets the device instead: it can no longer see the room, so it is offered
+/// and never repeated) forgets the device instead: it can no longer see the instance, so it is offered
 /// nothing more about it. That is still a by-product of a batch, not a location report.</para>
 /// <para><strong>Nothing here is durable, and nothing here is a fact.</strong> This is in-memory
 /// routing state for one push channel, sitting beside the queues it routes into. Presence history

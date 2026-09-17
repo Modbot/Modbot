@@ -9,7 +9,7 @@ namespace Modbot.Api.Features.Places;
 /// </summary>
 /// <remarks>
 /// All four numbers are bounded by who was watching: they exist only while a moderator's client
-/// was in the room. A busy world nobody with the client visited reads as nothing here, and every
+/// was in the instance. A busy world nobody with the client visited reads as nothing here, and every
 /// screen that shows these says so rather than letting a zero pass as a measurement.
 /// </remarks>
 /// <param name="MinutesSeen">People-time: summed across everybody, not wall-clock.</param>
@@ -28,13 +28,13 @@ public sealed record PlaceCounts(
 /// <summary>
 /// One person's own presence figures, over all of recorded history.
 /// </summary>
-/// <param name="Rooms">Rooms they were seen in, counted once each.</param>
+/// <param name="Instances">Instances they were seen in, counted once each.</param>
 /// <param name="Worlds">Worlds they were seen in, counted once each.</param>
 /// <param name="Arrivals">Times they were seen arriving, or were already there when a client came in.</param>
 public sealed record PersonCounts(
     decimal MinutesSeen,
     int Worlds,
-    int Rooms,
+    int Instances,
     int Arrivals,
     DateTimeOffset? FirstSeenAt,
     DateTimeOffset? LastSeenAt)
@@ -42,7 +42,7 @@ public sealed record PersonCounts(
     public static PersonCounts Nothing { get; } = new(0m, 0, 0, 0, null, null);
 }
 
-/// <summary>Somebody seen in one room, and for how long.</summary>
+/// <summary>Somebody seen in one instance, and for how long.</summary>
 /// <param name="DisplayName">
 /// The name stored for them, or null when Modbot has only ever had the id. Never substituted with
 /// the id dressed up as a name.
@@ -56,7 +56,7 @@ public sealed record PersonSeen(
     DateTimeOffset LastSeenAt);
 
 /// <summary>
-/// One world: its page as Modbot last read it, the rooms that have run in it, and what presence
+/// One world: its page as Modbot last read it, the instances that have run in it, and what presence
 /// reports say about it.
 /// </summary>
 /// <remarks>
@@ -79,11 +79,11 @@ public sealed record PersonSeen(
 /// What the page said the world holds. Never treated as a limit Modbot enforces — exemptions
 /// raise real capacity above it (foundation section 3.1).
 /// </param>
-/// <param name="Rooms">The most recent rooms in this world, newest first.</param>
-/// <param name="RoomsTotal">How many rooms have ever run in it, however many are listed.</param>
-/// <param name="RoomsOpenNow">How many of those are believed still open.</param>
+/// <param name="Instances">The most recent instances in this world, newest first.</param>
+/// <param name="InstancesTotal">How many instances have ever run in it, however many are listed.</param>
+/// <param name="InstancesOpenNow">How many of those are believed still open.</param>
 /// <param name="VisitorsPerDay">Distinct people per day, from the daily totals.</param>
-/// <param name="RoomsPerDay">Rooms opened per day, from the daily totals.</param>
+/// <param name="InstancesPerDay">Instances opened per day, from the daily totals.</param>
 public sealed record WorldView(
     string WorldId,
     bool Known,
@@ -104,40 +104,40 @@ public sealed record WorldView(
     DateTimeOffset? LastReadAt,
     string? ReadError,
     PlaceCounts Counts,
-    IReadOnlyList<InstanceRow> Rooms,
-    int RoomsTotal,
-    int RoomsOpenNow,
+    IReadOnlyList<InstanceRow> Instances,
+    int InstancesTotal,
+    int InstancesOpenNow,
     IReadOnlyList<DayValue> VisitorsPerDay,
-    IReadOnlyList<DayValue> RoomsPerDay,
+    IReadOnlyList<DayValue> InstancesPerDay,
     DateTimeOffset Now);
 
 /// <summary>
-/// One room, as it happened: where it was, when, how busy, who was in it and what happened there.
+/// One instance, as it happened: where it was, when, how busy, who was in it and what happened there.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Keyed on Modbot's own id rather than VRChat's number, because VRChat reissues numbers after a
-/// room closes and two evenings under one number are two rooms (<c>VRChatInstance</c>). Both the
-/// people and the log below are bounded to the stretch this room was open, for the same reason.
+/// instance closes and two evenings under one number are two instances (<c>VRChatInstance</c>). Both the
+/// people and the log below are bounded to the stretch this instance was open, for the same reason.
 /// </para>
 /// <para>
 /// <paramref name="People"/> and <paramref name="Log"/> are empty, and
 /// <paramref name="CanSeeWhoWasThere"/> false, for a caller without <c>ViewAuditLog</c>: who was
-/// in a room and what was done to them is moderation history (spec 5.9.4), and the room's own
+/// in an instance and what was done to them is moderation history (spec 5.9.4), and the instance's own
 /// shape is not.
 /// </para>
 /// </remarks>
-/// <param name="Room">The room row, the same shape the Instances page lists.</param>
+/// <param name="Instance">The instance row, the same shape the Instances page lists.</param>
 /// <param name="Type">Public, group, friends or private, in VRChat's own words.</param>
-/// <param name="LastSeenAt">The most recent moment the room was known to still exist.</param>
+/// <param name="LastSeenAt">The most recent moment the instance was known to still exist.</param>
 /// <param name="SeenInGroupList">
 /// Whether the group's own live list has ever carried it. When true, the list is the authority on
 /// when it ended; when false, it was judged finished only by having gone quiet.
 /// </param>
-/// <param name="Counts">What presence reports say about this room.</param>
+/// <param name="Counts">What presence reports say about this instance.</param>
 /// <param name="LogTruncated">True when more facts happened here than the list carries.</param>
 public sealed record InstanceView(
-    InstanceRow Room,
+    InstanceRow Instance,
     bool Known,
     string? WorldAuthorName,
     string? WorldImageUrl,
@@ -159,5 +159,5 @@ public sealed record PersonMetrics(
     string UserId,
     bool Known,
     PersonCounts Counts,
-    IReadOnlyList<InstanceRow> RecentRooms,
+    IReadOnlyList<InstanceRow> RecentInstances,
     DateTimeOffset Now);

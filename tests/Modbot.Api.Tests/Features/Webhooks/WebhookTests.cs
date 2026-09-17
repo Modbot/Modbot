@@ -218,7 +218,7 @@ public class WebhookTests
         var ban = await WriteFactAsync(host, FactType.MemberBanned, subject);
         await WriteFactAsync(host, FactType.MemberBanned, Subject());       // another subject
         await WriteFactAsync(host, FactType.SettingsChanged, subject);      // operational: the owner cannot see it
-        await WriteFactAsync(host, FactType.InstanceJoined, subject);       // presence: needs ViewLiveRooms
+        await WriteFactAsync(host, FactType.InstanceJoined, subject);       // presence: needs ViewLiveInstances
         var join = await WriteFactAsync(host, FactType.MemberJoined, subject);
 
         await RunAsync(host);

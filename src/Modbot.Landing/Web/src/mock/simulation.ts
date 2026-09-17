@@ -28,14 +28,14 @@ export interface Presence {
   arrivedAt: number
 }
 
-export interface RoomState {
+export interface InstanceState {
   id: string
   worldId: string
   instance: string
   access: 'Group members' | 'Members and friends' | 'Anyone'
   region: string
   openedAt: number
-  /** Moderator person ids whose companion is in the room. */
+  /** Moderator person ids whose companion is in the instance. */
   watching: string[]
   people: Presence[]
   /** From VRChat's own count. Equal to people.length while somebody is watching. */
@@ -46,15 +46,15 @@ export interface RoomState {
 export interface LiveState {
   minute: number
   tick: number
-  rooms: RoomState[]
+  instances: InstanceState[]
   /** The person who arrived on the latest tick, for the row highlight. */
   lastArrival: string | null
 }
 
 export type SampleEvent =
-  | { kind: 'arrive'; room: number; person: string }
-  | { kind: 'leave'; room: number; person: string }
-  | { kind: 'count'; room: number; by: number }
+  | { kind: 'arrive'; instance: number; person: string }
+  | { kind: 'leave'; instance: number; person: string }
+  | { kind: 'count'; instance: number; by: number }
 
 /** Where the clock reads 21:00 on the sample evening. */
 export const EVENING_START = 21 * 60
@@ -86,9 +86,9 @@ export function initialLive(): LiveState {
     minute: 104,
     tick: 0,
     lastArrival: null,
-    rooms: [
+    instances: [
       {
-        id: 'room_1',
+        id: 'instance_1',
         worldId: 'wrld_harbor',
         instance: '48213',
         access: 'Members and friends',
@@ -106,7 +106,7 @@ export function initialLive(): LiveState {
         peak: 9,
       },
       {
-        id: 'room_2',
+        id: 'instance_2',
         worldId: 'wrld_orbit',
         instance: '07731',
         access: 'Group members',
@@ -123,21 +123,21 @@ export function initialLive(): LiveState {
 
 /**
  * One loop of the evening. Every arrival has a matching departure and the counts sum to zero, so
- * after a full loop the rooms hold the same people they started with.
+ * after a full loop the instances hold the same people they started with.
  */
 export const EVENTS: SampleEvent[] = [
-  { kind: 'arrive', room: 0, person: 'usr_teaspoon' },
-  { kind: 'count', room: 1, by: 1 },
-  { kind: 'arrive', room: 0, person: 'usr_novadrift' },
-  { kind: 'leave', room: 0, person: 'usr_kiri' },
-  { kind: 'count', room: 1, by: 1 },
-  { kind: 'arrive', room: 0, person: 'usr_sable' },
-  { kind: 'leave', room: 0, person: 'usr_teaspoon' },
-  { kind: 'count', room: 1, by: -1 },
-  { kind: 'arrive', room: 0, person: 'usr_kiri' },
-  { kind: 'leave', room: 0, person: 'usr_novadrift' },
-  { kind: 'count', room: 1, by: -1 },
-  { kind: 'leave', room: 0, person: 'usr_sable' },
+  { kind: 'arrive', instance: 0, person: 'usr_teaspoon' },
+  { kind: 'count', instance: 1, by: 1 },
+  { kind: 'arrive', instance: 0, person: 'usr_novadrift' },
+  { kind: 'leave', instance: 0, person: 'usr_kiri' },
+  { kind: 'count', instance: 1, by: 1 },
+  { kind: 'arrive', instance: 0, person: 'usr_sable' },
+  { kind: 'leave', instance: 0, person: 'usr_teaspoon' },
+  { kind: 'count', instance: 1, by: -1 },
+  { kind: 'arrive', instance: 0, person: 'usr_kiri' },
+  { kind: 'leave', instance: 0, person: 'usr_novadrift' },
+  { kind: 'count', instance: 1, by: -1 },
+  { kind: 'leave', instance: 0, person: 'usr_sable' },
 ]
 
 export function step(state: LiveState): LiveState {
@@ -145,28 +145,28 @@ export function step(state: LiveState): LiveState {
   const minute = state.minute + 1 + (state.tick % 3)
   let lastArrival: string | null = null
 
-  const rooms = state.rooms.map((room, index) => {
-    if (index !== event.room) return room
+  const instances = state.instances.map((instance, index) => {
+    if (index !== event.instance) return instance
 
     switch (event.kind) {
       case 'arrive': {
-        if (room.people.some((p) => p.personId === event.person)) return room
+        if (instance.people.some((p) => p.personId === event.person)) return instance
         lastArrival = event.person
-        const people = [...room.people, { personId: event.person, arrivedAt: minute }]
-        return { ...room, people, headCount: people.length, peak: Math.max(room.peak, people.length) }
+        const people = [...instance.people, { personId: event.person, arrivedAt: minute }]
+        return { ...instance, people, headCount: people.length, peak: Math.max(instance.peak, people.length) }
       }
       case 'leave': {
-        const people = room.people.filter((p) => p.personId !== event.person)
-        return { ...room, people, headCount: room.watching.length > 0 ? people.length : room.headCount }
+        const people = instance.people.filter((p) => p.personId !== event.person)
+        return { ...instance, people, headCount: instance.watching.length > 0 ? people.length : instance.headCount }
       }
       case 'count': {
-        const headCount = Math.max(0, room.headCount + event.by)
-        return { ...room, headCount, peak: Math.max(room.peak, headCount) }
+        const headCount = Math.max(0, instance.headCount + event.by)
+        return { ...instance, headCount, peak: Math.max(instance.peak, headCount) }
       }
     }
   })
 
-  return { minute, tick: state.tick + 1, rooms, lastArrival }
+  return { minute, tick: state.tick + 1, instances, lastArrival }
 }
 
 /** "22:44" for a minute of the sample evening. */

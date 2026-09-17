@@ -16,7 +16,7 @@ using Modbot.Core.Time;
 namespace Modbot.Api.Features.Places;
 
 /// <summary>
-/// One world and one room, for the popup that opens when somebody clicks either.
+/// One world and one instance, for the popup that opens when somebody clicks either.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -26,10 +26,10 @@ namespace Modbot.Api.Features.Places;
 /// a popup costs no API budget however many times a moderator does it (foundation section 4.3.4).
 /// </para>
 /// <para>
-/// <strong>The world id travels as a query parameter, the room id as a path segment.</strong> A
+/// <strong>The world id travels as a query parameter, the instance id as a path segment.</strong> A
 /// VRChat world id is opaque text and a legacy one is arbitrary (spec 3.1.1) — a slash inside one
 /// would break a route, and a route constraint would be exactly the format check that rule
-/// forbids. A room's id is Modbot's own <c>Guid</c>, made here, so it is safe in a path and
+/// forbids. An instance's id is Modbot's own <c>Guid</c>, made here, so it is safe in a path and
 /// constrained like one.
 /// </para>
 /// <para>
@@ -40,10 +40,10 @@ namespace Modbot.Api.Features.Places;
 /// </remarks>
 public static class PlacesEndpoints
 {
-    /// <summary>How many rooms a world popup lists. Enough to read, not a log.</summary>
-    public const int RoomsListed = 25;
+    /// <summary>How many instances a world popup lists. Enough to read, not a log.</summary>
+    public const int InstancesListed = 25;
 
-    /// <summary>How many facts a room's log carries before it says there were more.</summary>
+    /// <summary>How many facts an instance's log carries before it says there were more.</summary>
     public const int FactsListed = 100;
 
     public static IEndpointRouteBuilder MapPlaces(this IEndpointRouteBuilder app)
@@ -65,39 +65,39 @@ public static class PlacesEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetWorld")
-            .WithSummary("One world: what its page said, the rooms that have run in it, and how busy it was")
+            .WithSummary("One world: what its page said, the instances that have run in it, and how busy it was")
             .WithDescription(
                 "Read from Modbot's own tables; nothing here calls VRChat. `known` is false when "
                 + "Modbot has only ever seen the id. `name` is null when the world page has not "
                 + "been read yet — ordinary for a few minutes after a new world turns up, and "
                 + "permanent for a private or deleted one. Time and visitors come from the desktop "
                 + "client's presence reports and exist only while a moderator's client was in the "
-                + "room; rooms opened come from the group's own instance list and are complete.")
+                + "instance; instances opened come from the group's own instance list and are complete.")
             .Produces<WorldView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
-        var rooms = app.MapGroup("/api/instances").WithTags("Places").RequireAuthorization();
+        var instances = app.MapGroup("/api/instances").WithTags("Places").RequireAuthorization();
 
-        rooms.MapGet("/{id:guid}", async (
+        instances.MapGet("/{id:guid}", async (
                 HttpContext http,
                 [FromRoute] Guid id,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
                 CancellationToken ct) =>
             {
-                var view = await RoomAsync(id, ModbotAuth.PermissionsOf(http.User), db, clock.UtcNow, ct);
+                var view = await InstanceAsync(id, ModbotAuth.PermissionsOf(http.User), db, clock.UtcNow, ct);
 
                 return view is null ? Results.NotFound() : Results.Ok(view);
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetInstance")
-            .WithSummary("One room: where it was, when, how busy, who was in it and what happened there")
+            .WithSummary("One instance: where it was, when, how busy, who was in it and what happened there")
             .WithDescription(
                 "The id is Modbot's own, not VRChat's number — VRChat hands the same number out "
-                + "again after a room closes, so two evenings under one number are two rooms.\n\n"
-                + "Who was in the room and the facts recorded there need ViewAuditLog as well: "
-                + "that is moderation history (spec 5.9.4), while the room's own shape is not. "
+                + "again after an instance closes, so two evenings under one number are two instances.\n\n"
+                + "Who was in the instance and the facts recorded there need ViewAuditLog as well: "
+                + "that is moderation history (spec 5.9.4), while the instance's own shape is not. "
                 + "Without it `canSeeWhoWasThere` is false and both lists are empty.")
             .Produces<InstanceView>()
             .Produces(StatusCodes.Status403Forbidden)
@@ -119,12 +119,12 @@ public static class PlacesEndpoints
 
         var all = db.VRChatInstances.AsNoTracking().Where(i => i.WorldId == worldId);
 
-        var roomsTotal = await all.CountAsync(ct);
-        var roomsOpen = await all.CountAsync(i => i.ClosedAt == null, ct);
+        var instancesTotal = await all.CountAsync(ct);
+        var instancesOpen = await all.CountAsync(i => i.ClosedAt == null, ct);
 
         // Newest first: "what ran in here lately" is the question a moderator opens this with.
-        var listed = await RoomRows.ReadAsync(
-            db, all.OrderByDescending(i => i.OpenedAt).Take(RoomsListed), now, ct);
+        var listed = await InstanceRows.ReadAsync(
+            db, all.OrderByDescending(i => i.OpenedAt).Take(InstancesListed), now, ct);
 
         var (visitors, opened) = await SeriesAsync(db, worldId, now, ct);
 
@@ -134,7 +134,7 @@ public static class PlacesEndpoints
                 worldId, Known: false,
                 null, null, null, null, null, null, null, null, [], null, null, null,
                 null, null, null, null,
-                counts, listed, roomsTotal, roomsOpen, visitors, opened, now);
+                counts, listed, instancesTotal, instancesOpen, visitors, opened, now);
         }
 
         return new WorldView(
@@ -158,22 +158,22 @@ public static class PlacesEndpoints
             row.RefreshError,
             counts,
             listed,
-            roomsTotal,
-            roomsOpen,
+            instancesTotal,
+            instancesOpen,
             visitors,
             opened,
             now);
     }
 
     /// <summary>
-    /// Visitors and rooms opened per day for one world, from the daily totals.
+    /// Visitors and instances opened per day for one world, from the daily totals.
     /// </summary>
     /// <remarks>
     /// The same two metrics the Worlds page charts, read the same way, so the popup and the page
     /// cannot disagree. Over all of recorded history rather than a window: a popup has no date
     /// picker, and the daily totals are one small row per world per day.
     /// </remarks>
-    private static async Task<(IReadOnlyList<DayValue> Visitors, IReadOnlyList<DayValue> Rooms)> SeriesAsync(
+    private static async Task<(IReadOnlyList<DayValue> Visitors, IReadOnlyList<DayValue> Instances)> SeriesAsync(
         ModbotContext db,
         string worldId,
         DateTimeOffset now,
@@ -194,7 +194,7 @@ public static class PlacesEndpoints
         return (Series(DailyTotalMetrics.WorldVisitors), Series(DailyTotalMetrics.WorldInstances));
     }
 
-    internal static async Task<InstanceView?> RoomAsync(
+    internal static async Task<InstanceView?> InstanceAsync(
         Guid id,
         ModbotPermissions held,
         ModbotContext db,
@@ -205,13 +205,13 @@ public static class PlacesEndpoints
         if (row is null)
             return null;
 
-        var listed = await RoomRows.ReadAsync(db, db.VRChatInstances.AsNoTracking().Where(i => i.Id == id), now, ct);
+        var listed = await InstanceRows.ReadAsync(db, db.VRChatInstances.AsNoTracking().Where(i => i.Id == id), now, ct);
         var world = await db.VRChatWorlds.AsNoTracking()
             .Where(w => w.WorldId == row.WorldId)
             .Select(w => new { w.AuthorName, w.ImageUrl, w.Capacity })
             .FirstOrDefaultAsync(ct);
 
-        // The stretch this room was open. Presence facts are keyed on the world and VRChat's
+        // The stretch this instance was open. Presence facts are keyed on the world and VRChat's
         // number, which is reused, so without these bounds another evening's people would be
         // counted as this one's.
         var endsAt = row.ClosedAt ?? row.LastSeenAt;
@@ -225,12 +225,12 @@ public static class PlacesEndpoints
 
         if (canSee && row.VRChatInstanceId is { Length: > 0 } number)
         {
-            var room = new Room(row.WorldId, number, row.OpenedAt, endsAt);
+            var instance = new InstanceLife(row.WorldId, number, row.OpenedAt, endsAt);
             var presence = new PresenceCounts(db);
 
-            counts = await presence.ForRoomAsync(room, ct);
-            people = await WithNamesAsync(db, await presence.PeopleInRoomAsync(room, ct), ct);
-            (log, truncated) = await LogAsync(db, held, room, ct);
+            counts = await presence.ForInstanceAsync(instance, ct);
+            people = await WithNamesAsync(db, await presence.PeopleInInstanceAsync(instance, ct), ct);
+            (log, truncated) = await LogAsync(db, held, instance, ct);
         }
 
         return new InstanceView(
@@ -252,17 +252,17 @@ public static class PlacesEndpoints
     }
 
     /// <summary>
-    /// Every fact recorded in this room while it was open, newest first.
+    /// Every fact recorded in this instance while it was open, newest first.
     /// </summary>
     /// <remarks>
     /// Narrowed by <see cref="AuditVisibility"/> like any other read of the log, and bounded to
-    /// the room's own open and close times so a reissued number cannot drag another evening's
+    /// the instance's own open and close times so a reissued number cannot drag another evening's
     /// facts in.
     /// </remarks>
     private static async Task<(IReadOnlyList<AuditEntry> Log, bool Truncated)> LogAsync(
         ModbotContext db,
         ModbotPermissions held,
-        Room room,
+        InstanceLife instance,
         CancellationToken ct)
     {
         var visible = AuditVisibility.VisibleTypes(held);
@@ -271,10 +271,10 @@ public static class PlacesEndpoints
 
         var rows = await db.Events.AsNoTracking()
             .Where(e => visible.Contains(e.Type)
-                && e.WorldId == room.WorldId
-                && e.InstanceId == room.Number
-                && e.OccurredAt >= room.OpenedAt
-                && e.OccurredAt <= room.EndsAt)
+                && e.WorldId == instance.WorldId
+                && e.InstanceId == instance.Number
+                && e.OccurredAt >= instance.OpenedAt
+                && e.OccurredAt <= instance.EndsAt)
             .OrderByDescending(e => e.OccurredAt)
             .ThenByDescending(e => e.Id)
             .Take(FactsListed + 1)

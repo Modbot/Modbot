@@ -12,7 +12,7 @@ namespace Modbot.AI.Insights;
 /// <para>
 /// Mostly daily totals, which are kept forever and are already per UTC day, so an insight and the
 /// analytics page beside it count the same things the same way. The rest comes from the few tables
-/// that hold what daily totals do not: the headcount VRChat reported, rooms, reviews and case files.
+/// that hold what daily totals do not: the headcount VRChat reported, instances, reviews and case files.
 /// </para>
 /// <para>
 /// Every figure is a count over the whole group. A query here that selected a person's id or display
@@ -26,7 +26,7 @@ public sealed class InsightFigureReader(ModbotContext db)
 
     private static readonly (string Metric, string Name)[] ModeratorActions =
     [
-        (DailyTotalMetrics.ModeratorInstanceKicks, "Kicks from a room"),
+        (DailyTotalMetrics.ModeratorInstanceKicks, "Kicks from an instance"),
         (DailyTotalMetrics.ModeratorWarns, "Warnings"),
         (DailyTotalMetrics.ModeratorBans, "Bans"),
         (DailyTotalMetrics.ModeratorUnbans, "Unbans"),
@@ -45,7 +45,7 @@ public sealed class InsightFigureReader(ModbotContext db)
         {
             InsightKinds.Group => await GroupAsync(period, ct),
             InsightKinds.Team => await TeamAsync(period, ct),
-            InsightKinds.Rooms => await RoomsAsync(period, ct),
+            InsightKinds.Instances => await InstancesAsync(period, ct),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a kind of insight."),
         };
 
@@ -87,7 +87,7 @@ public sealed class InsightFigureReader(ModbotContext db)
             Pair("Join requests approved", DailyTotalMetrics.ModeratorApprovals, now, before),
             Pair("Join requests rejected", DailyTotalMetrics.ModeratorRejections, now, before),
             Pair("Bans", DailyTotalMetrics.BansAdded, now, before),
-            Pair("Rooms opened", DailyTotalMetrics.InstancesOpened, now, before),
+            Pair("Instances opened", DailyTotalMetrics.InstancesOpened, now, before),
         };
 
         if (countsDiscord)
@@ -133,26 +133,26 @@ public sealed class InsightFigureReader(ModbotContext db)
         return (figures, []);
     }
 
-    private async Task<(List<InsightFigure>, List<InsightList>)> RoomsAsync(InsightPeriod period, CancellationToken ct)
+    private async Task<(List<InsightFigure>, List<InsightList>)> InstancesAsync(InsightPeriod period, CancellationToken ct)
     {
         string[] metrics = [DailyTotalMetrics.InstancesOpened];
 
         var now = await TotalsAsync(period.FirstDay, period.LastDay, metrics, ct);
         var before = await TotalsAsync(period.BeforeFirstDay, period.BeforeLastDay, metrics, ct);
 
-        var rooms = await RoomsInAsync(period.FirstDay, period.LastDay, ct);
-        var roomsBefore = await RoomsInAsync(period.BeforeFirstDay, period.BeforeLastDay, ct);
+        var instances = await InstancesInAsync(period.FirstDay, period.LastDay, ct);
+        var instancesBefore = await InstancesInAsync(period.BeforeFirstDay, period.BeforeLastDay, ct);
 
         var figures = new List<InsightFigure>
         {
-            Pair("Rooms opened", DailyTotalMetrics.InstancesOpened, now, before),
-            new("Typical minutes a room stayed open", MedianMinutes(rooms), MedianMinutes(roomsBefore)),
-            new("Most people in one room", MostPeople(rooms), MostPeople(roomsBefore)),
+            Pair("Instances opened", DailyTotalMetrics.InstancesOpened, now, before),
+            new("Typical minutes an instance stayed open", MedianMinutes(instances), MedianMinutes(instancesBefore)),
+            new("Most people in one instance", MostPeople(instances), MostPeople(instancesBefore)),
         };
 
-        var names = await WorldNamesAsync(rooms.Select(r => r.WorldId), ct);
+        var names = await WorldNamesAsync(instances.Select(r => r.WorldId), ct);
 
-        var busiest = rooms
+        var busiest = instances
             .Where(r => r.PeakUserCount is > 0)
             .OrderByDescending(r => r.PeakUserCount)
             .ThenBy(r => r.OpenedAt)
@@ -166,8 +166,8 @@ public sealed class InsightFigureReader(ModbotContext db)
 
         List<InsightList> lists =
         [
-            new("Busiest rooms, by most people at once", busiest),
-            new("Worlds, by rooms opened", await WorldsAsync(DailyTotalMetrics.WorldInstances, period, ct)),
+            new("Busiest instances, by most people at once", busiest),
+            new("Worlds, by instances opened", await WorldsAsync(DailyTotalMetrics.WorldInstances, period, ct)),
         ];
 
         return (figures, lists);
@@ -250,22 +250,22 @@ public sealed class InsightFigureReader(ModbotContext db)
             .ToDictionaryAsync(w => w.WorldId, w => w.Name, StringComparer.Ordinal, ct);
     }
 
-    private sealed record Room(string WorldId, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt, int? PeakUserCount);
+    private sealed record InstanceRecord(string WorldId, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt, int? PeakUserCount);
 
-    private async Task<List<Room>> RoomsInAsync(DateOnly first, DateOnly last, CancellationToken ct)
+    private async Task<List<InstanceRecord>> InstancesInAsync(DateOnly first, DateOnly last, CancellationToken ct)
     {
         var (from, to) = (Start(first), End(last));
 
         return await db.VRChatInstances.AsNoTracking()
             .Where(i => i.OpenedAt >= from && i.OpenedAt < to)
-            .Select(i => new Room(i.WorldId, i.OpenedAt, i.ClosedAt, i.PeakUserCount))
+            .Select(i => new InstanceRecord(i.WorldId, i.OpenedAt, i.ClosedAt, i.PeakUserCount))
             .ToListAsync(ct);
     }
 
-    /// <summary>The middle open time of the rooms that have closed, in whole minutes. Null with none closed.</summary>
-    private static decimal? MedianMinutes(List<Room> rooms)
+    /// <summary>The middle open time of the instances that have closed, in whole minutes. Null with none closed.</summary>
+    private static decimal? MedianMinutes(List<InstanceRecord> instances)
     {
-        var minutes = rooms
+        var minutes = instances
             .Where(r => r.ClosedAt is not null)
             .Select(r => (decimal)(r.ClosedAt!.Value - r.OpenedAt).TotalMinutes)
             .Order()
@@ -279,7 +279,7 @@ public sealed class InsightFigureReader(ModbotContext db)
         return Math.Round(median, 0);
     }
 
-    private static decimal? MostPeople(List<Room> rooms) => rooms.Max(r => r.PeakUserCount);
+    private static decimal? MostPeople(List<InstanceRecord> instances) => instances.Max(r => r.PeakUserCount);
 
     private static DateTimeOffset Start(DateOnly day) => InsightPeriod.DayStart(day);
 

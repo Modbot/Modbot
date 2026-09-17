@@ -10,14 +10,14 @@ namespace Modbot.Api.Features.Live.Stream;
 /// <remarks>
 /// <para>
 /// <strong>A person</strong> sees by permission, decided per event from what they hold at that
-/// moment: presence and rooms need "See live instances" (the Live page's own permission, M3
+/// moment: presence and instances need "See live instances" (the Live page's own permission, M3
 /// §7.4), alerts need "See analytics" (the card's own permission), reviews need "Review tickets"
 /// (the sidebar count's). A permission removed mid-connection stops the next event.
 /// </para>
 /// <para>
 /// <strong>A companion device</strong> sees presence in the one instance it named, and nothing
 /// else: its token is ingest-scoped and reads one group's roster context, and this stream is that
-/// roster as it changes. It is not sent alerts, reviews or room events, and it is not sent
+/// roster as it changes. It is not sent alerts, reviews or instance events, and it is not sent
 /// presence anywhere it is not standing -- the same boundary <c>DeviceLocations</c> draws for the
 /// old alert long poll.
 /// </para>
@@ -50,7 +50,7 @@ public sealed class LiveScope
     /// <summary>Whether this caller could be sent anything at all.</summary>
     public bool SeesAnything => IsDevice
         || EventVisibility.SeesAnything(Permissions)
-        || ModbotAuth.Allows(Permissions, ModbotPermissions.ViewLiveRooms)
+        || ModbotAuth.Allows(Permissions, ModbotPermissions.ViewLiveInstances)
         || ModbotAuth.Allows(Permissions, ModbotPermissions.ViewAnalytics)
         || ModbotAuth.Allows(Permissions, ModbotPermissions.ReviewTickets);
 
@@ -71,8 +71,8 @@ public sealed class LiveScope
         if (EventVisibility.CanSee(Permissions, type))
             return true;
 
-        if (LiveKinds.IsPresence(kind) || LiveKinds.IsRoom(kind))
-            return ModbotAuth.Allows(Permissions, ModbotPermissions.ViewLiveRooms);
+        if (LiveKinds.IsPresence(kind) || LiveKinds.IsInstance(kind))
+            return ModbotAuth.Allows(Permissions, ModbotPermissions.ViewLiveInstances);
 
         if (kind == LiveKinds.Alert)
             return ModbotAuth.Allows(Permissions, ModbotPermissions.ViewAnalytics);

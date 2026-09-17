@@ -459,8 +459,8 @@ public static class CalendarEndpoints
         if (opening?.Location is null)
             return null;
 
-        if (opening.RoomId is { } roomId
-            && await db.VRChatInstances.AsNoTracking().AnyAsync(i => i.Id == roomId && i.ClosedAt != null, ct))
+        if (opening.InstanceId is { } instanceId
+            && await db.VRChatInstances.AsNoTracking().AnyAsync(i => i.Id == instanceId && i.ClosedAt != null, ct))
         {
             return null;
         }
@@ -699,9 +699,9 @@ public static class CalendarEndpoints
             .Where(o => ids.Contains(o.EventId))
             .ToListAsync(ct);
 
-        var roomIds = openings.Where(o => o.RoomId != null).Select(o => o.RoomId!.Value).ToList();
-        var closedRooms = await db.VRChatInstances.AsNoTracking()
-            .Where(i => roomIds.Contains(i.Id) && i.ClosedAt != null)
+        var instanceIds = openings.Where(o => o.InstanceId != null).Select(o => o.InstanceId!.Value).ToList();
+        var closedInstances = await db.VRChatInstances.AsNoTracking()
+            .Where(i => instanceIds.Contains(i.Id) && i.ClosedAt != null)
             .Select(i => i.Id)
             .ToListAsync(ct);
 
@@ -719,7 +719,7 @@ public static class CalendarEndpoints
                 ? openings.FirstOrDefault(o => o.EventId == e.Id && o.OccurrenceStartsAt == current)
                 : null;
 
-            var closed = opening?.RoomId is { } room && closedRooms.Contains(room);
+            var closed = opening?.InstanceId is { } instance && closedInstances.Contains(instance);
 
             var occurrences = e.State == CalendarEventStates.Cancelled
                 ? []
@@ -771,7 +771,7 @@ public static class CalendarEndpoints
                     : new CalendarOpeningView(
                         opening.OccurrenceStartsAt,
                         opening.AttemptedAt,
-                        opening.RoomId,
+                        opening.InstanceId,
                         closed ? null : InstanceJoinLink.For(opening.Location),
                         closed,
                         opening.Error),

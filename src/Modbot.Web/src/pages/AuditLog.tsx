@@ -220,7 +220,7 @@ export function AuditLog() {
         if (!entry) return
         if (entry.subjectKind === 'Person')
           (entry.subjectPlatform.toLowerCase() === 'discord' ? openDiscordPerson : openPerson)(entry.subjectId)
-        else if (entry.subjectKind === 'Instance' && entry.roomId) openInstance(entry.roomId)
+        else if (entry.subjectKind === 'Instance' && entry.modbotInstanceId) openInstance(entry.modbotInstanceId)
       },
     },
   ])

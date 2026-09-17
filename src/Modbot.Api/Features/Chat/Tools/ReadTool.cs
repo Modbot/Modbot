@@ -13,7 +13,7 @@ namespace Modbot.Api.Features.Chat.Tools;
 /// <remarks>
 /// Every tool calls the same query code the page it mirrors uses, so Chat and the app cannot
 /// disagree about an answer or about who may see it. Where that code narrows by permission --
-/// the audit log, a room's people -- the person's own permissions from
+/// the audit log, an instance's people -- the person's own permissions from
 /// <see cref="ChatToolContext.Held"/> are passed straight through.
 /// </remarks>
 internal abstract class ReadTool : IChatTool
@@ -81,28 +81,28 @@ internal abstract class ReadTool : IChatTool
         return (rows, more);
     }
 
-    protected static IEnumerable<ChatReference> RoomReferences(InstanceRow room)
+    protected static IEnumerable<ChatReference> InstanceReferences(InstanceRow instance)
     {
-        yield return World(room.WorldId, room.WorldName);
+        yield return World(instance.WorldId, instance.WorldName);
         yield return new ChatReference(
             ChatReference.Instance,
-            room.Id.ToString(),
-            room.VRChatInstanceId is { } number ? $"{room.WorldName ?? "Room"} #{number}" : room.WorldName);
+            instance.Id.ToString(),
+            instance.VRChatInstanceId is { } number ? $"{instance.WorldName ?? instance.WorldId} #{number}" : instance.WorldName ?? instance.WorldId);
     }
 
-    /// <summary>A room, as the model is shown it: no pictures, the id it can pass to <c>get_instance</c>.</summary>
-    protected static object RoomSummary(InstanceRow room) => new
+    /// <summary>An instance, as the model is shown it: no pictures, the id it can pass to <c>get_instance</c>.</summary>
+    protected static object InstanceSummary(InstanceRow instance) => new
     {
-        instanceId = room.Id,
-        room.WorldId,
-        room.WorldName,
-        number = room.VRChatInstanceId,
-        room.GroupAccessType,
-        room.Region,
-        room.OpenedAt,
-        room.ClosedAt,
-        room.PeopleNow,
-        room.PeakPeople,
-        room.MinutesOpen,
+        instanceId = instance.Id,
+        instance.WorldId,
+        instance.WorldName,
+        number = instance.VRChatInstanceId,
+        instance.GroupAccessType,
+        instance.Region,
+        instance.OpenedAt,
+        instance.ClosedAt,
+        instance.PeopleNow,
+        instance.PeakPeople,
+        instance.MinutesOpen,
     };
 }

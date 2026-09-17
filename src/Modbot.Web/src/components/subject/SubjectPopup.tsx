@@ -9,7 +9,7 @@ import { useModal } from '@/lib/shortcuts'
 import { closeSubject, encodeSubject, useSubjects, type Subject } from '@/lib/subject'
 
 /**
- * The popup: a person, a world or a room, over whatever page is open.
+ * The popup: a person, a world or an instance, over whatever page is open.
  *
  * Spec 10.2's reason for a side pane rather than a page still decides everything here. Moderation
  * is interruption-driven — somebody scanning the audit log notices a name and needs to look
@@ -18,7 +18,7 @@ import { closeSubject, encodeSubject, useSubjects, type Subject } from '@/lib/su
  * puts the moderator exactly back where they were.
  *
  * What changed is the shape. A centre popup rather than a right-hand pane, because a person, a
- * world and a room each want their identity on the left and several tabs on the right, and a
+ * world and an instance each want their identity on the left and several tabs on the right, and a
  * narrow pane had room for one column. And several kinds rather than one, because every one of
  * them names the others.
  *

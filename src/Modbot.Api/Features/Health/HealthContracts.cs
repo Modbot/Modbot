@@ -346,7 +346,7 @@ public sealed record CalendarProblem(Guid EventId, string Title, string Place, s
 public sealed record AiCallsHealth(int Calls, int Errors, int TimedOut, int Fallbacks, string? AnsweringModel);
 
 /// <summary>Emails waiting under the daily limit, and emails given up on.</summary>
-/// <param name="Queued">Messages waiting for room or for their next try.</param>
+/// <param name="Queued">Messages waiting for instance or for their next try.</param>
 /// <param name="Failed">Messages the relay refused too many times, in the last few days.</param>
 /// <param name="NextSendAt">When the next queued message should go out, or null.</param>
 public sealed record EmailHealth(int Queued, int Failed, DateTimeOffset? NextSendAt);

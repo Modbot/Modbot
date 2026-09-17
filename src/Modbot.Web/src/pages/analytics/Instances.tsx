@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { DailyBars, Heatmap, Legend, compactNumber, minutes } from '@/components/charts'
-import { RoomTable } from '@/components/RoomTable'
+import { InstanceTable } from '@/components/InstanceTable'
 import { api, type HourOfWeek } from '@/lib/api'
 import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, Toggle } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
@@ -48,16 +48,16 @@ export function Instances() {
           {/*
             Before the charts, deliberately. The counts answer "is the community active"; this
             answers "what actually ran last night", which is the question a moderator opening the
-            page usually came with -- and a page of numbers with no rooms on it cannot answer it.
+            page usually came with -- and a page of numbers with no instances on it cannot answer it.
           */}
           {data.openNow.length > 0 && (
             <Panel title="Open right now">
-              <RoomTable rooms={data.openNow} />
+              <InstanceTable instances={data.openNow} />
             </Panel>
           )}
 
           <Panel title="Recent instances">
-            {data.recent.length === 0 ? <Nothing>No instances yet.</Nothing> : <RoomTable rooms={data.recent} />}
+            {data.recent.length === 0 ? <Nothing>No instances yet.</Nothing> : <InstanceTable instances={data.recent} />}
           </Panel>
 
           <Panel

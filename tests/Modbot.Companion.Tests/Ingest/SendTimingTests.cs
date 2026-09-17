@@ -129,7 +129,7 @@ public sealed class SendTimingTests : IDisposable
     }
 
     [Fact]
-    public async Task AQuietRoomSendsNothingExtra()
+    public async Task AQuietInstanceSendsNothingExtra()
     {
         var connection = Connection();
         connection.Accept(Seen(PresenceKind.Joined));
@@ -147,7 +147,7 @@ public sealed class SendTimingTests : IDisposable
     }
 
     [Fact]
-    public async Task ABackoffStillWins_HoweverLivelyTheRoom()
+    public async Task ABackoffStillWins_HoweverLivelyTheInstance()
     {
         var connection = Connection();
         _transport.Answer = IngestOutcome.ServerTrouble;

@@ -3,10 +3,10 @@ namespace Modbot.Landing.Configuration;
 /// <summary>The environment variables Modbot.Landing reads, and nothing else.</summary>
 /// <param name="Port">The port to listen on. Railway injects it.</param>
 /// <param name="CloudUrl">
-/// The Modbot Cloud the open rooms are read from. Unset means the rooms page says nothing is open.
+/// The Modbot Cloud the open instances are read from. Unset means the instances page says nothing is open.
 /// </param>
 /// <param name="CloudApiKey">
-/// The key that opens Cloud's public rooms feed. It is used only by this server, on the server
+/// The key that opens Cloud's public instances feed. It is used only by this server, on the server
 /// side, and is never written into a page: the browser asks this site, and this site asks Cloud.
 /// </param>
 /// <param name="MyUrl">
@@ -25,8 +25,8 @@ public sealed record LandingEnvironment(int Port, Uri? CloudUrl, string? CloudAp
     /// <summary>The address the page is built with, and what a missing or unusable value means.</summary>
     public const string DefaultMyUrl = "https://my.modbot.co";
 
-    /// <summary>True when the rooms page has somewhere to read from.</summary>
-    public bool CanReadRooms => CloudUrl is not null && !string.IsNullOrEmpty(CloudApiKey);
+    /// <summary>True when the instances page has somewhere to read from.</summary>
+    public bool CanReadInstances => CloudUrl is not null && !string.IsNullOrEmpty(CloudApiKey);
 
     public static LandingEnvironment Read(Func<string, string?>? get = null)
     {
@@ -36,7 +36,7 @@ public sealed record LandingEnvironment(int Port, Uri? CloudUrl, string? CloudAp
             ? parsed
             : DefaultPort;
 
-        // Anything that is not a full http or https address is no address at all. The rooms page
+        // Anything that is not a full http or https address is no address at all. The instances page
         // then shows nothing rather than this server trying to resolve a typo every minute.
         var cloud = Uri.TryCreate(get(CloudUrlVariable), UriKind.Absolute, out var url)
                     && url.Scheme is "http" or "https"

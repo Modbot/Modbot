@@ -108,7 +108,7 @@ public class InsightWriterTests : InsightTestBase
         Answer = _ => Refused("Unknown model base-model");
 
         await using (var context = NewContext())
-            await NewWriter(context).WriteAsync(InsightKinds.Rooms, InsightKinds.EveryWeek, Today, InsightStart.Schedule("555"), Ct);
+            await NewWriter(context).WriteAsync(InsightKinds.Instances, InsightKinds.EveryWeek, Today, InsightStart.Schedule("555"), Ct);
 
         await using var read = NewContext();
         var stored = await read.Insights.AsNoTracking().SingleAsync(Ct);
@@ -146,7 +146,7 @@ public class InsightWriterTests : InsightTestBase
         await using (var context = NewContext())
         {
             await NewWriter(context).WriteAsync(InsightKinds.Group, InsightKinds.EveryWeek, Today, InsightStart.Schedule(null), Ct);
-            await NewWriter(context).WriteAsync(InsightKinds.Rooms, InsightKinds.EveryWeek, Today, InsightStart.Button(person, "sam"), Ct);
+            await NewWriter(context).WriteAsync(InsightKinds.Instances, InsightKinds.EveryWeek, Today, InsightStart.Button(person, "sam"), Ct);
         }
 
         await using var read = NewContext();

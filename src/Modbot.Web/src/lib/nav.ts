@@ -18,7 +18,7 @@ export const NAV = [
   // on one side only and most never link.
   { id: 'discord-members', label: 'Discord members', needs: 'ViewMembers' },
   // The group's open instances right now and who is in each.
-  { id: 'live', label: 'Live', needs: 'ViewLiveRooms' },
+  { id: 'live', label: 'Live', needs: 'ViewLiveInstances' },
   // Planned events, where each is published, and the calendar feed (calendar design).
   { id: 'calendar', label: 'Calendar', needs: 'ViewCalendar' },
   // Questions answered from Modbot's own data, with tools that run as the person asking.

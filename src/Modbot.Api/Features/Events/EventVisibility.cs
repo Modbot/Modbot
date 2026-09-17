@@ -14,7 +14,7 @@ namespace Modbot.Api.Features.Events;
 /// </para>
 /// <para>
 /// <strong>One narrowing.</strong> Presence -- where somebody is standing -- additionally needs
-/// <see cref="ModbotPermissions.ViewLiveRooms"/>. The audit log shows an instance join afterwards
+/// <see cref="ModbotPermissions.ViewLiveInstances"/>. The audit log shows an instance join afterwards
 /// to anyone who reads it; a live feed says where the person is now, which M3 section 7.4 made its
 /// own permission.
 /// </para>
@@ -41,7 +41,7 @@ public static class EventVisibility
         if (!AuditVisibility.CanSee(held, AuditVisibility.CategoryOf(type)))
             return false;
 
-        return !IsPresence(type) || ModbotAuth.Allows(held, ModbotPermissions.ViewLiveRooms);
+        return !IsPresence(type) || ModbotAuth.Allows(held, ModbotPermissions.ViewLiveInstances);
     }
 
     /// <summary>Whether this caller could be sent any event at all.</summary>

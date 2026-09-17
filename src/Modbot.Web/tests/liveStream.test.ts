@@ -137,6 +137,7 @@ function event(id: string, kind = 'person_joined'): LiveEvent {
     actor: null,
     instanceId: '39911',
     worldId: 'wrld_4b34',
+    worldName: 'The Black Cat',
     person: { id: 'usr_' + id, displayName: 'Person ' + id, trustRank: null, standing: 'Ordinary', priorActions: 0, flags: [] },
     flagged: false,
     reason: null,

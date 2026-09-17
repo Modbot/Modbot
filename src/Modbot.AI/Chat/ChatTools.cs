@@ -54,11 +54,11 @@ public sealed record ChatToolContext(Guid UserId, ModbotPermissions Held, IServi
 /// <remarks>
 /// These are the sources of an answer. A tool sends back a reference for every row it returned, so
 /// the page can show what the answer was built from and open each one where it lives: a person,
-/// world or room in its popup, a fact in the audit log, a case file on its own page, a Discord
+/// world or instance in its popup, a fact in the audit log, a case file on its own page, a Discord
 /// message in that person's messages, an event on the calendar.
 /// </remarks>
 /// <param name="Kind">One of the constants below -- what the chip opens.</param>
-/// <param name="Id">The VRChat user or world id, Modbot's own room id, or the row's own id.</param>
+/// <param name="Id">The VRChat user or world id, Modbot's own instance id, or the row's own id.</param>
 /// <param name="Label">A name to show, when one is known.</param>
 /// <param name="Author">For a Discord message: whose messages to open it in.</param>
 public sealed record ChatReference(string Kind, string Id, string? Label, string? Author = null)

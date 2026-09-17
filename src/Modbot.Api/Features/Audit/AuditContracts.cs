@@ -42,7 +42,7 @@ public enum SubjectKind
     /// <summary>A VRChat or Discord person. The ordinary case.</summary>
     Person = 1,
 
-    /// <summary>A room: the subject is the location string the event happened at.</summary>
+    /// <summary>An instance: the subject is the location string the event happened at.</summary>
     Instance = 2,
 
     /// <summary>The managed group itself.</summary>
@@ -84,10 +84,10 @@ public enum SubjectKind
 /// <param name="WorldName">
 /// What the world is called, from <c>vrchat_world</c>. Null when Modbot has only ever seen the id.
 /// </param>
-/// <param name="RoomId">
-/// Modbot's own id for the room this happened in, where one could be matched. The fact log keys a
-/// room on the world and VRChat's number, which is handed out again after a room closes, so the
-/// match is made on the fact's time falling inside a room's own open and close times.
+/// <param name="ModbotInstanceId">
+/// Modbot's own id for the instance this happened in, where one could be matched. The fact log keys a
+/// instance on the world and VRChat's number, which is handed out again after an instance closes, so the
+/// match is made on the fact's time falling inside an instance's own open and close times.
 /// </param>
 /// <param name="Data">
 /// The fact's own payload, verbatim. Secrets are never in it by construction (spec 5.9.3).
@@ -114,7 +114,7 @@ public sealed record AuditEntry(
     string? WorldId,
     string? WorldName,
     string? InstanceId,
-    Guid? RoomId,
+    Guid? ModbotInstanceId,
     string? Description,
     JsonNode? Data,
     TrustRank? SubjectTrustRank = null,

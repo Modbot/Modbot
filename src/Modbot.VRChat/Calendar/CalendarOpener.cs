@@ -29,7 +29,7 @@ public sealed record CalendarOpenerResult(int Opened, int Failed, bool NotConfig
 /// here loops against a write VRChat has just refused.
 /// </para>
 /// <para>
-/// The room is recorded through <see cref="PlaceStore"/> the same way a sighting is, so Live, the
+/// The instance is recorded through <see cref="PlaceStore"/> the same way a sighting is, so Live, the
 /// instance cards and the calendar's Discord posts find it without knowing where it came from.
 /// </para>
 /// </remarks>
@@ -169,10 +169,10 @@ public sealed class CalendarOpener
             return false;
         }
 
-        var room = await _places.RecordSightingAsync(location, now, fromGroupList: false, ct: ct).ConfigureAwait(false);
+        var instance = await _places.RecordSightingAsync(location, now, fromGroupList: false, ct: ct).ConfigureAwait(false);
 
         attempt.Location = location;
-        attempt.RoomId = room?.Id;
+        attempt.InstanceId = instance?.Id;
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         _log.Information("Opened the instance for the event {EventId}", calendarEvent.Id);
@@ -181,8 +181,8 @@ public sealed class CalendarOpener
             FactType.PlannedEventInstanceOpened,
             calendarEvent,
             new JsonObject { ["occurrenceStartsAt"] = attempt.OccurrenceStartsAt.ToString("O") },
-            worldId: room?.WorldId ?? calendarEvent.WorldId,
-            instanceId: room?.VRChatInstanceId,
+            worldId: instance?.WorldId ?? calendarEvent.WorldId,
+            instanceId: instance?.VRChatInstanceId,
             ct: ct).ConfigureAwait(false);
 
         return true;

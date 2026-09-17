@@ -1,7 +1,7 @@
 namespace Modbot.Core.Data;
 
 /// <summary>
-/// VRChat's launch page for a room:
+/// VRChat's launch page for an instance:
 /// <c>https://vrchat.com/home/launch?worldId=wrld_…&amp;instanceId=26093~group(grp_…)~groupAccessType(plus)~region(us)</c>.
 /// </summary>
 /// <remarks>
@@ -15,7 +15,7 @@ public static class InstanceJoinLink
 
     /// <summary>
     /// The link for a location. <c>instanceId</c> is everything after the first <c>:</c>,
-    /// qualifiers and all, because the qualifiers are part of which room it is. The characters
+    /// qualifiers and all, because the qualifiers are part of which instance it is. The characters
     /// VRChat writes in a location (<c>~</c>, <c>(</c>, <c>)</c>) are kept, and anything that could
     /// end or split the query string is escaped.
     /// </summary>
@@ -34,7 +34,7 @@ public static class InstanceJoinLink
 
         var link = $"https://vrchat.com/home/launch?worldId={QueryValue(world)}&instanceId={QueryValue(instanceId)}";
 
-        // Discord refuses the whole message when a link button's address is too long, so a room with
+        // Discord refuses the whole message when a link button's address is too long, so an instance with
         // a very long custom instance id goes without the link rather than without the message.
         return link.Length <= MaxLength ? link : null;
     }

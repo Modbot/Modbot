@@ -40,7 +40,7 @@ export function SettingsSection({
  * One card on the settings grid.
  *
  * `span` is the width on wide screens: 6 for most cards, 12 for the few that genuinely need the
- * room (a chart, a form with many columns). Everything narrower than `lg` gets one card per row.
+ * instance (a chart, a form with many columns). Everything narrower than `lg` gets one card per row.
  * `footer` is where the card's buttons and their "Saved." / error text go, so every card puts its
  * actions in the same place.
  */

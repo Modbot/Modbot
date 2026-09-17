@@ -10,9 +10,9 @@ test('opening from inside a popup stacks, and Back names the one underneath', ()
   stack = open(stack, { kind: 'world', id: 'wrld_harbor' })
   assert.equal(backLabel(stack), 'Back to the person')
 
-  stack = open(stack, { kind: 'instance', id: 'room_1' })
+  stack = open(stack, { kind: 'instance', id: 'instance_1' })
   assert.equal(backLabel(stack), 'Back to the world')
-  assert.deepEqual(top(stack), { kind: 'instance', id: 'room_1' })
+  assert.deepEqual(top(stack), { kind: 'instance', id: 'instance_1' })
 })
 
 test('closing takes one level off, never the whole stack', () => {

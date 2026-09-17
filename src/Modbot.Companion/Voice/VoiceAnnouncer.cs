@@ -15,7 +15,7 @@ namespace Modbot.Companion.Voice;
 /// device, because that means reporting has silently stopped. Each kind has its own switch, and
 /// the whole thing is off until turned on.</para>
 /// <para><strong>Silent while paused.</strong> Pausing reporting means "stop watching what I do",
-/// and a voice that kept narrating the room would be watching. Anything queued is dropped rather
+/// and a voice that kept narrating the instance would be watching. Anything queued is dropped rather
 /// than saved up.</para>
 /// <para><strong>Never over itself.</strong> One line is spoken at a time; while it plays, new
 /// lines wait in the queue, which folds a burst into one sentence and drops what has gone stale.</para>

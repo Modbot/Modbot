@@ -44,7 +44,7 @@ public enum FactCondition
 /// <param name="Name">Dotted metric name, stored verbatim in <c>modbot_daily_total.metric</c>.</param>
 /// <param name="CountDistinctSubjects">
 /// Count each person once per day and dimension rather than summing facts. For presence: a
-/// moderator walking into a room writes one "seen here" fact per occupant, and a second
+/// moderator walking into an instance writes one "seen here" fact per occupant, and a second
 /// moderator arriving an hour later writes them all again, so summing those facts inflates
 /// with the number of moderators watching. Distinct people per day does not.
 /// </param>

@@ -12,23 +12,23 @@ namespace Modbot.Api.Features.Places;
 /// <para>
 /// One copy of the session sum, shared by the Worlds page, the world popup, the instance popup
 /// and one person's own figures. It used to live inside <c>WorldsAnalyticsQuery</c> as a private
-/// method; the popups need the same arithmetic for one world, one room and one person, and a
+/// method; the popups need the same arithmetic for one world, one instance and one person, and a
 /// second copy of it would be a second answer to "how long was this person here" that could
 /// disagree with the first.
 /// </para>
 /// <para>
-/// <strong>A person's presence in a room is the last thing said about them there.</strong> An
+/// <strong>A person's presence in an instance is the last thing said about them there.</strong> An
 /// arrival makes them present, a leave makes them absent, and a repeat of either changes nothing
 /// — so each report that changes the state opens a session and the next state change closes it. A
-/// session nobody saw the end of closes at the last report from that room, which is the last
+/// session nobody saw the end of closes at the last report from that instance, which is the last
 /// moment anything is known. Time nobody was watching is never counted: presence facts exist only
-/// while a moderator's companion is in the room.
+/// while a moderator's companion is in the instance.
 /// </para>
 /// <para>
-/// The world and room filters are written into the statement rather than passed as optional
+/// The world and instance filters are written into the statement rather than passed as optional
 /// parameters, because they are part of the key the sessions are grouped by and narrowing on them
 /// cannot change any session's shape. The person filter is applied at the end instead: narrowing
-/// to one person first would make "the last report from that room" mean "the last report about
+/// to one person first would make "the last report from that instance" mean "the last report about
 /// that person", and every session they were not seen to leave would close early.
 /// </para>
 /// </remarks>
@@ -37,13 +37,13 @@ public sealed class PresenceCounts(ModbotContext db)
     private readonly AnalyticsSql _sql = new(db);
 
     /// <summary>
-    /// Sessions, from the presence reports, narrowed to a world or a room where asked.
+    /// Sessions, from the presence reports, narrowed to a world or an instance where asked.
     /// </summary>
     /// <remarks>
     /// The window bounds are always real instants — all of recorded history is expressed as the
     /// widest pair rather than as nulls, so no parameter here is ever typeless.
     /// </remarks>
-    private static string Sessions(bool byWorld, bool byRoom) => $"""
+    private static string Sessions(bool byWorld, bool byInstance) => $"""
         WITH p AS (
             SELECT e.world_id, e.instance_id, e.subject_id, e.occurred_at, e.id,
                    CASE WHEN e.type = @leave THEN 0 ELSE 1 END AS here
@@ -52,7 +52,7 @@ public sealed class PresenceCounts(ModbotContext db)
               AND e.occurred_at >= @from AND e.occurred_at < @to
               AND e.world_id IS NOT NULL AND e.instance_id IS NOT NULL
               {(byWorld ? "AND e.world_id = @world" : "")}
-              {(byRoom ? "AND e.instance_id = @room" : "")}
+              {(byInstance ? "AND e.instance_id = @instance" : "")}
         ),
         changes AS (
             SELECT p.*,
@@ -89,7 +89,7 @@ public sealed class PresenceCounts(ModbotContext db)
         CancellationToken ct)
     {
         var sql = $"""
-            {Sessions(byWorld: false, byRoom: false)}
+            {Sessions(byWorld: false, byInstance: false)}
             SELECT world_id,
                    (SUM(EXTRACT(EPOCH FROM (ended - started))) / 60.0)::numeric AS minutes,
                    COUNT(DISTINCT subject_id)::int AS visitors,
@@ -112,7 +112,7 @@ public sealed class PresenceCounts(ModbotContext db)
     /// <summary>Everything recorded about one world, over all of recorded history.</summary>
     public async Task<PlaceCounts> ForWorldAsync(string worldId, CancellationToken ct)
     {
-        var sql = $"{Sessions(byWorld: true, byRoom: false)}\n{Totals}";
+        var sql = $"{Sessions(byWorld: true, byInstance: false)}\n{Totals}";
 
         var rows = await _sql.ReadAsync(
             sql, r => ReadCounts(r, 0), ct, [.. Everything(), ("world", worldId)]);
@@ -121,27 +121,27 @@ public sealed class PresenceCounts(ModbotContext db)
     }
 
     /// <summary>
-    /// Everything recorded about one room, bounded to the stretch that room was open.
+    /// Everything recorded about one instance, bounded to the stretch that instance was open.
     /// </summary>
     /// <remarks>
-    /// The bounds matter more here than anywhere else: VRChat hands the same room number out
-    /// again after a room closes, so presence facts keyed on world and number alone would blend
-    /// last Tuesday's evening into tonight's. The room's own open and close times tell them apart
+    /// The bounds matter more here than anywhere else: VRChat hands the same instance number out
+    /// again after an instance closes, so presence facts keyed on world and number alone would blend
+    /// last Tuesday's evening into tonight's. The instance's own open and close times tell them apart
     /// (<see cref="VRChatInstance"/>).
     /// </remarks>
-    public async Task<PlaceCounts> ForRoomAsync(Room room, CancellationToken ct)
+    public async Task<PlaceCounts> ForInstanceAsync(InstanceLife instance, CancellationToken ct)
     {
-        var sql = $"{Sessions(byWorld: true, byRoom: true)}\n{Totals}";
-        var rows = await _sql.ReadAsync(sql, r => ReadCounts(r, 0), ct, RoomParameters(room));
+        var sql = $"{Sessions(byWorld: true, byInstance: true)}\n{Totals}";
+        var rows = await _sql.ReadAsync(sql, r => ReadCounts(r, 0), ct, InstanceParameters(instance));
 
         return rows.Count > 0 ? rows[0] : PlaceCounts.Nothing;
     }
 
-    /// <summary>Who was seen in one room, longest first.</summary>
-    public async Task<IReadOnlyList<PersonSeen>> PeopleInRoomAsync(Room room, CancellationToken ct)
+    /// <summary>Who was seen in one instance, longest first.</summary>
+    public async Task<IReadOnlyList<PersonSeen>> PeopleInInstanceAsync(InstanceLife instance, CancellationToken ct)
     {
         var sql = $"""
-            {Sessions(byWorld: true, byRoom: true)}
+            {Sessions(byWorld: true, byInstance: true)}
             SELECT subject_id,
                    (SUM(EXTRACT(EPOCH FROM (ended - started))) / 60.0)::numeric AS minutes,
                    COUNT(*)::int AS arrivals,
@@ -163,7 +163,7 @@ public sealed class PresenceCounts(ModbotContext db)
                 AnalyticsSql.InstantOf(r, 3),
                 AnalyticsSql.InstantOf(r, 4)),
             ct,
-            RoomParameters(room));
+            InstanceParameters(instance));
     }
 
     /// <summary>
@@ -172,10 +172,10 @@ public sealed class PresenceCounts(ModbotContext db)
     public async Task<PersonCounts> ForPersonAsync(string userId, CancellationToken ct)
     {
         var sql = $"""
-            {Sessions(byWorld: false, byRoom: false)}
+            {Sessions(byWorld: false, byInstance: false)}
             SELECT (SUM(EXTRACT(EPOCH FROM (ended - started))) / 60.0)::numeric AS minutes,
                    COUNT(DISTINCT world_id)::int AS worlds,
-                   COUNT(DISTINCT (world_id, instance_id))::int AS rooms,
+                   COUNT(DISTINCT (world_id, instance_id))::int AS instances,
                    COUNT(*)::int AS arrivals,
                    MIN(started) AS first_seen_at,
                    MAX(ended) AS last_seen_at
@@ -237,20 +237,20 @@ public sealed class PresenceCounts(ModbotContext db)
         ("to", to),
     ];
 
-    private static (string Name, object? Value)[] RoomParameters(Room room) =>
+    private static (string Name, object? Value)[] InstanceParameters(InstanceLife instance) =>
     [
-        // Inclusive of the moment the room opened and of the moment it was last known to exist:
-        // a presence report stamped on either boundary belongs to this room.
-        .. Window(room.OpenedAt, room.EndsAt.AddSeconds(1)),
-        ("world", room.WorldId),
-        ("room", room.Number),
+        // Inclusive of the moment the instance opened and of the moment it was last known to exist:
+        // a presence report stamped on either boundary belongs to this instance.
+        .. Window(instance.OpenedAt, instance.EndsAt.AddSeconds(1)),
+        ("world", instance.WorldId),
+        ("instance", instance.Number),
     ];
 }
 
 /// <summary>
-/// Which room, and over what stretch of time — the three things that tell one evening in a room
+/// Which instance, and over what stretch of time — the three things that tell one evening in an instance
 /// from another evening under the same number.
 /// </summary>
-/// <param name="Number">VRChat's own number for the room, which is what the fact log carries.</param>
+/// <param name="Number">VRChat's own number for the instance, which is what the fact log carries.</param>
 /// <param name="EndsAt">When it closed, or the last moment it was known to exist.</param>
-public readonly record struct Room(string WorldId, string Number, DateTimeOffset OpenedAt, DateTimeOffset EndsAt);
+public readonly record struct InstanceLife(string WorldId, string Number, DateTimeOffset OpenedAt, DateTimeOffset EndsAt);

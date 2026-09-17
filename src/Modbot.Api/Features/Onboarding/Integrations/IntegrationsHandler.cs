@@ -19,7 +19,7 @@ namespace Modbot.Api.Features.Onboarding.Integrations;
 /// posts the card on its own. Always sent with mentions disabled.
 /// </param>
 /// <param name="InstanceShowNames">
-/// Whether a card lists who is in a room while a moderator is watching it. Null leaves it alone.
+/// Whether a card lists who is in an instance while a moderator is watching it. Null leaves it alone.
 /// </param>
 public sealed record DiscordSettings(
     string? BotToken = null,

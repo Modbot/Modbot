@@ -17,7 +17,7 @@ namespace Modbot.VRChat.Sync;
 /// member pages. That is faster than §4.2's cap, and §4.3.4 says §4.2 wins where they disagree,
 /// so 2 seconds is the floor and the default. A typical 5,000-member group is fifty-odd pages,
 /// about 100 seconds per pass; the rest between passes is what keeps the average well under the
-/// class budget and leaves the room spec 4.2 reserves for a moderator's own requests.
+/// class budget and leaves the instance spec 4.2 reserves for a moderator's own requests.
 /// </para>
 /// <para>
 /// Every value here can be raised (slower) and none can be lowered past the floor, which is spec

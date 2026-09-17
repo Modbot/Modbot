@@ -15,7 +15,7 @@ using Modbot.Cloud.Features.InstanceLogs;
 using Modbot.Cloud.Features.Installs;
 using Modbot.Cloud.Features.Mail;
 using Modbot.Cloud.Features.Pages;
-using Modbot.Cloud.Features.PublicRooms;
+using Modbot.Cloud.Features.PublicInstances;
 using Modbot.Cloud.Features.Registry;
 using Modbot.Cloud.Features.Retention;
 using Modbot.Cloud.Features.Showcase;
@@ -35,7 +35,7 @@ public static class CloudApp
     /// <param name="connectionString">Cloud's main database.</param>
     /// <param name="engineConnectionString">The event storage database.</param>
     /// <param name="rootApiKey">Unlocks admin. Null closes it to everyone.</param>
-    /// <param name="roomsApiKey">Reads the public rooms feed. Null leaves only the root key.</param>
+    /// <param name="instancesApiKey">Reads the public instances feed. Null leaves only the root key.</param>
     /// <param name="proxyApiKey">
     /// What my.modbot.co and the landing page send. Null closes <c>/api/v1/site</c> to everyone.
     /// </param>
@@ -47,7 +47,7 @@ public static class CloudApp
         string connectionString,
         string engineConnectionString,
         string? rootApiKey,
-        string? roomsApiKey = null,
+        string? instancesApiKey = null,
         string? proxyApiKey = null,
         MailSettings? mail = null,
         bool runDailyUpkeep = true,
@@ -67,14 +67,14 @@ public static class CloudApp
 
         var root = new RootApiKey(rootApiKey);
         services.AddSingleton(root);
-        services.AddSingleton(new RoomsApiKey(roomsApiKey, root));
+        services.AddSingleton(new InstancesApiKey(instancesApiKey, root));
         services.AddSingleton(new ProxyApiKey(proxyApiKey));
         services.AddSingleton<AppPage>();
         services.AddSingleton<AdminSessions>();
         services.AddSingleton<LoginAttempts>();
         services.AddSingleton<RegistrationLimit>();
         services.AddSingleton<EventBackupLimits>();
-        services.AddSingleton<PublicRoomsLimit>();
+        services.AddSingleton<PublicInstancesLimit>();
         services.AddSingleton<InstanceLogLimits>();
 
         // Accounts. The hasher is Identity's, standalone: Cloud wants the hash function and none of
@@ -152,7 +152,7 @@ public static class CloudApp
         app.MapTime();
         app.MapInstalls();
         app.MapEventBackup();
-        app.MapPublicRooms();
+        app.MapPublicInstances();
         app.MapInstanceLogs();
         app.MapAdminLogs();
         app.MapAdminInstanceAlerts();

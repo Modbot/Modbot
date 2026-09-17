@@ -46,7 +46,7 @@ public static class InsightPrompt
     {
         InsightKinds.Group => "the group as a whole -- members, how people join, and how active it is",
         InsightKinds.Team => "the moderation team as a whole -- how much moderation happened and of what kind",
-        InsightKinds.Rooms => "the group's rooms (VRChat instances) -- how many ran, for how long, and how busy they were",
+        InsightKinds.Instances => "the group's instances (VRChat instances) -- how many ran, for how long, and how busy they were",
         _ => kind,
     };
 }

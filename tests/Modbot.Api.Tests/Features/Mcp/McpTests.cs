@@ -142,7 +142,7 @@ public class McpTests
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         await TurnOnAsync();
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile | ModbotPermissions.ViewLiveRooms, Ct);
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewProfile | ModbotPermissions.ViewLiveInstances, Ct);
 
         var clientId = await RegisterAsync(host);
         var (verifier, challenge) = Pkce();
@@ -160,7 +160,7 @@ public class McpTests
         Assert.Equal("Test app", view.GetProperty("clientName").GetString());
         var offered = view.GetProperty("tools").EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToList();
         Assert.Contains("find_person", offered);
-        Assert.Contains("list_live_rooms", offered);
+        Assert.Contains("list_live_instances", offered);
         Assert.DoesNotContain("search_audit_log", offered);
 
         // Refusing sends the app an error and no code.
@@ -203,9 +203,9 @@ public class McpTests
         var tools = await mcp.ListToolsAsync(cancellationToken: Ct);
         Assert.Equal(offered.OrderBy(n => n), tools.Select(t => t.Name).OrderBy(n => n));
 
-        var rooms = await mcp.CallToolAsync("list_live_rooms", new Dictionary<string, object?>(), cancellationToken: Ct);
-        Assert.NotEqual(true, rooms.IsError);
-        Assert.Contains("rooms", Assert.IsType<TextContentBlock>(rooms.Content[0]).Text, StringComparison.OrdinalIgnoreCase);
+        var instances = await mcp.CallToolAsync("list_live_instances", new Dictionary<string, object?>(), cancellationToken: Ct);
+        Assert.NotEqual(true, instances.IsError);
+        Assert.Contains("instances", Assert.IsType<TextContentBlock>(instances.Content[0]).Text, StringComparison.OrdinalIgnoreCase);
 
         // The connection is listed for its person, under the app's name.
         var list = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/mcp/connections", null, cookie, Ct), Ct);
@@ -264,7 +264,7 @@ public class McpTests
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         await TurnOnAsync();
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewLiveInstances, Ct);
         var clientId = await RegisterAsync(host);
         var (verifier, challenge) = Pkce();
         var first = await ExchangeAsync(host, clientId, await ApproveAsync(host, cookie, clientId, challenge), verifier);
@@ -452,7 +452,7 @@ public class McpTests
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         await TurnOnAsync();
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewLiveInstances, Ct);
         var (_, other) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
         var clientId = await RegisterAsync(host);
         var (verifier, challenge) = Pkce();

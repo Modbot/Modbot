@@ -48,7 +48,7 @@ public static class McpRegistration
                 };
                 options.ServerInstructions =
                     "Tools that look things up in this VRChat group's Modbot: people, bans, the audit log, "
-                    + "rooms, worlds, Discord messages and members, flags, the calendar and figures. Every "
+                    + "instances, worlds, Discord messages and members, flags, the calendar and figures. Every "
                     + "answer is what the signed-in person may already see. Answer only from what the tools "
                     + "return, and never write an id a tool did not return.";
             })

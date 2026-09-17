@@ -61,12 +61,12 @@ It depends on what the group has set up. At most:
 
 **Where you have been**
 
-- Which of the group's rooms you joined and left, and when — so how long you were in each.
+- Which of the group's instances you joined and left, and when — so how long you were in each.
 - When you changed avatar, and the avatar's name.
-- Which room you were in when something happened, and who else was there at the time.
+- Which instance you were in when something happened, and who else was there at the time.
 
 This comes from two places: the group's own instance list, and the Windows client some moderators
-run, which reads the VRChat log file on their PC. That log names everyone in the room with them,
+run, which reads the VRChat log file on their PC. That log names everyone in the instance with them,
 which is how a group learns you were there even if no moderator interacted with you.
 
 **Moderation**
@@ -102,7 +102,7 @@ including one running on their own machine. What is sent depends on the feature:
   attachments, Discord avatars, VRChat profile pictures.
 - **Chat.** When a moderator asks Modbot's assistant a question, the assistant looks things up and
   sends what it found to the provider. That can include names, bios, ban history and who was in a
-  room.
+  instance.
 - **Insights and alerts.** Counts and world names only. No person's name, id or message.
 
 Word lists are matched on the group's own server. Nothing is sent to a provider for those.
@@ -110,15 +110,15 @@ Word lists are matched on the group's own server. Nothing is sent to a provider 
 **To Modbot Cloud, if the group's moderators run the Windows client.** The client reads the VRChat
 log on that moderator's PC and sends us the events in it: someone joined an instance, someone was
 seen there, someone left, someone changed avatar. Each event carries the person's VRChat id, their
-display name, the world and the instance — **including you, if you were in a room with that
-moderator, and including rooms that have nothing to do with the group.** No raw log lines, no chat,
+display name, the world and the instance — **including you, if you were in an instance with that
+moderator, and including instances that have nothing to do with the group.** No raw log lines, no chat,
 no friends list. See [What the companion sends](#what-does-the-companion-send) for what it
 is and how it is turned off. We keep these events for 365 days.
 
-**To modbot.co, if the group left the open rooms setting on.** A group whose Modbot has this on
-sends us the rooms it has open **that anyone can join**, so they can be listed on
-[modbot.co/rooms](https://modbot.co/rooms). That is the world, the join link, the region, when the
-room opened, and the group's name and pictures. **Nobody is counted and nobody is named.** A room
+**To modbot.co, if the group left the open instances setting on.** A group whose Modbot has this on
+sends us the instances it has open **that anyone can join**, so they can be listed on
+[modbot.co/instances](https://modbot.co/instances). That is the world, the join link, the region, when the
+instance opened, and the group's name and pictures. **Nobody is counted and nobody is named.** An instance
 limited to group members, or to members and their friends, is never sent. See
 [What does my server send to Modbot Cloud?](#what-does-my-server-send-to-modbot-cloud)
 
@@ -150,7 +150,7 @@ ours, and you can write to **me@bin.moe** about them.
 
 People the operator has given an account on their Modbot, with whatever permissions they gave them.
 Nothing in Modbot is public by default. The one thing a group can choose to publish is its open
-public rooms, described above, and that names nobody.
+public instances, described above, and that names nobody.
 
 ---
 
@@ -161,25 +161,25 @@ something to it.
 
 ## What does my server send to Modbot Cloud?
 
-**One thing today: the rooms your group has open that anyone can join.** That is the feature behind
-[modbot.co/rooms](https://modbot.co/rooms).
+**One thing today: the instances your group has open that anyone can join.** That is the feature behind
+[modbot.co/instances](https://modbot.co/instances).
 
 What each report carries:
 
 | | |
 |---|---|
 | Your group | Its VRChat id, its name, its icon and its banner |
-| Each open public room | The world's id, name and picture; the VRChat join link; the region; when the room opened |
+| Each open public instance | The world's id, name and picture; the VRChat join link; the region; when the instance opened |
 
 What it does not carry: any head count, any member count, any person's name or id, your server's
-address, any moderation record, and any room that is not open to everyone. A room set to group
+address, any moderation record, and any instance that is not open to everyone. An instance set to group
 members, or to members and their friends, is filtered out before the report is built.
 
-A report is sent every five minutes, and again whenever a room opens or closes. It replaces the
-whole list, so a room that closes leaves the page on the next report; a Modbot that stops reporting
+A report is sent every five minutes, and again whenever an instance opens or closes. It replaces the
+whole list, so an instance that closes leaves the page on the next report; a Modbot that stops reporting
 drops off within twenty minutes and is forgotten after seven days.
 
-**How to turn it off.** Settings → Integrations → Modbot Cloud, "List this group's public rooms on
+**How to turn it off.** Settings → Integrations → Modbot Cloud, "List this group's public instances on
 modbot.co". It is on when Modbot is installed. Turning it off asks Cloud to drop what it has
 straight away.
 
@@ -191,7 +191,7 @@ document changes with it.
 ## What about `MODBOT_CLOUD_DISABLED`?
 
 Set `MODBOT_CLOUD_DISABLED=1` (or `true`, `yes`, `on`) and your server talks to Modbot Cloud not at
-all, whatever any setting says. It beats the open rooms setting.
+all, whatever any setting says. It beats the open instances setting.
 
 It applies to your server only. **It does not reach the companions paired with it** — a client's
 Cloud settings live on the moderator's own PC and your server has no say in them.
@@ -231,9 +231,9 @@ someone changed avatar — with each person's VRChat id and display name, the wo
 Two things worth being blunt about:
 
 - **It is every instance, not just your group's.** A public world the moderator wandered into, a
-  friends-only room, a private one: if the VRChat log names it, the client reports it.
+  friends-only instance, a private one: if the VRChat log names it, the client reports it.
 - **It names other players.** People who have never heard of your group end up in these events
-  because they were in a room with someone running the client.
+  because they were in an instance with someone running the client.
 
 It does not send raw log lines, chat, the friends list, avatar ids, instance secrets, file paths,
 machine names or anything about the PC itself. An install is a random id; we do not store the address
@@ -268,13 +268,13 @@ You are the one handing data to each of these. Their privacy policies are theirs
 
 ## What does modbot.co itself collect?
 
-- **modbot.co** serves pages and an open feed of the rooms described above. It sets no cookies and
+- **modbot.co** serves pages and an open feed of the instances described above. It sets no cookies and
   runs no analytics script. The one thing kept in your browser is which theme you picked.
 - **docs.modbot.co** serves documentation. Same: no cookies, no analytics script.
 - **my.modbot.co** stores what [What about my.modbot.co?](#what-about-mymodbotco) describes,
   including visitor IP addresses.
 - **cloud.modbot.co** stores companion registrations (a random id, a version, the word
-  `windows`) and the events those clients send, for 365 days, and the open rooms reports described
+  `windows`) and the events those clients send, for 365 days, and the open instances reports described
   above.
 
 Like any web server, these keep short-lived request logs.

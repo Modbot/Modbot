@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Cloud.Features.Accounts;
 using Modbot.Cloud.Features.Admin;
 using Modbot.Cloud.Features.Installs;
-using Modbot.Cloud.Features.PublicRooms;
+using Modbot.Cloud.Features.PublicInstances;
 using Modbot.Cloud.Features.Registry;
 using Modbot.Cloud.Features.Retention;
 using Modbot.Cloud.Features.Site;
@@ -52,11 +52,11 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
     /// <summary>Signed-in <c>/admin</c> browsers.</summary>
     public DbSet<AdminSession> AdminSessions => Set<AdminSession>();
 
-    /// <summary>Modbot servers that report which of their group's rooms anyone can join.</summary>
-    public DbSet<RoomsServer> RoomsServers => Set<RoomsServer>();
+    /// <summary>Modbot servers that report which of their group's instances anyone can join.</summary>
+    public DbSet<InstancesServer> InstancesServers => Set<InstancesServer>();
 
-    /// <summary>Those groups' open public rooms, as last reported.</summary>
-    public DbSet<PublicRoom> PublicRooms => Set<PublicRoom>();
+    /// <summary>Those groups' open public instances, as last reported.</summary>
+    public DbSet<PublicInstance> PublicInstances => Set<PublicInstance>();
 
     /// <summary>The one row of settings an admin can change.</summary>
     public DbSet<CloudSettings> Settings => Set<CloudSettings>();
@@ -85,8 +85,8 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
         modelBuilder.ApplyConfiguration(new CloudSettingsConfiguration());
         modelBuilder.ApplyConfiguration(new Features.InstanceAlerts.InstanceAlertConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Showcase.ShowcaseEntryConfiguration());
-        modelBuilder.ApplyConfiguration(new RoomsServerConfiguration());
-        modelBuilder.ApplyConfiguration(new PublicRoomConfiguration());
+        modelBuilder.ApplyConfiguration(new InstancesServerConfiguration());
+        modelBuilder.ApplyConfiguration(new PublicInstanceConfiguration());
         modelBuilder.ApplyConfiguration(new AccountConfiguration());
         modelBuilder.ApplyConfiguration(new AccountSessionConfiguration());
         modelBuilder.ApplyConfiguration(new AccountTokenConfiguration());

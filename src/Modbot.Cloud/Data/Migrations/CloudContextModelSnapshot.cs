@@ -273,7 +273,61 @@ namespace Modbot.Cloud.Data.Migrations
                     b.ToTable("instance_alert", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Cloud.Features.PublicRooms.PublicRoom", b =>
+            modelBuilder.Entity("Modbot.Cloud.Features.PublicInstances.InstancesServer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("FirstReportedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_reported_at");
+
+                    b.Property<string>("GroupBannerUrl")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("group_banner_url");
+
+                    b.Property<string>("GroupIconUrl")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("group_icon_url");
+
+                    b.Property<string>("GroupId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("group_id");
+
+                    b.Property<string>("GroupName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("group_name");
+
+                    b.Property<DateTimeOffset>("LastReportedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_reported_at");
+
+                    b.Property<string>("SecretHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("secret_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_instances_server");
+
+                    b.HasIndex("GroupId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_instances_server_group_id");
+
+                    b.HasIndex("LastReportedAt")
+                        .HasDatabaseName("ix_instances_server_last_reported_at");
+
+                    b.ToTable("instances_server", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Cloud.Features.PublicInstances.PublicInstance", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
@@ -324,67 +378,13 @@ namespace Modbot.Cloud.Data.Migrations
                         .HasColumnName("world_name");
 
                     b.HasKey("Id")
-                        .HasName("pk_public_room");
+                        .HasName("pk_public_instance");
 
                     b.HasIndex("ServerId", "Location")
                         .IsUnique()
-                        .HasDatabaseName("ix_public_room_server_id_location");
+                        .HasDatabaseName("ix_public_instance_server_id_location");
 
-                    b.ToTable("public_room", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Cloud.Features.PublicRooms.RoomsServer", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("FirstReportedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("first_reported_at");
-
-                    b.Property<string>("GroupBannerUrl")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("group_banner_url");
-
-                    b.Property<string>("GroupIconUrl")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("group_icon_url");
-
-                    b.Property<string>("GroupId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("group_id");
-
-                    b.Property<string>("GroupName")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("group_name");
-
-                    b.Property<DateTimeOffset>("LastReportedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_reported_at");
-
-                    b.Property<string>("SecretHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("secret_hash");
-
-                    b.HasKey("Id")
-                        .HasName("pk_rooms_server");
-
-                    b.HasIndex("GroupId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_rooms_server_group_id");
-
-                    b.HasIndex("LastReportedAt")
-                        .HasDatabaseName("ix_rooms_server_last_reported_at");
-
-                    b.ToTable("rooms_server", (string)null);
+                    b.ToTable("public_instance", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Cloud.Features.Registry.RegisteredServer", b =>

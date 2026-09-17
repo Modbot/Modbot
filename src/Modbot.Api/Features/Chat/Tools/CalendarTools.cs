@@ -111,8 +111,8 @@ internal sealed class GetCalendarEventTool : ReadTool
     public override string Label => "Open an event";
 
     public override string Description =>
-        "One calendar event by its id: its description, when it runs, its world and room settings, "
-        + "where it was published and whether that worked, and whether Modbot opened a room for it.";
+        "One calendar event by its id: its description, when it runs, its world and instance settings, "
+        + "where it was published and whether that worked, and whether Modbot opened an instance for it.";
 
     protected override string Schema => """
         {"type":"object","properties":{"eventId":{"type":"string","description":"The event id another tool returned."}},"required":["eventId"]}
@@ -163,15 +163,15 @@ internal sealed class GetCalendarEventTool : ReadTool
                 publishedTo = view.Places.Select(p => new { p.Place, p.State, p.Error }),
                 opening = view.Opening is null
                     ? null
-                    : new { view.Opening.OccurrenceStartsAt, view.Opening.AttemptedAt, roomId = view.Opening.RoomId, view.Opening.Closed, view.Opening.Error },
+                    : new { view.Opening.OccurrenceStartsAt, view.Opening.AttemptedAt, instanceId = view.Opening.InstanceId, view.Opening.Closed, view.Opening.Error },
                 nextOccurrences = view.Occurrences.Take(5),
                 view.CreatedAt,
                 view.UpdatedAt,
             },
             [
                 .. CalendarRows.References([view]),
-                .. view.Opening?.RoomId is { } room
-                    ? new[] { new ChatReference(ChatReference.Instance, room.ToString(), view.Title) }
+                .. view.Opening?.InstanceId is { } instance
+                    ? new[] { new ChatReference(ChatReference.Instance, instance.ToString(), view.Title) }
                     : [],
             ]);
     }

@@ -16,7 +16,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.resolve(here, 'index.html'),
-        rooms: path.resolve(here, 'rooms.html'),
+        instances: path.resolve(here, 'instances.html'),
         notFound: path.resolve(here, '404.html'),
         privacy: path.resolve(here, 'privacy.html'),
       },

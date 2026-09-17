@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import { SourceBadge } from '@/components/SourceBadge'
 import { cn } from '@/lib/utils'
-import { roomFacts, sheetFor, type Part, type SampleFact } from './sample'
+import { instanceFacts, sheetFor, type Part, type SampleFact } from './sample'
 import { clock, duration, personById, worldById, type LiveState } from './simulation'
 import { backLabel, top, type Stack, type Subject } from './stack'
 
@@ -97,12 +97,12 @@ export function Popups({
 function title(subject: Subject, live: LiveState): string {
   if (subject.kind === 'person') return 'Person'
   if (subject.kind === 'world') return worldById(subject.id).name
-  const room = live.rooms.find((r) => r.id === subject.id)
-  return room ? `${worldById(room.worldId).name} · ${room.instance}` : 'Instance'
+  const instance = live.instances.find((r) => r.id === subject.id)
+  return instance ? `${worldById(instance.worldId).name} #${instance.instance}` : 'Instance'
 }
 
 function subtitle(subject: Subject, live: LiveState): string {
-  if (subject.kind === 'instance') return live.rooms.some((r) => r.id === subject.id) ? 'Open now' : 'Closed'
+  if (subject.kind === 'instance') return live.instances.some((r) => r.id === subject.id) ? 'Open now' : 'Closed'
   return subject.id
 }
 
@@ -224,7 +224,7 @@ function Facts({ facts, onOpen }: { facts: SampleFact[]; onOpen: (s: Subject) =>
 function PersonBody({ id, live, onOpen }: { id: string; live: LiveState; onOpen: (s: Subject) => void }) {
   const who = personById(id)
   const sheet = sheetFor(id, who.name)
-  const here = live.rooms.find((r) => r.people.some((p) => p.personId === id))
+  const here = live.instances.find((r) => r.people.some((p) => p.personId === id))
 
   return (
     <>
@@ -312,7 +312,7 @@ const VISITORS = [18, 22, 15, 27, 31, 44, 39, 21, 25, 19, 30, 36, 48, 41]
 
 function WorldBody({ id, live, onOpen }: { id: string; live: LiveState; onOpen: (s: Subject) => void }) {
   const world = worldById(id)
-  const rooms = live.rooms.filter((r) => r.worldId === id)
+  const instances = live.instances.filter((r) => r.worldId === id)
   const max = Math.max(...VISITORS)
 
   return (
@@ -327,7 +327,7 @@ function WorldBody({ id, live, onOpen }: { id: string; live: LiveState; onOpen: 
 
       <Tabs
         tabs={[
-          { value: 'instances', label: 'Instances', badge: 38 + rooms.length },
+          { value: 'instances', label: 'Instances', badge: 38 + instances.length },
           { value: 'metrics', label: 'Metrics' },
         ]}
       >
@@ -345,7 +345,7 @@ function WorldBody({ id, live, onOpen }: { id: string; live: LiveState; onOpen: 
                   </tr>
                 </thead>
                 <tbody>
-                  {rooms.map((r) => (
+                  {instances.map((r) => (
                     <tr key={r.id} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
                       <td className="py-1 pr-3">
                         <NameLink part={{ kind: 'instance', id: r.id, label: r.instance }} onOpen={onOpen} className="font-mono" />
@@ -404,28 +404,28 @@ function WorldBody({ id, live, onOpen }: { id: string; live: LiveState; onOpen: 
 /* ── Instance ───────────────────────────────────────────────────────────── */
 
 function InstanceBody({ id, live, onOpen }: { id: string; live: LiveState; onOpen: (s: Subject) => void }) {
-  const room = live.rooms.find((r) => r.id === id) ?? live.rooms[0]
-  const world = worldById(room.worldId)
-  const watched = room.watching.length > 0
+  const instance = live.instances.find((r) => r.id === id) ?? live.instances[0]
+  const world = worldById(instance.worldId)
+  const watched = instance.watching.length > 0
 
   return (
     <>
       <Left>
-        <Picture worldId={room.worldId} />
+        <Picture worldId={instance.worldId} />
         <Field label="World">
           <NameLink part={{ kind: 'world', id: world.id, label: world.name }} onOpen={onOpen} />
         </Field>
         <Field label="Instance">
-          <span className="font-mono">{room.instance}</span>
+          <span className="font-mono">{instance.instance}</span>
         </Field>
-        <Field label="Who can join">{room.access}</Field>
-        <Field label="Opened">Today {clock(room.openedAt)}, open for {duration(live.minute - room.openedAt)}</Field>
+        <Field label="Who can join">{instance.access}</Field>
+        <Field label="Opened">Today {clock(instance.openedAt)}, open for {duration(live.minute - instance.openedAt)}</Field>
       </Left>
 
       <Tabs
         tabs={[
-          { value: 'people', label: 'People', badge: watched ? room.people.length : undefined },
-          { value: 'logs', label: 'Logs', badge: roomFacts(room.id).length },
+          { value: 'people', label: 'People', badge: watched ? instance.people.length : undefined },
+          { value: 'logs', label: 'Logs', badge: instanceFacts(instance.id).length },
         ]}
       >
         {(tab) =>
@@ -434,7 +434,7 @@ function InstanceBody({ id, live, onOpen }: { id: string; live: LiveState; onOpe
               <div className="font-medium">Who was seen in this instance</div>
               {watched ? (
                 <ul style={{ fontSize: 'var(--text-small)' }}>
-                  {room.people.map((p) => {
+                  {instance.people.map((p) => {
                     const who = personById(p.personId)
                     return (
                       <li key={p.personId} className="flex items-baseline gap-2 border-t py-1" style={{ borderTopWidth: 'var(--hairline)' }}>
@@ -453,7 +453,7 @@ function InstanceBody({ id, live, onOpen }: { id: string; live: LiveState; onOpe
           ) : (
             <div className="flex flex-col gap-2">
               <div className="font-medium">What happened in this instance</div>
-              <Facts facts={roomFacts(room.id)} onOpen={onOpen} />
+              <Facts facts={instanceFacts(instance.id)} onOpen={onOpen} />
             </div>
           )
         }

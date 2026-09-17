@@ -253,9 +253,9 @@ public static class VRChatServiceCollectionExtensions
             memberSweepOptions,
             provider.GetRequiredService<ISyncPacingSource>()));
 
-        // Places: which rooms the group has open, and what the worlds they are in are called.
+        // Places: which instances the group has open, and what the worlds they are in are called.
         //
-        // The instance poll is the only way Modbot sees a room nobody from the moderation team is
+        // The instance poll is the only way Modbot sees an instance nobody from the moderation team is
         // standing in -- a group event nobody has joined yet is otherwise invisible, and so is the
         // hour before the first moderator arrives. Its own bucket and its own service, so a cold
         // stop on worlds.read cannot take it down.
@@ -266,9 +266,9 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Data.PlaceStore>(),
             provider.GetRequiredService<Core.Data.ModbotContext>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
-            // Optional: a host that does not report public rooms registers no nudge, and the poll
+            // Optional: a host that does not report public instances registers no nudge, and the poll
             // is unchanged.
-            provider.GetService<Core.Cloud.PublicRoomsNudge>()));
+            provider.GetService<Core.Cloud.PublicInstancesNudge>()));
 
         services.AddScoped<WorldSync>(provider => new WorldSync(
             provider.GetRequiredService<IVRChatGate>(),
@@ -283,15 +283,15 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<IMonotonicClock>()));
 
-        // Each open group room's own page, for its head count. Its own bucket (instances.read) and
+        // Each open group instance's own page, for its head count. Its own bucket (instances.read) and
         // its own service, so a cold stop here leaves the group list -- and the list's count as the
         // fallback -- untouched.
-        services.AddScoped<RoomHeadCountSync>(provider => new RoomHeadCountSync(
+        services.AddScoped<InstanceHeadCountSync>(provider => new InstanceHeadCountSync(
             provider.GetRequiredService<IVRChatGate>(),
             provider.GetRequiredService<Core.Data.ModbotContext>(),
             provider.GetRequiredService<Core.Time.IModbotClock>()));
 
-        services.AddHostedService(provider => new RoomHeadCountSyncService(
+        services.AddHostedService(provider => new InstanceHeadCountSyncService(
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<IMonotonicClock>()));
 

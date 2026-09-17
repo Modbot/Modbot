@@ -31,7 +31,7 @@ export function CaseFileMock() {
               </span>
             </div>
             <div className="rounded-md border bg-background px-3 py-2 leading-relaxed">
-              Switched into an avatar that froze the room twice, about ten minutes apart. Warned after the first.
+              Switched into an avatar that froze the instance twice, about ten minutes apart. Warned after the first.
               Came back on a second account the next evening; the clip shows both.
             </div>
           </section>

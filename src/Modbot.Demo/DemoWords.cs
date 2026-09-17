@@ -46,7 +46,7 @@ internal static class DemoWords
         "New-ish. Still working out where everything is.",
         "Photographer. If I point a camera at you and you'd rather I didn't, just say.",
         "Desktop only for now, sorry about the staring.",
-        "Event host. I open the room on Fridays.",
+        "Event host. I open the instance on Fridays.",
         "Here to listen, not to talk much.",
         "Ask before you pick me up, please.",
         "Learning to DJ. Be gentle.",
@@ -64,7 +64,7 @@ internal static class DemoWords
 
     public static readonly string[] StatusLines =
     [
-        "chilling", "open to invites", "in a private room", "afk", "working", "dancing",
+        "chilling", "open to invites", "in a private instance", "afk", "working", "dancing",
         "listening", "", "", "",
     ];
 
@@ -79,12 +79,12 @@ internal static class DemoWords
         ("Tide Pool", "A shallow beach at low tide. Good for photos, bad for hide and seek.", 32),
         ("Paper Lanterns", "A festival street that never runs out of festival.", 48),
         ("The Garage", "Concrete, a projector and a lot of bean bags. Movie nights happen here.", 32),
-        ("Glasshouse", "A greenhouse with rain on the roof. The newcomer welcome room.", 24),
+        ("Glasshouse", "A greenhouse with rain on the roof. The newcomer welcome world.", 24),
         ("Rooftop Six", "Six rooftops joined by walkways. Everyone ends up on the tallest one.", 40),
         ("Cold Station", "An abandoned platform where the last train is always due.", 24),
         ("Thistle Fields", "Long grass, low sun and a barn with a piano in it.", 40),
         ("The Workshop", "Benches, tools and half-finished avatars. Where the makers meet.", 16),
-        ("Night Market", "Stalls, steam and narrow lanes. The busiest room the group opens.", 64),
+        ("Night Market", "Stalls, steam and narrow lanes. The busiest instance the group opens.", 64),
     ];
 
     /// <summary>The group's Discord channels: name, kind and what gets said in them.</summary>
@@ -103,7 +103,7 @@ internal static class DemoWords
         [
             "anyone on tonight?",
             "I'll be around after 9",
-            "room's open if anyone wants to come through",
+            "instance is open if anyone wants to come through",
             "brb, cat",
             "my headset died mid-sentence, sorry about that",
             "that was a good one, thanks for hosting",
@@ -123,7 +123,7 @@ internal static class DemoWords
         ("help", "text",
         [
             "my game crashes when I join the night market",
-            "lower the avatar limit, that room is heavy",
+            "lower the avatar limit, that instance is heavy",
             "worked, thank you",
             "how do I link my discord to my vrchat?",
             "there's a link page, a mod can send you it",
@@ -175,9 +175,9 @@ internal static class DemoWords
         ]),
         ("announcements", "announcement",
         [
-            "The friday room moves to the night market from next week.",
+            "The friday instance moves to the night market from next week.",
             "We've added two new moderators. Say hello to them.",
-            "Server's quiet over the holidays. Rooms will still open most evenings.",
+            "Server's quiet over the holidays. Instances will still open most evenings.",
         ]),
         ("introductions", "text",
         [
@@ -200,11 +200,11 @@ internal static class DemoWords
             "could we get a channel for avatar help?",
             "seconded",
             "we'll try it and see if it gets used",
-            "can the friday room start earlier?",
+            "can the friday instance start earlier?",
             "half the group is in a different timezone, that's the problem",
         ]),
         ("Lounge", "voice", []),
-        ("Movie Room", "voice", []),
+        ("Movie Night", "voice", []),
     ];
 
     public static readonly (string Name, int Color, bool Assign)[] DiscordRoles =
@@ -226,8 +226,8 @@ internal static class DemoWords
     [
         ("Harassment", "Targeting somebody after being asked to stop.", true),
         ("Hate speech", "Slurs, or abuse aimed at who somebody is.", true),
-        ("Sexual content", "Sexual behaviour or content in a group room.", true),
-        ("Underage", "Not old enough to be in an 18+ room.", true),
+        ("Sexual content", "Sexual behaviour or content in a group instance.", true),
+        ("Underage", "Not old enough to be in an 18+ instance.", true),
         ("Crashing", "Avatars or content that crash other people's games.", false),
         ("Evading a ban", "Came back on another account.", true),
         ("Threats", "Threatening somebody inside or outside the group.", true),
@@ -236,26 +236,26 @@ internal static class DemoWords
 
     public static readonly string[] BanWriteUps =
     [
-        "Followed two people between rooms after both asked them to stop. Warned once in the yard, "
+        "Followed two people between instances after both asked them to stop. Warned once in the yard, "
         + "carried on ten minutes later in the lounge. Three moderators saw it.",
         "Used slurs in voice in the night market, repeatedly, and did not stop when asked. Screenshots "
         + "and a clip are attached.",
-        "Crasher avatar taken into a full room. Twelve people dropped. Same avatar as an earlier "
+        "Crasher avatar taken into a full instance. Twelve people dropped. Same avatar as an earlier "
         + "incident in another group.",
         "Came back on a new account four days after the first ban and said so in general. Same voice, "
         + "same avatar, same behaviour.",
-        "Sexual comments aimed at a newcomer in the glasshouse, which is the welcome room. Warned in "
+        "Sexual comments aimed at a newcomer in the glasshouse, which is the welcome world. Warned in "
         + "March for the same thing.",
         "Threatened another member in DMs and posted about it in mod-chat. The other member has the "
         + "screenshots and is happy for them to be kept.",
         "Spammed invites to an unrelated group in three channels and in voice. Asked to stop twice.",
-        "Told two moderators they were under sixteen after being asked in an 18+ room. Removed rather "
+        "Told two moderators they were under sixteen after being asked in an 18+ instance. Removed rather "
         + "than argued with; no hard feelings, welcome back in a few years.",
     ];
 
     public static readonly string[] WarnReasons =
     [
-        "Talking over people in the welcome room.",
+        "Talking over people in the welcome world.",
         "Mic quality; asked to sort it out or push to talk.",
         "Picked somebody up after being asked not to.",
         "Arguing in general instead of taking it to DMs.",
@@ -266,7 +266,7 @@ internal static class DemoWords
     public static readonly string[] KickReasons =
     [
         "Would not stop after a warning.",
-        "Heavy avatar in a full room.",
+        "Heavy avatar in a full instance.",
         "Shouting in voice.",
         "Kept re-joining to argue.",
     ];
@@ -281,11 +281,11 @@ internal static class DemoWords
     /// <summary>The calendar's events: title, description and how long they run.</summary>
     public static readonly (string Title, string Description, int Hours)[] Events =
     [
-        ("Friday Hangout", "The usual. Doors at 8, room stays open until it empties.", 4),
+        ("Friday Hangout", "The usual. Doors at 8, instance stays open until it empties.", 4),
         ("Movie Night", "Something long and slightly bad. Vote in the events channel.", 3),
         ("Newcomer Welcome", "A quiet half hour for anyone who joined this week.", 1),
         ("Avatar Workshop", "Bring something half-finished and somebody will help.", 2),
         ("Quiz", "Six rounds, teams of four, no prizes worth having.", 2),
-        ("Night Market", "The big one. Two rooms if the first fills up.", 5),
+        ("Night Market", "The big one. Two instances if the first fills up.", 5),
     ];
 }

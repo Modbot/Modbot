@@ -86,7 +86,7 @@ public class AnnouncementQueueTests
     [Fact]
     public void OldNewsIsDropped()
     {
-        // A name spoken thirty seconds late describes a room that no longer looks like that.
+        // A name spoken thirty seconds late describes an instance that no longer looks like that.
         var queue = Queue();
         queue.Add(AnnouncementKind.Joined, "Rin");
 

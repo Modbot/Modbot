@@ -95,7 +95,7 @@ public sealed class GroupInfoSync
         }
 
         // The pictures, kept beside the snapshot rather than in it. They change on their own
-        // schedule and are not worth a fact, but the public rooms report needs them: without an
+        // schedule and are not worth a fact, but the public instances report needs them: without an
         // icon and a banner a group is a grey box on modbot.co.
         RecordPictures(settings, group.IconUrl, group.BannerUrl);
 

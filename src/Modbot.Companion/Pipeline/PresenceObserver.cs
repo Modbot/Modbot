@@ -32,7 +32,7 @@ public sealed class PresenceObserver
     /// <c>OnLeftRoom</c>, no <c>OnPlayerLeft</c> and no disconnect line of any kind — just two
     /// teardown lines and then nothing. A client that waited for a clean marker would go on
     /// believing the moderator was in that instance forever, and the overlay would keep fetching
-    /// and showing a roster for a room nobody is in.</para>
+    /// and showing a roster for an instance nobody is in.</para>
     /// <para><strong>Why a whole-file signal rather than a <c>[Behaviour]</c> one.</strong>
     /// <c>[Behaviour]</c> silence proves nothing: in the same sample there is a forty-five minute
     /// stretch with no <c>[Behaviour]</c> line at all while the moderator was demonstrably still
@@ -42,7 +42,7 @@ public sealed class PresenceObserver
     /// eleven seconds. So "the file has stopped growing" is a reliable ten-second-granularity
     /// liveness signal for VRChat itself, and it is what this measures.</para>
     /// <para>Two minutes is roughly twelve of those heartbeats: long enough to ride out a hitch, a
-    /// long asset load or a suspended VM, short enough that the overlay stops talking about a room
+    /// long asset load or a suspended VM, short enough that the overlay stops talking about an instance
     /// the moderator walked out of. Erring long is the safer direction — the cost is a stale
     /// roster which says it is stale, not a wrong one.</para>
     /// </remarks>
@@ -162,7 +162,7 @@ public sealed class PresenceObserver
 
                 // The log had stopped and this client said so; now it is growing again -- a slept
                 // laptop woke, a paused VM resumed. The server ended the watch at the stop, so the
-                // room is restated once, dated at this line. Before this line's own event is
+                // instance is restated once, dated at this line. Before this line's own event is
                 // applied, so that a leave on this very line still takes effect afterwards.
                 if (_stopReported)
                 {

@@ -5,7 +5,7 @@ namespace Modbot.Core.Data.Entities;
 /// (AI insights design §8).
 /// </summary>
 /// <remarks>
-/// An alert names counts, a stretch of time, and at most a world or room. It never names a person
+/// An alert names counts, a stretch of time, and at most a world or instance. It never names a person
 /// and never says what to do about it (M8 §2, §6), so a row holds no personal data and is outside
 /// retention and purge-user, like an insight.
 /// </remarks>
@@ -39,7 +39,7 @@ public class Alert
     /// <summary>The sensitivity the watcher was set to when it fired.</summary>
     public string Sensitivity { get; set; } = AlertSensitivities.Normal;
 
-    /// <summary>The figures behind the alert, as JSON. Counts, worlds and rooms only.</summary>
+    /// <summary>The figures behind the alert, as JSON. Counts, worlds and instances only.</summary>
     public string Figures { get; set; } = "{}";
 
     /// <summary>Where in Modbot to look, as a path such as <c>/flags</c>. Null when there is nowhere.</summary>
@@ -159,14 +159,14 @@ public static class AlertWatchers
     /// <summary>People leaving the group or the Discord server.</summary>
     public const string Leaves = "leaves";
 
-    /// <summary>Group rooms opening.</summary>
-    public const string RoomsOpened = "rooms-opened";
+    /// <summary>Group instances opening.</summary>
+    public const string InstancesOpened = "instances-opened";
 
-    /// <summary>One open room holding far more people than rooms here usually hold.</summary>
-    public const string RoomFilling = "room-filling";
+    /// <summary>One open instance holding far more people than instances here usually hold.</summary>
+    public const string InstanceFilling = "instance-filling";
 
-    /// <summary>A busy open room with no moderator's client in it.</summary>
-    public const string RoomUnwatched = "room-unwatched";
+    /// <summary>A busy open instance with no moderator's client in it.</summary>
+    public const string InstanceUnwatched = "instance-unwatched";
 
     /// <summary>Fewer active members this week than in the four weeks before.</summary>
     public const string ActiveDrop = "active-drop";
@@ -185,9 +185,9 @@ public static class AlertWatchers
         Flags,
         Actions,
         Leaves,
-        RoomsOpened,
-        RoomFilling,
-        RoomUnwatched,
+        InstancesOpened,
+        InstanceFilling,
+        InstanceUnwatched,
         ActiveDrop,
     ];
 
@@ -201,9 +201,9 @@ public static class AlertWatchers
         Flags => "AI flags",
         Actions => "Moderation actions",
         Leaves => "People leaving",
-        RoomsOpened => "Rooms opening",
-        RoomFilling => "A room filling up",
-        RoomUnwatched => "Nobody watching a busy room",
+        InstancesOpened => "Instances opening",
+        InstanceFilling => "An instance filling up",
+        InstanceUnwatched => "Nobody watching a busy instance",
         ActiveDrop => "Fewer active members",
         _ => watcher,
     };
@@ -217,9 +217,9 @@ public static class AlertWatchers
         Flags => "flags",
         Actions => "actions",
         Leaves => "leaves",
-        RoomsOpened => "rooms opened",
-        RoomFilling => "people in the room",
-        RoomUnwatched => "people in the room",
+        InstancesOpened => "instances opened",
+        InstanceFilling => "people in the instance",
+        InstanceUnwatched => "people in the instance",
         ActiveDrop => "active members",
         _ => "",
     };

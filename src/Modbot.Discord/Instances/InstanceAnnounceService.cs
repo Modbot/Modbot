@@ -19,7 +19,7 @@ namespace Modbot.Discord.Instances;
 /// <para>
 /// Twenty seconds between passes. Individual cards are rewritten at most once a minute
 /// (<see cref="InstanceAnnouncer.RewriteEvery"/>) -- this interval only decides how quickly a
-/// room that has just opened gets its first card, which is the part anybody notices.
+/// instance that has just opened gets its first card, which is the part anybody notices.
 /// </para>
 /// </remarks>
 public sealed class InstanceAnnounceService : BackgroundService

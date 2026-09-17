@@ -3,7 +3,7 @@ import { Tabs } from '@/components/ui/tabs'
 import { DailyBars, compactNumber, dateTime, minutes } from '@/components/charts'
 import { SubjectLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
-import { RoomTable } from '@/components/RoomTable'
+import { InstanceTable } from '@/components/InstanceTable'
 import { FactList, Field, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser, type WorldView } from '@/lib/api'
@@ -18,18 +18,18 @@ const TABS = ['overview', 'instances', 'history', 'metrics', 'json'] as const
 type Tab = (typeof TABS)[number]
 
 /**
- * One world: its page as Modbot last read it on the left, the rooms that have run in it and how
+ * One world: its page as Modbot last read it on the left, the instances that have run in it and how
  * busy it has been on the right.
  *
  * A world has no versions of its own -- the page is read once and left alone -- so History is
- * what happened in it: every fact recorded in one of its rooms, newest first. Everything shown is
+ * what happened in it: every fact recorded in one of its instances, newest first. Everything shown is
  * from Modbot's own tables. Opening this never asks VRChat for anything.
  */
 export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
   const [tab, setTab] = useOpeningTab<Tab>('overview', TABS)
   const allowed = can(me, 'ViewAnalytics')
 
-  // Read again when something happens in one of this world's rooms.
+  // Read again when something happens in one of this world's instances.
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsWorld(event, id), [id]))
 
   const load = useCallback(() => api.world(id), [id])
@@ -59,7 +59,7 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
         onChange={setTab}
         tabs={[
           { value: 'overview', label: 'Overview' },
-          { value: 'instances', label: 'Instances', badge: data?.roomsTotal },
+          { value: 'instances', label: 'Instances', badge: data?.instancesTotal },
           { value: 'history', label: 'History' },
           { value: 'metrics', label: 'Metrics' },
           { value: 'json', label: 'JSON' },
@@ -68,14 +68,14 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
         {data && tab === 'overview' && <Overview world={data} onMore={setTab} />}
         {data && tab === 'instances' && (
           <Panel title="Instances in this world">
-            {data.rooms.length === 0 ? (
+            {data.instances.length === 0 ? (
               <Note>No instances yet.</Note>
             ) : (
               <>
-                <RoomTable rooms={data.rooms} showWorld={false} />
-                {data.roomsTotal > data.rooms.length && (
+                <InstanceTable instances={data.instances} showWorld={false} />
+                {data.instancesTotal > data.instances.length && (
                   <Note>
-                    Showing the newest {data.rooms.length} of {compactNumber(data.roomsTotal)}.
+                    Showing the newest {data.instances.length} of {compactNumber(data.instancesTotal)}.
                   </Note>
                 )}
               </>
@@ -162,7 +162,7 @@ function releaseWords(status: string): string {
   return { public: 'Anyone (public)', private: 'Only people given the link (private)', hidden: 'Hidden' }[status] ?? status
 }
 
-/** The glance: the figures, the newest rooms, and where to go for the rest. */
+/** The glance: the figures, the newest instances, and where to go for the rest. */
 function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => void }) {
   const c = world.counts
 
@@ -171,7 +171,7 @@ function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => v
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <Figure label="Time seen" value={minutes(c.minutesSeen)} />
         <Figure label="Visitors" value={compactNumber(c.visitors)} />
-        <Figure label="Instances opened" value={compactNumber(world.roomsTotal)} note={`${world.roomsOpenNow} open now`} />
+        <Figure label="Instances opened" value={compactNumber(world.instancesTotal)} note={`${world.instancesOpenNow} open now`} />
         <Figure label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
       </div>
 
@@ -183,12 +183,12 @@ function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => v
         </button>
       </div>
 
-      {world.rooms.length === 0 ? <Note>No instances yet.</Note> : <RoomTable rooms={world.rooms.slice(0, 5)} showWorld={false} />}
+      {world.instances.length === 0 ? <Note>No instances yet.</Note> : <InstanceTable instances={world.instances.slice(0, 5)} showWorld={false} />}
     </div>
   )
 }
 
-/** Every fact recorded in one of this world's rooms, newest first. */
+/** Every fact recorded in one of this world's instances, newest first. */
 function History({ id }: { id: string }) {
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsWorld(event, id), [id]))
   const load = useCallback(() => api.audit({ world: id, limit: 50 }), [id])
@@ -205,7 +205,7 @@ function History({ id }: { id: string }) {
 
 function Metrics({ world }: { world: WorldView }) {
   const c = world.counts
-  const series = [...world.visitorsPerDay, ...world.roomsPerDay].map((p) => p.day).sort()
+  const series = [...world.visitorsPerDay, ...world.instancesPerDay].map((p) => p.day).sort()
   const from = series[0]
   const to = series[series.length - 1]
 
@@ -214,7 +214,7 @@ function Metrics({ world }: { world: WorldView }) {
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <Figure label="Time seen" value={minutes(c.minutesSeen)} />
         <Figure label="Visitors" value={compactNumber(c.visitors)} />
-        <Figure label="Instances opened" value={compactNumber(world.roomsTotal)} note={`${world.roomsOpenNow} open now`} />
+        <Figure label="Instances opened" value={compactNumber(world.instancesTotal)} note={`${world.instancesOpenNow} open now`} />
         <Figure label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
       </div>
 
@@ -231,7 +231,7 @@ function Metrics({ world }: { world: WorldView }) {
           <DailyBars
             from={from}
             to={to}
-            series={[{ key: 'rooms', label: 'instances opened', points: world.roomsPerDay, slot: 4 }]}
+            series={[{ key: 'instances', label: 'instances opened', points: world.instancesPerDay, slot: 4 }]}
             emptyText="No instances yet."
           />
         </>

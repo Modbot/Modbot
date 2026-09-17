@@ -90,7 +90,7 @@ public class InsightEndpointsTests
 
         var body = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Settings, null, cookie, Ct), Ct);
 
-        Assert.Equal(["group", "team", "rooms"], body.GetProperty("kinds").EnumerateArray().Select(k => k.GetProperty("kind").GetString()));
+        Assert.Equal(["group", "team", "instances"], body.GetProperty("kinds").EnumerateArray().Select(k => k.GetProperty("kind").GetString()));
         Assert.All(body.GetProperty("kinds").EnumerateArray(), k => Assert.False(k.GetProperty("enabled").GetBoolean()));
     }
 

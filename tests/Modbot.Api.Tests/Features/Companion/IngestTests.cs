@@ -148,7 +148,7 @@ public class IngestTests
     [Fact]
     public async Task PresenceObservedIsRecordedAsItsOwnTypeAndNotAsAnArrival()
     {
-        // Recorded as a join, one moderator walking into a room would become forty arrivals, and
+        // Recorded as a join, one moderator walking into an instance would become forty arrivals, and
         // every time-spent metric would follow it.
         var ct = TestContext.Current.CancellationToken;
         var (host, token) = await ReadyAsync(ct);

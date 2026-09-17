@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { renderToString } from 'react-dom/server'
 import App from './App'
-import RoomsPage from './RoomsPage'
+import InstancesPage from './InstancesPage'
 import { NotFound, Privacy } from './StaticPages'
 
 // Used only at build time, by scripts/prerender.ts.
@@ -13,12 +13,12 @@ export const renderLanding = (privacy: boolean) =>
     </StrictMode>,
   )
 
-// The rooms themselves are fetched in the browser, so what is rendered here is the page around an
+// The instances themselves are fetched in the browser, so what is rendered here is the page around an
 // empty list: the words, the header and the footer are in the file a search engine fetches.
-export const renderRooms = (privacy: boolean) =>
+export const renderInstances = (privacy: boolean) =>
   renderToString(
     <StrictMode>
-      <RoomsPage privacy={privacy} />
+      <InstancesPage privacy={privacy} />
     </StrictMode>,
   )
 

@@ -419,8 +419,8 @@ public sealed class CalendarDiscordPublisher
         if (opening?.Location is not { } location)
             return null;
 
-        if (opening.RoomId is { } roomId
-            && await _db.VRChatInstances.AsNoTracking().AnyAsync(i => i.Id == roomId && i.ClosedAt != null, ct).ConfigureAwait(false))
+        if (opening.InstanceId is { } instanceId
+            && await _db.VRChatInstances.AsNoTracking().AnyAsync(i => i.Id == instanceId && i.ClosedAt != null, ct).ConfigureAwait(false))
         {
             return null;
         }

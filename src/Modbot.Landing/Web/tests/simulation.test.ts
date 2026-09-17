@@ -12,26 +12,26 @@ test('the evening plays the same way every time, so the server and the browser a
   assert.deepEqual(run(30), run(30))
 })
 
-test('after one loop every room holds the people it started with', () => {
+test('after one loop every instance holds the people it started with', () => {
   const [first] = run(0)
   const afterLoop = run(EVENTS.length).at(-1)!
 
-  for (const [index, room] of first.rooms.entries()) {
-    const ids = (r: typeof room) => r.people.map((p) => p.personId).sort()
-    assert.deepEqual(ids(afterLoop.rooms[index]), ids(room))
-    assert.equal(afterLoop.rooms[index].headCount, room.headCount)
+  for (const [index, instance] of first.instances.entries()) {
+    const ids = (r: typeof instance) => r.people.map((p) => p.personId).sort()
+    assert.deepEqual(ids(afterLoop.instances[index]), ids(instance))
+    assert.equal(afterLoop.instances[index].headCount, instance.headCount)
   }
 })
 
-test('nobody is in two rooms at once, and a watched room counts exactly who is there', () => {
+test('nobody is in two instances at once, and a watched instance counts exactly who is there', () => {
   for (const state of run(EVENTS.length * 3)) {
-    const everyone = state.rooms.flatMap((r) => r.people.map((p) => p.personId))
+    const everyone = state.instances.flatMap((r) => r.people.map((p) => p.personId))
     assert.equal(new Set(everyone).size, everyone.length)
 
-    for (const room of state.rooms) {
-      assert.ok(room.headCount >= 0)
-      assert.ok(room.peak >= room.headCount)
-      if (room.watching.length > 0) assert.equal(room.headCount, room.people.length)
+    for (const instance of state.instances) {
+      assert.ok(instance.headCount >= 0)
+      assert.ok(instance.peak >= instance.headCount)
+      if (instance.watching.length > 0) assert.equal(instance.headCount, instance.people.length)
     }
   }
 })

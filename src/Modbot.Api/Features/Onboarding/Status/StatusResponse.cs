@@ -61,7 +61,7 @@ public sealed record ManagedGroupStatus(string Id, string Name, string? IconUrl 
 /// <param name="DiscordConfigured">Whether a bot token is stored. The token itself never leaves.</param>
 /// <param name="DiscordInstanceChannelId">The channel open instances are announced in, or null.</param>
 /// <param name="DiscordInstanceMessage">The line posted above each instance card, or null.</param>
-/// <param name="DiscordInstanceShowNames">Whether a card lists who is in a watched room.</param>
+/// <param name="DiscordInstanceShowNames">Whether a card lists who is in a watched instance.</param>
 /// <param name="PublicAddress">The saved public address, or null (accounts and access design §4.2).</param>
 /// <param name="PublicAddressSuggestion">
 /// What the platform says the address is, for the form to prefill. A person confirms it; the

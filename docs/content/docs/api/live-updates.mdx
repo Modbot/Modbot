@@ -6,7 +6,7 @@ description: How the web app and the companion stay current without asking again
 Modbot's screens change as things happen. When somebody joins an instance, a moderator bans
 someone, a review opens or an alert is raised, the Live page, the audit log, the member lists,
 the open popup and the badges redraw within a moment, without the page being reloaded and without
-the browser asking the server on a timer. The companion's overlay follows the room the same way.
+the browser asking the server on a timer. The companion's overlay follows the instance the same way.
 
 Behind that is one **live stream**: every event Modbot records, sent to the web app and the
 companion as it is written. This page describes what the stream carries and how it is read, for
@@ -26,11 +26,14 @@ kinds are named, because a screen does something particular with them; everythin
 | `flagged_join` | the same, by somebody kicked or banned before | Sent instead of `person_joined`, with a `reason`. |
 | `person_left` | `vrchat.instance.leave` | Somebody left. |
 | `person_here` | `vrchat.instance.presence` | Somebody was already there when a moderator started watching. |
-| `watch_stopped` | `vrchat.instance.log-stopped` | A moderator's client stopped seeing the room. |
-| `room_opened`, `room_closed`, `room_changed` | `vrchat.group.instance.*` | A group instance opened, closed or changed. |
+| `watch_stopped` | `vrchat.instance.log-stopped` | A moderator's client stopped seeing the instance. |
+| `instance_opened`, `instance_closed`, `instance_changed` | `vrchat.group.instance.*` | A group instance opened, closed or changed. |
 | `alert` | `modbot.insight.alert` | Unusual activity, from the [alert watchers](/ai/alerts). |
 | `review_opened`, `review_closed` | `modbot.review.*` | A [review](/moderation/reviews) opened or closed. |
 | `fact` | anything else | A ban, a join, a role change, a sign-in, a settings change, and so on. |
+
+Until 2026-09-17 the three group instance kinds were `room_opened`, `room_closed` and
+`room_changed`. A client written against those names needs the new ones.
 
 ```json
 {
@@ -49,6 +52,7 @@ kinds are named, because a screen does something particular with them; everythin
   "actor": null,
   "instanceId": "39911",
   "worldId": "wrld_…",
+  "worldName": "The Black Cat",
   "person": {
     "id": "usr_…",
     "displayName": "…",
@@ -82,7 +86,7 @@ kinds are named, because a screen does something particular with them; everythin
 The same rules as the screens that show these things, decided event by event from the
 permissions the person holds at that moment:
 
-- Presence and rooms need [**See live instances**](/accounts/roles-and-permissions#see-live-instances).
+- Presence and instances need [**See live instances**](/accounts/roles-and-permissions#see-live-instances).
 - Alerts need **See analytics**.
 - Reviews need **Review tickets**.
 - Every other event follows the audit log's rules: moderation events need **See the audit log**,
@@ -173,7 +177,7 @@ cursor when you look at it again.
 
 | Screen | Redraws when |
 |---|---|
-| Live | Somebody joins, leaves or was already there; a room opens, closes or changes. (It also reads again every thirty seconds, because head counts come from Modbot's own syncs rather than from events.) |
+| Live | Somebody joins, leaves or was already there; an instance opens, closes or changes. (It also reads again every thirty seconds, because head counts come from Modbot's own syncs rather than from events.) |
 | Audit log | Any event that passes the filters in the bar. At the top of the list, the row appears; scrolled down, a **N new** button appears in the bar and inserts them when pressed. |
 | Members, Discord members | A join, a leave, a ban, a kick, a role change, a profile change (trust rank included), an account link. The counts come from the same read. |
 | Bans | A ban or an unban. |
@@ -183,7 +187,7 @@ cursor when you look at it again.
 | Repeat offenders | Somebody is banned, kicked or removed. |
 | Calendar | An event is planned, changed, opened or finished, or VRChat's calendar changes. |
 | Alerts (on My Group and Health) | An alert is raised. |
-| The open person, world or instance popup | Any event about that person (as its subject or as the one who acted), in that world, or in that room -- every tab, including Overview and History. |
+| The open person, world or instance popup | Any event about that person (as its subject or as the one who acted), in that world, or in that instance -- every tab, including Overview and History. |
 
 Each screen reads its own data again rather than applying the event by hand: the server has
 already written the change, so reading it back is the one way the screen and the server cannot

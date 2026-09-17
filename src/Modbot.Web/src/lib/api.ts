@@ -252,8 +252,8 @@ export type DiscordLinkingSettingsInput = {
 
 export type PublicAddressView = { publicAddress: string | null; suggestion: string | null }
 
-/** Whether the group's public rooms are listed on modbot.co. */
-export type PublicRoomsView = {
+/** Whether the group's public instances are listed on modbot.co. */
+export type PublicInstancesView = {
   shared: boolean
   /** MODBOT_CLOUD_DISABLED is set, so nothing is sent whatever the switch says. */
   cloudDisabled: boolean
@@ -536,8 +536,8 @@ export type AuditEntry = {
   worldId: string | null
   worldName: string | null
   instanceId: string | null
-  /** Modbot's own id for the room this happened in, where one matched. Opens the room popup. */
-  roomId: string | null
+  /** Modbot's own id for the instance this happened in, where one matched. Opens the instance popup. */
+  modbotInstanceId: string | null
   description: string | null
   data: Record<string, unknown> | null
 }
@@ -577,7 +577,7 @@ export type AuditRequest = {
   to?: string
   /** Only facts that happened in this world. */
   world?: string
-  /** Only facts that happened in a room with this VRChat number. */
+  /** Only facts that happened in an instance with this VRChat number. */
   instance?: string
   category?: AuditCategory
   precision?: TimePrecision
@@ -1041,7 +1041,7 @@ export type WorldsAnalytics = {
 /** 168 buckets, Monday 00:00 UTC first. The page shifts them to the viewer's clock. */
 export type HourOfWeek = { arrivals: number[]; opened: number[] }
 
-/** One room, as it happened. */
+/** One instance, as it happened. */
 export type InstanceRow = {
   id: string
   location: string
@@ -1060,7 +1060,7 @@ export type InstanceRow = {
   minutesOpen: number
 }
 
-/** A moderator whose client is in an open room right now. */
+/** A moderator whose client is in an open instance right now. */
 export type LiveWatcher = {
   userId: string
   displayName: string | null
@@ -1068,7 +1068,7 @@ export type LiveWatcher = {
 }
 
 /**
- * Somebody in a live room. Exactly one of `arrivedAt` and `hereBefore` is set: `arrivedAt` when a
+ * Somebody in a live instance. Exactly one of `arrivedAt` and `hereBefore` is set: `arrivedAt` when a
  * moderator saw them walk in, `hereBefore` when they were already there -- they arrived at some
  * earlier time nobody saw.
  */
@@ -1083,8 +1083,8 @@ export type LivePerson = {
   trustRank: TrustRank | null
 }
 
-/** One open group room on the Live page. */
-export type LiveRoom = {
+/** One open group instance on the Live page. */
+export type LiveInstance = {
   id: string
   worldId: string
   worldName: string | null
@@ -1104,7 +1104,7 @@ export type LiveRoom = {
 }
 
 export type LiveView = {
-  rooms: LiveRoom[]
+  instances: LiveInstance[]
   generatedAt: string
 }
 
@@ -1169,7 +1169,7 @@ export type PlaceCounts = {
 export type PersonCounts = {
   minutesSeen: number
   worlds: number
-  rooms: number
+  instances: number
   arrivals: number
   firstSeenAt: string | null
   lastSeenAt: string | null
@@ -1184,7 +1184,7 @@ export type PersonSeen = {
   lastSeenAt: string
 }
 
-/** One world, its rooms and how busy it was. `known` is false when only the id was ever seen. */
+/** One world, its instances and how busy it was. `known` is false when only the id was ever seen. */
 export type WorldView = {
   worldId: string
   known: boolean
@@ -1206,17 +1206,17 @@ export type WorldView = {
   lastReadAt: string | null
   readError: string | null
   counts: PlaceCounts
-  rooms: InstanceRow[]
-  roomsTotal: number
-  roomsOpenNow: number
+  instances: InstanceRow[]
+  instancesTotal: number
+  instancesOpenNow: number
   visitorsPerDay: DayValue[]
-  roomsPerDay: DayValue[]
+  instancesPerDay: DayValue[]
   now: string
 }
 
-/** One room, with who was in it and what happened there. */
+/** One instance, with who was in it and what happened there. */
 export type InstanceView = {
-  room: InstanceRow
+  instance: InstanceRow
   known: boolean
   worldAuthorName: string | null
   worldImageUrl: string | null
@@ -1226,7 +1226,7 @@ export type InstanceView = {
   lastSeenAt: string
   seenInGroupList: boolean
   counts: PlaceCounts
-  /** False without ViewAuditLog: who was in a room is moderation history, the room itself is not. */
+  /** False without ViewAuditLog: who was in an instance is moderation history, the instance itself is not. */
   canSeeWhoWasThere: boolean
   people: PersonSeen[]
   log: AuditEntry[]
@@ -1239,7 +1239,7 @@ export type PersonMetrics = {
   /** False when no presence report has ever mentioned them. Not the same as never having been anywhere. */
   known: boolean
   counts: PersonCounts
-  recentRooms: InstanceRow[]
+  recentInstances: InstanceRow[]
   now: string
 }
 
@@ -2516,7 +2516,7 @@ export type InsightFigures = {
   lists: { name: string; items: { name: string; value: number }[] }[]
 }
 
-export type InsightKind = 'group' | 'team' | 'rooms'
+export type InsightKind = 'group' | 'team' | 'instances'
 
 /** An AI-written summary of the group's own figures, stored with the figures it was written from. */
 export type Insight = {
@@ -2573,9 +2573,9 @@ export type AlertWatcher =
   | 'flags'
   | 'actions'
   | 'leaves'
-  | 'rooms-opened'
-  | 'room-filling'
-  | 'room-unwatched'
+  | 'instances-opened'
+  | 'instance-filling'
+  | 'instance-unwatched'
   | 'active-drop'
 
 export type AlertSensitivity = 'off' | 'low' | 'normal' | 'high'
@@ -2595,7 +2595,7 @@ export type Alert = {
   spread: number
   score: number
   sensitivity: AlertSensitivity
-  /** The world or room, for the two room watchers. */
+  /** The world or instance, for the two instance watchers. */
   where: string | null
   /** Where in Modbot to look, as a path. */
   link: string | null
@@ -3104,9 +3104,9 @@ export const api = {
   setPublicAddress: (publicAddress: string) =>
     put<PublicAddressView>('/api/settings/public-address', { publicAddress }),
 
-  publicRooms: () => request<PublicRoomsView>('/api/settings/public-rooms'),
+  publicInstances: () => request<PublicInstancesView>('/api/settings/public-instances'),
 
-  setPublicRooms: (shared: boolean) => put<PublicRoomsView>('/api/settings/public-rooms', { shared }),
+  setPublicInstances: (shared: boolean) => put<PublicInstancesView>('/api/settings/public-instances', { shared }),
 
   sendTestEmail: (to: string) => post<TestEmailResult>('/api/settings/email/test', { to }),
 
@@ -3457,7 +3457,7 @@ export const api = {
   instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),
   serverAnalytics: (query: string) => request<ServerAnalytics>(`/api/analytics/server?${query}`),
 
-  // One world and one room, for the popup. Read from Modbot's own tables; neither costs VRChat
+  // One world and one instance, for the popup. Read from Modbot's own tables; neither costs VRChat
   // budget, so a popup may be opened as often as a moderator likes.
   world: (id: string) => request<WorldView>(`/api/worlds?id=${encodeURIComponent(id)}`),
 

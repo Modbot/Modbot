@@ -8,11 +8,11 @@ using VRChat.API.Model;
 namespace Modbot.VRChat.Tests.Sync;
 
 /// <summary>
-/// The group's own instance list, with the world VRChat attaches to each room.
+/// The group's own instance list, with the world VRChat attaches to each instance.
 /// </summary>
 /// <remarks>
-/// The other place tests list rooms with no world attached, so the step that names a world from the
-/// list never ran in them. That step crashed on the first room in any world Modbot had not saved
+/// The other place tests list instances with no world attached, so the step that names a world from the
+/// list never ran in them. That step crashed on the first instance in any world Modbot had not saved
 /// yet, and because the poll saves once at the end, it crashed again every ten seconds.
 /// </remarks>
 [Collection(nameof(PostgresCollection))]
@@ -21,7 +21,7 @@ public class GroupInstanceSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     private static string Location(string world, string number) =>
         $"{world}:{number}~group({GroupId})~groupAccessType(plus)~region(us)";
 
-    /// <summary>A listed room with its world attached, as the real list returns it.</summary>
+    /// <summary>A listed instance with its world attached, as the real list returns it.</summary>
     private static GroupInstance InWorld(string location, string worldId, string worldName, int members = 2)
     {
         var instance = FakeGroups.Listed(location, members);
@@ -36,7 +36,7 @@ public class GroupInstanceSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     }
 
     [Fact]
-    public async Task ARoomInAWorldModbotHasNeverSeen_IsRecorded_AndTheWorldIsNamedFromTheList()
+    public async Task AnInstanceInAWorldModbotHasNeverSeen_IsRecorded_AndTheWorldIsNamedFromTheList()
     {
         const string worldId = "wrld_never-seen-before";
         VRChat.Groups.Instances.Add(InWorld(Location(worldId, "68681"), worldId, "The Black Cat"));
@@ -54,9 +54,9 @@ public class GroupInstanceSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     }
 
     [Fact]
-    public async Task TwoRoomsInTheSameNewWorldInOnePoll_AreTwoRoomsAndOneWorld()
+    public async Task TwoInstancesInTheSameNewWorldInOnePoll_AreTwoInstancesAndOneWorld()
     {
-        const string worldId = "wrld_two-rooms-one-world";
+        const string worldId = "wrld_two-instances-one-world";
         VRChat.Groups.Instances.Add(InWorld(Location(worldId, "11111"), worldId, "Popcorn Palace"));
         VRChat.Groups.Instances.Add(InWorld(Location(worldId, "22222"), worldId, "Popcorn Palace", members: 5));
 

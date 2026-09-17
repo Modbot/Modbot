@@ -119,7 +119,7 @@ public sealed class InstanceSessionTracker
     };
 
     /// <summary>
-    /// Everyone this session believes is in the room, restated as "already here" at
+    /// Everyone this session believes is in the instance, restated as "already here" at
     /// <paramref name="at"/> -- the moderator included.
     /// </summary>
     /// <remarks>

@@ -250,7 +250,7 @@ public class EventPollTests
     {
         await using var host = await StartAsync(_db);
         var (_, auditOnly, _) = await KeyAsync(host, "ViewAuditLog");
-        var (_, withLive, _) = await KeyAsync(host, "ViewAuditLog", "ViewLiveRooms");
+        var (_, withLive, _) = await KeyAsync(host, "ViewAuditLog", "ViewLiveInstances");
         var before = await NewestAsync(host);
         var subject = Subject();
 

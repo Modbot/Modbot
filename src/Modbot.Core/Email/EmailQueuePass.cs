@@ -136,7 +136,7 @@ public sealed class EmailQueuePass
                 var limit = await EmailSender.LimitAsync(_db, ct);
                 var inWindow = (await EmailSender.SentInWindowAsync(_db, now, ct)).Count;
 
-                // The head of the queue is the kind with the most room, when it is account email,
+                // The head of the queue is the kind with the most instance, when it is account email,
                 // or the only kind waiting. No room for it is no room for anything behind it.
                 if (inWindow >= EmailLimit.RoomFor(EmailLimit.KindOf(entry.Kind), limit))
                 {

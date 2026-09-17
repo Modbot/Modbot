@@ -66,7 +66,7 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
         await context.SaveChangesAsync(Ct);
     }
 
-    /// <summary>What the VRChat side leaves behind when it opens the instance: the room and the opening row.</summary>
+    /// <summary>What the VRChat side leaves behind when it opens the instance: the instance and the opening row.</summary>
     private static async Task<string> OpenInstanceAsync(TestServices services, CalendarEvent e)
     {
         var location = $"{World}:12345~group({Group})~groupAccessType(members)~region(us)";
@@ -74,7 +74,7 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
 
         await using var context = services.Database.NewContext();
 
-        var room = new VRChatInstance
+        var instance = new VRChatInstance
         {
             Id = Guid.CreateVersion7(),
             Location = location,
@@ -85,14 +85,14 @@ public class CalendarDiscordPublisherTests(PostgresFixture db)
             LastSeenAt = now,
         };
 
-        context.VRChatInstances.Add(room);
+        context.VRChatInstances.Add(instance);
         context.CalendarOpenings.Add(new CalendarOpening
         {
             EventId = e.Id,
             OccurrenceStartsAt = e.StartsAt,
             AttemptedAt = now,
             Location = location,
-            RoomId = room.Id,
+            InstanceId = instance.Id,
         });
 
         var saved = await context.CalendarEvents.SingleAsync(x => x.Id == e.Id, Ct);

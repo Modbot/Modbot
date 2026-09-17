@@ -1126,13 +1126,13 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("error");
 
+                    b.Property<Guid?>("InstanceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("instance_id");
+
                     b.Property<string>("Location")
                         .HasColumnType("text")
                         .HasColumnName("location");
-
-                    b.Property<Guid?>("RoomId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("room_id");
 
                     b.HasKey("EventId", "OccurrenceStartsAt")
                         .HasName("pk_calendar_opening");
@@ -2838,7 +2838,7 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_instance_head_count");
 
                     b.HasIndex("InstanceId", "CountedAt")
-                        .HasDatabaseName("ix_instance_head_count_room");
+                        .HasDatabaseName("ix_instance_head_count_instance");
 
                     b.ToTable("instance_head_count", (string)null);
                 });
@@ -4953,17 +4953,17 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("public_address");
 
-                    b.Property<DateTimeOffset?>("PublicRoomsReportedAt")
+                    b.Property<DateTimeOffset?>("PublicInstancesReportedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("public_rooms_reported_at");
+                        .HasColumnName("public_instances_reported_at");
 
-                    b.Property<string>("PublicRoomsSecretEncrypted")
+                    b.Property<string>("PublicInstancesSecretEncrypted")
                         .HasColumnType("text")
-                        .HasColumnName("public_rooms_secret_encrypted");
+                        .HasColumnName("public_instances_secret_encrypted");
 
-                    b.Property<Guid?>("PublicRoomsServerId")
+                    b.Property<Guid?>("PublicInstancesServerId")
                         .HasColumnType("uuid")
-                        .HasColumnName("public_rooms_server_id");
+                        .HasColumnName("public_instances_server_id");
 
                     b.Property<bool>("RequireModerationClassification")
                         .HasColumnType("boolean")
@@ -4973,11 +4973,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("review_thresholds");
 
-                    b.Property<bool>("SharePublicRooms")
+                    b.Property<bool>("SharePublicInstances")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
-                        .HasColumnName("share_public_rooms");
+                        .HasColumnName("share_public_instances");
 
                     b.Property<bool>("ShipLogsToCloud")
                         .HasColumnType("boolean")

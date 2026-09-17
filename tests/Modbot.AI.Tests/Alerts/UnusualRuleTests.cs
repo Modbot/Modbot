@@ -130,13 +130,13 @@ public class UnusualRuleTests
     }
 
     [Fact]
-    public void ABusyRoomIsMeasuredAgainstThisGroupsOwnRooms()
+    public void ABusyInstanceIsMeasuredAgainstThisGroupsOwnInstances()
     {
         Assert.Equal(20m, UnusualRule.BusyEnough(10m, AlertSensitivities.Low, 8));
         Assert.Equal(15m, UnusualRule.BusyEnough(10m, AlertSensitivities.Normal, 8));
         Assert.Equal(10m, UnusualRule.BusyEnough(10m, AlertSensitivities.High, 8));
 
-        // Never below the minimum, whatever the group's rooms usually hold.
+        // Never below the minimum, whatever the group's instances usually hold.
         Assert.Equal(8m, UnusualRule.BusyEnough(2m, AlertSensitivities.High, 8));
         Assert.Equal(decimal.MaxValue, UnusualRule.BusyEnough(10m, AlertSensitivities.Off, 8));
     }

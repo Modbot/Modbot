@@ -7,7 +7,7 @@ namespace Modbot.Core.Email;
 /// <summary>Where the daily email limit stands, for the settings page and the health page.</summary>
 /// <param name="Limit">The saved limit per 24 hours.</param>
 /// <param name="SentInLast24Hours">Sends in the rolling window, ones in progress included.</param>
-/// <param name="Queued">Messages waiting, for room or for their next try.</param>
+/// <param name="Queued">Messages waiting, for instance or for their next try.</param>
 /// <param name="Failed">Messages given up on in the last few days.</param>
 /// <param name="NextSendAt">When the next queued message should go out. Null when none is waiting or none can.</param>
 public sealed record EmailQueueSummary(

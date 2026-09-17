@@ -7,7 +7,7 @@ using Modbot.Discord.Gateway;
 namespace Modbot.Discord.Instances;
 
 /// <summary>
-/// What a room looks like in Discord: one card, rewritten as the room fills and empties, and
+/// What an instance looks like in Discord: one card, rewritten as the instance fills and empties, and
 /// written one last time when it closes.
 /// </summary>
 /// <remarks>
@@ -18,7 +18,7 @@ namespace Modbot.Discord.Instances;
 /// </para>
 /// <para>
 /// <strong>Names show while a moderator is watching, unless turned off.</strong> While somebody
-/// from the team is in the room, the card lists the display names of the people there -- up to
+/// from the team is in the instance, the card lists the display names of the people there -- up to
 /// <see cref="NamesListed"/>, then "and N more" -- so a member can see who they would be joining.
 /// When nobody is watching the card shows the head count only, because Modbot does not know who is
 /// inside. The operator can turn names off (<c>Settings.DiscordInstanceShowNames</c>, on by default)
@@ -33,9 +33,9 @@ namespace Modbot.Discord.Instances;
 /// <para>
 /// <strong>The card links straight into the instance</strong>, through the world name and a Join
 /// button, both opening VRChat's launch page (<see cref="JoinLink"/>). It is only ever posted for
-/// the group's own rooms, and VRChat still applies the room's access -- group members, members and
+/// the group's own instances, and VRChat still applies the instance's access -- group members, members and
 /// their friends, or anyone -- when the link is opened, so it lets the people who could already
-/// join do it in one click and lets nobody else in. Both go away when the room closes.
+/// join do it in one click and lets nobody else in. Both go away when the instance closes.
 /// </para>
 /// <para>
 /// <strong>The world's picture</strong> is the one VRChat's world page gave, as stored in
@@ -60,9 +60,9 @@ public static class InstanceCard
     private const uint Dark = 0x4F545C;
 
     /// <summary>
-    /// Builds the card for a room as it stands right now.
+    /// Builds the card for an instance as it stands right now.
     /// </summary>
-    /// <param name="room">The room.</param>
+    /// <param name="instance">The instance.</param>
     /// <param name="world">Its world, when the name is known. Null falls back to the world id.</param>
     /// <param name="now">The moment the card is being written, for "open for 2h 14m".</param>
     /// <param name="names">
@@ -71,15 +71,15 @@ public static class InstanceCard
     /// person whose name is not known; they are counted in "and N more", never shown by id.
     /// </param>
     public static DiscordEmbedContent For(
-        VRChatInstance room,
+        VRChatInstance instance,
         VRChatWorld? world,
         DateTimeOffset now,
         IReadOnlyList<string?>? names = null)
     {
-        ArgumentNullException.ThrowIfNull(room);
+        ArgumentNullException.ThrowIfNull(instance);
 
-        var closed = room.ClosedAt is not null;
-        var people = HeadCounts.Shown(room) ?? 0;
+        var closed = instance.ClosedAt is not null;
+        var people = HeadCounts.Shown(instance) ?? 0;
 
         var fields = new List<DiscordEmbedField>();
 
@@ -89,18 +89,18 @@ public static class InstanceCard
             people == 1 ? "1 person" : $"{people} people",
             Inline: true));
 
-        if (room.PeakUserCount is { } peak && peak > people)
+        if (instance.PeakUserCount is { } peak && peak > people)
             fields.Add(new DiscordEmbedField("Most at once", peak.ToString(CultureInfo.InvariantCulture), Inline: true));
 
         fields.Add(new DiscordEmbedField(
             closed ? "Ran for" : "Open for",
-            Duration((closed ? room.ClosedAt!.Value : now) - room.OpenedAt),
+            Duration((closed ? instance.ClosedAt!.Value : now) - instance.OpenedAt),
             Inline: true));
 
-        if (room.GroupAccessType is { Length: > 0 } access)
+        if (instance.GroupAccessType is { Length: > 0 } access)
             fields.Add(new DiscordEmbedField("Who can join", Access(access), Inline: true));
 
-        if (room.Region is { Length: > 0 } region)
+        if (instance.Region is { Length: > 0 } region)
             fields.Add(new DiscordEmbedField("Region", Fit(Escape(region.ToUpperInvariant())), Inline: true));
 
         // What the world's page says it holds, when it has been read. Shown, never enforced.
@@ -113,7 +113,7 @@ public static class InstanceCard
         // Escaped like a display name, because it is not always a number: a group can set an
         // instance id to any text through the API (M6 spec 4.1.1), and it would otherwise render as
         // formatting on a card every member reads.
-        if (room.VRChatInstanceId is { Length: > 0 } number)
+        if (instance.VRChatInstanceId is { Length: > 0 } number)
             fields.Add(new DiscordEmbedField("Instance", Fit(Escape(number)), Inline: true));
 
         if (!closed && names is { Count: > 0 } && NameList(names) is { } list)
@@ -122,35 +122,35 @@ public static class InstanceCard
         var colour = closed ? Dark : people > 0 ? Green : Grey;
 
         return new DiscordEmbedContent(
-            Title: world?.Name is { Length: > 0 } name ? name : room.WorldId,
+            Title: world?.Name is { Length: > 0 } name ? name : instance.WorldId,
             Description: closed ? "This instance has closed." : null,
             Color: colour,
             Fields: fields,
-            Timestamp: closed ? room.ClosedAt : room.OpenedAt,
-            Url: closed ? null : JoinLink(room),
+            Timestamp: closed ? instance.ClosedAt : instance.OpenedAt,
+            Url: closed ? null : JoinLink(instance),
             Footer: closed ? "Closed" : "Open now",
             ImageUrl: world?.ImageUrl ?? world?.ThumbnailImageUrl);
     }
 
     /// <summary>
-    /// The buttons under a room's card: Join while it is open, none once it has closed.
+    /// The buttons under an instance's card: Join while it is open, none once it has closed.
     /// </summary>
-    public static IReadOnlyList<DiscordLinkButton> Links(VRChatInstance room)
+    public static IReadOnlyList<DiscordLinkButton> Links(VRChatInstance instance)
     {
-        ArgumentNullException.ThrowIfNull(room);
+        ArgumentNullException.ThrowIfNull(instance);
 
-        return room.ClosedAt is null && JoinLink(room) is { } link
+        return instance.ClosedAt is null && JoinLink(instance) is { } link
             ? [new DiscordLinkButton("Join", link)]
             : [];
     }
 
     /// <summary>
-    /// VRChat's launch page for a room:
+    /// VRChat's launch page for an instance:
     /// <c>https://vrchat.com/home/launch?worldId=wrld_…&amp;instanceId=26093~group(grp_…)~groupAccessType(plus)~region(us)</c>.
     /// </summary>
     /// <remarks>
     /// <c>instanceId</c> is everything after the first <c>:</c> of the location, qualifiers and all,
-    /// because the qualifiers are part of which room it is. The characters VRChat writes in a
+    /// because the qualifiers are part of which instance it is. The characters VRChat writes in a
     /// location (<c>~</c>, <c>(</c>, <c>)</c>) are kept as they are, and anything that could end or
     /// split the query string is escaped.
     /// </remarks>
@@ -158,10 +158,10 @@ public static class InstanceCard
     /// Null when the location has no instance part, or when the link would be longer than
     /// <see cref="MaxLinkLength"/>.
     /// </returns>
-    public static string? JoinLink(VRChatInstance room)
+    public static string? JoinLink(VRChatInstance instance)
     {
-        ArgumentNullException.ThrowIfNull(room);
-        return InstanceJoinLink.For(room.Location, room.WorldId);
+        ArgumentNullException.ThrowIfNull(instance);
+        return InstanceJoinLink.For(instance.Location, instance.WorldId);
     }
 
     /// <summary>The longest address Discord accepts for a link button.</summary>
@@ -262,7 +262,7 @@ public static class InstanceCard
     /// "2h 14m", "8m", "3d 4h" -- long enough to be useful, short enough to sit on one line.
     /// </summary>
     /// <remarks>
-    /// Seconds are never shown. A room that has been open for eleven seconds is new, and a card
+    /// Seconds are never shown. An instance that has been open for eleven seconds is new, and a card
     /// that ticks every second would be a card nobody could read.
     /// </remarks>
     private static string Duration(TimeSpan open)

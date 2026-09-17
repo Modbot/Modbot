@@ -127,7 +127,7 @@ public enum ModbotPermissions : long
     /// out. Not added to the built-in Moderator or Viewer roles by this change: an operator grants
     /// it on purpose, and Administrator already holds it.
     /// </remarks>
-    ViewLiveRooms = 1L << 20,
+    ViewLiveInstances = 1L << 20,
 
     // --- AI (AI chat design §4) ---
 

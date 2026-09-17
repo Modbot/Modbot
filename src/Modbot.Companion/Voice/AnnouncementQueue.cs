@@ -46,7 +46,7 @@ public sealed class AnnouncementQueue
     /// </summary>
     /// <remarks>
     /// Long enough to ride out one sentence being spoken ahead of it; short enough that the voice
-    /// is never describing a room as it was half a minute ago.
+    /// is never describing an instance as it was half a minute ago.
     /// </remarks>
     public static readonly TimeSpan PresenceMaxAge = TimeSpan.FromSeconds(5);
 

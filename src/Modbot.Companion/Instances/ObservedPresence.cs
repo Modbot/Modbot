@@ -13,7 +13,7 @@ public enum PresenceKind
     /// <summary>
     /// Somebody was already in the instance when the moderator arrived. They are here <em>at</em>
     /// this time; they arrived at some unknown, earlier time. This distinction is the entire
-    /// defence against phantom bursts turning one moderator walking into a room into forty fake
+    /// defence against phantom bursts turning one moderator walking into an instance into forty fake
     /// arrivals.
     /// </summary>
     PresenceObserved,
@@ -32,7 +32,7 @@ public enum PresenceKind
     /// <remarks>
     /// The ordinary way a session ends is that the log simply stops (research note §7): VRChat is
     /// closed, crashes, or the machine sleeps, and no leave of any kind is written. Without this the
-    /// server would go on believing a moderator was watching a room they had long since stopped
+    /// server would go on believing a moderator was watching an instance they had long since stopped
     /// seeing, and would show everyone they last saw as still being there.
     /// </remarks>
     LogStopped,

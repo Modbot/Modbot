@@ -308,7 +308,7 @@ function Shell({
 
   // The popup lives in the query string rather than in component state, so it is linkable, survives
   // a refresh, and stacks (spec 10.2, lib/subject.ts). Every list that renders a person opens it the
-  // same way; worlds and rooms open themselves through the same module.
+  // same way; worlds and instances open themselves through the same module.
   const setSubject = openPerson
 
   // The number beside "Reviews": how many are waiting for somebody to look. Read when the shell

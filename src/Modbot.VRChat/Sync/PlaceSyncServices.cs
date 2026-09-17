@@ -23,7 +23,7 @@ namespace Modbot.VRChat.Sync;
 /// </para>
 /// <para>
 /// One service per bucket all the same, because a cold stop is scoped to a bucket (spec 4.3.1):
-/// a 429 on <c>worlds.read</c> must not stop the poll that is the only view Modbot has of a room
+/// a 429 on <c>worlds.read</c> must not stop the poll that is the only view Modbot has of an instance
 /// nobody is standing in.
 /// </para>
 /// <para>
@@ -124,11 +124,11 @@ public abstract class PlaceSyncService : BackgroundService
 }
 
 /// <summary>
-/// Polls which rooms the managed group has open, every ten seconds.
+/// Polls which instances the managed group has open, every ten seconds.
 /// </summary>
 /// <remarks>
 /// Ten seconds is the measured limit for <c>/groups/{groupId}/instances</c>, and this poll is the
-/// only way Modbot sees a room nobody from the moderation team is standing in -- so it runs at the
+/// only way Modbot sees an instance nobody from the moderation team is standing in -- so it runs at the
 /// limit rather than below it. See <see cref="GroupInstanceSync"/>.
 /// </remarks>
 public sealed class GroupInstanceSyncService : PlaceSyncService
@@ -155,18 +155,18 @@ public sealed class GroupInstanceSyncService : PlaceSyncService
 }
 
 /// <summary>
-/// Reads open group rooms' own pages for their head counts, a few rooms a pass.
+/// Reads open group instances' own pages for their head counts, a few instances a pass.
 /// </summary>
 /// <remarks>
-/// Every five seconds, because a pass only reads rooms whose last read is thirty seconds old
-/// (<see cref="RoomHeadCountSync.ReadEvery"/>): the loop comes round often and usually finds
-/// little to do, which keeps each room close to its thirty seconds without a timer per room.
+/// Every five seconds, because a pass only reads instances whose last read is thirty seconds old
+/// (<see cref="InstanceHeadCountSync.ReadEvery"/>): the loop comes round often and usually finds
+/// little to do, which keeps each instance close to its thirty seconds without a timer per instance.
 /// </remarks>
-public sealed class RoomHeadCountSyncService : PlaceSyncService
+public sealed class InstanceHeadCountSyncService : PlaceSyncService
 {
     public static readonly TimeSpan Interval = TimeSpan.FromSeconds(5);
 
-    public RoomHeadCountSyncService(
+    public InstanceHeadCountSyncService(
         IServiceScopeFactory scopes,
         IMonotonicClock? elapsed = null,
         IDelayScheduler? delays = null,
@@ -175,30 +175,30 @@ public sealed class RoomHeadCountSyncService : PlaceSyncService
     {
     }
 
-    protected override string What => "room head count read";
+    protected override string What => "instance head count read";
 
     protected override async Task<SyncOutcome> RunOnceAsync(IServiceProvider scope, CancellationToken ct)
     {
-        var sync = scope.GetRequiredService<RoomHeadCountSync>();
+        var sync = scope.GetRequiredService<InstanceHeadCountSync>();
         var result = await sync.RunOnceAsync(ct).ConfigureAwait(false);
         return result.Outcome;
     }
 }
 
 /// <summary>
-/// Puts names to worlds that have only ever been seen as an id, and closes rooms that have gone
+/// Puts names to worlds that have only ever been seen as an id, and closes instances that have gone
 /// quiet for long enough to count as finished.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Both jobs are in one service because both are housekeeping that nobody is waiting on, and
-/// because closing a long-quiet room needs no VRChat call at all -- so it cannot be what a cold
+/// because closing a long-quiet instance needs no VRChat call at all -- so it cannot be what a cold
 /// stop on <c>worlds.read</c> takes down. The world read is attempted first and the closing runs
 /// either way.
 /// </para>
 /// <para>
 /// Five minutes, because the queue is nearly always empty: a world is read once, when it is first
-/// seen, and never again unless it turns up in a new room (<see cref="GroupInstanceSync"/>).
+/// seen, and never again unless it turns up in a new instance (<see cref="GroupInstanceSync"/>).
 /// </para>
 /// </remarks>
 public sealed class WorldSyncService : PlaceSyncService
@@ -222,16 +222,16 @@ public sealed class WorldSyncService : PlaceSyncService
         var result = await sync.RunOnceAsync(ct).ConfigureAwait(false);
 
         // Runs whatever the world read did, including after a cold stop: it asks VRChat nothing,
-        // and a room that has been quiet for three days is finished regardless.
+        // and an instance that has been quiet for three days is finished regardless.
         var places = scope.GetRequiredService<PlaceStore>();
         var db = scope.GetRequiredService<ModbotContext>();
 
-        var closed = await places.CloseLongQuietRoomsAsync(ct).ConfigureAwait(false);
+        var closed = await places.CloseLongQuietInstancesAsync(ct).ConfigureAwait(false);
 
         if (closed > 0)
         {
             await db.SaveChangesAsync(ct).ConfigureAwait(false);
-            Log.Information("Closed {Closed} rooms that had been quiet for {Quiet}", closed, VRChatInstanceQuiet);
+            Log.Information("Closed {Closed} instances that had been quiet for {Quiet}", closed, VRChatInstanceQuiet);
         }
 
         return result.Outcome;

@@ -249,7 +249,7 @@ public static class VRChatRateLimits
             // One per ten seconds, measured by the maintainer on 2026-09-13 -- slower than the
             // 1-per-8s this originally guessed. Every open instance is in one response, so the
             // poll rate is what decides how quickly Modbot notices an instance opening or
-            // closing, and ten seconds is close enough for a room that lives for hours.
+            // closing, and ten seconds is close enough for an instance that lives for hours.
             [VRChatEndpointClass.GroupsInstances] = new(
                 VRChatEndpointClass.GroupsInstances, GroupLane,
                 HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
@@ -270,7 +270,7 @@ public static class VRChatRateLimits
                 ResourceScoped: true),
 
             // Interactive and low-volume. Obeys the global ceiling -- it is what spec 4.2's
-            // 0.55 req/s of reserved room is for -- but its own stop is separate, so a cold
+            // 0.55 req/s of reserved instance is for -- but its own stop is separate, so a cold
             // members bucket never blocks a ban.
             [VRChatEndpointClass.ModerationWrite] = new(
                 VRChatEndpointClass.ModerationWrite, GroupLane,
@@ -332,8 +332,8 @@ public static class VRChatRateLimits
             // than spec 4.3.4 guesses -- but they still count against the global backstop, which
             // exists for the account-wide limit Modbot cannot see (spec 4.3.1). A world is read
             // once and then never again. An instance page is read about once every thirty seconds
-            // per open group room, for its head count (RoomHeadCountSync), so its steady rate is
-            // the number of open rooms divided by thirty -- which moves with the evening rather
+            // per open group instance, for its head count (InstanceHeadCountSync), so its steady rate is
+            // the number of open instances divided by thirty -- which moves with the evening rather
             // than being a fixed schedule, and is capped by this bucket either way. Both are
             // therefore absent from `Scheduled` below.
             [VRChatEndpointClass.WorldsRead] = new(

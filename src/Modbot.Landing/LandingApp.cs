@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Landing.Configuration;
 using Modbot.Landing.Features.Health;
 using Modbot.Landing.Features.Pages;
-using Modbot.Landing.Features.Rooms;
+using Modbot.Landing.Features.Instances;
 using Modbot.Landing.Features.Security;
 using Modbot.Landing.Features.StaticFiles;
 
@@ -26,9 +26,9 @@ public static class LandingApp
 
         services.AddSingleton(environment);
         services.TryAddSingleton(TimeProvider.System);
-        services.AddSingleton<OpenRooms>();
+        services.AddSingleton<OpenInstances>();
 
-        services.AddHttpClient(OpenRooms.HttpClientName, http =>
+        services.AddHttpClient(OpenInstances.HttpClientName, http =>
         {
             // Short, because a visitor is waiting. A Cloud that is slower than this costs one
             // read, and the last good answer is served meanwhile.
@@ -66,7 +66,7 @@ public static class LandingApp
         app.UseRouting();
 
         app.MapHealth();
-        app.MapRooms();
+        app.MapInstances();
         app.MapPages();
     }
 }

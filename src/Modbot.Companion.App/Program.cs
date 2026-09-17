@@ -433,7 +433,7 @@ internal sealed class CompanionHost : IOverlayListener
         try
         {
             // Silent while any paired server is paused: pausing means "stop watching what I do",
-            // and a voice narrating the room would be watching.
+            // and a voice narrating the instance would be watching.
             await _voice.TickAsync(_state.Connections.Any(c => c.IsPaused));
         }
         catch (OperationCanceledException)

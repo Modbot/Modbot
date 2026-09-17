@@ -2556,21 +2556,21 @@
         ]
       }
     },
-    "/api/settings/public-rooms": {
+    "/api/settings/public-instances": {
       "get": {
         "tags": [
           "Settings"
         ],
-        "summary": "Whether the group's public rooms are listed on modbot.co",
+        "summary": "Whether the group's public instances are listed on modbot.co",
         "description": "Needs the `ManageSettings` permission.",
-        "operationId": "GetPublicRooms",
+        "operationId": "GetPublicInstances",
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PublicRoomsView"
+                  "$ref": "#/components/schemas/PublicInstancesView"
                 }
               }
             }
@@ -2597,12 +2597,12 @@
         ],
         "summary": "Turn the modbot.co listing on or off",
         "description": "Needs the `ManageSettings` permission.",
-        "operationId": "SetPublicRooms",
+        "operationId": "SetPublicInstances",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPublicRoomsRequest"
+                "$ref": "#/components/schemas/SetPublicInstancesRequest"
               }
             }
           },
@@ -2614,7 +2614,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PublicRoomsView"
+                  "$ref": "#/components/schemas/PublicInstancesView"
                 }
               }
             }
@@ -6481,7 +6481,7 @@
           "Audit"
         ],
         "summary": "The merged fact timeline: who did what to whom, and when",
-        "description": "One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and membership history; ViewOperationalLog covers Modbot's own record — logins, settings changes, sync failures. The two are separate permissions and the filter is applied server-side on every query: asking for a type you cannot see omits it rather than refusing the request.\n\nFacts carry occurredAt and, when the time is an inference rather than a statement, occurredBefore. `precision` says which, so a window is never rendered as an instant.\n\n`world` and `instance` narrow to one world or one VRChat room number; `category` to Moderation or Operational; `precision` to Exact or Window; `hasActor` to facts somebody is named for, or not; `q` finds a word in the payload, the subject id or the actor id.\n\nPaged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; both are required.",
+        "description": "One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and membership history; ViewOperationalLog covers Modbot's own record — logins, settings changes, sync failures. The two are separate permissions and the filter is applied server-side on every query: asking for a type you cannot see omits it rather than refusing the request.\n\nFacts carry occurredAt and, when the time is an inference rather than a statement, occurredBefore. `precision` says which, so a window is never rendered as an instant.\n\n`world` and `instance` narrow to one world or one VRChat instance number; `category` to Moderation or Operational; `precision` to Exact or Window; `hasActor` to facts somebody is named for, or not; `q` finds a word in the payload, the subject id or the actor id.\n\nPaged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; both are required.",
         "operationId": "GetAuditLog",
         "parameters": [
           {
@@ -8469,7 +8469,7 @@
           "VRChat users"
         ],
         "summary": "How long this person has been seen in world, where, and how often",
-        "description": "Computed from the companion's presence reports, so it only covers time a moderator's client was in the same room. Somebody who has never shared a room with the client reads as nothing here, which is not the same as never having been in one — and the screen says so.\n\nGated on ViewProfile rather than ViewAnalytics: this is one person's own record rather than an aggregate, and it sits beside the rest of their profile.\n\nNeeds the `ViewProfile` permission.",
+        "description": "Computed from the companion's presence reports, so it only covers time a moderator's client was in the same instance. Somebody who has never shared an instance with the client reads as nothing here, which is not the same as never having been in one — and the screen says so.\n\nGated on ViewProfile rather than ViewAnalytics: this is one person's own record rather than an aggregate, and it sits beside the rest of their profile.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetVRChatUserMetrics",
         "parameters": [
           {
@@ -8758,8 +8758,8 @@
         "tags": [
           "Places"
         ],
-        "summary": "One world: what its page said, the rooms that have run in it, and how busy it was",
-        "description": "Read from Modbot's own tables; nothing here calls VRChat. `known` is false when Modbot has only ever seen the id. `name` is null when the world page has not been read yet — ordinary for a few minutes after a new world turns up, and permanent for a private or deleted one. Time and visitors come from the desktop client's presence reports and exist only while a moderator's client was in the room; rooms opened come from the group's own instance list and are complete.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "One world: what its page said, the instances that have run in it, and how busy it was",
+        "description": "Read from Modbot's own tables; nothing here calls VRChat. `known` is false when Modbot has only ever seen the id. `name` is null when the world page has not been read yet — ordinary for a few minutes after a new world turns up, and permanent for a private or deleted one. Time and visitors come from the desktop client's presence reports and exist only while a moderator's client was in the instance; instances opened come from the group's own instance list and are complete.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetWorld",
         "parameters": [
           {
@@ -8814,8 +8814,8 @@
         "tags": [
           "Places"
         ],
-        "summary": "One room: where it was, when, how busy, who was in it and what happened there",
-        "description": "The id is Modbot's own, not VRChat's number — VRChat hands the same number out again after a room closes, so two evenings under one number are two rooms.\n\nWho was in the room and the facts recorded there need ViewAuditLog as well: that is moderation history (spec 5.9.4), while the room's own shape is not. Without it `canSeeWhoWasThere` is false and both lists are empty.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "One instance: where it was, when, how busy, who was in it and what happened there",
+        "description": "The id is Modbot's own, not VRChat's number — VRChat hands the same number out again after an instance closes, so two evenings under one number are two instances.\n\nWho was in the instance and the facts recorded there need ViewAuditLog as well: that is moderation history (spec 5.9.4), while the instance's own shape is not. Without it `canSeeWhoWasThere` is false and both lists are empty.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetInstance",
         "parameters": [
           {
@@ -8872,8 +8872,8 @@
           "Live"
         ],
         "summary": "The group's open instances right now, and who is in each",
-        "description": "Read from Modbot's own tables; nothing here calls VRChat. Every open group instance is listed with its head count whether or not a moderator is in it. `people` is filled only while a moderator's client is watching; otherwise `lastSeen` holds who was there when watching last stopped, at `lastWatchedAt`.\n\nNeeds the `ViewLiveRooms` permission.",
-        "operationId": "GetLiveRooms",
+        "description": "Read from Modbot's own tables; nothing here calls VRChat. Every open group instance is listed with its head count whether or not a moderator is in it. `people` is filled only while a moderator's client is watching; otherwise `lastSeen` holds who was there when watching last stopped, at `lastWatchedAt`.\n\nNeeds the `ViewLiveInstances` permission.",
+        "operationId": "GetLiveInstances",
         "responses": {
           "200": {
             "description": "OK",
@@ -14524,7 +14524,7 @@
           "worldId",
           "worldName",
           "instanceId",
-          "roomId",
+          "modbotInstanceId",
           "description",
           "data"
         ],
@@ -14622,7 +14622,7 @@
               "string"
             ]
           },
-          "roomId": {
+          "modbotInstanceId": {
             "type": [
               "null",
               "string"
@@ -15580,7 +15580,7 @@
         "required": [
           "occurrenceStartsAt",
           "attemptedAt",
-          "roomId",
+          "instanceId",
           "joinLink",
           "closed",
           "error"
@@ -15595,7 +15595,7 @@
             "type": "string",
             "format": "date-time"
           },
-          "roomId": {
+          "instanceId": {
             "type": [
               "null",
               "string"
@@ -20843,7 +20843,7 @@
       },
       "InstanceView": {
         "required": [
-          "room",
+          "instance",
           "known",
           "worldAuthorName",
           "worldImageUrl",
@@ -20861,7 +20861,7 @@
         ],
         "type": "object",
         "properties": {
-          "room": {
+          "instance": {
             "$ref": "#/components/schemas/InstanceRow"
           },
           "known": {
@@ -21373,6 +21373,7 @@
           "actor",
           "instanceId",
           "worldId",
+          "worldName",
           "person",
           "flagged",
           "reason",
@@ -21448,6 +21449,12 @@
               "string"
             ]
           },
+          "worldName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "person": {
             "oneOf": [
               {
@@ -21487,6 +21494,101 @@
               "string"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "LiveInstanceView": {
+        "required": [
+          "id",
+          "worldId",
+          "worldName",
+          "worldImageUrl",
+          "vrChatInstanceId",
+          "groupAccessType",
+          "region",
+          "openedAt",
+          "headCount",
+          "watching",
+          "people",
+          "lastWatchedAt",
+          "lastSeen"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "worldId": {
+            "type": "string"
+          },
+          "worldName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "worldImageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatInstanceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupAccessType": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "headCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "watching": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LiveWatcherView"
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LivePersonView"
+            }
+          },
+          "lastWatchedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastSeen": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LivePersonView"
+            }
           }
         }
       },
@@ -21651,101 +21753,6 @@
           }
         }
       },
-      "LiveRoomView": {
-        "required": [
-          "id",
-          "worldId",
-          "worldName",
-          "worldImageUrl",
-          "vrChatInstanceId",
-          "groupAccessType",
-          "region",
-          "openedAt",
-          "headCount",
-          "watching",
-          "people",
-          "lastWatchedAt",
-          "lastSeen"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "worldId": {
-            "type": "string"
-          },
-          "worldName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "worldImageUrl": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "vrChatInstanceId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "groupAccessType": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "region": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "openedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "headCount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "watching": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/LiveWatcherView"
-            }
-          },
-          "people": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/LivePersonView"
-            }
-          },
-          "lastWatchedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "lastSeen": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/LivePersonView"
-            }
-          }
-        }
-      },
       "LiveSubject": {
         "required": [
           "platform",
@@ -21767,15 +21774,15 @@
       },
       "LiveView": {
         "required": [
-          "rooms",
+          "instances",
           "generatedAt"
         ],
         "type": "object",
         "properties": {
-          "rooms": {
+          "instances": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LiveRoomView"
+              "$ref": "#/components/schemas/LiveInstanceView"
             }
           },
           "generatedAt": {
@@ -22957,7 +22964,7 @@
         "required": [
           "minutesSeen",
           "worlds",
-          "rooms",
+          "instances",
           "arrivals",
           "firstSeenAt",
           "lastSeenAt"
@@ -22980,7 +22987,7 @@
             ],
             "format": "int32"
           },
-          "rooms": {
+          "instances": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -23017,7 +23024,7 @@
           "userId",
           "known",
           "counts",
-          "recentRooms",
+          "recentInstances",
           "now"
         ],
         "type": "object",
@@ -23031,7 +23038,7 @@
           "counts": {
             "$ref": "#/components/schemas/PersonCounts"
           },
-          "recentRooms": {
+          "recentInstances": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/InstanceRow"
@@ -23315,7 +23322,7 @@
           }
         }
       },
-      "PublicRoomsView": {
+      "PublicInstancesView": {
         "required": [
           "shared",
           "cloudDisabled",
@@ -24752,7 +24759,7 @@
           }
         }
       },
-      "SetPublicRoomsRequest": {
+      "SetPublicInstancesRequest": {
         "required": [
           "shared"
         ],
@@ -27089,11 +27096,11 @@
           "lastReadAt",
           "readError",
           "counts",
-          "rooms",
-          "roomsTotal",
-          "roomsOpenNow",
+          "instances",
+          "instancesTotal",
+          "instancesOpenNow",
           "visitorsPerDay",
-          "roomsPerDay",
+          "instancesPerDay",
           "now"
         ],
         "type": "object",
@@ -27214,13 +27221,13 @@
           "counts": {
             "$ref": "#/components/schemas/PlaceCounts"
           },
-          "rooms": {
+          "instances": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/InstanceRow"
             }
           },
-          "roomsTotal": {
+          "instancesTotal": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -27228,7 +27235,7 @@
             ],
             "format": "int32"
           },
-          "roomsOpenNow": {
+          "instancesOpenNow": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -27242,7 +27249,7 @@
               "$ref": "#/components/schemas/DayValue"
             }
           },
-          "roomsPerDay": {
+          "instancesPerDay": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DayValue"

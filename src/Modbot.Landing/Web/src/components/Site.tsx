@@ -20,7 +20,7 @@ export function Wordmark({ className }: { className?: string }) {
 }
 
 const SECTIONS = [
-  { href: '/rooms', label: 'Rooms' },
+  { href: '/instances', label: 'Instances' },
   { href: '/#live', label: 'Live' },
   { href: '/#discord', label: 'Discord' },
   { href: '/#case-files', label: 'Case files' },
@@ -147,8 +147,8 @@ export function SiteFooter({ privacy = false }: { privacy?: boolean }) {
           <a href={SELF_HOSTING_GUIDE} className="hover:text-foreground hover:underline">
             Host your own
           </a>
-          <a href="/rooms" className="hover:text-foreground hover:underline">
-            Open rooms
+          <a href="/instances" className="hover:text-foreground hover:underline">
+            Open instances
           </a>
           <a href={DOCS} className="hover:text-foreground hover:underline">
             Docs

@@ -5,14 +5,14 @@ using Modbot.Core.Time;
 namespace Modbot.Core.Data;
 
 /// <summary>
-/// Keeps the record of places -- which worlds Modbot has seen anybody in, and which rooms have
+/// Keeps the record of places -- which worlds Modbot has seen anybody in, and which instances have
 /// been open.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Two callers put things in: the group instance sync, which polls the rooms the managed group
-/// has open, and the client event handler, which reports a room a moderator is standing in. They
-/// arrive by different routes and can describe the same room, so everything here is written to be
+/// Two callers put things in: the group instance sync, which polls the instances the managed group
+/// has open, and the client event handler, which reports an instance a moderator is standing in. They
+/// arrive by different routes and can describe the same instance, so everything here is written to be
 /// safe to call again with the same facts.
 /// </para>
 /// <para>
@@ -37,16 +37,16 @@ public sealed class PlaceStore
     }
 
     /// <summary>
-    /// Records that somebody was at a location, and answers which room that was.
+    /// Records that somebody was at a location, and answers which instance that was.
     /// </summary>
     /// <param name="location">The location string as VRChat wrote it, qualifiers and all.</param>
     /// <param name="seenAt">When the sighting happened -- not when it was reported.</param>
     /// <param name="userCount">How many people were there, when that is known.</param>
     /// <param name="fromGroupList">
     /// True when this sighting came from the managed group's own live instance list. That makes
-    /// the list the authority on when this room ends, and takes it out of the time rule's reach.
+    /// the list the authority on when this instance ends, and takes it out of the time rule's reach.
     /// </param>
-    /// <returns>The room, whether it was already known or has just been opened.</returns>
+    /// <returns>The instance, whether it was already known or has just been opened.</returns>
     public async Task<VRChatInstance?> RecordSightingAsync(
         string? location,
         DateTimeOffset seenAt,
@@ -63,13 +63,13 @@ public sealed class PlaceStore
 
         await NoteWorldSeenAsync(parts.WorldId, seenAt, ct).ConfigureAwait(false);
 
-        // Rooms still believed open, plus any the group's list closed recently enough to still be
-        // the same room coming back (InstanceIdentity.ReopensWithin). Almost never more than one.
+        // Instances still believed open, plus any the group's list closed recently enough to still be
+        // the same instance coming back (InstanceIdentity.ReopensWithin). Almost never more than one.
         var reopenFrom = seenAt - InstanceIdentity.ReopensWithin;
 
         // Loaded into the context, then read back from what the context holds. The query brings in
-        // saved rows; Local also holds a room added earlier in this same pass and not yet saved,
-        // which a query cannot see -- and missing it would open the same room twice.
+        // saved rows; Local also holds an instance added earlier in this same pass and not yet saved,
+        // which a query cannot see -- and missing it would open the same instance twice.
         await _db.VRChatInstances
             .Where(i => i.Location == location
                 && (i.ClosedAt == null || i.ClosedAt > reopenFrom))
@@ -80,20 +80,20 @@ public sealed class PlaceStore
                 && (i.ClosedAt == null || i.ClosedAt > reopenFrom))
             .ToList();
 
-        var room = InstanceIdentity.Match(candidates, seenAt);
+        var instance = InstanceIdentity.Match(candidates, seenAt);
 
-        if (room is { ClosedAt: not null })
+        if (instance is { ClosedAt: not null })
         {
-            // It was never a different room: the list stopped carrying it and then carried it
+            // It was never a different instance: the list stopped carrying it and then carried it
             // again. Undoing the close is the honest record, and leaves one continuous session
             // rather than two halves with a hole between them.
-            room.ClosedAt = null;
-            room.ClosedBy = null;
+            instance.ClosedAt = null;
+            instance.ClosedBy = null;
         }
 
-        if (room is null)
+        if (instance is null)
         {
-            room = new VRChatInstance
+            instance = new VRChatInstance
             {
                 Id = Guid.CreateVersion7(),
                 Location = location,
@@ -107,50 +107,50 @@ public sealed class PlaceStore
                 LastSeenAt = seenAt,
             };
 
-            _db.VRChatInstances.Add(room);
+            _db.VRChatInstances.Add(instance);
         }
 
         // A sighting that happened before what is already recorded is ordinary -- a client sends
-        // its backlog on reconnect -- and must not drag the room's last-seen time backwards.
-        if (seenAt > room.LastSeenAt)
-            room.LastSeenAt = seenAt;
+        // its backlog on reconnect -- and must not drag the instance's last-seen time backwards.
+        if (seenAt > instance.LastSeenAt)
+            instance.LastSeenAt = seenAt;
 
-        if (seenAt < room.OpenedAt)
-            room.OpenedAt = seenAt;
+        if (seenAt < instance.OpenedAt)
+            instance.OpenedAt = seenAt;
 
         if (fromGroupList)
-            room.SeenInGroupList = true;
+            instance.SeenInGroupList = true;
 
         if (userCount is { } count)
         {
-            room.LastUserCount = count;
+            instance.LastUserCount = count;
 
-            if (room.PeakUserCount is null || count > room.PeakUserCount)
-                room.PeakUserCount = count;
+            if (instance.PeakUserCount is null || count > instance.PeakUserCount)
+                instance.PeakUserCount = count;
         }
 
-        return room;
+        return instance;
     }
 
     /// <summary>
-    /// Marks a room finished.
+    /// Marks an instance finished.
     /// </summary>
     /// <param name="closedBy">
     /// <c>list</c> when the group's live list stopped carrying it, <c>time</c> when nothing had
     /// been seen for <see cref="VRChatInstance.CountsAsNewAfter"/>. Recorded because the two are
     /// not equally trustworthy.
     /// </param>
-    public static void Close(VRChatInstance room, DateTimeOffset closedAt, string closedBy)
+    public static void Close(VRChatInstance instance, DateTimeOffset closedAt, string closedBy)
     {
-        ArgumentNullException.ThrowIfNull(room);
+        ArgumentNullException.ThrowIfNull(instance);
 
-        if (room.ClosedAt is not null)
+        if (instance.ClosedAt is not null)
             return;
 
-        // A room cannot end before it was last seen in: if the two disagree, the sighting is the
+        // An instance cannot end before it was last seen in: if the two disagree, the sighting is the
         // thing that actually happened.
-        room.ClosedAt = closedAt < room.LastSeenAt ? room.LastSeenAt : closedAt;
-        room.ClosedBy = closedBy;
+        instance.ClosedAt = closedAt < instance.LastSeenAt ? instance.LastSeenAt : closedAt;
+        instance.ClosedBy = closedBy;
     }
 
     /// <summary>
@@ -169,7 +169,7 @@ public sealed class PlaceStore
         // FindAsync, not a query. A query only sees saved rows, so a world added earlier in the same
         // pass looked missing, was added a second time, and EF Core refused to track the copy --
         // which failed the whole group instance poll, every ten seconds, for as long as any open
-        // room was in a world Modbot had not saved yet. Find checks what the context already holds,
+        // instance was in a world Modbot had not saved yet. Find checks what the context already holds,
         // added rows included, before it asks the database.
         var world = await _db.VRChatWorlds.FindAsync([worldId], ct).ConfigureAwait(false);
 
@@ -193,16 +193,16 @@ public sealed class PlaceStore
     }
 
     /// <summary>
-    /// Closes rooms nobody has seen for <see cref="VRChatInstance.CountsAsNewAfter"/>, so that the
+    /// Closes instances nobody has seen for <see cref="VRChatInstance.CountsAsNewAfter"/>, so that the
     /// same instance number showing up again opens a new one.
     /// </summary>
     /// <remarks>
-    /// Rooms the group's live list carries are left alone: the list ends those exactly, and a
-    /// quiet group room is still a real one. This only reaches rooms Modbot learned about from a
+    /// Instances the group's live list carries are left alone: the list ends those exactly, and a
+    /// quiet group instance is still a real one. This only reaches instances Modbot learned about from a
     /// moderator standing in them, where there is no signal but time.
     /// </remarks>
-    /// <returns>How many rooms were closed.</returns>
-    public async Task<int> CloseLongQuietRoomsAsync(CancellationToken ct = default)
+    /// <returns>How many instances were closed.</returns>
+    public async Task<int> CloseLongQuietInstancesAsync(CancellationToken ct = default)
     {
         var now = _clock.UtcNow;
         var cutoff = now - VRChatInstance.CountsAsNewAfter;
@@ -211,8 +211,8 @@ public sealed class PlaceStore
             .Where(i => i.ClosedAt == null && !i.SeenInGroupList && i.LastSeenAt < cutoff)
             .ToListAsync(ct).ConfigureAwait(false);
 
-        foreach (var room in stale)
-            Close(room, room.LastSeenAt, "time");
+        foreach (var instance in stale)
+            Close(instance, instance.LastSeenAt, "time");
 
         return stale.Count;
     }

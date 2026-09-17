@@ -127,15 +127,29 @@ public class LiveStreamTests
     private static string Subject() => $"usr_{Guid.NewGuid():N}";
 
     [Fact]
-    public async Task AModeratorWhoMaySeeLiveRooms_IsSentJoinsAndLeaves_WithThePersonDescribed()
+    public async Task AModeratorWhoMaySeeLiveInstances_IsSentJoinsAndLeaves_WithThePersonDescribed()
     {
         await using var host = await StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
         using var socket = await ConnectAsync(host, await TicketAsync(host, cookie));
 
         var hello = await NextOfKindAsync(socket, "hello");
         Assert.Equal(1, hello.GetProperty("version").GetInt32());
         Assert.True(long.Parse(hello.GetProperty("cursor").GetString()!, System.Globalization.CultureInfo.InvariantCulture) >= 0);
+
+        // The world's name rides beside its id, so a client can say "The Black Cat #<number>".
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Modbot.Core.Data.ModbotContext>();
+            db.VRChatWorlds.Add(new VRChatWorld
+            {
+                WorldId = "wrld_4b34",
+                Name = "The Black Cat",
+                FirstSeenAt = host.Clock.UtcNow,
+                LastSeenAt = host.Clock.UtcNow,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
 
         var subject = Subject();
         var join = await WriteAsync(host, FactType.InstanceJoined, subject, displayName: "Rin");
@@ -148,6 +162,7 @@ public class LiveStreamTests
         Assert.Equal(LiveKinds.PersonJoined, first.GetProperty("kind").GetString());
         Assert.Equal(Instance, first.GetProperty("instanceId").GetString());
         Assert.Equal("wrld_4b34", first.GetProperty("worldId").GetString());
+        Assert.Equal("The Black Cat", first.GetProperty("worldName").GetString());
         Assert.True(first.TryGetProperty("at", out _));
         Assert.False(first.GetProperty("flagged").GetBoolean());
 
@@ -166,7 +181,7 @@ public class LiveStreamTests
     public async Task AJoinBySomebodyWithPriorActions_ArrivesAsAFlaggedJoin()
     {
         await using var host = await StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
 
         var subject = Subject();
         await WriteAsync(host, FactType.MemberBanned, subject, instance: null);
@@ -234,10 +249,10 @@ public class LiveStreamTests
     }
 
     [Fact]
-    public async Task AModeratorWhoMaySeeLiveRoomsButNotTheLog_IsSentPresenceAndNothingElse()
+    public async Task AModeratorWhoMaySeeLiveInstancesButNotTheLog_IsSentPresenceAndNothingElse()
     {
         await using var host = await StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
 
         var start = await WriteAsync(host, FactType.InstanceJoined, Subject());
         await WriteAsync(host, FactType.MemberBanned, Subject(), instance: null);
@@ -269,7 +284,7 @@ public class LiveStreamTests
     public async Task ASessionCookieAlone_DoesNotOpenTheSocket()
     {
         await using var host = await StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
         using var socket = await ConnectAsync(host, ticket: null, cookie: cookie);
 
         var (_, closed, _) = await NextAsync(socket);
@@ -281,10 +296,10 @@ public class LiveStreamTests
     public async Task ReconnectingWithACursor_ReplaysWhatWasMissed_InOrder()
     {
         await using var host = await StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
 
         // Different people each time: a client's report of the same person joining the same
-        // room within five seconds is deduplicated by the writer, which is right and not what
+        // instance within five seconds is deduplicated by the writer, which is right and not what
         // this test is about.
         var subject = Subject();
         var before = await WriteAsync(host, FactType.InstanceJoined, subject);
@@ -303,7 +318,7 @@ public class LiveStreamTests
     public async Task LongPolling_AnswersAtOnceWithEventsAfterTheCursor_AndTheSameShape()
     {
         await using var host = await StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
 
         var before = await WriteAsync(host, FactType.InstanceJoined, Subject());
         var join = await WriteAsync(host, FactType.InstanceJoined, Subject(), displayName: "Rin");
@@ -329,7 +344,7 @@ public class LiveStreamTests
     public async Task LongPolling_WaitsAndIsWokenByAWrittenFact()
     {
         await using var host = await StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
 
         var subject = Subject();
         var start = await WriteAsync(host, FactType.InstanceJoined, subject);
@@ -352,7 +367,7 @@ public class LiveStreamTests
     public async Task LongPolling_AnswersEmptyWhenTheWaitRunsOut_AndRefusesNobody()
     {
         await using var host = await StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
 
         var response = await host.Client.SendAsync(
             host.Authenticated(HttpMethod.Get, $"{LiveStreamEndpoints.PollPath}?wait=0", cookie), Ct);

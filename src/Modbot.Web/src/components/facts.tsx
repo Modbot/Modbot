@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { sourceLabel } from '@/lib/format'
+import { instanceName, instanceNumber } from '@/lib/instanceName'
 import { openDiscordPerson, openInstance, openPerson, openWorld } from '@/lib/subject'
 import type { AuditEntry } from '@/lib/api'
 
@@ -147,7 +148,7 @@ const linkClass =
  * A world, as a launcher for its popup.
  *
  * A world Modbot has not read the page of yet has no name, which is ordinary rather than an
- * error: it says so and still opens, because the popup can show the rooms and the time even when
+ * error: it says so and still opens, because the popup can show the instances and the time even when
  * the name is unknown.
  */
 export function WorldLink({
@@ -179,34 +180,49 @@ export function WorldLink({
 }
 
 /**
- * A room, as a launcher for its popup.
+ * An instance, as a launcher for its popup: "The Black Cat #19453", the world's name and VRChat's
+ * number as one link, the way VRChat shows an instance in game.
  *
- * `roomId` is Modbot's own id and is what makes the room one room; VRChat's number is what a
- * moderator sees in game, so the number is the label. With no room id matched — the fact happened
- * outside every room Modbot has a row for — the number is shown as plain text rather than as a
- * link to somebody else's evening.
+ * `modbotInstanceId` is Modbot's own id and is what makes the instance one instance; it is what
+ * the popup opens on. With no id matched — the fact happened outside every instance Modbot has a
+ * row for — the world stays a link and the number is plain text, rather than a link to somebody
+ * else's evening. A world Modbot has not read yet is named by its id.
  */
-export function RoomLink({
-  roomId,
+export function InstanceLink({
+  modbotInstanceId,
+  worldId,
+  worldName,
   number,
   className,
 }: {
-  roomId?: string | null
+  modbotInstanceId?: string | null
+  worldId?: string | null
+  worldName?: string | null
   number?: string | null
   className?: string
 }) {
-  const label = number ? `room ${number}` : 'a room'
+  if (modbotInstanceId) {
+    return (
+      <button
+        type="button"
+        onClick={() => openInstance(modbotInstanceId)}
+        title={worldId ?? undefined}
+        className={cn(linkClass, className)}
+        style={{ display: 'inline' }}
+      >
+        {instanceName(worldName, worldId, number)}
+      </button>
+    )
+  }
 
-  if (!roomId) return <span className={cn('text-muted-foreground', className)}>{label}</span>
+  if (worldId) {
+    return (
+      <span className={className}>
+        <WorldLink id={worldId} name={worldName} unnamed="id" />
+        {number ? <span className="text-muted-foreground"> {instanceNumber(number)}</span> : null}
+      </span>
+    )
+  }
 
-  return (
-    <button
-      type="button"
-      onClick={() => openInstance(roomId)}
-      className={cn(linkClass, className)}
-      style={{ display: 'inline' }}
-    >
-      {label}
-    </button>
-  )
+  return <span className={cn('text-muted-foreground', className)}>{instanceName(null, null, number)}</span>
 }

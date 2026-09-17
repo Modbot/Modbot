@@ -141,7 +141,7 @@ public class DailyTotalsJobTests : AnalyticsTestBase
     }
 
     /// <summary>
-    /// Two moderators walking into the same room an hour apart each report every occupant, so
+    /// Two moderators walking into the same instance an hour apart each report every occupant, so
     /// facts per person per day is really facts per watching moderator. People per day is the
     /// number that means something.
     /// </summary>

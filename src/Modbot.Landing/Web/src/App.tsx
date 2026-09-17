@@ -124,9 +124,9 @@ function Compare() {
       'Each action carries the moderator who took it, so the owner can read what the team did.',
     ],
     [
-      'Who was in the room',
+      'Who was in the instance',
       'You see the people in an instance while you are inside it.',
-      "While a moderator's companion is in the room, it reports who arrives and leaves, and Modbot keeps that.",
+      "While a moderator's companion is in the instance, it reports who arrives and leaves, and Modbot keeps that.",
     ],
   ]
 
@@ -169,7 +169,7 @@ function Compare() {
 function LiveFacts() {
   const facts: [string, string][] = [
     ['Every open instance', 'Each group instance appears as it opens, with VRChat’s own head count.'],
-    ['Who is inside', 'While a moderator’s companion is in the room, you see each person and when they arrived.'],
+    ['Who is inside', 'While a moderator’s companion is in the instance, you see each person and when they arrived.'],
     ['Earlier actions stand out', 'People with earlier moderation actions stand out in the list.'],
     ['Refreshes on its own', 'The page refreshes every five seconds, and stops while its tab is hidden.'],
   ]
@@ -185,7 +185,7 @@ function LiveFacts() {
           Every instance, as it happens.
         </h2>
         <p className="max-w-[34rem] text-lg text-pretty text-muted-foreground lg:col-span-6">
-          The Live page shows every room the group has open, how full it is, and who arrived last.
+          The Live page shows every instance the group has open, how full it is, and who arrived last.
         </p>
       </div>
       <Tiles items={facts} className="mt-10" />
@@ -263,12 +263,12 @@ function Features() {
         id="client"
         flip
         sources={['Client']}
-        title="Who is in the room, from a moderator’s own PC."
-        lead="The Windows client reads VRChat’s own log as you play and reports who comes and goes. In SteamVR, an overlay lists the room and warns you when someone with a record walks in."
+        title="Who is in the instance, from a moderator’s own PC."
+        lead="The Windows client reads VRChat’s own log as you play and reports who comes and goes. In SteamVR, an overlay lists the instance and warns you when someone with a record walks in."
         facts={[
           'Windows 10 and 11, installed without administrator rights. Quest and phone players are covered by the web app and the Discord bot.',
           'Pairs with your server through my.modbot.co, using a one-time link that lasts five minutes.',
-          'Its token can only report presence and read the room list, and is stored encrypted to your Windows account.',
+          'Its token can only report presence and read the instance list, and is stored encrypted to your Windows account.',
           'Pair it with more than one group.',
         ]}
         visual={<OverlayMock />}

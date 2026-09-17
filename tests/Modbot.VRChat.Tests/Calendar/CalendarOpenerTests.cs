@@ -48,10 +48,10 @@ public class CalendarOpenerTests(PostgresFixture fixture) : CalendarTestBase(fix
         Assert.Equal(e.StartsAt, opening.OccurrenceStartsAt);
         Assert.NotNull(opening.Location);
 
-        // Recorded as a room the way a sighting is, so Live and the instance cards find it.
-        var room = await context.VRChatInstances.AsNoTracking().SingleAsync(r => r.Id == opening.RoomId, Ct);
-        Assert.Equal(opening.Location, room.Location);
-        Assert.Equal(GroupId, room.GroupId);
+        // Recorded as an instance the way a sighting is, so Live and the instance cards find it.
+        var instance = await context.VRChatInstances.AsNoTracking().SingleAsync(r => r.Id == opening.InstanceId, Ct);
+        Assert.Equal(opening.Location, instance.Location);
+        Assert.Equal(GroupId, instance.GroupId);
 
         Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventInstanceOpened));
     }

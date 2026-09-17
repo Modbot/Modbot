@@ -106,7 +106,7 @@ export function denseDays(
 }
 
 /**
- * How open a room is, in a word a member would use.
+ * How open an instance is, in a word a member would use.
  *
  * A word this build has not seen is shown as VRChat wrote it. It is still the real answer, and
  * showing it beats replacing it with "unknown".

@@ -94,7 +94,7 @@ public class OverlayHostAnchorTests
     }
 
     [Fact]
-    public void TheRoomAnchorPinsThePanelWhereItIs()
+    public void TheInstanceAnchorPinsThePanelWhereItIs()
     {
         AvaloniaTestHost.Run(() =>
         {

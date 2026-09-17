@@ -10,6 +10,7 @@ import { concernsInstance } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { access } from '@/lib/format'
+import { instanceName } from '@/lib/instanceName'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
 
@@ -17,20 +18,20 @@ const TABS = ['overview', 'people', 'logs', 'json'] as const
 type Tab = (typeof TABS)[number]
 
 /**
- * One room: where and when it ran and how busy it got on the left; who was in it and what
+ * One instance: where and when it ran and how busy it got on the left; who was in it and what
  * happened there on the right.
  *
- * A room's history is its log: the facts recorded there while it was open, which the Logs tab
- * already is. Opened by Modbot's own id for the room, never VRChat's number, which VRChat hands
- * out again once a room closes. The world is a link, so a moderator can go from "what happened
+ * An instance's history is its log: the facts recorded there while it was open, which the Logs tab
+ * already is. Opened by Modbot's own id for the instance, never VRChat's number, which VRChat hands
+ * out again once an instance closes. The world is a link, so a moderator can go from "what happened
  * in here" to "what else runs in this world" without closing anything.
  */
 export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
   const [tab, setTab] = useOpeningTab<Tab>('overview', TABS)
   const allowed = can(me, 'ViewAnalytics')
 
-  // Read again when something happens in this room. The stream names rooms by VRChat's number,
-  // which is only known once the room has loaded, so the number is kept where the callback can
+  // Read again when something happens in this instance. The stream names instances by VRChat's number,
+  // which is only known once the instance has loaded, so the number is kept where the callback can
   // see it without being remade.
   const number = useRef<string | null>(null)
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsInstance(event, number.current), []))
@@ -39,7 +40,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
   const { data, error } = useLoad(allowed ? load : null, live)
 
   useEffect(() => {
-    number.current = data?.room.vrChatInstanceId ?? null
+    number.current = data?.instance.vrChatInstanceId ?? null
   }, [data])
 
   if (!allowed) {
@@ -50,15 +51,13 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
     )
   }
 
-  const room = data?.room
-  const title = room
-    ? `${room.worldName ?? 'Unnamed world'}${room.vrChatInstanceId ? ` · ${room.vrChatInstanceId}` : ''}`
-    : 'Instance'
+  const instance = data?.instance
+  const title = instance ? instanceName(instance.worldName, instance.worldId, instance.vrChatInstanceId) : 'Instance'
 
   return (
     <PopupFrame
       title={title}
-      subtitle={room ? <span title={room.location}>{room.closedAt ? 'Closed' : 'Open now'}</span> : undefined}
+      subtitle={instance ? <span title={instance.location}>{instance.closedAt ? 'Closed' : 'Open now'}</span> : undefined}
       lead={lead}
       left={error ? <Note className="text-destructive">{error}</Note> : data ? <Identity view={data} /> : <Note>Loading…</Note>}
     >
@@ -96,38 +95,38 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
 }
 
 function Identity({ view }: { view: InstanceView }) {
-  const room = view.room
-  const picture = view.worldImageUrl ?? room.worldThumbnailImageUrl
-  const openFor = minutes(room.minutesOpen)
+  const instance = view.instance
+  const picture = view.worldImageUrl ?? instance.worldThumbnailImageUrl
+  const openFor = minutes(instance.minutesOpen)
 
   return (
     <>
       {picture && <img src={picture} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />}
 
-      <Field label="World" title={room.worldId}>
-        <WorldLink id={room.worldId} name={room.worldName} />
+      <Field label="World" title={instance.worldId}>
+        <WorldLink id={instance.worldId} name={instance.worldName} />
         <div className="font-mono text-muted-foreground break-all" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
-          {room.worldId}
+          {instance.worldId}
         </div>
       </Field>
 
-      <Field label="Instance number" title={room.location}>
-        <span className="font-mono">{room.vrChatInstanceId ?? '—'}</span>
+      <Field label="Instance number" title={instance.location}>
+        <span className="font-mono">{instance.vrChatInstanceId ?? '—'}</span>
       </Field>
 
-      <Field label="Who can join">{access(room.groupAccessType) ?? view.type ?? '—'}</Field>
-      {room.region && <Field label="Region">{room.region.toUpperCase()}</Field>}
+      <Field label="Who can join">{access(instance.groupAccessType) ?? view.type ?? '—'}</Field>
+      {instance.region && <Field label="Region">{instance.region.toUpperCase()}</Field>}
 
-      <Field label="Opened">{dateTime(room.openedAt)}</Field>
-      <Field label={room.closedAt ? 'Closed' : 'Still open'}>
-        {room.closedAt
-          ? `${dateTime(room.closedAt)}${room.closedBy === 'time' ? ' · went quiet' : ''}`
+      <Field label="Opened">{dateTime(instance.openedAt)}</Field>
+      <Field label={instance.closedAt ? 'Closed' : 'Still open'}>
+        {instance.closedAt
+          ? `${dateTime(instance.closedAt)}${instance.closedBy === 'time' ? ' · went quiet' : ''}`
           : `last seen ${dateTime(view.lastSeenAt)}`}
       </Field>
-      <Field label={room.closedAt ? 'Ran for' : 'Open for'}>{openFor}</Field>
+      <Field label={instance.closedAt ? 'Ran for' : 'Open for'}>{openFor}</Field>
 
-      {!room.closedAt && <Field label="People now">{room.peopleNow ?? 0}</Field>}
-      <Field label="Most at once">{room.peakPeople ?? '—'}</Field>
+      {!instance.closedAt && <Field label="People now">{instance.peopleNow ?? 0}</Field>}
+      <Field label="Most at once">{instance.peakPeople ?? '—'}</Field>
 
       {view.canSeeWhoWasThere && (
         <Field label="Seen by a moderator's client">
@@ -142,14 +141,14 @@ function Identity({ view }: { view: InstanceView }) {
 
 /** The glance: the figures, the people seen longest, the newest facts. */
 function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => void }) {
-  const room = view.room
+  const instance = view.instance
   const longest = [...view.people].sort((a, b) => b.minutesSeen - a.minutesSeen).slice(0, 6)
 
   return (
     <div className="flex flex-col gap-3 p-4">
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        <Figure label={room.closedAt ? 'Ran for' : 'Open for'} value={minutes(room.minutesOpen)} />
-        <Figure label="Most at once" value={room.peakPeople === null ? '—' : String(room.peakPeople)} />
+        <Figure label={instance.closedAt ? 'Ran for' : 'Open for'} value={minutes(instance.minutesOpen)} />
+        <Figure label="Most at once" value={instance.peakPeople === null ? '—' : String(instance.peakPeople)} />
         <Figure label="People seen" value={compactNumber(view.counts.visitors)} />
         <Figure label="Arrivals" value={compactNumber(view.counts.arrivals)} />
       </div>

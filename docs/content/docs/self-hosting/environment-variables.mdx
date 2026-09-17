@@ -25,7 +25,7 @@ what Modbot needs before it can reach the database, plus a few switches.
 | `LOG_LEVEL` | No | `Information` | The lowest level written anywhere: `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. An unknown value means `Information`. |
 | `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log files and sends Debug detail to Seq, while the console stays at Information. It also brings back the web server's per-request log lines and the database's query lines, which are left out otherwise. `LOG_LEVEL` wins over it. |
 | `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud this server talks to for its own use. A value that is not a full `http` or `https` address is ignored and the default is used. It is not passed to companions. See [Modbot Cloud](/self-hosting#modbot-cloud). |
-| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: this server does not talk to Modbot Cloud at all. Nothing is reported, no term lists are fetched, no server is registered, no rooms are listed on modbot.co, and its own log is not sent there whatever the setting says. It does not change what companions send. This is how you turn usage reporting off; there is no toggle in the setup wizard or in Settings. See [Logs](/self-hosting/logs#sending-logs-to-modbot-cloud). |
+| `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: this server does not talk to Modbot Cloud at all. Nothing is reported, no term lists are fetched, no server is registered, no instances are listed on modbot.co, and its own log is not sent there whatever the setting says. It does not change what companions send. This is how you turn usage reporting off; there is no toggle in the setup wizard or in Settings. See [Logs](/self-hosting/logs#sending-logs-to-modbot-cloud). |
 | `MODBOT_MY_URL` | No | `https://my.modbot.co` | Where the instance selector is. Every **Add to my.modbot.co** link Modbot offers points at it. A value that is not a full `http` or `https` address means the default. Modbot never calls it; it is only a link. |
 | `MODBOT_DEMO` | No | off | `1`, `true`, `yes` or `on` starts Modbot as a public demo: made-up data, no sign-in, and every visitor is an administrator. Only on a deployment that was never set up — a staff account or a finished setup wizard makes Modbot ignore it, and nothing is seeded or removed. See [Demo mode](/self-hosting/demo-mode). |
 | `MODBOT_DEMO_RESET_HOURS` | No | `24` | How many hours between automatic resets of the demo's data. `0` never resets. Anything that is not a whole number from 0 to 8760 means 24. Only read when `MODBOT_DEMO` is on. |
@@ -173,7 +173,7 @@ repository.
 | `DATABASE_URL` | Yes | none | The main PostgreSQL database: installs, admin sessions and settings. |
 | `DATABASE_ENGINE_URL` | Yes | none | A second, separate PostgreSQL database that stores the events companions back up and the log lines Modbot deployments send. |
 | `ROOT_API_KEY` | No | none | The key that signs in to `/admin`. Unset means admin is refused to everyone. |
-| `ROOMS_API_KEY` | No | none | The read-only key for the [open rooms](/self-hosting/open-rooms) feed, which is the key the landing page holds. `ROOT_API_KEY` opens the feed as well; with neither set, the feed is refused to everyone. |
+| `INSTANCES_API_KEY` | No | none | The read-only key for the [open instances](/self-hosting/open-instances) feed, which is the key the landing page holds. `ROOT_API_KEY` opens the feed as well; with neither set, the feed is refused to everyone. Its old name, `ROOMS_API_KEY`, is still read. |
 | `RESEND_API_KEY` | No | none | The [Resend](https://resend.com) key Cloud's alert email is sent with. Unset means the instance checks still run and record what they found, and no email goes. See [Alerts by email](/self-hosting/alerts). |
 | `ALERT_FROM_EMAIL` | No | none | The address that alert email comes from. Unset means no email goes. |
 | `GITHUB_TOKEN` | No | none | Reads the repository's contributors for the showcase every Modbot shows on its Credits page. Not needed once the repository is public; without it while it is private, the contributor list is empty and nothing else changes. |
@@ -197,13 +197,13 @@ variable.
 | Variable | Required | Default | What it does |
 |---|---|---|---|
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value means 8080. |
-| `MODBOT_CLOUD_PROXY_URL` | No | none | The Modbot Cloud the `/rooms` page reads from, as a full `http` or `https` address. Anything else is ignored. |
-| `MODBOT_CLOUD_API_KEY` | No | none | The key sent to that Cloud — its `ROOMS_API_KEY`. It is read on the server and never written into a page. |
+| `MODBOT_CLOUD_PROXY_URL` | No | none | The Modbot Cloud the `/instances` page reads from, as a full `http` or `https` address. Anything else is ignored. |
+| `MODBOT_CLOUD_API_KEY` | No | none | The key sent to that Cloud — its `INSTANCES_API_KEY`. It is read on the server and never written into a page. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. |
 | `CONSOLE_LOG_MODE` | No | `serilog` | `serilog`, `json` or `railway_json`. See [Console log modes](#console-log-modes). |
 | `LOG_LEVEL` | No | `Information` | `Verbose`, `Debug`, `Information`, `Warning`, `Error` or `Fatal`. |
 
-With either of the two Cloud variables unset, `/rooms` says no groups are listed and Cloud is never
+With either of the two Cloud variables unset, `/instances` says no groups are listed and Cloud is never
 asked.
 
 On Railway: leave the root directory empty, set `RAILWAY_DOCKERFILE_PATH=src/Modbot.Landing/Dockerfile`,

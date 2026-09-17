@@ -5,13 +5,13 @@ using Modbot.TestSupport;
 namespace Modbot.Core.Tests.Data;
 
 /// <summary>
-/// Recording rooms and worlds several times in one pass, before anything is saved.
+/// Recording instances and worlds several times in one pass, before anything is saved.
 /// </summary>
 /// <remarks>
-/// The group instance poll records every open room, and the world each one is in, and saves once
-/// at the end. A world or room added earlier in that pass is not in the database yet. Looking for it
+/// The group instance poll records every open instance, and the world each one is in, and saves once
+/// at the end. A world or instance added earlier in that pass is not in the database yet. Looking for it
 /// with a query alone found nothing and added it again, and EF Core refused to track the second
-/// copy -- failing the whole poll every ten seconds for as long as a room sat in a new world.
+/// copy -- failing the whole poll every ten seconds for as long as an instance sat in a new world.
 /// </remarks>
 [Collection(nameof(PostgresCollection))]
 public class PlaceStoreTests
@@ -49,9 +49,9 @@ public class PlaceStoreTests
         Assert.Equal(Evening.AddSeconds(1), row.LastSeenAt);
     }
 
-    /// <summary>The crash as it happened: a room in a brand-new world, then the world recorded again.</summary>
+    /// <summary>The crash as it happened: an instance in a brand-new world, then the world recorded again.</summary>
     [Fact]
-    public async Task ARoomInANewWorldThenTheWorldAgainSavesCleanly()
+    public async Task AnInstanceInANewWorldThenTheWorldAgainSavesCleanly()
     {
         var ct = TestContext.Current.CancellationToken;
         var world = NewWorld();
@@ -60,8 +60,8 @@ public class PlaceStoreTests
         {
             var places = new PlaceStore(context, new FakeClock(Evening));
 
-            var room = await places.RecordSightingAsync(Location(world, "68681"), Evening, userCount: 3, fromGroupList: true, ct: ct);
-            Assert.NotNull(room);
+            var instance = await places.RecordSightingAsync(Location(world, "68681"), Evening, userCount: 3, fromGroupList: true, ct: ct);
+            Assert.NotNull(instance);
 
             await places.NoteWorldSeenAsync(world, Evening, ct);
 
@@ -74,7 +74,7 @@ public class PlaceStoreTests
     }
 
     [Fact]
-    public async Task TwoRoomsInTheSameNewWorldInOnePassAreTwoRoomsAndOneWorld()
+    public async Task TwoInstancesInTheSameNewWorldInOnePassAreTwoInstancesAndOneWorld()
     {
         var ct = TestContext.Current.CancellationToken;
         var world = NewWorld();
@@ -95,11 +95,11 @@ public class PlaceStoreTests
     }
 
     /// <summary>
-    /// The same location twice before saving is one room. A query alone could not see the room the
+    /// The same location twice before saving is one instance. A query alone could not see the instance the
     /// first sighting added, and would have opened a second one.
     /// </summary>
     [Fact]
-    public async Task TheSameRoomSeenTwiceBeforeSavingIsOneRoom()
+    public async Task TheSameInstanceSeenTwiceBeforeSavingIsOneInstance()
     {
         var ct = TestContext.Current.CancellationToken;
         var world = NewWorld();
@@ -118,8 +118,8 @@ public class PlaceStoreTests
         }
 
         await using var read = _db.NewContext();
-        var room = Assert.Single(await read.VRChatInstances.Where(i => i.Location == location).ToListAsync(ct));
-        Assert.Equal(5, room.PeakUserCount);
-        Assert.Equal(Evening.AddSeconds(10), room.LastSeenAt);
+        var instance = Assert.Single(await read.VRChatInstances.Where(i => i.Location == location).ToListAsync(ct));
+        Assert.Equal(5, instance.PeakUserCount);
+        Assert.Equal(Evening.AddSeconds(10), instance.LastSeenAt);
     }
 }

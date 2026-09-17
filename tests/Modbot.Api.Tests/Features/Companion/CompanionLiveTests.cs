@@ -203,8 +203,8 @@ public class CompanionLiveTests
         // Give the change a moment to apply before the facts it should decide about are written.
         await Task.Delay(200, Ct);
 
-        await WriteAsync(host, FactType.InstanceJoined, Subject(), instance: Instance, displayName: "Old room");
-        var moved = await WriteAsync(host, FactType.InstanceJoined, Subject(), instance: "85019", displayName: "New room");
+        await WriteAsync(host, FactType.InstanceJoined, Subject(), instance: Instance, displayName: "Old instance");
+        var moved = await WriteAsync(host, FactType.InstanceJoined, Subject(), instance: "85019", displayName: "New instance");
 
         var @event = await NextEventAsync(socket);
         Assert.Equal(moved.ToString(System.Globalization.CultureInfo.InvariantCulture), @event.GetProperty("id").GetString());
@@ -217,7 +217,7 @@ public class CompanionLiveTests
         var (host, token) = await ReadyAsync();
         await using var keep = host;
 
-        // Different people: the writer deduplicates one person joining one room twice within
+        // Different people: the writer deduplicates one person joining one instance twice within
         // five seconds, which is right and not what this test is about.
         var before = await WriteAsync(host, FactType.InstanceJoined, Subject());
         var join = await WriteAsync(host, FactType.InstanceJoined, Subject(), displayName: "Rin");

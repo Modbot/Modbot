@@ -148,7 +148,7 @@ batch. If Cloud stops recognising the install, the client registers again.
 ### Batches, queue and retries
 
 - Events are gathered into batches. A batch closes at 500 events, 256 KB, or 60 seconds after its
-  first event, whichever comes first, and is sent compressed. A quiet room sends nothing.
+  first event, whichever comes first, and is sent compressed. A quiet instance sends nothing.
 - While Cloud cannot be reached, events wait: up to 10,000 in memory, then on disk in
   `%APPDATA%\Modbot\cloud`, up to 20 MB. When either fills, the oldest are dropped.
 - After a failure the client waits before trying again, a little longer each time up to five

@@ -13,11 +13,11 @@ using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Live;
 
-/// <summary>A moderator whose client is in the room right now.</summary>
+/// <summary>A moderator whose client is in the instance right now.</summary>
 public sealed record LiveWatcherView(string UserId, string? DisplayName, DateTimeOffset Since);
 
 /// <summary>
-/// Somebody in a room. Exactly one of <paramref name="ArrivedAt"/> and <paramref name="HereBefore"/>
+/// Somebody in an instance. Exactly one of <paramref name="ArrivedAt"/> and <paramref name="HereBefore"/>
 /// is set.
 /// </summary>
 /// <param name="ArrivedAt">When a moderator saw them walk in.</param>
@@ -36,11 +36,11 @@ public sealed record LivePersonView(
     IReadOnlyList<string> Flags,
     TrustRank? TrustRank = null);
 
-/// <param name="HeadCount">How many people are in the room, whether or not anybody is watching it.</param>
+/// <param name="HeadCount">How many people are in the instance, whether or not anybody is watching it.</param>
 /// <param name="People">Everyone present now. Empty whenever nobody is watching.</param>
 /// <param name="LastWatchedAt">When the last moderator stopped watching. Null while somebody is.</param>
 /// <param name="LastSeen">Who was there at <paramref name="LastWatchedAt"/>. Not "here now".</param>
-public sealed record LiveRoomView(
+public sealed record LiveInstanceView(
     Guid Id,
     string WorldId,
     string? WorldName,
@@ -55,17 +55,17 @@ public sealed record LiveRoomView(
     DateTimeOffset? LastWatchedAt,
     IReadOnlyList<LivePersonView> LastSeen);
 
-public sealed record LiveView(IReadOnlyList<LiveRoomView> Rooms, DateTimeOffset GeneratedAt);
+public sealed record LiveView(IReadOnlyList<LiveInstanceView> Instances, DateTimeOffset GeneratedAt);
 
 /// <summary>
 /// The Live page: the group's open instances right now, and who is in each.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Every open group room is listed, watched or not.</strong> The rooms come from the
-/// group's instance list and the head count from each room's own page, both read by syncs with no
+/// <strong>Every open group instance is listed, watched or not.</strong> The instances come from the
+/// group's instance list and the head count from each instance's own page, both read by syncs with no
 /// client involved. Only the people need a moderator watching, because VRChat's instance API does
-/// not say who is inside. A room nobody is watching shows its world, number and head count, and
+/// not say who is inside. An instance nobody is watching shows its world, number and head count, and
 /// who was last seen there if anybody watched it earlier.
 /// </para>
 /// <para>
@@ -73,7 +73,7 @@ public sealed record LiveView(IReadOnlyList<LiveRoomView> Rooms, DateTimeOffset 
 /// that asks every five seconds spends none of the group's API budget (foundation 4.3.4).
 /// </para>
 /// <para>
-/// <strong>Who is present</strong> is <see cref="RoomWatching"/>'s rule, the same one the overlay
+/// <strong>Who is present</strong> is <see cref="InstanceWatching"/>'s rule, the same one the overlay
 /// roster and the Discord card use.
 /// </para>
 /// <para>
@@ -93,8 +93,8 @@ public static class LiveEndpoints
                     [FromServices] IModbotClock clock,
                     CancellationToken ct) =>
                 Results.Ok(await ReadAsync(db, clock.UtcNow, ct)))
-            .RequiresFlag(ModbotPermissions.ViewLiveRooms)
-            .WithName("GetLiveRooms")
+            .RequiresFlag(ModbotPermissions.ViewLiveInstances)
+            .WithName("GetLiveInstances")
             .WithSummary("The group's open instances right now, and who is in each")
             .WithDescription(
                 "Read from Modbot's own tables; nothing here calls VRChat. Every open group "
@@ -118,21 +118,21 @@ public static class LiveEndpoints
         if (groupId is not { Length: > 0 })
             return new LiveView([], now);
 
-        var rooms = await db.VRChatInstances.AsNoTracking()
+        var instances = await db.VRChatInstances.AsNoTracking()
             .Where(i => i.GroupId == groupId && i.SeenInGroupList && i.ClosedAt == null)
             .OrderBy(i => i.OpenedAt)
             .ToListAsync(ct);
 
-        if (rooms.Count == 0)
+        if (instances.Count == 0)
             return new LiveView([], now);
 
-        var worldIds = rooms.Select(r => r.WorldId).Distinct(StringComparer.Ordinal).ToList();
+        var worldIds = instances.Select(r => r.WorldId).Distinct(StringComparer.Ordinal).ToList();
         var worlds = await db.VRChatWorlds.AsNoTracking()
             .Where(w => worldIds.Contains(w.WorldId))
             .Select(w => new { w.WorldId, w.Name, w.ImageUrl, w.ThumbnailImageUrl })
             .ToDictionaryAsync(w => w.WorldId, StringComparer.Ordinal, ct);
 
-        var people = await new RoomPeopleReader(db).ForRoomsAsync(rooms, ct);
+        var people = await new InstancePeopleReader(db).ForInstancesAsync(instances, ct);
 
         var everyone = people.Values
             .SelectMany(p => p.Here.Concat(p.LastSeen))
@@ -178,27 +178,27 @@ public static class LiveEndpoints
                 profiles.GetValueOrDefault(p.UserId).Rank);
         }
 
-        var views = rooms.Select(room =>
+        var views = instances.Select(instance =>
         {
-            var world = worlds.GetValueOrDefault(room.WorldId);
-            var inRoom = people[room.Id];
+            var world = worlds.GetValueOrDefault(instance.WorldId);
+            var inInstance = people[instance.Id];
 
-            return new LiveRoomView(
-                room.Id,
-                room.WorldId,
+            return new LiveInstanceView(
+                instance.Id,
+                instance.WorldId,
                 world?.Name,
                 world?.ThumbnailImageUrl ?? world?.ImageUrl,
-                room.VRChatInstanceId,
-                room.GroupAccessType,
-                room.Region,
-                room.OpenedAt,
-                HeadCounts.Shown(room),
-                inRoom.Watching
+                instance.VRChatInstanceId,
+                instance.GroupAccessType,
+                instance.Region,
+                instance.OpenedAt,
+                HeadCounts.Shown(instance),
+                inInstance.Watching
                     .Select(w => new LiveWatcherView(w.UserId, w.DisplayName ?? names.GetValueOrDefault(w.UserId), w.Since))
                     .ToList(),
-                inRoom.Here.Select(Person).ToList(),
-                inRoom.LastWatchedAt,
-                inRoom.LastSeen.Select(Person).ToList());
+                inInstance.Here.Select(Person).ToList(),
+                inInstance.LastWatchedAt,
+                inInstance.LastSeen.Select(Person).ToList());
         }).ToList();
 
         return new LiveView(views, now);

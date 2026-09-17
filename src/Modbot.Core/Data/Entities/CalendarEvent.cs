@@ -220,8 +220,8 @@ public class CalendarOpening
     /// <summary>The instance's location, when VRChat created it.</summary>
     public string? Location { get; set; }
 
-    /// <summary>The room it was recorded as, in <c>vrchat_instance</c>.</summary>
-    public Guid? RoomId { get; set; }
+    /// <summary>The instance it was recorded as, in <c>vrchat_instance</c>.</summary>
+    public Guid? InstanceId { get; set; }
 
     public string? Error { get; set; }
 }

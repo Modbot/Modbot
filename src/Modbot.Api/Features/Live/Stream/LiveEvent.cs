@@ -31,14 +31,14 @@ public static class LiveKinds
     /// <summary>Somebody who was already there when a moderator started watching.</summary>
     public const string PersonHere = "person_here";
 
-    /// <summary>A moderator's client said VRChat's log stopped: their watch of the room ended.</summary>
+    /// <summary>A moderator's client said VRChat's log stopped: their watch of the instance ended.</summary>
     public const string WatchStopped = "watch_stopped";
 
-    public const string RoomOpened = "room_opened";
+    public const string InstanceOpened = "instance_opened";
 
-    public const string RoomClosed = "room_closed";
+    public const string InstanceClosed = "instance_closed";
 
-    public const string RoomChanged = "room_changed";
+    public const string InstanceChanged = "instance_changed";
 
     /// <summary>Unusual activity, from the alert watchers (AI insights design §8).</summary>
     public const string Alert = "alert";
@@ -53,9 +53,9 @@ public static class LiveKinds
         FactType.InstanceLeft => PersonLeft,
         FactType.InstancePresenceObserved => PersonHere,
         FactType.InstanceLogStopped => WatchStopped,
-        FactType.GroupInstanceCreated => RoomOpened,
-        FactType.GroupInstanceClosed => RoomClosed,
-        FactType.GroupInstanceUpdated => RoomChanged,
+        FactType.GroupInstanceCreated => InstanceOpened,
+        FactType.GroupInstanceClosed => InstanceClosed,
+        FactType.GroupInstanceUpdated => InstanceChanged,
         FactType.InsightAlert => Alert,
         FactType.ReviewOpened => ReviewOpened,
         FactType.ReviewClosed => ReviewClosed,
@@ -66,8 +66,8 @@ public static class LiveKinds
     public static bool IsPresence(string kind)
         => kind is PersonJoined or FlaggedJoin or PersonLeft or PersonHere or WatchStopped;
 
-    public static bool IsRoom(string kind)
-        => kind is RoomOpened or RoomClosed or RoomChanged;
+    public static bool IsInstance(string kind)
+        => kind is InstanceOpened or InstanceClosed or InstanceChanged;
 
     public static bool IsReview(string kind)
         => kind is ReviewOpened or ReviewClosed;
@@ -110,6 +110,12 @@ public sealed record LiveActor(string Platform, string Id, string? Name);
 /// <param name="ObservedAt">When Modbot learned of it.</param>
 /// <param name="Subject">Who or what it happened to.</param>
 /// <param name="Actor">Who did it, or null when nobody did.</param>
+/// <param name="InstanceId">VRChat's number for the instance it happened in, when the fact names one.</param>
+/// <param name="WorldId">The world it happened in, when the fact names one.</param>
+/// <param name="WorldName">
+/// What that world is called, from <c>vrchat_world</c> as it stands now. Null when Modbot has only
+/// ever seen the id, so a client shows the id instead. Never fetched from VRChat for this.
+/// </param>
 /// <param name="Person">Who it is about, described as the roster describes people, for the presence kinds. Null otherwise.</param>
 /// <param name="Flagged">True on a <see cref="LiveKinds.FlaggedJoin"/>.</param>
 /// <param name="Reason">Why the join was flagged, in words, or null.</param>
@@ -134,6 +140,7 @@ public sealed record LiveEvent(
     LiveActor? Actor,
     string? InstanceId,
     string? WorldId,
+    string? WorldName,
     LivePerson? Person,
     bool Flagged,
     string? Reason,

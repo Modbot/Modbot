@@ -36,7 +36,7 @@ marked.use({
 
 const server = (await import(entry)) as {
   renderLanding: (privacy: boolean) => string
-  renderRooms: (privacy: boolean) => string
+  renderInstances: (privacy: boolean) => string
   renderNotFound: () => string
   renderPrivacy: (html: string) => string
 }
@@ -78,7 +78,7 @@ const policy = await access(policyFile).then(
 const privacyAttribute = policy !== null ? ' data-privacy="yes"' : ''
 
 await fill('index.html', server.renderLanding(policy !== null), privacyAttribute)
-await fill('rooms.html', server.renderRooms(policy !== null), privacyAttribute)
+await fill('instances.html', server.renderInstances(policy !== null), privacyAttribute)
 await fill('404.html', server.renderNotFound())
 
 if (policy !== null) {

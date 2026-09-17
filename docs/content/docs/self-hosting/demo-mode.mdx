@@ -4,7 +4,7 @@ description: Running Modbot as a public demo, with a made-up group to train on, 
 ---
 
 Set `MODBOT_DEMO=1` on a Modbot that has never been set up and it fills its database with a made-up
-VRChat group — hundreds of people, a year of rooms, bans, case files, Discord messages and charts —
+VRChat group — hundreds of people, a year of instances, bans, case files, Discord messages and charts —
 then opens the whole app with no sign-in. It is for training moderators and for showing Modbot to
 people without pointing it at a real group.
 
@@ -31,7 +31,7 @@ setup.
 |---|---|
 | People | About 420 VRChat profiles, with bios, pronouns, how old the account is, trust level and 18+ flags. Pictures are plain gradients drawn in the browser, so nothing is fetched from anywhere. |
 | The group | A year of joins, leaves and role changes, and a mix of regulars, newcomers, a handful of repeat offenders and people who left. |
-| Rooms | 12 worlds and a year of instances with head counts and peaks, and a few open right now. |
+| Instances | 12 worlds and a year of instances with head counts and peaks, and a few open right now. |
 | Moderation | Warnings, kicks and bans, with case files, reasons and evidence files kept in the database. |
 | Reviews | Open and closed reviews, and the repeat-offender list they come from. |
 | Discord | A server with 14 channels, 8 roles, about 300 members, and thousands of messages and voice sessions across the year. Some accounts are linked to VRChat accounts. |
@@ -50,7 +50,7 @@ the same reason they add up on a real deployment.
 
 ## How long it takes
 
-The group, the people and the rooms are written before Modbot answers its first request, so the app
+The group, the people and the instances are written before Modbot answers its first request, so the app
 is usable straight away.
 
 The year of history behind it — the fact log and the Discord messages — is written in the background

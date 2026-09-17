@@ -12,7 +12,7 @@ const SHORTEST_NAME = 3
 const LEFT_ALONE = new Set(['a', 'code', 'pre', 'script', 'style'])
 
 /**
- * Turns the people, worlds and rooms a tool found into links, wherever the answer names them.
+ * Turns the people, worlds and instances a tool found into links, wherever the answer names them.
  *
  * The model is asked to write ids out, and it mostly does — but it also writes display names, and
  * a moderator reading "TeaSpoon was banned in March" wants to open TeaSpoon from that sentence

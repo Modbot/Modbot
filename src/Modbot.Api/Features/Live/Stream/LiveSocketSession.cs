@@ -26,7 +26,7 @@ public delegate Task<LiveScope?> LiveScopeRefresh(IServiceProvider services, Liv
 /// <strong>Subscribed on connect.</strong> Unlike the general event socket there is nothing to
 /// choose: the caller's scope decides what it is sent, and the address carries the cursor. A
 /// client may still send <c>subscribe</c> to move the cursor, or -- a companion -- to name the
-/// instance it has walked into, so a moderator changing rooms does not reconnect.
+/// instance it has walked into, so a moderator changing instances does not reconnect.
 /// </para>
 /// <para>
 /// <strong>Pull, not push.</strong> The next page is read only after the last one went out, so a

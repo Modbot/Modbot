@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 /**
  * The pieces the three popups share: one loader, one way of stating a figure, one fact list.
  *
- * Kept as small parts rather than a popup template, because a person, a world and a room are
+ * Kept as small parts rather than a popup template, because a person, a world and an instance are
  * genuinely different and a template would pull them towards being the same screen.
  */
 
@@ -65,7 +65,7 @@ export function Panel({ title, children }: { title: string; children: React.Reac
 /**
  * A list of facts, each as a sentence with every name in it clickable.
  *
- * The same list on a person's popup and on a room's, because they are the same thing seen through
+ * The same list on a person's popup and on an instance's, because they are the same thing seen through
  * two different filters, and a reader should not have to learn two layouts for it.
  */
 export function FactList({ entries, empty }: { entries: AuditEntry[]; empty: string }) {

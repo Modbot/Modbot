@@ -73,7 +73,7 @@ public sealed class FakeGroups
 
     public int BanRequests => BanQueries.Count;
 
-    /// <summary>The group's open rooms, as <c>/groups/{groupId}/instances</c> lists them.</summary>
+    /// <summary>The group's open instances, as <c>/groups/{groupId}/instances</c> lists them.</summary>
     public List<GroupInstance> Instances { get; } = [];
 
     public HttpStatusCode InstancesStatus { get; set; } = HttpStatusCode.OK;

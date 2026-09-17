@@ -313,7 +313,7 @@ public interface IDiscordGateway : IAsyncDisposable
     /// <param name="text">
     /// A line above the embed, or null for none. This is the operator's own words, so it is sent
     /// with mentions disabled: a message written months ago must not be able to ping a channel
-    /// every time a room opens.
+    /// every time an instance opens.
     /// </param>
     /// <param name="links">Buttons under the message that open a web address, or null for none.</param>
     Task<DiscordPostOutcome> PostAsync(

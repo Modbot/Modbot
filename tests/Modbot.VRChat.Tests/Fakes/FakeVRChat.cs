@@ -91,7 +91,7 @@ public sealed class FakeVRChat
     /// <summary>The user endpoint: one profile per request.</summary>
     public FakeUsers Users { get; } = new();
 
-    /// <summary>Rooms' own pages, for their head counts.</summary>
+    /// <summary>Instances' own pages, for their head counts.</summary>
     public FakeInstances Instances { get; } = new();
 
     /// <summary>The group calendar's writes.</summary>

@@ -193,7 +193,7 @@ public static class ApiSurface
         app.MapDataSettings();
         app.MapSyncSettings();
         app.MapPublicAddressSettings();
-        app.MapPublicRoomsSettings();
+        app.MapPublicInstancesSettings();
         app.MapCloudSettings();
         app.MapEmailSettings();
         app.MapAiSettings();
@@ -247,7 +247,7 @@ public static class ApiSurface
         // queue and the record writer resolve optionally, like SyncDiagnostics does above.
         app.MapVRChatUsers();
 
-        // One world and one room, for the popup that opens when somebody clicks either (spec
+        // One world and one instance, for the popup that opens when somebody clicks either (spec
         // 10.2). Read entirely from Modbot's own tables -- opening a popup costs no VRChat
         // budget, however often a moderator does it.
         app.MapPlaces();

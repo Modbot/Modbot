@@ -6,13 +6,13 @@ namespace Modbot.AI.Alerts;
 /// Everything one alert is built from, and exactly what is stored beside it and shown.
 /// </summary>
 /// <remarks>
-/// Counts, a stretch of time, and at most a world or room name. Nothing here may name, number or
+/// Counts, a stretch of time, and at most a world or instance name. Nothing here may name, number or
 /// describe a person (AI insights design §8.3), which is also why the AI sentence is written from
 /// this object and nothing else.
 /// </remarks>
 /// <param name="Counts">What the figure counts, in plain words: "joins", "flags".</param>
 /// <param name="Earlier">The matching earlier windows, newest first.</param>
-/// <param name="Where">The world or room, for the two room watchers. Null otherwise.</param>
+/// <param name="Where">The world or instance, for the two instance watchers. Null otherwise.</param>
 /// <param name="Link">Where in Modbot to look, as a path. Null when there is nowhere.</param>
 public sealed record AlertFigures(
     string Watcher,

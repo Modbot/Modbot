@@ -6,12 +6,12 @@ using Modbot.TestSupport;
 namespace Modbot.Companion.Tests.Pipeline;
 
 /// <summary>
-/// The one report a client makes when VRChat's log stops: once, for the room the moderator was in,
+/// The one report a client makes when VRChat's log stops: once, for the instance the moderator was in,
 /// and never as a repeating "still here".
 /// </summary>
 public sealed class LogStoppedTests : IDisposable
 {
-    private const string Room = "wrld_w:85019~group(grp_cats)~groupAccessType(plus)~region(use)";
+    private const string Instance = "wrld_w:85019~group(grp_cats)~groupAccessType(plus)~region(use)";
 
     private readonly string _directory = Directory.CreateTempSubdirectory("modbot-stopped-").FullName;
     private readonly FakeClock _clock = new();
@@ -24,7 +24,7 @@ public sealed class LogStoppedTests : IDisposable
 
     private static readonly string[] Arrival =
     [
-        $"2026.09.03 21:00:00 Debug      -  [Behaviour] Joining {Room}",
+        $"2026.09.03 21:00:00 Debug      -  [Behaviour] Joining {Instance}",
         "2026.09.03 21:00:10 Debug      -  [Behaviour] OnPlayerJoined Ada (usr_ada)",
         "2026.09.03 21:00:10 Debug      -  [Behaviour] OnPlayerJoined bin¹ (usr_mod)",
         "2026.09.03 21:00:10 Debug      -  [Behaviour] Initialized PlayerAPI \"bin¹\" is local",
@@ -33,8 +33,8 @@ public sealed class LogStoppedTests : IDisposable
     private const string FrameRateLine =
         "2026.09.03 21:30:00 Debug      -  [VRCTrackingSteam] [IK Debug Log] FPS: 89.86 Quality: 3";
 
-    /// <summary>A running client that watched the moderator walk into a group room.</summary>
-    private PresenceObserver InTheRoom()
+    /// <summary>A running client that watched the moderator walk into a group instance.</summary>
+    private PresenceObserver InTheInstance()
     {
         File.WriteAllLines(LogPath, ["2026.09.03 20:59:00 Debug      -  [Behaviour] Using server environment: Release"]);
         var observer = Observer();
@@ -49,7 +49,7 @@ public sealed class LogStoppedTests : IDisposable
     [Fact]
     public void ALogThatStopsIsReportedOnce_ForTheModerator_AtTheLastLineItWrote()
     {
-        var observer = InTheRoom();
+        var observer = InTheInstance();
 
         _clock.Advance(PresenceObserver.InstanceStaleAfter + TimeSpan.FromSeconds(1));
         var stopped = Assert.Single(observer.Poll());
@@ -69,11 +69,11 @@ public sealed class LogStoppedTests : IDisposable
     }
 
     [Fact]
-    public void AQuietRoomWhoseLogKeepsGrowingReportsNoStop()
+    public void AQuietInstanceWhoseLogKeepsGrowingReportsNoStop()
     {
         // The file never goes quiet while VRChat runs -- a frame-rate line every ten seconds --
         // however long it has been since anybody came or went.
-        var observer = InTheRoom();
+        var observer = InTheInstance();
 
         for (var minute = 0; minute < 30; minute++)
         {
@@ -87,7 +87,7 @@ public sealed class LogStoppedTests : IDisposable
     public void ALogThatWasAlreadyDeadWhenModbotStartedIsNotReported()
     {
         // History replayed at startup tells the client where the moderator was. It is not a
-        // session that stopped while anybody was watching, and last night's room is not news.
+        // session that stopped while anybody was watching, and last night's instance is not news.
         File.WriteAllLines(LogPath, Arrival);
         var observer = Observer();
         Assert.Empty(observer.Poll());
@@ -97,11 +97,11 @@ public sealed class LogStoppedTests : IDisposable
     }
 
     [Fact]
-    public void WhenTheLogStartsAgain_TheRoomIsRestatedOnce_AsAlreadyHere()
+    public void WhenTheLogStartsAgain_TheInstanceIsRestatedOnce_AsAlreadyHere()
     {
         // A slept laptop woke up. The server ended the watch at the stop, so it has to hear once
         // that the moderator is watching again -- and "already here" is all that is known.
-        var observer = InTheRoom();
+        var observer = InTheInstance();
 
         _clock.Advance(TimeSpan.FromMinutes(20));
         Assert.Single(observer.Poll());
@@ -122,7 +122,7 @@ public sealed class LogStoppedTests : IDisposable
     [Fact]
     public void AModeratorWhoLeftBeforeTheLogStoppedIsNotReported()
     {
-        var observer = InTheRoom();
+        var observer = InTheInstance();
 
         File.AppendAllLines(LogPath, ["2026.09.03 21:05:00 Debug      -  [Behaviour] OnLeftRoom"]);
         Assert.Single(observer.Poll());
@@ -134,7 +134,7 @@ public sealed class LogStoppedTests : IDisposable
     [Fact]
     public void VRChatRestartingIsANewSession_NotAResume()
     {
-        var observer = InTheRoom();
+        var observer = InTheInstance();
 
         _clock.Advance(TimeSpan.FromMinutes(20));
         Assert.Single(observer.Poll());

@@ -92,7 +92,7 @@ public enum RefreshRequestOutcome
     FreshEnough,
 
     /// <summary>
-    /// The id is a room's location, not a person's, and was not queued. A room is never a profile
+    /// The id is an instance's location, not a person's, and was not queued. An instance is never a profile
     /// to fetch, and one that slips in is answered 400 by VRChat and offered again on every
     /// housekeeping pass for as long as its row lasts.
     /// </summary>
@@ -223,7 +223,7 @@ public sealed class UserRefreshQueue
 
         // Every way into the queue -- a sighting in the fact log, a screen asking, a row the
         // housekeeping found never refreshed -- comes through here, so this is the one place a
-        // room's location can be turned away before it costs a users.profile call. It is a
+        // instance's location can be turned away before it costs a users.profile call. It is a
         // delimiter check on a location's grammar, not a shape check on a person's id (spec
         // 3.1.1): see InstanceLocationParts.LooksLikeALocation.
         if (InstanceLocationParts.LooksLikeALocation(request.UserId))

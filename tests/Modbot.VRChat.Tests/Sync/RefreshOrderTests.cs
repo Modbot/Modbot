@@ -14,7 +14,7 @@ public class RefreshOrderTests
         new(user, reason, T0.AddMinutes(-minutesAgo), T0.AddMinutes(-requestedMinutesAgo));
 
     /// <summary>
-    /// A room's location is not a person and is never queued, at any tier and whatever the
+    /// An instance's location is not a person and is never queued, at any tier and whatever the
     /// caller says about freshness. Before this, one location row made every housekeeping pass
     /// spend a users.profile call on a 400.
     /// </summary>
@@ -24,16 +24,16 @@ public class RefreshOrderTests
     [InlineData(RefreshReason.SeenInFactLog)]
     [InlineData(RefreshReason.NeverRefreshed)]
     [InlineData(RefreshReason.ProfileIsOld)]
-    public void ARoomsLocationIsTurnedAwayAtEveryTier(RefreshReason reason)
+    public void AnInstancesLocationIsTurnedAwayAtEveryTier(RefreshReason reason)
     {
         var queue = new UserRefreshQueue();
-        const string room = "wrld_06c991da-951b-4ca5-b7d2-e3f5a9839e28:03044~group(grp_0a17232e)~groupAccessType(plus)~region(use)";
+        const string instance = "wrld_06c991da-951b-4ca5-b7d2-e3f5a9839e28:03044~group(grp_0a17232e)~groupAccessType(plus)~region(use)";
 
-        var outcome = queue.Offer(At(room, reason, minutesAgo: 0), null, T0, new UserProfileSyncOptions());
+        var outcome = queue.Offer(At(instance, reason, minutesAgo: 0), null, T0, new UserProfileSyncOptions());
 
         Assert.Equal(RefreshRequestOutcome.NotAPerson, outcome);
         Assert.Equal(0, queue.Count);
-        Assert.Null(queue.PendingFor(room));
+        Assert.Null(queue.PendingFor(instance));
     }
 
     /// <summary>The maintainer's order, top to bottom.</summary>

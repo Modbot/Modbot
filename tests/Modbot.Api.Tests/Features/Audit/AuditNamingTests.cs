@@ -10,7 +10,7 @@ namespace Modbot.Api.Tests.Features.Audit;
 
 /// <summary>
 /// A log that prints ids is a log nobody reads. These pin the names, the typed subject and the
-/// room a row links to.
+/// instance a row links to.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
 public class AuditNamingTests
@@ -43,10 +43,10 @@ public class AuditNamingTests
 
     /// <summary>
     /// The subject of an instance event is the location string, not a person. Clicking it must
-    /// open the room, and the room it opens is the one whose life the fact falls inside.
+    /// open the instance, and the instance it opens is the one whose life the fact falls inside.
     /// </summary>
     [Fact]
-    public async Task AnInstanceEvent_HasAnInstanceSubject_AndLinksToTheRoomItHappenedIn()
+    public async Task AnInstanceEvent_HasAnInstanceSubject_AndLinksToTheInstanceItHappenedIn()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -56,8 +56,8 @@ public class AuditNamingTests
         var tonight = host.Clock.UtcNow.AddHours(-2);
 
         await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", monday, ct);
-        await PlacesFixtures.RoomAsync(host, "wrld_a", "39047", monday, monday.AddHours(1), monday.AddHours(1), ct);
-        var tonights = await PlacesFixtures.RoomAsync(host, "wrld_a", "39047", tonight, tonight.AddMinutes(30), null, ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", monday, monday.AddHours(1), monday.AddHours(1), ct);
+        var tonights = await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", tonight, tonight.AddMinutes(30), null, ct);
 
         await host.WriteFactAsync(
             AuditFact(FactType.GroupInstanceCreated, "wrld_a:39047", tonight,
@@ -69,7 +69,12 @@ public class AuditNamingTests
 
         var entry = Assert.Single(page.Entries);
         Assert.Equal(SubjectKind.Instance, entry.SubjectKind);
-        Assert.Equal(tonights.Id, entry.RoomId);
+        Assert.Equal(tonights.Id, entry.ModbotInstanceId);
+
+        // The sentence reads "The Black Cat #39047", so the world's name rides beside its id.
+        Assert.Equal("wrld_a", entry.WorldId);
+        Assert.Equal("39047", entry.InstanceId);
+        Assert.Equal("The Black Cat", entry.WorldName);
 
         // The name recorded at the time is still the actor's name; the lookup only fills gaps.
         Assert.Equal("Mod", entry.ActorName);

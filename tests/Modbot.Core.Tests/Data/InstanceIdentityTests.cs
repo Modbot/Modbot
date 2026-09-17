@@ -4,7 +4,7 @@ using Modbot.Core.Data.Entities;
 namespace Modbot.Core.Tests.Data;
 
 /// <summary>
-/// The rule that decides whether a room is one Modbot already knows or a new one.
+/// The rule that decides whether an instance is one Modbot already knows or a new one.
 /// </summary>
 /// <remarks>
 /// Every case here is a way the rule can be wrong without anything throwing. A wrong answer
@@ -17,7 +17,7 @@ public class InstanceIdentityTests
 
     private static readonly DateTimeOffset Evening = new(2026, 9, 13, 21, 0, 0, TimeSpan.Zero);
 
-    private static VRChatInstance Room(
+    private static VRChatInstance Instance(
         DateTimeOffset lastSeenAt,
         bool seenInGroupList = false,
         DateTimeOffset? closedAt = null) =>
@@ -34,46 +34,46 @@ public class InstanceIdentityTests
         };
 
     [Fact]
-    public void NothingOpenMeansANewRoom()
+    public void NothingOpenMeansANewInstance()
     {
         Assert.Null(InstanceIdentity.Match([], Evening));
     }
 
     [Fact]
-    public void ASightingMinutesLaterIsTheSameRoom()
+    public void ASightingMinutesLaterIsTheSameInstance()
     {
-        var room = Room(Evening);
+        var instance = Instance(Evening);
 
-        Assert.Same(room, InstanceIdentity.Match([room], Evening.AddMinutes(4)));
+        Assert.Same(instance, InstanceIdentity.Match([instance], Evening.AddMinutes(4)));
     }
 
     [Fact]
-    public void TheSameNumberThreeDaysLaterIsANewRoom()
+    public void TheSameNumberThreeDaysLaterIsANewInstance()
     {
-        var room = Room(Evening);
+        var instance = Instance(Evening);
 
-        Assert.Null(InstanceIdentity.Match([room], Evening + VRChatInstance.CountsAsNewAfter));
+        Assert.Null(InstanceIdentity.Match([instance], Evening + VRChatInstance.CountsAsNewAfter));
     }
 
     [Fact]
-    public void TheSameNumberJustInsideThreeDaysIsStillTheSameRoom()
+    public void TheSameNumberJustInsideThreeDaysIsStillTheSameInstance()
     {
-        var room = Room(Evening);
+        var instance = Instance(Evening);
         var justInside = Evening + VRChatInstance.CountsAsNewAfter - TimeSpan.FromMinutes(1);
 
-        Assert.Same(room, InstanceIdentity.Match([room], justInside));
+        Assert.Same(instance, InstanceIdentity.Match([instance], justInside));
     }
 
     /// <summary>
-    /// The case the group's live list exists for: a room open all week with nobody running the
-    /// client in it. The list says it is still open, so no gap makes it a different room.
+    /// The case the group's live list exists for: an instance open all week with nobody running the
+    /// client in it. The list says it is still open, so no gap makes it a different instance.
     /// </summary>
     [Fact]
-    public void ARoomTheGroupListCarriesSurvivesAnyGap()
+    public void AnInstanceTheGroupListCarriesSurvivesAnyGap()
     {
-        var room = Room(Evening, seenInGroupList: true);
+        var instance = Instance(Evening, seenInGroupList: true);
 
-        Assert.Same(room, InstanceIdentity.Match([room], Evening.AddDays(30)));
+        Assert.Same(instance, InstanceIdentity.Match([instance], Evening.AddDays(30)));
     }
 
     /// <summary>
@@ -81,61 +81,61 @@ public class InstanceIdentityTests
     /// already recorded is ordinary. Splitting on it would cut one evening into two.
     /// </summary>
     [Fact]
-    public void AReportThatArrivesLateButHappenedEarlierIsTheSameRoom()
+    public void AReportThatArrivesLateButHappenedEarlierIsTheSameInstance()
     {
-        var room = Room(Evening);
+        var instance = Instance(Evening);
 
-        Assert.Same(room, InstanceIdentity.Match([room], Evening.AddMinutes(-20)));
+        Assert.Same(instance, InstanceIdentity.Match([instance], Evening.AddMinutes(-20)));
     }
 
     [Fact]
-    public void ARoomClosedByTimeIsNeverMatchedAgain()
+    public void AnInstanceClosedByTimeIsNeverMatchedAgain()
     {
-        var room = Room(Evening, closedAt: Evening.AddHours(1));
-        room.ClosedBy = "time";
+        var instance = Instance(Evening, closedAt: Evening.AddHours(1));
+        instance.ClosedBy = "time";
 
-        Assert.Null(InstanceIdentity.Match([room], Evening.AddHours(2)));
+        Assert.Null(InstanceIdentity.Match([instance], Evening.AddHours(2)));
     }
 
     /// <summary>
-    /// The case the probe on 2026-09-13 could not settle: it is not known whether an empty room
+    /// The case the probe on 2026-09-13 could not settle: it is not known whether an empty instance
     /// stays in the group's list. If it does not, a quiet stretch would look like a close followed
-    /// by a new room, and every figure about how long rooms run would be wrong. Coming straight
-    /// back means it was the same room all along.
+    /// by a new instance, and every figure about how long instances run would be wrong. Coming straight
+    /// back means it was the same instance all along.
     /// </summary>
     [Fact]
-    public void ARoomTheListDroppedAndCarriedAgainMinutesLaterIsTheSameRoom()
+    public void AnInstanceTheListDroppedAndCarriedAgainMinutesLaterIsTheSameInstance()
     {
-        var room = Room(Evening, seenInGroupList: true, closedAt: Evening.AddMinutes(30));
-        room.ClosedBy = "list";
+        var instance = Instance(Evening, seenInGroupList: true, closedAt: Evening.AddMinutes(30));
+        instance.ClosedBy = "list";
 
         var backAgain = Evening.AddMinutes(32);
 
-        Assert.Same(room, InstanceIdentity.Match([room], backAgain));
+        Assert.Same(instance, InstanceIdentity.Match([instance], backAgain));
     }
 
     [Fact]
-    public void ARoomTheListDroppedLongAgoIsANewRoom()
+    public void AnInstanceTheListDroppedLongAgoIsANewInstance()
     {
-        var room = Room(Evening, seenInGroupList: true, closedAt: Evening.AddMinutes(30));
-        room.ClosedBy = "list";
+        var instance = Instance(Evening, seenInGroupList: true, closedAt: Evening.AddMinutes(30));
+        instance.ClosedBy = "list";
 
         var muchLater = Evening.AddMinutes(30) + InstanceIdentity.ReopensWithin;
 
-        Assert.Null(InstanceIdentity.Match([room], muchLater));
+        Assert.Null(InstanceIdentity.Match([instance], muchLater));
     }
 
     /// <summary>
-    /// Reopening is only ever an undo of the list's own close. A room closed by the time rule has
+    /// Reopening is only ever an undo of the list's own close. An instance closed by the time rule has
     /// been quiet for three days, and letting it reopen would undo the split that rule exists for.
     /// </summary>
     [Fact]
     public void OnlyTheListsOwnCloseCanBeUndone()
     {
-        var room = Room(Evening, closedAt: Evening.AddMinutes(30));
-        room.ClosedBy = "time";
+        var instance = Instance(Evening, closedAt: Evening.AddMinutes(30));
+        instance.ClosedBy = "time";
 
-        Assert.Null(InstanceIdentity.Match([room], Evening.AddMinutes(32)));
+        Assert.Null(InstanceIdentity.Match([instance], Evening.AddMinutes(32)));
     }
 
     /// <summary>
@@ -145,8 +145,8 @@ public class InstanceIdentityTests
     [Fact]
     public void WhenTwoRowsAreOpenTheMostRecentlySeenWins()
     {
-        var stale = Room(Evening.AddHours(-6));
-        var live = Room(Evening);
+        var stale = Instance(Evening.AddHours(-6));
+        var live = Instance(Evening);
 
         Assert.Same(live, InstanceIdentity.Match([stale, live], Evening.AddMinutes(5)));
         Assert.Same(live, InstanceIdentity.Match([live, stale], Evening.AddMinutes(5)));

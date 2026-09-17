@@ -3,7 +3,7 @@ import { Headset, Moon, Rows2, Rows3, Sun } from 'lucide-react'
 import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 import { Popups } from './Popups'
-import { GROUP_NAME, clock, initialLive, personById, step, worldById, type RoomState } from './simulation'
+import { GROUP_NAME, clock, initialLive, personById, step, worldById, type InstanceState } from './simulation'
 import { closeOne, open, type Stack, type Subject } from './stack'
 
 type Density = 'dense' | 'comfortable' | 'vr'
@@ -210,8 +210,8 @@ export function AppMock({
 
           <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-5">
             <div className="grid gap-4 xl:grid-cols-2">
-              {live.rooms.map((room) => (
-                <RoomCard key={room.id} room={room} lastArrival={live.lastArrival} onOpen={openSubject} />
+              {live.instances.map((instance) => (
+                <InstanceCard key={instance.id} instance={instance} lastArrival={live.lastArrival} onOpen={openSubject} />
               ))}
             </div>
           </div>
@@ -231,9 +231,9 @@ function Link({ children, onClick, className }: { children: React.ReactNode; onC
   )
 }
 
-function RoomCard({ room, lastArrival, onOpen }: { room: RoomState; lastArrival: string | null; onOpen: (s: Subject) => void }) {
-  const world = worldById(room.worldId)
-  const watched = room.watching.length > 0
+function InstanceCard({ instance, lastArrival, onOpen }: { instance: InstanceState; lastArrival: string | null; onOpen: (s: Subject) => void }) {
+  const world = worldById(instance.worldId)
+  const watched = instance.watching.length > 0
   const [a, b] = world.picture
 
   return (
@@ -254,18 +254,18 @@ function RoomCard({ room, lastArrival, onOpen }: { room: RoomState; lastArrival:
           </div>
           <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             <Link
-              onClick={() => onOpen({ kind: 'instance', id: room.id })}
+              onClick={() => onOpen({ kind: 'instance', id: instance.id })}
               className="inline-flex min-h-6 min-w-6 items-center font-mono font-medium text-foreground"
             >
-              {room.instance}
+              #{instance.instance}
             </Link>
-            <span>{room.access} · {room.region.toUpperCase()}</span>
+            <span>{instance.access} · {instance.region.toUpperCase()}</span>
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <div className="font-mono text-2xl font-medium tabular-nums">{room.headCount}</div>
+          <div className="font-mono text-2xl font-medium tabular-nums">{instance.headCount}</div>
           <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {room.headCount === 1 ? 'person' : 'people'}
+            {instance.headCount === 1 ? 'person' : 'people'}
           </div>
         </div>
       </div>
@@ -273,7 +273,7 @@ function RoomCard({ room, lastArrival, onOpen }: { room: RoomState; lastArrival:
       <div className="flex flex-wrap items-baseline gap-x-2" style={{ fontSize: 'var(--text-small)' }}>
         <span className="text-muted-foreground">Watching</span>
         {watched ? (
-          room.watching.map((id) => (
+          instance.watching.map((id) => (
             <Link key={id} onClick={() => onOpen({ kind: 'person', id })} className="font-medium">
               {personById(id).name}
             </Link>
@@ -286,10 +286,10 @@ function RoomCard({ room, lastArrival, onOpen }: { room: RoomState; lastArrival:
       {watched ? (
         <section className="flex flex-col gap-1">
           <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
-            Here now · {room.people.length}
+            Here now · {instance.people.length}
           </div>
           <ul style={{ fontSize: 'var(--text-small)' }}>
-            {room.people.map((p) => {
+            {instance.people.map((p) => {
               const who = personById(p.personId)
               return (
                 <li
@@ -321,13 +321,13 @@ function RoomCard({ room, lastArrival, onOpen }: { room: RoomState; lastArrival:
       ) : (
         <section className="flex flex-col gap-1 text-muted-foreground">
           <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
-            Last seen {clock(room.openedAt + 20)} · 2
+            Last seen {clock(instance.openedAt + 20)} · 2
           </div>
           <ul style={{ fontSize: 'var(--text-small)' }}>
             {['usr_haze', 'usr_lumen'].map((id) => (
               <li key={id} className="flex items-baseline gap-2 border-t py-1" style={{ borderTopWidth: 'var(--hairline)' }}>
                 <Link onClick={() => onOpen({ kind: 'person', id })}>{personById(id).name}</Link>
-                <span className="ml-auto tabular-nums">here before {clock(room.openedAt + 20)}</span>
+                <span className="ml-auto tabular-nums">here before {clock(instance.openedAt + 20)}</span>
               </li>
             ))}
           </ul>

@@ -15,7 +15,7 @@ public class InstanceTests
     public InstanceTests(PostgresFixture db) => _db = db;
 
     [Fact]
-    public async Task AnUnknownRoom_Is404()
+    public async Task AnUnknownInstance_Is404()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -30,7 +30,7 @@ public class InstanceTests
     }
 
     [Fact]
-    public async Task ARoom_CarriesItsWorld_AndWhoWasSeenInIt()
+    public async Task AnInstance_CarriesItsWorld_AndWhoWasSeenInIt()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -39,7 +39,7 @@ public class InstanceTests
         var t = host.Clock.UtcNow.AddHours(-4);
 
         await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
-        var room = await PlacesFixtures.RoomAsync(host, "wrld_a", "39047", t, t.AddHours(2), t.AddHours(2), ct);
+        var instance = await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t.AddHours(2), t.AddHours(2), ct);
         await PlacesFixtures.PersonAsync(host, "usr_a", "Ada", t, ct);
 
         await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_a", t.AddMinutes(5), "wrld_a", "39047"), ct);
@@ -48,11 +48,11 @@ public class InstanceTests
         var cookie = await host.SignedInAsync(
             ModbotPermissions.ViewAnalytics | ModbotPermissions.ViewAuditLog, ct);
 
-        var view = await host.GetJsonAsync<InstanceView>($"/api/instances/{room.Id}", cookie, ct);
+        var view = await host.GetJsonAsync<InstanceView>($"/api/instances/{instance.Id}", cookie, ct);
 
-        Assert.Equal("The Black Cat", view.Room.WorldName);
-        Assert.Equal("39047", view.Room.VRChatInstanceId);
-        Assert.Equal(7, view.Room.PeakPeople);
+        Assert.Equal("The Black Cat", view.Instance.WorldName);
+        Assert.Equal("39047", view.Instance.VRChatInstanceId);
+        Assert.Equal(7, view.Instance.PeakPeople);
         Assert.True(view.CanSeeWhoWasThere);
 
         var seen = Assert.Single(view.People);
@@ -64,11 +64,11 @@ public class InstanceTests
     }
 
     /// <summary>
-    /// VRChat hands the same room number out again once a room closes. A room must not show the
+    /// VRChat hands the same instance number out again once an instance closes. An instance must not show the
     /// people or the facts of the evening before it.
     /// </summary>
     [Fact]
-    public async Task ARoomReusingANumber_DoesNotShowTheEarlierEvenings()
+    public async Task AnInstanceReusingANumber_DoesNotShowTheEarlierEvenings()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -79,9 +79,9 @@ public class InstanceTests
 
         await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", monday, ct);
 
-        var earlier = await PlacesFixtures.RoomAsync(
+        var earlier = await PlacesFixtures.InstanceAsync(
             host, "wrld_a", "39047", monday, monday.AddHours(1), monday.AddHours(1), ct);
-        var later = await PlacesFixtures.RoomAsync(
+        var later = await PlacesFixtures.InstanceAsync(
             host, "wrld_a", "39047", tonight, tonight.AddMinutes(30), null, ct);
 
         await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_old", monday.AddMinutes(5), "wrld_a", "39047"), ct);
@@ -98,11 +98,11 @@ public class InstanceTests
     }
 
     /// <summary>
-    /// The room's own shape is not moderation history; who was in it and what was done to them is
-    /// (spec 5.9.4). A caller with ViewAnalytics alone gets the room and neither list.
+    /// The instance's own shape is not moderation history; who was in it and what was done to them is
+    /// (spec 5.9.4). A caller with ViewAnalytics alone gets the instance and neither list.
     /// </summary>
     [Fact]
-    public async Task WithoutViewAuditLog_TheRoomAnswers_AndWhoWasThereDoesNot()
+    public async Task WithoutViewAuditLog_TheInstanceAnswers_AndWhoWasThereDoesNot()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -110,13 +110,13 @@ public class InstanceTests
 
         var t = host.Clock.UtcNow.AddHours(-4);
         await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
-        var room = await PlacesFixtures.RoomAsync(host, "wrld_a", "39047", t, t.AddHours(2), null, ct);
+        var instance = await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t.AddHours(2), null, ct);
         await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_a", t.AddMinutes(5), "wrld_a", "39047"), ct);
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
-        var view = await host.GetJsonAsync<InstanceView>($"/api/instances/{room.Id}", cookie, ct);
+        var view = await host.GetJsonAsync<InstanceView>($"/api/instances/{instance.Id}", cookie, ct);
 
-        Assert.Equal("The Black Cat", view.Room.WorldName);
+        Assert.Equal("The Black Cat", view.Instance.WorldName);
         Assert.False(view.CanSeeWhoWasThere);
         Assert.Empty(view.People);
         Assert.Empty(view.Log);

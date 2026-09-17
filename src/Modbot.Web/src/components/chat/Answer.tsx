@@ -43,7 +43,7 @@ const LANGUAGES = {
  * One reply, as Markdown.
  *
  * Raw HTML from the model is never rendered (see `Markdown`). Everything drawn here is built from
- * the text: headings, lists, tables, code with a copy button, and the people, worlds and rooms the
+ * the text: headings, lists, tables, code with a copy button, and the people, worlds and instances the
  * tools found, which become the same popups the rest of Modbot opens.
  */
 export function Answer({ text, references }: { text: string; references: readonly ChatReference[] }) {

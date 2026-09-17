@@ -29,7 +29,7 @@ namespace Modbot.Core.Data;
 /// no <c>:</c>, and null when that stretch is empty -- an empty id is nothing to key on.
 /// </param>
 /// <param name="GroupId">
-/// The owning group from <c>~group(grp_...)</c>, or null when the room is not a group instance.
+/// The owning group from <c>~group(grp_...)</c>, or null when the instance is not a group instance.
 /// </param>
 /// <param name="GroupAccessType">
 /// How open a group instance is -- <c>members</c>, <c>plus</c>, <c>public</c> -- from
@@ -44,7 +44,7 @@ public readonly record struct InstanceLocationParts(
     string? Region = null)
 {
     /// <summary>
-    /// What kind of room the location describes, in one word, or null when it does not say.
+    /// What kind of instance the location describes, in one word, or null when it does not say.
     /// </summary>
     /// <remarks>
     /// Only <c>group</c> is decided here, because <c>~group(...)</c> is the one qualifier whose
@@ -59,7 +59,7 @@ public readonly record struct InstanceLocationParts(
     /// "world only" or to nothing, and the verbatim string is still in the payload either way.
     /// </summary>
     /// <summary>
-    /// Whether a string is a room's location rather than a person's id: it has a <c>:</c> with
+    /// Whether a string is an instance's location rather than a person's id: it has a <c>:</c> with
     /// an instance id after it.
     /// </summary>
     /// <remarks>

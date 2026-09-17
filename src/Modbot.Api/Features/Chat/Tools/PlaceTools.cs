@@ -12,9 +12,9 @@ using Modbot.Core.Time;
 namespace Modbot.Api.Features.Chat.Tools;
 
 /// <summary>The Live page's read.</summary>
-internal sealed class ListLiveRoomsTool : ReadTool
+internal sealed class ListLiveInstancesTool : ReadTool
 {
-    public override string Name => "list_live_rooms";
+    public override string Name => "list_live_instances";
 
     public override string Label => "Live instances";
 
@@ -25,28 +25,28 @@ internal sealed class ListLiveRoomsTool : ReadTool
 
     protected override string Schema => """{"type":"object","properties":{}}""";
 
-    public override ModbotPermissions Needs => ModbotPermissions.ViewLiveRooms;
+    public override ModbotPermissions Needs => ModbotPermissions.ViewLiveInstances;
 
     public override async Task<ChatToolResult> RunAsync(ChatToolContext context, JsonElement arguments, CancellationToken ct)
     {
         var live = await LiveEndpoints.ReadAsync(Get<ModbotContext>(context), Get<IModbotClock>(context).UtcNow, ct);
 
         var references = new List<ChatReference>();
-        foreach (var room in live.Rooms)
+        foreach (var instance in live.Instances)
         {
-            references.Add(World(room.WorldId, room.WorldName));
+            references.Add(World(instance.WorldId, instance.WorldName));
             references.Add(new ChatReference(
                 ChatReference.Instance,
-                room.Id.ToString(),
-                room.VRChatInstanceId is { } n ? $"{room.WorldName ?? "Room"} #{n}" : room.WorldName));
-            references.AddRange(room.People.Concat(room.LastSeen).Select(p => Person(p.UserId, p.DisplayName)));
+                instance.Id.ToString(),
+                instance.VRChatInstanceId is { } n ? $"{instance.WorldName ?? instance.WorldId} #{n}" : instance.WorldName ?? instance.WorldId));
+            references.AddRange(instance.People.Concat(instance.LastSeen).Select(p => Person(p.UserId, p.DisplayName)));
         }
 
         return ChatToolResult.Json(
             new
             {
                 live.GeneratedAt,
-                rooms = live.Rooms.Select(r => new
+                instances = live.Instances.Select(r => new
                 {
                     instanceId = r.Id,
                     r.WorldId,
@@ -121,8 +121,8 @@ internal sealed class GetWorldTool : ReadTool
     public override string Label => "Open a world";
 
     public override string Description =>
-        "One world: its name, author, capacity, how much time people spent in it, how many rooms "
-        + "have run in it and are open now, and the most recent rooms with their instanceIds.";
+        "One world: its name, author, capacity, how much time people spent in it, how many instances "
+        + "have run in it and are open now, and the most recent instances with their instanceIds.";
 
     protected override string Schema => """
         {"type":"object","properties":{"worldId":{"type":"string","description":"The VRChat world id."}},"required":["worldId"]}
@@ -151,16 +151,16 @@ internal sealed class GetWorldTool : ReadTool
                 world.FirstSeenAt,
                 world.LastSeenAt,
                 world.Counts,
-                world.RoomsTotal,
-                world.RoomsOpenNow,
-                recentRooms = world.Rooms.Take(10).Select(RoomSummary),
+                world.InstancesTotal,
+                world.InstancesOpenNow,
+                recentInstances = world.Instances.Take(10).Select(InstanceSummary),
                 visitorsLast30Days = world.VisitorsPerDay.TakeLast(30),
             },
-            [World(world.WorldId, world.Name), .. world.Rooms.Take(10).SelectMany(RoomReferences)]);
+            [World(world.WorldId, world.Name), .. world.Instances.Take(10).SelectMany(InstanceReferences)]);
     }
 }
 
-/// <summary>The room popup's read, which hides who was there without ViewAuditLog.</summary>
+/// <summary>The instance popup's read, which hides who was there without ViewAuditLog.</summary>
 internal sealed class GetInstanceTool : ReadTool
 {
     public override string Name => "get_instance";
@@ -168,7 +168,7 @@ internal sealed class GetInstanceTool : ReadTool
     public override string Label => "Open an instance";
 
     public override string Description =>
-        "One room (instance) by Modbot's instanceId, as returned by other tools: where and when it "
+        "One instance (instance) by Modbot's instanceId, as returned by other tools: where and when it "
         + "ran, how busy it was, who was in it and what was recorded there.";
 
     protected override string Schema => """
@@ -182,30 +182,30 @@ internal sealed class GetInstanceTool : ReadTool
         if (!Guid.TryParse(ChatArguments.Text(arguments, "instanceId"), out var id))
             return ChatToolResult.Problem("instanceId must be the GUID another tool returned, not VRChat's instance number.");
 
-        var room = await PlacesEndpoints.RoomAsync(
+        var instance = await PlacesEndpoints.InstanceAsync(
             id, context.Held, Get<ModbotContext>(context), Get<IModbotClock>(context).UtcNow, ct);
 
-        if (room is null)
+        if (instance is null)
             return ChatToolResult.Problem("No instance has that id.");
 
         return ChatToolResult.Json(
             new
             {
-                room = RoomSummary(room.Room),
-                room.Type,
-                room.WorldAuthorName,
-                room.WorldCapacity,
-                room.LastSeenAt,
-                room.Counts,
-                room.CanSeeWhoWasThere,
-                people = room.People,
-                log = room.Log.Select(AuditSearch.Summary),
-                room.LogTruncated,
+                instance = InstanceSummary(instance.Instance),
+                instance.Type,
+                instance.WorldAuthorName,
+                instance.WorldCapacity,
+                instance.LastSeenAt,
+                instance.Counts,
+                instance.CanSeeWhoWasThere,
+                people = instance.People,
+                log = instance.Log.Select(AuditSearch.Summary),
+                instance.LogTruncated,
             },
             [
-                .. RoomReferences(room.Room),
-                .. room.People.Select(p => Person(p.UserId, p.DisplayName)),
-                .. AuditSearch.References(room.Log),
+                .. InstanceReferences(instance.Instance),
+                .. instance.People.Select(p => Person(p.UserId, p.DisplayName)),
+                .. AuditSearch.References(instance.Log),
             ]);
     }
 }

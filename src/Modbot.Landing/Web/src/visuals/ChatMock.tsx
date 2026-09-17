@@ -39,7 +39,7 @@ export function ChatMock() {
             on Sunday:
           </p>
           <ul className="mt-2 list-disc pl-5">
-            <li>Kicked from room 48213 by Oto.</li>
+            <li>Kicked from Lantern Harbor #48213 by Oto.</li>
             <li>Warned in Pixel Karaoke Hall by Wren.</li>
           </ul>
           <p className="mt-2">They left the group on Friday, so they are not a member now.</p>

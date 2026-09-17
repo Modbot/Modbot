@@ -320,7 +320,7 @@ public static class AiSettingsEndpoints
     public static IReadOnlyList<AiSendLine> AiSends { get; } =
     [
         new("Moderation rules", "Discord message text, and VRChat display names, bios, status and pronouns. AI topics only; term lists send nothing."),
-        new("Insights", "Counts for the period, and world and room names."),
+        new("Insights", "Counts for the period, and world and instance names."),
         new("Chat", "A moderator's questions, and the Modbot records the answer uses: names, bios, bans, audit log entries, messages."),
         new("Test and model list", "One short message, and a request for the model list."),
     ];

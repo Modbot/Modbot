@@ -4,7 +4,7 @@ Modbot Cloud (`cloud.modbot.co`):
 
 - receives the companions' event backup and the log each Modbot deployment sends, and keeps both
 - watches each of those deployments from outside and emails somebody when one goes quiet
-- takes each Modbot server's report of the rooms its group has open to everyone
+- takes each Modbot server's report of the instances its group has open to everyone
 - holds **accounts** — an email address and a password, confirmed by mail
 - holds the **server registry**: Modbot servers register themselves, report every six hours, and can
   be claimed by the account that owns them
@@ -25,7 +25,7 @@ built by `src/Modbot.Cloud/Dockerfile` from the repository root.
 | `DATABASE_URL` | Yes | — | Cloud's main PostgreSQL database: installs, admin sessions and settings. A `postgres://user:password@host:5432/database` URL or a keyword connection string. |
 | `DATABASE_ENGINE_URL` | Yes | — | A second, separate PostgreSQL database for the events and the deployments' log lines. Same formats. |
 | `ROOT_API_KEY` | No | none | The key that signs in to `/admin`. Unset means admin refuses everyone. |
-| `ROOMS_API_KEY` | No | none | The read-only key for `GET /api/v1/public-rooms`, which is the key the landing page holds. `ROOT_API_KEY` opens that feed too; with neither set it refuses everyone. |
+| `INSTANCES_API_KEY` | No | none | The read-only key for `GET /api/v1/public-instances`, which is the key the landing page holds. `ROOT_API_KEY` opens that feed too; with neither set it refuses everyone. Its old name, `ROOMS_API_KEY`, is still read. |
 | `PROXY_API_KEY` | No | none | The key my.modbot.co and the landing page send as `Authorization: Bearer`. It opens the endpoints under `/api/v1/site` and nothing else. Set it to the same value as my.modbot.co's `MODBOT_CLOUD_API_KEY`. Unset means those endpoints refuse everyone. |
 | `RESEND_API_KEY` | No | none | The [Resend](https://resend.com) key Cloud sends its mail with: account mail, and the alerts about a Modbot that has gone quiet. **Unset means Cloud sends no mail**, so registering an account, confirming an address and resetting a password are all refused, and the instance checks run and record what they found without emailing anybody. |
 | `MAIL_FROM` | With `RESEND_API_KEY` | — | The From address, such as `Modbot <noreply@modbot.co>`. Cloud refuses to start with a Resend key and no From address. |

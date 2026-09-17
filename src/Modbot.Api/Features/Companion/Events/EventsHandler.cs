@@ -134,7 +134,7 @@ public static class EventsHandler
         // of a request the client was making anyway -- no extra field, no extra call, and nothing
         // a paused client discloses, because a paused client sends no batches.
         // A stopped log is the opposite: this device can no longer see anywhere, so it is forgotten
-        // rather than credited with the room it stopped in, and is offered no more alerts for it.
+        // rather than credited with the instance it stopped in, and is offered no more alerts for it.
         if (Newest(candidates) is { Type: FactType.InstanceLogStopped })
             locations.Forget(authentication.Device!.Id);
         else if (Newest(candidates)?.InstanceId is { Length: > 0 } here)
@@ -157,7 +157,7 @@ public static class EventsHandler
     /// <remarks>
     /// <para><strong>Only genuine arrivals, and only the first report of one.</strong> A
     /// presence-observed is somebody who was already there when a moderator arrived, so alerting
-    /// on it would fire a card for the whole room every time any moderator walked in -- the same
+    /// on it would fire a card for the whole instance every time any moderator walked in -- the same
     /// mistake, one layer up, that the type distinction exists to prevent. A deduplicated join is
     /// one another client already reported and already alerted on, so alerting again would
     /// interrupt six times for one arrival. An overlay that interrupts constantly gets disabled,
@@ -165,7 +165,7 @@ public static class EventsHandler
     /// <para><strong>Only the moderators in that instance.</strong> Every live device is offered
     /// to the hub, which keeps for itself the decision about which of them are standing there.
     /// A moderator in a different instance cannot act on the card and has no business being told
-    /// which room a colleague is in or who just walked into it.</para>
+    /// which instance a colleague is in or who just walked into it.</para>
     /// <para>A failure here is swallowed: an alert is a convenience on top of ingest, and losing
     /// one must never cost a fact that cannot be filled in later.</para>
     /// </remarks>

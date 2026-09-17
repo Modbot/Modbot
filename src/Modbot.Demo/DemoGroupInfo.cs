@@ -28,7 +28,7 @@ public static class DemoGroupInfo
 
         var members = plan.People.Count(p => p.JoinedGroupAt <= at && (p.LeftGroupAt is null || p.LeftGroupAt > at));
 
-        var online = plan.Rooms
+        var online = plan.Instances
             .Where(r => r.OpenedAt <= at && (r.ClosedAt is null || r.ClosedAt > at))
             .Sum(r => r.Visits.Count(v => v.Arrived <= at && (v.Left is null || v.Left > at)));
 

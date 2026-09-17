@@ -15,8 +15,8 @@ const startsWithAny = (type: string, prefixes: readonly string[]) => prefixes.so
 /** Somebody arrived, left, was already here, or a watch ended: what the roster and the Live page show. */
 export const PRESENCE_TYPES = ['vrchat.instance.'] as const
 
-/** A room opened, closed or changed. */
-export const ROOM_TYPES = ['vrchat.group.instance.'] as const
+/** An instance opened, closed or changed. */
+export const INSTANCE_TYPES = ['vrchat.group.instance.'] as const
 
 /** The group's membership: joins, leaves, bans, kicks, roles, and profiles (trust rank among them). */
 export const MEMBER_TYPES = ['vrchat.group.member.', 'vrchat.group.members.', 'vrchat.group.role.', 'vrchat.user.'] as const
@@ -39,7 +39,7 @@ export const REVIEW_TYPES = ['modbot.review.'] as const
 /** Planned events and VRChat's calendar. */
 export const CALENDAR_TYPES = ['modbot.calendar.', 'vrchat.group.calendar-event.'] as const
 
-export const changesLive = (e: LiveEvent) => startsWithAny(e.type, PRESENCE_TYPES) || startsWithAny(e.type, ROOM_TYPES)
+export const changesLive = (e: LiveEvent) => startsWithAny(e.type, PRESENCE_TYPES) || startsWithAny(e.type, INSTANCE_TYPES)
 export const changesMembers = (e: LiveEvent) => startsWithAny(e.type, MEMBER_TYPES)
 export const changesDiscordMembers = (e: LiveEvent) => startsWithAny(e.type, DISCORD_MEMBER_TYPES)
 export const changesBans = (e: LiveEvent) => startsWithAny(e.type, BAN_TYPES)
@@ -60,7 +60,7 @@ export function concernsWorld(event: LiveEvent, worldId: string): boolean {
   return event.worldId === worldId
 }
 
-/** Anything that happened in one room, by its VRChat instance number. */
+/** Anything that happened in one instance, by its VRChat instance number. */
 export function concernsInstance(event: LiveEvent, vrChatInstanceId: string | null | undefined): boolean {
   return !!vrChatInstanceId && event.instanceId === vrChatInstanceId
 }

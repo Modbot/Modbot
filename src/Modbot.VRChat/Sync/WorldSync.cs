@@ -12,7 +12,7 @@ namespace Modbot.VRChat.Sync;
 /// <remarks>
 /// <para>
 /// The group's own worlds are named for free by the instance poll, which returns the world
-/// attached to each open room. This exists for the rest: a world a moderator wandered into, and a
+/// attached to each open instance. This exists for the rest: a world a moderator wandered into, and a
 /// world that only ever appeared in an audit entry. Those never touch the group's instance list,
 /// so without this they would stay as ids forever.
 /// </para>

@@ -7,7 +7,7 @@ namespace Modbot.Api.Features.Audit;
 /// <param name="Types">Already narrowed to what the caller may see. Never empty here.</param>
 /// <param name="Before">Keyset cursor; null for the first page.</param>
 /// <param name="WorldId">Only facts that happened in this world.</param>
-/// <param name="InstanceId">Only facts that happened in a room with this VRChat number.</param>
+/// <param name="InstanceId">Only facts that happened in an instance with this VRChat number.</param>
 /// <param name="Precision">Only facts whose time is exact, or only those known to a window.</param>
 /// <param name="HasActor">Only facts somebody did, or only facts nobody is named for.</param>
 /// <param name="Text">A word or phrase to find in the payload, the subject id or the actor id.</param>
@@ -306,7 +306,7 @@ public sealed class AuditQuery(ModbotContext db)
             e.SubjectPlatform.ToString(),
             e.SubjectId,
             FactSubjects.For(e.Type),
-            // Names and the room are filled in for the whole page at once by AuditNaming, which
+            // Names and the instance are filled in for the whole page at once by AuditNaming, which
             // is the only way they can be looked up without a query per row.
             SubjectName: null,
             e.ActorPlatform?.ToString(),
@@ -315,7 +315,7 @@ public sealed class AuditQuery(ModbotContext db)
             e.WorldId,
             WorldName: null,
             e.InstanceId,
-            RoomId: null,
+            ModbotInstanceId: null,
             AuditJson.Text(data, "description"),
             data);
     }

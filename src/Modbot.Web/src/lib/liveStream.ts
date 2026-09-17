@@ -51,6 +51,8 @@ export type LiveEvent = {
   actor: LiveActor | null
   instanceId: string | null
   worldId: string | null
+  /** What that world is called, as stored now; null when only the id was ever seen. */
+  worldName: string | null
   person: LivePerson | null
   flagged: boolean
   reason: string | null
@@ -65,7 +67,7 @@ export type LiveState = 'off' | 'connecting' | 'live' | 'polling' | 'stopped'
 /** The kinds the Live page redraws for. */
 export const PRESENCE_KINDS = new Set(['person_joined', 'flagged_join', 'person_left', 'person_here', 'watch_stopped'])
 
-export const ROOM_KINDS = new Set(['room_opened', 'room_closed', 'room_changed'])
+export const INSTANCE_KINDS = new Set(['instance_opened', 'instance_closed', 'instance_changed'])
 
 export const REVIEW_KINDS = new Set(['review_opened', 'review_closed'])
 

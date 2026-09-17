@@ -109,14 +109,14 @@ public static class UnusualRule
     };
 
     /// <summary>
-    /// How many people make a room busy: the group's own normal busiest room, eased by sensitivity,
+    /// How many people make an instance busy: the group's own normal busiest instance, eased by sensitivity,
     /// and never below <paramref name="minimum"/>.
     /// </summary>
     /// <remarks>
-    /// Its own small rule because "nobody is watching a busy room" is a state, not a change: a room
+    /// Its own small rule because "nobody is watching a busy instance" is a state, not a change: an instance
     /// exactly as full as every other Friday still wants somebody in it.
     /// </remarks>
-    public static decimal BusyEnough(decimal normalRoom, string sensitivity, int minimum)
+    public static decimal BusyEnough(decimal normalInstance, string sensitivity, int minimum)
     {
         var times = sensitivity switch
         {
@@ -126,7 +126,7 @@ public static class UnusualRule
             _ => decimal.MaxValue,
         };
 
-        return times == decimal.MaxValue ? decimal.MaxValue : Math.Max(normalRoom * times, minimum);
+        return times == decimal.MaxValue ? decimal.MaxValue : Math.Max(normalInstance * times, minimum);
     }
 
     /// <summary>Whether a fresh alert is much worse than the one already posted for that watcher.</summary>

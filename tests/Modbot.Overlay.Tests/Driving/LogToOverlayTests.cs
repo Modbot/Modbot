@@ -275,7 +275,7 @@ public sealed class LogToOverlayTests : IDisposable
     }
 
     [Fact]
-    public void AFlaggedArrivalInThisRoomBecomesACardAndOneInAnotherRoomDoesNot()
+    public void AFlaggedArrivalInThisInstanceBecomesACardAndOneInAnotherInstanceDoesNot()
     {
         Run(session =>
         {

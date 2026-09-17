@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Landing.Configuration;
-using Modbot.Landing.Features.Rooms;
+using Modbot.Landing.Features.Instances;
 
 namespace Modbot.Landing.Tests;
 
@@ -29,15 +29,15 @@ public sealed class LandingTestHost : IAsyncDisposable
     public const string PrivacyHtml =
         "<!doctype html><html><head><title>Privacy policy</title></head><body><article>What we keep</article></body></html>";
 
-    public const string RoomsHtml =
-        "<!doctype html><html><head><title>Open rooms</title></head>"
-        + "<body><div id=\"root\"><main>Open rooms</main></div></body></html>";
+    public const string InstancesHtml =
+        "<!doctype html><html><head><title>Open instances</title></head>"
+        + "<body><div id=\"root\"><main>Open instances</main></div></body></html>";
 
     public const string AssetPath = "/assets/app-test.js";
 
     public const string CloudUrl = "https://cloud.test.invalid";
 
-    public const string CloudApiKey = "a-rooms-key-for-tests-only";
+    public const string CloudApiKey = "a-instances-key-for-tests-only";
 
     public static readonly DateTimeOffset Start = new(2026, 9, 16, 12, 0, 0, TimeSpan.Zero);
 
@@ -82,7 +82,7 @@ public sealed class LandingTestHost : IAsyncDisposable
         {
             await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "index.html"), LandingHtml, Ct);
             await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "404.html"), NotFoundHtml, Ct);
-            await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "rooms.html"), RoomsHtml, Ct);
+            await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "instances.html"), InstancesHtml, Ct);
             await File.WriteAllTextAsync(
                 Path.Combine(webRoot.FullName, "favicon.svg"),
                 "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
@@ -117,7 +117,7 @@ public sealed class LandingTestHost : IAsyncDisposable
 
         // Modbot Cloud, stood in for. Nothing in these tests reaches the network.
         var fake = new FakeCloud();
-        builder.Services.AddHttpClient(OpenRooms.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => fake);
+        builder.Services.AddHttpClient(OpenInstances.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => fake);
 
         var app = builder.Build();
         LandingApp.MapEndpoints(app);

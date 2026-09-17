@@ -45,7 +45,7 @@ public interface ILiveSocketFactory
 /// with the device token as a bearer header, naming the instance the moderator is standing in and
 /// the cursor of the last event received -- which that server already knows, because it is the
 /// group's own instance and this client has been reporting presence for it. Afterwards the only
-/// thing sent is the instance the moderator walked into, when they change rooms, and nothing else:
+/// thing sent is the instance the moderator walked into, when they change instances, and nothing else:
 /// no log lines, nothing about the machine, nothing about instances belonging to any other
 /// group.</para>
 /// <para><strong>What comes back is data to display</strong> -- who joined or left the instance --

@@ -90,7 +90,7 @@ public class McpClientDocumentTests
         await using var host = await ApiTestHost.StartAsync(_db, configure: services =>
             services.AddHttpClient(McpClientDocuments.HttpClientName)
                 .ConfigurePrimaryHttpMessageHandler(() => new DocumentHandler(Document(), () => fetches++)));
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewLiveRooms, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat | ModbotPermissions.ViewLiveInstances, Ct);
 
         var (verifier, challenge) = Pkce();
         var query = $"?response_type=code&client_id={Uri.EscapeDataString(Address)}&redirect_uri={Uri.EscapeDataString(Redirect)}&code_challenge={challenge}&code_challenge_method=S256&state=xyz&scope=mcp&resource={Uri.EscapeDataString("https://localhost/mcp")}";

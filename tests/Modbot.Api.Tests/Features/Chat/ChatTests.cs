@@ -36,7 +36,7 @@ public class ChatTests
         await using var host = await ApiTestHost.StartAsync(_db);
 
         var everythingElse = ModbotPermissions.ViewMembers | ModbotPermissions.ViewProfile | ModbotPermissions.ViewAnalytics
-                             | ModbotPermissions.ViewAuditLog | ModbotPermissions.ViewLiveRooms | ModbotPermissions.ManageSettings;
+                             | ModbotPermissions.ViewAuditLog | ModbotPermissions.ViewLiveInstances | ModbotPermissions.ManageSettings;
         var (_, cookie) = await host.SignedInAsync(everythingElse, Ct);
 
         var id = Guid.NewGuid();
@@ -93,7 +93,7 @@ public class ChatTests
         var tools = fresh.GetProperty("tools").EnumerateArray().ToList();
         Assert.Equal(23, tools.Count);
         Assert.All(tools, t => Assert.True(t.GetProperty("onlyReads").GetBoolean() && t.GetProperty("enabled").GetBoolean()));
-        Assert.Contains(tools, t => t.GetProperty("name").GetString() == "list_live_rooms"
+        Assert.Contains(tools, t => t.GetProperty("name").GetString() == "list_live_instances"
                                     && t.GetProperty("needs").EnumerateArray().Single().GetString() == "See live instances");
 
         var saved = await host.SendJsonAsync(HttpMethod.Put, "/api/settings/ai/chat",
@@ -208,7 +208,7 @@ public class ChatTests
         Assert.Contains("find_person", offered);
         Assert.Contains("get_person_cases", offered);
         Assert.DoesNotContain("search_audit_log", offered);
-        Assert.DoesNotContain("list_live_rooms", offered);
+        Assert.DoesNotContain("list_live_instances", offered);
         Assert.DoesNotContain("search_members", offered);
         Assert.DoesNotContain("group_analytics", offered);
 

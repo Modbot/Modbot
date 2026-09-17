@@ -27,11 +27,11 @@ public class PersonMetricsTests
 
         Assert.False(metrics.Known);
         Assert.Equal(0m, metrics.Counts.MinutesSeen);
-        Assert.Empty(metrics.RecentRooms);
+        Assert.Empty(metrics.RecentInstances);
     }
 
     [Fact]
-    public async Task TimeSeen_WorldsAndRooms_ComeFromTheirOwnSessions()
+    public async Task TimeSeen_WorldsAndInstances_ComeFromTheirOwnSessions()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -39,7 +39,7 @@ public class PersonMetricsTests
 
         var t = host.Clock.UtcNow.AddHours(-8);
 
-        // Half an hour in one world, a quarter in another, and somebody else in the same room --
+        // Half an hour in one world, a quarter in another, and somebody else in the same instance --
         // whose time must not land on this person's total.
         await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_a", t, "wrld_a", "1"), ct);
         await host.WriteFactAsync(PresenceFact(FactType.InstanceLeft, "usr_a", t.AddMinutes(30), "wrld_a", "1"), ct);
@@ -49,7 +49,7 @@ public class PersonMetricsTests
         await host.WriteFactAsync(PresenceFact(FactType.InstanceLeft, "usr_a", t.AddHours(2).AddMinutes(15), "wrld_b", "7"), ct);
 
         await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
-        await PlacesFixtures.RoomAsync(host, "wrld_a", "1", t, t.AddMinutes(30), t.AddMinutes(30), ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "1", t, t.AddMinutes(30), t.AddMinutes(30), ct);
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, ct);
         var metrics = await host.GetJsonAsync<PersonMetrics>(
@@ -58,14 +58,14 @@ public class PersonMetricsTests
         Assert.True(metrics.Known);
         Assert.Equal(45m, metrics.Counts.MinutesSeen);
         Assert.Equal(2, metrics.Counts.Worlds);
-        Assert.Equal(2, metrics.Counts.Rooms);
+        Assert.Equal(2, metrics.Counts.Instances);
         Assert.Equal(2, metrics.Counts.Arrivals);
         Assert.Equal(t, metrics.Counts.FirstSeenAt);
 
-        // Only the room there is a stored row for. The other one was never in the group's list,
-        // so Modbot has presence facts about it and no room of its own to link to.
-        var room = Assert.Single(metrics.RecentRooms);
-        Assert.Equal("The Black Cat", room.WorldName);
+        // Only the instance there is a stored row for. The other one was never in the group's list,
+        // so Modbot has presence facts about it and no instance of its own to link to.
+        var instance = Assert.Single(metrics.RecentInstances);
+        Assert.Equal("The Black Cat", instance.WorldName);
     }
 
     [Fact]

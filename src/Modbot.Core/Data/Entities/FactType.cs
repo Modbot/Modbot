@@ -179,7 +179,7 @@ public static class FactType
     /// Not a weaker <see cref="InstanceJoined"/> but a different claim. VRChat emits
     /// <c>OnPlayerJoined</c> for everyone already present whenever anybody enters, so recording
     /// those as arrivals invents a join for every occupant every time a moderator walks into a
-    /// room — silently, since nothing errors and the numbers are simply wrong. Carries
+    /// instance — silently, since nothing errors and the numbers are simply wrong. Carries
     /// <c>occurred_before</c> rather than a point in time.
     /// </remarks>
     public const string InstancePresenceObserved = "vrchat.instance.presence";
@@ -190,8 +190,8 @@ public static class FactType
     /// </summary>
     /// <remarks>
     /// Not a leave. Whether the moderator is still standing there is unknown -- VRChat may have
-    /// crashed, or the machine slept -- only that their client can no longer see the room. It ends
-    /// that moderator's watch (<c>RoomWatching</c>), so nobody they last saw stays listed as present.
+    /// crashed, or the machine slept -- only that their client can no longer see the instance. It ends
+    /// that moderator's watch (<c>InstanceWatching</c>), so nobody they last saw stays listed as present.
     /// Sent once per stop, never as a repeating "still here". Presence class, by prefix.
     /// </remarks>
     public const string InstanceLogStopped = "vrchat.instance.log-stopped";

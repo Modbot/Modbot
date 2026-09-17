@@ -38,6 +38,7 @@ function fact(overrides: Partial<LiveEvent> = {}): LiveEvent {
     actor: { platform: 'VRChat', id: 'usr_4f0b', name: 'Alice' },
     instanceId: null,
     worldId: null,
+    worldName: null,
     person: null,
     flagged: false,
     reason: null,
@@ -84,14 +85,14 @@ test('a person is concerned as the subject or as the one who acted, on their own
   assert.ok(concernsPerson(fact({ subject: { platform: 'Discord', id: '1234', kind: 'Person' } }), '1234', 'Discord'))
 })
 
-test('a world and a room are concerned by where the fact happened', () => {
+test('a world and an instance are concerned by where the fact happened', () => {
   const e = fact({ worldId: 'wrld_4b34', instanceId: '39911' })
 
   assert.ok(concernsWorld(e, 'wrld_4b34'))
   assert.ok(!concernsWorld(e, 'wrld_else'))
   assert.ok(concernsInstance(e, '39911'))
   assert.ok(!concernsInstance(e, '85019'))
-  assert.ok(!concernsInstance(e, null), 'a room whose number is not known yet is not matched by anything')
+  assert.ok(!concernsInstance(e, null), 'an instance whose number is not known yet is not matched by anything')
 })
 
 test('the audit log counts a fact only when its filters would show it', () => {

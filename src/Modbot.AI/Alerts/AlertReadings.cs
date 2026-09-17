@@ -9,10 +9,10 @@ using Modbot.Core.Live;
 
 namespace Modbot.AI.Alerts;
 
-/// <summary>One open room, as the two room watchers need it.</summary>
+/// <summary>One open instance, as the two instance watchers need it.</summary>
 /// <param name="Where">The world's name, or its id when Modbot has no name for it.</param>
 /// <param name="Watched">Whether a moderator's client is in it.</param>
-public sealed record OpenRoom(Guid Id, string Where, decimal People, bool Watched);
+public sealed record OpenInstance(Guid Id, string Where, decimal People, bool Watched);
 
 /// <summary>
 /// Everything one pass of the watchers reads, gathered in a handful of queries.
@@ -22,8 +22,8 @@ public sealed record OpenRoom(Guid Id, string Where, decimal People, bool Watche
 /// the last fourteen days. Index 0 is the window just ended.
 /// </param>
 /// <param name="NewAccounts">The same, counting only joiners whose VRChat account is under a month old.</param>
-/// <param name="RoomPeaks">The most people in one room, for each group room opened in the last fourteen days.</param>
-/// <param name="Rooms">The group's open rooms right now.</param>
+/// <param name="InstancePeaks">The most people in one instance, for each group instance opened in the last fourteen days.</param>
+/// <param name="Instances">The group's open instances right now.</param>
 /// <param name="ActiveWeeks">
 /// Active members for the week just ended and the four weeks before it, newest first. Empty when
 /// the weekly watcher was not due.
@@ -31,8 +31,8 @@ public sealed record OpenRoom(Guid Id, string Where, decimal People, bool Watche
 public sealed record AlertReadings(
     IReadOnlyDictionary<string, IReadOnlyList<decimal>> ByType,
     IReadOnlyList<decimal> NewAccounts,
-    IReadOnlyList<decimal> RoomPeaks,
-    IReadOnlyList<OpenRoom> Rooms,
+    IReadOnlyList<decimal> InstancePeaks,
+    IReadOnlyList<OpenInstance> Instances,
     IReadOnlyList<decimal> ActiveWeeks)
 {
     /// <summary>The counts for one watcher: its fact types added together, window by window.</summary>
@@ -67,13 +67,13 @@ public sealed record AlertReadings(
 /// count, over fifteen days, on the <c>(type, occurred_at)</c> index;</description></item>
 /// <item><description>the same again for joiners with a new VRChat account, joined to
 /// <c>vrchat_user</c>;</description></item>
-/// <item><description>the open group rooms and their head counts, and who is watching them, only
-/// while a room watcher is on;</description></item>
+/// <item><description>the open group instances and their head counts, and who is watching them, only
+/// while an instance watcher is on;</description></item>
 /// <item><description>active members per week from the daily totals, only once a UTC day, because
 /// the figure is whole days and cannot change inside one.</description></item>
 /// </list>
 /// <para>
-/// Nothing here selects a person's id or display name except where the live-room reader needs one
+/// Nothing here selects a person's id or display name except where the live-instance reader needs one
 /// to answer "is anybody watching", and that answer is a yes or no by the time it leaves.
 /// </para>
 /// </remarks>
@@ -88,8 +88,8 @@ public sealed class AlertFigureReader(ModbotContext db)
     /// <summary>How long a window is.</summary>
     public static readonly TimeSpan WindowLength = TimeSpan.FromHours(1);
 
-    /// <summary>How long a room's own peaks are collected over, for "usually this full".</summary>
-    public static readonly TimeSpan RoomHistory = TimeSpan.FromDays(HistoryDays);
+    /// <summary>How long an instance's own peaks are collected over, for "usually this full".</summary>
+    public static readonly TimeSpan InstanceHistory = TimeSpan.FromDays(HistoryDays);
 
     /// <summary>What "a new account" means: made less than this long before the person joined.</summary>
     public static readonly TimeSpan NewAccountAge = TimeSpan.FromDays(30);
@@ -126,13 +126,13 @@ public sealed class AlertFigureReader(ModbotContext db)
             ? await NewAccountsAsync(windows.End, ct)
             : [];
 
-        var (peaks, rooms) = on.Overlaps(AlertWatcherRules.RoomWatchers)
-            ? await RoomsAsync(windows.End, ct)
+        var (peaks, instances) = on.Overlaps(AlertWatcherRules.InstanceWatchers)
+            ? await InstancesAsync(windows.End, ct)
             : ([], []);
 
         var weeks = wantWeeks ? await ActiveWeeksAsync(windows.LastWholeDay, ct) : [];
 
-        return new AlertReadings(byType, newAccounts, peaks, rooms, weeks);
+        return new AlertReadings(byType, newAccounts, peaks, instances, weeks);
     }
 
     /// <summary>
@@ -203,8 +203,8 @@ public sealed class AlertFigureReader(ModbotContext db)
         return Buckets(rows);
     }
 
-    /// <summary>The group's open rooms, and how full rooms here usually get.</summary>
-    private async Task<(IReadOnlyList<decimal> Peaks, IReadOnlyList<OpenRoom> Rooms)> RoomsAsync(
+    /// <summary>The group's open instances, and how full instances here usually get.</summary>
+    private async Task<(IReadOnlyList<decimal> Peaks, IReadOnlyList<OpenInstance> Instances)> InstancesAsync(
         DateTimeOffset end, CancellationToken ct)
     {
         var groupId = await db.Settings.AsNoTracking()
@@ -216,7 +216,7 @@ public sealed class AlertFigureReader(ModbotContext db)
             return ([], []);
 
         var peaks = await db.VRChatInstances.AsNoTracking()
-            .Where(i => i.GroupId == groupId && i.OpenedAt >= end - RoomHistory && i.PeakUserCount != null)
+            .Where(i => i.GroupId == groupId && i.OpenedAt >= end - InstanceHistory && i.PeakUserCount != null)
             .Select(i => (decimal)i.PeakUserCount!.Value)
             .ToListAsync(ct);
 
@@ -234,17 +234,17 @@ public sealed class AlertFigureReader(ModbotContext db)
             .Where(w => worldIds.Contains(w.WorldId))
             .ToDictionaryAsync(w => w.WorldId, w => w.Name, StringComparer.Ordinal, ct);
 
-        var people = await new RoomPeopleReader(db).ForRoomsAsync(open, ct);
+        var people = await new InstancePeopleReader(db).ForInstancesAsync(open, ct);
 
-        var rooms = open
-            .Select(r => new OpenRoom(
+        var instances = open
+            .Select(r => new OpenInstance(
                 r.Id,
                 names.GetValueOrDefault(r.WorldId) ?? r.WorldId,
                 r.HeadCount!.Value,
                 people.TryGetValue(r.Id, out var p) && p.IsWatched))
             .ToList();
 
-        return (peaks, rooms);
+        return (peaks, instances);
     }
 
     /// <summary>

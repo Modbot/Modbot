@@ -15,7 +15,7 @@ namespace Modbot.Demo.Tests;
 /// <remarks>
 /// <para>
 /// The point of these is not that the numbers are large. It is that the demo <em>hangs together</em>
-/// (demo mode design §4): every fact points at somebody who exists, every room is in a world that
+/// (demo mode design §4): every fact points at somebody who exists, every instance is in a world that
 /// exists, and the analytics pages read back figures that were computed from the facts rather than
 /// typed in. A demo whose ban list names people the member list has never heard of is worse than no
 /// demo, because a moderator training on it learns something untrue.
@@ -39,7 +39,7 @@ public class DemoSeedTests
     public DemoSeedTests(PostgresFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task TheGroupThePeopleAndTheRoomsAreThereBeforeAnyHistoryIs()
+    public async Task TheGroupThePeopleAndTheInstancesAreThereBeforeAnyHistoryIs()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await DemoSeedHost.StartAsync(_fixture, ct);
@@ -160,7 +160,7 @@ public class DemoSeedTests
 
         await EveryFactPointsAtSomebodyWhoExistsAsync(host, ct);
         await TheAnalyticsAddUpAsync(host, ct);
-        await TheLivePageHasRoomsOpenWithPeopleInThemAsync(host, ct);
+        await TheLivePageHasInstancesOpenWithPeopleInThemAsync(host, ct);
         await EverythingTimeBasedEndsNowAsync(host, ct);
     }
 
@@ -265,7 +265,7 @@ public class DemoSeedTests
         Assert.True(counts[^1] > counts[0], "The group never grew.");
     }
 
-    private static async Task TheLivePageHasRoomsOpenWithPeopleInThemAsync(DemoSeedHost host, CancellationToken ct)
+    private static async Task TheLivePageHasInstancesOpenWithPeopleInThemAsync(DemoSeedHost host, CancellationToken ct)
     {
         var settings = await host.Db.GetSettingsAsync(ct);
 
@@ -276,14 +276,14 @@ public class DemoSeedTests
         // A handful, not one: the doc promises "a few open right now", and how many the dice leave
         // open at the moment of seeding is anything from none to four.
         Assert.True(
-            open.Count >= DemoPlan.RoomsOpenNow,
-            $"Only {open.Count} rooms are open; Live is the page the demo is judged on.");
+            open.Count >= DemoPlan.InstancesOpenNow,
+            $"Only {open.Count} instances are open; Live is the page the demo is judged on.");
 
-        var people = await new RoomPeopleReader(host.Db).ForRoomsAsync(open, ct);
+        var people = await new InstancePeopleReader(host.Db).ForInstancesAsync(open, ct);
 
         Assert.True(
-            open.Count(r => people.TryGetValue(r.Id, out var p) && p.Here.Count > 0) >= DemoPlan.RoomsOpenNow,
-            "An open room with nobody in it reads as a dead demo.");
+            open.Count(r => people.TryGetValue(r.Id, out var p) && p.Here.Count > 0) >= DemoPlan.InstancesOpenNow,
+            "An open instance with nobody in it reads as a dead demo.");
     }
 
     private static async Task EverythingTimeBasedEndsNowAsync(DemoSeedHost host, CancellationToken ct)
