@@ -17,6 +17,12 @@
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.22" />
     <!-- Direct3D 11 interop for the shared texture SteamVR's compositor opens. -->
     <PackageVersion Include="Vortice.Direct3D11" Version="3.8.3" />
+    <!-- The overlay on WiVRn and Monado (overlay-on-OpenXR spec, 3.2): an OpenXR session with
+         XR_EXTX_overlay, drawn through Vulkan. Both bindings are MIT and ship nothing native; the
+         loader and Vulkan come from the machine. -->
+    <PackageVersion Include="Silk.NET.OpenXR" Version="2.23.0" />
+    <PackageVersion Include="Silk.NET.OpenXR.Extensions.KHR" Version="2.23.0" />
+    <PackageVersion Include="Silk.NET.Vulkan" Version="2.23.0" />
     <!-- The companion's installer and updater (M3 spec, "Installing and updating"). Per-user,
          no administrator rights, delta updates, and the maintained successor to Squirrel. Its
          version is pinned alongside the vpk tool the release workflow installs. -->

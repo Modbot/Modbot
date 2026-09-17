@@ -605,16 +605,16 @@ internal sealed class CompanionHost
         {
             case OverlayRuntimeState.Running:
                 _overlayAttachedAt = _clock.UtcNow;
-                Log.Information("The overlay is attached to SteamVR");
+                Log.Information("The overlay is attached: {Detail}", status.Detail);
                 break;
             case OverlayRuntimeState.NoRuntime:
-                Log.Information("No SteamVR on this machine, so no overlay: {Detail}", status.Detail);
+                Log.Information("No VR runtime on this machine, so no overlay: {Detail}", status.Detail);
                 break;
             case OverlayRuntimeState.Refused:
-                Log.Warning("SteamVR refused the overlay: {Detail}", status.Detail);
+                Log.Warning("The VR runtime refused the overlay: {Detail}", status.Detail);
                 break;
             default:
-                Log.Information("SteamVR is not running; the overlay will attach when it is");
+                Log.Information("No VR runtime is running; the overlay will attach when one is: {Detail}", status.Detail);
                 break;
         }
     }
@@ -634,7 +634,7 @@ internal sealed class CompanionHost
             if (wasRunning && _overlayHost.Status.State is not OverlayRuntimeState.Running)
             {
                 _overlayAttachedAt = null;
-                Log.Information("SteamVR closed; the overlay has let go and will attach again when it is back");
+                Log.Information("The VR runtime closed; the overlay has let go and will attach again when it is back: {Detail}", _overlayHost.Status.Detail);
             }
 
             if (_overlayHost.Status.State is OverlayRuntimeState.NotStarted

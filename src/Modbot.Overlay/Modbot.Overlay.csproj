@@ -10,6 +10,10 @@
     <PackageReference Include="Avalonia.Headless" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Vortice.Direct3D11" />
+    <PackageReference Include="Silk.NET.OpenXR" />
+    <PackageReference Include="Silk.NET.OpenXR.Extensions.KHR" />
+    <PackageReference Include="Silk.NET.Vulkan" />
+    <PackageReference Include="Serilog" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,8 +38,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <!-- The OpenVR function table is an ordered array of function pointers; calling through it
-         needs unsafe code. It is confined to OpenVr/. -->
+    <!-- The OpenVR function table is an ordered array of function pointers, and the OpenXR and
+         Vulkan bindings are pointer-shaped throughout; calling either needs unsafe code. It is
+         confined to OpenVr/ and OpenXr/. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 

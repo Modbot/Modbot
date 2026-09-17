@@ -6,22 +6,22 @@ namespace Modbot.Overlay.OpenVr;
 /// <summary>Why the overlay is not showing.</summary>
 public enum OverlayRuntimeState
 {
-    /// <summary>Attached to SteamVR with a live overlay.</summary>
+    /// <summary>Attached to a runtime (SteamVR, WiVRn or Monado) with a live overlay.</summary>
     Running,
 
     /// <summary>
-    /// SteamVR is not installed. Not a fault: plenty of moderators run the companion purely to
+    /// No runtime is installed. Not a fault: plenty of moderators run the companion purely to
     /// report presence and never put a headset on.
     /// </summary>
     NoRuntime,
 
     /// <summary>
-    /// SteamVR is installed but not running, or it was running and has since closed. The
+    /// A runtime is installed but not running, or it was running and has since closed. The
     /// companion keeps looking and attaches when it is.
     /// </summary>
     NotStarted,
 
-    /// <summary>SteamVR answered, and said no. The reason is carried alongside.</summary>
+    /// <summary>The runtime answered, and said no. The reason is carried alongside.</summary>
     Refused,
 }
 
@@ -172,7 +172,8 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
             if (CreateOverlay() is { } failure)
                 return Status = failure;
 
-            return Status = new(OverlayRuntimeState.Running);
+            // Named, because the same page and log line serve the OpenXR runtime too.
+            return Status = new(OverlayRuntimeState.Running, Detail: "Attached to SteamVR.");
         }
         catch (DllNotFoundException)
         {

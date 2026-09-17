@@ -4,9 +4,9 @@ Modbot is licensed under the AGPL-3.0 (see `LICENSE`). The companion and its ins
 ship code that belongs to other people, under their own terms. This file records what, and the
 notices those terms ask for.
 
-Library code pulled in as NuGet packages (Avalonia, SkiaSharp, HarfBuzzSharp, Vortice, Serilog,
-Velopack, and the .NET runtime itself) carries its licence inside each package; all of them are
-MIT-licensed, and the notices are in the packages' own `LICENSE` files. The one exception is
+Library code pulled in as NuGet packages (Avalonia, SkiaSharp, HarfBuzzSharp, Vortice, Silk.NET,
+Serilog, Velopack, and the .NET runtime itself) carries its licence inside each package; all of
+them are MIT-licensed, and the notices are in the packages' own `LICENSE` files. The one exception is
 `LanguageDetection.Ai`, the offline language detector the server uses to mark the language on a
 moderation flag: it is Apache-2.0, a port of Nakatani Shuyo's `language-detection`, and its notice
 is in its own package. The one thing copied into this repository as a binary is listed in full
