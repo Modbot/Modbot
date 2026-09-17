@@ -19,6 +19,11 @@ public sealed record LocalRegisterRequest(string? Url);
 /// <para>
 /// Both are limited per address, so that one address cannot make my.modbot.co hammer Cloud.
 /// </para>
+/// <para>
+/// Both answer 503 when Cloud did not take part. A save is only a save once Cloud has it, and an
+/// empty list is only the truth when Cloud said so; the app keeps the address to send later, and
+/// the list it last had, until then.
+/// </para>
 /// </remarks>
 public static class VisitEndpoints
 {
@@ -51,8 +56,7 @@ public static class VisitEndpoints
         if (limits.Saves.TryTake(address ?? "unknown") is { } wait)
             return TooMany(http, wait);
 
-        await cloud.RecordVisitAsync(address, url, ct);
-        return Results.NoContent();
+        return await cloud.RecordVisitAsync(address, url, ct) ? Results.NoContent() : CloudUnavailable(http);
     }
 
     internal static async Task<IResult> MyInstancesAsync(
@@ -68,7 +72,19 @@ public static class VisitEndpoints
         if (limits.Reads.TryTake(address ?? "unknown") is { } wait)
             return TooMany(http, wait);
 
-        return Results.Ok(await cloud.KnownInstancesAsync(address, ct));
+        var instances = await cloud.KnownInstancesAsync(address, ct);
+        return instances is null ? CloudUnavailable(http) : Results.Ok(instances);
+    }
+
+    /// <summary>Roughly when Cloud might be back. The app backs off on its own; this is for anything else.</summary>
+    private const int CloudRetrySeconds = 30;
+
+    private static IResult CloudUnavailable(HttpContext http)
+    {
+        http.Response.Headers.RetryAfter = CloudRetrySeconds.ToString(CultureInfo.InvariantCulture);
+
+        return Results.Json(
+            new { error = "Modbot Cloud could not be reached." }, statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 
     private static IResult TooMany(HttpContext http, TimeSpan wait)

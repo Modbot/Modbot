@@ -148,6 +148,20 @@ public sealed class FakeCloud : HttpMessageHandler
     /// <summary>True to fail the way an unreachable Cloud does.</summary>
     public bool Unreachable { get; set; }
 
+    /// <summary>Set, every call waits here until the test lets it go: a Cloud that hangs.</summary>
+    public TaskCompletionSource? Hold { get; set; }
+
+    private readonly SemaphoreSlim _called = new(0);
+
+    /// <summary>Waits for the next call to arrive, for a note the app does not wait on itself.</summary>
+    public async Task<CloudCall> NextCallAsync(CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        await _called.WaitAsync(timeout.Token);
+        return Last;
+    }
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -159,6 +173,11 @@ public sealed class FakeCloud : HttpMessageHandler
             _calls.Add(new CloudCall(
                 request.Method, request.RequestUri!, request.Headers.Authorization?.ToString(), body));
         }
+
+        _called.Release();
+
+        if (Hold is { } hold)
+            await hold.Task.WaitAsync(ct);
 
         if (Unreachable)
             throw new HttpRequestException("Modbot Cloud is unreachable in this test.");

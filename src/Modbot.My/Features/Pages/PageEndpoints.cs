@@ -20,7 +20,9 @@ namespace Modbot.My.Features.Pages;
 /// <para>
 /// <c>/</c>, <c>/register</c> and <c>/go</c> also note an instance address carried in <c>url</c> as
 /// the page is served. The app notes it again once it renders, so a page the browser took from its
-/// cache is still recorded; Cloud counts the two as one visit.
+/// cache is still recorded; Cloud counts the two as one visit. The page does not wait for that
+/// note: a Cloud that hangs would otherwise hold the page for as long as the call takes to give up,
+/// and the app's own note is the one that is kept and sent again until Cloud takes it.
 /// </para>
 /// </remarks>
 public static class PageEndpoints
@@ -29,9 +31,9 @@ public static class PageEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        app.MapGet("/", ServeAndRecordAsync);
-        app.MapGet("/register", ServeAndRecordAsync);
-        app.MapGet("/go", ServeAndRecordAsync);
+        app.MapGet("/", ServeAndRecord);
+        app.MapGet("/register", ServeAndRecord);
+        app.MapGet("/go", ServeAndRecord);
 
         // Lowest priority, so it only answers what no other route claimed.
         app.MapFallback("{**path}", NotFound);
@@ -39,13 +41,12 @@ public static class PageEndpoints
         return app;
     }
 
-    internal static async Task<IResult> ServeAndRecordAsync(
+    internal static IResult ServeAndRecord(
         [FromQuery] string? url,
         [FromServices] CloudClient cloud,
         [FromServices] SiteLimits limits,
         [FromServices] AppPage page,
-        HttpContext http,
-        CancellationToken ct)
+        HttpContext http)
     {
         if (InstanceUrl.TryNormalise(url, out var origin))
         {
@@ -54,7 +55,7 @@ public static class PageEndpoints
             // Over the limit, the page is still served. Somebody who reloads too often loses a count,
             // not the page they came for.
             if (limits.Saves.TryTake(address ?? "unknown") is null)
-                await cloud.RecordVisitAsync(address, origin, ct);
+                cloud.RecordVisitInBackground(address, origin);
         }
 
         return page.Serve(http);
