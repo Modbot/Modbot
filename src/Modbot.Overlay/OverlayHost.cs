@@ -9,16 +9,17 @@ using Modbot.Overlay.Views;
 namespace Modbot.Overlay;
 
 /// <summary>
-/// The overlay, assembled: an Avalonia renderer, a shared Direct3D texture, and SteamVR.
+/// The overlay, assembled: an Avalonia renderer, a surface to draw into, and the headset runtime.
 /// </summary>
 /// <remarks>
 /// <para><strong>Three pieces, one rule.</strong> The view is built from a snapshot of the
 /// client's local cache, rendered only when that snapshot would look different, and handed to
-/// SteamVR as a texture. Nothing here makes a network request, and nothing here can be told what
-/// to do by a server.</para>
-/// <para><strong>It works without a headset.</strong> With no SteamVR the runtime reports a state,
-/// the compositor still draws into the texture, and nothing fails — which matters because most
-/// machines running the Modbot Companion are reporting presence from the desktop.</para>
+/// the runtime as a picture. Nothing here makes a network request, and nothing here can be told
+/// what to do by a server.</para>
+/// <para><strong>It works without a headset.</strong> With no SteamVR, and no WiVRn or Monado
+/// either, the runtime reports a state, the compositor still draws into the surface, and nothing
+/// fails — which matters because most machines running the Modbot Companion are reporting
+/// presence from the desktop.</para>
 /// </remarks>
 public sealed class OverlayHost : IOverlayPresenter, IDisposable
 {
@@ -53,12 +54,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     /// <summary>
     /// The ordinary construction: Avalonia into a shared Direct3D texture on Windows, or into a
-    /// frame in memory that SteamVR is handed as bytes everywhere else; shown through SteamVR when
-    /// there is one.
+    /// frame in memory that the runtime is handed as bytes everywhere else; shown through SteamVR
+    /// when there is one, and otherwise through WiVRn or Monado (<see cref="FallbackOverlayRuntime"/>).
     /// </summary>
     public static OverlayHost Create(int resolution = DefaultResolution, IOverlayRuntime? runtime = null)
         => new(
-            runtime ?? new OpenVrOverlayRuntime(),
+            runtime ?? FallbackOverlayRuntime.Create(resolution),
             OperatingSystem.IsWindows()
                 ? D3D11OverlaySurface.Create(resolution, resolution)
                 : new MemoryOverlaySurface(resolution, resolution),
@@ -101,7 +102,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         return status;
     }
 
-    /// <summary>Lets SteamVR be heard: a closing SteamVR detaches the overlay.</summary>
+    /// <summary>Lets the runtime be heard: a closing SteamVR or WiVRn detaches the overlay.</summary>
     public void Poll() => _runtime.Poll();
 
     /// <summary>

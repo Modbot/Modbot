@@ -44,8 +44,12 @@ and SteamVR's own OpenXR has no overlay extension. It goes on to OpenXR when Ope
 **no runtime** (nothing installed) or **refused with InvalidApplicationType** (xrizer). Any
 other OpenVR answer, including "not running", is final for that attempt; the ten-second look
 tries again from the top. Status is the running runtime's, or otherwise the more telling of
-the two failures (a refusal over a not-running, OpenXR's over OpenVR's when both refused).
-`Poll`, `Submit`, `Show` and `Hide` go to whichever is attached.
+the two failures: the one that can still change. A not-running over a refusal, because the
+companion's ten-second look goes on only while something is **not started**, and the one
+refusal that can meet a not-running here is xrizer's, which is by design and permanent (so a
+WiVRn machine whose WiVRn is not up yet keeps being looked at, and attaches when it is). A
+refusal over a not-installed. OpenXR's over OpenVR's when both refused. `Poll`, `Submit`,
+`Show` and `Hide` go to whichever is attached.
 
 ### 3.2 Session
 
