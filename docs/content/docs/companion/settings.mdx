@@ -174,6 +174,15 @@ Set `checkForUpdates` to `false` to stop the client asking for newer versions at
 if your group keeps everyone on one version, or the PC must not contact GitHub. Update checks are
 described under [Updates](/companion/install#updates).
 
+## VRChat log folder
+
+Blank means the usual folder: the Windows profile, or on Linux the Proton prefix inside whichever
+Steam layout the machine has ([which ones](/companion/install#what-it-reads)). The folder the
+companion is watching is shown under the box and on the **Log** page. Name a folder to watch that
+one instead -- a Steam library on another drive, say. It takes effect straight away; a log already
+in the new folder is treated as history and not reported, the same as at a fresh start. The field
+in the settings file is `vrchatLogFolder`.
+
 ## Client log level
 
 The client writes a detailed log of what it is doing to `%APPDATA%\Modbot\logs`. To make it write

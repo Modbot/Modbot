@@ -57,6 +57,7 @@ public sealed class MainWindow : Window
 
     // Built once for the same reason: a switch rebuilt every second can lose the click on it.
     private readonly CheckBox _startupBox;
+    private readonly TextBox _logFolderBox;
     private bool _renderingSwitches;
 
     private Page _page = Page.Servers;
@@ -89,6 +90,9 @@ public sealed class MainWindow : Window
             if (!_renderingSwitches)
                 _actions.SetStartWithWindows(_startupBox.IsChecked == true);
         };
+
+        _logFolderBox = Ui.Input();
+        _logFolderBox.FontFamily = Ui.Mono;
 
         var main = new ScrollViewer { Padding = new Thickness(20), Content = _body };
         Grid.SetColumn(main, 1);
@@ -591,6 +595,7 @@ public sealed class MainWindow : Window
                 Children =
                 {
                     Ui.Text(_snapshot.LogDetail, Ui.T.Density.TextSmall, Ui.T.TextBrush),
+                    Ui.Faint(_snapshot.LogFolder),
                     stats,
 
                     // The ratio is a claim a suspicious moderator can check against the file
@@ -631,10 +636,54 @@ public sealed class MainWindow : Window
         }
 
         DetachFromParent(_startupBox);
+        DetachFromParent(_logFolderBox);
 
         _body.Children.Add(Ui.Card(
             new StackPanel { Spacing = 6, Children = { _startupBox } },
             "Settings"));
+
+        _body.Children.Add(Ui.Card(LogFolderSettings(), "VRChat log folder"));
+    }
+
+    /// <summary>
+    /// Where the companion looks for VRChat's log. Blank means the well-known places, and the box
+    /// shows which of them it found as its watermark, so a person on Linux can see that the Proton
+    /// prefix was recognised without typing anything.
+    /// </summary>
+    private Control LogFolderSettings()
+    {
+        // Only refilled while the person is not typing in it: the window redraws on a timer.
+        if (!_logFolderBox.IsFocused)
+        {
+            _logFolderBox.Text = _snapshot.LogFolderConfigured ?? "";
+            _logFolderBox.Watermark = _snapshot.LogFolder;
+        }
+
+        var save = Ui.Button("Save", primary: true);
+        save.Click += (_, _) => _actions.SetLogFolder(_logFolderBox.Text);
+
+        var reset = Ui.Button("Use the usual folder");
+        reset.Click += (_, _) =>
+        {
+            _logFolderBox.Text = "";
+            _actions.SetLogFolder(null);
+        };
+
+        return new StackPanel
+        {
+            Spacing = 12,
+            Children =
+            {
+                Ui.Field("Folder", _logFolderBox),
+                Ui.Faint($"Watching {_snapshot.LogFolder}"),
+                new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 8,
+                    Children = { save, reset },
+                },
+            },
+        };
     }
 
     private static void DetachFromParent(Control control)
@@ -659,17 +708,20 @@ public sealed class MainWindow : Window
 /// </remarks>
 /// <param name="PairAsync">Pairs from a pasted pairing token or link.</param>
 /// <param name="OpenPairingPageAsync">Opens the pairing page in the moderator's browser.</param>
+/// <param name="SetLogFolder">Points the log reader at a folder; null or blank means the well-known places.</param>
 public sealed record MainWindowActions(
     Action<string> TogglePause,
     Action<string> Unpair,
     Func<string, Task<PairingAttemptResult>> PairAsync,
     Func<Task> OpenPairingPageAsync,
-    Action<bool> SetStartWithWindows)
+    Action<bool> SetStartWithWindows,
+    Action<string?> SetLogFolder)
 {
     public static MainWindowActions None { get; } = new(
         _ => { },
         _ => { },
         _ => Task.FromResult(new PairingAttemptResult(false, "Not ready yet.")),
         () => Task.CompletedTask,
+        _ => { },
         _ => { });
 }

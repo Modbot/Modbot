@@ -33,6 +33,36 @@ public sealed class VRChatLogTailTests : IDisposable
         Assert.Null(tail.CurrentFile);
     }
 
+    /// <summary>
+    /// Pointed at another folder while running, the tail starts over there: the log already in
+    /// it is history and comes back as replay, exactly as it would have at a fresh start.
+    /// </summary>
+    [Fact]
+    public void RedirectingStartsOverInTheNewFolderAsAFreshStartWould()
+    {
+        Write("output_log_2026-01-01_10-00-00.txt", "first\n");
+        var tail = Tail();
+        Assert.Single(tail.ReadPending());
+
+        var other = Directory.CreateTempSubdirectory("modbot-tail-other-").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(other, "output_log_2026-01-01_11-00-00.txt"), "old line\n", Encoding.UTF8);
+
+            tail.Redirect(other);
+
+            Assert.Equal(other, tail.Folder);
+            var lines = tail.ReadPending();
+            var line = Assert.Single(lines);
+            Assert.Equal("old line", line.Text);
+            Assert.True(line.IsReplay);
+        }
+        finally
+        {
+            Directory.Delete(other, recursive: true);
+        }
+    }
+
     [Fact]
     public void ReadsNothingWhenTheFolderHasNoLogs()
     {

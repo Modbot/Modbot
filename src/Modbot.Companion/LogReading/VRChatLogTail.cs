@@ -41,7 +41,7 @@ public sealed class VRChatLogTail
     /// </summary>
     public const int DefaultMaxBytesPerPass = 8 * 1024 * 1024;
 
-    private readonly string _directory;
+    private string _directory;
     private readonly int _maxBytesPerPass;
 
     private string? _currentFile;
@@ -59,25 +59,28 @@ public sealed class VRChatLogTail
     /// <summary>The log file currently being followed, or <c>null</c> when there is none.</summary>
     public string? CurrentFile => _currentFile;
 
+    /// <summary>The folder being watched.</summary>
+    public string Folder => _directory;
+
+    /// <summary>
+    /// Watches a different folder from the next pass on, as if the program had been started
+    /// pointing there: whatever log is already sitting in it is history, not events.
+    /// </summary>
+    public void Redirect(string directory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+
+        _directory = directory;
+        _currentFile = null;
+        _position = 0;
+        _primed = false;
+        _replaying = false;
+    }
+
     /// <summary>How many lines have been handed out. Feeds the "have I stopped understanding the
     /// log" health check, which is the only thing standing between a format change and weeks of
     /// silently missing history.</summary>
     public long LinesRead { get; private set; }
-
-    /// <summary>
-    /// Where VRChat writes its logs on this machine.
-    /// </summary>
-    /// <remarks>
-    /// Built from the user profile path rather than read from Steam's configuration. Reading
-    /// another application's config would be both unnecessary and exactly the behaviour that makes
-    /// a tool like this look like something worse than it is — M3 2.3.1.
-    /// </remarks>
-    public static string DefaultDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        "AppData",
-        "LocalLow",
-        "VRChat",
-        "VRChat");
 
     /// <summary>
     /// Returns every complete line written since the last call. Never throws for the ordinary

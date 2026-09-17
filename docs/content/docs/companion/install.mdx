@@ -108,8 +108,13 @@ log.
 
 ### What it reads
 
-One folder: VRChat's log folder, `%USERPROFILE%\AppData\LocalLow\VRChat\VRChat`. Inside it, only
-the files VRChat names `output_log_*.txt`, and only the newest one. The client opens the file to
+One folder: VRChat's log folder. On Windows that is `%USERPROFILE%\AppData\LocalLow\VRChat\VRChat`.
+On Linux, VRChat runs under Proton and the same folder sits inside the Proton prefix in your Steam
+library, `steamapps/compatdata/438100/pfx/drive_c/users/steamuser/AppData/LocalLow/VRChat/VRChat`;
+the companion looks for it under `~/.local/share/Steam`, `~/.steam/steam`, the Flatpak and Snap
+Steam folders, and last a plain Wine prefix under `~/.wine`. A library somewhere else is set under
+**Settings**, **VRChat log folder**. Inside the folder, only the files VRChat names
+`output_log_*.txt`, and only the newest one. The client opens the file to
 read while VRChat is still writing it, never changes it, and makes no copy.
 
 Of all the lines in that file, the client only looks at lines VRChat tags `[Behaviour]`, and inside

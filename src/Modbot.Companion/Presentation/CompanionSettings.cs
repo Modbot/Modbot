@@ -41,6 +41,13 @@ namespace Modbot.Companion.Presentation;
 public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = true, bool StartWithWindows = true)
 {
     /// <summary>
+    /// VRChat's log folder, when the person running the companion has named one; null to look in
+    /// the well-known places (<see cref="LogReading.VRChatLogFolders"/>). Saved from the settings
+    /// screen as <c>vrchatLogFolder</c>.
+    /// </summary>
+    public string? VRChatLogFolder { get; init; }
+
+    /// <summary>
     /// Where the event backup goes, and whether it is sent: the environment, then the file's
     /// <c>cloud</c> object, then on to <c>https://cloud.modbot.co</c>.
     /// </summary>
@@ -53,6 +60,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string DefaultPairingPage = "https://my.modbot.co/go?redir=/pair";
 
     public const string StartWithWindowsField = "startWithWindows";
+
+    public const string VRChatLogFolderField = "vrchatLogFolder";
 
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -78,6 +87,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         {
             CheckForUpdates = shape?.CheckForUpdates ?? true,
             StartWithWindows = shape?.StartWithWindows ?? true,
+            VRChatLogFolder = string.IsNullOrWhiteSpace(shape?.VRChatLogFolder) ? null : shape.VRChatLogFolder.Trim(),
             Cloud = CloudSettings.Resolve(shape?.Cloud?.Endpoint, shape?.Cloud?.Disabled, environment),
         };
     }
@@ -103,6 +113,16 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     /// typo is not overwritten.
     /// </summary>
     public static bool SaveSwitch(string path, string field, bool value)
+        => SaveField(path, field, JsonValue.Create(value));
+
+    /// <summary>
+    /// Writes one text field the same way. Blank removes the field, so the file says nothing
+    /// rather than saying "".
+    /// </summary>
+    public static bool SaveText(string path, string field, string? value)
+        => SaveField(path, field, string.IsNullOrWhiteSpace(value) ? null : JsonValue.Create(value.Trim()));
+
+    private static bool SaveField(string path, string field, JsonNode? value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(field);
 
@@ -121,7 +141,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
                 root = [];
             }
 
-            root[field] = value;
+            if (value is null)
+                root.Remove(field);
+            else
+                root[field] = value;
 
             if (Path.GetDirectoryName(path) is { Length: > 0 } directory)
                 Directory.CreateDirectory(directory);
@@ -154,6 +177,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("pairingPage")] string? PairingPage,
         [property: JsonPropertyName("checkForUpdates")] bool? CheckForUpdates,
         [property: JsonPropertyName("startWithWindows")] bool? StartWithWindows,
+        [property: JsonPropertyName("vrchatLogFolder")] string? VRChatLogFolder,
         [property: JsonPropertyName("cloud")] CloudShape? Cloud);
 
     private sealed record CloudShape(

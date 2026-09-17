@@ -70,6 +70,36 @@ public class CompanionSettingsTests : IDisposable
     }
 
     [Fact]
+    public void TheLogFolderIsUnsetUntilSomebodyNamesOne()
+    {
+        Assert.Null(CompanionSettings.Load(Path_, NoEnvironment).VRChatLogFolder);
+
+        Write("""{ "vrchatLogFolder": "  /games/vrchat/logs  " }""");
+        Assert.Equal("/games/vrchat/logs", CompanionSettings.Load(Path_, NoEnvironment).VRChatLogFolder);
+
+        Write("""{ "vrchatLogFolder": "   " }""");
+        Assert.Null(CompanionSettings.Load(Path_, NoEnvironment).VRChatLogFolder);
+    }
+
+    /// <summary>Saving the folder keeps every other field, and clearing it removes the field rather than writing "".</summary>
+    [Fact]
+    public void SavingTheLogFolderKeepsTheRestOfTheFileAndClearingRemovesIt()
+    {
+        Write("""{ "pairingPage": "https://cats.example/pair", "checkForUpdates": false }""");
+
+        Assert.True(CompanionSettings.SaveText(Path_, CompanionSettings.VRChatLogFolderField, "/games/vrchat/logs"));
+
+        var saved = CompanionSettings.Load(Path_, NoEnvironment);
+        Assert.Equal("/games/vrchat/logs", saved.VRChatLogFolder);
+        Assert.Equal(new Uri("https://cats.example/pair"), saved.PairingPage);
+        Assert.False(saved.CheckForUpdates);
+
+        Assert.True(CompanionSettings.SaveText(Path_, CompanionSettings.VRChatLogFolderField, " "));
+        Assert.Null(CompanionSettings.Load(Path_, NoEnvironment).VRChatLogFolder);
+        Assert.DoesNotContain("vrchatLogFolder", File.ReadAllText(Path_));
+    }
+
+    [Fact]
     public void UpdateChecksAreOnUnlessTheFileSaysOtherwise()
     {
         // M3 9.2: a tool that is genuinely self-hostable must let a group pin a version and never

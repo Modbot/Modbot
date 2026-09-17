@@ -69,6 +69,10 @@ public sealed record PairingNotice(PairingNoticeKind Kind, string Message);
 /// destination.
 /// </param>
 /// <param name="PairingPage">Where "Pair with a server" sends the browser. Shown so nobody has to guess.</param>
+/// <param name="LogFolder">The folder being watched for VRChat's log.</param>
+/// <param name="LogFolderConfigured">
+/// The folder named in settings, or null when the companion is looking in the well-known places.
+/// </param>
 public sealed record CompanionAppSnapshot(
     IReadOnlyList<ServerRow> Servers,
     IReadOnlyList<JournalRow> Events,
@@ -80,7 +84,9 @@ public sealed record CompanionAppSnapshot(
     IReadOnlyList<CompanionWarning> Warnings,
     PairingNotice? LastPairing,
     string PairingPage,
-    StartupState? Startup = null)
+    StartupState? Startup = null,
+    string LogFolder = "",
+    string? LogFolderConfigured = null)
 {
     public static CompanionAppSnapshot Empty { get; } =
         new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, [], null, CompanionSettings.DefaultPairingPage);
@@ -124,6 +130,9 @@ public sealed class CompanionAppState
     }
 
     public CompanionSettings Settings { get; set; }
+
+    /// <summary>The folder the log reader is watching right now.</summary>
+    public string LogFolder { get; set; } = string.Empty;
 
     /// <summary>How the start-with-Windows switch should look; hidden unless this copy is installed.</summary>
     public StartupState Startup { get; set; } = StartupState.Hidden;
@@ -170,7 +179,9 @@ public sealed class CompanionAppState
             [.. Warnings(logStatus)],
             LastPairing,
             Settings.PairingPage.ToString(),
-            Startup);
+            Startup,
+            LogFolder,
+            Settings.VRChatLogFolder);
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)

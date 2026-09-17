@@ -308,6 +308,33 @@ internal sealed class CompanionHost
             .Apply(launcher is not null, launcher, _state.Settings.StartWithWindows);
     }
 
+    /// <summary>
+    /// Points the log reader at a folder the person named, or back at the well-known places when
+    /// they clear it. Takes effect on the next pass, with no restart: whatever log is already in
+    /// the new folder is history and is not reported.
+    /// </summary>
+    private void SetLogFolder(string? folder)
+    {
+        if (_state is null || _tail is null)
+            return;
+
+        var configured = string.IsNullOrWhiteSpace(folder) ? null : folder.Trim();
+        if (string.Equals(configured, _state.Settings.VRChatLogFolder, StringComparison.Ordinal))
+            return;
+
+        _state.Settings = _state.Settings with { VRChatLogFolder = configured };
+
+        if (!CompanionSettings.SaveText(_settingsPath, CompanionSettings.VRChatLogFolderField, configured))
+            Log.Warning("Could not save the VRChat log folder to {Path}", _settingsPath);
+
+        var resolved = VRChatLogFolders.Resolve(configured);
+        _tail.Redirect(resolved);
+        _state.LogFolder = resolved;
+        _lastLoggedFile = null;
+        Log.Information("Watching VRChat's log folder {Directory}", resolved);
+        Render();
+    }
+
     private void SetStartWithWindows(bool on)
     {
         if (_state is null || _state.Settings.StartWithWindows == on && _state.Startup.On == on)
@@ -335,8 +362,10 @@ internal sealed class CompanionHost
     /// </remarks>
     private void StartEngine()
     {
-        _tail = new VRChatLogTail(VRChatLogTail.DefaultDirectory);
-        Log.Information("Watching VRChat's log folder {Directory}", VRChatLogTail.DefaultDirectory);
+        var folder = VRChatLogFolders.Resolve(_state!.Settings.VRChatLogFolder);
+        _tail = new VRChatLogTail(folder);
+        _state.LogFolder = folder;
+        Log.Information("Watching VRChat's log folder {Directory}", folder);
 
         var observer = new PresenceObserver(_tail, _clock);
         _engine = new CompanionEngine(observer, _clock, timeProbe: new HttpServerTimeProbe(_http!, _clock), backup: _cloudBackup);
@@ -685,7 +714,7 @@ internal sealed class CompanionHost
 
         Window.Render(
             _state.Snapshot(),
-            new MainWindowActions(TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows));
+            new MainWindowActions(TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows, SetLogFolder));
     }
 
     private void TogglePause(string serverId)
