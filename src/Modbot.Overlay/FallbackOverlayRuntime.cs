@@ -1,3 +1,5 @@
+using Modbot.Companion.Overlay;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
 using Modbot.Overlay.OpenXr;
 using Modbot.Overlay.Rendering;
@@ -29,6 +31,7 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime
     private readonly IOverlayRuntime _openVr;
     private readonly IOverlayRuntime _openXr;
     private IOverlayRuntime? _attached;
+    private OverlayPlacement _placement = OverlayPlacement.Default;
 
     public FallbackOverlayRuntime(IOverlayRuntime openVr, IOverlayRuntime openXr)
     {
@@ -59,6 +62,7 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime
         if (openVr.State is OverlayRuntimeState.Running)
         {
             _attached = _openVr;
+            _attached.Place(_placement);
             return Status = openVr;
         }
 
@@ -69,6 +73,7 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime
         if (openXr.State is OverlayRuntimeState.Running)
         {
             _attached = _openXr;
+            _attached.Place(_placement);
             return Status = openXr;
         }
 
@@ -129,6 +134,16 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime
     public void Show() => _attached?.Show();
 
     public void Hide() => _attached?.Hide();
+
+    public OverlayTracking ReadTracking() => _attached?.ReadTracking() ?? OverlayTracking.None;
+
+    /// <summary>Kept here too, so whichever runtime attaches next is placed the same way.</summary>
+    public void Place(OverlayPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        _placement = placement;
+        _attached?.Place(placement);
+    }
 
     public void Dispose()
     {

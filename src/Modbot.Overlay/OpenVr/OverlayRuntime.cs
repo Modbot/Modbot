@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using Modbot.Companion.Overlay;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Rendering;
 
 namespace Modbot.Overlay.OpenVr;
@@ -51,6 +53,15 @@ public interface IOverlayRuntime : IDisposable
     void Show();
 
     void Hide();
+
+    /// <summary>
+    /// Where the head and the controllers are now and what is pressed, in the room. None when
+    /// not attached, or when the runtime has no way to say.
+    /// </summary>
+    OverlayTracking ReadTracking();
+
+    /// <summary>Puts the panel where the placement says. Remembered, and applied on attach.</summary>
+    void Place(OverlayPlacement placement);
 }
 
 /// <summary>
@@ -98,6 +109,8 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
     private nint _fnTable;
     private ulong _handle;
     private byte[]? _rgba;
+    private OpenVrSystem? _system;
+    private OverlayPlacement _placement;
 
     /// <summary>How wide the panel is in the headset. Sharpness is the texture's resolution, set separately.</summary>
     public const float DefaultWidthInMetres = 0.45f;
@@ -106,7 +119,11 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
     {
         _overlayName = overlayName;
         _widthInMetres = widthInMetres;
+        _placement = OverlayPlacement.Default with { Width = widthInMetres };
     }
+
+    /// <summary>The placement last asked for, applied as soon as there is an overlay to apply it to.</summary>
+    public OverlayPlacement CurrentPlacement => _placement;
 
     public OverlayRuntimeStatus Status { get; private set; } = new(OverlayRuntimeState.NotStarted, Detail: "SteamVR has not been looked for yet.");
 
@@ -172,6 +189,10 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
             if (CreateOverlay() is { } failure)
                 return Status = failure;
 
+            // The head and the controllers, for the cursor and for holding the panel. A SteamVR
+            // without this interface version still shows the panel; it just cannot be held.
+            _system = OpenVrSystem.Open();
+
             // Named, because the same page and log line serve the OpenXR runtime too.
             return Status = new(OverlayRuntimeState.Running, Detail: "Attached to SteamVR.");
         }
@@ -197,7 +218,7 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
 
             // A few at a time, never "until empty": a runtime that never stops answering must not
             // hold the companion's UI thread.
-            for (var i = 0; i < 16 && poll(_handle, &vrEvent, VrEvent.Size) != 0; i++)
+            for (var i = 0; i < 16 && poll(_handle, &vrEvent, VrEvent.PlatformSize) != 0; i++)
             {
                 if (vrEvent.EventType is OpenVrInterop.EventQuit or OpenVrInterop.EventProcessQuit)
                 {
@@ -272,8 +293,55 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
         }
     }
 
+    public OverlayTracking ReadTracking()
+        => _handle != 0 && _system is { } system ? system.Read() : OverlayTracking.None;
+
+    public void Place(OverlayPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+
+        _placement = placement.Clamped();
+        if (_handle != 0)
+            Apply(_placement);
+    }
+
+    /// <summary>
+    /// Width, opacity, curve and where: on the headset, on a controller, or fixed in the room
+    /// (SteamVR's standing space, the one the room's poses are read in).
+    /// </summary>
+    private unsafe void Apply(OverlayPlacement placement)
+    {
+        ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayWidthInMeters))(_handle, placement.Width);
+        ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayAlpha))(_handle, placement.Opacity);
+        ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayCurvature))(_handle, placement.Curve);
+
+        var transform = HmdPoses.ToMatrix(Pose.From(placement.Offset));
+
+        uint? device = placement.Anchor switch
+        {
+            OverlayAnchor.Head => OpenVrInterop.TrackedDeviceIndexHmd,
+            OverlayAnchor.LeftHand => _system?.DeviceIndex(Interaction.Hand.Left),
+            OverlayAnchor.RightHand => _system?.DeviceIndex(Interaction.Hand.Right),
+            _ => null,
+        };
+
+        if (placement.Anchor is OverlayAnchor.World)
+        {
+            ((delegate* unmanaged[Stdcall]<ulong, int, HmdMatrix34*, int>)Slot(OverlaySlot.SetOverlayTransformAbsolute))(
+                _handle, OpenVrInterop.TrackingUniverseStanding, &transform);
+            return;
+        }
+
+        // A hand that is not there right now: the panel waits on the headset, at its offset, and
+        // is put on the hand the next time the placement is applied.
+        ((delegate* unmanaged[Stdcall]<ulong, uint, HmdMatrix34*, int>)Slot(OverlaySlot.SetOverlayTransformTrackedDeviceRelative))(
+            _handle, device ?? OpenVrInterop.TrackedDeviceIndexHmd, &transform);
+    }
+
     public void Dispose()
     {
+        _system = null;
+
         if (_handle != 0)
         {
             unsafe
@@ -316,16 +384,11 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
 
         _handle = handle;
 
-        // Width in metres, not pixels: the texture's resolution controls sharpness and this
-        // controls apparent size. A panel about the width of a sheet of paper at arm's length is
-        // readable without filling the moderator's view of the instance they are moderating.
-        ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayWidthInMeters))(handle, _widthInMetres);
-
-        // Attached to the headset itself, so it needs no controller to be found and follows the
-        // moderator wherever they look.
-        var transform = HmdMatrix34.Translation(Placement.X, Placement.Y, Placement.Z);
-        ((delegate* unmanaged[Stdcall]<ulong, uint, HmdMatrix34*, int>)Slot(OverlaySlot.SetOverlayTransformTrackedDeviceRelative))(
-            handle, OpenVrInterop.TrackedDeviceIndexHmd, &transform);
+        // Width in metres, not pixels: the texture's resolution controls sharpness and the
+        // placement's width controls apparent size. The default is a panel about the width of a
+        // sheet of paper at arm's length, on the headset itself so it needs no controller to be
+        // found; a moderator who has moved it gets it back where they left it.
+        Apply(_placement);
 
         // Shown from the start. The idle screen is drawn when there is nothing to say, so the
         // panel is a fixture of the headset rather than something that appears and vanishes.
@@ -382,6 +445,16 @@ public sealed class HeadlessOverlayRuntime : IOverlayRuntime
     public bool IsShowing { get; private set; }
 
     public OverlayRuntimeStatus Start() => Status = new(OverlayRuntimeState.NoRuntime, Detail: "No headset.");
+
+    /// <summary>What <see cref="ReadTracking"/> answers; tests set it.</summary>
+    public OverlayTracking Tracking { get; set; } = OverlayTracking.None;
+
+    /// <summary>The placement last applied, for tests.</summary>
+    public OverlayPlacement Placement { get; private set; } = OverlayPlacement.Default;
+
+    public OverlayTracking ReadTracking() => Tracking;
+
+    public void Place(OverlayPlacement placement) => Placement = placement;
 
     public void Poll()
     {

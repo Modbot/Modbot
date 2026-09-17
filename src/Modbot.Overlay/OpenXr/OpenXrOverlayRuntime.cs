@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using Modbot.Companion.Overlay;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
 using Modbot.Overlay.Rendering;
 using Serilog;
@@ -60,6 +62,9 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
     private Thread? _frameThread;
     private volatile bool _stop;
     private volatile bool _visible = true;
+
+    // Read by the frame thread, replaced whole by Place: a reference swap is atomic.
+    private OverlayPlacement _placement = OverlayPlacement.Default;
 
     public OpenXrOverlayRuntime(
         int resolution = OverlayHost.DefaultResolution,
@@ -151,6 +156,19 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
     public void Show() => _visible = true;
 
     public void Hide() => _visible = false;
+
+    /// <summary>Not read yet: controller input on OpenXR comes with its action set (design §4.1).</summary>
+    public OverlayTracking ReadTracking() => OverlayTracking.None;
+
+    /// <summary>
+    /// Head and world anchors are spaces the session already has; a hand anchor waits on the
+    /// action set and is shown on the head meanwhile. Opacity and curve are not applied here yet.
+    /// </summary>
+    public void Place(OverlayPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        _placement = placement.Clamped();
+    }
 
     public void Dispose()
     {
@@ -785,11 +803,13 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
             a.Uploaded = true;
         }
 
+        var placement = _placement;
+        var offset = placement.Offset;
         var quad = new CompositionLayerQuad
         {
             Type = StructureType.CompositionLayerQuad,
             LayerFlags = CompositionLayerFlags.BlendTextureSourceAlphaBit,
-            Space = a.ViewSpace,
+            Space = placement.Anchor is OverlayAnchor.World ? a.LocalSpace : a.ViewSpace,
             EyeVisibility = EyeVisibility.Both,
             SubImage = new SwapchainSubImage
             {
@@ -798,9 +818,9 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
                 ImageArrayIndex = 0,
             },
             Pose = new Posef(
-                new Quaternionf(0, 0, 0, 1),
-                new Vector3f(OpenVrOverlayRuntime.Placement.X, OpenVrOverlayRuntime.Placement.Y, OpenVrOverlayRuntime.Placement.Z)),
-            Size = new Extent2Df(_widthInMetres, _widthInMetres),
+                new Quaternionf(offset.QX, offset.QY, offset.QZ, offset.QW),
+                new Vector3f(offset.X, offset.Y, offset.Z)),
+            Size = new Extent2Df(placement.Width, placement.Width),
         };
         var layer = (CompositionLayerBaseHeader*)&quad;
 

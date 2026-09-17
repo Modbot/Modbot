@@ -94,6 +94,9 @@ internal static partial class OpenVrInterop
     internal const int ApplicationTypeBackground = 3;
 
     /// <summary><c>k_unTrackedDeviceIndex_Hmd</c>: the headset, for a transform relative to it.</summary>
+    /// <summary><c>TrackingUniverseStanding</c>: the room's own space, the one poses are read in.</summary>
+    internal const int TrackingUniverseStanding = 1;
+
     internal const uint TrackedDeviceIndexHmd = 0;
 
     /// <summary><c>VREvent_Quit</c>: SteamVR is closing and wants the overlay to let go.</summary>
@@ -139,6 +142,7 @@ internal static class OverlaySlot
     internal const int SetOverlaySortOrder = 20;
     internal const int SetOverlayWidthInMeters = 22;
     internal const int SetOverlayCurvature = 24;
+    internal const int SetOverlayTransformAbsolute = 33;
     internal const int SetOverlayTransformTrackedDeviceRelative = 35;
     internal const int ShowOverlay = 43;
     internal const int HideOverlay = 44;
@@ -180,6 +184,13 @@ public struct HmdMatrix34
 public struct VrEvent
 {
     public const uint Size = 64;
+
+    /// <summary>
+    /// The size SteamVR compares against: 64 on Windows, where its header packs to 8 bytes, and
+    /// 60 on Linux and macOS, where it packs to 4 and the union follows the three fields with no
+    /// gap. The wrong number means SteamVR answers no events at all, and a quit is never heard.
+    /// </summary>
+    public static uint PlatformSize => OperatingSystem.IsWindows() ? 64u : 60u;
 
     [FieldOffset(0)]
     public uint EventType;

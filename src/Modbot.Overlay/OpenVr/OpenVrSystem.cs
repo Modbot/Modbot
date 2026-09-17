@@ -120,6 +120,14 @@ internal sealed unsafe class OpenVrSystem
         return table == 0 || error != VrInitError.None ? null : new OpenVrSystem(table);
     }
 
+    /// <summary>SteamVR's index for a hand's controller, or null when it has none right now.</summary>
+    public uint? DeviceIndex(Interaction.Hand hand)
+    {
+        var index = ((delegate* unmanaged[Stdcall]<int, uint>)Slot(GetTrackedDeviceIndexForControllerRole))(
+            hand == Interaction.Hand.Left ? RoleLeftHand : RoleRightHand);
+        return index == InvalidDevice || index >= MaxDevices ? null : index;
+    }
+
     public OverlayTracking Read()
     {
         fixed (byte* poses = _poses)

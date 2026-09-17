@@ -47,6 +47,12 @@ public class FallbackOverlayRuntimeTests
             return true;
         }
 
+        public List<Modbot.Companion.Overlay.OverlayPlacement> Placed { get; } = [];
+
+        public Modbot.Overlay.Interaction.OverlayTracking ReadTracking() => Modbot.Overlay.Interaction.OverlayTracking.None;
+
+        public void Place(Modbot.Companion.Overlay.OverlayPlacement placement) => Placed.Add(placement);
+
         public void Show() => IsShowing = true;
 
         public void Hide() => IsShowing = false;
@@ -220,5 +226,22 @@ public class FallbackOverlayRuntimeTests
             Assert.Equal(OverlayRuntimeState.NotStarted, host.Status.State);
             Assert.Equal("No VR runtime has been looked for yet.", host.Status.Detail);
         });
+    }
+
+    [Fact]
+    public void ThePlacementReachesWhicheverRuntimeAttaches()
+    {
+        var openVr = new ScriptedRuntime("OpenVR") { Answer = new(OverlayRuntimeState.NoRuntime, Detail: "none") };
+        var openXr = new ScriptedRuntime("OpenXR") { Answer = new(OverlayRuntimeState.Running, Detail: "Attached to WiVRn.") };
+        var fallback = new FallbackOverlayRuntime(openVr, openXr);
+        var wall = Modbot.Companion.Overlay.OverlayPlacement.Default with { Anchor = Modbot.Companion.Overlay.OverlayAnchor.World };
+
+        fallback.Place(wall);
+        Assert.Empty(openXr.Placed);
+
+        fallback.Start();
+
+        Assert.Equal([wall], openXr.Placed);
+        Assert.Empty(openVr.Placed);
     }
 }

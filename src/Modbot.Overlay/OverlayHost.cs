@@ -1,7 +1,10 @@
+using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Modbot.Companion.Overlay;
 using Modbot.Overlay.Driving;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
 using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
@@ -42,7 +45,20 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private OverlayScreen? _drawn;
     private byte[]? _lastFrame;
 
-    public OverlayHost(IOverlayRuntime runtime, IOverlaySurface surface, IFrameRenderer renderer)
+    // The controllers' side: the rules for holding the panel, the tree that drew the current
+    // frame (for finding what a tap landed on), the cursor, and scroll not yet worth a row.
+    private readonly OverlayInteraction _interaction;
+    private Control? _root;
+    private PanelCursor? _cursor;
+    private float _scroll;
+
+    /// <summary>Thumbstick travel, in full deflections per poll, that moves the roster one row.</summary>
+    public const float ScrollPerRow = 6f;
+
+    /// <summary>The cursor is placed to this fraction, so a trembling hand does not redraw every poll.</summary>
+    private const float CursorStep = 1f / 256f;
+
+    public OverlayHost(IOverlayRuntime runtime, IOverlaySurface surface, IFrameRenderer renderer, OverlayPlacement? placement = null)
     {
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(renderer);
@@ -50,20 +66,110 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         _runtime = runtime;
         _surface = surface;
         _compositor = new OverlayCompositor(new FrameKeeper(renderer, this), surface);
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default);
+        _runtime.Place(_interaction.Placement);
     }
 
     /// <summary>
     /// The ordinary construction: Avalonia into a shared Direct3D texture on Windows, or into a
     /// frame in memory that the runtime is handed as bytes everywhere else; shown through SteamVR
     /// when there is one, and otherwise through WiVRn or Monado (<see cref="FallbackOverlayRuntime"/>).
+    /// The placement is where the panel was left, from settings.
     /// </summary>
-    public static OverlayHost Create(int resolution = DefaultResolution, IOverlayRuntime? runtime = null)
+    public static OverlayHost Create(int resolution = DefaultResolution, IOverlayRuntime? runtime = null, OverlayPlacement? placement = null)
         => new(
             runtime ?? FallbackOverlayRuntime.Create(resolution),
             OperatingSystem.IsWindows()
                 ? D3D11OverlaySurface.Create(resolution, resolution)
                 : new MemoryOverlaySurface(resolution, resolution),
-            new AvaloniaFrameRenderer(resolution, resolution));
+            new AvaloniaFrameRenderer(resolution, resolution),
+            placement);
+
+    /// <summary>Where the panel is, as last decided by a controller or the settings page.</summary>
+    public OverlayPlacement Placement => _interaction.Placement;
+
+    /// <summary>The hand holding the panel, or null.</summary>
+    public Hand? Holding { get; private set; }
+
+    /// <summary>Raised whenever the placement changes, by a controller or by <see cref="Place"/>, so it can be saved.</summary>
+    public event Action<OverlayPlacement>? PlacementChanged;
+
+    /// <summary>A trigger press on the panel, with what it landed on (null for the empty ground).</summary>
+    public event Action<OverlayTarget?>? Tapped;
+
+    /// <summary>Scrolling on the roster, in whole rows; negative is up.</summary>
+    public event Action<int>? RosterScrolled;
+
+    /// <summary>Puts the panel somewhere, as the settings page does. UI thread only.</summary>
+    public void Place(OverlayPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+
+        _interaction.Place(placement);
+        Holding = null;
+        _runtime.Place(_interaction.Placement);
+        PlacementChanged?.Invoke(_interaction.Placement);
+    }
+
+    /// <summary>
+    /// One look at the controllers: moves the cursor, holds or lets go of the panel, and raises
+    /// taps and scrolls. Cheap when nothing is attached. UI thread only, because a moved cursor
+    /// redraws the frame.
+    /// </summary>
+    public void PollInput(TimeSpan now)
+    {
+        if (_runtime.Status.State is not OverlayRuntimeState.Running)
+        {
+            SetCursor(null);
+            return;
+        }
+
+        var result = _interaction.Update(_runtime.ReadTracking(), now);
+        Holding = result.Holding;
+
+        if (result.PlacementChanged)
+        {
+            _runtime.Place(result.Placement);
+            PlacementChanged?.Invoke(result.Placement);
+        }
+
+        foreach (var click in result.Clicks)
+            Tapped?.Invoke(TargetAt(click.Across, click.Down));
+
+        if (result.Pointer is { } pointer && result.Scroll.Y != 0f
+            && TargetAt(pointer.Across, pointer.Down) is OverlayTarget.Roster or OverlayTarget.Person)
+        {
+            // Thumbstick up scrolls the list up, towards the rows above.
+            _scroll -= result.Scroll.Y / ScrollPerRow;
+            var rows = (int)Math.Truncate(_scroll);
+            if (rows != 0)
+            {
+                _scroll -= rows;
+                RosterScrolled?.Invoke(rows);
+            }
+        }
+        else
+        {
+            _scroll = 0f;
+        }
+
+        SetCursor(result.Pointer is { } p
+            ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
+            : null);
+    }
+
+    /// <summary>What is drawn under a point on the panel, from the tree that drew the current frame.</summary>
+    public OverlayTarget? TargetAt(float across, float down)
+        => _root is null ? null : OverlayTargets.At(_root, new Point(across * Width, down * Height));
+
+    private void SetCursor(PanelCursor? cursor)
+    {
+        if (_cursor == cursor)
+            return;
+
+        _cursor = cursor;
+        Draw();
+    }
 
     /// <summary>
     /// Configures Avalonia the way both the overlay and the client window need it.
@@ -94,10 +200,14 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     {
         var status = _runtime.Start();
 
-        // Freshly attached: whatever was drawn last is handed over again, so the panel comes back
-        // as it was rather than blank until something changes.
-        if (status.State is OverlayRuntimeState.Running && _compositor.FramesDrawn > 0)
-            _runtime.Submit(_surface);
+        // Freshly attached: the panel goes where it was left, and whatever was drawn last is
+        // handed over again, so it comes back as it was rather than blank until something changes.
+        if (status.State is OverlayRuntimeState.Running)
+        {
+            _runtime.Place(_interaction.Placement);
+            if (_compositor.FramesDrawn > 0)
+                _runtime.Submit(_surface);
+        }
 
         return status;
     }
@@ -153,16 +263,19 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     private bool Draw()
     {
-        var next = _pinned ?? _live;
+        var next = (_pinned ?? _live)?.WithCursor(_cursor);
         if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next)))
             return false;
 
         _drawn = next;
         _compositor.Invalidate();
 
-        if (!_compositor.DrawIfChanged(OverlayView.Build(next)))
+        var root = OverlayView.Build(next);
+        if (!_compositor.DrawIfChanged(root))
             return false;
 
+        // Kept laid out, so a tap can be matched against what is actually on the panel.
+        _root = root;
         _runtime.Submit(_surface);
         return true;
     }

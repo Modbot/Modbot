@@ -51,6 +51,9 @@ public sealed record OverlayScreen(
         new Cached<InstanceContext>(null, Freshness.Never, TimeSpan.Zero),
         Freshness.Never);
 
+    /// <summary>The same screen with the cursor at a point, or with none; the idle screen stays idle.</summary>
+    public OverlayScreen WithCursor(PanelCursor? cursor) => Cursor == cursor ? this : this with { Cursor = cursor };
+
     /// <summary>
     /// Whether two screens would draw the same pixels. The compositor uses this to avoid
     /// rasterising a frame nobody would see any difference in.
