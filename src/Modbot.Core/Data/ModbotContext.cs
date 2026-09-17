@@ -543,6 +543,10 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.SecretHash).HasMaxLength(64);
             entity.Property(e => e.ClientUri).HasMaxLength(512);
             entity.Property(e => e.RedirectUris).HasColumnType("jsonb");
+            entity.Property(e => e.MetadataUrl).HasMaxLength(2048);
+
+            // An app that identifies itself by its published document is one row per address.
+            entity.HasIndex(e => e.MetadataUrl).IsUnique();
         });
 
         builder.Entity<McpAuthorizationCode>(entity =>

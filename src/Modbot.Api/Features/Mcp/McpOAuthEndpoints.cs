@@ -14,6 +14,7 @@ using Modbot.Api.Auth;
 using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Mcp;
@@ -158,6 +159,7 @@ public static class McpOAuthEndpoints
             response_types_supported = ResponseTypes,
             grant_types_supported = GrantTypes,
             code_challenge_methods_supported = new[] { "S256" },
+            client_id_metadata_document_supported = true,
             token_endpoint_auth_methods_supported = AuthMethods,
             revocation_endpoint_auth_methods_supported = AuthMethods,
             scopes_supported = new[] { McpSecrets.Scope },
@@ -413,10 +415,8 @@ public static class McpOAuthEndpoints
         string? resource,
         CancellationToken ct)
     {
-        if (!Guid.TryParse(clientId, out var id))
-            return new RequestCheck(null, null, null, "Unknown client.", null, null);
-
-        var client = await db.McpClients.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
+        var client = await McpClientDocuments.ResolveAsync(
+            clientId, db, http.RequestServices.GetRequiredService<IHttpClientFactory>(), http.RequestServices.GetRequiredService<IModbotClock>(), ct);
         if (client is null)
             return new RequestCheck(null, null, null, "Unknown client.", null, null);
 
@@ -673,10 +673,8 @@ public static class McpOAuthEndpoints
         id ??= form["client_id"].ToString();
         secret ??= form["client_secret"].ToString() is { Length: > 0 } s ? s : null;
 
-        if (!Guid.TryParse(id, out var clientId))
-            return (null, OAuthError("invalid_client", "Unknown client.", StatusCodes.Status401Unauthorized));
-
-        var client = await db.McpClients.AsNoTracking().FirstOrDefaultAsync(c => c.Id == clientId, ct);
+        var client = await McpClientDocuments.ResolveAsync(
+            id, db, http.RequestServices.GetRequiredService<IHttpClientFactory>(), http.RequestServices.GetRequiredService<IModbotClock>(), ct);
         if (client is null)
             return (null, OAuthError("invalid_client", "Unknown client.", StatusCodes.Status401Unauthorized));
 

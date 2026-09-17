@@ -32,6 +32,15 @@ public class McpClient
     /// <summary>Where the app's own information page is, when it gave one.</summary>
     public string? ClientUri { get; set; }
 
+    /// <summary>
+    /// For an app that identifies itself by a published document rather than by registering:
+    /// the document's address, which is also its <c>client_id</c>. Null for a registered app.
+    /// </summary>
+    public string? MetadataUrl { get; set; }
+
+    /// <summary>When the published document was last read, for apps that have one.</summary>
+    public DateTimeOffset? MetadataFetchedAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 }
 

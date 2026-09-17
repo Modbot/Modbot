@@ -249,6 +249,14 @@ try
     // must not spend a VRChat rate-limit budget or leave by an address set aside for VRChat.
     builder.Services.AddHttpClient(CloudServerClient.HttpClientName);
     builder.Services.AddSingleton<CloudServerClient>();
+
+    // The one fetch the MCP sign-in makes: an AI app's published metadata document, when the
+    // app identifies itself by an address rather than by registering.
+    builder.Services.AddHttpClient(Modbot.Api.Features.Mcp.McpClientDocuments.HttpClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(5);
+        client.MaxResponseContentBufferSize = Modbot.Api.Features.Mcp.McpClientDocuments.MaxDocumentBytes;
+    });
     builder.Services.AddScoped<ServerReporter>();
 
     // A demo reports nothing. Its figures are made up and its group is somebody else's.
