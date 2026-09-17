@@ -280,7 +280,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
             _log.Information("Swapchain of {Count} {Format} images at {Size}x{Size} created",
                 attachment.Images.Length, attachment.Format.Name, _resolution);
 
-            attachment.BlendMode = FirstBlendMode(attachment);
+            attachment.BlendMode = ChooseBlendMode(attachment);
             _log.Debug("Environment blend mode {Mode}", attachment.BlendMode);
 
             attachment.Uploader = VulkanUploader.Create(
@@ -680,7 +680,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
             throw new OverlayStartFailure(OverlayRuntimeState.Refused, $"{a.RuntimeName} made a swapchain with no images.");
     }
 
-    private static unsafe EnvironmentBlendMode FirstBlendMode(Attachment a)
+    private static unsafe EnvironmentBlendMode ChooseBlendMode(Attachment a)
     {
         uint count = 0;
         CheckXr(a.Xr.EnumerateEnvironmentBlendModes(a.Instance, a.SystemId, ViewConfigurationType.PrimaryStereo, 0, &count, null),
@@ -693,6 +693,14 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         {
             CheckXr(a.Xr.EnumerateEnvironmentBlendModes(a.Instance, a.SystemId, ViewConfigurationType.PrimaryStereo, count, &count, m),
                 a.RuntimeName, "xrEnumerateEnvironmentBlendModes");
+        }
+
+        // Alpha blend first, wherever the headset offers it: an overlay drawn opaque over a
+        // passthrough headset blacks the passthrough out. Then additive, then whatever is first.
+        foreach (var wanted in new[] { EnvironmentBlendMode.AlphaBlend, EnvironmentBlendMode.Additive })
+        {
+            if (Array.IndexOf(modes, wanted) >= 0)
+                return wanted;
         }
 
         return modes[0];

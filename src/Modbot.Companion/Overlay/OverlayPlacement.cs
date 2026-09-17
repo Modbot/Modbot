@@ -55,6 +55,12 @@ public sealed record OverlayPlacement(
 
     public static OverlayPlacement Default { get; } = new(OverlayAnchor.Head, new OverlayPose(0.35f, -0.28f, -1.0f), 0.45f);
 
+    /// <summary>
+    /// Where a panel put on a hand from the settings page goes: twelve centimetres above where
+    /// the controller points from, facing back along it, like a watch held up.
+    /// </summary>
+    public static OverlayPose HandOffset { get; } = new(0f, 0.12f, 0f);
+
     /// <summary>The same placement with every number inside its bounds.</summary>
     public OverlayPlacement Clamped() => this with
     {

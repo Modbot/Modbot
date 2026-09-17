@@ -1080,10 +1080,7 @@ public sealed partial class MainWindow : Window
         {
             var button = Ui.Button(caption, primary: placement.Anchor == anchor);
             var chosen = anchor;
-            button.Click += (_, _) => _actions.PlaceOverlay(
-                chosen == OverlayAnchor.Head
-                    ? placement with { Anchor = chosen, Offset = OverlayPlacement.Default.Offset }
-                    : placement with { Anchor = chosen });
+            button.Click += (_, _) => _actions.AnchorOverlay(chosen);
             anchors.Children.Add(button);
         }
 
@@ -1265,7 +1262,8 @@ public sealed partial class MainWindow : Window
 /// <param name="AttachSteamVr">Looks for SteamVR now rather than at the next ten-second look.</param>
 /// <param name="ShowOverlayWindow">Opens the window that shows the overlay's last frame. Debug page only.</param>
 /// <param name="PinOverlaySample">Pins a sample screen into the overlay, or null for the live screen. Debug page only.</param>
-/// <param name="PlaceOverlay">Moves the panel: an anchor, a size, or back in front of the head.</param>
+/// <param name="PlaceOverlay">Moves the panel: a size, an opacity, a curve, or back in front of the head.</param>
+/// <param name="AnchorOverlay">Fixes the panel to the head, a hand or the room, putting it where that anchor makes sense.</param>
 /// <param name="SetVoice">The Voice card changed: the whole voice settings record as the controls now read.</param>
 /// <param name="TestVoice">Speaks one test line.</param>
 /// <param name="SetEventsFilters">The Events page's filter bar changed; the chips are remembered in settings.</param>
@@ -1280,6 +1278,7 @@ public sealed record MainWindowActions(
     Action ShowOverlayWindow,
     Action<OverlaySample?> PinOverlaySample,
     Action<OverlayPlacement> PlaceOverlay,
+    Action<OverlayAnchor> AnchorOverlay,
     Action<VoiceSettings> SetVoice,
     Action TestVoice)
 {
@@ -1295,6 +1294,7 @@ public sealed record MainWindowActions(
         _ => { },
         () => { },
         () => { },
+        _ => { },
         _ => { },
         _ => { },
         _ => { },

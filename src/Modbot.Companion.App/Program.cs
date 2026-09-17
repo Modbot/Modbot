@@ -990,7 +990,7 @@ internal sealed class CompanionHost : IOverlayListener
             _state.Snapshot(),
             new MainWindowActions(
                 TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows, SetLogFolder,
-                AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay, SetVoice, TestVoice)
+                AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay, AnchorOverlay, SetVoice, TestVoice)
             {
                 SetEventsFilters = SetEventsFilters,
             });
@@ -1041,13 +1041,23 @@ internal sealed class CompanionHost : IOverlayListener
             });
     }
 
-    /// <summary>The SteamVR page moving the panel: an anchor, a size, or back in front of the head.</summary>
+    /// <summary>The SteamVR page moving the panel: a size, an opacity, a curve, or back in front of the head.</summary>
     private void PlaceOverlay(OverlayPlacement placement)
     {
         if (_overlayHost is null)
             return;
 
         _overlayHost.Place(placement);
+        Render();
+    }
+
+    /// <summary>The SteamVR page fixing the panel to the head, a hand or the room.</summary>
+    private void AnchorOverlay(OverlayAnchor anchor)
+    {
+        if (_overlayHost is null)
+            return;
+
+        _overlayHost.Anchor(anchor);
         Render();
     }
 

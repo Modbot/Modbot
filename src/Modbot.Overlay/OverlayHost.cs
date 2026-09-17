@@ -51,6 +51,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private Control? _root;
     private PanelCursor? _cursor;
     private float _scroll;
+    private OverlayTracking _lastTracking = OverlayTracking.None;
 
     /// <summary>Thumbstick travel, in full deflections per poll, that moves the roster one row.</summary>
     public const float ScrollPerRow = 6f;
@@ -112,6 +113,25 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     }
 
     /// <summary>
+    /// Fixes the panel to something else, from the settings page, and puts it where that
+    /// anchor makes sense: in front of the head; just above a hand; or, for the room, exactly
+    /// where the panel is right now, so choosing Room pins it rather than sending it to the
+    /// room's origin. Size, opacity and curve stay.
+    /// </summary>
+    public void Anchor(OverlayAnchor anchor)
+    {
+        var current = _interaction.Placement;
+        var offset = anchor switch
+        {
+            OverlayAnchor.Head => OverlayPlacement.Default.Offset,
+            OverlayAnchor.LeftHand or OverlayAnchor.RightHand => OverlayPlacement.HandOffset,
+            _ => (PanelGeometry.PanelPose(current, _lastTracking) ?? _lastTracking.Head.Then(Pose.From(OverlayPlacement.Default.Offset))).ToOverlayPose(),
+        };
+
+        Place(current with { Anchor = anchor, Offset = offset });
+    }
+
+    /// <summary>
     /// One look at the controllers: moves the cursor, holds or lets go of the panel, and raises
     /// taps and scrolls. Cheap when nothing is attached. UI thread only, because a moved cursor
     /// redraws the frame.
@@ -124,7 +144,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             return;
         }
 
-        var result = _interaction.Update(_runtime.ReadTracking(), now);
+        _lastTracking = _runtime.ReadTracking();
+        var result = _interaction.Update(_lastTracking, now);
         Holding = result.Holding;
 
         if (result.PlacementChanged)
