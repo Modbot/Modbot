@@ -9,6 +9,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Live;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Live;
 
@@ -24,6 +25,7 @@ public sealed record LiveWatcherView(string UserId, string? DisplayName, DateTim
 /// When they were first seen already there. They arrived at some earlier time nobody saw, and no
 /// earlier time is made up for them.
 /// </param>
+/// <param name="TrustRank">Their VRChat trust rank as stored. Null when the profile's tags are not known yet.</param>
 public sealed record LivePersonView(
     string UserId,
     string? DisplayName,
@@ -31,7 +33,8 @@ public sealed record LivePersonView(
     DateTimeOffset? HereBefore,
     string Standing,
     int PriorActions,
-    IReadOnlyList<string> Flags);
+    IReadOnlyList<string> Flags,
+    TrustRank? TrustRank = null);
 
 /// <param name="HeadCount">How many people are in the room, whether or not anybody is watching it.</param>
 /// <param name="People">Everyone present now. Empty whenever nobody is watching.</param>
@@ -140,20 +143,24 @@ public static class LiveEndpoints
         var priorActions = await ContextHandler.CountPriorActionsAsync(db, everyone, ct);
         var members = await ContextHandler.CurrentMembersAsync(db, everyone, ct);
 
-        // Anybody the facts carried no name for, named from the stored profiles in one lookup.
-        var nameless = people.Values
-            .SelectMany(p => p.Here.Concat(p.LastSeen).Select(x => (x.UserId, x.DisplayName))
-                .Concat(p.Watching.Select(w => (w.UserId, w.DisplayName))))
-            .Where(x => x.DisplayName is null)
-            .Select(x => x.UserId)
+        // The stored profiles, in one lookup: a name for anybody the facts carried none for, and
+        // the trust rank for everybody, which lives nowhere but the profile row.
+        var anybody = people.Values
+            .SelectMany(p => p.Here.Concat(p.LastSeen).Select(x => x.UserId)
+                .Concat(p.Watching.Select(w => w.UserId)))
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        var names = nameless.Count == 0
-            ? new Dictionary<string, string>(StringComparer.Ordinal)
+        var profiles = anybody.Count == 0
+            ? new Dictionary<string, (string? Name, TrustRank? Rank)>(StringComparer.Ordinal)
             : await db.VRChatUsers.AsNoTracking()
-                .Where(u => nameless.Contains(u.UserId) && u.DisplayName != null)
-                .ToDictionaryAsync(u => u.UserId, u => u.DisplayName!, StringComparer.Ordinal, ct);
+                .Where(u => anybody.Contains(u.UserId))
+                .Select(u => new { u.UserId, u.DisplayName, u.TrustRank })
+                .ToDictionaryAsync(u => u.UserId, u => (Name: u.DisplayName, Rank: u.TrustRank), StringComparer.Ordinal, ct);
+
+        var names = profiles
+            .Where(p => p.Value.Name is not null)
+            .ToDictionary(p => p.Key, p => p.Value.Name!, StringComparer.Ordinal);
 
         LivePersonView Person(PersonHere p)
         {
@@ -167,7 +174,8 @@ public static class LiveEndpoints
                 p.SeenArriving ? null : p.Since,
                 described.Standing,
                 described.PriorActions,
-                described.Flags);
+                described.Flags,
+                profiles.GetValueOrDefault(p.UserId).Rank);
         }
 
         var views = rooms.Select(room =>

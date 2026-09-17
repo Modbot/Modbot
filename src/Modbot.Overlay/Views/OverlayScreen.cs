@@ -89,6 +89,7 @@ public sealed record OverlayScreen(
                 || left.Standing != right.Standing
                 || left.DisplayName != right.DisplayName
                 || left.PriorActions != right.PriorActions
+                || left.TrustRank != right.TrustRank
                 || !left.Flags.SequenceEqual(right.Flags, StringComparer.Ordinal))
             {
                 return false;

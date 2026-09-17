@@ -6,6 +6,7 @@ import { EvidenceGallery } from '@/components/EvidenceGallery'
 import { Markdown } from '@/components/Markdown'
 import { ReasonButtons, WrittenReasonBox } from '@/components/CaseFileForm'
 import { SubjectLink } from '@/components/facts'
+import { TrustRankBadge } from '@/components/TrustRankBadge'
 import {
   api,
   ApiError,
@@ -399,6 +400,7 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
             {profile.displayName ?? <span className="font-mono">{profile.userId}</span>}
           </span>
           {profile.pronouns && <span className="text-muted-foreground">{profile.pronouns}</span>}
+          <TrustRankBadge rank={profile.trustRank} className="self-center" />
           {profile.eighteenPlus?.verified && (
             <span
               className="inline-flex items-center rounded-full border border-transparent bg-ok/15 px-2 py-0.5 font-medium text-ok"

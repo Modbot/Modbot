@@ -14004,6 +14004,26 @@
                 "$ref": "#/components/schemas/JsonNode"
               }
             ]
+          },
+          "subjectTrustRank": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrustRank"
+              }
+            ]
+          },
+          "actorTrustRank": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrustRank"
+              }
+            ]
           }
         }
       },
@@ -14405,6 +14425,7 @@
           "userId",
           "displayName",
           "avatarThumbnailUrl",
+          "trustRank",
           "bannedAt",
           "firstSeenAt",
           "liftedAt",
@@ -14425,6 +14446,16 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "trustRank": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrustRank"
+              }
             ]
           },
           "bannedAt": {
@@ -20510,6 +20541,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "trustRank": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrustRank"
+              }
+            ]
           }
         }
       },
@@ -20986,6 +21027,7 @@
           "visibility",
           "isRepresenting",
           "eighteenPlus",
+          "trustRank",
           "lastSeenAt",
           "profileRefreshedAt",
           "leftAt",
@@ -21044,6 +21086,16 @@
           },
           "eighteenPlus": {
             "type": "boolean"
+          },
+          "trustRank": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrustRank"
+              }
+            ]
           },
           "lastSeenAt": {
             "type": [
@@ -24638,6 +24690,19 @@
           }
         }
       },
+      "TrustRank": {
+        "enum": [
+          "Visitor",
+          "NewUser",
+          "User",
+          "KnownUser",
+          "TrustedUser",
+          "Legend",
+          "Nuisance",
+          "VRChatTeam",
+          null
+        ]
+      },
       "TryMatchView": {
         "required": [
           "ruleKind",
@@ -25029,6 +25094,7 @@
           "profilePictureUrl",
           "dateJoined",
           "tags",
+          "trustRank",
           "lastPlatform",
           "ageVerificationStatusLastSeen",
           "ageVerifiedLastSeen",
@@ -25112,6 +25178,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "trustRank": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrustRank"
+              }
+            ]
           },
           "lastPlatform": {
             "type": [

@@ -1,6 +1,7 @@
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
+using Modbot.Core.Users;
 
 namespace Modbot.Overlay.Tests.Views;
 
@@ -120,6 +121,33 @@ public class OverlayViewTests
             Freshness.Fresh);
 
         Assert.Equal(Width * Height * 4, Render(screen).Length);
+    }
+
+    [Fact]
+    public void ATrustRankIsDrawnOnTheRowAndOnTheAlertCard()
+    {
+        // The rank is the one thing on a row the fact log does not carry, so a roster with ranks
+        // must not render as the same pixels as one without.
+        var ranked = new InstanceContext("39911",
+        [
+            new RosterMember("usr_ord", "Ordinary Person", RosterStanding.Ordinary, 0, [], TrustRank.KnownUser),
+            new RosterMember("usr_mem", "A Member", RosterStanding.Member, 0, [], TrustRank.Nuisance),
+            new RosterMember("usr_flag0", "Flagged 0", RosterStanding.Flagged, 2, ["prior kick"], TrustRank.VRChatTeam),
+        ]);
+
+        var withRanks = new OverlayScreen(
+            "Cat Lounge",
+            new Cached<InstanceContext>(ranked, Freshness.Fresh, TimeSpan.Zero),
+            Freshness.Fresh);
+
+        Assert.False(Render(Screen()).AsSpan().SequenceEqual(Render(withRanks)));
+        Assert.False(Screen().LooksTheSameAs(withRanks));
+
+        var alert = new FlaggedJoinAlert("alert-1", "usr_8f2c", "Rin", "39911", "two prior kicks", 2, default);
+        var plain = Render(Screen(alert: alert));
+        var rankedAlert = Render(Screen(alert: alert with { TrustRank = TrustRank.NewUser }));
+
+        Assert.False(plain.AsSpan().SequenceEqual(rankedAlert));
     }
 
     [Fact]

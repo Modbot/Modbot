@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using Modbot.Core.Users;
 
 namespace Modbot.Core.Data.Entities;
 
@@ -71,6 +72,19 @@ public class VRChatUser
     /// <summary>VRChat's tag list for the user, as a JSON array. Trust-rank tags live here.</summary>
     [Column(TypeName = "jsonb")]
     public string? Tags { get; set; }
+
+    /// <summary>
+    /// The trust rank the tag list says (<see cref="TrustRanks.FromTags"/>). Null until the user
+    /// read has filled <see cref="Tags"/>, because a person nobody has read yet is not a Visitor,
+    /// they are unknown.
+    /// </summary>
+    /// <remarks>
+    /// Written whenever <see cref="Tags"/> is, and from nothing else: the public profile's
+    /// <c>trustTags</c> is a smaller list that may lack the nuisance and staff tags, and a rank
+    /// that flipped between the two calls would write a change fact for a change nobody made
+    /// (research: <c>2026-09-16-vrchat-trust-ranks.md</c> §4).
+    /// </remarks>
+    public TrustRank? TrustRank { get; set; }
 
     /// <summary>
     /// Whatever VRChat put in <c>last_platform</c>. Documented as normally one of a few words and

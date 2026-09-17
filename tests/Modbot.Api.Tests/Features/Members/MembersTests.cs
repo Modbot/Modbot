@@ -6,6 +6,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Modbot.VRChat.Sync;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Tests.Features.Members;
 
@@ -56,7 +57,7 @@ public class MembersTests
             new GroupBan { GroupId = Group, UserId = "usr_forgiven", BannedAt = Day.AddDays(-20), FirstSeenAt = Day, LastSeenAt = Day, LiftedAt = Day.AddHours(1) });
 
         db.VRChatUsers.AddRange(
-            new VRChatUser { UserId = "usr_alice", DisplayName = "Alice Wonder", CurrentAvatarThumbnailImageUrl = "https://img/alice", Is18PlusVerified = true, FirstSeenAt = Day, LastSeenAt = Day, LastRefreshedAt = Day },
+            new VRChatUser { UserId = "usr_alice", DisplayName = "Alice Wonder", CurrentAvatarThumbnailImageUrl = "https://img/alice", Is18PlusVerified = true, TrustRank = TrustRank.KnownUser, FirstSeenAt = Day, LastSeenAt = Day, LastRefreshedAt = Day },
             new VRChatUser { UserId = "usr_bob", DisplayName = "Bob_Builder", ProfilePictureUrl = "https://img/bob-override", FirstSeenAt = Day, LastSeenAt = Day.AddHours(2), LastRefreshedAt = Day },
             new VRChatUser { UserId = "usr_banned", DisplayName = "Mallory", FirstSeenAt = Day, LastSeenAt = Day, LastRefreshedAt = Day });
 
@@ -81,6 +82,10 @@ public class MembersTests
         Assert.Equal(["Member", "Moderator"], alice.RoleNames);
         Assert.Equal("https://img/alice", alice.AvatarThumbnailUrl);
         Assert.True(alice.EighteenPlus);
+        Assert.Equal(TrustRank.KnownUser, alice.TrustRank);
+
+        // A profile whose tags were never read has no rank, and none is invented.
+        Assert.Null(list.Members.Single(m => m.UserId == "usr_bob").TrustRank);
 
         // The override picture wins when set, as VRChat's own client does.
         Assert.Equal("https://img/bob-override", list.Members.Single(m => m.UserId == "usr_bob").AvatarThumbnailUrl);

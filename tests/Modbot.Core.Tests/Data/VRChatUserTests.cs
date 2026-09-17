@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
+using Modbot.Core.Users;
 
 namespace Modbot.Core.Tests.Data;
 
@@ -37,6 +38,7 @@ public class VRChatUserTests
                 Pronouns = "she/her",
                 DateJoined = new DateOnly(2019, 4, 2),
                 Tags = """["system_trust_veteran","language_eng"]""",
+                TrustRank = TrustRank.TrustedUser,
                 AgeVerificationStatus = "18+",
                 AgeVerified = true,
                 Is18PlusVerified = true,
@@ -58,6 +60,7 @@ public class VRChatUserTests
         Assert.Equal(new DateOnly(2019, 4, 2), row.DateJoined);
         Assert.True(row.Is18PlusVerified);
         Assert.Equal(AgeVerificationSource.VRChat, row.Is18PlusVerifiedSource);
+        Assert.Equal(TrustRank.TrustedUser, row.TrustRank);
 
         // jsonb normalises whitespace, so the shape is asserted rather than the bytes.
         Assert.Contains("system_trust_veteran", row.Tags);

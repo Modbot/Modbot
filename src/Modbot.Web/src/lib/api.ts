@@ -5,6 +5,7 @@
  * errors, never a Response -- which is what keeps "did you remember to check response.ok?" from
  * being a question that has to be answered correctly in thirty places.
  */
+import type { TrustRank } from './trustRank'
 
 /** Where the wizard should resume. Mirrors the server's OnboardingStep. */
 export type OnboardingStep =
@@ -528,6 +529,10 @@ export type AuditEntry = {
   actorPlatform: string | null
   actorId: string | null
   actorName: string | null
+  /** The subject's VRChat trust rank as stored now, when the subject is a VRChat person whose tags are known. */
+  subjectTrustRank: TrustRank | null
+  /** The same for the actor. */
+  actorTrustRank: TrustRank | null
   worldId: string | null
   worldName: string | null
   instanceId: string | null
@@ -641,6 +646,8 @@ export type MemberRow = {
   visibility: string | null
   isRepresenting: boolean
   eighteenPlus: boolean
+  /** Null until the profile's tags have been read. */
+  trustRank: TrustRank | null
   lastSeenAt: string | null
   profileRefreshedAt: string | null
   leftAt: string | null
@@ -859,6 +866,7 @@ export type GroupBanRow = {
   userId: string
   displayName: string | null
   avatarThumbnailUrl: string | null
+  trustRank: TrustRank | null
   bannedAt: string | null
   firstSeenAt: string
   liftedAt: string | null
@@ -1048,6 +1056,7 @@ export type LivePerson = {
   standing: string
   priorActions: number
   flags: string[]
+  trustRank: TrustRank | null
 }
 
 /** One open group room on the Live page. */
@@ -1624,6 +1633,8 @@ export type VRChatUserProfile = {
   profilePictureUrl: string | null
   dateJoined: string | null
   tags: string[]
+  /** Null until the user read has filled the tags. */
+  trustRank: TrustRank | null
   lastPlatform: string | null
   ageVerificationStatusLastSeen: string | null
   ageVerifiedLastSeen: boolean | null
@@ -1975,6 +1986,7 @@ export type ProfileAtBan = {
   profilePictureUrl?: string | null
   dateJoined?: string | null
   tags?: unknown
+  trustRank?: unknown
   lastPlatform?: string | null
   ageVerificationStatus?: string | null
   ageVerified?: boolean | null

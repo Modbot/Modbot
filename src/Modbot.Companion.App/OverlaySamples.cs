@@ -1,5 +1,6 @@
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Views;
+using Modbot.Core.Users;
 
 namespace Modbot.Companion.App;
 
@@ -46,7 +47,8 @@ internal static class OverlaySamples
             new Cached<InstanceContext>(Roster(), Freshness.Fresh, TimeSpan.Zero),
             Freshness.Fresh,
             Alert: new FlaggedJoinAlert(
-                "sample-alert", "usr_sample_1", "Rin Sample", Instance, "kicked before", 2, DateTimeOffset.UnixEpoch)),
+                "sample-alert", "usr_sample_1", "Rin Sample", Instance, "kicked before", 2, DateTimeOffset.UnixEpoch,
+                TrustRank.NewUser)),
 
         OverlaySample.Problem => new OverlayScreen(
             Group,
@@ -61,9 +63,9 @@ internal static class OverlaySamples
     private static InstanceContext Roster() => new(
         Instance,
         [
-            new RosterMember("usr_sample_1", "Rin Sample", RosterStanding.Flagged, 2, ["kicked before"]),
-            new RosterMember("usr_sample_2", "Kai Sample", RosterStanding.Staff, 0, []),
-            new RosterMember("usr_sample_3", "Mira Sample", RosterStanding.Member, 0, []),
+            new RosterMember("usr_sample_1", "Rin Sample", RosterStanding.Flagged, 2, ["kicked before"], TrustRank.NewUser),
+            new RosterMember("usr_sample_2", "Kai Sample", RosterStanding.Staff, 0, [], TrustRank.TrustedUser),
+            new RosterMember("usr_sample_3", "Mira Sample", RosterStanding.Member, 0, [], TrustRank.KnownUser),
             new RosterMember("usr_sample_4", "Jo Sample", RosterStanding.Ordinary, 0, []),
         ]);
 }

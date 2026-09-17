@@ -9,6 +9,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Demo;
 
@@ -324,6 +325,7 @@ public sealed class DemoSeeder
                 CurrentAvatarThumbnailImageUrl = person.Avatar,
                 DateJoined = person.DateJoined,
                 Tags = JsonSerializer.Serialize(person.Tags),
+                TrustRank = TrustRanks.FromTags(person.Tags),
                 LastPlatform = person.Platform,
                 AgeVerificationStatus = person.Is18Plus ? "18+" : "unverified",
                 AgeVerified = person.Is18Plus,

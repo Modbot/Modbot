@@ -1,10 +1,12 @@
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Companion.Alerts;
 
 /// <param name="Reason">Already resolved server-side, and shown verbatim in the headset.</param>
+/// <param name="TrustRank">The person's VRChat trust rank as stored, when known.</param>
 public sealed record FlaggedJoinAlertDto(
     [property: JsonPropertyName("alertId")] string AlertId,
     [property: JsonPropertyName("subjectId")] string SubjectId,
@@ -12,7 +14,8 @@ public sealed record FlaggedJoinAlertDto(
     [property: JsonPropertyName("instanceId")] string InstanceId,
     [property: JsonPropertyName("reason")] string Reason,
     [property: JsonPropertyName("priorActions")] int PriorActions,
-    [property: JsonPropertyName("raisedAt")] DateTimeOffset RaisedAt);
+    [property: JsonPropertyName("raisedAt")] DateTimeOffset RaisedAt,
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
 
 /// <summary>
 /// The one thing in the protocol that is pushed rather than polled.
@@ -161,7 +164,8 @@ public sealed class AlertHub
         string subjectId,
         string? displayName,
         string instanceId,
-        int priorActions)
+        int priorActions,
+        TrustRank? trustRank = null)
         => new(
             Guid.NewGuid().ToString("n"),
             subjectId,
@@ -171,5 +175,6 @@ public sealed class AlertHub
                 ? "1 prior moderation action"
                 : $"{priorActions} prior moderation actions",
             priorActions,
-            clock.UtcNow);
+            clock.UtcNow,
+            trustRank);
 }

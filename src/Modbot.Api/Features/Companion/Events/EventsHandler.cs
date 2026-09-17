@@ -193,6 +193,8 @@ public static class EventsHandler
         if (priorActions.Count == 0)
             return;
 
+        var ranks = await ContextHandler.TrustRanksAsync(database, [.. priorActions.Keys], ct);
+
         var paired = await devices.ListDevicesAsync(ct);
         var recipients = paired.Where(d => !d.IsRevoked).Select(d => d.Id).ToList();
 
@@ -206,7 +208,8 @@ public static class EventsHandler
                 .Data?.GetValueOrDefault("displayName");
 
             alerts.Raise(
-                AlertHub.ForFlaggedJoin(clock, arrival.SubjectId, name, arrival.InstanceId!, count),
+                AlertHub.ForFlaggedJoin(
+                    clock, arrival.SubjectId, name, arrival.InstanceId!, count, ranks.GetValueOrDefault(arrival.SubjectId)),
                 reportingDeviceId,
                 recipients,
                 clock.UtcNow);

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { CaseFileCell } from '@/components/CaseFileCell'
+import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { UnwrittenCaseFiles } from '@/components/UnwrittenCaseFiles'
 import { FactTime, SourceBadge, SubjectLink } from '@/components/facts'
@@ -282,7 +283,10 @@ function GroupBans({
                             <div className="size-7 shrink-0 rounded-full bg-muted" />
                           )}
                           <div className="min-w-0">
-                            <SubjectLink id={ban.userId} name={ban.displayName} onOpen={onOpenSubject} />
+                            <div className="flex items-center gap-1.5">
+                              <SubjectLink id={ban.userId} name={ban.displayName} onOpen={onOpenSubject} />
+                              <TrustRankBadge rank={ban.trustRank} />
+                            </div>
                             {ban.displayName && (
                               <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
                                 {ban.userId}

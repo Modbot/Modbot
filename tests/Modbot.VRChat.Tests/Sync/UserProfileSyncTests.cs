@@ -7,6 +7,7 @@ using Modbot.TestSupport;
 using Modbot.VRChat.RateLimiting;
 using Modbot.VRChat.Sync;
 using Modbot.VRChat.Users;
+using Modbot.Core.Users;
 
 namespace Modbot.VRChat.Tests.Sync;
 
@@ -91,6 +92,7 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Assert.Equal("she/her", row.Pronouns);
         Assert.Equal(Now, row.LastRefreshedAt);
         Assert.Contains("system_trust_veteran", row.Tags);
+        Assert.Equal(TrustRank.TrustedUser, row.TrustRank);
 
         // The raw copy is there for later questions, minus the secrets.
         Assert.Contains("\"displayName\"", row.RawProfile);
@@ -101,6 +103,39 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Assert.Equal("usr_a", fact.SubjectId);
         Assert.Null(fact.ActorId);
         Assert.Equal("Trinity", Payload(fact)["baseline"]!["displayName"]!.GetValue<string>());
+
+        // The first-seen fact is the public profile's, which does not carry the tags, so the
+        // rank is on the row (the user read followed in the same pass) and not in the baseline.
+        Assert.Null(Payload(fact)["baseline"]!["trustRank"]);
+    }
+
+    /// <summary>
+    /// A rank that moves is written on the row and into the same profile-changed fact as the tag
+    /// diff, so the timeline says "trust rank, from User to Known User" rather than a tag list.
+    /// </summary>
+    [Fact]
+    public async Task AChangedTrustRankIsWrittenBesideTheTagDiff()
+    {
+        VRChat.Users.Has("usr_a", tags: ["system_trust_known"]);
+        await WriteFactAsync(FactType.MemberJoined, "usr_a", at: Now.AddMinutes(-1));
+        await RunUserProfileAsync();
+
+        Assert.Equal(TrustRank.User, (await UserRowAsync("usr_a"))!.TrustRank);
+
+        // The user object is read again once a week; the profile alone never moves the rank.
+        Clock.Advance(TimeSpan.FromDays(8));
+        VRChat.Users.Has("usr_a", tags: ["system_trust_trusted"]);
+
+        await RunUserProfileAsync();
+
+        var row = await UserRowAsync("usr_a");
+        Assert.Equal(TrustRank.KnownUser, row!.TrustRank);
+
+        var fact = Assert.Single(await FactsAsync(), f => f.Type == FactType.UserProfileChanged);
+        var changed = Payload(fact)["changed"]!.AsObject();
+        Assert.Equal(["tags", "trustRank"], changed.Select(c => c.Key));
+        Assert.Equal("User", changed["trustRank"]!["old"]!.GetValue<string>());
+        Assert.Equal("KnownUser", changed["trustRank"]!["new"]!.GetValue<string>());
     }
 
     [Fact]

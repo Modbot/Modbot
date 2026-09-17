@@ -39,9 +39,34 @@ anything is saved:
 
 Profile pictures are shown from VRChat's servers. Modbot does not keep a copy of the image.
 
-When a watched part of the profile changes (name, bio, status, pronouns, pictures, tags, join date
-or age verification), Modbot writes an entry to the [audit log](/moderation/audit-log). The
-person's **Logs** tab shows those entries, so you can see what a bio said last week.
+When a watched part of the profile changes (name, bio, status, pronouns, pictures, tags, trust
+rank, join date or age verification), Modbot writes an entry to the
+[audit log](/moderation/audit-log). The person's **Logs** tab shows those entries, so you can see
+what a bio said last week.
+
+## Trust ranks
+
+VRChat gives every account a trust rank, and Modbot reads it from the tags. It is shown as a
+small coloured dot and the rank's name beside a person wherever one is listed: the member list,
+the ban list, the person popup, the Live page, the audit log and the companion overlay.
+
+| Rank | Colour |
+|---|---|
+| Visitor | grey |
+| New User | blue |
+| User | green |
+| Known User | orange |
+| Trusted User | purple |
+| Legend | gold. A rank VRChat retired in 2018; a few old accounts may still carry it |
+| Nuisance | dark red. VRChat has marked the account as a troll, or as probably one |
+| VRChat Team | red. VRChat staff |
+
+The colours are VRChat's own, the ones its nameplates use. Nuisance and VRChat Team take the
+place of whatever rank the account also holds, because that is the word a moderator needs to see.
+
+The rank comes from the user details read, so it is as fresh as the tags: read once when Modbot
+first meets someone, then once a week. A person Modbot has not read yet shows no rank rather than
+a guessed one. A change of rank is written to the audit log like any other profile change.
 
 ## How profiles are refreshed
 

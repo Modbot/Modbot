@@ -5,9 +5,11 @@ using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Context;
 using Modbot.Api.Features.Companion.Events;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Tests.Features.Companion;
 
@@ -260,6 +262,50 @@ public class OverlayReadTests
         Assert.Equal("Flagged", member.Standing);
         Assert.Equal(2, member.PriorActions);
         Assert.Equal("2 prior actions", Assert.Single(member.Flags));
+    }
+
+    /// <summary>
+    /// The rank comes off the stored profile row, not the facts: it is the one thing on a roster
+    /// row that the fact log does not carry, and a moderator glancing at a headset wants it.
+    /// </summary>
+    [Fact]
+    public async Task ARosterRowCarriesTheTrustRankOffTheStoredProfile()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var moderator = await host.PairModeratorAsync(ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.VRChatUsers.Add(new VRChatUser
+            {
+                UserId = "usr_ranked",
+                DisplayName = "Ranked",
+                Tags = """["system_trust_trusted"]""",
+                TrustRank = TrustRank.KnownUser,
+                FirstSeenAt = Noon.AddDays(-1),
+                LastSeenAt = Noon,
+                LastUserReadAt = Noon.AddDays(-1),
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
+        await WriteAsync(host,
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-10), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_ranked", Noon.AddMinutes(-5), "Ranked", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_unread", Noon.AddMinutes(-4), "Unread", device: moderator.DeviceId));
+
+        var roster = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/companion/context?instanceId={Instance}", ct);
+
+        Assert.Equal(TrustRank.KnownUser, Assert.Single(roster.Members, m => m.SubjectId == "usr_ranked").TrustRank);
+        Assert.Null(Assert.Single(roster.Members, m => m.SubjectId == "usr_unread").TrustRank);
+
+        var summary = await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_ranked", ct);
+        Assert.Equal(TrustRank.KnownUser, summary.TrustRank);
     }
 
     [Fact]

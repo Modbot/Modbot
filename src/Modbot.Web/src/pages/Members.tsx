@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
+import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { useDemo } from '@/lib/demo'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
@@ -281,6 +282,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                                   18+
                                 </span>
                               )}
+                              <TrustRankBadge rank={m.trustRank} />
                               {m.isRepresenting && (
                                 <span
                                   className="text-muted-foreground"

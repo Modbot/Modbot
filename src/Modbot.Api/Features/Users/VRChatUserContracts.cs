@@ -1,3 +1,5 @@
+using Modbot.Core.Users;
+
 namespace Modbot.Api.Features.Users;
 
 /// <summary>
@@ -46,6 +48,7 @@ public sealed record RefreshState(
 /// VRChat's own status as of the last refresh -- <c>18+</c>, <c>hidden</c>, <c>verified</c>. This
 /// can differ from <see cref="EighteenPlus"/>: hidden today does not undo verified yesterday.
 /// </param>
+/// <param name="TrustRank">The trust rank the tag list says. Null until the user read has filled the tags.</param>
 /// <param name="Stale">True when the profile is older than <paramref name="StaleAfterSeconds"/>, or was never fetched.</param>
 /// <param name="NotFoundAt">Set when VRChat answered 404 -- usually a deleted account.</param>
 /// <param name="Now">The server's clock, so ages are computed against the right one (spec 4.4).</param>
@@ -62,6 +65,7 @@ public sealed record VRChatUserProfile(
     string? ProfilePictureUrl,
     DateOnly? DateJoined,
     IReadOnlyList<string> Tags,
+    TrustRank? TrustRank,
     string? LastPlatform,
     string? AgeVerificationStatusLastSeen,
     bool? AgeVerifiedLastSeen,
