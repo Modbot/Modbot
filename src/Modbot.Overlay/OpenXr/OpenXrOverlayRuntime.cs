@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-using System.Text;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
@@ -19,10 +17,15 @@ namespace Modbot.Overlay.OpenXr;
 /// <remarks>
 /// <para><strong>What this does.</strong> Opens a second OpenXR session marked as an overlay
 /// (<c>XR_EXTX_overlay</c>), whose one quad layer the runtime draws over VRChat's own frames.
-/// The quad sits where the OpenVR panel does — a little below and to the right of where the
-/// moderator is looking, in the head-locked <c>VIEW</c> space — and shows the same picture. That
-/// is the entire interaction: no tracking data is read, no other session is inspected, and
+/// The quad sits where the placement says — on the head in the <c>VIEW</c> space, on a hand in
+/// that hand's aim space, or left in the room in <c>LOCAL</c> — and shows the same picture. The
+/// controllers are read through one action set (<see cref="OpenXrInput"/>) so the panel can be
+/// pointed at and held; that is the entire interaction: no other session is inspected, and
 /// nothing is sent anywhere.</para>
+/// <para><strong>Opacity and curve</strong> are two optional extensions. Opacity goes through
+/// <c>XR_KHR_composition_layer_color_scale_bias</c> and curve through
+/// <c>XR_KHR_composition_layer_cylinder</c>; each is asked for only when the runtime lists it,
+/// and without it the panel is simply drawn solid, or flat.</para>
 /// <para><strong>Why OpenXR at all.</strong> On Linux, WiVRn and Monado users run OpenVR games
 /// through xrizer, which by design takes games only and refuses overlays. The OpenXR overlay
 /// extension is how desktop overlays work on those runtimes, so it is how this one does. On a
@@ -42,6 +45,12 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
 
     public const string VulkanExtension = "XR_KHR_vulkan_enable2";
 
+    /// <summary>Opacity: a colour scale on the layer. Optional.</summary>
+    public const string ColorScaleExtension = "XR_KHR_composition_layer_color_scale_bias";
+
+    /// <summary>Curve: the panel as a cylinder layer. Optional.</summary>
+    public const string CylinderExtension = "XR_KHR_composition_layer_cylinder";
+
     /// <summary><c>XR_MAKE_VERSION(1, 0, 0)</c>: the overlay extension predates OpenXR 1.1, and every runtime speaks 1.0.</summary>
     private const ulong OpenXrApiVersion = 1UL << 48;
 
@@ -55,6 +64,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
     private readonly float _widthInMetres;
     private readonly ILogger _log;
     private readonly PendingFrame _pending = new();
+    private readonly LatestTracking _tracking = new();
     private readonly byte[] _scratch;
 
     private volatile Attachment? _attachment;
@@ -157,17 +167,23 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
 
     public void Hide() => _visible = false;
 
-    /// <summary>Not read yet: controller input on OpenXR comes with its action set (design §4.1).</summary>
-    public OverlayTracking ReadTracking() => OverlayTracking.None;
+    /// <summary>What the frame thread last read, synced once a frame; none before the first frame or after the session is gone.</summary>
+    public OverlayTracking ReadTracking() => _tracking.Read();
 
     /// <summary>
-    /// Head and world anchors are spaces the session already has; a hand anchor waits on the
-    /// action set and is shown on the head meanwhile. Opacity and curve are not applied here yet.
+    /// Stored for the frame thread, which picks the space (VIEW for the head, a hand's aim space,
+    /// LOCAL for the world), the size, the opacity and the curve on its next frame. A hand anchor
+    /// before the action set exists is shown on the head meanwhile.
     /// </summary>
     public void Place(OverlayPlacement placement)
     {
         ArgumentNullException.ThrowIfNull(placement);
-        _placement = placement.Clamped();
+
+        var clamped = placement.Clamped();
+        if (clamped.Anchor != _placement.Anchor)
+            _log.Debug("The panel is now anchored to the {Anchor}", clamped.Anchor);
+
+        _placement = clamped;
     }
 
     public void Dispose()
@@ -179,6 +195,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         var attachment = _attachment;
         _attachment = null;
         attachment?.Dispose();
+        _tracking.Clear();
 
         _status = new(OverlayRuntimeState.NotStarted, Detail: "The overlay has been let go.");
     }
@@ -207,13 +224,29 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
                 name is null ? "This OpenXR runtime does not draw through Vulkan." : $"{name} does not draw through Vulkan.");
         }
 
-        var attachment = new Attachment(xr);
+        // The two optional ones are asked for only when listed: asking for an extension a runtime
+        // lacks fails xrCreateInstance outright, over a fade and a curve the panel can do without.
+        var extensions = new List<string> { OverlayExtension, VulkanExtension };
+        var attachment = new Attachment(xr)
+        {
+            CanFade = available.Contains(ColorScaleExtension),
+            CanCurve = available.Contains(CylinderExtension),
+        };
+        if (attachment.CanFade)
+            extensions.Add(ColorScaleExtension);
+        if (attachment.CanCurve)
+            extensions.Add(CylinderExtension);
+
         try
         {
-            attachment.Instance = CreateInstance(xr, [OverlayExtension, VulkanExtension]);
+            attachment.Instance = CreateInstance(xr, [.. extensions]);
             attachment.RuntimeName = RuntimeName(xr, attachment.Instance, out var version);
-            _log.Information("OpenXR instance created on {Runtime} {Version} with {Overlay} and {Vulkan}",
-                attachment.RuntimeName, version, OverlayExtension, VulkanExtension);
+            _log.Information("OpenXR instance created on {Runtime} {Version} with {Extensions}",
+                attachment.RuntimeName, version, extensions);
+            _log.Debug("Opacity {Fade} and curve {Curve} on {Runtime}",
+                attachment.CanFade ? "supported" : "not supported (panel drawn solid)",
+                attachment.CanCurve ? "supported" : "not supported (panel drawn flat)",
+                attachment.RuntimeName);
 
             attachment.SystemId = GetSystem(xr, attachment.Instance, attachment.RuntimeName);
             _log.Debug("OpenXR system {SystemId} is a head-mounted display", attachment.SystemId);
@@ -228,6 +261,20 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
             attachment.ViewSpace = CreateSpace(attachment, ReferenceSpaceType.View);
             attachment.LocalSpace = CreateSpace(attachment, ReferenceSpaceType.Local);
             _log.Debug("VIEW and LOCAL reference spaces created");
+
+            // Before the session is begun, as the actions need. A runtime that refuses them still
+            // gets the panel; it just cannot be pointed at or held there.
+            try
+            {
+                attachment.Input = OpenXrInput.Create(xr, attachment.Instance, attachment.Session, attachment.RuntimeName, _log);
+                _log.Information("Controller input set up on {Runtime}: action set {ActionSet}, {Count} controller profiles",
+                    attachment.RuntimeName, ControllerBindings.ActionSet, ControllerBindings.Profiles.Count);
+            }
+            catch (OverlayStartFailure failure)
+            {
+                _log.Warning("Controller input is not available on {Runtime}: {Detail} The panel is shown but cannot be held.",
+                    attachment.RuntimeName, failure.Detail);
+            }
 
             CreateSwapchain(attachment);
             _log.Information("Swapchain of {Count} {Format} images at {Size}x{Size} created",
@@ -687,6 +734,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         }
         finally
         {
+            _tracking.Clear();
             if (!_stop)
             {
                 // Closed by the runtime, not by Dispose: let go here, and say so. The companion's
@@ -762,6 +810,11 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
                     _log.Debug("The main OpenXR session is {Visibility}", visible ? "visible" : "hidden");
                     break;
                 }
+                case StructureType.EventDataInteractionProfileChanged:
+                    // Which controller the runtime settled on, from the bindings offered. The one
+                    // line that says whether a held panel is possible on this headset.
+                    a.Input?.LogCurrentProfiles();
+                    break;
                 case StructureType.EventDataEventsLost:
                     _log.Debug("OpenXR dropped events");
                     break;
@@ -776,6 +829,8 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         var waitInfo = new FrameWaitInfo { Type = StructureType.FrameWaitInfo };
         var frameState = new FrameState { Type = StructureType.FrameState };
         CheckXr(a.Xr.WaitFrame(a.Session, &waitInfo, &frameState), a.RuntimeName, "xrWaitFrame");
+
+        ReadInput(a, frameState.PredictedDisplayTime);
 
         var beginInfo = new FrameBeginInfo { Type = StructureType.FrameBeginInfo };
         CheckXr(a.Xr.BeginFrame(a.Session, &beginInfo), a.RuntimeName, "xrBeginFrame");
@@ -804,25 +859,62 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         }
 
         var placement = _placement;
-        var offset = placement.Offset;
-        var quad = new CompositionLayerQuad
+        var panel = Pose.From(placement.Offset);
+        var subImage = new SwapchainSubImage
         {
-            Type = StructureType.CompositionLayerQuad,
-            LayerFlags = CompositionLayerFlags.BlendTextureSourceAlphaBit,
-            Space = placement.Anchor is OverlayAnchor.World ? a.LocalSpace : a.ViewSpace,
-            EyeVisibility = EyeVisibility.Both,
-            SubImage = new SwapchainSubImage
-            {
-                Swapchain = a.Swapchain,
-                ImageRect = new Rect2Di(new Offset2Di(0, 0), new Extent2Di(_resolution, _resolution)),
-                ImageArrayIndex = 0,
-            },
-            Pose = new Posef(
-                new Quaternionf(offset.QX, offset.QY, offset.QZ, offset.QW),
-                new Vector3f(offset.X, offset.Y, offset.Z)),
-            Size = new Extent2Df(placement.Width, placement.Width),
+            Swapchain = a.Swapchain,
+            ImageRect = new Rect2Di(new Offset2Di(0, 0), new Extent2Di(_resolution, _resolution)),
+            ImageArrayIndex = 0,
         };
-        var layer = (CompositionLayerBaseHeader*)&quad;
+
+        // Opacity, when the runtime can. The pixels are premultiplied and the layer blends on
+        // their alpha, so every channel is scaled together: scaling alpha alone would leave the
+        // colour at full strength over a fainter cut-out, which reads as a glow, not a fade.
+        var fade = new CompositionLayerColorScaleBiasKHR
+        {
+            Type = StructureType.CompositionLayerColorScaleBiasKhr,
+            ColorScale = new Color4f(placement.Opacity, placement.Opacity, placement.Opacity, placement.Opacity),
+            ColorBias = new Color4f(0f, 0f, 0f, 0f),
+        };
+        var next = a.CanFade ? &fade : null;
+
+        // Both layers live on this frame's stack; only one is pointed at.
+        var quad = default(CompositionLayerQuad);
+        var cylinder = default(CompositionLayerCylinderKHR);
+        CompositionLayerBaseHeader* layer;
+
+        if (a.CanCurve && CurvedPanel.For(placement.Width, placement.Curve) is { } curved)
+        {
+            cylinder = new CompositionLayerCylinderKHR
+            {
+                Type = StructureType.CompositionLayerCylinderKhr,
+                Next = next,
+                LayerFlags = CompositionLayerFlags.BlendTextureSourceAlphaBit,
+                Space = SpaceFor(a, placement.Anchor),
+                EyeVisibility = EyeVisibility.Both,
+                SubImage = subImage,
+                Pose = OpenXrCalls.ToPosef(curved.CentreOf(panel)),
+                Radius = curved.Radius,
+                CentralAngle = curved.CentralAngle,
+                AspectRatio = 1f,
+            };
+            layer = (CompositionLayerBaseHeader*)&cylinder;
+        }
+        else
+        {
+            quad = new CompositionLayerQuad
+            {
+                Type = StructureType.CompositionLayerQuad,
+                Next = next,
+                LayerFlags = CompositionLayerFlags.BlendTextureSourceAlphaBit,
+                Space = SpaceFor(a, placement.Anchor),
+                EyeVisibility = EyeVisibility.Both,
+                SubImage = subImage,
+                Pose = OpenXrCalls.ToPosef(panel),
+                Size = new Extent2Df(placement.Width, placement.Width),
+            };
+            layer = (CompositionLayerBaseHeader*)&quad;
+        }
 
         var show = frameState.ShouldRender != 0 && _visible && a.Uploaded;
         var endInfo = new FrameEndInfo
@@ -836,18 +928,53 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         CheckXr(a.Xr.EndFrame(a.Session, &endInfo), a.RuntimeName, "xrEndFrame");
     }
 
+    /// <summary>
+    /// The space the placement's anchor names: the head is VIEW, the world is LOCAL, a hand is
+    /// that hand's aim space. A hand with no action set behind it is shown on the head instead.
+    /// </summary>
+    private static Space SpaceFor(Attachment a, OverlayAnchor anchor)
+    {
+        var space = anchor switch
+        {
+            OverlayAnchor.World => a.LocalSpace,
+            OverlayAnchor.LeftHand => a.Input?.AimSpace(Hand.Left) ?? default,
+            OverlayAnchor.RightHand => a.Input?.AimSpace(Hand.Right) ?? default,
+            _ => a.ViewSpace,
+        };
+
+        return space.Handle != 0 ? space : a.ViewSpace;
+    }
+
+    /// <summary>
+    /// Syncs and reads the controllers for this frame and publishes them. A runtime that fails a
+    /// call here loses input for the rest of the attachment, with one warning; the panel stays up.
+    /// </summary>
+    private void ReadInput(Attachment a, long time)
+    {
+        if (a.Input is null || a.InputFailed)
+            return;
+
+        try
+        {
+            _tracking.Publish(a.Input.Read(a.ViewSpace, a.LocalSpace, time));
+        }
+        catch (OverlayStartFailure failure)
+        {
+            a.InputFailed = true;
+            _tracking.Clear();
+            _log.Warning("Controller input stopped on {Runtime}: {Detail} The panel is shown but cannot be held.",
+                a.RuntimeName, failure.Detail);
+        }
+    }
+
     // ---- Small helpers ----
 
-    private static readonly Posef Identity = new(new Quaternionf(0, 0, 0, 1), new Vector3f(0, 0, 0));
+    private static readonly Posef Identity = OpenXrCalls.IdentityPose;
 
     private static OverlayStartFailure NotRunning(Result result, string call)
         => new(OverlayRuntimeState.NotStarted, $"No OpenXR runtime is running ({result} from {call}).");
 
-    private static void CheckXr(Result result, string runtimeName, string call)
-    {
-        if (result < 0)
-            throw new OverlayStartFailure(OverlayRuntimeState.Refused, $"{runtimeName} answered {result} to {call}.");
-    }
+    private static void CheckXr(Result result, string runtimeName, string call) => OpenXrCalls.Check(result, runtimeName, call);
 
     private static void CheckVk(uint result, string call)
     {
@@ -855,14 +982,10 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
             throw new OverlayStartFailure(OverlayRuntimeState.Refused, $"Vulkan answered {(Vulkan.Result)(int)result} to {call}.");
     }
 
-    private static unsafe string FixedString(byte* bytes) => Marshal.PtrToStringUTF8((nint)bytes) ?? "";
+    private static unsafe string FixedString(byte* bytes) => OpenXrCalls.FixedString(bytes);
 
     private static unsafe void WriteFixedString(byte* destination, int capacity, string value)
-    {
-        var span = new Span<byte>(destination, capacity);
-        span.Clear();
-        Encoding.UTF8.GetBytes(value.AsSpan(), span[..(capacity - 1)]);
-    }
+        => OpenXrCalls.WriteFixedString(destination, capacity, value);
 
     /// <summary>Everything native that one attachment owns, torn down in the reverse order it was made.</summary>
     private sealed unsafe class Attachment(XR xr) : IDisposable
@@ -887,6 +1010,10 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         public SwapchainFormat Format = SwapchainFormat.Bgra;
         public EnvironmentBlendMode BlendMode = EnvironmentBlendMode.Opaque;
         public VulkanUploader? Uploader;
+        public OpenXrInput? Input;
+        public bool InputFailed;
+        public bool CanFade;
+        public bool CanCurve;
         public bool SessionRunning;
         public bool Uploaded;
 
@@ -894,6 +1021,11 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         {
             Uploader?.Dispose();
             Uploader = null;
+
+            // The aim spaces belong to the session and the set to the instance; both go before
+            // either parent does.
+            Input?.Dispose();
+            Input = null;
 
             if (Swapchain.Handle != 0)
                 Xr.DestroySwapchain(Swapchain);

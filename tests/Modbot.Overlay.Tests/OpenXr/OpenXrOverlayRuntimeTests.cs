@@ -111,4 +111,36 @@ public class OpenXrOverlayRuntimeTests
         Assert.Equal("XR_EXTX_overlay", OpenXrOverlayRuntime.OverlayExtension);
         Assert.Equal("XR_KHR_vulkan_enable2", OpenXrOverlayRuntime.VulkanExtension);
     }
+
+    [Fact]
+    public void OpacityAndCurveAreTheTwoOptionalExtensions()
+    {
+        Assert.Equal("XR_KHR_composition_layer_color_scale_bias", OpenXrOverlayRuntime.ColorScaleExtension);
+        Assert.Equal("XR_KHR_composition_layer_cylinder", OpenXrOverlayRuntime.CylinderExtension);
+    }
+
+    [Fact]
+    public void BeforeAnyFrameNobodyIsTracked()
+    {
+        using var runtime = new OpenXrOverlayRuntime(8);
+
+        Assert.Equal(Modbot.Overlay.Interaction.OverlayTracking.None, runtime.ReadTracking());
+    }
+
+    [Fact]
+    public void AHandAnchorBeforeStartIsKeptRatherThanRefused()
+    {
+        using var runtime = new OpenXrOverlayRuntime(8);
+        var onTheHand = Modbot.Companion.Overlay.OverlayPlacement.Default with
+        {
+            Anchor = Modbot.Companion.Overlay.OverlayAnchor.LeftHand,
+            Opacity = 0.5f,
+            Curve = 0.3f,
+        };
+
+        runtime.Place(onTheHand);
+        runtime.Place(onTheHand with { Anchor = Modbot.Companion.Overlay.OverlayAnchor.World });
+
+        Assert.Equal(Modbot.Overlay.Interaction.OverlayTracking.None, runtime.ReadTracking());
+    }
 }
