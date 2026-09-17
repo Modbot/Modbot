@@ -1,0 +1,242 @@
+---
+title: MCP server
+description: Use Modbot's Chat tools from Claude, ChatGPT, Gemini, Claude Code, Cursor or any other app that speaks MCP, with your own account and your own model.
+---
+
+Modbot's **MCP server** gives an AI app you already use the same tools the [Chat](/ai/chat) page
+has: looking up people, bans, the audit log, rooms, worlds, Discord messages and members, flags,
+the calendar and the figures. The app asks, Modbot answers, and the model is the app's own. You do
+not need to set up an AI provider on **Settings → AI → Base** for this to work.
+
+MCP (Model Context Protocol) is the open standard these apps use to talk to outside tools. Modbot
+speaks the current version of it over plain HTTPS, so any app that can add a "remote MCP server"
+can add your Modbot.
+
+## Who can use it
+
+1. **MCP server on** under **Settings → AI → MCP**. It starts off. While it is off, everything
+   MCP answers "not found".
+2. The **Use AI chat** permission on your role
+   ([roles and permissions](/accounts/roles-and-permissions#use-ai-chat)), the same one the Chat
+   page needs.
+
+Every tool runs as **you**, with your permissions, read again on every request. An app you connect
+sees exactly the tools you would be offered on the Chat page, and nothing else: a tool you lack the
+permission for is not listed, and a call naming one anyway gets "No such tool". If your permissions
+change, your connected apps change with them. The per-tool switches on **Settings → AI → Chat**
+apply here too.
+
+Every lookup that read about a person is recorded in that person's history and in the
+[audit log](/moderation/audit-log), as "asked about … through *app*", the same way a Chat question
+is.
+
+## Two ways to sign in
+
+| | Best for | How the app proves who you are |
+|---|---|---|
+| **Sign in** | Claude.ai, ChatGPT, Gemini, Claude Code, Cursor, VS Code | The app sends you to a Modbot page that asks whether to allow it. Nothing to copy but the address. |
+| **API key** | Scripts and tools that take a header | An [API key](/api/keys) in the `Authorization` header. |
+
+**Sign in** is standard OAuth: the app registers itself with your Modbot, opens a Modbot page in
+your browser, and, once you press **Allow**, gets tokens for your account. The tokens are good for
+an hour and renew themselves for as long as the app is used; after 90 days unused, the connection
+ends. You can end it any time on **Settings → AI → MCP** under **Connected apps**, and the app
+stops on its next request.
+
+An **API key** for MCP needs **Use AI chat** plus the permissions of the tools it should have.
+**Create key** on the MCP tab makes one with everything you hold that the tools use. Keys made on
+**Settings → API → Keys** work too, with whatever permissions you ticked.
+
+## The address
+
+The server is at your public address plus `/mcp`, for example `https://modbot.example.com/mcp`.
+It is shown on the MCP tab as **Server URL**, with a copy button. Set the
+[public address](/setup-wizard#public-address) first; until then the tab shows the address
+you opened it at.
+
+The hosted chats (Claude.ai, ChatGPT, Gemini) connect from their own servers, so your Modbot has to
+be reachable from the internet over HTTPS. A Modbot on a private network can still be used from a
+local app such as Claude Code or Cursor on the same network.
+
+## Claude.ai
+
+<Steps>
+<Step>
+
+### Open the connectors page
+
+In Claude, go to **Settings → Connectors** (on some plans, **Customize → Connectors**) and choose
+**Add custom connector**. The **Open Claude.ai** button on the MCP tab takes you there.
+
+</Step>
+<Step>
+
+### Paste the address
+
+Give it a name such as "Modbot" and paste the **Server URL**. Leave the OAuth client id and secret
+empty: Claude registers itself.
+
+</Step>
+<Step>
+
+### Allow it
+
+Claude opens your Modbot's sign-in page. Sign in if you are not already, check the tools listed,
+and press **Allow**. You are sent back to Claude with the connector ready.
+
+</Step>
+</Steps>
+
+Claude's custom connectors work on every plan; free accounts are limited to one. Claude Desktop and
+the mobile apps use the same connector once it is added on the web. Claude Desktop's own config
+file only takes local (stdio) servers, so use the connector, not the file.
+
+## ChatGPT
+
+<Steps>
+<Step>
+
+### Turn on developer mode
+
+In ChatGPT, open **Settings**, find **Developer mode** (under **Security and login**, or under
+**Connectors → Advanced** on older builds) and turn it on. Custom MCP connectors are available on
+Pro, Plus, Business, Enterprise and Education plans.
+
+</Step>
+<Step>
+
+### Add the connector
+
+Go to **Settings → Connectors → Create**, give it a name, a short description of what it is for,
+and paste the **Server URL**. Choose **OAuth** for authentication.
+
+</Step>
+<Step>
+
+### Allow it
+
+ChatGPT opens your Modbot's sign-in page. Press **Allow**.
+
+</Step>
+</Steps>
+
+## Gemini
+
+Custom MCP servers in the Gemini app are available under **Connected apps** for a personal Google
+account. Paste the **Server URL** and allow it when Modbot's sign-in page opens. A work or school
+account does not have this; a Gemini Business or Enterprise administrator can add a custom MCP
+server for the whole organisation instead.
+
+Gemini CLI takes the server in `~/.gemini/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "modbot": {
+      "httpUrl": "https://modbot.example.com/mcp"
+    }
+  }
+}
+```
+
+Add `"headers": { "Authorization": "Bearer mbk_..." }` to use an API key instead of signing in.
+
+## Grok
+
+Grok's chat app has no way to add a custom MCP server. xAI's API can call remote MCP servers from
+a program, but that is a developer feature, not something to set up in the Grok app. The MCP tab
+says **Not supported** for Grok until that changes.
+
+## Claude Code
+
+One command, with sign-in:
+
+```bash
+claude mcp add --transport http modbot https://modbot.example.com/mcp
+```
+
+Then run `/mcp` inside Claude Code and sign in when it asks. Or with an API key:
+
+```bash
+claude mcp add --transport http modbot https://modbot.example.com/mcp --header "Authorization: Bearer mbk_..."
+```
+
+Both commands are shown filled in on the MCP tab, with a copy button.
+
+## Cursor, VS Code, Windsurf, Codex and others
+
+The MCP tab shows two JSON entries, ready to paste.
+
+With sign-in:
+
+```json
+{
+  "mcpServers": {
+    "modbot": {
+      "type": "http",
+      "url": "https://modbot.example.com/mcp"
+    }
+  }
+}
+```
+
+With an API key:
+
+```json
+{
+  "mcpServers": {
+    "modbot": {
+      "type": "http",
+      "url": "https://modbot.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer mbk_..."
+      }
+    }
+  }
+}
+```
+
+| App | Where it goes |
+|---|---|
+| **Cursor** | `~/.cursor/mcp.json` or the project's `.cursor/mcp.json`. **Add to Cursor** on the MCP tab opens Cursor with the entry filled in. |
+| **VS Code** | `.vscode/mcp.json`, with the root key `servers` instead of `mcpServers`. **Add to VS Code** on the MCP tab opens VS Code with the entry filled in. |
+| **Windsurf** | `~/.codeium/windsurf/mcp_config.json`, with `serverUrl` in place of `url`. |
+| **Codex CLI** | `~/.codex/config.toml`, as `[mcp_servers.modbot]` with `url = "..."`. Sign in with `codex mcp login modbot`. |
+| **Claude Desktop** | Use a custom connector (see [Claude.ai](#claudeai)); the config file only takes local servers. |
+
+## Connected apps
+
+**Settings → AI → MCP** lists every app connected to **your** account through sign-in: its name,
+when it connected, when it was last used and when the connection expires. **Disconnect** ends it,
+and the app's tokens stop working on their next request. Connecting and disconnecting are recorded
+in the operational log with the app's name.
+
+API keys are listed on **Settings → API → Keys** as usual, and revoked there.
+
+## Under the hood
+
+For anyone writing their own client, Modbot follows the MCP authorization specification:
+
+| What | Where |
+|---|---|
+| The MCP endpoint (Streamable HTTP, stateless) | `POST /mcp` |
+| Protected resource metadata (RFC 9728) | `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/mcp` |
+| Authorization server metadata (RFC 8414) | `/.well-known/oauth-authorization-server` |
+| Dynamic client registration (RFC 7591) | `POST /mcp/register` |
+| Authorize | `GET /mcp/authorize` (PKCE with S256 required) |
+| Token (authorization code and refresh) | `POST /mcp/token` |
+| Revoke (RFC 7009) | `POST /mcp/revoke` |
+
+An unauthenticated request to `/mcp` answers `401` with a `WWW-Authenticate` header naming the
+resource metadata, which is how an app finds the sign-in on its own. There is one scope, `mcp`.
+Redirect addresses must be `https`, or `http` on a loopback address for local tools. Refresh
+tokens are replaced every time they are used. Registrations nobody signed in through are deleted
+after a day.
+
+## Where to next
+
+<Cards>
+  <Card title="Chat" href="/ai/chat">The same tools, on Modbot's own Chat page.</Card>
+  <Card title="API keys" href="/api/keys">Making and revoking keys.</Card>
+  <Card title="Roles and permissions" href="/accounts/roles-and-permissions">Who may use AI chat, and what each tool needs.</Card>
+</Cards>

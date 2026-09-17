@@ -118,6 +118,8 @@ public static class FactLabels
         [FactType.RoleDeleted] = "Role deleted",
         [FactType.ApiKeyCreated] = "API key created",
         [FactType.ApiKeyRevoked] = "API key revoked",
+        [FactType.McpConnected] = "AI app connected",
+        [FactType.McpDisconnected] = "AI app disconnected",
         [FactType.WebhookCreated] = "Webhook created",
         [FactType.WebhookChanged] = "Webhook changed",
         [FactType.WebhookSecretChanged] = "Webhook secret changed",

@@ -66,6 +66,7 @@ internal static class OpenApiReference
         ("Health", "Whether Modbot is reaching VRChat."),
         ("Settings", "Deployment settings: storage, retention, email, evidence, ban reasons and more."),
         ("AI settings", "The AI provider, Chat, moderation rules, insights, alerts and spend limits."),
+        ("MCP", "The MCP server's switch, and each person's connected AI apps."),
     ];
 
     public static OpenApiOptions AddModbotReference(this OpenApiOptions options)

@@ -364,6 +364,13 @@ public class Settings
     /// </remarks>
     public string AiChatToolSwitches { get; set; } = "{}";
 
+    /// <summary>
+    /// Whether the MCP server at <c>/mcp</c> answers (MCP server design). Off by default; off
+    /// answers 404. It serves the same tools as Chat, under the same switches, to a person's own
+    /// AI app -- so it needs no AI provider of its own and does not need <see cref="AiEnabled"/>.
+    /// </summary>
+    public bool McpServerEnabled { get; set; }
+
     // --- AI moderation (AI moderation design) ---
 
     /// <summary>The one switch for term lists and AI topics. Off by default, like everything in M8.</summary>

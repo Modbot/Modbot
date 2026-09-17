@@ -31,6 +31,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Addresses events are sent to (API keys design §6).</summary>
     public DbSet<Webhook> Webhooks => Set<Webhook>();
 
+    /// <summary>AI apps that registered with the MCP server (MCP server design).</summary>
+    public DbSet<McpClient> McpClients => Set<McpClient>();
+
+    /// <summary>Approved MCP sign-ins waiting to be exchanged for tokens.</summary>
+    public DbSet<McpAuthorizationCode> McpAuthorizationCodes => Set<McpAuthorizationCode>();
+
+    /// <summary>Each person's connected AI apps, and the hashed tokens they hold.</summary>
+    public DbSet<McpGrant> McpGrants => Set<McpGrant>();
+
     /// <summary>The last attempts per webhook.</summary>
     public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
 
@@ -481,6 +490,61 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // share one.
             entity.HasIndex(e => e.KeyHash).IsUnique();
             entity.HasIndex(e => e.CreatedByUserId);
+        });
+
+        builder.Entity<McpClient>(entity =>
+        {
+            entity.ToTable("mcp_client");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(128);
+            entity.Property(e => e.SecretHash).HasMaxLength(64);
+            entity.Property(e => e.ClientUri).HasMaxLength(512);
+            entity.Property(e => e.RedirectUris).HasColumnType("jsonb");
+        });
+
+        builder.Entity<McpAuthorizationCode>(entity =>
+        {
+            entity.ToTable("mcp_authorization_code");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.CodeHash).HasMaxLength(64);
+            entity.Property(e => e.RedirectUri).HasMaxLength(2048);
+            entity.Property(e => e.CodeChallenge).HasMaxLength(128);
+            entity.Property(e => e.Resource).HasMaxLength(2048);
+            entity.Property(e => e.Scope).HasMaxLength(256);
+
+            // The exchange looks a code up by its hash, once.
+            entity.HasIndex(e => e.CodeHash).IsUnique();
+        });
+
+        builder.Entity<McpGrant>(entity =>
+        {
+            entity.ToTable("mcp_grant");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Scope).HasMaxLength(256);
+            entity.Property(e => e.AccessTokenHash).HasMaxLength(64);
+            entity.Property(e => e.RefreshTokenHash).HasMaxLength(64);
+
+            entity.HasOne(e => e.Client)
+                .WithMany()
+                .HasForeignKey(e => e.ClientId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Every MCP request resolves a grant by its access token's hash; a refresh by the
+            // other. Neither may be shared by two grants.
+            entity.HasIndex(e => e.AccessTokenHash).IsUnique();
+            entity.HasIndex(e => e.RefreshTokenHash).IsUnique();
+
+            // The connections list is "this person's grants".
+            entity.HasIndex(e => e.UserId);
         });
 
         builder.Entity<CompanionDeviceRecord>(entity =>

@@ -18,6 +18,7 @@ using Modbot.Api.Features.DiscordLink;
 using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.DiscordMembers;
 using Modbot.Api.Features.Chat;
+using Modbot.Api.Features.Mcp;
 using Modbot.Api.Features.DiscordRoutes;
 using Modbot.Api.Features.Reviews;
 using Modbot.Api.Features.Roles;
@@ -71,6 +72,9 @@ public static class ApiSurface
         // Chat's loop and tools (AI chat design). Here rather than in the host because the tools are
         // this project's own read code, and they resolve everything scoped from the request.
         services.AddModbotChat();
+
+        // The MCP server: the same tools for a person's own AI app (MCP server design).
+        services.AddModbotMcp();
 
         // Discord account linking (design 2026-09-15). The signal is shared with the bot's role job,
         // which the host registers in the same container.
@@ -253,6 +257,7 @@ public static class ApiSurface
         // Chat: questions answered by the configured model, using tools that run with the asking
         // person's own permissions (AI chat design §3.1). Conversations are the owner's alone.
         app.MapChat();
+        app.MapModbotMcp();
 
         // Every new fact, as it is written, to a connected program (API keys design §5). The host
         // must call UseWebSockets before mapping this.

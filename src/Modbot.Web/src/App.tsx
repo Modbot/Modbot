@@ -31,6 +31,7 @@ import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Live } from '@/pages/Live'
 import { Calendar } from '@/pages/Calendar'
 import { Login } from '@/pages/Login'
+import { Connect } from '@/pages/Connect'
 import { Logs } from '@/pages/Logs'
 import { DiscordMembers } from '@/pages/DiscordMembers'
 import { Members } from '@/pages/Members'
@@ -227,7 +228,13 @@ export default function App() {
         // members list: the link was the errand, and the page it names is where it finishes.
         onSignedIn={() =>
           void refresh().then((next) =>
-            navigate(next.onboardingComplete ? (route === '/pair' ? '/pair' : '/') : '/setup'),
+            navigate(
+              next.onboardingComplete
+                ? route === '/pair' || route === '/connect'
+                  ? route + window.location.search
+                  : '/'
+                : '/setup',
+            ),
           )
         }
         onForgotPassword={() => navigate('/forgot-password')}
@@ -246,6 +253,10 @@ export default function App() {
   // Outside the shell, like sign-in: a landing page a link sends a moderator to, not a section
   // of the app they navigate around in.
   if (route === '/pair') return <Pair />
+
+  // An AI app asking to act as this person on the MCP server (MCP server design). A landing page
+  // like pairing: the app sent the browser here, and it leaves for the app's address.
+  if (route === '/connect') return <Connect />
 
   return (
     <DemoContext value={demo}>

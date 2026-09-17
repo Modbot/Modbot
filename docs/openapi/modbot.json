@@ -9153,6 +9153,264 @@
         ]
       }
     },
+    "/api/mcp/authorize": {
+      "get": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "What an AI app is asking for, for the sign-in page",
+        "description": "Needs the `UseAiChat` permission.",
+        "operationId": "DescribeMcpSignIn",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpAuthorizeView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Allow or refuse an AI app's sign-in",
+        "description": "Needs the `UseAiChat` permission.",
+        "operationId": "AnswerMcpSignIn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpAuthorizeDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpAuthorizeOutcome"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/mcp/settings": {
+      "get": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "The MCP server's switch, address and tools",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetMcpSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Turn the MCP server on or off",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "SetMcpSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpSettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/mcp/connections": {
+      "get": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "The AI apps connected to your account through the MCP server",
+        "operationId": "ListMcpConnections",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpConnectionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/mcp/connections/{id}": {
+      "delete": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Disconnect an AI app. Its tokens stop working on their next request.",
+        "operationId": "RevokeMcpConnection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/webhooks": {
       "get": {
         "tags": [
@@ -21425,6 +21683,224 @@
           }
         }
       },
+      "McpAuthorizeDecision": {
+        "required": [
+          "clientId",
+          "redirectUri",
+          "state",
+          "codeChallenge",
+          "codeChallengeMethod",
+          "scope",
+          "resource",
+          "approve"
+        ],
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "redirectUri": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "state": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "codeChallenge": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "codeChallengeMethod": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "scope": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "resource": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "approve": {
+            "type": "boolean"
+          }
+        }
+      },
+      "McpAuthorizeOutcome": {
+        "required": [
+          "redirectTo"
+        ],
+        "type": "object",
+        "properties": {
+          "redirectTo": {
+            "type": "string"
+          }
+        }
+      },
+      "McpAuthorizeTool": {
+        "required": [
+          "name",
+          "label",
+          "needs"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "needs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "McpAuthorizeView": {
+        "required": [
+          "clientName",
+          "clientUri",
+          "redirectHost",
+          "tools"
+        ],
+        "type": "object",
+        "properties": {
+          "clientName": {
+            "type": "string"
+          },
+          "clientUri": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "redirectHost": {
+            "type": "string"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/McpAuthorizeTool"
+            }
+          }
+        }
+      },
+      "McpConnectionView": {
+        "required": [
+          "id",
+          "clientName",
+          "clientUri",
+          "connectedAt",
+          "lastUsedAt",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientName": {
+            "type": "string"
+          },
+          "clientUri": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "connectedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "McpConnectionsResponse": {
+        "required": [
+          "connections"
+        ],
+        "type": "object",
+        "properties": {
+          "connections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/McpConnectionView"
+            }
+          }
+        }
+      },
+      "McpSettingsResponse": {
+        "required": [
+          "enabled",
+          "serverUrl",
+          "publicAddressSet",
+          "tools",
+          "keyPermissions"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "serverUrl": {
+            "type": "string"
+          },
+          "publicAddressSet": {
+            "type": "boolean"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiChatToolView"
+            }
+          },
+          "keyPermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "McpSettingsUpdate": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
       "MemberCountPoint": {
         "required": [
           "at",
@@ -26660,6 +27136,11 @@
       "name": "AI settings",
       "description": "The AI provider, Chat, moderation rules, insights, alerts and spend limits.",
       "x-displayName": "AI settings"
+    },
+    {
+      "name": "MCP",
+      "description": "The MCP server's switch, and each person's connected AI apps.",
+      "x-displayName": "MCP"
     },
     {
       "name": "Credits",

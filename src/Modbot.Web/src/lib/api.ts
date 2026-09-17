@@ -2651,6 +2651,46 @@ export type ApiKeysResponse = { keys: ApiKeyView[]; grantable: PermissionInfo[] 
 /** `key` is shown once. */
 export type CreatedApiKey = { apiKey: ApiKeyView; key: string }
 
+/** Settings → AI → MCP (MCP server design). */
+export type McpSettings = {
+  enabled: boolean
+  /** Where an AI app connects: the public address and `/mcp`. */
+  serverUrl: string
+  publicAddressSet: boolean
+  tools: AiChatToolSetting[]
+  /** What an API key made for MCP should carry: the permission names, narrowed to what the caller holds. */
+  keyPermissions: string[]
+}
+
+/** One AI app connected to the signed-in person's account. */
+export type McpConnection = {
+  id: string
+  clientName: string
+  clientUri: string | null
+  connectedAt: string
+  lastUsedAt: string | null
+  expiresAt: string
+}
+
+/** What the `/connect` page shows: the app asking, and the tools the person would give it. */
+export type McpSignInView = {
+  clientName: string
+  clientUri: string | null
+  redirectHost: string
+  tools: { name: string; label: string; needs: string[] }[]
+}
+
+export type McpSignInAnswer = {
+  clientId: string
+  redirectUri: string | null
+  state: string | null
+  codeChallenge: string | null
+  codeChallengeMethod: string | null
+  scope: string | null
+  resource: string | null
+  approve: boolean
+}
+
 export type EventTypeOption = { type: string; label: string; category: 'moderation' | 'operational' }
 
 export type WebhookState = 'working' | 'failing' | 'stopped' | 'off'
@@ -3605,4 +3645,19 @@ export const api = {
   banPerson: (body: ModerationActionBody) => post<ModerationActionResult>('/api/moderation/ban', body),
 
   unbanPerson: (body: ModerationActionBody) => post<ModerationActionResult>('/api/moderation/unban', body),
+
+  // ── The MCP server (MCP server design) ───────────────────────────────────────────────────
+
+  mcpSettings: () => request<McpSettings>('/api/mcp/settings'),
+
+  setMcpSettings: (body: { enabled: boolean }) => put<McpSettings>('/api/mcp/settings', body),
+
+  mcpConnections: () => request<{ connections: McpConnection[] }>('/api/mcp/connections'),
+
+  disconnectMcp: (id: string) => del<void>(`/api/mcp/connections/${encodeURIComponent(id)}`),
+
+  /** `search` is the query string the AI app sent the browser with, `?` included. */
+  mcpSignIn: (search: string) => request<McpSignInView>(`/api/mcp/authorize${search}`),
+
+  answerMcpSignIn: (body: McpSignInAnswer) => post<{ redirectTo: string }>('/api/mcp/authorize', body),
 }
