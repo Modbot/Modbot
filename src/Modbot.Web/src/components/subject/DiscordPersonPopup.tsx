@@ -13,6 +13,9 @@ import { can } from '@/lib/permissions'
 import { useMessageAt, useOpeningTab } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 import { useLoad } from '@/lib/useLoad'
+import { concernsPerson } from '@/lib/liveRules'
+import type { LiveEvent } from '@/lib/liveStream'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 
 const TABS = ['overview', 'logs', 'history', 'messages', 'metrics', 'json'] as const
 type Tab = (typeof TABS)[number]
@@ -89,11 +92,13 @@ export function DiscordPersonPopup({ id, me, lead }: { id: string; me: CurrentUs
 function Overview({ id, me, onMore }: { id: string; me: CurrentUser; onMore: (tab: Tab) => void }) {
   const seesProfile = can(me, 'ViewProfile')
 
+  const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id, 'Discord'), [id]))
+
   const loadMetrics = useCallback(() => api.discordMemberMetrics(id), [id])
-  const metrics = useLoad(seesProfile ? loadMetrics : null)
+  const metrics = useLoad(seesProfile ? loadMetrics : null, live)
 
   const loadFacts = useCallback(() => api.audit({ subject: id, subjectPlatform: 'Discord', limit: 8 }), [id])
-  const facts = useLoad(loadFacts)
+  const facts = useLoad(loadFacts, live)
 
   const sum = (points: { value: number }[]) => points.reduce((total, p) => total + p.value, 0)
 
@@ -125,11 +130,12 @@ function Overview({ id, me, onMore }: { id: string; me: CurrentUser; onMore: (ta
 
 /** Coming, going, renames, roles, timeouts and links: this account's own history in the server, newest first. */
 function History({ id }: { id: string }) {
+  const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id, 'Discord'), [id]))
   const load = useCallback(
     () => api.audit({ subject: id, subjectPlatform: 'Discord', type: HISTORY_TYPES, limit: 100 }),
     [id],
   )
-  const { data, error } = useLoad(load)
+  const { data, error } = useLoad(load, live)
 
   return (
     <Panel title="In the server">
@@ -142,14 +148,16 @@ function History({ id }: { id: string }) {
 
 /** The stored records, verbatim: the member row as the API answers it, and the activity counts. */
 function Records({ id, me }: { id: string; me: CurrentUser }) {
+  const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id, 'Discord'), [id]))
+
   const loadMember = useCallback(
     () => api.discordMember(id).catch((e: unknown) => (e instanceof ApiError && e.status === 404 ? null : Promise.reject(e))),
     [id],
   )
-  const member = useLoad(can(me, 'ViewMembers') ? loadMember : null)
+  const member = useLoad(can(me, 'ViewMembers') ? loadMember : null, live)
 
   const loadMetrics = useCallback(() => api.discordMemberMetrics(id), [id])
-  const metrics = useLoad(can(me, 'ViewProfile') ? loadMetrics : null)
+  const metrics = useLoad(can(me, 'ViewProfile') ? loadMetrics : null, live)
 
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -162,6 +170,8 @@ function Records({ id, me }: { id: string; me: CurrentUser }) {
 
 /** The person as the stored member list has them. Somebody the bot never saw in the server says so. */
 function Identity({ id }: { id: string }) {
+  const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id, 'Discord'), [id]))
+
   // A 404 is an answer, not a failure: somebody named in a fact who never was in the server.
   const load = useCallback(
     () =>
@@ -178,7 +188,7 @@ function Identity({ id }: { id: string }) {
         }),
     [id],
   )
-  const { data, error } = useLoad(load)
+  const { data, error } = useLoad(load, live)
 
   if (error) return <Note className="text-destructive">{error}</Note>
   if (!data) return <Note>Loading…</Note>

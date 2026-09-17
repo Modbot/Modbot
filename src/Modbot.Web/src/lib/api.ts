@@ -3379,6 +3379,15 @@ export const api = {
 
   live: () => request<LiveView>('/api/live'),
 
+  /** A one-use ticket for the live updates WebSocket (live updates design §4). */
+  liveTicket: () => request<{ ticket: string; expiresAt: string }>('/api/live/tickets', { method: 'POST' }),
+
+  /** Live updates by long polling, the backup for the WebSocket: events after `after`, waiting up to `waitSeconds`. */
+  livePoll: (after: string | null, waitSeconds: number) =>
+    request<{ events: unknown[]; cursor: string; more: boolean }>(
+      `/api/live/poll?wait=${waitSeconds}${after ? `&after=${encodeURIComponent(after)}` : ''}`,
+    ),
+
   userMetrics: (id: string) =>
     request<PersonMetrics>(`/api/vrchat-users/metrics?id=${encodeURIComponent(id)}`),
 

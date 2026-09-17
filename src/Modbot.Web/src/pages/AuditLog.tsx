@@ -9,12 +9,21 @@ import { FactTime, SourceBadge } from '@/components/facts'
 import { formatDay, sourceLabel } from '@/lib/format'
 import { useFilters, type FilterProperty } from '@/lib/filters'
 import { useListSelection } from '@/lib/listSelection'
+import { auditMatches } from '@/lib/liveRules'
+import type { LiveEvent } from '@/lib/liveStream'
 import { AUDIT_DEFAULTS, auditQueryFrom } from '@/lib/pageFilters'
 import { useLocation } from '@/lib/router'
 import { api, ApiError, type AuditEntry, type AuditFilters, type AuditPage } from '@/lib/api'
 import { useShortcuts } from '@/lib/shortcuts'
 import { openDiscordPerson, openInstance, openPerson } from '@/lib/subject'
+import { useLiveStream } from '@/lib/useLiveStream'
 import { cn } from '@/lib/utils'
+
+/** A burst of facts -- a sweep, six clients reporting one join -- is one read, not one each. */
+const SETTLE_MS = 400
+
+/** Scrolled less than this is "at the top": new rows go straight in. Further down, they wait behind a count. */
+const AT_TOP_PX = 40
 
 /**
  * The merged timeline (spec 5.9.5).
@@ -48,6 +57,9 @@ export function AuditLog() {
   const [pages, setPages] = useState<AuditPage[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // New facts waiting above the top row while the list is scrolled (see below).
+  const [pending, setPending] = useState(0)
 
   const [chips, setChips] = useFilters('audit', AUDIT_DEFAULTS)
 
@@ -96,6 +108,8 @@ export function AuditLog() {
         if (cancelled) return
         setPages([page])
         setError(null)
+        // What was counted as new was counted against the filters before these.
+        setPending(0)
       })
       .catch((e: unknown) => {
         if (cancelled) return
@@ -129,6 +143,53 @@ export function AuditLog() {
   const entries = pages.flatMap((p) => p.entries)
   const coverage = pages[0]?.coverage
   const next = pages[pages.length - 1]?.next
+
+  // New facts, as they land. A fact that belongs on this list -- it passes the same filters --
+  // is read back from the server and put above the top row, so what appears is exactly the entry
+  // the log would show, never a guess at it from the event. With the list scrolled, rows arriving
+  // under the reader would move what they are looking at, so they wait behind a count instead.
+  const settle = useRef<number | undefined>(undefined)
+
+  const prepend = useCallback(() => {
+    api
+      .audit(query)
+      .then((page) => {
+        setPages((current) => {
+          const first = current[0]
+          if (!first) return [page]
+
+          const topId = first.entries[0]?.id ?? 0
+          const fresh = page.entries.filter((entry) => entry.id > topId)
+          return [{ ...first, entries: [...fresh, ...first.entries], coverage: page.coverage }, ...current.slice(1)]
+        })
+        setPending(0)
+      })
+      .catch(() => undefined)
+  }, [query])
+
+  useLiveStream(
+    useCallback(
+      (event: LiveEvent) => {
+        if (!auditMatches(event, query)) return
+
+        if (window.scrollY > AT_TOP_PX) {
+          setPending((n) => n + 1)
+          return
+        }
+
+        window.clearTimeout(settle.current)
+        settle.current = window.setTimeout(prepend, SETTLE_MS)
+      },
+      [query, prepend],
+    ),
+  )
+
+  useEffect(() => () => window.clearTimeout(settle.current), [])
+
+  const showNew = () => {
+    window.scrollTo({ top: 0 })
+    prepend()
+  }
 
   // Rows open on click into everything the entry holds. The entry the address names opens too,
   // because whoever followed that link came for that one.
@@ -227,6 +288,11 @@ export function AuditLog() {
   return (
     <div className="flex flex-col gap-3">
       <FilterBar properties={properties} chips={chips} onChange={setChips}>
+        {pending > 0 && (
+          <Button size="sm" variant="outline" onClick={showNew}>
+            {pending} new
+          </Button>
+        )}
         {coverage && <Coverage coverage={coverage} />}
       </FilterBar>
 

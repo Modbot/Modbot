@@ -41,15 +41,16 @@ public class OverlayListenerTests
     {
         public Queue<ReadResult<InstanceContext>> Contexts { get; } = new();
 
-        public Queue<ReadResult<FlaggedJoinAlert>> Alerts { get; } = new();
+        /// <summary>Live updates by long polling: the driver is built without a socket here.</summary>
+        public Queue<ReadResult<LivePollPage>> Live { get; } = new();
 
         public Task<ReadResult<InstanceContext>> GetContextAsync(ServerPairing pairing, string instanceId, CancellationToken cancellationToken)
             => Task.FromResult(Contexts.Count > 0 ? Contexts.Dequeue() : new ReadResult<InstanceContext>(ReadOutcome.Unreachable));
 
-        public Task<ReadResult<FlaggedJoinAlert>> WaitForAlertAsync(ServerPairing pairing, int waitSeconds, CancellationToken cancellationToken)
-            => Task.FromResult(Alerts.Count > 0
-                ? Alerts.Dequeue()
-                : new ReadResult<FlaggedJoinAlert>(ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(30)));
+        public Task<ReadResult<LivePollPage>> PollLiveAsync(ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken)
+            => Task.FromResult(Live.Count > 0
+                ? Live.Dequeue()
+                : new ReadResult<LivePollPage>(ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(waitSeconds)));
 
         public Task<ReadResult<UserSummary>> GetUserAsync(ServerPairing pairing, string subjectId, CancellationToken cancellationToken)
             => throw new NotSupportedException();
@@ -61,9 +62,15 @@ public class OverlayListenerTests
         return location;
     }
 
-    private static FlaggedJoinAlert Alert(string subject, string instance = Instance) => new(
-        $"alert-{subject}", subject, "Trouble", instance, "2 prior actions", 2,
-        new DateTimeOffset(2026, 9, 12, 20, 0, 0, TimeSpan.Zero));
+    /// <summary>A flagged join, as the live stream sends it.</summary>
+    private static LiveEvent Alert(string subject, string instance = Instance) => new(
+        $"alert-{subject}", $"alert-{subject}", LiveEventKinds.FlaggedJoin,
+        new DateTimeOffset(2026, 9, 12, 20, 0, 0, TimeSpan.Zero), instance,
+        new LivePerson(subject, "Trouble", null, RosterStanding.Flagged, 2, ["2 prior actions"]),
+        true, "2 prior actions", false);
+
+    private static ReadResult<LivePollPage> Page(params LiveEvent[] events)
+        => new(ReadOutcome.Fetched, new LivePollPage(events, events[^1].Cursor, false), TimeSpan.FromSeconds(1));
 
     private static (OverlayDriver Driver, ScriptedReads Reads, Heard Heard, FakeClock Clock) Build()
     {
@@ -85,7 +92,7 @@ public class OverlayListenerTests
     public async Task AnAlertThatBecomesACardIsPassedOn()
     {
         var (driver, reads, heard, _) = Build();
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(ReadOutcome.Fetched, Alert("usr_flag"), TimeSpan.FromSeconds(1)));
+        reads.Live.Enqueue(Page(Alert("usr_flag")));
 
         await driver.TickAsync(Ct);
         await driver.TickAsync(Ct);
@@ -98,9 +105,9 @@ public class OverlayListenerTests
     {
         // Not this room, or the same person again within the cooldown: no card, so no word.
         var (driver, reads, heard, _) = Build();
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(ReadOutcome.Fetched, Alert("usr_elsewhere", instance: "11111"), TimeSpan.FromSeconds(1)));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(ReadOutcome.Fetched, Alert("usr_flag"), TimeSpan.FromSeconds(1)));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(ReadOutcome.Fetched, Alert("usr_flag"), TimeSpan.FromSeconds(1)));
+        reads.Live.Enqueue(Page(Alert("usr_elsewhere", instance: "11111")));
+        reads.Live.Enqueue(Page(Alert("usr_flag")));
+        reads.Live.Enqueue(Page(Alert("usr_flag")));
 
         for (var i = 0; i < 8; i++)
             await driver.TickAsync(Ct);
@@ -114,7 +121,7 @@ public class OverlayListenerTests
         var (driver, reads, heard, _) = Build();
         reads.Contexts.Clear();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Unauthorised));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(ReadOutcome.Unauthorised));
+        reads.Live.Enqueue(new ReadResult<LivePollPage>(ReadOutcome.Unauthorised));
 
         for (var i = 0; i < 4; i++)
             await driver.TickAsync(Ct);
@@ -130,7 +137,7 @@ public class OverlayListenerTests
         var driver = new OverlayDriver(new QuietPresenter(), reads, clock);
         driver.Add(new ServerPairing("cats", new Uri("https://cats.example"), "token", Group), "Cat Lounge");
         driver.EnteredInstance(Location());
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(ReadOutcome.Fetched, Alert("usr_flag"), TimeSpan.FromSeconds(1)));
+        reads.Live.Enqueue(Page(Alert("usr_flag")));
 
         await driver.TickAsync(Ct);
         var tick = await driver.TickAsync(Ct);

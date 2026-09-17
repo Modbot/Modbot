@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { Tabs } from '@/components/ui/tabs'
 import { compactNumber, dateTime, minutes } from '@/components/charts'
 import { SubjectLink, WorldLink } from '@/components/facts'
@@ -6,6 +6,9 @@ import { JsonView } from '@/components/JsonView'
 import { FactList, Field, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser, type InstanceView } from '@/lib/api'
+import { concernsInstance } from '@/lib/liveRules'
+import type { LiveEvent } from '@/lib/liveStream'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 import { access } from '@/lib/format'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
@@ -26,8 +29,18 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
   const [tab, setTab] = useOpeningTab<Tab>('overview', TABS)
   const allowed = can(me, 'ViewAnalytics')
 
+  // Read again when something happens in this room. The stream names rooms by VRChat's number,
+  // which is only known once the room has loaded, so the number is kept where the callback can
+  // see it without being remade.
+  const number = useRef<string | null>(null)
+  const live = useLiveVersion(useCallback((event: LiveEvent) => concernsInstance(event, number.current), []))
+
   const load = useCallback(() => api.instance(id), [id])
-  const { data, error } = useLoad(allowed ? load : null)
+  const { data, error } = useLoad(allowed ? load : null, live)
+
+  useEffect(() => {
+    number.current = data?.room.vrChatInstanceId ?? null
+  }, [data])
 
   if (!allowed) {
     return (

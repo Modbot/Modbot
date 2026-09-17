@@ -725,7 +725,8 @@ internal sealed class CompanionHost : IOverlayListener
             return;
         }
 
-        _overlay = new OverlayDriver(_overlayHost, new HttpOverlayReadClient(_http!, _clock), _clock, listener: this);
+        _overlay = new OverlayDriver(
+            _overlayHost, new HttpOverlayReadClient(_http!, _clock), _clock, listener: this, sockets: new ClientLiveSocketFactory());
 
         foreach (var connection in _state?.Connections ?? [])
             _overlay.Add(connection.Pairing, connection.ServerId);
@@ -977,6 +978,7 @@ internal sealed class CompanionHost : IOverlayListener
             _state.LogHealth = _engine.LogHealth;
 
         _state.Overlay = DescribeOverlay();
+        _state.LiveWords = _overlay?.LiveWords() ?? _state.LiveWords;
 
         if (_voice is not null)
             _state.Voice = _voice.Status();

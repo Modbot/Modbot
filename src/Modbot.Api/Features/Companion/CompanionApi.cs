@@ -2,12 +2,16 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Context;
 using Modbot.Api.Features.Companion.Devices;
 using Modbot.Api.Features.Companion.Events;
+using Modbot.Api.Features.Companion.Live;
 using Modbot.Api.Features.Companion.Pair;
 using Modbot.Api.Features.Companion.PairingCodes;
+using Modbot.Api.Features.Events;
+using Modbot.Api.Features.Live.Stream;
 using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Companion;
@@ -61,6 +65,12 @@ public static class CompanionApi
         services.AddSingleton<DeviceLocations>();
         services.AddSingleton<AlertHub>();
         services.AddScoped<DeviceAuthenticator>();
+
+        // The live stream shares the event stream's pacing, connection count and wake-up signal
+        // (live updates design §4). TryAdd, because the API surface registers the same three.
+        services.TryAddSingleton(new EventSocketOptions());
+        services.TryAddSingleton<EventConnections>();
+        services.TryAddSingleton<Modbot.Analytics.Facts.FactSignal>();
 
         return services;
     }
@@ -171,6 +181,33 @@ public static class CompanionApi
             .Produces<FlaggedJoinAlertDto>()
             .Produces(StatusCodes.Status204NoContent)
             .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .AllowAnonymous();
+
+        // Live updates (live updates design §5): who joins and leaves the instance this device is
+        // standing in, flagged joins included, as a WebSocket with long polling behind it. What
+        // the alert long poll above carried, and the roster's changes with it. The alert long
+        // poll stays for clients built before this.
+        companion.MapGet("/ws", CompanionLiveEndpoints.SocketAsync)
+            .WithName("ClientLiveSocket")
+            .WithSummary("Live updates for the instance this device is in, over a WebSocket")
+            .WithDescription(
+                "Authenticate with the device token in the Authorization header. `instanceId` names "
+                + "the instance the client is standing in; `after` is the cursor to carry on from. "
+                + "Send `{\"op\":\"subscribe\",\"instanceId\":\"...\"}` on walking into another.")
+            .Produces<CompanionError>(StatusCodes.Status400BadRequest)
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .AllowAnonymous();
+
+        companion.MapGet("/poll", CompanionLiveEndpoints.PollAsync)
+            .WithName("ClientLivePoll")
+            .WithSummary("Live updates by long polling, the backup for the WebSocket")
+            .WithDescription(
+                "The same events as the WebSocket: those after `after`, at once when there are any, "
+                + "otherwise after waiting up to `wait` seconds for one. Send the returned `cursor` "
+                + "back as `after`.")
+            .Produces<LivePollResponse>()
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status429TooManyRequests)
             .AllowAnonymous();
 
         // The staff side of pairing: a signed-in moderator generating a code, seeing which of

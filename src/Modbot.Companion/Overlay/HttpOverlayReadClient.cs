@@ -44,18 +44,24 @@ public interface IOverlayReadClient
 
     Task<ReadResult<UserSummary>> GetUserAsync(ServerPairing pairing, string subjectId, CancellationToken cancellationToken);
 
-    Task<ReadResult<FlaggedJoinAlert>> WaitForAlertAsync(ServerPairing pairing, int waitSeconds, CancellationToken cancellationToken);
+    /// <summary>
+    /// Live updates by long polling: the events after <paramref name="after"/> for the instance
+    /// named, answered at once or after a wait of up to <paramref name="waitSeconds"/>. The backup
+    /// for the WebSocket, with the same events.
+    /// </summary>
+    Task<ReadResult<LivePollPage>> PollLiveAsync(ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken);
 }
 
 /// <summary>
-/// The overlay's reads: roster context, one profile summary, and the flagged-join long poll.
+/// The overlay's reads: roster context, one profile summary, and live updates by long polling.
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends.</strong> Three kinds of GET, each to one paired server, each
-/// carrying a bearer token and no body. The context read names the instance the moderator is
-/// standing in — which that server already knows about, because it is that group's own instance
-/// and the client has been reporting presence for it. The profile read names one VRChat user the
-/// moderator chose to look up. The alert poll sends nothing but the token.</para>
+/// carrying a bearer token and no body. The context read and the live poll name the instance the
+/// moderator is standing in — which that server already knows about, because it is that group's
+/// own instance and the client has been reporting presence for it — and the poll adds the cursor
+/// of the last event received. The profile read names one VRChat user the moderator chose to look
+/// up.</para>
 /// <para><strong>What it does not send.</strong> Nothing about the moderator's machine, nothing
 /// from the log, and nothing about instances belonging to any other group. A pairing sees exactly
 /// one group's context.</para>
@@ -91,11 +97,13 @@ public sealed class HttpOverlayReadClient : IOverlayReadClient
         CancellationToken cancellationToken)
         => GetAsync<UserSummary>(pairing, pairing.UserEndpoint(subjectId), cancellationToken);
 
-    public Task<ReadResult<FlaggedJoinAlert>> WaitForAlertAsync(
+    public Task<ReadResult<LivePollPage>> PollLiveAsync(
         ServerPairing pairing,
+        string instanceId,
+        string? after,
         int waitSeconds,
         CancellationToken cancellationToken)
-        => GetAsync<FlaggedJoinAlert>(pairing, pairing.AlertsEndpoint(waitSeconds), cancellationToken);
+        => GetAsync<LivePollPage>(pairing, pairing.LivePollEndpoint(instanceId, after, waitSeconds), cancellationToken);
 
     private async Task<ReadResult<T>> GetAsync<T>(ServerPairing pairing, Uri endpoint, CancellationToken cancellationToken)
     {

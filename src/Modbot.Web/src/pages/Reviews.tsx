@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { changesReviews } from '@/lib/liveRules'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { SubjectLink } from '@/components/facts'
@@ -42,11 +44,14 @@ export function Reviews({
       )
   }, [state])
 
+  // And again when the live stream says a review opened or closed.
+  const live = useLiveVersion(changesReviews)
+
   // The previous list stays on screen until the next arrives; a blank flash between the two
   // tabs would suggest something was lost.
   useEffect(() => {
     load()
-  }, [load])
+  }, [load, live])
 
   if (error) {
     return (

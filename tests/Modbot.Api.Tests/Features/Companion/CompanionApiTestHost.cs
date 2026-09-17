@@ -44,6 +44,9 @@ public sealed class CompanionApiTestHost : IAsyncDisposable
 
     public IServiceProvider Services => _app.Services;
 
+    /// <summary>The in-process server, for what <see cref="Client"/> cannot do -- opening a WebSocket.</summary>
+    public TestServer Server => _app.GetTestServer();
+
     /// <summary>
     /// A store over its own scope.
     /// </summary>
@@ -82,6 +85,7 @@ public sealed class CompanionApiTestHost : IAsyncDisposable
         builder.Services.AddClientApi();
 
         var app = builder.Build();
+        app.UseWebSockets();
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapClientApi();

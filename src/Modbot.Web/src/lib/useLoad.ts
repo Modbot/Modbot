@@ -6,8 +6,11 @@ import { ApiError } from '@/lib/api'
  *
  * Every popup is opened speculatively — somebody noticed a name mid-scan — so a failure has to
  * read as a sentence rather than as an empty panel.
+ *
+ * `version` reloads when it changes -- a live event about what is on screen (`useLiveVersion`)
+ * -- and keeps what is shown until the new answer lands, so a redraw never blanks the panel.
  */
-export function useLoad<T>(load: (() => Promise<T>) | null): { data: T | null; error: string | null } {
+export function useLoad<T>(load: (() => Promise<T>) | null, version = 0): { data: T | null; error: string | null } {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -33,7 +36,7 @@ export function useLoad<T>(load: (() => Promise<T>) | null): { data: T | null; e
     return () => {
       cancelled = true
     }
-  }, [load])
+  }, [load, version])
 
   return { data, error }
 }

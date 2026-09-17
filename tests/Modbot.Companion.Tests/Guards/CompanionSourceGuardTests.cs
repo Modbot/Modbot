@@ -17,9 +17,9 @@ public class CompanionSourceGuardTests
         @"\bDateTime(Offset)?\s*\.\s*(UtcNow|Now|Today)\b",
         RegexOptions.Compiled);
 
-    /// <summary>Anything that reads the disk, or puts bytes on the network.</summary>
+    /// <summary>Anything that reads the disk, or puts bytes on the network -- sockets included.</summary>
     private static readonly Regex TouchesTheOutsideWorld = new(
-        @"\b(File|Directory|FileStream|StreamReader|StreamWriter|HttpClient|HttpRequestMessage|HttpMessageHandler)\b",
+        @"\b(File|Directory|FileStream|StreamReader|StreamWriter|HttpClient|HttpRequestMessage|HttpMessageHandler|ClientWebSocket)\b",
         RegexOptions.Compiled);
 
     /// <summary>
@@ -268,16 +268,19 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheSixDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheSevenDeclaredPlacesMakeOutboundRequests()
     {
         // "What does this program send, and where" should have a short, complete answer findable
-        // by somebody who has never seen the codebase. Six files, each with a remarks block
+        // by somebody who has never seen the codebase. Seven files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
-        // code for a token, one reads the overlay's context, one backs the client's events up to
-        // Modbot Cloud (cloud event backup spec), and one fetches the voice -- once, from one
-        // pinned address, with nothing attached. Nothing else reaches the network.
+        // code for a token, one reads the overlay's context, one holds the overlay's live
+        // WebSocket open, one backs the client's events up to Modbot Cloud (cloud event backup
+        // spec), and one fetches the voice -- once, from one pinned address, with nothing
+        // attached. Nothing else reaches the network.
         var senders = ClientSources()
-            .Where(f => Regex.IsMatch(File.ReadAllText(f), @"_http\.(SendAsync|GetAsync|PostAsync|PutAsync|DeleteAsync)"))
+            .Where(f => Regex.IsMatch(
+                File.ReadAllText(f),
+                @"_http\.(SendAsync|GetAsync|PostAsync|PutAsync|DeleteAsync)|new ClientWebSocket\("))
             .Select(Path.GetFileName)
             .Order()
             .ToList();
@@ -289,6 +292,7 @@ public class CompanionSourceGuardTests
                 "HttpOverlayReadClient.cs",
                 "HttpPairingClient.cs",
                 "HttpServerTimeProbe.cs",
+                "LiveSocket.cs",
                 "VoiceDownload.cs",
             ],
             senders);

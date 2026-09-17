@@ -82,11 +82,22 @@ public sealed record ServerPairing
         => new(BaseUri, $"/api/v{ApiVersion}/companion/user/{Uri.EscapeDataString(subjectId)}");
 
     /// <summary>
-    /// The long poll. The one case that genuinely needs push: a flagged user joining the instance
-    /// the moderator is standing in, where a thirty-second poll notices after the moment has gone.
+    /// Live updates over a WebSocket: who joins and leaves the instance the moderator is standing
+    /// in, flagged joins included. <paramref name="after"/> is the cursor to carry on from.
     /// </summary>
-    public Uri AlertsEndpoint(int waitSeconds)
-        => new(BaseUri, $"/api/v{ApiVersion}/companion/alerts?wait={waitSeconds}");
+    public Uri LiveSocketEndpoint(string instanceId, string? after)
+    {
+        var scheme = BaseUri.Scheme == Uri.UriSchemeHttps ? "wss" : "ws";
+        var builder = new UriBuilder(BaseUri) { Scheme = scheme, Path = $"/api/v{ApiVersion}/companion/ws", Query = Query(instanceId, after) };
+        return builder.Uri;
+    }
+
+    /// <summary>The same updates by long polling, the backup for the WebSocket.</summary>
+    public Uri LivePollEndpoint(string instanceId, string? after, int waitSeconds)
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/poll?{Query(instanceId, after)}&wait={waitSeconds}");
+
+    private static string Query(string instanceId, string? after)
+        => $"instanceId={Uri.EscapeDataString(instanceId)}" + (after is null ? "" : $"&after={Uri.EscapeDataString(after)}");
 
     public override string ToString() => $"{ServerId} ({BaseUri})";
 }

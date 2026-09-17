@@ -7,6 +7,9 @@ import { RoomTable } from '@/components/RoomTable'
 import { FactList, Field, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser, type WorldView } from '@/lib/api'
+import { concernsWorld } from '@/lib/liveRules'
+import type { LiveEvent } from '@/lib/liveStream'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 import { ago, formatDay } from '@/lib/format'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
@@ -26,8 +29,11 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
   const [tab, setTab] = useOpeningTab<Tab>('overview', TABS)
   const allowed = can(me, 'ViewAnalytics')
 
+  // Read again when something happens in one of this world's rooms.
+  const live = useLiveVersion(useCallback((event: LiveEvent) => concernsWorld(event, id), [id]))
+
   const load = useCallback(() => api.world(id), [id])
-  const { data, error } = useLoad(allowed ? load : null)
+  const { data, error } = useLoad(allowed ? load : null, live)
 
   const title = data?.name ?? 'World'
 
@@ -184,8 +190,9 @@ function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => v
 
 /** Every fact recorded in one of this world's rooms, newest first. */
 function History({ id }: { id: string }) {
+  const live = useLiveVersion(useCallback((event: LiveEvent) => concernsWorld(event, id), [id]))
   const load = useCallback(() => api.audit({ world: id, limit: 50 }), [id])
-  const { data, error } = useLoad(load)
+  const { data, error } = useLoad(load, live)
 
   return (
     <Panel title="What happened in this world">

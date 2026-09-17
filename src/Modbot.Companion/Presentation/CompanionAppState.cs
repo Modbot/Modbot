@@ -16,6 +16,9 @@ namespace Modbot.Companion.Presentation;
 /// </param>
 /// <param name="GroupName">The group's name, or its id until the server has said.</param>
 /// <param name="GroupIconUrl">The group's icon, or null.</param>
+/// <param name="Live">
+/// The overlay's live link to this server, in one word: Off, Connecting, Live, Polling or Stopped.
+/// </param>
 public sealed record ServerRow(
     string ServerId,
     string Address,
@@ -27,7 +30,8 @@ public sealed record ServerRow(
     int Pending,
     int AcceptedTotal,
     int DeduplicatedTotal,
-    string Detail);
+    string Detail,
+    string Live = "Off");
 
 /// <summary>How loudly a warning should be shown.</summary>
 public enum WarningSeverity
@@ -204,6 +208,9 @@ public sealed class CompanionAppState
     /// <summary>The SteamVR overlay as of the last render; set by the host that owns it.</summary>
     public OverlayStatus Overlay { get; set; } = OverlayStatus.None;
 
+    /// <summary>Each server's live link in one word, by server id; set by the host that owns the overlay.</summary>
+    public IReadOnlyDictionary<string, string> LiveWords { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
     /// <summary>The voice as of the last render; set by the host that owns it.</summary>
     public VoiceStatus Voice { get; set; } = VoiceStatus.None;
 
@@ -347,7 +354,7 @@ public sealed class CompanionAppState
         _ => "VRChat is writing to its log and Modbot no longer recognises any of it.",
     };
 
-    private static ServerRow Describe(ServerConnection connection) => new(
+    private ServerRow Describe(ServerConnection connection) => new(
         connection.ServerId,
         connection.Pairing.BaseUri.ToString(),
         connection.ManagedGroupId,
@@ -358,7 +365,8 @@ public sealed class CompanionAppState
         connection.Pending,
         connection.AcceptedTotal,
         connection.DeduplicatedTotal,
-        Detail(connection));
+        Detail(connection),
+        LiveWords.GetValueOrDefault(connection.ServerId, "Off"));
 
     /// <summary>
     /// The sentence under each server.

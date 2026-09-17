@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { changesBans } from '@/lib/liveRules'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -139,6 +141,9 @@ function GroupBans({
   // list rather than editing the row in place and hoping the two agree.
   const [lifted, setLifted] = useState(0)
 
+  // And when the live stream says somebody was banned or unbanned, wherever it was done from.
+  const live = useLiveVersion(changesBans)
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(typed.trim())
@@ -169,7 +174,7 @@ function GroupBans({
     return () => {
       cancelled = true
     }
-  }, [search, status, page, lifted])
+  }, [search, status, page, lifted, live])
 
   const cases = useCaseFiles(list?.bans.map((b) => b.userId) ?? [], can(me, 'ViewProfile'))
 
@@ -372,6 +377,7 @@ function RecordedBans({
   const [list, setList] = useState<BanList | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [includeUnbanned, setIncludeUnbanned] = useState(true)
+  const live = useLiveVersion(changesBans)
 
   useEffect(() => {
     let cancelled = false
@@ -396,7 +402,7 @@ function RecordedBans({
     return () => {
       cancelled = true
     }
-  }, [includeUnbanned])
+  }, [includeUnbanned, live])
 
   const cases = useCaseFiles(list?.bans.map((b) => b.subjectId) ?? [], can(me, 'ViewProfile'))
 

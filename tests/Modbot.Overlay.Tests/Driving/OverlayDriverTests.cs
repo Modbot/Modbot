@@ -54,28 +54,33 @@ public class OverlayDriverTests
     {
         public Queue<ReadResult<InstanceContext>> Contexts { get; } = new();
 
-        public Queue<ReadResult<FlaggedJoinAlert>> Alerts { get; } = new();
+        /// <summary>Live updates, by long polling: the driver is built without a socket here.</summary>
+        public Queue<ReadResult<LivePollPage>> Live { get; } = new();
 
         public int ContextCalls { get; private set; }
 
-        public int AlertCalls { get; private set; }
+        /// <summary>Which server each roster read went to.</summary>
+        public List<string> ContextServers { get; } = [];
+
+        public int LiveCalls { get; private set; }
 
         public Task<ReadResult<InstanceContext>> GetContextAsync(
             ServerPairing pairing, string instanceId, CancellationToken cancellationToken)
         {
             ContextCalls++;
+            ContextServers.Add(pairing.ServerId);
             return Task.FromResult(Contexts.Count > 0
                 ? Contexts.Dequeue()
                 : new ReadResult<InstanceContext>(ReadOutcome.Unreachable));
         }
 
-        public Task<ReadResult<FlaggedJoinAlert>> WaitForAlertAsync(
-            ServerPairing pairing, int waitSeconds, CancellationToken cancellationToken)
+        public Task<ReadResult<LivePollPage>> PollLiveAsync(
+            ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken)
         {
-            AlertCalls++;
-            return Task.FromResult(Alerts.Count > 0
-                ? Alerts.Dequeue()
-                : new ReadResult<FlaggedJoinAlert>(ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(30)));
+            LiveCalls++;
+            return Task.FromResult(Live.Count > 0
+                ? Live.Dequeue()
+                : new ReadResult<LivePollPage>(ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(waitSeconds)));
         }
 
         public Task<ReadResult<UserSummary>> GetUserAsync(
@@ -100,10 +105,15 @@ public class OverlayDriverTests
         Instance,
         [.. names.Select(n => new RosterMember($"usr_{n}", n, RosterStanding.Ordinary, 0, []))]);
 
-    private static FlaggedJoinAlert Alert(
+    /// <summary>A flagged join, as the live stream sends it.</summary>
+    private static LiveEvent Alert(
         string subject = "usr_flag", string instance = Instance, string id = "a1")
-        => new(id, subject, "Trouble", instance, "2 prior actions", 2,
-            new DateTimeOffset(2026, 9, 12, 20, 0, 0, TimeSpan.Zero));
+        => new(id, id, LiveEventKinds.FlaggedJoin, new DateTimeOffset(2026, 9, 12, 20, 0, 0, TimeSpan.Zero), instance,
+            new LivePerson(subject, "Trouble", null, RosterStanding.Flagged, 2, ["2 prior actions"]),
+            true, "2 prior actions", false);
+
+    private static ReadResult<LivePollPage> Page(params LiveEvent[] events)
+        => new(ReadOutcome.Fetched, new LivePollPage(events, events.Length == 0 ? "0" : events[^1].Cursor, false), TimeSpan.FromSeconds(4));
 
     private static (OverlayDriver Driver, CountingPresenter Presenter, ScriptedReads Reads, FakeClock Clock)
         Build(string label = "Cat Lounge")
@@ -247,8 +257,7 @@ public class OverlayDriverTests
     {
         var (driver, presenter, reads, _) = Build();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(), TimeSpan.FromSeconds(4)));
+        reads.Live.Enqueue(Page(Alert()));
 
         // The first tick starts the poll; the second harvests it.
         await driver.TickAsync(Ct);
@@ -266,8 +275,7 @@ public class OverlayDriverTests
         // user walking into somewhere else is not something they can act on from here.
         var (driver, presenter, reads, _) = Build();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(instance: "somewhere-else"), TimeSpan.FromSeconds(4)));
+        reads.Live.Enqueue(Page(Alert(instance: "somewhere-else")));
 
         await driver.TickAsync(Ct);
         var tick = await driver.TickAsync(Ct);
@@ -289,8 +297,7 @@ public class OverlayDriverTests
         driver.EnteredInstance(Location());
 
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(), TimeSpan.FromSeconds(4)));
+        reads.Live.Enqueue(Page(Alert()));
 
         await driver.TickAsync(Ct);
         await driver.TickAsync(Ct);
@@ -299,7 +306,9 @@ public class OverlayDriverTests
         Assert.Equal("usr_flag", presenter.Last.Alert!.SubjectId);
 
         // The other server was never contacted at all -- not filtered on receipt, not asked.
-        Assert.Equal(1, reads.ContextCalls);
+        // (The room's own server is read again after the join: a live event makes the roster due.)
+        Assert.NotEmpty(reads.ContextServers);
+        Assert.All(reads.ContextServers, server => Assert.Equal("cats", server));
     }
 
     [Fact]
@@ -307,8 +316,7 @@ public class OverlayDriverTests
     {
         var (driver, presenter, reads, clock) = Build();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(), TimeSpan.FromSeconds(4)));
+        reads.Live.Enqueue(Page(Alert()));
 
         await driver.TickAsync(Ct);
         await driver.TickAsync(Ct);
@@ -326,15 +334,13 @@ public class OverlayDriverTests
         // Somebody rejoining repeatedly is exactly what being kicked looks like.
         var (driver, presenter, reads, clock) = Build();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(id: "a1"), TimeSpan.FromSeconds(4)));
+        reads.Live.Enqueue(Page(Alert(id: "a1")));
 
         await driver.TickAsync(Ct);
         await driver.TickAsync(Ct);
         driver.Dismiss();
 
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(id: "a2"), TimeSpan.FromSeconds(4)));
+        reads.Live.Enqueue(Page(Alert(id: "a2")));
         clock.Advance(TimeSpan.FromSeconds(30));
 
         await driver.TickAsync(Ct);
@@ -349,15 +355,13 @@ public class OverlayDriverTests
     {
         var (driver, presenter, reads, clock) = Build();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(id: "a1"), TimeSpan.FromSeconds(4)));
+        reads.Live.Enqueue(Page(Alert(id: "a1")));
 
         await driver.TickAsync(Ct);
         await driver.TickAsync(Ct);
 
         clock.Advance(OverlayDriver.AlertCooldown + TimeSpan.FromSeconds(1));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(id: "a2"), TimeSpan.FromSeconds(4)));
+        reads.Live.Enqueue(Page(Alert(id: "a2")));
 
         await driver.TickAsync(Ct);
         Assert.True((await driver.TickAsync(Ct)).AlertShown);
@@ -368,8 +372,7 @@ public class OverlayDriverTests
     {
         var (driver, presenter, reads, _) = Build();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(), TimeSpan.FromSeconds(4)));
+        reads.Live.Enqueue(Page(Alert()));
 
         await driver.TickAsync(Ct);
         await driver.TickAsync(Ct);
@@ -386,8 +389,7 @@ public class OverlayDriverTests
         // A card about the room you just left is worse than no card.
         var (driver, presenter, reads, _) = Build();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(), TimeSpan.FromSeconds(4)));
+        reads.Live.Enqueue(Page(Alert()));
 
         await driver.TickAsync(Ct);
         await driver.TickAsync(Ct);
@@ -400,30 +402,70 @@ public class OverlayDriverTests
     }
 
     [Fact]
-    public async Task AProxyKillingTheLongPollAtThirtySecondsIsNotTreatedAsAnOutage()
+    public async Task AQuietPollIsTheOrdinaryAnswerAndTheNextOneGoesAtOnce()
     {
-        // The symptom of an idle-connection cap. Read as a failure it would back the one push
-        // channel off into uselessness while still never delivering anything.
+        // A wait that ends with nothing to say is not a failure and backs nothing off: the link
+        // asks again straight away, and a card still gets through afterwards.
         var (driver, _, reads, _) = Build();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
-
-        for (var i = 0; i < 6; i++)
-        {
-            reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-                ReadOutcome.Unreachable, Elapsed: TimeSpan.FromSeconds(29.5)));
-        }
 
         for (var i = 0; i < 12; i++)
             await driver.TickAsync(Ct);
 
-        // It kept polling rather than going quiet, and the alert channel is still usable.
-        Assert.True(reads.AlertCalls >= 5, $"only polled {reads.AlertCalls} times");
+        Assert.True(reads.LiveCalls >= 5, $"only polled {reads.LiveCalls} times");
 
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-            ReadOutcome.Fetched, Alert(), TimeSpan.FromSeconds(3)));
+        reads.Live.Enqueue(Page(Alert()));
 
         await driver.TickAsync(Ct);
         Assert.True((await driver.TickAsync(Ct)).AlertShown);
+    }
+
+    [Fact]
+    public async Task AJoinOrALeaveMakesTheRosterDueAtOnce()
+    {
+        // The roster used to be a twenty-second poll. A live event says it is out of date now.
+        var (driver, _, reads, _) = Build();
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
+        await driver.TickAsync(Ct);
+        Assert.Equal(1, reads.ContextCalls);
+
+        reads.Live.Enqueue(Page(new LiveEvent(
+            "j1", "j1", LiveEventKinds.PersonJoined, new DateTimeOffset(2026, 9, 12, 20, 0, 0, TimeSpan.Zero), Instance,
+            new LivePerson("usr_mei", "Mei", null, RosterStanding.Ordinary, 0, []), false, null, false)));
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin", "Mei")));
+
+        await driver.TickAsync(Ct);
+        var tick = await driver.TickAsync(Ct);
+
+        Assert.True(tick.ContextRefreshed);
+        Assert.Equal(2, reads.ContextCalls);
+        Assert.False(tick.AlertShown);
+    }
+
+    [Fact]
+    public async Task AFlaggedJoinThisClientReportedItselfIsNotACard()
+    {
+        var (driver, presenter, reads, _) = Build();
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
+        reads.Live.Enqueue(Page(Alert() with { ByThisDevice = true }));
+
+        await driver.TickAsync(Ct);
+        var tick = await driver.TickAsync(Ct);
+
+        Assert.False(tick.AlertShown);
+        Assert.Null(presenter.Last.Alert);
+    }
+
+    [Fact]
+    public async Task TheServersCardGetsOneWordPerServer()
+    {
+        var (driver, _, _, _) = Build();
+
+        Assert.Equal("Off", driver.LiveWords()["cats"]);
+
+        await driver.TickAsync(Ct);
+
+        Assert.Equal("Polling", driver.LiveWords()["cats"]);
     }
 
     [Fact]
@@ -435,15 +477,12 @@ public class OverlayDriverTests
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
 
         for (var i = 0; i < 20; i++)
-        {
-            reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
-                ReadOutcome.Unreachable, Elapsed: TimeSpan.Zero));
-        }
+            reads.Live.Enqueue(new ReadResult<LivePollPage>(ReadOutcome.Unreachable, Elapsed: TimeSpan.Zero));
 
         for (var i = 0; i < 40; i++)
             await driver.TickAsync(Ct);
 
-        Assert.True(reads.AlertCalls < 5, $"polled {reads.AlertCalls} times while backing off");
+        Assert.True(reads.LiveCalls < 5, $"polled {reads.LiveCalls} times while backing off");
     }
 
     [Fact]
@@ -458,7 +497,7 @@ public class OverlayDriverTests
         await driver.TickAsync(Ct);
 
         Assert.Equal(0, reads.ContextCalls);
-        Assert.Equal(0, reads.AlertCalls);
+        Assert.Equal(0, reads.LiveCalls);
         Assert.Null(presenter.Last.GroupLabel);
         Assert.Null(driver.CurrentServer);
     }

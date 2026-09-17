@@ -256,6 +256,163 @@
         ]
       }
     },
+    "/api/live/tickets": {
+      "post": {
+        "tags": [
+          "Live"
+        ],
+        "summary": "A one-use ticket for opening the live updates WebSocket from a browser",
+        "description": "Lasts sixty seconds and works once. It stands for whoever asked for it.",
+        "operationId": "CreateLiveTicket",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventTicketResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/live/ws": {
+      "get": {
+        "tags": [
+          "Live"
+        ],
+        "summary": "The live updates WebSocket",
+        "description": "Authenticate with `?ticket=` from POST /api/live/tickets, or `Authorization: Bearer mbk_...`. `?after=` is the cursor to carry on from; without it the stream starts from now. Events arrive as `{\"kind\":\"event\",\"event\":{...}}`. See https://docs.modbot.co/api/live-updates/.",
+        "operationId": "LiveSocket",
+        "parameters": [
+          {
+            "name": "ticket",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/api/live/poll": {
+      "get": {
+        "tags": [
+          "Live"
+        ],
+        "summary": "Long polling for live updates, the backup for the WebSocket",
+        "description": "Returns events after `after` at once when there are any, up to `limit` (default 100, at most 500); otherwise waits up to `wait` seconds (default 30, at most 60) for one and returns an empty list. No `after` means from now. Send the returned `cursor` back as `after`; `more` means poll again straight away. See https://docs.modbot.co/api/live-updates/.",
+        "operationId": "PollLive",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivePollResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/events/types": {
       "get": {
         "tags": [
@@ -20587,6 +20744,226 @@
           }
         }
       },
+      "LiveActor": {
+        "required": [
+          "platform",
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LiveEvent": {
+        "required": [
+          "id",
+          "cursor",
+          "kind",
+          "type",
+          "typeRaw",
+          "category",
+          "label",
+          "source",
+          "at",
+          "occurredBefore",
+          "observedAt",
+          "subject",
+          "actor",
+          "instanceId",
+          "worldId",
+          "person",
+          "flagged",
+          "reason",
+          "byThisDevice",
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "typeRaw": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "occurredBefore": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/LiveSubject"
+          },
+          "actor": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LiveActor"
+              }
+            ]
+          },
+          "instanceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "worldId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "person": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LivePerson"
+              }
+            ]
+          },
+          "flagged": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "byThisDevice": {
+            "type": "boolean"
+          },
+          "data": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "factId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "LiveNotice": {
+        "required": [
+          "kind",
+          "code",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "LivePerson": {
+        "required": [
+          "id",
+          "displayName",
+          "trustRank",
+          "standing",
+          "priorActions",
+          "flags"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "trustRank": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standing": {
+            "type": "string"
+          },
+          "priorActions": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "LivePersonView": {
         "required": [
           "userId",
@@ -20646,6 +21023,39 @@
               },
               {
                 "$ref": "#/components/schemas/TrustRank"
+              }
+            ]
+          }
+        }
+      },
+      "LivePollResponse": {
+        "required": [
+          "events",
+          "cursor",
+          "more",
+          "notice"
+        ],
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LiveEvent"
+            }
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "more": {
+            "type": "boolean"
+          },
+          "notice": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LiveNotice"
               }
             ]
           }
@@ -20743,6 +21153,25 @@
             "items": {
               "$ref": "#/components/schemas/LivePersonView"
             }
+          }
+        }
+      },
+      "LiveSubject": {
+        "required": [
+          "platform",
+          "id",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
           }
         }
       },

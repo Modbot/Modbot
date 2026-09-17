@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { changesDiscordMembers } from '@/lib/liveRules'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -47,6 +49,10 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
   }
   const filter = useMemo(() => discordMemberQueryFrom(chips), [chips])
 
+  // Read again when the live stream says the server's membership changed: somebody came or
+  // went, a role moved, an account was linked.
+  const live = useLiveVersion(changesDiscordMembers)
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(typed.trim())
@@ -77,7 +83,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
     return () => {
       cancelled = true
     }
-  }, [search, filter, sort, page])
+  }, [search, filter, sort, page, live])
 
   const properties = useMemo<FilterProperty[]>(
     () => [

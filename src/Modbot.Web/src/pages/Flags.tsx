@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { changesFlags } from '@/lib/liveRules'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -51,9 +53,12 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
       )
   }, [state, language])
 
+  // And again when the live stream says a rule raised or settled a flag.
+  const live = useLiveVersion(changesFlags)
+
   useEffect(() => {
     load()
-  }, [load])
+  }, [load, live])
 
   const act = (id: string, work: () => Promise<unknown>, fallback: string) => {
     setBusy(id)

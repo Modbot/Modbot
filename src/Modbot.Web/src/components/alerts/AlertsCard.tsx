@@ -3,13 +3,16 @@ import { AlertTriangle, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { api, type Alert } from '@/lib/api'
+import { type LiveEvent } from '@/lib/liveStream'
 import { followLink } from '@/lib/router'
+import { useLiveStream } from '@/lib/useLiveStream'
 
 /**
  * Recent unusual activity, at the top of My Group and Health (AI insights design §8.4).
  *
  * Renders nothing when there is nothing recent -- which is every deployment with no watcher on,
- * and most days of every deployment that has one.
+ * and most days of every deployment that has one. Reads again when the live stream says an
+ * alert was raised, so a card appears without a reload.
  */
 export function AlertsCard() {
   const [alerts, setAlerts] = useState<Alert[]>([])
@@ -26,6 +29,15 @@ export function AlertsCard() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useLiveStream(
+    useCallback(
+      (event: LiveEvent) => {
+        if (event.kind === 'alert') void load()
+      },
+      [load],
+    ),
+  )
 
   const dismiss = (id: string) => {
     setAlerts((all) => all.filter((a) => a.id !== id))

@@ -1,14 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { SubjectLink, WorldLink } from '@/components/facts'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { Card, CardContent } from '@/components/ui/card'
 import { api, ApiError, type LivePerson, type LiveRoom, type LiveView } from '@/lib/api'
 import { access } from '@/lib/format'
+import { PRESENCE_KINDS, ROOM_KINDS, stateWord, type LiveEvent } from '@/lib/liveStream'
 import { openInstance, openWorld } from '@/lib/subject'
+import { useLiveStream } from '@/lib/useLiveStream'
 import { PageMessage } from '@/pages/analytics/shared'
 
-/** How often the page asks again while it is on screen. */
-const REFRESH_MS = 5000
+/**
+ * How often the page asks again on its own while it is on screen. The head counts come from
+ * the server's syncs rather than from events, so the stream alone would not move them.
+ */
+const REFRESH_MS = 30_000
+
+/** A burst of joins is one redraw, not one per join. */
+const SETTLE_MS = 300
 
 /**
  * Live -- the group's open instances right now, and who is in each.
@@ -17,34 +25,44 @@ const REFRESH_MS = 5000
  * count come from VRChat through the server's own syncs. Only the list of people needs a
  * moderator watching, because VRChat's instance API does not say who is inside.
  *
- * Asks every five seconds while the tab is visible and stops while it is hidden, so a tab left
- * open in the background costs the server nothing.
+ * Redraws when the live stream says somebody joined or left or a room opened or closed, and
+ * asks again every half minute on its own while the tab is visible. The stream itself stops
+ * while the tab is hidden, so a tab left open in the background costs the server nothing.
  */
 export function Live() {
   const [data, setData] = useState<LiveView | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const settle = useRef<number | undefined>(undefined)
+
+  const load = useCallback(() => {
+    api
+      .live()
+      .then((view) => {
+        setData(view)
+        setError(null)
+      })
+      .catch((e: unknown) => {
+        setError(
+          e instanceof ApiError && e.status === 403
+            ? 'You do not have permission to see this.'
+            : 'Could not load live instances.',
+        )
+      })
+  }, [])
+
+  const stream = useLiveStream(
+    useCallback(
+      (event: LiveEvent) => {
+        if (!PRESENCE_KINDS.has(event.kind) && !ROOM_KINDS.has(event.kind)) return
+        window.clearTimeout(settle.current)
+        settle.current = window.setTimeout(load, SETTLE_MS)
+      },
+      [load],
+    ),
+  )
 
   useEffect(() => {
-    let cancelled = false
     let timer: number | undefined
-
-    const load = () => {
-      api
-        .live()
-        .then((view) => {
-          if (cancelled) return
-          setData(view)
-          setError(null)
-        })
-        .catch((e: unknown) => {
-          if (cancelled) return
-          setError(
-            e instanceof ApiError && e.status === 403
-              ? 'You do not have permission to see this.'
-              : 'Could not load live instances.',
-          )
-        })
-    }
 
     const follow = () => {
       window.clearInterval(timer)
@@ -60,16 +78,20 @@ export function Live() {
     document.addEventListener('visibilitychange', follow)
 
     return () => {
-      cancelled = true
       window.clearInterval(timer)
+      window.clearTimeout(settle.current)
       document.removeEventListener('visibilitychange', follow)
     }
-  }, [])
+  }, [load])
 
   if (!data) return <PageMessage>{error ?? 'Loading…'}</PageMessage>
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex items-baseline justify-end text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <span>{stateWord(stream)}</span>
+      </div>
+
       {error && (
         <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
           {error}

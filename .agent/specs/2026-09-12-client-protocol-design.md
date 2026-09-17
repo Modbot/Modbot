@@ -309,6 +309,15 @@ concern, and it degrades to a slow poll rather than to nothing when a proxy inte
 
 **Everything else polls.** Roster refresh, flag updates and health all ride the normal batch cycle.
 
+> **Revised 2026-09-16** (`2026-09-16-live-updates-design.md`). The overlay now opens a WebSocket
+> (`GET /api/v{n}/companion/ws?instanceId=&after=`) carrying every join and leave in the instance
+> the moderator is standing in, flagged joins included, and falls back to long polling the same
+> events (`GET /api/v{n}/companion/poll`) when the socket cannot be connected or keeps dropping —
+> then tries the socket again on a schedule. The proxy argument above is answered by that fallback
+> rather than by avoiding the socket. Ingest is unchanged: observations still go by batched POST,
+> for the reasons in §1.2. `/alerts` stays for clients built before this; the API version does
+> not change, because everything added is an addition.
+
 ---
 
 ## 7. Errors

@@ -516,18 +516,21 @@ public sealed partial class MainWindow : Window
 
         var stats = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
+            ColumnDefinitions = new ColumnDefinitions("*,*,*,*"),
             ColumnSpacing = 10,
         };
 
         // "Already known" rather than "deduplicated": the technical word sounds like a loss and is
         // not. Several moderators in one instance all report the same join, and the server keeping
         // one of them is the system working exactly as designed.
+        // "live" is the overlay's link to this server, in one word: Off when not in one of its
+        // instances, Live over the WebSocket, Polling when the socket cannot be kept.
         Control[] tiles =
         [
             Ui.Stat("recorded", $"{server.AcceptedTotal:N0}"),
             Ui.Stat("already known", $"{server.DeduplicatedTotal:N0}"),
             Ui.Stat("queued", $"{server.Pending:N0}", server.Pending > 0 ? Ui.T.WarnBrush : Ui.T.TextBrush),
+            Ui.Stat("live", server.Live, server.Live == "Stopped" ? Ui.T.DangerBrush : Ui.T.TextBrush),
         ];
 
         for (var index = 0; index < tiles.Length; index++)

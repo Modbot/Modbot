@@ -58,7 +58,8 @@ public sealed class DeviceAuthenticator
         return new DeviceAuthentication(device, null);
     }
 
-    private static string? ReadBearer(HttpContext context)
+    /// <summary>The bearer token on the request, or null. The live stream re-hashes it to check a device again.</summary>
+    internal static string? ReadBearer(HttpContext context)
     {
         var header = context.Request.Headers.Authorization.ToString();
 

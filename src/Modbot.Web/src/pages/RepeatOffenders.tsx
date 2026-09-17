@@ -1,4 +1,9 @@
 import { useEffect, useState } from 'react'
+import { changesBans, changesMembers } from '@/lib/liveRules'
+import { useLiveVersion } from '@/lib/useLiveVersion'
+
+/** A ban, a kick or a removal: what moves somebody up this list. */
+const changesOffenders = (event: Parameters<typeof changesBans>[0]) => changesBans(event) || changesMembers(event)
 import { Card, CardContent } from '@/components/ui/card'
 import { SubjectLink } from '@/components/facts'
 import { StatusPill } from '@/components/SubjectHistory'
@@ -18,6 +23,9 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
   const [list, setList] = useState<RepeatOffenderList | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<'all' | 'repeat'>('all')
+
+  // Read again when the live stream says somebody was acted on: a ban, a kick, a removal.
+  const live = useLiveVersion(changesOffenders)
 
   useEffect(() => {
     let cancelled = false
@@ -42,7 +50,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
     return () => {
       cancelled = true
     }
-  }, [status])
+  }, [status, live])
 
   if (error) {
     return (

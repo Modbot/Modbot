@@ -117,7 +117,10 @@ public sealed class LogToOverlayTests : IDisposable
     {
         public List<string> ContextsAskedFor { get; } = [];
 
-        public Queue<FlaggedJoinAlert> Alerts { get; } = new();
+        /// <summary>Live events waiting to be polled. Every instance the driver asks about is recorded too.</summary>
+        public Queue<LiveEvent> Live { get; } = new();
+
+        public List<string> LivePolledFor { get; } = [];
 
         public Task<ReadResult<InstanceContext>> GetContextAsync(
             ServerPairing pairing, string instanceId, CancellationToken cancellationToken)
@@ -133,12 +136,25 @@ public sealed class LogToOverlayTests : IDisposable
                 ])));
         }
 
-        public Task<ReadResult<FlaggedJoinAlert>> WaitForAlertAsync(
-            ServerPairing pairing, int waitSeconds, CancellationToken cancellationToken)
-            => Task.FromResult(Alerts.Count > 0
-                ? new ReadResult<FlaggedJoinAlert>(ReadOutcome.Fetched, Alerts.Dequeue())
-                : new ReadResult<FlaggedJoinAlert>(
+        /// <summary>Everything waiting goes in one answer, the way a real poll answers.</summary>
+        public Task<ReadResult<LivePollPage>> PollLiveAsync(
+            ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken)
+        {
+            LivePolledFor.Add(instanceId);
+
+            if (Live.Count == 0)
+            {
+                return Task.FromResult(new ReadResult<LivePollPage>(
                     ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(waitSeconds)));
+            }
+
+            var events = new List<LiveEvent>();
+            while (Live.Count > 0)
+                events.Add(Live.Dequeue());
+
+            return Task.FromResult(new ReadResult<LivePollPage>(
+                ReadOutcome.Fetched, new LivePollPage(events, events[^1].Cursor, false)));
+        }
 
         public Task<ReadResult<UserSummary>> GetUserAsync(
             ServerPairing pairing, string subjectId, CancellationToken cancellationToken)
@@ -266,13 +282,15 @@ public sealed class LogToOverlayTests : IDisposable
             // Two alerts waiting: one for a different instance of the same group, one for the
             // instance the moderator will be standing in. The server is meant to have scoped these
             // already; the client filters again anyway, because it cannot verify that it did.
-            session.Reads.Alerts.Enqueue(new FlaggedJoinAlert(
-                "a1", "usr_elsewhere", "Somebody Else", "11111", "2 prior moderation actions", 2,
-                DateTimeOffset.UnixEpoch));
+            session.Reads.Live.Enqueue(new LiveEvent(
+                "a1", "a1", LiveEventKinds.FlaggedJoin, DateTimeOffset.UnixEpoch, "11111",
+                new LivePerson("usr_elsewhere", "Somebody Else", null, RosterStanding.Flagged, 2, ["2 prior actions"]),
+                true, "2 prior moderation actions", false));
 
-            session.Reads.Alerts.Enqueue(new FlaggedJoinAlert(
-                "a2", "usr_trouble", "Trouble", GroupInstance, "2 prior moderation actions", 2,
-                DateTimeOffset.UnixEpoch));
+            session.Reads.Live.Enqueue(new LiveEvent(
+                "a2", "a2", LiveEventKinds.FlaggedJoin, DateTimeOffset.UnixEpoch, GroupInstance,
+                new LivePerson("usr_trouble", "Trouble", null, RosterStanding.Flagged, 2, ["2 prior actions"]),
+                true, "2 prior moderation actions", false));
 
             var shown = new List<string>();
 

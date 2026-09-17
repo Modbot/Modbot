@@ -32,6 +32,7 @@ using Modbot.Api.Features.Alerts;
 using Modbot.Api.Features.Insights;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Live;
+using Modbot.Api.Features.Live.Stream;
 using Modbot.Api.Features.Places;
 using Modbot.Api.Features.Search;
 using Modbot.Api.Features.Onboarding.Complete;
@@ -244,6 +245,10 @@ public static class ApiSurface
         // Live: the group's open instances right now and who is in each. From Modbot's own tables
         // only, so a page that refreshes every five seconds costs no VRChat budget.
         app.MapLive();
+
+        // Live updates: the Live page's and the notifications' stream, a WebSocket with long
+        // polling behind it (live updates design). The host must call UseWebSockets before this.
+        app.MapLiveStream();
 
         // Chat: questions answered by the configured model, using tools that run with the asking
         // person's own permissions (AI chat design §3.1). Conversations are the owner's alone.

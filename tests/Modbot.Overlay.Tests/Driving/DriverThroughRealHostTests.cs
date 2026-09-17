@@ -71,10 +71,10 @@ public class DriverThroughRealHostTests
                 ? Contexts.Dequeue()
                 : new ReadResult<InstanceContext>(ReadOutcome.Unreachable));
 
-        public Task<ReadResult<FlaggedJoinAlert>> WaitForAlertAsync(
-            ServerPairing pairing, int waitSeconds, CancellationToken cancellationToken)
-            => Task.FromResult(new ReadResult<FlaggedJoinAlert>(
-                ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(30)));
+        public Task<ReadResult<LivePollPage>> PollLiveAsync(
+            ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken)
+            => Task.FromResult(new ReadResult<LivePollPage>(
+                ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(waitSeconds)));
 
         public Task<ReadResult<UserSummary>> GetUserAsync(
             ServerPairing pairing, string subjectId, CancellationToken cancellationToken)

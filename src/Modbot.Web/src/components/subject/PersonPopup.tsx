@@ -15,8 +15,11 @@ import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser } from '@/lib/api'
 import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
+import { concernsPerson } from '@/lib/liveRules'
+import type { LiveEvent } from '@/lib/liveStream'
 import { can } from '@/lib/permissions'
 import { useOpeningTab, useOpeningVersion } from '@/lib/subject'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 
 const TABS = ['overview', 'logs', 'history', 'cases', 'metrics', 'json'] as const
 type Tab = (typeof TABS)[number]
@@ -39,6 +42,11 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
   // The server has already written the change, so this reads it back rather than guessing at it.
   const [acted, setActed] = useState(0)
 
+  // And whenever a fact about this person lands on the live stream -- a join, a ban, a role, a
+  // profile change -- for the same reason: the server has it, so read it back.
+  const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id), [id]))
+  const fresh = `${acted}-${live}`
+
   const tabs: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },
     { value: 'logs', label: 'Logs' },
@@ -57,26 +65,26 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
       lead={lead}
       left={
         <>
-          <UserProfileCard subjectId={id} me={me} />
-          {seesProfile && <DiscordLinkCard subjectId={id} me={me} />}
+          <UserProfileCard key={live} subjectId={id} me={me} />
+          {seesProfile && <DiscordLinkCard key={live} subjectId={id} me={me} />}
 
           {can(me, 'ViewMembers') && (
-            <MembershipCard key={acted} subjectId={id} me={me} onActed={() => setActed((n) => n + 1)} />
+            <MembershipCard key={fresh} subjectId={id} me={me} onActed={() => setActed((n) => n + 1)} />
           )}
         </>
       }
     >
       <Tabs value={tab} onChange={setTab} tabs={tabs}>
-        {tab === 'overview' && <Overview key={acted} id={id} me={me} onMore={setTab} />}
-        {tab === 'logs' && <Logs key={acted} id={id} />}
-        {tab === 'history' && <ProfileVersions id={id} openAt={version} />}
+        {tab === 'overview' && <Overview key={fresh} id={id} me={me} onMore={setTab} />}
+        {tab === 'logs' && <Logs key={fresh} id={id} />}
+        {tab === 'history' && <ProfileVersions key={live} id={id} openAt={version} />}
         {tab === 'cases' && (
           <div className="p-4">
-            <SubjectCaseFiles subjectId={id} />
+            <SubjectCaseFiles key={live} subjectId={id} />
           </div>
         )}
-        {tab === 'metrics' && <Metrics id={id} />}
-        {tab === 'json' && <Records id={id} me={me} />}
+        {tab === 'metrics' && <Metrics key={live} id={id} />}
+        {tab === 'json' && <Records key={fresh} id={id} me={me} />}
       </Tabs>
     </PopupFrame>
   )

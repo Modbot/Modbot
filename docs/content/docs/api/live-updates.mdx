@@ -1,0 +1,193 @@
+---
+title: Live updates
+description: How the web app and the companion stay current without asking again and again, and the stream a program can read the same way.
+---
+
+Modbot's screens change as things happen. When somebody joins an instance, a moderator bans
+someone, a review opens or an alert is raised, the Live page, the audit log, the member lists,
+the open popup and the badges redraw within a moment, without the page being reloaded and without
+the browser asking the server on a timer. The companion's overlay follows the room the same way.
+
+Behind that is one **live stream**: every event Modbot records, sent to the web app and the
+companion as it is written. This page describes what the stream carries and how it is read, for
+anyone who wants to read it from a program of their own, or who wants to know what their browser
+is doing.
+
+## What the stream carries
+
+Every event is one of Modbot's [events](/api/events-websocket), with the same id, so what the
+stream sends and what the [audit log](/moderation/audit-log) shows are the same records. A few
+kinds are named, because a screen does something particular with them; everything else is a
+`fact` whose `type` says what it is.
+
+| `kind` | From | What it means |
+|---|---|---|
+| `person_joined` | `vrchat.instance.join` | Somebody walked into an instance. |
+| `flagged_join` | the same, by somebody kicked or banned before | Sent instead of `person_joined`, with a `reason`. |
+| `person_left` | `vrchat.instance.leave` | Somebody left. |
+| `person_here` | `vrchat.instance.presence` | Somebody was already there when a moderator started watching. |
+| `watch_stopped` | `vrchat.instance.log-stopped` | A moderator's client stopped seeing the room. |
+| `room_opened`, `room_closed`, `room_changed` | `vrchat.group.instance.*` | A group instance opened, closed or changed. |
+| `alert` | `modbot.insight.alert` | Unusual activity, from the [alert watchers](/ai/alerts). |
+| `review_opened`, `review_closed` | `modbot.review.*` | A [review](/moderation/reviews) opened or closed. |
+| `fact` | anything else | A ban, a join, a role change, a sign-in, a settings change, and so on. |
+
+```json
+{
+  "id": "81234",
+  "cursor": "81234",
+  "kind": "flagged_join",
+  "type": "vrchat.instance.join",
+  "typeRaw": null,
+  "category": "moderation",
+  "label": "Joined an instance",
+  "source": "Client",
+  "at": "2026-09-16T20:14:07+00:00",
+  "occurredBefore": null,
+  "observedAt": "2026-09-16T20:14:09.2+00:00",
+  "subject": { "platform": "VRChat", "id": "usr_…", "kind": "Person" },
+  "actor": null,
+  "instanceId": "39911",
+  "worldId": "wrld_…",
+  "person": {
+    "id": "usr_…",
+    "displayName": "…",
+    "trustRank": "KnownUser",
+    "standing": "Flagged",
+    "priorActions": 2,
+    "flags": ["2 prior actions"]
+  },
+  "flagged": true,
+  "reason": "2 prior moderation actions",
+  "byThisDevice": false,
+  "data": { }
+}
+```
+
+| Field | |
+|---|---|
+| `id`, `cursor` | The event's id, the same one the audit log uses, as text. Store the last `cursor` you handled and send it back to carry on from there; treat it as text with no meaning of its own. |
+| `kind`, `type` | The table above, and the event's own type. |
+| `category`, `label`, `source` | Which log it belongs to, a short English label, and where Modbot learned of it, as on the [event](/api/events-websocket#the-event). |
+| `at`, `occurredBefore`, `observedAt` | When it happened (a window when it is not exact), and when Modbot learned of it. |
+| `subject`, `actor` | Who or what it happened to, and who did it, or null. |
+| `instanceId`, `worldId` | Where it happened, for events inside a VRChat instance. |
+| `person` | For the person kinds: the person as the [Live page](/moderation/live) describes them, with their VRChat trust rank when Modbot knows it (`trustRank` is null until then). |
+| `flagged`, `reason` | Set on a `flagged_join`. |
+| `byThisDevice` | For the companion: whether this client reported the event itself. Always false in a browser. |
+| `data` | Everything else Modbot recorded about the event. Left out for the companion. |
+
+## Who receives what
+
+The same rules as the screens that show these things, decided event by event from the
+permissions the person holds at that moment:
+
+- Presence and rooms need [**See live instances**](/accounts/roles-and-permissions#see-live-instances).
+- Alerts need **See analytics**.
+- Reviews need **Review tickets**.
+- Every other event follows the audit log's rules: moderation events need **See the audit log**,
+  operational events need **See the operational log**, and presence events additionally need
+  **See live instances** (as on the [event WebSocket](/api/events-websocket#which-events-you-receive)).
+
+Somebody with none of these cannot open the stream (403). If a permission is taken away while
+connected, the events it allowed stop from then on; if none are left, the connection closes with
+`4003`.
+
+The companion is sent presence in the one instance it is standing in, and nothing else.
+
+## Two ways to read it
+
+### The WebSocket
+
+```text
+wss://modbot.example.com/api/live/ws?ticket=…&after=…
+```
+
+A browser cannot set headers on a WebSocket and a session cookie on its own is not accepted
+(for the [same reason](/api/events-websocket#signing-in) as the event WebSocket), so the web app
+first asks `POST /api/live/tickets` for a one-use ticket, then connects with it. A program can
+connect with an [API key](/api/keys) in the `Authorization` header instead.
+
+`after` is the cursor to carry on from. Without it, the stream starts from now.
+
+The conversation is the event WebSocket's, with one difference: there is nothing to subscribe to,
+because what you are sent is decided by who you are.
+
+| The server sends | |
+|---|---|
+| `{ "kind": "hello", "version": 1, "heartbeatSeconds": 30, "cursor": "81230" }` | On connect. `cursor` is where reading starts. |
+| `{ "kind": "event", "event": { … } }` | One event, as above. |
+| `{ "kind": "heartbeat", "cursor": "81290" }` | About every thirty seconds. Store the cursor. |
+| `{ "kind": "notice", "code": "history_trimmed", "message": "…" }` | Your cursor was older than anything still kept. |
+| `{ "kind": "error", "message": "…" }` | A message you sent could not be used. |
+| `{ "kind": "pong" }` | The answer to `{ "op": "ping" }`. |
+
+You may send `{ "op": "subscribe", "cursor": "…" }` to move the reading position. The close codes
+are the [event WebSocket's](/api/events-websocket#close-codes); an unexpected failure on the
+server closes with `1011`, and reconnecting with your cursor is the right answer to it.
+
+### Long polling, the backup
+
+```http
+GET /api/live/poll?after=81230&wait=30&limit=100
+```
+
+With the web app's session, or an API key in the `Authorization` header. It answers at once when
+there are events after `after`, and otherwise waits up to `wait` seconds (default 30, at most 60)
+for one:
+
+```json
+{ "events": [ … ], "cursor": "81234", "more": false, "notice": null }
+```
+
+Send `cursor` back as `after`. `more` means there is more already: ask again straight away. The
+same events, in the same order, chosen by the same rules as the socket.
+
+A waiting poll and an open socket from the same person share the same five connection places; a
+sixth is refused with `429` and a `Retry-After`.
+
+## How the web app and the companion choose
+
+Both follow one rule:
+
+1. **The socket first.** Every event and heartbeat carries a cursor, and a reconnect by either
+   route asks for events after it, so a dropped connection costs a moment and never an event.
+2. **Back off between attempts**, doubling from one second up to thirty.
+3. **Three failed connections or drops within two minutes means polling for five minutes.** A
+   quiet poll is the ordinary answer and changes nothing; a failed one backs off like a failed
+   connection.
+4. **Then the socket again**, from where polling got to. A proxy or captive portal that will not
+   carry WebSockets therefore slows the updates a little and never stops them, and one that
+   starts carrying them later is noticed within minutes.
+5. **A refusal that trying again cannot fix stops the stream**: `4003`, a 401 or 403, a rejected
+   companion token. Reload the page, or pair the companion again.
+
+The state is shown in one word: **Live**, **Polling**, **Connecting**, **Off** or **Stopped** --
+at the top of the Live page, and on the companion's Servers page next to each server.
+
+The web app keeps one connection per open tab, however many screens are reading it, and only
+while the tab is on screen: a tab in the background holds nothing open and comes back with its
+cursor when you look at it again.
+
+## What updates live in the web app
+
+| Screen | Redraws when |
+|---|---|
+| Live | Somebody joins, leaves or was already there; a room opens, closes or changes. (It also reads again every thirty seconds, because head counts come from Modbot's own syncs rather than from events.) |
+| Audit log | Any event that passes the filters in the bar. At the top of the list, the row appears; scrolled down, a **N new** button appears in the bar and inserts them when pressed. |
+| Members, Discord members | A join, a leave, a ban, a kick, a role change, a profile change (trust rank included), an account link. The counts come from the same read. |
+| Bans | A ban or an unban. |
+| Reviews, and the count beside Reviews in the sidebar | A review opens or closes. |
+| Flags | A rule raises or settles a flag. |
+| Case files | A report or its evidence changes. |
+| Repeat offenders | Somebody is banned, kicked or removed. |
+| Calendar | An event is planned, changed, opened or finished, or VRChat's calendar changes. |
+| Alerts (on My Group and Health) | An alert is raised. |
+| The open person, world or instance popup | Any event about that person (as its subject or as the one who acted), in that world, or in that room -- every tab, including Overview and History. |
+
+Each screen reads its own data again rather than applying the event by hand: the server has
+already written the change, so reading it back is the one way the screen and the server cannot
+disagree. A burst of events is one read, not one each.
+
+Screens that show numbers the syncs produce rather than events -- Sync health, the status rows,
+the analytics pages -- keep their own timing.

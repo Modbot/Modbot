@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { changesMembers } from '@/lib/liveRules'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -67,6 +69,10 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
   // re-reads the list rather than editing the row in place and hoping the two agree.
   const [acted, setActed] = useState(0)
 
+  // And when the live stream says the membership changed: a join, a leave, a ban, a role, a
+  // profile (trust rank among them). The count and the rows come from the same read.
+  const live = useLiveVersion(changesMembers)
+
   // Typing waits a moment before it asks, so a name typed at speed is one request, not nine.
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -107,7 +113,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
     return () => {
       cancelled = true
     }
-  }, [search, filter, sort, joined?.from, joined?.to, page, acted])
+  }, [search, filter, sort, joined?.from, joined?.to, page, acted, live])
 
   const properties = useMemo<FilterProperty[]>(
     () => [

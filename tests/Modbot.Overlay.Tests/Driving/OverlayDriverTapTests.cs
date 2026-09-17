@@ -37,7 +37,7 @@ public class OverlayDriverTapTests
     {
         public Queue<ReadResult<InstanceContext>> Contexts { get; } = new();
 
-        public Queue<ReadResult<FlaggedJoinAlert>> Alerts { get; } = new();
+        public Queue<ReadResult<LivePollPage>> Live { get; } = new();
 
         public Dictionary<string, ReadResult<UserSummary>> Users { get; } = new(StringComparer.Ordinal);
 
@@ -46,8 +46,8 @@ public class OverlayDriverTapTests
         public Task<ReadResult<InstanceContext>> GetContextAsync(ServerPairing pairing, string instanceId, CancellationToken cancellationToken)
             => Task.FromResult(Contexts.Count > 0 ? Contexts.Dequeue() : new ReadResult<InstanceContext>(ReadOutcome.Unreachable));
 
-        public Task<ReadResult<FlaggedJoinAlert>> WaitForAlertAsync(ServerPairing pairing, int waitSeconds, CancellationToken cancellationToken)
-            => Task.FromResult(Alerts.Count > 0 ? Alerts.Dequeue() : new ReadResult<FlaggedJoinAlert>(ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(30)));
+        public Task<ReadResult<LivePollPage>> PollLiveAsync(ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken)
+            => Task.FromResult(Live.Count > 0 ? Live.Dequeue() : new ReadResult<LivePollPage>(ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(waitSeconds)));
 
         public Task<ReadResult<UserSummary>> GetUserAsync(ServerPairing pairing, string subjectId, CancellationToken cancellationToken)
         {
@@ -126,9 +126,14 @@ public class OverlayDriverTapTests
     public async Task TappingTheAlertDismissesIt()
     {
         var (driver, presenter, reads) = Build();
-        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
+        reads.Live.Enqueue(new ReadResult<LivePollPage>(
             ReadOutcome.Fetched,
-            new FlaggedJoinAlert("a1", "usr_Rin", "Rin", Instance, "kicked before", 2, DateTimeOffset.UnixEpoch)));
+            new LivePollPage(
+            [
+                new LiveEvent("a1", "a1", LiveEventKinds.FlaggedJoin, DateTimeOffset.UnixEpoch, Instance,
+                    new LivePerson("usr_Rin", "Rin", null, RosterStanding.Flagged, 2, ["kicked before"]),
+                    true, "kicked before", false),
+            ], "a1", false)));
 
         // The first tick starts the poll; the second harvests it.
         await driver.TickAsync(TestContext.Current.CancellationToken);

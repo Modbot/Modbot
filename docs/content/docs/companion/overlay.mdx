@@ -141,7 +141,9 @@ server or quit the client.
   again does not flood the panel.
 - **Only cards for your current instance.** A flagged join in a different instance is dropped, not
   saved for later.
-- **The roster refreshes every 20 seconds** while you are in a group instance.
+- **The roster follows the room.** While you are in a group instance the companion keeps a
+  [live connection](/api/live-updates) to that group's server; a join or a leave re-reads the
+  roster at once, and it is re-read every 20 seconds regardless.
 - **Nothing on the panel can be pressed.** There are no ban, kick or warn buttons, and the
   client's token could not do those things anyway. To act on something, use the web app.
 - **The panel is 0.45 metres wide** in the headset and drawn at 1024 by 1024 pixels.
@@ -159,9 +161,15 @@ server or quit the client.
 Only while you are in an instance belonging to one of your paired groups, and only to that group's
 server:
 
-- a request for the roster of the instance you are in, every 20 seconds, which tells the server the
-  instance id;
-- a request that waits up to 30 seconds for a flagged user card, repeated while you stay there.
+- a request for the roster of the instance you are in, every 20 seconds and again after each
+  join or leave, which tells the server the instance id;
+- one live connection for that instance, which carries who joins and leaves and the flagged user
+  card. It is a WebSocket; when the socket cannot be opened or keeps dropping, the companion asks
+  for the same events with ordinary requests instead, and tries the socket again later. See
+  [live updates](/api/live-updates) for the rules and the timings.
 
-Both carry the client's token for that server and nothing else. Nothing the overlay does is sent to
-Modbot Cloud, and SteamVR is only handed the picture to draw.
+Both carry the client's token for that server, the instance you are in, and nothing else. Nothing
+the overlay does is sent to Modbot Cloud, and SteamVR is only handed the picture to draw.
+
+The client window's **Servers** page shows the connection in one word next to each server:
+**Off** (not in one of its instances), **Connecting**, **Live**, **Polling** or **Stopped**.

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { changesCalendar } from '@/lib/liveRules'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { CalendarEventForm } from '@/components/calendar/CalendarEventForm'
 import { WorldLink } from '@/components/facts'
@@ -77,11 +79,13 @@ export function Calendar() {
       })
   }, [range])
 
+  // Read again when the live stream says an event was planned, changed, opened or finished, or
+  // VRChat's calendar moved. It used to ask every twenty seconds.
+  const live = useLiveVersion(changesCalendar)
+
   useEffect(() => {
     load()
-    const timer = window.setInterval(load, 20000)
-    return () => window.clearInterval(timer)
-  }, [load])
+  }, [load, live])
 
   const entries = useMemo<Entry[]>(
     () =>

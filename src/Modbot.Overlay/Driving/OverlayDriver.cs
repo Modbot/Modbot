@@ -87,6 +87,7 @@ public sealed class OverlayDriver : IDisposable
 
     private readonly IOverlayPresenter _presenter;
     private readonly IOverlayReadClient _reads;
+    private readonly ILiveSocketFactory? _sockets;
     private readonly IModbotClock _clock;
     private readonly IOverlayListener? _listener;
     private readonly List<Server> _servers = [];
@@ -102,7 +103,16 @@ public sealed class OverlayDriver : IDisposable
     private int _rosterSkip;
 
     /// <param name="listener">Told when an alert becomes a card and when a server rejects the token. Optional.</param>
-    public OverlayDriver(IOverlayPresenter presenter, IOverlayReadClient reads, IModbotClock clock, IOverlayListener? listener = null)
+    /// <param name="sockets">
+    /// Opens the live WebSocket. Null means the link only ever long-polls, which is what the tests
+    /// use and what a build without a socket would do.
+    /// </param>
+    public OverlayDriver(
+        IOverlayPresenter presenter,
+        IOverlayReadClient reads,
+        IModbotClock clock,
+        IOverlayListener? listener = null,
+        ILiveSocketFactory? sockets = null)
     {
         ArgumentNullException.ThrowIfNull(presenter);
 
@@ -110,6 +120,7 @@ public sealed class OverlayDriver : IDisposable
         _reads = reads;
         _clock = clock;
         _listener = listener;
+        _sockets = sockets;
     }
 
     /// <summary>Adds a paired server the overlay may speak for.</summary>
@@ -126,7 +137,7 @@ public sealed class OverlayDriver : IDisposable
             Pairing = pairing,
             Label = label,
             Cache = new OverlayCache(_clock),
-            Alerts = new AlertChannel(_reads, _clock),
+            Link = new LiveLink(_sockets, _reads, _clock, pairing),
         });
     }
 
@@ -138,8 +149,13 @@ public sealed class OverlayDriver : IDisposable
         // Its cached roster goes with it. Group context is the operator's data, not the
         // moderator's, and it has no business outliving the pairing.
         server.Cache.Clear();
+        server.Link.Dispose();
         _servers.Remove(server);
     }
+
+    /// <summary>Each paired server's live link, in one word, for the Servers card.</summary>
+    public IReadOnlyDictionary<string, string> LiveWords()
+        => _servers.ToDictionary(s => s.Pairing.ServerId, s => s.Link.Word, StringComparer.Ordinal);
 
     /// <summary>
     /// Tells the loop which instance the moderator is in, as the log reader last understood it.
@@ -256,16 +272,24 @@ public sealed class OverlayDriver : IDisposable
 
         if (server is null)
         {
+            // Not in any paired group's instance: no server is contacted, and a link that was
+            // open for the room just left is closed.
+            foreach (var paired in _servers)
+                paired.Link.Follow(null);
+
             ExpireAlert();
             return new OverlayTick(_presenter.Update(OverlayScreen.Idle), false, false);
         }
+
+        foreach (var other in _servers.Where(s => s != server))
+            other.Link.Follow(null);
 
         // No ConfigureAwait(false) on these two, on purpose. What follows them builds Avalonia
         // controls, and Avalonia allows that only on the thread that owns them. The tick is called
         // from the UI thread; these awaits are the two places it could come back on a thread-pool
         // thread instead, and did: "Call from invalid thread" every tick that reached a server.
+        var raised = await PumpLiveAsync(server, cancellationToken);
         var refreshed = await RefreshContextAsync(server, cancellationToken);
-        var raised = await PumpAlertsAsync(server, cancellationToken);
 
         ExpireAlert();
 
@@ -279,7 +303,10 @@ public sealed class OverlayDriver : IDisposable
     public void Dispose()
     {
         foreach (var server in _servers)
+        {
             server.Cache.Clear();
+            server.Link.Dispose();
+        }
 
         _servers.Clear();
     }
@@ -333,35 +360,53 @@ public sealed class OverlayDriver : IDisposable
     }
 
     /// <summary>
-    /// Keeps one long poll in flight for the current server and harvests it when it finishes.
+    /// Keeps the current server's live link following the instance the moderator is in, and
+    /// harvests what it received: a roster that needs re-reading, and flagged joins that become
+    /// cards.
     /// </summary>
     /// <remarks>
-    /// <para>The poll is never awaited inside a tick. It is held open for up to half a minute by
-    /// design, and a loop that waited on it would stop refreshing rosters and stop redrawing for
-    /// that whole time.</para>
-    /// <para>A poll that a proxy cut short is not a failure and does not back anything off — the
-    /// channel measures that for itself and shortens the next wait to fit under whatever cap is in
-    /// the way.</para>
+    /// <para>Nothing here is awaited across the network. The link holds at most one request in
+    /// flight and a tick only harvests what finished, so the loop keeps redrawing however slow the
+    /// server is.</para>
+    /// <para>A join or a leave means the roster on screen is out of date, so the next roster read
+    /// is due at once rather than at the next twenty-second mark. That is what turns the roster
+    /// from a poll into something that follows the room.</para>
     /// </remarks>
-    private async Task<bool> PumpAlertsAsync(Server server, CancellationToken cancellationToken)
+    private async Task<bool> PumpLiveAsync(Server server, CancellationToken cancellationToken)
     {
-        var raised = false;
-
-        if (server.InFlightAlert is { IsCompleted: true } finished)
+        if (server.TokenRejected)
         {
-            server.InFlightAlert = null;
-
-            // Completed, so this does not block; awaiting is how the result and any fault surface.
-            var poll = await finished.ConfigureAwait(false);
-            raised = Accept(poll, server);
+            server.Link.Follow(null);
+            return false;
         }
 
-        if (server.InFlightAlert is null
-            && !server.TokenRejected
-            && !server.Alerts.IsStopped
-            && !server.Alerts.IsBackingOff)
+        server.Link.Follow(_instance!.InstanceId);
+        await server.Link.PumpAsync(cancellationToken).ConfigureAwait(false);
+
+        if (server.Link.IsStopped)
         {
-            server.InFlightAlert = server.Alerts.PollOnceAsync(server.Pairing, cancellationToken);
+            // Terminal for this pairing. Surfaced on the overlay, and not retried.
+            RejectToken(server);
+            return false;
+        }
+
+        var raised = false;
+
+        foreach (var @event in server.Link.Drain())
+        {
+            if (LiveEventKinds.ChangesRoster(@event.Kind)
+                && string.Equals(@event.InstanceId, _instance.InstanceId, StringComparison.Ordinal))
+            {
+                server.LastContextAttempt = null;
+            }
+
+            // The reporting client already knows: it read the join out of its own log a moment
+            // ago, and a card would be in front of the one moderator who does not need it.
+            if (@event.ByThisDevice)
+                continue;
+
+            if (@event.ToAlert() is { } alert && Accept(alert))
+                raised = true;
         }
 
         return raised;
@@ -383,17 +428,8 @@ public sealed class OverlayDriver : IDisposable
     /// moment; one delivered later interrupts a moderator with news from twenty minutes ago, and
     /// the instance it referred to has usually emptied.</para>
     /// </remarks>
-    private bool Accept(AlertPoll poll, Server server)
+    private bool Accept(FlaggedJoinAlert alert)
     {
-        if (poll.Outcome is AlertPollOutcome.Unauthorised)
-        {
-            RejectToken(server);
-            return false;
-        }
-
-        if (poll is not { Outcome: AlertPollOutcome.Alert, Alert: { } alert })
-            return false;
-
         // Not this room. The moderator cannot act on it, so it is not worth the one card.
         if (!string.Equals(alert.InstanceId, _instance?.InstanceId, StringComparison.Ordinal))
             return false;
@@ -474,11 +510,11 @@ public sealed class OverlayDriver : IDisposable
 
         public required OverlayCache Cache { get; init; }
 
-        public required AlertChannel Alerts { get; init; }
+        /// <summary>Live updates for this server: the socket first, long polling behind it.</summary>
+        public required LiveLink Link { get; init; }
 
+        /// <summary>Null when the roster is due now: never read, or a live event changed it.</summary>
         public DateTimeOffset? LastContextAttempt { get; set; }
-
-        public Task<AlertPoll>? InFlightAlert { get; set; }
 
         /// <summary>Sticky. A 401 is terminal for a pairing and is never retried into.</summary>
         public bool TokenRejected { get; set; }

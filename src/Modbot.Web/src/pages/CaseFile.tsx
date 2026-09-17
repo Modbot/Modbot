@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import { changesCases } from '@/lib/liveRules'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -68,9 +70,12 @@ export function CaseFile({
     [caseId],
   )
 
+  // And again when the live stream says a report or its evidence changed.
+  const live = useLiveVersion(changesCases)
+
   useEffect(() => {
     void load()
-  }, [load])
+  }, [load, live])
 
   const noteImage = useCallback(
     (hash: string, url: string) => setImages((previous) => new Map(previous).set(hash, url)),

@@ -6,6 +6,7 @@ import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { DemoContext } from '@/lib/demo'
+import { REVIEW_KINDS, type LiveEvent } from '@/lib/liveStream'
 import { setMyModbotOrigin } from '@/lib/myModbot'
 import { CREDITS_PATH, GO_TO_KEYS, MOVED, NAV, mayOpen, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
@@ -14,6 +15,7 @@ import { go, useRoute } from '@/lib/router'
 import { useKeyboard, useShortcuts } from '@/lib/shortcuts'
 import type { StatusRowId } from '@/lib/status'
 import { openPerson } from '@/lib/subject'
+import { useLiveStream } from '@/lib/useLiveStream'
 import { Account } from '@/pages/Account'
 import { AuditLog } from '@/pages/AuditLog'
 import { Bans } from '@/pages/Bans'
@@ -311,6 +313,16 @@ function Shell({
   useEffect(() => {
     refreshReviewCount()
   }, [refreshReviewCount, page])
+
+  // And whenever a review opens or closes anywhere, from the live stream.
+  useLiveStream(
+    useCallback(
+      (event: LiveEvent) => {
+        if (REVIEW_KINDS.has(event.kind)) refreshReviewCount()
+      },
+      [refreshReviewCount],
+    ),
+  )
 
   // The keyboard (lib/shortcuts.ts): the palette, the sheet, and `g` then a letter for every page
   // this person may open. Pages register their own list and filter keys.
