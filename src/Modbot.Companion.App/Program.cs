@@ -82,6 +82,18 @@ internal sealed class ModbotCompanionApp : Application
     {
         Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
         RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+
+        // The theme paints focus rings and selections in the machine's own accent colour, which
+        // on a Windows set to red gave every focused box a red edge. Modbot's accent instead,
+        // in the three shades the theme derives from it.
+        var accent = Ui.T.Palette.Accent;
+        Resources["SystemAccentColor"] = accent;
+        Resources["SystemAccentColorDark1"] = accent;
+        Resources["SystemAccentColorDark2"] = accent;
+        Resources["SystemAccentColorDark3"] = accent;
+        Resources["SystemAccentColorLight1"] = accent;
+        Resources["SystemAccentColorLight2"] = accent;
+        Resources["SystemAccentColorLight3"] = accent;
     }
 
     public override void OnFrameworkInitializationCompleted()
