@@ -2,6 +2,9 @@ using Modbot.Companion.Overlay;
 
 namespace Modbot.Overlay.Views;
 
+/// <summary>A point on the panel as fractions: 0 at the left or top edge, 1 at the right or bottom.</summary>
+public readonly record struct PanelCursor(float Across, float Down);
+
 /// <summary>
 /// Everything the overlay draws, in one immutable snapshot.
 /// </summary>
@@ -21,13 +24,20 @@ namespace Modbot.Overlay.Views;
 /// <param name="Freshness">How old the roster is, and whether to say so.</param>
 /// <param name="Alert">A flagged user who just arrived, or null.</param>
 /// <param name="Health">A Modbot fault worth interrupting for, or null.</param>
+/// <param name="ShowIdleCard">Draw the idle card rather than nothing; only the debug page asks.</param>
+/// <param name="Person">A person's card, opened by tapping their row, or null.</param>
+/// <param name="RosterSkip">How many rows the roster has been scrolled past.</param>
+/// <param name="Cursor">Where a controller points at the panel, or null when none does.</param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
     Freshness Freshness,
     FlaggedJoinAlert? Alert = null,
     string? Health = null,
-    bool ShowIdleCard = false)
+    bool ShowIdleCard = false,
+    UserSummary? Person = null,
+    int RosterSkip = 0,
+    PanelCursor? Cursor = null)
 {
     /// <summary>
     /// Nothing to say: no group, no roster, no alert, no problem. Drawn as nothing at all unless
@@ -51,6 +61,9 @@ public sealed record OverlayScreen(
 
         return GroupLabel == other.GroupLabel
             && ShowIdleCard == other.ShowIdleCard
+            && RosterSkip == other.RosterSkip
+            && Cursor == other.Cursor
+            && Person?.SubjectId == other.Person?.SubjectId
             && Freshness == other.Freshness
             && Health == other.Health
             && Alert?.AlertId == other.Alert?.AlertId

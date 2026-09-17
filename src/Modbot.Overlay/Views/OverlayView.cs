@@ -4,6 +4,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Modbot.Companion.Overlay;
+using Modbot.Overlay.Interaction;
 
 namespace Modbot.Overlay.Views;
 
@@ -51,16 +52,105 @@ public static class OverlayView
         if (screen.Alert is { } alert)
             stack.Children.Add(AlertCard(alert, screen.GroupLabel));
 
+        if (screen.Person is { } person)
+            stack.Children.Add(PersonCard(person));
+
         stack.Children.Add(RosterPanel(screen));
 
         // Nothing behind the cards. The texture is square and the cards fill its top, so an
         // opaque ground would hang a dark slab over half the moderator's view; each card paints
         // its own surface, and the rest of the panel lets the world through.
-        return new Border
+        var panel = new Border
         {
             Background = Brushes.Transparent,
             Padding = new Thickness(20),
             Child = stack,
+        };
+
+        if (screen.Cursor is not { } cursor)
+            return panel;
+
+        // The cursor sits over everything, drawn into the same frame: SteamVR draws lasers only
+        // for dashboard overlays and OpenXR draws none, so the panel shows its own.
+        return new Panel { Children = { panel, new CursorLayer(cursor) } };
+    }
+
+    /// <summary>A ring where a controller points, placed by fractions of the panel.</summary>
+    private sealed class CursorLayer : Panel
+    {
+        private const double Radius = 14;
+        private readonly PanelCursor _cursor;
+
+        public CursorLayer(PanelCursor cursor)
+        {
+            _cursor = cursor;
+            IsHitTestVisible = false;
+            Children.Add(new Ellipse
+            {
+                Width = Radius * 2,
+                Height = Radius * 2,
+                Stroke = T.TextBrush,
+                StrokeThickness = 3,
+                Fill = new SolidColorBrush(T.Palette.Text, 0.25),
+            });
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            var x = (_cursor.Across * finalSize.Width) - Radius;
+            var y = (_cursor.Down * finalSize.Height) - Radius;
+            foreach (var child in Children)
+                child.Arrange(new Rect(x, y, Radius * 2, Radius * 2));
+
+            return finalSize;
+        }
+    }
+
+    /// <summary>
+    /// One person, opened from their roster row: what the roster already knew and what the
+    /// server's profile read added. Tapping the card closes it.
+    /// </summary>
+    private static Control PersonCard(UserSummary person)
+    {
+        var lines = new StackPanel { Spacing = 6 };
+
+        lines.Children.Add(Text(person.DisplayName ?? person.SubjectId, T.Density.TextBase * 1.4, T.TextBrush, FontWeight.SemiBold));
+
+        var standing = person.Standing switch
+        {
+            RosterStanding.Flagged => "Flagged",
+            RosterStanding.Staff => "Staff",
+            RosterStanding.Member => "Member",
+            _ => "Not a member",
+        };
+        lines.Children.Add(Text(
+            person.PriorActions switch
+            {
+                0 => standing,
+                1 => standing + " · 1 prior action",
+                var n => standing + " · " + n + " prior actions",
+            },
+            T.Density.TextBase,
+            person.Standing == RosterStanding.Flagged ? T.DangerBrush : T.TextDimBrush));
+
+        if (person.Roles.Count > 0)
+            lines.Children.Add(Text(string.Join(" · ", person.Roles), T.Density.TextSmall, T.TextDimBrush));
+
+        if (person.Flags.Count > 0)
+            lines.Children.Add(Text(string.Join(" · ", person.Flags), T.Density.TextSmall, T.DangerBrush));
+
+        if (person.JoinedAt is { } joined)
+            lines.Children.Add(Text("Joined " + joined.ToString("yyyy-MM-dd"), T.Density.TextSmall, T.TextDimBrush));
+
+        return new Border
+        {
+            Tag = new OverlayTarget.ClosePerson(),
+            Background = T.SurfaceBrush,
+            BorderBrush = T.AccentForegroundBrush,
+            BorderThickness = new Thickness(6, T.Density.Hairline, T.Density.Hairline, T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(18, 14),
+            Child = lines,
         };
     }
 
@@ -117,6 +207,7 @@ public static class OverlayView
 
         return new Border
         {
+            Tag = new OverlayTarget.DismissAlert(),
             Background = T.SurfaceBrush,
             BorderBrush = T.DangerBrush,
 
@@ -168,12 +259,23 @@ public static class OverlayView
         {
             // Flagged first, then staff, then everybody else: the overlay's job is to put the row
             // that matters where the eye lands, not to reproduce a sortable table.
-            foreach (var member in context.Members.OrderBy(Priority).ThenBy(m => m.DisplayName ?? m.SubjectId, StringComparer.OrdinalIgnoreCase))
+            var ordered = context.Members
+                .OrderBy(Priority)
+                .ThenBy(m => m.DisplayName ?? m.SubjectId, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // Scrolled-past rows are counted, not hidden without a word.
+            var skip = Math.Clamp(screen.RosterSkip, 0, Math.Max(0, ordered.Count - 1));
+            if (skip > 0)
+                rows.Children.Add(Text(skip == 1 ? "1 more above" : skip + " more above", T.Density.TextSmall, T.TextDimBrush));
+
+            foreach (var member in ordered.Skip(skip))
                 rows.Children.Add(RosterRow(member));
         }
 
         return new Border
         {
+            Tag = new OverlayTarget.Roster(),
             Background = T.SurfaceBrush,
             BorderBrush = T.BorderBrush,
             BorderThickness = new Thickness(T.Density.Hairline),
@@ -218,6 +320,7 @@ public static class OverlayView
 
         var line = new StackPanel
         {
+            Tag = new OverlayTarget.Person(member.SubjectId),
             Orientation = Orientation.Horizontal,
             Spacing = 12,
             Height = T.Density.RowHeight,

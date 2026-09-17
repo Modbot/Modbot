@@ -2,6 +2,7 @@ using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
 using Modbot.Companion.Overlay;
 using Modbot.Core.Time;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Views;
 
 namespace Modbot.Overlay.Driving;
@@ -77,6 +78,11 @@ public sealed class OverlayDriver : IDisposable
     private FlaggedJoinAlert? _showing;
     private DateTimeOffset? _showingSince;
 
+    // What a tap on the panel opened: a person's card, and how far the roster is scrolled.
+    private UserSummary? _person;
+    private string? _personWanted;
+    private int _rosterSkip;
+
     public OverlayDriver(IOverlayPresenter presenter, IOverlayReadClient reads, IModbotClock clock)
     {
         ArgumentNullException.ThrowIfNull(presenter);
@@ -125,9 +131,13 @@ public sealed class OverlayDriver : IDisposable
 
         _instance = instance;
 
-        // A card about the room you just left is worse than no card. Leaving clears it.
+        // A card about the room you just left is worse than no card. Leaving clears it, and
+        // so does an open person card and the scroll position: another room, another list.
         _showing = null;
         _showingSince = null;
+        _person = null;
+        _personWanted = null;
+        _rosterSkip = 0;
     }
 
     /// <summary>The moderator waved the card away. It does not come back.</summary>
@@ -135,6 +145,78 @@ public sealed class OverlayDriver : IDisposable
     {
         _showing = null;
         _showingSince = null;
+    }
+
+    /// <summary>The person card that is open, or null.</summary>
+    public UserSummary? Person => _person;
+
+    /// <summary>How many roster rows are scrolled past.</summary>
+    public int RosterSkip => _rosterSkip;
+
+    /// <summary>
+    /// A tap on the panel. The alert card dismisses, a roster row opens that person, the open
+    /// card closes, and a tap anywhere else closes an open card.
+    /// </summary>
+    public void Tap(OverlayTarget? target)
+    {
+        switch (target)
+        {
+            case OverlayTarget.DismissAlert:
+                Dismiss();
+                break;
+            case OverlayTarget.Person person:
+                _ = OpenPersonAsync(person.SubjectId);
+                break;
+            default:
+                _person = null;
+                _personWanted = null;
+                break;
+        }
+    }
+
+    /// <summary>Scrolls the roster by whole rows; the view keeps it inside the list.</summary>
+    public void ScrollRoster(int rows)
+    {
+        var count = Current() is { } server && _instance is not null
+            ? server.Cache.Context(_instance.InstanceId).Value?.Members.Count ?? 0
+            : 0;
+
+        _rosterSkip = Math.Clamp(_rosterSkip + rows, 0, Math.Max(0, count - 1));
+    }
+
+    /// <summary>
+    /// Opens a person's card: the roster's own row at once, then the server's profile read when it
+    /// lands. A card for someone the moderator has since tapped away from is not shown.
+    /// </summary>
+    /// <remarks>
+    /// One GET to the current server, for the one person tapped, with the device token; the
+    /// answer is shown and kept only while the card is open. Nothing is asked about anyone who
+    /// was not tapped.
+    /// </remarks>
+    public async Task OpenPersonAsync(string subjectId)
+    {
+        if (Current() is not { } server || _instance is null)
+            return;
+
+        _personWanted = subjectId;
+
+        var known = server.Cache.Context(_instance.InstanceId).Value?.Members.FirstOrDefault(m => m.SubjectId == subjectId);
+        _person = known is null
+            ? new UserSummary(subjectId, null, RosterStanding.Ordinary, 0, null, [], [])
+            : new UserSummary(known.SubjectId, known.DisplayName, known.Standing, known.PriorActions, null, known.Flags, []);
+
+        ReadResult<UserSummary> read;
+        try
+        {
+            read = await _reads.GetUserAsync(server.Pairing, subjectId, CancellationToken.None);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException)
+        {
+            return;
+        }
+
+        if (read.Outcome == ReadOutcome.Fetched && read.Value is { } summary && _personWanted == subjectId)
+            _person = summary;
     }
 
     /// <summary>The server whose group owns the instance the moderator is standing in.</summary>
@@ -325,7 +407,9 @@ public sealed class OverlayDriver : IDisposable
             roster,
             roster.Freshness,
             _showing,
-            Health(server, roster));
+            Health(server, roster),
+            Person: _person,
+            RosterSkip: _rosterSkip);
     }
 
     /// <summary>

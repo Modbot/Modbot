@@ -1,0 +1,164 @@
+using Modbot.Companion.Ingest;
+using Modbot.Companion.Instances;
+using Modbot.Companion.Overlay;
+using Modbot.Overlay.Driving;
+using Modbot.Overlay.Interaction;
+using Modbot.Overlay.Views;
+using Modbot.TestSupport;
+
+namespace Modbot.Overlay.Tests.Driving;
+
+/// <summary>
+/// What a tap on the panel does to the loop: the alert goes, a person's card opens with the
+/// row's own facts and then the server's, a tap elsewhere closes it, the roster scrolls within
+/// its rows, and leaving the instance clears the lot.
+/// </summary>
+public class OverlayDriverTapTests
+{
+    private const string Group = "grp_cats";
+    private const string Instance = "39911";
+
+    private sealed class RecordingPresenter : IOverlayPresenter
+    {
+        public OverlayScreen Last { get; private set; } = OverlayScreen.Idle;
+
+        public bool Update(OverlayScreen screen)
+        {
+            Last = screen;
+            return true;
+        }
+
+        public void Show() { }
+
+        public void Hide() { }
+    }
+
+    private sealed class Reads : IOverlayReadClient
+    {
+        public Queue<ReadResult<InstanceContext>> Contexts { get; } = new();
+
+        public Queue<ReadResult<FlaggedJoinAlert>> Alerts { get; } = new();
+
+        public Dictionary<string, ReadResult<UserSummary>> Users { get; } = new(StringComparer.Ordinal);
+
+        public List<string> UsersAsked { get; } = [];
+
+        public Task<ReadResult<InstanceContext>> GetContextAsync(ServerPairing pairing, string instanceId, CancellationToken cancellationToken)
+            => Task.FromResult(Contexts.Count > 0 ? Contexts.Dequeue() : new ReadResult<InstanceContext>(ReadOutcome.Unreachable));
+
+        public Task<ReadResult<FlaggedJoinAlert>> WaitForAlertAsync(ServerPairing pairing, int waitSeconds, CancellationToken cancellationToken)
+            => Task.FromResult(Alerts.Count > 0 ? Alerts.Dequeue() : new ReadResult<FlaggedJoinAlert>(ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(30)));
+
+        public Task<ReadResult<UserSummary>> GetUserAsync(ServerPairing pairing, string subjectId, CancellationToken cancellationToken)
+        {
+            UsersAsked.Add(subjectId);
+            return Task.FromResult(Users.TryGetValue(subjectId, out var user) ? user : new ReadResult<UserSummary>(ReadOutcome.Unreachable));
+        }
+    }
+
+    private static InstanceLocation Location(string instance = Instance)
+    {
+        Assert.True(InstanceLocation.TryParse($"wrld_4b34:{instance}~group({Group})~groupAccessType(members)~region(use)", out var location));
+        return location;
+    }
+
+    private static InstanceContext Roster(params string[] names) => new(
+        Instance,
+        [.. names.Select(n => new RosterMember($"usr_{n}", n, RosterStanding.Member, 0, []))]);
+
+    private static (OverlayDriver Driver, RecordingPresenter Presenter, Reads Reads) Build()
+    {
+        var presenter = new RecordingPresenter();
+        var reads = new Reads();
+        var driver = new OverlayDriver(presenter, reads, new FakeClock());
+        driver.Add(new ServerPairing("cats", new Uri("https://cats.example"), "token", Group), "Cat Lounge");
+        driver.EnteredInstance(Location());
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin", "Kai", "Mira")));
+        return (driver, presenter, reads);
+    }
+
+    [Fact]
+    public async Task TappingARowOpensThatPersonWithTheRowsFactsThenTheServers()
+    {
+        var (driver, presenter, reads) = Build();
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        reads.Users["usr_Kai"] = new ReadResult<UserSummary>(
+            ReadOutcome.Fetched,
+            new UserSummary("usr_Kai", "Kai", RosterStanding.Staff, 1, DateTimeOffset.UnixEpoch, [], ["Mod"]));
+
+        await driver.OpenPersonAsync("usr_Kai");
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(["usr_Kai"], reads.UsersAsked);
+        Assert.NotNull(presenter.Last.Person);
+        Assert.Equal("usr_Kai", presenter.Last.Person.SubjectId);
+        Assert.Equal(RosterStanding.Staff, presenter.Last.Person.Standing);
+        Assert.Equal(["Mod"], presenter.Last.Person.Roles);
+    }
+
+    [Fact]
+    public async Task AnUnreachableServerStillOpensTheCardFromTheRow()
+    {
+        var (driver, presenter, _) = Build();
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        await driver.OpenPersonAsync("usr_Rin");
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("Rin", presenter.Last.Person?.DisplayName);
+        Assert.Equal(RosterStanding.Member, presenter.Last.Person?.Standing);
+    }
+
+    [Fact]
+    public async Task ATapAnywhereElseClosesTheCard()
+    {
+        var (driver, presenter, _) = Build();
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        await driver.OpenPersonAsync("usr_Rin");
+
+        driver.Tap(null);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(presenter.Last.Person);
+    }
+
+    [Fact]
+    public async Task TappingTheAlertDismissesIt()
+    {
+        var (driver, presenter, reads) = Build();
+        reads.Alerts.Enqueue(new ReadResult<FlaggedJoinAlert>(
+            ReadOutcome.Fetched,
+            new FlaggedJoinAlert("a1", "usr_Rin", "Rin", Instance, "kicked before", 2, DateTimeOffset.UnixEpoch)));
+
+        // The first tick starts the poll; the second harvests it.
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        Assert.NotNull(presenter.Last.Alert);
+
+        driver.Tap(new OverlayTarget.DismissAlert());
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(presenter.Last.Alert);
+    }
+
+    [Fact]
+    public async Task TheRosterScrollsWithinItsRowsAndLeavingResetsEverything()
+    {
+        var (driver, presenter, _) = Build();
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        driver.ScrollRoster(5);
+        Assert.Equal(2, driver.RosterSkip);
+        driver.ScrollRoster(-10);
+        Assert.Equal(0, driver.RosterSkip);
+        driver.ScrollRoster(1);
+        await driver.OpenPersonAsync("usr_Rin");
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, presenter.Last.RosterSkip);
+
+        driver.EnteredInstance(Location("40000"));
+
+        Assert.Equal(0, driver.RosterSkip);
+        Assert.Null(driver.Person);
+    }
+}
