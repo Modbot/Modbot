@@ -1,6 +1,5 @@
 import { useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { JsonView } from '@/components/JsonView'
 import { FactList, Field, Note } from '@/components/subject/shared'
 import { api, type PersonAccount } from '@/lib/api'
 import { dateTime } from '@/components/charts'
@@ -77,6 +76,3 @@ export function AccountHistory({ accountId }: { accountId: string }) {
 }
 
 /** The account as the API answers it, for the JSON tab. */
-export function AccountRecord({ account }: { account: PersonAccount }) {
-  return <JsonView title="Modbot account" value={account} />
-}

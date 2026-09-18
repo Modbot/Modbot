@@ -7,18 +7,18 @@ import { InstanceTable } from '@/components/InstanceTable'
 import { SubjectCaseFiles } from '@/components/SubjectCaseFiles'
 import { SubjectHistory } from '@/components/SubjectHistory'
 import { ProfileDetails, ProfileIdentity } from '@/components/UserProfileCard'
-import { AccountCard, AccountHistory, AccountRecord } from '@/components/subject/AccountSide'
+import { AccountCard, AccountHistory } from '@/components/subject/AccountSide'
 import { DiscordLinkCard } from '@/components/subject/DiscordLinkCard'
 import {
   DiscordHistory,
   DiscordIdentity,
   DiscordMessages,
   DiscordMetrics,
-  DiscordRecords,
 } from '@/components/subject/DiscordSide'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { FactList, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
+import { useDiscordRecords } from '@/lib/useDiscordRecords'
 import { useLoad } from '@/lib/useLoad'
 import { api, type AuditEntry, type CurrentUser, type PersonMetrics, type PersonView } from '@/lib/api'
 import { useDemo } from '@/lib/demo'
@@ -332,10 +332,15 @@ function Logs({ person }: { person: PersonView }) {
 }
 
 /**
- * The stored records, verbatim: the profile as the API answers it, the membership and ban
- * standing, the bodies VRChat last sent, the Discord member row and the Modbot account. Each
- * needs the permission the screen showing it needs; what this account may not read is left out
- * rather than shown empty.
+ * The stored records, verbatim, as one document.
+ *
+ * Six panels stacked down the tab was six copy buttons and six scrollbars for what is one
+ * person, and answering "what does Modbot hold about them" meant reading all six and joining
+ * them by eye. They are named keys of one record now, so the tab is read once and copied once.
+ *
+ * A key a person may not read is left out rather than written as null, which is the same rule
+ * the panels followed: absent means "not yours to see or not there", and the two are not
+ * distinguished here any more than they were before.
  */
 function Records({ person, me }: { person: PersonView; me: CurrentUser }) {
   const seesProfile = can(me, 'ViewProfile')
@@ -352,21 +357,25 @@ function Records({ person, me }: { person: PersonView; me: CurrentUser }) {
   const loadMembership = useCallback(() => api.membership(vrchatId!), [vrchatId])
   const membership = useLoad(seesMembers && vrchatId ? loadMembership : null)
 
-  const nothing = !vrchatId && !discordId && !person.account
+  const discord = useDiscordRecords(discordId, me)
+
+  const records: Record<string, unknown> = {}
+
+  if (vrchatId && seesProfile) records.profile = profile.error ?? profile.data
+  if (vrchatId && seesMembers) records.membership = membership.error ?? membership.data
+  if (vrchatId && seesProfile) {
+    records.vrchatPublicProfile = raw.error ?? raw.data?.publicProfile
+    records.vrchatUser = raw.error ?? raw.data?.user
+  }
+  if (discord.member !== undefined) records.discordMember = discord.member
+  if (discord.activity !== undefined) records.discordActivity = discord.activity
+  if (person.account) records.modbotAccount = person.account
 
   return (
     <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
-      {vrchatId && seesProfile && <JsonView title="Profile" value={profile.error ?? profile.data} />}
-      {vrchatId && seesMembers && <JsonView title="Membership" value={membership.error ?? membership.data} />}
-      {vrchatId && seesProfile && (
-        <>
-          <JsonView title="VRChat public profile, as last read" value={raw.error ?? raw.data?.publicProfile} />
-          <JsonView title="VRChat user object, as last read" value={raw.error ?? raw.data?.user} />
-        </>
-      )}
-      {discordId && <DiscordRecords id={discordId} me={me} />}
-      {person.account && <AccountRecord account={person.account} />}
-      {(nothing || (!seesProfile && !seesMembers && !discordId && !person.account)) && (
+      {Object.keys(records).length > 0 ? (
+        <JsonView title="Records" value={records} />
+      ) : (
         <Note>You do not have permission to see this.</Note>
       )}
     </div>

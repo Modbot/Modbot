@@ -3,12 +3,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DailyBars, compactNumber, dateTime, minutes } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
-import { JsonView } from '@/components/JsonView'
 import { FactList, Field, Figure, Note, Panel } from '@/components/subject/shared'
-import { api, ApiError, type CurrentUser, type DiscordMember } from '@/lib/api'
+import { api, type DiscordMember } from '@/lib/api'
 import type { DiscordMemberRead } from '@/lib/useDiscordMember'
 import { formatDay } from '@/lib/format'
-import { can } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import { useLoad } from '@/lib/useLoad'
 import { concernsPerson } from '@/lib/liveRules'
@@ -309,30 +307,6 @@ export function DiscordMetrics({ id }: { id: string }) {
           </ol>
         )}
       </Panel>
-    </>
-  )
-}
-
-/** The stored Discord records, verbatim, for the JSON tab. */
-export function DiscordRecords({ id, me }: { id: string; me: CurrentUser }) {
-  const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id, 'Discord'), [id]))
-
-  const loadMember = useCallback(
-    () =>
-      api
-        .discordMember(id)
-        .catch((e: unknown) => (e instanceof ApiError && e.status === 404 ? null : Promise.reject(e))),
-    [id],
-  )
-  const member = useLoad(can(me, 'ViewMembers') ? loadMember : null, live)
-
-  const loadMetrics = useCallback(() => api.discordMemberMetrics(id), [id])
-  const metrics = useLoad(can(me, 'ViewProfile') ? loadMetrics : null, live)
-
-  return (
-    <>
-      {can(me, 'ViewMembers') && <JsonView title="Discord member" value={member.error ?? member.data} />}
-      {can(me, 'ViewProfile') && <JsonView title="Discord activity" value={metrics.error ?? metrics.data} />}
     </>
   )
 }
