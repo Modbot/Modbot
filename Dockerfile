@@ -96,9 +96,11 @@ RUN mkdir -p /app/logs /app/data/evidence /app/data/dumps
 # image did at build time -- the mount replaces the directory and its ownership with it -- so an
 # unprivileged user could not write into one. On Railway that showed up as crash dumps being
 # switched on and the folder for them failing to be made, and it would have hit evidence on disk
-# the same way. Dropping privileges is worth having, but it has to be done after the volume is
-# mounted rather than before, which needs an entry point that starts as root and steps down. Until
-# that exists, a container whose volume works beats a container that cannot write to it.
+# the same way.
+#
+# So the container starts as root and steps down in the entry point below, once the volume is
+# actually there to be fixed. Modbot itself never runs as root; only the two lines that take
+# ownership of the writable folders do.
 USER root
 
 # Documentation only -- the real port comes from PORT at runtime. It is deliberately not an ENV
@@ -111,4 +113,10 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # Shell form so ${PORT} is resolved when the container starts. The default matches
 # ModbotEnvironment's, and exec keeps dotnet as PID 1 so SIGTERM reaches it and shutdown is clean.
-ENTRYPOINT ["/bin/sh", "-c", "export PORT=\"${PORT:-8080}\"; exec dotnet /app/Modbot.Server.dll"]
+#
+# The two folders Modbot writes to are taken over first, because a volume mounted on either arrives
+# owned by root and the image's own build-time ownership went with the directory it replaced. Then
+# setpriv drops to the unprivileged user the base image provides, so the server itself never runs
+# as root -- the privilege exists only long enough to make the volume usable. A chown that fails is
+# not fatal: a deployment with no volume has nothing to fix and should still start.
+ENTRYPOINT ["/bin/sh", "-c", "export PORT=\"${PORT:-8080}\"; chown -R \"${APP_UID}\":0 /app/logs /app/data 2>/dev/null || true; chmod -R g+rwX /app/logs /app/data 2>/dev/null || true; exec setpriv --reuid=\"${APP_UID}\" --regid=0 --clear-groups dotnet /app/Modbot.Server.dll"]
