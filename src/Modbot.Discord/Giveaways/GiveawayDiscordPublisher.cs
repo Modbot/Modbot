@@ -8,6 +8,7 @@ using Modbot.Core.Giveaways;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Modbot.Discord.Bot;
+using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 using Serilog;
 
@@ -48,6 +49,7 @@ public sealed class GiveawayDiscordPublisher
     private readonly DiscordBotStatus _status;
     private readonly IFactWriter _facts;
     private readonly EventPartitionMaintainer _partitions;
+    private readonly CardPictures _pictures;
     private readonly ILogger _log;
 
     public GiveawayDiscordPublisher(
@@ -56,6 +58,7 @@ public sealed class GiveawayDiscordPublisher
         DiscordBotStatus status,
         IFactWriter facts,
         EventPartitionMaintainer partitions,
+        CardPictures? pictures = null,
         ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(db);
@@ -69,6 +72,7 @@ public sealed class GiveawayDiscordPublisher
         _status = status;
         _facts = facts;
         _partitions = partitions;
+        _pictures = pictures ?? new CardPictures();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
     }
 
@@ -112,7 +116,15 @@ public sealed class GiveawayDiscordPublisher
             .ToListAsync(ct).ConfigureAwait(false);
 
         var roleNames = await RoleNamesAsync(settings.DiscordGuildId, ct).ConfigureAwait(false);
-        var pass = new Pass(gateway, publicAddress, now, ct);
+
+        // The group's name sits above the giveaway's, so a member reading the channel can see whose
+        // giveaway it is, and the winners link into this Modbot when it has an address to link to.
+        var style = new CardStyle(
+            publicAddress, settings.ManagedGroupName, BrandIcon.For(publicAddress));
+
+        var pass = new Pass(
+            gateway, publicAddress, now, style, settings.VRChatImagesProxied, _pictures,
+            settings.ManagedGroupIconUrl, ct);
 
         foreach (var giveaway in giveaways)
         {
@@ -210,11 +222,23 @@ public sealed class GiveawayDiscordPublisher
 
         var state = StateOf(giveaway);
         var link = Link(pass.PublicAddress, giveaway);
-        var embed = GiveawayCard.For(giveaway, state, entryCount, winners, roleNames, link, pass.Now);
+        var first = post.MessageId is null;
+
+        // A first post sends the group's icon; an edit points at the file the first post left on
+        // the message, so a card rewritten every twenty seconds is paid for once.
+        var pictures = pass.Pictures();
+        var icon = first
+            ? await pictures.AddAsync(pass.GroupIconUrl, pass.Ct).ConfigureAwait(false)
+            : await pictures.ReferenceAsync(pass.GroupIconUrl, pass.Ct).ConfigureAwait(false);
+
+        var embed = GiveawayCard.For(
+            giveaway, state, entryCount, winners, roleNames, link, pass.Now, pass.Style,
+            new CardPicture(AuthorIcon: icon));
+
         var links = GiveawayCard.Links(link);
 
         var fingerprint = CalendarFingerprint.Of(
-            "giveawayPost", channelId, embed.Title, embed.Color, embed.Url, embed.Footer,
+            "giveawayPost", channelId, embed.Title, embed.Color, embed.Url, embed.Footer, embed.AuthorName,
             string.Join('\n', embed.Fields.Select(f => f.Name + "=" + f.Value)),
             links.Count > 0 ? links[0].Url : null);
 
@@ -226,9 +250,10 @@ public sealed class GiveawayDiscordPublisher
 
         DiscordPostOutcome outcome;
 
-        if (post.MessageId is null)
+        if (first)
         {
-            outcome = await pass.Call(g => g.PostAsync(channelId!, null, [embed], links, pass.Ct)).ConfigureAwait(false);
+            outcome = await pass.Call(g => g.PostAsync(channelId!, null, [embed], links, pictures.Files, pass.Ct))
+                .ConfigureAwait(false);
 
             if (outcome is { Sent: true, MessageId: { } posted })
             {
@@ -249,9 +274,11 @@ public sealed class GiveawayDiscordPublisher
         }
         else
         {
-            var id = post.MessageId;
+            var id = post.MessageId!;
             var inChannel = post.ChannelId ?? channelId!;
-            outcome = await pass.Call(g => g.EditAsync(inChannel, id, null, [embed], links, pass.Ct)).ConfigureAwait(false);
+            // No list of pictures, so the file the first post left on the message stays where it is.
+            outcome = await pass.Call(g => g.EditAsync(inChannel, id, null, [embed], links, pictures: null, pass.Ct))
+                .ConfigureAwait(false);
 
             // Somebody deleted the post. Not posted again until the giveaway changes, so a
             // moderator who deleted it on purpose is not argued with every twenty seconds.
@@ -425,9 +452,25 @@ public sealed class GiveawayDiscordPublisher
         _log.Warning("Could not update the post for the giveaway {Giveaway}: {Reason}", giveaway.Id, error);
     }
 
-    private sealed class Pass(IDiscordGateway gateway, string? publicAddress, DateTimeOffset now, CancellationToken ct)
+    private sealed class Pass(
+        IDiscordGateway gateway,
+        string? publicAddress,
+        DateTimeOffset now,
+        CardStyle style,
+        bool showPictures,
+        CardPictures pictures,
+        string? groupIconUrl,
+        CancellationToken ct)
     {
         public string? PublicAddress { get; } = publicAddress;
+
+        public CardStyle Style { get; } = style;
+
+        /// <summary>The group's icon, which is the only picture a giveaway card carries.</summary>
+        public string? GroupIconUrl { get; } = groupIconUrl;
+
+        /// <summary>A fresh set of files for one message.</summary>
+        public CardPictureMessage Pictures() => pictures.ForMessage(showPictures);
 
         public DateTimeOffset Now { get; } = now;
 
