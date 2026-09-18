@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.My.Cloud;
 using Modbot.My.Common;
@@ -32,6 +33,19 @@ public static class MyApp
         services.AddSingleton<SiteLimits>();
         services.AddHttpClient(CloudClient.HttpClientName);
         services.AddSingleton<CloudClient>();
+
+        // Asking a Modbot address what it is. Its own client, because this one calls somewhere a
+        // stranger named: no redirect is followed, and it only ever connects to an address out on
+        // the public internet.
+        services.AddHttpClient(ServerLookup.HttpClientName)
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                ConnectCallback = PublicAddresses.ConnectAsync,
+                AutomaticDecompression = DecompressionMethods.All,
+            });
+
+        services.AddSingleton<ServerLookup>();
 
         services.AddCors(o => o.AddDefaultPolicy(policy => policy
             // The term list routes are public and are fetched by self-hosted deployments at
