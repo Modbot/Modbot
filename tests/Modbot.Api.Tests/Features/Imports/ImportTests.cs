@@ -2,7 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Imports;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
@@ -10,8 +15,10 @@ namespace Modbot.Api.Tests.Features.Imports;
 
 /// <summary>
 /// Import design: the file format, every mapped kind, unknown kinds kept, re-uploads skipped,
-/// rejections with line numbers, dry runs that write nothing, the permission, and the one audit
-/// entry per import.
+/// records mapped onto each source and a source Modbot does not have refused, facts Modbot
+/// already knows skipped without collapsing distinct events, an imported fact traceable back to
+/// its import, rejections with line numbers, dry runs that write nothing, the permission, and the
+/// one audit entry per import.
 /// </summary>
 /// <remarks>
 /// The import job runs in the test host's own hosted service, so every test uploads and then
@@ -229,19 +236,27 @@ public class ImportTests
         var first = await FinishedAsync(host, cookie, (await UploadAsync(host, cookie, source, body)).GetProperty("id").GetString()!);
         Assert.Equal(2, first.GetProperty("imported").GetInt32());
         Assert.Equal(1, first.GetProperty("skipped").GetInt32());
+        Assert.Equal(0, first.GetProperty("alreadyKnown").GetInt32());
 
         // The external id wins over a changed body.
         var again = body.Replace("\"first\"", "\"second\"", StringComparison.Ordinal);
         var second = await FinishedAsync(host, cookie, (await UploadAsync(host, cookie, source, again)).GetProperty("id").GetString()!);
         Assert.Equal(0, second.GetProperty("imported").GetInt32());
         Assert.Equal(3, second.GetProperty("skipped").GetInt32());
+        Assert.Equal(0, second.GetProperty("alreadyKnown").GetInt32());
 
         Assert.Single(await host.FactsAsync(FactType.MemberBanned, subject, Ct));
         Assert.Single(await host.FactsAsync(FactType.GroupInstanceWarn, subject, Ct));
 
-        // Under another source label it is another record.
+        // Under another source label the key is new, so every record is looked at again -- and
+        // every one of them is an event Modbot now has. Nothing is written twice.
         var third = await FinishedAsync(host, cookie, (await UploadAsync(host, cookie, NewSource(), body)).GetProperty("id").GetString()!);
-        Assert.Equal(2, third.GetProperty("imported").GetInt32());
+        Assert.Equal(0, third.GetProperty("imported").GetInt32());
+        Assert.Equal(1, third.GetProperty("skipped").GetInt32());
+        Assert.Equal(2, third.GetProperty("alreadyKnown").GetInt32());
+
+        Assert.Single(await host.FactsAsync(FactType.MemberBanned, subject, Ct));
+        Assert.Single(await host.FactsAsync(FactType.GroupInstanceWarn, subject, Ct));
     }
 
     [Fact]
@@ -462,23 +477,417 @@ public class ImportTests
         Assert.Equal("AuditLog", row.GetProperty("source").GetString());
     }
 
+    [Fact]
+    public async Task EveryAllowedSource_CanBeChosenPerRecord_AndTheUploadSetsTheDefault()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var source = NewSource();
+        var records = new List<object>();
+        var subjects = new Dictionary<FactSource, string>();
+
+        var minute = 0;
+        foreach (var seenBy in ImportSources.All)
+        {
+            var subject = NewUser();
+            subjects[seenBy] = subject;
+            records.Add(new
+            {
+                kind = "ban",
+                at = $"2024-07-01T09:{minute++:00}:00Z",
+                subject = new { platform = "vrchat", id = subject },
+                seenBy = seenBy.ToString(),
+            });
+        }
+
+        // No seenBy of its own: the upload's choice stands.
+        var inherits = NewUser();
+        records.Add(Record("ban", "2024-07-01T09:59:00Z", "vrchat", inherits));
+
+        var import = await UploadAsync(
+            host, cookie, source, JsonSerializer.Serialize(records), seenBy: nameof(FactSource.Discord));
+        var done = await FinishedAsync(host, cookie, import.GetProperty("id").GetString()!);
+
+        Assert.Equal("Done", done.GetProperty("status").GetString());
+        Assert.Equal(records.Count, done.GetProperty("imported").GetInt32());
+        Assert.Equal(0, done.GetProperty("rejected").GetInt32());
+        Assert.Equal(nameof(FactSource.Discord), done.GetProperty("seenBy").GetString());
+
+        foreach (var (seenBy, subject) in subjects)
+        {
+            var fact = Assert.Single(await host.FactsAsync(FactType.MemberBanned, subject, Ct));
+            Assert.Equal(seenBy, fact.Source);
+        }
+
+        Assert.Equal(
+            FactSource.Discord,
+            Assert.Single(await host.FactsAsync(FactType.MemberBanned, inherits, Ct)).Source);
+
+        // Import is not one of them, and never becomes one by accident.
+        Assert.DoesNotContain(FactSource.Import, ImportSources.All);
+    }
+
+    [Fact]
+    public async Task NoSourceAnywhere_IsManual()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var subject = NewUser();
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            Record("ban", "2024-08-01T00:00:00Z", "vrchat", subject),
+        });
+
+        var import = await UploadAsync(host, cookie, NewSource(), body);
+        var done = await FinishedAsync(host, cookie, import.GetProperty("id").GetString()!);
+
+        Assert.Equal(1, done.GetProperty("imported").GetInt32());
+        Assert.Equal(nameof(FactSource.Manual), done.GetProperty("seenBy").GetString());
+
+        // A person put this in, by hand, from somewhere else. That is what Manual means.
+        Assert.Equal(
+            FactSource.Manual,
+            Assert.Single(await host.FactsAsync(FactType.MemberBanned, subject, Ct)).Source);
+    }
+
+    [Fact]
+    public async Task ASourceModbotDoesNotHave_IsRefused_OnTheUploadAndOnARecord()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var subject = NewUser();
+
+        var nonsense = await UploadRawAsync(
+            host, cookie, NewSource(), "[]", dryRun: false, contentType: "application/json", seenBy: "Wherever");
+        Assert.Equal(HttpStatusCode.BadRequest, nonsense.StatusCode);
+
+        // Import used to be the one source every imported fact carried. It is a legacy value now.
+        var legacy = await UploadRawAsync(
+            host, cookie, NewSource(), "[]", dryRun: false, contentType: "application/json", seenBy: "Import");
+        Assert.Equal(HttpStatusCode.BadRequest, legacy.StatusCode);
+        Assert.Contains(
+            "no longer a source",
+            (await ApiTestHost.BodyOf(legacy, Ct)).GetProperty("error").GetString(),
+            StringComparison.Ordinal);
+
+        var lines = new StringBuilder()
+            .AppendLine(JsonSerializer.Serialize(new
+            {
+                kind = "ban",
+                at = "2024-09-01T00:00:00Z",
+                subject = new { platform = "vrchat", id = subject },
+                seenBy = "Wherever",
+            }))
+            .AppendLine(JsonSerializer.Serialize(new
+            {
+                kind = "ban",
+                at = "2024-09-01T00:01:00Z",
+                subject = new { platform = "vrchat", id = subject },
+                seenBy = "Import",
+            }))
+            .AppendLine(JsonSerializer.Serialize(new
+            {
+                kind = "ban",
+                at = "2024-09-01T00:02:00Z",
+                subject = new { platform = "vrchat", id = subject },
+                // Case does not matter.
+                seenBy = "auditlog",
+            }))
+            .ToString();
+
+        var done = await FinishedAsync(
+            host, cookie, (await UploadAsync(host, cookie, NewSource(), lines)).GetProperty("id").GetString()!);
+
+        Assert.Equal(3, done.GetProperty("received").GetInt32());
+        Assert.Equal(1, done.GetProperty("imported").GetInt32());
+        Assert.Equal(2, done.GetProperty("rejected").GetInt32());
+
+        var rejections = done.GetProperty("rejections").EnumerateArray()
+            .ToDictionary(r => r.GetProperty("line").GetInt32(), r => r.GetProperty("reason").GetString()!);
+
+        Assert.Contains("is not a source", rejections[1], StringComparison.Ordinal);
+        Assert.Contains("no longer a source", rejections[2], StringComparison.Ordinal);
+
+        Assert.Equal(
+            FactSource.AuditLog,
+            Assert.Single(await host.FactsAsync(FactType.MemberBanned, subject, Ct)).Source);
+    }
+
+    [Fact]
+    public async Task AFactModbotAlreadyHas_IsAlreadyKnown_AndIsStillTraceableToTheImport()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var source = NewSource();
+        var subject = NewUser();
+        var at = new DateTimeOffset(2024, 10, 5, 14, 0, 0, TimeSpan.Zero);
+
+        // Modbot read this ban from VRChat's own audit log while it happened. The old bot's
+        // export has it too, worded its own way.
+        var existing = await WriteExistingFactAsync(host, FactType.MemberBanned, subject, at);
+
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            new
+            {
+                kind = "ban",
+                at = "2024-10-05T14:00:00Z",
+                subject = new { platform = "vrchat", id = subject },
+                externalId = "ban-77",
+                seenBy = nameof(FactSource.AuditLog),
+                data = new { reason = "the old bot's wording, which will never match" },
+            },
+        });
+
+        var done = await FinishedAsync(
+            host, cookie, (await UploadAsync(host, cookie, source, body)).GetProperty("id").GetString()!);
+
+        Assert.Equal("Done", done.GetProperty("status").GetString());
+        Assert.Equal(1, done.GetProperty("received").GetInt32());
+        Assert.Equal(0, done.GetProperty("imported").GetInt32());
+        Assert.Equal(1, done.GetProperty("alreadyKnown").GetInt32());
+        Assert.Equal(0, done.GetProperty("skipped").GetInt32());
+
+        // One ban, not two.
+        var fact = Assert.Single(await host.FactsAsync(FactType.MemberBanned, subject, Ct));
+        Assert.Equal(existing, fact.Id);
+
+        // And the record is still traceable: its row points at the fact that already said it.
+        var row = Assert.Single(await ImportRecordsAsync(host, source));
+        Assert.Equal("id:ban-77", row.Key);
+        Assert.Equal(existing, row.FactId);
+        Assert.Equal(done.GetProperty("id").GetString(), row.ImportId.ToString());
+
+        // A second upload of the same file has nothing to do at all.
+        var again = await FinishedAsync(
+            host, cookie, (await UploadAsync(host, cookie, source, body)).GetProperty("id").GetString()!);
+        Assert.Equal(0, again.GetProperty("imported").GetInt32());
+        Assert.Equal(1, again.GetProperty("skipped").GetInt32());
+        Assert.Equal(0, again.GetProperty("alreadyKnown").GetInt32());
+    }
+
+    [Fact]
+    public async Task TwoDistinctEventsAtAlmostTheSameTime_BothSurvive()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var source = NewSource();
+        var oneSecondApart = NewUser();
+        var sameMinute = NewUser();
+
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            // A second apart: a client report's five-second window would have merged these.
+            new
+            {
+                kind = "warn",
+                at = "2024-11-02T20:00:00Z",
+                subject = new { platform = "vrchat", id = oneSecondApart },
+                externalId = "w-1",
+                data = new { reason = "Mic spam" },
+            },
+            new
+            {
+                kind = "warn",
+                at = "2024-11-02T20:00:01Z",
+                subject = new { platform = "vrchat", id = oneSecondApart },
+                externalId = "w-2",
+                data = new { reason = "Told to stop and did not" },
+            },
+
+            // The very same moment, because the old spreadsheet only kept the day. Three
+            // warnings are three warnings; telling them apart is the external id's job.
+            new
+            {
+                kind = "warn",
+                at = "2024-11-03T00:00:00Z",
+                subject = new { platform = "vrchat", id = sameMinute },
+                externalId = "w-3",
+                data = new { reason = "First" },
+            },
+            new
+            {
+                kind = "warn",
+                at = "2024-11-03T00:00:00Z",
+                subject = new { platform = "vrchat", id = sameMinute },
+                externalId = "w-4",
+                data = new { reason = "Second" },
+            },
+            new
+            {
+                kind = "warn",
+                at = "2024-11-03T00:00:00Z",
+                subject = new { platform = "vrchat", id = sameMinute },
+                externalId = "w-5",
+                data = new { reason = "Third" },
+            },
+        });
+
+        var done = await FinishedAsync(
+            host, cookie, (await UploadAsync(host, cookie, source, body)).GetProperty("id").GetString()!);
+
+        Assert.Equal("Done", done.GetProperty("status").GetString());
+        Assert.Equal(5, done.GetProperty("imported").GetInt32());
+        Assert.Equal(0, done.GetProperty("alreadyKnown").GetInt32());
+        Assert.Equal(0, done.GetProperty("skipped").GetInt32());
+
+        Assert.Equal(2, (await host.FactsAsync(FactType.GroupInstanceWarn, oneSecondApart, Ct)).Count);
+        Assert.Equal(3, (await host.FactsAsync(FactType.GroupInstanceWarn, sameMinute, Ct)).Count);
+    }
+
+    [Fact]
+    public async Task ADryRun_CountsWhatModbotAlreadyKnows_WithoutWritingAnything()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var source = NewSource();
+        var known = NewUser();
+        var fresh = NewUser();
+        var at = new DateTimeOffset(2024, 12, 9, 11, 30, 0, TimeSpan.Zero);
+
+        await WriteExistingFactAsync(host, FactType.MemberBanned, known, at);
+
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            Record("ban", "2024-12-09T11:30:00Z", "vrchat", known),
+            Record("ban", "2024-12-09T11:30:00Z", "vrchat", fresh),
+        });
+
+        var dry = await FinishedAsync(
+            host, cookie, (await UploadAsync(host, cookie, source, body, dryRun: true)).GetProperty("id").GetString()!);
+
+        Assert.Equal(1, dry.GetProperty("imported").GetInt32());
+        Assert.Equal(1, dry.GetProperty("alreadyKnown").GetInt32());
+        Assert.Empty(await ImportRecordsAsync(host, source));
+        Assert.Empty(await host.FactsAsync(FactType.MemberBanned, fresh, Ct));
+
+        // The real run does exactly what the dry run said it would.
+        var real = await FinishedAsync(
+            host, cookie, (await UploadAsync(host, cookie, source, body)).GetProperty("id").GetString()!);
+
+        Assert.Equal(1, real.GetProperty("imported").GetInt32());
+        Assert.Equal(1, real.GetProperty("alreadyKnown").GetInt32());
+        Assert.Single(await host.FactsAsync(FactType.MemberBanned, fresh, Ct));
+        Assert.Single(await host.FactsAsync(FactType.MemberBanned, known, Ct));
+    }
+
+    [Fact]
+    public async Task AnImportedFact_NamesTheImportThatWroteIt_WhateverSourceItCarries()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var source = NewSource();
+        var subject = NewUser();
+
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            new
+            {
+                kind = "ban",
+                at = "2025-01-04T16:45:00Z",
+                subject = new { platform = "vrchat", id = subject },
+                externalId = "ban-2001",
+                seenBy = nameof(FactSource.AuditLog),
+                data = new { reason = "Harassment" },
+            },
+        });
+
+        var import = await UploadAsync(host, cookie, source, body, fileName: "old-bot.json");
+        var id = import.GetProperty("id").GetString()!;
+        var done = await FinishedAsync(host, cookie, id);
+        Assert.Equal(1, done.GetProperty("imported").GetInt32());
+
+        var fact = Assert.Single(await host.FactsAsync(FactType.MemberBanned, subject, Ct));
+
+        // The source says VRChat's audit log, which is where the event happened. Where the claim
+        // came from is on the fact itself, which is the whole point of moving it there.
+        Assert.Equal(FactSource.AuditLog, fact.Source);
+
+        var data = ApiTestHost.DataOf(fact);
+        Assert.Equal(id, data.GetProperty("importId").GetString());
+        Assert.Equal(source, data.GetProperty("importSource").GetString());
+        Assert.Equal("ban-2001", data.GetProperty("externalId").GetString());
+
+        var row = Assert.Single(await ImportRecordsAsync(host, source));
+        Assert.Equal(fact.Id, row.FactId);
+        Assert.Equal(id, row.ImportId.ToString());
+        Assert.Equal(subject, row.SubjectId);
+    }
+
     private static object Record(string kind, string at, string platform, string id)
         => new { kind, at, subject = new { platform, id } };
 
     private static async Task<JsonElement> UploadAsync(
-        ApiTestHost host, string cookie, string source, string body, bool dryRun = false, string contentType = "application/json")
+        ApiTestHost host,
+        string cookie,
+        string source,
+        string body,
+        bool dryRun = false,
+        string contentType = "application/json",
+        string? seenBy = null,
+        string? fileName = null)
     {
-        var response = await UploadRawAsync(host, cookie, source, body, dryRun, contentType);
+        var response = await UploadRawAsync(host, cookie, source, body, dryRun, contentType, seenBy, fileName);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await ApiTestHost.BodyOf(response, Ct);
     }
 
     private static Task<HttpResponseMessage> UploadRawAsync(
-        ApiTestHost host, string cookie, string source, string body, bool dryRun, string contentType)
+        ApiTestHost host,
+        string cookie,
+        string source,
+        string body,
+        bool dryRun,
+        string contentType,
+        string? seenBy = null,
+        string? fileName = null)
     {
-        var request = host.Authenticated(HttpMethod.Post, $"{Path}?source={Uri.EscapeDataString(source)}&dryRun={dryRun}", cookie);
+        var query = $"{Path}?source={Uri.EscapeDataString(source)}&dryRun={dryRun}";
+        if (seenBy is not null)
+            query += $"&seenBy={Uri.EscapeDataString(seenBy)}";
+        if (fileName is not null)
+            query += $"&fileName={Uri.EscapeDataString(fileName)}";
+
+        var request = host.Authenticated(HttpMethod.Post, query, cookie);
         request.Content = new StringContent(body, Encoding.UTF8, contentType);
         return host.Client.SendAsync(request, Ct);
+    }
+
+    /// <summary>A fact Modbot recorded itself, so an import can meet one it already has.</summary>
+    private static async Task<long> WriteExistingFactAsync(
+        ApiTestHost host, string type, string subject, DateTimeOffset at)
+    {
+        using var scope = host.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<EventPartitionMaintainer>().EnsureForAsync(at, Ct);
+
+        var written = await scope.ServiceProvider.GetRequiredService<IFactWriter>().WriteAsync(
+            new FactRecord
+            {
+                Type = type,
+                OccurredAt = at,
+                SubjectPlatform = FactPlatform.VRChat,
+                SubjectId = subject,
+                Source = FactSource.AuditLog,
+                Data = new JsonObject { ["reason"] = "VRChat's own wording" },
+            },
+            Ct);
+
+        return written.Id;
+    }
+
+    private static async Task<List<ImportRecord>> ImportRecordsAsync(ApiTestHost host, string source)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        return await db.ImportRecords.AsNoTracking().Where(r => r.Source == source).ToListAsync(Ct);
     }
 
     /// <summary>Asks for the import until it is done or failed, the way the page does.</summary>
