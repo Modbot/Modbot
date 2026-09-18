@@ -8316,6 +8316,42 @@
         ]
       }
     },
+    "/api/health/machine": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Processor use, memory and disk activity over the last half hour",
+        "description": "Every figure is this server's own use of the machine, not the whole machine's: in a container that is what the operator sized and pays for, and it is the only thing Modbot can measure without being told about its host.\n\nA figure is null on a host where it cannot be read honestly — the disk counters are Linux-only, and a memory limit exists only where something sets one. Null means unavailable, never zero.\n\nReadings are kept in memory only. Nothing here is stored, and the window is empty for the first few seconds after a restart: processor use and disk activity are rates, and a rate needs two readings.\n\nNeeds the `ViewOperationalLog` permission.",
+        "operationId": "GetMachineUsage",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MachineUsage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/logs": {
       "get": {
         "tags": [
@@ -24749,6 +24785,114 @@
           },
           "password": {
             "type": "string"
+          }
+        }
+      },
+      "MachineUsage": {
+        "required": [
+          "sampleSeconds",
+          "windowMinutes",
+          "processors",
+          "memoryLimitBytes",
+          "now",
+          "points"
+        ],
+        "type": "object",
+        "properties": {
+          "sampleSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "windowMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "processors": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "memoryLimitBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MachineUsagePoint"
+            }
+          }
+        }
+      },
+      "MachineUsagePoint": {
+        "required": [
+          "at",
+          "processorPercent",
+          "memoryBytes",
+          "diskReadBytesPerSecond",
+          "diskWrittenBytesPerSecond"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "processorPercent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "memoryBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "diskReadBytesPerSecond": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "diskWrittenBytesPerSecond": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },

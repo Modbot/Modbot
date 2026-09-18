@@ -15,6 +15,7 @@ using Modbot.Api.Features.Companion;
 using Modbot.Api.Features.Evidence;
 using Modbot.Core.Logging;
 using Modbot.Core.Logging.Store;
+using Modbot.Core.Machine;
 using Modbot.Core.Names;
 using Modbot.AI;
 using Modbot.Moderation;
@@ -272,6 +273,12 @@ try
     builder.Services.AddSingleton<UpdateCheckClient>();
     builder.Services.AddScoped<UpdateChecker>();
     builder.Services.AddHostedService<UpdateCheckService>();
+
+    // How hard this machine is working, for the bottom of Host & Database (machine usage design).
+    // A window of readings in memory and nothing else: no table, no migration, and nothing that
+    // survives a restart, because the question it answers is only ever about right now.
+    builder.Services.AddSingleton<MachineUsageSampler>();
+    builder.Services.AddHostedService<MachineUsageService>();
 
     // Where every AI feature gets its client (M8 section 4). It reads the settings row on each
     // call and hands out nothing while AI is off, so it needs nothing from startup. Adds the AI
