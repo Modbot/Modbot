@@ -3,7 +3,7 @@
 - **Date:** 2026-09-17
 - **Status:** Built
 - **Covers:** Every embed the bot posts — the moderation log, instance announcements, calendar
-  posts, alerts, insights, the `/lookup` and `/recent` replies, and the link prompt
+  posts, giveaway posts, alerts, insights, the `/lookup` and `/recent` replies, and the link prompt
 - **Depends on:** foundation §10.2 (the subject popup and the `?subject=` format), §4.1 (the VRChat
   gate), §3.1.1 (ids have no structure); brand design 2026-09-16 (the violet and the mark);
   VRChat files and profile pictures design 2026-09-17 (`ProfilePictures.Best`, `IconUrl`,
@@ -215,6 +215,7 @@ none in Discord.
 | `/lookup` | The person's, as the thumbnail | Their banner |
 | Instance | — | The world's |
 | Calendar | — | The event's own, else the world's |
+| Giveaway | The group's, beside its name | — |
 | Alert, insight, `/recent`, link prompt | — | — |
 
 The person's picture is whichever of the three VRChat has carried over the years that the row holds,
@@ -225,9 +226,11 @@ in Modbot are never different.
 banners is a wall, not a record. The banner belongs on the one card that is about a person rather
 than about something that happened to them, which is the `/lookup` reply.
 
-**A group's icon appears on one card.** The person a `/lookup` reply is about may be representing a
-group, and that group's name and icon sit above their name. No other card is about a group today;
-when one is — a giveaway, say — it takes its icon through the same path.
+**A group's icon appears on two cards.** The person a `/lookup` reply is about may be representing a
+group, and that group's name and icon sit above their name. The giveaway post is the other: a
+giveaway is something the group is doing rather than something that happened to a person, so the
+group's icon sits above the giveaway's name and the card carries no other picture. Modbot holds no
+picture of a prize, and an empty slot is not a reason to invent one.
 
 ## 4. What each card shows
 
@@ -318,9 +321,30 @@ Unchanged, except that the server's name is now escaped as a name rather than as
 server called `**everyone**` should not make the greeting shout, and one with a `]` in it should
 not be able to break out of anything.
 
+### 4.9 A giveaway post
+
+The giveaway card was built in parallel with this work and against the style it replaced, and was
+moved onto the helpers once both had landed. It is the worked example of §5: the winners are linked
+names, the colours come from `CardColour`, the group's name and Modbot's mark come from `CardStyle`,
+and the group's icon is fetched through `CardPictures` — `AddAsync` on the first post,
+`ReferenceAsync` on every rewrite, so a card rewritten every twenty seconds is paid for once.
+
+Two things are particular to it, and both are recorded in the giveaways design §7.1 and §7.3:
+
+- **The winners list is built against the 1024-character field limit rather than cut to it.** A
+  linked name is several times the length of a plain one, so twenty of them no longer fit where
+  twenty plain ones did; the card lists as many as fit and ends with "and N more". This is the same
+  arithmetic that keeps the instance card's names plain (§4.2) — the giveaway names fewer people, so
+  it could afford the links.
+- **The line the bot posts when a draw is made keeps plain names.** It is message text rather than
+  an embed, and this document is about embeds.
+
+Open violet, closed dark, drawn green, cancelled red.
+
 ## 5. What a new card adopts
 
-Anything added later — the giveaway card is the next one — takes three things and gets the rest:
+Anything added later takes three things and gets the rest — the giveaway card (§4.9) was the first
+to do it:
 
 - **`CardStyle`**: where Modbot is, whose group it moderates, and the mark beside a footer. One
   value, built once per pass by the poster.
@@ -339,4 +363,5 @@ a cancelled card were different shades of the same idea for no reason anybody co
   (`VRChatImagesProxied`) already existed.
 - **No picture on a card that does not want one.** Alerts and insights stay plain.
 - **No linking of the names on an instance card** (§4.2).
-- **No group card**, because there is nothing today that is about a group. The path is ready for one.
+- **No group card.** Nothing today is *about* a group; the giveaway post is about a giveaway and
+  wears the group's name and icon the way an instance card wears them (§4.9).

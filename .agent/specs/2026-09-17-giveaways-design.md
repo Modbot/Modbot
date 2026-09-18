@@ -347,6 +347,38 @@ drawn.
 The rules are on the card on purpose. A giveaway whose rules live on a page members cannot open is a
 giveaway they have to take on trust, and the whole point of §5 is that they should not have to.
 
+#### It is built out of the shared card helpers
+
+The card was written at the same time as the embed redesign and against the style that redesign
+replaced, so it was brought onto the helpers afterwards (Discord embeds design §5). What that
+changed:
+
+- **A winner is a linked name**, through `CardLink` — their VRChat profile when the entrant row
+  carries a VRChat id, their Discord profile in Modbot when it carries only a Discord id. This is
+  the whole point of the fix: a card announcing that somebody won was the last card in Modbot where
+  the name was flat text. With no public address the same helper gives the name on its own, because
+  a link built from anything but the address a human typed would not work (accounts and access
+  §4.2).
+- **Somebody erased at their own request stays erased** (§6.3). Their row has no name and no ids
+  left, so there is nothing to link to and the words that replaced them are all the card shows.
+- **The winners list is built against Discord's 1024-character field limit rather than cut to it.**
+  A linked name is several times the length of a plain one, so twenty of them no longer fit where
+  twenty plain ones did; the card lists as many as fit and ends with "and N more". Cutting instead
+  would have landed inside a link and put a raw address on the card.
+- **The colours are the shared palette's** (`CardColour`), not four constants of its own.
+- **The group's name sits above the giveaway's and the footer carries Modbot's mark**, both from
+  `CardStyle` — the same line an instance card and a calendar post already had, so a server
+  watching more than one Modbot can tell its channels apart.
+- **The group's icon is the one picture the card carries**, sent with the first post and referred
+  to by name on every rewrite (Discord embeds design §3.3, §3.6). There is no thumbnail and no
+  large picture: Modbot holds no picture of a prize, and this card is about neither a person nor a
+  place.
+- **Each piece of text is escaped for the slot it lands in.** The title is printed literally by
+  Discord, so it is stripped rather than escaped — a giveaway called `*hats*` reads as `*hats*` on
+  its own card. A rule line is escaped as a name, because a rule about a role prints a Discord role
+  name and those are chosen by whoever made the role. The prize keeps the organiser's formatting,
+  the way a calendar event's description does.
+
 ### 7.2 Keeping it in line
 
 The publisher writes the post only when what it should say differs from the fingerprint last sent —
@@ -369,6 +401,11 @@ draw number — so a re-draw is announced and the same draw never is twice.
 **Nobody is pinged, ever.** A giveaway with four hundred entrants would otherwise be four hundred
 notifications for one result. Mentions are off on every message the bot sends, so no card can ping
 anybody however it is written, and a winner's name is escaped like any other display name.
+
+**The names in the announcement stay plain, unlike the ones on the card above it.** This is a line
+of message text rather than an embed, and the embed rules are written for embeds (Discord embeds
+design, *Covers*). The linked names belong on the card the announcement points at, which is a click
+away.
 
 ---
 
