@@ -8,7 +8,7 @@ import { EvidenceGallery } from '@/components/EvidenceGallery'
 import { Markdown } from '@/components/Markdown'
 import { ReasonButtons, WrittenReasonBox } from '@/components/CaseFileForm'
 import { SubjectLink } from '@/components/facts'
-import { TrustRankBadge } from '@/components/TrustRankBadge'
+import { OtherTags, ProfileBadges } from '@/components/ProfileBadges'
 import {
   api,
   ApiError,
@@ -405,16 +405,17 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
             {profile.displayName ?? <span className="font-mono">{profile.userId}</span>}
           </span>
           {profile.pronouns && <span className="text-muted-foreground">{profile.pronouns}</span>}
-          <TrustRankBadge rank={profile.trustRank} className="self-center" />
           {profile.eighteenPlus?.verified && (
             <span
-              className="inline-flex items-center rounded-full border border-transparent bg-ok/15 px-2 py-0.5 font-medium text-ok"
+              className="inline-flex items-center self-center rounded-full border border-transparent bg-ok/15 px-2 py-0.5 font-medium text-ok"
               style={{ borderWidth: 'var(--hairline)' }}
             >
               18+ verified
             </span>
           )}
         </div>
+
+        <ProfileBadges tags={tags} lastPlatform={profile.lastPlatform} rank={profile.trustRank} className="mt-1" />
 
         {profile.statusDescription && (
           <div className="mt-0.5 text-muted-foreground">“{profile.statusDescription}”</div>
@@ -431,12 +432,6 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
               <dd className="text-foreground">{formatDay(profile.dateJoined)}</dd>
             </div>
           )}
-          {profile.lastPlatform && (
-            <div className="flex gap-1">
-              <dt>Last platform:</dt>
-              <dd className="text-foreground">{profile.lastPlatform}</dd>
-            </div>
-          )}
           {profile.ageVerificationStatus && (
             <div className="flex gap-1">
               <dt>VRChat showed:</dt>
@@ -445,19 +440,7 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
           )}
         </dl>
 
-        {tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border px-2 py-0.5 font-mono text-muted-foreground"
-                style={{ borderWidth: 'var(--hairline)', fontSize: '0.6875rem' }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+        <OtherTags tags={tags} className="mt-2" />
       </div>
     </div>
   )
