@@ -221,6 +221,12 @@ public static class AuditVisibility
         [FactType.ActionUnban] = AuditCategory.Moderation,
         [FactType.ActionFailed] = AuditCategory.Moderation,
 
+        // Letting somebody into the group, or turning them down, is a decision about a person and
+        // belongs in their timeline beside VRChat's own record of the same event (join requests
+        // design §7).
+        [FactType.ActionJoinRequestApproved] = AuditCategory.Moderation,
+        [FactType.ActionJoinRequestRejected] = AuditCategory.Moderation,
+
         // Looking somebody up through Chat is the same kind of access record as opening a piece of
         // evidence, and it belongs in the timeline of the person who was looked at rather than in
         // the operator's log: a moderator reading their own history should see who has been asking

@@ -13018,6 +13018,253 @@
         ]
       }
     },
+    "/api/requests": {
+      "get": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "The people waiting to be let into the group",
+        "description": "Read from VRChat when you ask, not from a stored copy, so it is the queue as it stands. `page` and `pageSize` page it; `hasMore` is true when the page came back full, because VRChat sends no total for this list. Each row carries what Modbot already knows about the person: their profile, whether the group has banned them before, and whether they have been a member before.\n\nNeeds the `ViewJoinRequests` permission.",
+        "operationId": "GetJoinRequests",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinRequestList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/requests/approve": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Let somebody into the group",
+        "description": "Nothing is recorded as done unless VRChat accepted it. The key makes one confirmation act once. `gone` is true when the request had already been answered in VRChat: nothing failed, the row was out of date.\n\nNeeds the `AnswerJoinRequests` permission.",
+        "operationId": "ApproveJoinRequest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinRequestAnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModerationActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/requests/reject": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Turn a join request down",
+        "description": "The person may ask again; Modbot never blocks them from asking, which is what Ban is for. Nothing is recorded as done unless VRChat accepted it, and `gone` is true when the request had already been answered in VRChat.\n\nNeeds the `AnswerJoinRequests` permission.",
+        "operationId": "RejectJoinRequest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinRequestAnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModerationActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar": {
       "get": {
         "tags": [
@@ -24315,6 +24562,157 @@
           }
         }
       },
+      "JoinRequestAnswerRequest": {
+        "required": [
+          "userId",
+          "key"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "reasonIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "JoinRequestList": {
+        "required": [
+          "requests",
+          "page",
+          "pageSize",
+          "hasMore",
+          "readAt"
+        ],
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JoinRequestRow"
+            }
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "JoinRequestRow": {
+        "required": [
+          "userId",
+          "displayName",
+          "plainName",
+          "avatarThumbnailUrl",
+          "trustRank",
+          "eighteenPlus",
+          "askedAt",
+          "banned",
+          "bannedBefore",
+          "wasMember",
+          "leftAt",
+          "known"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "plainName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarThumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "trustRank": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrustRank"
+              }
+            ]
+          },
+          "eighteenPlus": {
+            "type": "boolean"
+          },
+          "askedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "banned": {
+            "type": "boolean"
+          },
+          "bannedBefore": {
+            "type": "boolean"
+          },
+          "wasMember": {
+            "type": "boolean"
+          },
+          "leftAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "known": {
+            "type": "boolean"
+          }
+        }
+      },
       "JsonElement": { },
       "JsonNode": { },
       "KindSeries": {
@@ -26007,6 +26405,10 @@
           },
           "repeat": {
             "type": "boolean"
+          },
+          "gone": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -31868,6 +32270,10 @@
     {
       "name": "Notes",
       "x-displayName": "Notes"
+    },
+    {
+      "name": "Requests",
+      "x-displayName": "Requests"
     },
     {
       "name": "Search",

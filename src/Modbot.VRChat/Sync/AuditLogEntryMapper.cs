@@ -131,14 +131,20 @@ public static class AuditLogEntryMapper
     /// Reads VRChat's <c>created_at</c> as an instant.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// An unspecified <see cref="DateTimeKind"/> is read as UTC rather than as local time. The SDK
     /// deserialises through Newtonsoft, whose <c>Kind</c> depends on how the string was written
     /// and on the process's settings -- and reading an API timestamp as local would make every
     /// fact's time depend on the host's timezone. That is precisely the class of silent,
     /// plausible-looking corruption spec 4.4 exists to rule out, so the assumption is made here,
     /// once, in the open.
+    /// </para>
+    /// <para>
+    /// Public since 2026-09-18, when the join queue became the second thing to read a VRChat
+    /// timestamp off a response body. One copy of this assumption, not two that can drift.
+    /// </para>
     /// </remarks>
-    internal static DateTimeOffset ReadTimestamp(DateTime createdAt) => createdAt.Kind switch
+    public static DateTimeOffset ReadTimestamp(DateTime createdAt) => createdAt.Kind switch
     {
         DateTimeKind.Utc => new DateTimeOffset(createdAt),
         DateTimeKind.Local => new DateTimeOffset(createdAt).ToUniversalTime(),

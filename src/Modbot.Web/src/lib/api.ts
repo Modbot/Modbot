@@ -1060,6 +1060,11 @@ export type ModerationActionResult = {
   rateLimited: boolean
   /** This key had already been used: the answer is the first press's, and nothing was sent again. */
   repeat: boolean
+  /**
+   * VRChat said there was nothing there to act on — a join request somebody had already answered,
+   * say. Nothing failed; the row was out of date.
+   */
+  gone: boolean
 }
 
 /**
@@ -1140,6 +1145,54 @@ export type GroupBanQuery = {
   page?: number
   pageSize?: number
 }
+
+/** One person waiting to be let into the group, as VRChat had the queue a moment ago. */
+export type JoinRequestRow = {
+  userId: string
+  displayName: string | null
+  /** The display name in plain letters, when that differs from it. */
+  plainName: string | null
+  avatarThumbnailUrl: string | null
+  trustRank: TrustRank | null
+  eighteenPlus: boolean
+  askedAt: string | null
+  /** The group's ban list holds them right now. */
+  banned: boolean
+  /** The group banned them once and the ban was lifted. */
+  bannedBefore: boolean
+  /** Modbot has them as a member who left, or was removed. */
+  wasMember: boolean
+  leftAt: string | null
+  /** False when Modbot has never recorded anything about this person at all. */
+  known: boolean
+}
+
+/**
+ * One page of the join queue.
+ *
+ * `hasMore` rather than a total: VRChat sends no count for this list, so a full page is all a
+ * next-page control has to go on.
+ */
+export type JoinRequestList = {
+  requests: JoinRequestRow[]
+  page: number
+  pageSize: number
+  hasMore: boolean
+  readAt: string
+}
+
+export type JoinRequestQuery = { page?: number; pageSize?: number }
+
+/** What one press of an approve or reject confirmation sends. */
+export type JoinRequestAnswerBody = {
+  userId: string
+  key: string
+  reasonIds: string[]
+  note: string
+}
+
+/** Approve or reject, as the Requests screen names them. */
+export type JoinRequestAnswer = 'approve' | 'reject'
 
 export type DayValue = { day: string; value: number }
 
@@ -4073,6 +4126,21 @@ export const api = {
 
   /** Take a note back. Nothing is deleted; a second fact records that it no longer stands. */
   takeBackNote: (id: number) => post<Note>(`/api/notes/${id}/take-back`),
+  // ── Join requests (join requests design). Read live from VRChat every time. ───────────────
+
+  joinRequests: (query: JoinRequestQuery = {}) => {
+    const q = new URLSearchParams()
+    if (query.page && query.page > 1) q.set('page', String(query.page))
+    if (query.pageSize) q.set('pageSize', String(query.pageSize))
+    const search = q.toString()
+    return request<JoinRequestList>(`/api/requests${search ? `?${search}` : ''}`)
+  },
+
+  approveJoinRequest: (body: JoinRequestAnswerBody) =>
+    post<ModerationActionResult>('/api/requests/approve', body),
+
+  rejectJoinRequest: (body: JoinRequestAnswerBody) =>
+    post<ModerationActionResult>('/api/requests/reject', body),
 
   // ── The MCP server (MCP server design) ───────────────────────────────────────────────────
 

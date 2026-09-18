@@ -41,6 +41,11 @@ public sealed record ModerationActionRequest(
 /// True when this key had already been used: the answer is the first press's, and nothing was sent
 /// a second time.
 /// </param>
+/// <param name="Gone">
+/// True when VRChat said there was nothing there to act on — a join request somebody had already
+/// answered, or a person who is no longer where the screen showed them. Nothing failed; the row
+/// was simply out of date, and the screen can drop it rather than reporting a refusal.
+/// </param>
 public sealed record ModerationActionResult(
     string Action,
     string UserId,
@@ -49,4 +54,5 @@ public sealed record ModerationActionResult(
     Guid? CaseId,
     string? Error,
     bool RateLimited,
-    bool Repeat);
+    bool Repeat,
+    bool Gone = false);

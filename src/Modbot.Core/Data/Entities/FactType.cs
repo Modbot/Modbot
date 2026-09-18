@@ -494,6 +494,17 @@ public static class FactType
     /// </remarks>
     public const string ActionFailed = "modbot.action.failed";
 
+    /// <summary>A moderator let somebody into the group from Modbot, and VRChat accepted.</summary>
+    /// <remarks>
+    /// Separate from <see cref="JoinRequestCreated"/> and the rest of the <c>vrchat.group.request.*</c>
+    /// family for the reason the three above are separate from the member facts: VRChat's own log
+    /// says Modbot's account answered the request and cannot say which moderator decided to.
+    /// </remarks>
+    public const string ActionJoinRequestApproved = "modbot.action.request.approve";
+
+    /// <summary>A moderator turned a join request down from Modbot, and VRChat accepted.</summary>
+    public const string ActionJoinRequestRejected = "modbot.action.request.reject";
+
     // ── Evidence (evidence design §6, §14.1) ───────────────────────────────────────────────
 
     /// <summary>Evidence was attached to a case file.</summary>

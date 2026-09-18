@@ -167,6 +167,8 @@ public static class FactLabels
         [FactType.ActionBan] = "Banned from Modbot",
         [FactType.ActionUnban] = "Unbanned from Modbot",
         [FactType.ActionFailed] = "Action failed",
+        [FactType.ActionJoinRequestApproved] = "Let into the group from Modbot",
+        [FactType.ActionJoinRequestRejected] = "Join request turned down from Modbot",
 
         [FactType.EvidenceAttached] = "Evidence attached",
         [FactType.EvidenceAccessed] = "Evidence opened",

@@ -401,6 +401,10 @@ public static class ApiSurface
         // nothing here reaches VRChat -- so the fact log is the whole feature, and a host without
         // a fact writer reads notes and refuses to write one.
         Features.Notes.NoteEndpoints.MapNotes(app);
+        // The people waiting to be let into the group, read from VRChat when a moderator opens
+        // the screen, and the two answers to one of them (join requests design). The gate and the
+        // fact log resolve optionally here for the same reason they do above.
+        Features.Requests.RequestEndpoints.MapJoinRequests(app);
 
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.

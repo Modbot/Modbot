@@ -54,8 +54,17 @@ public sealed class ModerationActionService
     public const string Ban = "ban";
     public const string Unban = "unban";
 
+    /// <summary>Let somebody in who asked to join (join requests design §4).</summary>
+    public const string Approve = "approve";
+
+    /// <summary>Turn a join request down.</summary>
+    public const string Reject = "reject";
+
     public const int MaxKeyLength = 128;
     public const int MaxNoteLength = 20_000;
+
+    /// <summary>What a moderator is told when VRChat says there is nothing there to act on.</summary>
+    public const string Gone = "That request is no longer waiting. Somebody may have answered it in VRChat.";
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -63,6 +72,7 @@ public sealed class ModerationActionService
     private readonly IFactWriter _facts;
     private readonly EventPartitionMaintainer _partitions;
     private readonly CaseFileService? _cases;
+    private readonly GroupJoinRequests? _requests;
 
     public ModerationActionService(
         ModbotContext db,
@@ -70,7 +80,8 @@ public sealed class ModerationActionService
         GroupModeration vrchat,
         IFactWriter facts,
         EventPartitionMaintainer partitions,
-        CaseFileService? cases = null)
+        CaseFileService? cases = null,
+        GroupJoinRequests? requests = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
@@ -84,6 +95,7 @@ public sealed class ModerationActionService
         _facts = facts;
         _partitions = partitions;
         _cases = cases;
+        _requests = requests;
     }
 
     public async Task<ModerationActionResult> RunAsync(
@@ -200,6 +212,25 @@ public sealed class ModerationActionService
                 return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind);
             }
 
+            case Approve or Reject:
+            {
+                if (_requests is null)
+                    throw new ModerationRefused(503, "This deployment is not set up to answer join requests.");
+
+                var result = action == Approve
+                    ? await _requests.ApproveAsync(groupId, userId, ct)
+                    : await _requests.RejectAsync(groupId, userId, ct);
+
+                // A 404 here is the ordinary ending, not a fault: somebody answered the request
+                // in VRChat, or the person withdrew it, between the list being read and the
+                // button being pressed. Said in words, because "Not Found" in front of a
+                // moderator reads as a bug in Modbot (join requests design §5).
+                if (!result.Success && result.StatusCode == 404)
+                    return (false, 404, Gone, false);
+
+                return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind);
+            }
+
             default:
                 throw new ModerationRefused(400, $"'{action}' is not something Modbot can do.");
         }
@@ -235,6 +266,8 @@ public sealed class ModerationActionService
             Kick => FactType.ActionKick,
             Ban => FactType.ActionBan,
             Unban => FactType.ActionUnban,
+            Approve => FactType.ActionJoinRequestApproved,
+            Reject => FactType.ActionJoinRequestRejected,
             _ => throw new ModerationRefused(400, $"'{action}' is not something Modbot can do."),
         };
 
@@ -357,6 +390,11 @@ public sealed class ModerationActionService
             case Unban:
                 if (ban is not null) ban.LiftedAt ??= now;
                 break;
+
+            // Approve and Reject deliberately change nothing. Neither table is what the Requests
+            // screen reads -- that list comes from VRChat every time it is opened -- so there is
+            // no stale page to patch up, and the member sweep lists an approved person on its
+            // next pass exactly as it lists anybody else who joined (join requests design §3).
         }
     }
 
@@ -530,6 +568,8 @@ public sealed class ModerationActionService
             Kick => "kicked from the group",
             Ban => "banned from the group",
             Unban => "unbanned",
+            Approve => "let into the group",
+            Reject => "turned down for the group",
             _ => action,
         };
 
@@ -558,6 +598,9 @@ public sealed class ModerationActionService
             row.CaseFileId,
             error,
             row.RateLimited,
-            repeat);
+            repeat,
+            // Read off the row rather than held in a column of its own, so a second press of the
+            // same key is told the same thing the first one was.
+            Gone: row.Succeeded == false && row.StatusCode == 404);
     }
 }
