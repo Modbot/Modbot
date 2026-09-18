@@ -1454,6 +1454,30 @@ export type SweepHealth = {
   lastRun: SyncRunSummary | null
 }
 
+/**
+ * One reading of how hard the machine is working.
+ *
+ * Every figure is nullable, and null means the host does not let Modbot read it — the disk
+ * counters are Linux-only. Null is never drawn as zero: a figure that cannot be read is left out
+ * of the screen rather than shown as an idle one.
+ */
+export type MachineUsagePoint = {
+  at: string
+  processorPercent: number | null
+  memoryBytes: number | null
+  diskReadBytesPerSecond: number | null
+  diskWrittenBytesPerSecond: number | null
+}
+
+export type MachineUsage = {
+  sampleSeconds: number
+  windowMinutes: number
+  processors: number
+  memoryLimitBytes: number | null
+  now: string
+  points: MachineUsagePoint[]
+}
+
 export type SyncHealth = {
   gate: GateHealth
   buckets: BucketHealth[]
@@ -3648,6 +3672,8 @@ export const api = {
   gateHealth: () => request<GateHealth>('/api/health/gate'),
 
   syncHealth: () => request<SyncHealth>('/api/health/sync'),
+
+  machineUsage: () => request<MachineUsage>('/api/health/machine'),
 
   logs: (query: LogQuery = {}) => {
     const q = new URLSearchParams()
