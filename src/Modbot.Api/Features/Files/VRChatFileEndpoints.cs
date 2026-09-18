@@ -103,10 +103,18 @@ public static class VRChatFileEndpoints
 
         // Keyed on what the caller asked for, character for character, so the address the web app
         // built and the address a second screen built hit the same file.
+        // The cache hands back an open file rather than a path, and the result disposes it. A path
+        // would only be true until the sweep or another store used the name; the open file is the
+        // bytes themselves.
         if (cache.Find(url) is { } held)
         {
             Headers(http, CacheControl);
-            return Results.File(held.Path, held.ContentType, entityTag: Tag(held.Tag));
+
+            return Results.Stream(
+                held.Content,
+                held.ContentType,
+                entityTag: Tag(held.Tag),
+                enableRangeProcessing: true);
         }
 
         var fetched = await gate.FetchFileAsync(address, ct);

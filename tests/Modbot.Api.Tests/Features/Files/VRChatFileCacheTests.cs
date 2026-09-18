@@ -47,7 +47,7 @@ public class VRChatFileCacheTests : IDisposable
 
         Assert.NotNull(held);
         Assert.Equal("image/jpeg", held.ContentType);
-        Assert.Equal([1, 2, 3], await File.ReadAllBytesAsync(held.Path, Ct));
+        Assert.Equal([1, 2, 3], await ReadAsync(held));
 
         // The key is the SHA-256 of the address, which is also the ETag: the address names a
         // version, so the bytes behind it never change.
@@ -63,8 +63,8 @@ public class VRChatFileCacheTests : IDisposable
 
         await cache.StoreAsync(Address, new VRChatFile([1], "image/png"), 1_000_000, Ct);
 
-        Assert.NotNull(cache.Find(Address));
-        Assert.Null(cache.Find(other));
+        Assert.True(IsHeld(cache, Address));
+        Assert.False(IsHeld(cache, other));
     }
 
     /// <summary>A cap of zero means no cache at all: nothing is written and every read is a miss.</summary>
@@ -111,9 +111,9 @@ public class VRChatFileCacheTests : IDisposable
         _clock.UtcNow = Day.AddHours(2);
         await cache.StoreAsync(third, new VRChatFile(new byte[100], "image/png"), 250, Ct);
 
-        Assert.Null(cache.Find(first));
-        Assert.NotNull(cache.Find(second));
-        Assert.NotNull(cache.Find(third));
+        Assert.False(IsHeld(cache, first));
+        Assert.True(IsHeld(cache, second));
+        Assert.True(IsHeld(cache, third));
     }
 
     /// <summary>The type file goes with the bytes it describes, so a swept file leaves nothing behind.</summary>
@@ -144,10 +144,102 @@ public class VRChatFileCacheTests : IDisposable
 
         await cache.StoreAsync(Address, new VRChatFile([1], "image/png"), 1_000_000, Ct);
 
-        var held = cache.Find(Address)!;
-        await File.WriteAllTextAsync(held.Path + ".type", "text/html", Ct);
+        var type = Directory.EnumerateFiles(_root, "*.type", SearchOption.AllDirectories).Single();
+        await File.WriteAllTextAsync(type, "text/html", Ct);
 
         Assert.Null(cache.Find(Address));
+    }
+
+    /// <summary>
+    /// <strong>The same picture stored by several requests at once is not corrupted by them.</strong>
+    /// Everybody without a picture of their own shares one address, so a member list asks for the
+    /// same file several times over, and every one of those is a store. When they all wrote to one
+    /// <c>.partial</c> name they filled it together and the first rename carried somebody's
+    /// half-written bytes onto the key -- where they stayed, because nothing here ever expires.
+    /// </summary>
+    [Fact]
+    public async Task TheSameAddressStoredManyTimesAtOnceIsStillWholeAfterwards()
+    {
+        var cache = NewCache();
+        var bytes = new byte[256 * 1024];
+        Random.Shared.NextBytes(bytes);
+
+        await Task.WhenAll(Enumerable.Range(0, 24).Select(_ =>
+            Task.Run(() => cache.StoreAsync(Address, new VRChatFile(bytes, "image/png"), 100_000_000, Ct), Ct)));
+
+        var held = cache.Find(Address);
+
+        Assert.NotNull(held);
+        Assert.Equal("image/png", held.ContentType);
+        Assert.Equal(bytes, await ReadAsync(held));
+
+        // Nothing half-written is left lying about either.
+        Assert.Empty(Directory.EnumerateFiles(_root, "*.partial", SearchOption.AllDirectories));
+    }
+
+    /// <summary>
+    /// Different pictures stored at once each end up whole, and the sweep running beside them
+    /// does not take a picture that is still being written.
+    /// </summary>
+    [Fact]
+    public async Task DifferentAddressesStoredAtOnceEachEndUpWhole()
+    {
+        var cache = NewCache();
+
+        var files = Enumerable.Range(0, 24)
+            .Select(i => (Url: $"{Address}?{i}", Bytes: new byte[] { (byte)i, (byte)(i + 1), (byte)(i + 2) }))
+            .ToList();
+
+        await Task.WhenAll(files.Select(f =>
+            Task.Run(() => cache.StoreAsync(f.Url, new VRChatFile(f.Bytes, "image/png"), 100_000_000, Ct), Ct)));
+
+        foreach (var (url, expected) in files)
+        {
+            var held = cache.Find(url);
+            Assert.NotNull(held);
+            Assert.Equal(expected, await ReadAsync(held));
+        }
+    }
+
+    /// <summary>
+    /// <strong>A file found is a file that can still be read.</strong> The sweep deleting it, or
+    /// another store of the same address renaming a new one onto it, must not turn a hit into a
+    /// failed response halfway through sending it.
+    /// </summary>
+    [Fact]
+    public async Task AFileAlreadyFoundIsStillReadableAfterTheSweepTakesIt()
+    {
+        var cache = NewCache();
+
+        await cache.StoreAsync(Address, new VRChatFile([1, 2, 3], "image/png"), 1_000_000, Ct);
+
+        var held = cache.Find(Address);
+        Assert.NotNull(held);
+
+        // Everything goes: this is the sweep at its most severe, mid-read.
+        _clock.UtcNow = Day.AddHours(1);
+        await cache.StoreAsync(Address + "?b", new VRChatFile([9], "image/png"), 1, Ct);
+
+        Assert.Equal([1, 2, 3], await ReadAsync(held));
+    }
+
+    /// <summary>Whether the cache holds it, without leaving the file open.</summary>
+    private static bool IsHeld(VRChatFileCache cache, string url)
+    {
+        var held = cache.Find(url);
+        held?.Content.Dispose();
+
+        return held is not null;
+    }
+
+    private static async Task<byte[]> ReadAsync(CachedFile held)
+    {
+        await using var content = held.Content;
+        using var copy = new MemoryStream();
+
+        await content.CopyToAsync(copy, Ct);
+
+        return copy.ToArray();
     }
 
     /// <summary>With no folder configured the cache is simply off, and nothing throws.</summary>
