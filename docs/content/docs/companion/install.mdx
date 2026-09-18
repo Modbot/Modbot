@@ -245,8 +245,11 @@ client's settings file or with environment variables, is on
 
 ### Other connections
 
-- **Updates.** An installed client asks the release feed on GitHub whether there is a newer
-  version, and downloads it if so. The request does not identify you or your install.
+- **Updates.** An installed client asks Modbot Cloud whether there is a newer version, and
+  downloads it from GitHub if so. The request does not identify you or your install: nothing is
+  sent, nothing is recorded, and everybody gets the same answer. It is not part of Modbot Cloud
+  backup — turning that off does not stop update checks, and stopping update checks does not turn
+  it off.
 - **Pairing.** Pressing **Pair with a server** opens a page in your browser. The client itself only
   contacts the server named in the pairing link. See [Pairing](/companion/pairing).
 - **The voice.** The first time the voice is turned on, the client downloads the voice once from
@@ -257,8 +260,14 @@ The client does not upload its own log file anywhere.
 ## Updates
 
 An installed client (from `Modbot-win-Setup.exe`, the portable zip or the AppImage) checks for a
-newer version 30 seconds after it starts and every four hours after that. A newer version downloads in the
+newer version 30 seconds after it starts and every four hours after that. It asks Modbot Cloud,
+which keeps one copy of the answer for everybody and refreshes it from GitHub a few times an hour;
+the download itself comes from the GitHub release. A newer version downloads in the
 background, and the window shows a line saying it will be installed the next time Modbot starts.
+
+The request sends nothing about you, your PC, your pairings or which version you are on, and
+nothing about it is recorded. Modbot Cloud and GitHub each see your IP address, as any site does
+for any request.
 
 Nothing is installed while Modbot is running, so an update never cuts a VRChat session short. Quit
 from the tray and open Modbot again whenever it suits you. The update is installed before the

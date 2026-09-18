@@ -17,10 +17,15 @@ namespace Modbot.Companion.App;
 /// a downloaded update waits until it is installed. Nothing under <c>%APPDATA%\Modbot</c> — the
 /// pairings, the queues, the record of what has been sent, the logs — is touched by an update,
 /// which is why updating keeps every pairing.</para>
-/// <para><strong>What leaves the machine.</strong> A request to the release feed (by default the
-/// project's GitHub releases) asking what the newest version is, and then, if there is one, the
-/// download. GitHub sees your IP address, as it does for any download. Nothing about you, your
-/// pairings or VRChat is sent, and the request does not identify this install.</para>
+/// <para><strong>What leaves the machine.</strong> A request to the release feed — by default
+/// Modbot Cloud, which answers with the list of releases the project published to GitHub — asking
+/// what the newest version is, and then, if there is one, the download, which comes from GitHub
+/// because that is where the feed points. Cloud and GitHub each see your IP address, as any site
+/// does. Nothing about you, your pairings or VRChat is sent; the request does not identify this
+/// install, nothing about it is recorded, and Cloud answers every caller the same thing out of one
+/// cached copy. Checking for updates is not a Modbot Cloud feature and does not link this client to
+/// anything: turning Cloud backup off does not turn it off, and turning this off does not turn Cloud
+/// backup off.</para>
 /// <para><strong>It never restarts Modbot while Modbot is running.</strong> A newer version is
 /// downloaded in the background and the window says so. It is installed the next time Modbot
 /// starts, whenever that is — quitting from the tray icon and opening Modbot again is enough.
@@ -44,7 +49,8 @@ internal sealed class Updates
 
     /// <summary>
     /// A client that runs for days with VRChat should still learn about a release within the day.
-    /// Every few hours is that, without leaning on GitHub's unauthenticated rate limit.
+    /// Every few hours is that, and it is what keeps however many clients exist from adding up to
+    /// traffic worth talking about at the other end.
     /// </summary>
     private static readonly TimeSpan CheckEvery = TimeSpan.FromHours(4);
 
@@ -62,15 +68,23 @@ internal sealed class Updates
         _manager = CreateManager();
     }
 
+    /// <summary>Where updates come from when the build said nothing else.</summary>
+    public const string DefaultFeed = "https://cloud.modbot.co/api/v1/updates/companion";
+
     /// <summary>
     /// Where updates come from. Baked in by the release build so an installed client and the
-    /// workflow that published it agree, with the project's own repository as the default.
+    /// workflow that published it agree, with Modbot Cloud as the default.
     /// </summary>
+    /// <remarks>
+    /// A fork or a group that mirrors the feed sets it to its own address at build time and this
+    /// file does not care which it is: an address on github.com is read as GitHub releases, and
+    /// anything else as a plain folder of release files, which is the shape Cloud serves.
+    /// </remarks>
     public static string Feed { get; } =
         typeof(Updates).Assembly
             .GetCustomAttributes<AssemblyMetadataAttribute>()
             .FirstOrDefault(a => a.Key == FeedMetadataKey)?.Value
-        ?? "https://github.com/binn/Modbot";
+        ?? DefaultFeed;
 
     /// <summary>
     /// Velopack's installer hooks. The first thing <c>Main</c> does, before the log, the
@@ -226,8 +240,15 @@ internal sealed class Updates
 
     /// <summary>
     /// GitHub releases when the feed is a GitHub repository, a plain folder of release files at
-    /// an HTTPS address otherwise — the shape a group mirroring the feed would host.
+    /// an HTTPS address otherwise — the shape Modbot Cloud serves, and the shape a group
+    /// mirroring the feed would host.
     /// </summary>
+    /// <remarks>
+    /// Velopack's web source asks the address for <c>releases.{channel}.json</c> — <c>win</c> or
+    /// <c>linux</c>, the same two files the release workflow publishes — and follows the download
+    /// address inside it, so Cloud serves a few kilobytes of index and the packages themselves
+    /// still come from GitHub.
+    /// </remarks>
     private static UpdateManager? CreateManager()
     {
         try

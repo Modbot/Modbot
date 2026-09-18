@@ -25,12 +25,19 @@
     <PackageReference Include="Silk.NET.OpenAL.Soft.Native" />
   </ItemGroup>
 
-  <!-- Where an installed client looks for newer versions of itself. The release workflow passes
-       the repository it is publishing to (-p:ModbotUpdateFeed=https://github.com/owner/repo) so
-       the client and the workflow cannot disagree; the default is the project's own repository.
-       Read at run time by Updates.cs from the assembly's metadata. -->
+  <!-- Where an installed client looks for newer versions of itself. Modbot Cloud by default: it
+       serves the same release index the workflow publishes to GitHub, out of one cached copy, so
+       however many clients exist GitHub is asked a few times a day rather than by each of them.
+       The packages themselves are still downloaded from GitHub, because the index Cloud serves
+       points at them.
+
+       A fork or a mirror passes its own address
+       (-p:ModbotUpdateFeed=https://github.com/owner/repo, or its own static host); the release
+       workflow passes whichever address the release it is publishing should be checked at, so the
+       client and the workflow cannot disagree. Read at run time by Updates.cs from the assembly's
+       metadata. -->
   <PropertyGroup>
-    <ModbotUpdateFeed Condition="'$(ModbotUpdateFeed)' == ''">https://github.com/binn/Modbot</ModbotUpdateFeed>
+    <ModbotUpdateFeed Condition="'$(ModbotUpdateFeed)' == ''">https://cloud.modbot.co/api/v1/updates/companion</ModbotUpdateFeed>
   </PropertyGroup>
   <ItemGroup>
     <AssemblyMetadata Include="ModbotUpdateFeed" Value="$(ModbotUpdateFeed)" />
