@@ -43,8 +43,17 @@ A session is a cookie named `modbot.session`. It is:
 
 - `HttpOnly`: scripts on the page cannot read it,
 - `Secure`: browsers only send it over HTTPS, so run Modbot behind HTTPS,
-- `SameSite=Lax`: other websites cannot make your browser send it along with their own requests,
-- valid for **14 days**, extended while you keep using Modbot.
+- `SameSite=Lax`: other websites cannot make your browser send it along with their own requests.
+
+How long it lasts depends on the **Keep me signed in** box on the sign-in page:
+
+- **Left unticked**, the cookie is thrown away when the browser closes. While the browser stays
+  open, using Modbot keeps the session going, and 14 days without using it ends it.
+- **Ticked**, the session survives closing the browser, for **30 days** from when you signed in.
+  Those 30 days never stretch, however much you use Modbot.
+
+The 30 days are counted on Modbot's own clock and checked on the server on every request, not
+written into the cookie, so nothing that arrives with the password can buy a longer session.
 
 **Every request checks the account** before the cookie is trusted. That is what makes these take
 effect on the very next click:
