@@ -30,6 +30,7 @@ import { LinkAccounts } from '@/pages/LinkAccounts'
 import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Live } from '@/pages/Live'
 import { Calendar } from '@/pages/Calendar'
+import { Giveaways } from '@/pages/Giveaways'
 import { Login } from '@/pages/Login'
 import { Connect } from '@/pages/Connect'
 import { Logs } from '@/pages/Logs'
@@ -54,6 +55,7 @@ const TITLES: Record<PageId, string> = {
   'discord-members': 'Discord members',
   live: 'Live',
   calendar: 'Calendar',
+  giveaways: 'Giveaways',
   chat: 'Chat',
   bans: 'Bans',
   flags: 'Flags',
@@ -84,6 +86,7 @@ const PATHS: Record<PageId, string> = {
   'discord-members': '/discord/members',
   live: '/live',
   calendar: '/calendar',
+  giveaways: '/giveaways',
   chat: '/chat',
   bans: '/bans',
   flags: '/flags',
@@ -406,6 +409,7 @@ function Shell({
           {page === 'discord-members' && <DiscordMembers me={me} />}
           {page === 'live' && <Live />}
           {page === 'calendar' && <Calendar />}
+          {page === 'giveaways' && <Giveaways />}
           {page === 'chat' && (
             <Suspense fallback={null}>
               <Chat
