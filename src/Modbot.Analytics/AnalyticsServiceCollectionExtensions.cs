@@ -39,6 +39,13 @@ public static class AnalyticsServiceCollectionExtensions
         services.AddScoped<ReviewFacts>();
         services.AddScoped<ReviewJob>();
 
+        // Giveaways. Here rather than in the API because the Discord bot draws too -- a giveaway
+        // whose draw time comes round while nobody is looking at a page still has to be drawn, and
+        // a second answer to "who is in this" living in the API would be a second answer that can
+        // disagree with the first (giveaways design §2.6).
+        services.AddScoped<Giveaways.GiveawayRuleChecker>();
+        services.AddScoped<Giveaways.GiveawayDrawer>();
+
         services.AddScoped<RetentionPruner>();
         services.AddScoped<IUserPurger, UserPurger>();
         services.AddHostedService<RetentionService>();

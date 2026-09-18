@@ -194,6 +194,25 @@ public enum ModbotPermissions : long
     /// </remarks>
     ManageCalendar = 1L << 26,
 
+    // --- Giveaways (giveaways design §7) ---
+
+    /// <summary>See the Giveaways page: the rules, the entrants, the draws and their seeds.</summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ViewMembers"/> or <see cref="ViewAnalytics"/>.
+    /// An entrant list is a list of named people with a number beside each saying how much time
+    /// they spend here, which is a narrower thing to hand out than either. Not added to the
+    /// built-in roles.
+    /// </remarks>
+    ViewGiveaways = 1L << 27,
+
+    /// <summary>Create, edit, open, close, draw and cancel giveaways.</summary>
+    /// <remarks>
+    /// Separate from <see cref="ViewGiveaways"/> for the same reason the calendar's pair is
+    /// separate: a giveaway posts in the group's name, and drawing one decides who gets something.
+    /// Not added to the built-in roles.
+    /// </remarks>
+    RunGiveaways = 1L << 28,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

@@ -137,6 +137,18 @@ public static class FactLabels
         [FactType.PlannedEventPublishFailed] = "Event failed to publish",
         [FactType.CalendarFeedRegenerated] = "Calendar feed link replaced",
 
+        [FactType.GiveawayCreated] = "Giveaway created",
+        [FactType.GiveawayChanged] = "Giveaway changed",
+        [FactType.GiveawayOpened] = "Giveaway opened",
+        [FactType.GiveawayClosed] = "Giveaway closed",
+        [FactType.GiveawayEntered] = "Entered a giveaway",
+        [FactType.GiveawayWithdrawn] = "Withdrew from a giveaway",
+        [FactType.GiveawayDrawn] = "Giveaway drawn",
+        [FactType.GiveawayCancelled] = "Giveaway cancelled",
+        [FactType.GiveawayDeleted] = "Giveaway deleted",
+        [FactType.GiveawayWinnerAnnounced] = "Giveaway winner announced",
+        [FactType.GiveawayPublishFailed] = "Giveaway failed to publish",
+
         // Reviews of a moderator's pattern (spec 5.8.5). Both are about the moderator.
         [FactType.ReviewOpened] = "Review opened",
         [FactType.ReviewClosed] = "Review closed",
