@@ -2783,6 +2783,33 @@ export type AiInsightsSettingsInput = {
   kinds: Omit<InsightKindSettings, 'label' | 'last'>[]
 }
 
+export type NotificationSeverity = 'critical' | 'warning' | 'information'
+
+export type NotificationLevel = 'off' | 'critical' | 'warning' | 'everything'
+
+/** One thing Modbot decided this account should be told about. */
+export type ModbotNotification = {
+  id: string
+  kind: string
+  severity: NotificationSeverity
+  title: string
+  body: string
+  link: string | null
+  at: string
+  repeats: number
+  /** Critical, and it reached this account on no channel at all. */
+  waiting: boolean
+  seen: boolean
+}
+
+export type NotificationChoice = {
+  channel: string
+  label: string
+  level: NotificationLevel
+  dailySummary: boolean
+  canReach: boolean
+}
+
 export type AlertWatcher =
   | 'vrchat-joins'
   | 'discord-joins'
@@ -3373,6 +3400,17 @@ export const api = {
   /** Written insights only, newest first. */
   insights: (kind?: InsightKind, limit = 10) =>
     request<{ insights: Insight[] }>(`/api/insights?limit=${limit}${kind ? `&kind=${kind}` : ''}`),
+
+  /** This account's notifications, newest first, plus the critical ones still waiting to be seen. */
+  notifications: () =>
+    request<{ waiting: ModbotNotification[]; recent: ModbotNotification[] }>('/api/notifications'),
+
+  markNotificationSeen: (id: string) => post<void>(`/api/notifications/${id}/seen`),
+
+  notificationChoices: () => request<{ channels: NotificationChoice[] }>('/api/notifications/choices'),
+
+  setNotificationChoices: (channels: { channel: string; level: NotificationLevel; dailySummary: boolean }[]) =>
+    put<{ channels: NotificationChoice[] }>('/api/notifications/choices', { channels }),
 
   aiAlertSettings: () => request<AiAlertSettings>('/api/settings/ai/alerts'),
 

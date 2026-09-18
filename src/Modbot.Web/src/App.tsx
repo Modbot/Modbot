@@ -3,6 +3,7 @@ import { Footer, Sidebar, Topbar } from '@/components/Chrome'
 import { CommandPalette, type PaletteAction } from '@/components/CommandPalette'
 import { ShortcutSheet } from '@/components/ShortcutSheet'
 import { SignInWaitBanner } from '@/components/SignInWaitBanner'
+import { WaitingAlertsBanner } from '@/components/WaitingAlertsBanner'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { DemoContext } from '@/lib/demo'
@@ -400,6 +401,8 @@ function Shell({
       <main className="flex flex-col overflow-auto">
         {/* Above everything, for everyone signed in, on every page (foundation spec 4.1.2). */}
         <SignInWaitBanner />
+        {/* A critical notification that reached this person on no channel (foundation 4.5.3). */}
+        <WaitingAlertsBanner />
         <Topbar
           title={title}
           {...prefs}
