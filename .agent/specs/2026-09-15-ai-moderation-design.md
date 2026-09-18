@@ -1,7 +1,13 @@
 # Modbot — AI Moderation (Settings → AI → Moderation)
 
+> **Superseded in part by the AutoMod design (2026-09-17).** The feature is now AutoMod, on its own
+> Settings tab, with the engine in `Modbot.Moderation` and only the AI topic checks in `Modbot.AI`.
+> That design replaces this one's title, §1, §6 (a rule may now ban or remove from the VRChat group
+> on a profile match) and §8 (where the engine lives), and adds the AI tool switches; its §9 lists
+> every change. Everything else here still stands and is referenced from there.
+
 - **Date:** 2026-09-15
-- **Status:** Built, first version
+- **Status:** Built, first version; narrowed 2026-09-17
 - **Covers:** term lists (local and from Modbot Hub), AI topics, flags, dismissals, Discord actions,
   the "Try it" box, test sets, the trial, the automatic pause, scope, rule versions, prompt
   injection defence, the messages before the one being checked, pictures, the language on a flag,

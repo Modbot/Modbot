@@ -1,27 +1,31 @@
 ---
-title: Moderation rules
-description: Term lists and AI topics that check Discord messages and VRChat profiles, the messages before the one being checked, pictures, the language on each flag, test sets, the trial before a rule acts, channel and role limits, the daily AI call limit and the Try it box.
+title: AutoMod
+description: Term lists and AI topics that check Discord messages and VRChat profiles, what a rule can do about a match, the AI tools AutoMod may use, the messages before the one being checked, pictures, the language on each flag, test sets, the trial before a rule acts, channel and role limits, the daily AI call limit and the Try it box.
 ---
 
-Moderation rules read text your group already has, Discord messages and VRChat profiles, and check
-it against rules you write or pick. When a rule matches, Modbot writes a **flag**: a note a
-moderator reads on the [Flags](/moderation/flags) page and either keeps or dismisses. A rule can
-also be set to delete the Discord message and time out its author.
+AutoMod reads text your group already has, Discord messages and VRChat profiles, and checks it
+against rules you write or pick. When a rule matches, Modbot writes a **flag**: a note a moderator
+reads on the [Flags](/moderation/flags) page and either keeps or dismisses. A rule can also be set
+to act: delete the Discord message, time out its author, or ban or remove the person from your
+VRChat group.
 
 Everything here is off to start with. There is one switch for the whole feature, each rule has its
 own switch, and every new rule only flags until you tell it to do more.
 
-You set rules up under **Settings** → **AI** → **Moderation**. Changing them needs the
-**Change settings** permission.
+You set AutoMod up under **Settings** → **AutoMod**. Changing it needs the **Change settings**
+permission.
 
 ## Two kinds of rule
 
 **Term lists** are lists of words, phrases or patterns. Matching happens inside Modbot, costs
-nothing, and sends nothing to an AI provider. Term lists work even with AI switched off.
+nothing, and sends nothing to an AI provider. Term lists work with AI switched off, and they are
+what AutoMod runs on a deployment that never sets AI up.
 
 **AI topics** describe, in your own words, something to catch ("scam links offering free Nitro",
 "asking members for personal details"). Modbot asks your AI model whether the text matches. AI
-topics need AI set up on [Base](/ai/settings), and each check is a paid request to your provider.
+topics need AI switched on under [Settings → AI → Base](/ai/settings), and each check is a paid
+request to your provider. The AI section of the AutoMod tab, with the topics, the AI tools and the
+daily AI call limit, only appears while that switch is on.
 
 ## What rules check
 
@@ -44,11 +48,11 @@ one. Only the parts that changed are checked, so a new avatar costs nothing. A b
 this about once a minute, so a profile flag can appear shortly after the change is recorded.
 
 <Callout type="warn" title="Switching on for the first time">
-While **Moderation on** is off, Modbot keeps its place in the profile history. When you switch it
-on, it works through every profile first seen or changed since that place, which on a new
-deployment is every profile Modbot has recorded. If you have AI topics that check profiles, this can
-mean many AI requests. The daily AI call limit and your [spend limits](/ai/limits-and-spend) are what
-hold it back.
+While **AutoMod on** is off, Modbot keeps its place in the profile history. When you switch it on,
+it works through every profile first seen or changed since that place, which on a new deployment
+is every profile Modbot has recorded. If you have AI topics that check profiles, this can mean many
+AI requests. The daily AI call limit and your [spend limits](/ai/limits-and-spend) are what hold it
+back.
 </Callout>
 
 ## Earlier messages
@@ -100,16 +104,30 @@ The [Flags](/moderation/flags) page shows the language on each row and lets you 
 each rule's card shows its dismissal rate for each language beside the whole figure. A rule that is
 right in English and wrong in every other language reads as fine until you split it that way.
 
-## The Moderation card
+## The AutoMod card
 
-- **Moderation on** switches the whole feature. With it off, nothing is checked.
-- **Daily AI call limit** is the most AI topic checks Modbot makes in one day (UTC). It starts at
-  200 and can be set from 0 to 100,000. At 0, AI topics never run. When the limit is reached, AI
-  topics stop until the next UTC day and term lists keep working.
-- **AI calls today** shows how many of today's calls are used.
-- **AI** shows **Ready** when AI is set up and on under **Base**, or **Off**.
+**AutoMod on** switches the whole feature. With it off, nothing is checked. Press **Save** after
+changing it.
 
-Press **Save** after changing the switch or the limit.
+## AI tools
+
+The **AI tools** card appears while AI is switched on under **Settings** → **AI** → **Base**. Each
+switch is one thing AutoMod may ask the AI to do; a tool that is off is never called.
+
+| Tool | What it does | Starts |
+|---|---|---|
+| **Check text against AI topics** | Runs your AI topics on text no term list matched. Off, AI topics never run and only term lists check anything. | On |
+| **Check pictures** | Sends a rule's pictures with the text, for rules with **Check pictures** ticked. Off, no picture goes to the model whatever a rule says. | On |
+| **Give an opinion on a flag** | Puts an **Ask AI** button on each open flag. The answer, keep or dismiss with one sentence, goes on the flag and on its review. | On |
+| **Propose an action for a flag** | With the opinion, the model also names what a moderator might do: nothing, delete the message, time out, ban from the group, remove from the group. Advice only: Modbot never carries it out. | Off |
+
+The same card holds the **Daily AI call limit**, the most AI requests AutoMod makes in one day
+(UTC). It starts at 200 and can be set from 0 to 100,000. At 0, AI topics and opinions never run.
+When the limit is reached, they stop until the next UTC day and term lists keep working. **AI calls
+today** shows how many of today's calls are used, and **AI** shows **Ready** when a model answers
+or **Off**.
+
+Press **Save** after changing a switch or the limit.
 
 ## Term lists
 
@@ -163,7 +181,8 @@ Press **New topic** on the **AI topics** card. Fill in:
   (anything that could reasonably be it).
 - **Checks** and **Action**, as for term lists.
 
-The card shows **AI off** when AI is not set up on **Base**.
+The card shows **AI off** when no model answers yet. The whole AI section, this card included, is
+hidden while AI is switched off on **Base**.
 
 How AI topics run:
 
@@ -218,13 +237,24 @@ instructions rather than checking it.
 
 ## Actions
 
-Every rule starts as flag only. For **Discord messages**, a rule's **Action** can also be:
+Every rule starts as flag only. A rule's **Action** group lists everything it can do about a match:
 
-- **Delete the message**
-- **Time out for** a number of minutes, from 1 to 40,320 (28 days, Discord's longest timeout)
+| Action | Applies to | What happens |
+|---|---|---|
+| **Flag** | Everything | Always. A note on the [Flags](/moderation/flags) page. |
+| **Send to Reviews** | Everything | Opens a review for each flag, so the team decides it. See [Sending a flag to Reviews](#sending-a-flag-to-reviews). |
+| **Delete the Discord message** | Discord messages | The bot deletes the message. |
+| **Time out for** | Discord messages | The bot times the author out, from 1 to 40,320 minutes (28 days, Discord's longest timeout). |
+| **Ban from the VRChat group** | Display name, bio, status, pronouns | Modbot bans the person from your managed group, through the same call a moderator's **Ban** button makes. |
+| **Remove from the VRChat group** | Display name, bio, status, pronouns | Modbot removes the person from the group. When a rule asks for both, the ban is enough: VRChat's ban removes them too. |
 
-Both are greyed out until **Discord messages** is ticked. VRChat profiles only ever get a flag, and
-Modbot never takes any action in VRChat because of a rule.
+A box is greyed out until the rule checks something it could act on: the Discord actions need
+**Discord messages** ticked, the VRChat actions need at least one profile field. A rule never acts
+across platforms, so a bio match never deletes a message and a message never bans anybody from the
+group. Modbot will not act on the account it signs in as.
+
+Everything a VRChat action needs to be trusted applies to it exactly as to a Discord one: the test
+set, the trial, the channel and role limits, and the automatic pause below.
 
 ### Before a rule can act
 
@@ -239,11 +269,11 @@ Tick **Act without a passing test run** to go ahead anyway. That is recorded in 
 
 Switching a rule to acting starts a **trial**, 7 days by default — set the length beside the action.
 During the trial the rule flags as usual and records what it *would* have done instead of doing it.
-The rule's card shows how many it would have deleted, how many it would have timed out, and how many
-of those flags a moderator dismissed.
+The rule's card shows how many it would have deleted, timed out, banned or removed, and how many of
+those flags a moderator dismissed.
 
-Press **End trial** on the rule when you are happy with it. From then on it really deletes and times
-out. A rule set back to flag only loses its trial.
+Press **End trial** on the rule when you are happy with it. From then on it really acts. A rule set
+back to flag only loses its trial.
 
 ### If a rule runs away
 
@@ -263,18 +293,19 @@ Each rule has **Channels** and **Never act on**:
 
 ## Who set a rule to act
 
-- A rule that acts shows a red badge, such as "Delete, time out 60 min". Hover over it to see who set
-  it to act. Changing the action records the person who changed it; setting it back to flag only
-  clears the name.
+- A rule that acts shows a red badge, such as "Delete, time out 60 min" or "Ban from group". Hover
+  over it to see who set it to act. Changing the action records the person who changed it; setting
+  it back to flag only clears the name.
 - When several rules match one message, the message is deleted once and the timeout is the longest
-  any of them asked for.
+  any of them asked for. When several match one profile, the person is banned or removed once.
 - The Discord bot has to be connected, and needs Discord's permissions to delete messages and time
-  out members in your server. If it cannot act, the flag is still written and the audit log records
-  that the action did not happen and why.
+  out members in your server. A VRChat action needs Modbot's service account to be signed in and able
+  to moderate the group. If an action cannot happen, the flag is still written and the audit log
+  records that it did not happen and why.
 
-Flags, deletions, timeouts and dismissals are recorded in the [audit log](/moderation/audit-log).
-Changes to rules and to the **Moderation** card are recorded there too, as operational entries (seeing
-them needs **See the operational log**).
+Flags, deletions, timeouts, group bans, group removals and dismissals are recorded in the
+[audit log](/moderation/audit-log). Changes to rules and to the AutoMod and AI tools cards are
+recorded there too, as operational entries (seeing them needs **See the operational log**).
 
 ## Flags and dismissals
 
@@ -307,6 +338,17 @@ was right** confirms it. Both need **Review tickets**, and both are recorded in 
 
 The rule's card counts both: confirmations show next to the dismissal rate.
 
+## Asking the AI about a flag
+
+With **Give an opinion on a flag** on, every open flag has an **Ask AI** button. Modbot sends the
+model the rule, the words that matched and the text the flag is about (with the earlier messages,
+for a Discord message), and the model answers **Keep** or **Dismiss** with one sentence. The answer
+shows on the flag and, when the flag has a review, on the review too.
+
+With **Propose an action for a flag** on as well, the answer also names what a moderator might do.
+It is advice: nothing is done with it, and the buttons a moderator presses are the same ones as
+before. Each opinion is one AI request, counted like any other, and needs **Review tickets**.
+
 ## Try it
 
 The **Try it** card checks a piece of text without doing anything. Paste up to 4,000 characters into
@@ -314,7 +356,8 @@ The **Try it** card checks a piece of text without doing anything. Paste up to 4
 topics too.
 
 The answer lists every rule that matched, including rules that are switched off (marked **Off**),
-the term and the matched words, and what would happen: **Flag only**, **Delete the message**, or a
-timeout. Nothing is recorded and nothing is done. With **Include AI topics** ticked, the check is a
-real AI request: it uses one of today's AI calls and counts towards spend. If AI topics could not
-run, the reason is shown under the answer.
+the term and the matched words, and what would happen: **Flag only**, **Delete the message**, a
+timeout, **Ban from the group** or **Remove from the group**. Nothing is recorded and nothing is
+done. **Include AI topics** appears while AI is on; ticked, the check is a real AI request that uses
+one of today's AI calls and counts towards spend. If AI topics could not run, the reason is shown
+under the answer.
