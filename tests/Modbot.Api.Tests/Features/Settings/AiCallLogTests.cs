@@ -275,6 +275,7 @@ public class AiCallLogTests
 
         var settings = await db.GetSettingsAsync(Ct);
         settings.AutoModEnabled = true;
+        settings.AiEnabled = true;
         settings.AiModerationDailyCallLimit = 100;
         settings.AiModerationProfileBatchSize = batchSize;
 

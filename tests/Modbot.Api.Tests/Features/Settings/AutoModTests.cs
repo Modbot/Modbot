@@ -273,6 +273,7 @@ public class AutoModTests
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
         await host.SendJsonAsync(HttpMethod.Put, Path, new { enabled = true, dailyAiCallLimit = 1 }, cookie, Ct);
+        await EnableAiAsync();
         await host.SendJsonAsync(HttpMethod.Post, $"{Path}/lists", List("Words", [Term("word", "spam")]), cookie, Ct);
         var topic = await host.SendJsonAsync(HttpMethod.Post, $"{Path}/topics", new
         {
@@ -452,6 +453,20 @@ public class AutoModTests
     {
         var response = await host.SendJsonAsync(HttpMethod.Put, Path, new { enabled = true, dailyAiCallLimit = 200 }, cookie, Ct);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        await EnableAiAsync();
+    }
+
+    /// <summary>
+    /// The AutoMod switch and the AI base switch are independent (AutoMod design; AI tab's Base
+    /// card). An AI topic needs both, and the AutoMod endpoint only ever touches its own.
+    /// </summary>
+    private async Task EnableAiAsync()
+    {
+        await using var db = _db.NewContext();
+        var settings = await db.GetSettingsAsync(Ct);
+        settings.AiEnabled = true;
+        await db.SaveChangesAsync(Ct);
     }
 
     private static async Task<ModerationOutcome> CheckAsync(ApiTestHost host, DiscordMessageToCheck message)

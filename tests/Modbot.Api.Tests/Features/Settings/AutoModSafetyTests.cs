@@ -457,6 +457,7 @@ public class AutoModSafetyTests
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
         await host.SendJsonAsync(HttpMethod.Put, Path, new { enabled = true, dailyAiCallLimit = 1 }, cookie, Ct);
+        await EnableAiAsync();
 
         var topic = await JsonAsync(await host.SendJsonAsync(HttpMethod.Post, $"{Path}/topics", new
         {
@@ -556,6 +557,20 @@ public class AutoModSafetyTests
     {
         var response = await host.SendJsonAsync(HttpMethod.Put, Path, new { enabled = true, dailyAiCallLimit = 200 }, cookie, Ct);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        await EnableAiAsync();
+    }
+
+    /// <summary>
+    /// The AutoMod switch and the AI base switch are independent (AutoMod design; AI tab's Base
+    /// card). An AI topic needs both, and the AutoMod endpoint only ever touches its own.
+    /// </summary>
+    private async Task EnableAiAsync()
+    {
+        await using var db = _db.NewContext();
+        var settings = await db.GetSettingsAsync(Ct);
+        settings.AiEnabled = true;
+        await db.SaveChangesAsync(Ct);
     }
 
     private async Task<Guid> ListAsync(

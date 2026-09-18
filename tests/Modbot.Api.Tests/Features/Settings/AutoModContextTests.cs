@@ -577,10 +577,17 @@ public class AutoModContextTests
         await db.SaveChangesAsync(Ct);
     }
 
-    private static async Task SwitchOnAsync(ApiTestHost host, string cookie)
+    private async Task SwitchOnAsync(ApiTestHost host, string cookie)
     {
         var response = await host.SendJsonAsync(HttpMethod.Put, Path, new { enabled = true, dailyAiCallLimit = 200 }, cookie, Ct);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        // The AutoMod switch and the AI base switch are independent (AutoMod design; AI tab's
+        // Base card). An AI topic needs both, and the AutoMod endpoint only ever touches its own.
+        await using var db = _db.NewContext();
+        var settings = await db.GetSettingsAsync(Ct);
+        settings.AiEnabled = true;
+        await db.SaveChangesAsync(Ct);
     }
 
     private static async Task TopicAsync(
