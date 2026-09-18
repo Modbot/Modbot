@@ -110,7 +110,14 @@ public static class EvidenceRegistration
 
         provider.GetRequiredService<ReloadableEvidenceStore>().Reload();
 
-        return await provider.GetRequiredService<EvidenceStoreMonitor>().CheckAsync(ct);
+        var health = await provider.GetRequiredService<EvidenceStoreMonitor>().CheckAsync(ct);
+
+        // Design §8.4's critical notification. Raised here rather than by the caller because this
+        // is the only place the startup probe's verdict exists before anything else has read it.
+        if (provider.GetService<Modbot.Core.Notifications.INotifier>() is { } notifier)
+            await EvidenceStoreAlarm.RaiseIfLockedAsync(health, notifier, ct);
+
+        return health;
     }
 }
 

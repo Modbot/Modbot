@@ -3,6 +3,7 @@ using Modbot.Core.Cloud;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Logging;
+using Modbot.Core.Notifications;
 using Modbot.Core.Time;
 using Serilog;
 
@@ -47,11 +48,24 @@ public sealed class GroupInstanceSync
     /// </remarks>
     public static readonly TimeSpan RereadWorldAfter = TimeSpan.FromDays(30);
 
+    /// <summary>
+    /// How many people have to still be in an instance when it drops off the group's list for that
+    /// to count as closing unexpectedly (M6 §5).
+    /// </summary>
+    /// <remarks>
+    /// Not one. An instance emptying out is how every evening ends, and the last poll before it
+    /// closes normally often still shows one or two people who were on their way out. A number
+    /// this size means something took the instance away from people who were using it — which is
+    /// the thing a moderator would want to know about and go and look at.
+    /// </remarks>
+    public const int ClosedPopulatedAt = 5;
+
     private readonly IVRChatGate _gate;
     private readonly PlaceStore _places;
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
     private readonly PublicInstancesNudge? _publicInstances;
+    private readonly INotifier? _notifier;
     private readonly ILogger _log;
 
     /// <param name="publicInstances">
@@ -64,6 +78,7 @@ public sealed class GroupInstanceSync
         ModbotContext db,
         IModbotClock clock,
         PublicInstancesNudge? publicInstances = null,
+        INotifier? notifier = null,
         ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(gate);
@@ -76,6 +91,7 @@ public sealed class GroupInstanceSync
         _db = db;
         _clock = clock;
         _publicInstances = publicInstances;
+        _notifier = notifier;
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
     }
 
@@ -189,17 +205,66 @@ public sealed class GroupInstanceSync
             .ToListAsync(ct).ConfigureAwait(false);
 
         var closed = 0;
+        var populated = new List<VRChatInstance>();
 
         foreach (var instance in wasOpen)
         {
             if (openNow.Contains(instance.Location))
                 continue;
 
+            // Read before Close, because Close is what makes it a closed instance.
+            if (instance.LastUserCount >= ClosedPopulatedAt)
+                populated.Add(instance);
+
             PlaceStore.Close(instance, now, "list");
             closed++;
         }
 
+        foreach (var instance in populated)
+            await SayItClosedPopulatedAsync(instance, now, ct).ConfigureAwait(false);
+
         return closed;
+    }
+
+    /// <summary>
+    /// Tells the moderators when an instance went away with people still in it (M6 §5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// M6 §5 has asked for this since the instance tooling was designed and there has never been a
+    /// check for it, because there was no pipeline to raise it through. There is now.
+    /// </para>
+    /// <para>
+    /// <strong>What Modbot knows and what it does not.</strong> The group's list stopping to carry an
+    /// instance is the only signal there is; it does not say why. So the notification says what
+    /// happened and how many people were in it, and does not guess at a cause.
+    /// </para>
+    /// </remarks>
+    private async Task SayItClosedPopulatedAsync(VRChatInstance instance, DateTimeOffset now, CancellationToken ct)
+    {
+        if (_notifier is null)
+            return;
+
+        var count = instance.LastUserCount ?? 0;
+        var openFor = now - instance.OpenedAt;
+
+        var body = $"A group instance closed with {count} people still in it.\n\n"
+                   + $"It had been open for {Math.Max(1, Math.Round(openFor.TotalMinutes))} minute(s).";
+
+        await _notifier.RaiseAsync(
+            new Notification(
+                NotificationKinds.InstanceClosedPopulated,
+                NotificationSeverity.Warning,
+                "Modbot: an instance closed with people in it",
+                body,
+                NotificationAudience.Holding(ModbotPermissions.ViewLiveInstances))
+            {
+                // One key per instance. An instance only closes once, so this is really a promise
+                // that a retry or a second poll cannot say it twice.
+                SameAs = $"{NotificationKinds.InstanceClosedPopulated}:{instance.Id}",
+                Link = "/live",
+            },
+            ct).ConfigureAwait(false);
     }
 
     private async Task RecordWorldAsync(global::VRChat.API.Model.World world, DateTimeOffset now, CancellationToken ct)
