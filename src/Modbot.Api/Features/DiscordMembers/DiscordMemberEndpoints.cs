@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.DiscordLink;
+using Modbot.Api.Lists;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -96,11 +97,16 @@ public sealed record DiscordMemberListCoverage(
 /// The server's roles to filter by, highest first, without @everyone or roles since deleted. Here
 /// because the Discord role list for settings needs Change settings, and this list does not.
 /// </param>
+/// <param name="Page">1 for a caller paging by <c>cursor</c>, which has no page numbers.</param>
+/// <param name="Next">The cursor for the following page, or null on the last one.</param>
+/// <param name="Previous">The cursor for the page before, or null on the first one.</param>
 public sealed record DiscordMemberListResponse(
     IReadOnlyList<DiscordMemberView> Members,
     int Total,
     int Page,
     int PageSize,
+    string? Next,
+    string? Previous,
     DiscordMemberListCoverage Coverage,
     IReadOnlyList<DiscordRoleOption> Roles);
 
@@ -126,6 +132,13 @@ public static class DiscordMemberEndpoints
     public const int DefaultPageSize = 50;
     public const int MaxPageSize = 200;
 
+    /// <summary>Newest joiner first. The default.</summary>
+    public const string SortByJoined = "joined";
+
+    public const string SortByOldest = "oldest";
+
+    public const string SortByName = "name";
+
     public static IEndpointRouteBuilder MapDiscordMembers(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -149,6 +162,7 @@ public static class DiscordMemberEndpoints
                 [FromQuery] DateTimeOffset? joinedFrom,
                 [FromQuery] DateTimeOffset? joinedTo,
                 [FromQuery] string? sort,
+                [FromQuery] string? cursor,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
                 CancellationToken ct) =>
@@ -156,7 +170,7 @@ public static class DiscordMemberEndpoints
                 if (state is not (null or "" or "in-server" or "left" or "all"))
                     return Results.BadRequest(new { error = "`state` is in-server, left or all." });
 
-                if (sort is not (null or "" or "joined" or "oldest" or "name"))
+                if (sort is not (null or "" or SortByJoined or SortByOldest or SortByName))
                     return Results.BadRequest(new { error = "`sort` is joined, oldest or name." });
 
                 if (!LinkFilter.IsValid(linked))
@@ -169,7 +183,8 @@ public static class DiscordMemberEndpoints
                 return Results.Ok(await ListAsync(
                     db, clock, search, state, null, linked, seesLinks, page, pageSize, ct,
                     new DiscordMemberFilters(
-                        Ids(roles), Ids(notRoles), noRole, bot, pending, timedOut, boosting, joinedFrom, joinedTo, sort)));
+                        Ids(roles), Ids(notRoles), noRole, bot, pending, timedOut, boosting, joinedFrom, joinedTo, sort),
+                    cursor));
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetDiscordMembers")
@@ -187,7 +202,12 @@ public static class DiscordMemberEndpoints
                 + "`sort=oldest` or `sort=name`. `roles` lists the server's roles with how many "
                 + "current members hold each.\n\n"
                 + "`coverage.listedAt` is null until the bot has read the whole member list once; the "
-                + "list is partial until then.")
+                + "list is partial until then.\n\n"
+                + "Paged by cursor. Read the first page with no `cursor`, then send back the "
+                + "`next` or `previous` the answer carries, exactly as it came. A cursor that "
+                + "will not read, or that was written while the list was sorted another way, is "
+                + "ignored and the first page comes back. `page` still works, but the bot rewrites "
+                + "this list on every sign-in, so a numbered page can show a row twice or never.")
             .Produces<DiscordMemberListResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -252,7 +272,8 @@ public static class DiscordMemberEndpoints
         int? page,
         int? pageSize,
         CancellationToken ct,
-        DiscordMemberFilters? more = null)
+        DiscordMemberFilters? more = null,
+        string? cursor = null)
     {
         var size = Math.Clamp(pageSize ?? DefaultPageSize, 1, MaxPageSize);
         var number = Math.Max(page ?? 1, 1);
@@ -347,17 +368,97 @@ public static class DiscordMemberEndpoints
 
         var total = await query.CountAsync(ct);
 
-        var ordered = more.Sort switch
+        var sort = more.Sort switch
         {
-            "name" => query.OrderBy(m => m.DisplayName).ThenBy(m => m.UserId),
-            "oldest" => query.OrderBy(m => m.JoinedAt ?? m.FirstSeenAt).ThenBy(m => m.UserId),
+            SortByName => SortByName,
+            SortByOldest => SortByOldest,
+            _ => SortByJoined,
+        };
+
+        // A cursor that will not read, or that was written under a different ordering, is treated
+        // as no cursor: a stale link shows the first page rather than an error.
+        var at = ListCursor.Read(cursor, sort);
+        var back = at?.Direction == ListDirection.Back;
+
+        // Both halves of the boundary row are compared. The bot reads the whole member list on
+        // every sign-in, so thousands of rows can share a first-seen moment, and a cursor on the
+        // moment alone would step over all but one of them.
+        if (at is { } mark)
+        {
+            var id = mark.Id;
+            var onwards = mark.Direction == ListDirection.Next;
+
+            if (sort == SortByName)
+            {
+                var name = mark.Value ?? string.Empty;
+
+                query = onwards
+                    ? query.Where(m =>
+                        string.Compare(m.DisplayName, name) > 0
+                        || (m.DisplayName == name && string.Compare(m.UserId, id) > 0))
+                    : query.Where(m =>
+                        string.Compare(m.DisplayName, name) < 0
+                        || (m.DisplayName == name && string.Compare(m.UserId, id) < 0));
+            }
+            else if (ListCursor.Time(mark.Value) is { } joined)
+            {
+                // "Oldest" reads up the list, so what comes after its cursor is a later join, not
+                // an earlier one. The tie-break does not follow: the id always runs one way in
+                // this list, so it compares by which direction is being read and nothing else.
+                var later = sort == SortByOldest ? onwards : !onwards;
+
+                if (later && onwards)
+                {
+                    query = query.Where(m =>
+                        (m.JoinedAt ?? m.FirstSeenAt) > joined
+                        || ((m.JoinedAt ?? m.FirstSeenAt) == joined && string.Compare(m.UserId, id) > 0));
+                }
+                else if (later)
+                {
+                    query = query.Where(m =>
+                        (m.JoinedAt ?? m.FirstSeenAt) > joined
+                        || ((m.JoinedAt ?? m.FirstSeenAt) == joined && string.Compare(m.UserId, id) < 0));
+                }
+                else if (onwards)
+                {
+                    query = query.Where(m =>
+                        (m.JoinedAt ?? m.FirstSeenAt) < joined
+                        || ((m.JoinedAt ?? m.FirstSeenAt) == joined && string.Compare(m.UserId, id) > 0));
+                }
+                else
+                {
+                    query = query.Where(m =>
+                        (m.JoinedAt ?? m.FirstSeenAt) < joined
+                        || ((m.JoinedAt ?? m.FirstSeenAt) == joined && string.Compare(m.UserId, id) < 0));
+                }
+            }
+        }
+
+        var ordered = sort switch
+        {
+            SortByName when back => query.OrderByDescending(m => m.DisplayName).ThenByDescending(m => m.UserId),
+            SortByName => query.OrderBy(m => m.DisplayName).ThenBy(m => m.UserId),
+            SortByOldest when back => query.OrderByDescending(m => m.JoinedAt ?? m.FirstSeenAt).ThenByDescending(m => m.UserId),
+            SortByOldest => query.OrderBy(m => m.JoinedAt ?? m.FirstSeenAt).ThenBy(m => m.UserId),
+            _ when back => query.OrderBy(m => m.JoinedAt ?? m.FirstSeenAt).ThenByDescending(m => m.UserId),
             _ => query.OrderByDescending(m => m.JoinedAt ?? m.FirstSeenAt).ThenBy(m => m.UserId),
         };
 
-        var rows = await ordered
-            .Skip((number - 1) * size)
-            .Take(size)
-            .ToListAsync(ct);
+        // `page` still works for whoever was already sending one, and the answer hands them a
+        // cursor to move to. A cursor, when sent, wins.
+        IQueryable<DiscordMember> counted = ordered;
+        if (at is null && number > 1)
+            counted = counted.Skip((number - 1) * size);
+
+        var read = await ListPaging.ReadAsync(
+            counted,
+            sort,
+            size,
+            at,
+            m => (sort == SortByName ? m.DisplayName : ListCursor.Text(m.JoinedAt ?? m.FirstSeenAt), m.UserId),
+            ct);
+
+        var rows = read.Rows;
 
         var roles = guildId is null ? new Dictionary<string, DiscordRole>() : await RoleNamesAsync(db, guildId, ct);
         var linkedTo = seesLinks
@@ -369,8 +470,10 @@ public static class DiscordMemberEndpoints
         return new DiscordMemberListResponse(
             rows.Select(r => View(r, roles, linkedTo)).ToList(),
             total,
-            number,
+            at is null ? number : 1,
             size,
+            read.Next,
+            read.Previous,
             new DiscordMemberListCoverage(
                 guildId,
                 server?.MembersListedAt,
