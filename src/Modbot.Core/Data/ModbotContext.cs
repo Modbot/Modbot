@@ -652,6 +652,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Bio).HasColumnType("text");
             entity.Property(e => e.StatusDescription).HasColumnType("text");
             entity.Property(e => e.Pronouns).HasColumnType("text");
+            entity.Property(e => e.IconUrl).HasColumnType("text");
+            entity.Property(e => e.BannerUrl).HasColumnType("text");
+            entity.Property(e => e.RepresentedGroupId).HasColumnType("text");
+            entity.Property(e => e.RepresentedGroupName).HasColumnType("text");
+            entity.Property(e => e.RepresentedGroupIconUrl).HasColumnType("text");
             entity.Property(e => e.Status).HasMaxLength(32);
             entity.Property(e => e.LastPlatform).HasMaxLength(128);
             entity.Property(e => e.AgeVerificationStatus).HasMaxLength(32);

@@ -305,6 +305,168 @@ public class VRChatUserSnapshotTests
         Assert.Equal(new DateOnly(2018, 3, 4), row.DateJoined);
         Assert.Equal("[\"system_trust_known\"]", row.Tags);
         Assert.Equal("https://example.invalid/a.png", row.ProfilePictureUrl);
+
+        // The icon has a column of its own.
+        Assert.Equal("https://example.invalid/icon.png", row.IconUrl);
+    }
+
+    // ── The icon, the banner and the represented group ──────────────────────────────────────
+
+    // The SDK's models are not annotated for nullability, so a null here is what a null on the wire becomes.
+    private static PublicProfile ProfileWith(string? icon, string? banner, ProfileRepresentedGroup? group) => new()
+    {
+        Id = "usr_a",
+        DisplayName = "Trinity",
+        IconUrl = icon!,
+        BannerUrl = banner!,
+        RepresentedGroup = group!,
+    };
+
+    private static JsonObject RawWith(string? icon, string? banner, JsonNode? group) => new()
+    {
+        ["id"] = "usr_a",
+        ["displayName"] = "Trinity",
+        ["iconUrl"] = icon,
+        ["bannerUrl"] = banner,
+        ["representedGroup"] = group,
+    };
+
+    /// <summary>The three land in their own columns, and the group keeps only its id, name and icon.</summary>
+    [Fact]
+    public void TheIconTheBannerAndTheRepresentedGroupAreWrittenToTheirOwnColumns()
+    {
+        var row = new VRChatUser { UserId = "usr_a", ProfilePictureUrl = "https://example.invalid/override.png" };
+
+        var group = new ProfileRepresentedGroup
+        {
+            Id = "grp_1", Name = "The Black Cat", IconUrl = "https://example.invalid/grp.png",
+            BannerUrl = "https://example.invalid/grp-banner.png",
+        };
+
+        VRChatUserSnapshot.FromPublicProfile(
+                "usr_a",
+                ProfileWith("https://example.invalid/icon.png", "https://example.invalid/banner.png", group),
+                RawWith("https://example.invalid/icon.png", "https://example.invalid/banner.png",
+                    new JsonObject { ["id"] = "grp_1", ["name"] = "The Black Cat", ["iconUrl"] = "https://example.invalid/grp.png" }))
+            .ApplyTo(row);
+
+        Assert.Equal("https://example.invalid/icon.png", row.IconUrl);
+        Assert.Equal("https://example.invalid/banner.png", row.BannerUrl);
+        Assert.Equal("grp_1", row.RepresentedGroupId);
+        Assert.Equal("The Black Cat", row.RepresentedGroupName);
+        Assert.Equal("https://example.invalid/grp.png", row.RepresentedGroupIconUrl);
+
+        // The override is a different field and is left alone.
+        Assert.Equal("https://example.invalid/override.png", row.ProfilePictureUrl);
+    }
+
+    /// <summary>
+    /// The per-call rule holds for the new fields too: a body without them leaves the columns as
+    /// they are, and a body that carries them empty or null clears them.
+    /// </summary>
+    [Fact]
+    public void ABodyWithoutTheNewFieldsLeavesThemAlone_AndOneThatCarriesThemNullClearsThem()
+    {
+        var row = new VRChatUser
+        {
+            UserId = "usr_a",
+            IconUrl = "https://example.invalid/icon.png",
+            BannerUrl = "https://example.invalid/banner.png",
+            RepresentedGroupId = "grp_1",
+            RepresentedGroupName = "The Black Cat",
+            LastRefreshedAt = DateTimeOffset.UnixEpoch,
+        };
+
+        var profile = new PublicProfile { Id = "usr_a", Bio = "hello" };
+        VRChatUserSnapshot.FromPublicProfile("usr_a", profile, new JsonObject { ["id"] = "usr_a", ["bio"] = "hello" }).ApplyTo(row);
+
+        Assert.Equal("https://example.invalid/icon.png", row.IconUrl);
+        Assert.Equal("https://example.invalid/banner.png", row.BannerUrl);
+        Assert.Equal("grp_1", row.RepresentedGroupId);
+
+        VRChatUserSnapshot.FromPublicProfile("usr_a", ProfileWith(null, null, null), RawWith(null, null, null)).ApplyTo(row);
+
+        Assert.Null(row.IconUrl);
+        Assert.Null(row.BannerUrl);
+        Assert.Null(row.RepresentedGroupId);
+        Assert.Null(row.RepresentedGroupName);
+        Assert.Null(row.RepresentedGroupIconUrl);
+    }
+
+    /// <summary>
+    /// The diff names the three under VRChat's own field names. The group changes as a whole:
+    /// old and new are the group's id, name and icon, or null for "represented none".
+    /// </summary>
+    [Fact]
+    public void TheDiffCarriesTheIconTheBannerAndTheWholeRepresentedGroup()
+    {
+        var before = Snapshot() with
+        {
+            IconUrl = "https://example.invalid/old-icon.png",
+            BannerUrl = "https://example.invalid/banner.png",
+            RepresentedGroup = null,
+        };
+
+        var after = Snapshot() with
+        {
+            IconUrl = "https://example.invalid/new-icon.png",
+            BannerUrl = "https://example.invalid/banner.png",
+            RepresentedGroup = new VRChatRepresentedGroup("grp_1", "The Black Cat", "https://example.invalid/grp.png"),
+        };
+
+        var diff = after.DifferencesFrom(before);
+
+        Assert.Equal(["iconUrl", "representedGroup"], diff.Select(d => d.Key));
+        Assert.Equal("https://example.invalid/old-icon.png", diff["iconUrl"]!["old"]!.GetValue<string>());
+        Assert.Equal("https://example.invalid/new-icon.png", diff["iconUrl"]!["new"]!.GetValue<string>());
+
+        Assert.Null(diff["representedGroup"]!["old"]);
+        Assert.Equal("grp_1", diff["representedGroup"]!["new"]!["groupId"]!.GetValue<string>());
+        Assert.Equal("The Black Cat", diff["representedGroup"]!["new"]!["name"]!.GetValue<string>());
+        Assert.Equal("https://example.invalid/grp.png", diff["representedGroup"]!["new"]!["iconUrl"]!.GetValue<string>());
+    }
+
+    /// <summary>The same group, sent twice, is not a change -- and a renamed group is.</summary>
+    [Fact]
+    public void TheSameRepresentedGroupIsNotAChange()
+    {
+        var before = Snapshot() with { RepresentedGroup = new VRChatRepresentedGroup("grp_1", "A", null) };
+        var same = Snapshot() with { RepresentedGroup = new VRChatRepresentedGroup("grp_1", "A", null) };
+        var renamed = Snapshot() with { RepresentedGroup = new VRChatRepresentedGroup("grp_1", "B", null) };
+
+        Assert.Empty(same.DifferencesFrom(before));
+        Assert.Equal(["representedGroup"], renamed.DifferencesFrom(before).Select(d => d.Key));
+    }
+
+    /// <summary>The group round-trips through the shape the facts carry.</summary>
+    [Fact]
+    public void TheRepresentedGroupRoundTripsThroughItsJson()
+    {
+        var group = new VRChatRepresentedGroup("grp_1", "The Black Cat", null);
+
+        Assert.Equal(group, VRChatRepresentedGroup.FromJson(group.ToJson()));
+        Assert.Null(VRChatRepresentedGroup.FromJson(null));
+        Assert.Null(VRChatRepresentedGroup.FromJson(new JsonObject { ["name"] = "no id" }));
+    }
+
+    /// <summary>The user object still carries the icon and the banner, so a user read speaks for them too.</summary>
+    [Fact]
+    public void TheUserObjectSpeaksForTheIconAndTheBanner()
+    {
+        var row = new VRChatUser { UserId = "usr_a", IconUrl = "https://example.invalid/old.png", LastUserReadAt = DateTimeOffset.UnixEpoch };
+
+        var user = new User { Id = "usr_a", IconUrl = "https://example.invalid/new.png", BannerUrl = "https://example.invalid/banner.png" };
+        var raw = new JsonObject
+        {
+            ["id"] = "usr_a",
+            ["iconUrl"] = "https://example.invalid/new.png",
+            ["bannerUrl"] = "https://example.invalid/banner.png",
+        };
+
+        VRChatUserSnapshot.From(user, raw).ApplyTo(row);
+
+        Assert.Equal("https://example.invalid/new.png", row.IconUrl);
+        Assert.Equal("https://example.invalid/banner.png", row.BannerUrl);
     }
 
     /// <summary>A diff only ever reports fields the response actually carried.</summary>

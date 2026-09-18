@@ -41,7 +41,7 @@ anywhere Modbot looks; the profile columns fill in when the sync gets to them.
 
 | Group | Columns |
 |---|---|
-| Profile as last fetched | `display_name`, `bio`, `status`, `status_description`, `pronouns`, `current_avatar_image_url`, `current_avatar_thumbnail_image_url`, `profile_picture_url`, `date_joined`, `tags` (jsonb), `last_platform` |
+| Profile as last fetched | `display_name`, `bio`, `status`, `status_description`, `pronouns`, `current_avatar_image_url`, `current_avatar_thumbnail_image_url`, `profile_picture_url`, `icon_url`, `banner_url`, `represented_group_id`, `represented_group_name`, `represented_group_icon_url`, `date_joined`, `tags` (jsonb), `last_platform` |
 | Age verification, last seen | `age_verification_status` (text: `18+`, `hidden`, `verified`, or whatever comes next), `age_verified` |
 | Age verification, remembered | `is_18_plus_verified` (**sticky**, §4), `is_18_plus_verified_at`, `is_18_plus_verified_source` (`vrchat` / `manual`), `is_18_plus_verified_by_user_id` |
 | When | `first_seen_at`, `last_seen_at`, `last_refreshed_at`, `refresh_error`, `refresh_error_at`, `not_found_at` |
@@ -236,9 +236,23 @@ All under the person as subject, none with an actor except the two manual ones; 
 | `modbot.user-profile.age-flag.set` / `.cleared` | a moderator changed the flag | `{reason, previousSource, previouslySetAt, ageVerificationStatusLastSeen}`; actor is the Modbot account; source `Manual` |
 
 **Watched fields:** display name, bio, status description, pronouns, both avatar URLs, profile
-picture override, join date, tags (as a set), age verification status and flag. **Not watched:**
-online status and last platform, which flip with every session and would drown the log. The full
-object is on the row; the fact carries the diff.
+picture override, the user icon (`iconUrl`), the banner (`bannerUrl`), the represented group
+(`representedGroup`), join date, tags (as a set), age verification status and flag. **Not
+watched:** online status and last platform, which flip with every session and would drown the log.
+The full object is on the row; the fact carries the diff.
+
+**The pictures, since 2026-09-17.** `profilePicOverride` left every call in API specification
+v1.21.0, so `profile_picture_url` is empty for anyone first seen after 2026-09-16. The public
+profile's `iconUrl`, `bannerUrl` and `representedGroup` are columns of their own rather than
+written into the old picture column (the reasoning is in research
+`vrchat-public-profile-findings.md` §3: they are different fields, and mixing them would write a
+change fact for something nobody changed). `representedGroup` keeps only the group's id, name
+and icon; the rest of that object is about the group, not the person, and stays in
+`raw_public_profile`. In a change fact it is **one key** whose `old` and `new` are
+`{groupId, name, iconUrl}` or null, so the timeline can name both groups. The picture Modbot
+shows anywhere is `ProfilePictures.Best`: the override if set, else the icon, else the avatar
+thumbnail, else nothing -- one rule, in one place, for the profile, the members list, search,
+the Discord screens and the case-file snapshot.
 
 ---
 

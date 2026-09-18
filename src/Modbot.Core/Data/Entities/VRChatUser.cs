@@ -71,7 +71,35 @@ public class VRChatUser
     /// The picture VRChat shows instead of the avatar when the user has set one
     /// (<c>profilePicOverride</c>). The SDK's own note: when it is not empty, use it instead.
     /// </summary>
+    /// <remarks>
+    /// On no call since API specification v1.21.0, so it is empty for anyone first seen after
+    /// 2026-09-16 and keeps its last value for everyone else. The picture Modbot shows is
+    /// <c>ProfilePictures.Best</c>: this, then <see cref="IconUrl"/>, then the avatar thumbnail.
+    /// </remarks>
     public string? ProfilePictureUrl { get; set; }
+
+    /// <summary>
+    /// The user icon (<c>iconUrl</c>) -- the picture the public profile carries for anyone since
+    /// v1.21.0. Its own column, never mixed into <see cref="ProfilePictureUrl"/>: they are
+    /// different fields, and writing one into the other would make every alternation between the
+    /// two calls look like a profile change.
+    /// </summary>
+    public string? IconUrl { get; set; }
+
+    /// <summary>The profile banner (<c>bannerUrl</c>), as the public profile carries it.</summary>
+    public string? BannerUrl { get; set; }
+
+    /// <summary>
+    /// The group the person has chosen to represent (<c>representedGroup.id</c>), or null when
+    /// they represent none. Opaque, like every VRChat id.
+    /// </summary>
+    public string? RepresentedGroupId { get; set; }
+
+    /// <summary>The represented group's name, as sent beside its id.</summary>
+    public string? RepresentedGroupName { get; set; }
+
+    /// <summary>The represented group's icon, as sent beside its id.</summary>
+    public string? RepresentedGroupIconUrl { get; set; }
 
     /// <summary>The day the account was created, as VRChat reports it.</summary>
     public DateOnly? DateJoined { get; set; }
