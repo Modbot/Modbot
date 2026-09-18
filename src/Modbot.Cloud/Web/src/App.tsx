@@ -5,6 +5,7 @@ import { ResetPassword, Verify } from '@/pages/account/Tokens'
 import { Admin } from '@/pages/admin/Admin'
 import { Home } from '@/pages/Home'
 import { NotFound } from '@/pages/NotFound'
+import { Unsubscribe } from '@/pages/Unsubscribe'
 
 export default function App() {
   const { path, search } = useLocation()
@@ -21,6 +22,9 @@ export default function App() {
   if (path === '/verify') return <Verify token={search.get('token')} change={false} />
   if (path === '/verify-email-change') return <Verify token={search.get('token')} change={true} />
   if (path === '/reset-password') return <ResetPassword token={search.get('token')} />
+
+  // Not an account page: the link at the foot of a Modbot mailing-list message.
+  if (path === '/unsubscribe') return <Unsubscribe token={search.get('token')} />
 
   return <NotFound />
 }
