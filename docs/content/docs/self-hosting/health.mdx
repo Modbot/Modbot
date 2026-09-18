@@ -63,7 +63,19 @@ Each row is a part of Modbot and one word for how it is doing: **VRChat**, **Dis
 **Database**, **Sync**, and **AI** once this deployment is using it. Clicking a row opens this page
 at that part's card.
 
-The page refreshes itself every 20 seconds. From top to bottom:
+The page refreshes itself every 20 seconds. It is a stack of cards. Five are always there —
+**VRChat**, **Database**, **Producers**, **Rate-limit budgets** and **Audit-log event types Modbot
+does not understand**. The rest appear only when they have something to say, so a Modbot with
+nothing wrong shows a short page. From top to bottom:
+
+### Demo data
+
+Only on a [demo Modbot](/self-hosting/demo-mode), and only while it is still building its example
+data. It shows how far it has got.
+
+### Alerts
+
+One row for each thing Modbot is currently unhappy about. Nothing is shown when there is nothing.
 
 ### VRChat
 
@@ -81,6 +93,35 @@ Under it: **Last signed in**, **Sign-ins this hour** (out of the limit Modbot al
 
 To change the VRChat account or the proxy, go to **Settings**, **VRChat Service Account**.
 
+### Database
+
+Whether Modbot can reach its database: **online**, or **unreachable** when the process is up and the
+database is not. It is the same answer `/health/ready` gives.
+
+Under it, **Sync is not running in this process.** appears when this copy of Modbot answers the web
+app but does not read from VRChat.
+
+### AI spend
+
+Shown only when an AI spending limit is close or reached. See [Limits and spend](/ai/limits-and-spend).
+
+### AI
+
+Shown when AI calls have been failing, timing out or falling back in the last hour: how many calls
+there were, how many failed, how many timed out, how many used the
+[fallback model](/ai/settings#the-fields), and which model is answering now.
+
+### Email
+
+Shown when any email is queued or has failed: how many are waiting, when the next one goes, and how
+many failed. See [The email limit](/accounts/staff-accounts#the-email-limit).
+
+### Logs
+
+**Stored** says whether log lines are being written to the database, how many have been written, and
+how many were dropped. **To Modbot Cloud** says **Off**, or when the last batch was sent, how many
+are waiting and how many were dropped. See [Logs](/self-hosting/logs).
+
 ### Discord bot
 
 Shown when relevant. The bot is **not set up**, **connecting**, **working**, **reconnecting**, or
@@ -88,20 +129,16 @@ Shown when relevant. The bot is **not set up**, **connecting**, **working**, **r
 Discord permissions it is missing, and **Intents off in the Developer Portal** if Discord is not
 sending it what it needs. See [Setting up the bot](/discord/bot-setup).
 
-### Database
-
-Whether Modbot can reach its database: **online**, or **unreachable** when the process is up and the
-database is not. It is the same answer `/health/ready` gives.
-
-### AI spend
-
-Shown only when an AI spending limit is close or reached. See [Limits and spend](/ai/limits-and-spend).
-
 ### Calendar
 
 Shown only when a planned event failed to reach VRChat's calendar or Discord, or its instance did
 not open. A **Missing Manage Events** line in the **Discord bot** card means an event wants a
 Discord event and the bot cannot make one. See [Calendar](/moderation/calendar#on-sync-health).
+
+### Paused moderation rules
+
+One row for each AutoMod rule that has stopped itself, with the reason and how long ago. See
+[If a rule runs away](/moderation/automod#if-a-rule-runs-away).
 
 ### Producers
 
@@ -109,6 +146,11 @@ The jobs that read from VRChat: **Group audit log**, **Group info**, **User prof
 **User details**, **Member list** and **Ban list**. Each says when it last completed a pass and how
 its last run went.
 A line underneath says whether the audit log catch-up has finished, and how far it has read.
+
+### Modbot Cloud
+
+Whether this Modbot's report reached Modbot Cloud: **Sent**, **Failed** or **Not sent yet**, with
+when it went, the address it used, and the reason if it failed.
 
 ### Rate-limit budgets
 
@@ -123,8 +165,8 @@ seen. **None seen.** is the normal answer.
 
 ## The Deployment card
 
-**Settings**, **Host & Database**, **Deployment** describes what is running. You need the
-**Change settings** permission to open **Settings**.
+**Settings**, **Host & Database**, **Deployment** describes what is running. The **Host & Database**
+tab needs the **Change settings** permission.
 
 | Row | What it shows |
 |---|---|

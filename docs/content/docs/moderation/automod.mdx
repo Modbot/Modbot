@@ -278,7 +278,10 @@ back to flag only loses its trial.
 ### If a rule runs away
 
 An acting rule that suddenly acts far more in an hour than it usually does pauses itself: more than
-10 actions in an hour, and more than 4 times its own hourly average over the last 7 days. A paused
+10 actions in an hour, and more than 16 times its own hourly average over the last 7 days. Both have
+to be true. A brand new rule has no average yet, so the first number is the one that stops it, at 11
+actions in an hour; a rule that normally acts twice an hour has to reach 33. Neither number can be
+changed. A paused
 rule keeps flagging and stops acting, shows **Paused** on its card with the reason, and appears on
 the [Health](/self-hosting/health) page. Press **Resume** when you have looked at it.
 
