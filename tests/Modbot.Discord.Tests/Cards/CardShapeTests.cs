@@ -1,3 +1,4 @@
+using System.Text;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data.Entities;
 using Modbot.Discord.Alerts;
@@ -40,9 +41,37 @@ public class CardShapeTests
             yield return field.Value;
     }
 
+    /// <summary>
+    /// What a moderator sees, which is the markdown with every link's address taken out. The id is
+    /// in the address on purpose (§2.1): it moved from the part that is read to the part that is
+    /// clicked, so the address is exactly where it is allowed to be and the label is what the rule
+    /// is about.
+    /// </summary>
+    private static string Visible(string markdown)
+    {
+        var visible = new StringBuilder(markdown.Length);
+
+        for (var i = 0; i < markdown.Length; i++)
+        {
+            // "](" opens a link's address and the first ")" closes it; a Modbot address holds no
+            // parenthesis of its own, because an id is percent-encoded.
+            if (markdown[i] == ']' && i + 1 < markdown.Length && markdown[i + 1] == '('
+                && markdown.IndexOf(')', i + 2) is var close && close > 0)
+            {
+                visible.Append(']');
+                i = close;
+                continue;
+            }
+
+            visible.Append(markdown[i]);
+        }
+
+        return visible.ToString();
+    }
+
     private static void AssertNoIdsInTheBody(DiscordEmbedContent card)
     {
-        foreach (var text in Body(card))
+        foreach (var text in Body(card).Select(Visible))
         {
             Assert.DoesNotContain(Person, text, StringComparison.Ordinal);
             Assert.DoesNotContain(Actor, text, StringComparison.Ordinal);

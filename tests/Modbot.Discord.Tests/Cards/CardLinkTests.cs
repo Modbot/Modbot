@@ -34,7 +34,15 @@ public class CardLinkTests
     [Fact]
     public void APersonWithANameNeverShowsTheirId()
     {
-        Assert.DoesNotContain(Person, CardLink.Person("jessie", Person, Address), StringComparison.Ordinal);
+        // With an address, the id is in the part that is clicked and the part that is read is the
+        // name. Splitting on "](" is the whole of the difference between the two.
+        var linked = CardLink.Person("jessie", Person, Address);
+        var label = linked[1..linked.IndexOf("](", StringComparison.Ordinal)];
+
+        Assert.Equal("jessie", label);
+        Assert.DoesNotContain(Person, label, StringComparison.Ordinal);
+
+        // With no address there is no part that is clicked, so there is nowhere for it to be.
         Assert.DoesNotContain(Person, CardLink.Person("jessie", Person, null), StringComparison.Ordinal);
     }
 
