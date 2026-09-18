@@ -45,6 +45,14 @@ ordinary, useful, and how a maintainer decides what to support.
 > §4.7, §5.1 and `2026-09-16-cloud-accounts-and-registry-design.md`. `my.modbot.co` has no database
 > of its own any more and reads everything from Cloud.
 
+> **Built 2026-09-17.** Client releases now live on Cloud too, as an index over the GitHub releases
+> rather than a file host, and the **server** asks the same endpoint what the newest server release
+> is. Being told that a newer version exists is deliberately **not** one of the Cloud features
+> `MODBOT_CLOUD_DISABLED` turns off: nothing about the deployment is sent, so there is nothing for
+> that variable to protect, and the deployments least in touch with the project must not be the
+> only ones never told about a security fix. The operator's switch for it is on the settings row
+> and defaults to on. See §3 and `2026-09-17-update-checking-design.md`.
+
 **These remain permanently out of scope:**
 
 - **No central authentication.** Accounts live in each deployment, and the registry never holds
@@ -358,6 +366,20 @@ entirely.
 ---
 
 ## 3. The release host
+
+> **Built 2026-09-17, in a different shape.** There is no static file host and no object storage.
+> Releases are published to **GitHub Releases** by the two release workflows, and **Modbot Cloud**
+> serves an index of them at `/api/v1/updates` — including the client's own feed in the shape
+> Velopack reads, with each package's name replaced by the address it downloads from on GitHub. So
+> the index is one cached document and the payloads still come from GitHub. The server checks the
+> same endpoint, which this section never imagined, because a running container cannot work out a
+> Docker image's newest tag for itself.
+>
+> What survives unchanged: the feed address is still client-configurable, mirroring is still a real
+> option, updates can still be turned off entirely, and whatever serves the index still holds
+> nothing worth stealing (§3.2). What is superseded: the manifest shape in §3.3 — Velopack's own
+> is used instead, and the API version range is left out for the reason in the new spec §9 — and
+> the channels in §3.4. See `2026-09-17-update-checking-design.md`.
 
 ### 3.1 What it is
 

@@ -18,6 +18,14 @@ all moved from `my.modbot.co`:
    account can claim the servers it owns.
 3. **The term lists.** The curated lists Modbot's AI moderation imports.
 
+> **Added 2026-09-17.** A fourth thing lives in Cloud and is not one of these: **update checking**
+> (`2026-09-17-update-checking-design.md`). It is deliberately *not* a Cloud feature. It is
+> unauthenticated, it keeps nothing, it has no account and no registry row, and it is answered
+> identically for everybody out of one cached copy — and, unlike everything in this document, it
+> still answers a deployment that has `MODBOT_CLOUD_DISABLED` set. It lives here for one reason
+> only: GitHub's rate limit cannot take a request from every deployment and every client in the
+> world, and one cached copy can.
+
 The maintainer's words:
 
 > "Move termlists and instance registration into Modbot Cloud, and support downloading termlists
