@@ -150,7 +150,7 @@ public class RolesTests
         await host.SendJsonAsync(
             HttpMethod.Post,
             "/api/users",
-            new { username = $"u_{Guid.NewGuid():N}", password = "a-long-enough-password", roleIds = new[] { id } },
+            new { username = $"u_{Guid.NewGuid():N}", password = "a-long-enough-password", email = $"u_{Guid.NewGuid():N}@example.com", roleIds = new[] { id } },
             cookie,
             Ct);
 

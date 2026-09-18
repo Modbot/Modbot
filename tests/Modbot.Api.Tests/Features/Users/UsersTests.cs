@@ -16,6 +16,9 @@ public class UsersTests
 
     private static string UniqueName() => $"u_{Guid.NewGuid():N}";
 
+    /// <summary>Every account gets one, and no two share one (server info and account email design §4).</summary>
+    private static string UniqueEmail() => $"u_{Guid.NewGuid():N}@example.com";
+
     [Fact]
     public async Task ListingUsers_Needs401Then403ThenManageUsers()
     {
@@ -71,7 +74,7 @@ public class UsersTests
         var response = await host.SendJsonAsync(
             HttpMethod.Post,
             "/api/users",
-            new { username = name, password = "a-long-enough-password", roleIds = new[] { BuiltInRoles.ModeratorId } },
+            new { username = name, password = "a-long-enough-password", email = UniqueEmail(), roleIds = new[] { BuiltInRoles.ModeratorId } },
             cookie,
             Ct);
 
@@ -102,7 +105,7 @@ public class UsersTests
         var response = await host.SendJsonAsync(
             HttpMethod.Post,
             "/api/users",
-            new { username = existing.Username.ToUpperInvariant(), password = "a-long-enough-password", roleIds = Array.Empty<Guid>() },
+            new { username = existing.Username.ToUpperInvariant(), password = "a-long-enough-password", email = UniqueEmail(), roleIds = Array.Empty<Guid>() },
             cookie,
             Ct);
 
@@ -120,7 +123,7 @@ public class UsersTests
         var response = await host.SendJsonAsync(
             HttpMethod.Post,
             "/api/users",
-            new { username = UniqueName(), password = "a-long-enough-password", roleIds = new[] { BuiltInRoles.AdministratorId } },
+            new { username = UniqueName(), password = "a-long-enough-password", email = UniqueEmail(), roleIds = new[] { BuiltInRoles.AdministratorId } },
             manager,
             Ct);
 

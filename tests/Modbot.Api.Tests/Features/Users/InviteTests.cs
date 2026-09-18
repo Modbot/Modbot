@@ -18,6 +18,9 @@ public class InviteTests
 
     private static string UniqueName() => $"u_{Guid.NewGuid():N}";
 
+    /// <summary>Every account gets one, and no two share one (server info and account email design §4).</summary>
+    private static string UniqueEmail() => $"u_{Guid.NewGuid():N}@example.com";
+
     private static async Task<(Guid Id, string Path)> CreateInviteAsync(
         ApiTestHost host, string cookie, params Guid[] roleIds)
     {
@@ -44,7 +47,13 @@ public class InviteTests
         var name = UniqueName();
         var accepted = await host.SendJsonAsync(
             HttpMethod.Post, ApiPath(path),
-            new { username = name, password = "a-long-enough-password", confirmPassword = "a-long-enough-password" },
+            new
+            {
+                username = name,
+                password = "a-long-enough-password",
+                confirmPassword = "a-long-enough-password",
+                email = UniqueEmail(),
+            },
             null, Ct);
 
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
@@ -56,7 +65,7 @@ public class InviteTests
         // Once. The second person to open it gets nothing.
         var again = await host.SendJsonAsync(
             HttpMethod.Post, ApiPath(path),
-            new { username = UniqueName(), password = "a-long-enough-password" },
+            new { username = UniqueName(), password = "a-long-enough-password", email = UniqueEmail() },
             null, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, again.StatusCode);
 
@@ -77,7 +86,7 @@ public class InviteTests
 
         var accepted = await host.SendJsonAsync(
             HttpMethod.Post, ApiPath(path),
-            new { username = UniqueName(), password = "a-long-enough-password" },
+            new { username = UniqueName(), password = "a-long-enough-password", email = UniqueEmail() },
             null, Ct);
         var session = ApiTestHost.SessionCookie(accepted);
 
@@ -107,7 +116,7 @@ public class InviteTests
 
         var accepted = await host.SendJsonAsync(
             HttpMethod.Post, ApiPath(path),
-            new { username = UniqueName(), password = "a-long-enough-password" },
+            new { username = UniqueName(), password = "a-long-enough-password", email = UniqueEmail() },
             null, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, accepted.StatusCode);
     }

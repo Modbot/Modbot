@@ -76,7 +76,17 @@ public static class NewAccount
             null,
             ct);
 
-        await subscriber.SubscribeAsync(email, ct);
+        try
+        {
+            await subscriber.SubscribeAsync(email, ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // The subscriber swallows its own failures, and this swallows them again anyway. The
+            // promise is that nothing about signing up for a mailing list can undo an account that
+            // has already been made, and a promise kept in one place is a promise a change to that
+            // place can break.
+        }
     }
 
     /// <summary>The subscriber this host registered, or null when it registered none.</summary>
