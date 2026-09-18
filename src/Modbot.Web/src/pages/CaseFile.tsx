@@ -8,7 +8,8 @@ import { EvidenceGallery } from '@/components/EvidenceGallery'
 import { Markdown } from '@/components/Markdown'
 import { ReasonButtons, WrittenReasonBox } from '@/components/CaseFileForm'
 import { SubjectLink } from '@/components/facts'
-import { OtherTags, ProfileBadges } from '@/components/ProfileBadges'
+import { OtherTags } from '@/components/ProfileBadges'
+import { ProfileHeader } from '@/components/ProfileHeader'
 import {
   api,
   ApiError,
@@ -19,7 +20,6 @@ import {
 import { textList } from '@/lib/caseSnapshot'
 import { ago, formatDay } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * One case file, at `/cases/:id`.
@@ -382,42 +382,36 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
 }
 
 function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
-  const picture = profile.profilePictureUrl || profile.avatarThumbnailUrl
   const tags = textList(profile.tags)
 
   return (
-    <div className="flex gap-3">
-      {/* The image is fetched from VRChat's host as it was then, and may already be gone. That is
-          the honest state: Modbot never copied the bytes. */}
-      {picture ? (
-        <img
-          src={vrchatMedia(picture)}
-          alt=""
-          className="size-16 shrink-0 rounded-md bg-muted object-cover"
-          referrerPolicy="no-referrer"
-        />
-      ) : (
-        <div className="size-16 shrink-0 rounded-md bg-muted" />
-      )}
-
-      <div className="min-w-0 flex-1" style={{ fontSize: 'var(--text-small)' }}>
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium" style={{ fontSize: 'var(--text-base)' }}>
-            {profile.displayName ?? <span className="font-mono">{profile.userId}</span>}
-          </span>
-          {profile.pronouns && <span className="text-muted-foreground">{profile.pronouns}</span>}
-          {profile.eighteenPlus?.verified && (
+    <div className="flex flex-col gap-2">
+      {/* The pictures are fetched from VRChat's host as they were then, and may already be gone.
+          That is the honest state: Modbot never copied the bytes. A snapshot written before the
+          server chose a best picture has only the avatar thumbnail, so that is still read here. */}
+      <ProfileHeader
+        bannerUrl={profile.bannerUrl}
+        pictureUrl={profile.profilePictureUrl || profile.avatarThumbnailUrl}
+        name={profile.displayName}
+        id={profile.userId}
+        pronouns={profile.pronouns}
+        tags={tags}
+        lastPlatform={profile.lastPlatform}
+        rank={profile.trustRank}
+        representedGroup={profile.representedGroup}
+        marks={
+          profile.eighteenPlus?.verified ? (
             <span
               className="inline-flex items-center self-center rounded-full border border-transparent bg-ok/15 px-2 py-0.5 font-medium text-ok"
               style={{ borderWidth: 'var(--hairline)' }}
             >
               18+ verified
             </span>
-          )}
-        </div>
+          ) : null
+        }
+      />
 
-        <ProfileBadges tags={tags} lastPlatform={profile.lastPlatform} rank={profile.trustRank} className="mt-1" />
-
+      <div className="min-w-0" style={{ fontSize: 'var(--text-small)' }}>
         {profile.statusDescription && (
           <div className="mt-0.5 text-muted-foreground">“{profile.statusDescription}”</div>
         )}

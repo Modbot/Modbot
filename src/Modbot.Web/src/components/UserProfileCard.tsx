@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { OtherTags, ProfileBadges } from '@/components/ProfileBadges'
+import { OtherTags } from '@/components/ProfileBadges'
+import { ProfileHeader } from '@/components/ProfileHeader'
 import { Field } from '@/components/subject/shared'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
 import { can } from '@/lib/permissions'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
 import { cn } from '@/lib/utils'
-import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * One person's stored VRChat profile, with how old it is written next to it.
@@ -37,8 +37,8 @@ export function UserProfileCard({ subjectId, me }: { subjectId: string; me: Curr
 }
 
 /**
- * Who this is: picture, name, pronouns, the badge row, how old the reading is, and the 18+ mark.
- * The part that belongs beside the person wherever they are shown.
+ * Who this is: banner, picture, name, pronouns, the badge row, the group they represent, how old
+ * the reading is, and the 18+ mark. The part that belongs beside the person wherever they are shown.
  */
 export function ProfileIdentity({
   stored,
@@ -171,32 +171,18 @@ function Freshness({
 }
 
 function Identity({ profile }: { profile: VRChatUserProfile }) {
-  const picture = profile.profilePictureUrl || profile.avatarThumbnailUrl
-
   return (
-    <div className="flex gap-3">
-      {picture ? (
-        <img
-          src={vrchatMedia(picture)}
-          alt=""
-          className="size-16 shrink-0 rounded-full bg-muted object-cover"
-          referrerPolicy="no-referrer"
-        />
-      ) : (
-        <div className="size-16 shrink-0 rounded-full bg-muted" />
-      )}
-
-      <div className="flex min-w-0 flex-1 flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium break-words" style={{ fontSize: 'var(--text-base)' }}>
-            {profile.displayName ?? <span className="font-mono">{profile.userId}</span>}
-          </span>
-          {profile.pronouns && <span className="text-muted-foreground">{profile.pronouns}</span>}
-        </div>
-
-        <ProfileBadges tags={profile.tags} lastPlatform={profile.lastPlatform} rank={profile.trustRank} />
-      </div>
-    </div>
+    <ProfileHeader
+      bannerUrl={profile.bannerUrl}
+      pictureUrl={profile.profilePictureUrl}
+      name={profile.displayName}
+      id={profile.userId}
+      pronouns={profile.pronouns}
+      tags={profile.tags}
+      lastPlatform={profile.lastPlatform}
+      rank={profile.trustRank}
+      representedGroup={profile.representedGroup}
+    />
   )
 }
 

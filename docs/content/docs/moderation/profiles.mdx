@@ -22,9 +22,10 @@ Anyone Modbot sees, including:
 
 The profile as VRChat returns it. The left side of the popup shows:
 
-- picture, display name and pronouns;
+- banner, picture, display name and pronouns;
 - a row of badges read from VRChat's tags and the platform they last used (see
   [Badges](#badges));
+- the group they represent, with its icon;
 - how old the stored profile is;
 - the 18+ verified mark, and what VRChat shows about age verification.
 
@@ -62,7 +63,9 @@ anything is saved:
 - the private note Modbot's own VRChat account may have on them;
 - the friend key.
 
-Profile pictures are shown from VRChat's servers. Modbot does not keep a copy of the image.
+Pictures, banners and icons are fetched from VRChat's servers by Modbot's own server each time
+they are shown, because VRChat refuses a browser that asks for them directly. Modbot does not keep
+a copy of the image.
 
 When a watched part of the profile changes (name, bio, status, pronouns, pictures, tags, trust
 rank, join date or age verification), Modbot writes an entry to the
