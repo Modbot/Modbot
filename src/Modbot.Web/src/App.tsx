@@ -47,9 +47,7 @@ import { Pair } from '@/pages/Pair'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { Flags } from '@/pages/Flags'
 import { Reviews } from '@/pages/Reviews'
-import { Roles } from '@/pages/Roles'
 import { Settings } from '@/pages/Settings'
-import { Users } from '@/pages/Users'
 import { Setup } from '@/pages/setup/Setup'
 
 const TITLES: Record<PageId, string> = {
@@ -69,8 +67,6 @@ const TITLES: Record<PageId, string> = {
   'analytics-worlds': 'Worlds',
   'analytics-instances': 'Instances',
   reviews: 'Reviews',
-  users: 'Users',
-  roles: 'Roles',
   health: 'Sync health',
   logs: 'Logs',
   settings: 'Settings',
@@ -101,8 +97,6 @@ const PATHS: Record<PageId, string> = {
   'analytics-worlds': '/analytics/worlds',
   'analytics-instances': '/analytics/instances',
   reviews: '/reviews',
-  users: '/users',
-  roles: '/roles',
   health: '/health',
   logs: '/logs',
   settings: '/settings',
@@ -134,7 +128,10 @@ function pageFor(path: string): PageId {
   if (caseFileId(path)) return 'cases'
   if (chatConversationId(path)) return 'chat'
 
-  const wanted = MOVED[path] ?? path
+  // An address that moved may name a tab inside the page it moved to (`/settings#iam/users`),
+  // and the router does not carry the hash: the page is whatever comes before the `#`, and the
+  // tab is the redirect's business.
+  const wanted = (MOVED[path] ?? path).split('#')[0]
   const match = (Object.keys(PATHS) as PageId[]).find((id) => PATHS[id] === wanted)
   return match ?? 'members'
 }
@@ -451,11 +448,9 @@ function Shell({
           {page === 'analytics-worlds' && <Worlds />}
           {page === 'analytics-instances' && <Instances />}
           {page === 'reviews' && <Reviews onOpenSubject={setSubject} onChanged={refreshReviewCount} />}
-          {page === 'users' && <Users me={me} />}
-          {page === 'roles' && <Roles me={me} />}
           {page === 'health' && <Health />}
           {page === 'logs' && <Logs />}
-          {page === 'settings' && <Settings />}
+          {page === 'settings' && <Settings me={me} />}
           {page === 'account' && <Account me={me} onChanged={() => void refresh()} />}
           {page === 'credits' && <Credits />}
         </div>
