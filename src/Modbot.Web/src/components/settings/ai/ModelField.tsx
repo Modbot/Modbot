@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -263,11 +264,11 @@ function ModelPicker({
               value={filters.search}
               onChange={(e) => set({ search: e.target.value })}
             />
-            <select
+            <Select
               aria-label="Maker"
-              className={selectClass}
+              className="h-9 px-3"
               value={filters.maker}
-              onChange={(e) => set({ maker: e.target.value })}
+              onChange={(maker) => set({ maker })}
             >
               <option value="">All makers</option>
               {makers.map((m) => (
@@ -275,7 +276,7 @@ function ModelPicker({
                   {m}
                 </option>
               ))}
-            </select>
+            </Select>
             <Toggle on={filters.tools} onClick={() => set({ tools: !filters.tools })}>
               Tools
             </Toggle>
@@ -428,11 +429,6 @@ function Row({
     </TableRow>
   )
 }
-
-const selectClass = cn(
-  'border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30',
-  'h-9 rounded-md border bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]',
-)
 
 function Toggle({
   on,

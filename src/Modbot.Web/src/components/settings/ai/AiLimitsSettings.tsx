@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState } from 'react'
 import { DailyBars, Legend, nextSlot, type DaySeries } from '@/components/charts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { amountText, count, money, share, spentText, tokensText, tokensTitle } from '@/lib/aiSpend'
 import {
   api,
@@ -372,11 +373,11 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Select
           aria-label="Add a limit for"
           value={adding}
-          onChange={(e) => setAdding(e.target.value)}
-          className={selectClass}
+          onChange={setAdding}
+          className="h-9 px-3"
         >
           <option value="">Add a limit for…</option>
           {!taken.has('everyone:') && <option value="everyone:">Everyone</option>}
@@ -407,7 +408,7 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
                 </option>
               ))}
           </optgroup>
-        </select>
+        </Select>
         <Button size="sm" variant="outline" disabled={!adding} onClick={add}>
           Add
         </Button>
@@ -643,11 +644,6 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
     </SettingsCard>
   )
 }
-
-const selectClass = cn(
-  'border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30',
-  'h-9 rounded-md border bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]',
-)
 
 function Money({
   label,

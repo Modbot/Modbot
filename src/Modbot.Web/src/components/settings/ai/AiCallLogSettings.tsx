@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -38,11 +39,6 @@ const failure = (e: unknown) =>
     : e instanceof ApiError
       ? e.message
       : 'Could not reach the Modbot server.'
-
-const selectClass = cn(
-  'border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30',
-  'h-9 rounded-md border bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]',
-)
 
 const took = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`)
 
@@ -111,11 +107,11 @@ export function AiCallLogSettings() {
         }
       >
         <div className="flex flex-wrap items-center gap-2">
-          <select
+          <Select
             aria-label="Feature"
-            className={selectClass}
+            className="h-9 px-3"
             value={filters.feature}
-            onChange={(e) => set({ feature: e.target.value })}
+            onChange={(feature) => set({ feature })}
           >
             <option value="">All features</option>
             {(page?.features ?? []).map((f) => (
@@ -123,12 +119,12 @@ export function AiCallLogSettings() {
                 {f}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             aria-label="Outcome"
-            className={selectClass}
+            className="h-9 px-3"
             value={filters.outcome}
-            onChange={(e) => set({ outcome: e.target.value })}
+            onChange={(outcome) => set({ outcome })}
           >
             <option value="">All outcomes</option>
             {(page?.outcomes ?? []).map((o) => (
@@ -136,12 +132,12 @@ export function AiCallLogSettings() {
                 {o}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             aria-label="Model"
-            className={selectClass}
+            className="h-9 px-3"
             value={filters.model}
-            onChange={(e) => set({ model: e.target.value })}
+            onChange={(model) => set({ model })}
           >
             <option value="">All models</option>
             {(page?.models ?? []).map((m) => (
@@ -149,7 +145,7 @@ export function AiCallLogSettings() {
                 {m}
               </option>
             ))}
-          </select>
+          </Select>
           <Input
             aria-label="From"
             type="datetime-local"

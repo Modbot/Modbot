@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import { InsightBody } from '@/components/insights/InsightBody'
 import { insightDays } from '@/components/insights/days'
 import {
@@ -271,29 +272,5 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
         )
       })}
     </>
-  )
-}
-
-function Select({
-  value,
-  onChange,
-  children,
-  ...rest
-}: {
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-  'aria-label': string
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-8 rounded-md border border-input bg-transparent px-2 text-foreground"
-      style={{ fontSize: 'var(--text-small)' }}
-      {...rest}
-    >
-      {children}
-    </select>
   )
 }
