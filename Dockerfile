@@ -89,11 +89,17 @@ ENV ASPNETCORE_HTTP_PORTS=
 COPY --from=build /app/ ./
 
 # Serilog writes six streams into ./logs relative to the content root, and evidence stored on disk
-# goes under ./data, so both must be writable by the unprivileged user the container runs as.
-# Creating them here also means a new named volume mounted on either starts out owned by that user
-# rather than by root. $APP_UID is set by the base image.
-RUN mkdir -p /app/logs /app/data/evidence     && chown -R $APP_UID:0 /app/logs /app/data     && chmod -R g+rwX /app/logs /app/data
-USER $APP_UID
+# goes under ./data.
+RUN mkdir -p /app/logs /app/data/evidence /app/data/dumps
+
+# Runs as root, deliberately, since 2026-09-18. A mounted volume arrives owned by root whatever the
+# image did at build time -- the mount replaces the directory and its ownership with it -- so an
+# unprivileged user could not write into one. On Railway that showed up as crash dumps being
+# switched on and the folder for them failing to be made, and it would have hit evidence on disk
+# the same way. Dropping privileges is worth having, but it has to be done after the volume is
+# mounted rather than before, which needs an entry point that starts as root and steps down. Until
+# that exists, a container whose volume works beats a container that cannot write to it.
+USER root
 
 # Documentation only -- the real port comes from PORT at runtime. It is deliberately not an ENV
 # line: the value belongs to the host that starts the container, is unset while the image is being
