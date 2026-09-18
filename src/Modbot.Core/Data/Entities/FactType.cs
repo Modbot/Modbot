@@ -382,6 +382,42 @@ public static class FactType
     public const string PlannedEventPublishFailed = "modbot.calendar.publish.fail";
     public const string CalendarFeedRegenerated = "modbot.calendar.feed.regenerate";
 
+    // ── Giveaways (giveaways design §8) ────────────────────────────────────────────────────
+    //
+    // The subject is the giveaway's id on the Modbot platform, except for entering and
+    // withdrawing, whose subject is the person on Discord -- so a purge finds them and erases
+    // them with everything else about that person (giveaways design §6.3).
+    //
+    // Moderation retention, not presence: a draw is a decision about who got something, and "who
+    // entered" is what makes a disputed result answerable months later.
+
+    public const string GiveawayCreated = "modbot.giveaway.create";
+    public const string GiveawayChanged = "modbot.giveaway.change";
+
+    /// <summary>Entries opened. Written by the organiser or by the scheduler when the time came.</summary>
+    public const string GiveawayOpened = "modbot.giveaway.open";
+
+    /// <summary>Entries closed.</summary>
+    public const string GiveawayClosed = "modbot.giveaway.close";
+
+    /// <summary>Somebody reacted to enter. The subject is the person on Discord.</summary>
+    public const string GiveawayEntered = "modbot.giveaway.enter";
+
+    /// <summary>Somebody took their reaction off. The subject is the person on Discord.</summary>
+    public const string GiveawayWithdrawn = "modbot.giveaway.withdraw";
+
+    /// <summary>A draw was made. Carries its number, seed, promise, entrant count and winners.</summary>
+    public const string GiveawayDrawn = "modbot.giveaway.draw";
+
+    public const string GiveawayCancelled = "modbot.giveaway.cancel";
+    public const string GiveawayDeleted = "modbot.giveaway.delete";
+
+    /// <summary>The winners were named in the Discord channel.</summary>
+    public const string GiveawayWinnerAnnounced = "modbot.giveaway.winner.announce";
+
+    /// <summary>The Discord post could not be written.</summary>
+    public const string GiveawayPublishFailed = "modbot.giveaway.publish.fail";
+
     // ── Reviews of a moderator's pattern (spec 5.8.5, accountability signals design) ───────
     //
     // The subject is the moderator being reviewed, on the VRChat platform, because the review is

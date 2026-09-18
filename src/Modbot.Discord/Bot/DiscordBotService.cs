@@ -281,6 +281,8 @@ public sealed class DiscordBotService : BackgroundService
         gateway.MemberUnbanned += OnMemberUnbannedAsync;
         gateway.VoiceChanged += OnVoiceChangedAsync;
         gateway.AuditLogChanged += OnAuditLogChangedAsync;
+        gateway.ReactionAdded += OnReactionAddedAsync;
+        gateway.ReactionRemoved += OnReactionRemovedAsync;
 
         try
         {
@@ -513,6 +515,35 @@ public sealed class DiscordBotService : BackgroundService
         => IsOurServer(guildId) && _gateway is { } gateway
             ? ReadAuditLogAsync(gateway, guildId, CancellationToken.None)
             : Task.CompletedTask;
+
+    // Reactions reach the giveaways and nothing else. Most of them are people using Discord, so
+    // the handler looks for a giveaway post by message id and stops there when it finds none --
+    // one indexed lookup per reaction, and no fact written about ordinary chat.
+
+    private Task OnReactionAddedAsync(DiscordReactionSnapshot reaction)
+        => IsOurServer(reaction?.GuildId ?? string.Empty)
+            ? GiveawayAsync("record a giveaway entry", (entries, ct) => entries.AddedAsync(reaction!, ct))
+            : Task.CompletedTask;
+
+    private Task OnReactionRemovedAsync(DiscordReactionSnapshot reaction)
+        => IsOurServer(reaction?.GuildId ?? string.Empty)
+            ? GiveawayAsync("record a giveaway withdrawal", (entries, ct) => entries.RemovedAsync(reaction!, ct))
+            : Task.CompletedTask;
+
+    private async Task GiveawayAsync(string what, Func<Giveaways.GiveawayReactions, CancellationToken, Task<bool>> work)
+    {
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var entries = scope.ServiceProvider.GetRequiredService<Giveaways.GiveawayReactions>();
+            await work(entries, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not {What}", what);
+            _status.Problem($"Could not {what}: {e.Message}", _clock.UtcNow);
+        }
+    }
 
     private async Task RecordAsync(string what, Func<DiscordEventRecorder, CancellationToken, Task> work)
     {
@@ -760,6 +791,8 @@ public sealed class DiscordBotService : BackgroundService
         gateway.MemberUnbanned -= OnMemberUnbannedAsync;
         gateway.VoiceChanged -= OnVoiceChangedAsync;
         gateway.AuditLogChanged -= OnAuditLogChangedAsync;
+        gateway.ReactionAdded -= OnReactionAddedAsync;
+        gateway.ReactionRemoved -= OnReactionRemovedAsync;
 
         try
         {

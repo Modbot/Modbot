@@ -21,6 +21,8 @@ export const NAV = [
   { id: 'live', label: 'Live', needs: 'ViewLiveInstances' },
   // Planned events, where each is published, and the calendar feed (calendar design).
   { id: 'calendar', label: 'Calendar', needs: 'ViewCalendar' },
+  // Giveaways, their rules, who entered and how each draw went (giveaways design).
+  { id: 'giveaways', label: 'Giveaways', needs: 'ViewGiveaways' },
   // Questions answered from Modbot's own data, with tools that run as the person asking.
   { id: 'chat', label: 'Chat', needs: 'UseAiChat' },
   { id: 'bans', label: 'Bans', needs: 'ViewAuditLog' },
@@ -86,6 +88,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   'discord-members': 'd',
   live: 'l',
   calendar: 'e',
+  giveaways: 'p',
   chat: 'c',
   bans: 'b',
   flags: 'f',

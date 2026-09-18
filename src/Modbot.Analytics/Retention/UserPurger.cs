@@ -41,7 +41,18 @@ public interface IUserPurger
 /// Discord messages the person wrote, erased with every earlier text of them (M5 spec §5.1). Zero
 /// for anyone but a Discord user.
 /// </param>
-public sealed record PurgeResult(int FactsDeleted, int CountedDailyTotalsDeleted, int DaysRecomputed, int MessagesDeleted = 0);
+/// <param name="GiveawayEntriesDeleted">Standing giveaway entries removed.</param>
+/// <param name="GiveawayEntrantsBlanked">
+/// Rows in a past draw's frozen entrant list whose name and ids were erased, keeping the place and
+/// the weight (giveaways design §6.3).
+/// </param>
+public sealed record PurgeResult(
+    int FactsDeleted,
+    int CountedDailyTotalsDeleted,
+    int DaysRecomputed,
+    int MessagesDeleted = 0,
+    int GiveawayEntriesDeleted = 0,
+    int GiveawayEntrantsBlanked = 0);
 
 /// <inheritdoc />
 public sealed class UserPurger : IUserPurger
@@ -156,6 +167,8 @@ public sealed class UserPurger : IUserPurger
                 ? await DeleteMessagesAsync(subjectId, ct)
                 : 0;
 
+            var (entriesDeleted, entrantsBlanked) = await ErasedFromGiveawaysAsync(platform, subjectId, ct);
+
             if (days.Count > 0)
                 await _dailyTotals.RecomputeDaysAsync(days, ct);
 
@@ -164,7 +177,8 @@ public sealed class UserPurger : IUserPurger
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
 
-            return new PurgeResult(factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted);
+            return new PurgeResult(
+                factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked);
         }
         finally
         {
@@ -216,6 +230,47 @@ public sealed class UserPurger : IUserPurger
             "DELETE FROM discord_message WHERE author_id = @author",
             ct,
             new NpgsqlParameter("author", authorId));
+    }
+
+    /// <summary>
+    /// Takes the person out of every giveaway: their standing entries go, and their name and ids
+    /// come off every frozen entrant list they are in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The two halves pull opposite ways and both matter. A snapshot is what makes a past draw
+    /// checkable (giveaways design §5.1), so deleting the row would make an old result
+    /// unverifiable for everybody else; a purge has to actually erase the person, so keeping their
+    /// name would make the erasure a claim rather than a fact.
+    /// </para>
+    /// <para>
+    /// What is kept is the place in the list and the weight — the numbers the draw was worked out
+    /// from, which are about nobody once the name is gone. Anyone can still reproduce the draw
+    /// from the snapshot and the seed; the row that used to be a person now says only "somebody,
+    /// with this weight, in this position", and is marked as erased so it does not read as a
+    /// missing name.
+    /// </para>
+    /// </remarks>
+    private async Task<(int Entries, int Entrants)> ErasedFromGiveawaysAsync(
+        FactPlatform platform, string subjectId, CancellationToken ct)
+    {
+        var entries = platform == FactPlatform.Discord
+            ? await ExecuteAsync(
+                "DELETE FROM giveaway_entry WHERE discord_user_id = @subject",
+                ct,
+                new NpgsqlParameter("subject", subjectId))
+            : 0;
+
+        var entrants = await ExecuteAsync(
+            """
+            UPDATE giveaway_entrant
+            SET name = NULL, vrchat_user_id = NULL, discord_user_id = NULL, key = '', purged = TRUE
+            WHERE (vrchat_user_id = @subject OR discord_user_id = @subject) AND purged = FALSE
+            """,
+            ct,
+            new NpgsqlParameter("subject", subjectId));
+
+        return (entries, entrants);
     }
 
     private async Task RecordAsync(int facts, int dailyTotals, int days, int messages, CancellationToken ct)

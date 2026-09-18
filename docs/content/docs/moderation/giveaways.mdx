@@ -1,0 +1,361 @@
+---
+title: Giveaways
+description: Run a raffle your members can check. Decide who may enter with rules about time in your worlds, Discord activity and membership; weight the draw by who actually shows up; and publish the seed so anyone can work the result out again.
+---
+
+The **Giveaways** page is where you run a raffle. You say what the prize is, who may enter, how many
+people win and when it closes, and Modbot does the rest:
+
+- works out who qualifies, from what it has recorded about your group and your Discord server;
+- posts the giveaway in a Discord channel, with the rules on the card;
+- takes entries, either automatically or by people reacting;
+- draws the winners and names them in the channel;
+- keeps the whole entrant list, with every weight, so anyone can check the result.
+
+## Who can use it
+
+| To do this | You need |
+|---|---|
+| See the **Giveaways** page, the rules, who entered and how each draw went | [**See giveaways**](/accounts/roles-and-permissions#see-giveaways) |
+| Create, change, open, close, draw and cancel giveaways | [**Run giveaways**](/accounts/roles-and-permissions#run-giveaways) and **See giveaways** |
+
+Without **See giveaways**, **Giveaways** does not appear in the sidebar. **Run giveaways** on its own
+is not enough to open the page. Neither is in the built-in **Moderator** or **Viewer** roles.
+**Administrator** holds both.
+
+## The page
+
+Giveaways are listed newest first. The buttons at the top filter by status: **All**, **Open**,
+**Closed**, **Drawn**, **Drafts**, **Cancelled**.
+
+Each row shows the closing date, the name, the status, how many people have entered (for a giveaway
+people react to), the winners once it has been drawn, and how the Discord post is doing.
+
+Click one to open it.
+
+### A giveaway's status
+
+| Status | Meaning |
+|---|---|
+| **Draft** | Saved, posted nowhere, nobody can enter. |
+| **Open** | Published and running. |
+| **Closed** | No more entries, not yet drawn. |
+| **Drawn** | Drawn at least once. |
+| **Cancelled** | Called off. |
+
+## Planning a giveaway
+
+Click **New giveaway**.
+
+### Name and prize
+
+| Field | Notes |
+|---|---|
+| **Name** | Required. Up to 100 characters. |
+| **Prize** | Optional. Up to 500 characters. Shown on the Discord card. |
+
+### When
+
+| Field | Notes |
+|---|---|
+| **Opens** | When entries start counting. |
+| **Closes** | Must be after it opens. At most 180 days later. |
+| **Draw** | **By hand**, or **At a time**. |
+| **Draw at** | Shown when the draw is at a time. Not before it closes, and within 30 days of closing. |
+
+### Entering
+
+| Field | Notes |
+|---|---|
+| **How people enter** | **Everyone who matches** or **React on Discord**. |
+| **Emoji** | Shown for **React on Discord**. What people react with. One of your server's own emoji works too. |
+| **Winners** | 1 to 100. |
+
+**Everyone who matches** needs nobody to do anything: everyone who passes the rules is in.
+
+**React on Discord** posts the giveaway and puts the emoji on it. A person enters by reacting with
+that emoji, and withdraws by taking the reaction off. Picking it ticks **Post to channel**, which
+then cannot be unticked: without a post there is nothing to react to.
+
+### Rules
+
+The rule builder is a list of rules inside a group. The group is **All of**, **Any of** or **None
+of**. **Add rule** adds a row; **Add group** puts a group inside the group, up to three deep.
+
+These are the rules:
+
+| Rule | Asks |
+|---|---|
+| **In Discord for at least** N days | Their Discord join date. |
+| **In the group for at least** N days | The join date VRChat states. |
+| **In the group now** | They are a member right now. |
+| **Hours in our instances, at least** N | Every hour they have been seen in your instances, added together. |
+| **Hours in one single instance, at least** N | The most they have been seen in any one instance. |
+| **Hours in Discord voice, at least** N | Time connected to a voice channel. |
+| **Discord messages sent, at least** N | Messages they have sent in your server. |
+| **Seen in the last** N days | When they were last seen in one of your instances. |
+| **Discord and VRChat accounts linked** | They have [linked their accounts](/discord/account-linking). |
+| **Holds the group role** | One of your VRChat group's roles. |
+| **Holds the Discord role** | One of your server's roles. |
+| **No bans, kicks or flags** | No bans, removals, instance kicks, Discord bans, kicks or timeouts, and no [flag](/moderation/flags) a moderator has not dismissed. |
+| **VRChat account at least** N days old | The join date on their VRChat profile. |
+
+**Hours in our instances** and **hours in one single instance** are different questions. The first
+finds your regulars; the second finds the people who stayed all evening.
+
+Five of them — instance hours, one instance's hours, voice hours, messages and no trouble — can be
+either **All time** or **In the last** so many days.
+
+There is no "does not hold". Put the rule inside a **None of** group instead.
+
+### Preview
+
+**Preview** says how many people match right now: for example, **about 312 of 4,081 · 7 near the
+line**.
+
+Modbot knows how long somebody spent in an instance from the reports your moderators' companions
+send while they are there. That is a good figure, not an exact one, so a count that depends on it is
+shown as **about**, and people whose hours sit within a whisker of a threshold are counted as **near
+the line**. For a rule that asks for 10 hours, anyone between about 9 and 11 is near the line.
+
+Voice hours and message counts are exact.
+
+#### When Modbot cannot answer
+
+If you have set a retention window under **Settings**, **Data**, Modbot eventually deletes old facts.
+A rule reaching further back than the facts it still has cannot be answered, and the preview says so
+instead of giving a number:
+
+> Modbot cannot answer "10 hours or more in our instances in the last 365 days". Presence history is
+> kept for 90 days, and the rule asks about 365.
+
+Shorten the rule's window, or keep presence history for longer. The same message appears if you try
+to draw.
+
+Voice hours and message counts are never refused this way: they are counted from daily totals, which
+Modbot keeps forever whatever your retention window is.
+
+By default nothing is deleted, so this only happens if you have set a window yourself.
+
+### Not eligible
+
+Tick any of **Staff**, **People who have won before** or **Banned members**.
+
+Anybody kept out this way is still in the entrant list, with the reason beside them. They cannot
+win, and they can see why.
+
+### Weighting
+
+| Field | Notes |
+|---|---|
+| **Weighted by** | **Everybody the same**, **Hours in our instances**, **Hours in Discord voice**, **Discord messages** or **Days seen**. |
+| **Most one person can hold** | Shown when the weighting is not **Everybody the same**. Leave empty for no cap. |
+
+A weight is how many tickets somebody holds. With **Hours in our instances**, a person seen for 40
+hours holds 40 tickets and one seen for 3 holds 3.
+
+Weights are whole numbers, never less than 1 and never more than the cap. The 1 matters: somebody
+who passed every rule but has no hours recorded still holds a ticket. The cap matters too, because
+without one your most dedicated member can hold most of the raffle.
+
+### Discord
+
+| Field | Notes |
+|---|---|
+| **Post to channel** | Posts the giveaway as a card. Always on for **React on Discord**. |
+| **Channel** | The channel to post in. The bot needs View Channel, Send Messages and Embed Links there, and Add Reactions for a giveaway people react to. |
+
+### Saving
+
+- **Open** saves it and starts it.
+- **Save draft** saves it without posting anything or letting anybody in. Come back to it from the
+  **Drafts** filter.
+- **Close** leaves without saving.
+
+## Opening a giveaway
+
+Click one in the list. You see its status, how people enter, how many win, the weighting, the prize,
+the times, the rules in plain words, who is not eligible, the seed, and every draw.
+
+With **Run giveaways** you also get **Edit**, **Open**, **Close**, **Draw**, **Cancel giveaway** and
+**Delete**.
+
+- **A cancelled giveaway cannot be changed.**
+- **A giveaway that has been drawn cannot be changed either.** The draw kept a copy of its rules, so
+  changing them now would not change the result — but the page would show today's rules beside last
+  week's winners, as though the two went together.
+- A published giveaway cannot go back to being a draft.
+
+## The draw
+
+Click **Draw**. Modbot:
+
+1. works out who is in, **checking the rules again**;
+2. writes the entrant list down, with every weight, and never changes it;
+3. reveals the seed it promised;
+4. picks the winners from the two;
+5. names them in the Discord channel.
+
+### Why the rules are checked twice
+
+For a giveaway people react to, Modbot checks the rules when the reaction arrives **and** again when
+it draws. Somebody can qualify on Monday and not on Friday.
+
+Checking only when they entered would let somebody who has since been banned win. Checking only at
+the draw would mean a person who does not qualify hears nothing until it is too late to do anything.
+So both happen, and the one at the draw decides.
+
+Somebody who entered and no longer qualifies stays in the entrant list, marked with the rule they
+failed. They are never quietly dropped.
+
+### The seed
+
+Before any draw, the giveaway shows a **seed promise** — a long string of letters and numbers. It is
+a fingerprint of a secret Modbot generated when the giveaway was created and has not shown anybody.
+
+When the draw happens, Modbot publishes the secret itself. Anyone who noted the promise can check
+that it is a fingerprint of that secret, which means Modbot could not have picked a secret after
+seeing who would win under it.
+
+Modbot checks this for you: a draw whose seed does not match its promise says **Does not match the
+promise** in red.
+
+A fresh promise is made at the same moment, for the next draw.
+
+### Working the result out again
+
+You need two things, both on the page: the draw's **seed**, and its **entrant list** (click
+**Entrants** under the draw).
+
+For each winner in turn:
+
+1. Add up the weights of everyone still in the hat.
+2. Take `HMAC-SHA256(seed, "round:0")` for the first winner, `"round:1"` for the second, and so on.
+   Read the first 8 bytes of the answer as a whole number, most significant byte first.
+3. Take that number modulo the total from step 1.
+4. Walk the list in position order, adding weights, until the running total passes that number. That
+   person wins.
+5. Take them out of the hat and repeat for the next winner.
+
+Everything is whole numbers, so the answer is the same on every machine.
+
+### Drawing again
+
+**Draw again** makes a **new draw**, with a new number, a new seed and its own entrant list. It does
+not replace the first one. Both stay on the page, both are announced in Discord, and both are in the
+audit log.
+
+This is on purpose. A result somebody did not like cannot be made to disappear — it can only be
+drawn again where everyone can see that it was.
+
+### The entrant list
+
+Click **Entrants** under a draw. Each row shows the position, the name, the weight, the number the
+weight came from, and whether they were in the draw.
+
+People who could not win are here too, with the reason: the rule they failed, **Staff**, **Won
+before**, **Banned**, **Kept out by name** or **Withdrew**.
+
+A number that came from presence reports is shown as **about**, and a row near a threshold is
+highlighted.
+
+Somebody who asked to be erased shows as **(erased)**. Their position and weight stay, so the draw
+can still be checked; their name and ids are gone.
+
+## In Discord
+
+### The card
+
+The post shows the name, the prize, when it closes, how to enter, how many win, the weighting and
+its cap, the rules in plain words, who is not eligible, how many have entered, and the winners once
+it has been drawn. Its colour and the line at the bottom follow the status.
+
+The rules are on the card on purpose: a giveaway whose rules are only on a page your members cannot
+open is a giveaway they have to take your word for.
+
+Modbot checks every 20 seconds and makes at most 5 Discord changes each time, and only writes the
+post when what it should say has changed.
+
+### Reacting
+
+For **React on Discord**, Modbot puts the emoji on its own post so there is something to click.
+
+- Reacting with that emoji enters you. Reacting with anything else does nothing.
+- Taking the reaction off withdraws you. Putting it back enters you again — it is not a second
+  entry.
+- Reactions after it closes do nothing.
+- Anyone can react. Modbot does not have to know who you are; whether you qualify is up to the
+  rules, and a rule that needs VRChat data simply fails for somebody Modbot has no VRChat account
+  for.
+
+### The announcement
+
+When a draw is made, Modbot posts one line in the same channel naming the winners, with a
+**Details** button that opens the giveaway in Modbot. Each draw is announced once; drawing again
+gets its own line.
+
+**Nobody is pinged**, not even the winners. A giveaway with four hundred entrants would otherwise be
+four hundred notifications for one result.
+
+## Closing and drawing on time
+
+Modbot checks every 30 seconds:
+
+- a giveaway whose **Closes** time has passed is closed;
+- a closed giveaway whose **Draw at** time has passed is drawn.
+
+If Modbot was down when a draw was due, it draws when it comes back.
+
+If a draw cannot be made — nobody is in it, or a rule is no longer answerable — Modbot records why
+and clears the draw time rather than trying again every half minute against a reason that will not
+fix itself. Deal with the reason and press **Draw**.
+
+## If somebody asks to be erased
+
+Erasing a person (**Settings**, **Data**) takes them out of every giveaway:
+
+- their standing entries are deleted, so they cannot be drawn;
+- on past draws their name and ids are removed and their row shows **(erased)**.
+
+Their position and weight stay, so old draws can still be checked by anyone who kept the seed. The
+row then says only "somebody, with this weight, in this position".
+
+## In the audit log
+
+Every change is recorded in the [audit log](/moderation/audit-log):
+
+| Entry | When |
+|---|---|
+| **Giveaway created** | Somebody created one, as a draft or open. |
+| **Giveaway changed** | Somebody edited it. Shows before and after. |
+| **Giveaway opened** | It was opened for entries. |
+| **Giveaway closed** | Entries closed, by hand or when its time came. |
+| **Entered a giveaway** | Somebody reacted. Recorded against them, with whether they qualified. |
+| **Withdrew from a giveaway** | Somebody took their reaction off. |
+| **Giveaway drawn** | A draw was made. Carries the seed, the promise, the entrant counts and the winners. |
+| **Giveaway winner announced** | The winners were named in the channel. |
+| **Giveaway cancelled** | Somebody cancelled it. |
+| **Giveaway deleted** | Somebody deleted it. |
+| **Giveaway failed to publish** | The Discord post could not be written, or a draw could not be made. |
+
+## Common problems
+
+**The preview says Modbot cannot answer.** A rule reaches further back than the facts Modbot still
+keeps. Shorten its window, or raise the retention window under **Settings**, **Data**.
+
+**Nobody matches.** Press **Preview** with the rules emptied to see how many people Modbot knows
+about at all, then add the rules back one at a time.
+
+**Nothing appears in Discord.** Check that the bot is connected on [Sync
+health](/self-hosting/health), that **Post to channel** is ticked, and that the bot can View Channel,
+Send Messages and Embed Links in the channel you picked. The error is shown on the giveaway.
+
+**The emoji is not on the post.** The bot needs Add Reactions in that channel, and the emoji has to
+be one Discord accepts — a standard emoji, or one of your own server's.
+
+**Somebody says they entered and they are not in the list.** Open the draw's entrant list and find
+them. If they are there with a reason, that is the answer. If they are not there at all, they
+reacted with a different emoji, or after it closed.
+
+**The winner is not who I expected.** The entrant list and the seed are both on the page, and the
+steps for working it out again are [above](#working-the-result-out-again).

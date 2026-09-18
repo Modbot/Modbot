@@ -244,6 +244,21 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The calendar feed's secret link. One row.</summary>
     public DbSet<CalendarFeed> CalendarFeeds => Set<CalendarFeed>();
 
+    /// <summary>Giveaways, with their rules, exclusions and weighting (giveaways design §3).</summary>
+    public DbSet<Giveaway> Giveaways => Set<Giveaway>();
+
+    /// <summary>Each giveaway's Discord post and what was last written to it.</summary>
+    public DbSet<GiveawayPost> GiveawayPosts => Set<GiveawayPost>();
+
+    /// <summary>Reactions on a giveaway's post: who entered, and who took it back.</summary>
+    public DbSet<GiveawayEntry> GiveawayEntries => Set<GiveawayEntry>();
+
+    /// <summary>Draws. Written once, never changed, never re-run in place (giveaways design §5.3).</summary>
+    public DbSet<GiveawayDraw> GiveawayDraws => Set<GiveawayDraw>();
+
+    /// <summary>Each draw's frozen entrant list, with every weight (giveaways design §5.1).</summary>
+    public DbSet<GiveawayEntrant> GiveawayEntrants => Set<GiveawayEntrant>();
+
     /// <summary>
     /// Modbot's own log, so it can be read in the app without Seq or a disk. Written only by
     /// <c>DatabaseLogSink</c>; outbound API traffic is left out.
@@ -1845,6 +1860,112 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Id).ValueGeneratedNever();
             entity.Property(e => e.TokenHash).HasMaxLength(64);
             entity.Property(e => e.TokenEncrypted).HasColumnType("text");
+        });
+
+        builder.Entity<Giveaway>(entity =>
+        {
+            entity.ToTable("giveaway");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Name).HasMaxLength(Giveaway.MaxNameLength);
+            entity.Property(e => e.Prize).HasMaxLength(Giveaway.MaxPrizeLength);
+            entity.Property(e => e.EntryWay).HasMaxLength(16);
+            entity.Property(e => e.Emoji).HasMaxLength(64);
+            entity.Property(e => e.Weighting).HasMaxLength(32);
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.SeedPromise).HasMaxLength(64);
+            entity.Property(e => e.SeedEncrypted).HasColumnType("text");
+
+            // The scheduler's question every pass: which giveaways are still being run.
+            entity.HasIndex(e => e.State).HasDatabaseName("ix_giveaway_state");
+        });
+
+        builder.Entity<GiveawayPost>(entity =>
+        {
+            entity.ToTable("giveaway_post");
+            entity.HasKey(e => e.GiveawayId);
+
+            entity.Property(e => e.GiveawayId).ValueGeneratedNever();
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.MessageId).HasColumnType("text");
+            entity.Property(e => e.ChannelId).HasColumnType("text");
+            entity.Property(e => e.SentFingerprint).HasMaxLength(64);
+            entity.Property(e => e.FailedFingerprint).HasMaxLength(64);
+            entity.Property(e => e.Error).HasMaxLength(1024);
+
+            entity.HasOne<Giveaway>()
+                .WithMany()
+                .HasForeignKey(e => e.GiveawayId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // "Which post is this reaction on" -- the only question a reaction can answer with.
+            entity.HasIndex(e => e.MessageId).HasDatabaseName("ix_giveaway_post_message");
+        });
+
+        builder.Entity<GiveawayEntry>(entity =>
+        {
+            entity.ToTable("giveaway_entry");
+
+            // One row per person per giveaway, however many times they react.
+            entity.HasKey(e => new { e.GiveawayId, e.DiscordUserId });
+
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.KeptOut).HasMaxLength(32);
+
+            entity.HasOne<Giveaway>()
+                .WithMany()
+                .HasForeignKey(e => e.GiveawayId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // A purge erases one person's entries across every giveaway at once.
+            entity.HasIndex(e => e.DiscordUserId).HasDatabaseName("ix_giveaway_entry_person");
+        });
+
+        builder.Entity<GiveawayDraw>(entity =>
+        {
+            entity.ToTable("giveaway_draw");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Seed).HasMaxLength(128);
+            entity.Property(e => e.SeedPromise).HasMaxLength(64);
+            entity.Property(e => e.Weighting).HasMaxLength(32);
+            entity.Property(e => e.TotalWeight).HasColumnType("bigint");
+
+            entity.HasOne<Giveaway>()
+                .WithMany()
+                .HasForeignKey(e => e.GiveawayId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // The key is the promise: one draw per number, so a second attempt at the same number
+            // cannot quietly replace the first.
+            entity.HasIndex(e => new { e.GiveawayId, e.Number })
+                .IsUnique()
+                .HasDatabaseName("ux_giveaway_draw_number");
+        });
+
+        builder.Entity<GiveawayEntrant>(entity =>
+        {
+            entity.ToTable("giveaway_entrant");
+            entity.HasKey(e => new { e.DrawId, e.Position });
+
+            entity.Property(e => e.Key).HasColumnType("text");
+            entity.Property(e => e.VRChatUserId).HasColumnType("text").HasColumnName("vrchat_user_id");
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.Name).HasMaxLength(256);
+            entity.Property(e => e.KeptOut).HasMaxLength(32);
+            entity.Property(e => e.Because).HasMaxLength(512);
+            entity.Property(e => e.Measured).HasColumnType("numeric");
+
+            entity.HasOne<GiveawayDraw>()
+                .WithMany()
+                .HasForeignKey(e => e.DrawId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // "Has this person won before", and the rows a purge has to find again.
+            entity.HasIndex(e => e.Key).HasDatabaseName("ix_giveaway_entrant_key");
         });
 
         builder.Entity<HealthWatch>(entity =>

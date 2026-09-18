@@ -125,6 +125,14 @@ public sealed class DemoSeeder
         await _db.CalendarEvents.ExecuteDeleteAsync(ct);
         await _db.CalendarFeeds.ExecuteDeleteAsync(ct);
 
+        // Entrants and draws cascade from the giveaway, but the demo deletes them by name anyway:
+        // a reset that left a draw behind would leave a winner behind with it.
+        await _db.GiveawayEntrants.ExecuteDeleteAsync(ct);
+        await _db.GiveawayDraws.ExecuteDeleteAsync(ct);
+        await _db.GiveawayEntries.ExecuteDeleteAsync(ct);
+        await _db.GiveawayPosts.ExecuteDeleteAsync(ct);
+        await _db.Giveaways.ExecuteDeleteAsync(ct);
+
         await _db.WebhookDeliveries.ExecuteDeleteAsync(ct);
         await _db.Webhooks.ExecuteDeleteAsync(ct);
         await _db.ApiKeys.ExecuteDeleteAsync(ct);

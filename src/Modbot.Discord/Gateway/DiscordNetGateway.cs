@@ -48,7 +48,11 @@ public sealed class DiscordNetGateway : IDiscordGateway
         | GatewayIntents.MessageContent
         | GatewayIntents.GuildMembers
         | GatewayIntents.GuildVoiceStates
-        | GatewayIntents.GuildBans;
+        | GatewayIntents.GuildBans
+
+        // Reactions, for giveaways people enter by reacting (giveaways design §4.2). Not
+        // privileged, so it needs nothing switched on in the Developer Portal.
+        | GatewayIntents.GuildMessageReactions;
 
     private readonly DiscordSocketClient _client;
     private readonly ILogger _log;
@@ -96,6 +100,9 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.MessageUpdated += OnMessageUpdated;
         _client.MessageDeleted += OnMessageDeleted;
         _client.MessagesBulkDeleted += OnMessagesBulkDeleted;
+
+        _client.ReactionAdded += OnReactionAdded;
+        _client.ReactionRemoved += OnReactionRemoved;
 
         _client.UserLeft += OnUserLeft;
         _client.UserBanned += OnUserBanned;
@@ -341,6 +348,80 @@ public sealed class DiscordNetGateway : IDiscordGateway
     /// acts on. A 403 or a 404 is permanent: the bot has been removed from the channel, or the
     /// channel is gone, and retrying is just noise in the log until somebody changes a setting.
     /// </remarks>
+    // ── Reactions ────────────────────────────────────────────────────────────────────────
+
+    public event Func<DiscordReactionSnapshot, Task>? ReactionAdded;
+
+    public event Func<DiscordReactionSnapshot, Task>? ReactionRemoved;
+
+    public Task<DiscordPostOutcome> AddReactionAsync(
+        string channelId, string messageId, string emoji, CancellationToken ct)
+    {
+        if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))
+            return Task.FromResult(DiscordPostOutcome.Failed("That is not a Discord message id.", permanent: true));
+
+        if (Emoji(emoji) is not { } emote)
+            return Task.FromResult(DiscordPostOutcome.Failed("Discord does not recognise that emoji.", permanent: true));
+
+        return InChannelAsync(channelId, async channel =>
+        {
+            if (await channel.GetMessageAsync(message, options: new RequestOptions { CancelToken = ct })
+                    .ConfigureAwait(false) is not IUserMessage found)
+            {
+                return DiscordPostOutcome.Failed("That message is gone.", permanent: true);
+            }
+
+            await found.AddReactionAsync(emote, new RequestOptions { CancelToken = ct }).ConfigureAwait(false);
+            return DiscordPostOutcome.Ok;
+        });
+    }
+
+    /// <summary>
+    /// One of the server's own emoji, or a standard one. Null when Discord would take neither.
+    /// </summary>
+    /// <remarks>
+    /// The text is whatever an operator typed into the giveaway, so it is tried as a custom emote
+    /// first and left as a plain character otherwise. Nothing validates the character itself:
+    /// Discord decides what it accepts, and a list of emoji kept in Modbot would be out of date
+    /// the week after it was written.
+    /// </remarks>
+    private static IEmote? Emoji(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var trimmed = text.Trim();
+        return Emote.TryParse(trimmed, out var emote) ? emote : new Emoji(trimmed);
+    }
+
+    private Task OnReactionAdded(
+        Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
+        => RaiseReaction(ReactionAdded, reaction, "reaction added");
+
+    private Task OnReactionRemoved(
+        Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
+        => RaiseReaction(ReactionRemoved, reaction, "reaction removed");
+
+    private Task RaiseReaction(Func<DiscordReactionSnapshot, Task>? handler, SocketReaction reaction, string what)
+    {
+        // Only reactions in a server. A reaction on a direct message has no giveaway behind it and
+        // no server to check membership against.
+        if (handler is null || reaction.Channel is not SocketGuildChannel guildChannel)
+            return Task.CompletedTask;
+
+        var snapshot = new DiscordReactionSnapshot(
+            Text(guildChannel.Guild.Id),
+            Text(reaction.Channel.Id),
+            Text(reaction.MessageId),
+            Text(reaction.UserId),
+            reaction.Emote.ToString() ?? string.Empty,
+            reaction.User.IsSpecified ? reaction.User.Value.Username : null,
+            reaction.User.IsSpecified && reaction.User.Value.IsBot);
+
+        _ = Task.Run(() => Guard(handler(snapshot), what));
+        return Task.CompletedTask;
+    }
+
     public Task<DiscordPostOutcome> DeleteMessageAsync(string channelId, string messageId, string reason, CancellationToken ct)
     {
         if (!ulong.TryParse(messageId, NumberStyles.None, CultureInfo.InvariantCulture, out var message))

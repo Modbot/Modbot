@@ -382,6 +382,11 @@ public static class ApiSurface
         // the calendar's own loops; these only store what a person decides.
         Features.Calendar.CalendarEndpoints.MapCalendar(app);
 
+        // Giveaways: their rules, who entered, and the draws (giveaways design). Drawing happens
+        // here because a person pressed Draw; a draw whose time simply came round is made by the
+        // giveaway's own loop, through the same drawer.
+        Features.Giveaways.GiveawayEndpoints.MapGiveaways(app);
+
         // Whether this deployment is a demo, and the control that puts its data back (demo mode
         // design §6). Mapped everywhere; on anything but a demo it answers "no" and refuses the
         // reset, because the web app asks it on every load to decide whether to show the marker.

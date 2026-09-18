@@ -2274,6 +2274,394 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("modbot_evidence_blob", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.Giveaway", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<string>("ChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("channel_id");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<DateTimeOffset>("ClosesAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closes_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateTimeOffset?>("DrawAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("draw_at");
+
+                    b.Property<int>("DrawCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("draw_count");
+
+                    b.Property<string>("Emoji")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("emoji");
+
+                    b.Property<string>("EntryWay")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("entry_way");
+
+                    b.Property<string>("Exclusions")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("exclusions");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<DateTimeOffset?>("OpenedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("opened_at");
+
+                    b.Property<DateTimeOffset>("OpensAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("opens_at");
+
+                    b.Property<bool>("PostToChannel")
+                        .HasColumnType("boolean")
+                        .HasColumnName("post_to_channel");
+
+                    b.Property<string>("Prize")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("prize");
+
+                    b.Property<string>("Rules")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("rules");
+
+                    b.Property<string>("SeedEncrypted")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("seed_encrypted");
+
+                    b.Property<string>("SeedPromise")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("seed_promise");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<long?>("WeightCap")
+                        .HasColumnType("bigint")
+                        .HasColumnName("weight_cap");
+
+                    b.Property<string>("Weighting")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("weighting");
+
+                    b.Property<int>("WinnerCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("winner_count");
+
+                    b.HasKey("Id")
+                        .HasName("pk_giveaway");
+
+                    b.HasIndex("State")
+                        .HasDatabaseName("ix_giveaway_state");
+
+                    b.ToTable("giveaway", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.GiveawayDraw", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("CloseCalls")
+                        .HasColumnType("integer")
+                        .HasColumnName("close_calls");
+
+                    b.Property<DateTimeOffset>("DrawnAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("drawn_at");
+
+                    b.Property<Guid?>("DrawnByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("drawn_by_user_id");
+
+                    b.Property<int>("EntrantCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("entrant_count");
+
+                    b.Property<string>("Exclusions")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("exclusions");
+
+                    b.Property<bool>("FromPolledData")
+                        .HasColumnType("boolean")
+                        .HasColumnName("from_polled_data");
+
+                    b.Property<Guid>("GiveawayId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("giveaway_id");
+
+                    b.Property<int>("InDrawCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("in_draw_count");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer")
+                        .HasColumnName("number");
+
+                    b.Property<string>("Rules")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("rules");
+
+                    b.Property<string>("Seed")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("seed");
+
+                    b.Property<string>("SeedPromise")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("seed_promise");
+
+                    b.Property<long>("TotalWeight")
+                        .HasColumnType("bigint")
+                        .HasColumnName("total_weight");
+
+                    b.Property<long?>("WeightCap")
+                        .HasColumnType("bigint")
+                        .HasColumnName("weight_cap");
+
+                    b.Property<string>("Weighting")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("weighting");
+
+                    b.Property<int>("WinnerCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("winner_count");
+
+                    b.HasKey("Id")
+                        .HasName("pk_giveaway_draw");
+
+                    b.HasIndex("GiveawayId", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ux_giveaway_draw_number");
+
+                    b.ToTable("giveaway_draw", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.GiveawayEntrant", b =>
+                {
+                    b.Property<Guid>("DrawId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("draw_id");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Because")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("because");
+
+                    b.Property<bool>("CloseCall")
+                        .HasColumnType("boolean")
+                        .HasColumnName("close_call");
+
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<bool>("FromPolledData")
+                        .HasColumnType("boolean")
+                        .HasColumnName("from_polled_data");
+
+                    b.Property<string>("KeptOut")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kept_out");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("key");
+
+                    b.Property<decimal>("Measured")
+                        .HasColumnType("numeric")
+                        .HasColumnName("measured");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("name");
+
+                    b.Property<bool>("Purged")
+                        .HasColumnType("boolean")
+                        .HasColumnName("purged");
+
+                    b.Property<string>("VRChatUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("vrchat_user_id");
+
+                    b.Property<long>("Weight")
+                        .HasColumnType("bigint")
+                        .HasColumnName("weight");
+
+                    b.Property<int?>("WinnerRank")
+                        .HasColumnType("integer")
+                        .HasColumnName("winner_rank");
+
+                    b.HasKey("DrawId", "Position")
+                        .HasName("pk_giveaway_entrant");
+
+                    b.HasIndex("Key")
+                        .HasDatabaseName("ix_giveaway_entrant_key");
+
+                    b.ToTable("giveaway_entrant", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.GiveawayEntry", b =>
+                {
+                    b.Property<Guid>("GiveawayId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("giveaway_id");
+
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
+
+                    b.Property<DateTimeOffset>("EnteredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("entered_at");
+
+                    b.Property<string>("KeptOut")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kept_out");
+
+                    b.Property<bool>("QualifiedOnEntry")
+                        .HasColumnType("boolean")
+                        .HasColumnName("qualified_on_entry");
+
+                    b.Property<DateTimeOffset?>("WithdrawnAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("withdrawn_at");
+
+                    b.HasKey("GiveawayId", "DiscordUserId")
+                        .HasName("pk_giveaway_entry");
+
+                    b.HasIndex("DiscordUserId")
+                        .HasDatabaseName("ix_giveaway_entry_person");
+
+                    b.ToTable("giveaway_entry", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.GiveawayPost", b =>
+                {
+                    b.Property<Guid>("GiveawayId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("giveaway_id");
+
+                    b.Property<int>("AnnouncedDraws")
+                        .HasColumnType("integer")
+                        .HasColumnName("announced_draws");
+
+                    b.Property<string>("ChannelId")
+                        .HasColumnType("text")
+                        .HasColumnName("channel_id");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("error");
+
+                    b.Property<DateTimeOffset?>("ErrorAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("error_at");
+
+                    b.Property<string>("FailedFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("failed_fingerprint");
+
+                    b.Property<string>("MessageId")
+                        .HasColumnType("text")
+                        .HasColumnName("message_id");
+
+                    b.Property<string>("SentFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("sent_fingerprint");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("GiveawayId")
+                        .HasName("pk_giveaway_post");
+
+                    b.HasIndex("MessageId")
+                        .HasDatabaseName("ix_giveaway_post_message");
+
+                    b.ToTable("giveaway_post", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.GroupBan", b =>
                 {
                     b.Property<string>("GroupId")
@@ -5815,6 +6203,46 @@ namespace Modbot.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_calendar_opening_calendar_event_event_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.GiveawayDraw", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.Giveaway", null)
+                        .WithMany()
+                        .HasForeignKey("GiveawayId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_giveaway_draw_giveaway_giveaway_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.GiveawayEntrant", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.GiveawayDraw", null)
+                        .WithMany()
+                        .HasForeignKey("DrawId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_giveaway_entrant_giveaway_draw_draw_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.GiveawayEntry", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.Giveaway", null)
+                        .WithMany()
+                        .HasForeignKey("GiveawayId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_giveaway_entry_giveaway_giveaway_id");
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.GiveawayPost", b =>
+                {
+                    b.HasOne("Modbot.Core.Data.Entities.Giveaway", null)
+                        .WithMany()
+                        .HasForeignKey("GiveawayId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_giveaway_post_giveaway_giveaway_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.HealthAlertRecipient", b =>

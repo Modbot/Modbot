@@ -49,7 +49,7 @@ Three roles exist on every Modbot from the start. They cannot be deleted or rena
 | **Viewer** | **See members**, **See profiles**, **See analytics**, **See the audit log**. | Yes: its description and permissions. |
 
 Some permissions are deliberately not in Moderator or Viewer, because they reach further than
-day-to-day moderation: **See live instances**, **See calendar**, **Use AI chat**, **Read Discord
+day-to-day moderation: **See live instances**, **See calendar**, **See giveaways**, **Use AI chat**, **Read Discord
 messages**, **Manage Discord links**, and the evidence and administration permissions not listed above. Grant them on
 purpose, to a role of your own or by editing a built-in one.
 
@@ -143,6 +143,18 @@ Name: `ViewCalendar`
 
 - The **Calendar** page: planned events, each place an event is published (VRChat's calendar, a
   Discord event, a channel post), and whether that worked. See [Calendar](/moderation/calendar).
+
+Not in the built-in Moderator or Viewer roles.
+
+### See giveaways
+
+Name: `ViewGiveaways`
+
+- The **Giveaways** page: every giveaway, its rules, who entered, each draw, the seed, and the
+  entrant list with every weight. See [Giveaways](/moderation/giveaways).
+
+Separate from **See members** and **See analytics**: an entrant list is a list of named people with
+a number beside each saying how much time they spend in your worlds.
 
 Not in the built-in Moderator or Viewer roles.
 
@@ -331,6 +343,17 @@ Name: `ManageCalendar`
 - See and replace the calendar feed link. See [Calendar](/moderation/calendar).
 
 Needs **See calendar** as well, to open the page.
+
+Not in the built-in Moderator or Viewer roles.
+
+### Run giveaways
+
+Name: `RunGiveaways`
+
+- Create, change, open, close, draw and cancel giveaways on the **Giveaways** page. A giveaway posts
+  in your group's name and a draw decides who gets something. See [Giveaways](/moderation/giveaways).
+
+Needs **See giveaways** as well, to open the page.
 
 Not in the built-in Moderator or Viewer roles.
 
