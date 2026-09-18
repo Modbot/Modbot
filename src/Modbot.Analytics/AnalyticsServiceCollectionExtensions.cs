@@ -50,6 +50,7 @@ public static class AnalyticsServiceCollectionExtensions
 
         services.AddScoped<RetentionPruner>();
         services.AddScoped<IUserPurger, UserPurger>();
+        services.AddScoped<PurgePreviewer>();
         services.AddHostedService<RetentionService>();
 
         // Measured on demand when somebody opens the settings page, plus once a day for the
