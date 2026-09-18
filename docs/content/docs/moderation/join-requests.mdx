@@ -1,0 +1,96 @@
+---
+title: Join requests
+description: The Requests page — the people waiting to be let into your group, and approving or rejecting one.
+---
+
+If your VRChat group is set to **Request to join**, people who want in end up in a queue. The
+**Requests** page shows that queue, with what Modbot already knows about each person beside their
+name, and **Approve** and **Reject** on each row.
+
+## Where the list comes from
+
+Unlike Members and Bans, this list is **not** a copy Modbot keeps. Modbot asks VRChat for the queue
+when you open the page, and again each time you press **Refresh**. What you see is the queue as it
+was a moment ago.
+
+That is on purpose. This is the one list in Modbot whose rows vanish because somebody else acted —
+a moderator answering the same request in VRChat, or the person withdrawing it — and a stored copy
+would be a page of buttons that do nothing.
+
+It also means:
+
+- **There is no "last synced" line**, because nothing syncs.
+- **There is no total.** VRChat does not say how many are waiting. The page has **Previous** and
+  **Next**, and Next is available whenever the page came back full.
+- **If Modbot cannot reach VRChat, the page says so** rather than showing an empty queue. An empty
+  queue and a queue Modbot could not read look the same, and only one of them means there is
+  nothing to do.
+
+## What each row shows
+
+The person, the way every other page in Modbot shows them: their name, their picture, their
+[trust rank](/moderation/profiles), and their id. Clicking the name opens their
+[profile popup](/moderation/popups), so you can read their history before deciding.
+
+**Asked** is when VRChat says they asked.
+
+**History** is the one thing this page adds that VRChat's own queue cannot:
+
+| What it says | What it means |
+|---|---|
+| **Banned** | Your group's ban list holds them right now |
+| **Banned before** | Your group banned them once and the ban was lifted |
+| **Was a member** | They have been in the group before and left, or were removed |
+| — | Modbot has nothing on record about them |
+
+Most rows show a dash. Somebody asking to join a group is usually somebody nobody has heard of, and
+that is fine — the point of the column is that the exceptions do not look like everybody else.
+
+## Approving and rejecting
+
+**Approve** lets them in. **Reject** turns their request down; they can ask again.
+
+Both open a confirmation naming the person. Reject also offers the group's
+[ban reasons](/moderation/case-files) and a note — both optional, unless your group has switched on
+requiring a reason in **Settings**.
+
+Once VRChat answers, the row leaves the list.
+
+**Nothing is recorded unless VRChat accepted it.** If VRChat refuses, the row stays and the
+confirmation says what VRChat said. If VRChat rate limits it, nothing happened and nothing is
+retried — pressing again sooner only makes the wait longer.
+
+### "That request is no longer waiting"
+
+You will see this when the person is no longer in the queue: another moderator answered it, in
+Modbot or in VRChat, or the person withdrew it. Nothing went wrong. The row leaves the list.
+
+It happens more often than you would think when two people work the queue at once, which is why it
+is written out rather than shown as an error.
+
+### Modbot never blocks somebody from asking again
+
+VRChat lets you reject a request *and* block the person from ever asking again. Modbot only ever
+rejects. Blocking is a bigger decision than turning down one request and there is no undo for it
+from this page — if that is what you want, [ban them](/moderation/members-and-bans) instead, which
+also writes a case file.
+
+## Permissions
+
+| Permission | What it opens |
+|---|---|
+| **See join requests** | The Requests page |
+| **Answer join requests** | The Approve and Reject buttons |
+
+Neither comes with the built-in Moderator or Viewer roles, so grant them on the
+[Roles](/accounts/roles-and-permissions) page. Administrators have both.
+
+## What it writes down
+
+Every approve and reject that VRChat accepted is recorded in the
+[audit log](/moderation/audit-log) and on the person's profile, naming the moderator who decided.
+
+VRChat's own group audit log records these too, but it says *Modbot* answered the request, because
+Modbot signs in as its own account. Modbot's record is the one that says who actually decided.
+
+An answer that VRChat refused is recorded as **Action failed** — never as something that happened.
