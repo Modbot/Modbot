@@ -7268,7 +7268,7 @@
           "Audit"
         ],
         "summary": "The merged fact timeline: who did what to whom, and when",
-        "description": "One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and membership history; ViewOperationalLog covers Modbot's own record — logins, settings changes, sync failures. The two are separate permissions and the filter is applied server-side on every query: asking for a type you cannot see omits it rather than refusing the request.\n\nFacts carry occurredAt and, when the time is an inference rather than a statement, occurredBefore. `precision` says which, so a window is never rendered as an instant.\n\n`world` and `instance` narrow to one world or one VRChat instance number; `category` to Moderation or Operational; `precision` to Exact or Window; `hasActor` to facts somebody is named for, or not; `q` finds a word in the payload, the subject id or the actor id.\n\nPaged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; both are required.",
+        "description": "One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and membership history; ViewOperationalLog covers Modbot's own record — logins, settings changes, sync failures. The two are separate permissions and the filter is applied server-side on every query: asking for a type you cannot see omits it rather than refusing the request.\n\nFacts carry occurredAt and, when the time is an inference rather than a statement, occurredBefore. `precision` says which, so a window is never rendered as an instant.\n\n`account` is one Modbot account's whole history: facts about it — sign-ins, role changes, its password being reset — and facts it did, including every kick and ban pressed in Modbot. Both halves at once, because the log records the first against the subject and the second against the actor, and either alone is half the story. It narrows what you may already see: a caller with only ViewAuditLog gets the account's moderation actions, one with only ViewOperationalLog gets its sign-ins and role changes.\n\n`world` and `instance` narrow to one world or one VRChat instance number; `category` to Moderation or Operational; `precision` to Exact or Window; `hasActor` to facts somebody is named for, or not; `q` finds a word in the payload, the subject id or the actor id.\n\nPaged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; both are required.",
         "operationId": "GetAuditLog",
         "parameters": [
           {
@@ -7317,6 +7317,14 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "account",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           },
           {
@@ -9525,6 +9533,73 @@
           },
           "403": {
             "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/people": {
+      "get": {
+        "tags": [
+          "People"
+        ],
+        "summary": "One person's VRChat, Discord and Modbot accounts, from any one of them",
+        "description": "Give exactly one of `vrchatUserId`, `discordUserId` or `accountId`. The answer carries every account Modbot can tie to it, each with `foundBy` saying what tied it: `asked` for the one you gave, `link` for the proved Discord account link, `account` for an id recorded on a Modbot account.\n\nNothing is guessed. Accounts are tied only by the proved link and by the ids written on a Modbot account; display names are never compared and an id's shape is never read. An account that ties to nothing answers with itself and nulls, which is the honest answer rather than an error.\n\nEach part needs the permission that already shows it elsewhere: the Discord side and the VRChat display name need ViewProfile, the Discord display name needs ViewMembers, and the Modbot account needs ViewOperationalLog or ManageUsers. A part you may not see is left null; `canSeeAccount` says whether a null Modbot account means there is none or that you may not be told.",
+        "operationId": "GetPerson",
+        "parameters": [
+          {
+            "name": "vrchatUserId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "discordUserId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "accountId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
             "description": "Not signed in, or the API key is not valid."
@@ -25392,6 +25467,50 @@
           }
         }
       },
+      "PersonAccount": {
+        "required": [
+          "id",
+          "username",
+          "foundBy",
+          "roles",
+          "isDisabled",
+          "createdAt",
+          "lastLoginAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "foundBy": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isDisabled": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastLoginAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "PersonCounts": {
         "required": [
           "minutesSeen",
@@ -25525,6 +25644,72 @@
           "lastSeenAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "PersonSide": {
+        "required": [
+          "id",
+          "name",
+          "foundBy"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "foundBy": {
+            "type": "string"
+          }
+        }
+      },
+      "PersonView": {
+        "required": [
+          "vrChat",
+          "discord",
+          "account",
+          "canSeeAccount"
+        ],
+        "type": "object",
+        "properties": {
+          "vrChat": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PersonSide"
+              }
+            ]
+          },
+          "discord": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PersonSide"
+              }
+            ]
+          },
+          "account": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PersonAccount"
+              }
+            ]
+          },
+          "canSeeAccount": {
+            "type": "boolean"
           }
         }
       },
@@ -30141,6 +30326,11 @@
       "name": "VRChat proxy",
       "description": "Requests forwarded to VRChat's own API, as the service account or with your own VRChat cookie.",
       "x-displayName": "VRChat proxy"
+    },
+    {
+      "name": "People",
+      "description": "One person's VRChat, Discord and Modbot accounts, from any one of them.",
+      "x-displayName": "People"
     },
     {
       "name": "Members",
