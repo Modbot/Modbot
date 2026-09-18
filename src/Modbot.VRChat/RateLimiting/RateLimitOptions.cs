@@ -214,6 +214,18 @@ public static class VRChatRateLimits
     public const string GroupsModerateLane = "groups.moderate";
 
     /// <summary>
+    /// Reading the people waiting to be let into the group. Its own queue, so opening the
+    /// Requests screen never waits behind a member sweep.
+    /// </summary>
+    public const string GroupsRequestsLane = "groups.requests";
+
+    /// <summary>
+    /// Approving and rejecting join requests. Apart from the list read, so the answer a moderator
+    /// just pressed is never behind a refresh of the list they pressed it on.
+    /// </summary>
+    public const string GroupsRequestsAnswerLane = "groups.requests.answer";
+
+    /// <summary>
     /// The backstop for what a moderator presses. Never entered as a queue -- a backstop is only
     /// ever an ancestor -- but every class names a lane, and this one names its own so nothing
     /// reads it as belonging to the group queue.
@@ -355,6 +367,31 @@ public static class VRChatRateLimits
             // nothing else, and is never retried -- the action failed.
             [VRChatEndpointClass.GroupsModerate] = new(
                 VRChatEndpointClass.GroupsModerate, GroupsModerateLane,
+                HardMaxPerSecond: PerSeconds(2), DefaultCeilingPerSecond: CeilingFor(PerSeconds(2)),
+                Backstop: VRChatEndpointClass.Interactive,
+                ResourceScoped: true),
+
+            // NOT MEASURED -- the people waiting to be let into the group (join requests design
+            // §3). Nobody has asked VRChat what GET /groups/{groupId}/requests allows, so the
+            // rate is groups.read's 0.2 req/s: these return group data, and spec 4.3.4.1 already
+            // settled that the conservative reading for an unmeasured group endpoint is a
+            // group-shaped one. Its own lane, so opening the screen never queues behind a sweep;
+            // scoped to the group; counted against the interactive backstop, because a moderator
+            // opened the page and nothing polls this on its own.
+            [VRChatEndpointClass.GroupsRequests] = new(
+                VRChatEndpointClass.GroupsRequests, GroupsRequestsLane,
+                HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
+                Backstop: VRChatEndpointClass.Interactive,
+                ResourceScoped: true),
+
+            // NOT MEASURED -- approving and rejecting one join request, PUT
+            // /groups/{groupId}/requests/{userId}. One per two seconds, shared by both answers:
+            // deliberately low, the same starting point the maintainer set for groups.moderate
+            // rather than a number read off it. Its own class and lane on purpose -- working a
+            // queue is many small writes in a row, and a 429 earned doing that must not take the
+            // ban button down with it.
+            [VRChatEndpointClass.GroupsRequestsAnswer] = new(
+                VRChatEndpointClass.GroupsRequestsAnswer, GroupsRequestsAnswerLane,
                 HardMaxPerSecond: PerSeconds(2), DefaultCeilingPerSecond: CeilingFor(PerSeconds(2)),
                 Backstop: VRChatEndpointClass.Interactive,
                 ResourceScoped: true),
