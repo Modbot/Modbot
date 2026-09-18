@@ -268,15 +268,16 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheSevenDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheEightDeclaredPlacesMakeOutboundRequests()
     {
         // "What does this program send, and where" should have a short, complete answer findable
-        // by somebody who has never seen the codebase. Seven files, each with a remarks block
+        // by somebody who has never seen the codebase. Eight files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
         // code for a token, one reads the overlay's context, one holds the overlay's live
         // WebSocket open, one backs the client's events up to Modbot Cloud (cloud event backup
-        // spec), and one fetches the voice -- once, from one pinned address, with nothing
-        // attached. Nothing else reaches the network.
+        // spec), one fetches the voice -- once, from one pinned address, with nothing attached --
+        // and one reads the sponsors, early adopters and contributors the Credits page shows.
+        // Nothing else reaches the network.
         var senders = ClientSources()
             .Where(f => Regex.IsMatch(
                 File.ReadAllText(f),
@@ -287,6 +288,7 @@ public class CompanionSourceGuardTests
 
         Assert.Equal(
             [
+                "CloudCredits.cs",
                 "HttpCloudLogClient.cs",
                 "HttpIngestTransport.cs",
                 "HttpOverlayReadClient.cs",
