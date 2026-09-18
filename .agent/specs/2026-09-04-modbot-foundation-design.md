@@ -1666,6 +1666,48 @@ The constants live in `FactType` as `const string`, so `FactType.MemberBanned` r
 did and still works in a `switch`. That is why the move cost one rewritten method rather than three
 hundred edits.
 
+#### 5.3.2 One decision can leave several facts — linked, and counted once
+
+> **Added 2026-09-18.** Design:
+> `.agent/specs/2026-09-18-linked-facts-and-repeat-offender-rules-design.md`.
+
+Deduplication (§5.7.1) is about two *reports of one fact*. This is the other case: **one decision
+that genuinely produces two different facts.** A moderator who bans somebody standing in one of the
+group's instances presses one button, and VRChat writes `group.user.ban` and `group.instance.kick` a
+second apart. Modbot's own record of a press and VRChat's record of the result are another pair, and
+a Discord ban arrives as a ban and a leave. Counting both halves says a moderator acted twice and
+puts a person over an operator's threshold at half the decisions they set.
+
+```sql
+modbot_linked_fact              -- derived; rebuildable from modbot_event
+  fact_id           bigint       primary key  -- the follower: the fact that must not count again
+  occurred_at       timestamptz  not null
+  main_fact_id      bigint       not null     -- the fact that counts
+  main_occurred_at  timestamptz  not null
+  linked_at         timestamptz  not null
+```
+
+- **A table beside the facts, never a column on them.** A shared id on each fact cannot be written
+  without updating a fact row when the partner arrives, and facts are never updated in place. The
+  link is something Modbot worked out rather than something a source said, so it lives in the derived
+  layer with the daily totals (§5.2).
+- **Order of arrival does not matter.** Every fact looks both ways as it lands — for its main if it
+  is a follower, for waiting followers if it is a main — so a client-reported kick and an audit-log
+  ban a poll later link exactly as well as the other order.
+- **The main fact is the heavier one**, and where the pair is Modbot's record beside an upstream
+  system's, the upstream one — which is what every existing count already counts, so a deployment
+  that changed nothing sees no number move for that reason.
+- **Two decisions never become one.** The pair must be within ten seconds; a fact whose time is only
+  known to a window (§5.3) never links at all; a fact is never taken into a second decision; and two
+  facts whose actors disagree *on the same platform* are two decisions. A ban, an unban, and a second
+  ban ten minutes later stay two.
+- **Everything that counts actions leaves followers out** — the repeat-offender counts (§5.8.4) and
+  the same-person check (§5.8.5). Nothing leaves them out of the record: the audit log shows the
+  decision as one entry that opens into every fact behind it (§5.9.5).
+- `modbot_review_run_state.link_version` says which set of pairs the log has been read under. Behind
+  the build's number, the next detection run reads the whole log again — which is how facts recorded
+  before linking existed get linked, and how a newly-learned pair is applied to history.
+
 ### 5.4 Daily totals
 
 ```sql
@@ -1936,6 +1978,14 @@ costly to get wrong and rare enough to afford the cost.
 Subject-side aggregation over facts: prior kicks, warns, mutes and bans, across all moderators and
 all instances, with classifications where present.
 
+> **Revised 2026-09-18.** An "action" is now **one decision**, not one fact: a ban and the instance
+> kick VRChat wrote beside it count once (§5.3.2). And **which kinds of action count is the
+> operator's**, set in Settings → Moderation → Repeat offenders alongside the threshold; the default
+> is every kind, so a deployment that changes nothing counts what it always counted. VRChat's group
+> audit log has no instance mute — `group.instance.kick` and `group.instance.warn` are the two
+> per-person instance events it records — so separating a mute from a kick is a setting waiting for
+> an action that does not exist yet, not a fact type Modbot invents.
+
 Surfaced two ways: passively in the profile (§5.6), and **proactively at the moment of action** —
 when a moderator is about to kick someone, Modbot shows that this is the user's fourth kick in
 thirty days from three different moderators. That is the moment the information is worth having, and
@@ -1956,10 +2006,15 @@ Candidate signals, all computed from existing fact fields:
 
 **Design constraints, which matter more than the detection itself:**
 
+- **A decision is one action here too** (§5.3.2). This is the check that asks a volunteer to explain
+  themselves, so "acted on the same person five times" must never mean "pressed the button three
+  times and VRChat logged two of them twice".
 - **It surfaces patterns for human review. It never accuses, and never auto-punishes a moderator.**
   Wrongly flagging a volunteer who was handling a persistent troll is corrosive in a way that a
   missed detection is not — the costs are asymmetric, so the thresholds should be too.
-- Thresholds are configurable, with conservative defaults.
+- Thresholds are configurable, with conservative defaults. The repeat-offender threshold and the
+  kinds of action that count are on a settings screen (Moderation → Repeat offenders) and rebuild
+  the standings when either changes; the pattern-check numbers are still document-only.
 - A flagged pattern opens a **ticket**, which is a prompt for explanation rather than a disciplinary
   process. Group owners see it; the moderator is asked, not sanctioned.
 - **Good classification behaviour reduces future friction.** Where a flagged pattern is fully

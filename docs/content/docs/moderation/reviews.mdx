@@ -26,6 +26,21 @@ strike. Invites, accepted join requests and role changes are not counted either.
 
 A moderator acting on their own account is never counted.
 
+You can change which of those kinds count — see [Changing the rules](#changing-the-rules).
+
+### One decision counts once
+
+Some single decisions are recorded more than once. Banning somebody who is in one of your group's
+instances makes VRChat record a ban **and** an instance kick, a second apart; a ban pressed in
+Modbot is recorded by Modbot and by VRChat.
+
+Modbot counts that as **one action**, by the moderator who made it, against the person it was made
+against. The heavier record is the one that counts, so a ban with a kick beside it counts as a ban
+and the kick is not counted again. Both are still in the
+[audit log](/moderation/audit-log#one-decision-several-entries), as one row that opens into both.
+
+Two decisions stay two. A ban, an unban, and a second ban ten minutes later is two actions.
+
 ## People acted on more than once
 
 On the **Bans** page, the **People acted on more than once** tab lists everyone who has been acted
@@ -51,7 +66,26 @@ The statuses:
 
 - **Once**: one action, ever.
 - **More than once**: two or more, but not enough recently to count as repeat.
-- **Repeat**: 3 or more actions in the last 30 days. The 3 is the default.
+- **Repeat**: 3 or more actions in the last 30 days. The 3 is the default, and can be changed.
+
+### Changing the rules
+
+**Settings**, **Moderation**, **Repeat offenders**, for anyone with
+[**Change settings**](/accounts/roles-and-permissions#change-settings).
+
+- **Repeat offender threshold** — how many actions in the last 30 days make somebody a repeat
+  offender. Between 2 and 100.
+- **Repeat offender types** — which kinds of action count towards it. Every kind counts unless you
+  turn one off. At least one has to stay on.
+
+Turning a kind off does not hide it. Its column still shows what happened; it just does not count
+towards the status, and the **Actions** column no longer includes it.
+
+Pressing **Save** rebuilds every person's counts before it answers, so the Bans page matches the new
+rule straight away.
+
+VRChat's group audit log does not record instance mutes — instance kicks and instance warns are the
+two it records — so there is no mute to separate from a kick yet.
 
 ### History on a person's popup
 
