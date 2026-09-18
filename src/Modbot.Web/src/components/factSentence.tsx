@@ -654,6 +654,25 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // ── Notes ───────────────────────────────────────────────────────────────────────────────────
+  //
+  // The note itself is in the sentence, because a row that said only "wrote a note" would make a
+  // reader open something to learn what the whole entry is. `text` is what Modbot writes; an
+  // imported note carries whatever its file held, so `description` stands in for it.
+  'modbot.note.add': (p) => (
+    <>
+      {p.actor} wrote a note about {p.subject}
+      {p.text('text') ?? p.text('description') ? <>: {p.text('text') ?? p.text('description')}</> : null}.
+    </>
+  ),
+
+  'modbot.note.take-back': (p) => (
+    <>
+      {p.actor} took back a note about {p.subject}
+      {p.text('text') ? <>: {p.text('text')}</> : null}.
+    </>
+  ),
+
   // ── Evidence ────────────────────────────────────────────────────────────────────────────────
   'modbot.evidence.attach': (p) => (
     <>

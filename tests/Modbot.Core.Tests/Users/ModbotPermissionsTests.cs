@@ -28,6 +28,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 28, (long)ModbotPermissions.ViewGiveaways);
         Assert.Equal(1L << 29, (long)ModbotPermissions.RunGiveaways);
         Assert.Equal(1L << 30, (long)ModbotPermissions.ImportOldData);
+        Assert.Equal(1L << 31, (long)ModbotPermissions.WriteNotes);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }

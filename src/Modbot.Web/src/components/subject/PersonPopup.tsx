@@ -16,6 +16,7 @@ import {
   DiscordMetrics,
 } from '@/components/subject/DiscordSide'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
+import { PersonNotes } from '@/components/subject/PersonNotes'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { FactList, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useDiscordRecords } from '@/lib/useDiscordRecords'
@@ -31,7 +32,7 @@ import { useDiscordMember } from '@/lib/useDiscordMember'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
 
-const TABS = ['overview', 'logs', 'history', 'cases', 'discord', 'messages', 'account', 'metrics', 'json'] as const
+const TABS = ['overview', 'logs', 'notes', 'history', 'cases', 'discord', 'messages', 'account', 'metrics', 'json'] as const
 type Tab = (typeof TABS)[number]
 
 /**
@@ -101,6 +102,16 @@ function Resolved({
   const readsMessages = can(me, 'ReadDiscordMessages')
   const readsLogs = canAny(me, ['ViewAuditLog', 'ViewOperationalLog'])
 
+  // Notes are facts in the moderation log, so the log's own permission is what opens them --
+  // there is no second, looser door onto the same rows (notes design §4).
+  const readsNotes = can(me, 'ViewAuditLog')
+
+  // Which account the notes are filed under. A note is about a person, but it is stored against
+  // one of their accounts, so the tab asks for the VRChat one where there is one and falls back to
+  // Discord for somebody Modbot only knows from there.
+  const notesId = vrchatId ?? discordId
+  const notesPlatform = vrchatId ? 'VRChat' : 'Discord'
+
   // Opened at one Discord message, from a source chip under a Chat answer: the Messages tab, on
   // the page that holds it, with that message marked.
   const message = useMessageAt()
@@ -130,6 +141,7 @@ function Resolved({
   const tabs: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },
     { value: 'logs', label: 'Logs' },
+    ...(notesId && readsNotes ? [{ value: 'notes' as const, label: 'Notes' }] : []),
     ...(vrchatId && seesProfile ? [{ value: 'history' as const, label: 'History' }] : []),
     ...(vrchatId && seesProfile ? [{ value: 'cases' as const, label: 'Cases' }] : []),
     ...(discordId && seesMembers ? [{ value: 'discord' as const, label: 'Discord' }] : []),
@@ -175,6 +187,9 @@ function Resolved({
           <Overview key={fresh} person={person} me={me} stored={stored} onMore={setTab} />
         )}
         {tab === 'logs' && <Logs key={fresh} person={person} />}
+        {tab === 'notes' && notesId && (
+          <PersonNotes key={`${notesId}-${live}`} subjectId={notesId} platform={notesPlatform} />
+        )}
         {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
         {tab === 'cases' && vrchatId && (
           <div className="p-4">

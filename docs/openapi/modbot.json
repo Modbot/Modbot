@@ -12812,6 +12812,212 @@
         ]
       }
     },
+    "/api/notes": {
+      "get": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "One person's notes, newest first",
+        "description": "platform is VRChat or Discord and defaults to VRChat. Notes that were taken back are listed too and say so; standing counts only the ones that still stand.\n\nNeeds the `ViewAuditLog` permission.",
+        "operationId": "ListNotes",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Write a note about a person",
+        "description": "The text is stored and shown as text, never as markup, and is at most 2000 characters. The note is one fact in the moderation log, so it shows in the person's history and can be read by anyone who may read that log.\n\nNeeds the `WriteNotes` permission.",
+        "operationId": "WriteNote",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/notes/{id}/take-back": {
+      "post": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Take a note back, so it no longer stands",
+        "description": "Nothing is deleted. The note stays in the log and a second entry records that it was taken back, by whom and when. Open to whoever wrote it, and to anyone who may write notes. Taking back a note that is already taken back changes nothing.",
+        "operationId": "TakeBackNote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar": {
       "get": {
         "tags": [
@@ -25887,6 +26093,108 @@
           }
         }
       },
+      "NoteListResponse": {
+        "required": [
+          "notes",
+          "standing",
+          "canWrite"
+        ],
+        "type": "object",
+        "properties": {
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteView"
+            }
+          },
+          "standing": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "canWrite": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NoteView": {
+        "required": [
+          "id",
+          "writtenAt",
+          "text",
+          "subjectPlatform",
+          "subjectId",
+          "authorAccountId",
+          "authorName",
+          "imported",
+          "takenBack",
+          "takenBackAt",
+          "takenBackByName",
+          "canTakeBack"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "writtenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "text": {
+            "type": "string"
+          },
+          "subjectPlatform": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "authorAccountId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "authorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imported": {
+            "type": "boolean"
+          },
+          "takenBack": {
+            "type": "boolean"
+          },
+          "takenBackAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "takenBackByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "canTakeBack": {
+            "type": "boolean"
+          }
+        }
+      },
       "NoticeMessage": {
         "required": [
           "kind",
@@ -31337,6 +31645,27 @@
             "format": "date-time"
           }
         }
+      },
+      "WriteNoteRequest": {
+        "required": [
+          "userId"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "platform": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "default": ""
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -31535,6 +31864,10 @@
     {
       "name": "Logs",
       "x-displayName": "Logs"
+    },
+    {
+      "name": "Notes",
+      "x-displayName": "Notes"
     },
     {
       "name": "Search",

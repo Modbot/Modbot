@@ -57,7 +57,7 @@ Three roles exist on every Modbot from the start. They cannot be deleted or rena
 
 Some permissions are deliberately not in Moderator or Viewer, because they reach further than
 day-to-day moderation: **See live instances**, **See calendar**, **See giveaways**, **Use AI chat**, **Read Discord
-messages**, **Manage Discord links**, and the evidence and administration permissions not listed above. Grant them on
+messages**, **Manage Discord links**, **Write notes**, and the evidence and administration permissions not listed above. Grant them on
 purpose, to a role of your own or by editing a built-in one.
 
 ## Administrator covers everything
@@ -321,6 +321,16 @@ Name: `EditClassifications`
 In the web app the reason list is under **Settings**, **Moderation**, and that tab needs
 **Change settings**. A person with only this permission can use it through the
 [API](/api/reference).
+
+### Write notes
+
+Name: `WriteNotes`
+
+- Writes a note about a person, on their popup's **Notes** tab, and takes one back. See
+  [Notes](/moderation/notes).
+
+Reading notes is **See the audit log**, not this: a note is an entry in that log. Somebody can take
+back a note they wrote themselves without holding this. Not in the built-in roles.
 
 ### Manage Discord links
 
