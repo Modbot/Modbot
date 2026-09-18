@@ -74,11 +74,29 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
     private readonly SemaphoreSlim _session = new(1, 1);
 
     /// <summary>
-    /// The client for requests forwarded on a caller's own cookie: no jar, no credentials, the
-    /// same egress proxy as the session client. Rebuilt when the proxy changes.
+    /// The client for everything that must not carry the service account's cookies: a request
+    /// forwarded on a caller's own cookie, and a file fetch. No jar, no credentials, no redirect
+    /// followed for it, and the same egress proxy as the session client. Rebuilt when the proxy
+    /// changes.
     /// </summary>
-    private readonly Lock _passthroughLock = new();
-    private (string ProxyKey, HttpClient Client)? _passthrough;
+    private readonly Lock _withoutCookiesLock = new();
+    private (string ProxyKey, HttpClient Client)? _withoutCookies;
+
+    /// <summary>
+    /// Clients replaced because the proxy settings changed, kept until this gate is disposed.
+    /// </summary>
+    /// <remarks>
+    /// <strong>A client is never disposed while a request may still be on it.</strong> These are
+    /// built with <c>disposeHandler: true</c>, so disposing one tears down its connection pool,
+    /// and tearing down a connection pool under a request that is still reading is how a socket
+    /// gets used after it has been freed -- a native fault, not an exception anything can catch.
+    /// Retiring instead costs one idle handler per change of the operator's proxy settings, which
+    /// happens approximately never; the connections inside it close on their own idle timeout.
+    /// </remarks>
+    private readonly List<HttpClient> _retired = [];
+
+    /// <summary>For tests: what to send over instead of a real connection. Never set in production.</summary>
+    private readonly Func<HttpMessageHandler>? _handlerWithoutCookies;
 
     /// <summary>Separate from the session lock, so a health read never waits behind a sign-in.</summary>
     private readonly SemaphoreSlim _loading = new(1, 1);
@@ -120,7 +138,8 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         IVRChatSignInStore? signIns = null,
         RateLimitOptions? rateLimits = null,
         Uri? apiHost = null,
-        VRChatClientOptions? clientOptions = null)
+        VRChatClientOptions? clientOptions = null,
+        Func<HttpMessageHandler>? handlerWithoutCookies = null)
     {
         ArgumentNullException.ThrowIfNull(clients);
         ArgumentNullException.ThrowIfNull(connections);
@@ -136,6 +155,7 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         _signIns = signIns ?? new MemorySignInStore();
         _signInLimit = (rateLimits ?? new RateLimitOptions()).SignInsPerHour;
         _apiHost = apiHost ?? DefaultApiHost;
+        _handlerWithoutCookies = handlerWithoutCookies;
 
         var options = clientOptions ?? new VRChatClientOptions();
         _passthroughUserAgent = $"{options.ApplicationName}/{options.ApplicationVersion} {options.DeveloperContactEmail}";
@@ -326,7 +346,7 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         VRChatEndpoint endpoint, VRChatProxyRequest request, VRChatCallPriority priority, CancellationToken ct)
     {
         var connection = await _connections.ReadAsync(ct).ConfigureAwait(false);
-        var client = PassthroughClient(connection);
+        var client = ClientWithoutCookies(connection);
 
         var lease = await _limiter.AcquireAsync(endpoint, priority, ct).ConfigureAwait(false);
         await using (lease)
@@ -387,10 +407,28 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
     /// of those live on the session client and the session client is what sends it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The redirect is followed here rather than by the handler, because the handler would
     /// follow a <c>Location</c> anywhere and this must only ever reach VRChat. Each hop is
     /// checked before it is sent, and the address that finally answered is checked as well, so
-    /// a handler that followed one on its own cannot get past it either.
+    /// a handler that followed one on its own cannot get past it either -- and the client this
+    /// uses is told to follow none, so none is sent unchecked in the first place.
+    /// </para>
+    /// <para>
+    /// <strong>The session cookie goes to VRChat's API host and to nothing else.</strong> The
+    /// stored address is on <c>api.vrchat.cloud</c> and that is the host that decides whether the
+    /// file may be read; it then redirects to a delivery host, which serves the bytes to anybody
+    /// holding the address it just issued and needs no cookie to do it. Sending it one anyway is
+    /// handing the service account's session to a machine that never asked for it, on every face
+    /// in a member list. So this does not use the session's shared client at all: that client
+    /// carries the cookie jar, and a jar sends a <c>.vrchat.cloud</c> cookie to every host under
+    /// that domain by itself. The cookie is put on the one request that needs it, by hand.
+    /// </para>
+    /// <para>
+    /// Everything else about the fetch still comes from the session -- the User-Agent, the
+    /// developer headers, the operator's egress proxy -- because those are about who Modbot is
+    /// and how it reaches the internet, not about who it is signed in as.
+    /// </para>
     /// </remarks>
     public async Task<VRChatFileResult> FetchFileAsync(Uri url, CancellationToken ct = default)
     {
@@ -411,8 +449,12 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
                 VRChatFileOutcome.NoSession, session.ErrorMessage ?? "There is no VRChat session to fetch that on.");
         }
 
-        var client = session.Client!.HttpClient;
         var configuration = session.Client!.Configuration;
+        var (auth, _) = CookiesOf(session.Client!);
+
+        var connection = await _connections.ReadAsync(ct).ConfigureAwait(false);
+        var client = ClientWithoutCookies(connection);
+
         var started = _elapsed.Elapsed;
         var next = url;
 
@@ -427,6 +469,11 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
 
                 foreach (var header in configuration.DefaultHeaders)
                     message.Headers.TryAddWithoutValidation(header.Key, header.Value);
+
+                // Only the API host, and only when there is a cookie to send. A delivery host is
+                // handed nothing.
+                if (auth is not null && IsApiHost(next))
+                    message.Headers.TryAddWithoutValidation("Cookie", $"auth={auth}");
 
                 using var response = await client
                     .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct)
@@ -504,6 +551,13 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         }
     }
 
+    /// <summary>
+    /// Whether this is VRChat's API host -- the one that decides whether a file may be read, and
+    /// so the only one a file fetch sends the session cookie to.
+    /// </summary>
+    private bool IsApiHost(Uri url) =>
+        url.Host.Equals(_apiHost.Host, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>The body, or null when it runs past <paramref name="maxBytes"/>.</summary>
     /// <remarks>
     /// Read rather than trusted: <c>Content-Length</c> is what the server claimed, and a body
@@ -532,21 +586,37 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
     }
 
     /// <summary>
-    /// The pass-through client: no cookie jar, so nothing of the service account's can ride
-    /// along and nothing of the caller's is kept; the operator's egress proxy, because the reason
-    /// for one (spec 2.3.1) is this host's network, which a caller's cookie does not change.
+    /// The client with no cookie jar, so nothing of the service account's can ride along and
+    /// nothing of anybody else's is kept; the operator's egress proxy, because the reason for one
+    /// (spec 2.3.1) is this host's network, which whose cookie is on the request does not change.
     /// </summary>
-    private HttpClient PassthroughClient(VRChatConnection connection)
+    /// <remarks>
+    /// It follows no redirect by itself either. Both callers check every hop against VRChat's own
+    /// hosts before sending it, and a handler that follows a <c>Location</c> on its own sends a
+    /// hop nobody checked -- with whatever headers were on the request.
+    /// </remarks>
+    private HttpClient ClientWithoutCookies(VRChatConnection connection)
     {
         var key = $"{connection.ProxyUrl}\0{connection.ProxyUsername}\0{connection.ProxyPassword}";
 
-        lock (_passthroughLock)
+        lock (_withoutCookiesLock)
         {
-            if (_passthrough is { } current && current.ProxyKey == key)
+            if (_withoutCookies is { } current && current.ProxyKey == key)
                 return current.Client;
 
-            _passthrough?.Client.Dispose();
+            // Retired, never disposed: see _retired.
+            if (_withoutCookies is { } old)
+                _retired.Add(old.Client);
 
+            var client = _handlerWithoutCookies is null
+                ? new HttpClient(Handler(connection), disposeHandler: true) { Timeout = PassthroughTimeout }
+                : new HttpClient(_handlerWithoutCookies(), disposeHandler: false) { Timeout = PassthroughTimeout };
+            _withoutCookies = (key, client);
+            return client;
+        }
+
+        static HttpClientHandler Handler(VRChatConnection connection)
+        {
             var handler = new HttpClientHandler
             {
                 UseCookies = false,
@@ -567,21 +637,28 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
                 handler.UseProxy = true;
             }
 
-            var client = new HttpClient(handler, disposeHandler: true) { Timeout = PassthroughTimeout };
-            _passthrough = (key, client);
-            return client;
+            return handler;
         }
     }
 
+    /// <summary>
+    /// Disposed at the end, when the host has stopped and no request is left to be reading one.
+    /// That is the only moment at which tearing a connection pool down is safe.
+    /// </summary>
     public void Dispose()
     {
         _session.Dispose();
         _loading.Dispose();
 
-        lock (_passthroughLock)
+        lock (_withoutCookiesLock)
         {
-            _passthrough?.Client.Dispose();
-            _passthrough = null;
+            _withoutCookies?.Client.Dispose();
+            _withoutCookies = null;
+
+            foreach (var retired in _retired)
+                retired.Dispose();
+
+            _retired.Clear();
         }
     }
 
