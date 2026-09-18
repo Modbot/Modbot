@@ -31,6 +31,7 @@ using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Imports;
 using Modbot.Api.Features.Logs;
 using Modbot.Api.Features.Members;
+using Modbot.Api.Features.People;
 using Modbot.Api.Features.Moderation;
 using Modbot.Api.Features.Alerts;
 using Modbot.Api.Features.Insights;
@@ -367,6 +368,10 @@ public static class ApiSurface
         // The member list and the ban list as the sweeps last read them (member and ban sync
         // design §5), with search.
         app.MapMembers();
+
+        // Everyone Modbot has a record of, member or not: the rest of vrchat_user, which the
+        // member list by definition leaves out (everyone Modbot has seen design).
+        app.MapPeople();
 
         // Ban case files (spec 5.8.3): the write-up of each ban, and the reason list moderators
         // pick from. The fact writer and the profile sync's recorder resolve optionally, like
