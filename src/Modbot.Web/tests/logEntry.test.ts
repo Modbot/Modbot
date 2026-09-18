@@ -25,7 +25,6 @@ test('the record holds everything the line carries, in reading order', () => {
     'time',
     'level',
     'message',
-    'template',
     'source',
     'area',
     'properties',
@@ -66,12 +65,12 @@ test('a property document that will not parse is kept as the text it came as', (
   assert.equal(entry.properties, '{"Count":41')
 })
 
-test('a template that is the message word for word is left out', () => {
+test('the template is never in the record, however it differs from the message', () => {
   const same = wholeEntry(line({ message: 'Sync finished', template: 'Sync finished' }))
   assert.equal(same.template, undefined)
 
   const different = wholeEntry(line({ message: 'Sync finished', template: 'Sync {State}' }))
-  assert.equal(different.template, 'Sync {State}')
+  assert.equal(different.template, undefined)
 })
 
 test('an exception is in the record, so the copied line carries it', () => {

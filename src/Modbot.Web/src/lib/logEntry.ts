@@ -22,10 +22,6 @@ export function wholeEntry(line: LogLine): Record<string, unknown> {
     message: line.message,
   }
 
-  // The template is what the message was written from. When it is the message word for word it
-  // adds nothing, and a record that repeats itself is a record people stop reading.
-  if (line.template && line.template !== line.message) entry.template = line.template
-
   if (line.source) entry.source = line.source
   if (line.area) entry.area = line.area
 

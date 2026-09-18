@@ -172,7 +172,7 @@ export function Logs() {
             <option value="">Any source</option>
             {(filters?.sources ?? []).map((s) => (
               <option key={s} value={s}>
-                {shortSource(s)}
+                {s}
               </option>
             ))}
           </Select>
@@ -275,24 +275,6 @@ function LogRow({ line, open, onToggle }: { line: LogLine; open: boolean; onTogg
       {open && (
         <div className="px-3 pb-3 pl-10" style={{ fontSize: 'var(--text-small)' }}>
           <div className="whitespace-pre-wrap break-words">{line.message}</div>
-
-          {/* The record below holds all of this, but a JSON document is read, not scanned. One
-              line of it stays in plain text so the eye can take in when and where at a glance. */}
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-muted-foreground">
-            <span className="tabular-nums text-foreground">{new Date(line.at).toLocaleString()}</span>
-            {line.source && (
-              <>
-                <span aria-hidden>·</span>
-                <span className="break-all text-foreground">{line.source}</span>
-              </>
-            )}
-            {line.area && (
-              <>
-                <span aria-hidden>·</span>
-                <span className="text-foreground">{line.area}</span>
-              </>
-            )}
-          </div>
 
           <JsonView className="mt-2" title="Entry" value={wholeEntry(line)} />
 
