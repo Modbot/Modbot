@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import {
   COMBINE_LABEL,
   COMBINING,
@@ -60,7 +61,7 @@ function Group({
       style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
     >
       <div className="flex items-center gap-2">
-        <Select value={rule.kind} onChange={(kind) => onChange({ ...rule, kind })}>
+        <Select value={rule.kind} onChange={(kind) => onChange({ ...rule, kind })} className="h-9" aria-label="How the rules combine">
           {COMBINING.map((k) => (
             <option key={k} value={k}>
               {COMBINE_LABEL[k]}
@@ -138,6 +139,8 @@ function Row({
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md bg-secondary/50 px-2 py-1.5">
       <Select
+        className="h-9"
+        aria-label="Rule"
         value={rule.kind}
         onChange={(kind) =>
           onChange({
@@ -169,7 +172,12 @@ function Row({
       )}
 
       {takesRole(rule.kind) && (
-        <Select value={rule.id ?? ''} onChange={(id) => onChange({ ...rule, id: id || undefined })}>
+        <Select
+          className="h-9"
+          aria-label="Role"
+          value={rule.id ?? ''}
+          onChange={(id) => onChange({ ...rule, id: id || undefined })}
+        >
           <option value="">Pick a role</option>
           {roles.map((r) => (
             <option key={r.id} value={r.id}>
@@ -182,6 +190,8 @@ function Row({
       {takesWindow(rule.kind) && (
         <>
           <Select
+            className="h-9"
+            aria-label="When it counts"
             value={rule.withinDays == null ? 'all' : 'window'}
             onChange={(choice) => onChange({ ...rule, withinDays: choice === 'all' ? null : (rule.withinDays ?? 30) })}
           >
@@ -211,26 +221,5 @@ function Row({
         <X />
       </Button>
     </div>
-  )
-}
-
-function Select({
-  value,
-  onChange,
-  children,
-}: {
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-9 rounded-md border border-input bg-transparent px-2 text-foreground"
-      style={{ fontSize: 'var(--text-small)' }}
-    >
-      {children}
-    </select>
   )
 }

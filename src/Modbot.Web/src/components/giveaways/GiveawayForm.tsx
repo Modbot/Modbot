@@ -5,6 +5,7 @@ import { Checkbox, Field, LongField } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { ApiError } from '@/lib/api'
 import {
   WEIGHTING_LABEL,
@@ -118,6 +119,8 @@ export function GiveawayForm({
               </Labelled>
               <Labelled label="Draw">
                 <Select
+                  className="h-9"
+                  aria-label="Draw"
                   value={input.drawAt === null ? 'manual' : 'time'}
                   onChange={(choice) => set('drawAt', choice === 'manual' ? null : input.closesAt)}
                 >
@@ -143,6 +146,8 @@ export function GiveawayForm({
             <div className="grid gap-3 sm:grid-cols-3">
               <Labelled label="How people enter">
                 <Select
+                  className="h-9"
+                  aria-label="How people enter"
                   value={input.entryWay}
                   // Reacting needs something to react to, so picking it ticks the channel post and
                   // the tick box is then held on: unticking it would leave a giveaway nobody can
@@ -216,6 +221,8 @@ export function GiveawayForm({
             <div className="grid gap-3 sm:grid-cols-2">
               <Labelled label="Weighted by">
                 <Select
+                  className="h-9"
+                  aria-label="Weighted by"
                   value={input.weighting}
                   onChange={(v) =>
                     setInput((current) => ({
@@ -333,26 +340,5 @@ function Labelled({ label, children }: { label: string; children: React.ReactNod
       <span className="text-muted-foreground">{label}</span>
       {children}
     </label>
-  )
-}
-
-function Select({
-  value,
-  onChange,
-  children,
-}: {
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-9 rounded-md border border-input bg-transparent px-2 text-foreground"
-      style={{ fontSize: 'var(--text-small)' }}
-    >
-      {children}
-    </select>
   )
 }

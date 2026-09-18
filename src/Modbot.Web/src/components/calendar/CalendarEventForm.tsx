@@ -4,6 +4,7 @@ import { Checkbox, Field, LongField } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { ApiError } from '@/lib/api'
 import {
   blankEvent,
@@ -105,7 +106,7 @@ export function CalendarEventForm({
                 <Input type="datetime-local" value={input.endsAt} onChange={(e) => set('endsAt', e.target.value)} />
               </Labelled>
               <Labelled label="Time zone">
-                <Select value={input.timeZone} onChange={(v) => set('timeZone', v)}>
+                <Select value={input.timeZone} onChange={(v) => set('timeZone', v)} className="h-9" aria-label="Time zone">
                   {!zones.includes(input.timeZone) && <option value={input.timeZone}>{input.timeZone}</option>}
                   {zones.map((z) => (
                     <option key={z} value={z}>
@@ -115,7 +116,7 @@ export function CalendarEventForm({
                 </Select>
               </Labelled>
               <Labelled label="Repeat">
-                <Select value={input.repeat} onChange={(v) => set('repeat', v as CalendarRepeat)}>
+                <Select value={input.repeat} onChange={(v) => set('repeat', v as CalendarRepeat)} className="h-9" aria-label="Repeat">
                   <option value="none">Does not repeat</option>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -150,6 +151,8 @@ export function CalendarEventForm({
             <div className="grid gap-3 sm:grid-cols-2">
               <Labelled label="World">
                 <Select
+                  className="h-9"
+                  aria-label="World"
                   value={worldChoice}
                   onChange={(v) => {
                     if (v === OTHER_WORLD) {
@@ -174,14 +177,14 @@ export function CalendarEventForm({
                 <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
               )}
               <Labelled label="Who can join">
-                <Select value={input.accessType} onChange={(v) => set('accessType', v)}>
+                <Select value={input.accessType} onChange={(v) => set('accessType', v)} className="h-9" aria-label="Who can join">
                   <option value="members">Group members</option>
                   <option value="plus">Members and their friends</option>
                   <option value="public">Anyone</option>
                 </Select>
               </Labelled>
               <Labelled label="Region">
-                <Select value={input.region} onChange={(v) => set('region', v)}>
+                <Select value={input.region} onChange={(v) => set('region', v)} className="h-9" aria-label="Region">
                   <option value="us">US West</option>
                   <option value="use">US East</option>
                   <option value="eu">Europe</option>
@@ -200,7 +203,7 @@ export function CalendarEventForm({
               <>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Labelled label="Category">
-                    <Select value={input.category} onChange={(v) => set('category', v)}>
+                    <Select value={input.category} onChange={(v) => set('category', v)} className="h-9" aria-label="Category">
                       {categories.map((c) => (
                         <option key={c} value={c}>
                           {CATEGORY_LABEL[c] ?? c}
@@ -209,7 +212,7 @@ export function CalendarEventForm({
                     </Select>
                   </Labelled>
                   <Labelled label="Visible to">
-                    <Select value={input.visibility} onChange={(v) => set('visibility', v)}>
+                    <Select value={input.visibility} onChange={(v) => set('visibility', v)} className="h-9" aria-label="Visible to">
                       <option value="group">Group</option>
                       <option value="public">Everyone</option>
                     </Select>
@@ -313,19 +316,6 @@ function Labelled({ label, children }: { label: string; children: React.ReactNod
       <span className="text-muted-foreground">{label}</span>
       {children}
     </label>
-  )
-}
-
-function Select({ value, onChange, children }: { value: string; onChange: (value: string) => void; children: React.ReactNode }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-9 rounded-md border border-input bg-transparent px-2 text-foreground"
-      style={{ fontSize: 'var(--text-small)' }}
-    >
-      {children}
-    </select>
   )
 }
 
