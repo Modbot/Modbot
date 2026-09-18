@@ -48,6 +48,7 @@ internal static class OpenApiReference
         ("Events", "Every new event as it happens, over a WebSocket or by long polling."),
         ("Webhooks", "Addresses Modbot sends new events to, signed with a secret."),
         ("VRChat proxy", "Requests forwarded to VRChat's own API, as the service account or with your own VRChat cookie."),
+        ("People", "One person's VRChat, Discord and Modbot accounts, from any one of them."),
         ("Members", "The group's member list and ban list, as Modbot last read them."),
         ("VRChat users", "What Modbot has stored about one VRChat user."),
         ("Live", "The group's open instances right now."),

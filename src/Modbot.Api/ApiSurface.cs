@@ -37,6 +37,7 @@ using Modbot.Api.Features.Insights;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Live;
 using Modbot.Api.Features.Live.Stream;
+using Modbot.Api.Features.People;
 using Modbot.Api.Features.Places;
 using Modbot.Api.Features.Search;
 using Modbot.Api.Features.Server;
@@ -325,6 +326,11 @@ public static class ApiSurface
         // One VRChat user's stored profile and the 18+ flag (user profile sync design §6). The
         // queue and the record writer resolve optionally, like SyncDiagnostics does above.
         app.MapVRChatUsers();
+
+        // One person's VRChat, Discord and Modbot accounts, tied together from whichever one a
+        // link named, so the popup opens on the human being rather than on one of their accounts
+        // (one view per person design §3).
+        app.MapPeople();
 
         // One world and one instance, for the popup that opens when somebody clicks either (spec
         // 10.2). Read entirely from Modbot's own tables -- opening a popup costs no VRChat
