@@ -1,4 +1,5 @@
 import { PersonLink, InstanceLink, WorldLink } from '@/components/facts'
+import { JsonView } from '@/components/JsonView'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import type { AuditEntry } from '@/lib/api'
 import { openPersonVersion } from '@/lib/subject'
@@ -754,9 +755,7 @@ function Unrecognised({ parts: p }: { parts: Parts }) {
           VRChat called it{' '}
           <span className="font-mono">{eventType ?? 'nothing at all'}</span>. Show what it sent
         </summary>
-        <pre className="mt-1 max-h-64 overflow-auto rounded-xl bg-secondary px-2 py-1 whitespace-pre-wrap break-all">
-          {JSON.stringify(payload ?? {}, null, 2)}
-        </pre>
+        <JsonView className="mt-1" title="Event" value={payload ?? {}} />
       </details>
     </>
   )

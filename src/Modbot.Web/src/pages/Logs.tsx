@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { JsonView } from '@/components/JsonView'
 import { api, ApiError, type LogFilters, type LogLevel, type LogLine, type LogPage } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Empty, Select } from './Members'
@@ -219,7 +220,7 @@ export function Logs() {
 
 function LogRow({ line, open, onToggle }: { line: LogLine; open: boolean; onToggle: () => void }) {
   const Chevron = open ? ChevronDown : ChevronRight
-  const properties = open ? pretty(line.properties) : null
+  const properties = open ? stored(line.properties) : null
 
   return (
     <li className="border-b last:border-b-0" style={{ borderBottomWidth: 'var(--hairline)' }}>
@@ -265,11 +266,7 @@ function LogRow({ line, open, onToggle }: { line: LogLine; open: boolean; onTogg
             )}
           </dl>
 
-          {properties && (
-            <pre className="mt-2 overflow-x-auto rounded-md bg-muted/50 p-2 font-mono">
-              {properties}
-            </pre>
-          )}
+          {properties && <JsonView className="mt-2" title="Properties" text={properties} />}
 
           {line.exception && (
             <pre className="mt-2 overflow-x-auto rounded-md bg-destructive/10 p-2 font-mono text-destructive">
@@ -294,14 +291,17 @@ function when(at: string): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`
 }
 
-/** The stored property document, laid out. A document that will not parse is shown as it came. */
-function pretty(json: string): string | null {
+/** The stored property document, or nothing at all when it holds nothing worth opening. */
+function stored(json: string): string | null {
   if (!json || json === '{}') return null
+
   try {
     const parsed: unknown = JSON.parse(json)
     if (parsed && typeof parsed === 'object' && Object.keys(parsed).length === 0) return null
-    return JSON.stringify(parsed, null, 2)
   } catch {
-    return json
+    // A document that will not parse is still shown, as it came. The viewer lays out and colours
+    // what parses and leaves the rest alone.
   }
+
+  return json
 }

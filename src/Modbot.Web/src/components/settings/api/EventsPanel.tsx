@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { JsonView } from '@/components/JsonView'
 import { api } from '@/lib/api'
 import { CopyBox } from '@/pages/Users'
 import { Field, Outcome, PasswordField } from '../fields'
@@ -145,9 +146,7 @@ export function EventsPanel() {
                   {r.type && <span className="ml-2 font-mono">{r.type}</span>}
                   {r.occurredAt && <span className="ml-2 text-muted-foreground">{when(r.occurredAt)}</span>}
                 </summary>
-                <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all font-mono text-muted-foreground">
-                  {JSON.stringify(JSON.parse(r.text), null, 2)}
-                </pre>
+                <JsonView className="mt-1" title="Message" text={r.text} />
               </details>
             ))}
           </div>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { CodeBlock } from '@/components/CodeBlock'
 import { Input } from '@/components/ui/input'
+import { JsonView } from '@/components/JsonView'
 import { api, ApiError, type VRChatProxyAnswer, type VRChatProxySettings as Settings } from '@/lib/api'
 import { CopyBox } from '@/pages/Users'
 import { failure } from '../api/shared'
@@ -188,8 +188,6 @@ function Playground({ enabled }: { enabled: boolean }) {
 }
 
 function Answer({ answer }: { answer: VRChatProxyAnswer }) {
-  const json = pretty(answer.text)
-
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3" style={{ fontSize: 'var(--text-small)' }}>
@@ -204,19 +202,9 @@ function Answer({ answer }: { answer: VRChatProxyAnswer }) {
           </>
         )}
       </div>
-      <CodeBlock>
-        <code className={json !== null ? 'language-json' : 'language-text'}>{json ?? answer.text}</code>
-      </CodeBlock>
+      {/* A body VRChat sent as something other than JSON -- an error page, an empty 204 -- is
+          shown as it came: the viewer only re-indents and colours what parses. */}
+      <JsonView title="Answer" text={answer.text} />
     </div>
   )
-}
-
-/** The body re-indented when it is JSON, or null when it is not. */
-function pretty(text: string): string | null {
-  if (!text.trim()) return null
-  try {
-    return JSON.stringify(JSON.parse(text), null, 2)
-  } catch {
-    return null
-  }
 }

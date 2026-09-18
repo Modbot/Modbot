@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertCircle, Check, ChevronRight, Loader2 } from 'lucide-react'
 import { SourceChip } from '@/components/chat/Sources'
 import { uniqueSources } from '@/components/chat/sourceLinks'
+import { JsonView } from '@/components/JsonView'
 import type { ChatMessage, ChatReference, ChatToolCall } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -88,9 +89,7 @@ function Step({ step }: { step: ToolStep }) {
           {result && (
             <>
               {raw ? (
-                <pre className="max-h-64 overflow-auto rounded-md bg-card p-2 font-mono whitespace-pre-wrap">
-                  {pretty(result.content)}
-                </pre>
+                <JsonView title="Found" text={result.content} />
               ) : (
                 <Facts heading="Found" json={result.content} />
               )}
@@ -225,11 +224,6 @@ function parse(json: string): unknown {
   } catch {
     return json.trim().length > 0 ? json : undefined
   }
-}
-
-function pretty(json: string): string {
-  const value = parse(json)
-  return value === undefined ? '' : typeof value === 'string' ? value : JSON.stringify(value, null, 2)
 }
 
 function took(ms: number): string {
