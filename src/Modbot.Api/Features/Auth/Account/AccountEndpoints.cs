@@ -160,9 +160,9 @@ public static class AccountEndpoints
 
                 var actor = new Actor(user.Id, user.Username);
 
-                return await UserEndpoints.ApplyContactAsync(db, facts, contact, user, body, actor, ct)
-                    ? Results.Ok(SessionUser.From(user))
-                    : Results.BadRequest(new { error = "That email address does not look like one." });
+                return await UserEndpoints.ApplyContactAsync(db, facts, contact, accounts, user, body, actor, ct) is { } problem
+                    ? Results.BadRequest(new { error = problem })
+                    : Results.Ok(SessionUser.From(user));
             })
             .WithName("SetOwnContact")
             .WithSummary("Set the email address and Discord user id a reset link can reach you at")

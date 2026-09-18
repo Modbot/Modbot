@@ -98,7 +98,23 @@ export type OnboardingStatus = {
   myModbotUrl: string
   /** Whether VRChat pictures are loaded through this server. */
   vrchatImagesProxied: boolean
+  /** Whether this server has a Modbot Cloud to ask, so the updates checkbox is shown. */
+  canSubscribeToUpdates: boolean
 }
+
+/** What GET /api/server says about this deployment. Every field is null until it is known. */
+export type ServerInfo = {
+  name: string | null
+  groupId: string | null
+  iconUrl: string | null
+  bannerUrl: string | null
+  ownerEmail: string | null
+  version: string | null
+  publicAddress: string | null
+}
+
+/** Settings → Host & Database → Public address. */
+export type ServerSettings = { showOwnerEmail: boolean }
 
 /**
  * The signed-in account.
@@ -179,6 +195,8 @@ export type InviteView = {
   invitedBy: string | null
   roles: string[]
   expiresAt: string | null
+  /** Whether this server has a Modbot Cloud to ask, so the updates checkbox is shown. */
+  canSubscribeToUpdates: boolean
 }
 
 export type ResetView = { usable: boolean; reason: string | null; username: string | null }
@@ -2970,7 +2988,15 @@ export const api = {
     password: string
     confirmPassword: string
     email: string
+    subscribeToUpdates?: boolean
   }) => post<CurrentUser>('/api/onboarding/administrator', body),
+
+  server: () => request<ServerInfo>('/api/server'),
+
+  serverSettings: () => request<ServerSettings>('/api/settings/server'),
+
+  setServerSettings: (showOwnerEmail: boolean) =>
+    put<ServerSettings>('/api/settings/server', { showOwnerEmail }),
 
   verifyVRChat: (body: { username: string; password: string; totpSecret: string | null }) =>
     post<{ displayName: string | null; userId: string | null; verifiedAt: string }>(
@@ -3089,8 +3115,16 @@ export const api = {
 
   invite: (token: string) => request<InviteView>(`/api/join/${encodeURIComponent(token)}`),
 
-  acceptInvite: (token: string, body: { username: string; password: string; confirmPassword: string }) =>
-    post<CurrentUser>(`/api/join/${encodeURIComponent(token)}`, body),
+  acceptInvite: (
+    token: string,
+    body: {
+      username: string
+      password: string
+      confirmPassword: string
+      email: string
+      subscribeToUpdates?: boolean
+    },
+  ) => post<CurrentUser>(`/api/join/${encodeURIComponent(token)}`, body),
 
   resetLink: (token: string) => request<ResetView>(`/api/reset/${encodeURIComponent(token)}`),
 

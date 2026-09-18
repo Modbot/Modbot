@@ -61,6 +61,7 @@ public static class FactSubjects
         [FactType.UserEnabled] = SubjectKind.Account,
         [FactType.UserRolesChanged] = SubjectKind.Account,
         [FactType.SignedOutEverywhere] = SubjectKind.Account,
+        [FactType.UpdatesSubscribed] = SubjectKind.Account,
 
         // Neither a person nor a place: an invite link, a Modbot role, a case file, a key, a
         // channel, a partition name. Clicking these opens nothing, and pretending otherwise

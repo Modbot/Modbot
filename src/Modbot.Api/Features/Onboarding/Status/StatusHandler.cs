@@ -71,7 +71,8 @@ public static class StatusHandler
             (http.RequestServices.GetService(typeof(Modbot.Core.Configuration.ModbotEnvironment))
                 as Modbot.Core.Configuration.ModbotEnvironment)?.MyUrl
             ?? Modbot.Core.Configuration.ModbotEnvironment.DefaultMyUrl,
-            settings.VRChatImagesProxied));
+            settings.VRChatImagesProxied,
+            Modbot.Api.Features.Users.NewAccount.CanSubscribe(http)));
     }
 
     /// <summary>

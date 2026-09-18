@@ -39,6 +39,7 @@ using Modbot.Api.Features.Live;
 using Modbot.Api.Features.Live.Stream;
 using Modbot.Api.Features.Places;
 using Modbot.Api.Features.Search;
+using Modbot.Api.Features.Server;
 using Modbot.Api.Features.Onboarding.Complete;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
 using Modbot.Api.Features.Onboarding.Integrations;
@@ -125,6 +126,27 @@ public static class ApiSurface
             sp.GetRequiredService<WebhookOptions>(),
             sp.GetService<Modbot.VRChat.Scheduling.IMonotonicClock>()));
         services.TryAddScoped<WebhookDispatcher>();
+
+        // Signing somebody up for the project's news when they tick the box while making their
+        // account (server info and account email design §5). The Cloud client and the Cloud
+        // address are the host's registrations: a host that maps the API without them gets the
+        // subscriber that does nothing, and the checkbox is not shown.
+        services.TryAddScoped<Modbot.Core.Cloud.IUpdatesSubscriber>(sp =>
+        {
+            var client = sp.GetService<Modbot.Core.Cloud.CloudServerClient>();
+            var cloud = sp.GetService<Core.Configuration.ModbotCloudAddress>();
+            var protector = sp.GetService<Core.Security.ISecretProtector>();
+
+            if (client is null || cloud is null || protector is null)
+                return new Modbot.Core.Cloud.NoUpdatesSubscriber();
+
+            return new Modbot.Core.Cloud.CloudUpdatesSubscriber(
+                sp.GetRequiredService<Core.Data.ModbotContext>(),
+                client,
+                cloud,
+                protector,
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Modbot.Core.Cloud.CloudUpdatesSubscriber>>());
+        });
 
         // Imports of old data (import design §8): the upload endpoint queues, the hosted loop
         // runs, and the signal is how the first tells the second not to wait out its poll.
@@ -233,9 +255,14 @@ public static class ApiSurface
         // Uploads of old data from another platform (import design §4).
         app.MapImports();
 
+        // What this Modbot is, for my.modbot.co and anyone else who asks (server info and account
+        // email design §2). Anonymous, and the one endpoint readable from another origin.
+        app.MapServerInfo();
+
         app.MapDataSettings();
         app.MapSyncSettings();
         app.MapPublicAddressSettings();
+        app.MapServerSettings();
         app.MapPublicInstancesSettings();
         app.MapCloudSettings();
         app.MapEmailSettings();

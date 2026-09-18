@@ -456,6 +456,18 @@ public class Settings
     /// </remarks>
     public string? PublicAddress { get; set; }
 
+    /// <summary>
+    /// Whether <c>GET /api/server</c> tells anyone who asks the owner's email address.
+    /// </summary>
+    /// <remarks>
+    /// On by default, because the address is what lets somebody adding this server on
+    /// my.modbot.co see whose server it is, and because a group's moderation contact is usually
+    /// public already. An operator who does not want it published turns this off and the field
+    /// comes back null; nothing else about the server page changes (server info and account email
+    /// design §2.3).
+    /// </remarks>
+    public bool ServerShowOwnerEmail { get; set; } = true;
+
     // --- Retention, tiered per fact class (spec 5.5) ---
     public int ModerationFactRetentionDays { get; set; }         // 0 = keep forever
     public int PresenceFactRetentionDays { get; set; }            // 0 = keep forever

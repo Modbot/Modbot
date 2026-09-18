@@ -32,6 +32,7 @@ password reset, **a fact for every account event**, and the web pages for all of
 | `ModbotAuth`: permissions travel in the cookie, so a change takes effect at next sign-in | **Reversed.** Every request checks the account once (§5). The trade was made for a dozen staff who change permissions a few times a year; disabling someone who is mid-incident is exactly the case where "next sign-in" is wrong, and the check is one primary-key read. |
 | §5.9.2: auth events are Modbot-side audit entries, moderation retention | Unchanged, and now actually written — the `Login`/`LoginFailed`/`PasswordChanged` constants existed but nothing produced them. |
 | §7.2: optional Discord OAuth, "require Discord login" setting | **Deferred.** A typed-in Discord user id ships, used only to deliver reset links (§4.2). |
+| §6.3: `ModbotUser` carries an optional email | **Narrowed 2026-09-17.** Required on every account, unique case-insensitively, and accepted by the sign-in form in place of the username (server info and account email design §4, §5). |
 | §7.1: five wizard steps | **Extended.** A sixth step, linking the administrator's own VRChat account, sits after the connection check (§4.3). |
 | §6.3: `ApiKey` | Out of scope here. |
 
@@ -100,9 +101,15 @@ And for the signed-in person, under any authenticated session:
 | Link a VRChat account | `GET /api/auth/vrchat-link`, `POST …/start`, `POST …/check` (§4.3) |
 
 A username change is recorded with the old and new names, and the session cookie is re-issued so
-the name in it is right. Email and Discord id exist so a reset link can reach the person (§4.2);
-they are contact details, not identity, and nothing is ever sent to them without that person
-asking.
+the name in it is right. Email and Discord id exist so a reset link can reach the person (§4.2).
+
+**Narrowed 2026-09-17** (server info and account email design §4): the email address is no longer
+optional and no longer only a contact detail. Every account gets one at creation, it is unique
+across accounts case-insensitively, and the sign-in field accepts it in place of the username.
+Accounts made before that change may still have none; they keep working and are asked for one on
+their account page. The Discord id is unchanged — contact detail, never identity, and nothing is
+sent to either without that person asking, apart from the news somebody ticks a box for while
+making their account (that design §6).
 
 ### 4.2 Forgot password
 
@@ -183,8 +190,10 @@ administrator copies the link and hands it over on Discord.
 - **Invite links expire after 72 hours**; reset links after 24. A link is refused once used, once
   expired, once revoked, and — for invites — if the person who created it has since been disabled.
   An invite is that person's standing offer, and a disabled account cannot make offers.
-- An invite carries the role ids the new account will hold. The invitee picks their own username
-  and password at `/join/<token>`, and is signed in on the spot.
+- An invite carries the role ids the new account will hold. The invitee picks their own username,
+  email address and password at `/join/<token>`, and is signed in on the spot. The invite never
+  carries an address: the person who sent it does not get to decide where the invitee's reset link
+  goes (server info and account email design §4.1).
 - A reset link is bound to one account. Using it at `/reset/<token>` sets the new password and
   **ends every session that account had** (§5). Creating a new reset link removes that account's
   earlier unused ones.
@@ -312,6 +321,7 @@ all moderation retention (the prefix is not a presence prefix), all in the **ope
 | `modbot.user.password.reset.create` / `.use` | reset link lifecycle; `create` says whether an administrator or the person asked, and how it was sent |
 | `modbot.user.login` / `modbot.user.login.failed` | every attempt |
 | `modbot.user.sign-out-everywhere` | |
+| `modbot.user.updates.subscribe` | the person asked for the project's news while making their account (server info and account email design §6); no address in the payload |
 | `modbot.role.create` / `.change` / `.delete` | custom and built-in role edits |
 
 The existing `modbot.auth.login`, `modbot.auth.login.failed` and `modbot.auth.password.change`
@@ -329,7 +339,8 @@ of who made it is the failure §5.8 exists to prevent.
 
 ## 7. Login slowdown
 
-Failed attempts are counted in memory per normalised username and per client address, with a
+Failed attempts are counted in memory per normalised sign-in — whichever of the username and the
+email address was typed (server info and account email design §5) — and per client address, with a
 fifteen-minute window. Each attempt waits `2^(failures-1)` seconds, capped at twenty, using the
 larger of the two counts, before the password is even checked. **There is no lockout**: a correct
 password always works after the wait, so an attacker hammering `owner` cannot keep the owner out
@@ -345,9 +356,9 @@ tests can observe it without sleeping. The response for every failure stays a ba
 - **Roles** page (`ManageRoles`): each role's permissions as a checklist. Every permission has a
   plain label and a one-line description supplied by the server, so the words on the page and the
   words in the API are the same words.
-- **Account** page (anyone signed in): change username, change password, email and Discord user
-  id for reset links, the linked VRChat account with a *Link a different account* button, and
-  sign out everywhere.
+- **Account** page (anyone signed in): change username, change password, email (required — server
+  info and account email design §4) and Discord user id, the linked VRChat account with a *Link a
+  different account* button, and sign out everywhere.
 - `/join/<token>`, `/reset/<token>`, *Forgot password* and *Link your VRChat account* live
   outside the app shell, next to the sign-in page. The link page is the same component the
   wizard step uses.

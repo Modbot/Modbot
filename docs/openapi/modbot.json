@@ -28,7 +28,7 @@
           "Auth"
         ],
         "summary": "Start a session",
-        "description": "Returns 401 for any failed attempt without saying why. Distinguishing \"no such user\" from \"wrong password\" would turn the login form into a way to enumerate staff accounts.",
+        "description": "The username field takes an email address or a username; both are matched case-insensitively.\n\nReturns 401 for any failed attempt without saying why. Distinguishing \"no such user\" from \"wrong password\" would turn the login form into a way to enumerate staff accounts, and answering differently for an address would turn it into a way to find out who has an account here.",
         "operationId": "Login",
         "requestBody": {
           "content": {
@@ -200,6 +200,29 @@
             "session": [ ]
           }
         ]
+      }
+    },
+    "/api/server": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "What this Modbot is: its group, its version and who runs it",
+        "description": "Unauthenticated, readable from any origin, and answers 200 with nulls on a deployment that has not been set up yet.\n\nownerEmail is the address of the oldest enabled account holding Administrator that has one. It is null when the operator has turned off `server.showOwnerEmail`.",
+        "operationId": "GetServer",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerInfo"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
       }
     },
     "/api/search": {
@@ -3072,6 +3095,86 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/server": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "What this server tells anyone who asks about it",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetServerSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Turn the owner's email address on or off on the server page",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "SetServerSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetServerSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerSettingsView"
                 }
               }
             }
@@ -21829,6 +21932,10 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "canSubscribeToUpdates": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -21851,6 +21958,16 @@
               "null",
               "string"
             ]
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "subscribeToUpdates": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -25411,6 +25528,73 @@
           }
         }
       },
+      "ServerInfo": {
+        "required": [
+          "name",
+          "groupId",
+          "iconUrl",
+          "bannerUrl",
+          "ownerEmail",
+          "version",
+          "publicAddress"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "iconUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ownerEmail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "version": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publicAddress": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ServerSettingsView": {
+        "required": [
+          "showOwnerEmail"
+        ],
+        "type": "object",
+        "properties": {
+          "showOwnerEmail": {
+            "type": "boolean"
+          }
+        }
+      },
       "SessionUser": {
         "required": [
           "id",
@@ -25547,6 +25731,17 @@
               "type": "string",
               "format": "uuid"
             }
+          }
+        }
+      },
+      "SetServerSettingsRequest": {
+        "required": [
+          "showOwnerEmail"
+        ],
+        "type": "object",
+        "properties": {
+          "showOwnerEmail": {
+            "type": "boolean"
           }
         }
       },
@@ -28207,6 +28402,11 @@
       "name": "Version",
       "description": "The server's release and API version.",
       "x-displayName": "Version"
+    },
+    {
+      "name": "Server",
+      "description": "What this Modbot is: its group, its version and who runs it. Needs no sign-in.",
+      "x-displayName": "Server"
     },
     {
       "name": "Auth",

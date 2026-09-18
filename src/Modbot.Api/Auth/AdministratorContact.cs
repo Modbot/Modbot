@@ -1,8 +1,7 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Data;
-using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 using Modbot.VRChat.Session;
 
 namespace Modbot.Api.Auth;
@@ -13,9 +12,10 @@ namespace Modbot.Api.Auth;
 /// <remarks>
 /// <para>
 /// VRChat wants a person to write to before it blocks, and the person who runs this Modbot is the
-/// oldest enabled account holding Administrator that has an email address. The address is given
-/// at onboarding (the create-administrator step requires it) and can change afterwards, so it is
-/// read from the account rather than fixed at startup.
+/// oldest enabled account holding Administrator that has an email address -- the rule
+/// <see cref="OwnerAccount"/> owns. The address is given at onboarding (the create-administrator
+/// step requires it) and can change afterwards, so it is read from the account rather than fixed
+/// at startup.
 /// </para>
 /// <para>
 /// Cached for a minute: the factory reads this every time it builds a client, and a client
@@ -78,17 +78,8 @@ public sealed class AdministratorContact : IOperatorContact
         using var scope = _scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
 
-        // Every enabled account with an email, oldest first; the first whose roles add up to
-        // Administrator wins. Administrator is checked as a flag, never expanded (spec 7.3).
-        var candidates = db.Users
-            .AsNoTracking()
-            .Where(u => !u.IsDisabled && u.Email != null && u.Email != "")
-            .OrderBy(u => u.CreatedAt)
-            .Select(u => new { u.Email, Permissions = u.Roles.Select(r => r.Role.Permissions).ToList() })
-            .ToList();
-
-        return candidates
-            .FirstOrDefault(c => ModbotRole.Union(c.Permissions).HasFlag(ModbotPermissions.Administrator))
-            ?.Email;
+        // The owner rule, shared with GET /api/server so the address VRChat is given and the
+        // address my.modbot.co shows are the same person (accounts and access design §4.5).
+        return OwnerAccount.Email(db);
     }
 }

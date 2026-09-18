@@ -113,6 +113,7 @@ public static class FactLabels
         [FactType.ResetLinkCreated] = "Reset link created",
         [FactType.ResetLinkUsed] = "Reset link used",
         [FactType.SignedOutEverywhere] = "Signed out everywhere",
+        [FactType.UpdatesSubscribed] = "Signed up for updates",
         [FactType.RoleCreated] = "Role created",
         [FactType.RoleChanged] = "Role changed",
         [FactType.RoleDeleted] = "Role deleted",

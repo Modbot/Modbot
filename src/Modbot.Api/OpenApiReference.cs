@@ -40,6 +40,7 @@ internal static class OpenApiReference
     private static readonly (string Name, string Description)[] Tags =
     [
         ("Version", "The server's release and API version."),
+        ("Server", "What this Modbot is: its group, its version and who runs it. Needs no sign-in."),
         ("Auth", "Signing in and out, and your own account. API keys can only use GET /api/auth/me here."),
         ("Users", "Staff accounts, invite links and password reset links."),
         ("Roles", "Roles and the permissions each one gives."),

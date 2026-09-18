@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { ApiError, api } from '@/lib/api'
-import { ErrorText, Field, WizardBody, WizardHeader } from './WizardChrome'
+import { ErrorText, Field, Tickbox, WizardBody, WizardHeader } from './WizardChrome'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
 /** Spec 7.1 step 1. */
-export function AdministratorStep({ eyebrow, run, refresh }: StepProps) {
+export function AdministratorStep({ eyebrow, status, run, refresh }: StepProps) {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [updates, setUpdates] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const submit = (event: React.FormEvent) => {
@@ -26,7 +27,13 @@ export function AdministratorStep({ eyebrow, run, refresh }: StepProps) {
       }
 
       try {
-        await api.createAdministrator({ username, password, confirmPassword: confirm, email })
+        await api.createAdministrator({
+          username,
+          password,
+          confirmPassword: confirm,
+          email,
+          subscribeToUpdates: updates,
+        })
         await refresh()
         return true
       } catch (e) {
@@ -50,7 +57,7 @@ export function AdministratorStep({ eyebrow, run, refresh }: StepProps) {
             onChange={(e) => setUsername(e.target.value)}
           />
         </Field>
-        <Field label="Contact email" htmlFor="admin-email">
+        <Field label="Email" htmlFor="admin-email">
           <Input
             id="admin-email"
             type="email"
@@ -81,6 +88,11 @@ export function AdministratorStep({ eyebrow, run, refresh }: StepProps) {
             onChange={(e) => setConfirm(e.target.value)}
           />
         </Field>
+        {status.canSubscribeToUpdates && (
+          <Tickbox id="admin-updates" checked={updates} onChange={setUpdates}>
+            Receive emails from Modbot about new features and updates
+          </Tickbox>
+        )}
         <ErrorText>{error}</ErrorText>
       </WizardBody>
     </form>

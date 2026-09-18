@@ -75,11 +75,13 @@ public sealed class UserAccountService
     public async Task<ModbotUser> CreateAsync(
         string username,
         string password,
+        string email,
         IReadOnlyCollection<Guid> roleIds,
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(username);
         ArgumentException.ThrowIfNullOrEmpty(password);
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
         ArgumentNullException.ThrowIfNull(roleIds);
 
         var roles = await RolesAsync(roleIds, ct);
@@ -88,6 +90,11 @@ public sealed class UserAccountService
         {
             Username = username.Trim(),
             UsernameNormalized = Normalize(username),
+
+            // A parameter rather than something the caller sets afterwards: every account needs
+            // one (design §4.5), and a required parameter is the only version of that rule the
+            // compiler checks at each of the four places an account is made.
+            Email = EmailAddress.Normalize(email),
             CreatedAt = _clock.UtcNow,
         };
 
@@ -153,13 +160,11 @@ public sealed class UserAccountService
     /// login form that distinguishes them is a membership oracle for anyone who finds it.
     /// </summary>
     public async Task<ModbotUser?> VerifyCredentialsAsync(
-        string username,
+        string usernameOrEmail,
         string password,
         CancellationToken ct = default)
     {
-        var normalized = string.IsNullOrWhiteSpace(username) ? string.Empty : Normalize(username);
-
-        var user = await UsersWithRoles().FirstOrDefaultAsync(u => u.UsernameNormalized == normalized, ct);
+        var user = await FindBySignInAsync(usernameOrEmail, ct);
 
         if (user is null || user.IsDisabled)
         {
@@ -239,19 +244,66 @@ public sealed class UserAccountService
                 row.IsDisabled, row.SessionsValidAfter, ModbotRole.Union(row.Permissions), row.Linked);
     }
 
-    /// <summary>The id of the account with this username, if there is one. For attributing a failed login.</summary>
-    public async Task<Guid?> FindIdAsync(string username, CancellationToken ct = default)
+    /// <summary>
+    /// The account this sign-in names, matched against the username <em>or</em> the email address,
+    /// both case-insensitively. Null when neither matches.
+    /// </summary>
+    /// <remarks>
+    /// One field on the form and one query here (design §4.6). Two queries -- username first, then
+    /// email -- would take measurably longer for an address than for a username, and the time a
+    /// sign-in takes is visible to whoever is trying names.
+    /// </remarks>
+    public Task<ModbotUser?> FindBySignInAsync(string usernameOrEmail, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(username))
+        var (username, email) = SignInKeys(usernameOrEmail);
+
+        return UsersWithRoles()
+            .FirstOrDefaultAsync(u => u.UsernameNormalized == username || u.Email == email, ct);
+    }
+
+    /// <summary>The id of the account this sign-in names, if there is one. For attributing a failed login.</summary>
+    public async Task<Guid?> FindIdAsync(string usernameOrEmail, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(usernameOrEmail))
             return null;
 
-        var normalized = Normalize(username);
+        var (username, email) = SignInKeys(usernameOrEmail);
 
         return await _db.Users
             .AsNoTracking()
-            .Where(u => u.UsernameNormalized == normalized)
+            .Where(u => u.UsernameNormalized == username || u.Email == email)
             .Select(u => (Guid?)u.Id)
             .FirstOrDefaultAsync(ct);
+    }
+
+    /// <summary>
+    /// What was typed, in both stored forms. The email key is a string that cannot be an address
+    /// when nothing was typed, so a blank sign-in cannot match an account whose email is null --
+    /// null never equals anything in SQL, but an empty string would equal an empty column.
+    /// </summary>
+    private static (string Username, string Email) SignInKeys(string? typed)
+    {
+        if (string.IsNullOrWhiteSpace(typed))
+            return (string.Empty, string.Empty);
+
+        return (Normalize(typed), EmailAddress.Normalize(typed) ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Whether another account already holds this address. Checked before saving so the person
+    /// gets a sentence rather than a unique-index violation.
+    /// </summary>
+    /// <param name="exceptUserId">The account being changed, which does not count against itself.</param>
+    public Task<bool> EmailTakenAsync(string email, Guid? exceptUserId = null, CancellationToken ct = default)
+    {
+        var normalized = EmailAddress.Normalize(email);
+
+        if (normalized is null)
+            return Task.FromResult(false);
+
+        return _db.Users
+            .AsNoTracking()
+            .AnyAsync(u => u.Email == normalized && (exceptUserId == null || u.Id != exceptUserId), ct);
     }
 
     public Task<ModbotUser?> FindByUsernameAsync(string username, CancellationToken ct = default)

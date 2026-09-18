@@ -114,7 +114,12 @@ public class CreateAdminTests
 
         var response = await host.PostAsync(
             "/api/onboarding/administrator",
-            new { username = OnboardingTestContext.AdminUsername.ToUpperInvariant(), password = "a-long-enough-password" },
+            new
+            {
+                username = OnboardingTestContext.AdminUsername.ToUpperInvariant(),
+                password = "a-long-enough-password",
+                email = "someone-else@example.com",
+            },
             cookie,
             Ct);
 
@@ -131,7 +136,7 @@ public class CreateAdminTests
 
         var response = await host.PostAsync(
             "/api/onboarding/administrator",
-            new { username = "colleague", password = "a-long-enough-password" },
+            new { username = "colleague", password = "a-long-enough-password", email = "colleague@example.com" },
             cookie,
             Ct);
 

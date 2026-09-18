@@ -15,8 +15,9 @@ you talk to **that** server, at the address it is hosted on. If your web app ope
 Every example in these pages uses `https://modbot.example.com`. Put your own address in its place.
 
 <Callout type="info">
-  Modbot does not send CORS headers, so a web page on a different site cannot call the API from a
-  visitor's browser. Call it from a program or a server of your own.
+  Modbot sends CORS headers on one endpoint only, [`GET /api/server`](/api/server). For everything
+  else, a web page on a different site cannot call the API from a visitor's browser: call it from a
+  program or a server of your own.
 </Callout>
 
 ## Signing in

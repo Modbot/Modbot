@@ -97,6 +97,10 @@ public sealed record IntegrationStatus(
 /// Whether this server loads VRChat pictures on the browser's behalf. Read before anything is
 /// drawn, because every picture address in the app is built from it.
 /// </param>
+/// <param name="CanSubscribeToUpdates">
+/// Whether this server has a Modbot Cloud to ask, and therefore whether the create-administrator
+/// step shows the updates checkbox (server info and account email design §5).
+/// </param>
 /// <param name="MyModbotUrl">
 /// Where my.modbot.co is, from <c>MODBOT_MY_URL</c>. Every link the app offers to the selector is
 /// built from it, so a group that runs its own points them all somewhere else with one variable.
@@ -112,4 +116,5 @@ public sealed record OnboardingStatusResponse(
     ManagedGroupStatus? Group,
     IntegrationStatus Integrations,
     string MyModbotUrl,
-    bool VRChatImagesProxied);
+    bool VRChatImagesProxied,
+    bool CanSubscribeToUpdates = false);

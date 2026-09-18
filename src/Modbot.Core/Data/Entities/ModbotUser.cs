@@ -37,7 +37,19 @@ public class ModbotUser
     /// </summary>
     public string? DiscordUserId { get; set; }
 
-    /// <summary>Optional. Only ever used to send this person a reset link they asked for.</summary>
+    /// <summary>
+    /// Where this person can be reached, and the other thing they can sign in with.
+    /// </summary>
+    /// <remarks>
+    /// Required at creation since the server-info and account-email design, whether or not this
+    /// deployment can send email: an account nobody can reach is an account whose password cannot
+    /// be reset without an administrator, and the address is also what the sign-in form accepts
+    /// instead of a username. Stored trimmed and lower-cased (<see cref="Users.EmailAddress"/>)
+    /// and unique across accounts.
+    ///
+    /// Still nullable, because accounts made before that change exist and must keep working. They
+    /// are asked for an address on their account page.
+    /// </remarks>
     public string? Email { get; set; }
 
     // ── The linked VRChat account (accounts and access design §4.3) ─────────────────────────

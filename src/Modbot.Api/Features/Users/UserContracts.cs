@@ -44,6 +44,7 @@ public sealed record UserSummary(
 
 /// <summary>Create an account with a temporary password the administrator will pass on.</summary>
 /// <param name="RoleIds">May be empty: an account with no roles can sign in and do nothing.</param>
+/// <param name="Email">Required, and unique across accounts (server info and account email design §4).</param>
 public sealed record CreateUserRequest(
     string Username,
     string Password,
@@ -80,14 +81,31 @@ public sealed record PendingInvite(
 
 /// <summary>What the person opening an invite link sees before they fill anything in.</summary>
 /// <param name="Reason">Why it cannot be used, when it cannot. Plain words for the page.</param>
+/// <param name="CanSubscribeToUpdates">
+/// Whether this server has a Modbot Cloud to ask, and therefore whether the form shows the updates
+/// checkbox at all (server info and account email design §5).
+/// </param>
 public sealed record InviteView(
     bool Usable,
     string? Reason,
     string? InvitedBy,
     IReadOnlyList<string> Roles,
-    DateTimeOffset? ExpiresAt);
+    DateTimeOffset? ExpiresAt,
+    bool CanSubscribeToUpdates = false);
 
-public sealed record JoinRequest(string Username, string Password, string? ConfirmPassword);
+/// <param name="Email">
+/// Required, like every account's (server info and account email design §4). It is where this
+/// person's reset link goes and the other thing the sign-in form accepts.
+/// </param>
+/// <param name="SubscribeToUpdates">
+/// The person ticked "Receive emails from Modbot about new features and updates".
+/// </param>
+public sealed record JoinRequest(
+    string Username,
+    string Password,
+    string? ConfirmPassword,
+    string? Email = null,
+    bool SubscribeToUpdates = false);
 
 /// <summary>What the person opening a reset link sees.</summary>
 public sealed record ResetView(bool Usable, string? Reason, string? Username);

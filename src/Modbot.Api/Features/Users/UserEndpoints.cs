@@ -77,15 +77,21 @@ public static class UserEndpoints
                 if (await MayNotAssignAsync(accounts, http, body.RoleIds ?? [], ct) is { } refused)
                     return refused;
 
+                // Required here too (server info and account email design §4): an account made
+                // with a temporary password is exactly the one whose owner will need a reset link.
+                var (email, emailProblem) = await NewAccount.ReadEmailAsync(accounts, body.Email, null, ct);
+                if (emailProblem is not null)
+                    return emailProblem;
+
                 var normalized = UserAccountService.Normalize(body.Username);
                 if (await db.Users.AnyAsync(u => u.UsernameNormalized == normalized, ct))
                     return Results.Conflict(new { error = "That username is already taken." });
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-                var user = await accounts.CreateAsync(body.Username, body.Password, body.RoleIds ?? [], ct);
+                var user = await accounts.CreateAsync(
+                    body.Username, body.Password, email!, body.RoleIds ?? [], ct);
 
-                user.Email = Clean(body.Email);
                 user.DiscordUserId = Clean(body.DiscordUserId);
                 await db.SaveChangesAsync(ct);
 
@@ -272,9 +278,9 @@ public static class UserEndpoints
                 if (user is null)
                     return Results.NotFound();
 
-                return await ApplyContactAsync(db, facts, contact, user, body, Actor.Of(http), ct)
-                    ? Results.Ok(UserSummary.From(user))
-                    : Results.BadRequest(new { error = "That email address does not look like one." });
+                return await ApplyContactAsync(db, facts, contact, accounts, user, body, Actor.Of(http), ct) is { } problem
+                    ? Results.BadRequest(new { error = problem })
+                    : Results.Ok(UserSummary.From(user));
             })
             .WithName("SetUserContact")
             .WithSummary("Set the email address and Discord user id a reset link can be sent to")
@@ -341,13 +347,14 @@ public static class UserEndpoints
         "That would leave nobody who can administer Modbot.";
 
     /// <summary>
-    /// Sets the contact fields from a request, recording which changed. False when the email is
-    /// not shaped like one.
+    /// Sets the contact fields from a request, recording which changed. Returns the sentence to
+    /// hand back when the email will not do, and null when everything was saved.
     /// </summary>
-    internal static async Task<bool> ApplyContactAsync(
+    internal static async Task<string?> ApplyContactAsync(
         ModbotContext db,
         AccountFacts facts,
         AdministratorContact contact,
+        UserAccountService accounts,
         ModbotUser user,
         ContactRequest body,
         Actor? actor,
@@ -357,12 +364,17 @@ public static class UserEndpoints
 
         if (body.Email is not null)
         {
-            var email = Clean(body.Email);
-            if (email is not null && !LooksLikeEmail(email))
-                return false;
+            // Null leaves the field alone, but an empty string no longer clears it: an account
+            // without an address cannot be reset and cannot sign in by email (design §4).
+            var (email, problem) = EmailAddress.Read(body.Email);
+            if (problem is not null)
+                return problem;
 
             if (email != user.Email)
             {
+                if (await accounts.EmailTakenAsync(email!, user.Id, ct))
+                    return EmailAddress.Taken;
+
                 user.Email = email;
                 changed.Add("email");
             }
@@ -379,7 +391,7 @@ public static class UserEndpoints
         }
 
         if (changed.Count == 0)
-            return true;
+            return null;
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -401,7 +413,7 @@ public static class UserEndpoints
         if (changed.Contains("email"))
             contact.Invalidate();
 
-        return true;
+        return null;
     }
 
     /// <summary>
@@ -432,11 +444,4 @@ public static class UserEndpoints
 
     internal static string? Clean(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    /// <summary>The loosest useful check: something, an @, something. Anything stricter rejects real addresses.</summary>
-    internal static bool LooksLikeEmail(string value)
-    {
-        var at = value.IndexOf('@');
-        return at > 0 && at < value.Length - 1 && !value.Contains(' ') && value.Length <= 256;
-    }
 }

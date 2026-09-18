@@ -180,6 +180,7 @@ function AddSomeone({
   const [way, setWay] = useState<'link' | 'password'>('link')
   const [roleIds, setRoleIds] = useState<string[]>([])
   const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -199,7 +200,7 @@ function AddSomeone({
             onDone()
           })
         : api
-            .createUser({ username, password, confirmPassword: confirm, roleIds })
+            .createUser({ username, password, confirmPassword: confirm, roleIds, email })
             .then((u) => {
               setCreated(u.username)
               onDone()
@@ -254,6 +255,9 @@ function AddSomeone({
         <div className="space-y-3">
           <Field label="Username" htmlFor="new-username">
             <Input id="new-username" required autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />
+          </Field>
+          <Field label="Email" htmlFor="new-email">
+            <Input id="new-email" type="email" required autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Temporary password" hint="at least 12 characters" htmlFor="new-password">

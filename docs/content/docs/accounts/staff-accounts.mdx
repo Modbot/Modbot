@@ -4,7 +4,8 @@ description: How to add your moderators, link their VRChat accounts, disable the
 ---
 
 Modbot has its own accounts, separate from VRChat and Discord. Each person on your team signs in
-with their own username and password, so everything Modbot records says who did it. This page
+with their own password and either their username or their email address, so everything Modbot
+records says who did it. This page
 covers getting people in, keeping their accounts in order, and what each person can do with their
 own account.
 
@@ -36,10 +37,12 @@ Press **Add someone**. There are two ways, shown as two tabs.
 3. Press **Make the link**.
 4. Copy the link and send it to them on Discord, or however your team talks.
 
-The person opens the link, sees who invited them and with which roles, and picks their own
-**Username** and **Password** on the **Create your Modbot account** page. When they press
-**Create account** they are signed in straight away and taken to link their VRChat account (see
-below).
+The person opens the link, sees who invited them and with which roles, and fills in their own
+**Username**, **Email** and **Password** on the **Create your Modbot account** page. When they
+press **Create account** they are signed in straight away and taken to link their VRChat account
+(see below).
+
+They type their own email address; the invite does not carry one.
 
 An invite link:
 
@@ -57,18 +60,20 @@ This is the way to add people because nobody but the new moderator ever knows th
 
 ### Set a temporary password
 
-If the person is sitting next to you, choose **Set a temporary password**, type a **Username**
-and a **Temporary password** (at least 12 characters) twice, tick their roles and press
+If the person is sitting next to you, choose **Set a temporary password**, type a **Username**, an
+**Email** and a **Temporary password** (at least 12 characters) twice, tick their roles and press
 **Create the account**. They can sign in right away.
 
 Tell them the password in person and ask them to change it on their account page straight away.
 Until they do, two people know it, and Modbot cannot tell which of you did something. Modbot does
 not force the change.
 
-### Username and password rules
+### Username, email and password rules
 
 - A username can be up to 64 characters. Two usernames that differ only in upper and lower case
   count as the same name, so `Gunner24` and `gunner24` cannot both exist.
+- An email address is required on every account. Two accounts cannot share one, and upper and lower
+  case do not make two addresses different.
 - A password must be at least 12 characters.
 
 ### You can only give what you have
@@ -172,22 +177,41 @@ included, and can take roles away from people, as long as one enabled administra
 that permission to people you trust with the whole team.
 </Callout>
 
-## Contact details
+## Email and Discord user id
 
-Each account can hold an **Email** address and a **Discord user id**. You can set them for
+Every account has an **Email** address. A **Discord user id** is optional. You can set them for
 somebody under **Contact details** in their panel (then press **Save contact details**), and each
 person can set their own on their account page.
 
-They are used for two things:
+The email address is used for three things:
 
+- signing in — the sign-in box takes the address or the username,
 - sending a password reset link the person asked for (see below),
-- recognising the person when they use the Modbot Discord bot's commands. See
-  [Setting up the bot](/discord/bot-setup).
+- naming the person who runs this Modbot (see below).
 
-Modbot does not check that the Discord user id really belongs to the person. It is typed in.
+The Discord user id is used for recognising the person when they use the Modbot Discord bot's
+commands. See [Setting up the bot](/discord/bot-setup). Modbot does not check that it really
+belongs to the person. It is typed in.
 
 The email address of the oldest enabled administrator is also the contact address Modbot gives
-VRChat on every request. See [Security](/security#what-modbot-tells-vrchat-about-you).
+VRChat on every request, and the one shown as this server's owner. See
+[Security](/security#what-modbot-tells-vrchat-about-you) and
+[The server page](/api/server).
+
+<Callout type="info">
+If you are upgrading a Modbot from before email was required, accounts without an address keep
+working. Modbot asks for one on the account page. Where two accounts had the same address, the
+older one keeps it and the newer one is asked for its own.
+</Callout>
+
+## Emails from the project
+
+When somebody makes their account — the first administrator during setup, or anybody opening an
+invite link — the form offers one checkbox: **Receive emails from Modbot about new features and
+updates**. It starts unticked, and ticking it sends the address to Modbot Cloud, which is what
+sends the mail. To stop receiving them, use the unsubscribe link in one of them.
+
+The checkbox is not shown at all on a Modbot that has Modbot Cloud switched off.
 
 ## When somebody forgets their password
 
@@ -249,8 +273,8 @@ is signed in can use it. It has these parts:
 - **Change your password**: type your **Current password** and a **New password** twice, then
   press **Change password**. Every other session you have is signed out. The browser you did it in
   stays signed in.
-- **Password reset**: your **Email** and **Discord user id**, used to send you a reset link if you
-  forget your password. Press **Save**.
+- **How you can be reached**: your **Email**, which you can sign in with and which a reset link is
+  sent to, and your **Discord user id**. Press **Save**.
 - **Your VRChat account**: which VRChat account you are linked to, and **Link a different account**.
 - **my.modbot.co**: **Add to my.modbot.co**.
 - **Sign out everywhere**: ends every session you have on every browser and machine, including
@@ -270,10 +294,11 @@ The **Sign out** button at the top right ends only the session in the browser yo
 ### Failed sign-ins
 
 A wrong password never locks anybody out. Instead each failed attempt makes the next one wait
-longer: 1 second, then 2, 4, 8, 16, and at most **20 seconds**, counted per username and per
+longer: 1 second, then 2, 4, 8, 16, and at most **20 seconds**, counted per sign-in typed and per
 address over 15 minutes. A correct password always works after the wait, so nobody can keep you
 out of your own Modbot by hammering your username. The sign-in page gives the same answer for a
-wrong password, an unknown username and a disabled account.
+wrong password, an unknown username, an unknown email address and a disabled account, so it cannot
+be used to find out who has an account here.
 
 ## What Modbot writes down
 
@@ -288,7 +313,8 @@ can read on the [Audit log](/moderation/audit-log) page:
   not the values),
 - reset links made (whether you or the person asked, and how it was sent) and used,
 - VRChat accounts linked,
-- every sign-in, every failed sign-in, and every **Sign out everywhere**.
+- every sign-in, every failed sign-in, and every **Sign out everywhere**,
+- who asked for the project's emails when they made their account.
 
-A failed sign-in records the username that was tried and the address it came from, never the
+A failed sign-in records what was typed in the sign-in box and the address it came from, never the
 password.
