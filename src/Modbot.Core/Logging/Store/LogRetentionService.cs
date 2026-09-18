@@ -6,7 +6,9 @@ using Serilog;
 
 namespace Modbot.Core.Logging.Store;
 
-/// <summary>Deletes log lines past the retention window, once a day.</summary>
+/// <summary>
+/// Deletes log lines past the keep-for setting, and any past the line ceiling, once a day.
+/// </summary>
 /// <remarks>
 /// Its first pass waits five minutes, so a Modbot that is crash-looping spends its short life
 /// starting up rather than deleting rows, and so the startup lines are written before anything runs
@@ -58,8 +60,20 @@ public sealed class LogRetentionService : BackgroundService
 
             // Logged because it is irreversible: when somebody asks where last spring's log went,
             // this line is the answer.
-            if (deleted > 0)
-                _log.Information("Deleted {Count} stored log line(s) past the keep-for setting", deleted);
+            if (deleted.PastTheWindow > 0)
+                _log.Information(
+                    "Deleted {Count} stored log line(s) past the keep-for setting",
+                    deleted.PastTheWindow);
+
+            // A warning rather than a note, because this one deletes lines the operator asked to
+            // keep. It means the log is being written faster than the keep-for setting can prune
+            // it -- usually LOG_LEVEL left on Debug after somebody finished debugging.
+            if (deleted.OverTheCeiling > 0)
+                _log.Warning(
+                    "Deleted {Count} stored log line(s) to hold the table to {Ceiling} lines, "
+                    + "which is sooner than the keep-for setting asked for",
+                    deleted.OverTheCeiling,
+                    LogStore.MaxLines);
 
             return true;
         }

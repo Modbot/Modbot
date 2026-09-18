@@ -327,6 +327,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
         // itself, here rather than at each of the syncs, links and seeders that write one.
         optionsBuilder.AddInterceptors(SearchableNamesInterceptor.Instance);
 
+        // Same reason again: the line EF writes for every statement belongs at Debug on every
+        // construction path, not only the host's. It was configured at the host's AddDbContext
+        // until 2026-09-18, which left the test suites and `dotnet ef` narrating their own SQL.
+        optionsBuilder.LogQueriesAtDebug();
+
         base.OnConfiguring(optionsBuilder);
     }
 

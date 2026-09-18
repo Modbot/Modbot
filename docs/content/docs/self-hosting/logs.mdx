@@ -45,14 +45,31 @@ The filters are:
 
 ## What is in the table, and what is not
 
-The table holds the same lines as the main log file: **Information and above**.
+The table holds **whatever level Modbot is recording at**, which is **Information and above** unless
+you asked for more.
 
 **Requests Modbot sends to VRChat and Discord are not in it.** They are in
 `modbot_log_http_<date>_<time>.jsonl` and in Seq. A busy sync writes tens of thousands of those a
 day, and six months of them would be larger than everything else Modbot stores put together.
 
-Turning on `MODBOT_DEBUG_LOGGING` or setting `LOG_LEVEL=Debug` fills the console, the files and Seq
-with Debug detail. It does not change what goes in the database.
+## Seeing every request and every query
+
+Two kinds of line are written at Debug, so they are out of the way until you ask for them:
+
+- **one line per request Modbot answered** — the method, the path, the status and how long it took;
+- **one line per database query Modbot ran.**
+
+Set [`LOG_LEVEL=Debug`](/self-hosting/environment-variables) and both appear everywhere, the Logs
+page included. Set it back and they stop. A request that failed or answered a 5xx is a **warning**
+whatever the level, so you never have to turn anything on to see the ones that went wrong.
+
+`MODBOT_DEBUG_LOGGING` does the same for the Debug log files, and reaches the Logs page as well.
+
+**Setting the level to Debug fills the table quickly.** A quiet deployment writes a few thousand
+lines a day at Information and two or three hundred thousand a day at Debug, so the ceiling below is
+reached in about a week and the Logs page then holds the last week rather than the last six months.
+Nothing breaks, and putting the level back stops it. What is already stored is still sent to Modbot
+Cloud, so leaving the level down sends your request paths and your SQL there too.
 
 **Secrets never reach the table.** A property whose name looks like a credential — anything with
 `password`, `secret`, `token`, `apikey`, `authorization`, `cookie` or `credential` in it — is stored
@@ -65,6 +82,11 @@ out of the text as well.
 them forever. Changing it needs the **Change settings** permission.
 
 Once a day, Modbot deletes the lines past the window, ten thousand rows at a time.
+
+**There is a second limit you cannot change: two million lines**, about a gigabyte. The same daily
+job deletes the oldest past that and writes a warning saying it did. Keep-for is about time and this
+one is about disk, so it applies even when keep-for is `0` — a Modbot that has filled its own
+database takes your group's history down with it, and losing the oldest log lines does not.
 
 The setting covers the database copy only. Log files have their own limit on how many are kept (see
 [Checking a deployment](/self-hosting/health#log-files)), and Seq has its own retention.

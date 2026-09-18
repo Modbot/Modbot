@@ -4,14 +4,15 @@ using Serilog.Events;
 namespace Modbot.Core.Tests.Logging;
 
 /// <summary>
-/// What level one request is written at. The health probe is the reason this is not simply
-/// Information: a container asks every thirty seconds, forever.
+/// What level one request is written at: Debug for a request that worked, Warning for one that did
+/// not. A container's health probe asks every thirty seconds forever, and an ordinary request is
+/// the same problem at a larger scale, so neither is Information.
 /// </summary>
 public class RequestLogTests
 {
     [Fact]
-    public void AnOrdinaryRequestIsInformation() =>
-        Assert.Equal(LogEventLevel.Information, ModbotRequestLog.LevelFor("/api/bans", 200, failed: false));
+    public void AnOrdinaryRequestIsDebugSoTheRecordIsWhatModbotDid() =>
+        Assert.Equal(LogEventLevel.Debug, ModbotRequestLog.LevelFor("/api/bans", 200, failed: false));
 
     [Theory]
     [InlineData("/health")]
@@ -28,9 +29,31 @@ public class RequestLogTests
     public void AThrownRequestIsAWarning() =>
         Assert.Equal(LogEventLevel.Warning, ModbotRequestLog.LevelFor("/api/bans", 200, failed: true));
 
+    [Theory]
+    [InlineData(500)]
+    [InlineData(502)]
+    [InlineData(503)]
+    public void EveryServerErrorIsAWarning(int statusCode) =>
+        Assert.Equal(LogEventLevel.Warning, ModbotRequestLog.LevelFor("/api/bans", statusCode, failed: false));
+
     [Fact]
     public void ARefusedRequestIsStillOrdinary() =>
-        Assert.Equal(LogEventLevel.Information, ModbotRequestLog.LevelFor("/api/bans", 403, failed: false));
+        Assert.Equal(LogEventLevel.Debug, ModbotRequestLog.LevelFor("/api/bans", 403, failed: false));
+
+    [Fact]
+    public void NothingAboutARequestIsWrittenAtInformation()
+    {
+        LogEventLevel[] levels =
+        [
+            ModbotRequestLog.LevelFor("/api/bans", 200, failed: false),
+            ModbotRequestLog.LevelFor("/health", 200, failed: false),
+            ModbotRequestLog.LevelFor("/api/bans", 404, failed: false),
+            ModbotRequestLog.LevelFor("/api/bans", 500, failed: false),
+            ModbotRequestLog.LevelFor("/api/bans", 200, failed: true),
+        ];
+
+        Assert.DoesNotContain(LogEventLevel.Information, levels);
+    }
 
     [Fact]
     public void TheTemplateNamesTheFourThingsWorthFilteringOn()

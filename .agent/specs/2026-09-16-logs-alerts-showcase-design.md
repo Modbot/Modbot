@@ -48,15 +48,63 @@ the **Logs** page is how it is read.
 
 ### 2.2 What is stored
 
-The same events as the main file stream: **Information and above**, with **outbound API traffic left
-out**. Columns: `at`, `level`, `message`, `template`, `source` (Serilog's `SourceContext`), `area`
-(`LogArea`), `exception`, `properties` (`jsonb`).
+**Whatever level the deployment is recording at**, with **outbound API traffic left out**. Columns:
+`at`, `level`, `message`, `template`, `source` (Serilog's `SourceContext`), `area` (`LogArea`),
+`exception`, `properties` (`jsonb`).
 
 API traffic is excluded for size, not for tidiness. A busy sync writes tens of thousands of those
 lines a day; six months of them would be the largest thing in the database by a wide margin, for a
 stream that is already in `modbot_log_http_*.jsonl` and in Seq.
 
-`MODBOT_DEBUG_LOGGING` and `LOG_LEVEL=Debug` do not change what goes in the table.
+**The level was pinned at Information until 2026-09-18 and now follows `LOG_LEVEL`.** The old rule
+read well — "turning Debug on to read the console should not put a week of Debug in the database" —
+but it was pointed at the wrong person. The operator this table exists for is the one with no Seq
+and no disk that survives a redeploy, which is the same operator with nowhere else to read Debug. So
+"you may turn Debug on, but not anywhere you can see it" was the trade being made, and the lines
+they turned it on for were written and then dropped at the door. `MODBOT_DEBUG_LOGGING`, which sets
+the same minimum when `LOG_LEVEL` is unset, reaches the table for the same reason.
+
+### 2.2.1 What is written at which level
+
+| Written by | Level | Why |
+|---|---|---|
+| Modbot's own work — a sync ran, a ban landed, a report was filed | Information | This is what the log is *for* |
+| Modbot's one line per request | **Debug** | Was Information until 2026-09-18 |
+| Modbot's one line for a request that threw, or answered 5xx | Warning | Not noise |
+| Modbot's one line for a `/health` probe | Debug | A container asks every thirty seconds, forever |
+| Entity Framework's line per SQL statement | **Debug** | Was discarded outright until 2026-09-18 |
+| Entity Framework's first-boot connection and command errors | Debug | Normal before the migrations have run |
+| Entity Framework's "context initialized", once per context | Debug | With a context per request, that is a line per request |
+| Everything else Entity Framework says — migrations, retries, its own warnings | its own | Useful, and it used to be thrown away with the rest |
+| ASP.NET Core's four lines per request | Information, **held back** | Not re-levellable one event at a time; see below |
+
+Three decisions sit behind that table.
+
+**One line per request is still one line per request.** On a deployment with a Discord bot, a
+companion polling and a browser open on a dashboard, the request lines *are* the log: the record of
+what Modbot did is scrolled off the page by traffic that only says the web server is working. The
+health probe was the first version of this problem and was moved to Debug on its own; ordinary
+requests are the same problem at a larger scale. A request that threw or answered 5xx stays at
+Warning, because that is not traffic, that is news.
+
+**Entity Framework is re-levelled one event at a time, not held behind a floor.** EF lets a level be
+set for a named event where the context is configured, which the server already used for the
+first-boot errors. The line per statement joins them at Debug, and with the noise moved the floor
+over the whole of `Microsoft.EntityFrameworkCore` comes off: a floor cannot tell a query from the
+migration it is about to apply, and holding the lot at Warning to hide the queries threw away the
+migration lines, the retries and EF's own warnings on exactly the deployment where they are the
+first thing worth reading. The levels are set in `DatabaseLogLevels`, called from
+`ModbotContext.OnConfiguring` rather than from one `AddDbContext` call, so the host, the test suites
+and `dotnet ef` all agree. Cloud keeps its own copy of that file, because Cloud is built on
+Modbot.Shared, which carries no Entity Framework at all.
+
+**ASP.NET Core stays behind the floor**, at Warning unless `LOG_LEVEL` asks for Debug or Verbose.
+Not because its four lines per request are worth less than EF's, but because there is no instrument
+to move them with: the framework writes them through `ILogger` at a level Modbot cannot change one
+event at a time, so the only choices are all of them at Information or none of them. Modbot's own
+one-line record says the same thing in one line, and when somebody does ask for Debug the framework's
+version arrives too, at the level ASP.NET Core chose. If ASP.NET Core ever grows EF's per-event
+setting, this is the paragraph to revisit.
 
 ### 2.3 The sink
 
@@ -104,6 +152,33 @@ is longer than any question anybody asks of it.
 Those run to hundreds of millions of rows; this one is thousands a day with API traffic left out, so
 a sliced delete is the simpler thing that works. If it ever grows past a few tens of millions,
 partition it by `at`.
+
+#### A second limit: 2,000,000 lines
+
+**Whatever keep-for says, the table holds at most two million lines**, about a gigabyte at half a
+kilobyte a line. The same daily job deletes the oldest past that, in the same slices, and says so at
+Warning — it is deleting lines the operator asked to keep, and the usual cause is `LOG_LEVEL` left
+on Debug after somebody finished debugging.
+
+This exists because §2.2 changed. Keep-for was written when the table only ever held Information and
+above: a few thousand lines a day, so six months of it was small and a promise about *time* was the
+only limit needed. An operator can now ask the table to hold every request and every SQL statement
+as well, which is two or three orders of magnitude more, and six months of that is not a log any
+more — it is the largest thing in the database.
+
+**It cannot be turned off, including by the operator who set keep-for to `0` for "forever".** Those
+are limits about different things: `0` is a promise that nothing is deleted for being old, and the
+ceiling is a promise that Modbot does not fill its own database. Losing the oldest log lines is
+survivable. A Modbot that has filled its database is not, and it takes the group's history down with
+it.
+
+**What an operator is signing up for when they lower the level.** A quiet deployment writing a few
+thousand lines a day at Information writes two or three hundred thousand a day at Debug — every
+request, every SQL statement — so the two-million ceiling is reached in about a week, and from then
+on the Logs page holds roughly the last week rather than the last six months. Nothing breaks and
+nothing slows down: the sink drops rather than waiting (§2.3), and the ceiling is enforced once a
+day. The cost is the older log, and the answer is to put the level back when the question has been
+answered.
 
 ### 2.6 The page
 
@@ -297,9 +372,12 @@ This is the statement cloud event backup §10.10 said this feature would owe.
 1. **Modbot sends its own log to Modbot Cloud by default.** It is the one thing a self-hosted Modbot
    sends anywhere the project operates. The facts about members — bans, joins, messages, case files,
    evidence — never leave the operator's own database.
-2. **What is sent is the log, unchanged**: Information and above, with the message, the time, the
-   part of Modbot that wrote it, the exception, and the values the line carried. Not warnings only,
-   and not anonymised.
+2. **What is sent is the log, unchanged**: exactly what is in the deployment's own table, with the
+   message, the time, the part of Modbot that wrote it, the exception, and the values the line
+   carried. Not warnings only, and not anonymised. Information and above unless the operator set
+   `LOG_LEVEL` lower, in which case the request lines and the SQL statements go too — the copy
+   follows the table rather than second-guessing it, which is the point of a copy somebody can be
+   helped from (§2.2).
 3. **A log line can name a member.** It is Modbot talking about its own work, and that work is about
    people.
 4. **Requests Modbot sends to VRChat and Discord are not included.**

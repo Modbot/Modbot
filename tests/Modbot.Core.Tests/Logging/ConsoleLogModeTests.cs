@@ -1,4 +1,6 @@
 using Modbot.Core.Logging;
+using Serilog;
+using Serilog.Core;
 using Serilog.Events;
 
 namespace Modbot.Core.Tests.Logging;
@@ -87,4 +89,55 @@ public class ConsoleLogModeTests
         Assert.Equal(
             LogEventLevel.Warning,
             ModbotConsoleLog.ReadLevel(LogEventLevel.Warning, Map((ModbotConsoleLog.LevelVariable, value))));
+
+    // ── What Start() holds back, and what it no longer does.
+
+    private const string AspNetCore = "Microsoft.AspNetCore.Hosting.Diagnostics";
+    private const string EntityFrameworkCommand = "Microsoft.EntityFrameworkCore.Database.Command";
+
+    /// <summary>Writes one event as a named library would, and says whether it was kept.</summary>
+    private static bool Kept(LogEventLevel configured, string source, LogEventLevel wrote)
+    {
+        var collected = new CollectedLog();
+
+        using var logger = ModbotConsoleLog
+            .Start("Tests", configured)
+            .WriteTo.Sink(collected)
+            .CreateLogger();
+
+        logger.ForContext(Constants.SourceContextPropertyName, source).Write(wrote, "one line");
+
+        return collected.Events.Count == 1;
+    }
+
+    [Fact]
+    public void TheWebServersOwnNarrationIsHeldBackAtTheDefaultLevel() =>
+        Assert.False(Kept(LogEventLevel.Information, AspNetCore, LogEventLevel.Information));
+
+    [Theory]
+    [InlineData(LogEventLevel.Debug)]
+    [InlineData(LogEventLevel.Verbose)]
+    public void AskingForDetailBringsTheWebServersNarrationBack(LogEventLevel configured) =>
+        Assert.True(Kept(configured, AspNetCore, LogEventLevel.Information));
+
+    [Fact]
+    public void AWebServerWarningIsKeptWhateverTheLevel() =>
+        Assert.True(Kept(LogEventLevel.Information, AspNetCore, LogEventLevel.Warning));
+
+    /// <summary>
+    /// The change of 2026-09-18: the query line is filed under Debug where the context is
+    /// configured, so the logger has no business holding the whole of Entity Framework at Warning.
+    /// A floor cannot tell a query from the migration it is about to apply.
+    /// </summary>
+    [Fact]
+    public void EntityFrameworkIsNoLongerHeldBackAsAWhole() =>
+        Assert.True(Kept(LogEventLevel.Information, EntityFrameworkCommand, LogEventLevel.Information));
+
+    [Fact]
+    public void AQueryLineStillWaitsForSomebodyToAskForDebug() =>
+        Assert.False(Kept(LogEventLevel.Information, EntityFrameworkCommand, LogEventLevel.Debug));
+
+    [Fact]
+    public void AndArrivesWhenTheyDo() =>
+        Assert.True(Kept(LogEventLevel.Debug, EntityFrameworkCommand, LogEventLevel.Debug));
 }

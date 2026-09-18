@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Modbot.Analytics;
 using Microsoft.AspNetCore.DataProtection;
@@ -186,21 +185,10 @@ try
         PublicAddress.Suggest(),
         BuildSource.Detect(BuildSource.ReadFrom(typeof(Program).Assembly))));
 
-    builder.Services.AddDbContext<ModbotContext>(options => options
-        .UseNpgsql(connectionString)
-        // EF logs every statement it runs at Information, and reports both the missing
-        // __EFMigrationsHistory table on a first boot and every connection attempt against a
-        // database that is not up yet as an Error. All of it is correct for a developer and wrong
-        // for the operator this log is written for: a successful first deploy should not open with
-        // a red line, a retry that is about to succeed should not look like a failure, and the
-        // application record should not be buried under SQL. Demoted to Debug, which
-        // MODBOT_DEBUG_LOGGING turns back on. Nothing is lost -- whatever actually goes wrong is
-        // reported a line later in Modbot's own words, by DatabaseMigrator.
-        .ConfigureWarnings(warnings => warnings
-            .Log(
-                (RelationalEventId.CommandExecuted, LogLevel.Debug),
-                (RelationalEventId.CommandError, LogLevel.Debug),
-                (RelationalEventId.ConnectionError, LogLevel.Debug))));
+    // Which EF lines are written at which level is decided in ModbotContext.OnConfiguring, so
+    // every construction path agrees -- the host, the test suites and `dotnet ef`. See
+    // DatabaseLogLevels.
+    builder.Services.AddDbContext<ModbotContext>(options => options.UseNpgsql(connectionString));
 
     // The key lives in the database and is created on first boot, so the protector cannot be
     // constructed until the schema exists. Resolution blocks once; the warm-up below makes that
