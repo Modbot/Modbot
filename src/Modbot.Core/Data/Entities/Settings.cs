@@ -811,4 +811,18 @@ public class Settings
     /// sentence that was actually on their screen.
     /// </remarks>
     public string? EvidenceDiskWarningShown { get; set; }
+
+    // ── VRChat picture cache (VRChat files design §5) ───────────────────────────────────────
+
+    /// <summary>
+    /// How much disk the cache of VRChat pictures and videos may use before the oldest are
+    /// deleted. 2 GB by default; 0 means no cache at all, so every picture is fetched again.
+    /// </summary>
+    /// <remarks>
+    /// A cap rather than an age, because these files never change -- a VRChat file address names
+    /// a version -- so there is no moment at which a cached one has gone stale. The only reason
+    /// to delete any of them is that the disk is not endless, and a cap is that reason written
+    /// down. It sits beside the evidence settings because it is the same disk.
+    /// </remarks>
+    public long VRChatFileCacheBytes { get; set; } = 2L * 1024 * 1024 * 1024;
 }

@@ -55,6 +55,7 @@ internal static class OpenApiReference
         ("Audit", "The audit log: who did what to whom, and when."),
         ("Case files", "The write-up of each ban."),
         ("Evidence", "Screenshots and video attached to case files."),
+        ("Files", "Pictures and video from VRChat, fetched through Modbot because a browser cannot fetch them itself."),
         ("Reviews", "Reviews that open when a moderator's actions look unusual."),
         ("Repeat offenders", "People acted on more than once."),
         ("Moderation", "Flags raised by moderation rules."),
