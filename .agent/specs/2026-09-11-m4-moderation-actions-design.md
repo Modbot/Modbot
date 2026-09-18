@@ -1,7 +1,8 @@
 # Modbot M4 — Moderation Actions
 
 - **Date:** 2026-09-11
-- **Status:** Kick, ban and unban implemented 2026-09-16 (§12). Everything else still a draft.
+- **Status:** Kick, ban and unban implemented 2026-09-16 (§12); **note** implemented 2026-09-18
+  (notes design). Everything else still a draft.
 - **Covers:** M4 — performing moderation through Modbot, classification capture, ban reports, accountability tickets
 - **Depends on:** M0 (`IVRChatGate`, fact log, `INotifier`), M1 (member/ban cache), M2 (audit log), M3 (avatar facts, overlay)
 - **Implements:** foundation §5.8 capture side
@@ -39,6 +40,17 @@ is the record.
 This distinction must be visible in the UI. A moderator needs to know whether they just changed
 something in VRChat or only in Modbot — conflating them produces staff who believe a user was
 punished when nothing happened.
+
+**Of the three, one exists (2026-09-18).**
+
+| | Status |
+|---|---|
+| **Note** | **Built.** One moderator's own words about a person, stored as a `modbot.note.add` fact and nothing else, read on the person popup's Notes tab and shown on the confirmation before a kick, ban or unban. Taken back rather than edited or deleted. See the **notes design**. |
+| **Warn** | **Not being built.** Settled by the maintainer on 2026-09-18: VRChat has no warning to deliver, and what is left once delivery is removed is a note with a heavier word on it. The paragraph above describes a feature that was not, in the end, possible to do honestly. `Warn` (bit 11) stays reserved and ungranted. |
+| **Watch** | Still a draft. Untouched. |
+
+Notes did **not** get the `Warn` flag, and warn's own flag was not reused for them — see notes
+design §4.2.
 
 ---
 
@@ -192,6 +204,10 @@ New permission flags: `Kick`, `Ban`, `Unban`, `Warn`, `BulkAction`, `ReviewTicke
 `ReviewTickets` is deliberately separate — the people being reviewed should not be the people closing
 the reviews.
 
+`WriteNotes` (bit 31) was added on 2026-09-18 and is not in this list, because notes were not one
+of the actions this section anticipated needing a flag. Reading notes is `ViewAuditLog`, since a
+note is a fact in that log; see notes design §4.
+
 ---
 
 ## 9. Reversal
@@ -225,8 +241,9 @@ inherits the same accountability treatment.
    replaced when somebody asks VRChat the real number (§12).
 2. **Whether instance kick requires presence in the instance**, which would make it an overlay-first
    feature rather than a web-first one.
-3. **Warn delivery when no Discord link and no moderator present** — queue until next seen, or record
-   silently? Leaning record-silently, since the record is the primary purpose.
+3. ~~**Warn delivery when no Discord link and no moderator present**~~ — **moot (2026-09-18).**
+   Warn is not being built (§2). The "record silently" answer this was leaning towards is what a
+   note already is, and that is what was built instead.
 4. **Ticket thresholds** and their defaults, which foundation §5.8.5 requires to be conservative and
    asymmetric. Needs real data from M2.5 detection running before numbers are chosen.
 
@@ -287,6 +304,10 @@ do it, the tables go back to the truth without anybody intervening.
 
 ### 12.6 Still open
 
-Warn, bulk actions, role changes, instance kick, reversal classifications (§9), and the
-accountability context at the moment of action (§8.1). The reason list is the ban list for now,
-which is open question 2 of the ban case files design.
+Bulk actions, role changes, instance kick, reversal classifications (§9), and watch (§2). The
+reason list is the ban list for now, which is open question 2 of the ban case files design.
+
+Warn came off this list on 2026-09-18 by being settled as not possible rather than by being built
+(§2). §8.1's context at the moment of action came off it in part: the confirmation now shows the
+person's standing notes, which is the piece of §8.1 that had something to show. Prior kicks, warns
+and bans at the moment of action are still not shown.

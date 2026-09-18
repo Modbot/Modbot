@@ -1,0 +1,97 @@
+---
+title: Notes
+description: Write down something about a person so the rest of the team sees it, read what others wrote, and take a note back without erasing that it was written.
+---
+
+A **note** is your own words about somebody, kept where every other moderator will see them.
+"Says they're new, be patient." "Third time this week." "Their friend vouched for them."
+
+Nothing about a note is required. There is no reason to pick and no form to fill in — you type a
+sentence and it is there for the next person who opens that name.
+
+<Callout type="info" title="A note is not a case file">
+A [case file](/moderation/case-files) is the write-up of one ban: the reasons, a written
+justification, evidence and a copy of the person's profile at the time. A note is not about any
+action, and most people with a note have never been banned.
+</Callout>
+
+## Where notes are
+
+### On a person
+
+Open anybody's popup — click their name anywhere in Modbot — and go to the **Notes** tab. It lists
+every note about them, newest first, each with who wrote it and when.
+
+### Before you kick or ban somebody
+
+The confirmation that opens when you press **Kick**, **Ban** or **Unban** shows that person's three
+newest notes above the reason buttons. If nobody has written one, nothing appears there.
+
+## Writing one
+
+<Steps>
+
+<Step>
+
+### Open the person's **Notes** tab
+
+You need the **Write notes** permission for the box to be there.
+
+</Step>
+
+<Step>
+
+### Type it and press **Add note**
+
+Up to 2,000 characters. It appears at the top of the list with your name on it.
+
+</Step>
+
+</Steps>
+
+Your note is written exactly as you typed it. Markdown is not applied — asterisks stay asterisks —
+so a note can never be made to look like something Modbot itself said.
+
+## Taking a note back
+
+Press **Take back** on a note. It stays on the list, greyed and marked **taken back**, with your
+name and the time under it. It stops counting and it stops appearing on kick and ban
+confirmations.
+
+You can take back a note you wrote. Anyone with **Write notes** can take back anybody's.
+
+<Callout type="warn" title="Taking a note back is not erasing it">
+The note's words are still in the [audit log](/moderation/audit-log), where anyone who can read
+that log can read them. Taking it back records that it no longer stands; it does not make the text
+go away. If somebody's records have to be removed entirely, that is a
+[purge](/moderation/audit-log), not a take back.
+</Callout>
+
+There is no way to edit a note. If one is wrong, take it back and write another. The log is
+append-only, exactly as it is for bans: nothing that was recorded is ever rewritten.
+
+## Notes in the audit log
+
+Every note is an entry in the audit log — **Note added** — and every take back is another one,
+**Note taken back**. They show in the person's timeline beside their joins, bans and everything
+else, and they go to your Discord log channel if you route them there. See
+[Discord event routes](/discord/event-channels).
+
+## Notes brought in from another platform
+
+If you [imported](/self-hosting/importing-old-data) records from an old bot or a spreadsheet, the notes in
+that file are in this same list, marked **imported**. They sit beside the ones written here, in
+date order, because they are the same kind of record.
+
+## Permissions
+
+| To | You need |
+|---|---|
+| Read a person's notes | **See the audit log** |
+| Write one | **Write notes** |
+| Take one back | **Write notes**, or you wrote it |
+
+**See the audit log** is what opens notes because a note is an entry in that log. Somebody who can
+see profiles but not the log does not get a Notes tab.
+
+See [Roles and permissions](/accounts/roles-and-permissions).
