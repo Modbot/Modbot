@@ -256,6 +256,22 @@ public static class AuditVisibility
         // finishing is the operator's business, like a settings change (import design §3.3).
         [FactType.NoteAdded] = AuditCategory.Moderation,
         [FactType.ImportDone] = AuditCategory.Operational,
+
+        // Giveaways: a Modbot feature Modbot runs itself, gated by its own ViewGiveaways and
+        // RunGiveaways permissions rather than by the audit log's -- the same shape as Planned
+        // Events, not an entry synced from VRChat's own audit log, so it sits in the operator's
+        // log the same way (giveaways design §8.1).
+        [FactType.GiveawayCreated] = AuditCategory.Operational,
+        [FactType.GiveawayChanged] = AuditCategory.Operational,
+        [FactType.GiveawayOpened] = AuditCategory.Operational,
+        [FactType.GiveawayClosed] = AuditCategory.Operational,
+        [FactType.GiveawayEntered] = AuditCategory.Operational,
+        [FactType.GiveawayWithdrawn] = AuditCategory.Operational,
+        [FactType.GiveawayDrawn] = AuditCategory.Operational,
+        [FactType.GiveawayCancelled] = AuditCategory.Operational,
+        [FactType.GiveawayDeleted] = AuditCategory.Operational,
+        [FactType.GiveawayWinnerAnnounced] = AuditCategory.Operational,
+        [FactType.GiveawayPublishFailed] = AuditCategory.Operational,
     };
 
     /// <summary>

@@ -103,6 +103,11 @@ public sealed class ApiTestHost : IAsyncDisposable
         // would also add the hosted maintenance services this host deliberately leaves out.
         builder.Services.AddScoped<Modbot.Analytics.Reviews.ReviewFacts>();
 
+        // The giveaway endpoints check rules and draw winners, again without the rest of
+        // AddModbotAnalytics.
+        builder.Services.AddScoped<Modbot.Analytics.Giveaways.GiveawayRuleChecker>();
+        builder.Services.AddScoped<Modbot.Analytics.Giveaways.GiveawayDrawer>();
+
         // The one writer of vrchat_user rows, without the hosted sync that would drain its queue:
         // linking a VRChat account records the fetched profile as a sighting, and the test host
         // has to be able to resolve the recorder for that endpoint to map.
