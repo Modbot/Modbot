@@ -21,7 +21,7 @@ RUN cd src/Modbot.Web && npm run build
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2 — publish. Project files first so a source-only change does not re-resolve NuGet.
 # ─────────────────────────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props global.json ./
@@ -64,20 +64,28 @@ RUN dotnet publish src/Modbot.Server/Modbot.Server.csproj \
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3 — runtime.
 # ─────────────────────────────────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+# Debian rather than Alpine, since 2026-09-18. The deployed server segfaulted repeatedly under a
+# page that opens tens of connections at once -- signal 11, no managed exception, nothing for the
+# crash guard to catch, and one captured stack inside the socket engine's own type initialiser.
+# The same image survived far heavier load locally, memory was never above a sixteenth of the
+# limit, and no managed code in this image calls into anything native. What was left was the C
+# library underneath, and musl is where .NET is least exercised. Debian is the supported ground.
+# If this is ever revisited, the evidence is in .agent/research/2026-09-18-file-proxy-crash.md and
+# 2026-09-18-live-socket-crash.md.
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-# Npgsql probes for GSSAPI at startup. Without krb5-libs the alpine loader prints
-# "Cannot load library libgssapi_krb5.so.2" to stderr before Serilog is even involved -- harmless,
-# unsuppressable, and the first thing an operator sees in the dashboard on every boot.
-RUN apk add --no-cache krb5-libs
+# Npgsql probes for GSSAPI at startup; without the library the loader prints "Cannot load library
+# libgssapi_krb5.so.2" to stderr before Serilog is even involved -- harmless, unsuppressable, and
+# the first thing an operator sees in the dashboard on every boot. curl drives the HEALTHCHECK
+# below, which busybox wget did on Alpine; Debian's image carries neither.
+RUN apt-get update     && apt-get install -y --no-install-recommends libgssapi-krb5-2 curl     && rm -rf /var/lib/apt/lists/*
 
 # The base image sets ASPNETCORE_HTTP_PORTS=8080, which Modbot then overrides from PORT -- and
 # Kestrel warns about the override on every start. Cleared so the warning does not appear; PORT
 # remains the only thing that decides the port.
 ENV ASPNETCORE_HTTP_PORTS=
 
-# busybox wget drives the HEALTHCHECK below; nothing else is added to the runtime image.
 COPY --from=build /app/ ./
 
 # Serilog writes six streams into ./logs relative to the content root, and evidence stored on disk
@@ -93,7 +101,7 @@ USER $APP_UID
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD wget --quiet --spider "http://127.0.0.1:${PORT:-8080}/health/live" || exit 1
+    CMD curl --fail --silent --output /dev/null "http://127.0.0.1:${PORT:-8080}/health/live" || exit 1
 
 # Shell form so ${PORT} is resolved when the container starts. The default matches
 # ModbotEnvironment's, and exec keeps dotnet as PID 1 so SIGTERM reaches it and shutdown is clean.
