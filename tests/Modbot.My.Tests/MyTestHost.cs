@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.My.Cloud;
 using Modbot.My.Configuration;
+using Modbot.My.Features.Visits;
 
 namespace Modbot.My.Tests;
 
@@ -40,19 +41,29 @@ public sealed class MyTestHost : IAsyncDisposable
     private readonly HttpClient _client;
     private readonly DirectoryInfo _webRoot;
 
-    private MyTestHost(WebApplication app, HttpClient client, ManualTime time, DirectoryInfo webRoot, FakeCloud cloud)
+    private MyTestHost(
+        WebApplication app,
+        HttpClient client,
+        ManualTime time,
+        DirectoryInfo webRoot,
+        FakeCloud cloud,
+        FakeServer server)
     {
         _app = app;
         _client = client;
         _webRoot = webRoot;
         Time = time;
         Cloud = cloud;
+        Server = server;
     }
 
     public ManualTime Time { get; }
 
     /// <summary>What my.modbot.co asked Cloud, and what Cloud answered.</summary>
     public FakeCloud Cloud { get; }
+
+    /// <summary>Stands in for the Modbot server my.modbot.co asks what it is.</summary>
+    public FakeServer Server { get; }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -82,11 +93,17 @@ public sealed class MyTestHost : IAsyncDisposable
         var cloud = new FakeCloud();
         builder.Services.AddHttpClient(CloudClient.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => cloud);
 
+        // The same, for the one outward request my.modbot.co makes: asking a Modbot address what
+        // group it moderates. Nothing in a test opens a socket, so the public-address rule that
+        // client really uses is exercised on its own, in PublicAddressTests.
+        var server = new FakeServer();
+        builder.Services.AddHttpClient(ServerLookup.HttpClientName).ConfigurePrimaryHttpMessageHandler(() => server);
+
         var app = builder.Build();
         MyApp.MapEndpoints(app);
         await app.StartAsync(Ct);
 
-        return new MyTestHost(app, app.GetTestClient(), time, webRoot, cloud);
+        return new MyTestHost(app, app.GetTestClient(), time, webRoot, cloud, server);
     }
 
     public Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? body = null, string? ip = null)
@@ -186,6 +203,60 @@ public sealed class FakeCloud : HttpMessageHandler
         {
             Content = new StringContent(Body, Encoding.UTF8, "application/json"),
         };
+    }
+}
+
+/// <summary>
+/// Stands in for a Modbot server answering <c>GET /api/server</c>. Records what was asked of it.
+/// </summary>
+public sealed class FakeServer : HttpMessageHandler
+{
+    private readonly List<Uri> _asked = [];
+
+    private readonly SemaphoreSlim _called = new(0);
+
+    public IReadOnlyList<Uri> Asked
+    {
+        get
+        {
+            lock (_asked)
+                return [.. _asked];
+        }
+    }
+
+    public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
+
+    public string Body { get; set; } =
+        """{"name":"VRChat Kings","groupId":"grp_real","iconUrl":"https://api.vrchat.cloud/real-icon.png","bannerUrl":"https://api.vrchat.cloud/real-banner.png","ownerEmail":"owner@example.com","version":"2026.9.0"}""";
+
+    /// <summary>True to fail the way a Modbot that is not there does.</summary>
+    public bool Unreachable { get; set; }
+
+    /// <summary>Waits for the next ask to arrive, for the note a page does not wait on itself.</summary>
+    public async Task<Uri> NextAskAsync(CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        await _called.WaitAsync(timeout.Token);
+        return Asked[^1];
+    }
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        lock (_asked)
+            _asked.Add(request.RequestUri!);
+
+        _called.Release();
+
+        if (Unreachable)
+            throw new HttpRequestException("That Modbot is unreachable in this test.");
+
+        return Task.FromResult(new HttpResponseMessage(Status)
+        {
+            Content = new StringContent(Body, Encoding.UTF8, "application/json"),
+        });
     }
 }
 
