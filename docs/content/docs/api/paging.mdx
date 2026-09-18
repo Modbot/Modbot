@@ -1,0 +1,125 @@
+---
+title: Paging through a list
+description: How to read a long list from the Modbot API one page at a time without missing a row or reading one twice.
+---
+
+Most lists in the Modbot API are too long to send in one answer, so they come back a page at a
+time. This page explains how to ask for the next page, and why a page number is not the way to do
+it.
+
+## Send back the cursor you were given
+
+Ask for the first page with no position at all:
+
+```bash
+curl -H "Authorization: Bearer mbk_..." \
+  "https://modbot.example.com/api/members?pageSize=50"
+```
+
+The answer carries the rows and two pieces of text:
+
+```json
+{
+  "members": [ ... ],
+  "total": 4812,
+  "page": 1,
+  "pageSize": 50,
+  "next": "next!joined!=2026-03-10T12:00:00.0000000+00:00!usr_c0ffee",
+  "previous": null
+}
+```
+
+- **`next`** is the following page. Send it back as `cursor`.
+- **`previous`** is the page before. Send it back the same way.
+
+Either can be `null`, which means there is no page that way. On the first page, `previous` is
+always `null`.
+
+```bash
+curl -H "Authorization: Bearer mbk_..." \
+  --get --data-urlencode "cursor=next!joined!=2026-03-10T12:00:00.0000000+00:00!usr_c0ffee" \
+  --data-urlencode "pageSize=50" \
+  "https://modbot.example.com/api/members"
+```
+
+To read a whole list, keep going until `next` is `null`.
+
+<Callout type="warn">
+  **A cursor is Modbot's to write.** Send it back exactly as it came and do not build one, take it
+  apart, or store it for later. What is inside it can change between Modbot releases.
+</Callout>
+
+Send the **same filters** with every page. A cursor says where in a list you are; it does not
+remember which list. Changing the search, the filters or the sort halfway through gives you a page
+of a different list.
+
+## Why not a page number
+
+These lists are being written to while you read them. The member sweep finishes, somebody is
+banned, the Discord bot reads the whole member list again.
+
+"Skip 50 rows and give me the next 50" is counted from wherever the list starts at the moment you
+ask. So:
+
+- Somebody joins while you are between page one and page two. Everything shifts down one, and the
+  last person on page one is now the first person on page two. **You read them twice.**
+- Somebody leaves instead. Everything shifts up one. **One person is never on any page you read.**
+
+Neither is visible in the answer. Page two looks exactly like page two.
+
+A cursor names the last row you were shown and asks for what comes after it, so neither can happen.
+Rows added above where you are do not move you, and rows removed do not either.
+
+## What a cursor cannot do
+
+**There are no page numbers.** Modbot knows the page after the one you have and the page before it.
+It does not know that you are on page 40, because working that out means counting every row above
+you, which is the expensive thing cursors exist to avoid.
+
+**`total` is still there** on the lists that can afford it — the member list, the group's ban list,
+the Discord member list and the repeat-offender list all tell you how many rows match your filters,
+across every page. The audit log and the log do not, on purpose: they are far too big to count on
+every request.
+
+## An old or broken cursor
+
+If a cursor cannot be read — it was written under a different sort, it lost a character on the way,
+it came from an older Modbot — the **first page comes back**. There is no error. A saved link
+should show you the list, not an error page.
+
+That means a cursor is never worth retrying, and never worth reporting as a failure. If you get the
+first page back when you expected the fourth, check that you sent the same `sort` you sent when you
+got the cursor.
+
+## Page numbers still work, for now
+
+The lists below accepted `page` and `pageSize`, or `offset` and `limit`, before cursors existed,
+and they still do. A request that sends a page number gets what it always got, plus a `next` cursor
+it can move to. If you send both a `cursor` and a page number, the cursor wins and `page` comes back
+as `1`.
+
+They will not be removed without notice, but they can read a row twice or miss one, exactly as
+described above. Move to `cursor` when you can.
+
+## Which lists page which way
+
+| Endpoint | How it pages |
+|---|---|
+| [`GET /api/members`](/api/reference) | `cursor`; `page` and `pageSize` still accepted |
+| `GET /api/bans` | `cursor`; `page` and `pageSize` still accepted |
+| `GET /api/discord/members` | `cursor`; `page` and `pageSize` still accepted |
+| `GET /api/repeat-offenders` | `cursor`; `offset` and `limit` still accepted |
+| `GET /api/audit` | `beforeOccurredAt` and `beforeId`, sent back together from `next` |
+| `GET /api/logs` | `before`, the `next` from the last answer |
+| `GET /api/events/poll` | `cursor`, the one from the last answer — see [long polling](/api/long-polling) |
+| `GET /api/audit/bans` | `offset` and `limit` |
+| `GET /api/cases` | `offset` and `limit` |
+
+The lists not named here are short enough to come back whole, with a cap on how many rows they will
+ever return.
+
+## In the web app
+
+The page you are on is part of the address, beside the filters. A link you copy from the member
+list opens on the rows you were looking at; refreshing keeps you there; and the browser's Back
+button undoes a page turn rather than leaving the screen.
