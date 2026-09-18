@@ -92,14 +92,19 @@ public static class VRChatFileEndpoints
         // The operator's switch, checked before the cache as well as before VRChat: off means this
         // server does not serve VRChat pictures, not that it serves the ones it happens to hold.
         var settings = await db.GetSettingsAsync(ct);
-        if (!settings.VRChatImagesProxied)
-            return Problem(StatusCodes.Status404NotFound, "This server does not proxy VRChat pictures.");
-
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var address))
             return Problem(StatusCodes.Status400BadRequest, "Give a url to fetch.");
 
         if (!VRChatFiles.IsVRChatAddress(address))
             return Problem(StatusCodes.Status400BadRequest, "That is not an address VRChat serves files from.");
+
+        // Off means Modbot does not fetch the picture, not that there is no picture: the browser
+        // is sent to VRChat for it. Whether VRChat serves a browser that asks directly is
+        // VRChat's business, and an operator who turned this off has said that is what they want.
+        // The address is checked above first, so this can only ever redirect to one of VRChat's
+        // own hosts and never to somewhere a caller chose.
+        if (!settings.VRChatImagesProxied)
+            return Results.Redirect(address.ToString(), permanent: false, preserveMethod: false);
 
         // Keyed on what the caller asked for, character for character, so the address the web app
         // built and the address a second screen built hit the same file.

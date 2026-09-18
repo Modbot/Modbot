@@ -41,15 +41,17 @@ test('nothing in gives nothing out', () => {
   assert.equal(vrchatMedia(''), null)
 })
 
-test('with the switch off, a VRChat picture is asked for directly', () => {
-  try {
-    setVRChatImagesProxied(false)
-    assert.equal(vrchatMedia('https://api.vrchat.cloud/x.png'), 'https://api.vrchat.cloud/x.png')
-    assert.equal(vrchatMedia('https://cdn.discordapp.com/a.png'), 'https://cdn.discordapp.com/a.png')
-    assert.equal(vrchatMedia(null), null)
-  } finally {
-    setVRChatImagesProxied(true)
-  }
+// The switch is the server's now: with it off Modbot answers the same address with a redirect to
+// VRChat rather than fetching the picture, so the browser asks Modbot either way.
+test('the switch does not change where the browser asks', () => {
+  setVRChatImagesProxied(false)
+  assert.equal(
+    vrchatMedia('https://api.vrchat.cloud/x.png'),
+    '/api/files/vrchat?url=' + encodeURIComponent('https://api.vrchat.cloud/x.png'),
+  )
+  assert.equal(vrchatMedia('https://cdn.discordapp.com/a.png'), 'https://cdn.discordapp.com/a.png')
+  assert.equal(vrchatMedia(null), null)
+  setVRChatImagesProxied(true)
 })
 
 test('a status that does not carry the switch leaves it alone', () => {
