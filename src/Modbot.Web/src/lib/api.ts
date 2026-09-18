@@ -556,6 +556,49 @@ export type DataSettings = {
   }
 }
 
+/** The other account a proved link ties to this one. A purge never follows it. */
+export type PurgeLinkedAccount = {
+  platform: 'VRChat' | 'Discord'
+  subjectId: string
+  name: string | null
+}
+
+/**
+ * What removing everything about one person would destroy, and what it would keep.
+ *
+ * `isMember` is null when Modbot never saw a membership row, and `isBanned` is null for a Discord
+ * account — neither is the same as false, so neither is drawn as one.
+ */
+export type PurgePreview = {
+  platform: 'VRChat' | 'Discord'
+  subjectId: string
+  name: string | null
+  isMember: boolean | null
+  isBanned: boolean | null
+  facts: number
+  countedDailyTotals: number
+  days: number
+  messages: number
+  giveawayEntries: number
+  giveawayPlaces: number
+  importRecords: number
+  caseFilesKept: number
+  evidenceFilesKept: number
+  linkedAccount: PurgeLinkedAccount | null
+}
+
+/** What a purge destroyed, and what it kept. */
+export type PurgeReceipt = {
+  facts: number
+  countedDailyTotals: number
+  days: number
+  messages: number
+  giveawayEntries: number
+  giveawayPlaces: number
+  caseFilesKept: number
+  evidenceFilesKept: number
+}
+
 /**
  * How certain a fact's time is.
  *
@@ -3487,6 +3530,20 @@ export const api = {
     method: 'PUT',
     body: JSON.stringify(body),
   }),
+
+  // ── Purge a person ─────────────────────────────────────────────────────────────────────────
+
+  purgePreview: (platform: 'VRChat' | 'Discord', subjectId: string) => {
+    const q = new URLSearchParams({ platform, subjectId })
+    return request<PurgePreview>(`/api/settings/purge?${q.toString()}`)
+  },
+
+  /** Irreversible. `confirmation` is the id typed again and must match exactly. */
+  purgePerson: (body: {
+    platform: 'VRChat' | 'Discord'
+    subjectId: string
+    confirmation: string
+  }) => post<PurgeReceipt>('/api/settings/purge', body),
 
   /** Read-only in this build: a control whose value is silently discarded is worse than no control. */
   syncSettings: () => request<SyncSettings>('/api/settings/sync'),
