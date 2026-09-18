@@ -1,5 +1,9 @@
 import { useState } from 'react'
-import { useLocation, go } from '@/lib/router'
+// Relative, with the extension, rather than the '@/' alias the rest of the app uses: the Node
+// test runner resolves neither the alias nor an extensionless path, and the vocabulary this
+// module defines -- which kinds exist, how a link encodes one, what an old link still means --
+// is worth a test. `router.ts` imports nothing but React, so it loads as it is too.
+import { useLocation, go } from './router.ts'
 
 /**
  * What the popup is open on, and the stack of things opened to get there.
