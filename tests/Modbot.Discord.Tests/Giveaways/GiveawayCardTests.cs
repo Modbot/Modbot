@@ -184,7 +184,10 @@ public class GiveawayCardTests
         var winners = Field(card, "Winner");
 
         Assert.DoesNotContain("**", winners, StringComparison.Ordinal);
-        Assert.DoesNotContain("<@123>", winners, StringComparison.Ordinal);
+
+        // The "<" that would start the mention is escaped, so Discord draws the whole thing as
+        // text. Backslash escaping is how that is done, so the characters are all still there.
+        Assert.Contains(@"\<@123>", winners, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -393,14 +396,25 @@ public class GiveawayCardTests
             GiveawayCard.Announcement(Giveaway(), draw, []));
     }
 
+    /// <summary>
+    /// §7.3: nobody is pinged. Mention markup in a name is escaped, so Discord draws it as text
+    /// rather than as somebody's name. A bare <c>@everyone</c> is left as the winner wrote it,
+    /// because a backslash in front of it would be a backslash on screen and would stop nothing --
+    /// what stops the ping is the send, where every message the bot posts goes out with mentions
+    /// off.
+    /// </summary>
     [Fact]
     public void TheAnnouncementCannotPingAnybody()
     {
         var draw = new GiveawayDraw { Number = 1 };
 
-        var line = GiveawayCard.Announcement(Giveaway(), draw, [Winner(1, "@everyone")]);
+        Assert.Equal(
+            @"**Autumn raffle**: the winner is \<@123>.",
+            GiveawayCard.Announcement(Giveaway(), draw, [Winner(1, "<@123>")]));
 
-        Assert.DoesNotContain("@everyone", line, StringComparison.Ordinal);
+        Assert.Equal(
+            "**Autumn raffle**: the winner is @everyone.",
+            GiveawayCard.Announcement(Giveaway(), draw, [Winner(1, "@everyone")]));
     }
 
     [Fact]

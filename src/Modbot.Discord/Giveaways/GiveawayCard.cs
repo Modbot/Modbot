@@ -102,8 +102,16 @@ public static class GiveawayCard
             Inline: false));
 
         fields.Add(new DiscordEmbedField("How to enter", HowToEnter(giveaway, state, now), Inline: true));
-        fields.Add(new DiscordEmbedField(
-            "Winners", giveaway.WinnerCount.ToString(CultureInfo.InvariantCulture), Inline: true));
+
+        // How many will win, for as long as that is still a promise rather than a result. Once the
+        // winners are named below, the number is answered by the list -- and a card carrying two
+        // fields both labelled "Winners", one reading "2" and one reading "Ada, Grace", is a card
+        // that reads as a mistake.
+        if (winners.Count == 0)
+        {
+            fields.Add(new DiscordEmbedField(
+                "Winners", giveaway.WinnerCount.ToString(CultureInfo.InvariantCulture), Inline: true));
+        }
 
         if (giveaway.Weighting != GiveawayWeights.Uniform)
         {
