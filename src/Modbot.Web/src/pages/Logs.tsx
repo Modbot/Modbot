@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { JsonView } from '@/components/JsonView'
 import { api, ApiError, type LogFilters, type LogLevel, type LogLine, type LogPage } from '@/lib/api'
+import { wholeEntry } from '@/lib/logEntry'
 import { cn } from '@/lib/utils'
 import { Empty, Select } from './Members'
 
@@ -220,7 +221,6 @@ export function Logs() {
 
 function LogRow({ line, open, onToggle }: { line: LogLine; open: boolean; onToggle: () => void }) {
   const Chevron = open ? ChevronDown : ChevronRight
-  const properties = open ? stored(line.properties) : null
 
   return (
     <li className="border-b last:border-b-0" style={{ borderBottomWidth: 'var(--hairline)' }}>
@@ -243,31 +243,30 @@ function LogRow({ line, open, onToggle }: { line: LogLine; open: boolean; onTogg
         <div className="px-3 pb-3 pl-10" style={{ fontSize: 'var(--text-small)' }}>
           <div className="whitespace-pre-wrap break-words">{line.message}</div>
 
-          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-muted-foreground">
-            <dt>Time</dt>
-            <dd className="text-foreground tabular-nums">{new Date(line.at).toLocaleString()}</dd>
+          {/* The record below holds all of this, but a JSON document is read, not scanned. One
+              line of it stays in plain text so the eye can take in when and where at a glance. */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-muted-foreground">
+            <span className="tabular-nums text-foreground">{new Date(line.at).toLocaleString()}</span>
             {line.source && (
               <>
-                <dt>Source</dt>
-                <dd className="break-all text-foreground">{line.source}</dd>
+                <span aria-hidden>·</span>
+                <span className="break-all text-foreground">{line.source}</span>
               </>
             )}
             {line.area && (
               <>
-                <dt>Area</dt>
-                <dd className="text-foreground">{line.area}</dd>
+                <span aria-hidden>·</span>
+                <span className="text-foreground">{line.area}</span>
               </>
             )}
-            {line.template && line.template !== line.message && (
-              <>
-                <dt>Template</dt>
-                <dd className="break-words text-foreground">{line.template}</dd>
-              </>
-            )}
-          </dl>
+          </div>
 
-          {properties && <JsonView className="mt-2" title="Properties" text={properties} />}
+          <JsonView className="mt-2" title="Entry" value={wholeEntry(line)} />
 
+          {/* Shown here as well as in the record above: a stack trace read through JSON escaping
+              is one long line with `\n` written in it, and a stack trace is the thing on this page
+              most likely to be read line by line. The record still carries it, so what the copy
+              button gives is the whole line. */}
           {line.exception && (
             <pre className="mt-2 overflow-x-auto rounded-md bg-destructive/10 p-2 font-mono text-destructive">
               {line.exception}
@@ -289,19 +288,4 @@ function shortSource(source: string | null): string {
 function when(at: string): string {
   const date = new Date(at)
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`
-}
-
-/** The stored property document, or nothing at all when it holds nothing worth opening. */
-function stored(json: string): string | null {
-  if (!json || json === '{}') return null
-
-  try {
-    const parsed: unknown = JSON.parse(json)
-    if (parsed && typeof parsed === 'object' && Object.keys(parsed).length === 0) return null
-  } catch {
-    // A document that will not parse is still shown, as it came. The viewer lays out and colours
-    // what parses and leaves the rest alone.
-  }
-
-  return json
 }
