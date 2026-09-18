@@ -222,6 +222,14 @@ uses the same daily totals, range control and charts as the other pages:
 
 ---
 
+## 6.2 What a card shows (added 2026-09-17)
+
+This spec covers the data side of Discord and never said what the bot's cards look like, which is
+how they ended up printing a raw VRChat id wherever a name and a link belonged. The
+**Discord embeds design** (2026-09-17) is now the one place that says: a person reads as a linked
+name, the id is off the card because the link carries it, and a card's pictures are sent to Discord
+with the message because VRChat refuses anyone else's server.
+
 ## 7. Permissions and safety
 
 - Bot permissions requested are the **minimum** for configured features; role sync and ban sync each

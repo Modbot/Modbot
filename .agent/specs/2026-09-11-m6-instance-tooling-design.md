@@ -89,6 +89,11 @@ M3 §5.1 and gets the same test treatment.
 An instance opening posts to a configured channel: world, type, capacity, join link. Closure updates
 or removes it, per configuration.
 
+**Changed 2026-09-17.** The group's name now sits above the world's, and the world's picture is sent
+to Discord with the message rather than linked -- it had never actually been drawn, because VRChat
+refuses Discord's servers (Discord embeds design §3). It is uploaded on the first post and kept for
+every rewrite after that.
+
 #### 4.1.1 Instance ids and names are hostile input
 
 **A group can set an instance id to arbitrary text** — usually a VRChat-assigned number, but commonly

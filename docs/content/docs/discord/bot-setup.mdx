@@ -184,8 +184,8 @@ ran the command.
 
 | Command | What it does | Who can use it |
 |---|---|---|
-| `/lookup user:` | Looks up a VRChat user, by id or display name, in what Modbot has stored: their name, whether they have been seen as 18+ verified, when the profile was last refreshed, ban status, how many bans, kicks and warns, and their latest moderation events. Nothing is fetched from VRChat. If several people match, it lists them so you can run it again with the id. | **See profiles** |
-| `/recent count:` | The latest moderation events, newest first. `count` is 1 to 25; 10 if you leave it out. | **See the audit log** |
+| `/lookup user:` | Looks up a VRChat user, by id or display name, in what Modbot has stored. The reply is their profile as VRChat shows it — their name, their picture, their banner, and the group they represent — with whether they have been seen as 18+ verified, when the profile was last refreshed, ban status, how many bans, kicks and warns, and their latest moderation events. Nothing is fetched from VRChat. If several people match, it lists them with their ids so you can run it again with one. | **See profiles** |
+| `/recent count:` | The latest moderation events, newest first. Every name opens that person in Modbot. `count` is 1 to 25; 10 if you leave it out. | **See the audit log** |
 | `/modbot` | Whether the bot is connected, whether any channel is set to receive events, and the web app's address. | Anyone with a linked Modbot account |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
 
