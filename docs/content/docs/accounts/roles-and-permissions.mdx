@@ -12,7 +12,14 @@ To give people roles, see [Staff accounts](/accounts/staff-accounts).
 
 ## The Roles page
 
-Open **Roles** in the sidebar, under **Team**. You need **Manage roles** to see it.
+Open **Settings**, then the **IAM** tab, then **Roles**. You need **Manage roles** to see it, and
+that permission alone is enough to open Settings — you do not also need **Change settings**, and
+you will see only the tabs you may open.
+
+<Callout type="info" title="It used to be in the sidebar">
+Roles and Users were sidebar pages until September 2026. The old addresses, `/roles` and `/users`,
+still open them, so an old link or bookmark still works.
+</Callout>
 
 Each role is a card showing its name, its one-line description, how many permissions it holds and
 how many people hold it. Click a card to open it:
@@ -105,6 +112,8 @@ Name: `ViewProfile`
 
 - A VRChat user's profile, history and metrics in the person popup, and refreshing that profile
   from VRChat. See [Profiles](/moderation/profiles).
+- The **People** page, which lists everyone Modbot has ever seen, members or not. See
+  [People](/moderation/people).
 - Reading [case files](/moderation/case-files): the **Cases** tab in the person popup and the case
   files shown on the **Bans** page.
 - The **Flags** page, which lists what [AutoMod rules](/moderation/automod) flagged. See
@@ -361,7 +370,7 @@ Not in the built-in Moderator or Viewer roles.
 
 Name: `ManageUsers`
 
-- Opens the **Users** page: add people by invite link or temporary password, take back invite
+- Opens **Settings**, **IAM**, **Users**: add people by invite link or temporary password, take back invite
   links, change people's roles and contact details, make password reset links, and disable or enable
   accounts. See [Staff accounts](/accounts/staff-accounts).
 
@@ -372,7 +381,8 @@ administrator is left), so give it only to people you trust with the whole team.
 
 Name: `ManageRoles`
 
-- Opens the **Roles** page: create roles, change what each allows, and delete roles nobody holds.
+- Opens **Settings**, **IAM**, **Roles**: create roles, change what each allows, and delete roles
+  nobody holds.
 
 Separate from **Manage users**: handing somebody a role is a smaller decision than deciding what a
 role means.
@@ -392,6 +402,9 @@ Name: `ManageSettings`
 
 The **API** tab's keys and webhooks also need **Manage API keys and webhooks**, and the reason list
 under **Moderation** needs **Edit the reason list**.
+
+It does **not** open the **IAM** tab, which is **Manage users** and **Manage roles**. Each of those
+two opens Settings by itself, and everyone sees only the tabs they may open.
 
 ### Manage API keys and webhooks
 

@@ -76,6 +76,43 @@ Set by the maintainer on 2026-09-13. Highest first:
 
 Tier 4 is the one tier ordered by age rather than recency, because its whole reason is age.
 
+#### Who tiers 4 and 5 are for (narrowed 2026-09-18)
+
+Tiers 1–3 are about something that just happened, so they are about whoever it happened to. Tiers 4
+and 5 are about the passage of time, and time passes for everybody — including everybody in
+`vrchat_user`, which is a row for **every id Modbot has ever seen anywhere**: every stranger in
+every instance a companion has ever reported, every account named in a month of audit-log catch-up.
+As first written, the two tiers selected from that whole table with no membership condition at all,
+so somebody who walked through one instance a year ago and never came back was queued for a refresh
+every six hours, forever, out of the budget §4.2 accounts for. The maintainer called it what it is:
+*"Say someone joined an instance once and never came back, we'd be wasting requests on them."*
+
+A person enters tier 4 or 5 only if they are **either**:
+
+- a **current member** of the managed group (a `group_member` row with no `left_at`); **or**
+- **last seen inside `RefreshNonMembersFor`** — 30 days, a setting.
+
+`last_seen_at` is the general test, not an instance-only one: it moves for anything the fact log
+records about somebody, whether it happened to them or was done by them, so a moderator who is not
+a group member stays in the periodic refresh as long as they are working.
+
+**Nobody becomes unreachable, and nothing is deleted.** Tiers 1 and 2 are untouched: a client
+reporting somebody in an instance, and a moderator opening them in Modbot, still fetch them at once
+however long they have been gone — and a person who reappears is by definition seen again, which
+puts them back inside the window. The row, the history and the stored profile stay exactly as they
+were.
+
+**What an operator gives up.** The profile of somebody outside both groups goes stale and stays
+stale: opened a year later, it shows the name and bio from the last time anybody cared, with "last
+refreshed" saying so, until the on-demand fetch that opening them starts comes back. That is the
+whole cost, and it is paid by the people nobody is looking at. The alternative was paying for it in
+requests that could have gone to the group's own members.
+
+**The weekly user read is deliberately not narrowed.** It is one request per person per week
+(~0.017 req/s per 10,000 people), and it is the call that settles whether an account is really gone
+— a public-profile 404 is only half the answer (§2). Narrowing it would leave a 404 on a person
+outside the window permanently unsettled, which is a wrong answer rather than an old one.
+
 ### 3.2 One order, one place
 
 The ordering is a single comparison, `RefreshOrder`, unit-tested on its own:
@@ -216,8 +253,9 @@ rate a 150,000-member group cannot refresh everyone continuously, and because "w
 now" should not wait behind "whose profile is oldest".
 
 **Settings** (`settings.sync_pacing`, keys `userProfile*`): `IntervalSeconds` (floored at the lane's
-cap), `StaleAfterSeconds`, `RecentWindowSeconds`, `FreshEnoughWhenOpenedSeconds`,
-`FreshEnoughWhenSeenInInstanceSeconds`, `RateLimitedIntervalSeconds`. The windows are not rates and
+cap), `StaleAfterSeconds`, `RecentWindowSeconds`, `RefreshNonMembersForSeconds`,
+`FreshEnoughWhenOpenedSeconds`, `FreshEnoughWhenSeenInInstanceSeconds`,
+`RateLimitedIntervalSeconds`. The windows are not rates and
 may move either way; shortening one makes Modbot choosier, not faster.
 
 ---
@@ -295,6 +333,7 @@ the Discord screens and the case-file snapshot.
 | Sightings by fact type, not id shape | §3.1.1. |
 | One in-memory queue, one comparison | The maintainer's instruction; separate loops would each need a slice of the lane. |
 | Tier 4 ordered oldest-first, the rest newest-first | Age is tier 4's reason; recency is everyone else's. |
+| Tiers 4 and 5 narrowed to members and people seen in the last 30 days (2026-09-18) | Every id Modbot has ever seen has a row, so the tiers as written refreshed a one-time visitor forever out of a budget the group's own members need. The on-demand tiers keep everyone reachable. |
 | Drop-at-dequeue judged against the key | So re-reads and duplicate sightings cannot buy a second fetch. |
 | Fresh-enough gaps: 30 s opened, 10 s presence | Protects the lane from a click and from a burst of facts about one person; both are settings. |
 | Sticky flag set by any positive signal, cleared only by hand | The maintainer's requirement; `hidden` is not "unverified". |

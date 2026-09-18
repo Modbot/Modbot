@@ -2331,8 +2331,13 @@ eligibility as one running instances.
 React + TypeScript + Vite, built into `Modbot.Server/wwwroot` and served by Kestrel. One container,
 no separate frontend deployment.
 
-Screens in this spec: setup wizard, login, members, bans, invites, audit log viewer, the analytics
+Screens in this spec: setup wizard, login, members, **people** (everyone Modbot has a record of,
+member or not — everyone Modbot has seen design), bans, invites, audit log viewer, the analytics
 sections below, settings — and the **subject popup** (§10.2), which is not a screen.
+
+Two screens this spec once listed separately are now tabs of **settings**: the staff accounts list
+and the roles list, which moved into its IAM tab on 2026-09-18 because they are how the deployment
+is configured rather than screens a moderator works in. Their old addresses still open them.
 
 ### 10.1 Analytics is five sections, not one dashboard
 

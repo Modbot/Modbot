@@ -109,7 +109,7 @@ public sealed class UserProfileSync
 
         if (housekeeping)
         {
-            await TopUpAsync(now, ct).ConfigureAwait(false);
+            await TopUpAsync(settings.ManagedGroupId, now, ct).ConfigureAwait(false);
             await CountAsync(now, ct).ConfigureAwait(false);
         }
 
@@ -236,17 +236,29 @@ public sealed class UserProfileSync
     /// or never fetched. A batch per tier; the queue's own order decides between them.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The database supplies candidates and nothing more. Each tier's query is ordered the way
     /// that tier is ordered so that its batch holds the right people, but the decision of who
     /// goes next -- across tiers, and against the presence sightings and moderator requests that
     /// never touched the database -- is made once, by <see cref="RefreshOrder"/>.
+    /// </para>
+    /// <para>
+    /// <strong>The two periodic tiers only cover the people they are for</strong> (spec §3.1,
+    /// narrowed 2026-09-18). <c>vrchat_user</c> holds a row for everyone Modbot has ever seen
+    /// anywhere, so an unnarrowed "old profile" query queued a stranger who passed through one
+    /// instance a year ago for a refresh forever. They are now current group members plus anyone
+    /// seen inside <see cref="UserProfileSyncOptions.RefreshNonMembersFor"/>. The on-demand tiers
+    /// are untouched: a sighting in an instance or a moderator opening somebody still fetches
+    /// them at once, whoever they are.
+    /// </para>
     /// </remarks>
-    private async Task TopUpAsync(DateTimeOffset now, CancellationToken ct)
+    private async Task TopUpAsync(string? groupId, DateTimeOffset now, CancellationToken ct)
     {
         var recentCutoff = now - _options.RecentWindow;
         var staleCutoff = now - _options.StaleAfter;
         var notFoundCutoff = now - _options.RetryNotFoundAfter;
         var errorCutoff = now - _options.RetryFailedUserAfter;
+        var keepRefreshingCutoff = now - _options.RefreshNonMembersFor;
         var take = _options.TopUpBatchSize;
 
         var eligible = _db.VRChatUsers.AsNoTracking()
@@ -262,10 +274,19 @@ public sealed class UserProfileSync
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
+        // Who the periodic tiers are for: the group's current members, and anyone else Modbot has
+        // seen recently enough that their profile is still worth keeping up to date.
+        var members = _db.GroupMembers.AsNoTracking()
+            .Where(m => m.GroupId == groupId && m.LeftAt == null)
+            .Select(m => m.UserId);
+
+        var worthRefreshing = eligible
+            .Where(u => u.LastSeenAt >= keepRefreshingCutoff || members.Contains(u.UserId));
+
         // "Old" is either older than the stale window, or refreshed before the person was last
         // seen doing something -- a ban two hours ago is worth a look before six hours are up,
         // even if the sighting itself has aged out of the recent window.
-        var old = await eligible
+        var old = await worthRefreshing
             .Where(u => u.LastRefreshedAt != null
                      && (u.LastRefreshedAt <= staleCutoff || u.LastRefreshedAt < u.LastSeenAt))
             .OrderBy(u => u.LastRefreshedAt).ThenBy(u => u.UserId)
@@ -274,7 +295,7 @@ public sealed class UserProfileSync
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        var never = await eligible
+        var never = await worthRefreshing
             .Where(u => u.LastRefreshedAt == null)
             .OrderByDescending(u => u.LastSeenAt).ThenBy(u => u.UserId)
             .Take(take)

@@ -21,10 +21,17 @@ public enum RefreshReason
     /// <summary>They did something the fact log recorded -- joined the group, were banned, were kicked.</summary>
     SeenInFactLog = 3,
 
-    /// <summary>Their profile is older than <see cref="UserProfileSyncOptions.StaleAfter"/>.</summary>
+    /// <summary>
+    /// Their profile is older than <see cref="UserProfileSyncOptions.StaleAfter"/>, and they are
+    /// somebody the periodic refresh is for: a current group member, or anyone seen inside
+    /// <see cref="UserProfileSyncOptions.RefreshNonMembersFor"/>.
+    /// </summary>
     ProfileIsOld = 4,
 
-    /// <summary>Their profile has never been fetched.</summary>
+    /// <summary>
+    /// Their profile has never been fetched, and they are somebody the periodic refresh is for --
+    /// the same two groups as <see cref="ProfileIsOld"/>.
+    /// </summary>
     NeverRefreshed = 5,
 }
 

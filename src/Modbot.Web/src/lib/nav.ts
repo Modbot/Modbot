@@ -17,6 +17,10 @@ export const NAV = [
   // The Discord server's own member list. Secondary to Members: separate, because most people are
   // on one side only and most never link.
   { id: 'discord-members', label: 'Discord members', needs: 'ViewMembers' },
+  // Everyone Modbot has a record of, not only the group's roster: the people it has seen in an
+  // instance or read about in the audit log have a profile and a history too, and no list led to
+  // them. "People" rather than "Users", which is the settings screen for Modbot's own accounts.
+  { id: 'people', label: 'People', needs: 'ViewProfile' },
   // The group's open instances right now and who is in each.
   { id: 'live', label: 'Live', needs: 'ViewLiveInstances' },
   // Planned events, where each is published, and the calendar feed (calendar design).
@@ -41,13 +45,14 @@ export const NAV = [
   // Reviews of a moderator's pattern (spec 5.8.5). Under Team because they are about the team,
   // and gated on ReviewTickets because the people being reviewed should not be closing them.
   { id: 'reviews', label: 'Reviews', group: 'Team', needs: 'ReviewTickets' },
-  { id: 'users', label: 'Users', group: 'Team', needs: 'ManageUsers' },
-  { id: 'roles', label: 'Roles', needs: 'ManageRoles' },
   // Not in the page list: the status rows at the foot of the sidebar say what it says, and each
   // one opens it at the part it names. The page, its address and every link to it are unchanged.
   { id: 'health', label: 'Sync health', needs: 'ViewOperationalLog', hidden: true },
-  { id: 'logs', label: 'Logs', group: 'Setup', needs: 'ViewOperationalLog' },
-  { id: 'settings', label: 'Settings', group: 'Setup', needs: 'ManageSettings' },
+  { id: 'logs', label: 'Logs', group: 'System', needs: 'ViewOperationalLog' },
+  // Users and Roles are tabs inside Settings (the IAM tab), so somebody who may manage either but
+  // not the settings themselves still needs the page to open. Which tabs they see is the page's
+  // own check.
+  { id: 'settings', label: 'Settings', group: 'System', needsAny: ['ManageSettings', 'ManageUsers', 'ManageRoles'] },
   { id: 'account', label: 'Your account', hidden: true },
   // Reached from the Bans page and the subject pane, not from the sidebar. The server gates
   // reads on ViewProfile and writes on Ban; the page shows the refusal in words.
@@ -65,12 +70,23 @@ export const NAV = [
  */
 export const CREDITS_PATH = '/settings/credits'
 
+/** Settings' IAM tab: Modbot's own accounts and the roles they hold. */
+export const IAM_PATH = '/settings#iam'
+
 /**
  * Addresses that moved. The old one still opens the page -- the footer and the Deployment card
  * pointed at `/credits` for months and so does anything anyone bookmarked -- and the URL is
  * quietly replaced with the new one.
+ *
+ * Users and Roles stopped being pages of their own on 2026-09-18 and became the two halves of
+ * Settings' IAM tab. Every link to them, in a message or a bookmark, still lands on the half it
+ * named.
  */
-export const MOVED: Record<string, string> = { '/credits': CREDITS_PATH }
+export const MOVED: Record<string, string> = {
+  '/credits': CREDITS_PATH,
+  '/users': `${IAM_PATH}/users`,
+  '/roles': `${IAM_PATH}/roles`,
+}
 
 export type NavItem = (typeof NAV)[number]
 
@@ -86,6 +102,7 @@ export type PageId = NavItem['id']
 export const GO_TO_KEYS: Record<PageId, string> = {
   members: 'm',
   'discord-members': 'd',
+  people: 'n',
   live: 'l',
   calendar: 'e',
   giveaways: 'p',
@@ -99,8 +116,6 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   'analytics-worlds': 'w',
   'analytics-instances': 'i',
   reviews: 'r',
-  users: 'u',
-  roles: 'k',
   health: 'h',
   logs: 'o',
   settings: 's',

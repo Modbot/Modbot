@@ -769,6 +769,113 @@
         ]
       }
     },
+    "/api/people": {
+      "get": {
+        "tags": [
+          "People"
+        ],
+        "summary": "Everyone Modbot has a record of, member or not",
+        "description": "Every VRChat account Modbot has ever seen: members, people who left, people it only ever saw in an instance or in the audit log. `search` matches the display name and the id, case-insensitively and literally. `membership` is `member`, `not-member`, `left` or `all` (the default); `banned` is true or false; `profile` is `fetched` or `not-fetched`. Sorted by when Modbot last saw them, most recent first, unless `sort=name` or `sort=known` (longest known first). Names and pictures come from the profile sync and are null for anybody it has not fetched yet.\n\nNeeds the `ViewProfile` permission.",
+        "operationId": "GetPeople",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "membership",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "banned",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeopleListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/version": {
       "get": {
         "tags": [
@@ -25338,6 +25445,81 @@
           }
         }
       },
+      "PeopleCoverage": {
+        "required": [
+          "known",
+          "members",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "known": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "members": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PeopleListResponse": {
+        "required": [
+          "people",
+          "total",
+          "page",
+          "pageSize",
+          "coverage"
+        ],
+        "type": "object",
+        "properties": {
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonRow"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/PeopleCoverage"
+          }
+        }
+      },
       "PermissionInfo": {
         "required": [
           "name",
@@ -25478,6 +25660,95 @@
           },
           "now": {
             "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PersonRow": {
+        "required": [
+          "userId",
+          "displayName",
+          "plainName",
+          "avatarThumbnailUrl",
+          "trustRank",
+          "eighteenPlus",
+          "isMember",
+          "leftAt",
+          "banned",
+          "firstSeenAt",
+          "lastSeenAt",
+          "profileRefreshedAt",
+          "notFoundAt"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "plainName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarThumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "trustRank": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrustRank"
+              }
+            ]
+          },
+          "eighteenPlus": {
+            "type": "boolean"
+          },
+          "isMember": {
+            "type": "boolean"
+          },
+          "leftAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "banned": {
+            "type": "boolean"
+          },
+          "firstSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "profileRefreshedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "notFoundAt": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }
@@ -30272,6 +30543,10 @@
     {
       "name": "Logs",
       "x-displayName": "Logs"
+    },
+    {
+      "name": "People",
+      "x-displayName": "People"
     },
     {
       "name": "Search",

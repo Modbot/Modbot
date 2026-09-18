@@ -123,6 +123,25 @@ These are the defaults. Some other rules protect the queue:
 - If a refresh failed, that person is left alone for 30 minutes.
 - If VRChat says the account does not exist, Modbot waits a week before asking again.
 
+### Who is refreshed on a schedule
+
+Steps 4 and 5 — the two that go by the clock rather than by something that just happened — cover
+**your group's members, and anybody else Modbot has seen in the last 30 days**. Nobody else.
+
+Modbot keeps a record of everyone it has ever come across, and most of them are strangers who
+stood in one of your instances once and never came back. Refreshing all of them every six hours
+would spend most of what VRChat allows Modbot on people nobody is looking at, instead of on your
+own members.
+
+**Nobody is unreachable, and nothing is deleted.** Steps 1 and 2 are unchanged: the moment a
+companion sees somebody in an instance, or a moderator opens them in Modbot, they are fetched —
+however many years it has been. And somebody who comes back has been seen again, so they are back
+inside the 30 days.
+
+What you give up is that the stored profile of somebody nobody has looked at for a long time is
+old, and says so. Open them and it is refreshed while you look at it. See
+[People](/moderation/people).
+
 ### Every profile says how old it is
 
 The line under the badges always says **Last refreshed** and how long ago. When the profile is

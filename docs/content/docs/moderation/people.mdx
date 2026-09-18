@@ -1,0 +1,74 @@
+---
+title: People
+description: The People page — everyone Modbot has ever seen, not only the members of your group — with its search, filters and columns.
+---
+
+The [Members](/moderation/members-and-bans) page is your group's roster. **People** is everybody
+else as well: every VRChat account Modbot has ever come across, whether or not they ever joined.
+
+That includes people it only ever saw once, standing in one of your instances, and people it only
+ever read about in your group's audit log. Modbot has been keeping a record of them all along —
+their profile, when it first saw them, when it last saw them, and everything it recorded about them
+— and until this page the only way to reach one of them was to already know their VRChat id.
+
+The **People** page needs **See profiles**
+([roles and permissions](/accounts/roles-and-permissions#see-profiles)). It shows nothing that the
+[person popup](/moderation/popups#person-popup) does not already show to the same permission; what
+it adds is the list.
+
+## Opening it
+
+**People** is in the sidebar, under Members and Discord members. `g` then `n` opens it from
+anywhere.
+
+Above the list: how many people Modbot knows about in total, and how many of them are in your group
+right now.
+
+## Search, filters and sorting
+
+| Control | Options |
+|---|---|
+| **Search by name or id** | Matches any part of the display name or the VRChat id. Capital letters, accents and fancy lettering do not matter (see [Names](/moderation/names)). It waits a moment after you stop typing. |
+| Membership | **Everyone** (the default), **Members**, **Not members**, or **People who left**. |
+| Sort | **Most recently seen first**, **By name**, or **Known longest first**. |
+
+**By name** puts the people whose profile has not been fetched yet at the end, because they have no
+name to sort by.
+
+50 people a page, with **Previous** and **Next** at the bottom and the total on the right.
+
+## Columns
+
+| Column | What it shows |
+|---|---|
+| **Person** | Picture and display name once Modbot has fetched their profile, otherwise their VRChat id. An **18+** mark if Modbot has ever seen them as 18+ verified, and their [trust rank](/moderation/profiles#trust-ranks). |
+| **Standing** | **Member**, **Left**, **Banned**, or **—**. A person can have more than one; most people on this page have none. |
+| **Last seen by Modbot** | The latest time Modbot saw them in anything it recorded. |
+| **Known for** | How long ago Modbot first saw them. |
+| **Profile** | How long ago the stored profile was fetched, **Not fetched yet**, or **No such account**. |
+
+Click a row to open the [person popup](/moderation/popups#person-popup), the same one every other
+list in Modbot opens. Everything Modbot has about that person is in there: their profile, their
+history, their case files and their figures.
+
+## Keyboard
+
+| Keys | Does |
+|---|---|
+| `j` / `k` | Move down and up the rows. |
+| `Enter` | Open the selected person. |
+| `/` | Go to the search box. |
+| `g` then `n` | Open People from any page. |
+| `Ctrl`+`K` (`⌘`+`K` on a Mac) | Search people, worlds and pages, and run actions. |
+| `?` | Every shortcut that works on the open page. |
+
+## Why some profiles are old
+
+Modbot refreshes the profiles of your group's members, and of anybody else it has seen in the last
+30 days, on a schedule. Somebody it has not seen for longer than that is left alone until somebody
+asks about them — which is exactly what opening them here does. See
+[How profiles are refreshed](/moderation/profiles#how-profiles-are-refreshed).
+
+So a person nobody has looked at for a year may show a name and a bio from a year ago for the
+second it takes the fresh copy to arrive. The **Profile** column always says how old what you are
+looking at is.
