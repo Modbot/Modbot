@@ -35,6 +35,12 @@ public sealed record RefreshState(
     bool InProgress,
     string? Blocked);
 
+/// <summary>The group a person has chosen to represent on their profile.</summary>
+/// <param name="GroupId">VRChat's id for the group. Opaque.</param>
+/// <param name="Name">The group's name, as VRChat sent it beside the id.</param>
+/// <param name="IconUrl">The group's icon. A VRChat file URL; see the Files endpoint for showing it.</param>
+public sealed record RepresentedGroupView(string GroupId, string? Name, string? IconUrl);
+
 /// <summary>
 /// Everything Modbot has stored about one VRChat user, with the age of every bit of it.
 /// </summary>
@@ -44,6 +50,14 @@ public sealed record RefreshState(
 /// of old, so a screen cannot show a bio without also showing when that bio was true.
 /// </remarks>
 /// <param name="Known">False when Modbot has no row for this id at all. Every other field is then empty.</param>
+/// <param name="ProfilePictureUrl">
+/// The best picture Modbot has: the override the person set, else their user icon, else the
+/// avatar thumbnail, else null. VRChat's own URL, unchanged; the web app shows it through the
+/// Files endpoint.
+/// </param>
+/// <param name="IconUrl">The user icon (<c>iconUrl</c>) as the public profile carries it.</param>
+/// <param name="BannerUrl">The profile banner (<c>bannerUrl</c>).</param>
+/// <param name="RepresentedGroup">The group the person represents, or null for none.</param>
 /// <param name="AgeVerificationStatusLastSeen">
 /// VRChat's own status as of the last refresh -- <c>18+</c>, <c>hidden</c>, <c>verified</c>. This
 /// can differ from <see cref="EighteenPlus"/>: hidden today does not undo verified yesterday.
@@ -65,6 +79,9 @@ public sealed record VRChatUserProfile(
     string? AvatarImageUrl,
     string? AvatarThumbnailUrl,
     string? ProfilePictureUrl,
+    string? IconUrl,
+    string? BannerUrl,
+    RepresentedGroupView? RepresentedGroup,
     DateOnly? DateJoined,
     IReadOnlyList<string> Tags,
     TrustRank? TrustRank,

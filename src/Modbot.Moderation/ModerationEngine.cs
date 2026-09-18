@@ -606,15 +606,21 @@ public sealed class ModerationEngine : IModerationChecker
 
         var profile = await _db.VRChatUsers.AsNoTracking()
             .Where(u => u.UserId == userId)
-            .Select(u => new { u.ProfilePictureUrl, u.CurrentAvatarThumbnailImageUrl })
+            .Select(u => new { u.ProfilePictureUrl, u.IconUrl, u.BannerUrl, u.CurrentAvatarThumbnailImageUrl })
             .FirstOrDefaultAsync(ct).ConfigureAwait(false);
 
         if (profile is null)
             return [];
 
+        // Every picture the profile shows, not only the best one: a rule about pictures should
+        // see the banner and the icon as well as the picture a member list would pick.
         var pictures = new List<PictureSource>();
         if (profile.ProfilePictureUrl is { Length: > 0 } picture)
             pictures.Add(new PictureSource("VRChat profile picture", picture));
+        if (profile.IconUrl is { Length: > 0 } icon)
+            pictures.Add(new PictureSource("VRChat user icon", icon));
+        if (profile.BannerUrl is { Length: > 0 } banner)
+            pictures.Add(new PictureSource("VRChat profile banner", banner));
         if (profile.CurrentAvatarThumbnailImageUrl is { Length: > 0 } thumbnail)
             pictures.Add(new PictureSource("VRChat avatar picture", thumbnail));
 

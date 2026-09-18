@@ -12,6 +12,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Names;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 using Modbot.VRChat;
 using Modbot.VRChat.Sync;
 using Modbot.VRChat.Users;
@@ -282,7 +283,7 @@ public static class VRChatUserEndpoints
         {
             return new VRChatUserProfile(
                 id, Known: false,
-                null, null, null, null, null, null, null, null, null, null, [], null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, [], null, null, null, null,
                 new AgeVerifiedFlag(false, null, null, null, null),
                 null, null, null,
                 Stale: true, staleAfter.TotalSeconds,
@@ -310,7 +311,10 @@ public static class VRChatUserEndpoints
             row.Pronouns,
             row.CurrentAvatarImageUrl,
             row.CurrentAvatarThumbnailImageUrl,
-            row.ProfilePictureUrl,
+            ProfilePictures.Best(row),
+            row.IconUrl,
+            row.BannerUrl,
+            RepresentedGroupOf(row),
             row.DateJoined,
             Tags(row.Tags),
             row.TrustRank,
@@ -393,4 +397,10 @@ public static class VRChatUserEndpoints
             return [];
         }
     }
+
+    /// <summary>The represented group as the API shows it, or null when the row names none.</summary>
+    internal static RepresentedGroupView? RepresentedGroupOf(VRChatUser row)
+        => string.IsNullOrEmpty(row.RepresentedGroupId)
+            ? null
+            : new RepresentedGroupView(row.RepresentedGroupId, row.RepresentedGroupName, row.RepresentedGroupIconUrl);
 }

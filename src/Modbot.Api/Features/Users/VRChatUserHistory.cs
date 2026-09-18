@@ -11,6 +11,8 @@ using Modbot.Api.Features.Audit;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
+using Modbot.VRChat.Users;
 
 namespace Modbot.Api.Features.Users;
 
@@ -18,6 +20,10 @@ namespace Modbot.Api.Features.Users;
 /// One person's profile fields as they stood at a moment. A null field is one Modbot did not
 /// know at that moment, or one that was empty; the two cannot be told apart from the facts.
 /// </summary>
+/// <param name="ProfilePictureUrl">
+/// The best picture as of that moment: the override, else the icon, else the avatar thumbnail
+/// (<see cref="ProfilePictures"/>), so a version shows the face it had, not only the field.
+/// </param>
 public sealed record ProfileFields(
     string? DisplayName,
     string? Bio,
@@ -26,6 +32,9 @@ public sealed record ProfileFields(
     string? AvatarImageUrl,
     string? AvatarThumbnailUrl,
     string? ProfilePictureUrl,
+    string? IconUrl,
+    string? BannerUrl,
+    RepresentedGroupView? RepresentedGroup,
     string? DateJoined,
     IReadOnlyList<string> Tags,
     string? AgeVerificationStatus,
@@ -216,6 +225,8 @@ public static class VRChatUserHistory
     {
         private string? _displayName, _bio, _statusDescription, _pronouns;
         private string? _avatarImageUrl, _avatarThumbnailUrl, _profilePictureUrl;
+        private string? _iconUrl, _bannerUrl;
+        private VRChatRepresentedGroup? _representedGroup;
         private string? _dateJoined, _ageVerificationStatus;
         private bool? _ageVerified;
         private List<string> _tags;
@@ -229,6 +240,9 @@ public static class VRChatUserHistory
             _avatarImageUrl = row.CurrentAvatarImageUrl;
             _avatarThumbnailUrl = row.CurrentAvatarThumbnailImageUrl;
             _profilePictureUrl = row.ProfilePictureUrl;
+            _iconUrl = row.IconUrl;
+            _bannerUrl = row.BannerUrl;
+            _representedGroup = VRChatRepresentedGroup.FromRow(row);
             _dateJoined = row.DateJoined?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             _ageVerificationStatus = row.AgeVerificationStatus;
             _ageVerified = row.AgeVerified;
@@ -246,6 +260,9 @@ public static class VRChatUserHistory
                 case "currentAvatarImageUrl": _avatarImageUrl = Text(value); break;
                 case "currentAvatarThumbnailImageUrl": _avatarThumbnailUrl = Text(value); break;
                 case "profilePicOverride": _profilePictureUrl = Text(value); break;
+                case "iconUrl": _iconUrl = Text(value); break;
+                case "bannerUrl": _bannerUrl = Text(value); break;
+                case "representedGroup": _representedGroup = VRChatRepresentedGroup.FromJson(value); break;
                 case "dateJoined": _dateJoined = Day(Text(value)); break;
                 case "ageVerificationStatus": _ageVerificationStatus = Text(value); break;
                 case "ageVerified": _ageVerified = value is JsonValue v && v.TryGetValue<bool>(out var b) ? b : null; break;
@@ -259,7 +276,10 @@ public static class VRChatUserHistory
 
         public ProfileFields Snapshot() => new(
             _displayName, _bio, _statusDescription, _pronouns,
-            _avatarImageUrl, _avatarThumbnailUrl, _profilePictureUrl,
+            _avatarImageUrl, _avatarThumbnailUrl,
+            ProfilePictures.Best(_profilePictureUrl, _iconUrl, _avatarThumbnailUrl),
+            _iconUrl, _bannerUrl,
+            _representedGroup is null ? null : new RepresentedGroupView(_representedGroup.GroupId, _representedGroup.Name, _representedGroup.IconUrl),
             _dateJoined, [.. _tags], _ageVerificationStatus, _ageVerified);
 
         private static string? Text(JsonNode? node) =>

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Modbot.Core.Users;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -292,17 +293,19 @@ public static class DiscordRouteEndpoints
                         || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\"))
                         || (u.DisplayNameSearchable != null && EF.Functions.ILike(u.DisplayNameSearchable, plain, "\\")));
 
-                var found = await users
+                var found = (await users
                     .OrderBy(u => u.UserId != term)
                     .ThenBy(u => u.DisplayName)
                     .ThenBy(u => u.UserId)
                     .Take(PeopleSearchLimit)
+                    .Select(u => new { u.UserId, u.DisplayName, u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl })
+                    .ToListAsync(ct))
                     .Select(u => new DiscordRoutePerson(
                         u.UserId,
                         u.DisplayName,
-                        u.ProfilePictureUrl ?? u.CurrentAvatarThumbnailImageUrl,
+                        ProfilePictures.Best(u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl),
                         DiscordRoutePlatform.VRChat))
-                    .ToListAsync(ct);
+                    .ToList();
 
                 // Discord accounts: the server's member list, whether or not they linked anything,
                 // then linked accounts no longer in the server. Anybody else is picked by typing
@@ -435,10 +438,15 @@ public static class DiscordRouteEndpoints
         if (ids.Count == 0)
             return [];
 
-        var known = await db.VRChatUsers.AsNoTracking()
+        var known = (await db.VRChatUsers.AsNoTracking()
             .Where(u => ids.Contains(u.UserId))
-            .Select(u => new DiscordRoutePerson(u.UserId, u.DisplayName, u.ProfilePictureUrl ?? u.CurrentAvatarThumbnailImageUrl, DiscordRoutePlatform.VRChat))
-            .ToListAsync(ct);
+            .Select(u => new { u.UserId, u.DisplayName, u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl })
+            .ToListAsync(ct))
+            .Select(u => new DiscordRoutePerson(
+                u.UserId, u.DisplayName,
+                ProfilePictures.Best(u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl),
+                DiscordRoutePlatform.VRChat))
+            .ToList();
 
         var byId = known.ToDictionary(p => p.Id, StringComparer.Ordinal);
         return ids.Select(id => byId.GetValueOrDefault(id) ?? new DiscordRoutePerson(id, null, null, DiscordRoutePlatform.VRChat)).ToList();
