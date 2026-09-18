@@ -14,7 +14,6 @@ import {
 import { CREDITS_PATH } from '@/lib/nav'
 import { followLink } from '@/lib/router'
 import { Checkbox, Fact, Field, Hint, Outcome, Placeholder, Row, Switch } from './fields'
-import { ImportCard } from './ImportCard'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { StorageChart } from './StorageChart'
 import { CheckCircle2 } from 'lucide-react'
@@ -73,7 +72,6 @@ export function DataSection() {
             }}
           />
           <RetentionCard current={data.retention} onSaved={load} />
-          <ImportCard />
           <LogsCard />
           <DeploymentCard deployment={data.deployment} />
           <UpdatesCard />

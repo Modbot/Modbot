@@ -2725,32 +2725,6 @@ export type ApiKeyView = {
 /** `grantable` is what the signed-in person may put on a new key: what they hold. */
 export type ApiKeysResponse = { keys: ApiKeyView[]; grantable: PermissionInfo[] }
 
-// ── Imports of old data (import design §4) ──────────────────────────────────────────────────
-
-export type ImportStatus = 'Queued' | 'Running' | 'Done' | 'Failed'
-
-export type ImportRejection = { line: number; reason: string }
-
-export type ImportView = {
-  id: string
-  source: string
-  fileName: string | null
-  dryRun: boolean
-  status: ImportStatus
-  received: number
-  imported: number
-  skipped: number
-  rejected: number
-  rejections: ImportRejection[]
-  error: string | null
-  startedBy: string
-  createdAt: string
-  startedAt: string | null
-  finishedAt: string | null
-}
-
-export type ImportsResponse = { imports: ImportView[] }
-
 /** `key` is shown once. */
 export type CreatedApiKey = { apiKey: ApiKeyView; key: string }
 
@@ -3314,18 +3288,6 @@ export const api = {
     post<CreatedApiKey>('/api/api-keys', body),
 
   revokeApiKey: (id: string) => del<void>(`/api/api-keys/${encodeURIComponent(id)}`),
-
-  // ── Imports of old data (import design §4) ──────────────────────────────────────────────
-
-  imports: () => request<ImportsResponse>('/api/imports'),
-
-  import: (id: string) => request<ImportView>(`/api/imports/${encodeURIComponent(id)}`),
-
-  /** The file's bytes are the body, as the server takes them; `request` marks the body as JSON. */
-  startImport: (file: File, source: string, dryRun: boolean) => {
-    const q = new URLSearchParams({ source, dryRun: String(dryRun), fileName: file.name })
-    return request<ImportView>(`/api/imports?${q}`, { method: 'POST', body: file })
-  },
 
   eventTypes: () => request<EventTypeOption[]>('/api/events/types'),
 

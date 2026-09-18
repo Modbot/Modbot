@@ -132,50 +132,18 @@ The last record has a kind Modbot does not know. It is kept, with `verified-age`
 The same file, one record per line, is the same records without the surrounding `[`, `]` and
 commas.
 
-## Importing from the web app
+## The counts
 
-Open **Settings**, then **Host & Database**. In the **Import** card:
-
-<Steps>
-<Step>
-
-### Pick the file and name the source
-
-Choose the file and type a **Source**: the name of the platform it came from, such as `old-bot`
-or `vrcx`. At most 64 characters. The same source name is what makes a second upload of the same
-file safe; see [Uploading twice](#uploading-twice).
-
-</Step>
-<Step>
-
-### Dry run first
-
-Press **Dry run**. Modbot reads the whole file, counts what it would import, what it would skip
-and what it would reject, and writes nothing. The run appears in the list under the buttons,
-marked **Dry run**. Press **Show** on the row to read each rejection with its line number.
-
-</Step>
-<Step>
-
-### Import
-
-Press **Import**. The upload is queued and runs in the background. The row's counts move while it
-runs; the page asks again every two seconds until it is done.
-
-</Step>
-</Steps>
-
-The list shows the latest fifty imports: when, source, file, who uploaded it, its status, and the
-four counts.
+Every import reports four counts:
 
 | Count | Meaning |
 |---|---|
 | **Received** | Records read from the file, well-formed or not. |
 | **Imported** | Records written. For a dry run, records that would have been. |
 | **Skipped** | Records that were already imported earlier. |
-| **Rejected** | Records refused because something was missing or wrong. **Show** lists the first fifty, each with its line number (in a one-record-per-line file) or its position (in an array). |
+| **Rejected** | Records refused because something was missing or wrong. The first fifty are listed, each with its line number (in a one-record-per-line file) or its position (in an array). |
 
-A file that is not JSON at all ends as **Failed** with the parser's reason on the row.
+A file that is not JSON at all ends as **Failed** with the parser's reason.
 
 ## Importing with curl
 

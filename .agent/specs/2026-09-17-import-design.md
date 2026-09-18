@@ -2,8 +2,9 @@
 
 - **Date:** 2026-09-17
 - **Status:** Implemented with this document
-- **Covers:** the import file format; how each record becomes a fact; the `Import` source; the
-  import job and its endpoints; idempotency; storage; purge-user; the Settings card
+- **Covers:** the import file format; how each record becomes a fact; the source each record is
+  filed under; the import job and its endpoints; the permission it needs; idempotency; storage;
+  purge-user
 - **Implements:** foundation §5.1 ("recorded history is not retrofittable" — except by the group
   bringing its own), §5.3 (facts, `source`), §5.3.1 (`modbot.unrecognised` and `type_raw`), §5.5
   (purge-user), §5.9 (Modbot's own audit log)
@@ -268,16 +269,22 @@ An import found `Running` when the process starts was interrupted by a restart. 
 `Failed` with that as the reason. The records its committed batches wrote are in the log and in
 `import_record`, so uploading the file again imports only what was left.
 
-## 9. The Settings card
+## 9. No screen
 
-**Settings → Host & Database → Import**, visible to anyone who can open Settings. A file picker,
-a **Source** box, **Dry run** and **Import** buttons, and the list of past imports: source, file,
-when, who, status, the four counts, and the rejection reasons for one that had any. The list asks
-the server again every two seconds while an import is queued or running.
+There was a **Settings → Host & Database → Import** card: a file picker, a **Source** box, **Dry
+run** and **Import** buttons and the list of past imports. It is gone, and the endpoints are the
+whole feature.
 
-No text explains the format on the card. The format is documented at
+The reason is that the card was on the wrong screen for the job it does. An import is a one-off
+move somebody makes once, from a file they have just converted with a script they wrote against
+this page, and the converting is the work — the upload is the last line of it. Putting a file
+picker in Settings made a permanent control out of a thing almost nobody does twice, on the one
+page every operator opens for ordinary reasons, and it invited a moderator to press it without
+having read what the file has to contain.
+
+So importing is a thing you do with an API key (§4), the format stays documented at
 [docs.modbot.co/self-hosting/importing-old-data](https://docs.modbot.co/self-hosting/importing-old-data),
-and a moderator who wants to know what a rejection means reads the reason on the row.
+and nothing in the web app reaches `/api/imports`.
 
 ## 10. What this deliberately does not do
 
