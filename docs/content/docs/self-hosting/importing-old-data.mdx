@@ -191,13 +191,14 @@ commas.
 
 ## The counts
 
-Every import reports four counts:
+Every import reports five counts:
 
 | Count | Meaning |
 |---|---|
 | **Received** | Records read from the file, well-formed or not. |
 | **Imported** | Records written. For a dry run, records that would have been. |
-| **Skipped** | Records that were already imported earlier. |
+| **Skipped** | Records you had already imported before. See [Uploading twice](#uploading-twice). |
+| **Already known** | Records Modbot already had from somewhere else, such as a ban it read from VRChat's own audit log. See [Things Modbot already knows](#things-modbot-already-knows). |
 | **Rejected** | Records refused because something was missing or wrong. The first fifty are listed, each with its line number (in a one-record-per-line file) or its position (in an array). |
 
 A file that is not JSON at all ends as **Failed** with the parser's reason.
@@ -223,7 +224,7 @@ The answer is the import, with its `id` and status `Queued`:
   "dryRun": true,
   "seenBy": "AuditLog",
   "status": "Queued",
-  "received": 0, "imported": 0, "skipped": 0, "rejected": 0,
+  "received": 0, "imported": 0, "skipped": 0, "alreadyKnown": 0, "rejected": 0,
   "rejections": [],
   "error": null,
   "startedBy": "sarah",
@@ -259,7 +260,11 @@ you gave, keyed by:
 
 A record whose key is already there is **skipped**, counted, and never an error. That makes it
 safe to re-upload a file after a failed import, or to upload a fresh export every month: only
-what is new goes in.
+what is new goes in. Re-running the same file reports every record as **Skipped** and writes
+nothing at all.
+
+This is about records you have imported before. For records Modbot already knew about from
+somewhere else, see [Things Modbot already knows](#things-modbot-already-knows).
 
 Two things follow from the rule:
 
@@ -268,6 +273,37 @@ Two things follow from the rule:
   a new record, because Modbot cannot tell a correction from a different event.
 - The same record under two source names is two records. Keep using the same source name for
   the same platform.
+
+## Things Modbot already knows
+
+Uploading twice is one problem. The other is that your file probably overlaps with what Modbot has
+already recorded itself: if Modbot has been running for a month and your old bot's export covers
+the same month, those bans are already in the log, read from VRChat's own audit log while they
+happened.
+
+Modbot skips them. Before writing a record it checks whether it already has that event, and counts
+the matches as **Already known**. Nothing is written and nothing is lost.
+
+An event counts as one Modbot already has when **the same thing happened to the same person at the
+same moment** — the same event type, the same subject, the same `at`, to the second. Nothing else
+is compared: your old bot's wording of a ban reason will never match VRChat's, and requiring them
+to match would mean nothing was ever recognised.
+
+Exactly the same moment, with no leeway either way, and that is deliberate. Records in a file carry
+times somebody wrote down, not times measured by a clock that might be a second out, so there is
+nothing to allow for — and allowing for it would do harm. A spreadsheet that dates warnings only by
+the day gives every warning that day the same midnight, and a few seconds of leeway would throw
+away all but the first.
+
+Two things this never does:
+
+- **It never collapses records from your own file.** Three warnings all dated to the same day are
+  three warnings. Only what Modbot knew before this import began counts. Duplicates inside one file
+  are handled by [Uploading twice](#uploading-twice) instead, which tells records apart by
+  `externalId` or by their contents.
+- **It never merges two different kinds of event**, or two people, or two moments.
+
+A dry run makes the same check, so its **Already known** count is what a real import would skip.
 
 ## What an import does not do
 

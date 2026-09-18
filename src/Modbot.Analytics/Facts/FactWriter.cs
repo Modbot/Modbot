@@ -97,7 +97,7 @@ public sealed class FactWriter : IFactWriter
             await _db.Database.ExecuteSqlInterpolatedAsync(
                 $"SELECT pg_advisory_xact_lock(hashtext({key})::bigint)", ct);
 
-            var existing = await FindWithinWindowAsync(fact, window, ct);
+            var existing = await AlreadyRecordedAsync(fact, window, ct);
             if (existing is not null)
             {
                 if (transaction is not null)
@@ -153,13 +153,16 @@ public sealed class FactWriter : IFactWriter
         fact.WorldId ?? string.Empty,
         fact.InstanceId ?? string.Empty);
 
-    private async Task<long?> FindWithinWindowAsync(
+    public async Task<long?> AlreadyRecordedAsync(
         FactRecord fact,
-        TimeSpan window,
-        CancellationToken ct)
+        TimeSpan within,
+        CancellationToken ct = default)
     {
-        var from = fact.OccurredAt - window;
-        var to = fact.OccurredAt + window;
+        ArgumentNullException.ThrowIfNull(fact);
+
+        var at = fact.OccurredAt.ToUniversalTime();
+        var from = at - within;
+        var to = at + within;
 
         var match = await _db.Events
             .AsNoTracking()

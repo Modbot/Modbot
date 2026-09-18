@@ -22740,6 +22740,7 @@
           "received",
           "imported",
           "skipped",
+          "alreadyKnown",
           "rejected",
           "rejections",
           "error",
@@ -22789,6 +22790,14 @@
             "format": "int32"
           },
           "skipped": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "alreadyKnown": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",

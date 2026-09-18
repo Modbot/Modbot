@@ -16,6 +16,7 @@ public sealed record ImportRejection(int Line, string Reason);
 /// <param name="Received">Records read from the file so far, well-formed or not.</param>
 /// <param name="Imported">Facts written. For a dry run, facts that would have been.</param>
 /// <param name="Skipped">Records that were already imported.</param>
+/// <param name="AlreadyKnown">Records Modbot already had from somewhere else.</param>
 /// <param name="Rejected">Records refused. <paramref name="Rejections"/> holds the first fifty.</param>
 /// <param name="Error">For a failed import, why.</param>
 public sealed record ImportView(
@@ -28,6 +29,7 @@ public sealed record ImportView(
     int Received,
     int Imported,
     int Skipped,
+    int AlreadyKnown,
     int Rejected,
     IReadOnlyList<ImportRejection> Rejections,
     string? Error,
@@ -62,6 +64,7 @@ public sealed record ImportView(
             import.Received,
             import.Imported,
             import.Skipped,
+            import.AlreadyKnown,
             import.Rejected,
             rejections ?? [],
             import.Error,

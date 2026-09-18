@@ -57,6 +57,11 @@ public class Import
     /// <summary>Records already imported before, left alone.</summary>
     public int Skipped { get; set; }
 
+    /// <summary>
+    /// Records Modbot already had a fact for from somewhere else, left alone (import design §6.1).
+    /// </summary>
+    public int AlreadyKnown { get; set; }
+
     /// <summary>Records refused as malformed.</summary>
     public int Rejected { get; set; }
 

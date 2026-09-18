@@ -29,6 +29,23 @@ public interface IFactWriter
     Task<IReadOnlyList<FactWriteResult>> WriteManyAsync(
         IEnumerable<FactRecord> facts,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// The id of a fact already recording this event, or null when there is none.
+    /// </summary>
+    /// <param name="within">
+    /// How far either side of <see cref="FactRecord.OccurredAt"/> to look. Zero means the same
+    /// instant and nothing else.
+    /// </param>
+    /// <remarks>
+    /// The same check <see cref="WriteAsync"/> makes for a client report, offered on its own for
+    /// a caller that has to decide before it writes rather than while it writes -- an import, for
+    /// one, which must count what it would skip during a dry run that writes nothing (import
+    /// design §6.1). Writing nothing, it takes no lock, so a fact appearing between the answer
+    /// and the caller's write is possible; that is why the deduplicated ingest path still does
+    /// its own check under one.
+    /// </remarks>
+    Task<long?> AlreadyRecordedAsync(FactRecord fact, TimeSpan within, CancellationToken ct = default);
 }
 
 /// <summary>Which facts go through the deduplication path.</summary>

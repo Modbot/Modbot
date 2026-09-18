@@ -171,6 +171,7 @@ One import, or the latest fifty, newest first:
 | `received` | Records read from the file so far, well-formed or not. |
 | `imported` | Facts written. For a dry run, facts that would be written. |
 | `skipped` | Records that were already imported (§6). |
+| `alreadyKnown` | Records Modbot already had a fact for from somewhere else (§6.1). |
 | `rejected` | Records refused, and `rejections`: the first fifty, each `{ line, reason }`. |
 | `error` | For `Failed`: why. |
 | `startedBy`, `createdAt`, `startedAt`, `finishedAt` | Who and when. |
@@ -180,7 +181,8 @@ Counts update as the job runs, so a page can show progress by asking again.
 
 ### 4.3 Dry run
 
-`?dryRun=true` runs the same job — parsing, mapping, the duplicate check — and writes nothing:
+`?dryRun=true` runs the same job — parsing, mapping, both duplicate checks (§6, §6.1) — and
+writes nothing:
 no facts, no dedupe rows, no audit entry. The counts say what an import of the same file would
 do. It is listed with the past imports, marked as a dry run.
 
@@ -189,7 +191,7 @@ do. It is listed with the past imports, marked as a dry run.
 Every import that is not a dry run writes one `modbot.import.done` fact when it finishes, whether
 `Done` or `Failed`: subject is the import id on the Modbot platform, actor is the account that
 uploaded it, and the payload carries `source`, `fileName`, `status`, `received`, `imported`,
-`skipped` and `rejected`. One entry, not one per record: the imported facts themselves already
+`skipped`, `alreadyKnown` and `rejected`. One entry, not one per record: the imported facts themselves already
 say what came in.
 
 ## 5. What source an imported fact carries
@@ -272,6 +274,58 @@ its hash and imports it again as a new fact; that is the honest outcome, since M
 a correction from a different event. A record with an `externalId` is imported once whatever its
 other fields say, which is what an external id is for.
 
+### 6.1 Records Modbot already knows about
+
+The key above answers *"have I imported this record before"*. It cannot answer *"does Modbot
+already know this happened"*, which is a different and more common question: a group that ran
+Modbot for a month before uploading its old bot's export has the last month twice in the file, and
+those bans are already in the log — recorded from VRChat's own audit log, by a sync, by a client.
+
+So before a record is written, the import asks **the fact writer** whether the event is already
+recorded, with `IFactWriter.AlreadyRecordedAsync` — the same check the writer makes for a client
+report (foundation §5.7.1), offered on its own so an import can ask before it writes rather than
+while it writes. There is deliberately no second mechanism: a range query on
+`(subject_platform, subject_id, type, world_id, instance_id, occurred_at)` is what "the same event"
+already means in Modbot, and an import that invented its own definition would be a second answer
+to a question that already has one.
+
+**The same event, for an import, is: the same person, the same fact type, at the same moment.**
+Exactly the same instant — the window is zero, where a client report's is five seconds.
+
+The window is zero because the two timestamps are different kinds of thing. A client's is an
+observation through a clock that may be off by a second or two, so a window is what makes two
+reports of one join meet. An imported time is a time **somebody wrote down**, copied from another
+system's record; there is no skew to absorb, and a window would do real harm. A spreadsheet that
+dates warnings only to the day gives three warnings the same midnight, and a five-second window
+would swallow the second and third of them. Losing history is a worse failure than keeping a
+duplicate row, and this is a path that runs unattended over somebody's only copy of their past.
+
+A record that matches is **already known**: it is counted, no fact is written, and its
+`import_record` row is still written, pointing at the fact that already says it. So a re-upload
+skips it outright by key (§6), and it is still traceable to the import that met it.
+
+Two guards make this safe against collapsing history:
+
+- **Events this same import wrote do not count.** The run remembers the events it has put in and
+  never treats one of them as something Modbot knew beforehand. Otherwise the three
+  same-midnight warnings above would collapse into one anyway — the first would be written and
+  the other two would match it. Duplicates *within* a file are §6's job, and §6 tells them apart
+  by `externalId` or by content.
+- **Nothing else is compared.** Not `data`, not the actor: a fact Modbot recorded itself and the
+  old platform's row for the same event will not agree on either, and requiring them to agree
+  would make the check never fire.
+
+A dry run makes exactly the same check and writes nothing, so its counts are what a real run
+would do. The check is one query per record, which roughly doubles the database work of an
+import; imports are rare, run in the background one at a time, and this is the price of not
+duplicating somebody's history.
+
+It takes no lock, because writing nothing there is nothing to serialise, and because imports run
+one at a time (§8) there is no second import to race. A sync writing the same fact in the gap
+between the answer and the insert would leave a duplicate — the same outcome as before this
+existed, and the deduplicated ingest path still takes its own lock for the case that actually
+happens sixfold.
+
 ## 7. Storage
 
 ```sql
@@ -282,7 +336,7 @@ import                              -- one row per upload
   dry_run            boolean
   seen_by            smallint       -- the file's default source (§5); 7 on rows from before
   status             smallint       -- Queued 1 | Running 2 | Done 3 | Failed 4
-  received, imported, skipped, rejected   integer
+  received, imported, skipped, already_known, rejected   integer
   rejections         jsonb          -- [{ line, reason }], at most fifty
   error              text           null
   started_by_user_id uuid
