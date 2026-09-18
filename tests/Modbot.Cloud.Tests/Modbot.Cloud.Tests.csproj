@@ -16,6 +16,9 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <!-- The client's updater, so the feed Cloud serves is checked against the package the client
+         actually ships with rather than against a document describing it. Tests only. -->
+    <PackageReference Include="Velopack" />
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
 

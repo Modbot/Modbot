@@ -22,6 +22,7 @@ using Modbot.Cloud.Features.Showcase;
 using Modbot.Cloud.Features.Site;
 using Modbot.Cloud.Features.TermLists;
 using Modbot.Cloud.Features.Time;
+using Modbot.Cloud.Features.Updates;
 
 namespace Modbot.Cloud;
 
@@ -42,6 +43,7 @@ public static class CloudApp
     /// <param name="mail">Where Cloud's mail goes out through. Without a key it sends nothing.</param>
     /// <param name="runDailyUpkeep">False in tests, which run retention themselves against a fake clock.</param>
     /// <param name="watchInstances">False in tests, which run the instance checks themselves.</param>
+    /// <param name="refreshUpdates">False in tests, which refresh the release news themselves.</param>
     public static void AddServices(
         IServiceCollection services,
         string connectionString,
@@ -53,7 +55,10 @@ public static class CloudApp
         bool runDailyUpkeep = true,
         bool watchInstances = true,
         string? gitHubToken = null,
-        string? gitHubRepository = null)
+        string? gitHubRepository = null,
+        bool refreshUpdates = true,
+        string? gitHubReleasesRepository = null,
+        string? dockerImage = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
@@ -115,6 +120,30 @@ public static class CloudApp
             gitHubRepository ?? GitHubContributors.DefaultRepository,
             sp.GetRequiredService<TimeProvider>()));
 
+        // What the newest release of each thing Modbot ships is. Held in memory and refreshed on a
+        // timer, because every deployment and every companion in the world asks, and GitHub's rate
+        // limit -- not Cloud's capacity -- is what that would spend.
+        services.AddHttpClient(GitHubReleases.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(20));
+        services.AddHttpClient(DockerHubTags.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(15));
+
+        services.TryAddSingleton(sp => new GitHubReleases(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(GitHubReleases.HttpClientName),
+            gitHubToken,
+            gitHubReleasesRepository ?? gitHubRepository ?? GitHubReleases.DefaultRepository));
+
+        services.TryAddSingleton(sp => new DockerHubTags(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(DockerHubTags.HttpClientName),
+            dockerImage ?? DockerHubTags.DefaultImage));
+
+        services.TryAddSingleton(sp => new LatestReleases(
+            sp.GetRequiredService<GitHubReleases>(),
+            sp.GetRequiredService<DockerHubTags>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILoggerFactory>().CreateLogger<LatestReleases>()));
+
+        if (refreshUpdates)
+            services.AddHostedService<UpdateRefreshService>();
+
         if (runDailyUpkeep)
             services.AddHostedService<DailyUpkeepService>();
     }
@@ -163,5 +192,6 @@ public static class CloudApp
         app.MapSite();
         app.MapAdminRegistry();
         app.MapTermLists();
+        app.MapUpdates();
     }
 }

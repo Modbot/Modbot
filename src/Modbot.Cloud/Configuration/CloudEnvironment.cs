@@ -31,6 +31,15 @@ namespace Modbot.Cloud.Configuration;
 /// while it is private, and without it the contributor list is simply empty.
 /// </param>
 /// <param name="GitHubRepository">The repository the contributors come from, as <c>owner/name</c>.</param>
+/// <param name="GitHubReleasesRepository">
+/// The repository the releases come from, as <c>owner/name</c>. Usually the same one; separate
+/// because the client's releases may be published somewhere the public can download them from
+/// while the source repository is private.
+/// </param>
+/// <param name="DockerImage">
+/// The server's image on Docker Hub, as <c>owner/name</c>. Cloud reads its tags so it can tell an
+/// operator what to pull.
+/// </param>
 public sealed record CloudEnvironment(
     string? DatabaseUrl,
     string? EngineDatabaseUrl,
@@ -42,7 +51,9 @@ public sealed record CloudEnvironment(
     string? PublicUrl,
     int Port,
     string? GitHubToken = null,
-    string? GitHubRepository = null)
+    string? GitHubRepository = null,
+    string? GitHubReleasesRepository = null,
+    string? DockerImage = null)
 {
     public const string DatabaseUrlVariable = "DATABASE_URL";
     public const string EngineDatabaseUrlVariable = "DATABASE_ENGINE_URL";
@@ -62,6 +73,15 @@ public sealed record CloudEnvironment(
 
     /// <summary>The repository the contributors come from. Defaults to the project's own.</summary>
     public const string GitHubRepositoryVariable = "GITHUB_REPOSITORY";
+
+    /// <summary>
+    /// The repository the releases come from. Defaults to <see cref="GitHubRepositoryVariable"/>,
+    /// then to the project's own.
+    /// </summary>
+    public const string GitHubReleasesRepositoryVariable = "GITHUB_RELEASES_REPOSITORY";
+
+    /// <summary>The server's image on Docker Hub. Optional; without it the project's own is read.</summary>
+    public const string DockerImageVariable = "DOCKER_IMAGE";
     public const int DefaultPort = 8080;
 
     public const string DefaultPublicUrl = "https://cloud.modbot.co";
@@ -85,7 +105,9 @@ public sealed record CloudEnvironment(
             Blank(get(PublicUrlVariable)),
             port,
             Blank(get(GitHubTokenVariable)),
-            Blank(get(GitHubRepositoryVariable)));
+            Blank(get(GitHubRepositoryVariable)),
+            Blank(get(GitHubReleasesRepositoryVariable)) ?? Blank(get(GitHubRepositoryVariable)),
+            Blank(get(DockerImageVariable)));
     }
 
     /// <summary>

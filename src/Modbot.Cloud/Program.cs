@@ -58,7 +58,9 @@ try
         environment.ProxyApiKey,
         new MailSettings(environment.ResendApiKey, environment.MailFrom, environment.PublicAddress),
         gitHubToken: environment.GitHubToken,
-        gitHubRepository: environment.GitHubRepository);
+        gitHubRepository: environment.GitHubRepository,
+        gitHubReleasesRepository: environment.GitHubReleasesRepository,
+        dockerImage: environment.DockerImage);
 
     var app = builder.Build();
 
