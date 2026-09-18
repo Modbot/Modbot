@@ -9,9 +9,9 @@ import {
   type RuleAction,
   type TermInput,
   type TermListDetail,
-} from '@/lib/aiModeration'
+} from '@/lib/autoMod'
 import { cn } from '@/lib/utils'
-import { Checkbox, Outcome } from '../../fields'
+import { Checkbox, Outcome } from '../fields'
 import { Group, RuleActionFields } from './RuleFields'
 
 const KINDS: { value: TermInput['kind']; label: string }[] = [
@@ -25,6 +25,8 @@ const NEW_LIST: RuleAction = {
   targets: ['discordMessage'],
   deleteMessage: false,
   timeoutMinutes: null,
+  groupBan: false,
+  groupRemove: false,
   scope: NO_SCOPE,
   trialDays: null,
   contextMessages: 5,
@@ -101,6 +103,8 @@ function TermListForm({
           targets: d.list.targets,
           deleteMessage: d.list.deleteMessage,
           timeoutMinutes: d.list.timeoutMinutes,
+          groupBan: d.list.groupBan,
+          groupRemove: d.list.groupRemove,
           scope: d.list.scope,
           trialDays: d.list.trial?.days ?? null,
           contextMessages: d.list.contextMessages,

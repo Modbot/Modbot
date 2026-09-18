@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input'
-import { CONTEXT_CHOICES, TARGETS, type RuleAction } from '@/lib/aiModeration'
-import { Checkbox, Switch } from '../../fields'
+import { CONTEXT_CHOICES, TARGETS, type RuleAction } from '@/lib/autoMod'
+import { Checkbox, Switch } from '../fields'
 import { RuleScopeFields } from './RuleScopeFields'
 
 /** A small labelled group, so the dialogs read as sections without a paragraph of text. */
@@ -16,8 +16,9 @@ export function Group({ label, children }: { label: string; children: React.Reac
 /**
  * The part every rule shares: on or off, what it looks at, and what it does.
  *
- * Delete and time out only apply to Discord messages, so they are disabled until Discord messages
- * is ticked -- the server refuses the combination anyway, and a disabled box says so without words.
+ * Delete and time out only apply to Discord messages, and the group actions only to VRChat profile
+ * text, so each is disabled until a target it could act on is ticked -- the server refuses the
+ * combination anyway, and a disabled box says so without words.
  */
 export function RuleActionFields({
   value,
@@ -33,16 +34,20 @@ export function RuleActionFields({
   picturesAvailable?: boolean
 }) {
   const chat = value.targets.includes('discordMessage')
-  const acts = value.deleteMessage || value.timeoutMinutes !== null
+  const profile = value.targets.some((t) => t !== 'discordMessage')
+  const acts = value.deleteMessage || value.timeoutMinutes !== null || value.groupBan || value.groupRemove
 
   const toggleTarget = (target: RuleAction['targets'][number], on: boolean) => {
     const targets = on ? [...value.targets, target] : value.targets.filter((t) => t !== target)
     const keepsChat = targets.includes('discordMessage')
+    const keepsProfile = targets.some((t) => t !== 'discordMessage')
     onChange({
       ...value,
       targets,
       deleteMessage: keepsChat && value.deleteMessage,
       timeoutMinutes: keepsChat ? value.timeoutMinutes : null,
+      groupBan: keepsProfile && value.groupBan,
+      groupRemove: keepsProfile && value.groupRemove,
     })
   }
 
@@ -93,22 +98,22 @@ export function RuleActionFields({
         </Checkbox>
       </Group>
 
-      <Group label="Reviews">
+      <Group label="Action">
+        <Checkbox checked disabled onChange={() => undefined}>
+          Flag
+        </Checkbox>
         <Checkbox
           checked={value.openReviewForEachFlag}
           onChange={(openReviewForEachFlag) => onChange({ ...value, openReviewForEachFlag })}
         >
-          Open a review for each flag
+          Send to Reviews
         </Checkbox>
-      </Group>
-
-      <Group label="Action">
         <Checkbox
           checked={value.deleteMessage}
           disabled={!chat}
           onChange={(deleteMessage) => onChange({ ...value, deleteMessage })}
         >
-          Delete the message
+          Delete the Discord message
         </Checkbox>
         <div className="flex items-center gap-2">
           <Checkbox
@@ -141,6 +146,20 @@ export function RuleActionFields({
           />
           <span className="text-muted-foreground">minutes</span>
         </div>
+        <Checkbox
+          checked={value.groupBan}
+          disabled={!profile}
+          onChange={(groupBan) => onChange({ ...value, groupBan })}
+        >
+          Ban from the VRChat group
+        </Checkbox>
+        <Checkbox
+          checked={value.groupRemove}
+          disabled={!profile}
+          onChange={(groupRemove) => onChange({ ...value, groupRemove })}
+        >
+          Remove from the VRChat group
+        </Checkbox>
       </Group>
 
       {acts && !acting && (

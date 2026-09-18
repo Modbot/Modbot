@@ -52,6 +52,8 @@ export type RuleTrial = {
   wouldDelete: number
   wouldTimeOut: number
   dismissed: number
+  wouldGroupBan: number
+  wouldGroupRemove: number
 }
 
 export type RulePause = { at: string; reason: string | null }
@@ -76,6 +78,10 @@ export type RuleSafety = {
   contextMessages: number
   checkPictures: boolean
   openReviewForEachFlag: boolean
+  /** Ban a matched VRChat profile's owner from the managed group. */
+  groupBan: boolean
+  /** Remove a matched VRChat profile's owner from the managed group. */
+  groupRemove: boolean
 }
 
 export type HubChanges = { added: number; removed: number; changed: number }
@@ -132,7 +138,10 @@ export type TopicView = {
   stats: RuleStats
 } & RuleSafety
 
-export type AiModeration = {
+/** One AI tool AutoMod may use, and where its switch stands. */
+export type AiToolView = { name: string; label: string; on: boolean }
+
+export type AutoMod = {
   enabled: boolean
   dailyAiCallLimit: number
   aiCallsToday: number
@@ -141,6 +150,9 @@ export type AiModeration = {
   topics: TopicView[]
   picturesAvailable: boolean
   contextChoices: number[] | null
+  /** The switch on Settings → AI → Base. The AI section of the AutoMod tab shows only while it is on. */
+  aiEnabled: boolean
+  aiTools: AiToolView[]
 }
 
 export type TermInput = {
@@ -154,6 +166,8 @@ export type RuleAction = {
   targets: ModerationTarget[]
   deleteMessage: boolean
   timeoutMinutes: number | null
+  groupBan: boolean
+  groupRemove: boolean
   scope: RuleScope
   trialDays: number | null
   actWithoutTest?: boolean
@@ -194,12 +208,16 @@ export type TryMatch = {
   reason: string | null
   deleteMessage: boolean
   timeoutMinutes: number | null
+  groupBan: boolean
+  groupRemove: boolean
 }
 
 export type TryResult = {
   matches: TryMatch[]
   wouldDeleteMessage: boolean
   wouldTimeOutMinutes: number | null
+  wouldGroupBan: boolean
+  wouldGroupRemove: boolean
   aiSkipped: string | null
   /** The AI call behind it, in the call log. Null when no AI call was made. */
   callId: string | null
@@ -304,7 +322,20 @@ export type ModerationFlag = {
   reviewId: string | null
   confirmedAt: string | null
   confirmedBy: string | null
+  groupBanned: boolean
+  groupRemoved: boolean
+  wouldGroupBan: boolean
+  wouldGroupRemove: boolean
+  /** What the AI said when a moderator asked: keep or dismiss. Advice only. */
+  aiOpinion: 'keep' | 'dismiss' | null
+  aiOpinionReason: string | null
+  /** What the AI proposed a moderator might do. Never carried out by Modbot. */
+  aiProposedAction: ProposedAction | null
+  aiOpinionAt: string | null
+  aiOpinionCallId: string | null
 }
+
+export type ProposedAction = 'none' | 'delete_message' | 'timeout' | 'group_ban' | 'group_remove'
 
 /** One message the model was shown so it could read the flagged one in context. */
 export type FlagContextMessage = { messageId: string; author: string; text: string }
@@ -315,17 +346,20 @@ export type FlagList = {
   flags: ModerationFlag[]
   open: number
   languages: FlagLanguageCount[]
+  /** AI is on and the opinion tool is switched on under Settings → AutoMod. */
+  aiOpinionAvailable: boolean
 }
 
 /** What the Flags page calls a flag whose language could not be told. */
 export const UNKNOWN_LANGUAGE = 'unknown'
 
-const base = '/api/settings/ai/moderation'
+const base = '/api/settings/automod'
 
 export const moderationApi = {
-  settings: () => http.request<AiModeration>(base),
+  settings: () => http.request<AutoMod>(base),
 
-  saveSettings: (body: { enabled: boolean; dailyAiCallLimit: number }) => http.put<AiModeration>(base, body),
+  saveSettings: (body: { enabled: boolean; dailyAiCallLimit?: number; aiTools?: Record<string, boolean> }) =>
+    http.put<AutoMod>(base, body),
 
   list: (id: string) => http.request<TermListDetail>(`${base}/lists/${id}`),
 
@@ -382,15 +416,34 @@ export const moderationApi = {
   dismissFlag: (id: string) => http.post<ModerationFlag>(`/api/moderation-flags/${id}/dismiss`),
 
   openFlagReview: (id: string) => http.post<ModerationFlag>(`/api/moderation-flags/${id}/review`),
+
+  askAiAboutFlag: (id: string) => http.post<ModerationFlag>(`/api/moderation-flags/${id}/ai-opinion`),
 }
 
-/** "Flag only", "Delete", "Time out 60 min", "Delete, time out 60 min". */
-export function actionLabel(rule: { deleteMessage: boolean; timeoutMinutes: number | null }): string {
+/** "Flag only", "Delete", "Time out 60 min", "Delete, time out 60 min", "Ban from group". */
+export function actionLabel(rule: {
+  deleteMessage: boolean
+  timeoutMinutes: number | null
+  groupBan?: boolean
+  groupRemove?: boolean
+}): string {
   const parts = [
     rule.deleteMessage ? 'Delete' : null,
-    rule.timeoutMinutes ? `${rule.deleteMessage ? 'time' : 'Time'} out ${rule.timeoutMinutes} min` : null,
+    rule.timeoutMinutes ? `Time out ${rule.timeoutMinutes} min` : null,
+    rule.groupBan ? 'Ban from group' : null,
+    rule.groupRemove ? 'Remove from group' : null,
   ].filter(Boolean)
-  return parts.length ? parts.join(', ') : 'Flag only'
+  return parts.length
+    ? parts.map((p, i) => (i === 0 ? p : (p as string).charAt(0).toLowerCase() + (p as string).slice(1))).join(', ')
+    : 'Flag only'
+}
+
+export const PROPOSED_ACTION_LABELS: Record<ProposedAction, string> = {
+  none: 'No action',
+  delete_message: 'Delete the message',
+  timeout: 'Time out',
+  group_ban: 'Ban from the group',
+  group_remove: 'Remove from the group',
 }
 
 export function targetLabel(target: ModerationTarget): string {
@@ -444,13 +497,17 @@ export function scopeLabel(scope: RuleScope): string | null {
   return parts.length ? parts.join(' · ') : null
 }
 
-/** "3 would be deleted · 1 would be timed out · 2 dismissed". */
+/** "3 deletes · 1 timeout · 2 dismissed", with the group actions when a rule asked for any. */
 export function trialLabel(trial: RuleTrial): string {
   return [
     `${count(trial.wouldDelete, 'delete')}`,
     `${count(trial.wouldTimeOut, 'timeout')}`,
+    trial.wouldGroupBan > 0 ? `${count(trial.wouldGroupBan, 'group ban')}` : null,
+    trial.wouldGroupRemove > 0 ? `${count(trial.wouldGroupRemove, 'group removal')}` : null,
     `${trial.dismissed} dismissed`,
-  ].join(' · ')
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 function count(n: number, word: string): string {
@@ -460,6 +517,6 @@ function count(n: number, word: string): string {
 /** What the server said when something failed, in its words. */
 export function failure(e: unknown, fallback: string): string {
   if (typeof e === 'object' && e !== null && 'status' in e && (e as { status: number }).status === 403)
-    return 'You do not have permission to change AI settings.'
+    return 'You do not have permission to change AutoMod settings.'
   return e instanceof Error && e.message ? e.message : fallback
 }

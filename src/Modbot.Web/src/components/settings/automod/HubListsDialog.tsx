@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { failure, moderationApi, type HubListView } from '@/lib/aiModeration'
-import { Outcome } from '../../fields'
+import { failure, moderationApi, type HubListView } from '@/lib/autoMod'
+import { Outcome } from '../fields'
 
 /** The lists Modbot Hub offers, each with an Add button. Read again every time it opens. */
 export function HubListsDialog({

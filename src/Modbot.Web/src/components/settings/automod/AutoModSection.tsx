@@ -15,28 +15,32 @@ import {
   TARGETS,
   testsLabel,
   trialLabel,
-  type AiModeration,
+  type AiToolView,
+  type AutoMod,
   type ModerationTarget,
   type RuleKind,
   type RuleSafety,
   type TermListView,
   type TopicView,
   type TryResult,
-} from '@/lib/aiModeration'
+} from '@/lib/autoMod'
 import { cn } from '@/lib/utils'
 import { Checkbox, LongField, Outcome, Placeholder, Row, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
-import { HubListsDialog } from './moderation/HubListsDialog'
-import { TermListDialog } from './moderation/TermListDialog'
-import { TestSetDialog } from './moderation/TestSetDialog'
-import { TopicDialog } from './moderation/TopicDialog'
+import { HubListsDialog } from './HubListsDialog'
+import { TermListDialog } from './TermListDialog'
+import { TestSetDialog } from './TestSetDialog'
+import { TopicDialog } from './TopicDialog'
 
 /**
- * Settings → AI → Moderation: the switch, term lists (local and from Modbot Hub), AI topics and
- * the "Try it" box (AI moderation design).
+ * Settings → AutoMod: the switch, term lists (local and from Modbot Hub), the "Try it" box, and --
+ * only while AI is on under Settings → AI → Base -- the AI topics and the AI tools (AutoMod design).
+ *
+ * The AI section reads the same switch the Base card saves, carried on the response as `aiEnabled`,
+ * so switching AI off there hides everything here that would call it.
  */
-export function AiModerationSettings() {
-  const [data, setData] = useState<AiModeration | null>(null)
+export function AutoModSection() {
+  const [data, setData] = useState<AutoMod | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(
@@ -47,7 +51,7 @@ export function AiModerationSettings() {
           setData(d)
           setError(null)
         })
-        .catch((e: unknown) => setError(failure(e, 'Could not load AI moderation settings.'))),
+        .catch((e: unknown) => setError(failure(e, 'Could not load AutoMod settings.'))),
     [],
   )
 
@@ -56,7 +60,7 @@ export function AiModerationSettings() {
   }, [load])
 
   return (
-    <SettingsSection id="ai-moderation" title="AI moderation">
+    <SettingsSection id="automod" title="AutoMod">
       {error ? (
         <Placeholder>{error}</Placeholder>
       ) : !data ? (
@@ -64,32 +68,78 @@ export function AiModerationSettings() {
       ) : (
         <>
           <SwitchCard settings={data} onSaved={setData} />
-          <TryCard />
+          <TryCard aiEnabled={data.aiEnabled} />
           <TermListsCard
             lists={data.lists}
             picturesAvailable={data.picturesAvailable}
             onChanged={() => void load()}
           />
-          <TopicsCard
-            topics={data.topics}
-            aiReady={data.aiReady}
-            picturesAvailable={data.picturesAvailable}
-            onChanged={() => void load()}
-          />
+          {data.aiEnabled && (
+            <>
+              <TopicsCard
+                topics={data.topics}
+                aiReady={data.aiReady}
+                picturesAvailable={data.picturesAvailable}
+                onChanged={() => void load()}
+              />
+              <AiToolsCard settings={data} onSaved={setData} />
+            </>
+          )}
         </>
       )}
     </SettingsSection>
   )
 }
 
-function SwitchCard({
-  settings,
-  onSaved,
-}: {
-  settings: AiModeration
-  onSaved: (next: AiModeration) => void
-}) {
+function SwitchCard({ settings, onSaved }: { settings: AutoMod; onSaved: (next: AutoMod) => void }) {
   const [enabled, setEnabled] = useState(settings.enabled)
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const save = () => {
+    setBusy(true)
+    setSaved(false)
+    setProblem(null)
+
+    moderationApi
+      .saveSettings({ enabled })
+      .then((next) => {
+        setSaved(true)
+        onSaved(next)
+      })
+      .catch((e: unknown) => setProblem(failure(e, 'Could not save.')))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <SettingsCard
+      title="AutoMod"
+      footer={
+        <>
+          <Button size="sm" disabled={busy} onClick={save}>
+            {busy ? 'Saving…' : 'Save'}
+          </Button>
+          <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
+          <Outcome tone="problem">{problem}</Outcome>
+        </>
+      }
+    >
+      <Switch checked={enabled} onChange={setEnabled}>
+        AutoMod on
+      </Switch>
+    </SettingsCard>
+  )
+}
+
+/**
+ * The AI tools AutoMod may use, the daily AI call limit and today's count. Shown only while AI is
+ * on, because none of it does anything otherwise.
+ */
+function AiToolsCard({ settings, onSaved }: { settings: AutoMod; onSaved: (next: AutoMod) => void }) {
+  const [tools, setTools] = useState<Record<string, boolean>>(
+    Object.fromEntries(settings.aiTools.map((t) => [t.name, t.on])),
+  )
   const [limit, setLimit] = useState(String(settings.dailyAiCallLimit))
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -102,8 +152,9 @@ function SwitchCard({
 
     moderationApi
       .saveSettings({
-        enabled,
+        enabled: settings.enabled,
         dailyAiCallLimit: Number.parseInt(limit, 10) || 0,
+        aiTools: tools,
       })
       .then((next) => {
         setSaved(true)
@@ -115,7 +166,8 @@ function SwitchCard({
 
   return (
     <SettingsCard
-      title="Moderation"
+      title="AI tools"
+      span={12}
       footer={
         <>
           <Button size="sm" disabled={busy} onClick={save}>
@@ -126,9 +178,15 @@ function SwitchCard({
         </>
       }
     >
-      <Switch checked={enabled} onChange={setEnabled}>
-        Moderation on
-      </Switch>
+      <ul className="grid gap-x-6 gap-y-2.5 md:grid-cols-2">
+        {settings.aiTools.map((t: AiToolView) => (
+          <li key={t.name} className="flex items-center">
+            <Switch checked={tools[t.name] ?? false} onChange={(on) => setTools((all) => ({ ...all, [t.name]: on }))}>
+              {t.label}
+            </Switch>
+          </li>
+        ))}
+      </ul>
       <label className="flex max-w-xs flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
         <span className="text-muted-foreground">Daily AI call limit</span>
         <Input type="number" min={0} max={100000} value={limit} onChange={(e) => setLimit(e.target.value)} />
@@ -239,6 +297,10 @@ function SafetyButtons({
   )
 }
 
+function acts(rule: { deleteMessage: boolean; timeoutMinutes: number | null; groupBan: boolean; groupRemove: boolean }) {
+  return rule.deleteMessage || rule.timeoutMinutes !== null || rule.groupBan || rule.groupRemove
+}
+
 function TermListsCard({
   lists,
   picturesAvailable,
@@ -271,6 +333,8 @@ function TermListsCard({
         targets: list.targets,
         deleteMessage: list.deleteMessage,
         timeoutMinutes: list.timeoutMinutes,
+        groupBan: list.groupBan,
+        groupRemove: list.groupRemove,
         scope: list.scope,
         trialDays: null,
         contextMessages: list.contextMessages,
@@ -316,7 +380,7 @@ function TermListsCard({
                   {list.source === 'cloud' && list.hubVersion && (
                     <Badge variant="secondary">{list.hubVersion}</Badge>
                   )}
-                  {(list.deleteMessage || list.timeoutMinutes) && (
+                  {acts(list) && (
                     <Badge
                       variant="destructive"
                       title={list.setToActBy ? `Set by ${list.setToActBy}` : undefined}
@@ -460,7 +524,7 @@ function TopicsCard({
               badges={
                 <>
                   <Badge variant="outline">Sensitivity {topic.sensitivity}</Badge>
-                  {(topic.deleteMessage || topic.timeoutMinutes) && (
+                  {acts(topic) && (
                     <Badge
                       variant="destructive"
                       title={topic.setToActBy ? `Set by ${topic.setToActBy}` : undefined}
@@ -515,7 +579,7 @@ function TopicsCard({
   )
 }
 
-function TryCard() {
+function TryCard({ aiEnabled }: { aiEnabled: boolean }) {
   const [text, setText] = useState('')
   const [target, setTarget] = useState<ModerationTarget>('discordMessage')
   const [includeAi, setIncludeAi] = useState(false)
@@ -529,7 +593,7 @@ function TryCard() {
     setResult(null)
 
     moderationApi
-      .tryText({ text, target, includeAi })
+      .tryText({ text, target, includeAi: aiEnabled && includeAi })
       .then(setResult)
       .catch((e: unknown) => setProblem(failure(e, 'Could not check the text.')))
       .finally(() => setBusy(false))
@@ -539,6 +603,8 @@ function TryCard() {
     ? [
         result.wouldDeleteMessage ? 'Delete the message' : null,
         result.wouldTimeOutMinutes ? `Time out for ${result.wouldTimeOutMinutes} minutes` : null,
+        result.wouldGroupBan ? 'Ban from the group' : null,
+        result.wouldGroupRemove ? 'Remove from the group' : null,
       ].filter(Boolean)
     : []
 
@@ -568,9 +634,11 @@ function TryCard() {
             </option>
           ))}
         </select>
-        <Checkbox checked={includeAi} onChange={setIncludeAi}>
-          Include AI topics
-        </Checkbox>
+        {aiEnabled && (
+          <Checkbox checked={includeAi} onChange={setIncludeAi}>
+            Include AI topics
+          </Checkbox>
+        )}
       </div>
 
       {result && (

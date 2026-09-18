@@ -1700,6 +1700,10 @@ export type ReviewEvidence = {
   picture?: string | null
   pictureUrl?: string | null
   subjectName?: string | null
+  /** The AI's opinion on the flag, when a moderator asked for one (AutoMod design §6.3). Advice only. */
+  aiOpinion?: 'keep' | 'dismiss' | null
+  aiOpinionReason?: string | null
+  aiProposedAction?: string | null
   firstAt: string
   lastAt: string
   threshold: Record<string, number>
@@ -2915,7 +2919,7 @@ const put = <T>(path: string, body: unknown): Promise<T> =>
 
 const del = <T>(path: string): Promise<T> => request<T>(path, { method: 'DELETE' })
 
-/** The same helpers, for a feature that keeps its calls in its own file (lib/aiModeration.ts). */
+/** The same helpers, for a feature that keeps its calls in its own file (lib/autoMod.ts). */
 export const http = { request, post, put, del }
 
 export const api = {

@@ -9,8 +9,8 @@ import {
   type RuleAction,
   type Sensitivity,
   type TopicView,
-} from '@/lib/aiModeration'
-import { LongField, Outcome } from '../../fields'
+} from '@/lib/autoMod'
+import { LongField, Outcome } from '../fields'
 import { Group, RuleActionFields } from './RuleFields'
 
 const SENSITIVITIES: { value: Sensitivity; label: string }[] = [
@@ -72,6 +72,8 @@ function TopicForm({
     targets: topic?.targets ?? ['discordMessage'],
     deleteMessage: topic?.deleteMessage ?? false,
     timeoutMinutes: topic?.timeoutMinutes ?? null,
+    groupBan: topic?.groupBan ?? false,
+    groupRemove: topic?.groupRemove ?? false,
     scope: topic?.scope ?? NO_SCOPE,
     trialDays: topic?.trial?.days ?? null,
     contextMessages: topic?.contextMessages ?? 5,

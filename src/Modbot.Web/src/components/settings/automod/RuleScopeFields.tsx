@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { RolePicker } from '@/components/discord/RolePicker'
 import { useDiscordChannels, useDiscordRoles } from '@/lib/discordLists'
-import type { RuleScope } from '@/lib/aiModeration'
-import { Checkbox } from '../../fields'
+import type { RuleScope } from '@/lib/autoMod'
+import { Checkbox } from '../fields'
 import { Group } from './RuleFields'
 
 const MODES: { value: RuleScope['channelMode']; label: string }[] = [

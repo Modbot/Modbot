@@ -14,9 +14,9 @@ import {
   type RuleTests,
   type TestRun,
   type TestSample,
-} from '@/lib/aiModeration'
+} from '@/lib/autoMod'
 import { cn } from '@/lib/utils'
-import { LongField, Outcome, Placeholder } from '../../fields'
+import { LongField, Outcome, Placeholder } from '../fields'
 
 /** A rule's test set: the samples, adding one, and the last runs (AI moderation design §12). */
 export function TestSetDialog({
