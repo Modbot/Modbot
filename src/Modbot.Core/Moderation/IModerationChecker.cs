@@ -115,6 +115,8 @@ public sealed record ProfileToCheck(
 /// <param name="ContextMessageIds">
 /// The messages sent with this one as context, oldest first (AI moderation design §16).
 /// </param>
+/// <param name="GroupBan">The rule asks for the person to be banned from the managed VRChat group (AutoMod design §5).</param>
+/// <param name="GroupRemove">The rule asks for the person to be removed from the managed VRChat group.</param>
 public sealed record ModerationMatch(
     string RuleKind,
     Guid RuleId,
@@ -135,28 +137,49 @@ public sealed record ModerationMatch(
     string? Language = null,
     string? Picture = null,
     string? PictureUrl = null,
-    IReadOnlyList<string>? ContextMessageIds = null);
+    IReadOnlyList<string>? ContextMessageIds = null,
+    bool GroupBan = false,
+    bool GroupRemove = false)
+{
+    /// <summary>The rule asks for something beyond a flag.</summary>
+    public bool AsksForAction => DeleteMessage || TimeoutMinutes is > 0 || GroupBan || GroupRemove;
+
+    /// <summary>The same match, asking for nothing: what a repeat or a dismissed flag becomes.</summary>
+    public ModerationMatch WithoutActions(bool suppressed = false) => this with
+    {
+        Suppressed = Suppressed || suppressed,
+        Acting = false,
+        DeleteMessage = false,
+        TimeoutMinutes = null,
+        GroupBan = false,
+        GroupRemove = false,
+    };
+}
 
 /// <summary>What a check found and did.</summary>
 /// <param name="AiSkipped">Why AI topics did not run, when there were topics that could have.</param>
+/// <param name="GroupBanned">The person was banned from the managed VRChat group (AutoMod design §5).</param>
+/// <param name="GroupRemoved">The person was removed from the managed VRChat group.</param>
 public sealed record ModerationOutcome(
     IReadOnlyList<ModerationMatch> Matches,
     int FlagsWritten,
     bool MessageDeleted,
     int? TimedOutMinutes,
-    string? AiSkipped)
+    string? AiSkipped,
+    bool GroupBanned = false,
+    bool GroupRemoved = false)
 {
     public static ModerationOutcome Nothing { get; } = new([], 0, false, null, null);
 }
 
 /// <summary>
-/// The AI moderation engine (AI moderation design §8). Discord message indexing calls
+/// The AutoMod engine (AutoMod design §4). Discord message indexing calls
 /// <see cref="CheckDiscordMessageAsync"/> for each new or edited message; profile text goes through
 /// <see cref="CheckProfileAsync"/>.
 /// </summary>
 /// <remarks>
-/// Both do nothing while AI moderation is switched off, and neither throws over a broken rule or
-/// an unreachable AI endpoint: a bad rule must not stop a message being indexed. Scoped, because it
+/// Both do nothing while AutoMod is switched off, and neither throws over a broken rule or an
+/// unreachable AI endpoint: a bad rule must not stop a message being indexed. Scoped, because it
 /// uses the caller's database context.
 /// </remarks>
 public interface IModerationChecker

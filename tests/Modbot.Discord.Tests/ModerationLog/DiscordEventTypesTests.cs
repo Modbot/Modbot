@@ -52,7 +52,7 @@ public class DiscordEventTypesTests
     [InlineData(FactType.GroupInstanceWarn, DiscordEventTypes.Moderation)]
     [InlineData(FactType.ReportCreated, DiscordEventTypes.Moderation)]
     [InlineData(FactType.UserAgeFlagSet, DiscordEventTypes.Moderation)]
-    [InlineData(FactType.AiModerationFlag, DiscordEventTypes.Moderation)]
+    [InlineData(FactType.AutoModFlag, DiscordEventTypes.Moderation)]
     [InlineData(FactType.MemberJoined, DiscordEventTypes.Members)]
     [InlineData(FactType.MembersSnapshot, DiscordEventTypes.Members)]
     [InlineData(FactType.RoleGranted, DiscordEventTypes.Members)]

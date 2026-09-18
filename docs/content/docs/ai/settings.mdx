@@ -215,7 +215,7 @@ happens once for the deployment, and it is recorded in the
 |---|---|
 | **Test** | The single message "Reply with the single word OK." |
 | Model list | A request for the model list. No group data. |
-| [Moderation rules](/ai/moderation-rules) (AI topics only) | Modbot's instructions; the name, "What to catch" text and sensitivity of each AI topic that applies; which kind of text it is (a Discord message, a VRChat display name, bio, status or pronouns); and the text itself, up to 4,000 characters. The person's name and id are not sent. Term lists never send anything. |
+| [AutoMod](/moderation/automod) (AI topics and the flag opinion only) | Modbot's instructions; the name, "What to catch" text and sensitivity of each AI topic that applies; which kind of text it is (a Discord message, a VRChat display name, bio, status or pronouns); and the text itself, up to 4,000 characters. The person's name and id are not sent. Term lists never send anything. |
 | Conversation, when a rule reads it | The messages before the one being checked, in the same channel or thread, and the message it replied to — each with **its author's name**, clipped to 500 characters. Only for rules set to read the conversation. |
 | Pictures, when a rule looks at them | Up to four pictures per check, each 4 MB or smaller: Discord attachments, Discord avatars and VRChat profile pictures. Sent as a link where the provider takes one, otherwise as the bytes. Off unless switched on for that rule. |
 | [Alerts](/ai/alerts) | Modbot's instructions and counts. No person's name, id or messages. |
@@ -228,7 +228,7 @@ VRChat.
 ## Where to next
 
 <Cards>
-  <Card title="Moderation rules" href="/ai/moderation-rules">Term lists and AI topics that flag Discord messages and VRChat profiles.</Card>
+  <Card title="AutoMod" href="/moderation/automod">Term lists and AI topics that flag Discord messages and VRChat profiles.</Card>
   <Card title="Insights" href="/ai/insights">Short written summaries of your group's figures.</Card>
   <Card title="Chat" href="/ai/chat">Ask questions about your group in plain words.</Card>
   <Card title="MCP server" href="/ai/mcp">Use the Chat tools from Claude, ChatGPT, Gemini or a coding tool, with their model.</Card>

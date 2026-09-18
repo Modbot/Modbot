@@ -84,8 +84,8 @@ public class AlertCheckerTests : AlertTestBase
     public async Task SensitivityDecidesWhetherItFires()
     {
         await SetWatchAsync(AlertWatchers.Flags, AlertSensitivities.Low);
-        await AddHistoryAsync(FactType.AiModerationFlag, 4);
-        await AddFactsAsync(InWindow(), FactType.AiModerationFlag, 7);
+        await AddHistoryAsync(FactType.AutoModFlag, 4);
+        await AddFactsAsync(InWindow(), FactType.AutoModFlag, 7);
 
         Assert.Equal(0, await RunAtAsync(Start));
 

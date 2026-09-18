@@ -3641,21 +3641,21 @@
         ]
       }
     },
-    "/api/settings/ai/moderation": {
+    "/api/settings/automod": {
       "get": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
-        "summary": "Term lists, AI topics, the switch and the daily AI call limit",
+        "summary": "The AutoMod switch, term lists, AI topics, the AI tools and the daily AI call limit",
         "description": "Needs the `ManageSettings` permission.",
-        "operationId": "GetAiModeration",
+        "operationId": "GetAutoMod",
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AiModerationResponse"
+                  "$ref": "#/components/schemas/AutoModResponse"
                 }
               }
             }
@@ -3678,16 +3678,16 @@
       },
       "put": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
-        "summary": "Switch AI moderation on or off and set the daily AI call limit",
+        "summary": "Switch AutoMod on or off, set the daily AI call limit and switch AI tools",
         "description": "Needs the `ManageSettings` permission.",
-        "operationId": "SetAiModeration",
+        "operationId": "SetAutoMod",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AiModerationUpdate"
+                "$ref": "#/components/schemas/AutoModUpdate"
               }
             }
           },
@@ -3699,7 +3699,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AiModerationResponse"
+                  "$ref": "#/components/schemas/AutoModResponse"
                 }
               }
             }
@@ -3731,10 +3731,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/lists/{id}": {
+    "/api/settings/automod/lists/{id}": {
       "get": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "One term list with its terms",
         "description": "Needs the `ManageSettings` permission.",
@@ -3789,7 +3789,7 @@
       },
       "put": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Change a term list. A Hub list keeps its name and terms; only its switches, targets, action and switched-off terms change.",
         "description": "Needs the `ManageSettings` permission.",
@@ -3864,7 +3864,7 @@
       },
       "delete": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Delete a term list. Its flags stay.",
         "description": "Needs the `ManageSettings` permission.",
@@ -3911,10 +3911,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/lists": {
+    "/api/settings/automod/lists": {
       "post": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Create a local term list",
         "description": "Needs the `ManageSettings` permission.",
@@ -3967,10 +3967,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/hub": {
+    "/api/settings/automod/hub": {
       "get": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "The term lists Modbot Hub offers",
         "description": "Needs the `ManageSettings` permission.",
@@ -4003,10 +4003,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/lists/hub": {
+    "/api/settings/automod/lists/hub": {
       "post": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Add a term list from Modbot Hub",
         "description": "Needs the `ManageSettings` permission.",
@@ -4069,10 +4069,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/lists/{id}/refresh": {
+    "/api/settings/automod/lists/{id}/refresh": {
       "post": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Fetch a Hub list again. A newer version waits to be applied.",
         "description": "Needs the `ManageSettings` permission.",
@@ -4136,10 +4136,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/lists/{id}/update": {
+    "/api/settings/automod/lists/{id}/update": {
       "post": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Put the newer version of a Hub list into use",
         "description": "Needs the `ManageSettings` permission.",
@@ -4203,10 +4203,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/topics": {
+    "/api/settings/automod/topics": {
       "post": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Create an AI topic",
         "description": "Needs the `ManageSettings` permission.",
@@ -4259,10 +4259,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/topics/{id}": {
+    "/api/settings/automod/topics/{id}": {
       "put": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Change an AI topic",
         "description": "Needs the `ManageSettings` permission.",
@@ -4337,7 +4337,7 @@
       },
       "delete": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Delete an AI topic. Its flags stay.",
         "description": "Needs the `ManageSettings` permission.",
@@ -4384,14 +4384,14 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/try": {
+    "/api/settings/automod/try": {
       "post": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Check some text against every rule. Nothing is recorded and nothing is done.",
         "description": "Needs the `ManageSettings` permission.",
-        "operationId": "TryAiModeration",
+        "operationId": "TryAutoMod",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4440,10 +4440,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/rules/{kind}/{id}/tests": {
+    "/api/settings/automod/rules/{kind}/{id}/tests": {
       "get": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "A rule's sample texts and its last runs",
         "description": "Needs the `ManageSettings` permission.",
@@ -4505,10 +4505,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/rules/{kind}/{id}/samples": {
+    "/api/settings/automod/rules/{kind}/{id}/samples": {
       "post": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Add a sample text to a rule's test set",
         "description": "Needs the `ManageSettings` permission.",
@@ -4590,10 +4590,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/rules/{kind}/{id}/samples/{sampleId}": {
+    "/api/settings/automod/rules/{kind}/{id}/samples/{sampleId}": {
       "put": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Change a sample text",
         "description": "Needs the `ManageSettings` permission.",
@@ -4677,7 +4677,7 @@
       },
       "delete": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Remove a sample text",
         "description": "Needs the `ManageSettings` permission.",
@@ -4733,10 +4733,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/rules/{kind}/{id}/tests/run": {
+    "/api/settings/automod/rules/{kind}/{id}/tests/run": {
       "post": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Check every sample against the rule as it stands now. AI topics cost a real request.",
         "description": "Needs the `ManageSettings` permission.",
@@ -4808,10 +4808,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/rules/{kind}/{id}/versions": {
+    "/api/settings/automod/rules/{kind}/{id}/versions": {
       "get": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Every version of a rule's text, newest first",
         "description": "Needs the `ManageSettings` permission.",
@@ -4863,12 +4863,12 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/rules/{kind}/{id}/end-trial": {
+    "/api/settings/automod/rules/{kind}/{id}/end-trial": {
       "post": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
-        "summary": "End a rule's trial. From now on it really deletes and times out.",
+        "summary": "End a rule's trial. From now on it really acts.",
         "description": "Needs the `ManageSettings` permission.",
         "operationId": "EndRuleTrial",
         "parameters": [
@@ -4938,10 +4938,10 @@
         ]
       }
     },
-    "/api/settings/ai/moderation/rules/{kind}/{id}/resume": {
+    "/api/settings/automod/rules/{kind}/{id}/resume": {
       "post": {
         "tags": [
-          "AI settings"
+          "AutoMod settings"
         ],
         "summary": "Let a paused rule act again",
         "description": "Needs the `ManageSettings` permission.",
@@ -5138,8 +5138,75 @@
           "Moderation"
         ],
         "summary": "Open a review for a flag, so the team's review flow decides it",
-        "description": "Closing that review as wrong dismisses the flag; closing it as right confirms it. Both feed the rule's counts on Settings → AI → Moderation.\n\nNeeds the `ReviewTickets` permission.",
+        "description": "Closing that review as wrong dismisses the flag; closing it as right confirms it. Both feed the rule's counts on Settings → AutoMod.\n\nNeeds the `ReviewTickets` permission.",
         "operationId": "OpenModerationFlagReview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagView"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/moderation-flags/{id}/ai-opinion": {
+      "post": {
+        "tags": [
+          "Moderation"
+        ],
+        "summary": "Ask the AI whether to keep or dismiss a flag",
+        "description": "Advice only: the answer goes on the flag and on its review, and nothing is done with it. Needs AI on and the opinion tool switched on under Settings → AutoMod; the proposed action comes only when that tool is on too.\n\nNeeds the `ReviewTickets` permission.",
+        "operationId": "AskAiAboutModerationFlag",
         "parameters": [
           {
             "name": "id",
@@ -13859,91 +13926,6 @@
           }
         }
       },
-      "AiModerationResponse": {
-        "required": [
-          "enabled",
-          "dailyAiCallLimit",
-          "aiCallsToday",
-          "aiReady",
-          "lists",
-          "topics"
-        ],
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "dailyAiCallLimit": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "aiCallsToday": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "aiReady": {
-            "type": "boolean"
-          },
-          "lists": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TermListView"
-            }
-          },
-          "topics": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TopicView"
-            }
-          },
-          "picturesAvailable": {
-            "type": "boolean",
-            "default": false
-          },
-          "contextChoices": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          }
-        }
-      },
-      "AiModerationUpdate": {
-        "required": [
-          "enabled",
-          "dailyAiCallLimit"
-        ],
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "dailyAiCallLimit": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          }
-        }
-      },
       "AiNamedOption": {
         "required": [
           "id",
@@ -14393,6 +14375,25 @@
           },
           "estimate": {
             "$ref": "#/components/schemas/AiSpentView"
+          }
+        }
+      },
+      "AiToolView": {
+        "required": [
+          "name",
+          "label",
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "on": {
+            "type": "boolean"
           }
         }
       },
@@ -15182,6 +15183,113 @@
           },
           "category": {
             "$ref": "#/components/schemas/AuditCategory"
+          }
+        }
+      },
+      "AutoModResponse": {
+        "required": [
+          "enabled",
+          "dailyAiCallLimit",
+          "aiCallsToday",
+          "aiReady",
+          "lists",
+          "topics"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "dailyAiCallLimit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "aiCallsToday": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "aiReady": {
+            "type": "boolean"
+          },
+          "lists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TermListView"
+            }
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TopicView"
+            }
+          },
+          "picturesAvailable": {
+            "type": "boolean",
+            "default": false
+          },
+          "contextChoices": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          "aiEnabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "aiTools": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AiToolView"
+            }
+          }
+        }
+      },
+      "AutoModUpdate": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "dailyAiCallLimit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "aiTools": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "additionalProperties": {
+              "type": "boolean"
+            }
           }
         }
       },
@@ -19865,6 +19973,10 @@
             "items": {
               "$ref": "#/components/schemas/FlagLanguageCount"
             }
+          },
+          "aiOpinionAvailable": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -20066,6 +20178,54 @@
               "null",
               "string"
             ]
+          },
+          "groupBanned": {
+            "type": "boolean",
+            "default": false
+          },
+          "groupRemoved": {
+            "type": "boolean",
+            "default": false
+          },
+          "wouldGroupBan": {
+            "type": "boolean",
+            "default": false
+          },
+          "wouldGroupRemove": {
+            "type": "boolean",
+            "default": false
+          },
+          "aiOpinion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "aiOpinionReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "aiProposedAction": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "aiOpinionAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "aiOpinionCallId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -24785,6 +24945,24 @@
               "string"
             ],
             "format": "int32"
+          },
+          "wouldGroupBan": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
+          },
+          "wouldGroupRemove": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
           }
         }
       },
@@ -25758,6 +25936,14 @@
           "openReviewForEachFlag": {
             "type": "boolean",
             "default": false
+          },
+          "groupBan": {
+            "type": "boolean",
+            "default": false
+          },
+          "groupRemove": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -25945,6 +26131,14 @@
             "default": false
           },
           "openReviewForEachFlag": {
+            "type": "boolean",
+            "default": false
+          },
+          "groupBan": {
+            "type": "boolean",
+            "default": false
+          },
+          "groupRemove": {
             "type": "boolean",
             "default": false
           }
@@ -26371,6 +26565,14 @@
           "openReviewForEachFlag": {
             "type": "boolean",
             "default": false
+          },
+          "groupBan": {
+            "type": "boolean",
+            "default": false
+          },
+          "groupRemove": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -26499,6 +26701,14 @@
           "openReviewForEachFlag": {
             "type": "boolean",
             "default": false
+          },
+          "groupBan": {
+            "type": "boolean",
+            "default": false
+          },
+          "groupRemove": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -26565,6 +26775,14 @@
               "string"
             ],
             "format": "int32"
+          },
+          "groupBan": {
+            "type": "boolean",
+            "default": false
+          },
+          "groupRemove": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -26632,6 +26850,14 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "wouldGroupBan": {
+            "type": "boolean",
+            "default": false
+          },
+          "wouldGroupRemove": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -27940,6 +28166,10 @@
       "name": "MCP",
       "description": "The MCP server's switch, and each person's connected AI apps.",
       "x-displayName": "MCP"
+    },
+    {
+      "name": "AutoMod settings",
+      "x-displayName": "AutoMod settings"
     },
     {
       "name": "Credits",

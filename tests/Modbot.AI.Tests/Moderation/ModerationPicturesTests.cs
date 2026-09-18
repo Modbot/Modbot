@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.AI.Moderation;
+using Modbot.Moderation;
 
 namespace Modbot.AI.Tests.Moderation;
 
@@ -26,7 +27,7 @@ public class ModerationPicturesTests
             ]
             """;
 
-        var found = ModerationPictures.Attachments(attachments);
+        var found = PictureAttachments.Of(attachments);
 
         Assert.Equal(2, found.Count);
         Assert.Equal("Attachment cat.png", found[0].Label);
@@ -39,7 +40,7 @@ public class ModerationPicturesTests
     [InlineData("not json")]
     [InlineData("""{"name":"cat.png"}""")]
     public void AnAttachmentListThatIsNotOneIsNoPictures(string json)
-        => Assert.Empty(ModerationPictures.Attachments(json));
+        => Assert.Empty(PictureAttachments.Of(json));
 
     [Theory]
     // Private, local and metadata addresses, by name and by literal.

@@ -472,32 +472,42 @@ public static class FactType
     /// </remarks>
     public const string EvidenceDestroyed = "modbot.evidence.destroy";
 
-    // ── AI moderation (AI moderation design §7) ────────────────────────────────────────────
+    // ── AutoMod (AutoMod design §7; AI moderation design §7) ───────────────────────────────
     //
     // A flag and a dismissal are about the person who wrote the text, on the platform they wrote
-    // it on. The two actions have no actor, because nobody pressed a button at that moment; the
+    // it on. The action facts have no actor, because nobody pressed a button at that moment; the
     // operator who set the rule to act is named in the data (M8 §2). A rule change is about the
     // Modbot account that made it. All are kept: "who switched this rule to delete messages" is
     // history.
+    //
+    // The strings keep the "ai-moderation" prefix AutoMod had when it was part of AI: every stored
+    // fact, every Discord route and every live-page filter already matches on it, and renaming a
+    // stored type across the partitioned event table buys nothing a reader needs.
 
-    public const string AiModerationFlag = "modbot.ai-moderation.flag";
+    public const string AutoModFlag = "modbot.ai-moderation.flag";
 
-    public const string AiModerationFlagDismissed = "modbot.ai-moderation.flag.dismiss";
+    public const string AutoModFlagDismissed = "modbot.ai-moderation.flag.dismiss";
 
     /// <summary>A moderator closed the flag's review as right (AI moderation design §19).</summary>
-    public const string AiModerationFlagConfirmed = "modbot.ai-moderation.flag.confirm";
+    public const string AutoModFlagConfirmed = "modbot.ai-moderation.flag.confirm";
 
-    public const string AiModerationMessageDeleted = "modbot.ai-moderation.message-delete";
+    public const string AutoModMessageDeleted = "modbot.ai-moderation.message-delete";
 
-    public const string AiModerationTimeout = "modbot.ai-moderation.timeout";
+    public const string AutoModTimeout = "modbot.ai-moderation.timeout";
 
-    public const string AiModerationRuleChanged = "modbot.ai-moderation.rule.change";
+    /// <summary>A rule banned the person from the managed VRChat group (AutoMod design §5).</summary>
+    public const string AutoModGroupBan = "modbot.ai-moderation.group-ban";
+
+    /// <summary>A rule removed the person from the managed VRChat group (AutoMod design §5).</summary>
+    public const string AutoModGroupRemove = "modbot.ai-moderation.group-remove";
+
+    public const string AutoModRuleChanged = "modbot.ai-moderation.rule.change";
 
     /// <summary>
     /// A rule paused itself because it acted far more in an hour than it usually does
     /// (AI moderation design §13.2). No actor: Modbot did it, and an operator has to resume it.
     /// </summary>
-    public const string AiModerationRulePaused = "modbot.ai-moderation.rule.pause";
+    public const string AutoModRulePaused = "modbot.ai-moderation.rule.pause";
 
     /// <summary>
     /// An operator confirmed what member text is sent to the AI provider (M8 §4.5). Written once,

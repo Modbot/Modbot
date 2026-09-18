@@ -378,10 +378,16 @@ public class Settings
     /// </summary>
     public bool VRChatProxyEnabled { get; set; }
 
-    // --- AI moderation (AI moderation design) ---
+    // --- AutoMod (AutoMod design; the AI parts, AI moderation design) ---
 
     /// <summary>The one switch for term lists and AI topics. Off by default, like everything in M8.</summary>
-    public bool AiModerationEnabled { get; set; }
+    public bool AutoModEnabled { get; set; }
+
+    /// <summary>
+    /// Which AI tools AutoMod may use, as JSON switches by tool name (AutoMod design §6). Only
+    /// switches somebody changed are stored; a tool with no entry stands where its kind starts.
+    /// </summary>
+    public string AutoModAiTools { get; set; } = "{}";
 
     /// <summary>How many AI calls moderation may make in one UTC day (design §4.2). Term lists are not counted.</summary>
     public int AiModerationDailyCallLimit { get; set; } = 200;
@@ -403,9 +409,9 @@ public class Settings
 
     /// <summary>
     /// The last profile fact the profile check has read (design §8). It does not move while
-    /// moderation is off, so switching it on checks the profiles seen in between.
+    /// AutoMod is off, so switching it on checks the profiles seen in between.
     /// </summary>
-    public long AiModerationProfileFactsReadThrough { get; set; }
+    public long AutoModProfileFactsReadThrough { get; set; }
 
     // --- Operator-supplied SMTP (spec 7.4) ---
     public string? SmtpHost { get; set; }

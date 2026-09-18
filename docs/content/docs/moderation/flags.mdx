@@ -3,20 +3,20 @@ title: Flags
 description: The Flags page lists what your moderation rules caught in Discord messages and VRChat profiles, filters them by language, and lets you dismiss a flag for good or send it to Reviews.
 ---
 
-A **flag** is a note Modbot writes when one of your [moderation rules](/ai/moderation-rules) matches
+A **flag** is a note Modbot writes when one of your [AutoMod rules](/moderation/automod) matches
 some text: a Discord message, or a VRChat user's display name, bio, status or pronouns. The
 **Flags** page lists them so a moderator can read each one and either leave it or dismiss it.
 
 | To | You need |
 |---|---|
 | Open the **Flags** page | [**See profiles**](/accounts/roles-and-permissions#see-profiles) |
-| Press **Dismiss** or **Open a review** | [**Review tickets**](/accounts/roles-and-permissions#review-tickets) |
+| Press **Dismiss**, **Open a review** or **Ask AI** | [**Review tickets**](/accounts/roles-and-permissions#review-tickets) |
 
 A flag is a note, not a finding. Nobody is judged by it.
 
 ## What raises a flag
 
-Flags only come from moderation rules, set up under **Settings**, **AI**. There are two kinds of
+Flags only come from AutoMod rules, set up under **Settings**, **AutoMod**. There are two kinds of
 rule:
 
 - **Term lists**: words, phrases or patterns. They are matched inside Modbot and send nothing to an
@@ -24,10 +24,10 @@ rule:
 - **AI topics**: something to catch, described in your own words. Modbot asks your AI model whether
   the text matches.
 
-Nothing is flagged until the moderation feature and at least one rule are switched on. Discord
+Nothing is flagged until AutoMod and at least one rule are switched on. Discord
 messages are checked as the bot stores them; VRChat profiles are checked when Modbot first records
 a profile and whenever part of it changes. The details are on
-[Moderation rules](/ai/moderation-rules).
+[AutoMod](/moderation/automod).
 
 The same rule and term on the same message, or on the same words in the same part of a profile,
 is only flagged once.

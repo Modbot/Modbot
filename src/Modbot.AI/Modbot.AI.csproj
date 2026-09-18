@@ -3,11 +3,11 @@
   <ItemGroup>
     <ProjectReference Include="..\Modbot.Core\Modbot.Core.csproj" />
     <ProjectReference Include="..\Modbot.Analytics\Modbot.Analytics.csproj" />
+    <ProjectReference Include="..\Modbot.Moderation\Modbot.Moderation.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="OpenAI" />
-    <PackageReference Include="LanguageDetection.Ai" />
     <PackageReference Include="NodaTime" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />

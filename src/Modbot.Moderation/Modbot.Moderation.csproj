@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Automated moderation that needs no AI (AutoMod design §2): term lists, matching, targets,
+       actions, flags, trial and pause, rule versions. Modbot.AI plugs its topic checks in through
+       IAiRuleChecker; nothing here references Modbot.AI. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\Modbot.Core\Modbot.Core.csproj" />
+    <ProjectReference Include="..\Modbot.Analytics\Modbot.Analytics.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LanguageDetection.Ai" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

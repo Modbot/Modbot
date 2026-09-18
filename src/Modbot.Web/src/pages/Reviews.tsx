@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { SubjectLink } from '@/components/facts'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type Person, type ReviewEvidence, type ReviewList, type ReviewView } from '@/lib/api'
+import { PROPOSED_ACTION_LABELS, type ProposedAction } from '@/lib/autoMod'
 import { cn } from '@/lib/utils'
 
 /**
@@ -303,6 +304,12 @@ function FlagEvidence({ review }: { review: ReviewView }) {
         e.matched && <Pair label="Matched" value={`“${e.matched}”`} />
       )}
       {e.reason && <Pair label="Reason" value={e.reason} />}
+      {e.aiOpinion && (
+        <Pair label="AI" value={`${e.aiOpinion === 'keep' ? 'Keep' : 'Dismiss'}${e.aiOpinionReason ? ` — ${e.aiOpinionReason}` : ''}`} />
+      )}
+      {e.aiProposedAction && e.aiProposedAction !== 'none' && (
+        <Pair label="AI proposed" value={PROPOSED_ACTION_LABELS[e.aiProposedAction as ProposedAction] ?? e.aiProposedAction} />
+      )}
     </dl>
   )
 }

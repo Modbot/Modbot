@@ -7,7 +7,6 @@ import { AiInsightsSettings } from './AiInsightsSettings'
 import { AiLimitsSettings } from './AiLimitsSettings'
 import { AiChatSettings } from './AiChatSettings'
 import { AiMcpSettings } from './AiMcpSettings'
-import { AiModerationSettings } from './AiModerationSettings'
 
 /**
  * The AI sub-tabs, in order. The id is the part after the slash in `/settings#ai/base`.
@@ -21,7 +20,6 @@ const AI_TABS = [
   { value: 'alerts', label: 'Alerts', panel: AiAlertsSettings },
   { value: 'chat', label: 'Chat', panel: AiChatSettings },
   { value: 'mcp', label: 'MCP', panel: AiMcpSettings },
-  { value: 'moderation', label: 'Moderation', panel: AiModerationSettings },
   { value: 'limits', label: 'Limits', panel: AiLimitsSettings },
   { value: 'calls', label: 'Call log', panel: AiCallLogSettings },
 ] as const

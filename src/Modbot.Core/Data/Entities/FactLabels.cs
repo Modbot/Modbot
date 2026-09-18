@@ -176,14 +176,16 @@ public static class FactLabels
         [FactType.DiscordCommandRun] = "Discord command used",
         [FactType.DiscordLogPosted] = "Posted to the Discord log channel",
 
-        // AI moderation (AI moderation design §7).
-        [FactType.AiModerationFlag] = "Flagged by a moderation rule",
-        [FactType.AiModerationFlagDismissed] = "Moderation flag dismissed",
-        [FactType.AiModerationFlagConfirmed] = "Moderation flag confirmed",
-        [FactType.AiModerationMessageDeleted] = "Discord message deleted by a moderation rule",
-        [FactType.AiModerationTimeout] = "Timed out on Discord by a moderation rule",
-        [FactType.AiModerationRuleChanged] = "Moderation rule changed",
-        [FactType.AiModerationRulePaused] = "Moderation rule paused itself",
+        // AutoMod (AutoMod design §7).
+        [FactType.AutoModFlag] = "Flagged by a moderation rule",
+        [FactType.AutoModFlagDismissed] = "Moderation flag dismissed",
+        [FactType.AutoModFlagConfirmed] = "Moderation flag confirmed",
+        [FactType.AutoModMessageDeleted] = "Discord message deleted by a moderation rule",
+        [FactType.AutoModTimeout] = "Timed out on Discord by a moderation rule",
+        [FactType.AutoModGroupBan] = "Banned from the group by a moderation rule",
+        [FactType.AutoModGroupRemove] = "Removed from the group by a moderation rule",
+        [FactType.AutoModRuleChanged] = "Moderation rule changed",
+        [FactType.AutoModRulePaused] = "Moderation rule paused itself",
         [FactType.AiAcknowledged] = "What is sent to the AI provider was confirmed",
     };
 

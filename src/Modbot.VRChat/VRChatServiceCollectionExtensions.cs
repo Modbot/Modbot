@@ -158,6 +158,10 @@ public static class VRChatServiceCollectionExtensions
         // ...WithHttpInfoAsync rule are decided once beside the syncs (M4 §4).
         services.AddSingleton<Moderation.GroupModeration>();
 
+        // What an AutoMod rule set to act may do in the group (AutoMod design §5), through the
+        // same wrapper. Scoped: it reads the settings row for the group and the signed-in account.
+        services.AddScoped<Core.Moderation.IVRChatModerationActions, Moderation.AutoModVRChatActions>();
+
         // The one writer of vrchat_user rows. Scoped, because it holds a ModbotContext; used by
         // the profile sync, by the API's manual 18+ flag and refresh endpoints, and by anything
         // else that fetches a user object and should record having seen it.

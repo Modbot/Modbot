@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Modbot.Core.Moderation;
+using Modbot.Moderation;
 using OpenAI.Chat;
 
 namespace Modbot.AI.Moderation;

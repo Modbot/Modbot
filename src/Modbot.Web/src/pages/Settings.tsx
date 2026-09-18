@@ -4,6 +4,7 @@ import { EvidenceSection } from '@/components/settings/EvidenceSection'
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection'
 import { DiscordSection } from '@/components/settings/discord/DiscordSection'
 import { ModerationSection } from '@/components/settings/ModerationSection'
+import { AutoModSection } from '@/components/settings/automod/AutoModSection'
 import { SyncSection } from '@/components/settings/SyncSection'
 import { VRChatSection } from '@/components/settings/VRChatSection'
 import { AiSection } from '@/components/settings/ai/AiSection'
@@ -22,6 +23,7 @@ const TABS = [
   { value: 'integrations', label: 'Integrations' },
   { value: 'discord', label: 'Discord' },
   { value: 'moderation', label: 'Moderation' },
+  { value: 'automod', label: 'AutoMod' },
   { value: 'evidence', label: 'Evidence' },
   { value: 'sync', label: 'Sync' },
   { value: 'ai', label: 'AI' },
@@ -33,7 +35,15 @@ type TabId = (typeof TABS)[number]['value']
 
 /** The part of the hash before any `/`, so a tab with its own sub-tabs can use `#ai/chat`. */
 function tabFromHash(): TabId {
-  const wanted = window.location.hash.slice(1).split('/')[0]
+  const hash = window.location.hash.slice(1)
+
+  // AutoMod used to be a sub-tab of AI. A link to it from then opens the tab it became.
+  if (hash === 'ai/moderation' || hash.startsWith('ai/moderation/')) {
+    window.history.replaceState(window.history.state, '', '#automod')
+    return 'automod'
+  }
+
+  const wanted = hash.split('/')[0]
   return TABS.find((t) => t.value === wanted)?.value ?? TABS[0].value
 }
 
@@ -103,6 +113,8 @@ function Panel({
       return <DiscordSection status={status} refresh={refresh} />
     case 'moderation':
       return <ModerationSection />
+    case 'automod':
+      return <AutoModSection />
     case 'evidence':
       return <EvidenceSection />
     case 'sync':

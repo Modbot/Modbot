@@ -3440,6 +3440,29 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AiOpinion")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("ai_opinion");
+
+                    b.Property<DateTimeOffset?>("AiOpinionAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ai_opinion_at");
+
+                    b.Property<Guid?>("AiOpinionCallId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ai_opinion_call_id");
+
+                    b.Property<string>("AiOpinionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("ai_opinion_reason");
+
+                    b.Property<string>("AiProposedAction")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("ai_proposed_action");
+
                     b.Property<Guid?>("CallId")
                         .HasColumnType("uuid")
                         .HasColumnName("call_id");
@@ -3482,6 +3505,14 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset>("FlaggedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("flagged_at");
+
+                    b.Property<bool>("GroupBanned")
+                        .HasColumnType("boolean")
+                        .HasColumnName("group_banned");
+
+                    b.Property<bool>("GroupRemoved")
+                        .HasColumnType("boolean")
+                        .HasColumnName("group_removed");
 
                     b.Property<string>("Language")
                         .HasMaxLength(8)
@@ -3589,12 +3620,20 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("would_delete_message");
 
+                    b.Property<bool>("WouldGroupBan")
+                        .HasColumnType("boolean")
+                        .HasColumnName("would_group_ban");
+
+                    b.Property<bool>("WouldGroupRemove")
+                        .HasColumnType("boolean")
+                        .HasColumnName("would_group_remove");
+
                     b.Property<int?>("WouldTimeOutMinutes")
                         .HasColumnType("integer")
                         .HasColumnName("would_time_out_minutes");
 
                     b.HasKey("Id")
-                        .HasName("pk_ai_flag");
+                        .HasName("pk_automod_flag");
 
                     b.HasIndex("MessageId")
                         .HasDatabaseName("ix_ai_flag_message")
@@ -3608,12 +3647,12 @@ namespace Modbot.Core.Data.Migrations
                         .HasFilter("language IS NOT NULL");
 
                     b.HasIndex("State", "FlaggedAt")
-                        .HasDatabaseName("ix_ai_flag_state");
+                        .HasDatabaseName("ix_automod_flag_state");
 
                     b.HasIndex("RuleId", "TermKey", "SubjectPlatform", "SubjectId")
-                        .HasDatabaseName("ix_ai_flag_rule_person");
+                        .HasDatabaseName("ix_automod_flag_rule_person");
 
-                    b.ToTable("ai_flag", (string)null);
+                    b.ToTable("automod_flag", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModerationRuleVersion", b =>
@@ -3667,13 +3706,13 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnName("version");
 
                     b.HasKey("Id")
-                        .HasName("pk_ai_rule_version");
+                        .HasName("pk_automod_rule_version");
 
                     b.HasIndex("RuleId", "Version")
                         .IsUnique()
-                        .HasDatabaseName("ux_ai_rule_version");
+                        .HasDatabaseName("ux_automod_rule_version");
 
-                    b.ToTable("ai_rule_version", (string)null);
+                    b.ToTable("automod_rule_version", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModerationTermList", b =>
@@ -3739,6 +3778,14 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("ExemptRolesSkipFlag")
                         .HasColumnType("boolean")
                         .HasColumnName("exempt_roles_skip_flag");
+
+                    b.Property<bool>("GroupBan")
+                        .HasColumnType("boolean")
+                        .HasColumnName("group_ban");
+
+                    b.Property<bool>("GroupRemove")
+                        .HasColumnType("boolean")
+                        .HasColumnName("group_remove");
 
                     b.Property<string>("HubAvailableChanges")
                         .HasColumnType("jsonb")
@@ -3840,14 +3887,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnName("version");
 
                     b.HasKey("Id")
-                        .HasName("pk_ai_term_list");
+                        .HasName("pk_automod_term_list");
 
                     b.HasIndex("HubId")
                         .IsUnique()
-                        .HasDatabaseName("ux_ai_term_list_hub_id")
+                        .HasDatabaseName("ux_automod_term_list_hub_id")
                         .HasFilter("hub_id IS NOT NULL");
 
-                    b.ToTable("ai_term_list", (string)null);
+                    b.ToTable("automod_term_list", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModerationTestRun", b =>
@@ -3923,12 +3970,12 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnName("wrongly_flagged");
 
                     b.HasKey("Id")
-                        .HasName("pk_ai_test_run");
+                        .HasName("pk_automod_test_run");
 
                     b.HasIndex("RuleId", "RanAt")
-                        .HasDatabaseName("ix_ai_test_run_rule");
+                        .HasDatabaseName("ix_automod_test_run_rule");
 
-                    b.ToTable("ai_test_run", (string)null);
+                    b.ToTable("automod_test_run", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModerationTestSample", b =>
@@ -3981,12 +4028,12 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnName("updated_at");
 
                     b.HasKey("Id")
-                        .HasName("pk_ai_test_sample");
+                        .HasName("pk_automod_test_sample");
 
                     b.HasIndex("RuleId", "CreatedAt")
-                        .HasDatabaseName("ix_ai_test_sample_rule");
+                        .HasDatabaseName("ix_automod_test_sample_rule");
 
-                    b.ToTable("ai_test_sample", (string)null);
+                    b.ToTable("automod_test_sample", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModerationTopic", b =>
@@ -4047,6 +4094,14 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("ExemptRolesSkipFlag")
                         .HasColumnType("boolean")
                         .HasColumnName("exempt_roles_skip_flag");
+
+                    b.Property<bool>("GroupBan")
+                        .HasColumnType("boolean")
+                        .HasColumnName("group_ban");
+
+                    b.Property<bool>("GroupRemove")
+                        .HasColumnType("boolean")
+                        .HasColumnName("group_remove");
 
                     b.Property<string>("Instructions")
                         .IsRequired()
@@ -4613,17 +4668,9 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("ai_moderation_daily_call_limit");
 
-                    b.Property<bool>("AiModerationEnabled")
-                        .HasColumnType("boolean")
-                        .HasColumnName("ai_moderation_enabled");
-
                     b.Property<int>("AiModerationProfileBatchSize")
                         .HasColumnType("integer")
                         .HasColumnName("ai_moderation_profile_batch_size");
-
-                    b.Property<long>("AiModerationProfileFactsReadThrough")
-                        .HasColumnType("bigint")
-                        .HasColumnName("ai_moderation_profile_facts_read_through");
 
                     b.Property<string>("AiProvider")
                         .HasColumnType("text")
@@ -4652,6 +4699,19 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("AuditLogSyncedThrough")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("audit_log_synced_through");
+
+                    b.Property<string>("AutoModAiTools")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("automod_ai_tools");
+
+                    b.Property<bool>("AutoModEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("automod_enabled");
+
+                    b.Property<long>("AutoModProfileFactsReadThrough")
+                        .HasColumnType("bigint")
+                        .HasColumnName("automod_profile_facts_read_through");
 
                     b.Property<DateTimeOffset?>("BanSweepCompletedAt")
                         .HasColumnType("timestamp with time zone")

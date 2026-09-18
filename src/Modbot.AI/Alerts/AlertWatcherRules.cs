@@ -64,7 +64,7 @@ public static class AlertWatcherRules
         new(AlertWatchers.VRChatJoins, 5, [FactType.MemberJoined]),
         new(AlertWatchers.DiscordJoins, 5, [FactType.DiscordMemberJoined]),
         new(AlertWatchers.NewAccounts, 3, []),
-        new(AlertWatchers.Flags, 3, [FactType.AiModerationFlag]),
+        new(AlertWatchers.Flags, 3, [FactType.AutoModFlag]),
         new(AlertWatchers.Actions, 3, ActionTypes),
         new(AlertWatchers.Leaves, 5, [FactType.MemberLeft, FactType.DiscordMemberLeft]),
         new(AlertWatchers.InstancesOpened, 3, [FactType.GroupInstanceCreated]),
