@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Modbot.Core.Configuration;
 using Serilog;
 
@@ -23,9 +24,18 @@ namespace Modbot.Server.Startup;
 /// without running anything, managed or otherwise. <see cref="CrashDumps"/> is the answer to
 /// those, and it is the runtime's to write, not Modbot's.
 /// </para>
+/// <para>
+/// What it can still do for a death it cannot explain is say what kind of death it was not. See
+/// <see cref="WatchStopSignals"/>.
+/// </para>
 /// </remarks>
 public static class CrashGuard
 {
+    // Held for the life of the process. A PosixSignalRegistration stops listening when it is
+    // collected, and a registration nobody keeps is collected at the first convenient moment --
+    // which is to say, long before the signal it was made for arrives.
+    private static readonly List<IDisposable> Signals = [];
+
     public static void Watch()
     {
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -51,6 +61,49 @@ public static class CrashGuard
             Log.Error(e.Exception, "A background task failed and nobody was waiting for it");
             e.SetObserved();
         };
+
+        WatchStopSignals();
+    }
+
+    /// <summary>
+    /// Says, in one line, that the host asked Modbot to stop.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is not about shutting down -- the host already does that, and does it properly. It is
+    /// about telling two deaths apart afterwards, from the log alone.
+    /// </para>
+    /// <para>
+    /// A process that is <em>asked</em> to go gets one of these signals first, and the shutdown
+    /// that follows is orderly and noisy. A process that is <em>killed</em> -- SIGKILL from a
+    /// platform, an out-of-memory kill, a fault in native code -- gets no signal and no chance to
+    /// say anything, and the log simply stops mid-sentence. Without this line the two look the
+    /// same at the top of the next boot, and the first question after a crash ("did something
+    /// stop us, or did we fall over?") has no answer in the record.
+    /// </para>
+    /// <para>
+    /// Nothing here cancels the signal, so the host's own shutdown runs exactly as it did before.
+    /// </para>
+    /// </remarks>
+    private static void WatchStopSignals()
+    {
+        Listen(PosixSignal.SIGTERM);
+        Listen(PosixSignal.SIGINT);
+        Listen(PosixSignal.SIGQUIT);
+
+        static void Listen(PosixSignal signal)
+        {
+            try
+            {
+                Signals.Add(PosixSignalRegistration.Create(signal, context =>
+                    Log.Warning("Modbot was told to stop by the host ({Signal})", context.Signal)));
+            }
+            catch (Exception e) when (e is PlatformNotSupportedException or ArgumentOutOfRangeException)
+            {
+                // SIGQUIT is not a thing on Windows, and a platform may refuse any of them. Losing
+                // the line costs a little clarity in a log; refusing to start would cost the host.
+            }
+        }
     }
 
     /// <summary>

@@ -130,6 +130,14 @@ internal sealed class LiveSocketSession
             {
                 // The receive loop ends by cancellation or a dropped connection; either is the end.
             }
+            catch (Exception e)
+            {
+                // Anything else -- a socket disposed or aborted under a receive that had not come
+                // back yet is the one seen in the wild. It must not leave this block: an exception
+                // thrown out of a finally replaces the reason the connection ended with nothing,
+                // and the line below is the only record that the connection ended at all.
+                _log.Warning(e, "The receive loop for {Caller} ended unexpectedly", _caller);
+            }
 
             _log.Information("Live connection for {Caller} closed: {Reason}", _caller, reason);
         }
