@@ -28,6 +28,31 @@ public class LogStoreTests
         Assert.False(LogStore.IsValidRetention(days));
     }
 
+    /// <summary>
+    /// The second limit, added when the table started following <c>LOG_LEVEL</c> (2026-09-18).
+    /// Keep-for is a promise about time and an operator may set it to "forever"; the ceiling is
+    /// about the disk and nobody can turn it off.
+    /// </summary>
+    [Fact]
+    public void TheTableHasACeilingOnLinesAsWellAsOnDays()
+    {
+        Assert.Equal(2_000_000, LogStore.MaxLines);
+    }
+
+    [Fact]
+    public void TheCeilingIsDeletedInSlicesLikeEverythingElse()
+    {
+        Assert.True(LogStore.MaxLines > LogStore.DeleteSlice);
+    }
+
+    [Fact]
+    public void OneRunCountsTheTwoReasonsSeparately()
+    {
+        var pruned = new LogPrune(PastTheWindow: 40, OverTheCeiling: 2);
+
+        Assert.Equal(42, pruned.Total);
+    }
+
     [Theory]
     [InlineData("password", true)]
     [InlineData("SmtpPasswordEncrypted", true)]
