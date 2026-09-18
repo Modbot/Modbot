@@ -12112,6 +12112,724 @@
         },
         "security": [ ]
       }
+    },
+    "/api/giveaways": {
+      "get": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "Every giveaway, newest first, with its rules, its post and its draws",
+        "description": "Needs the `ViewGiveaways` permission.",
+        "operationId": "ListGiveaways",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiveawayListView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "Plan a giveaway",
+        "description": "Needs the `RunGiveaways` permission.",
+        "operationId": "CreateGiveaway",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GiveawayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiveawayView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/giveaways/{id}": {
+      "get": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "One giveaway",
+        "description": "Needs the `ViewGiveaways` permission.",
+        "operationId": "GetGiveaway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiveawayView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "Change a giveaway",
+        "description": "Needs the `RunGiveaways` permission.",
+        "operationId": "UpdateGiveaway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GiveawayRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiveawayView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "Delete a giveaway. Its Discord post is taken down; its draws stay in the audit log.",
+        "description": "Needs the `RunGiveaways` permission.",
+        "operationId": "DeleteGiveaway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/giveaways/{id}/draws/{drawId}/entrants": {
+      "get": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "One draw's frozen entrant list, in the order it was drawn from",
+        "description": "The list the draw actually ran on, with every weight. With the draw's seed this is everything needed to work the result out again.\n\nNeeds the `ViewGiveaways` permission.",
+        "operationId": "ListGiveawayEntrants",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "drawId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiveawayEntrantsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/giveaways/builder": {
+      "get": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "The rule kinds, the weightings and the roles a rule can name",
+        "description": "Needs the `RunGiveaways` permission.",
+        "operationId": "GetGiveawayBuilder",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiveawayBuilderView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/giveaways/preview": {
+      "post": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "How many people match a rule tree right now, and the first page of them",
+        "description": "Figures counted from presence reports are close rather than exact; `fromPolledData` says when that is so, and `closeCalls` counts the people near a threshold. A rule reaching further back than the facts Modbot still keeps comes back in `unanswerable` instead of an answer.\n\nNeeds the `RunGiveaways` permission.",
+        "operationId": "PreviewGiveawayRules",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GiveawayPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiveawayPreviewView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/giveaways/{id}/open": {
+      "post": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "Open a giveaway for entries",
+        "description": "Needs the `RunGiveaways` permission.",
+        "operationId": "OpenGiveaway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/giveaways/{id}/close": {
+      "post": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "Close a giveaway to entries",
+        "description": "Needs the `RunGiveaways` permission.",
+        "operationId": "CloseGiveaway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/giveaways/{id}/draw": {
+      "post": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "Draw a giveaway. Drawing again makes a new draw beside the old one.",
+        "description": "Freezes the entrant list with every weight, reveals the seed that was promised, and picks the winners from the two. The rules are checked again here, so somebody who qualified when they entered and does not now is shown as such rather than dropped.\n\nNeeds the `RunGiveaways` permission.",
+        "operationId": "DrawGiveaway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GiveawayView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/giveaways/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Giveaways"
+        ],
+        "summary": "Cancel a giveaway. Its Discord post says so and nobody else can enter.",
+        "description": "Needs the `RunGiveaways` permission.",
+        "operationId": "CancelGiveaway",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -19769,6 +20487,826 @@
           "NeedsOperator",
           "NotConfigured"
         ]
+      },
+      "GiveawayBuilderView": {
+        "required": [
+          "ruleKinds",
+          "weightings",
+          "groupRoles",
+          "discordRoles",
+          "moderationFactRetentionDays",
+          "presenceFactRetentionDays"
+        ],
+        "type": "object",
+        "properties": {
+          "ruleKinds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "weightings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "groupRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GiveawayRoleView"
+            }
+          },
+          "discordRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GiveawayRoleView"
+            }
+          },
+          "moderationFactRetentionDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "presenceFactRetentionDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "GiveawayDrawView": {
+        "required": [
+          "id",
+          "number",
+          "drawnAt",
+          "drawnBy",
+          "seed",
+          "seedPromise",
+          "seedKept",
+          "winnerCount",
+          "ruleLines",
+          "exclusions",
+          "weighting",
+          "weightCap",
+          "entrantCount",
+          "inDrawCount",
+          "totalWeight",
+          "fromPolledData",
+          "closeCalls",
+          "winners"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "drawnAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "drawnBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seed": {
+            "type": "string"
+          },
+          "seedPromise": {
+            "type": "string"
+          },
+          "seedKept": {
+            "type": "boolean"
+          },
+          "winnerCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "ruleLines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "weighting": {
+            "type": "string"
+          },
+          "weightCap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "entrantCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "inDrawCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "totalWeight": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "fromPolledData": {
+            "type": "boolean"
+          },
+          "closeCalls": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "winners": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GiveawayEntrantView"
+            }
+          }
+        }
+      },
+      "GiveawayEntrantView": {
+        "required": [
+          "position",
+          "key",
+          "vrChatUserId",
+          "discordUserId",
+          "name",
+          "weight",
+          "measured",
+          "keptOut",
+          "keptOutLabel",
+          "because",
+          "fromPolledData",
+          "closeCall",
+          "winnerRank",
+          "purged"
+        ],
+        "type": "object",
+        "properties": {
+          "position": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "key": {
+            "type": "string"
+          },
+          "vrChatUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "weight": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "measured": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "keptOut": {
+            "type": "string"
+          },
+          "keptOutLabel": {
+            "type": "string"
+          },
+          "because": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "fromPolledData": {
+            "type": "boolean"
+          },
+          "closeCall": {
+            "type": "boolean"
+          },
+          "winnerRank": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "purged": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GiveawayEntrantsView": {
+        "required": [
+          "people",
+          "total",
+          "page",
+          "pageSize"
+        ],
+        "type": "object",
+        "properties": {
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GiveawayEntrantView"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "GiveawayListView": {
+        "required": [
+          "giveaways",
+          "canRun",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "giveaways": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GiveawayView"
+            }
+          },
+          "canRun": {
+            "type": "boolean"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GiveawayPostView": {
+        "required": [
+          "state",
+          "channelId",
+          "error",
+          "errorAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errorAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GiveawayPreviewRequest": {
+        "required": [
+          "rules",
+          "exclusions",
+          "weighting",
+          "weightCap",
+          "entryWay"
+        ],
+        "type": "object",
+        "properties": {
+          "rules": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "exclusions": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "weighting": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "weightCap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "entryWay": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "GiveawayPreviewView": {
+        "required": [
+          "total",
+          "inDraw",
+          "totalWeight",
+          "closeCalls",
+          "fromPolledData",
+          "unanswerable",
+          "stopped",
+          "people"
+        ],
+        "type": "object",
+        "properties": {
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "inDraw": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "totalWeight": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "closeCalls": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "fromPolledData": {
+            "type": "boolean"
+          },
+          "unanswerable": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "stopped": {
+            "type": "boolean"
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GiveawayEntrantView"
+            }
+          }
+        }
+      },
+      "GiveawayRequest": {
+        "required": [
+          "name",
+          "prize",
+          "opensAt",
+          "closesAt",
+          "drawAt",
+          "winnerCount",
+          "entryWay",
+          "emoji",
+          "rules",
+          "exclusions",
+          "weighting",
+          "weightCap",
+          "postToChannel",
+          "channelId",
+          "draft"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "prize": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "opensAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closesAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "drawAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "winnerCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "entryWay": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "emoji": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "rules": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "exclusions": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "weighting": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "weightCap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "postToChannel": {
+            "type": "boolean"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "draft": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GiveawayRoleView": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "GiveawayView": {
+        "required": [
+          "id",
+          "name",
+          "prize",
+          "opensAt",
+          "closesAt",
+          "drawAt",
+          "winnerCount",
+          "entryWay",
+          "emoji",
+          "rules",
+          "ruleLines",
+          "exclusions",
+          "exclusionLines",
+          "weighting",
+          "weightCap",
+          "postToChannel",
+          "channelId",
+          "state",
+          "seedPromise",
+          "drawCount",
+          "entryCount",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "openedAt",
+          "closedAt",
+          "post",
+          "draws"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "prize": {
+            "type": "string"
+          },
+          "opensAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closesAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "drawAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "winnerCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "entryWay": {
+            "type": "string"
+          },
+          "emoji": {
+            "type": "string"
+          },
+          "rules": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "ruleLines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclusions": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
+            ]
+          },
+          "exclusionLines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "weighting": {
+            "type": "string"
+          },
+          "weightCap": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "postToChannel": {
+            "type": "boolean"
+          },
+          "channelId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "seedPromise": {
+            "type": "string"
+          },
+          "drawCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "entryCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "version": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "openedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "post": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GiveawayPostView"
+              }
+            ]
+          },
+          "draws": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GiveawayDrawView"
+            }
+          }
+        }
       },
       "GroupAnalytics": {
         "required": [
@@ -27475,6 +29013,10 @@
     {
       "name": "Credits",
       "x-displayName": "Credits"
+    },
+    {
+      "name": "Giveaways",
+      "x-displayName": "Giveaways"
     },
     {
       "name": "Logs",

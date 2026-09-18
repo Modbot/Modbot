@@ -170,6 +170,27 @@ public sealed record DiscordGatewayOptions(bool MemberEvents = true, bool Messag
 /// <param name=Member>The member as they joined -- name, roles, join time -- for recording the join.</param>
 public sealed record DiscordMemberJoin(string GuildId, string UserId, string Username, bool IsBot, DiscordMemberSnapshot? Member = null);
 
+/// <summary>
+/// Somebody put a reaction on a message, or took one off (giveaways design §4.2).
+/// </summary>
+/// <param name="Emoji">
+/// The emoji as text, exactly as it is written in a message: the character itself for a standard
+/// one, <c>&lt;:name:id&gt;</c> for one of the server's own. Compared as text and never parsed, so
+/// an emoji Modbot has never seen costs nothing.
+/// </param>
+/// <param name="Username">
+/// The name Discord had to hand, when it had one. Null when the reaction arrived for a person the
+/// session does not know, which happens without the members intent.
+/// </param>
+public sealed record DiscordReactionSnapshot(
+    string GuildId,
+    string ChannelId,
+    string MessageId,
+    string UserId,
+    string Emoji,
+    string? Username = null,
+    bool IsBot = false);
+
 /// <summary>Whether giving or taking away a role went through.</summary>
 /// <param name="NotInServer">Discord does not know that member in the server (Unknown Member).</param>
 /// <param name="RoleGone">The role no longer exists (Unknown Role).</param>
@@ -417,6 +438,24 @@ public interface IDiscordGateway : IAsyncDisposable
     /// message ids -- all a delete event says.
     /// </summary>
     event Func<string, string, IReadOnlyList<string>, Task>? MessagesDeleted;
+
+    // ── Reactions (giveaways design §4.2) ────────────────────────────────────────────────
+    //
+    // Needs the Guild Message Reactions intent, which is not privileged. Both events carry the
+    // message rather than its text: a reaction is matched against the message id Modbot posted,
+    // and nothing here has to read what the message says.
+
+    /// <summary>Somebody put a reaction on a message in the server.</summary>
+    event Func<DiscordReactionSnapshot, Task>? ReactionAdded;
+
+    /// <summary>Somebody took a reaction off a message in the server.</summary>
+    event Func<DiscordReactionSnapshot, Task>? ReactionRemoved;
+
+    /// <summary>
+    /// Puts a reaction on a message the bot posted, so people have something to click.
+    /// </summary>
+    /// <remarks>Needs Add Reactions in the channel, and Read Message History to find the message.</remarks>
+    Task<DiscordPostOutcome> AddReactionAsync(string channelId, string messageId, string emoji, CancellationToken ct);
 
     /// <summary>
     /// Reads one page of a channel's or thread's history: the hundred messages before

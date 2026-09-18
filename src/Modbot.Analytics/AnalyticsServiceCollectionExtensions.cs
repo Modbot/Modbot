@@ -45,6 +45,8 @@ public static class AnalyticsServiceCollectionExtensions
         // disagree with the first (giveaways design §2.6).
         services.AddScoped<Giveaways.GiveawayRuleChecker>();
         services.AddScoped<Giveaways.GiveawayDrawer>();
+        services.AddScoped<Giveaways.GiveawayScheduler>();
+        services.AddHostedService<Giveaways.GiveawayService>();
 
         services.AddScoped<RetentionPruner>();
         services.AddScoped<IUserPurger, UserPurger>();

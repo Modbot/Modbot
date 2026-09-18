@@ -408,6 +408,34 @@ public sealed class FakeGateway : IDiscordGateway
     public Task RaiseMessagesDeletedAsync(string guildId, string channelId, params string[] ids)
         => MessagesDeleted?.Invoke(guildId, channelId, ids) ?? Task.CompletedTask;
 
+    // ── Reactions ────────────────────────────────────────────────────────────────────────────
+
+    public event Func<DiscordReactionSnapshot, Task>? ReactionAdded;
+
+    public event Func<DiscordReactionSnapshot, Task>? ReactionRemoved;
+
+    /// <summary>Every reaction the bot put on a message itself, in order.</summary>
+    public List<(string ChannelId, string MessageId, string Emoji)> OwnReactions { get; } = [];
+
+    /// <summary>Set to make adding a reaction fail with this sentence.</summary>
+    public string? ReactionError { get; set; }
+
+    public Task<DiscordPostOutcome> AddReactionAsync(
+        string channelId, string messageId, string emoji, CancellationToken ct)
+    {
+        if (ReactionError is { } error)
+            return Task.FromResult(DiscordPostOutcome.Failed(error, permanent: true));
+
+        OwnReactions.Add((channelId, messageId, emoji));
+        return Task.FromResult(DiscordPostOutcome.Ok);
+    }
+
+    public Task RaiseReactionAddedAsync(DiscordReactionSnapshot reaction)
+        => ReactionAdded?.Invoke(reaction) ?? Task.CompletedTask;
+
+    public Task RaiseReactionRemovedAsync(DiscordReactionSnapshot reaction)
+        => ReactionRemoved?.Invoke(reaction) ?? Task.CompletedTask;
+
     // ── Members, voice and moderation ────────────────────────────────────────────────────────
 
     public event Func<string, string, Task>? MemberLeft;

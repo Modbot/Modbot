@@ -53,6 +53,12 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<Calendar.CalendarDiscordPublisher>();
         services.AddHostedService<Calendar.CalendarDiscordService>();
 
+        // Giveaway posts and winner announcements (giveaways design §7). Its own loop as well; the
+        // closing and drawing themselves are not Discord's business and live in Modbot.Analytics.
+        services.AddScoped<Giveaways.GiveawayReactions>();
+        services.AddScoped<Giveaways.GiveawayDiscordPublisher>();
+        services.AddHostedService<Giveaways.GiveawayDiscordService>();
+
         // Scheduled AI insights that name a channel (AI insights design §4). Its own loop too.
         services.AddHostedService<InsightPostService>();
 
