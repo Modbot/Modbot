@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { vrchatMedia } from '../src/lib/vrchatMedia.ts'
+import { setVRChatImagesProxied, vrchatMedia } from '../src/lib/vrchatMedia.ts'
 
 // VRChat's image hosts refuse a hotlinking browser, so anything on them goes through the server.
 test('a picture on a VRChat host is fetched through the server', () => {
@@ -39,4 +39,23 @@ test('nothing in gives nothing out', () => {
   assert.equal(vrchatMedia(null), null)
   assert.equal(vrchatMedia(undefined), null)
   assert.equal(vrchatMedia(''), null)
+})
+
+test('with the switch off, a VRChat picture is asked for directly', () => {
+  try {
+    setVRChatImagesProxied(false)
+    assert.equal(vrchatMedia('https://api.vrchat.cloud/x.png'), 'https://api.vrchat.cloud/x.png')
+    assert.equal(vrchatMedia('https://cdn.discordapp.com/a.png'), 'https://cdn.discordapp.com/a.png')
+    assert.equal(vrchatMedia(null), null)
+  } finally {
+    setVRChatImagesProxied(true)
+  }
+})
+
+test('a status that does not carry the switch leaves it alone', () => {
+  setVRChatImagesProxied(undefined)
+  assert.equal(
+    vrchatMedia('https://api.vrchat.cloud/x.png'),
+    '/api/files/vrchat?url=' + encodeURIComponent('https://api.vrchat.cloud/x.png'),
+  )
 })

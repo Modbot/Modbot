@@ -13,9 +13,14 @@ namespace Modbot.Api.Features.Proxy;
 
 /// <param name="BaseUrl">What a caller puts in front of a VRChat path: the public address and <c>/api/proxy/vrchat/</c>.</param>
 /// <param name="PublicAddressSet">Whether the public address is saved. Without it the URL is this request's own address.</param>
-public sealed record VRChatProxySettingsResponse(bool Enabled, string BaseUrl, bool PublicAddressSet);
+/// <param name="ImagesProxied">Whether the web app loads VRChat pictures through Modbot.</param>
+public sealed record VRChatProxySettingsResponse(
+    bool Enabled,
+    string BaseUrl,
+    bool PublicAddressSet,
+    bool ImagesProxied);
 
-public sealed record VRChatProxySettingsUpdate(bool Enabled);
+public sealed record VRChatProxySettingsUpdate(bool Enabled, bool ImagesProxied);
 
 /// <summary>Settings → VRChat Proxy: the switch and the address (VRChat proxy design).</summary>
 public static class VRChatProxySettingsEndpoints
@@ -47,24 +52,48 @@ public static class VRChatProxySettingsEndpoints
                 ArgumentNullException.ThrowIfNull(body);
 
                 var row = await db.GetSettingsAsync(ct);
-                if (row.VRChatProxyEnabled != body.Enabled)
+                var proxyMoved = row.VRChatProxyEnabled != body.Enabled;
+                var imagesMoved = row.VRChatImagesProxied != body.ImagesProxied;
+
+                if (proxyMoved || imagesMoved)
                 {
                     await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                     row.VRChatProxyEnabled = body.Enabled;
+                    row.VRChatImagesProxied = body.ImagesProxied;
                     await db.SaveChangesAsync(ct);
 
-                    await facts.RecordAsync(
-                        FactType.SettingsChanged,
-                        "settings",
-                        Actor.Of(http),
-                        new JsonObject
-                        {
-                            ["setting"] = "vrchatProxyEnabled",
-                            ["before"] = !body.Enabled,
-                            ["after"] = body.Enabled,
-                        },
-                        ct);
+                    // One fact per switch, because they are read back one at a time: a log line
+                    // saying "the VRChat proxy settings changed" leaves a reader to guess which.
+                    if (proxyMoved)
+                    {
+                        await facts.RecordAsync(
+                            FactType.SettingsChanged,
+                            "settings",
+                            Actor.Of(http),
+                            new JsonObject
+                            {
+                                ["setting"] = "vrchatProxyEnabled",
+                                ["before"] = !body.Enabled,
+                                ["after"] = body.Enabled,
+                            },
+                            ct);
+                    }
+
+                    if (imagesMoved)
+                    {
+                        await facts.RecordAsync(
+                            FactType.SettingsChanged,
+                            "settings",
+                            Actor.Of(http),
+                            new JsonObject
+                            {
+                                ["setting"] = "vrchatImagesProxied",
+                                ["before"] = !body.ImagesProxied,
+                                ["after"] = body.ImagesProxied,
+                            },
+                            ct);
+                    }
 
                     await transaction.CommitAsync(ct);
                 }
@@ -90,6 +119,7 @@ public static class VRChatProxySettingsEndpoints
         return new VRChatProxySettingsResponse(
             row.VRChatProxyEnabled,
             address.Origin + VRChatProxyEndpoints.RoutePrefix,
-            row.PublicAddress is not null);
+            row.PublicAddress is not null,
+            row.VRChatImagesProxied);
     }
 }

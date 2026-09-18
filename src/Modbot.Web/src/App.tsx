@@ -8,6 +8,7 @@ import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { DemoContext } from '@/lib/demo'
 import { REVIEW_KINDS, type LiveEvent } from '@/lib/liveStream'
 import { setMyModbotOrigin } from '@/lib/myModbot'
+import { setVRChatImagesProxied } from '@/lib/vrchatMedia'
 import { CREDITS_PATH, GO_TO_KEYS, MOVED, NAV, mayOpen, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density } from '@/lib/preferences'
@@ -168,6 +169,9 @@ export default function App() {
 
     // Every link to the selector is built from this, so it is set before anything renders.
     setMyModbotOrigin(next.myModbotUrl)
+
+    // And every picture address, for the same reason.
+    setVRChatImagesProxied(next.vrchatImagesProxied)
 
     // Who is signed in decides what the shell shows (accounts and access design §8). Read
     // alongside status so a permission change, a rename or a fresh VRChat link shows up on the

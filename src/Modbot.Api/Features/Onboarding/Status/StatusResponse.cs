@@ -93,6 +93,10 @@ public sealed record IntegrationStatus(
 /// Whether the signed-in account has linked its VRChat account (design §4.3). False when nobody is
 /// signed in. The wizard's link step is done when this is true.
 /// </param>
+/// <param name="VRChatImagesProxied">
+/// Whether this server loads VRChat pictures on the browser's behalf. Read before anything is
+/// drawn, because every picture address in the app is built from it.
+/// </param>
 /// <param name="MyModbotUrl">
 /// Where my.modbot.co is, from <c>MODBOT_MY_URL</c>. Every link the app offers to the selector is
 /// built from it, so a group that runs its own points them all somewhere else with one variable.
@@ -107,4 +111,5 @@ public sealed record OnboardingStatusResponse(
     ConnectionStatus Connection,
     ManagedGroupStatus? Group,
     IntegrationStatus Integrations,
-    string MyModbotUrl);
+    string MyModbotUrl,
+    bool VRChatImagesProxied);

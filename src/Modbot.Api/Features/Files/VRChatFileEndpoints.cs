@@ -89,6 +89,12 @@ public static class VRChatFileEndpoints
         ModbotContext db,
         CancellationToken ct)
     {
+        // The operator's switch, checked before the cache as well as before VRChat: off means this
+        // server does not serve VRChat pictures, not that it serves the ones it happens to hold.
+        var settings = await db.GetSettingsAsync(ct);
+        if (!settings.VRChatImagesProxied)
+            return Problem(StatusCodes.Status404NotFound, "This server does not proxy VRChat pictures.");
+
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var address))
             return Problem(StatusCodes.Status400BadRequest, "Give a url to fetch.");
 

@@ -70,7 +70,8 @@ public static class StatusHandler
             // falls back to the project's own address.
             (http.RequestServices.GetService(typeof(Modbot.Core.Configuration.ModbotEnvironment))
                 as Modbot.Core.Configuration.ModbotEnvironment)?.MyUrl
-            ?? Modbot.Core.Configuration.ModbotEnvironment.DefaultMyUrl));
+            ?? Modbot.Core.Configuration.ModbotEnvironment.DefaultMyUrl,
+            settings.VRChatImagesProxied));
     }
 
     /// <summary>

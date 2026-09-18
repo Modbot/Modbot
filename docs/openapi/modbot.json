@@ -27275,7 +27275,8 @@
         "required": [
           "enabled",
           "baseUrl",
-          "publicAddressSet"
+          "publicAddressSet",
+          "imagesProxied"
         ],
         "type": "object",
         "properties": {
@@ -27287,16 +27288,23 @@
           },
           "publicAddressSet": {
             "type": "boolean"
+          },
+          "imagesProxied": {
+            "type": "boolean"
           }
         }
       },
       "VRChatProxySettingsUpdate": {
         "required": [
-          "enabled"
+          "enabled",
+          "imagesProxied"
         ],
         "type": "object",
         "properties": {
           "enabled": {
+            "type": "boolean"
+          },
+          "imagesProxied": {
             "type": "boolean"
           }
         }

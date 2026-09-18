@@ -378,6 +378,14 @@ public class Settings
     /// </summary>
     public bool VRChatProxyEnabled { get; set; }
 
+    /// <summary>
+    /// Whether the web app loads VRChat pictures through <c>/api/files/vrchat</c> (VRChat files
+    /// design). On by default, because VRChat's hosts refuse a browser that hotlinks them and a
+    /// deployment with this off shows no faces at all. Off is for an operator who would rather
+    /// their server never fetched a picture, and who accepts what that costs.
+    /// </summary>
+    public bool VRChatImagesProxied { get; set; } = true;
+
     // --- AutoMod (AutoMod design; the AI parts, AI moderation design) ---
 
     /// <summary>The one switch for term lists and AI topics. Off by default, like everything in M8.</summary>

@@ -96,6 +96,8 @@ export type OnboardingStatus = {
   }
   /** Where my.modbot.co is, from MODBOT_MY_URL. */
   myModbotUrl: string
+  /** Whether VRChat pictures are loaded through this server. */
+  vrchatImagesProxied: boolean
 }
 
 /**
@@ -258,6 +260,8 @@ export type VRChatProxySettings = {
   /** What goes in front of a VRChat path: the public address and `/api/proxy/vrchat/`. */
   baseUrl: string
   publicAddressSet: boolean
+  /** Whether pictures are loaded through `/api/files/vrchat`. */
+  imagesProxied: boolean
 }
 
 /** What VRChat answered through the proxy, whatever the status. */
@@ -3332,7 +3336,7 @@ export const api = {
 
   vrchatProxySettings: () => request<VRChatProxySettings>('/api/settings/vrchat-proxy'),
 
-  setVRChatProxySettings: (body: { enabled: boolean }) =>
+  setVRChatProxySettings: (body: { enabled: boolean; imagesProxied: boolean }) =>
     put<VRChatProxySettings>('/api/settings/vrchat-proxy', body),
 
   /**

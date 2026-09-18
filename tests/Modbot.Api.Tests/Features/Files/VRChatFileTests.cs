@@ -42,6 +42,16 @@ public class VRChatFileTests : IDisposable
     private static string Ask(string url) =>
         VRChatFileEndpoints.Path + "?url=" + Uri.EscapeDataString(url);
 
+    /// <summary>Turns the operator's picture switch off.</summary>
+    private static async Task StopProxyingPicturesAsync(ApiTestHost host, CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var settings = await db.GetSettingsAsync(ct);
+        settings.VRChatImagesProxied = false;
+        await db.SaveChangesAsync(ct);
+    }
+
     /// <summary>The cap has to be in the settings row before a miss will store anything.</summary>
     private static async Task GiveCacheRoomAsync(ApiTestHost host, long bytes, CancellationToken ct)
     {
@@ -264,5 +274,50 @@ public class VRChatFileTests : IDisposable
         var response = await host.Client.SendAsync(again, ct);
 
         Assert.Equal(HttpStatusCode.NotModified, response.StatusCode);
+    }
+
+    /// <summary>
+    /// With the switch off this server does not serve VRChat pictures, and does not ask VRChat
+    /// for one either.
+    /// </summary>
+    [Fact]
+    public async Task WithTheSwitchOffNoPictureIsServed()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await ApiTestHost.ResetDeploymentAsync(_db, ct);
+
+        var gate = new FakeVRChatGate().Serves([1, 2, 3]);
+        await using var host = await StartAsync(gate);
+        await StopProxyingPicturesAsync(host, ct);
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
+        var response = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Empty(gate.Fetched);
+    }
+
+    /// <summary>
+    /// Off means off, not "serve the ones already held": a cached picture is refused the same way,
+    /// so turning the switch off takes the pictures off every screen rather than some of them.
+    /// </summary>
+    [Fact]
+    public async Task WithTheSwitchOffACachedPictureIsRefusedToo()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await ApiTestHost.ResetDeploymentAsync(_db, ct);
+
+        var gate = new FakeVRChatGate().Serves([1, 2, 3]);
+        await using var host = await StartAsync(gate);
+        await GiveCacheRoomAsync(host, 1024 * 1024, ct);
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
+        var first = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+
+        await StopProxyingPicturesAsync(host, ct);
+
+        var second = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
+        Assert.Equal(HttpStatusCode.NotFound, second.StatusCode);
     }
 }

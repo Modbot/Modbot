@@ -61,6 +61,7 @@ export function VRChatProxySection() {
 
 function ProxyCard({ settings, onSaved }: { settings: Settings; onSaved: (next: Settings) => void }) {
   const [enabled, setEnabled] = useState(settings.enabled)
+  const [imagesProxied, setImagesProxied] = useState(settings.imagesProxied)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
@@ -71,7 +72,7 @@ function ProxyCard({ settings, onSaved }: { settings: Settings; onSaved: (next: 
     setProblem(null)
 
     api
-      .setVRChatProxySettings({ enabled })
+      .setVRChatProxySettings({ enabled, imagesProxied })
       .then((next) => {
         setSaved(true)
         onSaved(next)
@@ -95,6 +96,10 @@ function ProxyCard({ settings, onSaved }: { settings: Settings; onSaved: (next: 
     >
       <Switch checked={enabled} onChange={setEnabled}>
         VRChat proxy on
+      </Switch>
+
+      <Switch checked={imagesProxied} onChange={setImagesProxied}>
+        Proxy VRChat images through Modbot
       </Switch>
 
       <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>

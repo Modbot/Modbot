@@ -10,6 +10,19 @@
 
 const PROXY = '/api/files/vrchat?url='
 
+/**
+ * The operator's switch, read from the status the app loads before it draws anything.
+ *
+ * On until told otherwise: a picture drawn before the first status arrives is far likelier to be
+ * on a server with the switch left alone than on one that turned it off.
+ */
+let proxied = true
+
+/** Called once the server's onboarding status has been read. */
+export function setVRChatImagesProxied(on: boolean | undefined): void {
+  if (on !== undefined) proxied = on
+}
+
 /** A host VRChat serves pictures from: `vrchat.cloud` itself or anything under it. */
 function isVRChatHost(host: string): boolean {
   const h = host.toLowerCase()
@@ -28,6 +41,8 @@ export function vrchatMedia(url: string | null | undefined): string | null {
     // Not an absolute URL, so not one of VRChat's.
     return url
   }
+
+  if (!proxied) return url
 
   return isVRChatHost(parsed.hostname) ? PROXY + encodeURIComponent(url) : url
 }
