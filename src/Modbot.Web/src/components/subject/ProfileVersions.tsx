@@ -147,12 +147,12 @@ export function Fields({ fields: p, highlight }: { fields: ProfileFields; highli
 
       <div className="grid min-w-0 flex-1 grid-cols-[auto_1fr] gap-x-3 gap-y-1">
         <Row label="Name" mark={marked('displayName')}>{p.displayName ?? '—'}</Row>
-        <Row label="Banner" mark={marked('bannerUrl') || marked('banner')}>
+        <Row label="Banner" mark={marked('bannerUrl')}>
           {banner ? (
             <img src={banner} alt="" className="aspect-[3/1] w-full max-w-xs rounded-md bg-muted object-cover" referrerPolicy="no-referrer" />
           ) : '—'}
         </Row>
-        <Row label="Icon" mark={marked('userIcon')}>
+        <Row label="Icon" mark={marked('iconUrl')}>
           {icon ? (
             <img src={icon} alt="" className="size-8 rounded-full bg-muted object-cover" referrerPolicy="no-referrer" />
           ) : '—'}
