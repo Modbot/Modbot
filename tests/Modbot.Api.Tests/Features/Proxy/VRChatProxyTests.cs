@@ -65,7 +65,11 @@ public class VRChatProxyTests
         Assert.Equal("https://localhost/api/proxy/vrchat/", before.GetProperty("baseUrl").GetString());
         Assert.False(before.GetProperty("publicAddressSet").GetBoolean());
 
-        var after = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Put, SettingsPath, new { enabled = true }, cookie, Ct), Ct);
+        // The whole settings resource, as the real client always sends it (VRChatProxySettingsUpdate
+        // has no optional fields): leaving imagesProxied out would read as turning it off too, since
+        // it defaults to true, and record a second, unwanted fact for that switch.
+        var after = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Put, SettingsPath, new { enabled = true, imagesProxied = true }, cookie, Ct), Ct);
         Assert.True(after.GetProperty("enabled").GetBoolean());
 
         var fact = Assert.Single(await host.FactsAsync(FactType.SettingsChanged, "settings", Ct));
