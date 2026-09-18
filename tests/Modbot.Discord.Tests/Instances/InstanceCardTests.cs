@@ -110,17 +110,32 @@ public class InstanceCardTests
     [InlineData("> quote", @"\> quote")]
     [InlineData("# Heading", @"\# Heading")]
     [InlineData("- item", @"\- item")]
-    [InlineData("[click](https://evil.example)", @"\[click\]\(https\://evil.example\)")]
-    [InlineData("@everyone", @"\@everyone")]
-    [InlineData("<@123456>", @"\<\@123456\>")]
+    [InlineData("[click](https://evil.example)", @"\[click\]\(https://evil.example\)")]
+    [InlineData("<@123456>", @"\<@123456>")]
     [InlineData(@"back\slash", @"back\\slash")]
     public void DisplayNames_AreEscaped(string name, string expected)
         => Assert.Equal(expected, InstanceCard.Escape(name));
 
+    /// <summary>
+    /// The colon and the at sign are not markdown, so a backslash in front of either would be a
+    /// backslash on the card and nothing else. A name that reads like a mention is text: mentions
+    /// are off on every message the bot sends.
+    /// </summary>
+    [Theory]
+    [InlineData("@everyone")]
+    [InlineData("E-Ray")]
+    [InlineData("ada: the second")]
+    public void DisplayNames_KeepWhatDiscordDoesNotReadAsFormatting(string name)
+        => Assert.Equal(name, InstanceCard.Escape(name));
+
+    /// <summary>
+    /// A hyphen or a hash only means anything at the start of a line, and the line break that would
+    /// have given it one is gone.
+    /// </summary>
     [Fact]
     public void ALineBreakInAName_CannotStartALineOfItsOwn()
     {
-        Assert.Equal(@"Ada   \# Heading", InstanceCard.Escape("Ada\n\r # Heading"));
+        Assert.Equal("Ada   # Heading", InstanceCard.Escape("Ada\n\r # Heading"));
     }
 
     [Fact]

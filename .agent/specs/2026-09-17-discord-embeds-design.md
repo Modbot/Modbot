@@ -112,12 +112,35 @@ breaks one of them:
 
 | Pass | For | What it does |
 |---|---|---|
-| `EscapeName` | A name inside a link, a field or a list | Escapes every character Discord reads as formatting, brackets included; control characters become spaces |
-| `EscapeText` | A ban reason, an event description | Escapes markdown and brackets, leaves `:` and `-` alone — a sentence with backslashes through the middle of it is worse than the risk |
+| `EscapeName` | A name inside a link, a field or a list | Escapes every character Discord reads as formatting, brackets and parentheses included; control characters become spaces |
+| `EscapeText` | A ban reason, an event description | The same, minus the parentheses, plus a line start after every line break |
 | `Plain` | A title, an author line, a footer | Escapes **nothing**; strips control characters and cuts |
 
 The third is a fix, not a refinement. Discord prints those slots literally, so the old code put a
 person called `*nova*` on screen as `\*nova\*` in the title of their own card.
+
+**Only what Discord reads as formatting is escaped**, and only where it reads it that way:
+
+- `` \ * _ ~ ` | < [ ] `` mean something wherever they appear and are always escaped. `<` is there
+  because it starts a mention, a channel, a timestamp and a custom emoji, all of which would
+  otherwise draw a name as somebody else.
+- `# > -` are a heading, a quote and a list, and only at the start of a line. They are escaped
+  there and nowhere else, because escaping every one of them would put a backslash through the
+  middle of every hyphenated name in the group — `E-Ray` is a name, not a bullet. A name has
+  exactly one line start, its own, because its control characters are gone; free text keeps its
+  line breaks and has one after each of them.
+- `( )` are escaped in a **name** and not in free text, because a name is put inside `[…](…)` and
+  a paragraph is not. With `[` and `]` escaped, a lone parenthesis in a sentence cannot begin a
+  link.
+- `:` and `@` are escaped **nowhere**. Neither is markdown. A backslash in front of one is a
+  backslash a moderator sees wherever the text is not drawn as markdown — a notification, a search
+  result, a name they copied out to look up — and it stops nothing: a name spelled like a mention
+  is text because mentions are off at send time (§4), and that is the defence, not the spelling.
+
+This narrows the first version of this document, which escaped `:` and `@` everywhere and `-`
+everywhere in a name. It was written as "escape more than you need and nothing can go wrong";
+escaping a character Discord does not read as formatting is not free, and the hyphen made it
+visible.
 
 `Fit` cuts with an ellipsis and never leaves a dangling backslash, which would turn the ellipsis
 into the thing being escaped.

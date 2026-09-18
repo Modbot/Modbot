@@ -11,9 +11,35 @@ public class CardTextTests
     [Theory]
     [InlineData("Ada", "Ada")]
     [InlineData("**bold**", @"\*\*bold\*\*")]
-    [InlineData("@everyone", @"\@everyone")]
     [InlineData("a_b", @"a\_b")]
+    [InlineData("<@123>", @"\<@123>")]
     public void AName_HasItsMarkdownEscaped(string name, string expected)
+        => Assert.Equal(expected, CardText.EscapeName(name));
+
+    /// <summary>
+    /// Neither is markdown, and a backslash in front of one is a backslash a moderator sees the
+    /// moment the text is not drawn as markdown. A name spelled like a mention is text because
+    /// mentions are off on every message the bot sends (Discord embeds design §4).
+    /// </summary>
+    [Theory]
+    [InlineData("@everyone")]
+    [InlineData("Banned at 10:15")]
+    [InlineData("E-Ray")]
+    public void AName_KeepsWhatDiscordDoesNotReadAsFormatting(string name)
+        => Assert.Equal(name, CardText.EscapeName(name));
+
+    /// <summary>
+    /// A heading, a quote and a list start at the start of a line and nowhere else, so that is the
+    /// only place they are escaped -- otherwise every hyphenated name in the group carries a
+    /// backslash. A name has one line start, its own, because its control characters are gone.
+    /// </summary>
+    [Theory]
+    [InlineData("- item", @"\- item")]
+    [InlineData("# Heading", @"\# Heading")]
+    [InlineData("> quote", @"\> quote")]
+    [InlineData("  - item", @"\- item")]
+    [InlineData("Ada - Rin", "Ada - Rin")]
+    public void AName_EscapesAListOrAHeadingOnlyWhereALineCouldStart(string name, string expected)
         => Assert.Equal(expected, CardText.EscapeName(name));
 
     /// <summary>
@@ -24,21 +50,49 @@ public class CardTextTests
     public void AName_HasItsBracketsEscaped()
         => Assert.Equal(@"ada\]\(x\)", CardText.EscapeName("ada](x)"));
 
+    /// <summary>
+    /// The line breaks are what made the <c>#</c> dangerous, and they are gone: it is left as
+    /// written because there is no longer a line for it to head.
+    /// </summary>
     [Fact]
     public void AName_LosesItsControlCharacters()
-        => Assert.Equal(@"Ada   \# Heading", CardText.EscapeName("Ada\n\r # Heading"));
+        => Assert.Equal("Ada   # Heading", CardText.EscapeName("Ada\n\r # Heading"));
 
     /// <summary>
     /// Free text is a sentence somebody wrote to be read. Escaping every colon and hyphen in one
-    /// would put backslashes through the middle of it, so this pass is lighter than a name's --
-    /// but the brackets still go, because a description can sit beside a link.
+    /// would put backslashes through the middle of it, so both are left alone (Discord embeds
+    /// design §2.3) -- but the brackets still go, because a description can sit beside a link.
     /// </summary>
     [Fact]
     public void FreeText_KeepsItsPunctuationAndLosesItsMarkdown()
     {
         Assert.Equal(
-            @"Banned at 10:15 \- see \#rules \[again\]",
+            @"Banned at 10:15 - see #rules \[again\]",
             CardText.EscapeText("Banned at 10:15 - see #rules [again]"));
+    }
+
+    /// <summary>
+    /// Free text keeps its line breaks, so unlike a name it has a line start after every one of
+    /// them -- and a reason typed as a list is a list the reader did not ask for.
+    /// </summary>
+    [Fact]
+    public void FreeText_EscapesAListOrAHeadingOnEveryLineItStarts()
+    {
+        Assert.Equal(
+            "Two reasons:\n\\- one\n\\> two",
+            CardText.EscapeText("Two reasons:\n- one\n> two"));
+    }
+
+    /// <summary>
+    /// A reason is a paragraph rather than a link's label, so its parentheses are left as typed.
+    /// With the square brackets escaped there is nothing for one to close.
+    /// </summary>
+    [Fact]
+    public void FreeText_KeepsItsParenthesesAndBreaksItsMentions()
+    {
+        Assert.Equal(
+            @"Told them (twice) to stop pinging \<@123>",
+            CardText.EscapeText("Told them (twice) to stop pinging <@123>"));
     }
 
     /// <summary>
