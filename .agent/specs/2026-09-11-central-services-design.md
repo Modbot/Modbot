@@ -473,6 +473,14 @@ my.modbot.co/register?url=https://modbot-vrckings.up.railway.app
 
 The page saves that URL into the browser's `localStorage` and confirms. That is all it does.
 
+> **Revised 2026-09-17 — the link also names the group.** It is now
+> `my.modbot.co/register?url=…&groupId=…&name=…&icon=…&banner=…`, so the page can show whose Modbot
+> was saved rather than a bare address. **Those four are hints and are never believed**: the page
+> asks the Modbot itself at `GET <url>/api/server` and replaces them with its answer, and
+> my.modbot.co asks the same question server-side before saving anything — a server that does not
+> answer means the address is saved on its own, exactly as it was before. The four parameters never
+> leave the browser. See `2026-09-17-register-details-and-subscribers-design.md` §2.
+
 > **Built 2026-09-14.** The tab opens from a click people already make: "Finish setup" or "Skip
 > this step" at the end of setup, and "Create account" on an invite. A browser blocks a new tab that
 > is not opened directly by a click, so it cannot open later on its own. It opens once per page load,
@@ -502,6 +510,13 @@ the instance's origin, when it was first and last seen, and how many visits — 
 `registered_instance`, which holds what deployments sent about themselves. A page visit therefore
 cannot overwrite a self-registered row, and the two can still be compared by URL: both store only the
 origin of an absolute `https` address, and a URL carrying a username or password is refused.
+
+> **Revised 2026-09-17.** A visit now also contributes what the address said about itself when
+> my.modbot.co asked it: group id, name, icon, banner and the operator's email address, in Cloud's
+> `visited_server`. It is a third table for the same reason the second one exists — a visit must
+> never overwrite what a server reported with its own secret — and where both know something, the
+> registry wins field by field. The operator's address is read by `/admin` and by nothing else. See
+> `2026-09-17-register-details-and-subscribers-design.md` §3.
 
 ### 4.2 The register API — server-side, only with analytics enabled
 

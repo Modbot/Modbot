@@ -12,7 +12,10 @@ Modbot Cloud (`cloud.modbot.co`):
   beside the contributors it reads from GitHub
 - serves the **term lists** at `/termlists/index.json`, `/termlists/_schema.json` and
   `/termlists/{id}.json`, moved here from my.modbot.co on 2026-09-16 with their shapes unchanged
-- answers my.modbot.co and the landing page under `/api/v1/site`, behind `PROXY_API_KEY`
+- answers my.modbot.co and the landing page under `/api/v1/site`, behind `PROXY_API_KEY` — including
+  what a my.modbot.co register visit learned about a Modbot address by asking it
+- holds the **mailing list**: the addresses people tick a box for while registering an account on a
+  Modbot, with a link at `/unsubscribe` that takes them off it without an account
 - has an `/admin` area behind `ROOT_API_KEY`
 
 The web app lives in `src/Modbot.Cloud/Web` and is built into this project's `wwwroot`. The image is
