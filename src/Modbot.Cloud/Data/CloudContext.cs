@@ -83,7 +83,9 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
         ?? new CloudSettings();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
-        optionsBuilder.UseSnakeCaseNamingConvention();
+        optionsBuilder
+            .UseSnakeCaseNamingConvention()
+            .LogQueriesAtDebug();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

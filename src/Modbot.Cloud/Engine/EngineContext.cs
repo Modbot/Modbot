@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Cloud.Data;
 
 namespace Modbot.Cloud.Engine;
 
@@ -55,7 +56,9 @@ public sealed class EngineContext(DbContextOptions<EngineContext> options) : DbC
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
-        optionsBuilder.UseSnakeCaseNamingConvention();
+        optionsBuilder
+            .UseSnakeCaseNamingConvention()
+            .LogQueriesAtDebug();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

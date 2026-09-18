@@ -116,10 +116,27 @@ public static class ModbotConsoleLog
     /// files and the landing page has none.
     /// </summary>
     /// <remarks>
-    /// Two libraries narrate at Information. ASP.NET Core writes four lines for every request, and
-    /// a container's health probe is a request every thirty seconds; Entity Framework writes every
-    /// statement it runs. Both are what you want when you asked for detail and noise when you did
-    /// not, so both are held at Warning unless <c>LOG_LEVEL</c> asks for Debug or Verbose.
+    /// <para>
+    /// ASP.NET Core narrates four Information lines for every request — request starting, endpoint
+    /// chosen, endpoint finished, request finished — and a container's health probe is a request
+    /// every thirty seconds. It is what you want when you asked for detail and noise when you did
+    /// not, and the framework writes it through <c>ILogger</c> at a level Modbot cannot change one
+    /// event at a time, so the only instrument available is this floor: Warning unless
+    /// <c>LOG_LEVEL</c> asks for Debug or Verbose, and then every line of it, at the level ASP.NET
+    /// Core chose. Modbot's own one-line-per-request record (<see cref="ModbotRequestLog"/>) is
+    /// what stands in for it the rest of the time.
+    /// </para>
+    /// <para>
+    /// <strong>Entity Framework is not held here, and used to be (2026-09-18).</strong> EF does
+    /// have the instrument ASP.NET Core lacks: a level can be set for one event where the context
+    /// is configured, so the line per statement can be filed under Debug instead of being thrown
+    /// away. That is what <c>DatabaseLogLevels</c> in Modbot.Core does, and its twin in
+    /// Modbot.Cloud. With the noise moved, a floor over the whole of <c>Microsoft.EntityFrameworkCore</c>
+    /// only does harm: it cannot tell one event from another, and EF writes more than SQL — the
+    /// migrations it applies, the retries, the mistakes it warns about — so holding the lot at
+    /// Warning threw those away as well, for a deployment where they are the first thing an
+    /// operator would want to read.
+    /// </para>
     /// </remarks>
     public static LoggerConfiguration Start(string service, LogEventLevel level)
     {
@@ -130,11 +147,7 @@ public static class ModbotConsoleLog
             .Enrich.WithProperty(VersionProperty, ModbotVersion.Release);
 
         if (level > LogEventLevel.Debug)
-        {
-            config
-                .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
-                .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning);
-        }
+            config.MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning);
 
         return config;
     }
