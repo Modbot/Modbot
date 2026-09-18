@@ -133,6 +133,30 @@ To keep full logs across deploys, do one of these:
 Modbot notices a mounted volume by itself after the next restart. See
 [Checking a deployment](/self-hosting/health) for the log files and what the **Log files** row means.
 
+## Catching a crash that leaves no log
+
+If the service restarts on its own and the log stops mid-sentence with no error, the process died
+in a way no log line survives. .NET can write a dump of the whole process at that moment instead.
+
+1. Mount a Railway volume at `/app/data`. Without one the dump is thrown away with the container.
+2. Set these on the service:
+
+```
+DOTNET_DbgEnableMiniDump=1
+DOTNET_DbgMiniDumpType=2
+DOTNET_DbgMiniDumpName=/app/data/dumps/modbot.%p.dmp
+```
+
+3. Redeploy. The startup log then says `Crash dumps are on and go to …`, and Modbot makes the
+   folder for them.
+
+After the next crash the file is under `/app/data/dumps`. Open it with
+[`dotnet-dump`](https://learn.microsoft.com/dotnet/core/diagnostics/dotnet-dump):
+`dotnet-dump analyze modbot.1.dmp`, then `clrstack -all`.
+
+`DOTNET_DbgMiniDumpType=2` writes the managed heap with the dump, so it is roughly the size of the
+memory the service was using. Turn the variables off again once you have one.
+
 ## Common problems
 
 **The deploy log says `DATABASE_URL is not set`.** The variable is missing or empty on the Modbot

@@ -34,10 +34,17 @@ public sealed record VRChatFileCacheOptions
 }
 
 /// <summary>One cached file, as the endpoint serves it.</summary>
-/// <param name="Path">Where the bytes are, so they can be streamed rather than read into memory.</param>
+/// <param name="Content">
+/// The bytes, already open, so they can be streamed rather than read into memory. <strong>The
+/// caller owns this stream and must dispose it</strong> -- the result helper it is handed to
+/// does. It is handed over open rather than as a path because a path is only a promise: the sweep
+/// can delete the file, and a store of the same address can rename another file onto it, between
+/// the moment the cache finds it and the moment the response reads it. A file that is already
+/// open keeps the bytes it was opened on whatever happens to the name afterwards.
+/// </param>
 /// <param name="ContentType">The type VRChat gave the bytes when they were fetched.</param>
 /// <param name="Tag">The cache key, which is also the ETag: a versioned address never changes.</param>
-public sealed record CachedFile(string Path, string ContentType, string Tag);
+public sealed record CachedFile(Stream Content, string ContentType, string Tag);
 
 /// <summary>
 /// The pictures and videos Modbot has already fetched from VRChat, kept on disk.
@@ -74,6 +81,17 @@ public sealed class VRChatFileCache
     private readonly IModbotClock _clock;
     private readonly ILogger _log;
 
+    /// <summary>
+    /// The half-written files this process is writing right now, so the sweep does not delete one
+    /// out from under the store that is filling it. Anything else ending in
+    /// <see cref="PartialSuffix"/> was left by a run that died and is rubbish.
+    /// </summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _writing =
+        new(StringComparer.Ordinal);
+
+    /// <summary>0 when no sweep is running, 1 when one is. See <see cref="Sweep"/>.</summary>
+    private int _sweeping;
+
     public VRChatFileCache(VRChatFileCacheOptions options, IModbotClock clock, ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -98,7 +116,19 @@ public sealed class VRChatFileCache
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(url)));
     }
 
-    /// <summary>The cached file for an address, or null when it has never been fetched.</summary>
+    /// <summary>
+    /// The cached file for an address, already open, or null when it has never been fetched.
+    /// <strong>The caller disposes what it gets.</strong>
+    /// </summary>
+    /// <remarks>
+    /// The bytes are opened here rather than looked for, because "it exists" and "I can read it"
+    /// are different questions once more than one request is in the building: between an
+    /// <c>Exists</c> and the response reading the path, the sweep can delete the file and a store
+    /// of the same address can rename a new one onto it. Opening it first settles the question
+    /// once -- the open file keeps its bytes however the name is reused -- and the share flags say
+    /// that deleting and replacing the name while it is open is allowed, so a read in progress
+    /// never blocks a sweep either.
+    /// </remarks>
     public CachedFile? Find(string url)
     {
         if (!IsOn)
@@ -106,24 +136,35 @@ public sealed class VRChatFileCache
 
         var key = KeyFor(url);
         var path = PathFor(key);
+        Stream? content = null;
 
         try
         {
-            if (!File.Exists(path) || !File.Exists(path + TypeSuffix))
-                return null;
+            content = new FileStream(path, new FileStreamOptions
+            {
+                Mode = FileMode.Open,
+                Access = FileAccess.Read,
+                Share = FileShare.ReadWrite | FileShare.Delete,
+                Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
+            });
 
+            // The type is written and put in place before the bytes are, so bytes that opened
+            // always have a finished type file beside them.
             var contentType = File.ReadAllText(path + TypeSuffix).Trim();
 
             // A type file that was truncated, or one whose type Modbot would no longer serve,
             // is treated as a miss rather than as something to hand a browser.
-            return VRChatFiles.IsShowable(contentType) ? new CachedFile(path, contentType, key) : null;
+            if (!VRChatFiles.IsShowable(contentType))
+            {
+                content.Dispose();
+                return null;
+            }
+
+            return new CachedFile(content, contentType, key);
         }
-        catch (IOException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
+            content?.Dispose();
             return null;
         }
     }
@@ -133,8 +174,25 @@ public sealed class VRChatFileCache
     /// the files fetched longest ago until it is not.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Failing to cache is not failing to serve: the bytes are already in hand and the caller
     /// returns them either way, so every problem here is logged and swallowed.
+    /// </para>
+    /// <para>
+    /// <strong>Every write goes to a name no other write can be using.</strong> A page of forty
+    /// faces asks for some of the same pictures at once -- everyone without a picture of their own
+    /// shares one address -- so two stores of one address happening together is ordinary, not
+    /// exotic. Writing both to <c>&lt;key&gt;.partial</c> would have them filling one file at once,
+    /// and the first rename would carry the second one's half-written bytes onto the key, where
+    /// they would stay: nothing here ever expires, so a picture corrupted this way is corrupted
+    /// for good. A name of its own per write means the rename is the only thing they share, and a
+    /// rename is atomic.
+    /// </para>
+    /// <para>
+    /// The type goes into place before the bytes do, so bytes a reader can open always have a
+    /// finished type beside them. Between the two there is a type file with no picture, which
+    /// reads as a miss, which is the right answer.
+    /// </para>
     /// </remarks>
     public async Task StoreAsync(string url, VRChatFile file, long maxBytes, CancellationToken ct = default)
     {
@@ -146,44 +204,77 @@ public sealed class VRChatFileCache
 
         var key = KeyFor(url);
         var path = PathFor(key);
-        var partial = path + PartialSuffix;
+
+        // Modbot's clock, not the machine's: it is what the sweep orders by. Stamped on each file
+        // before it is renamed into place, because a rename keeps the time and there is then no
+        // moment at which the file is readable with the wrong one.
+        var now = _clock.UtcNow.UtcDateTime;
+
+        var bytesTemp = TempFor(path);
+        var typeTemp = TempFor(path + TypeSuffix);
 
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
-            // Written beside the key and renamed onto it, so a crashed fetch never leaves half a
-            // picture at an address the next request would believe.
-            await File.WriteAllBytesAsync(partial, file.Bytes, ct).ConfigureAwait(false);
-            File.Move(partial, path, overwrite: true);
+            await WriteThenMoveAsync(typeTemp, path + TypeSuffix, Encoding.UTF8.GetBytes(file.ContentType), now, ct)
+                .ConfigureAwait(false);
 
-            await File.WriteAllTextAsync(path + TypeSuffix, file.ContentType, ct).ConfigureAwait(false);
-
-            // Modbot's clock, not the machine's: it is what the sweep orders by.
-            var now = _clock.UtcNow.UtcDateTime;
-            File.SetLastWriteTimeUtc(path, now);
-            File.SetLastWriteTimeUtc(path + TypeSuffix, now);
+            await WriteThenMoveAsync(bytesTemp, path, file.Bytes, now, ct).ConfigureAwait(false);
 
             Sweep(maxBytes);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             _log.Warning(exception, "Could not cache the VRChat file at {Url}", url);
-            TryDelete(partial);
         }
+        finally
+        {
+            TryDelete(bytesTemp);
+            TryDelete(typeTemp);
+            _writing.TryRemove(bytesTemp, out _);
+            _writing.TryRemove(typeTemp, out _);
+        }
+    }
+
+    /// <summary>Fills a name nobody else is using, then renames it onto the real one.</summary>
+    private async Task WriteThenMoveAsync(
+        string temp, string destination, byte[] bytes, DateTime writtenAt, CancellationToken ct)
+    {
+        // Registered before the file exists, so the sweep cannot see it unclaimed at any point.
+        _writing[temp] = 0;
+
+        await File.WriteAllBytesAsync(temp, bytes, ct).ConfigureAwait(false);
+        File.SetLastWriteTimeUtc(temp, writtenAt);
+        File.Move(temp, destination, overwrite: true);
+
+        _writing.TryRemove(temp, out _);
     }
 
     /// <summary>
     /// Deletes oldest-first until the folder is under the cap.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Oldest by when it was fetched, not by when it was last looked at. Keeping the popular ones
     /// would need a write on every read, and a write on every read is how a cache becomes slower
     /// than the thing it is caching.
+    /// </para>
+    /// <para>
+    /// <strong>One sweep at a time, and a store that arrives while one is running does not wait
+    /// for it.</strong> A page of faces stores forty pictures at once; forty sweeps would walk the
+    /// whole folder forty times over, delete into each other's enumerations, and -- because each
+    /// one measures the folder for itself and then subtracts only what it deleted -- take it far
+    /// below the cap between them. The next store sweeps, so skipping costs nothing: the cap is a
+    /// limit on how large the folder gets, not a promise about any one moment.
+    /// </para>
     /// </remarks>
     public void Sweep(long maxBytes)
     {
         if (!IsOn)
+            return;
+
+        if (Interlocked.CompareExchange(ref _sweeping, 1, 0) != 0)
             return;
 
         try
@@ -198,7 +289,12 @@ public sealed class VRChatFileCache
             {
                 if (found.Name.EndsWith(PartialSuffix, StringComparison.Ordinal))
                 {
-                    TryDelete(found.FullName);
+                    // Anything half-written that this process is not writing was left by a run
+                    // that died. Deleting one a store is still filling would make that store
+                    // fail for no reason.
+                    if (!_writing.ContainsKey(found.FullName))
+                        TryDelete(found.FullName);
+
                     continue;
                 }
 
@@ -226,6 +322,10 @@ public sealed class VRChatFileCache
         {
             _log.Warning(exception, "Could not sweep the VRChat file cache at {Root}", _root);
         }
+        finally
+        {
+            Volatile.Write(ref _sweeping, 0);
+        }
     }
 
     /// <summary>What the folder currently holds, in bytes. For a settings screen to show.</summary>
@@ -249,6 +349,16 @@ public sealed class VRChatFileCache
     /// <summary><c>&lt;root&gt;/ab/cd/abcdef…</c> — two levels of shard, then the whole key.</summary>
     private string PathFor(string key) =>
         Path.Combine(_root, key[..2], key[2..4], key);
+
+    /// <summary>
+    /// A name for one write and one write only, beside the file it will become.
+    /// </summary>
+    /// <remarks>
+    /// Still ending in <see cref="PartialSuffix"/>, so the sweep recognises anything left behind
+    /// by a run that died and clears it.
+    /// </remarks>
+    private static string TempFor(string path) =>
+        $"{path}.{Guid.NewGuid():n}{PartialSuffix}";
 
     private void TryDelete(string path)
     {

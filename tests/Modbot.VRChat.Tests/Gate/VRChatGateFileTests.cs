@@ -59,6 +59,45 @@ public class VRChatGateFileTests
     }
 
     /// <summary>
+    /// <strong>The session cookie goes to VRChat's API host and stops there.</strong> The API host
+    /// decides whether the file may be read; the delivery host it redirects to serves the address
+    /// it just issued to anybody holding it, and handing that machine the service account's
+    /// session would give away a login on every face in a member list.
+    /// </summary>
+    [Fact]
+    public async Task TheSessionCookieReachesTheApiHostAndNoRedirectAfterIt()
+    {
+        var handler = new ScriptedHandler(
+            Answer.RedirectTo("https://d348imysud55la.vrchat.cloud/file_abc.png"),
+            Answer.Picture([9], "image/png"));
+
+        var gate = NewGate(handler, out _);
+
+        Assert.Equal(VRChatFileOutcome.Fetched, (await gate.FetchFileAsync(Stored, Ct)).Outcome);
+
+        Assert.Equal(2, handler.Sent.Count);
+        Assert.Equal("auth=authCookieValue", handler.Sent[0].Cookie);
+        Assert.Null(handler.Sent[1].Cookie);
+    }
+
+    /// <summary>
+    /// An address that is already on a delivery host never had anything to authorise, so nothing
+    /// is sent with it either.
+    /// </summary>
+    [Fact]
+    public async Task AnAddressOnADeliveryHostCarriesNoCookieAtAll()
+    {
+        var handler = new ScriptedHandler(Answer.Picture([1], "image/png"));
+        var gate = NewGate(handler, out _);
+
+        var onDelivery = new Uri("https://d348imysud55la.vrchat.cloud/file_abc.png");
+
+        Assert.Equal(VRChatFileOutcome.Fetched, (await gate.FetchFileAsync(onDelivery, Ct)).Outcome);
+
+        Assert.Null(Assert.Single(handler.Sent).Cookie);
+    }
+
+    /// <summary>
     /// <strong>The redirect target is checked the same way the first address is.</strong> An
     /// answer that points somewhere else is where a file proxy becomes a fetcher for the
     /// internet, so the second hop is never sent at all.
@@ -164,7 +203,8 @@ public class VRChatGateFileTests
         var gate = new VRChatGate(
             new FakeClientFactory(vrchat.Client),
             new FakeConnectionStore(new VRChatConnection()),
-            harness.Limiter, harness.Clock, new FakeMonotonicClock());
+            harness.Limiter, harness.Clock, new FakeMonotonicClock(),
+            handlerWithoutCookies: () => handler);
 
         var result = await gate.FetchFileAsync(Stored, Ct);
 
@@ -182,9 +222,15 @@ public class VRChatGateFileTests
         return new VRChatGate(
             new FakeClientFactory(vrchat.Client),
             new FakeConnectionStore(new VRChatConnection("modbot@example.com", "hunter2", AuthCookie: "storedCookie")),
-            harness.Limiter, harness.Clock, new FakeMonotonicClock());
+            harness.Limiter, harness.Clock, new FakeMonotonicClock(),
+            handlerWithoutCookies: () => handler);
     }
 
+    /// <summary>
+    /// The fetch reads the User-Agent and the developer headers off the session's configuration,
+    /// but sends on a client of its own that has no cookie jar -- so the handler here is given to
+    /// the gate directly rather than hung off the session client.
+    /// </summary>
     private static void WireHttp(FakeVRChat vrchat, ScriptedHandler handler)
     {
         var configuration = new Configuration
@@ -217,14 +263,15 @@ public class VRChatGateFileTests
     /// <summary>Answers each request with the next scripted answer, remembering what was asked.</summary>
     private sealed class ScriptedHandler(params Answer[] answers) : HttpMessageHandler
     {
-        public List<(string Url, string? UserAgent)> Sent { get; } = [];
+        public List<(string Url, string? UserAgent, string? Cookie)> Sent { get; } = [];
 
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Sent.Add((
                 request.RequestUri!.ToString(),
-                request.Headers.TryGetValues("User-Agent", out var agents) ? string.Join(" ", agents) : null));
+                request.Headers.TryGetValues("User-Agent", out var agents) ? string.Join(" ", agents) : null,
+                request.Headers.TryGetValues("Cookie", out var cookies) ? string.Join("; ", cookies) : null));
 
             var answer = Sent.Count <= answers.Length ? answers[Sent.Count - 1] : answers[^1];
 
