@@ -31,6 +31,25 @@ public sealed record ReviewThresholds
     public int RepeatOffenderActionsIn30Days { get; init; } = 3;
 
     /// <summary>
+    /// Which kinds of action count towards that number.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Null means every kind, which is what <see cref="ActionsOnPeople.Types"/> lists and what
+    /// every deployment counted before this was configurable -- so a settings row written before
+    /// it existed, and an operator who never opens the card, both see exactly the numbers they
+    /// saw yesterday.
+    /// </para>
+    /// <para>
+    /// Groups do not agree on what a strike is. A group that throws people out of an instance to
+    /// break up an argument does not think of that as a mark against anybody, and counting it
+    /// alongside bans makes their busiest regulars look like their worst. Which kinds count is
+    /// theirs to say; the threshold on its own could not express it.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<string>? RepeatOffenderTypes { get; init; }
+
+    /// <summary>
     /// How many times one moderator has to act on one person, across at least two instances or
     /// days, before a review opens -- when nobody else has ever acted on that person.
     /// </summary>
@@ -96,6 +115,24 @@ public sealed record ReviewThresholds
     /// Keeps every number inside a range where the check still means something. A threshold of
     /// zero would open a review on every action; a multiplier below one would fire on an ordinary day.
     /// </summary>
+    /// <summary>
+    /// The kinds of action that count, resolved: the chosen ones, or every kind when nothing was
+    /// chosen. Never empty -- a list nobody can be counted under would freeze every status at
+    /// "once", which is worse than the default and harder to notice.
+    /// </summary>
+    public IReadOnlyList<string> CountedTypes
+    {
+        get
+        {
+            var chosen = RepeatOffenderTypes?
+                .Where(t => ActionsOnPeople.Types.Contains(t, StringComparer.Ordinal))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            return chosen is { Length: > 0 } ? chosen : ActionsOnPeople.Types;
+        }
+    }
+
     public ReviewThresholds Clamped() => this with
     {
         RepeatOffenderActionsIn30Days = Math.Clamp(RepeatOffenderActionsIn30Days, 2, 100),
