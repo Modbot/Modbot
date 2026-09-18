@@ -23,7 +23,7 @@ stays on the server. `/admin` and the instance registry moved to `cloud.modbot.c
 
 | Route | What it does |
 |---|---|
-| `/`, `/register`, `/go` | The app. A `url` on any of them is noted through Cloud. |
+| `/`, `/register`, `/go` | The app. A `url` on any of them is noted through Cloud, and the address is asked what group it moderates. |
 | `POST /api/local-register` | The app's own save once it has rendered. Passed to Cloud. `204` once Cloud has it; `503` when Cloud did not take it, and the app keeps the address to send again later. |
 | `GET /api/my-instances` | The servers Cloud has seen from this address. `503` when Cloud could not be asked, so the app keeps the list it last had instead of showing nothing. |
 | `/termlists/…` | Permanent redirects to Cloud, where the term lists now live. |
@@ -32,6 +32,17 @@ stays on the server. `/admin` and the instance registry moved to `cloud.modbot.c
 `/api/local-register` and `/api/my-instances` are limited per IP address — 30 saves and 60 reads an
 hour — so that one address cannot make this service hammer Cloud. Serving a page is never refused for
 being over the limit; the visit simply is not counted.
+
+`/register` also takes `groupId`, `name`, `icon` and `banner`, and shows them while it saves. **They
+are hints and are never believed**: the page asks the Modbot itself at `GET <url>/api/server` and
+replaces them with its answer, and this service asks the same question server-side before it saves
+anything about a group. A server that does not answer means the address is saved on its own. The
+four parameters never leave the browser. See the register details spec.
+
+Asking is the one request this service makes to somewhere a stranger named, so it goes out through a
+client of its own: 4 seconds, no redirect followed, 64 KB at most, and only ever to an address out
+on the public internet. An answer is remembered in memory for ten minutes, so the two saves of one
+page view ask once.
 
 A page is served without waiting for Cloud. The visit it carries in `url` is noted in the background,
 and the app notes it again once it has rendered — that second note is the one the browser keeps in

@@ -49,6 +49,12 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
     /// <summary>Modbot addresses opened from each visitor's IP address.</summary>
     public DbSet<VisitorInstance> VisitorInstances => Set<VisitorInstance>();
 
+    /// <summary>What a my.modbot.co register visit learned by asking a Modbot address itself.</summary>
+    public DbSet<VisitedServer> VisitedServers => Set<VisitedServer>();
+
+    /// <summary>People who asked to hear about new features and updates.</summary>
+    public DbSet<Features.Subscribers.Subscriber> Subscribers => Set<Features.Subscribers.Subscriber>();
+
     /// <summary>Signed-in <c>/admin</c> browsers.</summary>
     public DbSet<AdminSession> AdminSessions => Set<AdminSession>();
 
@@ -94,5 +100,7 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
         modelBuilder.ApplyConfiguration(new ServerReportConfiguration());
         modelBuilder.ApplyConfiguration(new PageInstanceConfiguration());
         modelBuilder.ApplyConfiguration(new VisitorInstanceConfiguration());
+        modelBuilder.ApplyConfiguration(new VisitedServerConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.Subscribers.SubscriberConfiguration());
     }
 }

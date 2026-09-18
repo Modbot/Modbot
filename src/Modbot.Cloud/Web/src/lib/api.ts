@@ -183,6 +183,25 @@ export type ServerView = {
   claimedAt: string | null
 }
 
+/** Somebody who asked to hear from Modbot. Read by admin only. */
+export type SubscriberView = {
+  email: string
+  source: string | null
+  firstSeenAt: string
+  lastSeenAt: string
+  unsubscribedAt: string | null
+  unsubscribeUrl: string
+}
+
+export type SubscriberPage = { total: number; offset: number; limit: number; items: SubscriberView[] }
+
+export type SubscriberCounts = {
+  total: number
+  subscribed: number
+  unsubscribed: number
+  bySource: Record<string, number>
+}
+
 export const api = {
   login: (key: string) => request<void>('POST', '/api/admin/login', { key }),
   logout: () => request<void>('POST', '/api/admin/logout'),
@@ -237,6 +256,17 @@ export const api = {
     request<void>('POST', '/api/v1/accounts/password', { currentPassword, password }),
   changeEmail: (email: string, password: string) =>
     request<void>('POST', '/api/v1/accounts/email', { email, password }),
+
+  subscribers: (search: string, offset: number, limit: number) => {
+    const q = new URLSearchParams({ offset: String(offset), limit: String(limit) })
+    if (search) q.set('search', search)
+    return request<SubscriberPage>('GET', `/api/admin/subscribers?${q.toString()}`)
+  },
+  subscriberCounts: () => request<SubscriberCounts>('GET', '/api/admin/subscribers/counts'),
+
+  // Open, and the one thing on Cloud that needs no account at all: the link at the foot of a
+  // Modbot mailing-list message.
+  unsubscribe: (token: string) => request<void>('POST', '/api/v1/subscribers/unsubscribe', { token }),
 
   myServers: () => request<{ items: ServerView[] }>('GET', '/api/v1/servers/mine'),
   claimServer: (code: string) => request<ServerView>('POST', '/api/v1/servers/claim', { code }),

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Cloud.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Cloud.Data.Migrations
 {
     [DbContext(typeof(CloudContext))]
-    partial class CloudContextModelSnapshot : ModelSnapshot
+    [Migration("20260918020505_AddVisitedServer")]
+    partial class AddVisitedServer
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -785,49 +788,6 @@ namespace Modbot.Cloud.Data.Migrations
                         .HasDatabaseName("ix_visitor_instance_instance_url");
 
                     b.ToTable("visitor_instance", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Cloud.Features.Subscribers.Subscriber", b =>
-                {
-                    b.Property<string>("Email")
-                        .HasMaxLength(254)
-                        .HasColumnType("character varying(254)")
-                        .HasColumnName("email");
-
-                    b.Property<DateTimeOffset>("FirstSeenAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("first_seen_at");
-
-                    b.Property<DateTimeOffset>("LastSeenAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_seen_at");
-
-                    b.Property<string>("Source")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("source");
-
-                    b.Property<string>("UnsubscribeToken")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("unsubscribe_token");
-
-                    b.Property<DateTimeOffset?>("UnsubscribedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("unsubscribed_at");
-
-                    b.HasKey("Email")
-                        .HasName("pk_subscriber");
-
-                    b.HasIndex("FirstSeenAt")
-                        .HasDatabaseName("ix_subscriber_first_seen_at");
-
-                    b.HasIndex("UnsubscribeToken")
-                        .IsUnique()
-                        .HasDatabaseName("ix_subscriber_unsubscribe_token");
-
-                    b.ToTable("subscriber", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Cloud.Features.Accounts.AccountSession", b =>

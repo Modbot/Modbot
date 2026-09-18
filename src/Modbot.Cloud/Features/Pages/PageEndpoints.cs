@@ -9,8 +9,8 @@ namespace Modbot.Cloud.Features.Pages;
 public static class PageEndpoints
 {
     /// <summary>
-    /// The account pages. <c>/verify</c> and <c>/reset-password</c> are where the links in Cloud's
-    /// mail land, so their spellings are fixed by <c>AccountMail</c>.
+    /// The pages a link in Cloud's mail can land on. <c>/verify</c> and <c>/reset-password</c> are
+    /// where the account links land, so their spellings are fixed by <c>AccountMail</c>.
     /// </summary>
     public static readonly string[] AccountRoutes =
     [
@@ -21,6 +21,10 @@ public static class PageEndpoints
         "/verify-email-change",
         "/forgot-password",
         "/reset-password",
+
+        // Not an account page: the link at the foot of a Modbot mailing-list message, which needs no
+        // account at all. Its spelling is fixed by the link stored against each subscriber.
+        "/unsubscribe",
     ];
 
     public static IEndpointRouteBuilder MapPages(this IEndpointRouteBuilder app)

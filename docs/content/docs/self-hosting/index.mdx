@@ -73,10 +73,14 @@ A page that remembers the Modbot addresses you use, so you can pick one from a l
 hunting for a URL.
 
 - When you finish the setup wizard for the first time, Modbot opens
-  `https://my.modbot.co/register?url=` followed by your Modbot's address, in a new tab. That page
-  saves the address in your browser. my.modbot.co also records that the address was registered; if
-  it cannot right then, the page says **Saved on this device** and sends the address later, while
-  the tab is open or the next time you open the page.
+  `https://my.modbot.co/register?url=` followed by your Modbot's address, in a new tab. The link
+  also carries your group's id, name, icon and banner, so the page can show which Modbot it saved.
+  That page saves the address in your browser. my.modbot.co also records that the address was
+  registered; if it cannot right then, the page says **Saved on this device** and sends the address
+  later, while the tab is open or the next time you open the page.
+- **my.modbot.co checks the group for itself.** It asks your Modbot at `/api/server` what group it
+  moderates instead of believing the link, because anyone can write a link. If your Modbot does not
+  answer, only the address is saved.
 - **Your account** in the web app has an **Add to my.modbot.co** button that does the same thing
   later.
 - The companion's pairing button opens `https://my.modbot.co/go?redir=/pair`, which lists your
@@ -117,3 +121,13 @@ Set `MODBOT_CLOUD_DISABLED=1` and none of it happens.
 **Settings → Data → Modbot Cloud** shows when the last report went and gives you a link code, which
 you type into `cloud.modbot.co` to claim this server on your Cloud account. The code lasts 15
 minutes and works once. **Health** shows the last report too.
+
+Modbot Cloud also keeps two things your Modbot does not:
+
+- **What my.modbot.co learned about your server's address** when somebody opened its register page:
+  your group's id, name, icon and banner, and the email address your Modbot gives out as its
+  owner's. Only the project's own admin area can read that email address.
+- **The Modbot mailing list.** When somebody registering an account on your Modbot ticks *Receive
+  emails from Modbot about new features and updates*, your server passes the address to Modbot
+  Cloud. Every message carries a link that takes them off the list without an account. Nothing else
+  about them is kept, and `MODBOT_CLOUD_DISABLED=1` stops your server sending it at all.

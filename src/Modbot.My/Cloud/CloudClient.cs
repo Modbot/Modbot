@@ -58,6 +58,35 @@ public sealed class CloudClient(CloudAddress cloud, IHttpClientFactory factory, 
     }
 
     /// <summary>
+    /// Passes on what a Modbot address said about itself when my.modbot.co asked it. Returns whether
+    /// Cloud took it.
+    /// </summary>
+    /// <remarks>
+    /// Only ever what the address answered. The group details in a register link are hints for the
+    /// page and never reach this call (register details spec 2.2).
+    /// </remarks>
+    public async Task<bool> RecordServerAsync(string url, Features.Visits.ServerDetails details, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(details);
+
+        using var response = await SendAsync(
+            HttpMethod.Post,
+            "api/v1/site/servers",
+            new
+            {
+                url,
+                details.GroupId,
+                details.GroupName,
+                details.GroupIconUrl,
+                details.GroupBannerUrl,
+                details.OwnerEmail,
+            },
+            ct);
+
+        return response is not null && Ok(response);
+    }
+
+    /// <summary>
     /// Notes a visit without making the caller wait for Cloud. For the page routes: a Cloud that
     /// hangs must not hold the page back, and the app sends the same address again once it has
     /// rendered, so nothing is lost if this one never lands.

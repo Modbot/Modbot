@@ -42,6 +42,7 @@ public static class VisitEndpoints
     internal static async Task<IResult> LocalRegisterAsync(
         [FromBody] LocalRegisterRequest request,
         [FromServices] CloudClient cloud,
+        [FromServices] ServerLookup lookup,
         [FromServices] SiteLimits limits,
         HttpContext http,
         CancellationToken ct)
@@ -56,7 +57,15 @@ public static class VisitEndpoints
         if (limits.Saves.TryTake(address ?? "unknown") is { } wait)
             return TooMany(http, wait);
 
-        return await cloud.RecordVisitAsync(address, url, ct) ? Results.NoContent() : CloudUnavailable(http);
+        var noted = await cloud.RecordVisitAsync(address, url, ct);
+
+        // What the address says it is, asked here rather than believed from the link, and never a
+        // reason to fail the save: an address with no group is what this has always stored
+        // (register details spec 2.2). The page load usually asked already, and this reads that
+        // answer rather than asking again.
+        await lookup.SendDetailsAsync(url, ct);
+
+        return noted ? Results.NoContent() : CloudUnavailable(http);
     }
 
     internal static async Task<IResult> MyInstancesAsync(

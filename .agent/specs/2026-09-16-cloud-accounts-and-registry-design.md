@@ -211,6 +211,16 @@ Exactly what the page needs, and nothing else:
 
 No endpoint under `/api/v1/site` lists servers, and none takes a search term.
 
+> **Added 2026-09-17.** `POST /api/v1/site/servers` — what my.modbot.co learned about one Modbot
+> address by asking that address itself on a register visit: group id, name, icon, banner and the
+> operator's email address. It is a separate endpoint from a visit because the two facts have
+> different rules (a visit is counted once per five minutes; this is simply replaced by the newest
+> answer), and it writes to `visited_server`, never to `registered_server`. Where both know
+> something the registry wins, field by field, so `GET /api/v1/site/visits` falls back to what a
+> visit learned only where a report says nothing. **The operator's email address is returned by
+> nothing under `/api/v1/site` and by nothing an account reads — only by `/admin`.** See
+> `2026-09-17-register-details-and-subscribers-design.md` §3.
+
 ---
 
 ## 4. Term lists
@@ -256,7 +266,17 @@ somebody registers.
 
 ---
 
-## 6. Open questions
+## 6. The mailing list
+
+Cloud also holds the addresses of people who ticked *Receive emails from Modbot about new features
+and updates* while registering an account on a Modbot server. `POST /api/v1/subscribers` carries the
+server's own registry credential, the same one its reports carry; unsubscribing is a link that needs
+no account. It is written up in `2026-09-17-register-details-and-subscribers-design.md` §4, and is
+listed here only so that this spec's picture of what Cloud holds stays complete.
+
+---
+
+## 7. Open questions
 
 1. **Whether an account should be able to see its servers' reports charted on Cloud**, or only on
    the Modbot server itself. The data is there either way.

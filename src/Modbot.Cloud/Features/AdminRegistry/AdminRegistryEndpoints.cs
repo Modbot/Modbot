@@ -19,12 +19,21 @@ public sealed record AdminAccountView(
     [property: JsonPropertyName("lastSignedInAt")] DateTimeOffset? LastSignedInAt,
     [property: JsonPropertyName("servers")] int Servers);
 
+/// <param name="OwnerEmail">
+/// Who runs it, when the address said so on a register visit. <strong>Admin only</strong> — it is
+/// stored so the maintainer can reach an operator, and appears nowhere else (register details spec 3.4).
+/// </param>
 public sealed record AdminPageInstanceView(
     [property: JsonPropertyName("instanceUrl")] string InstanceUrl,
     [property: JsonPropertyName("firstSeenAt")] DateTimeOffset FirstSeenAt,
     [property: JsonPropertyName("lastSeenAt")] DateTimeOffset LastSeenAt,
     [property: JsonPropertyName("visits")] int Visits,
-    [property: JsonPropertyName("alsoRegistered")] bool AlsoRegistered);
+    [property: JsonPropertyName("alsoRegistered")] bool AlsoRegistered,
+    [property: JsonPropertyName("groupId")] string? GroupId,
+    [property: JsonPropertyName("groupName")] string? GroupName,
+    [property: JsonPropertyName("groupIconUrl")] string? GroupIconUrl,
+    [property: JsonPropertyName("groupBannerUrl")] string? GroupBannerUrl,
+    [property: JsonPropertyName("ownerEmail")] string? OwnerEmail);
 
 /// <param name="Registered">Servers that registered themselves.</param>
 /// <param name="ActiveLast30Days">Of those, seen in the last 30 days.</param>
@@ -122,14 +131,25 @@ public static class AdminRegistryEndpoints
             .OrderByDescending(s => s.LastSeenAt)
             .Skip(skip)
             .Take(take)
-            .Select(s => new { Server = s, Email = db.Accounts.Where(a => a.Id == s.AccountId).Select(a => a.Email).FirstOrDefault() })
+            .Select(s => new
+            {
+                Server = s,
+                Email = db.Accounts.Where(a => a.Id == s.AccountId).Select(a => a.Email).FirstOrDefault(),
+                OwnerEmail = db.VisitedServers
+                    .Where(v => v.InstanceUrl == s.PublicAddress)
+                    .Select(v => v.OwnerEmail)
+                    .FirstOrDefault(),
+            })
             .ToListAsync(ct);
 
         return Results.Ok(new Page<AdminServerView>(
             total,
             skip,
             take,
-            rows.Select(r => new AdminServerView(ServerView.From(r.Server), r.Email, r.Server.IpAddress)).ToList()));
+            rows
+                .Select(r => new AdminServerView(
+                    ServerView.From(r.Server), r.Email, r.Server.IpAddress, r.OwnerEmail))
+                .ToList()));
     }
 
     internal static async Task<IResult> ServerAsync(
@@ -145,7 +165,14 @@ public static class AdminRegistryEndpoints
             ? await db.Accounts.Where(a => a.Id == accountId).Select(a => a.Email).FirstOrDefaultAsync(ct)
             : null;
 
-        return Results.Ok(new AdminServerView(ServerView.From(row), email, row.IpAddress));
+        var ownerEmail = row.PublicAddress is { } address
+            ? await db.VisitedServers
+                .Where(v => v.InstanceUrl == address)
+                .Select(v => v.OwnerEmail)
+                .FirstOrDefaultAsync(ct)
+            : null;
+
+        return Results.Ok(new AdminServerView(ServerView.From(row), email, row.IpAddress, ownerEmail));
     }
 
     internal static async Task<IResult> ReportsAsync(
@@ -213,15 +240,29 @@ public static class AdminRegistryEndpoints
             .ThenBy(i => i.InstanceUrl)
             .Skip(skip)
             .Take(take)
-            .Select(i => new AdminPageInstanceView(
-                i.InstanceUrl,
-                i.FirstSeenAt,
-                i.LastSeenAt,
-                i.Visits,
-                db.RegisteredServers.Any(s => s.PublicAddress == i.InstanceUrl)))
+            .Select(i => new
+            {
+                Instance = i,
+                AlsoRegistered = db.RegisteredServers.Any(s => s.PublicAddress == i.InstanceUrl),
+                Learned = db.VisitedServers.FirstOrDefault(s => s.InstanceUrl == i.InstanceUrl),
+            })
             .ToListAsync(ct);
 
-        return Results.Ok(new Page<AdminPageInstanceView>(total, skip, take, rows));
+        var items = rows
+            .Select(r => new AdminPageInstanceView(
+                r.Instance.InstanceUrl,
+                r.Instance.FirstSeenAt,
+                r.Instance.LastSeenAt,
+                r.Instance.Visits,
+                r.AlsoRegistered,
+                r.Learned?.GroupId,
+                r.Learned?.GroupName,
+                r.Learned?.GroupIconUrl,
+                r.Learned?.GroupBannerUrl,
+                r.Learned?.OwnerEmail))
+            .ToList();
+
+        return Results.Ok(new Page<AdminPageInstanceView>(total, skip, take, items));
     }
 
     /// <summary>

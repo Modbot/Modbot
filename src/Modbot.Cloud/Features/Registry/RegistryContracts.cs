@@ -95,10 +95,16 @@ public sealed record ServerView(
 }
 
 /// <summary>A registered server as an admin reads it: the same, plus who holds it and where from.</summary>
+/// <param name="OwnerEmail">
+/// Who runs it, when a my.modbot.co register visit learned an address for this server's address.
+/// <strong>Admin only</strong>, and never part of <see cref="ServerView"/>, which an account reads
+/// (register details spec 3.4).
+/// </param>
 public sealed record AdminServerView(
     [property: JsonPropertyName("server")] ServerView Server,
     [property: JsonPropertyName("claimedBy")] string? ClaimedBy,
-    [property: JsonPropertyName("ipAddress")] string? IpAddress);
+    [property: JsonPropertyName("ipAddress")] string? IpAddress,
+    [property: JsonPropertyName("ownerEmail")] string? OwnerEmail);
 
 public sealed record ServerReportView(
     [property: JsonPropertyName("reportedAt")] DateTimeOffset ReportedAt,

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { normaliseInstanceUrl } from '@/lib/instanceUrl'
 import { outbox } from '@/lib/outbox'
 import { useLocation } from '@/lib/router'
+import { detailsFromLink } from '@/lib/serverDetails'
 import { Go } from '@/pages/Go'
 import { Home } from '@/pages/Home'
 import { NotFound } from '@/pages/NotFound'
@@ -32,7 +33,8 @@ export default function App() {
   }, [path, url])
 
   if (path === '/') return <Home />
-  if (path === '/register') return <Register key={search.get('url') ?? ''} url={search.get('url')} />
+  if (path === '/register')
+    return <Register key={search.get('url') ?? ''} url={search.get('url')} hints={detailsFromLink(search)} />
   if (path === '/go') return <Go key={search.get('redir') ?? ''} redir={search.get('redir')} />
   return <NotFound />
 }

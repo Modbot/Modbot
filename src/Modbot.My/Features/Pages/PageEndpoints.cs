@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Modbot.My.Cloud;
 using Modbot.My.Common;
+using Modbot.My.Features.Visits;
 
 namespace Modbot.My.Features.Pages;
 
@@ -44,6 +45,7 @@ public static class PageEndpoints
     internal static IResult ServeAndRecord(
         [FromQuery] string? url,
         [FromServices] CloudClient cloud,
+        [FromServices] ServerLookup lookup,
         [FromServices] SiteLimits limits,
         [FromServices] AppPage page,
         HttpContext http)
@@ -55,7 +57,13 @@ public static class PageEndpoints
             // Over the limit, the page is still served. Somebody who reloads too often loses a count,
             // not the page they came for.
             if (limits.Saves.TryTake(address ?? "unknown") is null)
+            {
                 cloud.RecordVisitInBackground(address, origin);
+
+                // And asks the address itself what group it is, so the group saved is the one the
+                // server names rather than the one the link claimed (register details spec 2.2).
+                lookup.SendDetailsInBackground(origin);
+            }
         }
 
         return page.Serve(http);
