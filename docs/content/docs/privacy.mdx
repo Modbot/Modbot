@@ -19,7 +19,8 @@ case files, evidence — never leave your own database.
 1. **What is sent is the log, unchanged.** The same lines you can read on the **Logs** page:
    Information level and above, with the message, the time, which part of Modbot wrote it, the
    exception if there was one, and the values the line carried. Not warnings only, and not
-   anonymised.
+   anonymised. If you set `LOG_LEVEL` lower, the extra detail is sent too — the lines for every
+   request answered and every database query run. Setting it back stops that.
 2. **Log lines can name a member.** They are Modbot talking about its own work, and that work is
    about people — "banned usr_…", "read 40 members of grp_…". A VRChat user id or a display name can
    appear in a line.
