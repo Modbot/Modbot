@@ -71,6 +71,22 @@ public sealed class ShowcaseEntry
     /// <summary>The group's banner.</summary>
     public string? GroupBannerUrl { get; set; }
 
+    /// <summary>
+    /// The copy of <see cref="ImageUrl"/> Cloud keeps and serves, or null when there is none.
+    /// </summary>
+    /// <remarks>
+    /// The three typed-in addresses above are never changed by Cloud: they are what an administrator
+    /// entered, and what Cloud fetches from again on the next save. These three are what readers are
+    /// actually given. See <see cref="ShowcasePicture"/>.
+    /// </remarks>
+    public Guid? SavedImageId { get; set; }
+
+    /// <summary>The copy of <see cref="GroupImageUrl"/> Cloud keeps and serves.</summary>
+    public Guid? SavedGroupImageId { get; set; }
+
+    /// <summary>The copy of <see cref="GroupBannerUrl"/> Cloud keeps and serves.</summary>
+    public Guid? SavedGroupBannerId { get; set; }
+
     /// <summary>Where it sits in the list. Lowest first, then by name.</summary>
     public int SortOrder { get; set; }
 
