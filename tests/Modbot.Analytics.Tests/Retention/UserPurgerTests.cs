@@ -40,7 +40,7 @@ public class UserPurgerTests : AnalyticsTestBase
             Fact(FactType.MemberJoined, Start, subjectId: Bystander));
 
         await using var context = Database.NewContext();
-        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
+        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
 
         Assert.Equal(3, result.FactsDeleted);
         Assert.Equal(0, await CountAsync(Subject));
@@ -70,7 +70,7 @@ public class UserPurgerTests : AnalyticsTestBase
         }
 
         await using var context = Database.NewContext();
-        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
+        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
 
         Assert.Equal(2, result.FactsDeleted);
         Assert.Equal(0, await CountAsync(Subject));
@@ -95,7 +95,7 @@ public class UserPurgerTests : AnalyticsTestBase
             await WriteAsync(Fact(FactType.InstanceJoined, month, subjectId: Subject));
 
         await using var context = Database.NewContext();
-        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
+        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
 
         Assert.Equal(months.Length, result.FactsDeleted);
         Assert.Equal(0, await CountAsync(Subject));
@@ -114,7 +114,7 @@ public class UserPurgerTests : AnalyticsTestBase
             Fact(FactType.MemberJoined, Start, subjectId: Subject));
 
         await using var context = Database.NewContext();
-        await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
+        await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
 
         Assert.Equal(0, await CountAsync(Subject));
 
@@ -142,7 +142,7 @@ public class UserPurgerTests : AnalyticsTestBase
 
         Assert.Equal(2m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
 
-        await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
+        await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
 
         Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersJoined));
         Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.MembersNet));
@@ -174,7 +174,7 @@ public class UserPurgerTests : AnalyticsTestBase
             7m,
             ct: Ct);
 
-        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
+        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
 
         Assert.Equal(1, result.CountedDailyTotalsDeleted);
 
@@ -196,7 +196,7 @@ public class UserPurgerTests : AnalyticsTestBase
 
         await using var context = Database.NewContext();
         await NewJob(context).RebuildAsync(Ct);
-        await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
+        await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
 
         var dimension = DailyTotalDimensions.ForUser(FactPlatform.VRChat, Subject);
         Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.ModeratorBans, dimension));
@@ -211,7 +211,7 @@ public class UserPurgerTests : AnalyticsTestBase
         await WriteAsync(Fact(FactType.InstanceJoined, Start, subjectId: Subject));
 
         await using var context = Database.NewContext();
-        await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, Ct);
+        await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
 
         var record = await context.Events
             .AsNoTracking()
@@ -227,7 +227,7 @@ public class UserPurgerTests : AnalyticsTestBase
     public async Task PurgingSomeoneWithNoFactsIsHarmless()
     {
         await using var context = Database.NewContext();
-        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, "usr_nobody", Ct);
+        var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, "usr_nobody", ct: Ct);
 
         Assert.Equal(0, result.FactsDeleted);
         Assert.Equal(0, result.DaysRecomputed);

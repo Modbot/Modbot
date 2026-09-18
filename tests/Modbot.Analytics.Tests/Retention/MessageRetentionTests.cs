@@ -119,7 +119,7 @@ public class MessageRetentionTests : AnalyticsTestBase
 
         await using (var context = Database.NewContext())
         {
-            var result = await NewPurger(context).PurgeAsync(FactPlatform.Discord, Author, Ct);
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.Discord, Author, ct: Ct);
             Assert.Equal(2, result.MessagesDeleted);
         }
 
@@ -136,7 +136,7 @@ public class MessageRetentionTests : AnalyticsTestBase
 
         await using (var context = Database.NewContext())
         {
-            var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Author, Ct);
+            var result = await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Author, ct: Ct);
             Assert.Equal(0, result.MessagesDeleted);
         }
 

@@ -269,6 +269,7 @@ public static class ApiSurface
         app.MapServerInfo();
 
         app.MapDataSettings();
+        app.MapPurge();
         app.MapSyncSettings();
         app.MapPublicAddressSettings();
         app.MapServerSettings();

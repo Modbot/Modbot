@@ -389,7 +389,7 @@ public class GiveawayDrawerTests(PostgresFixture fixture) : GiveawayTestBase(fix
                 new FactWriter(context, Clock),
                 new EventPartitionMaintainer(context, Clock));
 
-            var purge = await purger.PurgeAsync(FactPlatform.Discord, AliceDiscord, Ct);
+            var purge = await purger.PurgeAsync(FactPlatform.Discord, AliceDiscord, ct: Ct);
 
             Assert.Equal(1, purge.GiveawayEntriesDeleted);
             Assert.Equal(1, purge.GiveawayEntrantsBlanked);
@@ -436,7 +436,7 @@ public class GiveawayDrawerTests(PostgresFixture fixture) : GiveawayTestBase(fix
                 new DailyTotalsJob(context, Clock),
                 new FactWriter(context, Clock),
                 new EventPartitionMaintainer(context, Clock))
-                .PurgeAsync(FactPlatform.Discord, AliceDiscord, Ct);
+                .PurgeAsync(FactPlatform.Discord, AliceDiscord, ct: Ct);
         }
 
         var result = await DrawAsync(giveaway.Id);

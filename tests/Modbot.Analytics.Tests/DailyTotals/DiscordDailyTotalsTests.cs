@@ -194,7 +194,7 @@ public class DiscordDailyTotalsTests : AnalyticsTestBase
         await using (var context = Database.NewContext())
         {
             var purger = new UserPurger(context, Clock, NewJob(context), new FactWriter(context, Clock), new EventPartitionMaintainer(context, Clock));
-            await purger.PurgeAsync(FactPlatform.Discord, "111", Ct);
+            await purger.PurgeAsync(FactPlatform.Discord, "111", ct: Ct);
         }
 
         Assert.Equal(1m, await ValueAsync(DayOf(Start), DailyTotalMetrics.DiscordMessages));

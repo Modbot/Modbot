@@ -3147,6 +3147,122 @@
         ]
       }
     },
+    "/api/settings/purge": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "What removing everything about one person would destroy, and what it would keep",
+        "description": "Counts only; nothing is changed. Every number is counted from the same tables the purge writes to. A field Modbot cannot answer for a platform is null rather than zero: a Discord account has no group ban list and no case files.\n\nNeeds the `Administrator` permission.",
+        "operationId": "PreviewPurge",
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subjectId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurgePreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Remove everything Modbot stores about one person",
+        "description": "Irreversible. `confirmation` must equal `subjectId` exactly.\n\nErased: every fact where they are the subject, the counted-only daily totals dimensioned on them, the rows saying a record about them was imported, their Discord messages including earlier texts of edited ones, and their standing giveaway entries. Their place in a past draw keeps its position and weight and loses its name and ids, so an old result still checks out.\n\nKept: facts where they were the actor rather than the subject — somebody else's moderation history — case files about them with their evidence and profile snapshots (evidence storage design §15.1), the current-state rows the next sync would write again, and the fact that this purge happened.\n\nA purge of somebody Modbot has never seen removes nothing and is not an error.\n\nNeeds the `Administrator` permission.",
+        "operationId": "PurgePerson",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurgeReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/public-address": {
       "get": {
         "tags": [
@@ -26603,6 +26719,254 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "PurgeLinkedAccountView": {
+        "required": [
+          "platform",
+          "subjectId",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PurgePreviewResponse": {
+        "required": [
+          "platform",
+          "subjectId",
+          "name",
+          "isMember",
+          "isBanned",
+          "facts",
+          "countedDailyTotals",
+          "days",
+          "messages",
+          "giveawayEntries",
+          "giveawayPlaces",
+          "importRecords",
+          "caseFilesKept",
+          "evidenceFilesKept",
+          "linkedAccount"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isMember": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "isBanned": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "facts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "countedDailyTotals": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "days": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "messages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "giveawayEntries": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "giveawayPlaces": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "importRecords": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "caseFilesKept": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "evidenceFilesKept": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "linkedAccount": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PurgeLinkedAccountView"
+              }
+            ]
+          }
+        }
+      },
+      "PurgeReceipt": {
+        "required": [
+          "facts",
+          "countedDailyTotals",
+          "days",
+          "messages",
+          "giveawayEntries",
+          "giveawayPlaces",
+          "caseFilesKept",
+          "evidenceFilesKept"
+        ],
+        "type": "object",
+        "properties": {
+          "facts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "countedDailyTotals": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "days": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "messages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "giveawayEntries": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "giveawayPlaces": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "caseFilesKept": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "evidenceFilesKept": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PurgeRequest": {
+        "required": [
+          "platform",
+          "subjectId",
+          "confirmation"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "confirmation": {
+            "type": "string"
           }
         }
       },
