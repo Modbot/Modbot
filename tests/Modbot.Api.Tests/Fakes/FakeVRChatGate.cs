@@ -1,4 +1,5 @@
 using Modbot.VRChat;
+using Modbot.VRChat.Proxy;
 using Modbot.VRChat.RateLimiting;
 using Modbot.VRChat.Session;
 using VRChat.API.Client;
@@ -102,6 +103,30 @@ public sealed class FakeVRChatGate : IVRChatGate
     }
 
     public Task ResumeAfterWaitAsync(CancellationToken ct = default) => Task.CompletedTask;
+
+    /// <summary>Every forwarded request, with the account it was to go out on.</summary>
+    public List<(VRChatEndpoint Endpoint, VRChatProxyRequest Request, VRChatProxyAccount Account)> Forwarded { get; } = [];
+
+    /// <summary>What <see cref="ForwardAsync"/> answers. Defaults to a 200 with an empty JSON object.</summary>
+    public VRChatResult<VRChatProxyResponse> Forward { get; set; } =
+        VRChatResult<VRChatProxyResponse>.Ok(
+            new VRChatProxyResponse(
+                200,
+                [new KeyValuePair<string, string>("Content-Type", "application/json")],
+                "{}"u8.ToArray(),
+                "application/json"),
+            200);
+
+    public Task<VRChatResult<VRChatProxyResponse>> ForwardAsync(
+        VRChatEndpoint endpoint,
+        VRChatProxyRequest request,
+        VRChatProxyAccount account,
+        VRChatCallPriority priority = VRChatCallPriority.Interactive,
+        CancellationToken ct = default)
+    {
+        Forwarded.Add((endpoint, request, account));
+        return Task.FromResult(Forward);
+    }
 
     /// <summary>
     /// <c>CurrentUser</c> has around sixty required constructor arguments, so it is built by

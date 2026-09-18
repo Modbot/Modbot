@@ -64,6 +64,15 @@ public sealed class DemoVRChatGate : IVRChatGate
 
     public Task<IReadOnlyList<RateLimitBucketHealth>> DescribeBucketsAsync(CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<RateLimitBucketHealth>>([]);
+
+    public Task<VRChatResult<Modbot.VRChat.Proxy.VRChatProxyResponse>> ForwardAsync(
+        VRChatEndpoint endpoint,
+        Modbot.VRChat.Proxy.VRChatProxyRequest request,
+        Modbot.VRChat.Proxy.VRChatProxyAccount account,
+        VRChatCallPriority priority = VRChatCallPriority.Interactive,
+        CancellationToken ct = default)
+        => Task.FromResult(VRChatResult<Modbot.VRChat.Proxy.VRChatProxyResponse>.Failure(
+            0, Message, kind: VRChatFailureKind.NotConfigured));
 }
 
 /// <summary>Sends no email, and says so.</summary>

@@ -79,4 +79,31 @@ public interface IVRChatGate
 
     /// <summary>Per-bucket health, for the UI (spec 4.3.3).</summary>
     Task<IReadOnlyList<RateLimitBucketHealth>> DescribeBucketsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Forwards one request to VRChat as it was written, paced and -- on the service account --
+    /// authenticated, and returns whatever VRChat answered (VRChat proxy design).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The one call on the gate that is not an SDK call, and the reason it is on the gate at all:
+    /// the request goes out on the same session, through the same limiter, with the same
+    /// User-Agent, and a 429 cold stops its bucket like any other. Nothing outside the gate holds
+    /// the session cookie, so nothing outside the gate can send it.
+    /// </para>
+    /// <para>
+    /// A successful result holds VRChat's answer whatever its status: a 404 from VRChat is a
+    /// response, not a failure. A failure is the gate declining to send -- a cold stop, no
+    /// session, a wait to sign in -- or the transport failing, and carries no response.
+    /// </para>
+    /// </remarks>
+    /// <param name="endpoint">The proxy class the request is paced on: <c>proxy</c> or <c>proxy.passthrough</c>.</param>
+    /// <param name="request">What the caller sent, already stripped of anything that is theirs alone.</param>
+    /// <param name="account">Whose session it goes out on.</param>
+    Task<VRChatResult<Proxy.VRChatProxyResponse>> ForwardAsync(
+        VRChatEndpoint endpoint,
+        Proxy.VRChatProxyRequest request,
+        Proxy.VRChatProxyAccount account,
+        VRChatCallPriority priority = VRChatCallPriority.Interactive,
+        CancellationToken ct = default);
 }
