@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { TrustRankBadge } from '@/components/TrustRankBadge'
-import { useDemo } from '@/lib/demo'
+import { OtherTags, ProfileBadges } from '@/components/ProfileBadges'
+import { Field } from '@/components/subject/shared'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
 import { can } from '@/lib/permissions'
+import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
 import { cn } from '@/lib/utils'
 
 /**
@@ -12,140 +13,41 @@ import { cn } from '@/lib/utils'
  *
  * Spec 4.2.5: freshness is visible, never implied. Everything here is shown as of
  * `lastRefreshedAt`, and a profile older than the sync's own threshold is labelled stale, because
- * "no flags found" on a bio from March is not the same claim as on a bio from an hour ago.
+ * "no flags found" on a bio from March is not the same claim as on a bio from an hour ago. The
+ * reading and the refresh-on-open are `useStoredProfile`.
  *
- * Opening the card asks the server for a refresh (the "opened in Modbot" tier, behind only people
- * in an instance right now) and then polls the profile until `lastRefreshedAt` moves. Polling is
- * deliberate for this milestone: two seconds with a little backoff, giving up after a minute, no
- * realtime channel. If the refresh cannot happen -- the users lane is cold-stopped, the account is
- * gone -- the stored data stays on screen with the plain reason beside it.
+ * The profile is in two parts because the person popup draws them in two places: `ProfileIdentity`
+ * (picture, name, badges, freshness, the 18+ mark) on the left, and `ProfileDetails` (bio, status,
+ * dates, the remaining tags) at the top of the Overview tab. One `useStoredProfile` feeds both, so
+ * the refresh is asked for once and both parts move together when it lands. `UserProfileCard` is
+ * the two stacked, for a page that wants the whole thing in one place.
  */
 
-/** How long the card keeps asking after a refresh was queued. */
-const GIVE_UP_AFTER_MS = 60_000
+/** Both parts stacked: the whole profile in one place. */
+export function UserProfileCard({ subjectId, me }: { subjectId: string; me: CurrentUser }) {
+  const stored = useStoredProfile(subjectId)
 
-/** Poll delays, in order; the last one repeats. */
-const POLL_MS = [2_000, 2_000, 3_000, 4_000, 6_000, 8_000]
+  return (
+    <div className="flex flex-col gap-3">
+      <ProfileIdentity stored={stored} me={me} />
+      <ProfileDetails stored={stored} />
+    </div>
+  )
+}
 
-export function UserProfileCard({
-  subjectId,
+/**
+ * Who this is: picture, name, pronouns, the badge row, how old the reading is, and the 18+ mark.
+ * The part that belongs beside the person wherever they are shown.
+ */
+export function ProfileIdentity({
+  stored,
   me,
 }: {
-  subjectId: string
+  stored: StoredProfile
   /** The signed-in account, for deciding whether to draw the flag control. */
   me: CurrentUser
 }) {
-  const demo = useDemo()
-
-  const [profile, setProfile] = useState<VRChatUserProfile | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [refreshNote, setRefreshNote] = useState<string | null>(null)
-
-  // The lastRefreshedAt the refresh was asked against. The poll ends when the server's differs.
-  const baseline = useRef<string | null>(null)
-  const cancelled = useRef(false)
-
-  const load = useCallback(() => api.userProfile(subjectId), [subjectId])
-
-  useEffect(() => {
-    cancelled.current = false
-    let timer: ReturnType<typeof setTimeout> | null = null
-
-    const fail = (e: unknown) => {
-      if (cancelled.current) return
-      setError(
-        e instanceof ApiError && e.status === 403
-          ? 'You do not have permission to view profiles.'
-          : 'Could not load this profile.',
-      )
-    }
-
-    const poll = (attempt: number, startedAt: number) => {
-      timer = setTimeout(() => {
-        load()
-          .then((next) => {
-            if (cancelled.current) return
-            setProfile(next)
-
-            const moved = next.lastRefreshedAt !== baseline.current
-            const failed =
-              next.refreshErrorAt !== null &&
-              !next.refresh.pending &&
-              next.lastRefreshedAt === baseline.current
-            const stopped = !next.refresh.pending && next.refresh.blocked !== null
-            const timedOut = Date.now() - startedAt > GIVE_UP_AFTER_MS
-
-            if (moved) {
-              setRefreshing(false)
-              setRefreshNote(null)
-              return
-            }
-
-            if (failed) {
-              setRefreshing(false)
-              setRefreshNote(`Couldn't refresh: ${next.refreshError ?? 'VRChat did not answer.'}`)
-              return
-            }
-
-            if (stopped) {
-              setRefreshing(false)
-              setRefreshNote(`Couldn't refresh: ${next.refresh.blocked}`)
-              return
-            }
-
-            if (timedOut) {
-              setRefreshing(false)
-              setRefreshNote('Refresh still waiting.')
-              return
-            }
-
-            poll(attempt + 1, startedAt)
-          })
-          .catch(fail)
-      }, POLL_MS[Math.min(attempt, POLL_MS.length - 1)])
-    }
-
-    // Show what is stored first, then ask for it to be brought up to date.
-    load()
-      .then((stored) => {
-        if (cancelled.current) return
-        setProfile(stored)
-        baseline.current = stored.lastRefreshedAt
-
-        // A demo has no VRChat account and never will, so there is nothing to bring the profile
-        // up to date from and no refusal worth putting in front of anybody.
-        if (demo) return
-
-        if (stored.refresh.blocked && !stored.refresh.pending) {
-          setRefreshNote(`Couldn't refresh: ${stored.refresh.blocked}`)
-          return
-        }
-
-        return api.requestUserRefresh(subjectId).then((asked) => {
-          if (cancelled.current) return
-
-          if (asked.outcome === 'FreshEnough') {
-            setRefreshNote(null)
-            return
-          }
-
-          if (asked.outcome === 'NotAvailable' || asked.outcome === 'NotAPerson') {
-            setRefreshNote(`Couldn't refresh: ${asked.explanation}`)
-            return
-          }
-
-          setRefreshing(true)
-          poll(0, Date.now())
-        })
-      })
-      .catch(fail)
-
-    return () => {
-      cancelled.current = true
-      if (timer) clearTimeout(timer)
-    }
-  }, [subjectId, load, demo])
+  const { profile, error, refreshing, note, setProfile } = stored
 
   if (error) {
     return (
@@ -163,30 +65,65 @@ export function UserProfileCard({
     )
   }
 
+  const fetched = profile.known && profile.lastRefreshedAt
+
   return (
     <div className="flex flex-col gap-3">
-      <Freshness profile={profile} refreshing={refreshing} note={refreshNote} />
-
-      {profile.known && profile.lastRefreshedAt ? (
-        <Profile profile={profile} />
+      {fetched ? (
+        <Identity profile={profile} />
       ) : (
         <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           {profile.known ? 'Profile not fetched yet.' : 'Not seen before.'}
         </p>
       )}
 
-      <AgeVerified
-        profile={profile}
-        canEdit={can(me, 'EditAgeVerification')}
-        onChanged={setProfile}
-      />
+      <Freshness profile={profile} refreshing={refreshing} note={note} />
+
+      <AgeVerified profile={profile} canEdit={can(me, 'EditAgeVerification')} onChanged={setProfile} />
     </div>
   )
 }
 
 /**
- * The age of what is shown, stated before it. Never implied: the stored data is only ever as
- * true as `lastRefreshedAt`, and stale data says so in words rather than in a colour.
+ * The rest of the profile: bio, status, when they joined VRChat, when Modbot last saw them, and
+ * the tags that have no badge. Draws nothing until the profile is there, because the identity part
+ * already says why it is not.
+ */
+export function ProfileDetails({ stored }: { stored: StoredProfile }) {
+  const { profile, error } = stored
+
+  if (error || !profile || !profile.known || !profile.lastRefreshedAt) return null
+
+  return (
+    <div className="flex flex-col gap-2">
+      {profile.statusDescription && (
+        <Field label="Status">
+          {/* User-authored text, rendered as text. Never as HTML. */}
+          <span className="whitespace-pre-wrap">{profile.statusDescription}</span>
+        </Field>
+      )}
+
+      {profile.bio && (
+        <Field label="Bio">
+          <span className="whitespace-pre-wrap">{profile.bio}</span>
+        </Field>
+      )}
+
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        {profile.dateJoined && <Field label="Joined VRChat">{formatDay(profile.dateJoined)}</Field>}
+        {profile.lastSeenAt && (
+          <Field label="Last seen by Modbot">{ago(profile.lastSeenAt, profile.now)}</Field>
+        )}
+      </div>
+
+      <OtherTags tags={profile.tags} />
+    </div>
+  )
+}
+
+/**
+ * The age of what is shown, stated in words. Never implied: the stored data is only ever as true
+ * as `lastRefreshedAt`, and stale data says so in words rather than in a colour.
  */
 function Freshness({
   profile,
@@ -232,7 +169,7 @@ function Freshness({
   )
 }
 
-function Profile({ profile }: { profile: VRChatUserProfile }) {
+function Identity({ profile }: { profile: VRChatUserProfile }) {
   const picture = profile.profilePictureUrl || profile.avatarThumbnailUrl
 
   return (
@@ -248,41 +185,15 @@ function Profile({ profile }: { profile: VRChatUserProfile }) {
         <div className="size-16 shrink-0 rounded-full bg-muted" />
       )}
 
-      <div className="min-w-0 flex-1" style={{ fontSize: 'var(--text-small)' }}>
+      <div className="flex min-w-0 flex-1 flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium" style={{ fontSize: 'var(--text-base)' }}>
+          <span className="font-medium break-words" style={{ fontSize: 'var(--text-base)' }}>
             {profile.displayName ?? <span className="font-mono">{profile.userId}</span>}
           </span>
           {profile.pronouns && <span className="text-muted-foreground">{profile.pronouns}</span>}
-          <TrustRankBadge rank={profile.trustRank} className="self-center" />
         </div>
 
-        {profile.statusDescription && (
-          <div className="mt-0.5 text-muted-foreground">“{profile.statusDescription}”</div>
-        )}
-
-        {/* User-authored text, rendered as text. Never as HTML. */}
-        {profile.bio && <p className="mt-2 whitespace-pre-wrap break-words">{profile.bio}</p>}
-
-        <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground">
-          {profile.dateJoined && <Pair label="Joined VRChat" value={formatDay(profile.dateJoined)} />}
-          {profile.lastPlatform && <Pair label="Last platform" value={profile.lastPlatform} />}
-          {profile.lastSeenAt && <Pair label="Last seen by Modbot" value={ago(profile.lastSeenAt, profile.now)} />}
-        </dl>
-
-        {profile.tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {profile.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border px-2 py-0.5 font-mono text-muted-foreground"
-                style={{ borderWidth: 'var(--hairline)', fontSize: '0.6875rem' }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+        <ProfileBadges tags={profile.tags} lastPlatform={profile.lastPlatform} rank={profile.trustRank} />
       </div>
     </div>
   )
@@ -402,15 +313,6 @@ function AgeVerified({
           {problem && <div className="text-destructive">{problem}</div>}
         </div>
       )}
-    </div>
-  )
-}
-
-function Pair({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-1">
-      <dt>{label}:</dt>
-      <dd className="text-foreground">{value}</dd>
     </div>
   )
 }
