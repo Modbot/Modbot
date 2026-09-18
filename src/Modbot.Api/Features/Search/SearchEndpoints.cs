@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Modbot.Core.Users;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
@@ -96,19 +97,19 @@ public static class SearchEndpoints
         var pattern = MemberEndpoints.Pattern(term);
 
         var found = people
-            ? await db.VRChatUsers.AsNoTracking()
+            ? (await db.VRChatUsers.AsNoTracking()
                 .Where(u => EF.Functions.ILike(u.UserId, pattern, "\\")
                     || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\")))
                 .OrderBy(u => u.DisplayName == null)
                 .ThenByDescending(u => u.LastSeenAt)
                 .Take(take)
+                .Select(u => new { u.UserId, u.DisplayName, u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl })
+                .ToListAsync(ct))
                 .Select(u => new SearchPerson(
                     u.UserId,
                     u.DisplayName,
-                    u.ProfilePictureUrl != null && u.ProfilePictureUrl != string.Empty
-                        ? u.ProfilePictureUrl
-                        : u.CurrentAvatarThumbnailImageUrl))
-                .ToListAsync(ct)
+                    ProfilePictures.Best(u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl)))
+                .ToList()
             : [];
 
         List<SearchDiscordPerson> discord = [];

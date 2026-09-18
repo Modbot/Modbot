@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Modbot.Core.Users;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -443,6 +444,7 @@ public static class DiscordMemberEndpoints
                     l.VRChatUserId,
                     Name = u != null && u.DisplayName != null ? u.DisplayName : l.VRChatDisplayName,
                     Override = u != null ? u.ProfilePictureUrl : null,
+                    Icon = u != null ? u.IconUrl : null,
                     Thumbnail = u != null ? u.CurrentAvatarThumbnailImageUrl : null,
                 })
             .ToListAsync(ct);
@@ -453,7 +455,7 @@ public static class DiscordMemberEndpoints
             r => new LinkedVRChatView(
                 r.VRChatUserId,
                 r.Name,
-                string.IsNullOrWhiteSpace(r.Override) ? (string.IsNullOrWhiteSpace(r.Thumbnail) ? null : r.Thumbnail) : r.Override),
+                ProfilePictures.Best(r.Override, r.Icon, r.Thumbnail)),
             StringComparer.Ordinal);
     }
 

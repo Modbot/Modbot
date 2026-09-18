@@ -25,6 +25,7 @@ using Modbot.Api.Features.Reviews;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
 using Modbot.Api.Features.Evidence;
+using Modbot.Api.Features.Files;
 using Modbot.Api.Features.Flags;
 using Modbot.Api.Features.Health;
 using Modbot.Api.Features.Imports;
@@ -95,6 +96,16 @@ public static class ApiSurface
         services.TryAddSingleton<Core.Configuration.DemoState>();
         services.TryAddSingleton(sp => Core.Configuration.DemoMode.From(
             sp.GetService<Core.Configuration.ModbotEnvironment>() ?? new Core.Configuration.ModbotEnvironment()));
+
+        // Pictures and video fetched from VRChat on Modbot's session, and the disk cache that
+        // keeps them (VRChat files design). The folder sits under the same /app/data mount the
+        // evidence store uses, because it is the same disk.
+        services.TryAddSingleton(sp => VRChatFileCacheOptions.Under(
+            sp.GetService<Microsoft.Extensions.Hosting.IHostEnvironment>()?.ContentRootPath
+            ?? AppContext.BaseDirectory));
+        services.TryAddSingleton(sp => new Features.Files.VRChatFileCache(
+            sp.GetRequiredService<VRChatFileCacheOptions>(),
+            sp.GetRequiredService<Modbot.Core.Time.IModbotClock>()));
 
         // Its wording, sign-in schemes, error shape and section order are in OpenApiReference.
         services.AddOpenApi(DocumentName, options => options.AddModbotReference());
@@ -214,6 +225,10 @@ public static class ApiSurface
         // cookie, and the switch that turns the route on (VRChat proxy design).
         app.MapVRChatProxy();
         app.MapVRChatProxySettings();
+
+        // Pictures and video fetched from VRChat, because a browser cannot fetch one itself
+        // (VRChat files design).
+        app.MapVRChatFiles();
 
         // Uploads of old data from another platform (import design §4).
         app.MapImports();

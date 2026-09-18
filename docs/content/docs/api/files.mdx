@@ -1,0 +1,69 @@
+---
+title: VRChat pictures
+description: Load a VRChat profile picture, banner or world thumbnail through your Modbot, because VRChat's own image addresses cannot be loaded by a browser.
+---
+
+VRChat's picture addresses look like this:
+
+```
+https://api.vrchat.cloud/api/1/file/file_00000000-0000-0000-0000-000000000000/1/file
+```
+
+Fetching one needs the VRChat account's session cookie, and the answer is a redirect to whichever
+delivery host VRChat is using. A browser has neither the cookie nor a way to be given one, so an
+`<img>` tag pointed straight at that address shows nothing at all.
+
+Modbot fetches it for you instead.
+
+## The address
+
+```
+GET https://modbot.example.com/api/files/vrchat?url=<the VRChat address, url-encoded>
+```
+
+```bash
+curl -H "Authorization: Bearer mbk_..." \
+  "https://modbot.example.com/api/files/vrchat?url=https%3A%2F%2Fapi.vrchat.cloud%2Fapi%2F1%2Ffile%2Ffile_abc%2F1%2Ffile" \
+  --output picture.png
+```
+
+It works in an `<img>` tag too, because the browser sends your Modbot session with it:
+
+```html
+<img src="/api/files/vrchat?url=https%3A%2F%2Fapi.vrchat.cloud%2Fapi%2F1%2Ffile%2Ffile_abc%2F1%2Ffile" />
+```
+
+Every signed-in person can use it, and no permission is needed. Modbot's own web app loads every
+VRChat picture this way.
+
+## What it accepts
+
+Addresses on `vrchat.cloud` and its subdomains, over `https`, and nothing else. Anything else is
+a `400`.
+
+The answer must be a picture or a video. Anything else is a `415`, and a file larger than 25 MB is
+a `502`.
+
+If this Modbot has no VRChat account connected — during setup, or on the demo — the answer is a
+`404`.
+
+## Where Modbot keeps them
+
+A VRChat picture address includes a version, so the picture behind it never changes. Modbot saves
+each one to disk the first time it is asked for and serves it from there afterwards, which means a
+member list of forty faces costs VRChat forty requests once and nothing after that. Browsers are
+told to keep their copy for a week.
+
+The folder lives beside the evidence store, under the data directory. It holds 2 GB by default;
+over that, the pictures fetched longest ago are deleted first.
+
+## The addresses in API answers
+
+Answers from the rest of the API — a profile's `profilePictureUrl`, `iconUrl`, `bannerUrl` or
+`representedGroup.iconUrl` — carry **VRChat's own address**, not a Modbot one. Build the address
+above from it yourself when you want the bytes.
+
+`profilePictureUrl` is the best picture Modbot has for a person: the profile picture they set, or
+their profile icon, or their avatar thumbnail, whichever it has. VRChat removed the profile
+picture field from its API in September 2026, so for anyone Modbot has seen since then it is the
+icon.

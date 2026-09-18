@@ -2624,6 +2624,109 @@
         ]
       }
     },
+    "/api/files/vrchat": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "summary": "A picture or video from VRChat",
+        "description": "Fetches a VRChat file address through Modbot and returns the bytes. VRChat's file addresses need the account's session cookie and redirect to a delivery host, so a browser cannot load one directly. Only addresses on vrchat.cloud are accepted, only pictures and video are returned, and the answer is cached on disk because a VRChat file address names a version and never changes.",
+        "operationId": "GetVRChatFile",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              },
+              "image/gif": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              },
+              "video/mp4": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/imports": {
       "post": {
         "tags": [
@@ -23741,6 +23844,9 @@
           "avatarImageUrl",
           "avatarThumbnailUrl",
           "profilePictureUrl",
+          "iconUrl",
+          "bannerUrl",
+          "representedGroup",
           "dateJoined",
           "tags",
           "ageVerificationStatus",
@@ -23788,6 +23894,28 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "iconUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "representedGroup": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RepresentedGroupView"
+              }
             ]
           },
           "dateJoined": {
@@ -24242,6 +24370,31 @@
           "computedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "RepresentedGroupView": {
+        "required": [
+          "groupId",
+          "name",
+          "iconUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "groupId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "iconUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -27161,6 +27314,9 @@
           "avatarImageUrl",
           "avatarThumbnailUrl",
           "profilePictureUrl",
+          "iconUrl",
+          "bannerUrl",
+          "representedGroup",
           "dateJoined",
           "tags",
           "trustRank",
@@ -27239,6 +27395,28 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "iconUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "representedGroup": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RepresentedGroupView"
+              }
             ]
           },
           "dateJoined": {
@@ -28096,6 +28274,11 @@
       "name": "Evidence",
       "description": "Screenshots and video attached to case files.",
       "x-displayName": "Evidence"
+    },
+    {
+      "name": "Files",
+      "description": "Pictures and video from VRChat, fetched through Modbot because a browser cannot fetch them itself.",
+      "x-displayName": "Files"
     },
     {
       "name": "Reviews",

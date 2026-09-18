@@ -73,6 +73,15 @@ public sealed class DemoVRChatGate : IVRChatGate
         CancellationToken ct = default)
         => Task.FromResult(VRChatResult<Modbot.VRChat.Proxy.VRChatProxyResponse>.Failure(
             0, Message, kind: VRChatFailureKind.NotConfigured));
+
+    /// <summary>
+    /// A demo fetches no pictures either, which is what makes its file cache serve what it was
+    /// seeded with and nothing else (VRChat files design).
+    /// </summary>
+    public Task<Modbot.VRChat.Files.VRChatFileResult> FetchFileAsync(
+        Uri url, CancellationToken ct = default)
+        => Task.FromResult(Modbot.VRChat.Files.VRChatFileResult.Problems(
+            Modbot.VRChat.Files.VRChatFileOutcome.NoSession, Message));
 }
 
 /// <summary>Sends no email, and says so.</summary>

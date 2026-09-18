@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260918012449_AddProfilePicturesAndRepresentedGroup")]
+    partial class AddProfilePicturesAndRepresentedGroup
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -5086,10 +5089,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("VRChatDisplayName")
                         .HasColumnType("text")
                         .HasColumnName("vr_chat_display_name");
-
-                    b.Property<long>("VRChatFileCacheBytes")
-                        .HasColumnType("bigint")
-                        .HasColumnName("vr_chat_file_cache_bytes");
 
                     b.Property<DateTimeOffset?>("VRChatLastSignedInAt")
                         .HasColumnType("timestamp with time zone")

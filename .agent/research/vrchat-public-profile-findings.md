@@ -126,7 +126,10 @@ field — and it is deliberately **not** written to `profile_picture_url`, in th
 `trustTags` is deliberately not written to `tags`: mixing them would make every alternation between
 the two calls look like a profile change and would write a change fact for something nobody
 changed. Whether Modbot should keep `iconUrl` in a column of its own, so member lists and case
-files have a face again, is a design question for the maintainer and is not decided here.
+files have a face again, was a design question for the maintainer; **decided 2026-09-17**:
+`iconUrl`, `bannerUrl` and `representedGroup` (id, name and icon only) are columns of their own,
+watched for change under those names, and the picture shown anywhere is the override if set,
+else the icon, else the avatar thumbnail (user profile sync design §6).
 
 **Modbot must not read the lost fields off the SDK's `User`.** Under 2.20.9 the model still had
 `Bio`, `ProfilePicOverride` and `CurrentAvatar*` properties, and a body that still sent

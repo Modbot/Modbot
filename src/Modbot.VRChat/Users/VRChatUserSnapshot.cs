@@ -70,6 +70,15 @@ public sealed record VRChatUserSnapshot
     public string? CurrentAvatarImageUrl { get; init; }
     public string? CurrentAvatarThumbnailImageUrl { get; init; }
     public string? ProfilePictureUrl { get; init; }
+
+    /// <summary>The user icon, <c>iconUrl</c>. Its own field, never folded into <see cref="ProfilePictureUrl"/>.</summary>
+    public string? IconUrl { get; init; }
+
+    public string? BannerUrl { get; init; }
+
+    /// <summary>The group the person represents, or null for none.</summary>
+    public VRChatRepresentedGroup? RepresentedGroup { get; init; }
+
     public DateOnly? DateJoined { get; init; }
 
     /// <summary>VRChat's tags, sorted, so two responses that differ only in order are not a change.</summary>
@@ -102,6 +111,9 @@ public sealed record VRChatUserSnapshot
         public const string CurrentAvatarImageUrl = "currentAvatarImageUrl";
         public const string CurrentAvatarThumbnailImageUrl = "currentAvatarThumbnailImageUrl";
         public const string ProfilePicOverride = "profilePicOverride";
+        public const string IconUrl = "iconUrl";
+        public const string BannerUrl = "bannerUrl";
+        public const string RepresentedGroup = "representedGroup";
         public const string DateJoined = "date_joined";
         public const string Tags = "tags";
 
@@ -118,6 +130,7 @@ public sealed record VRChatUserSnapshot
         {
             DisplayName, Bio, StatusDescription, Pronouns,
             CurrentAvatarImageUrl, CurrentAvatarThumbnailImageUrl, ProfilePicOverride,
+            IconUrl, BannerUrl, RepresentedGroup,
             DateJoined, Tags, AgeVerificationStatus, AgeVerified, Status, LastPlatform,
         };
 
@@ -135,22 +148,34 @@ public sealed record VRChatUserSnapshot
         {
             DisplayName, StatusDescription, Pronouns, DateJoined, Tags,
             AgeVerificationStatus, AgeVerified, Status, LastPlatform,
+
+            // Still on the user object in v1.21.0, under the same names as on the public
+            // profile, so a read from either call speaks for the same column.
+            IconUrl, BannerUrl,
         };
 
         /// <summary>
         /// What <c>GET /profile/{userId}</c> can carry, of the fields Modbot stores.
         /// </summary>
         /// <remarks>
-        /// The public profile also carries <c>trustTags</c>, <c>languages</c>,
-        /// <c>representedGroup</c>, <c>hasVrcPlus</c> and <c>iconUrl</c>. None of those is one of
-        /// Modbot's columns, and <c>trustTags</c> and <c>iconUrl</c> are deliberately <em>not</em>
-        /// written to <c>tags</c> and <c>profile_picture_url</c>: they are different, smaller
-        /// fields, and mixing them would make every alternation between the two calls look like a
-        /// profile change. They are kept in <c>raw_public_profile</c> instead.
+        /// <para>
+        /// The public profile also carries <c>trustTags</c>, <c>languages</c> and
+        /// <c>hasVrcPlus</c>, which are not columns and are kept in <c>raw_public_profile</c>.
+        /// <c>trustTags</c> is deliberately <em>not</em> written to <c>tags</c>: it is a different,
+        /// smaller field, and mixing the two would make every alternation between the two calls
+        /// look like a profile change.
+        /// </para>
+        /// <para>
+        /// <c>iconUrl</c> is a column of its own since 2026-09-17, for the same reason it is not
+        /// written to <c>profile_picture_url</c>: it is the picture the profile carries for
+        /// anyone, and <c>profilePicOverride</c> is on no call any more. The banner and the
+        /// represented group came with it.
+        /// </para>
         /// </remarks>
         public static readonly IReadOnlySet<string> OnPublicProfile = new HashSet<string>(StringComparer.Ordinal)
         {
             DisplayName, Bio, Pronouns, AgeVerificationStatus, AgeVerified,
+            IconUrl, BannerUrl, RepresentedGroup,
         };
     }
 
@@ -198,6 +223,8 @@ public sealed record VRChatUserSnapshot
             // for them -- see Fields.OnUser.
             StatusDescription = Blank(user.StatusDescription),
             Pronouns = Blank(user.Pronouns),
+            IconUrl = Blank(user.IconUrl),
+            BannerUrl = Blank(user.BannerUrl),
             DateJoined = user.DateJoined == default ? null : user.DateJoined,
             Tags = Sorted(user.Tags),
             AgeVerificationStatus = ReadText(raw, Fields.AgeVerificationStatus) ?? StatusWord(user.AgeVerificationStatus),
@@ -211,8 +238,9 @@ public sealed record VRChatUserSnapshot
     /// Builds a snapshot from the public profile -- the main read.
     /// </summary>
     /// <remarks>
-    /// It speaks for five fields and says nothing about the rest, so recording one never clears a
-    /// status line, a join date, a tag list or an avatar picture that the rarer user read filled in.
+    /// It speaks for the fields in <see cref="Fields.OnPublicProfile"/> and says nothing about the
+    /// rest, so recording one never clears a status line, a join date, a tag list or an avatar
+    /// picture that the rarer user read filled in.
     /// </remarks>
     public static VRChatUserSnapshot FromPublicProfile(string userId, PublicProfile profile, JsonObject? raw = null)
     {
@@ -228,6 +256,9 @@ public sealed record VRChatUserSnapshot
             DisplayName = Blank(profile.DisplayName),
             Bio = Blank(profile.Bio),
             Pronouns = Blank(profile.Pronouns),
+            IconUrl = Blank(profile.IconUrl),
+            BannerUrl = Blank(profile.BannerUrl),
+            RepresentedGroup = VRChatRepresentedGroup.From(profile.RepresentedGroup),
             AgeVerificationStatus =
                 ReadText(raw, Fields.AgeVerificationStatus)
                 ?? (profile.AgeVerificationStatus is { } status ? StatusWord(status) : null),
@@ -255,6 +286,9 @@ public sealed record VRChatUserSnapshot
             CurrentAvatarImageUrl = row.CurrentAvatarImageUrl,
             CurrentAvatarThumbnailImageUrl = row.CurrentAvatarThumbnailImageUrl,
             ProfilePictureUrl = row.ProfilePictureUrl,
+            IconUrl = row.IconUrl,
+            BannerUrl = row.BannerUrl,
+            RepresentedGroup = VRChatRepresentedGroup.FromRow(row),
             DateJoined = row.DateJoined,
             Tags = ReadTags(row.Tags),
             AgeVerificationStatus = row.AgeVerificationStatus,
@@ -280,6 +314,14 @@ public sealed record VRChatUserSnapshot
         if (Has(Fields.CurrentAvatarImageUrl)) row.CurrentAvatarImageUrl = CurrentAvatarImageUrl;
         if (Has(Fields.CurrentAvatarThumbnailImageUrl)) row.CurrentAvatarThumbnailImageUrl = CurrentAvatarThumbnailImageUrl;
         if (Has(Fields.ProfilePicOverride)) row.ProfilePictureUrl = ProfilePictureUrl;
+        if (Has(Fields.IconUrl)) row.IconUrl = IconUrl;
+        if (Has(Fields.BannerUrl)) row.BannerUrl = BannerUrl;
+        if (Has(Fields.RepresentedGroup))
+        {
+            row.RepresentedGroupId = RepresentedGroup?.GroupId;
+            row.RepresentedGroupName = RepresentedGroup?.Name;
+            row.RepresentedGroupIconUrl = RepresentedGroup?.IconUrl;
+        }
         if (Has(Fields.DateJoined)) row.DateJoined = DateJoined;
         if (Has(Fields.Tags))
         {
@@ -309,7 +351,20 @@ public sealed record VRChatUserSnapshot
         Text(changed, Fields.CurrentAvatarImageUrl, previous.CurrentAvatarImageUrl, CurrentAvatarImageUrl);
         Text(changed, Fields.CurrentAvatarThumbnailImageUrl, previous.CurrentAvatarThumbnailImageUrl, CurrentAvatarThumbnailImageUrl);
         Text(changed, Fields.ProfilePicOverride, previous.ProfilePictureUrl, ProfilePictureUrl);
+        Text(changed, Fields.IconUrl, previous.IconUrl, IconUrl);
+        Text(changed, Fields.BannerUrl, previous.BannerUrl, BannerUrl);
         Text(changed, Fields.AgeVerificationStatus, previous.AgeVerificationStatus, AgeVerificationStatus);
+
+        // The group as a whole: old and new are the group's id, name and icon together, or null
+        // for "represented none", so the timeline can name both groups rather than one id.
+        if (Has(Fields.RepresentedGroup) && previous.RepresentedGroup != RepresentedGroup)
+        {
+            changed[Fields.RepresentedGroup] = new JsonObject
+            {
+                ["old"] = previous.RepresentedGroup?.ToJson(),
+                ["new"] = RepresentedGroup?.ToJson(),
+            };
+        }
 
         if (Has(Fields.AgeVerified) && previous.AgeVerified != AgeVerified)
             changed[Fields.AgeVerified] = Pair(previous.AgeVerified, AgeVerified);
@@ -481,5 +536,63 @@ public sealed record VRChatUserSnapshot
             .FirstOrDefault()?.Value;
 
         return wire ?? value.ToString();
+    }
+}
+
+/// <summary>
+/// The group a person has chosen to represent, as the public profile's <c>representedGroup</c>
+/// carries it: only its id, name and icon. The rest of that object -- member count, privacy,
+/// the owner -- is about the group, not the person, and stays in <c>raw_public_profile</c>.
+/// </summary>
+/// <remarks>
+/// A record, so two snapshots that name the same group compare equal and the diff writes nothing.
+/// The JSON shape is the API's (<c>groupId</c>, <c>name</c>, <c>iconUrl</c>), so a change fact's
+/// old and new read the same as the profile does.
+/// </remarks>
+/// <param name="GroupId">VRChat's id for the group. Opaque (spec 3.1.1).</param>
+public sealed record VRChatRepresentedGroup(string GroupId, string? Name, string? IconUrl)
+{
+    /// <summary>The group the SDK's profile object names, or null when it names none.</summary>
+    public static VRChatRepresentedGroup? From(ProfileRepresentedGroup? group)
+        => group is null || string.IsNullOrEmpty(group.Id)
+            ? null
+            : new VRChatRepresentedGroup(
+                group.Id,
+                string.IsNullOrEmpty(group.Name) ? null : group.Name,
+                string.IsNullOrEmpty(group.IconUrl) ? null : group.IconUrl);
+
+    /// <summary>The group a stored row names, or null when it names none.</summary>
+    public static VRChatRepresentedGroup? FromRow(VRChatUser row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        return string.IsNullOrEmpty(row.RepresentedGroupId)
+            ? null
+            : new VRChatRepresentedGroup(row.RepresentedGroupId, row.RepresentedGroupName, row.RepresentedGroupIconUrl);
+    }
+
+    /// <summary>The group as a change fact and the profile history carry it.</summary>
+    public JsonObject ToJson() => new()
+    {
+        ["groupId"] = GroupId,
+        ["name"] = Name,
+        ["iconUrl"] = IconUrl,
+    };
+
+    /// <summary>Reads the shape <see cref="ToJson"/> writes, or null for anything else.</summary>
+    public static VRChatRepresentedGroup? FromJson(JsonNode? node)
+    {
+        if (node is not JsonObject json
+            || json["groupId"] is not JsonValue idValue
+            || !idValue.TryGetValue<string>(out var groupId)
+            || string.IsNullOrEmpty(groupId))
+        {
+            return null;
+        }
+
+        return new VRChatRepresentedGroup(groupId, Text(json["name"]), Text(json["iconUrl"]));
+
+        static string? Text(JsonNode? value) =>
+            value is JsonValue v && v.TryGetValue<string>(out var s) && s.Length > 0 ? s : null;
     }
 }

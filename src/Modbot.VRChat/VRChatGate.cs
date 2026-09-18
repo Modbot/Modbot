@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
+using Modbot.VRChat.Files;
 using Modbot.VRChat.Proxy;
 using Modbot.VRChat.RateLimiting;
 using Modbot.VRChat.Scheduling;
@@ -376,6 +377,158 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
                     0, exception.Message, kind: VRChatTransportFailure.Classify(exception));
             }
         }
+    }
+
+    /// <summary>
+    /// A file fetch is a session call with no budget behind it: VRChat does not rate limit its
+    /// file and image addresses, so there is no lease to take, nothing to report a status to,
+    /// and no bucket a 429 could cold stop. Everything else about it is ordinary -- the session
+    /// cookie, the User-Agent, the developer headers, the operator's egress proxy -- because all
+    /// of those live on the session client and the session client is what sends it.
+    /// </summary>
+    /// <remarks>
+    /// The redirect is followed here rather than by the handler, because the handler would
+    /// follow a <c>Location</c> anywhere and this must only ever reach VRChat. Each hop is
+    /// checked before it is sent, and the address that finally answered is checked as well, so
+    /// a handler that followed one on its own cannot get past it either.
+    /// </remarks>
+    public async Task<VRChatFileResult> FetchFileAsync(Uri url, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(url);
+
+        if (!VRChatFiles.IsVRChatAddress(url))
+        {
+            return VRChatFileResult.Problems(
+                VRChatFileOutcome.NotVRChatAddress, $"{url} is not an address VRChat serves files from.");
+        }
+
+        var session = await EnsureSessionAsync(Need.Use, 0, 0, VRChatCallPriority.Interactive, ct)
+            .ConfigureAwait(false);
+
+        if (!session.Success)
+        {
+            return VRChatFileResult.Problems(
+                VRChatFileOutcome.NoSession, session.ErrorMessage ?? "There is no VRChat session to fetch that on.");
+        }
+
+        var client = session.Client!.HttpClient;
+        var configuration = session.Client!.Configuration;
+        var started = _elapsed.Elapsed;
+        var next = url;
+
+        try
+        {
+            for (var hop = 0; hop <= VRChatFiles.MaxRedirects; hop++)
+            {
+                using var message = new HttpRequestMessage(HttpMethod.Get, next);
+
+                if (!string.IsNullOrWhiteSpace(configuration.UserAgent))
+                    message.Headers.TryAddWithoutValidation("User-Agent", configuration.UserAgent);
+
+                foreach (var header in configuration.DefaultHeaders)
+                    message.Headers.TryAddWithoutValidation(header.Key, header.Value);
+
+                using var response = await client
+                    .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct)
+                    .ConfigureAwait(false);
+
+                var status = (int)response.StatusCode;
+
+                // Where the request actually ended up, which is not where it was sent if the
+                // handler followed a redirect itself.
+                var answered = response.RequestMessage?.RequestUri ?? next;
+                if (!VRChatFiles.IsVRChatAddress(answered))
+                {
+                    return VRChatFileResult.Problems(
+                        VRChatFileOutcome.NotVRChatAddress,
+                        $"The file fetch ended at {answered.Host}, which is not one of VRChat's hosts.");
+                }
+
+                if (status is 301 or 302 or 303 or 307 or 308 && response.Headers.Location is { } location)
+                {
+                    next = location.IsAbsoluteUri ? location : new Uri(answered, location);
+
+                    if (!VRChatFiles.IsVRChatAddress(next))
+                    {
+                        return VRChatFileResult.Problems(
+                            VRChatFileOutcome.NotVRChatAddress,
+                            $"VRChat redirected the file fetch to {next.Host}, which is not one of its own hosts.");
+                    }
+
+                    continue;
+                }
+
+                HttpLog.Completed(
+                    _logger, ServiceName, "files", "fetch", status, _elapsed.Elapsed - started);
+
+                if (status == (int)HttpStatusCode.NotFound)
+                    return VRChatFileResult.Problems(VRChatFileOutcome.NotFound, "VRChat has no such file.");
+
+                if (status is < 200 or >= 300)
+                {
+                    return VRChatFileResult.Problems(
+                        VRChatFileOutcome.Failed, $"VRChat answered {status} for that file.");
+                }
+
+                var contentType = response.Content.Headers.ContentType?.ToString();
+                if (!VRChatFiles.IsShowable(contentType))
+                {
+                    return VRChatFileResult.Problems(
+                        VRChatFileOutcome.NotShowable,
+                        $"VRChat answered with {contentType ?? "no content type"}, which is not a picture or a video.");
+                }
+
+                var bytes = await ReadCappedAsync(response.Content, VRChatFiles.MaxBytes, ct).ConfigureAwait(false);
+                if (bytes is null)
+                {
+                    return VRChatFileResult.Problems(
+                        VRChatFileOutcome.TooBig, $"That file is larger than {VRChatFiles.MaxBytes} bytes.");
+                }
+
+                return VRChatFileResult.Ok(new VRChatFile(bytes, VRChatFiles.BareType(contentType!)));
+            }
+
+            return VRChatFileResult.Problems(
+                VRChatFileOutcome.Failed,
+                $"VRChat redirected that file more than {VRChatFiles.MaxRedirects} times.");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            HttpLog.Failed(_logger, ServiceName, "files", "fetch", exception, _elapsed.Elapsed - started);
+
+            return VRChatFileResult.Problems(VRChatFileOutcome.Failed, exception.Message);
+        }
+    }
+
+    /// <summary>The body, or null when it runs past <paramref name="maxBytes"/>.</summary>
+    /// <remarks>
+    /// Read rather than trusted: <c>Content-Length</c> is what the server claimed, and a body
+    /// that keeps coming after it has to stop somewhere that is not memory.
+    /// </remarks>
+    private static async Task<byte[]?> ReadCappedAsync(HttpContent content, long maxBytes, CancellationToken ct)
+    {
+        if (content.Headers.ContentLength is { } declared && declared > maxBytes)
+            return null;
+
+        await using var stream = await content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var buffer = new MemoryStream();
+
+        var chunk = new byte[64 * 1024];
+        int read;
+
+        while ((read = await stream.ReadAsync(chunk, ct).ConfigureAwait(false)) > 0)
+        {
+            if (buffer.Length + read > maxBytes)
+                return null;
+
+            buffer.Write(chunk, 0, read);
+        }
+
+        return buffer.ToArray();
     }
 
     /// <summary>

@@ -4,6 +4,8 @@ using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
+using Modbot.VRChat.Users;
 
 namespace Modbot.Api.Features.Cases;
 
@@ -81,7 +83,10 @@ public static class ProfileSnapshot
         ["pronouns"] = u.Pronouns,
         ["avatarImageUrl"] = u.CurrentAvatarImageUrl,
         ["avatarThumbnailUrl"] = u.CurrentAvatarThumbnailImageUrl,
-        ["profilePictureUrl"] = u.ProfilePictureUrl,
+        ["profilePictureUrl"] = ProfilePictures.Best(u),
+        ["iconUrl"] = u.IconUrl,
+        ["bannerUrl"] = u.BannerUrl,
+        ["representedGroup"] = VRChatRepresentedGroup.FromRow(u)?.ToJson(),
         ["dateJoined"] = u.DateJoined?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         ["tags"] = Parse(u.Tags) ?? new JsonArray(),
         ["trustRank"] = u.TrustRank?.ToString(),

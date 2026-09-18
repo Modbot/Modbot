@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Modbot.Core.Users;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -541,11 +542,8 @@ public static class MemberEndpoints
             .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.Ordinal);
     }
 
-    /// <summary>The picture VRChat shows for the person: the override when set, else the avatar thumbnail.</summary>
-    private static string? Picture(VRChatUser? user) =>
-        string.IsNullOrWhiteSpace(user?.ProfilePictureUrl)
-            ? Blank(user?.CurrentAvatarThumbnailImageUrl)
-            : user.ProfilePictureUrl;
+    /// <summary>The picture Modbot shows for the person: one rule, in <see cref="ProfilePictures"/>.</summary>
+    private static string? Picture(VRChatUser? user) => ProfilePictures.Best(user);
 
     private static (int Page, int Size) Paging(int? page, int? pageSize) =>
         (Math.Max(1, page ?? 1), Math.Clamp(pageSize ?? DefaultPageSize, 1, MaxPageSize));
