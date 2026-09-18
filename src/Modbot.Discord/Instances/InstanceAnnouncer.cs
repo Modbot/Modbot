@@ -5,6 +5,7 @@ using Modbot.Core.Live;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Modbot.Discord.Bot;
+using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 using Serilog;
 
@@ -99,12 +100,14 @@ public sealed class InstanceAnnouncer
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
     private readonly DiscordBotStatus _status;
+    private readonly CardPictures _pictures;
     private readonly ILogger _log;
 
     public InstanceAnnouncer(
         ModbotContext db,
         IModbotClock clock,
         DiscordBotStatus status,
+        CardPictures? pictures = null,
         ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(db);
@@ -114,6 +117,7 @@ public sealed class InstanceAnnouncer
         _db = db;
         _clock = clock;
         _status = status;
+        _pictures = pictures ?? new CardPictures();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
     }
 
@@ -142,6 +146,11 @@ public sealed class InstanceAnnouncer
         var names = settings.DiscordInstanceShowNames
             ? await NamesAsync(instances, ct).ConfigureAwait(false)
             : [];
+
+        // The group's name sits above the world's, so a member reading the channel can see whose
+        // instance they are being invited to.
+        var style = new CardStyle(settings.PublicAddress, settings.ManagedGroupName);
+        var showPictures = settings.VRChatImagesProxied;
 
         var announced = 0;
         var updated = 0;
@@ -175,7 +184,9 @@ public sealed class InstanceAnnouncer
                 }
 
                 var outcome = await AnnounceAsync(
-                    gateway, instance, channelId, message, names.GetValueOrDefault(instance.Id), now, ct).ConfigureAwait(false);
+                        gateway, instance, channelId, message, names.GetValueOrDefault(instance.Id),
+                        style, showPictures, now, ct)
+                    .ConfigureAwait(false);
                 sent++;
 
                 if (outcome.Sent)
@@ -197,7 +208,9 @@ public sealed class InstanceAnnouncer
             if (!closed && instance.AnnouncementUpdatedAt is { } written && now - written < RewriteEvery)
                 continue;
 
-            var edit = await RewriteAsync(gateway, instance, message, names.GetValueOrDefault(instance.Id), now, ct).ConfigureAwait(false);
+            var edit = await RewriteAsync(
+                    gateway, instance, message, names.GetValueOrDefault(instance.Id), style, showPictures, now, ct)
+                .ConfigureAwait(false);
             sent++;
 
             if (edit.Sent)
@@ -246,12 +259,24 @@ public sealed class InstanceAnnouncer
         string channelId,
         string? message,
         IReadOnlyList<string?>? names,
+        CardStyle style,
+        bool showPictures,
         DateTimeOffset now,
         CancellationToken ct)
     {
-        var card = InstanceCard.For(instance, await WorldOfAsync(instance, ct).ConfigureAwait(false), now, names);
+        var world = await WorldOfAsync(instance, ct).ConfigureAwait(false);
 
-        var outcome = await gateway.PostAsync(channelId, message, [card], InstanceCard.Links(instance), ct).ConfigureAwait(false);
+        // The world's picture is sent with this first message and stays on it: every rewrite from
+        // here keeps the file rather than uploading it again.
+        var pictures = _pictures.ForMessage(showPictures);
+        var picture = new CardPicture(
+            Image: await pictures.AddAsync(InstanceCard.PictureOf(world), ct).ConfigureAwait(false));
+
+        var card = InstanceCard.For(instance, world, now, names, style, picture);
+
+        var outcome = await gateway
+            .PostAsync(channelId, message, [card], InstanceCard.Links(instance), pictures.Files, ct)
+            .ConfigureAwait(false);
 
         if (!outcome.Sent || outcome.MessageId is null)
             return outcome;
@@ -268,6 +293,8 @@ public sealed class InstanceAnnouncer
         VRChatInstance instance,
         string? message,
         IReadOnlyList<string?>? names,
+        CardStyle style,
+        bool showPictures,
         DateTimeOffset now,
         CancellationToken ct)
     {
@@ -278,9 +305,18 @@ public sealed class InstanceAnnouncer
         if (channelId is not { Length: > 0 } || instance.AnnouncementMessageId is not { Length: > 0 } messageId)
             return DiscordPostOutcome.Failed("The card has no message to rewrite.", permanent: true);
 
-        var card = InstanceCard.For(instance, await WorldOfAsync(instance, ct).ConfigureAwait(false), now, names);
+        var world = await WorldOfAsync(instance, ct).ConfigureAwait(false);
 
-        var outcome = await gateway.EditAsync(channelId, messageId, message, [card], InstanceCard.Links(instance), ct).ConfigureAwait(false);
+        // The picture is already on the message; the card points at it by name and nothing is sent.
+        var pictures = _pictures.ForMessage(showPictures);
+        var picture = new CardPicture(
+            Image: await pictures.ReferenceAsync(InstanceCard.PictureOf(world), ct).ConfigureAwait(false));
+
+        var card = InstanceCard.For(instance, world, now, names, style, picture);
+
+        var outcome = await gateway
+            .EditAsync(channelId, messageId, message, [card], InstanceCard.Links(instance), pictures: null, ct)
+            .ConfigureAwait(false);
 
         if (!outcome.Sent)
             return outcome;

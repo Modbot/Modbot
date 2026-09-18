@@ -1,6 +1,7 @@
 using System.Globalization;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data.Entities;
+using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.Instances;
 
@@ -37,19 +38,28 @@ public static class CalendarCard
     public const int DiscordEventLocationLimit = 100;
 
     /// <summary>Scheduled: Modbot's own violet, not Discord's.</summary>
-    private const uint Violet = 0x5B4BD6;
-    private const uint Green = 0x3BA55D;
-    private const uint Dark = 0x4F545C;
-    private const uint Red = 0xED4245;
+    private const uint Violet = CardColour.Violet;
+    private const uint Green = CardColour.Green;
+    private const uint Dark = CardColour.Dark;
+    private const uint Red = CardColour.Red;
 
+    /// <param name="style">Where Modbot is, so the world links to its popup.</param>
+    /// <param name="picture">
+    /// <see cref="CardPicture.Image"/> is the event's own picture, or the world's, already sent
+    /// with the message (Discord embeds design §3).
+    /// </param>
     public static DiscordEmbedContent For(
         CalendarEvent calendarEvent,
         CalendarOccurrence occurrence,
         VRChatWorld? world,
         CalendarCardState state,
-        string? joinLink)
+        string? joinLink,
+        CardStyle? style = null,
+        CardPicture picture = default)
     {
         ArgumentNullException.ThrowIfNull(calendarEvent);
+
+        style ??= CardStyle.None;
 
         var fields = new List<DiscordEmbedField>
         {
@@ -57,8 +67,12 @@ public static class CalendarCard
             new("Ends", Stamp(occurrence.EndsAt, "t"), Inline: true),
         };
 
-        if (WorldName(calendarEvent, world) is { } place)
-            fields.Add(new DiscordEmbedField("World", InstanceCard.Escape(place), Inline: true));
+        // The world's name, opening the world in Modbot: the same rule every other card follows,
+        // and the id that used to be the only way to identify a world stays out of the card.
+        if (calendarEvent.WorldId is { Length: > 0 } worldId)
+            fields.Add(new DiscordEmbedField("World", CardLink.World(world?.Name, worldId, style.PublicAddress), Inline: true));
+        else if (WorldName(calendarEvent, world) is { } place)
+            fields.Add(new DiscordEmbedField("World", CardText.EscapeName(place), Inline: true));
 
         fields.Add(new DiscordEmbedField("Who can join", Access(calendarEvent.AccessType), Inline: true));
         fields.Add(new DiscordEmbedField("Region", calendarEvent.Region.ToUpperInvariant(), Inline: true));
@@ -66,7 +80,7 @@ public static class CalendarCard
         var link = state == CalendarCardState.Open ? joinLink : null;
 
         return new DiscordEmbedContent(
-            Title: Cut(calendarEvent.Title, 256),
+            Title: CardText.Plain(calendarEvent.Title, 256),
             Description: string.IsNullOrWhiteSpace(calendarEvent.Description) ? null : Cut(calendarEvent.Description, 4096),
             Color: state switch
             {
@@ -85,7 +99,24 @@ public static class CalendarCard
                 CalendarCardState.Cancelled => "Cancelled",
                 _ => "Scheduled",
             },
-            ImageUrl: Picture(calendarEvent, world));
+            ImageUrl: picture.Image,
+            AuthorName: style.GroupName is { Length: > 0 } group ? CardText.Plain(group, 256) : null,
+            AuthorIconUrl: picture.AuthorIcon);
+    }
+
+    /// <summary>
+    /// The picture the moderators gave the event, when they gave one.
+    /// </summary>
+    /// <remarks>
+    /// Any https address somebody typed into the calendar, so it goes into the card as it is:
+    /// whatever host it is on is a host that serves it to anybody, which is the whole difference
+    /// between it and a VRChat address. Only the world's picture -- <see cref="InstanceCard.PictureOf"/>
+    /// -- has to be sent with the message.
+    /// </remarks>
+    public static string? OwnPicture(CalendarEvent calendarEvent)
+    {
+        ArgumentNullException.ThrowIfNull(calendarEvent);
+        return HttpsOnly(calendarEvent.ImageUrl);
     }
 
     /// <summary>The buttons under a post: Join while the instance is open, none otherwise.</summary>
@@ -139,9 +170,6 @@ public static class CalendarCard
 
     private static string? WorldName(CalendarEvent calendarEvent, VRChatWorld? world) =>
         world?.Name is { Length: > 0 } name ? name : calendarEvent.WorldId;
-
-    private static string? Picture(CalendarEvent calendarEvent, VRChatWorld? world) =>
-        HttpsOnly(calendarEvent.ImageUrl) ?? world?.ImageUrl ?? world?.ThumbnailImageUrl;
 
     private static string? HttpsOnly(string? url) =>
         url is { Length: > 0 } && url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ? url : null;

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 
 namespace Modbot.Discord.Instances;
@@ -39,7 +40,16 @@ namespace Modbot.Discord.Instances;
 /// </para>
 /// <para>
 /// <strong>The world's picture</strong> is the one VRChat's world page gave, as stored in
-/// <c>vrchat_world</c>. A world not read yet has none, and the card goes without it.
+/// <c>vrchat_world</c>, and it is sent with the message rather than linked: VRChat refuses
+/// Discord's servers, which fetch a picture signed in as nobody (Discord embeds design §3). It is
+/// paid for on the first post -- every rewrite after that keeps the file the message already has.
+/// A world not read yet has no picture, and the card goes without one.
+/// </para>
+/// <para>
+/// <strong>The names are not links.</strong> Everything else that names a person on a card links
+/// to them in Modbot, and this list does not: twenty linked names would run past Discord's limit
+/// on one field long before twenty plain ones do, and this card is a notice board for members,
+/// most of whom have no Modbot to open.
 /// </para>
 /// </remarks>
 public static class InstanceCard
@@ -51,13 +61,13 @@ public static class InstanceCard
     public const int FieldValueLimit = 1024;
 
     /// <summary>Open, and somebody is in it.</summary>
-    private const uint Green = 0x3BA55D;
+    private const uint Green = CardColour.Green;
 
     /// <summary>Open, and empty.</summary>
-    private const uint Grey = 0x747F8D;
+    private const uint Grey = CardColour.Grey;
 
     /// <summary>Finished.</summary>
-    private const uint Dark = 0x4F545C;
+    private const uint Dark = CardColour.Dark;
 
     /// <summary>
     /// Builds the card for an instance as it stands right now.
@@ -70,13 +80,21 @@ public static class InstanceCard
     /// Null when nobody is watching or names are off, and then no names are shown. A null entry is a
     /// person whose name is not known; they are counted in "and N more", never shown by id.
     /// </param>
+    /// <param name="style">Where Modbot is, so the world's name can link to it.</param>
+    /// <param name="picture">
+    /// <see cref="CardPicture.Image"/> is the world's picture, already sent with the message.
+    /// </param>
     public static DiscordEmbedContent For(
         VRChatInstance instance,
         VRChatWorld? world,
         DateTimeOffset now,
-        IReadOnlyList<string?>? names = null)
+        IReadOnlyList<string?>? names = null,
+        CardStyle? style = null,
+        CardPicture picture = default)
     {
         ArgumentNullException.ThrowIfNull(instance);
+
+        style ??= CardStyle.None;
 
         var closed = instance.ClosedAt is not null;
         var people = HeadCounts.Shown(instance) ?? 0;
@@ -121,16 +139,25 @@ public static class InstanceCard
 
         var colour = closed ? Dark : people > 0 ? Green : Grey;
 
+        // The title is the world's name and it opens VRChat, not Modbot. This is the one card whose
+        // readers are members rather than moderators, and most of them have no Modbot to open; the
+        // group's name sits above it so a member can see whose instance they are being invited to.
         return new DiscordEmbedContent(
-            Title: world?.Name is { Length: > 0 } name ? name : instance.WorldId,
+            Title: CardText.Plain(world?.Name is { Length: > 0 } name ? name : instance.WorldId, 256),
             Description: closed ? "This instance has closed." : null,
             Color: colour,
             Fields: fields,
             Timestamp: closed ? instance.ClosedAt : instance.OpenedAt,
             Url: closed ? null : JoinLink(instance),
             Footer: closed ? "Closed" : "Open now",
-            ImageUrl: world?.ImageUrl ?? world?.ThumbnailImageUrl);
+            ImageUrl: picture.Image,
+            AuthorName: style.GroupName is { Length: > 0 } group ? CardText.Plain(group, 256) : null,
+            AuthorIconUrl: picture.AuthorIcon);
     }
+
+    /// <summary>The world's picture, as the row holds it. Null for a world Modbot has not read.</summary>
+    public static string? PictureOf(VRChatWorld? world)
+        => world?.ImageUrl is { Length: > 0 } image ? image : world?.ThumbnailImageUrl;
 
     /// <summary>
     /// The buttons under an instance's card: Join while it is open, none once it has closed.
@@ -222,26 +249,8 @@ public static class InstanceCard
     /// breaks and other control characters become spaces so one name cannot start a heading, a
     /// quote or a list on a line of its own.
     /// </summary>
-    public static string Escape(string displayName)
-    {
-        var escaped = new StringBuilder(displayName.Length + 8);
-
-        foreach (var c in displayName)
-        {
-            if (char.IsControl(c))
-            {
-                escaped.Append(' ');
-                continue;
-            }
-
-            if (c is '\\' or '*' or '_' or '~' or '`' or '|' or '>' or '<' or '#' or '-' or '[' or ']' or '(' or ')' or ':' or '@')
-                escaped.Append('\\');
-
-            escaped.Append(c);
-        }
-
-        return escaped.ToString().Trim();
-    }
+    /// <remarks>Kept as the name the card's callers know; the rule lives in <see cref="CardText"/>.</remarks>
+    public static string Escape(string displayName) => CardText.EscapeName(displayName);
 
     /// <summary>
     /// Turns VRChat's access word into one a member would use.

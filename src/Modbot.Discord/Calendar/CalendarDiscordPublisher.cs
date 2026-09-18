@@ -7,6 +7,8 @@ using Modbot.Core.Data.Entities;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Modbot.Discord.Bot;
+using Modbot.Discord.Cards;
+using Modbot.Discord.Instances;
 using Modbot.Discord.Gateway;
 using Serilog;
 
@@ -54,6 +56,7 @@ public sealed class CalendarDiscordPublisher
     private readonly DiscordBotStatus _status;
     private readonly IFactWriter _facts;
     private readonly EventPartitionMaintainer _partitions;
+    private readonly CardPictures _pictures;
     private readonly ILogger _log;
 
     public CalendarDiscordPublisher(
@@ -62,6 +65,7 @@ public sealed class CalendarDiscordPublisher
         DiscordBotStatus status,
         IFactWriter facts,
         EventPartitionMaintainer partitions,
+        CardPictures? pictures = null,
         ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(db);
@@ -75,6 +79,7 @@ public sealed class CalendarDiscordPublisher
         _status = status;
         _facts = facts;
         _partitions = partitions;
+        _pictures = pictures ?? new CardPictures();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
     }
 
@@ -110,7 +115,16 @@ public sealed class CalendarDiscordPublisher
             .Where(w => worldIds.Contains(w.WorldId))
             .ToDictionaryAsync(w => w.WorldId, StringComparer.Ordinal, ct).ConfigureAwait(false);
 
-        var pass = new Pass(gateway, guildId, publicAddress, now, worlds, ct);
+        var pass = new Pass(
+            gateway,
+            guildId,
+            publicAddress,
+            now,
+            worlds,
+            new CardStyle(publicAddress, settings.ManagedGroupName),
+            settings.VRChatImagesProxied,
+            _pictures,
+            ct);
 
         foreach (var calendarEvent in events)
         {
@@ -311,8 +325,20 @@ public sealed class CalendarDiscordPublisher
                     ? new CalendarOccurrence(was, was + (e.EndsAt - e.StartsAt))
                     : Occurrence(e);
 
-                var card = CalendarCard.For(e, occurrence, pass.WorldOf(e), state, joinLink: null);
-                var edited = await pass.Call(g => g.EditAsync(postedIn, messageId, null, [card], [], pass.Ct)).ConfigureAwait(false);
+                // The picture is already on the message and stays there, so the last word costs
+                // no upload.
+                var closingWorld = pass.WorldOf(e);
+                var closingPictures = pass.Pictures();
+                var closingPicture = new CardPicture(
+                    Image: CalendarCard.OwnPicture(e)
+                        ?? await closingPictures.ReferenceAsync(InstanceCard.PictureOf(closingWorld), pass.Ct).ConfigureAwait(false));
+
+                var card = CalendarCard.For(
+                    e, occurrence, closingWorld, state, joinLink: null, pass.Style, closingPicture);
+
+                var edited = await pass
+                    .Call(g => g.EditAsync(postedIn, messageId, null, [card], [], pictures: null, pass.Ct))
+                    .ConfigureAwait(false);
 
                 if (!edited.Sent && !edited.Permanent)
                 {
@@ -353,7 +379,21 @@ public sealed class CalendarDiscordPublisher
         var current = Occurrence(e);
         var open = e.State == CalendarEventStates.Open;
         var cardState = open ? CalendarCardState.Open : CalendarCardState.Scheduled;
-        var embed = CalendarCard.For(e, current, pass.WorldOf(e), cardState, joinLink);
+        var world = pass.WorldOf(e);
+        var first = place.ExternalId is null;
+
+        // A first post sends the world's picture; an edit points at the file the first post left
+        // on the message. The event's own picture, if the moderators gave one, is an ordinary
+        // address on a host that serves anybody, so it is linked either way.
+        var pictures = pass.Pictures();
+        var image = CalendarCard.OwnPicture(e)
+            ?? (first
+                ? await pictures.AddAsync(InstanceCard.PictureOf(world), pass.Ct).ConfigureAwait(false)
+                : await pictures.ReferenceAsync(InstanceCard.PictureOf(world), pass.Ct).ConfigureAwait(false));
+
+        var embed = CalendarCard.For(
+            e, current, world, cardState, joinLink, pass.Style, new CardPicture(Image: image));
+
         var links = CalendarCard.Links(cardState, joinLink);
 
         var fingerprint = CalendarFingerprint.Of(
@@ -368,9 +408,11 @@ public sealed class CalendarDiscordPublisher
 
         DiscordPostOutcome outcome;
 
-        if (place.ExternalId is null)
+        if (first)
         {
-            outcome = await pass.Call(g => g.PostAsync(channelId!, null, [embed], links, pass.Ct)).ConfigureAwait(false);
+            outcome = await pass
+                .Call(g => g.PostAsync(channelId!, null, [embed], links, pictures.Files, pass.Ct))
+                .ConfigureAwait(false);
 
             if (outcome is { Sent: true, MessageId: { } posted })
             {
@@ -381,9 +423,11 @@ public sealed class CalendarDiscordPublisher
         }
         else
         {
-            var id = place.ExternalId;
+            var id = place.ExternalId!;
             var inChannel = place.ChannelId ?? channelId!;
-            outcome = await pass.Call(g => g.EditAsync(inChannel, id, null, [embed], links, pass.Ct)).ConfigureAwait(false);
+            outcome = await pass
+                .Call(g => g.EditAsync(inChannel, id, null, [embed], links, pictures: null, pass.Ct))
+                .ConfigureAwait(false);
 
             // Somebody deleted the post. Not posted again until the event changes, so a moderator who
             // deleted it on purpose is not argued with every twenty seconds.
@@ -493,11 +537,19 @@ public sealed class CalendarDiscordPublisher
         string? publicAddress,
         DateTimeOffset now,
         IReadOnlyDictionary<string, VRChatWorld> worlds,
+        CardStyle style,
+        bool showPictures,
+        CardPictures pictures,
         CancellationToken ct)
     {
         public string? GuildId { get; } = guildId;
 
         public string? PublicAddress { get; } = publicAddress;
+
+        public CardStyle Style { get; } = style;
+
+        /// <summary>A fresh set of files for one message.</summary>
+        public CardPictureMessage Pictures() => pictures.ForMessage(showPictures);
 
         public DateTimeOffset Now { get; } = now;
 

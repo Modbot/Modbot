@@ -4,6 +4,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
+using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 using Serilog;
 
@@ -35,7 +36,7 @@ public sealed class AlertPoster
     public const int PerPass = 10;
 
     /// <summary>The same amber the health screens use for "worth a look".</summary>
-    private const uint Amber = 0xF0A020;
+    private const uint Amber = CardColour.Amber;
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -65,11 +66,16 @@ public sealed class AlertPoster
         if (waiting.Count == 0)
             return new AlertPostPass(0, null);
 
-        var address = await _db.Settings.AsNoTracking()
+        var settings = await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => s.PublicAddress)
+            .Select(s => new { s.PublicAddress, s.ManagedGroupName })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
+
+        var style = new CardStyle(
+            settings?.PublicAddress,
+            settings?.ManagedGroupName,
+            BrandIcon.For(settings?.PublicAddress));
 
         var posted = 0;
         string? error = null;
@@ -83,7 +89,7 @@ public sealed class AlertPoster
                 continue;
             }
 
-            var outcome = await gateway.PostAsync(alert.DiscordChannelId!, [Card(alert, address)], ct).ConfigureAwait(false);
+            var outcome = await gateway.PostAsync(alert.DiscordChannelId!, [Card(alert, style)], ct).ConfigureAwait(false);
 
             if (outcome.Sent)
             {
@@ -110,10 +116,18 @@ public sealed class AlertPoster
         return new AlertPostPass(posted, error);
     }
 
-    /// <summary>The card: the figure, what normal is, the stretch of time, and where to look.</summary>
     public static DiscordEmbedContent Card(Alert alert, string? publicAddress)
+        => Card(alert, new CardStyle(publicAddress, FooterIconUrl: BrandIcon.For(publicAddress)));
+
+    /// <summary>The card: the figure, what normal is, the stretch of time, and where to look.</summary>
+    /// <remarks>
+    /// No picture and no author line. An alert is about a number, not about a person or a place,
+    /// and the one thing a moderator does with it is open the page it points at.
+    /// </remarks>
+    public static DiscordEmbedContent Card(Alert alert, CardStyle style)
     {
         ArgumentNullException.ThrowIfNull(alert);
+        ArgumentNullException.ThrowIfNull(style);
 
         var counts = AlertWatchers.Counts(alert.Watcher);
         var fields = new List<DiscordEmbedField>
@@ -124,13 +138,14 @@ public sealed class AlertPoster
         };
 
         return new DiscordEmbedContent(
-            Title: AlertWatchers.Label(alert.Watcher),
+            Title: CardText.Plain(AlertWatchers.Label(alert.Watcher), 256),
             Description: alert.Text,
             Color: Amber,
             Fields: fields,
             Timestamp: alert.At,
-            Url: LinkTo(alert, publicAddress),
-            Footer: alert.Model is null ? "Unusual activity" : $"Unusual activity · {alert.Model}");
+            Url: LinkTo(alert, style.PublicAddress),
+            Footer: alert.Model is null ? "Unusual activity" : $"Unusual activity · {alert.Model}",
+            FooterIconUrl: style.FooterIconUrl);
     }
 
     /// <summary>The alert's page in Modbot, when the deployment's public address is set.</summary>

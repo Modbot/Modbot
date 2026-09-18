@@ -4,6 +4,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
+using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 using Serilog;
 
@@ -35,7 +36,7 @@ public sealed class InsightPoster
     public const int PerPass = 10;
 
     /// <summary>Modbot's own violet (brand design 2026-09-16).</summary>
-    private const uint Purple = 0x5B4BD6;
+    private const uint Purple = CardColour.Violet;
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -62,6 +63,18 @@ public sealed class InsightPoster
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
+        var settings = await _db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => new { s.PublicAddress })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        // An insight card used to carry no mark at all, which made it the one thing the bot posted
+        // that did not look like it came from Modbot.
+        var style = new CardStyle(
+            settings?.PublicAddress,
+            FooterIconUrl: BrandIcon.For(settings?.PublicAddress));
+
         var posted = 0;
         string? error = null;
         var now = _clock.UtcNow;
@@ -74,7 +87,7 @@ public sealed class InsightPoster
                 continue;
             }
 
-            var outcome = await gateway.PostAsync(insight.DiscordChannelId!, [Card(insight)], ct).ConfigureAwait(false);
+            var outcome = await gateway.PostAsync(insight.DiscordChannelId!, [Card(insight, style)], ct).ConfigureAwait(false);
 
             if (outcome.Sent)
             {
@@ -101,9 +114,12 @@ public sealed class InsightPoster
         return new InsightPostPass(posted, error);
     }
 
-    public static DiscordEmbedContent Card(Insight insight)
+    public static DiscordEmbedContent Card(Insight insight) => Card(insight, CardStyle.None);
+
+    public static DiscordEmbedContent Card(Insight insight, CardStyle style)
     {
         ArgumentNullException.ThrowIfNull(insight);
+        ArgumentNullException.ThrowIfNull(style);
 
         var days = insight.FirstDay == insight.LastDay
             ? insight.LastDay.ToString("d MMMM yyyy", CultureInfo.InvariantCulture)
@@ -118,6 +134,7 @@ public sealed class InsightPoster
             Fields: [],
             Timestamp: insight.CreatedAt,
             Url: null,
-            Footer: insight.Model is null ? "AI insight" : $"AI insight · {insight.Model}");
+            Footer: insight.Model is null ? "AI insight" : $"AI insight · {insight.Model}",
+            FooterIconUrl: style.FooterIconUrl);
     }
 }
