@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Modbot.Companion.CloudBackup;
+using Modbot.Companion.Credits;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
 using Modbot.Companion.LogReading;
@@ -226,12 +227,13 @@ internal sealed class CompanionHost : IOverlayListener
     private DateTimeOffset? _overlayLastDrewAt;
     private int _overlayFramesSeen;
     private Updates? _updates;
+    private CloudCredits? _credits;
     private CloudEventBackup? _cloudBackup;
     private VoiceHost? _voice;
     private bool _voiceTicking;
     private string _settingsPath = string.Empty;
 
-    /// <summary>Stops the event backup's own task when this copy quits.</summary>
+    /// <summary>Stops the background tasks -- the event backup and the credits read -- when this copy quits.</summary>
     private readonly CancellationTokenSource _backupStop = new();
     private bool _overlayTicking;
     private bool _engineTicking;
@@ -269,6 +271,7 @@ internal sealed class CompanionHost : IOverlayListener
         _transport = new HttpIngestTransport(_http);
 
         StartCloudBackup(appData);
+        StartCredits(appData);
         StartVoice();
         StartEngine();
 
@@ -403,6 +406,48 @@ internal sealed class CompanionHost : IOverlayListener
     /// <para>Built before the engine so the engine can be handed the announcer; the moderator's
     /// own id is read back from the engine, which exists by the time anything is observed.</para>
     /// </remarks>
+    /// <summary>
+    /// Reads the people the project thanks from Modbot Cloud, for the Credits page.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>The client asks Cloud itself, never a paired server.</strong> Which Cloud, and
+    /// whether to ask at all, comes from <c>settings.json</c> and the two Cloud environment
+    /// variables on this PC — the same two values the event backup uses, and a paired Modbot has no
+    /// say in either. A client with nothing paired still has a Credits page.</para>
+    /// <para>What is sent, and the copy kept in <c>%APPDATA%\Modbot\credits.json</c> so the page
+    /// works offline, are on <see cref="CloudCredits"/>. Its own task, and it asks Cloud at most
+    /// once every six hours however often this runs.</para>
+    /// </remarks>
+    private void StartCredits(string appData)
+    {
+        var credits = new CloudCredits(
+            _http!, _state!.Settings.Cloud, CloudCredits.DefaultPath(appData), _clock);
+
+        _credits = credits;
+
+        _ = Task.Run(async () =>
+        {
+            // Tried again while the client runs, because a PC that was offline when Modbot started
+            // is the ordinary case and an empty Credits page for the rest of the session is a poor
+            // answer to it. A read that is still fresh makes no request at all.
+            while (!_backupStop.IsCancellationRequested)
+            {
+                await CrashGuard.RunAsync(
+                    "reading the credits from Modbot Cloud",
+                    () => credits.RefreshAsync(_backupStop.Token));
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(30), _backupStop.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
+        });
+    }
+
     private void StartVoice()
     {
         _voice = new VoiceHost(
@@ -982,6 +1027,9 @@ internal sealed class CompanionHost : IOverlayListener
 
         if (_voice is not null)
             _state.Voice = _voice.Status();
+
+        if (_credits is not null)
+            _state.Credits = _credits.Current;
 
         if (_overlayHost is not null)
             _preview?.Refresh(_overlayHost);

@@ -1,3 +1,4 @@
+using Modbot.Companion.Credits;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Journal;
 using Modbot.Companion.Overlay;
@@ -128,6 +129,7 @@ public sealed record OverlayStatus(
 /// <param name="DebugMode">Whether the companion was started with <c>MODBOT_DEBUG_MODE=1</c>, which adds the Debug page.</param>
 /// <param name="Voice">The voice, for the Settings page.</param>
 /// <param name="EventsFilters">The Events page's chips as settings remember them; the window takes them once, when it first draws the page.</param>
+/// <param name="Credits">The people the project thanks, for the Credits page.</param>
 public sealed record CompanionAppSnapshot(
     IReadOnlyList<ServerRow> Servers,
     IReadOnlyList<JournalRow> Events,
@@ -145,7 +147,8 @@ public sealed record CompanionAppSnapshot(
     OverlayStatus? Overlay = null,
     bool DebugMode = false,
     VoiceStatus? Voice = null,
-    EventFilterSet? EventsFilters = null)
+    EventFilterSet? EventsFilters = null,
+    CreditsList? Credits = null)
 {
     /// <summary>The overlay row, never null: <see cref="OverlayStatus.None"/> until the host has said.</summary>
     public OverlayStatus OverlayOrNone => Overlay ?? OverlayStatus.None;
@@ -155,6 +158,9 @@ public sealed record CompanionAppSnapshot(
 
     /// <summary>The remembered chips, never null.</summary>
     public EventFilterSet EventsFiltersOrNone => EventsFilters ?? EventFilterSet.Empty;
+
+    /// <summary>The three lists, never null: empty until Cloud has been read.</summary>
+    public CreditsList CreditsOrNone => Credits ?? CreditsList.Empty;
 
     public static CompanionAppSnapshot Empty { get; } =
         new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, [], null, CompanionSettings.DefaultPairingPage);
@@ -214,6 +220,12 @@ public sealed class CompanionAppState
     /// <summary>The voice as of the last render; set by the host that owns it.</summary>
     public VoiceStatus Voice { get; set; } = VoiceStatus.None;
 
+    /// <summary>
+    /// The people the project thanks, as of the last read; set by the host that owns the reader.
+    /// Empty until Modbot Cloud has answered, and empty for good when this PC has Cloud turned off.
+    /// </summary>
+    public CreditsList Credits { get; set; } = CreditsList.Empty;
+
     /// <summary>Started with <c>MODBOT_DEBUG_MODE=1</c>: the window gets a Debug page.</summary>
     public bool DebugMode { get; set; }
 
@@ -265,7 +277,8 @@ public sealed class CompanionAppState
             Overlay,
             DebugMode,
             Voice,
-            Settings.EventsFilters);
+            Settings.EventsFilters,
+            Credits);
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)
