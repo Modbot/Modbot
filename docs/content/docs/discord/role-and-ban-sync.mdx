@@ -1,0 +1,137 @@
+---
+title: Role and ban sync
+description: Keep VRChat group roles and Discord roles in step, and copy bans between the two, with a look at what would change before anything does.
+---
+
+Role and ban sync keeps your VRChat group and your Discord server in step with each other:
+
+- a **role pair** says that one group role goes with one Discord role, and which side decides;
+- **ban sync** copies a ban in one place into the other.
+
+Everything here is **off** until you switch it on, and each direction is its own switch.
+
+<Callout type="warn">
+This only ever touches people who have [linked their accounts](/discord/account-linking). Somebody
+in your Discord server with no VRChat account tied to them is never given a role, never has one
+taken away, and is never banned by this. That is most of a Discord server, and it stays that way.
+</Callout>
+
+## Before you start
+
+You need the **Manage role and ban sync** permission to set any of this up, and **Run role and ban
+sync** to copy what is already different.
+
+The bot needs permissions in your Discord server, and only the ones you actually use:
+
+| What you switch on | What the bot needs |
+| --- | --- |
+| Keep paired roles in step | Manage Roles, and its own role above every role you pair |
+| Copy group bans into Discord, as a ban | Ban Members |
+| Copy group bans into Discord, as a removal | Kick Members |
+
+Re-invite the bot with the link on **Settings → Discord → Account linking** after switching one on:
+the link asks for exactly what your settings need.
+
+## Pair a role
+
+**Settings → Discord → Role and ban sync**.
+
+<Steps>
+
+<Step>
+
+### Pick the two roles
+
+Pick a **group role** and a **Discord role**. A role can be in one pair only.
+
+</Step>
+
+<Step>
+
+### Choose who decides
+
+| Who decides | What happens |
+| --- | --- |
+| **VRChat** | The group role is the answer. The Discord role is given and taken away to match. |
+| **Discord** | The Discord role is the answer. The group role is given and taken away to match. |
+| **Nobody** | Nothing is changed. A difference is written to the audit log and nothing else. |
+
+Start on **Nobody** if you are not sure. You can see the differences it finds in the audit log and
+change your mind later.
+
+</Step>
+
+<Step>
+
+### Switch role sync on
+
+**Keep paired roles in step**, then **Save sync**. Modbot checks once a minute from then on.
+
+</Step>
+
+</Steps>
+
+## Copy bans
+
+Two switches, one for each direction.
+
+- **Copy group bans into Discord** — somebody banned from your VRChat group is banned in Discord, or
+  removed from the server, whichever you pick.
+- **Copy Discord bans into the group** — somebody banned in Discord is banned from your VRChat group.
+
+Unbans follow the same switches. If group bans are copied into Discord, lifting a group ban lifts
+the Discord one too.
+
+<Callout type="warn">
+A Discord ban is often for something said in chat, by a moderator with no say over your VRChat
+group. Copying it into the group widens the punishment. Some communities want exactly that; decide
+on purpose.
+</Callout>
+
+### Ban, or remove
+
+A group ban can either **ban** the person in Discord or **remove them from the server**. A removal
+can be rejoined, so a later group unban does nothing in Discord — the person simply comes back.
+
+### What crosses over, and from when
+
+Switching a direction on starts from that moment. Bans from before are not copied, so turning a
+switch on cannot ban a hundred people at once. Use **Copy what is different** when you want the
+older ones as well.
+
+Modbot never copies a ban it made itself, in either direction.
+
+## See what would change first
+
+**Show what would change** lists every difference and does nothing at all — no bans, no role
+changes, nothing written down. Read it before you press anything else.
+
+**Copy what is different** then makes those changes. On a server that has been running for a while
+this is the press that moves the most people, so look at the list first.
+
+The first run only ever bans. It never lifts a ban, because "there is no ban here" and "the ban here
+was lifted" look the same before Modbot has any history of its own.
+
+## When something is wrong
+
+The card shows when each half last ran and what went wrong.
+
+| What it says | What to do |
+| --- | --- |
+| The bot cannot assign a role | Give the bot Manage Roles, and move its own role above that one in Discord |
+| The bot may not ban in this server | Give the bot Ban Members, and keep its role above the people it bans |
+| The bot may not remove people from this server | Give the bot Kick Members |
+
+A ban that could not be copied because of a missing permission is copied on the next check once you
+fix it.
+
+## What goes in the audit log
+
+Every copy is recorded against the person it happened to:
+
+- **Ban copied from the other platform**, **Unban copied from the other platform**
+- **Removed from Discord for a VRChat ban**
+- **Role given to match the other platform**, **Role taken away to match the other platform**
+
+A copy that failed, and a difference found on a pair nobody decides, go in the operational log
+instead.

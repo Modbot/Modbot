@@ -20467,7 +20467,8 @@
           "rolesProblem",
           "bansReadAt",
           "bansProblem",
-          "pairs"
+          "pairs",
+          "groupRoles"
         ],
         "type": "object",
         "properties": {
@@ -20522,6 +20523,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RolePairView"
+            }
+          },
+          "groupRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupRoleView"
             }
           }
         }
@@ -23204,6 +23211,21 @@
           "generatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "GroupRoleView": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
