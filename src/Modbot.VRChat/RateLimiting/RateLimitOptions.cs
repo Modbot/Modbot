@@ -17,9 +17,16 @@ namespace Modbot.VRChat.RateLimiting;
 /// The operator-configurable estimate of VRChat's real limit. Modbot runs at
 /// <see cref="RateLimitOptions.DefaultFraction"/> of it and never bursts to it (spec 4.3.1).
 /// </param>
-/// <param name="CountsAgainstGlobal">
-/// Whether the global backstop bucket also has to grant a token. False only for
-/// <c>users.read</c> and its neighbours, which spec 4.2.5 exempts deliberately.
+/// <param name="Backstop">
+/// The backstop bucket that also has to grant a token, or null for none. Background sync passes
+/// through <c>global</c>; the calls a moderator presses a button for pass through
+/// <c>interactive</c>, so they never wait for a token the sweeps just took (spec 4.3.5); the
+/// user reads spec 4.2.5 exempts on evidence pass through nothing.
+/// </param>
+/// <param name="ServiceAccount">
+/// Whether calls in this class go out as Modbot's own VRChat account. False only for the proxy's
+/// pass-through, which carries a caller's cookie: a 429 there says nothing about the service
+/// account, so it halves nothing but its own bucket.
 /// </param>
 /// <param name="ResourceScoped">
 /// Whether a third, per-resource bucket applies. Some VRChat limits key on a group or user id
@@ -36,9 +43,14 @@ public sealed record RateLimitClassOptions(
     string Lane,
     double HardMaxPerSecond,
     double DefaultCeilingPerSecond,
-    bool CountsAgainstGlobal = true,
+    string? Backstop = VRChatEndpointClass.Global,
     bool ResourceScoped = false,
-    int BurstTokens = 1);
+    int BurstTokens = 1,
+    bool ServiceAccount = true)
+{
+    /// <summary>Whether the global backstop bucket also has to grant a token.</summary>
+    public bool CountsAgainstGlobal => Backstop == VRChatEndpointClass.Global;
+}
 
 /// <summary>
 /// Everything the limiter is allowed to guess about someone else's undocumented system.
@@ -202,15 +214,35 @@ public static class VRChatRateLimits
     public const string GroupsModerateLane = "groups.moderate";
 
     /// <summary>
+    /// The backstop for what a moderator presses. Never entered as a queue -- a backstop is only
+    /// ever an ancestor -- but every class names a lane, and this one names its own so nothing
+    /// reads it as belonging to the group queue.
+    /// </summary>
+    public const string InteractiveLane = "interactive";
+
+    /// <summary>
+    /// One person read because somebody is waiting: its own queue, apart from both sync reads,
+    /// so a link check never waits behind a profile sweep and never holds one up.
+    /// </summary>
+    public const string UsersLookupLane = "users.lookup";
+
+    /// <summary>Requests forwarded as the service account, one at a time, apart from everything Modbot does itself.</summary>
+    public const string ProxyLane = "proxy";
+
+    /// <summary>Requests forwarded with a caller's own cookie: a different account, a different queue.</summary>
+    public const string ProxyPassthroughLane = "proxy.passthrough";
+
+    /// <summary>
     /// The classes spec 4.2's table schedules as background sync, in its order.
     /// </summary>
     /// <remarks>
-    /// Exactly the rows spec 4.2 sums to 1.450 req/s, and no others. The settings screen shows
+    /// Exactly the rows spec 4.2 sums to 1.425 req/s, and no others. The settings screen shows
     /// that sum against the 2 req/s ceiling so an operator can see how much room they
     /// are leaving (spec 4.2.1) — a figure that would mean nothing if it also counted classes
-    /// nothing schedules. <c>moderation.write</c> and <c>groups.invites</c> pass the same backstop
-    /// but are driven by a moderator, so they are what the room left is <em>for</em>, not part of
-    /// what consumes it; <c>users.read</c> is exempt from the ceiling entirely (spec 4.2.5).
+    /// nothing schedules. What a moderator presses is what the room left is <em>for</em>, not
+    /// part of what consumes it, and since 2026-09-17 it has that room as a bucket of its own:
+    /// <see cref="InteractiveRoomPerSecond"/>. <c>users.read</c> is exempt from the ceiling
+    /// entirely (spec 4.2.5).
     /// </remarks>
     public static IReadOnlyList<string> Scheduled { get; } =
     [
@@ -221,15 +253,51 @@ public static class VRChatRateLimits
         VRChatEndpointClass.GroupsRead,
     ];
 
+    /// <summary>Spec 4.2's global ceiling: two requests a second across background sync.</summary>
+    public const double GlobalCeilingPerSecond = 2.0;
+
+    /// <summary>
+    /// What spec 4.2's scheduled classes add up to at their caps: members and bans at one per 2 s,
+    /// the audit log at one per 8 s, instances at one per 10 s, group info and roles at 0.2.
+    /// </summary>
+    /// <remarks>
+    /// Written out rather than summed from <see cref="Defaults"/>, because the table below needs
+    /// the number before the table exists: the <c>interactive</c> backstop is the ceiling minus
+    /// this. <c>BudgetCoverageTests</c> holds the two in agreement.
+    /// </remarks>
+    public const double ScheduledTotalPerSecond = 0.5 + 0.5 + 0.125 + 0.1 + 0.2;
+
+    /// <summary>
+    /// The room spec 4.2 leaves under the ceiling once background sync has its share, which it
+    /// says is reserved for interactive work: 0.575 req/s. The <c>interactive</c> backstop's cap
+    /// (spec 4.3.5).
+    /// </summary>
+    public const double InteractiveRoomPerSecond = GlobalCeilingPerSecond - ScheduledTotalPerSecond;
+
     public static IReadOnlyDictionary<string, RateLimitClassOptions> Defaults { get; } =
         new Dictionary<string, RateLimitClassOptions>(StringComparer.Ordinal)
         {
-            // The backstop. Not the model -- it exists because an account-wide limit may also
-            // apply and Modbot cannot see it (spec 4.3.1).
+            // The backstop for background sync. Not the model -- it exists because an
+            // account-wide limit may also apply and Modbot cannot see it (spec 4.3.1). What a
+            // moderator presses no longer passes through it: see `interactive` below.
             [VRChatEndpointClass.Global] = new(
                 VRChatEndpointClass.Global, GroupLane,
-                HardMaxPerSecond: 2.0, DefaultCeilingPerSecond: CeilingFor(2.0),
-                CountsAgainstGlobal: false),
+                HardMaxPerSecond: GlobalCeilingPerSecond, DefaultCeilingPerSecond: CeilingFor(GlobalCeilingPerSecond),
+                Backstop: null),
+
+            // The backstop for what a moderator is waiting on (spec 4.3.5). Until 2026-09-17 a
+            // ban drew its token from `global`, which the sweeps keep empty: the priority queue
+            // is per lane, and the global bucket has no queue at all, so a moderator's action
+            // waited for the next global token and then raced the sweeps for it. This bucket is
+            // exactly the room spec 4.2 says the ceiling leaves for interactive work, so the
+            // ceiling still holds -- background sync is capped at the scheduled sum through
+            // `global`, and moderators at the rest through this -- and the two never share a
+            // token. A 429 on a class under it halves this bucket as an ancestor and `global` as
+            // evidence, like every class the global bucket does not chain.
+            [VRChatEndpointClass.Interactive] = new(
+                VRChatEndpointClass.Interactive, InteractiveLane,
+                HardMaxPerSecond: InteractiveRoomPerSecond, DefaultCeilingPerSecond: CeilingFor(InteractiveRoomPerSecond),
+                Backstop: null),
 
             [VRChatEndpointClass.GroupsMembers] = new(
                 VRChatEndpointClass.GroupsMembers, GroupLane,
@@ -269,24 +337,46 @@ public static class VRChatRateLimits
                 HardMaxPerSecond: PerSeconds(3.5), DefaultCeilingPerSecond: CeilingFor(PerSeconds(3.5)),
                 ResourceScoped: true),
 
-            // Interactive and low-volume. Obeys the global ceiling -- it is what spec 4.2's
-            // 0.55 req/s of reserved instance is for -- but its own stop is separate, so a cold
-            // members bucket never blocks a ban.
+            // Interactive and low-volume. Paced under the interactive backstop -- it is what spec
+            // 4.2's reserved room is for -- and its own stop is separate, so a cold members bucket
+            // never blocks a ban.
             [VRChatEndpointClass.ModerationWrite] = new(
                 VRChatEndpointClass.ModerationWrite, GroupLane,
                 HardMaxPerSecond: 0.3, DefaultCeilingPerSecond: CeilingFor(0.3),
+                Backstop: VRChatEndpointClass.Interactive,
                 ResourceScoped: true),
 
             // NOT MEASURED -- the group kick, ban and unban a moderator presses (M4 §4). Nobody has
             // asked VRChat what these allow, and spec 4.3.4 forbids borrowing a neighbour's number,
             // so the maintainer set a deliberately low starting rate: one request per two seconds,
             // shared by all three. Its own lane, so the moderator waiting on it never queues behind
-            // a member sweep; scoped to the group; still counted against the global backstop. A 429
-            // cold stops this class and nothing else, and is never retried -- the action failed.
+            // a member sweep; scoped to the group; counted against the interactive backstop, not
+            // the global one the sweeps keep empty (spec 4.3.5). A 429 cold stops this class and
+            // nothing else, and is never retried -- the action failed.
             [VRChatEndpointClass.GroupsModerate] = new(
                 VRChatEndpointClass.GroupsModerate, GroupsModerateLane,
                 HardMaxPerSecond: PerSeconds(2), DefaultCeilingPerSecond: CeilingFor(PerSeconds(2)),
+                Backstop: VRChatEndpointClass.Interactive,
                 ResourceScoped: true),
+
+            // A request forwarded as it was written (VRChat proxy design). The limiter cannot see
+            // which VRChat endpoint it reaches, so the cap sits at the bottom of spec 4.3.4's
+            // provisional range: a script that wants more than one request every three seconds
+            // is sweeping, and sweeping is what the producers are for. Own lane; counted against
+            // the global backstop, because it goes out as the service account; a 429 cold stops
+            // the proxy and nothing Modbot does for itself.
+            [VRChatEndpointClass.Proxy] = new(
+                VRChatEndpointClass.Proxy, ProxyLane,
+                HardMaxPerSecond: 0.3, DefaultCeilingPerSecond: CeilingFor(0.3)),
+
+            // The same, with the caller's own VRChat cookie. A different account, so not counted
+            // against the service account's backstop and not evidence about it (ServiceAccount:
+            // false) -- but still paced, because it leaves from this host's address and Cloudflare
+            // does not know whose cookie it was. One per two seconds; a guess, kept low.
+            [VRChatEndpointClass.ProxyPassthrough] = new(
+                VRChatEndpointClass.ProxyPassthrough, ProxyPassthroughLane,
+                HardMaxPerSecond: PerSeconds(2), DefaultCeilingPerSecond: CeilingFor(PerSeconds(2)),
+                Backstop: null, ServiceAccount: false),
 
             // Exempt from the global ceiling, deliberately and on evidence (spec 4.2.5). If 429s
             // start appearing on other classes shortly after user-sync bursts, that is the
@@ -299,7 +389,7 @@ public static class VRChatRateLimits
                 VRChatEndpointClass.UsersRead, UsersLane,
                 HardMaxPerSecond: Sync.UserProfileSyncOptions.RequestsPerSecondCap,
                 DefaultCeilingPerSecond: CeilingFor(Sync.UserProfileSyncOptions.RequestsPerSecondCap),
-                CountsAgainstGlobal: false),
+                Backstop: null),
 
             // The public profile -- GET /profile/{userId}, the main profile read.
             //
@@ -316,7 +406,19 @@ public static class VRChatRateLimits
                 VRChatEndpointClass.UsersProfile, UsersProfileLane,
                 HardMaxPerSecond: Sync.UserProfileSyncOptions.RequestsPerSecondCap,
                 DefaultCeilingPerSecond: CeilingFor(Sync.UserProfileSyncOptions.RequestsPerSecondCap),
-                CountsAgainstGlobal: false),
+                Backstop: null),
+
+            // One person, read because somebody is waiting for the answer (spec 4.3.5). The same
+            // endpoints as the two sync classes above, on a budget and a lane of their own, so a
+            // cold stop the background sync earned never stops a person linking their account and
+            // a person's lookups never spend the sync's allowance. Exempt from the backstops for
+            // the reason the sync classes are: the exemption is about the endpoint, not who asked.
+            // The rate is spec 4.2.5's original 1 req/s for the users lane, kept under the
+            // maintainer's 3.5 because these reads share the endpoints already running at that.
+            [VRChatEndpointClass.UsersLookup] = new(
+                VRChatEndpointClass.UsersLookup, UsersLookupLane,
+                HardMaxPerSecond: 1.0, DefaultCeilingPerSecond: CeilingFor(1.0),
+                Backstop: null),
 
             // Unmeasured (spec 4.3.4), so: the most conservative plausible neighbour, its own
             // lane, and counted against the global ceiling. The burst of 2 is the whole point --
@@ -368,7 +470,7 @@ public static class VRChatRateLimits
             [VRChatEndpointClass.UsersSearch] = new(
                 VRChatEndpointClass.UsersSearch, SearchLane,
                 HardMaxPerSecond: PerSeconds(3.5), DefaultCeilingPerSecond: CeilingFor(PerSeconds(3.5)),
-                CountsAgainstGlobal: false),
+                Backstop: null),
 
             // A login is GetCurrentUser, Verify2FA, GetCurrentUser. Pacing that at one per two
             // seconds would make a sign-in look like a hang, so this is the one bucket with a
@@ -377,7 +479,7 @@ public static class VRChatRateLimits
             [VRChatEndpointClass.Auth] = new(
                 VRChatEndpointClass.Auth, AuthLane,
                 HardMaxPerSecond: 0.5, DefaultCeilingPerSecond: CeilingFor(0.5),
-                CountsAgainstGlobal: false, BurstTokens: 3),
+                Backstop: null, BurstTokens: 3),
 
             // Verify Auth Token, the session check (spec 4.1.2). NOT MEASURED -- the maintainer gave
             // no limit for it, and this needs confirming. One per ten seconds is a guess kept
@@ -387,6 +489,6 @@ public static class VRChatRateLimits
             [VRChatEndpointClass.AuthVerify] = new(
                 VRChatEndpointClass.AuthVerify, AuthLane,
                 HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
-                CountsAgainstGlobal: false),
+                Backstop: null),
         };
 }

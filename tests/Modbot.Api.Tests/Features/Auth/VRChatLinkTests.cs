@@ -105,9 +105,10 @@ public class VRChatLinkTests
         Assert.False(notYet.GetProperty("linked").GetBoolean());
         Assert.Contains(code, notYet.GetProperty("message").GetString(), StringComparison.Ordinal);
 
-        // The call went through the gate on the users.read class, interactively.
+        // The call went through the gate on users.lookup, interactively: a person is waiting on
+        // it, and the background profile sync's bucket is not theirs (spec 4.3.5).
         var call = Assert.Single(gate.Calls);
-        Assert.Equal(VRChatEndpointClass.UsersProfile, call.Endpoint.Class);
+        Assert.Equal(VRChatEndpointClass.UsersLookup, call.Endpoint.Class);
         Assert.Equal(VRChatCallPriority.Interactive, call.Priority);
 
         host.Clock.Advance(VRChatLinkEndpoints.MinimumGapBetweenChecks);

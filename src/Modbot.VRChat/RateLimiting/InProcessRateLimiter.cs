@@ -275,7 +275,14 @@ public sealed class InProcessRateLimiter : IRateLimiter
 
         // Including the global backstop for classes that do not otherwise pass through it. Spec
         // 4.2.5 is explicit: users.read is exempt from the ceiling but not from the evidence.
-        var global = GlobalBucket(now);
+        //
+        // Unless the request went out as somebody else's account. A 429 the proxy's pass-through
+        // earned with a caller's own cookie says nothing about the service account's allowance,
+        // and halving Modbot's own backstop for it would let a stranger slow every sweep.
+        if (!mostSpecific.Limits.ServiceAccount)
+            return;
+
+        var global = BackstopBucket(VRChatEndpointClass.Global, now);
         if (!chain.Contains(global))
             global.ApplyMultiplicativeDecrease(now);
     }
@@ -311,8 +318,10 @@ public sealed class InProcessRateLimiter : IRateLimiter
     {
         var chain = new List<TokenBucket>(3);
 
-        if (limits.CountsAgainstGlobal)
-            chain.Add(GlobalBucket(now));
+        // The backstop the class names: `global` for background sync, `interactive` for what a
+        // moderator presses, nothing for the user reads spec 4.2.5 exempts (spec 4.3.5).
+        if (limits.Backstop is { } backstop)
+            chain.Add(BackstopBucket(backstop, now));
 
         chain.Add(Bucket(limits.Name, limits, limits.Name, resourceId: null, now));
 
@@ -325,13 +334,9 @@ public sealed class InProcessRateLimiter : IRateLimiter
         return chain;
     }
 
-    private TokenBucket GlobalBucket(DateTimeOffset now) =>
-        Bucket(
-            VRChatEndpointClass.Global,
-            _options.Classes[VRChatEndpointClass.Global],
-            VRChatEndpointClass.Global,
-            resourceId: null,
-            now);
+    /// <summary>A backstop is a class bucket that is only ever an ancestor, never acquired for itself.</summary>
+    private TokenBucket BackstopBucket(string name, DateTimeOffset now) =>
+        Bucket(name, ResolveClass(name), name, resourceId: null, now);
 
     private TokenBucket Bucket(
         string name, RateLimitClassOptions limits, string endpointClass, string? resourceId, DateTimeOffset now)

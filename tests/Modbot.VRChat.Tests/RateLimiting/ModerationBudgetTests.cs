@@ -21,7 +21,7 @@ public class ModerationBudgetTests
     private static readonly VRChatEndpoint Bans = new(VRChatEndpointClass.GroupsBans, "grp_test");
 
     [Fact]
-    public void TheBudgetIsOnePerTwoSeconds_OnItsOwnLane_CountedAgainstTheGlobalCeiling()
+    public void TheBudgetIsOnePerTwoSeconds_OnItsOwnLane_CountedAgainstTheInteractiveBackstop()
     {
         var moderate = VRChatRateLimits.Defaults[VRChatEndpointClass.GroupsModerate];
 
@@ -38,8 +38,11 @@ public class ModerationBudgetTests
         Assert.Equal(VRChatRateLimits.GroupsModerateLane, moderate.Lane);
         Assert.NotEqual(VRChatRateLimits.GroupLane, moderate.Lane);
 
-        // Unmeasured and brand new: no exemption from the backstop, one token, scoped to the group.
-        Assert.True(moderate.CountsAgainstGlobal);
+        // Unmeasured and brand new: no exemption from a backstop, one token, scoped to the group.
+        // The backstop is the interactive one since 2026-09-17 (spec 4.3.5): the global bucket
+        // is the one the sweeps keep empty, and a ban was waiting behind them for its token.
+        Assert.Equal(VRChatEndpointClass.Interactive, moderate.Backstop);
+        Assert.False(moderate.CountsAgainstGlobal);
         Assert.True(moderate.ResourceScoped);
         Assert.Equal(1, moderate.BurstTokens);
 

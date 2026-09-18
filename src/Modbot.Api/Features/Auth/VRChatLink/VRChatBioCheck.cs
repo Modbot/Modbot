@@ -61,8 +61,10 @@ public sealed class VRChatBioCheck
         ArgumentException.ThrowIfNullOrWhiteSpace(vrchatUserId);
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
 
+        // users.lookup, not users.profile: somebody is waiting on this read, and the background
+        // profile sync's bucket -- and any cold stop it has earned -- is not theirs (spec 4.3.5).
         var result = await _gate.ExecuteAsync<PublicProfile>(
-            new VRChatEndpoint(VRChatEndpointClass.UsersProfile, null, "GetPublicProfile"),
+            new VRChatEndpoint(VRChatEndpointClass.UsersLookup, null, "GetPublicProfile"),
             (vrchat, token) => vrchat.Users.GetPublicProfileWithHttpInfoAsync(vrchatUserId, cancellationToken: token),
             VRChatCallPriority.Interactive,
             ct);

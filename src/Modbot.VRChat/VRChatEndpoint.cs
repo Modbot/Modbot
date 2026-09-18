@@ -18,8 +18,26 @@ namespace Modbot.VRChat;
 /// </remarks>
 public static class VRChatEndpointClass
 {
-    /// <summary>The backstop bucket every group-lane call also passes through (spec 4.3.1).</summary>
+    /// <summary>
+    /// The backstop bucket every background call also passes through (spec 4.3.1): the sweeps,
+    /// the audit log, places, the calendar. Not the calls a person is waiting on -- those pass
+    /// through <see cref="Interactive"/> instead (spec 4.3.5).
+    /// </summary>
     public const string Global = "global";
+
+    /// <summary>
+    /// The backstop bucket for the calls a moderator is waiting on: kicks, bans, unbans and the
+    /// other writes a person presses a button for. Sized to the room spec 4.2 leaves under the
+    /// global ceiling once background sync has its share, so a moderator's action never waits
+    /// for a token the sweeps just took (spec 4.3.5).
+    /// </summary>
+    /// <remarks>
+    /// Never acquired directly. A class names it as its backstop the way the background classes
+    /// name <see cref="Global"/>; a 429 on one of those classes halves this bucket as an
+    /// ancestor and halves <see cref="Global"/> as evidence, the way <see cref="UsersRead"/>
+    /// already does.
+    /// </remarks>
+    public const string Interactive = "interactive";
 
     public const string GroupsMembers = "groups.members";
     public const string GroupsBans = "groups.bans";
@@ -104,6 +122,21 @@ public static class VRChatEndpointClass
     public const string UsersProfile = "users.profile";
 
     /// <summary>
+    /// One person, read because somebody is waiting for the answer: the link check that reads a
+    /// bio for the code in it, and any other read of one user by id that a person presses a
+    /// button for. The same two endpoints as <see cref="UsersRead"/> and
+    /// <see cref="UsersProfile"/>, on a budget and a lane of their own (spec 4.3.5).
+    /// </summary>
+    /// <remarks>
+    /// Split from the two sync classes so that a cold stop earned by the background profile sync
+    /// never stops a person linking their account, and a person's lookups never spend the sync's
+    /// allowance. The rate is foundation spec 4.2.5's original 1 req/s for the users lane --
+    /// deliberately under the 3.5 req/s the maintainer measured, because these reads land on the
+    /// same endpoints the two sync classes already use at that rate.
+    /// </remarks>
+    public const string UsersLookup = "users.lookup";
+
+    /// <summary>
     /// Which groups an account belongs to, and what it may do in each —
     /// <c>/users/{id}/groups</c> and <c>/users/{id}/groups/permissions</c>.
     /// </summary>
@@ -136,7 +169,9 @@ public static class VRChatEndpointClass
     /// Declared by spec 4.2 and still unused. The group kick, ban and unban a moderator presses in
     /// the Modbot UI are <see cref="GroupsModerate"/> instead: the maintainer asked for those three
     /// to be paced on a lane of their own until somebody measures them, and a class that shared a
-    /// bucket with role changes would have handed them a number nobody has checked.
+    /// bucket with role changes would have handed them a number nobody has checked. Passes
+    /// through the <see cref="Interactive"/> backstop with them, so that when it is used it is
+    /// paced with the rest of what a moderator presses rather than behind the sweeps.
     /// </remarks>
     public const string ModerationWrite = "moderation.write";
 
@@ -154,13 +189,48 @@ public static class VRChatEndpointClass
     /// </para>
     /// <para>
     /// Its own lane, so a moderator pressing Ban never waits behind a member sweep and never holds
-    /// one up; resource-scoped on the group; counted against the global backstop, because the
-    /// account-wide limit Modbot cannot see applies to these as much as to anything. A 429 cold
-    /// stops this class alone, and is never retried (spec 4.3.1) — the action simply failed, and
-    /// the moderator is told so.
+    /// one up; resource-scoped on the group; counted against the <see cref="Interactive"/>
+    /// backstop rather than <see cref="Global"/> since 2026-09-17, because the global bucket is
+    /// the one the sweeps keep empty and a ban was waiting for its next token behind them
+    /// (spec 4.3.5). A 429 cold stops this class alone, and is never retried (spec 4.3.1) — the
+    /// action simply failed, and the moderator is told so.
     /// </para>
     /// </remarks>
     public const string GroupsModerate = "groups.moderate";
+
+    /// <summary>
+    /// A request forwarded to VRChat as it was written, on the service account's session --
+    /// <c>/api/proxy/vrchat/…</c> (VRChat proxy design). Any endpoint, any method.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Its own class and lane, so a script's traffic never queues in front of a sweep or a ban
+    /// and a 429 it earns stops the proxy and nothing else. Counted against <see cref="Global"/>,
+    /// because these requests go out as the service account and the account-wide limit the
+    /// backstop stands for applies to them like anything else.
+    /// </para>
+    /// <para>
+    /// <strong>The limiter cannot tell which VRChat endpoint a proxied request reaches</strong>,
+    /// so a proxied read of the member list spends this bucket and not <c>groups.members</c>. A
+    /// 429 earned that way is recorded here, and the sweep's own bucket learns nothing. The cap is
+    /// kept at the bottom of spec 4.3.4's provisional range for that reason: the proxy is for
+    /// trying an endpoint and for one-off scripts, not for sweeping anything.
+    /// </para>
+    /// </remarks>
+    public const string Proxy = "proxy";
+
+    /// <summary>
+    /// A request forwarded to VRChat with the caller's own VRChat cookie, not the service
+    /// account's. A different account, paced apart so that its 429s and Modbot's never mix.
+    /// </summary>
+    /// <remarks>
+    /// Still paced, because it leaves from this host's address and a burst from one caller could
+    /// have Cloudflare block the host for the service account too. Not counted against
+    /// <see cref="Global"/> -- that backstop is about the service account's own allowance -- and a
+    /// 429 here is not evidence about the service account either, so it halves nothing but its
+    /// own bucket.
+    /// </remarks>
+    public const string ProxyPassthrough = "proxy.passthrough";
 
     /// <summary>Login and re-login only.</summary>
     public const string Auth = "auth";
