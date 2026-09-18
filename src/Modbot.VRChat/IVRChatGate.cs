@@ -106,4 +106,30 @@ public interface IVRChatGate
         Proxy.VRChatProxyAccount account,
         VRChatCallPriority priority = VRChatCallPriority.Interactive,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Fetches one picture or video from VRChat, on the session, and follows VRChat's redirect to
+    /// whichever delivery host it names (VRChat files design).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Not paced, and not on a bucket.</strong> Every other call here draws from a budget
+    /// because spec 4.3.4 says a new endpoint gets its rate limit asked about first; the answer
+    /// for the file and image addresses, on 2026-09-17, was that VRChat does not limit them. So
+    /// there is no endpoint class, no lane and no cold stop for these, and one should not be
+    /// added by analogy with the calls that do have one: a member list of forty faces would then
+    /// queue behind itself for nothing.
+    /// </para>
+    /// <para>
+    /// It is on the gate all the same, and for the rule's real reason: the fetch needs the
+    /// session cookie, the gate is the only thing that holds one, and the request has to leave
+    /// through the operator's egress proxy like everything else Modbot sends VRChat.
+    /// </para>
+    /// <para>
+    /// The address must be one of VRChat's (<see cref="Files.VRChatFiles.IsVRChatAddress(Uri)"/>)
+    /// and so must every address it redirects to; anything else fails rather than being fetched.
+    /// </para>
+    /// </remarks>
+    /// <param name="url">An absolute VRChat file address.</param>
+    Task<Files.VRChatFileResult> FetchFileAsync(Uri url, CancellationToken ct = default);
 }
