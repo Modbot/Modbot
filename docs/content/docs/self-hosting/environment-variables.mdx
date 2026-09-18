@@ -79,6 +79,21 @@ The host also decides one default: on every platform above except Kubernetes, Mo
 container's disk is thrown away on redeploy until it sees proof otherwise, and warns about log files
 and evidence kept on disk. A disk that survives one restart is treated as lasting from then on.
 
+### Read to catch a crash that leaves no log
+
+These belong to the .NET runtime, not to Modbot. Set them only while chasing a crash that restarts
+the service with nothing in the log; Modbot reads them so it can say on every start whether they are
+on, and so it can make the folder the dump goes into.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `DOTNET_DbgEnableMiniDump` | off | `1` writes a dump of the whole process when it dies outright — a fatal runtime error, which no log line survives. |
+| `DOTNET_DbgMiniDumpName` | the runtime's own | Where the dump goes. `%p` becomes the process id. Point it at a mounted volume, or the dump goes with the container. |
+| `DOTNET_DbgMiniDumpType` | `1` | `1` mini, `2` with the managed heap, `3` triage, `4` the whole process. `2` is the useful one. |
+
+A dump is about the size of the memory the service was using, so turn these off again once you have
+one. See [Catching a crash that leaves no log](/self-hosting/railway#catching-a-crash-that-leaves-no-log).
+
 ### Build settings
 
 | Setting | Where | What it does |

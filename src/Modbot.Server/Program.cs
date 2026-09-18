@@ -88,6 +88,14 @@ Log.Logger = ModbotLogging.Create(
     },
     clock);
 
+// An exception on a thread nobody is awaiting kills the process with the sinks still holding what
+// they had not written, so the one line saying why is the line that gets lost. Set up before
+// anything that could throw on a background thread, which is everything below.
+CrashGuard.Watch();
+
+var crashDumps = CrashDumps.Read();
+CrashGuard.PrepareDumpFolder(crashDumps);
+
 try
 {
     Log.Information("Modbot starting on port {Port}", env.Port);
@@ -96,6 +104,20 @@ try
         platform.Name,
         platform.Evidence is null ? "" : $" (from {platform.Evidence})",
         persistence.Explanation);
+
+    // Said on every boot, because the moment an operator wants to know whether dumps are on is
+    // after the crash that would have written one, and the startup line is what they still have.
+    Log.Information("{CrashDumps}", crashDumps.Explanation);
+
+    if (crashDumps.On && platform.AssumeEphemeralFilesystem
+        && persistence.Evidence != PersistenceEvidence.SurvivedRestart)
+    {
+        Log.Warning(
+            "A crash dump written on {Platform} goes with the container filesystem unless a volume "
+            + "is mounted where it is written. Point {Variable} inside a mounted volume.",
+            platform.Name,
+            CrashDumps.PathVariable);
+    }
 
     if (!writeLogFiles)
     {
