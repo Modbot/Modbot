@@ -109,6 +109,9 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         // through AddModbotVRChat, which would bring the hosted syncs with it.
         builder.Services.AddSingleton<Modbot.VRChat.Moderation.GroupModeration>();
 
+        // The join queue and the two answers to one of it, over the same scripted gate.
+        builder.Services.AddSingleton<Modbot.VRChat.Moderation.GroupJoinRequests>();
+
         builder.Services.AddSingleton<ISecretProtector>(services =>
         {
             using var scope = services.CreateScope();

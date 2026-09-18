@@ -396,6 +396,11 @@ public static class ApiSurface
         // than pretending to.
         app.MapModerationActions();
 
+        // The people waiting to be let into the group, read from VRChat when a moderator opens
+        // the screen, and the two answers to one of them (join requests design). The gate and the
+        // fact log resolve optionally here for the same reason they do above.
+        Features.Requests.RequestEndpoints.MapJoinRequests(app);
+
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.
         Features.Calendar.CalendarEndpoints.MapCalendar(app);
