@@ -27,7 +27,7 @@ const PAGE_SIZE = 100
 const LEVEL_TONE: Record<LogLevel, string> = {
   Verbose: 'text-muted-foreground',
   Debug: 'text-info',
-  Information: 'text-foreground',
+  Information: 'text-ok',
   Warning: 'text-warn',
   Error: 'text-destructive',
   Fatal: 'rounded-sm bg-destructive px-1.5 text-destructive-foreground dark:text-background',
