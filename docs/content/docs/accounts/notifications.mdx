@@ -1,0 +1,63 @@
+---
+title: Notifications
+description: How Modbot decides who it tells about something, the channels it can reach you on, and how to change what you get.
+---
+
+Modbot raises a **notification** when something has happened that a person should know about — its
+own health, an evidence store that is not there, an instance that closed with people still in it.
+Every one of them goes through the same pipeline, so a new kind of event reaches every channel and a
+new channel carries every kind of event.
+
+## How serious it is
+
+Every notification is one of three:
+
+| | What it means | What happens by default |
+|---|---|---|
+| **Critical** | Modbot cannot do its job | Email and a Discord direct message, straight away |
+| **Warning** | Something needs a person before long | A Discord direct message straight away; email in the daily summary |
+| **Information** | Worth knowing, not worth interrupting for | The daily summary only |
+
+The defaults are quiet on purpose. A tool that says everything at the same volume gets muted, and a
+muted tool misses the one thing that mattered.
+
+## Channels
+
+**Email** needs SMTP set up (Settings, Integrations, Email) and an address on your account.
+Notification email counts as other email, so it never uses the twenty sends a day Modbot keeps back
+for password resets and invites.
+
+**Discord** needs the bot set up and a Discord account on your Modbot account. Modbot sends you a
+direct message; you will not get one if your direct messages are closed to the server.
+
+Web push is not built yet. Your moderators' headsets are covered separately: the SteamVR overlay
+raises a card for a flagged join the moment it happens, straight from the live stream, and does not
+wait for anything here.
+
+## Changing what you get
+
+Open **your account** from the top of any page, then **Notifications**. For each channel you choose:
+
+- **Off**, **Critical only**, **Critical and warnings**, or **Everything**
+- whether the **daily summary** goes out on that channel
+
+Your settings are yours alone. Changing them does not change what anybody else gets.
+
+Anything a channel is set not to interrupt for still turns up in that channel's daily summary when
+it is on, so turning email down to **Critical only** does not throw the rest away.
+
+## Saying a thing once
+
+A problem that is still there in a minute is the same problem. Modbot says it once, then counts how
+many times it happened again, and says it again when the quiet time is up — six hours, unless the
+thing raising it sets its own. A problem that gets more serious while it is being kept quiet goes
+out anyway.
+
+## If nothing can reach you
+
+A critical notification that reached you on no channel at all is not thrown away. It waits on your
+account and shows as a red bar across the top of every page the next time you sign in, until you
+mark it seen.
+
+That is the whole reason Modbot bothers to record who a notification was for before it tries to send
+anything.

@@ -1503,6 +1503,30 @@ health rather than thrown at the caller.
 If an event's severity is Critical and *no* channel is available, that itself is surfaced in the UI
 on next login, because a Critical alert nobody can receive is the same as no alerting at all.
 
+#### 4.5.4 What exists
+
+*Added 2026-09-18.* The pipeline is built, and
+`.agent/specs/2026-09-18-notifications-design.md` is the design that says how. In short:
+
+- **Built:** `INotifier` and the routing, severity, each person's own level and daily-summary switch
+  per channel, saying a thing once (a `SameAs` key plus a quiet time, with an exception for anything
+  that got worse), the daily summary, the Email channel and the Discord direct-message channel, and
+  the Critical-nobody-could-receive rule as a red bar on every page until it is marked seen.
+- **Moved onto it:** the health alerts. They no longer send their own email, and the daily email
+  limit of accounts and access §4.4 is unchanged.
+- **Connected at last:** evidence storage §8.4's Critical notification, and M6 §5's warning when an
+  instance closes with people still in it — which had never been checked for.
+- **Not built:** Web Push, the delayed email escalation for unacknowledged Warnings, and channel
+  health on the settings screen. The notifications design §7 says the order.
+- **Deliberately not a channel:** the client. A flagged join reaches the overlay from the live
+  stream as a fact with nothing in between, and §4.5.2 is the reason to keep it that way rather than
+  the reason to route it.
+
+The Discord event routes, the unusual-activity alerts and the companion's alert poll are untouched
+and still work as they did.
+
+**"Digest" is called a daily summary** everywhere it is built, under the plain-words rule.
+
 ---
 
 ## 5. Analytics and data engine
