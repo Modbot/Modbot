@@ -34,6 +34,7 @@ using Modbot.Api.Features.Members;
 using Modbot.Api.Features.People;
 using Modbot.Api.Features.Moderation;
 using Modbot.Api.Features.Alerts;
+using Modbot.Api.Features.Notifications;
 using Modbot.Api.Features.Insights;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Live;
@@ -176,6 +177,25 @@ public static class ApiSurface
     }
 
     /// <summary>
+    /// The notification pipeline and its channels (foundation §4.5).
+    /// </summary>
+    /// <remarks>
+    /// The channels are registered here rather than beside the things they wrap, so that the list
+    /// the pipeline sees is one list in one place: adding a channel is one line, and nothing that
+    /// raises a notification has to know what it is.
+    /// </remarks>
+    public static IServiceCollection AddNotifications(this IServiceCollection services)
+    {
+        services.TryAddSingleton(new Modbot.Core.Notifications.NotificationPassOptions());
+        services.AddScoped<Modbot.Core.Notifications.INotificationChannel, Modbot.Core.Notifications.EmailNotificationChannel>();
+        services.AddScoped<Modbot.Core.Notifications.INotificationChannel, Modbot.Core.Notifications.DiscordNotificationChannel>();
+        services.AddScoped<Modbot.Core.Notifications.INotifier, Modbot.Core.Notifications.Notifier>();
+        services.AddScoped<Modbot.Core.Notifications.NotificationPass>();
+        services.AddHostedService<Modbot.Core.Notifications.NotificationService>();
+        return services;
+    }
+
+    /// <summary>
     /// Watches Modbot's own health and emails the staff accounts that asked. Registered by the host
     /// rather than by <see cref="AddModbotApi"/>, because the checker reads the gate, the Discord
     /// bot, AI spend and the log store, and only the host knows which of those it registered.
@@ -299,6 +319,7 @@ public static class ApiSurface
 
         // Unusual-activity alerts and what is watched for them (AI insights design §8).
         app.MapAlerts();
+        app.MapNotifications();
 
         // Linking a member's Discord and VRChat accounts: the public link page's API, the moderator's
         // view and unlink, and the settings (Discord account linking design).

@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { NotificationChoicesCard } from '@/components/account/NotificationChoicesCard'
 import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
 import { ApiError, api, type CurrentUser } from '@/lib/api'
 import { registerLink } from '@/lib/myModbot'
@@ -37,6 +38,7 @@ export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => v
       <ChangeUsername me={me} onChanged={onChanged} />
       <ChangePassword />
       <Contact me={me} onChanged={onChanged} />
+      <NotificationChoicesCard />
 
       <Card>
         <CardContent className="space-y-3">

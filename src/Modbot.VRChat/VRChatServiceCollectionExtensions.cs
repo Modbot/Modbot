@@ -282,7 +282,9 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             // Optional: a host that does not report public instances registers no nudge, and the poll
             // is unchanged.
-            provider.GetService<Core.Cloud.PublicInstancesNudge>()));
+            provider.GetService<Core.Cloud.PublicInstancesNudge>(),
+            // Optional for the same reason: without it the poll records the close and says nothing.
+            provider.GetService<Core.Notifications.INotifier>()));
 
         services.AddScoped<WorldSync>(provider => new WorldSync(
             provider.GetRequiredService<IVRChatGate>(),

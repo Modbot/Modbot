@@ -7394,6 +7394,166 @@
         ]
       }
     },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "This account's notifications, and the critical ones still waiting to be seen",
+        "operationId": "ListNotifications",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/notifications/{id}/seen": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Marks one notification seen by this account",
+        "operationId": "MarkNotificationSeen",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/notifications/choices": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Where this account's notifications go",
+        "operationId": "GetNotificationChoices",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationChoicesView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Sets where this account's notifications go",
+        "operationId": "SetNotificationChoices",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationChoicesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationChoicesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord-links": {
       "get": {
         "tags": [
@@ -26616,6 +26776,158 @@
           }
         }
       },
+      "NotificationChoiceUpdate": {
+        "required": [
+          "channel",
+          "level",
+          "dailySummary"
+        ],
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "dailySummary": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationChoiceView": {
+        "required": [
+          "channel",
+          "label",
+          "level",
+          "dailySummary",
+          "canReach"
+        ],
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "dailySummary": {
+            "type": "boolean"
+          },
+          "canReach": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationChoicesUpdate": {
+        "required": [
+          "channels"
+        ],
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationChoiceUpdate"
+            }
+          }
+        }
+      },
+      "NotificationChoicesView": {
+        "required": [
+          "channels"
+        ],
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationChoiceView"
+            }
+          }
+        }
+      },
+      "NotificationView": {
+        "required": [
+          "id",
+          "kind",
+          "severity",
+          "title",
+          "body",
+          "link",
+          "at",
+          "repeats",
+          "waiting",
+          "seen"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "repeats": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "waiting": {
+            "type": "boolean"
+          },
+          "seen": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationsView": {
+        "required": [
+          "waiting",
+          "recent"
+        ],
+        "type": "object",
+        "properties": {
+          "waiting": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationView"
+            }
+          },
+          "recent": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationView"
+            }
+          }
+        }
+      },
       "OpenReviewCount": {
         "required": [
           "open"
@@ -32270,6 +32582,10 @@
     {
       "name": "Notes",
       "x-displayName": "Notes"
+    },
+    {
+      "name": "Notifications",
+      "x-displayName": "Notifications"
     },
     {
       "name": "Requests",
