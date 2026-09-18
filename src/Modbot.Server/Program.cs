@@ -425,7 +425,12 @@ try
     // access design §4.4). One small query every thirty seconds when nothing is waiting.
     builder.Services.AddEmailQueue();
 
-    // Emails somebody when Modbot stops working: VRChat unreachable, the Discord bot down, sync
+    // The one pipeline everything that needs to reach a person goes through (foundation §4.5), and
+    // the background pass that tries the channels. Registered before the health checks, because
+    // those now raise notifications rather than sending their own email.
+    builder.Services.AddNotifications();
+
+    // Says when Modbot stops working: VRChat unreachable, the Discord bot down, sync
     // stopped, storage past a line, a spending limit reached, email stuck, logs not reaching Cloud.
     // Everything is off until somebody turns it on and chooses who is told.
     builder.Services.AddHealthAlerts();
