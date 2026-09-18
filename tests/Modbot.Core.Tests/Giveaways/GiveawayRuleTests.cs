@@ -69,16 +69,39 @@ public class GiveawayRuleTests
         Assert.Equal("Rules can be grouped at most 3 deep.", error);
     }
 
+    /// <summary>
+    /// Spread across groups, so no one group is over its own limit of twenty and the tree total is
+    /// what refuses it. Piling them all into a single group tests the other limit instead.
+    /// </summary>
     [Fact]
     public void ATreeOfMoreThanSixtyRulesIsRefused()
     {
+        var groups = new JsonArray();
+
+        for (var g = 0; g < 4; g++)
+        {
+            var leaves = new JsonArray();
+            for (var i = 0; i < 15; i++)
+                leaves.Add(new JsonObject { ["kind"] = "inGroup" });
+
+            groups.Add(new JsonObject { ["kind"] = "anyOf", ["rules"] = leaves });
+        }
+
+        GiveawayRules.Read(new JsonObject { ["kind"] = "allOf", ["rules"] = groups }, out var error);
+
+        Assert.Equal("A giveaway can have at most 60 rules.", error);
+    }
+
+    [Fact]
+    public void AGroupOfMoreThanTwentyRulesIsRefused()
+    {
         var rules = new JsonArray();
-        for (var i = 0; i < 61; i++)
+        for (var i = 0; i < 21; i++)
             rules.Add(new JsonObject { ["kind"] = "inGroup" });
 
         GiveawayRules.Read(new JsonObject { ["kind"] = "allOf", ["rules"] = rules }, out var error);
 
-        Assert.Equal("A giveaway can have at most 60 rules.", error);
+        Assert.Equal("A group can hold at most 20 rules.", error);
     }
 
     [Fact]
