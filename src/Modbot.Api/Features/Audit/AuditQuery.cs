@@ -83,8 +83,9 @@ public sealed class AuditQuery(ModbotContext db)
             rows.RemoveAt(rows.Count - 1);
 
         // Names for the whole page in three queries, not three per row. A timeline that prints
-        // ids is a timeline nobody reads.
-        var entries = await AuditNaming.ResolveAsync(db, rows.Select(Project).ToList(), ct);
+        // ids is a timeline nobody reads. The facts that came from the same decision as a row on
+        // this page go through the same pass, so they are named too.
+        var entries = await WithLinkedAsync(rows, ct);
 
         var next = hasMore && rows.Count > 0
             ? new AuditCursor(rows[^1].OccurredAt, rows[^1].Id)
@@ -114,8 +115,65 @@ public sealed class AuditQuery(ModbotContext db)
         if (row is null)
             return null;
 
-        var named = await AuditNaming.ResolveAsync(db, [Project(row)], ct);
+        var named = await WithLinkedAsync([row], ct);
         return named.Count == 0 ? null : named[0];
+    }
+
+    /// <summary>
+    /// A page of facts with the rest of each one's decision hanging off it (spec 5.3.2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two extra queries for the page, however many rows it has: the link rows, and the facts they
+    /// name. The names for both the rows and their linked facts are then resolved in the one pass
+    /// that was already happening, because a linked fact is shown in full and an id with no name
+    /// is as unreadable inside an entry as it is on its own line.
+    /// </para>
+    /// <para>
+    /// A linked fact is looked up whether or not this caller could have reached it by filtering —
+    /// it is part of the entry they may read, and hiding half a decision from somebody who can see
+    /// the other half tells them less than showing nothing would.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<AuditEntry>> WithLinkedAsync(List<ModbotEvent> rows, CancellationToken ct)
+    {
+        if (rows.Count == 0)
+            return [];
+
+        var ids = rows.Select(r => r.Id).ToList();
+
+        var links = await db.LinkedFacts.AsNoTracking()
+            .Where(l => ids.Contains(l.MainFactId))
+            .Select(l => new { l.FactId, l.OccurredAt, l.MainFactId })
+            .ToListAsync(ct);
+
+        if (links.Count == 0)
+            return await AuditNaming.ResolveAsync(db, rows.Select(Project).ToList(), ct);
+
+        var linkedIds = links.Select(l => l.FactId).ToList();
+        var earliest = links.Min(l => l.OccurredAt);
+        var latest = links.Max(l => l.OccurredAt);
+
+        // Bounded by time as well as by id, so the read touches the partitions the decision fell
+        // in rather than every partition the table has.
+        var linkedRows = await db.Events.AsNoTracking()
+            .Where(e => linkedIds.Contains(e.Id) && e.OccurredAt >= earliest && e.OccurredAt <= latest)
+            .ToListAsync(ct);
+
+        var mainOf = links.ToDictionary(l => l.FactId, l => l.MainFactId);
+
+        var all = rows.Select(Project).Concat(linkedRows.Select(Project)).ToList();
+        var named = await AuditNaming.ResolveAsync(db, all, ct);
+
+        var byMain = named
+            .Skip(rows.Count)
+            .GroupBy(e => mainOf[e.Id])
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<AuditEntry>)g.OrderBy(e => e.OccurredAt).ThenBy(e => e.Id).ToList());
+
+        return named
+            .Take(rows.Count)
+            .Select(e => byMain.TryGetValue(e.Id, out var linked) ? e with { Linked = linked } : e)
+            .ToList();
     }
 
     /// <summary>
@@ -210,7 +268,24 @@ public sealed class AuditQuery(ModbotContext db)
 
     private IQueryable<ModbotEvent> Filtered(AuditRequest request)
     {
-        var query = Searched(request.Text).AsNoTracking().Where(e => request.Types.Contains(e.Type));
+        var types = request.Types.ToList();
+        var query = Searched(request.Text).AsNoTracking().Where(e => types.Contains(e.Type));
+
+        // A fact that is the second record of a decision is not a line of its own: it is shown
+        // inside the entry for the decision, by WithLinkedAsync (spec 5.3.2). Two rows a second
+        // apart that a reader has to join in their head is exactly what this replaces.
+        //
+        // Only when the main fact is one this request would have shown. Filter the log down to
+        // instance kicks alone and every kick appears, including the ones that came with a ban --
+        // hiding a row because of something the filters just excluded would look like a bug.
+        var sources = request.Sources.ToList();
+
+        query = query.Where(e => !db.LinkedFacts.Any(l =>
+            l.FactId == e.Id
+            && db.Events.Any(m => m.Id == l.MainFactId
+                               && m.OccurredAt == l.MainOccurredAt
+                               && types.Contains(m.Type)
+                               && (sources.Count == 0 || sources.Contains(m.Source)))));
 
         if (request.Sources.Count > 0)
             query = query.Where(e => request.Sources.Contains(e.Source));

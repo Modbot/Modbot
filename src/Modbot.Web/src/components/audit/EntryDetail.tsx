@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { dateTime } from '@/components/charts'
+import { FactSentence } from '@/components/factSentence'
 import { PersonLink, InstanceLink, SourceBadge, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { VersionCard } from '@/components/subject/ProfileVersions'
@@ -111,12 +112,49 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
         )}
 
         <Snapshot entry={entry} />
+        <SameDecision entry={entry} />
       </div>
 
       <div className="flex flex-col gap-3">
         <JsonView title="Payload" value={entry.data} />
         <JsonView title="Entry" value={entry} />
       </div>
+    </div>
+  )
+}
+
+/**
+ * The other facts one decision left behind.
+ *
+ * A ban on somebody standing in one of the group's instances arrives from VRChat as a ban and an
+ * instance kick, seconds apart; a ban pressed in Modbot leaves Modbot's record of who decided it
+ * beside VRChat's record that it happened. The timeline shows the decision once (see
+ * `AuditQuery`), and every fact behind it is here, whole, each opening into its own detail.
+ */
+function SameDecision({ entry }: { entry: AuditEntry }) {
+  const linked = entry.linked ?? []
+  if (linked.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>Same decision</div>
+      {linked.map((fact) => (
+        <details
+          key={fact.id}
+          className="rounded-md border bg-card"
+          style={{ borderWidth: 'var(--hairline)' }}
+        >
+          <summary
+            className="flex cursor-pointer flex-wrap items-center gap-2 px-3 py-2"
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            <SourceBadge source={fact.source} />
+            <FactSentence entry={fact} />
+            <span className="text-muted-foreground">{dateTime(fact.occurredAt)}</span>
+          </summary>
+          <EntryDetail entry={fact} />
+        </details>
+      ))}
     </div>
   )
 }

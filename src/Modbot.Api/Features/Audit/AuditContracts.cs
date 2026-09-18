@@ -94,6 +94,13 @@ public enum SubjectKind
 /// </param>
 /// <param name="SubjectTrustRank">The subject's VRChat trust rank as stored now, when the subject is a VRChat person whose tags are known.</param>
 /// <param name="ActorTrustRank">The same for the actor.</param>
+/// <param name="Linked">
+/// The other facts that came from the same decision (spec 5.3.2) — a ban's instance kick, a
+/// Discord ban's leave, Modbot's own record of the press behind VRChat's record of the result.
+/// They are not listed as entries of their own, because a reader should not have to notice that
+/// two rows a second apart are one thing; every one of them is here in full instead. Empty for
+/// the ordinary fact, which is on its own.
+/// </param>
 public sealed record AuditEntry(
     long Id,
     DateTimeOffset OccurredAt,
@@ -118,7 +125,8 @@ public sealed record AuditEntry(
     string? Description,
     JsonNode? Data,
     TrustRank? SubjectTrustRank = null,
-    TrustRank? ActorTrustRank = null);
+    TrustRank? ActorTrustRank = null,
+    IReadOnlyList<AuditEntry>? Linked = null);
 
 /// <param name="OccurredAt">Pass back as <c>beforeOccurredAt</c> for the next page.</param>
 /// <param name="Id">Pass back as <c>beforeId</c>. Both are required — see the endpoint.</param>
