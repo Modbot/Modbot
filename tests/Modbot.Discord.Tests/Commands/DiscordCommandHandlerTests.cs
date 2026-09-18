@@ -124,7 +124,10 @@ public class DiscordCommandHandlerTests
 
         var recent = card.Fields.Single(f => f.Name == "Recent moderation events").Value;
         Assert.Contains("**Banned**", recent, StringComparison.Ordinal);
-        Assert.Contains("**E-Ray**", recent, StringComparison.Ordinal);
+        // The names in the recent list are links now, like every other name on every other card
+        // (Discord embeds design §4.6), where they used to be bold text.
+        Assert.Contains(
+            $"[E-Ray](https://modbot.example.com/audit?subject={Actor})", recent, StringComparison.Ordinal);
         // Newest first.
         Assert.True(recent.IndexOf("Banned", StringComparison.Ordinal) < recent.IndexOf("Warned", StringComparison.Ordinal));
 
@@ -180,7 +183,7 @@ public class DiscordCommandHandlerTests
 
         var card = Assert.Single(reply.Embeds);
         Assert.Equal("usr_legacy_no_profile", card.Title);
-        Assert.Contains("has not fetched the profile yet", card.Description, StringComparison.Ordinal);
+        Assert.Contains("has not read the profile yet", card.Description, StringComparison.Ordinal);
         Assert.Equal("0 · 1 · 0", card.Fields.Single(f => f.Name == "Bans · kicks · warns").Value);
     }
 
