@@ -10,11 +10,18 @@ namespace Modbot.Analytics.Reviews;
 /// Runs the multi-column statements the review jobs are made of.
 /// </summary>
 /// <remarks>
+/// <para>
 /// ADO rather than <c>SqlQueryRaw</c>, for the reason the analytics endpoints use it: these
 /// statements project several columns and arrays, and EF's single-column shape does not fit.
 /// Every value travels as a parameter; the only interpolated fragments are constants from this
 /// assembly. Joins the ambient EF transaction when there is one, so a job that took an advisory
 /// lock keeps holding it across these reads.
+/// </para>
+/// <para>
+/// The giveaways' presence queries use it too. It is the assembly's one ADO helper rather than the
+/// reviews' own; a second copy would be a second place to fix how a <c>timestamptz</c> bound is
+/// built.
+/// </para>
 /// </remarks>
 internal static class ReviewSql
 {
