@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import {
   failure,
   moderationApi,
@@ -219,11 +220,9 @@ function TermListForm({
         <Group label={`Terms · ${terms.filter((t) => t.text.trim()).length}`}>
           {terms.map((term, index) => (
             <div key={term.id ?? `new-${index}`} className="flex items-center gap-2">
-              <select
+              <Select
                 value={term.kind}
-                onChange={(e) => setTerm(index, { kind: e.target.value as TermInput['kind'] })}
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-foreground"
-                style={{ fontSize: 'var(--text-small)' }}
+                onChange={(kind) => setTerm(index, { kind: kind as TermInput['kind'] })}
                 aria-label="How it matches"
               >
                 {KINDS.map((k) => (
@@ -231,7 +230,7 @@ function TermListForm({
                     {k.label}
                   </option>
                 ))}
-              </select>
+              </Select>
               <Input
                 className={cn('h-8 flex-1', term.kind === 'regex' && 'font-mono')}
                 value={term.text}

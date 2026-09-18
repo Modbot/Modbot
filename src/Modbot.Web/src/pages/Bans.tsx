@@ -4,6 +4,7 @@ import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { CaseFileCell } from '@/components/CaseFileCell'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
@@ -232,20 +233,18 @@ function GroupBans({
               className="h-8 w-64"
               aria-label="Search bans"
             />
-            <select
+            <Select
               value={status}
-              onChange={(e) => {
-                setStatus(e.target.value as typeof status)
+              onChange={(next) => {
+                setStatus(next as typeof status)
                 setPage(1)
               }}
-              className="h-8 rounded-md border border-input bg-transparent px-2 text-foreground"
-              style={{ fontSize: 'var(--text-small)' }}
               aria-label="Status"
             >
               <option value="current">Bans that stand</option>
               <option value="lifted">Bans that were lifted</option>
               <option value="all">Both</option>
-            </select>
+            </Select>
             <span className="flex-1" />
             <span className="text-muted-foreground">
               {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}

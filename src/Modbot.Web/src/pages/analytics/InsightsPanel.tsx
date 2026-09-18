@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { InsightBody } from '@/components/insights/InsightBody'
+import { Select } from '@/components/ui/select'
 import { insightDays } from '@/components/insights/days'
 import { api, type Insight, type InsightKind } from '@/lib/api'
 import { Panel, Toggle } from './shared'
@@ -50,19 +51,13 @@ export function InsightsPanel() {
               options={kinds}
             />
           )}
-          <select
-            aria-label="Days"
-            value={insight.id}
-            onChange={(e) => setChosen(e.target.value)}
-            className="h-7 rounded-md border border-input bg-transparent px-2 text-foreground"
-            style={{ fontSize: 'var(--text-small)' }}
-          >
+          <Select aria-label="Days" className="h-7" value={insight.id} onChange={setChosen}>
             {ofKind.map((i) => (
               <option key={i.id} value={i.id}>
                 {insightDays(i)}
               </option>
             ))}
-          </select>
+          </Select>
         </span>
       }
     >

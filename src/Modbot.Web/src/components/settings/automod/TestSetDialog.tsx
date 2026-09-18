@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { ago } from '@/lib/format'
 import {
   failure,
@@ -112,19 +113,17 @@ function TestSet({
           <div className="flex flex-col gap-2" style={{ fontSize: 'var(--text-small)' }}>
             <LongField label="Sample text" value={text} placeholder="" rows={2} onChange={setText} />
             <div className="flex flex-wrap items-center gap-3">
-              <select
+              <Select
                 value={shouldFlag ? 'flag' : 'no'}
-                onChange={(e) => setShouldFlag(e.target.value === 'flag')}
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-foreground"
+                onChange={(v) => setShouldFlag(v === 'flag')}
                 aria-label="Expected"
               >
                 <option value="flag">Should flag</option>
                 <option value="no">Should not flag</option>
-              </select>
-              <select
+              </Select>
+              <Select
                 value={target}
-                onChange={(e) => setTarget(e.target.value as ModerationTarget)}
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-foreground"
+                onChange={(t) => setTarget(t as ModerationTarget)}
                 aria-label="Kind of text"
               >
                 {TARGETS.map((t) => (
@@ -132,7 +131,7 @@ function TestSet({
                     {t.label}
                   </option>
                 ))}
-              </select>
+              </Select>
               <Input
                 className="h-8 max-w-56"
                 placeholder="Note"

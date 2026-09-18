@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { JsonView } from '@/components/JsonView'
 import { api, ApiError, type VRChatProxyAnswer, type VRChatProxySettings as Settings } from '@/lib/api'
 import { CopyBox } from '@/pages/Users'
@@ -153,18 +154,18 @@ function Playground({ enabled }: { enabled: boolean }) {
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
           <span className="text-muted-foreground">Method</span>
-          <select
+          <Select
             value={method}
-            onChange={(e) => setMethod(e.target.value as Method)}
-            className="h-9 rounded-md border border-input bg-transparent px-2 text-foreground"
-            style={{ fontSize: 'var(--text-small)' }}
+            onChange={(m) => setMethod(m as Method)}
+            className="h-9"
+            aria-label="Method"
           >
             {METHODS.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
 
         <label className="flex min-w-[16rem] flex-1 flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
