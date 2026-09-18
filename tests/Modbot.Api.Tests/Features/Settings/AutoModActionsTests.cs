@@ -92,8 +92,12 @@ public class AutoModActionsTests
         {
             var settings = await db.GetSettingsAsync(Ct);
             Assert.True(settings.AutoModEnabled);
-            Assert.Contains("\"classify_topics\":false", settings.AutoModAiTools, StringComparison.Ordinal);
-            Assert.DoesNotContain("check_pictures", settings.AutoModAiTools, StringComparison.Ordinal);
+
+            // Parsed, not matched as a raw string: Postgres rewrites jsonb on the way in -- spaces
+            // after colons, keys reordered -- so a literal substring asserts on Postgres's formatter.
+            var savedTools = JsonDocument.Parse(settings.AutoModAiTools).RootElement;
+            Assert.False(savedTools.GetProperty("classify_topics").GetBoolean());
+            Assert.False(savedTools.TryGetProperty("check_pictures", out _));
         }
 
         var refused = await host.SendJsonAsync(HttpMethod.Put, Path,
@@ -166,7 +170,8 @@ public class AutoModActionsTests
     public async Task AskingTheAiAboutAFlagIsRefusedWhileAiIsOff_AndWhileTheToolIsOff()
     {
         await using var host = await StartAsync();
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings | ModbotPermissions.ReviewTickets, Ct);
+        var (_, cookie) = await host.SignedInAsync(
+            ModbotPermissions.ManageSettings | ModbotPermissions.ReviewTickets | ModbotPermissions.ViewProfile, Ct);
         await SwitchOnAsync(host, cookie);
 
         await host.SendJsonAsync(HttpMethod.Post, $"{Path}/lists", List("Scams", "free nitro", targets: ["bio"]), cookie, Ct);
