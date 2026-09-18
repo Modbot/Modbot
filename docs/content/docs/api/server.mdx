@@ -1,0 +1,76 @@
+---
+title: The server page
+description: One address anyone can ask what a Modbot is - which group it looks after, which version it runs, and who to write to.
+---
+
+`GET /api/server` answers with a short description of the Modbot you asked. It needs no key, no
+cookie and no permission, and it is the one Modbot endpoint a web page on another site can call
+from a visitor's browser.
+
+It exists so that somebody typing a Modbot's address into [my.modbot.co](https://my.modbot.co) can
+be shown what they have found before they have an account on it.
+
+```bash
+curl https://modbot.example.com/api/server
+```
+
+```json
+{
+  "name": "Sunset Lounge",
+  "groupId": "grp_11111111-2222-3333-4444-555555555555",
+  "iconUrl": "https://api.vrchat.cloud/api/1/file/file_.../1/file",
+  "bannerUrl": "https://api.vrchat.cloud/api/1/file/file_.../1/file",
+  "ownerEmail": "alice@example.com",
+  "version": "1.4.0",
+  "publicAddress": "https://modbot.example.com"
+}
+```
+
+| Field | What it is |
+|---|---|
+| `name` | The VRChat group this Modbot looks after, as VRChat last named it. |
+| `groupId` | That group's id. |
+| `iconUrl` | The group's icon, as VRChat last showed it. |
+| `bannerUrl` | The group's banner. |
+| `ownerEmail` | The address of the person who runs this Modbot. See below. |
+| `version` | The Modbot release this server is running. |
+| `publicAddress` | The address saved under **Settings**, **Host & Database**, **Public address**. |
+
+**Any field can be null**, and on a Modbot that has not finished its
+[setup wizard](/setup-wizard) all of them are. The answer is still `200`, not `404`: "a Modbot that
+is not set up yet" is a real answer, and a `404` would look the same as a wrong address.
+
+## Who counts as the owner
+
+`ownerEmail` is the email address of the **oldest account that is not disabled, holds the
+Administrator permission, and has an address**. On almost every Modbot that is the account made in
+step 1 of the setup wizard.
+
+It is the same address Modbot gives VRChat as its contact on every request. See
+[Security](/security#what-modbot-tells-vrchat-about-you).
+
+### Turning it off
+
+Open **Settings**, **Host & Database**, **Public address** and turn off **Show the owner's email
+address**. `ownerEmail` is then `null`. Nothing else on this page changes. You need the
+**Manage settings** permission, and the change is recorded in the [audit log](/moderation/audit-log).
+
+## Calling it from a browser
+
+This endpoint answers with `Access-Control-Allow-Origin: *`, so a page on any site can read it.
+Send it as a plain `GET` with no headers of your own:
+
+```js
+const server = await fetch('https://modbot.example.com/api/server').then((r) => r.json())
+```
+
+Credentials are not allowed with it, so a cookie is never sent and the answer is never about a
+signed-in person.
+
+No other Modbot endpoint can be called this way. See [API overview](/api).
+
+## What it does not say
+
+Nothing about members, moderation, staff accounts, VRChat instances or settings, and no secrets.
+Apart from the owner's address, everything here is already visible to anyone who opens the sign-in
+page.
