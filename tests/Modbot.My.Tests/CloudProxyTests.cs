@@ -25,9 +25,11 @@ public class CloudProxyTests
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
-        var call = host.Cloud.Last;
+        // The save also asks the address what group it is (register details spec 2.2), so
+        // "visits" is not necessarily the last call any more -- found by its own URL instead.
+        var call = Assert.Single(
+            host.Cloud.Calls, c => c.Url == new Uri(MyTestHost.CloudEndpoint, "api/v1/site/visits"));
         Assert.Equal(HttpMethod.Post, call.Method);
-        Assert.Equal(new Uri(MyTestHost.CloudEndpoint, "api/v1/site/visits"), call.Url);
 
         var body = JsonDocument.Parse(call.Body).RootElement;
         Assert.Equal(Visitor, body.GetProperty("address").GetString());
@@ -42,10 +44,15 @@ public class CloudProxyTests
         using var page = await host.GetAsync("/register?url=https%3A%2F%2Fmodbot.example", Visitor);
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
 
-        var call = await host.Cloud.NextCallAsync(Ct);
-        Assert.Equal(new Uri(MyTestHost.CloudEndpoint, "api/v1/site/visits"), call.Url);
+        // The page also asks the address what group it is, in the background alongside the visit
+        // note (register details spec 2.2) -- both awaited here since neither blocks the page.
+        await host.Cloud.NextCallAsync(Ct);
+        await host.Cloud.NextCallAsync(Ct);
+
+        var call = Assert.Single(
+            host.Cloud.Calls, c => c.Url == new Uri(MyTestHost.CloudEndpoint, "api/v1/site/visits"));
         Assert.Equal(Visitor, JsonDocument.Parse(call.Body).RootElement.GetProperty("address").GetString());
-        Assert.Single(host.Cloud.Calls);
+        Assert.Equal(2, host.Cloud.Calls.Count);
     }
 
     /// <summary>
