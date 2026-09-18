@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError, api } from '@/lib/api'
-import { Brand, ErrorText, Field, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, Field, Tickbox, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
 
 /**
  * Signing in (spec 7.2).
@@ -20,6 +20,9 @@ export function Login({
 }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  // Unticked by default. A moderation tool gets opened on borrowed machines, and a session that
+  // outlives the browser is the riskier of the two, so it is asked for rather than assumed.
+  const [keepSignedIn, setKeepSignedIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -29,7 +32,7 @@ export function Login({
     setError(null)
 
     api
-      .login({ username, password })
+      .login({ username, password, keepSignedIn })
       .then(onSignedIn)
       .catch((e: unknown) => {
         // The server answers 401 for every kind of failure without saying which, so that a login
@@ -77,6 +80,9 @@ export function Login({
                 onChange={(e) => setPassword(e.target.value)}
               />
             </Field>
+            <Tickbox id="login-keep-signed-in" checked={keepSignedIn} onChange={setKeepSignedIn}>
+              Keep me signed in
+            </Tickbox>
             <ErrorText>{error}</ErrorText>
           </WizardBody>
           <WizardFooter>
