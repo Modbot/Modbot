@@ -37,8 +37,8 @@ const HISTORY_TYPES = [
 ]
 
 /**
- * One Discord account: who they are in the server on the left, and what Modbot has recorded about
- * them on the right.
+ * One Discord account: who they are in the server on the left (picture, names, the marks), and
+ * what Modbot has recorded about them on the right, opening with their dates and roles.
  *
  * A separate popup from the VRChat person's, even for somebody who linked. The two accounts have
  * separate histories and most people are only on one side, so each popup shows its own side and
@@ -54,6 +54,10 @@ export function DiscordPersonPopup({ id, me, lead }: { id: string; me: CurrentUs
   const reads = can(me, 'ReadDiscordMessages')
 
   const [tab, setTab] = useOpeningTab<Tab>(at && reads ? 'messages' : 'overview', TABS)
+
+  // The member row is read once here and shown in two places: who they are on the left, and the
+  // dates and roles at the top of the Overview.
+  const member = useMember(id, can(me, 'ViewMembers'))
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },
@@ -71,13 +75,13 @@ export function DiscordPersonPopup({ id, me, lead }: { id: string; me: CurrentUs
       lead={lead}
       left={
         <>
-          {can(me, 'ViewMembers') && <Identity id={id} />}
+          {can(me, 'ViewMembers') && <Identity read={member} />}
           {can(me, 'ViewProfile') && <LinkedVRChatCard id={id} me={me} />}
         </>
       }
     >
       <Tabs value={tab} onChange={setTab} tabs={tabs}>
-        {tab === 'overview' && <Overview id={id} me={me} onMore={setTab} />}
+        {tab === 'overview' && <Overview id={id} me={me} read={member} onMore={setTab} />}
         {tab === 'logs' && <Logs id={id} />}
         {tab === 'history' && <History id={id} />}
         {tab === 'messages' && <Messages id={id} at={at} />}
@@ -88,8 +92,18 @@ export function DiscordPersonPopup({ id, me, lead }: { id: string; me: CurrentUs
   )
 }
 
-/** The glance: the activity figures and the newest facts about this account. */
-function Overview({ id, me, onMore }: { id: string; me: CurrentUser; onMore: (tab: Tab) => void }) {
+/** The glance: the dates and roles, the activity figures and the newest facts about this account. */
+function Overview({
+  id,
+  me,
+  read,
+  onMore,
+}: {
+  id: string
+  me: CurrentUser
+  read: MemberRead
+  onMore: (tab: Tab) => void
+}) {
   const seesProfile = can(me, 'ViewProfile')
 
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id, 'Discord'), [id]))
@@ -104,6 +118,8 @@ function Overview({ id, me, onMore }: { id: string; me: CurrentUser; onMore: (ta
 
   return (
     <div className="flex flex-col gap-3 p-4">
+      {can(me, 'ViewMembers') && read.data?.member && <Details member={read.data.member} timedOut={read.data.timedOut} />}
+
       {metrics.data && (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <Figure label="Messages, 30 days" value={compactNumber(sum(metrics.data.messagesPerDay))} />
@@ -168,8 +184,10 @@ function Records({ id, me }: { id: string; me: CurrentUser }) {
   )
 }
 
-/** The person as the stored member list has them. Somebody the bot never saw in the server says so. */
-function Identity({ id }: { id: string }) {
+type MemberRead = { data: { member: DiscordMember | null; timedOut: boolean } | null; error: string | null }
+
+/** The member row as the stored list has it, read again when a fact about this account lands. */
+function useMember(id: string, allowed: boolean): MemberRead {
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id, 'Discord'), [id]))
 
   // A 404 is an answer, not a failure: somebody named in a fact who never was in the server.
@@ -188,7 +206,13 @@ function Identity({ id }: { id: string }) {
         }),
     [id],
   )
-  const { data, error } = useLoad(load, live)
+  const { data, error } = useLoad(allowed ? load : null, live)
+  return { data: data ?? null, error }
+}
+
+/** Who they are in the server: picture, names and the marks. Somebody the bot never saw in the server says so. */
+function Identity({ read }: { read: MemberRead }) {
+  const { data, error } = read
 
   if (error) return <Note className="text-destructive">{error}</Note>
   if (!data) return <Note>Loading…</Note>
@@ -221,11 +245,22 @@ function Identity({ id }: { id: string }) {
         {member.isPending && <Badge variant="outline">Pending</Badge>}
         {timedOut && <Badge variant="destructive">Timed out</Badge>}
       </div>
+    </div>
+  )
+}
 
-      {member.joinedAt && <Field label="Joined">{formatDay(member.joinedAt)}</Field>}
-      {member.leftAt && <Field label="Left">{formatDay(member.leftAt)}</Field>}
-      {timedOut && member.timedOutUntil && <Field label="Timed out until">{dateTime(member.timedOutUntil)}</Field>}
-      {member.boostingSince && <Field label="Boosting since">{formatDay(member.boostingSince)}</Field>}
+/** The dates and roles, at the top of the Overview. */
+function Details({ member, timedOut }: { member: DiscordMember; timedOut: boolean }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="font-medium">Details</div>
+
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        {member.joinedAt && <Field label="Joined">{formatDay(member.joinedAt)}</Field>}
+        {member.leftAt && <Field label="Left">{formatDay(member.leftAt)}</Field>}
+        {timedOut && member.timedOutUntil && <Field label="Timed out until">{dateTime(member.timedOutUntil)}</Field>}
+        {member.boostingSince && <Field label="Boosting since">{formatDay(member.boostingSince)}</Field>}
+      </div>
 
       {member.roles.length > 0 && (
         <Field label="Roles">

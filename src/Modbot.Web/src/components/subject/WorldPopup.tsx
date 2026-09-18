@@ -18,8 +18,8 @@ const TABS = ['overview', 'instances', 'history', 'metrics', 'json'] as const
 type Tab = (typeof TABS)[number]
 
 /**
- * One world: its page as Modbot last read it on the left, the instances that have run in it and how
- * busy it has been on the right.
+ * One world: its name, picture, author and who can find it on the left; the rest of its page, the
+ * instances that have run in it and how busy it has been on the right.
  *
  * A world has no versions of its own -- the page is read once and left alone -- so History is
  * what happened in it: every fact recorded in one of its instances, newest first. Everything shown is
@@ -129,31 +129,44 @@ function Identity({ world }: { world: WorldView }) {
         </Field>
       )}
 
-      {/* What the page said. Never a limit Modbot enforces -- exemptions raise real capacity
-          above it (spec 3.1). */}
-      {world.capacity !== null && (
-        <Field label="Holds">
-          {world.capacity} people
-          {world.recommendedCapacity !== null && world.recommendedCapacity !== world.capacity
-            ? `, ${world.recommendedCapacity} suggested`
-            : ''}
-        </Field>
-      )}
-
       {world.releaseStatus && <Field label="Who can find it">{releaseWords(world.releaseStatus)}</Field>}
-      {world.firstSeenAt && <Field label="First seen by Modbot">{formatDay(world.firstSeenAt)}</Field>}
-      {world.publishedAt && <Field label="Published on VRChat">{formatDay(world.publishedAt)}</Field>}
+    </>
+  )
+}
 
-      <Field label="Page last read">
-        {world.lastReadAt ? `${ago(world.lastReadAt, world.now)} (${dateTime(world.lastReadAt)})` : 'never'}
-      </Field>
+/** The rest of the page as Modbot read it, at the top of the Overview. */
+function Details({ world }: { world: WorldView }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="font-medium">Details</div>
+
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        {/* What the page said. Never a limit Modbot enforces -- exemptions raise real capacity
+            above it (spec 3.1). */}
+        {world.capacity !== null && (
+          <Field label="Holds">
+            {world.capacity} people
+            {world.recommendedCapacity !== null && world.recommendedCapacity !== world.capacity
+              ? `, ${world.recommendedCapacity} suggested`
+              : ''}
+          </Field>
+        )}
+
+        {world.firstSeenAt && <Field label="First seen by Modbot">{formatDay(world.firstSeenAt)}</Field>}
+        {world.publishedAt && <Field label="Published on VRChat">{formatDay(world.publishedAt)}</Field>}
+
+        <Field label="Page last read">
+          {world.lastReadAt ? `${ago(world.lastReadAt, world.now)} (${dateTime(world.lastReadAt)})` : 'never'}
+        </Field>
+      </div>
 
       {world.description && (
         <Field label="Description">
+          {/* The author's text, rendered as text. Never as HTML. */}
           <span className="whitespace-pre-wrap">{world.description}</span>
         </Field>
       )}
-    </>
+    </div>
   )
 }
 
@@ -162,12 +175,14 @@ function releaseWords(status: string): string {
   return { public: 'Anyone (public)', private: 'Only people given the link (private)', hidden: 'Hidden' }[status] ?? status
 }
 
-/** The glance: the figures, the newest instances, and where to go for the rest. */
+/** The glance: the rest of the page, the figures, the newest instances, and where to go for the rest. */
 function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => void }) {
   const c = world.counts
 
   return (
     <div className="flex flex-col gap-3 p-4">
+      <Details world={world} />
+
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <Figure label="Time seen" value={minutes(c.minutesSeen)} />
         <Figure label="Visitors" value={compactNumber(c.visitors)} />
