@@ -50,6 +50,23 @@ export function ago(iso: string | null, now: string): string {
   return `${Math.round(seconds / 86_400)}d ago`
 }
 
+/**
+ * How long something has been going on, against the server's clock, in the same steps as
+ * {@link ago} and without the "ago". "Last seen 2d ago" and "known for 300d" are different
+ * questions about the same person, and the People page asks both.
+ */
+export function howLong(iso: string | null, now: string): string {
+  if (!iso) return 'never'
+
+  const seconds = Math.round((Date.parse(now) - Date.parse(iso)) / 1000)
+
+  if (seconds < 60) return `${Math.max(0, seconds)}s`
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
+  if (seconds < 86_400) return `${Math.round(seconds / 3600)}h`
+
+  return `${Math.round(seconds / 86_400)}d`
+}
+
 /** A duration in seconds, said the way a person would say it. */
 export function duration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)} seconds`

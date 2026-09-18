@@ -17,6 +17,10 @@ export const NAV = [
   // The Discord server's own member list. Secondary to Members: separate, because most people are
   // on one side only and most never link.
   { id: 'discord-members', label: 'Discord members', needs: 'ViewMembers' },
+  // Everyone Modbot has a record of, not only the group's roster: the people it has seen in an
+  // instance or read about in the audit log have a profile and a history too, and no list led to
+  // them. "People" rather than "Users", which is the settings screen for Modbot's own accounts.
+  { id: 'people', label: 'People', needs: 'ViewProfile' },
   // The group's open instances right now and who is in each.
   { id: 'live', label: 'Live', needs: 'ViewLiveInstances' },
   // Planned events, where each is published, and the calendar feed (calendar design).
@@ -86,6 +90,7 @@ export type PageId = NavItem['id']
 export const GO_TO_KEYS: Record<PageId, string> = {
   members: 'm',
   'discord-members': 'd',
+  people: 'n',
   live: 'l',
   calendar: 'e',
   giveaways: 'p',

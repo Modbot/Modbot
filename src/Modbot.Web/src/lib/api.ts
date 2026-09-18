@@ -781,6 +781,48 @@ export type MemberQuery = {
   pageSize?: number
 }
 
+/**
+ * One row of the People page: somebody Modbot has a record of, member or not. `displayName` and
+ * `avatarThumbnailUrl` come from the stored profile and are null until the profile sync has
+ * fetched one -- the row shows the id then.
+ */
+export type PersonRow = {
+  userId: string
+  displayName: string | null
+  /** The display name in plain letters, when that differs from it. */
+  plainName: string | null
+  avatarThumbnailUrl: string | null
+  /** Null until the profile's tags have been read. */
+  trustRank: TrustRank | null
+  eighteenPlus: boolean
+  isMember: boolean
+  /** When a sweep stopped listing them as a member. Null for a current member and for somebody who was never one. */
+  leftAt: string | null
+  banned: boolean
+  firstSeenAt: string
+  lastSeenAt: string
+  profileRefreshedAt: string | null
+  notFoundAt: string | null
+}
+
+export type PeopleList = {
+  people: PersonRow[]
+  total: number
+  page: number
+  pageSize: number
+  coverage: { known: number; members: number; now: string }
+}
+
+export type PeopleQuery = {
+  search?: string
+  membership?: 'member' | 'not-member' | 'left' | 'all'
+  banned?: boolean
+  profile?: 'fetched' | 'not-fetched'
+  sort?: 'seen' | 'name' | 'known'
+  page?: number
+  pageSize?: number
+}
+
 export type DiscordMemberRole = { id: string; name: string | null; color: number }
 
 /** One member of the Discord server, current or past. */
@@ -3534,6 +3576,23 @@ export const api = {
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
     const search = q.toString()
     return request<MemberList>(`/api/members${search ? `?${search}` : ''}`)
+  },
+
+  /**
+   * Everyone Modbot has a record of, member or not. The member list is the group's roster; this
+   * is the whole table behind it, and most of it is people who were never members.
+   */
+  people: (query: PeopleQuery = {}) => {
+    const q = new URLSearchParams()
+    if (query.search) q.set('search', query.search)
+    if (query.membership && query.membership !== 'all') q.set('membership', query.membership)
+    if (query.banned !== undefined) q.set('banned', String(query.banned))
+    if (query.profile) q.set('profile', query.profile)
+    if (query.sort && query.sort !== 'seen') q.set('sort', query.sort)
+    if (query.page && query.page > 1) q.set('page', String(query.page))
+    if (query.pageSize) q.set('pageSize', String(query.pageSize))
+    const search = q.toString()
+    return request<PeopleList>(`/api/people${search ? `?${search}` : ''}`)
   },
 
   // The Discord server's members: a list of its own, because most people are on one side only.

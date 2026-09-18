@@ -35,6 +35,11 @@ test('Settings keeps the Setup heading now that Sync health is not there to carr
   assert.ok(settings && 'group' in settings && settings.group === 'Setup')
 })
 
+test('People is its own page and asks for See profiles, not See members', () => {
+  assert.equal(mayOpen(person('ViewProfile'), 'people'), true)
+  assert.equal(mayOpen(person('ViewMembers'), 'people'), false)
+})
+
 test('every page with a go-to chord has its own letter', () => {
   const letters = Object.values(GO_TO_KEYS).filter((l) => l !== '')
 
