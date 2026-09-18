@@ -20,14 +20,39 @@ Anyone Modbot sees, including:
 
 ## What is stored
 
-The profile as VRChat returns it. The card shows:
+The profile as VRChat returns it. The left side of the popup shows:
 
 - picture, display name and pronouns;
-- status line and bio;
-- **Joined VRChat** and **Last platform**;
-- **Last seen by Modbot**: the latest time Modbot saw this person in anything it recorded;
-- VRChat's tags (trust level and similar);
+- a row of badges read from VRChat's tags and the platform they last used (see
+  [Badges](#badges));
+- how old the stored profile is;
 - the 18+ verified mark, and what VRChat shows about age verification.
+
+The **Profile** section at the top of the popup's **Overview** tab shows the rest:
+
+- status line and bio;
+- **Joined VRChat**;
+- **Last seen by Modbot**: the latest time Modbot saw this person in anything it recorded;
+- the tags that have no badge, behind **12 more tags** (or however many). Press it to see them as
+  VRChat sent them; **Hide tags** puts them away.
+
+## Badges
+
+VRChat marks an account with tags, and Modbot turns the ones that mean something into a badge
+rather than making you read the tag:
+
+| Badge | From |
+|---|---|
+| The trust rank (see [Trust ranks](#trust-ranks)) | the `system_trust_*` tags |
+| **VRC+**, in gold | `system_supporter`: an active VRChat Plus subscription |
+| **PC**, **Android** or **iOS** | the platform they last used. Anything else VRChat sends is shown as sent. |
+| **VRChat staff** | the `admin_*` tags |
+| **Nuisance** | `system_troll` or `system_probable_troll`. When the trust rank already says Nuisance, the badge is not shown twice. |
+| **Early adopter** | `system_early_adopter` |
+| One badge per language, such as **English** or **Japanese** | the `language_*` tags. A language Modbot has no name for shows its code. |
+
+The 18+ mark has its own block, so the age tags are not repeated as badges. Every tag not in this
+table is behind the **more tags** control on the **Overview** tab.
 
 Modbot keeps everything else VRChat returns too, **except** these, which are dropped before
 anything is saved:
@@ -97,13 +122,13 @@ These are the defaults. Some other rules protect the queue:
 
 ### Every profile says how old it is
 
-The top line of the card always says **Last refreshed** and how long ago. When the profile is
+The line under the badges always says **Last refreshed** and how long ago. When the profile is
 older than 6 hours it adds **stale — older than 6 hours**. A bio from an hour ago and a bio from
-last week are different claims, and the card never shows one without saying which it is.
+last week are different claims, and the popup never shows one without saying which it is.
 
 When you open a person, Modbot shows what it has straight away and asks for a fresh copy.
-**refreshing…** appears while it waits, and the card updates when the new copy arrives. If the
-refresh cannot happen, the card says **Couldn't refresh:** and the reason (for example, VRChat is
+**refreshing…** appears while it waits, and the profile updates when the new copy arrives. If the
+refresh cannot happen, the line says **Couldn't refresh:** and the reason (for example, VRChat is
 limiting Modbot's requests) and keeps showing what it has. After a minute of waiting it says
 **Refresh still waiting.**
 

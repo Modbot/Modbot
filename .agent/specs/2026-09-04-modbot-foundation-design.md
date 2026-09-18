@@ -2321,8 +2321,9 @@ where they were.
 #### What changed from the pane, and why
 
 - **A centre popup rather than a right-hand pane.** Every kind now lays out the same way: who or what
-  it is on the left, tabs on the right. A narrow pane had room for one column, and the person's
-  history, case files and presence figures were one long scroll.
+  it is on the left, tabs on the right — and, since 2026-09-17, only *who or what it is* on the left,
+  with the rest of the record at the top of the Overview tab (see below). A narrow pane had room for
+  one column, and the person's history, case files and presence figures were one long scroll.
 - **Three kinds rather than one.** A person, a world and an instance, because each names the others:
   an instance has a world and people, a world has instances, a person was seen in instances. When
   only a person could be opened, every world and instance id on screen was a dead end that merely
@@ -2332,15 +2333,48 @@ where they were.
   unreadable and makes Escape ambiguous — and the one underneath is named in a "Back to the …"
   control in the header.
 
-| Kind | Left | Tabs |
-|---|---|---|
-| Person | Their stored VRChat profile; membership and roles | **Logs** (history counts and every fact about them), **Cases**, **Metrics** (time seen, instances and worlds visited, arrivals, last seen) |
-| World | Name, author, picture, capacity, who can find it, when first seen | **Instances** (newest first), **Metrics** (time seen, visitors, instances opened per day) |
-| Instance | World (a link), instance number, who can join, region, opened and closed, people now, most at once, how long it ran | **People** (who a moderator's client saw there), **Logs** (facts recorded there while it was open) |
+#### Identity on the left, the rest under Overview (2026-09-17)
 
-Everything in all three comes from Modbot's own tables. Opening a popup asks VRChat for nothing, so
+The left column of every kind is **identity only**: the picture, the name, and the two or three
+facts that say what the thing is, plus its standing (open or closed, in the server or left, on the
+ban list). Everything else — the bio, the dates, the capacity, the region, the description — sits in
+a details section at the **top of the Overview tab**, above the figures the tab already showed.
+
+The column had been carrying the whole record. A person's bio, joined date, status line and a dozen
+raw tags pushed the membership card and its Kick and Ban controls below the fold, so the part a
+moderator opens the popup *to act on* was the part they had to scroll for. The split keeps the left
+column short enough that identity and actions are always on screen together, and the Overview —
+the tab that opens first — still shows the rest without a click.
+
+**Logs stays its own tab everywhere it exists**, because every fact about a thing is a list to scan,
+not a glance.
+
+**A person's tags are read into badges, not shown raw.** VRChat's `tags` is a grab-bag — trust rank,
+subscription, languages, staff, early adopter, feature access — and `language_jpn` or
+`system_supporter` is not a thing a volunteer reads. The trust rank was already a badge (the server
+computes it from the tags); the same row now carries **VRC+** (`system_supporter`, in gold text
+with a small spark — VRChat's own logo is their trademark and is not embedded), the **platform
+last used** (`last_platform`: PC, Android or iOS with a picture; any other value is shown as sent,
+in monospace, because the field is free text on the wire), **VRChat staff** (`admin_*`),
+**Nuisance** (`system_troll`, `system_probable_troll`, in the warning colour), **Early adopter**
+(`system_early_adopter`) and one badge per **language** (`language_*`, the code turned into the
+language's name where this build knows it). Staff and Nuisance are also trust ranks the server
+computes, so when the rank already says one of those the tag badge is not drawn twice. The
+`system_trust_*` tags are the rank badge and the `age_verified` tags are the 18+ card, so neither
+is repeated. Every tag none of that covers stays hidden behind a control that counts them
+(*12 more tags*), shown as the raw tag when opened — nothing is dropped, and nothing this build
+does not understand is guessed at.
+
+| Kind | Left | Overview opens with | Other tabs |
+|---|---|---|---|
+| Person | Picture, name, pronouns, the badge row (trust rank, VRC+, platform, staff or nuisance, languages), how old the reading is, the 18+ card, the Discord link, membership and roles with Kick, Ban and Unban | **Profile**: status line, bio, joined VRChat, last seen by Modbot, the remaining tags behind a control | **Logs** (every fact about them), **History** (the profile after each recorded change), **Cases**, **Metrics** (time seen, instances and worlds visited, arrivals, last seen), **JSON** |
+| World | Picture, name, author, who can find it | **Details**: capacity, when first seen, when published, when the page was last read, description | **Instances** (newest first), **History** (facts recorded in any of its instances), **Metrics** (time seen, visitors, instances opened per day), **JSON** |
+| Instance | World picture, world (a link), instance number, who can join, open now or closed | **Details**: region, opened, people now, what a moderator's client saw | **People** (who a moderator's client saw there), **Logs** (facts recorded there while it was open), **JSON** |
+| Discord person | Picture, names, in the server or left, bot, pending, timed out | **Details**: joined, left, timed out until, boosting since, roles | **Logs**, **History** (their own comings and goings), **Messages**, **Metrics**, **JSON** |
+
+Everything in all four comes from Modbot's own tables. Opening a popup asks VRChat for nothing, so
 it costs no API budget however often a moderator does it (§4.3.4). An instance is opened by Modbot's
-own id for it, never VRChat's number, which VRChat hands out again once a room closes.
+own id for it, never VRChat's number, which VRChat hands out again once an instance closes.
 
 #### The link carries the whole stack
 
@@ -2367,8 +2401,9 @@ Escape would leave Modbot.
   popup that cannot be linked is a popup nobody shares.
 - **Every list that renders a person, a world or an instance is a launcher.** One component per kind,
   one fetch shape, one place to add anything new.
-- **Repeat-offender context (§5.8.4) lives on the person's Logs tab**, which is what makes it visible
-  at the moment of action rather than only on a page someone has to think to visit.
+- **Repeat-offender context (§5.8.4) lives on the person's Overview tab**, under the profile
+  section, which is what makes it visible at the moment of action rather than only on a page
+  someone has to think to visit.
 - It must open **fast**, because it is opened speculatively. Identity first, tabs as they arrive.
 
 #### Facts read as sentences, written when the page is drawn

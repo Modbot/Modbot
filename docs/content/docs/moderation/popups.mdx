@@ -32,8 +32,12 @@ The title is **Person**, with the person's VRChat id under it.
 
 ### Left side
 
-- **The profile.** What Modbot has stored about the person's VRChat profile, how old it is, and
-  the 18+ verified mark. Opening the popup asks for a fresh copy. See [Profiles](/moderation/profiles).
+- **Who they are.** Their picture, display name and pronouns, then a row of badges: the
+  [trust rank](/moderation/profiles#trust-ranks), **VRC+** (in gold) if they subscribe, the
+  platform they last used (**PC**, **Android** or **iOS**), **VRChat staff**, **Nuisance**,
+  **Early adopter**, and one badge per language on their profile. Under that, how old the stored
+  profile is, and the 18+ verified mark. Opening the popup asks for a fresh copy. See
+  [Profiles](/moderation/profiles). The rest of the profile is on the **Overview** tab.
 - **Discord.** Only when the person has linked a Discord account: the Discord name (click it to
   open the Discord person popup), the Discord id, when they linked, the roles Modbot gave them,
   and **Not in the server** if they have left it. Anybody with **Manage Discord links** also sees
@@ -49,7 +53,7 @@ The title is **Person**, with the person's VRChat id under it.
 
 | Tab | What it shows |
 |---|---|
-| **Overview** | The **History** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#history-on-a-persons-popup)), the main time-in-world figures, and the newest 8 audit log entries about them. |
+| **Overview** | **Profile**: their status line, bio, **Joined VRChat**, **Last seen by Modbot**, and the tags that have no badge behind a control that counts them (**12 more tags** / **Hide tags**). Then the **History** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#history-on-a-persons-popup)), the main time-in-world figures, and the newest 8 audit log entries about them. |
 | **Logs** | **Everything recorded about this person**: the newest 50 audit log entries about them. |
 | **History** | Their VRChat profile as it stood after each change Modbot recorded, newest first. Pick a version on the left to see it in full; the fields that change carried are marked. **Now** is the profile as stored; **First seen** is where the record begins. See [Profile history](#profile-history). |
 | **Cases** | Their case files, withdrawn ones included and marked as such. Click one to open it. See [Bans and case files](/moderation/case-files). |
@@ -74,24 +78,28 @@ The title is the world's name, with the world id under it.
 
 ### Left side
 
-The world's picture, then:
+The world's picture and name, then:
 
 | Field | Meaning |
 |---|---|
 | **Made by** | The world's author. Click to open them as a person. |
-| **Holds** | How many people the world page says it holds, and the suggested number if different. This is what the page says; group exemptions can raise the real limit. |
 | **Who can find it** | **Anyone (public)**, **Only people given the link (private)** or **Hidden**. |
-| **First seen by Modbot** | When the world first turned up. |
-| **Published on VRChat** | When the author published it. |
-| **Page last read** | When Modbot last read the world's VRChat page. |
-| **Description** | The world's description. |
 
 **Name not read yet** is normal for a few minutes after a new world turns up, and permanent for a
 private or deleted world.
 
 ### Tabs
 
-- **Overview**: the four figures and the newest 5 instances.
+- **Overview**: **Details**, then the four figures and the newest 5 instances. The details are:
+
+  | Field | Meaning |
+  |---|---|
+  | **Holds** | How many people the world page says it holds, and the suggested number if different. This is what the page says; group exemptions can raise the real limit. |
+  | **First seen by Modbot** | When the world first turned up. |
+  | **Published on VRChat** | When the author published it. |
+  | **Page last read** | When Modbot last read the world's VRChat page. |
+  | **Description** | The world's description. |
+
 - **Instances**: the newest 25 instances that have run in this world. The number on the tab is the
   total.
 - **History**: the newest 50 audit log entries recorded in any of this world's instances.
@@ -113,14 +121,15 @@ different popups.
 ### Left side
 
 The world's picture, then **World** (click to open the world popup), **Instance number**,
-**Who can join**, **Region**, **Opened**, then either **Closed** (with "went quiet" if Modbot closed
-it after hearing nothing for a long time) or **Still open** with when it was last seen,
-**Ran for** or **Open for**, **People now** (open instances only), **Most at once**, and
-**Seen by a moderator's client**: how many people a client saw and for how long in total.
+**Who can join**, and either **Closed** with when (and "went quiet" if Modbot closed it after
+hearing nothing for a long time) or **Open now** with when it was last seen.
 
 ### Tabs
 
-- **Overview**: the four figures, the six people seen longest, and the newest 8 entries.
+- **Overview**: **Details** (**Region**, **Opened**, **People now** for an open instance, and
+  **Seen by a moderator's client**: how many people a client saw and for how long in total), then
+  the four figures (**Ran for** or **Open for**, **Most at once**, **People seen**, **Arrivals**),
+  the six people seen longest, and the newest 8 entries.
 - **People**: **Who was seen in this instance**, with **Time seen**, **Arrivals**, **First seen**
   and **Last seen** for each person.
 - **Logs**: **What happened in this instance**, the newest 100 entries.
