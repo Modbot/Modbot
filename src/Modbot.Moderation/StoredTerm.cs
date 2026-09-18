@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Modbot.AI.Moderation;
+namespace Modbot.Moderation;
 
 /// <summary>How a term matches (AI moderation design §4.1).</summary>
 public static class TermKind

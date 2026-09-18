@@ -10,12 +10,9 @@ using Modbot.Core.Discord;
 using Modbot.Core.Logging;
 using Modbot.Core.Moderation;
 using Modbot.Core.Time;
-using Modbot.AI.Calls;
-using Modbot.AI.Usage;
-using OpenAI.Chat;
 using Serilog;
 
-namespace Modbot.AI.Moderation;
+namespace Modbot.Moderation;
 
 /// <summary>What "Try it" answers: every rule that matched, and what would happen.</summary>
 /// <param name="Matches">Rules that are switched off are included, marked by <see cref="TryMatch.RuleEnabled"/>.</param>
@@ -25,7 +22,9 @@ public sealed record TryResult(
     bool WouldDeleteMessage,
     int? WouldTimeOutMinutes,
     string? AiSkipped,
-    Guid? CallId = null);
+    Guid? CallId = null,
+    bool WouldGroupBan = false,
+    bool WouldGroupRemove = false);
 
 public sealed record TryMatch(ModerationMatch Match, bool RuleEnabled);
 
@@ -53,53 +52,52 @@ public sealed class CompiledTermLists
 }
 
 /// <summary>
-/// The AI moderation engine (AI moderation design §4 to §8, §12 to §14).
+/// The AutoMod engine (AutoMod design §4; AI moderation design §4 to §8, §12 to §14).
 /// </summary>
+/// <remarks>
+/// Term lists are matched here and cost nothing. AI topics go through <see cref="IAiRuleChecker"/>,
+/// and only when AI is on and the group has left that tool switched on (AutoMod design §6): with
+/// AI off, or without <c>Modbot.AI</c> in the process, every check is term lists alone.
+/// </remarks>
 public sealed class ModerationEngine : IModerationChecker
 {
     private readonly ModbotContext _db;
-    private readonly IAiClients _ai;
+    private readonly IAiRuleChecker _ai;
     private readonly IFactWriter _facts;
     private readonly EventPartitionMaintainer _partitions;
     private readonly IModbotClock _clock;
     private readonly IDiscordModerationActions _discord;
+    private readonly IVRChatModerationActions _vrchat;
     private readonly CompiledTermLists _compiled;
-    private readonly IAiUsage _usage;
-    private readonly AiCallRunner _runner;
-    private readonly IAiCallLog _calls;
     private readonly TextLanguage _language;
-    private readonly ModerationPictures _pictures;
     private readonly ReviewFacts _reviewFacts;
+    private readonly IAiCallTexts _callTexts;
     private readonly ILogger _log;
 
     public ModerationEngine(
         ModbotContext db,
-        IAiClients ai,
+        IAiRuleChecker ai,
         IFactWriter facts,
         EventPartitionMaintainer partitions,
         IModbotClock clock,
         IDiscordModerationActions discord,
+        IVRChatModerationActions vrchat,
         CompiledTermLists compiled,
-        IAiUsage usage,
-        AiCallRunner runner,
-        IAiCallLog calls,
         TextLanguage language,
-        ModerationPictures pictures,
-        ReviewFacts reviewFacts)
+        ReviewFacts reviewFacts,
+        IAiCallTexts callTexts)
     {
-        ArgumentNullException.ThrowIfNull(runner);
-        ArgumentNullException.ThrowIfNull(calls);
-        ArgumentNullException.ThrowIfNull(language);
-        ArgumentNullException.ThrowIfNull(pictures);
-        ArgumentNullException.ThrowIfNull(reviewFacts);
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(ai);
         ArgumentNullException.ThrowIfNull(facts);
         ArgumentNullException.ThrowIfNull(partitions);
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(discord);
+        ArgumentNullException.ThrowIfNull(vrchat);
         ArgumentNullException.ThrowIfNull(compiled);
-        ArgumentNullException.ThrowIfNull(usage);
+        ArgumentNullException.ThrowIfNull(language);
+        ArgumentNullException.ThrowIfNull(reviewFacts);
+        ArgumentNullException.ThrowIfNull(callTexts);
 
         _db = db;
         _ai = ai;
@@ -107,13 +105,11 @@ public sealed class ModerationEngine : IModerationChecker
         _partitions = partitions;
         _clock = clock;
         _discord = discord;
+        _vrchat = vrchat;
         _compiled = compiled;
-        _usage = usage;
-        _runner = runner;
-        _calls = calls;
         _language = language;
-        _pictures = pictures;
         _reviewFacts = reviewFacts;
+        _callTexts = callTexts;
         _log = Log.Logger.ForContext(LogArea.Name, LogArea.Moderation);
     }
 
@@ -121,15 +117,19 @@ public sealed class ModerationEngine : IModerationChecker
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        if (string.IsNullOrWhiteSpace(message.Text) || !await SwitchedOnAsync(ct).ConfigureAwait(false))
+        if (string.IsNullOrWhiteSpace(message.Text))
+            return ModerationOutcome.Nothing;
+
+        var switches = await SwitchesAsync(ct).ConfigureAwait(false);
+        if (!switches.AutoModOn)
             return ModerationOutcome.Nothing;
 
         var rules = await RulesAsync(onlyEnabled: true, ct).ConfigureAwait(false);
         var where = new Where(message.ChannelId, await RolesOfAsync(message.GuildId, message.AuthorId, ct).ConfigureAwait(false));
 
         var evaluation = await EvaluateAsync(
-            rules, [new TextItem(0, ModerationTargets.DiscordMessage, message.Text)], where, new Asker(),
-            [CheckSubject.Of(message)], ct)
+            rules, [new TextItem(0, ModerationTargets.DiscordMessage, message.Text)], where, AiAsker.Nobody,
+            [CheckSubject.Of(message)], switches, ct)
             .ConfigureAwait(false);
 
         if (evaluation.Matches.Count == 0)
@@ -163,7 +163,11 @@ public sealed class ModerationEngine : IModerationChecker
 
         var nothing = (IReadOnlyList<ModerationOutcome>)[.. profiles.Select(_ => ModerationOutcome.Nothing)];
 
-        if (profiles.Count == 0 || !await SwitchedOnAsync(ct).ConfigureAwait(false))
+        if (profiles.Count == 0)
+            return nothing;
+
+        var switches = await SwitchesAsync(ct).ConfigureAwait(false);
+        if (!switches.AutoModOn)
             return nothing;
 
         var texts = new List<TextItem>();
@@ -181,7 +185,7 @@ public sealed class ModerationEngine : IModerationChecker
 
         var rules = await RulesAsync(onlyEnabled: true, ct).ConfigureAwait(false);
         var evaluation = await EvaluateAsync(
-            rules, texts, Where.Nowhere, new Asker(), [.. profiles.Select(CheckSubject.Of)], ct).ConfigureAwait(false);
+            rules, texts, Where.Nowhere, AiAsker.Nobody, [.. profiles.Select(CheckSubject.Of)], switches, ct).ConfigureAwait(false);
 
         var outcomes = new List<ModerationOutcome>(profiles.Count);
 
@@ -232,9 +236,10 @@ public sealed class ModerationEngine : IModerationChecker
         if (!includeAi)
             rules = rules with { Topics = [] };
 
+        var switches = await SwitchesAsync(ct).ConfigureAwait(false);
         var evaluation = await EvaluateAsync(
-            rules, [new TextItem(0, target, text)], Where.Nowhere, new Asker(userId, username, KeepText: true),
-            [CheckSubject.None], ct)
+            rules, [new TextItem(0, target, text)], Where.Nowhere, new AiAsker(userId, username, KeepText: true),
+            [CheckSubject.None], switches, ct)
             .ConfigureAwait(false);
 
         var enabled = rules.Lists.Where(l => l.Enabled).Select(l => l.Id)
@@ -249,7 +254,9 @@ public sealed class ModerationEngine : IModerationChecker
             active.Any(m => m.DeleteMessage),
             active.Max(m => m.TimeoutMinutes),
             evaluation.AiSkipped,
-            evaluation.Matches.Select(m => m.CallId).FirstOrDefault(id => id is not null));
+            evaluation.Matches.Select(m => m.CallId).FirstOrDefault(id => id is not null),
+            active.Any(m => m.GroupBan),
+            active.Any(m => m.GroupRemove));
     }
 
     /// <summary>
@@ -272,6 +279,7 @@ public sealed class ModerationEngine : IModerationChecker
 
         IModerationRule rule = (IModerationRule?)list ?? topic!;
         var rules = new Rules(list is null ? [] : [list], topic is null ? [] : [topic]);
+        var switches = await SwitchesAsync(ct).ConfigureAwait(false);
 
         var samples = await _db.ModerationTestSamples.AsNoTracking()
             .Where(s => s.RuleId == ruleId)
@@ -292,8 +300,8 @@ public sealed class ModerationEngine : IModerationChecker
             // narrowed to display names should stop flagging the bio samples.
             var target = ModerationTargetNames.Parse(sample.Target) ?? ModerationTargets.DiscordMessage;
             var evaluation = await EvaluateAsync(
-                rules, [new TextItem(0, target, sample.Text)], Where.Nowhere, new Asker(userId, username, KeepText: true),
-                [CheckSubject.None], ct)
+                rules, [new TextItem(0, target, sample.Text)], Where.Nowhere, new AiAsker(userId, username, KeepText: true),
+                [CheckSubject.None], switches, ct)
                 .ConfigureAwait(false);
 
             model ??= evaluation.Model;
@@ -390,19 +398,30 @@ public sealed class ModerationEngine : IModerationChecker
     /// <summary>One rule match, and the AI call that found it. Null for a term list, which makes none.</summary>
     private sealed record SubjectMatch(int Subject, ModerationMatch Match, Guid? CallId);
 
-    /// <summary>Who the check is for, when it is for anybody.</summary>
-    /// <param name="KeepText">Whether the call log keeps the prompt and the answer whatever comes of it.</param>
-    private sealed record Asker(Guid? UserId = null, string? Username = null, bool KeepText = false);
-
     private sealed record Evaluation(
         List<SubjectMatch> Matches,
         string? AiSkipped,
         string? Model,
-        Dictionary<Guid, (string Prompt, string Answer)> CallTexts);
+        IReadOnlyDictionary<Guid, (string Prompt, string Answer)> CallTexts);
 
-    private async Task<bool> SwitchedOnAsync(CancellationToken ct)
-        => await _db.Settings.AsNoTracking().Where(s => s.Id == 1).Select(s => s.AiModerationEnabled)
+    /// <summary>The switches a check reads once: AutoMod itself, AI, and the AI tools (AutoMod design §6).</summary>
+    public sealed record AutoModSwitches(bool AutoModOn, bool AiOn, IReadOnlyDictionary<string, bool> Tools)
+    {
+        public bool Classifies => AiOn && AutoModAiTools.IsOn(Tools, AutoModAiTools.ClassifyTopics);
+
+        public bool SendsPictures => AiOn && AutoModAiTools.IsOn(Tools, AutoModAiTools.CheckPictures);
+    }
+
+    private async Task<AutoModSwitches> SwitchesAsync(CancellationToken ct)
+    {
+        var row = await _db.Settings.AsNoTracking().Where(s => s.Id == 1)
+            .Select(s => new { s.AutoModEnabled, s.AiEnabled, s.AutoModAiTools })
             .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+        return row is null
+            ? new AutoModSwitches(false, false, AutoModAiTools.Parse(null))
+            : new AutoModSwitches(row.AutoModEnabled, row.AiEnabled, AutoModAiTools.Parse(row.AutoModAiTools));
+    }
 
     private async Task<Rules> RulesAsync(bool onlyEnabled, CancellationToken ct)
     {
@@ -435,29 +454,14 @@ public sealed class ModerationEngine : IModerationChecker
         return roles is null ? [] : [.. RuleGuards.Ids(roles)];
     }
 
-    /// <summary>
-    /// One piece of text as it will be asked about: the topics that want the same amount of
-    /// context and the same answer about pictures, with the context and pictures they get.
-    /// </summary>
-    /// <remarks>
-    /// Topics are grouped by what they ask for rather than all asked at once, because context and
-    /// pictures change the answer: a topic whose operator asked for no context must not be judged
-    /// on a conversation, and one that does not check pictures must not be shown them. Rules left
-    /// on the defaults share a group, so the ordinary check is still one piece of text (§16.3).
-    /// </remarks>
-    private sealed record AiAsk(
-        TextItem Item,
-        List<ModerationTopic> Topics,
-        IReadOnlyList<ContextMessage> Context,
-        IReadOnlyList<PictureToCheck> Pictures);
-
     /// <summary>Term lists first; AI topics only for text no term list matched (design §4.2).</summary>
     private async Task<Evaluation> EvaluateAsync(
         Rules rules,
         IReadOnlyList<TextItem> texts,
         Where where,
-        Asker asker,
+        AiAsker asker,
         IReadOnlyList<CheckSubject> subjects,
+        AutoModSwitches switches,
         CancellationToken ct)
     {
         var matches = new List<SubjectMatch>();
@@ -489,60 +493,55 @@ public sealed class ModerationEngine : IModerationChecker
         }
 
         if (forAi.Count == 0)
-            return new Evaluation(matches, null, null, []);
+            return new Evaluation(matches, null, null, new Dictionary<Guid, (string, string)>());
 
-        var chat = await _ai.GetChatAsync(ct).ConfigureAwait(false);
-        if (chat is null)
-            return new Evaluation(matches, "AI is off.", null, []);
+        // The AI is not asked while AI is off, and not asked about topics while that tool is off
+        // (AutoMod design §6). Both are decided here, before anything is built to send.
+        if (!switches.AiOn)
+            return new Evaluation(matches, NoAiRuleChecker.Reason, null, new Dictionary<Guid, (string, string)>());
+        if (!switches.Classifies)
+            return new Evaluation(matches, ToolOff, null, new Dictionary<Guid, (string, string)>());
 
-        // A rule may only check pictures if the model reads them; the settings page will not offer
-        // it otherwise, but the model can be changed after the rule was saved (design §17). Asked
-        // only when some rule wants pictures, so the ordinary check is not a query heavier.
-        var wantsPictures = forAi.Any(f => f.Topics.Any(t => t.CheckPictures));
-        var readsPictures = wantsPictures && await ModelReadsPicturesAsync(chat.Model, ct).ConfigureAwait(false);
-
-        var asks = new List<AiAsk>();
+        var asks = new List<AiRuleText>();
+        var askedFor = new List<(TextItem Item, IReadOnlyList<ContextMessage> Context)>();
 
         foreach (var (item, topics) in forAi)
         {
             var subject = item.Subject < subjects.Count ? subjects[item.Subject] : CheckSubject.None;
 
-            foreach (var group in topics.GroupBy(t => (Context: ContextFor(t, item.Target), t.CheckPictures)))
+            // Topics are grouped by what they ask for rather than all asked at once, because
+            // context and pictures change the answer: a topic whose operator asked for no context
+            // must not be judged on a conversation, and one that does not check pictures must not
+            // be shown them. Rules left on the defaults share a group (§16.3).
+            foreach (var group in topics.GroupBy(t => (Context: ContextFor(t, item.Target), Pictures: t.CheckPictures && switches.SendsPictures)))
             {
                 var context = subject.Message is { } message && group.Key.Context > 0
                     ? await MessageContext.BeforeAsync(_db, message.ChannelId, message.MessageId, group.Key.Context, ct)
                         .ConfigureAwait(false)
                     : [];
 
-                var pictures = group.Key.CheckPictures && readsPictures
-                    ? await _pictures.ReadyAsync(
-                            await PictureSourcesAsync(subject, item.Target, ct).ConfigureAwait(false),
-                            ModerationPictures.SendsLinks(chat.Provider),
-                            ct)
-                        .ConfigureAwait(false)
+                var pictures = group.Key.Pictures
+                    ? await PictureSourcesAsync(subject, item.Target, ct).ConfigureAwait(false)
                     : [];
 
-                asks.Add(new AiAsk(item, [.. group], context, pictures));
+                asks.Add(new AiRuleText($"x{asks.Count + 1}", item.Target, item.Text, [.. group], context, pictures));
+                askedFor.Add((item, context));
             }
         }
 
-        // One key per topic across the whole request, so the topics are listed once however many
-        // pieces of text are checked against them.
-        var keys = forAi.SelectMany(f => f.Topics).DistinctBy(t => t.Id)
-            .Select((t, i) => new TopicToCheck($"t{i + 1}", t.Id, t.Name, t.Instructions, t.Sensitivity))
-            .ToDictionary(t => t.Id);
+        var answer = await _ai.CheckAsync(asks, asker, ct).ConfigureAwait(false);
 
-        var toAsk = asks
-            .Select((a, i) => (a.Item, a.Topics, a.Context, Text: new TopicText(
-                $"x{i + 1}", a.Item.Target, a.Item.Text, [.. a.Topics.Select(t => keys[t.Id])], a.Context, a.Pictures)))
-            .ToList();
-
-        var asked = await AskAsync(chat, [.. toAsk.Select(a => a.Text)], asker, ct).ConfigureAwait(false);
-
-        foreach (var (hit, callId) in asked.Hits)
+        foreach (var hit in answer.Hits)
         {
-            var (item, topics, context, _) = toAsk.First(a => a.Text.Key == hit.TextKey);
-            var topic = topics.First(t => t.Id == hit.Topic.Id);
+            var index = asks.FindIndex(a => a.Key == hit.TextKey);
+            if (index < 0)
+                continue;
+
+            var (item, context) = askedFor[index];
+            var topic = asks[index].Topics.FirstOrDefault(t => t.Id == hit.TopicId);
+            if (topic is null)
+                continue;
+
             var contextIds = context.Count == 0 ? null : context.Select(c => c.MessageId).ToList();
 
             var built = Build(
@@ -554,14 +553,17 @@ public sealed class ModerationEngine : IModerationChecker
 
             matches.Add(new SubjectMatch(
                 item.Subject,
-                hit.Picture is { } picture ? built with { Picture = picture.Label, PictureUrl = picture.Url } : built,
-                callId));
+                hit.Picture is { } picture ? built with { Picture = picture, PictureUrl = hit.PictureUrl } : built,
+                hit.CallId));
         }
 
-        return new Evaluation(matches, asked.Error, asked.Model ?? chat.Model, asked.CallTexts);
+        return new Evaluation(matches, answer.Skipped, answer.Model, answer.CallTexts);
 
         static string Key(TextItem item) => $"{item.Subject}:{(int)item.Target}";
     }
+
+    /// <summary>What "Try it" and a flag say when the topic tool is switched off on the AutoMod tab.</summary>
+    public const string ToolOff = "AI topics are switched off in AutoMod.";
 
     /// <summary>
     /// How much context this rule wants. Only Discord chat has any: a profile has no conversation
@@ -571,21 +573,6 @@ public sealed class ModerationEngine : IModerationChecker
         => target == ModerationTargets.DiscordMessage && ContextMessageCounts.IsCount(rule.ContextMessages)
             ? rule.ContextMessages
             : 0;
-
-    /// <summary>Whether the model in use reads pictures, as the model list last said (design §17).</summary>
-    /// <remarks>
-    /// A model the catalogue has never heard of is treated as reading none: a picture sent to a
-    /// model that cannot read it is a bill for nothing and an answer about the words alone.
-    /// </remarks>
-    private async Task<bool> ModelReadsPicturesAsync(string model, CancellationToken ct)
-    {
-        var modalities = await _db.AiCatalogModels.AsNoTracking()
-            .Where(m => m.Model == model)
-            .Select(m => m.InputModalities)
-            .FirstOrDefaultAsync(ct).ConfigureAwait(false);
-
-        return modalities is not null && modalities.Contains("image", StringComparer.OrdinalIgnoreCase);
-    }
 
     /// <summary>
     /// The pictures that belong to what is being checked: a Discord message's image attachments
@@ -601,7 +588,7 @@ public sealed class ModerationEngine : IModerationChecker
                 .Select(m => m.Attachments)
                 .FirstOrDefaultAsync(ct).ConfigureAwait(false);
 
-            var sources = new List<PictureSource>(ModerationPictures.Attachments(row));
+            var sources = new List<PictureSource>(PictureAttachments.Of(row));
 
             var avatar = await _db.DiscordMembers.AsNoTracking()
                 .Where(m => m.GuildId == message.GuildId && m.UserId == message.AuthorId)
@@ -634,158 +621,6 @@ public sealed class ModerationEngine : IModerationChecker
         return pictures;
     }
 
-    /// <summary>What one batched topic check answers, and what its calls were sent.</summary>
-    private sealed record Asked(
-        List<(TopicHit Hit, Guid CallId)> Hits,
-        string? Error,
-        string? Model,
-        Dictionary<Guid, (string Prompt, string Answer)> CallTexts);
-
-    /// <summary>
-    /// Asks the model about several pieces of text at once, in batches of the operator's size.
-    /// </summary>
-    /// <remarks>
-    /// A batch whose answer cannot be matched back to the texts that were sent -- a model that
-    /// ignored the shape it was asked for, or named texts nobody sent -- is not thrown away: the
-    /// texts go again one at a time, which is what Modbot did before batching existed, so the worst
-    /// case is the old cost rather than a lost check.
-    /// </remarks>
-    private async Task<Asked> AskAsync(
-        AiChat chat, IReadOnlyList<TopicText> texts, Asker asker, CancellationToken ct)
-    {
-        var size = await BatchSizeAsync(ct).ConfigureAwait(false);
-        var hits = new List<(TopicHit, Guid)>();
-        var callTexts = new Dictionary<Guid, (string, string)>();
-        string? error = null;
-        string? model = null;
-
-        foreach (var batch in texts.Chunk(size))
-        {
-            var answer = await OneCallAsync(chat, batch, asker, callTexts, ct).ConfigureAwait(false);
-            model ??= answer.Model;
-
-            if (answer.Stop is { } stop)
-                return new Asked(hits, stop, model, callTexts);
-
-            // One unreadable answer costs the batch a retry, one text per call, rather than
-            // costing every text in it its check.
-            if (answer.Check is { Unreadable: true } && batch.Length > 1)
-            {
-                foreach (var one in batch)
-                {
-                    var single = await OneCallAsync(chat, [one], asker, callTexts, ct).ConfigureAwait(false);
-                    model ??= single.Model;
-
-                    if (single.Stop is { } singleStop)
-                        return new Asked(hits, singleStop, model, callTexts);
-
-                    if (single.Check is { Error: not null } bad)
-                        error = bad.Error;
-                    else if (single.Check is { } ok)
-                        hits.AddRange(ok.Hits.Select(h => (h, single.CallId)));
-                }
-
-                continue;
-            }
-
-            if (answer.Check is { Error: not null } failed)
-            {
-                error = failed.Error;
-                continue;
-            }
-
-            if (answer.Check is { } read)
-                hits.AddRange(read.Hits.Select(h => (h, answer.CallId)));
-        }
-
-        return new Asked(hits, error, model, callTexts);
-    }
-
-    /// <param name="Stop">A limit that ends the whole check, not just this call.</param>
-    private sealed record OneCall(TopicCheck? Check, Guid CallId, string? Stop, string? Model);
-
-    private async Task<OneCall> OneCallAsync(
-        AiChat chat,
-        IReadOnlyList<TopicText> batch,
-        Asker asker,
-        Dictionary<Guid, (string Prompt, string Answer)> callTexts,
-        CancellationToken ct)
-    {
-        // The spend limits are moderation's share of the AI bill and the bill as a whole; the daily
-        // call limit is this screen's own brake. Any of them stops AI topics, and term lists carry on.
-        if (await _usage.LimitReachedAsync(AiFeatures.Moderation, ct).ConfigureAwait(false) is { } reached)
-        {
-            await _runner.RecordLimitedAsync(AiFeatures.Moderation, chat.Model, chat.Provider, reached.Message, asker.UserId, ct)
-                .ConfigureAwait(false);
-            return new OneCall(null, Guid.Empty, reached.Message, null);
-        }
-
-        if (!await AiCallAllowance.TryUseAsync(_db, _clock.UtcNow, ct).ConfigureAwait(false))
-        {
-            const string Reached = "The daily AI call limit is reached.";
-            await _runner.RecordLimitedAsync(AiFeatures.Moderation, chat.Model, chat.Provider, Reached, asker.UserId, ct)
-                .ConfigureAwait(false);
-            return new OneCall(null, Guid.Empty, Reached, null);
-        }
-
-        var prompt = TopicClassifier.Prompt(batch, TopicClassifier.NewMarker());
-
-        var plan = new AiCallPlan(
-            AiFeatures.Moderation, chat, chat.Model,
-            Prompt: TopicClassifier.AsOneText(prompt),
-            UserId: asker.UserId,
-            Username: asker.Username,
-            KeepText: asker.KeepText);
-
-        var result = await _runner.RunAsync(plan, async (client, token) =>
-        {
-            // The instructions first and unchanged, so a provider that caches prefixes can; the
-            // topics next; each member's text alone in a message of its own after them.
-            List<ChatMessage> messages =
-            [
-                AiPromptCache.Instructions(TopicClassifier.SystemPrompt, chat.Provider),
-                new UserChatMessage(prompt.Instructions),
-                .. TopicClassifier.ContentMessages(prompt, batch),
-            ];
-
-            ChatCompletion completion = await client.CompleteChatAsync(
-                messages,
-                TopicClassifier.Options(chat.Provider, batch.Count, TopicClassifier.AnyPictures(batch)),
-                token).ConfigureAwait(false);
-
-            var reply = string.Concat(completion.Content
-                .Where(p => p.Kind == ChatMessageContentPartKind.Text)
-                .Select(p => p.Text));
-
-            return new AiCallAnswer<string>(reply, completion.Model, completion.Usage, reply);
-        }, ct).ConfigureAwait(false);
-
-        if (!result.Answered)
-        {
-            _log.Warning("AI topic check failed: {Error}", result.Error);
-            return new OneCall(new TopicCheck([], result.Error), result.CallId, null, result.Model);
-        }
-
-        var check = TopicClassifier.Read(result.Value!, batch, prompt.Marker);
-        callTexts[result.CallId] = (plan.Prompt!, result.Value!);
-
-        if (check.Error is not null)
-            _log.Warning("AI topic check failed: {Error}", check.Error);
-
-        return new OneCall(check, result.CallId, null, result.Model);
-    }
-
-    /// <summary>How many pieces of text may go in one call. At least one.</summary>
-    private async Task<int> BatchSizeAsync(CancellationToken ct)
-    {
-        var size = await _db.Settings.AsNoTracking().Where(s => s.Id == 1)
-            .Select(s => (int?)s.AiModerationProfileBatchSize)
-            .FirstOrDefaultAsync(ct).ConfigureAwait(false) ?? 1;
-
-        // Four fields per profile, so a batch of five profiles is twenty pieces of text.
-        return Math.Clamp(size, 1, 20) * 4;
-    }
-
     /// <summary>The rules that look at this target, in this channel (design §3 and §13.3).</summary>
     private static IEnumerable<TRule> Applicable<TRule>(IReadOnlyList<TRule> rules, ModerationTargets target, Where where)
         where TRule : IModerationRule
@@ -795,6 +630,11 @@ public sealed class ModerationEngine : IModerationChecker
     /// One match, with everything that stands between the rule and the action already decided
     /// (design §13). Null when an exempt role means the rule does not even flag.
     /// </summary>
+    /// <remarks>
+    /// Discord actions apply to a Discord message; VRChat actions apply to a VRChat profile
+    /// (AutoMod design §5). A rule never acts across platforms: a bio is not a message to delete,
+    /// and a Discord author is not a group member to ban.
+    /// </remarks>
     private static ModerationMatch? Build(
         IModerationRule rule,
         string kind,
@@ -812,8 +652,8 @@ public sealed class ModerationEngine : IModerationChecker
         if (exempt && rule.ExemptRolesSkipFlag)
             return null;
 
-        // Profile targets never act (design §6). Neither does anything outside Discord chat.
-        var asks = target == ModerationTargets.DiscordMessage && RuleGuards.WantsAction(rule);
+        var chat = target == ModerationTargets.DiscordMessage;
+        var asks = chat ? RuleGuards.WantsDiscordAction(rule) : RuleGuards.WantsVRChatAction(rule);
         var trial = asks && RuleGuards.InTrial(rule);
         var paused = asks && rule.PausedAt is not null;
 
@@ -827,14 +667,16 @@ public sealed class ModerationEngine : IModerationChecker
             target,
             matched,
             reason,
-            asks && rule.DeleteMessage,
-            asks ? rule.TimeoutMinutes : null,
+            asks && chat && rule.DeleteMessage,
+            asks && chat ? rule.TimeoutMinutes : null,
             Acting: asks && !exempt && !trial && !paused,
             Trial: trial,
             Exempt: exempt,
             Paused: paused,
             Language: language,
-            ContextMessageIds: contextMessageIds);
+            ContextMessageIds: contextMessageIds,
+            GroupBan: asks && !chat && rule.GroupBan,
+            GroupRemove: asks && !chat && rule.GroupRemove);
     }
 
     // ── Flags, actions, facts ──────────────────────────────────────────────────────────────
@@ -874,7 +716,7 @@ public sealed class ModerationEngine : IModerationChecker
 
             if (same.Any(f => f.State == ModerationFlagState.Dismissed))
             {
-                results.Add(match with { Suppressed = true, Acting = false, DeleteMessage = false, TimeoutMinutes = null });
+                results.Add(match.WithoutActions(suppressed: true));
                 continue;
             }
 
@@ -886,7 +728,7 @@ public sealed class ModerationEngine : IModerationChecker
             // matching twice is one.
             if (repeat || toFlag.Any(m => m.RuleId == match.RuleId && m.TermKey == match.TermKey && m.Target == match.Target))
             {
-                results.Add(match with { Acting = false, DeleteMessage = false, TimeoutMinutes = null });
+                results.Add(match.WithoutActions());
                 continue;
             }
 
@@ -925,44 +767,22 @@ public sealed class ModerationEngine : IModerationChecker
             Trial = m.Trial,
             WouldDeleteMessage = m.DeleteMessage,
             WouldTimeOutMinutes = m.TimeoutMinutes,
+            WouldGroupBan = m.GroupBan,
+            WouldGroupRemove = m.GroupRemove,
             CallId = callOf.GetValueOrDefault(m),
         }).ToList();
 
         // The actions, before anything is saved, so the flag rows can say what happened. Only
         // matches the guards let through act; the rest have recorded what they would have done.
-        var deleted = false;
-        int? timedOut = null;
-        DiscordActionOutcome? deleteOutcome = null;
-        DiscordActionOutcome? timeoutOutcome = null;
-        var deleters = toFlag.Where(m => m.Acting && m.DeleteMessage).ToList();
-        var timers = toFlag.Where(m => m.Acting && m.TimeoutMinutes is > 0).ToList();
-
-        if (message is not null && (deleters.Count > 0 || timers.Count > 0))
-        {
-            var reason = Clip("Modbot moderation rule: " + string.Join(", ", toFlag.Select(m => m.RuleName).Distinct()), 400);
-
-            if (deleters.Count > 0)
-            {
-                deleteOutcome = await _discord.DeleteMessageAsync(message.ChannelId, message.MessageId, reason, ct)
-                    .ConfigureAwait(false);
-                deleted = deleteOutcome.Done;
-            }
-
-            if (timers.Count > 0)
-            {
-                var minutes = timers.Max(m => m.TimeoutMinutes!.Value);
-                timeoutOutcome = await _discord.TimeOutAsync(message.GuildId, message.AuthorId, TimeSpan.FromMinutes(minutes), reason, ct)
-                    .ConfigureAwait(false);
-                if (timeoutOutcome.Done)
-                    timedOut = minutes;
-            }
-        }
+        var actions = await ActAsync(toFlag, person, message, ct).ConfigureAwait(false);
 
         foreach (var flag in flags)
         {
             var asked = toFlag.First(m => m.RuleId == flag.RuleId && m.TermKey == flag.TermKey);
-            flag.MessageDeleted = deleted && asked.Acting && asked.DeleteMessage;
-            flag.TimedOutMinutes = asked.Acting && asked.TimeoutMinutes is > 0 ? timedOut : null;
+            flag.MessageDeleted = actions.Deleted && asked.Acting && asked.DeleteMessage;
+            flag.TimedOutMinutes = asked.Acting && asked.TimeoutMinutes is > 0 ? actions.TimedOutMinutes : null;
+            flag.GroupBanned = actions.GroupBanned && asked.Acting && asked.GroupBan;
+            flag.GroupRemoved = actions.GroupRemoved && asked.Acting && asked.GroupRemove;
         }
 
         await using var transaction = await _db.Database.BeginTransactionAsync(ct).ConfigureAwait(false);
@@ -975,23 +795,11 @@ public sealed class ModerationEngine : IModerationChecker
         foreach (var flag in flags)
             await _facts.WriteAsync(FlagFact(flag, now), ct).ConfigureAwait(false);
 
-        if (message is not null && deleteOutcome is not null)
-        {
-            await _facts.WriteAsync(
-                ActionFact(FactType.AiModerationMessageDeleted, rules, deleters, flags, person, message, deleteOutcome, now, minutes: null),
-                ct).ConfigureAwait(false);
-        }
+        foreach (var done in actions.Facts)
+            await _facts.WriteAsync(ActionFact(done, rules, flags, person, message, now), ct).ConfigureAwait(false);
 
-        if (message is not null && timeoutOutcome is not null)
-        {
-            await _facts.WriteAsync(
-                ActionFact(FactType.AiModerationTimeout, rules, timers, flags, person, message, timeoutOutcome, now,
-                    minutes: timers.Max(m => m.TimeoutMinutes)),
-                ct).ConfigureAwait(false);
-        }
-
-        if (deleted || timedOut is not null)
-            await PauseRunawayRulesAsync(rules, [.. deleters, .. timers], now, ct).ConfigureAwait(false);
+        if (actions.Any)
+            await PauseRunawayRulesAsync(rules, actions.ActedBy, now, ct).ConfigureAwait(false);
 
         await transaction.CommitAsync(ct).ConfigureAwait(false);
 
@@ -1000,14 +808,100 @@ public sealed class ModerationEngine : IModerationChecker
         foreach (var callId in flags.Select(f => f.CallId).OfType<Guid>().Distinct())
         {
             if (evaluation.CallTexts.TryGetValue(callId, out var texts))
-                await _calls.KeepTextAsync(callId, texts.Prompt, texts.Answer, ct).ConfigureAwait(false);
+                await _callTexts.KeepAsync(callId, texts.Prompt, texts.Answer, ct).ConfigureAwait(false);
         }
 
         _log.Information(
-            "Moderation rules flagged {Count} match(es) for {Platform} user {Subject}; message deleted: {Deleted}; timed out: {Minutes}",
-            flags.Count, person.Platform, person.Id, deleted, timedOut);
+            "Moderation rules flagged {Count} match(es) for {Platform} user {Subject}; message deleted: {Deleted}; timed out: {Minutes}; group ban: {Banned}; group remove: {Removed}",
+            flags.Count, person.Platform, person.Id, actions.Deleted, actions.TimedOutMinutes, actions.GroupBanned, actions.GroupRemoved);
 
-        return new ModerationOutcome(results, flags.Count, deleted, timedOut, aiSkipped);
+        return new ModerationOutcome(
+            results, flags.Count, actions.Deleted, actions.TimedOutMinutes, aiSkipped, actions.GroupBanned, actions.GroupRemoved);
+    }
+
+    /// <summary>One action that was tried, and every rule that asked for it.</summary>
+    private sealed record ActionDone(string FactType, List<ModerationMatch> AskedBy, bool Done, string? Error, int? Minutes);
+
+    /// <summary>Everything the actions did, for the flag rows and the facts.</summary>
+    private sealed record Actions(List<ActionDone> Facts)
+    {
+        public bool Deleted => Facts.Any(f => f.FactType == Core.Data.Entities.FactType.AutoModMessageDeleted && f.Done);
+
+        public int? TimedOutMinutes => Facts.FirstOrDefault(f => f.FactType == Core.Data.Entities.FactType.AutoModTimeout && f.Done)?.Minutes;
+
+        public bool GroupBanned => Facts.Any(f => f.FactType == Core.Data.Entities.FactType.AutoModGroupBan && f.Done);
+
+        public bool GroupRemoved => Facts.Any(f => f.FactType == Core.Data.Entities.FactType.AutoModGroupRemove && f.Done);
+
+        public bool Any => Facts.Any(f => f.Done);
+
+        /// <summary>The matches whose action really happened, for the runaway check.</summary>
+        public IReadOnlyList<ModerationMatch> ActedBy => [.. Facts.Where(f => f.Done).SelectMany(f => f.AskedBy)];
+    }
+
+    /// <summary>
+    /// Carries out what the acting matches ask for: on Discord, for a message; in VRChat, for a
+    /// profile (AutoMod design §5). Each action is tried once and its answer recorded, whatever it
+    /// was: a failed action is a fact saying it did not happen, never a retry.
+    /// </summary>
+    private async Task<Actions> ActAsync(
+        List<ModerationMatch> toFlag, Person person, DiscordMessageToCheck? message, CancellationToken ct)
+    {
+        var done = new List<ActionDone>();
+        var acting = toFlag.Where(m => m.Acting).ToList();
+
+        if (acting.Count == 0)
+            return new Actions(done);
+
+        var reason = Clip("Modbot moderation rule: " + string.Join(", ", toFlag.Select(m => m.RuleName).Distinct()), 400);
+
+        if (message is not null)
+        {
+            var deleters = acting.Where(m => m.DeleteMessage).ToList();
+            var timers = acting.Where(m => m.TimeoutMinutes is > 0).ToList();
+
+            if (deleters.Count > 0)
+            {
+                var outcome = await _discord.DeleteMessageAsync(message.ChannelId, message.MessageId, reason, ct).ConfigureAwait(false);
+                done.Add(new ActionDone(FactType.AutoModMessageDeleted, deleters, outcome.Done, outcome.Error, null));
+            }
+
+            if (timers.Count > 0)
+            {
+                // The longest any rule asked for (design §6).
+                var minutes = timers.Max(m => m.TimeoutMinutes!.Value);
+                var outcome = await _discord.TimeOutAsync(message.GuildId, message.AuthorId, TimeSpan.FromMinutes(minutes), reason, ct)
+                    .ConfigureAwait(false);
+                done.Add(new ActionDone(FactType.AutoModTimeout, timers, outcome.Done, outcome.Error, minutes));
+            }
+
+            return new Actions(done);
+        }
+
+        if (person.Platform != FactPlatform.VRChat)
+            return new Actions(done);
+
+        var banners = acting.Where(m => m.GroupBan).ToList();
+        var removers = acting.Where(m => m.GroupRemove).ToList();
+
+        if (banners.Count > 0)
+        {
+            var outcome = await _vrchat.BanFromGroupAsync(person.Id, reason, ct).ConfigureAwait(false);
+            done.Add(new ActionDone(FactType.AutoModGroupBan, banners, outcome.Done, outcome.Error, null));
+
+            // A ban takes the person out of the group as well, so a removal on top of one that
+            // worked would be a second request for something VRChat has already done.
+            if (outcome.Done)
+                removers = [];
+        }
+
+        if (removers.Count > 0)
+        {
+            var outcome = await _vrchat.RemoveFromGroupAsync(person.Id, reason, ct).ConfigureAwait(false);
+            done.Add(new ActionDone(FactType.AutoModGroupRemove, removers, outcome.Done, outcome.Error, null));
+        }
+
+        return new Actions(done);
     }
 
     /// <summary>
@@ -1081,7 +975,7 @@ public sealed class ModerationEngine : IModerationChecker
 
             await _facts.WriteAsync(new FactRecord
             {
-                Type = FactType.AiModerationRulePaused,
+                Type = FactType.AutoModRulePaused,
                 OccurredAt = now,
                 // The subject is the rule: nobody did this, and it is not about the person who was
                 // acted on. The operator who set the rule to act is named in the data.
@@ -1108,12 +1002,13 @@ public sealed class ModerationEngine : IModerationChecker
 
     private Task<int> ActionsSinceAsync(Guid ruleId, DateTimeOffset since, CancellationToken ct)
         => _db.ModerationFlags
-            .Where(f => f.RuleId == ruleId && f.FlaggedAt >= since && (f.MessageDeleted || f.TimedOutMinutes != null))
+            .Where(f => f.RuleId == ruleId && f.FlaggedAt >= since
+                        && (f.MessageDeleted || f.TimedOutMinutes != null || f.GroupBanned || f.GroupRemoved))
             .CountAsync(ct);
 
     private static FactRecord FlagFact(ModerationFlag flag, DateTimeOffset now) => new()
     {
-        Type = FactType.AiModerationFlag,
+        Type = FactType.AutoModFlag,
         OccurredAt = now,
         SubjectPlatform = flag.SubjectPlatform,
         SubjectId = flag.SubjectId,
@@ -1141,6 +1036,8 @@ public sealed class ModerationEngine : IModerationChecker
             ["trial"] = flag.Trial,
             ["wouldDeleteMessage"] = flag.WouldDeleteMessage,
             ["wouldTimeOutMinutes"] = flag.WouldTimeOutMinutes,
+            ["wouldGroupBan"] = flag.WouldGroupBan,
+            ["wouldGroupRemove"] = flag.WouldGroupRemove,
         },
     };
 
@@ -1149,19 +1046,16 @@ public sealed class ModerationEngine : IModerationChecker
     /// the rule version it acted on (M8 §2, design §14).
     /// </summary>
     private static FactRecord ActionFact(
-        string type,
+        ActionDone action,
         Rules rules,
-        List<ModerationMatch> askedBy,
         List<ModerationFlag> flags,
         Person person,
-        DiscordMessageToCheck message,
-        DiscordActionOutcome outcome,
-        DateTimeOffset now,
-        int? minutes)
+        DiscordMessageToCheck? message,
+        DateTimeOffset now)
     {
         var ruleNodes = new JsonArray();
 
-        foreach (var ruleId in askedBy.Select(m => m.RuleId).Distinct())
+        foreach (var ruleId in action.AskedBy.Select(m => m.RuleId).Distinct())
         {
             var list = rules.Lists.FirstOrDefault(l => l.Id == ruleId);
             var topic = rules.Topics.FirstOrDefault(t => t.Id == ruleId);
@@ -1180,62 +1074,107 @@ public sealed class ModerationEngine : IModerationChecker
             });
         }
 
+        var data = new JsonObject
+        {
+            ["minutes"] = action.Minutes,
+            ["done"] = action.Done,
+            ["error"] = action.Error,
+            ["flagIds"] = new JsonArray([.. flags.Where(f => action.AskedBy.Any(m => m.RuleId == f.RuleId)).Select(f => JsonValue.Create(f.Id.ToString()))]),
+            ["rules"] = ruleNodes,
+        };
+
+        if (message is not null)
+        {
+            data["guildId"] = message.GuildId;
+            data["channelId"] = message.ChannelId;
+            data["messageId"] = message.MessageId;
+        }
+
         return new FactRecord
         {
-            Type = type,
+            Type = action.FactType,
             OccurredAt = now,
             SubjectPlatform = person.Platform,
             SubjectId = person.Id,
             Source = FactSource.Modbot,
-            Data = new JsonObject
-            {
-                ["guildId"] = message.GuildId,
-                ["channelId"] = message.ChannelId,
-                ["messageId"] = message.MessageId,
-                ["minutes"] = minutes,
-                ["done"] = outcome.Done,
-                ["error"] = outcome.Error,
-                ["flagIds"] = new JsonArray([.. flags.Where(f => askedBy.Any(m => m.RuleId == f.RuleId)).Select(f => JsonValue.Create(f.Id.ToString()))]),
-                ["rules"] = ruleNodes,
-            },
+            Data = data,
         };
     }
 
     private static string Clip(string text, int max) => text.Length <= max ? text : text[..max];
 }
 
-/// <summary>The daily AI call limit (design §4.2).</summary>
-public static class AiCallAllowance
+/// <summary>
+/// Keeps what an AI call was sent and what it answered, once a flag came of it. The call log lives
+/// in <c>Modbot.AI</c>; a process without it keeps nothing.
+/// </summary>
+public interface IAiCallTexts
 {
-    /// <summary>
-    /// Takes one call from today's allowance, or answers false when there is none left.
-    /// </summary>
-    /// <remarks>
-    /// One statement that checks and counts, so two checks running at once cannot both take the
-    /// last call. A new UTC day starts the count again at one.
-    /// </remarks>
-    public static async Task<bool> TryUseAsync(ModbotContext db, DateTimeOffset now, CancellationToken ct)
+    Task KeepAsync(Guid callId, string prompt, string answer, CancellationToken ct);
+}
+
+public sealed class NoAiCallTexts : IAiCallTexts
+{
+    public Task KeepAsync(Guid callId, string prompt, string answer, CancellationToken ct) => Task.CompletedTask;
+}
+
+/// <summary>
+/// A Discord message's image attachments, from the stored <c>jsonb</c> array (AI moderation
+/// design §17).
+/// </summary>
+/// <remarks>
+/// Here rather than beside the picture fetching in <c>Modbot.AI</c> because deciding which
+/// attachments are pictures needs no AI: it is what the engine hands over, not what the model
+/// gets. Discord gives each attachment a content type, and only the ones it calls a picture are
+/// taken: an attachment named <c>cat.png</c> that Discord says is a zip is a zip.
+/// </remarks>
+public static class PictureAttachments
+{
+    /// <summary>The picture types Modbot sends. Anything else is skipped.</summary>
+    public static IReadOnlyList<string> Types { get; } = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+    public static IReadOnlyList<PictureSource> Of(string? json)
     {
-        ArgumentNullException.ThrowIfNull(db);
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
 
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var found = new List<PictureSource>();
 
-        var updated = await db.Settings
-            .Where(s => s.Id == 1
-                        && s.AiModerationDailyCallLimit > 0
-                        && (s.AiModerationCallsDay != today || s.AiModerationCallsUsed < s.AiModerationDailyCallLimit))
-            .ExecuteUpdateAsync(u => u
-                .SetProperty(s => s.AiModerationCallsUsed, s => s.AiModerationCallsDay == today ? s.AiModerationCallsUsed + 1 : 1)
-                .SetProperty(s => s.AiModerationCallsDay, today), ct)
-            .ConfigureAwait(false);
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+                return [];
 
-        return updated == 1;
+            foreach (var item in document.RootElement.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var type = Text(item, "type");
+                var url = Text(item, "url");
+                var name = Text(item, "name") ?? "picture";
+
+                if (url is null || type is null || !Types.Contains(Before(type, ';'), StringComparer.OrdinalIgnoreCase))
+                    continue;
+
+                found.Add(new PictureSource($"Attachment {name}", url));
+            }
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+
+        return found;
     }
 
-    /// <summary>How many calls today has used.</summary>
-    public static int UsedToday(Settings settings, DateTimeOffset now)
+    private static string? Text(JsonElement item, string name)
+        => item.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private static string Before(string text, char stop)
     {
-        ArgumentNullException.ThrowIfNull(settings);
-        return settings.AiModerationCallsDay == DateOnly.FromDateTime(now.UtcDateTime) ? settings.AiModerationCallsUsed : 0;
+        var at = text.IndexOf(stop);
+        return (at < 0 ? text : text[..at]).Trim();
     }
 }

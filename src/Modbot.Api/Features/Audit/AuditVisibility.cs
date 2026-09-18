@@ -232,15 +232,17 @@ public static class AuditVisibility
         [FactType.EvidenceAccessed] = AuditCategory.Moderation,
         [FactType.EvidenceDestroyed] = AuditCategory.Moderation,
 
-        // AI moderation. What a rule flagged, dismissed or did to somebody is moderation history
-        // about that person; a rule being changed is a setting, and goes with the other settings.
-        [FactType.AiModerationFlag] = AuditCategory.Moderation,
-        [FactType.AiModerationFlagDismissed] = AuditCategory.Moderation,
-        [FactType.AiModerationFlagConfirmed] = AuditCategory.Moderation,
-        [FactType.AiModerationMessageDeleted] = AuditCategory.Moderation,
-        [FactType.AiModerationTimeout] = AuditCategory.Moderation,
-        [FactType.AiModerationRuleChanged] = AuditCategory.Operational,
-        [FactType.AiModerationRulePaused] = AuditCategory.Operational,
+        // AutoMod. What a rule flagged, dismissed or did to somebody is moderation history about
+        // that person; a rule being changed is a setting, and goes with the other settings.
+        [FactType.AutoModFlag] = AuditCategory.Moderation,
+        [FactType.AutoModFlagDismissed] = AuditCategory.Moderation,
+        [FactType.AutoModFlagConfirmed] = AuditCategory.Moderation,
+        [FactType.AutoModMessageDeleted] = AuditCategory.Moderation,
+        [FactType.AutoModTimeout] = AuditCategory.Moderation,
+        [FactType.AutoModGroupBan] = AuditCategory.Moderation,
+        [FactType.AutoModGroupRemove] = AuditCategory.Moderation,
+        [FactType.AutoModRuleChanged] = AuditCategory.Operational,
+        [FactType.AutoModRulePaused] = AuditCategory.Operational,
         [FactType.AiAcknowledged] = AuditCategory.Operational,
 
         // An upstream event Modbot has no name for yet. Its TypeRaw comes from the group's own

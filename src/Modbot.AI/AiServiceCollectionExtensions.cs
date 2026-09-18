@@ -5,8 +5,7 @@ using Modbot.AI.Calls;
 using Modbot.AI.Insights;
 using Modbot.AI.Moderation;
 using Modbot.AI.Usage;
-using Modbot.Core.Discord;
-using Modbot.Core.Moderation;
+using Modbot.Moderation;
 
 namespace Modbot.AI;
 
@@ -56,27 +55,16 @@ public static class AiServiceCollectionExtensions
         services.AddScoped<AlertFigureReader>();
         services.AddScoped<AlertChecker>();
 
-        // AI moderation (AI moderation design). The engine reads its rules from the database on
-        // every check, so like the client it does nothing until an operator switches it on.
-        services.TryAddSingleton<TermListHubOptions>();
-
-        // The language on every flag (design §18) and the pictures a rule can check (§17). The
-        // detector builds its profiles once, so it is a singleton; the picture client refuses
-        // private and local addresses, because a picture link is text somebody else wrote.
-        services.TryAddSingleton<TextLanguage>();
+        // The AI half of AutoMod (AutoMod design §4): topic checks and pictures plug into the
+        // engine in Modbot.Moderation through IAiRuleChecker. Registered plainly, not TryAdd, so
+        // it wins over the "AI is off" fallback whichever order the host called the two in. The
+        // picture client refuses private and local addresses, because a picture link is text
+        // somebody else wrote (AI moderation design §17).
         services.AddModerationPictureClient();
         services.AddScoped<ModerationPictures>();
-
-        services.AddHttpClient(HubTermLists.HttpClientName);
-        services.AddSingleton<HubTermLists>();
-        services.AddScoped<HubTermListUpdates>();
-        services.AddSingleton<CompiledTermLists>();
-        services.AddScoped<ModerationEngine>();
-        services.AddScoped<IModerationChecker>(p => p.GetRequiredService<ModerationEngine>());
-        services.AddScoped<ProfileModerationPass>();
-
-        // The bot registers the real one first when it runs in this process (M8 §2).
-        services.TryAddSingleton<IDiscordModerationActions, NoDiscordModerationActions>();
+        services.AddScoped<IAiRuleChecker, TopicRuleChecker>();
+        services.AddScoped<IAiCallTexts, AiCallTextKeeper>();
+        services.AddScoped<FlagReviewer>();
 
         return services;
     }
@@ -104,24 +92,6 @@ public static class AiServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddHostedService<AiPriceFetchService>();
-
-        return services;
-    }
-
-    /// <summary>
-    /// The two AI moderation loops: checking Hub lists for updates, and checking profile text as the
-    /// profile sync records it.
-    /// </summary>
-    /// <remarks>
-    /// Separate from <see cref="AddModbotAi"/> so a test host can have the engine without loops
-    /// running against its database.
-    /// </remarks>
-    public static IServiceCollection AddModbotAiModerationJobs(this IServiceCollection services)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-
-        services.AddHostedService<HubTermListRefreshService>();
-        services.AddHostedService<ProfileModerationService>();
 
         return services;
     }

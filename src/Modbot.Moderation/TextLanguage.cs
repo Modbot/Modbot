@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using LanguageDetection;
 
-namespace Modbot.AI.Moderation;
+namespace Modbot.Moderation;
 
 /// <summary>
 /// What language a piece of text is in (AI moderation design §18).

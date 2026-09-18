@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Modbot.Core.Data.Entities;
 
-namespace Modbot.AI.Moderation;
+namespace Modbot.Moderation;
 
 /// <summary>
 /// Turns one AI moderation flag into a review, so the team's normal review flow handles it
@@ -77,6 +77,31 @@ public static class FlagReviews
         ["contextMessageIds"] = Ids(flag.ContextMessageIds),
         ["flaggedAt"] = flag.FlaggedAt.ToString("O"),
     };
+
+    /// <summary>
+    /// The review's evidence with the AI's opinion added (AutoMod design §6.3), so the person
+    /// closing the review reads it beside the words that matched.
+    /// </summary>
+    public static string WithOpinion(string? evidence, string verdict, string why, string? proposedAction, DateTimeOffset at)
+    {
+        JsonObject o;
+
+        try
+        {
+            o = (string.IsNullOrWhiteSpace(evidence) ? null : JsonNode.Parse(evidence) as JsonObject) ?? new JsonObject();
+        }
+        catch (JsonException)
+        {
+            o = new JsonObject();
+        }
+
+        o["aiOpinion"] = verdict;
+        o["aiOpinionReason"] = why;
+        o["aiProposedAction"] = proposedAction;
+        o["aiOpinionAt"] = at.ToString("O");
+
+        return o.ToJsonString();
+    }
 
     private static JsonArray Ids(string? json)
     {

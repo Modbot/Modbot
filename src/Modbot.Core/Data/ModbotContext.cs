@@ -1304,12 +1304,18 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
         builder.Entity<Settings>(entity =>
         {
             entity.Property(e => e.AiChatToolSwitches).HasColumnType("jsonb");
+
+            // "automod" is one word on this screen and in its tables, so the columns say so too
+            // rather than the "auto_mod" the naming convention would make of the property.
+            entity.Property(e => e.AutoModEnabled).HasColumnName("automod_enabled");
+            entity.Property(e => e.AutoModAiTools).HasColumnName("automod_ai_tools").HasColumnType("jsonb");
+            entity.Property(e => e.AutoModProfileFactsReadThrough).HasColumnName("automod_profile_facts_read_through");
             entity.Property(e => e.AiAcknowledgedByUsername).HasMaxLength(64);
         });
 
         builder.Entity<ModerationTermList>(entity =>
         {
-            entity.ToTable("ai_term_list");
+            entity.ToTable("automod_term_list");
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
@@ -1333,7 +1339,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // A Hub list is subscribed once; a second subscription would flag everything twice.
             entity.HasIndex(e => e.HubId)
-                .HasDatabaseName("ux_ai_term_list_hub_id")
+                .HasDatabaseName("ux_automod_term_list_hub_id")
                 .IsUnique()
                 .HasFilter("hub_id IS NOT NULL");
         });
@@ -1358,7 +1364,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
         builder.Entity<ModerationTestSample>(entity =>
         {
-            entity.ToTable("ai_test_sample");
+            entity.ToTable("automod_test_sample");
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
@@ -1370,12 +1376,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // The whole set is read at once, to show it and to run it.
             entity.HasIndex(e => new { e.RuleId, e.CreatedAt })
-                .HasDatabaseName("ix_ai_test_sample_rule");
+                .HasDatabaseName("ix_automod_test_sample_rule");
         });
 
         builder.Entity<ModerationTestRun>(entity =>
         {
-            entity.ToTable("ai_test_run");
+            entity.ToTable("automod_test_run");
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
@@ -1388,12 +1394,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // "The newest run for this rule", asked by the acting gate and by the card.
             entity.HasIndex(e => new { e.RuleId, e.RanAt })
-                .HasDatabaseName("ix_ai_test_run_rule");
+                .HasDatabaseName("ix_automod_test_run_rule");
         });
 
         builder.Entity<ModerationRuleVersion>(entity =>
         {
-            entity.ToTable("ai_rule_version");
+            entity.ToTable("automod_rule_version");
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
@@ -1406,13 +1412,13 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // A flag names one rule and one version, and that pair is looked up to show its text.
             entity.HasIndex(e => new { e.RuleId, e.Version })
-                .HasDatabaseName("ux_ai_rule_version")
+                .HasDatabaseName("ux_automod_rule_version")
                 .IsUnique();
         });
 
         builder.Entity<ModerationFlag>(entity =>
         {
-            entity.ToTable("ai_flag");
+            entity.ToTable("automod_flag");
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
@@ -1434,15 +1440,18 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.PictureUrl).HasMaxLength(2000);
             entity.Property(e => e.DismissedByUsername).HasMaxLength(64);
             entity.Property(e => e.ConfirmedByUsername).HasMaxLength(64);
+            entity.Property(e => e.AiOpinion).HasMaxLength(16);
+            entity.Property(e => e.AiOpinionReason).HasMaxLength(500);
+            entity.Property(e => e.AiProposedAction).HasMaxLength(32);
 
             // The page: open flags, newest first.
             entity.HasIndex(e => new { e.State, e.FlaggedAt })
-                .HasDatabaseName("ix_ai_flag_state");
+                .HasDatabaseName("ix_automod_flag_state");
 
             // "Has this rule and term already been flagged, or dismissed, for this person?" --
             // asked before every flag is written. Also the per-rule dismissal rate.
             entity.HasIndex(e => new { e.RuleId, e.TermKey, e.SubjectPlatform, e.SubjectId })
-                .HasDatabaseName("ix_ai_flag_rule_person");
+                .HasDatabaseName("ix_automod_flag_rule_person");
 
             entity.HasIndex(e => e.MessageId)
                 .HasDatabaseName("ix_ai_flag_message")

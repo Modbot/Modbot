@@ -1,7 +1,7 @@
-using Modbot.AI.Moderation;
+using Modbot.Moderation;
 using Modbot.Core.Data.Entities;
 
-namespace Modbot.AI.Tests.Moderation;
+namespace Modbot.Moderation.Tests;
 
 /// <summary>
 /// The scope, trial and pause rules on their own (AI moderation design §13), with no database in

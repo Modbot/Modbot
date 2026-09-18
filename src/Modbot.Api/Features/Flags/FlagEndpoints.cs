@@ -11,6 +11,7 @@ using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
+using Modbot.Moderation;
 
 namespace Modbot.Api.Features.Flags;
 
@@ -27,6 +28,10 @@ namespace Modbot.Api.Features.Flags;
 /// <param name="Picture">Which picture matched, or null when the words did.</param>
 /// <param name="Context">The messages the model was given to understand this one, oldest first.</param>
 /// <param name="ReviewId">The review opened for this flag, or null.</param>
+/// <param name="GroupBanned">The rule banned the person from the managed VRChat group (AutoMod design §5).</param>
+/// <param name="GroupRemoved">The rule removed the person from the managed VRChat group.</param>
+/// <param name="AiOpinion"><c>keep</c> or <c>dismiss</c>, when a moderator asked the AI (AutoMod design §6.3). Advice only.</param>
+/// <param name="AiProposedAction">What the AI proposed a moderator might do, when that tool is on. Never carried out by Modbot.</param>
 public sealed record FlagView(
     Guid Id,
     DateTimeOffset FlaggedAt,
@@ -61,19 +66,37 @@ public sealed record FlagView(
     IReadOnlyList<FlagContextMessage>? Context = null,
     Guid? ReviewId = null,
     DateTimeOffset? ConfirmedAt = null,
-    string? ConfirmedBy = null);
+    string? ConfirmedBy = null,
+    bool GroupBanned = false,
+    bool GroupRemoved = false,
+    bool WouldGroupBan = false,
+    bool WouldGroupRemove = false,
+    string? AiOpinion = null,
+    string? AiOpinionReason = null,
+    string? AiProposedAction = null,
+    DateTimeOffset? AiOpinionAt = null,
+    Guid? AiOpinionCallId = null);
 
 /// <summary>One message the model was shown alongside the flagged one (AI moderation design §16).</summary>
 public sealed record FlagContextMessage(string MessageId, string Author, string Text);
 
 /// <param name="Languages">Every language these flags are in, with how many of each.</param>
-public sealed record FlagList(IReadOnlyList<FlagView> Flags, int Open, IReadOnlyList<FlagLanguageCount> Languages);
+/// <param name="AiOpinionAvailable">
+/// Whether the Ask AI button does anything: AI is on and the opinion tool is switched on under
+/// Settings → AutoMod (AutoMod design §6).
+/// </param>
+public sealed record FlagList(
+    IReadOnlyList<FlagView> Flags,
+    int Open,
+    IReadOnlyList<FlagLanguageCount> Languages,
+    bool AiOpinionAvailable = false);
 
 /// <param name="Language">The ISO 639-3 code, or null for flags whose language could not be told.</param>
 public sealed record FlagLanguageCount(string? Language, string Label, int Flags);
 
 /// <summary>
-/// What AI moderation rules flagged, and dismissing a flag (AI moderation design §5).
+/// What AutoMod rules flagged, dismissing a flag, and asking the AI what it thinks (AI moderation
+/// design §5; AutoMod design §6.3).
 /// </summary>
 /// <remarks>
 /// Reading needs <c>ViewProfile</c>, because a flag is a note about a person (M8 §4.1). Dismissing
@@ -131,12 +154,15 @@ public static class FlagEndpoints
                     .Select(g => new { Language = g.Key, Flags = g.Count() })
                     .ToListAsync(ct);
 
+                var tools = await AiToolsAsync(db, ct);
+
                 return Results.Ok(new FlagList(
                     [.. flags.Select(f => View(f, text, context))],
                     open,
                     [.. counts
                         .OrderByDescending(c => c.Flags)
-                        .Select(c => new FlagLanguageCount(c.Language, LanguageNames.Label(c.Language), c.Flags))]));
+                        .Select(c => new FlagLanguageCount(c.Language, LanguageNames.Label(c.Language), c.Flags))],
+                    tools.Opinion));
             })
             .WithName("ListModerationFlags")
             .WithSummary("The newest flags: open, dismissed or confirmed, and filtered by language")
@@ -216,7 +242,64 @@ public static class FlagEndpoints
             .WithSummary("Open a review for a flag, so the team's review flow decides it")
             .WithDescription(
                 "Closing that review as wrong dismisses the flag; closing it as right confirms it. "
-                + "Both feed the rule's counts on Settings → AI → Moderation.")
+                + "Both feed the rule's counts on Settings → AutoMod.")
+            .Produces<FlagView>()
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.ReviewTickets);
+
+        group.MapPost("/{id:guid}/ai-opinion", async (
+                HttpContext http,
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] FlagReviewer? reviewer,
+                CancellationToken ct) =>
+            {
+                var flag = await db.ModerationFlags.FirstOrDefaultAsync(f => f.Id == id, ct);
+                if (flag is null)
+                    return Results.NotFound(new { error = "No such flag." });
+
+                // The tool switches are checked here, before anything is built to send: a
+                // switched-off tool is never called (AutoMod design §6).
+                var tools = await AiToolsAsync(db, ct);
+                if (reviewer is null || !tools.AiOn)
+                    return Results.Conflict(new { error = NoAiRuleChecker.Reason });
+                if (!tools.Opinion)
+                    return Results.Conflict(new { error = "The AI opinion tool is switched off in AutoMod." });
+
+                var result = await reviewer.ReviewAsync(
+                    flag, tools.Proposals, ModbotAuth.UserIdOf(http.User), ModbotAuth.UsernameOf(http.User), ct);
+
+                if (result.Opinion is not { } opinion)
+                    return Results.Conflict(new { error = result.Problem ?? "The model did not answer." });
+
+                var now = clock.UtcNow;
+                flag.AiOpinion = opinion.Verdict;
+                flag.AiOpinionReason = opinion.Why;
+                flag.AiProposedAction = opinion.ProposedAction;
+                flag.AiOpinionAt = now;
+                flag.AiOpinionCallId = opinion.CallId;
+
+                // The review, when there is one, shows the opinion beside the flag's evidence so
+                // the person closing it reads both in one place.
+                if (flag.ReviewId is { } reviewId
+                    && await db.Reviews.FirstOrDefaultAsync(r => r.Id == reviewId, ct) is { } review)
+                {
+                    review.Evidence = FlagReviews.WithOpinion(review.Evidence, opinion.Verdict, opinion.Why, opinion.ProposedAction, now);
+                }
+
+                await db.SaveChangesAsync(ct);
+
+                return Results.Ok(View(flag, await RuleTextAsync(db, [flag], ct)));
+            })
+            .WithName("AskAiAboutModerationFlag")
+            .WithSummary("Ask the AI whether to keep or dismiss a flag")
+            .WithDescription(
+                "Advice only: the answer goes on the flag and on its review, and nothing is done with "
+                + "it. Needs AI on and the opinion tool switched on under Settings → AutoMod; the "
+                + "proposed action comes only when that tool is on too.")
             .Produces<FlagView>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict)
@@ -224,6 +307,26 @@ public static class FlagEndpoints
             .RequiresFlag(ModbotPermissions.ReviewTickets);
 
         return app;
+    }
+
+    /// <summary>Which of the AI's flag tools the group has on, and whether AI is on at all.</summary>
+    private sealed record AiTools(bool AiOn, bool Opinion, bool Proposals);
+
+    private static async Task<AiTools> AiToolsAsync(ModbotContext db, CancellationToken ct)
+    {
+        var row = await db.Settings.AsNoTracking().Where(s => s.Id == 1)
+            .Select(s => new { s.AiEnabled, s.AutoModAiTools })
+            .FirstOrDefaultAsync(ct);
+
+        if (row is null)
+            return new AiTools(false, false, false);
+
+        var switches = AutoModAiTools.Parse(row.AutoModAiTools);
+
+        return new AiTools(
+            row.AiEnabled,
+            row.AiEnabled && AutoModAiTools.IsOn(switches, AutoModAiTools.ReviewFlag),
+            row.AiEnabled && AutoModAiTools.IsOn(switches, AutoModAiTools.ProposeAction));
     }
 
     /// <summary>What the Flags page filter calls a flag whose language could not be told.</summary>
@@ -343,5 +446,14 @@ public static class FlagEndpoints
             .OfType<FlagContextMessage>()],
         f.ReviewId,
         f.ConfirmedAt,
-        f.ConfirmedByUsername);
+        f.ConfirmedByUsername,
+        f.GroupBanned,
+        f.GroupRemoved,
+        f.WouldGroupBan,
+        f.WouldGroupRemove,
+        f.AiOpinion,
+        f.AiOpinionReason,
+        f.AiProposedAction,
+        f.AiOpinionAt,
+        f.AiOpinionCallId);
 }

@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.AI;
 using Modbot.AI.Moderation;
 using Modbot.Analytics.Facts;
+using Modbot.Moderation;
 using Modbot.Api.Auth;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -18,16 +19,28 @@ using Modbot.Core.Time;
 namespace Modbot.Api.Features.Settings;
 
 /// <summary>
-/// Settings → AI → Moderation: term lists, Hub subscriptions, AI topics, the switch, the daily AI
-/// call limit and "Try it" (AI moderation design).
+/// Settings → AutoMod: the switch, term lists, Hub subscriptions, AI topics, the AI tools, the daily
+/// AI call limit and "Try it" (AutoMod design; AI moderation design).
 /// </summary>
 /// <remarks>
+/// <para>
 /// Every change to a rule writes a <c>modbot.ai-moderation.rule.change</c> fact naming the account,
 /// and a rule set to act remembers who set it, because M8 §2 requires every action to name the
 /// operator who allowed it.
+/// </para>
+/// <para>
+/// The routes live at <c>/api/settings/automod</c>. The old <c>/api/settings/ai/moderation</c> is
+/// rewritten to them (<see cref="ApiSurface.UseOldApiPaths"/>), so a client written against the
+/// old name keeps working.
+/// </para>
 /// </remarks>
-public static class AiModerationEndpoints
+public static class AutoModEndpoints
 {
+    public const string Path = "/api/settings/automod";
+
+    /// <summary>Where these routes were before AutoMod had its own tab.</summary>
+    public const string OldPath = "/api/settings/ai/moderation";
+
     public const int MaxNameLength = 100;
     public const int MaxTermLength = 200;
     public const int MaxTerms = 5000;
@@ -53,26 +66,26 @@ public static class AiModerationEndpoints
 
     private static readonly string[] Sensitivities = ["low", "medium", "high"];
 
-    public static IEndpointRouteBuilder MapAiModerationSettings(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapAutoModSettings(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var group = app.MapGroup("/api/settings/ai/moderation").WithTags("AI settings");
+        var group = app.MapGroup(Path).WithTags("AutoMod settings");
 
         group.MapGet("", async (
                 [FromServices] ModbotContext db,
                 [FromServices] IAiClients ai,
                 [FromServices] IModbotClock clock,
                 CancellationToken ct) => Results.Ok(await ViewAsync(db, ai, clock, ct)))
-            .WithName("GetAiModeration")
-            .WithSummary("Term lists, AI topics, the switch and the daily AI call limit")
-            .Produces<AiModerationResponse>()
+            .WithName("GetAutoMod")
+            .WithSummary("The AutoMod switch, term lists, AI topics, the AI tools and the daily AI call limit")
+            .Produces<AutoModResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
         group.MapPut("", async (
                 HttpContext http,
-                [FromBody] AiModerationUpdate body,
+                [FromBody] AutoModUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] IAiClients ai,
                 [FromServices] IModbotClock clock,
@@ -82,25 +95,43 @@ public static class AiModerationEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
-                if (body.DailyAiCallLimit is < 0 or > MaxDailyAiCalls)
+                var settings = await db.GetSettingsAsync(ct);
+                var switched = settings.AutoModEnabled != body.Enabled;
+                var limit = body.DailyAiCallLimit ?? settings.AiModerationDailyCallLimit;
+
+                if (limit is < 0 or > MaxDailyAiCalls)
                     return Error($"The daily AI call limit must be between 0 and {MaxDailyAiCalls}.");
 
-                var settings = await db.GetSettingsAsync(ct);
-                var switched = settings.AiModerationEnabled != body.Enabled;
+                var tools = new Dictionary<string, bool>(AutoModAiTools.Parse(settings.AutoModAiTools), StringComparer.Ordinal);
 
-                settings.AiModerationEnabled = body.Enabled;
-                settings.AiModerationDailyCallLimit = body.DailyAiCallLimit;
+                foreach (var (name, on) in body.AiTools ?? new Dictionary<string, bool>())
+                {
+                    if (!AutoModAiTools.IsTool(name))
+                        return Error($"'{name}' is not an AI tool.");
+
+                    tools[name] = on;
+                }
+
+                settings.AutoModEnabled = body.Enabled;
+                settings.AiModerationDailyCallLimit = limit;
+                settings.AutoModAiTools = AutoModAiTools.Serialize(tools);
                 await db.SaveChangesAsync(ct);
 
-                await RuleChangedAsync(http, facts, partitions, clock, "settings", null, "AI moderation",
-                    switched ? (body.Enabled ? "switched-on" : "switched-off") : "changed",
-                    new JsonObject { ["enabled"] = body.Enabled, ["dailyAiCallLimit"] = body.DailyAiCallLimit }, ct);
+                var data = new JsonObject
+                {
+                    ["enabled"] = body.Enabled,
+                    ["dailyAiCallLimit"] = limit,
+                    ["aiTools"] = JsonNode.Parse(settings.AutoModAiTools),
+                };
+
+                await RuleChangedAsync(http, facts, partitions, clock, "settings", null, "AutoMod",
+                    switched ? (body.Enabled ? "switched-on" : "switched-off") : "changed", data, ct);
 
                 return Results.Ok(await ViewAsync(db, ai, clock, ct));
             })
-            .WithName("SetAiModeration")
-            .WithSummary("Switch AI moderation on or off and set the daily AI call limit")
-            .Produces<AiModerationResponse>()
+            .WithName("SetAutoMod")
+            .WithSummary("Switch AutoMod on or off, set the daily AI call limit and switch AI tools")
+            .Produces<AutoModResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
@@ -142,8 +173,8 @@ public static class AiModerationEndpoints
                 if (ApplyList(list, body, http.User, now) is { } problem)
                     return Error(problem);
 
-                AiModerationRuleHistory.Version(
-                    db, list, null, AiModerationRuleHistory.SnapshotOf(list), AiModerationRuleHistory.TextOf(list),
+                AutoModRuleHistory.Version(
+                    db, list, null, AutoModRuleHistory.SnapshotOf(list), AutoModRuleHistory.TextOf(list),
                     ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, now);
 
                 var gate = await ActingAsync(db, list, wasActing: false, body.TrialDays, body.ActWithoutTest, now, ct);
@@ -182,14 +213,14 @@ public static class AiModerationEndpoints
                     return NotFound("No such term list.");
 
                 var now = clock.UtcNow;
-                var before = AiModerationRuleHistory.SnapshotOf(list);
+                var before = AutoModRuleHistory.SnapshotOf(list);
                 var wasActing = RuleGuards.WantsAction(list);
 
                 if (ApplyList(list, body, http.User, now) is { } problem)
                     return Error(problem);
 
-                AiModerationRuleHistory.Version(
-                    db, list, before, AiModerationRuleHistory.SnapshotOf(list), AiModerationRuleHistory.TextOf(list),
+                AutoModRuleHistory.Version(
+                    db, list, before, AutoModRuleHistory.SnapshotOf(list), AutoModRuleHistory.TextOf(list),
                     ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, now);
 
                 var gate = await ActingAsync(db, list, wasActing, body.TrialDays, body.ActWithoutTest, now, ct);
@@ -306,8 +337,8 @@ public static class AiModerationEndpoints
                     UpdatedAt = now,
                 };
 
-                AiModerationRuleHistory.Version(
-                    db, list, null, AiModerationRuleHistory.SnapshotOf(list), AiModerationRuleHistory.TextOf(list),
+                AutoModRuleHistory.Version(
+                    db, list, null, AutoModRuleHistory.SnapshotOf(list), AutoModRuleHistory.TextOf(list),
                     ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, now);
 
                 db.ModerationTermLists.Add(list);
@@ -365,15 +396,15 @@ public static class AiModerationEndpoints
                     return NotFound("No such term list.");
 
                 var changes = list.HubAvailableChanges;
-                var before = AiModerationRuleHistory.SnapshotOf(list);
+                var before = AutoModRuleHistory.SnapshotOf(list);
 
                 if (!updates.Apply(list))
                     return Error("There is no newer version to apply.");
 
                 // A Hub update changes what the rule catches, so it is a new version of the rule
                 // like any other change -- and one that costs an acting rule its passing test run.
-                AiModerationRuleHistory.Version(
-                    db, list, before, AiModerationRuleHistory.SnapshotOf(list), AiModerationRuleHistory.TextOf(list),
+                AutoModRuleHistory.Version(
+                    db, list, before, AutoModRuleHistory.SnapshotOf(list), AutoModRuleHistory.TextOf(list),
                     ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, clock.UtcNow);
 
                 await db.SaveChangesAsync(ct);
@@ -411,8 +442,8 @@ public static class AiModerationEndpoints
                 if (ApplyTopic(topic, body, http.User, now) is { } problem)
                     return Error(problem);
 
-                AiModerationRuleHistory.Version(
-                    db, topic, null, AiModerationRuleHistory.SnapshotOf(topic), AiModerationRuleHistory.TextOf(topic),
+                AutoModRuleHistory.Version(
+                    db, topic, null, AutoModRuleHistory.SnapshotOf(topic), AutoModRuleHistory.TextOf(topic),
                     ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, now);
 
                 var gate = await ActingAsync(db, topic, wasActing: false, body.TrialDays, body.ActWithoutTest, now, ct);
@@ -423,7 +454,7 @@ public static class AiModerationEndpoints
 
                 // Every new topic starts with the injection samples, so a topic that can be talked
                 // out of its instructions is caught by its own test set (design §15.5).
-                AiModerationRuleHistory.SeedInjectionSamples(db, topic, now);
+                AutoModRuleHistory.SeedInjectionSamples(db, topic, now);
 
                 await db.SaveChangesAsync(ct);
 
@@ -456,14 +487,14 @@ public static class AiModerationEndpoints
                     return NotFound("No such topic.");
 
                 var now = clock.UtcNow;
-                var before = AiModerationRuleHistory.SnapshotOf(topic);
+                var before = AutoModRuleHistory.SnapshotOf(topic);
                 var wasActing = RuleGuards.WantsAction(topic);
 
                 if (ApplyTopic(topic, body, http.User, now) is { } problem)
                     return Error(problem);
 
-                AiModerationRuleHistory.Version(
-                    db, topic, before, AiModerationRuleHistory.SnapshotOf(topic), AiModerationRuleHistory.TextOf(topic),
+                AutoModRuleHistory.Version(
+                    db, topic, before, AutoModRuleHistory.SnapshotOf(topic), AutoModRuleHistory.TextOf(topic),
                     ModbotAuth.UserIdOf(http.User), http.User.Identity?.Name, now);
 
                 var gate = await ActingAsync(db, topic, wasActing, body.TrialDays, body.ActWithoutTest, now, ct);
@@ -538,13 +569,15 @@ public static class AiModerationEndpoints
                 return Results.Ok(new TryResponse(
                     [.. result.Matches.Select(m => new TryMatchView(
                         m.Match.RuleKind, m.Match.RuleId, m.Match.RuleName, m.RuleEnabled, m.Match.Term, m.Match.Matched,
-                        m.Match.Reason, m.Match.DeleteMessage, m.Match.TimeoutMinutes))],
+                        m.Match.Reason, m.Match.DeleteMessage, m.Match.TimeoutMinutes, m.Match.GroupBan, m.Match.GroupRemove))],
                     result.WouldDeleteMessage,
                     result.WouldTimeOutMinutes,
                     result.AiSkipped,
-                    result.CallId));
+                    result.CallId,
+                    result.WouldGroupBan,
+                    result.WouldGroupRemove));
             })
-            .WithName("TryAiModeration")
+            .WithName("TryAutoMod")
             .WithSummary("Check some text against every rule. Nothing is recorded and nothing is done.")
             .Produces<TryResponse>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -761,6 +794,8 @@ public static class AiModerationEndpoints
                     ["trialDays"] = rule.TrialDays,
                     ["deleteMessage"] = rule.DeleteMessage,
                     ["timeoutMinutes"] = rule.TimeoutMinutes,
+                    ["groupBan"] = rule.GroupBan,
+                    ["groupRemove"] = rule.GroupRemove,
                 }, ct);
 
                 return list is not null
@@ -768,7 +803,7 @@ public static class AiModerationEndpoints
                     : Results.Ok(await TopicViewAsync(db, topic!, ct));
             })
             .WithName("EndRuleTrial")
-            .WithSummary("End a rule's trial. From now on it really deletes and times out.")
+            .WithSummary("End a rule's trial. From now on it really acts.")
             .Produces<TermListDetail>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
@@ -840,7 +875,9 @@ public static class AiModerationEndpoints
         if (targets == ModerationTargets.None)
             return "Choose at least one target.";
 
-        if (ActionProblem(targets, body.DeleteMessage, body.TimeoutMinutes) is { } actionProblem)
+        var wanted = new RuleActions(body.DeleteMessage, body.TimeoutMinutes, body.GroupBan, body.GroupRemove);
+
+        if (ActionProblem(targets, wanted) is { } actionProblem)
             return actionProblem;
 
         if (ScopeProblem(body.Scope) is { } scopeProblem)
@@ -893,11 +930,13 @@ public static class AiModerationEndpoints
 
         list.Enabled = body.Enabled;
         list.Targets = (int)targets;
-        SetAction(list.DeleteMessage, list.TimeoutMinutes, body.DeleteMessage, body.TimeoutMinutes, user, now,
-            (d, m, by, name, at) =>
+        SetAction(RuleActions.Of(list), wanted, user, now,
+            (actions, by, name, at) =>
             {
-                list.DeleteMessage = d;
-                list.TimeoutMinutes = m;
+                list.DeleteMessage = actions.DeleteMessage;
+                list.TimeoutMinutes = actions.TimeoutMinutes;
+                list.GroupBan = actions.GroupBan;
+                list.GroupRemove = actions.GroupRemove;
                 list.ActSetByUserId = by;
                 list.ActSetByUsername = name;
                 list.ActSetAt = at;
@@ -968,7 +1007,9 @@ public static class AiModerationEndpoints
         if (targets == ModerationTargets.None)
             return "Choose at least one target.";
 
-        if (ActionProblem(targets, body.DeleteMessage, body.TimeoutMinutes) is { } actionProblem)
+        var wanted = new RuleActions(body.DeleteMessage, body.TimeoutMinutes, body.GroupBan, body.GroupRemove);
+
+        if (ActionProblem(targets, wanted) is { } actionProblem)
             return actionProblem;
 
         if (ScopeProblem(body.Scope) is { } scopeProblem)
@@ -998,11 +1039,13 @@ public static class AiModerationEndpoints
         topic.Sensitivity = sensitivity;
         topic.Enabled = body.Enabled;
         topic.Targets = (int)targets;
-        SetAction(topic.DeleteMessage, topic.TimeoutMinutes, body.DeleteMessage, body.TimeoutMinutes, user, now,
-            (d, m, by, n, at) =>
+        SetAction(RuleActions.Of(topic), wanted, user, now,
+            (actions, by, n, at) =>
             {
-                topic.DeleteMessage = d;
-                topic.TimeoutMinutes = m;
+                topic.DeleteMessage = actions.DeleteMessage;
+                topic.TimeoutMinutes = actions.TimeoutMinutes;
+                topic.GroupBan = actions.GroupBan;
+                topic.GroupRemove = actions.GroupRemove;
                 topic.ActSetByUserId = by;
                 topic.ActSetByUsername = n;
                 topic.ActSetAt = at;
@@ -1013,13 +1056,30 @@ public static class AiModerationEndpoints
         return null;
     }
 
-    private static string? ActionProblem(ModerationTargets targets, bool delete, int? minutes)
+    /// <summary>What a rule does beyond flagging, as one value (AutoMod design §5).</summary>
+    private sealed record RuleActions(bool DeleteMessage, int? TimeoutMinutes, bool GroupBan, bool GroupRemove)
     {
-        if (minutes is not null && (minutes < 1 || minutes > MaxTimeoutMinutes))
+        public static RuleActions None { get; } = new(false, null, false, false);
+
+        public bool Any => DeleteMessage || TimeoutMinutes is not null || GroupBan || GroupRemove;
+
+        public static RuleActions Of(IModerationRule rule) => new(rule.DeleteMessage, rule.TimeoutMinutes, rule.GroupBan, rule.GroupRemove);
+    }
+
+    /// <summary>
+    /// Discord actions need a Discord message to act on and VRChat actions a VRChat profile
+    /// (AutoMod design §5): a rule is refused an action it could never carry out.
+    /// </summary>
+    private static string? ActionProblem(ModerationTargets targets, RuleActions wanted)
+    {
+        if (wanted.TimeoutMinutes is not null && (wanted.TimeoutMinutes < 1 || wanted.TimeoutMinutes > MaxTimeoutMinutes))
             return $"A timeout must be between 1 and {MaxTimeoutMinutes} minutes.";
 
-        if ((delete || minutes is not null) && !targets.HasFlag(ModerationTargets.DiscordMessage))
+        if ((wanted.DeleteMessage || wanted.TimeoutMinutes is not null) && !targets.HasFlag(ModerationTargets.DiscordMessage))
             return "Deleting and timing out only work on Discord messages.";
+
+        if ((wanted.GroupBan || wanted.GroupRemove) && (targets & ~ModerationTargets.DiscordMessage) == ModerationTargets.None)
+            return "Banning and removing from the group only work on VRChat profile text.";
 
         return null;
     }
@@ -1029,25 +1089,23 @@ public static class AiModerationEndpoints
     /// that change; going back to flag only clears the name; anything else leaves it alone.
     /// </summary>
     private static void SetAction(
-        bool wasDelete, int? wasMinutes, bool delete, int? minutes, ClaimsPrincipal user, DateTimeOffset now,
-        Action<bool, int?, Guid?, string?, DateTimeOffset?> apply,
+        RuleActions was, RuleActions wanted, ClaimsPrincipal user, DateTimeOffset now,
+        Action<RuleActions, Guid?, string?, DateTimeOffset?> apply,
         Guid? setBy, string? setByName, DateTimeOffset? setAt)
     {
-        var acts = delete || minutes is not null;
-
-        if (!acts)
+        if (!wanted.Any)
         {
-            apply(false, null, null, null, null);
+            apply(RuleActions.None, null, null, null);
             return;
         }
 
-        if (wasDelete != delete || wasMinutes != minutes || setBy is null)
+        if (was != wanted || setBy is null)
         {
-            apply(delete, minutes, ModbotAuth.UserIdOf(user), Clip(user.Identity?.Name ?? string.Empty, 64), now);
+            apply(wanted, ModbotAuth.UserIdOf(user), Clip(user.Identity?.Name ?? string.Empty, 64), now);
             return;
         }
 
-        apply(delete, minutes, setBy, setByName, setAt);
+        apply(wanted, setBy, setByName, setAt);
     }
 
     private static string? ScopeProblem(RuleScope? scope)
@@ -1115,7 +1173,7 @@ public static class AiModerationEndpoints
         {
             overridden = true;
         }
-        else if (await AiModerationRuleHistory.WhyCannotActAsync(db, rule.Id, rule.Version, ct) is { } why)
+        else if (await AutoModRuleHistory.WhyCannotActAsync(db, rule.Id, rule.Version, ct) is { } why)
         {
             return new ActingCheck(why, false);
         }
@@ -1249,23 +1307,27 @@ public static class AiModerationEndpoints
 
     // ── Views ───────────────────────────────────────────────────────────────────────────────
 
-    private static async Task<AiModerationResponse> ViewAsync(ModbotContext db, IAiClients ai, IModbotClock clock, CancellationToken ct)
+    private static async Task<AutoModResponse> ViewAsync(ModbotContext db, IAiClients ai, IModbotClock clock, CancellationToken ct)
     {
         var settings = await db.GetSettingsAsync(ct);
         var lists = await db.ModerationTermLists.AsNoTracking().OrderBy(l => l.CreatedAt).ToListAsync(ct);
         var topics = await db.ModerationTopics.AsNoTracking().OrderBy(t => t.CreatedAt).ToListAsync(ct);
         var extras = await ExtrasAsync(db, [.. lists.Cast<IModerationRule>(), .. topics], ct);
         var chat = await ai.GetChatAsync(ct);
+        var tools = AutoModAiTools.Parse(settings.AutoModAiTools);
 
-        return new AiModerationResponse(
-            settings.AiModerationEnabled,
+        return new AutoModResponse(
+            settings.AutoModEnabled,
             settings.AiModerationDailyCallLimit,
             AiCallAllowance.UsedToday(settings, clock.UtcNow),
             chat is not null,
             [.. lists.Select(l => ListView(l, extras))],
             [.. topics.Select(t => TopicViewOf(t, extras))],
             chat is not null && await ReadsPicturesAsync(db, chat.Model, ct),
-            ContextMessageCounts.All);
+            ContextMessageCounts.All,
+            // The same setting the AI tab's Base card reads: the AI section shows only while it is on.
+            settings.AiEnabled,
+            [.. AutoModAiTools.All.Select(t => new AiToolView(t.Name, t.Label, AutoModAiTools.IsOn(tools, t.Name)))]);
     }
 
     /// <summary>
@@ -1336,6 +1398,8 @@ public static class AiModerationEndpoints
                     Flags = g.Count(),
                     Delete = g.Count(f => f.WouldDeleteMessage),
                     Timeout = g.Count(f => f.WouldTimeOutMinutes != null),
+                    Ban = g.Count(f => f.WouldGroupBan),
+                    Remove = g.Count(f => f.WouldGroupRemove),
                     Dismissed = g.Count(f => f.State == ModerationFlagState.Dismissed),
                 })
                 .FirstOrDefaultAsync(ct);
@@ -1347,7 +1411,9 @@ public static class AiModerationEndpoints
                 counts?.Flags ?? 0,
                 counts?.Delete ?? 0,
                 counts?.Timeout ?? 0,
-                counts?.Dismissed ?? 0);
+                counts?.Dismissed ?? 0,
+                counts?.Ban ?? 0,
+                counts?.Remove ?? 0);
         }
 
         return new RuleExtras(stats, trials, samples, lastRuns);
@@ -1463,7 +1529,9 @@ public static class AiModerationEndpoints
             TestsOf(l, extras),
             l.ContextMessages,
             l.CheckPictures,
-            l.OpenReviewForEachFlag);
+            l.OpenReviewForEachFlag,
+            l.GroupBan,
+            l.GroupRemove);
     }
 
     private static TermListDetail Detail(ModerationTermList l, RuleExtras extras)
@@ -1488,7 +1556,9 @@ public static class AiModerationEndpoints
         TestsOf(t, extras),
         t.ContextMessages,
         t.CheckPictures,
-        t.OpenReviewForEachFlag);
+        t.OpenReviewForEachFlag,
+        t.GroupBan,
+        t.GroupRemove);
 
     // ── Facts ───────────────────────────────────────────────────────────────────────────────
 
@@ -1506,6 +1576,8 @@ public static class AiModerationEndpoints
         ["openReviewForEachFlag"] = l.OpenReviewForEachFlag,
         ["deleteMessage"] = l.DeleteMessage,
         ["timeoutMinutes"] = l.TimeoutMinutes,
+        ["groupBan"] = l.GroupBan,
+        ["groupRemove"] = l.GroupRemove,
     };
 
     private static JsonObject TopicData(ModerationTopic t) => new()
@@ -1519,6 +1591,8 @@ public static class AiModerationEndpoints
         ["openReviewForEachFlag"] = t.OpenReviewForEachFlag,
         ["deleteMessage"] = t.DeleteMessage,
         ["timeoutMinutes"] = t.TimeoutMinutes,
+        ["groupBan"] = t.GroupBan,
+        ["groupRemove"] = t.GroupRemove,
     };
 
     private static async Task RuleChangedAsync(
@@ -1547,7 +1621,7 @@ public static class AiModerationEndpoints
 
         await facts.WriteAsync(new FactRecord
         {
-            Type = FactType.AiModerationRuleChanged,
+            Type = FactType.AutoModRuleChanged,
             OccurredAt = now,
             SubjectPlatform = FactPlatform.Modbot,
             SubjectId = userId.ToString(),
@@ -1583,6 +1657,8 @@ public static class AiModerationEndpoints
             ["ruleVersion"] = rule.Version,
             ["deleteMessage"] = rule.DeleteMessage,
             ["timeoutMinutes"] = rule.TimeoutMinutes,
+            ["groupBan"] = rule.GroupBan,
+            ["groupRemove"] = rule.GroupRemove,
             ["trialStartedAt"] = rule.TrialStartedAt?.ToString("O"),
             ["trialDays"] = rule.TrialDays,
         }, ct);

@@ -1,16 +1,11 @@
 using System.Net.Http;
-using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Logging;
 using Modbot.Core.Net;
+using Modbot.Moderation;
 using Serilog;
 
 namespace Modbot.AI.Moderation;
-
-/// <summary>A picture a rule could check, before Modbot has decided how to send it.</summary>
-/// <param name="Label">What the flag will say matched: "Attachment cat.png", "Discord avatar".</param>
-/// <param name="Url">Where the picture is. Always https and never a private address.</param>
-public sealed record PictureSource(string Label, string Url);
 
 /// <summary>One picture as it goes to the model (AI moderation design §17).</summary>
 /// <param name="Key">A short name used only inside one request, so the model can say which matched.</param>
@@ -47,7 +42,7 @@ public sealed class ModerationPictures
     public const int MostBytes = 4 * 1024 * 1024;
 
     /// <summary>The picture types Modbot sends. Anything else is skipped.</summary>
-    public static IReadOnlyList<string> Types { get; } = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+    public static IReadOnlyList<string> Types => PictureAttachments.Types;
 
     private static readonly TimeSpan FetchTimeout = TimeSpan.FromSeconds(15);
 
@@ -70,49 +65,6 @@ public sealed class ModerationPictures
            && (provider.Equals(AiProviders.OpenRouter.Id, StringComparison.OrdinalIgnoreCase)
                || provider.Equals(AiProviders.OpenAI.Id, StringComparison.OrdinalIgnoreCase)
                || provider.Equals(AiProviders.XAi.Id, StringComparison.OrdinalIgnoreCase));
-
-    /// <summary>
-    /// A Discord message's image attachments, from the stored <c>jsonb</c> array.
-    /// </summary>
-    /// <remarks>
-    /// Discord gives each attachment a content type, and only the ones it calls a picture are
-    /// taken: an attachment named <c>cat.png</c> that Discord says is a zip is a zip.
-    /// </remarks>
-    public static IReadOnlyList<PictureSource> Attachments(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            return [];
-
-        var found = new List<PictureSource>();
-
-        try
-        {
-            using var document = JsonDocument.Parse(json);
-            if (document.RootElement.ValueKind != JsonValueKind.Array)
-                return [];
-
-            foreach (var item in document.RootElement.EnumerateArray())
-            {
-                if (item.ValueKind != JsonValueKind.Object)
-                    continue;
-
-                var type = Text(item, "type");
-                var url = Text(item, "url");
-                var name = Text(item, "name") ?? "picture";
-
-                if (url is null || type is null || !Types.Contains(Before(type, ';'), StringComparer.OrdinalIgnoreCase))
-                    continue;
-
-                found.Add(new PictureSource($"Attachment {name}", url));
-            }
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
-
-        return found;
-    }
 
     /// <summary>
     /// Every picture worth sending, capped and checked, ready for the model.
@@ -212,12 +164,6 @@ public sealed class ModerationPictures
         var index = text.IndexOf(at);
         return index < 0 ? text : text[..index];
     }
-
-    private static string? Text(JsonElement o, string name)
-        => o.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
-           && value.GetString() is { Length: > 0 } text
-            ? text
-            : null;
 }
 
 /// <summary>Registers the picture client, which refuses private and local addresses.</summary>

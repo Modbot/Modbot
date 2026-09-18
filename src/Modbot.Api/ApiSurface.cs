@@ -152,6 +152,28 @@ public static class ApiSurface
         return services;
     }
 
+    /// <summary>
+    /// Routes that moved, answered at their old address. Before routing, so the endpoint that
+    /// answers is the one at the new address and the API document lists each route once.
+    /// </summary>
+    /// <remarks>
+    /// <c>/api/settings/ai/moderation</c> became <c>/api/settings/automod</c> when AutoMod got its
+    /// own tab (AutoMod design §3). A rewrite rather than a second mapping, because a second
+    /// mapping would be every handler twice under a second set of names.
+    /// </remarks>
+    public static IApplicationBuilder UseOldApiPaths(this IApplicationBuilder app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        return app.Use((context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments(Features.Settings.AutoModEndpoints.OldPath, out var rest))
+                context.Request.Path = Features.Settings.AutoModEndpoints.Path + rest;
+
+            return next(context);
+        });
+    }
+
     public static IEndpointRouteBuilder MapModbotApi(this IEndpointRouteBuilder app)
     {
         var api = app.MapGroup("/api").WithTags("Version");
@@ -198,7 +220,7 @@ public static class ApiSurface
         app.MapEmailSettings();
         app.MapAiSettings();
         app.MapAiChatSettings();
-        app.MapAiModerationSettings();
+        app.MapAutoModSettings();
         app.MapModerationFlags();
         app.MapAiLimitsSettings();
         app.MapAiCatalog();

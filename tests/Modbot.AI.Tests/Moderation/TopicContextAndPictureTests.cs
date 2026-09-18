@@ -1,5 +1,6 @@
 using System.ClientModel.Primitives;
 using Modbot.AI.Moderation;
+using Modbot.Moderation;
 using Modbot.Core.Moderation;
 using OpenAI.Chat;
 

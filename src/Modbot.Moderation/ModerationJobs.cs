@@ -10,7 +10,7 @@ using Modbot.Core.Moderation;
 using Modbot.Core.Time;
 using Serilog;
 
-namespace Modbot.AI.Moderation;
+namespace Modbot.Moderation;
 
 /// <summary>
 /// Fetching a subscribed Hub list again, and applying a newer version when the operator says so
@@ -170,10 +170,10 @@ public sealed class ProfileModerationPass
     public async Task<int> RunOnceAsync(CancellationToken ct)
     {
         var settings = await _db.GetSettingsAsync(ct).ConfigureAwait(false);
-        if (!settings.AiModerationEnabled)
+        if (!settings.AutoModEnabled)
             return 0;
 
-        var cursor = settings.AiModerationProfileFactsReadThrough;
+        var cursor = settings.AutoModProfileFactsReadThrough;
 
         var rows = await _db.Events.AsNoTracking()
             .Where(e => e.Id > cursor
@@ -236,7 +236,7 @@ public sealed class ProfileModerationPass
 
         await _checker.CheckProfilesAsync(toCheck, ct).ConfigureAwait(false);
 
-        settings.AiModerationProfileFactsReadThrough = rows[^1].Id;
+        settings.AutoModProfileFactsReadThrough = rows[^1].Id;
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         return rows.Count;

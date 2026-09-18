@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.AI;
 using Modbot.AI.Moderation;
+using Modbot.Moderation;
 using Modbot.Analytics.Messages;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Moderation;
@@ -21,9 +22,9 @@ namespace Modbot.Api.Tests.Features.Settings;
 /// rows: what went to the model, what the flag recorded, what the rule's card counts.
 /// </remarks>
 [Collection(nameof(PostgresCollection))]
-public class AiModerationContextTests
+public class AutoModContextTests
 {
-    private const string Path = "/api/settings/ai/moderation";
+    private const string Path = "/api/settings/automod";
     private const string Flags = "/api/moderation-flags";
 
     private const string Guild = "910000000000000001";
@@ -31,7 +32,7 @@ public class AiModerationContextTests
 
     private readonly PostgresFixture _db;
 
-    public AiModerationContextTests(PostgresFixture db) => _db = db;
+    public AutoModContextTests(PostgresFixture db) => _db = db;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -41,7 +42,7 @@ public class AiModerationContextTests
     public async Task TheMessagesBeforeGoToTheModelMarkedAsContext_AndAreStoredWithTheFlag()
     {
         var sent = new List<string>();
-        var ai = new AiModerationTests.FakeAi(body =>
+        var ai = new AutoModTests.FakeAi(body =>
         {
             sent.Add(body);
             return """{"matches":[{"topic":"t1","why":"Called them a clown.","quote":"such a clown"}]}""";
@@ -82,7 +83,7 @@ public class AiModerationContextTests
     public async Task AQuoteTakenFromTheContextIsRefused_SoNothingIsFlagged()
     {
         // Bob really did write it, one message earlier. It is still not what this member said.
-        var ai = new AiModerationTests.FakeAi(_ =>
+        var ai = new AutoModTests.FakeAi(_ =>
             """{"matches":[{"topic":"t1","why":"Called the shop a scam.","quote":"that shop is a scam"}]}""");
 
         await using var host = await StartAsync(ai);
@@ -102,7 +103,7 @@ public class AiModerationContextTests
     public async Task ARuleSetToNoContextSendsNone()
     {
         var sent = new List<string>();
-        var ai = new AiModerationTests.FakeAi(body =>
+        var ai = new AutoModTests.FakeAi(body =>
         {
             sent.Add(body);
             return """{"matches":[]}""";
@@ -126,7 +127,7 @@ public class AiModerationContextTests
     public async Task AProfileCheckNeverSendsContext()
     {
         var sent = new List<string>();
-        var ai = new AiModerationTests.FakeAi(body =>
+        var ai = new AutoModTests.FakeAi(body =>
         {
             sent.Add(body);
             return """{"matches":[]}""";
@@ -154,7 +155,7 @@ public class AiModerationContextTests
     public async Task PicturesAreOfferedAndSentOnlyWhenTheModelReadsThem()
     {
         var sent = new List<string>();
-        var ai = new AiModerationTests.FakeAi(body =>
+        var ai = new AutoModTests.FakeAi(body =>
         {
             sent.Add(body);
             return """{"matches":[]}""";
@@ -195,7 +196,7 @@ public class AiModerationContextTests
     public async Task APictureAtAPrivateAddressIsNeverSentAndNeverFetched()
     {
         var sent = new List<string>();
-        var ai = new AiModerationTests.FakeAi(body =>
+        var ai = new AutoModTests.FakeAi(body =>
         {
             sent.Add(body);
             return """{"matches":[]}""";
@@ -222,7 +223,7 @@ public class AiModerationContextTests
     [Fact]
     public async Task APictureFlagSaysWhichPictureMatched()
     {
-        var ai = new AiModerationTests.FakeAi(_ =>
+        var ai = new AutoModTests.FakeAi(_ =>
             """{"matches":[{"topic":"t1","why":"The picture is a slur.","quote":"","picture":"p1"}]}""");
 
         await using var host = await StartAsync(ai);
@@ -389,7 +390,7 @@ public class AiModerationContextTests
             Assert.Equal(user.Username, flag.ConfirmedByUsername);
         }
 
-        var fact = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiModerationFlagConfirmed, "author-1", Ct)));
+        var fact = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AutoModFlagConfirmed, "author-1", Ct)));
         Assert.Equal("Scams", fact.GetProperty("ruleName").GetString());
 
         var card = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct));
@@ -462,7 +463,7 @@ public class AiModerationContextTests
 
     // ── Helpers ──────────────────────────────────────────────────────────────────────────────
 
-    private async Task<ApiTestHost> StartAsync(AiModerationTests.FakeAi? ai = null)
+    private async Task<ApiTestHost> StartAsync(AutoModTests.FakeAi? ai = null)
     {
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
 

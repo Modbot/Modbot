@@ -33,7 +33,9 @@ public sealed record RuleTrial(
     int Flags,
     int WouldDelete,
     int WouldTimeOut,
-    int Dismissed);
+    int Dismissed,
+    int WouldGroupBan = 0,
+    int WouldGroupRemove = 0);
 
 /// <summary>A rule that stopped itself (design §13.2).</summary>
 public sealed record RulePause(DateTimeOffset At, string? Reason);
@@ -65,7 +67,7 @@ public sealed record TermListView(
     string? HubVersion,
     DateTimeOffset? HubFetchedAt,
     string? HubAvailableVersion,
-    Modbot.AI.Moderation.HubListChanges? HubAvailableChanges,
+    Modbot.Moderation.HubListChanges? HubAvailableChanges,
     string? HubError,
     RuleStats Stats,
     int Version,
@@ -76,7 +78,9 @@ public sealed record TermListView(
     RuleTestSummary Tests,
     int ContextMessages = 0,
     bool CheckPictures = false,
-    bool OpenReviewForEachFlag = false);
+    bool OpenReviewForEachFlag = false,
+    bool GroupBan = false,
+    bool GroupRemove = false);
 
 /// <param name="Label">The term as a moderator reads it: the words, the pattern, or the combination.</param>
 /// <param name="Excluded">Switched off on this deployment.</param>
@@ -112,7 +116,12 @@ public sealed record TopicView(
     RuleTestSummary Tests,
     int ContextMessages = 0,
     bool CheckPictures = false,
-    bool OpenReviewForEachFlag = false);
+    bool OpenReviewForEachFlag = false,
+    bool GroupBan = false,
+    bool GroupRemove = false);
+
+/// <summary>One AI tool AutoMod may use, and where its switch stands (AutoMod design §6).</summary>
+public sealed record AiToolView(string Name, string Label, bool On);
 
 /// <param name="AiReady">Whether AI base settings are on and complete, so AI topics can run at all.</param>
 /// <param name="PicturesAvailable">
@@ -120,7 +129,12 @@ public sealed record TopicView(
 /// False makes the "Check pictures" box unavailable rather than letting it fail at run time.
 /// </param>
 /// <param name="ContextChoices">The amounts of context a rule may be set to.</param>
-public sealed record AiModerationResponse(
+/// <param name="AiEnabled">
+/// Whether AI is switched on under Settings → AI → Base. The AutoMod tab shows its AI section only
+/// while it is (AutoMod design §6).
+/// </param>
+/// <param name="AiTools">Each AI tool and where its switch stands.</param>
+public sealed record AutoModResponse(
     bool Enabled,
     int DailyAiCallLimit,
     int AiCallsToday,
@@ -128,9 +142,16 @@ public sealed record AiModerationResponse(
     IReadOnlyList<TermListView> Lists,
     IReadOnlyList<TopicView> Topics,
     bool PicturesAvailable = false,
-    IReadOnlyList<int>? ContextChoices = null);
+    IReadOnlyList<int>? ContextChoices = null,
+    bool AiEnabled = false,
+    IReadOnlyList<AiToolView>? AiTools = null);
 
-public sealed record AiModerationUpdate(bool Enabled, int DailyAiCallLimit);
+/// <param name="DailyAiCallLimit">Null keeps the limit as it is.</param>
+/// <param name="AiTools">Switches to change, by tool name. Null or empty changes none.</param>
+public sealed record AutoModUpdate(
+    bool Enabled,
+    int? DailyAiCallLimit = null,
+    IReadOnlyDictionary<string, bool>? AiTools = null);
 
 /// <param name="Id">An existing term's id, to keep it; null for a new term.</param>
 /// <param name="Kind"><c>word</c>, <c>contains</c> or <c>regex</c>.</param>
@@ -146,6 +167,8 @@ public sealed record TermInput(string? Id, string Kind, string Text);
 /// Switch the rule to acting without a passing test run. Recorded as a fact naming the operator
 /// (AI moderation design §12.4).
 /// </param>
+/// <param name="GroupBan">Ban a matched VRChat profile's owner from the managed group (AutoMod design §5).</param>
+/// <param name="GroupRemove">Remove a matched VRChat profile's owner from the managed group.</param>
 public sealed record TermListInput(
     string? Name,
     bool Enabled,
@@ -159,7 +182,9 @@ public sealed record TermListInput(
     bool ActWithoutTest = false,
     int? ContextMessages = null,
     bool CheckPictures = false,
-    bool OpenReviewForEachFlag = false);
+    bool OpenReviewForEachFlag = false,
+    bool GroupBan = false,
+    bool GroupRemove = false);
 
 public sealed record HubSubscribe(string HubId);
 
@@ -187,7 +212,9 @@ public sealed record TopicInput(
     bool ActWithoutTest = false,
     int? ContextMessages = null,
     bool CheckPictures = false,
-    bool OpenReviewForEachFlag = false);
+    bool OpenReviewForEachFlag = false,
+    bool GroupBan = false,
+    bool GroupRemove = false);
 
 // ── Test sets (AI moderation design §12) ────────────────────────────────────────────────────
 
@@ -257,7 +284,9 @@ public sealed record TryMatchView(
     string Matched,
     string? Reason,
     bool DeleteMessage,
-    int? TimeoutMinutes);
+    int? TimeoutMinutes,
+    bool GroupBan = false,
+    bool GroupRemove = false);
 
 /// <param name="CallId">The AI call behind it, in the call log. Null when no AI call was made.</param>
 public sealed record TryResponse(
@@ -265,4 +294,6 @@ public sealed record TryResponse(
     bool WouldDeleteMessage,
     int? WouldTimeOutMinutes,
     string? AiSkipped,
-    Guid? CallId = null);
+    Guid? CallId = null,
+    bool WouldGroupBan = false,
+    bool WouldGroupRemove = false);

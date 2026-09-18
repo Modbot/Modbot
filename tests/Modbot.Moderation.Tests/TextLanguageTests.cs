@@ -1,6 +1,6 @@
-using Modbot.AI.Moderation;
+using Modbot.Moderation;
 
-namespace Modbot.AI.Tests.Moderation;
+namespace Modbot.Moderation.Tests;
 
 /// <summary>
 /// The language marked on every flag (AI moderation design §18). Offline: no request goes anywhere.

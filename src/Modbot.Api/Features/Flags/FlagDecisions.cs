@@ -28,7 +28,7 @@ public static class FlagDecisions
         flag.DismissedByUserId = userId;
         flag.DismissedByUsername = Clip(username);
 
-        return facts.WriteAsync(Fact(FactType.AiModerationFlagDismissed, flag, userId, username, now), ct);
+        return facts.WriteAsync(Fact(FactType.AutoModFlagDismissed, flag, userId, username, now), ct);
     }
 
     /// <summary>The rule was right. The flag is closed, and the rule's card counts it.</summary>
@@ -43,7 +43,7 @@ public static class FlagDecisions
         flag.ConfirmedByUserId = userId;
         flag.ConfirmedByUsername = Clip(username);
 
-        return facts.WriteAsync(Fact(FactType.AiModerationFlagConfirmed, flag, userId, username, now), ct);
+        return facts.WriteAsync(Fact(FactType.AutoModFlagConfirmed, flag, userId, username, now), ct);
     }
 
     private static FactRecord Fact(

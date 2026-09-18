@@ -1,9 +1,9 @@
 using System.Net;
 using System.Text;
-using Modbot.AI.Moderation;
+using Modbot.Moderation;
 using Modbot.Core.Moderation;
 
-namespace Modbot.AI.Tests.Moderation;
+namespace Modbot.Moderation.Tests;
 
 /// <summary>
 /// The curated term lists, read from the copies in this repository (<c>src/Modbot.Cloud/termlists</c>) and
@@ -104,5 +104,26 @@ public class HubTermListsTests
     private sealed class SingleClientFactory(HttpMessageHandler handler) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+    }
+}
+
+/// <summary>An HTTP handler that answers from a script and remembers what it was asked.</summary>
+public sealed class ScriptedHandler(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler
+{
+    public sealed record Seen(HttpMethod Method, string Url, string? Authorization, string? Body);
+
+    public List<Seen> Requests { get; } = [];
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+
+        Requests.Add(new Seen(
+            request.Method,
+            request.RequestUri!.ToString(),
+            request.Headers.Authorization?.ToString(),
+            body));
+
+        return answer(request);
     }
 }

@@ -18,7 +18,7 @@ using Modbot.Core.Logging;
 using Modbot.Core.Logging.Store;
 using Modbot.Core.Names;
 using Modbot.AI;
-using Modbot.AI.Moderation;
+using Modbot.Moderation;
 using Modbot.Discord;
 using Modbot.Evidence;
 using Modbot.Evidence.Upload;
@@ -235,7 +235,7 @@ try
     builder.Services.AddSingleton(cloud);
 
     // The term lists come from Cloud, and MODBOT_CLOUD_DISABLED stops the fetch. Registered before
-    // AddModbotAi, whose TryAdd would otherwise win with the default address.
+    // AddModbotModeration, whose TryAdd would otherwise win with the default address.
     builder.Services.AddSingleton(new TermListHubOptions
     {
         Address = cloud.Endpoint.AbsoluteUri.EndsWith('/')
@@ -267,10 +267,15 @@ try
     if (!demo.IsOn)
         builder.Services.AddHostedService<ServerReportingService>();
 
+    // AutoMod (AutoMod design): the engine reads its rules from the database on every check, so
+    // it does nothing until an operator switches it on. Term lists run with AI off.
+    builder.Services.AddModbotModeration();
+    builder.Services.AddModbotModerationJobs();
+
     // Where every AI feature gets its client (M8 section 4). It reads the settings row on each
-    // call and hands out nothing while AI is off, so it needs nothing from startup.
+    // call and hands out nothing while AI is off, so it needs nothing from startup. Adds the AI
+    // half of AutoMod, topic checks, on top of the engine above.
     builder.Services.AddModbotAi();
-    builder.Services.AddModbotAiModerationJobs();
 
     // Deletes call log rows past the operator's keep-for setting, once a day.
     builder.Services.AddModbotAiCallLogPrune();
@@ -457,6 +462,7 @@ try
 
     // Before authentication, because what it turns away is signing in (demo mode design §3.2).
     app.UseDemoRefusals();
+    app.UseOldApiPaths();
 
     app.UseAuthentication();
     app.UseAuthorization();

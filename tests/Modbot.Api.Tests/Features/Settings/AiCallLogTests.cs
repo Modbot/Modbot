@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.AI;
 using Modbot.AI.Calls;
 using Modbot.AI.Moderation;
+using Modbot.Moderation;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Moderation;
@@ -36,7 +37,7 @@ public class AiCallLogTests
     {
         var asked = new List<string>();
 
-        var ai = new AiModerationTests.FakeAi(body =>
+        var ai = new AutoModTests.FakeAi(body =>
         {
             asked.Add(body);
 
@@ -83,7 +84,7 @@ public class AiCallLogTests
     {
         var asked = 0;
 
-        var ai = new AiModerationTests.FakeAi(body =>
+        var ai = new AutoModTests.FakeAi(body =>
         {
             asked++;
 
@@ -118,7 +119,7 @@ public class AiCallLogTests
     {
         var asked = 0;
 
-        var ai = new AiModerationTests.FakeAi(_ =>
+        var ai = new AutoModTests.FakeAi(_ =>
         {
             asked++;
             return asked == 1
@@ -247,7 +248,7 @@ public class AiCallLogTests
         };
     }
 
-    private async Task<ApiTestHost> StartAsync(AiModerationTests.FakeAi? ai = null)
+    private async Task<ApiTestHost> StartAsync(AutoModTests.FakeAi? ai = null)
     {
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
 
@@ -273,7 +274,7 @@ public class AiCallLogTests
         await using var db = _db.NewContext();
 
         var settings = await db.GetSettingsAsync(Ct);
-        settings.AiModerationEnabled = true;
+        settings.AutoModEnabled = true;
         settings.AiModerationDailyCallLimit = 100;
         settings.AiModerationProfileBatchSize = batchSize;
 

@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
-using Modbot.AI.Moderation;
+using Modbot.Moderation;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Moderation;
@@ -17,7 +17,7 @@ namespace Modbot.Api.Features.Settings;
 /// text, so they do not make a version — otherwise every trial would invalidate the test run that
 /// earned it.
 /// </remarks>
-public static class AiModerationRuleHistory
+public static class AutoModRuleHistory
 {
     /// <summary>The rule's text, as JSON. Two rules with the same snapshot are the same rule.</summary>
     public static JsonObject SnapshotOf(ModerationTermList list)

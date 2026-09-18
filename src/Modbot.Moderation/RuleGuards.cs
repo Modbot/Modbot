@@ -1,10 +1,11 @@
 using System.Text.Json;
 using Modbot.Core.Data.Entities;
 
-namespace Modbot.AI.Moderation;
+namespace Modbot.Moderation;
 
 /// <summary>
-/// Everything that stands between a rule matching and a rule acting (AI moderation design §13).
+/// Everything that stands between a rule matching and a rule acting (AI moderation design §13,
+/// AutoMod design §5).
 /// </summary>
 /// <remarks>
 /// A rule that only flags passes none of this: it is all about actions. The order is scope, then
@@ -13,11 +14,25 @@ namespace Modbot.AI.Moderation;
 /// </remarks>
 public static class RuleGuards
 {
-    /// <summary>The rule asks to delete or time out.</summary>
+    /// <summary>The rule asks for anything beyond a flag, on either platform.</summary>
     public static bool WantsAction(IModerationRule rule)
     {
         ArgumentNullException.ThrowIfNull(rule);
+        return WantsDiscordAction(rule) || WantsVRChatAction(rule);
+    }
+
+    /// <summary>The rule asks to delete a Discord message or time its author out.</summary>
+    public static bool WantsDiscordAction(IModerationRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
         return rule.DeleteMessage || rule.TimeoutMinutes is > 0;
+    }
+
+    /// <summary>The rule asks to ban a person from the VRChat group or remove them from it (AutoMod design §5).</summary>
+    public static bool WantsVRChatAction(IModerationRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        return rule.GroupBan || rule.GroupRemove;
     }
 
     /// <summary>The rule wants to act and its trial has started and not been ended.</summary>

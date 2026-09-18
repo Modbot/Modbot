@@ -1,7 +1,7 @@
-using Modbot.AI.Moderation;
+using Modbot.Moderation;
 using Modbot.Core.Moderation;
 
-namespace Modbot.AI.Tests.Moderation;
+namespace Modbot.Moderation.Tests;
 
 /// <summary>Term matching (AI moderation design §4.1): no database, no network.</summary>
 public class TermMatcherTests

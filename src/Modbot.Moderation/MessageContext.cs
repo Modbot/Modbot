@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 
-namespace Modbot.AI.Moderation;
+namespace Modbot.Moderation;
 
 /// <summary>One message sent to the model as context, never as the thing being judged.</summary>
 /// <param name="Author">The name the author had when the message was stored. Untrusted text.</param>

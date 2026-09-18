@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
 
-namespace Modbot.AI.Moderation;
+namespace Modbot.Moderation;
 
 /// <summary>
 /// Text made comparable, remembering where each character came from so a match can quote the

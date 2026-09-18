@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using Modbot.Core.Moderation;
 using Serilog;
 
-namespace Modbot.AI.Moderation;
+namespace Modbot.Moderation;
 
 /// <summary>One term that matched a piece of text.</summary>
 /// <param name="Matched">The person's own words that matched, from the original text.</param>

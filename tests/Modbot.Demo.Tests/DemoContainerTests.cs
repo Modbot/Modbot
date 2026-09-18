@@ -16,6 +16,7 @@ using Modbot.Core.Security;
 using Modbot.Core.Time;
 using Modbot.Evidence;
 using Modbot.Evidence.Upload;
+using Modbot.Moderation;
 using Modbot.TestSupport;
 using Modbot.VRChat;
 using Modbot.VRChat.Scheduling;
@@ -95,8 +96,9 @@ public class DemoContainerTests
         builder.Services.AddModbotVRChat();
         builder.Services.AddSingleton<IVRChatGate>(new DemoVRChatGate(clock));
 
+        builder.Services.AddModbotModeration();
+        builder.Services.AddModbotModerationJobs();
         builder.Services.AddModbotAi();
-        builder.Services.AddModbotAiModerationJobs();
         builder.Services.AddModbotAiCallLogPrune();
         builder.Services.AddModbotAiInsightSchedule();
         builder.Services.AddModbotAiPriceFetch();

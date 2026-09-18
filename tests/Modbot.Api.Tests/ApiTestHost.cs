@@ -18,6 +18,7 @@ using Modbot.VRChat.Scheduling;
 using Modbot.VRChat.Sync;
 using Modbot.VRChat.Users;
 using Modbot.AI;
+using Modbot.Moderation;
 
 namespace Modbot.Api.Tests;
 
@@ -118,6 +119,7 @@ public sealed class ApiTestHost : IAsyncDisposable
             profileOptions));
 
         builder.Services.AddModbotAuth();
+        builder.Services.AddModbotModeration();
         builder.Services.AddModbotAi();
         builder.Services.AddModbotApi();
 
@@ -126,6 +128,7 @@ public sealed class ApiTestHost : IAsyncDisposable
         var app = builder.Build();
 
         app.UseWebSockets();
+        app.UseOldApiPaths();
         app.UseAuthentication();
         app.UseAuthorization();
 

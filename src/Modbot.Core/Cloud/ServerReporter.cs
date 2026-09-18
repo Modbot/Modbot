@@ -198,7 +198,7 @@ public sealed class ServerReporter(
             TermListsImported = termLists,
             RateLimitColdStops = coldStops,
             WafBlocks = wafBlocks,
-            AiModerationEnabled = settings.AiModerationEnabled,
+            AiModerationEnabled = settings.AutoModEnabled,
         };
     }
 }

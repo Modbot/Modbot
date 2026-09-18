@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.AI;
 using Modbot.AI.Moderation;
+using Modbot.Moderation;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -23,16 +24,16 @@ namespace Modbot.Api.Tests.Features.Settings;
 /// AI endpoint are fakes; nothing leaves the process.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
-public class AiModerationTests
+public class AutoModTests
 {
-    private const string Path = "/api/settings/ai/moderation";
+    private const string Path = "/api/settings/automod";
 
     private const string Guild = "900000000000000001";
     private const string Channel = "900000000000000002";
 
     private readonly PostgresFixture _db;
 
-    public AiModerationTests(PostgresFixture db) => _db = db;
+    public AutoModTests(PostgresFixture db) => _db = db;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -97,7 +98,7 @@ public class AiModerationTests
 
         // Three: created, then the override fact for skipping the test-run gate (design §12.4,
         // since List() always passes actWithoutTest), then changed when it went back to flag only.
-        var facts = await host.FactsAsync(FactType.AiModerationRuleChanged, user.Id.ToString(), Ct);
+        var facts = await host.FactsAsync(FactType.AutoModRuleChanged, user.Id.ToString(), Ct);
         Assert.Equal(3, facts.Count);
         Assert.True(ApiTestHost.DataOf(facts[^1]).GetProperty("deleteMessage").GetBoolean());
     }
@@ -151,7 +152,7 @@ public class AiModerationTests
         // A subject of its own, not the "author-1" other tests in this file and in
         // AiModerationContextTests/AiModerationSafetyTests reuse: the facts table is shared across
         // the whole run and nothing clears it between tests, so a name that many tests write
-        // FactType.AiModerationFlag facts for is a name whose fact count depends on run order.
+        // FactType.AutoModFlag facts for is a name whose fact count depends on run order.
         const string author = "operator-named-1";
 
         var outcome = await CheckAsync(host, Message("m1", author, "hey FREE nitro at this link"));
@@ -171,16 +172,16 @@ public class AiModerationTests
             Assert.Equal(45, flag.TimedOutMinutes);
         }
 
-        Assert.Single(await host.FactsAsync(FactType.AiModerationFlag, author, Ct));
+        Assert.Single(await host.FactsAsync(FactType.AutoModFlag, author, Ct));
 
-        var deleted = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiModerationMessageDeleted, author, Ct)));
+        var deleted = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AutoModMessageDeleted, author, Ct)));
         Assert.True(deleted.GetProperty("done").GetBoolean());
         Assert.Equal("m1", deleted.GetProperty("messageId").GetString());
         var rule = Assert.Single(deleted.GetProperty("rules").EnumerateArray());
         Assert.Equal(user.Username, rule.GetProperty("setToActByUsername").GetString());
         Assert.Equal(user.Id.ToString(), rule.GetProperty("setToActByUserId").GetString());
 
-        var timedOut = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiModerationTimeout, author, Ct)));
+        var timedOut = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AutoModTimeout, author, Ct)));
         Assert.Equal(45, timedOut.GetProperty("minutes").GetInt32());
 
         // The same message edited: already flagged, so nothing again.
@@ -210,7 +211,7 @@ public class AiModerationTests
         var dismissed = await host.SendJsonAsync(HttpMethod.Post, $"/api/moderation-flags/{flagId}/dismiss", null, reviewerCookie, Ct);
         Assert.Equal(HttpStatusCode.OK, dismissed.StatusCode);
 
-        var fact = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiModerationFlagDismissed, "local-1", Ct)));
+        var fact = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AutoModFlagDismissed, "local-1", Ct)));
         Assert.Equal(flagId.ToString(), fact.GetProperty("flagId").GetString());
 
         var later = await CheckAsync(host, Message("m2", "local-1", "Scunthorpe again"));

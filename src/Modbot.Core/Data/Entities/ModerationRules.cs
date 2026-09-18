@@ -40,6 +40,12 @@ public interface IModerationRule
 
     int? TimeoutMinutes { get; }
 
+    /// <summary>Ban the person from the managed VRChat group (AutoMod design §5). Profile targets only.</summary>
+    bool GroupBan { get; }
+
+    /// <summary>Remove the person from the managed VRChat group (AutoMod design §5). Profile targets only.</summary>
+    bool GroupRemove { get; }
+
     /// <summary>The rule's text version (AI moderation design §14).</summary>
     int Version { get; }
 
@@ -144,6 +150,10 @@ public class ModerationTermList : IModerationRule
 
     public int? TimeoutMinutes { get; set; }
 
+    public bool GroupBan { get; set; }
+
+    public bool GroupRemove { get; set; }
+
     /// <summary>Who set this list to act, and when. Null while it only flags.</summary>
     public Guid? ActSetByUserId { get; set; }
 
@@ -233,6 +243,10 @@ public class ModerationTopic : IModerationRule
 
     public int? TimeoutMinutes { get; set; }
 
+    public bool GroupBan { get; set; }
+
+    public bool GroupRemove { get; set; }
+
     public Guid? ActSetByUserId { get; set; }
 
     public string? ActSetByUsername { get; set; }
@@ -278,6 +292,29 @@ public class ModerationTopic : IModerationRule
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>What the AI may say about a flag, and what it may propose (AutoMod design §6.3).</summary>
+public static class FlagOpinions
+{
+    public const string Keep = "keep";
+
+    public const string Dismiss = "dismiss";
+
+    public static bool IsOpinion(string? value) => value is Keep or Dismiss;
+
+    /// <summary>The actions the model may propose. Nothing else it names is stored.</summary>
+    public const string NoAction = "none";
+
+    public const string DeleteMessage = "delete_message";
+
+    public const string TimeOut = "timeout";
+
+    public const string GroupBan = "group_ban";
+
+    public const string GroupRemove = "group_remove";
+
+    public static bool IsAction(string? value) => value is NoAction or DeleteMessage or TimeOut or GroupBan or GroupRemove;
 }
 
 /// <summary><para><strong>Persisted as smallint. Never renumber a member.</strong></para></summary>
@@ -366,6 +403,12 @@ public class ModerationFlag
 
     public int? TimedOutMinutes { get; set; }
 
+    /// <summary>The person was banned from the managed VRChat group by this rule (AutoMod design §5).</summary>
+    public bool GroupBanned { get; set; }
+
+    /// <summary>The person was removed from the managed VRChat group by this rule (AutoMod design §5).</summary>
+    public bool GroupRemoved { get; set; }
+
     /// <summary>The rule was in its trial, so nothing was done (AI moderation design §13.1).</summary>
     public bool Trial { get; set; }
 
@@ -373,6 +416,29 @@ public class ModerationFlag
     public bool WouldDeleteMessage { get; set; }
 
     public int? WouldTimeOutMinutes { get; set; }
+
+    public bool WouldGroupBan { get; set; }
+
+    public bool WouldGroupRemove { get; set; }
+
+    // ── The AI's opinion, when a moderator asked for one (AutoMod design §6.3) ──────────────
+
+    /// <summary><see cref="FlagOpinions.Keep"/> or <see cref="FlagOpinions.Dismiss"/>. Null until somebody asks.</summary>
+    public string? AiOpinion { get; set; }
+
+    /// <summary>The model's sentence for its opinion.</summary>
+    public string? AiOpinionReason { get; set; }
+
+    /// <summary>
+    /// What the model proposed a moderator might do, one of <see cref="FlagOpinions"/>'s actions.
+    /// Advice only: nothing here is ever carried out by Modbot. Null when the proposal tool is off.
+    /// </summary>
+    public string? AiProposedAction { get; set; }
+
+    public DateTimeOffset? AiOpinionAt { get; set; }
+
+    /// <summary>The call that gave the opinion, in the call log.</summary>
+    public Guid? AiOpinionCallId { get; set; }
 
     /// <summary>
     /// The AI call that produced this flag, in <see cref="AiCall"/>. Null for a term list, which

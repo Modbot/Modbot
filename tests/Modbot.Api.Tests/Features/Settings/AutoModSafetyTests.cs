@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.AI;
 using Modbot.AI.Moderation;
+using Modbot.Moderation;
 using Modbot.Api.Features.Settings;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -21,9 +22,9 @@ namespace Modbot.Api.Tests.Features.Settings;
 /// is a question about rows: what the gate read, what the trial recorded, what the pause counted.
 /// </remarks>
 [Collection(nameof(PostgresCollection))]
-public class AiModerationSafetyTests
+public class AutoModSafetyTests
 {
-    private const string Path = "/api/settings/ai/moderation";
+    private const string Path = "/api/settings/automod";
 
     private const string Guild = "900000000000000001";
     private const string Channel = "900000000000000002";
@@ -32,7 +33,7 @@ public class AiModerationSafetyTests
 
     private readonly PostgresFixture _db;
 
-    public AiModerationSafetyTests(PostgresFixture db) => _db = db;
+    public AutoModSafetyTests(PostgresFixture db) => _db = db;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -121,7 +122,7 @@ public class AiModerationSafetyTests
 
         Assert.False(saved.GetProperty("list").GetProperty("tests").GetProperty("passes").GetBoolean());
 
-        var facts = await host.FactsAsync(FactType.AiModerationRuleChanged, user.Id.ToString(), Ct);
+        var facts = await host.FactsAsync(FactType.AutoModRuleChanged, user.Id.ToString(), Ct);
         var overrides = facts.Select(ApiTestHost.DataOf)
             .Where(d => d.GetProperty("change").GetString() == "act-without-test")
             .ToList();
@@ -136,7 +137,7 @@ public class AiModerationSafetyTests
     [Fact]
     public async Task ARuleInItsTrialRecordsWhatItWouldHaveDone_AndActsOnlyOnceTheOperatorEndsIt()
     {
-        var discord = new AiModerationTests.FakeDiscordActions();
+        var discord = new AutoModTests.FakeDiscordActions();
         await using var host = await StartAsync(discord);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
@@ -196,7 +197,7 @@ public class AiModerationSafetyTests
             List("Scams", "free nitro", delete: true, withoutTest: true), cookie, Ct);
         await host.SendJsonAsync(HttpMethod.Post, $"{Path}/rules/termList/{id}/end-trial", null, cookie, Ct);
 
-        var changes = (await host.FactsAsync(FactType.AiModerationRuleChanged, user.Id.ToString(), Ct))
+        var changes = (await host.FactsAsync(FactType.AutoModRuleChanged, user.Id.ToString(), Ct))
             .Select(ApiTestHost.DataOf)
             .Where(d => d.GetProperty("change").GetString() == "trial-ended")
             .ToList();
@@ -210,7 +211,7 @@ public class AiModerationSafetyTests
     [Fact]
     public async Task ARuleThatActsFarMoreInAnHourThanUsualPausesItself_AndAnOperatorResumesIt()
     {
-        var discord = new AiModerationTests.FakeDiscordActions();
+        var discord = new AutoModTests.FakeDiscordActions();
         await using var host = await StartAsync(discord);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
@@ -234,7 +235,7 @@ public class AiModerationSafetyTests
             Assert.Contains("11 times in an hour", list.PausedReason, StringComparison.Ordinal);
         }
 
-        var paused = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiModerationRulePaused, id.ToString(), Ct)));
+        var paused = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AutoModRulePaused, id.ToString(), Ct)));
         Assert.Equal(11, paused.GetProperty("actionsInTheLastHour").GetInt32());
         Assert.Equal("Scams", paused.GetProperty("ruleName").GetString());
 
@@ -277,7 +278,7 @@ public class AiModerationSafetyTests
     [Fact]
     public async Task AChannelLimitStopsTheRuleEntirely_AndAnExemptRoleStopsOnlyTheAction()
     {
-        var discord = new AiModerationTests.FakeDiscordActions();
+        var discord = new AutoModTests.FakeDiscordActions();
         await using var host = await StartAsync(discord);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
@@ -346,7 +347,7 @@ public class AiModerationSafetyTests
     [Fact]
     public async Task AFlagAndAnActionNameTheVersionTheyActedOn_AndTheFlagShowsTheRuleAsItWasThen()
     {
-        var discord = new AiModerationTests.FakeDiscordActions();
+        var discord = new AutoModTests.FakeDiscordActions();
         await using var host = await StartAsync(discord);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
 
@@ -369,7 +370,7 @@ public class AiModerationSafetyTests
         Assert.Equal(1, flag.GetProperty("ruleVersion").GetInt32());
         Assert.Equal("free nitro", flag.GetProperty("ruleText").GetString());
 
-        var deleted = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AiModerationMessageDeleted, "author-1", Ct)));
+        var deleted = ApiTestHost.DataOf(Assert.Single(await host.FactsAsync(FactType.AutoModMessageDeleted, "author-1", Ct)));
         Assert.Equal(1, Assert.Single(deleted.GetProperty("rules").EnumerateArray()).GetProperty("ruleVersion").GetInt32());
     }
 
@@ -400,7 +401,7 @@ public class AiModerationSafetyTests
     public async Task ANewAiTopicStartsWithTheInjectionSamples_AndARunOfThemCostsOneRequestEach()
     {
         var replies = 0;
-        var ai = new AiModerationTests.FakeAi(_ =>
+        var ai = new AutoModTests.FakeAi(_ =>
         {
             replies++;
             return """{"matches":[]}""";
@@ -430,7 +431,7 @@ public class AiModerationSafetyTests
 
         var tests = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, $"{Path}/rules/topic/{id}/tests", null, cookie, Ct));
         var samples = tests.GetProperty("samples").EnumerateArray().ToList();
-        Assert.Equal(AiModerationRuleHistory.InjectionSamples.Count, samples.Count);
+        Assert.Equal(AutoModRuleHistory.InjectionSamples.Count, samples.Count);
         Assert.All(samples, s => Assert.False(s.GetProperty("shouldFlag").GetBoolean()));
         Assert.All(samples, s => Assert.True(s.GetProperty("seeded").GetBoolean()));
         Assert.Contains(samples, s => s.GetProperty("text").GetString()!.Contains("Ignore all previous instructions", StringComparison.Ordinal));
@@ -450,7 +451,7 @@ public class AiModerationSafetyTests
     [Fact]
     public async Task ATestRunStopsAtTheDailyAiCallLimit_AndSaysSo()
     {
-        var ai = new AiModerationTests.FakeAi(_ => """{"matches":[]}""");
+        var ai = new AutoModTests.FakeAi(_ => """{"matches":[]}""");
 
         await using var host = await StartAsync(ai: ai);
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
@@ -510,7 +511,7 @@ public class AiModerationSafetyTests
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────
 
     private async Task<ApiTestHost> StartAsync(
-        AiModerationTests.FakeDiscordActions? discord = null, AiModerationTests.FakeAi? ai = null)
+        AutoModTests.FakeDiscordActions? discord = null, AutoModTests.FakeAi? ai = null)
     {
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
 
