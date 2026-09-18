@@ -58,6 +58,8 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.ManageApiKeys, "Manage API keys and webhooks", "Create and revoke API keys, and set up webhooks.", "Administration"),
         Describe(ModbotPermissions.UseVRChatProxy, "Use the VRChat proxy", "Send requests to VRChat's API through Modbot as the service account.", "Administration"),
         Describe(ModbotPermissions.ImportOldData, "Import old data", "Upload another platform's records and write them into the log as history.", "Administration"),
+        Describe(ModbotPermissions.ManageDiscordSync, "Manage role and ban sync", "Pair group roles with Discord roles, choose which side decides, and switch ban sync on.", "Administration"),
+        Describe(ModbotPermissions.RunDiscordSync, "Run role and ban sync", "Copy the roles and bans that are already different between the two platforms.", "Administration"),
         Describe(ModbotPermissions.Administrator, "Administrator", "Everything, including things added in future versions.", "Administration"),
     ];
 

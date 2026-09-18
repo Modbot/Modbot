@@ -14,6 +14,8 @@ namespace Modbot.Core.Discord;
 public static class DiscordInvite
 {
     // Discord's permission bits.
+    public const long RemoveMembers = 1L << 1;
+    public const long BanMembers = 1L << 2;
     public const long ViewAuditLog = 1L << 7;
     public const long ViewChannel = 1L << 10;
     public const long SendMessages = 1L << 11;
@@ -31,9 +33,19 @@ public static class DiscordInvite
         var permissions = ViewChannel | SendMessages | EmbedLinks | ReadMessageHistory | ViewAuditLog;
 
         if (!string.IsNullOrWhiteSpace(settings.DiscordLinkedRoleId)
-            || !string.IsNullOrWhiteSpace(settings.DiscordEighteenPlusRoleId))
+            || !string.IsNullOrWhiteSpace(settings.DiscordEighteenPlusRoleId)
+            || settings.DiscordRoleSyncOn)
         {
             permissions |= ManageRoles;
+        }
+
+        // Only asked for when a ban may actually be copied into Discord (M5 §7). A deployment that
+        // syncs roles and nothing else never hands the bot the ability to ban anybody.
+        if (settings.DiscordBanSyncToDiscord)
+        {
+            permissions |= settings.DiscordBanCopyAction == DiscordBanCopyActions.Remove
+                ? RemoveMembers
+                : BanMembers;
         }
 
         return permissions;

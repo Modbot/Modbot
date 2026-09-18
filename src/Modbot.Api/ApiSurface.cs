@@ -16,6 +16,7 @@ using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Cases;
 using Modbot.Api.Features.DiscordLink;
+using Modbot.Api.Features.DiscordSync;
 using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.DiscordMembers;
 using Modbot.Api.Features.Chat;
@@ -91,6 +92,10 @@ public static class ApiSurface
         services.AddSingleton<LinkCheckLimit>();
         services.TryAddSingleton<DiscordLinkSignal>();
         services.AddHttpClient(DiscordOAuth.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(20));
+
+        // A host with the bot registers the real one first and wins; a host without it answers
+        // that there is no bot rather than pretending there is nothing to sync.
+        services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
 
         // Whether this is a demo. The host decides it during startup and registers the decided one
         // before this runs; these are the fallbacks for a host that maps the API without demo mode,
@@ -326,6 +331,10 @@ public static class ApiSurface
         app.MapDiscordLink();
         app.MapDiscordLinkModeration();
         app.MapDiscordLinkingSettings();
+
+        // Which group role goes with which Discord role, which side decides, and whether bans
+        // cross over (M5 §3, §4).
+        app.MapDiscordSync();
 
         // The read surface over the fact log and the daily totals derived from it. Sync health resolves
         // SyncDiagnostics optionally, so a host that maps the API without registering the

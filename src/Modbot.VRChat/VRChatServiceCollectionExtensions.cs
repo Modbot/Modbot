@@ -162,6 +162,7 @@ public static class VRChatServiceCollectionExtensions
         // rather than in the API so that the endpoint class, the interactive priority and the
         // ...WithHttpInfoAsync rule are decided once beside the syncs (M4 §4).
         services.AddSingleton<Moderation.GroupModeration>();
+        services.AddSingleton<Moderation.GroupRoles>();
 
         // The join queue and the two answers to one of it, for the same reason and in the same
         // place: the endpoint classes and the interactive priority are decided beside the syncs.

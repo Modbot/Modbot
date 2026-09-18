@@ -133,6 +133,17 @@ public static class AuditVisibility
         [FactType.DiscordLinkRoleRemoved] = AuditCategory.Moderation,
         [FactType.DiscordLinkPrompted] = AuditCategory.Operational,
 
+        // A copied ban is a ban and a copied role is a role change, so they sit with the rest of
+        // a person's moderation history. A copy that failed and a disagreement nobody resolved
+        // are about the sync rather than about the person, and belong in the operational log.
+        [FactType.CopiedBan] = AuditCategory.Moderation,
+        [FactType.CopiedUnban] = AuditCategory.Moderation,
+        [FactType.CopiedRemove] = AuditCategory.Moderation,
+        [FactType.CopiedRoleGiven] = AuditCategory.Moderation,
+        [FactType.CopiedRoleTaken] = AuditCategory.Moderation,
+        [FactType.CopyFailed] = AuditCategory.Operational,
+        [FactType.RolesDisagree] = AuditCategory.Operational,
+
         // Auth and config: spec 5.9.2's first two rows, and the reason the split exists.
         [FactType.Login] = AuditCategory.Operational,
         [FactType.LoginFailed] = AuditCategory.Operational,

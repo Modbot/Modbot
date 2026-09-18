@@ -296,6 +296,35 @@ public class Settings
     /// <summary>The role a linked member whose VRChat record is 18+ verified is given. Null means none.</summary>
     public string? DiscordEighteenPlusRoleId { get; set; }
 
+    // --- Role and ban sync (M5 §3 and §4; Discord sync design) ---
+    //
+    // Three switches, all off, because each one is a different decision. Turning any of them on
+    // lets Modbot change somebody's standing on a platform because of something that happened on
+    // the other one, and a group that wants roles kept in step does not necessarily want a chat
+    // ban to take away their VRChat membership (M5 §4.1).
+
+    /// <summary>
+    /// Whether the role pairs are kept in step at all. Off by default; each pair also has its own
+    /// switch and decides for itself which side wins.
+    /// </summary>
+    public bool DiscordRoleSyncOn { get; set; }
+
+    /// <summary>Whether a ban or unban in the VRChat group is copied into Discord.</summary>
+    public bool DiscordBanSyncToDiscord { get; set; }
+
+    /// <summary>Whether a ban or unban in Discord is copied into the VRChat group.</summary>
+    public bool DiscordBanSyncToVRChat { get; set; }
+
+    /// <summary>
+    /// What a copied VRChat ban does in Discord: one of <see cref="DiscordBanCopyActions"/>.
+    /// </summary>
+    /// <remarks>
+    /// A group that does not want a VRChat offence to earn a permanent Discord ban can have Modbot
+    /// remove the person from the server instead. A removal cannot be undone, so a later VRChat
+    /// unban copies nothing: the person simply rejoins.
+    /// </remarks>
+    public string DiscordBanCopyAction { get; set; } = DiscordBanCopyActions.Ban;
+
     // --- Webhooks (API keys design §6.7) ---
 
     /// <summary>

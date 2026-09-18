@@ -238,6 +238,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The Discord server's members as last seen. Current state; the history is in <see cref="Events"/>.</summary>
     public DbSet<DiscordMember> DiscordMembers => Set<DiscordMember>();
 
+    /// <summary>VRChat group roles paired with Discord roles, and which side decides each (M5 §3.1).</summary>
+    public DbSet<DiscordRolePair> DiscordRolePairs => Set<DiscordRolePair>();
+
+    /// <summary>What Modbot copied from one platform to the other, and how the loop is broken (M5 §4.2).</summary>
+    public DbSet<CopiedAction> CopiedActions => Set<CopiedAction>();
+
+    /// <summary>How far the role and ban sync have got. One row.</summary>
+    public DbSet<DiscordSyncState> DiscordSyncState => Set<DiscordSyncState>();
+
     /// <summary>Planned events and their repeat rules (calendar design §2).</summary>
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
 
@@ -1233,6 +1242,60 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Name).HasColumnType("text");
 
             entity.HasIndex(e => e.GuildId).HasDatabaseName("ix_discord_role_guild");
+        });
+
+        builder.Entity<DiscordRolePair>(entity =>
+        {
+            entity.ToTable("discord_role_pair");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.VRChatRoleId).HasColumnType("text");
+            entity.Property(e => e.DiscordRoleId).HasColumnType("text");
+            entity.Property(e => e.Decides).HasMaxLength(16);
+            entity.Property(e => e.Problem).HasMaxLength(1000);
+
+            // One pair per VRChat role and one per Discord role. Two pairs naming the same role
+            // with different sides deciding would have the two passes undo each other forever,
+            // which is exactly the flapping §3.1 exists to prevent -- so the database refuses it.
+            entity.HasIndex(e => e.VRChatRoleId).IsUnique().HasDatabaseName("ux_discord_role_pair_vrchat");
+            entity.HasIndex(e => e.DiscordRoleId).IsUnique().HasDatabaseName("ux_discord_role_pair_discord");
+        });
+
+        builder.Entity<CopiedAction>(entity =>
+        {
+            entity.ToTable("discord_copied_action");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Direction).HasMaxLength(16);
+            entity.Property(e => e.Kind).HasMaxLength(16);
+            entity.Property(e => e.SubjectId).HasColumnType("text");
+            entity.Property(e => e.OtherSideId).HasColumnType("text");
+            entity.Property(e => e.RoleId).HasColumnType("text");
+            entity.Property(e => e.Error).HasMaxLength(1000);
+
+            // The one question asked of this table on every incoming event: "did Modbot just do
+            // this to this person, and has that copy not already been answered for?" Filtered, so
+            // the index holds only the rows that can still excuse something -- which, on a settled
+            // deployment, is almost none of them.
+            entity.HasIndex(e => new { e.Direction, e.SubjectId, e.Kind, e.StartedAt })
+                .HasDatabaseName("ix_discord_copied_action_waiting")
+                .HasFilter("seen_back_at IS NULL");
+
+            // The sync screen's list: what was copied lately, newest first.
+            entity.HasIndex(e => e.StartedAt).HasDatabaseName("ix_discord_copied_action_started").IsDescending();
+        });
+
+        builder.Entity<DiscordSyncState>(entity =>
+        {
+            entity.ToTable("discord_sync_state", t =>
+                t.HasCheckConstraint("ck_discord_sync_state_singleton", "id = 1"));
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.BansProblem).HasMaxLength(1000);
+            entity.Property(e => e.RolesProblem).HasMaxLength(1000);
         });
 
         builder.Entity<Insight>(entity =>

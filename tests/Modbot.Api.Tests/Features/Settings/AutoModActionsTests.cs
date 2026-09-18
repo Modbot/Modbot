@@ -280,5 +280,15 @@ public class AutoModActionsTests
             Removed.Add(userId);
             return Task.FromResult(VRChatActionOutcome.Ok);
         }
+
+        // Role and ban sync's half of the interface. No AutoMod rule reaches these.
+        public Task<VRChatActionOutcome> UnbanFromGroupAsync(string userId, string reason, CancellationToken ct = default)
+            => Task.FromResult(VRChatActionOutcome.Ok);
+
+        public Task<VRChatActionOutcome> GiveGroupRoleAsync(string userId, string roleId, CancellationToken ct = default)
+            => Task.FromResult(VRChatActionOutcome.Ok);
+
+        public Task<VRChatActionOutcome> TakeGroupRoleAsync(string userId, string roleId, CancellationToken ct = default)
+            => Task.FromResult(VRChatActionOutcome.Ok);
     }
 }

@@ -5,8 +5,9 @@ using Modbot.Core.Moderation;
 namespace Modbot.VRChat.Moderation;
 
 /// <summary>
-/// Bans a person from the managed group, or removes them from it, for an AutoMod rule set to act
-/// (AutoMod design §5).
+/// Bans a person from the managed group, removes them from it, lifts a ban, or moves one of their
+/// group roles — for an AutoMod rule set to act (AutoMod design §5) and for role and ban sync
+/// (M5 §3, §4).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,14 +26,17 @@ public sealed class AutoModVRChatActions : IVRChatModerationActions
 {
     private readonly ModbotContext _db;
     private readonly GroupModeration _vrchat;
+    private readonly GroupRoles _roles;
 
-    public AutoModVRChatActions(ModbotContext db, GroupModeration vrchat)
+    public AutoModVRChatActions(ModbotContext db, GroupModeration vrchat, GroupRoles roles)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(vrchat);
+        ArgumentNullException.ThrowIfNull(roles);
 
         _db = db;
         _vrchat = vrchat;
+        _roles = roles;
     }
 
     public Task<VRChatActionOutcome> BanFromGroupAsync(string userId, string reason, CancellationToken ct = default)
@@ -40,6 +44,15 @@ public sealed class AutoModVRChatActions : IVRChatModerationActions
 
     public Task<VRChatActionOutcome> RemoveFromGroupAsync(string userId, string reason, CancellationToken ct = default)
         => ActAsync(userId, (group, ct2) => Outcome(_vrchat.KickAsync(group, userId, ct2)), ct);
+
+    public Task<VRChatActionOutcome> UnbanFromGroupAsync(string userId, string reason, CancellationToken ct = default)
+        => ActAsync(userId, (group, ct2) => Outcome(_vrchat.UnbanAsync(group, userId, ct2)), ct);
+
+    public Task<VRChatActionOutcome> GiveGroupRoleAsync(string userId, string roleId, CancellationToken ct = default)
+        => ActAsync(userId, (group, ct2) => Outcome(_roles.GiveAsync(group, userId, roleId, ct2)), ct);
+
+    public Task<VRChatActionOutcome> TakeGroupRoleAsync(string userId, string roleId, CancellationToken ct = default)
+        => ActAsync(userId, (group, ct2) => Outcome(_roles.TakeAsync(group, userId, roleId, ct2)), ct);
 
     private async Task<VRChatActionOutcome> ActAsync(
         string userId, Func<string, CancellationToken, Task<VRChatActionOutcome>> act, CancellationToken ct)

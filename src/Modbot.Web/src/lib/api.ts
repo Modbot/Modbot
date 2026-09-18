@@ -270,6 +270,67 @@ export type DiscordLinkingSettingsInput = {
   eighteenPlusRoleId: string
 }
 
+/** One VRChat group role paired with one Discord role (M5 §3). */
+export type RolePair = {
+  id: string
+  vrchatRoleId: string
+  vrchatRoleName: string | null
+  discordRoleId: string
+  discordRoleName: string | null
+  /** vrchat, discord or nobody. */
+  decides: string
+  enabled: boolean
+  botCanAssign: boolean
+  problem: string | null
+}
+
+/** Settings → Discord → Role and ban sync. */
+export type DiscordSyncSettings = {
+  roleSyncOn: boolean
+  banSyncToDiscord: boolean
+  banSyncToVRChat: boolean
+  /** ban or remove. */
+  banCopyAction: string
+  botCanBanMembers: boolean
+  botCanRemoveMembers: boolean
+  botCanManageRoles: boolean
+  rolesRanAt: string | null
+  rolesProblem: string | null
+  bansReadAt: string | null
+  bansProblem: string | null
+  pairs: RolePair[]
+  groupRoles: { id: string; name: string }[]
+}
+
+export type DiscordSyncSettingsInput = {
+  roleSyncOn: boolean
+  banSyncToDiscord: boolean
+  banSyncToVRChat: boolean
+  banCopyAction: string
+}
+
+export type RolePairInput = {
+  vrchatRoleId: string
+  discordRoleId: string
+  decides: string
+  enabled: boolean
+}
+
+/** One change a sync would make, or has made. */
+export type PlannedChange = {
+  /** ban, unban, remove, role-given, role-taken or disagree. */
+  what: string
+  /** vrchat or discord. */
+  platform: string
+  vrchatUserId: string | null
+  discordUserId: string | null
+  name: string | null
+  roleName: string | null
+  why: string
+}
+
+export type SyncPreview = { total: number; changes: PlannedChange[]; problem: string | null }
+
 export type PublicAddressView = { publicAddress: string | null; suggestion: string | null }
 
 /** Settings → VRChat Proxy (VRChat proxy design). */
@@ -3390,6 +3451,23 @@ export const api = {
 
   setDiscordLinkingSettings: (body: DiscordLinkingSettingsInput) =>
     put<DiscordLinkingSettings>('/api/settings/discord-linking', body),
+
+  discordSync: () => request<DiscordSyncSettings>('/api/discord-sync'),
+
+  setDiscordSync: (body: DiscordSyncSettingsInput) => put<DiscordSyncSettings>('/api/discord-sync', body),
+
+  addRolePair: (body: RolePairInput) => post<DiscordSyncSettings>('/api/discord-sync/pairs', body),
+
+  setRolePair: (id: string, body: RolePairInput) =>
+    put<DiscordSyncSettings>(`/api/discord-sync/pairs/${encodeURIComponent(id)}`, body),
+
+  deleteRolePair: (id: string) => del<DiscordSyncSettings>(`/api/discord-sync/pairs/${encodeURIComponent(id)}`),
+
+  /** What the two syncs would change right now. Changes nothing. */
+  previewDiscordSync: () => post<SyncPreview>('/api/discord-sync/preview'),
+
+  /** Copies the roles and bans that are already different. */
+  runDiscordSync: () => post<SyncPreview>('/api/discord-sync/run'),
 
 
   /** Reports what the deployment can do. Nothing about any account. */

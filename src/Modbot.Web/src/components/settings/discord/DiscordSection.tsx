@@ -6,6 +6,7 @@ import { Fact, Field, LongField, Outcome, PasswordField, Placeholder, Switch } f
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { ChannelsCard } from './ChannelsCard'
 import { LinkingCard } from './LinkingCard'
+import { SyncCard } from './SyncCard'
 
 /**
  * Instance cards are posted, then fetched by id and rewritten -- and fetching a message needs
@@ -37,6 +38,7 @@ export function DiscordSection({
           <InstanceCard status={status} refresh={refresh} />
           <ChannelsCard />
           <LinkingCard />
+          <SyncCard />
         </>
       ) : (
         <Placeholder>Loading…</Placeholder>

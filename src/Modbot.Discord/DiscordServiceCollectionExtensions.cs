@@ -78,6 +78,14 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<LinkedRoles>();
         services.AddScoped<LinkPrompt>();
 
+        // Role and ban sync (M5 §3 and §4). Its own loop again, and everything it does is off
+        // until somebody switches a direction on.
+        services.AddScoped<Sync.CopyRecords>();
+        services.AddScoped<Sync.RoleSync>();
+        services.AddScoped<Sync.BanSync>();
+        services.AddHostedService<Sync.DiscordSyncService>();
+        services.AddSingleton<IDiscordSyncRunner, Sync.DiscordSyncRunner>();
+
         services.AddScoped<LookupQuery>();
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();

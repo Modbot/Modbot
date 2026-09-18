@@ -31,6 +31,8 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 31, (long)ModbotPermissions.WriteNotes);
         Assert.Equal(1L << 32, (long)ModbotPermissions.ViewJoinRequests);
         Assert.Equal(1L << 33, (long)ModbotPermissions.AnswerJoinRequests);
+        Assert.Equal(1L << 35, (long)ModbotPermissions.ManageDiscordSync);
+        Assert.Equal(1L << 36, (long)ModbotPermissions.RunDiscordSync);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -121,5 +123,24 @@ public class ModbotPermissionsTests
         Assert.False(ModbotPermissions.ViewMembers.HasFlag(ModbotPermissions.ViewJoinRequests));
         Assert.False(ModbotPermissions.Ban.HasFlag(ModbotPermissions.AnswerJoinRequests));
         Assert.False(ModbotPermissions.ViewJoinRequests.HasFlag(ModbotPermissions.AnswerJoinRequests));
+    }
+
+    /// <summary>
+    /// Setting role and ban sync up is one decision; running it against a server that is already
+    /// full of people is another, and the first run can ban or move hundreds of them in one press
+    /// (Discord sync design §8). Neither rides on changing settings, and neither is in a built-in
+    /// role.
+    /// </summary>
+    [Fact]
+    public void RunningTheSyncIsNotImpliedByManagingIt()
+    {
+        Assert.False(ModbotPermissions.ManageDiscordSync.HasFlag(ModbotPermissions.RunDiscordSync));
+        Assert.False(ModbotPermissions.ManageSettings.HasFlag(ModbotPermissions.ManageDiscordSync));
+
+        foreach (var permission in new[] { ModbotPermissions.ManageDiscordSync, ModbotPermissions.RunDiscordSync })
+        {
+            Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(permission));
+            Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(permission));
+        }
     }
 }

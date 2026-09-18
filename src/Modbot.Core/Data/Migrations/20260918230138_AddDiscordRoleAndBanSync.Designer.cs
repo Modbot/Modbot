@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260918230138_AddDiscordRoleAndBanSync")]
+    partial class AddDiscordRoleAndBanSync
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4830,210 +4833,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("modbot_moderator_baseline", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.NotificationChoice", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<string>("Channel")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("channel");
-
-                    b.Property<bool>("DailySummary")
-                        .HasColumnType("boolean")
-                        .HasColumnName("daily_summary");
-
-                    b.Property<string>("Level")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("level");
-
-                    b.Property<DateTimeOffset?>("SummarySentAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("summary_sent_at");
-
-                    b.HasKey("UserId", "Channel")
-                        .HasName("pk_notification_choice");
-
-                    b.ToTable("notification_choice", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.NotificationForPerson", b =>
-                {
-                    b.Property<Guid>("NotificationId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("notification_id");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<DateTimeOffset?>("SeenAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("seen_at");
-
-                    b.Property<bool>("Waiting")
-                        .HasColumnType("boolean")
-                        .HasColumnName("waiting");
-
-                    b.HasKey("NotificationId", "UserId")
-                        .HasName("pk_notification_person");
-
-                    b.HasIndex("UserId", "Waiting", "SeenAt")
-                        .HasDatabaseName("ix_notification_person_waiting");
-
-                    b.ToTable("notification_person", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.NotificationRecord", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("body");
-
-                    b.Property<DateTimeOffset>("FirstAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("first_at");
-
-                    b.Property<string>("Kind")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
-                        .HasColumnName("kind");
-
-                    b.Property<DateTimeOffset>("LastAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_at");
-
-                    b.Property<string>("Link")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("link");
-
-                    b.Property<bool>("NobodyCouldReceive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("nobody_could_receive");
-
-                    b.Property<int>("Repeats")
-                        .HasColumnType("integer")
-                        .HasColumnName("repeats");
-
-                    b.Property<string>("SameAs")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("same_as");
-
-                    b.Property<string>("Severity")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("severity");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
-                        .HasColumnName("title");
-
-                    b.HasKey("Id")
-                        .HasName("pk_notification");
-
-                    b.HasIndex("SameAs", "LastAt")
-                        .HasDatabaseName("ix_notification_same_as");
-
-                    b.ToTable("notification", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.NotificationSend", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<int>("Attempts")
-                        .HasColumnType("integer")
-                        .HasColumnName("attempts");
-
-                    b.Property<string>("Channel")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("channel");
-
-                    b.Property<string>("LastError")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)")
-                        .HasColumnName("last_error");
-
-                    b.Property<Guid>("NotificationId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("notification_id");
-
-                    b.Property<DateTimeOffset>("QueuedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("queued_at");
-
-                    b.Property<DateTimeOffset?>("SentAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sent_at");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("state");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_notification_send");
-
-                    b.HasIndex("NotificationId", "UserId")
-                        .HasDatabaseName("ix_notification_send_for");
-
-                    b.HasIndex("State", "QueuedAt")
-                        .HasDatabaseName("ix_notification_send_state");
-
-                    b.ToTable("notification_send", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.NotificationSettings", b =>
-                {
-                    b.Property<int>("Id")
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    b.Property<bool>("On")
-                        .HasColumnType("boolean")
-                        .HasColumnName("on");
-
-                    b.Property<int>("QuietHours")
-                        .HasColumnType("integer")
-                        .HasColumnName("quiet_hours");
-
-                    b.HasKey("Id")
-                        .HasName("pk_notification_settings");
-
-                    b.ToTable("notification_settings", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_notification_settings_singleton", "id = 1");
-                        });
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.OneTimeLink", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6777,51 +6576,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.NotificationChoice", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.ModbotUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_notification_choice_modbot_user_user_id");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.NotificationForPerson", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.NotificationRecord", "Notification")
-                        .WithMany("People")
-                        .HasForeignKey("NotificationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_notification_person_notification_notification_id");
-
-                    b.HasOne("Modbot.Core.Data.Entities.ModbotUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_notification_person_modbot_user_user_id");
-
-                    b.Navigation("Notification");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.NotificationSend", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.NotificationRecord", "Notification")
-                        .WithMany()
-                        .HasForeignKey("NotificationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_notification_send_notification_notification_id");
-
-                    b.Navigation("Notification");
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.WebhookDelivery", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.Webhook", null)
@@ -6845,11 +6599,6 @@ namespace Modbot.Core.Data.Migrations
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotUser", b =>
                 {
                     b.Navigation("Roles");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.NotificationRecord", b =>
-                {
-                    b.Navigation("People");
                 });
 #pragma warning restore 612, 618
         }
