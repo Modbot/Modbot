@@ -228,6 +228,23 @@ public enum ModbotPermissions : long
     /// </remarks>
     RunGiveaways = 1L << 29,
 
+    // --- Importing old data (import design §4) ---
+
+    /// <summary>
+    /// Upload a file of another platform's records and have Modbot write each one into the fact
+    /// log, and see past imports.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ManageSettings"/>, which is what it used to
+    /// ride on. Changing a setting changes what Modbot does next; an import writes history that
+    /// did not happen inside Modbot at all — bans, warnings and notes dated years ago, about
+    /// named people, in the same log a moderator reads to decide what somebody has done before.
+    /// Nothing else Modbot offers can put a claim about a person's past into that log in bulk,
+    /// and the operator who should be able to change the retention window is not automatically
+    /// the person who should be able to do that. Not added to the built-in roles.
+    /// </remarks>
+    ImportOldData = 1L << 30,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

@@ -2,8 +2,9 @@
 
 - **Date:** 2026-09-17
 - **Status:** Implemented with this document
-- **Covers:** the import file format; how each record becomes a fact; the `Import` source; the
-  import job and its endpoints; idempotency; storage; purge-user; the Settings card
+- **Covers:** the import file format; how each record becomes a fact; the source each record is
+  filed under; the import job and its endpoints; the permission it needs; idempotency; storage;
+  purge-user
 - **Implements:** foundation §5.1 ("recorded history is not retrofittable" — except by the group
   bringing its own), §5.3 (facts, `source`), §5.3.1 (`modbot.unrecognised` and `type_raw`), §5.5
   (purge-user), §5.9 (Modbot's own audit log)
@@ -20,8 +21,11 @@ any of that. Until now the only way in was to write facts by hand.
 
 This adds one door: **an upload of plain JSON records**, each of which becomes one fact in the
 same log everything else is written to. Imported facts sit in the audit log, in a person's
-history, in daily totals and in retention beside everything Modbot recorded itself, marked with a
-source of their own so nobody mistakes them for something Modbot saw happen.
+history, in daily totals and in retention beside everything Modbot recorded itself, each filed
+under the source it really came from (§5) and each naming the import that wrote it (§5.2).
+
+There is no screen for it (§9). An import is done with an API key holding **Import old data**
+(§4).
 
 ## 2. The file
 
@@ -38,6 +42,7 @@ One record:
   "subject": { "platform": "vrchat", "id": "usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469" },
   "actor": { "platform": "vrchat", "id": "usr_9a2b…", "name": "Alice" },
   "externalId": "ban-1042",
+  "seenBy": "AuditLog",
   "data": { "reason": "Harassment in the Friday event" }
 }
 ```
@@ -49,16 +54,23 @@ One record:
 | `subject` | yes | Who or what it happened to: `platform` is `vrchat` or `discord` (any case), `id` is that platform's id for them. Never validated for shape (foundation §3.1.1). For an entry about the group itself rather than a person, the group's id is the subject. |
 | `actor` | no | Who did it: `platform`, `id`, and an optional `name`. The name is kept in the fact's data as `actorDisplayName`, the way VRChat's own audit entries carry one. |
 | `externalId` | no | The old platform's own id for this record. Used for idempotency (§6). At most 200 characters. |
+| `seenBy` | no | Which of Modbot's sources this record is filed under (§5). One of `AuditLog`, `SyncDiff`, `Client`, `Discord`, `Manual` or `Modbot`, any case. Falls back to the upload's `seenBy`, then to `Manual`. |
 | `data` | no | Anything else worth keeping, as an object. Stored as the fact's payload. Nothing in it is interpreted. |
 
-Anything else at the top level of a record is ignored. The upload as a whole carries a **source
-label** (§4.1): the name of the platform the file came from, such as `vrcx` or `old-bot`.
+Anything else at the top level of a record is ignored.
+
+Two words that are easy to run together, and are not the same thing:
+
+- the upload's **source label** (§4.1), the name of the platform the file came from, such as
+  `vrcx` or `old-bot`. It scopes the idempotency key (§6) and is kept on every fact as
+  `importSource`;
+- a record's **`seenBy`** (§5), which of Modbot's own sources the fact is filed under.
 
 Every fact written from a record has:
 
 - `occurred_at` = `at`, exact (`occurred_before` null);
 - `observed_at` = now, from `IModbotClock`, like every other fact;
-- `source` = `Import` (§5);
+- `source` = the record's `seenBy` (§5);
 - `data` = the record's `data`, plus `importId`, `importSource`, `externalId` when given, and
   `actorDisplayName` when the actor had a name.
 
@@ -111,9 +123,22 @@ for.
 
 ## 4. The endpoints
 
-Under `/api/imports`, tag **Imports**, and the permission is **Change settings**
-(`ManageSettings`): the same one that opens the Settings page, where the card lives. It is an
-operator's job, and an operator's API key holding it works, so it can be scripted.
+Under `/api/imports`, tag **Imports**, and the permission is **Import old data**
+(`ImportOldData`, bit 30) on every route in the group — uploading, listing and reading one.
+
+It used to be **Change settings** (`ManageSettings`), because that was the permission that opened
+the Settings page the card lived on. That was a bad reason, and with the card gone it is not even
+a reason. Importing has a permission of its own because it is a different and larger power than
+changing a setting: **an import writes history that did not happen inside Modbot**. A setting says
+what Modbot will do next and can be changed back; an import puts bans, warnings and notes dated
+years ago, about named people, into the same log a moderator reads to decide what somebody has
+done before — and facts are append-only (foundation §5.2), so the only way back is purging the
+people concerned or restoring a backup. Nothing else Modbot offers can put claims about people's
+pasts into that log in bulk. The operator who should be able to set the retention window is not
+automatically the person who should be able to do that, so it is granted on purpose.
+
+Not in the built-in Moderator or Viewer roles; Administrator holds it like everything else. An API
+key holding it works, which is now the only way in.
 
 ### 4.1 `POST /api/imports`
 
@@ -127,6 +152,7 @@ Starts an import. Two body shapes:
 | Parameter | |
 |---|---|
 | `source` | Required. 1–64 characters. The source label every record is filed under (§6). |
+| `seenBy` | Optional. The Modbot source every record carries unless the record sets its own (§5). `Manual` when nothing says otherwise; anything that is not a source name is `400`. |
 | `dryRun` | `true` to validate and count without writing anything (§4.3). |
 | `fileName` | Optional, shown in the list of past imports. |
 
@@ -140,11 +166,12 @@ One import, or the latest fifty, newest first:
 
 | Field | |
 |---|---|
-| `id`, `source`, `fileName`, `dryRun` | As uploaded. |
+| `id`, `source`, `fileName`, `dryRun`, `seenBy` | As uploaded. |
 | `status` | `Queued`, `Running`, `Done` or `Failed`. |
 | `received` | Records read from the file so far, well-formed or not. |
 | `imported` | Facts written. For a dry run, facts that would be written. |
 | `skipped` | Records that were already imported (§6). |
+| `alreadyKnown` | Records Modbot already had a fact for from somewhere else (§6.1). |
 | `rejected` | Records refused, and `rejections`: the first fifty, each `{ line, reason }`. |
 | `error` | For `Failed`: why. |
 | `startedBy`, `createdAt`, `startedAt`, `finishedAt` | Who and when. |
@@ -154,7 +181,8 @@ Counts update as the job runs, so a page can show progress by asking again.
 
 ### 4.3 Dry run
 
-`?dryRun=true` runs the same job — parsing, mapping, the duplicate check — and writes nothing:
+`?dryRun=true` runs the same job — parsing, mapping, both duplicate checks (§6, §6.1) — and
+writes nothing:
 no facts, no dedupe rows, no audit entry. The counts say what an import of the same file would
 do. It is listed with the past imports, marked as a dry run.
 
@@ -163,29 +191,69 @@ do. It is listed with the past imports, marked as a dry run.
 Every import that is not a dry run writes one `modbot.import.done` fact when it finishes, whether
 `Done` or `Failed`: subject is the import id on the Modbot platform, actor is the account that
 uploaded it, and the payload carries `source`, `fileName`, `status`, `received`, `imported`,
-`skipped` and `rejected`. One entry, not one per record: the imported facts themselves already
+`skipped`, `alreadyKnown` and `rejected`. One entry, not one per record: the imported facts themselves already
 say what came in.
 
-## 5. The `Import` source
+## 5. What source an imported fact carries
 
-`FactSource.Import = 7`. Appended, never renumbered. It says: *a person uploaded this from
-somewhere else; Modbot did not see it happen.* That is a different confidence from `AuditLog`
-and a different one again from `SyncDiff`, and the timestamp is whatever the old platform said.
+A record names the source it is filed under with **`seenBy`**, and the upload sets the default
+for the file with a `seenBy` of its own. Any member of `FactSource` may be chosen except
+`Import` — `AuditLog`, `SyncDiff`, `Client`, `Discord`, `Manual`, `Modbot` — matched without
+regard to case. When neither the record nor the upload says anything, it is **`Manual`**.
 
-Where sources are listed, `Import` is listed:
+`Manual` is the default because it is the honest description of an unlabelled import: a person
+put this in, by hand, from somewhere else. It is what `Manual` already means, and it claims
+nothing about a system having seen the event.
 
-- the audit log's **Source** filter, and its default. The default is **VRChat · Discord ·
-  Client · Import**, with Sync still off. Old data is what somebody imported on purpose; hiding
-  it by default would be hiding the reason they uploaded it.
-- the source badge on every fact row (label **Import**);
-- `GET /api/audit/filters`, which reflects over the enum and needs no change;
-- the event stream's `source` field.
+A record naming a source Modbot does not have is a **rejection** with its line number, like any
+other malformed field; an upload-level `seenBy` that is not a source is a `400` before anything
+is queued. This is the one place in the format that is checked against a list, and it is checked
+because the value goes into a column every reader interprets — unlike `kind`, which is kept as it
+is when Modbot has no word for it (§3.2), because the raw kind stays readable and a wrong source
+does not.
 
-The client-report deduplication window (`FactDeduplication.AppliesTo`) stays `Client` only:
-imports have their own idempotency (§6), which is exact rather than a window. The writer's
-held-roles enrichment is skipped for `Import` as it is for `Client`: roles at a date years ago are
-not something the recorded role changes can answer, and it is a query per record on a path that
-runs for thousands.
+### 5.1 Why `Import` stopped being one of them
+
+`FactSource.Import = 7` used to be stamped on every imported fact. It said *a person uploaded
+this from somewhere else.* That answers the wrong question. The source column answers **who says
+so** — every reader treats it that way: the audit log's Source chips, the badge on a row, the
+confidence a timestamp carries. "Somebody uploaded a file" answers *how did this get here*
+instead, and putting it in that column hid the real answer. A ban a group carried over from
+VRChat's own group audit log is a ban VRChat recorded; who moved the file is not the interesting
+part of it.
+
+It also cost the group the freedom to say what it knows. A file can hold VRChat audit entries,
+Discord moderation, notes a person typed into a spreadsheet and inferences from an old tool's
+sync, and all four arrived under one word. Mapping each record onto the source it really came
+from is what makes an imported history sit in the merged timeline as history rather than as a
+block of "imported stuff".
+
+**The enum member stays, and is never renumbered or removed.** Rows written before this change
+carry the number 7, and a member deleted out of an enum whose values are in the database is a
+silent misreading of every one of them. It also stays listed wherever sources are listed — the
+audit log's **Source** filter and its default, the source badge (label **Import**),
+`GET /api/audit/filters`, the event stream — so those rows stay findable and keep rendering. It
+is simply never written again, and it is refused as a `seenBy` with an error that says what to
+pick instead.
+
+### 5.2 Where an imported fact says it was imported
+
+In its own payload, and in `import_record` (§7) — not in its source. Every fact an import writes
+carries:
+
+- `importId` — the import that wrote it;
+- `importSource` — the upload's source label, the platform the file came from;
+- `externalId` — the old platform's own id, when the record had one.
+
+That is what keeps *"where did this claim come from"* answerable for a fact whose source now says
+`AuditLog`, and it is where the answer belonged all along: it is a property of the individual
+fact, not of the category of facts it belongs to. `import_record` holds the other direction, key
+to fact id, which is what a person looking at an import row would follow.
+
+`importId` is also how `FactWriter` recognises an imported fact now that its source no longer
+does. The writer's held-roles enrichment is skipped for one, as it is for a client report: roles
+at a date years ago are not something the recorded role changes can answer, and it is a query per
+record on a path that runs for thousands.
 
 ## 6. Idempotency
 
@@ -194,7 +262,9 @@ Uploading the same file twice writes nothing the second time. The rule:
 - a record with an `externalId` is keyed `id:` + the externalId;
 - a record without one is keyed `hash:` + the SHA-256 of its canonical form: `kind`, `at` in
   UTC, subject platform and id, actor platform and id, and `data` with its keys sorted at every
-  level, joined in that order;
+  level, joined in that order. `seenBy` is deliberately not in it: it says how Modbot files
+  the record, not what happened, so re-uploading a file with the mapping corrected must not
+  import every record a second time under the new source;
 - the key is scoped to the upload's **source label**. `ban-1042` from `old-bot` and `ban-1042`
   from `spreadsheet` are two records.
 
@@ -204,6 +274,58 @@ its hash and imports it again as a new fact; that is the honest outcome, since M
 a correction from a different event. A record with an `externalId` is imported once whatever its
 other fields say, which is what an external id is for.
 
+### 6.1 Records Modbot already knows about
+
+The key above answers *"have I imported this record before"*. It cannot answer *"does Modbot
+already know this happened"*, which is a different and more common question: a group that ran
+Modbot for a month before uploading its old bot's export has the last month twice in the file, and
+those bans are already in the log — recorded from VRChat's own audit log, by a sync, by a client.
+
+So before a record is written, the import asks **the fact writer** whether the event is already
+recorded, with `IFactWriter.AlreadyRecordedAsync` — the same check the writer makes for a client
+report (foundation §5.7.1), offered on its own so an import can ask before it writes rather than
+while it writes. There is deliberately no second mechanism: a range query on
+`(subject_platform, subject_id, type, world_id, instance_id, occurred_at)` is what "the same event"
+already means in Modbot, and an import that invented its own definition would be a second answer
+to a question that already has one.
+
+**The same event, for an import, is: the same person, the same fact type, at the same moment.**
+Exactly the same instant — the window is zero, where a client report's is five seconds.
+
+The window is zero because the two timestamps are different kinds of thing. A client's is an
+observation through a clock that may be off by a second or two, so a window is what makes two
+reports of one join meet. An imported time is a time **somebody wrote down**, copied from another
+system's record; there is no skew to absorb, and a window would do real harm. A spreadsheet that
+dates warnings only to the day gives three warnings the same midnight, and a five-second window
+would swallow the second and third of them. Losing history is a worse failure than keeping a
+duplicate row, and this is a path that runs unattended over somebody's only copy of their past.
+
+A record that matches is **already known**: it is counted, no fact is written, and its
+`import_record` row is still written, pointing at the fact that already says it. So a re-upload
+skips it outright by key (§6), and it is still traceable to the import that met it.
+
+Two guards make this safe against collapsing history:
+
+- **Events this same import wrote do not count.** The run remembers the events it has put in and
+  never treats one of them as something Modbot knew beforehand. Otherwise the three
+  same-midnight warnings above would collapse into one anyway — the first would be written and
+  the other two would match it. Duplicates *within* a file are §6's job, and §6 tells them apart
+  by `externalId` or by content.
+- **Nothing else is compared.** Not `data`, not the actor: a fact Modbot recorded itself and the
+  old platform's row for the same event will not agree on either, and requiring them to agree
+  would make the check never fire.
+
+A dry run makes exactly the same check and writes nothing, so its counts are what a real run
+would do. The check is one query per record, which roughly doubles the database work of an
+import; imports are rare, run in the background one at a time, and this is the price of not
+duplicating somebody's history.
+
+It takes no lock, because writing nothing there is nothing to serialise, and because imports run
+one at a time (§8) there is no second import to race. A sync writing the same fact in the gap
+between the answer and the insert would leave a duplicate — the same outcome as before this
+existed, and the deduplicated ingest path still takes its own lock for the case that actually
+happens sixfold.
+
 ## 7. Storage
 
 ```sql
@@ -212,8 +334,9 @@ import                              -- one row per upload
   source             varchar(64)
   file_name          varchar(256)   null
   dry_run            boolean
+  seen_by            smallint       -- the file's default source (§5); 7 on rows from before
   status             smallint       -- Queued 1 | Running 2 | Done 3 | Failed 4
-  received, imported, skipped, rejected   integer
+  received, imported, skipped, already_known, rejected   integer
   rejections         jsonb          -- [{ line, reason }], at most fifty
   error              text           null
   started_by_user_id uuid
@@ -268,16 +391,22 @@ An import found `Running` when the process starts was interrupted by a restart. 
 `Failed` with that as the reason. The records its committed batches wrote are in the log and in
 `import_record`, so uploading the file again imports only what was left.
 
-## 9. The Settings card
+## 9. No screen
 
-**Settings → Host & Database → Import**, visible to anyone who can open Settings. A file picker,
-a **Source** box, **Dry run** and **Import** buttons, and the list of past imports: source, file,
-when, who, status, the four counts, and the rejection reasons for one that had any. The list asks
-the server again every two seconds while an import is queued or running.
+There was a **Settings → Host & Database → Import** card: a file picker, a **Source** box, **Dry
+run** and **Import** buttons and the list of past imports. It is gone, and the endpoints are the
+whole feature.
 
-No text explains the format on the card. The format is documented at
+The reason is that the card was on the wrong screen for the job it does. An import is a one-off
+move somebody makes once, from a file they have just converted with a script they wrote against
+this page, and the converting is the work — the upload is the last line of it. Putting a file
+picker in Settings made a permanent control out of a thing almost nobody does twice, on the one
+page every operator opens for ordinary reasons, and it invited a moderator to press it without
+having read what the file has to contain.
+
+So importing is a thing you do with an API key (§4), the format stays documented at
 [docs.modbot.co/self-hosting/importing-old-data](https://docs.modbot.co/self-hosting/importing-old-data),
-and a moderator who wants to know what a rejection means reads the reason on the row.
+and nothing in the web app reaches `/api/imports`.
 
 ## 10. What this deliberately does not do
 

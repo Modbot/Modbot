@@ -40,6 +40,12 @@ public class Import
     /// <summary>True for a run that validates and counts without writing (import design §4.3).</summary>
     public bool DryRun { get; set; }
 
+    /// <summary>
+    /// The source every record in this upload is filed under unless the record names its own
+    /// (import design §5). Never <see cref="FactSource.Import"/>.
+    /// </summary>
+    public FactSource SeenBy { get; set; } = FactSource.Manual;
+
     public ImportStatus Status { get; set; } = ImportStatus.Queued;
 
     /// <summary>Records read from the file so far, well-formed or not.</summary>
@@ -50,6 +56,11 @@ public class Import
 
     /// <summary>Records already imported before, left alone.</summary>
     public int Skipped { get; set; }
+
+    /// <summary>
+    /// Records Modbot already had a fact for from somewhere else, left alone (import design §6.1).
+    /// </summary>
+    public int AlreadyKnown { get; set; }
 
     /// <summary>Records refused as malformed.</summary>
     public int Rejected { get; set; }

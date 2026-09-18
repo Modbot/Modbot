@@ -30,6 +30,14 @@ public sealed class ImportRunner
 {
     public const int BatchSize = 500;
 
+    /// <summary>
+    /// How far either side of a record's time a fact counts as the same event (import design
+    /// §6.1): nowhere. An imported time is a time somebody wrote down, not a time observed with a
+    /// clock that might be off, so there is nothing to smear -- and a window would swallow the
+    /// second and third of three warnings a spreadsheet dates only to the day.
+    /// </summary>
+    public static readonly TimeSpan SameMoment = TimeSpan.Zero;
+
     private readonly ModbotContext _db;
     private readonly IFactWriter _facts;
     private readonly EventPartitionMaintainer _partitions;
@@ -124,6 +132,7 @@ public sealed class ImportRunner
             throw new InvalidOperationException("The upload was empty.");
 
         var months = new HashSet<DateTimeOffset>();
+        var written = new HashSet<SameEvent>();
         var batch = new List<ImportItem>(BatchSize);
 
         foreach (var item in ImportFile.Read(body))
@@ -132,18 +141,23 @@ public sealed class ImportRunner
             if (batch.Count < BatchSize)
                 continue;
 
-            await ProcessBatchAsync(import, batch, months, progress, ct);
+            await ProcessBatchAsync(import, batch, months, written, progress, ct);
             batch.Clear();
         }
 
         if (batch.Count > 0)
-            await ProcessBatchAsync(import, batch, months, progress, ct);
+            await ProcessBatchAsync(import, batch, months, written, progress, ct);
     }
 
+    /// <param name="written">
+    /// The events this run has already put in, so a second record describing one of them is not
+    /// mistaken for something Modbot knew beforehand (import design §6.1).
+    /// </param>
     private async Task ProcessBatchAsync(
         Import import,
         List<ImportItem> items,
         HashSet<DateTimeOffset> months,
+        HashSet<SameEvent> written,
         Progress progress,
         CancellationToken ct)
     {
@@ -154,7 +168,7 @@ public sealed class ImportRunner
         {
             progress.Received++;
 
-            if (ImportFile.TryParse(item, now, out var record, out var reason))
+            if (ImportFile.TryParse(item, now, import.SeenBy, out var record, out var reason))
                 records.Add(record!);
             else
                 progress.Reject(item.Line, reason ?? "Not a record.");
@@ -179,12 +193,36 @@ public sealed class ImportRunner
                 progress.Skipped++;
         }
 
-        if (!import.DryRun && toWrite.Count > 0)
+        // What Modbot already has from somewhere else (import design §6.1). Asked of the fact
+        // writer, which is where the question is answered for every other producer, and asked
+        // before anything is written so a dry run counts the same skips a real run would make.
+        var planned = new List<(ParsedRecord Record, FactRecord Fact, long? Existing)>(toWrite.Count);
+        foreach (var record in toWrite)
+        {
+            var fact = ToFact(import, record);
+            var sameEvent = EventOf(record);
+
+            var existing = written.Contains(sameEvent)
+                ? null
+                : await _facts.AlreadyRecordedAsync(fact, SameMoment, ct);
+
+            if (existing is null)
+                written.Add(sameEvent);
+            else
+                progress.AlreadyKnown++;
+
+            planned.Add((record, fact, existing));
+        }
+
+        if (!import.DryRun && planned.Count > 0)
         {
             // Partitions before the transaction: creating one takes its own advisory lock, and
             // an import reaching back years creates several.
-            foreach (var record in toWrite)
+            foreach (var (record, _, existing) in planned)
             {
+                if (existing is not null)
+                    continue;
+
                 var month = new DateTimeOffset(record.At.Year, record.At.Month, 1, 0, 0, 0, TimeSpan.Zero);
                 if (months.Add(month))
                     await _partitions.EnsureForAsync(record.At, ct);
@@ -192,15 +230,18 @@ public sealed class ImportRunner
 
             await using var transaction = await _db.Database.BeginTransactionAsync(ct);
 
-            foreach (var record in toWrite)
+            foreach (var (record, fact, existing) in planned)
             {
-                var written = await _facts.WriteAsync(ToFact(import, record), ct);
+                // A record Modbot already knew still gets its row here, pointing at the fact that
+                // already says it: a re-upload then skips it outright, and the record is still
+                // traceable to the import that met it.
+                var factId = existing ?? (await _facts.WriteAsync(fact, ct)).Id;
 
                 _db.ImportRecords.Add(new ImportRecord
                 {
                     Source = import.Source,
                     Key = record.Key,
-                    FactId = written.Id,
+                    FactId = factId,
                     ImportId = import.Id,
                     SubjectPlatform = record.SubjectPlatform,
                     SubjectId = record.SubjectId,
@@ -213,7 +254,7 @@ public sealed class ImportRunner
             _db.ChangeTracker.Clear();
         }
 
-        progress.Imported += toWrite.Count;
+        progress.Imported += planned.Count(p => p.Existing is null);
 
         await _db.Imports
             .Where(i => i.Id == import.Id)
@@ -222,19 +263,31 @@ public sealed class ImportRunner
                     .SetProperty(i => i.Received, progress.Received)
                     .SetProperty(i => i.Imported, progress.Imported)
                     .SetProperty(i => i.Skipped, progress.Skipped)
+                    .SetProperty(i => i.AlreadyKnown, progress.AlreadyKnown)
                     .SetProperty(i => i.Rejected, progress.Rejected)
                     .SetProperty(i => i.Rejections, progress.RejectionsJson()),
                 ct);
     }
 
+    /// <summary>
+    /// What makes two records the same event for §6.1: the same person, the same thing happening
+    /// to them, at the same moment. Exactly what <see cref="IFactWriter.AlreadyRecordedAsync"/>
+    /// compares at a window of zero, so this set and that query never disagree.
+    /// </summary>
+    private static SameEvent EventOf(ParsedRecord record)
+        => new(record.SubjectPlatform, record.SubjectId, record.Type, record.At.UtcDateTime);
+
     private static FactRecord ToFact(Import import, ParsedRecord record)
     {
+        // How the fact got here, which its source no longer says (import design §5.1). Written
+        // whatever source the record carries, so "where did this claim come from" stays
+        // answerable for a fact filed under VRChat's audit log.
         var data = record.Data;
-        data["importId"] = import.Id.ToString();
-        data["importSource"] = import.Source;
+        data[ImportedFact.ImportIdKey] = import.Id.ToString();
+        data[ImportedFact.SourceKey] = import.Source;
 
         if (record.ExternalId is not null)
-            data["externalId"] = record.ExternalId;
+            data[ImportedFact.ExternalIdKey] = record.ExternalId;
 
         if (record.ActorName is not null && !data.ContainsKey("actorDisplayName"))
             data["actorDisplayName"] = record.ActorName;
@@ -248,7 +301,7 @@ public sealed class ImportRunner
             SubjectId = record.SubjectId,
             ActorPlatform = record.ActorPlatform,
             ActorId = record.ActorId,
-            Source = FactSource.Import,
+            Source = record.Source,
             Data = data,
         };
     }
@@ -268,6 +321,7 @@ public sealed class ImportRunner
                     .SetProperty(i => i.Received, progress.Received)
                     .SetProperty(i => i.Imported, progress.Imported)
                     .SetProperty(i => i.Skipped, progress.Skipped)
+                    .SetProperty(i => i.AlreadyKnown, progress.AlreadyKnown)
                     .SetProperty(i => i.Rejected, progress.Rejected)
                     .SetProperty(i => i.Rejections, progress.RejectionsJson()),
                 ct);
@@ -293,6 +347,7 @@ public sealed class ImportRunner
                 ["received"] = progress.Received,
                 ["imported"] = progress.Imported,
                 ["skipped"] = progress.Skipped,
+                ["alreadyKnown"] = progress.AlreadyKnown,
                 ["rejected"] = progress.Rejected,
             },
             ct);
@@ -312,6 +367,7 @@ public sealed class ImportRunner
         public int Received { get; set; }
         public int Imported { get; set; }
         public int Skipped { get; set; }
+        public int AlreadyKnown { get; set; }
         public int Rejected { get; private set; }
 
         public void Reject(int line, string reason)
@@ -324,3 +380,14 @@ public sealed class ImportRunner
         public string RejectionsJson() => ImportView.RejectionsJson(_rejections);
     }
 }
+
+/// <summary>
+/// The event one imported record describes, as the thing two records are compared on when the
+/// question is whether Modbot already has it (import design §6.1).
+/// </summary>
+/// <param name="At">The instant in UTC. Nothing either side of it is the same event.</param>
+public readonly record struct SameEvent(
+    FactPlatform SubjectPlatform,
+    string SubjectId,
+    string Type,
+    DateTime At);

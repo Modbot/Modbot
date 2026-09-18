@@ -52,9 +52,23 @@ public enum FactSource : short
     Modbot = 6,
 
     /// <summary>
-    /// Uploaded by a person from an older platform's records (import design). Modbot did not see
-    /// it happen; the time is whatever the old platform said.
+    /// <strong>Legacy. Only rows written before the import redesign hold this.</strong>
     /// </summary>
+    /// <remarks>
+    /// It meant "a person uploaded this from somewhere else". That answered the wrong question:
+    /// this column says <em>who says so</em>, and every reader -- the audit log's Source chips,
+    /// the badge on a row, a Discord route deciding how much to trust a timestamp -- reads it that
+    /// way. "Somebody uploaded a file" is an answer to <em>how did this get here</em> instead, and
+    /// it hid the real answer: a ban a group carried over from VRChat's own audit log is a ban
+    /// VRChat recorded, whoever moved it.
+    /// <para>
+    /// So an imported record now names the source it really came from (import design §5), and how
+    /// it got here lives in the fact's own <c>importId</c> and in <c>import_record</c>. The member
+    /// stays because existing rows carry the number 7 -- it is never renumbered and never reused
+    /// -- and it stays listed wherever sources are listed, so those rows can still be found. It is
+    /// simply never written again.
+    /// </para>
+    /// </remarks>
     Import = 7,
 }
 

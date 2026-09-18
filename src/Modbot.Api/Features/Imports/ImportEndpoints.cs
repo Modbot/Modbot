@@ -40,11 +40,12 @@ public static class ImportEndpoints
 
         var group = app.MapGroup("/api/imports")
             .WithTags("Imports")
-            .RequiresFlag(ModbotPermissions.ManageSettings);
+            .RequiresFlag(ModbotPermissions.ImportOldData);
 
         group.MapPost("/", async (
                 HttpContext http,
                 [FromQuery] string? source,
+                [FromQuery] string? seenBy,
                 [FromQuery] bool? dryRun,
                 [FromQuery] string? fileName,
                 [FromServices] ModbotContext db,
@@ -62,6 +63,7 @@ public static class ImportEndpoints
 
                 byte[]? body;
                 var label = source;
+                var seen = seenBy;
                 var dry = dryRun ?? false;
                 var name = fileName;
 
@@ -74,6 +76,7 @@ public static class ImportEndpoints
                         return Results.BadRequest(new { error = "The form has no file." });
 
                     label ??= form["source"].ToString();
+                    seen ??= form["seenBy"].ToString();
                     name ??= form["fileName"].ToString();
                     if (string.IsNullOrEmpty(name))
                         name = file.FileName;
@@ -102,6 +105,9 @@ public static class ImportEndpoints
                 if (body.Length == 0)
                     return Results.BadRequest(new { error = "The upload is empty." });
 
+                if (!ImportSources.TryParse(seen, out var seenSource, out var seenProblem))
+                    return Results.BadRequest(new { error = seenProblem });
+
                 name = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
                 if (name is { Length: > Import.MaxFileNameLength })
                     name = name[..Import.MaxFileNameLength];
@@ -111,6 +117,7 @@ public static class ImportEndpoints
                     Source = label,
                     FileName = name,
                     DryRun = dry,
+                    SeenBy = seenSource,
                     StartedByUserId = actor.Id,
                     StartedByName = actor.Username,
                     CreatedAt = clock.UtcNow,
@@ -132,8 +139,11 @@ public static class ImportEndpoints
                 + "as the body with Content-Type application/json and the source as a query "
                 + "parameter, or as a multipart form with a file part and a source field. At most "
                 + "64 MB. The import runs in the background; ask GET /api/imports/{id} how it is "
-                + "going. dryRun=true reads and counts without writing anything. The format is "
-                + "documented at docs.modbot.co/self-hosting/importing-old-data.")
+                + "going. dryRun=true reads and counts without writing anything. seenBy is the "
+                + "source every record is filed under unless the record sets its own: one of "
+                + "AuditLog, SyncDiff, Client, Discord, Manual or Modbot, and Manual when nothing "
+                + "says otherwise. The format is documented at "
+                + "docs.modbot.co/self-hosting/importing-old-data.")
             .Produces<ImportView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -152,10 +162,12 @@ public static class ImportEndpoints
                         Source = i.Source,
                         FileName = i.FileName,
                         DryRun = i.DryRun,
+                        SeenBy = i.SeenBy,
                         Status = i.Status,
                         Received = i.Received,
                         Imported = i.Imported,
                         Skipped = i.Skipped,
+                        AlreadyKnown = i.AlreadyKnown,
                         Rejected = i.Rejected,
                         Rejections = i.Rejections,
                         Error = i.Error,
@@ -187,10 +199,12 @@ public static class ImportEndpoints
                         Source = i.Source,
                         FileName = i.FileName,
                         DryRun = i.DryRun,
+                        SeenBy = i.SeenBy,
                         Status = i.Status,
                         Received = i.Received,
                         Imported = i.Imported,
                         Skipped = i.Skipped,
+                        AlreadyKnown = i.AlreadyKnown,
                         Rejected = i.Rejected,
                         Rejections = i.Rejections,
                         Error = i.Error,

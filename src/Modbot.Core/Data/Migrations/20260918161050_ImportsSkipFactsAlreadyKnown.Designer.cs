@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260918161050_ImportsSkipFactsAlreadyKnown")]
+    partial class ImportsSkipFactsAlreadyKnown
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -3241,40 +3244,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("instance_head_count", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.LinkedFact", b =>
-                {
-                    b.Property<long>("FactId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("fact_id");
-
-                    b.Property<DateTimeOffset>("LinkedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("linked_at");
-
-                    b.Property<long>("MainFactId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("main_fact_id");
-
-                    b.Property<DateTimeOffset>("MainOccurredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("main_occurred_at");
-
-                    b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("occurred_at");
-
-                    b.HasKey("FactId")
-                        .HasName("pk_modbot_linked_fact");
-
-                    b.HasIndex("OccurredAt")
-                        .HasDatabaseName("ix_modbot_linked_fact_occurred");
-
-                    b.HasIndex("MainFactId", "MainOccurredAt")
-                        .HasDatabaseName("ix_modbot_linked_fact_main");
-
-                    b.ToTable("modbot_linked_fact", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.LogEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -5003,10 +4972,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("integer")
                         .HasColumnName("id");
-
-                    b.Property<int>("LinkVersion")
-                        .HasColumnType("integer")
-                        .HasColumnName("link_version");
 
                     b.Property<DateTimeOffset?>("ObservedThrough")
                         .HasColumnType("timestamp with time zone")

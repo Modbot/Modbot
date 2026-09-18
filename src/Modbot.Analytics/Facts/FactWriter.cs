@@ -97,7 +97,7 @@ public sealed class FactWriter : IFactWriter
             await _db.Database.ExecuteSqlInterpolatedAsync(
                 $"SELECT pg_advisory_xact_lock(hashtext({key})::bigint)", ct);
 
-            var existing = await FindWithinWindowAsync(fact, window, ct);
+            var existing = await AlreadyRecordedAsync(fact, window, ct);
             if (existing is not null)
             {
                 if (transaction is not null)
@@ -153,13 +153,16 @@ public sealed class FactWriter : IFactWriter
         fact.WorldId ?? string.Empty,
         fact.InstanceId ?? string.Empty);
 
-    private async Task<long?> FindWithinWindowAsync(
+    public async Task<long?> AlreadyRecordedAsync(
         FactRecord fact,
-        TimeSpan window,
-        CancellationToken ct)
+        TimeSpan within,
+        CancellationToken ct = default)
     {
-        var from = fact.OccurredAt - window;
-        var to = fact.OccurredAt + window;
+        ArgumentNullException.ThrowIfNull(fact);
+
+        var at = fact.OccurredAt.ToUniversalTime();
+        var from = at - within;
+        var to = at + within;
 
         var match = await _db.Events
             .AsNoTracking()
@@ -252,11 +255,16 @@ public sealed class FactWriter : IFactWriter
     /// </remarks>
     private async Task<System.Text.Json.Nodes.JsonObject?> WithHeldRolesAsync(FactRecord fact, CancellationToken ct)
     {
-        // Skipped for imports too: roles at a date years back are not something the recorded
-        // role changes can answer, and it would be a query per record on a path that runs for
-        // thousands (import design §5).
-        if (fact.Source is FactSource.Client or FactSource.Import || fact.Data?.ContainsKey(HeldRoles.Key) == true)
+        // Skipped for imports too, recognised by the import id an imported fact carries rather
+        // than by its source, which is now the source the record really came from: roles at a
+        // date years back are not something the recorded role changes can answer, and it would be
+        // a query per record on a path that runs for thousands (import design §5).
+        if (fact.Source is FactSource.Client
+            || fact.Data?.ContainsKey(ImportedFact.ImportIdKey) == true
+            || fact.Data?.ContainsKey(HeldRoles.Key) == true)
+        {
             return fact.Data;
+        }
 
         var people = await PeopleDirectory.LoadAsync(
             _db, [(fact.SubjectPlatform, fact.SubjectId), (fact.ActorPlatform, fact.ActorId)], ct);

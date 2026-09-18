@@ -9,14 +9,19 @@ any of that itself. What it can do is take a plain JSON file of records and writ
 the same log everything else goes into.
 
 Imported records show up in the [audit log](/moderation/audit-log), on a person's
-[profile](/moderation/profiles) and in the charts, with the source **Import** so nobody mistakes
-them for something Modbot saw happen.
+[profile](/moderation/profiles) and in the charts, beside everything Modbot recorded itself. Each
+one is filed under the source it really came from — VRChat's audit log, Discord, a person — and
+each one names the import that wrote it. See [Where a record came from](#where-a-record-came-from).
 
 ## Who can import
 
-Importing needs the **Change settings** permission (see
-[roles and permissions](/accounts/roles-and-permissions#change-settings)). An
-[API key](/api/keys) holding it works too, so the upload can be scripted.
+Importing needs the **Import old data** permission (see
+[roles and permissions](/accounts/roles-and-permissions#import-old-data)). It is not part of any
+built-in role except Administrator, and it is not the same as **Change settings**: an import
+writes history that did not happen inside Modbot, so it is given out on purpose.
+
+There is no screen for it. Importing is done with an [API key](/api/keys) that holds the
+permission.
 
 ## The file
 
@@ -33,6 +38,7 @@ Each record looks like this:
   "subject": { "platform": "vrchat", "id": "usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469" },
   "actor": { "platform": "vrchat", "id": "usr_9a2b7d3e-1f4c-4a8e-b6d2-0c5e7f8a9b1d", "name": "Alice" },
   "externalId": "ban-1042",
+  "seenBy": "AuditLog",
   "data": { "reason": "Harassment in the Friday event" }
 }
 ```
@@ -44,6 +50,7 @@ Each record looks like this:
 | `subject` | Yes | Who or what it happened to. `platform` is `vrchat` or `discord`; `id` is that platform's id for them. Modbot never checks what an id looks like. For an entry about the group itself, use the group's id. |
 | `actor` | No | Who did it, in the same shape as `subject`, plus an optional `name` to show. |
 | `externalId` | No | The old platform's own id for this record. See [Uploading twice](#uploading-twice). At most 200 characters. |
+| `seenBy` | No | Where the record came from, which is what the **Source** column shows. See [Where a record came from](#where-a-record-came-from). |
 | `data` | No | Anything else worth keeping, as an object. Stored with the record exactly as given. |
 
 Anything else in a record is ignored. Ids are text; do not assume a format for them.
@@ -78,6 +85,55 @@ type. The [event stream](/api/events-websocket) page lists the types.
 type name Modbot does not have is recorded as an event Modbot has no name for, with the kind
 kept exactly as you wrote it. It appears in the audit log, it is kept forever by default, and it
 can be given a proper name in a later version of Modbot. Only a malformed record is rejected.
+
+## Where a record came from
+
+Every event in Modbot has a **Source**: the system that said so. The audit log's chips filter on
+it and every row carries it as a badge.
+
+An import does not have a source of its own. A file is usually a mixture — some of it copied out
+of VRChat's group audit log, some of it Discord moderation, some of it notes a person typed into
+a spreadsheet — and calling all of it "imported" would throw away what you know. So each record
+says where it came from with `seenBy`:
+
+| `seenBy` | Shown as | Use it for |
+|---|---|---|
+| `AuditLog` | **VRChat** | Entries copied out of VRChat's own group audit log. |
+| `Discord` | **Discord** | Things that happened in your Discord server. |
+| `Client` | **Client** | Things a moderator's PC reported, such as an instance join. |
+| `SyncDiff` | **Sync** | Changes an old tool worked out by comparing two checks rather than seeing them happen. |
+| `Manual` | **Manual** | Notes and decisions a person wrote down. |
+| `Modbot` | **Modbot** | Records of the old tool's own workings, such as a settings change. |
+
+Case does not matter. Set `seenBy` on the upload to give the whole file one source, and on a
+record to override it for that record:
+
+```bash
+curl -X POST "https://modbot.example.com/api/imports?source=old-bot&seenBy=AuditLog"   -H "Authorization: Bearer mbk_..."   -H "Content-Type: application/json"   --data-binary @old-bot.json
+```
+
+**A record that says nothing is `Manual`**: a person put it in, by hand, from somewhere else.
+
+A `seenBy` Modbot does not know is rejected with its line number, and an unknown `seenBy` on the
+upload is refused before anything is queued. This is the one field checked against a list, because
+it decides what a column on every row says.
+
+`Import` used to be a source of its own and is no longer one: it said how a record got here rather
+than who said so, and it hid the answer. Rows imported before this change still show **Import**
+and still filter on it, but nothing new is written under it.
+
+### Tracing a record back to its import
+
+Whatever source a record carries, Modbot keeps how it got here on the record itself, in `data`:
+
+| Key | What it is |
+|---|---|
+| `importId` | The import that wrote it. |
+| `importSource` | The **source** name you gave the upload, such as `old-bot`. |
+| `externalId` | The old platform's own id, when the record had one. |
+
+So "where did this claim come from" is still answerable for a ban that shows **VRChat** in the
+Source column: open the event and read `importId`.
 
 ## A full example file
 
@@ -122,7 +178,8 @@ Saved as `old-bot.json`:
   {
     "kind": "verified-age",
     "at": "2024-05-20T12:00:00Z",
-    "subject": { "platform": "vrchat", "id": "usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469" }
+    "subject": { "platform": "vrchat", "id": "usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469" },
+    "seenBy": "Manual"
   }
 ]
 ```
@@ -132,54 +189,23 @@ The last record has a kind Modbot does not know. It is kept, with `verified-age`
 The same file, one record per line, is the same records without the surrounding `[`, `]` and
 commas.
 
-## Importing from the web app
+## The counts
 
-Open **Settings**, then **Host & Database**. In the **Import** card:
-
-<Steps>
-<Step>
-
-### Pick the file and name the source
-
-Choose the file and type a **Source**: the name of the platform it came from, such as `old-bot`
-or `vrcx`. At most 64 characters. The same source name is what makes a second upload of the same
-file safe; see [Uploading twice](#uploading-twice).
-
-</Step>
-<Step>
-
-### Dry run first
-
-Press **Dry run**. Modbot reads the whole file, counts what it would import, what it would skip
-and what it would reject, and writes nothing. The run appears in the list under the buttons,
-marked **Dry run**. Press **Show** on the row to read each rejection with its line number.
-
-</Step>
-<Step>
-
-### Import
-
-Press **Import**. The upload is queued and runs in the background. The row's counts move while it
-runs; the page asks again every two seconds until it is done.
-
-</Step>
-</Steps>
-
-The list shows the latest fifty imports: when, source, file, who uploaded it, its status, and the
-four counts.
+Every import reports five counts:
 
 | Count | Meaning |
 |---|---|
 | **Received** | Records read from the file, well-formed or not. |
 | **Imported** | Records written. For a dry run, records that would have been. |
-| **Skipped** | Records that were already imported earlier. |
-| **Rejected** | Records refused because something was missing or wrong. **Show** lists the first fifty, each with its line number (in a one-record-per-line file) or its position (in an array). |
+| **Skipped** | Records you had already imported before. See [Uploading twice](#uploading-twice). |
+| **Already known** | Records Modbot already had from somewhere else, such as a ban it read from VRChat's own audit log. See [Things Modbot already knows](#things-modbot-already-knows). |
+| **Rejected** | Records refused because something was missing or wrong. The first fifty are listed, each with its line number (in a one-record-per-line file) or its position (in an array). |
 
-A file that is not JSON at all ends as **Failed** with the parser's reason on the row.
+A file that is not JSON at all ends as **Failed** with the parser's reason.
 
 ## Importing with curl
 
-With an [API key](/api/keys) that holds **Change settings**:
+With an [API key](/api/keys) that holds **Import old data**:
 
 ```bash
 curl -X POST "https://modbot.example.com/api/imports?source=old-bot&fileName=old-bot.json&dryRun=true" \
@@ -196,8 +222,9 @@ The answer is the import, with its `id` and status `Queued`:
   "source": "old-bot",
   "fileName": "old-bot.json",
   "dryRun": true,
+  "seenBy": "AuditLog",
   "status": "Queued",
-  "received": 0, "imported": 0, "skipped": 0, "rejected": 0,
+  "received": 0, "imported": 0, "skipped": 0, "alreadyKnown": 0, "rejected": 0,
   "rejections": [],
   "error": null,
   "startedBy": "sarah",
@@ -214,7 +241,8 @@ curl -H "Authorization: Bearer mbk_..." \
   https://modbot.example.com/api/imports/0199f0d8-4c2e-7a3b-9d1e-5f6a7b8c9d0e
 ```
 
-Drop `dryRun=true` to import for real. For a one-record-per-line file send
+Drop `dryRun=true` to import for real. `seenBy` sets the source for the whole file; see
+[Where a record came from](#where-a-record-came-from). For a one-record-per-line file send
 `Content-Type: application/x-ndjson`; the body is the file either way. A multipart form with a
 `file` part and `source`, `dryRun` and `fileName` fields is accepted too. The body is capped at
 64 MB; split a larger export into several files.
@@ -232,7 +260,11 @@ you gave, keyed by:
 
 A record whose key is already there is **skipped**, counted, and never an error. That makes it
 safe to re-upload a file after a failed import, or to upload a fresh export every month: only
-what is new goes in.
+what is new goes in. Re-running the same file reports every record as **Skipped** and writes
+nothing at all.
+
+This is about records you have imported before. For records Modbot already knew about from
+somewhere else, see [Things Modbot already knows](#things-modbot-already-knows).
 
 Two things follow from the rule:
 
@@ -241,6 +273,37 @@ Two things follow from the rule:
   a new record, because Modbot cannot tell a correction from a different event.
 - The same record under two source names is two records. Keep using the same source name for
   the same platform.
+
+## Things Modbot already knows
+
+Uploading twice is one problem. The other is that your file probably overlaps with what Modbot has
+already recorded itself: if Modbot has been running for a month and your old bot's export covers
+the same month, those bans are already in the log, read from VRChat's own audit log while they
+happened.
+
+Modbot skips them. Before writing a record it checks whether it already has that event, and counts
+the matches as **Already known**. Nothing is written and nothing is lost.
+
+An event counts as one Modbot already has when **the same thing happened to the same person at the
+same moment** — the same event type, the same subject, the same `at`, to the second. Nothing else
+is compared: your old bot's wording of a ban reason will never match VRChat's, and requiring them
+to match would mean nothing was ever recognised.
+
+Exactly the same moment, with no leeway either way, and that is deliberate. Records in a file carry
+times somebody wrote down, not times measured by a clock that might be a second out, so there is
+nothing to allow for — and allowing for it would do harm. A spreadsheet that dates warnings only by
+the day gives every warning that day the same midnight, and a few seconds of leeway would throw
+away all but the first.
+
+Two things this never does:
+
+- **It never collapses records from your own file.** Three warnings all dated to the same day are
+  three warnings. Only what Modbot knew before this import began counts. Duplicates inside one file
+  are handled by [Uploading twice](#uploading-twice) instead, which tells records apart by
+  `externalId` or by their contents.
+- **It never merges two different kinds of event**, or two people, or two moments.
+
+A dry run makes the same check, so its **Already known** count is what a real import would skip.
 
 ## What an import does not do
 
