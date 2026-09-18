@@ -80,10 +80,16 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
     /// half of the health endpoint: a host with no producers answers and says so, rather than
     /// failing to resolve a service mid-request.
     /// </param>
+    /// <param name="configure">
+    /// Last word on the container, after every registration this host makes: a test that needs a
+    /// service the host deliberately leaves out — the machine usage sampler, say, which is filled
+    /// by a background timer here — registers its own here, and the later registration wins.
+    /// </param>
     public static async Task<ReadSurfaceTestHost> StartAsync(
         PostgresFixture db,
         FakeVRChatGate? gate = null,
-        bool withSync = true)
+        bool withSync = true,
+        Action<IServiceCollection>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(db);
 
@@ -156,6 +162,8 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
 
         builder.Services.AddModbotAuth();
         builder.Services.AddModbotApi();
+
+        configure?.Invoke(builder.Services);
 
         var app = builder.Build();
 

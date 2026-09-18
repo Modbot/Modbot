@@ -311,6 +311,11 @@ public static class ApiSurface
         app.MapAnalytics();
         app.MapSyncHealth();
 
+        // How hard the machine itself is working, for the bottom of Host & Database (machine usage
+        // design). Resolves its sampler optionally, so a host without the background services
+        // answers with an empty window rather than failing at request time.
+        app.MapMachineUsage();
+
         // Modbot's own log, for a deployment with no Seq and no disk that survives a redeploy.
         app.MapLogs();
 
