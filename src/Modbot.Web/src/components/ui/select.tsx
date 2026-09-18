@@ -80,14 +80,25 @@ export function Select({
   // The list is scrolled by hand rather than with scrollIntoView, which would also scroll the page
   // behind it while the popover is still being placed.
   React.useLayoutEffect(() => {
-    const row = activeRow.current
-    const list = row?.parentElement
-    if (!open || !row || !list) return
+    if (!open) return
 
-    const rowBox = row.getBoundingClientRect()
-    const listBox = list.getBoundingClientRect()
-    if (rowBox.top < listBox.top) list.scrollTop -= listBox.top - rowBox.top
-    else if (rowBox.bottom > listBox.bottom) list.scrollTop += rowBox.bottom - listBox.bottom
+    const align = () => {
+      const row = activeRow.current
+      const list = row?.parentElement
+      if (!row || !list) return
+
+      const rowBox = row.getBoundingClientRect()
+      const listBox = list.getBoundingClientRect()
+      if (rowBox.top < listBox.top) list.scrollTop -= listBox.top - rowBox.top
+      else if (rowBox.bottom > listBox.bottom) list.scrollTop += rowBox.bottom - listBox.bottom
+    }
+
+    align()
+    // The popover only measures the room it has once it is on the page, so on the frame it opens
+    // the list is still its full height and every option counts as in view. Aligning again on the
+    // next frame is what actually puts the selected time zone in front of the moderator.
+    const frame = requestAnimationFrame(align)
+    return () => cancelAnimationFrame(frame)
   }, [open, active])
 
   const onTriggerKeyDown = (event: React.KeyboardEvent) => {
