@@ -162,6 +162,7 @@ public static class VRChatServiceCollectionExtensions
         // rather than in the API so that the endpoint class, the interactive priority and the
         // ...WithHttpInfoAsync rule are decided once beside the syncs (M4 §4).
         services.AddSingleton<Moderation.GroupModeration>();
+        services.AddSingleton<Moderation.GroupRoles>();
 
         // What an AutoMod rule set to act may do in the group (AutoMod design §5), through the
         // same wrapper. Scoped: it reads the settings row for the group and the signed-in account.

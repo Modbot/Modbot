@@ -51,6 +51,12 @@ public class DiscordServer
     /// <summary>Whether the bot holds Manage Events for the whole server, which calendar events need.</summary>
     public bool BotCanManageEvents { get; set; }
 
+    /// <summary>Whether the bot holds Ban Members, which copying a ban into Discord needs.</summary>
+    public bool BotCanBanMembers { get; set; }
+
+    /// <summary>Whether the bot holds Kick Members, which removing somebody from the server needs.</summary>
+    public bool BotCanRemoveMembers { get; set; }
+
     /// <summary>When every channel and role was last read in one go -- on sign-in and on resume.</summary>
     public DateTimeOffset RefreshedAt { get; set; }
 

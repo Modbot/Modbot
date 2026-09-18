@@ -97,6 +97,14 @@ public static class FactLabels
         [FactType.DiscordLinkRoleRemoved] = "Discord role taken away for a link",
         [FactType.DiscordLinkPrompted] = "Asked to link on Discord",
 
+        [FactType.CopiedBan] = "Ban copied from the other platform",
+        [FactType.CopiedUnban] = "Unban copied from the other platform",
+        [FactType.CopiedRemove] = "Removed from Discord for a VRChat ban",
+        [FactType.CopiedRoleGiven] = "Role given to match the other platform",
+        [FactType.CopiedRoleTaken] = "Role taken away to match the other platform",
+        [FactType.CopyFailed] = "A copy between platforms failed",
+        [FactType.RolesDisagree] = "The two platforms disagree about a role",
+
         [FactType.Login] = "Signed in",
         [FactType.LoginFailed] = "Failed sign-in",
         [FactType.PasswordChanged] = "Password changed",

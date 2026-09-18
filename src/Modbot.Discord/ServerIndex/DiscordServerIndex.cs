@@ -53,6 +53,8 @@ public sealed class DiscordServerIndex
         row.BotCanViewAuditLog = server.BotCanViewAuditLog;
         row.BotCanManageRoles = server.BotCanManageRoles;
         row.BotCanManageEvents = server.BotCanManageEvents;
+        row.BotCanBanMembers = server.BotCanBanMembers;
+        row.BotCanRemoveMembers = server.BotCanRemoveMembers;
         row.RefreshedAt = now;
         row.UpdatedAt = now;
 

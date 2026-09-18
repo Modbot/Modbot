@@ -245,6 +245,34 @@ public enum ModbotPermissions : long
     /// </remarks>
     ImportOldData = 1L << 30,
 
+    // --- Role and ban sync (Discord sync design §8) ---
+    //
+    // Bits 31 to 34 belong to work landing alongside this; these two are 35 and 36.
+
+    /// <summary>
+    /// Pair VRChat group roles with Discord roles, say which side decides each pair, and switch
+    /// each direction of ban sync on and off. Includes seeing what a sync would do.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ManageSettings"/>. Everything else under
+    /// settings changes what Modbot does to its own data; this decides that a ban in one place
+    /// becomes a ban in another, which is a moderation policy rather than a configuration detail.
+    /// Not added to the built-in roles.
+    /// </remarks>
+    ManageDiscordSync = 1L << 35,
+
+    /// <summary>
+    /// Run a sync now, including copying the bans and roles that are already different.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="ManageDiscordSync"/> because the first run against an established
+    /// server can ban or move hundreds of people in one press. Setting the pairs up and seeing
+    /// what would happen is one decision; making it happen is another, and the person who should
+    /// be able to do the first is not automatically the person who should be able to do the
+    /// second. Not added to the built-in roles.
+    /// </remarks>
+    RunDiscordSync = 1L << 36,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

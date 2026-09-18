@@ -260,6 +260,42 @@ public static class FactType
     /// </summary>
     public const string DiscordLinkPrompted = "discord.link.prompt";
 
+    // ── Role and ban sync (M5 §3 and §4; Discord sync design) ──────────────────────────────
+    //
+    // Modbot changed somebody's standing on one platform because of something that happened on the
+    // other. The subject is the person on the platform that was changed; there is no actor,
+    // because nobody pressed anything at that moment -- the payload names the fact that caused it
+    // and the person who did that. Kept at moderation retention: a copied ban is a ban, and "why
+    // am I banned here when I did nothing here" has to stay answerable.
+
+    /// <summary>A ban was copied to the other platform. Payload: which way, the cause, the reason sent.</summary>
+    public const string CopiedBan = "modbot.copy.ban";
+
+    /// <summary>An unban was copied to the other platform.</summary>
+    public const string CopiedUnban = "modbot.copy.unban";
+
+    /// <summary>A ban was copied into Discord as a removal from the server rather than a ban.</summary>
+    public const string CopiedRemove = "modbot.copy.remove";
+
+    /// <summary>A paired role was given, because the deciding side had it.</summary>
+    public const string CopiedRoleGiven = "modbot.copy.role.give";
+
+    /// <summary>A paired role was taken away, because the deciding side did not have it.</summary>
+    public const string CopiedRoleTaken = "modbot.copy.role.take";
+
+    /// <summary>
+    /// A copy was refused by the platform it was sent to. Its own type, for the reason
+    /// <see cref="ActionFailed"/> is: nothing that counts bans may ever count one that did not
+    /// happen. Distinct from <see cref="SyncFailed"/>, which is a background sync job giving up.
+    /// </summary>
+    public const string CopyFailed = "modbot.copy.failed";
+
+    /// <summary>
+    /// A pair with nobody deciding found the two sides disagreeing, and changed nothing (M5 §3.1).
+    /// Written once per person per pair until they agree again.
+    /// </summary>
+    public const string RolesDisagree = "modbot.copy.disagree";
+
     /// <summary>
     /// A moderator deleted somebody's messages. The subject is the author, the actor the moderator.
     /// Payload: <c>channelId</c> and <c>count</c>. The messages themselves stay stored, marked deleted.
