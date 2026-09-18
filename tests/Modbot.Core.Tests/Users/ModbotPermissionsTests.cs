@@ -28,6 +28,8 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 28, (long)ModbotPermissions.ViewGiveaways);
         Assert.Equal(1L << 29, (long)ModbotPermissions.RunGiveaways);
         Assert.Equal(1L << 30, (long)ModbotPermissions.ImportOldData);
+        Assert.Equal(1L << 32, (long)ModbotPermissions.ViewJoinRequests);
+        Assert.Equal(1L << 33, (long)ModbotPermissions.AnswerJoinRequests);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -100,5 +102,23 @@ public class ModbotPermissionsTests
         Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ImportOldData));
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ImportOldData));
         Assert.False(ModbotPermissions.ManageSettings.HasFlag(ModbotPermissions.ImportOldData));
+    }
+
+    /// <summary>
+    /// Approving a join request puts a stranger inside the group, which is a different decision
+    /// from removing somebody already in it (join requests design §6). Neither flag rides on any
+    /// other, and neither is in a built-in role.
+    /// </summary>
+    [Fact]
+    public void TheJoinRequestPermissions_StandAlone_AndAreNotInTheEditableBuiltInRoles()
+    {
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ViewJoinRequests));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ViewJoinRequests));
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.AnswerJoinRequests));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.AnswerJoinRequests));
+
+        Assert.False(ModbotPermissions.ViewMembers.HasFlag(ModbotPermissions.ViewJoinRequests));
+        Assert.False(ModbotPermissions.Ban.HasFlag(ModbotPermissions.AnswerJoinRequests));
+        Assert.False(ModbotPermissions.ViewJoinRequests.HasFlag(ModbotPermissions.AnswerJoinRequests));
     }
 }
