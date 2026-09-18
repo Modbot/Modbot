@@ -199,13 +199,21 @@ public static class ApiSurface
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        return app.Use((context, next) =>
+        app.Use((context, next) =>
         {
             if (context.Request.Path.StartsWithSegments(Features.Settings.AutoModEndpoints.OldPath, out var rest))
                 context.Request.Path = Features.Settings.AutoModEndpoints.Path + rest;
 
             return next(context);
         });
+
+        // WebApplication inserts its automatic UseRouting() at the very start of the pipeline --
+        // before every Use() the host calls, no matter where in source order it calls them (see
+        // "Middleware added automatically by WebApplication"). Left implicit, routing would match
+        // the request's original path before the rewrite above ever ran, and an old-path request
+        // would 404. Calling UseRouting() here, right after the rewrite, makes this the position
+        // route matching actually happens; WebApplication then does not add its own.
+        return app.UseRouting();
     }
 
     public static IEndpointRouteBuilder MapModbotApi(this IEndpointRouteBuilder app)
