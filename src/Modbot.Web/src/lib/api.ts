@@ -311,6 +311,25 @@ export type CloudStatusView = {
 
 export type LinkCodeView = { code: string; expiresInMinutes: number }
 
+/**
+ * The newest Modbot release, and whether this server looks for it.
+ *
+ * MODBOT_CLOUD_DISABLED does not turn this off -- the question sends nothing about the deployment
+ * -- so there is no `cloudDisabled` here. `on` is the operator's own switch.
+ */
+export type UpdateView = {
+  running: string
+  newest: string | null
+  newerAvailable: boolean
+  publishedAt: string | null
+  notesUrl: string | null
+  image: string | null
+  tag: string | null
+  checkedAt: string | null
+  problem: string | null
+  on: boolean
+}
+
 export type DiscordChannelType = 'text' | 'announcement' | 'forum' | 'media' | 'voice' | 'stage' | 'category'
 
 /** What the bot may do in a channel after overwrites, by Discord's permission names. */
@@ -3181,6 +3200,10 @@ export const api = {
   publicInstances: () => request<PublicInstancesView>('/api/settings/public-instances'),
 
   setPublicInstances: (shared: boolean) => put<PublicInstancesView>('/api/settings/public-instances', { shared }),
+
+  updateCheck: () => request<UpdateView>('/api/settings/updates'),
+
+  setUpdateCheck: (on: boolean) => put<UpdateView>('/api/settings/updates', { on }),
 
   sendTestEmail: (to: string) => post<TestEmailResult>('/api/settings/email/test', { to }),
 

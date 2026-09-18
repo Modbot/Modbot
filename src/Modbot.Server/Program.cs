@@ -24,6 +24,7 @@ using Modbot.Evidence;
 using Modbot.Evidence.Upload;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
+using Modbot.Core.Updates;
 using Modbot.VRChat;
 using Modbot.Server.Data;
 using Modbot.Server.Health;
@@ -271,6 +272,18 @@ try
     // it does nothing until an operator switches it on. Term lists run with AI off.
     builder.Services.AddModbotModeration();
     builder.Services.AddModbotModerationJobs();
+    // What the newest Modbot release is. Deliberately on its own path rather than behind
+    // ModbotCloudAddress: MODBOT_CLOUD_DISABLED turns off the Cloud features -- reporting, app
+    // logs, term lists, the public instances listing -- and being told that a newer version exists
+    // is not one of them. Nothing about this deployment is sent, so there is nothing for that
+    // variable to protect, and the deployments least in touch with the project must not also be
+    // the ones never told about a security fix. The switch that does turn this off is the
+    // operator's own, on the settings row, and it defaults to on.
+    builder.Services.AddSingleton(ModbotUpdateAddress.From(env));
+    builder.Services.AddHttpClient(UpdateCheckClient.HttpClientName);
+    builder.Services.AddSingleton<UpdateCheckClient>();
+    builder.Services.AddScoped<UpdateChecker>();
+    builder.Services.AddHostedService<UpdateCheckService>();
 
     // Where every AI feature gets its client (M8 section 4). It reads the settings row on each
     // call and hands out nothing while AI is off, so it needs nothing from startup. Adds the AI

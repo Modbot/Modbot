@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Modbot.Cloud.Features.Mail;
 
 using Modbot.Cloud.Features.Showcase;
+using Modbot.Cloud.Features.Updates;
 
 namespace Modbot.Cloud.Tests;
 
@@ -63,13 +64,18 @@ public sealed class CloudTestHost : IAsyncDisposable
     public static readonly DateTimeOffset Start = new(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
 
     /// <param name="canSendMail">False builds a Cloud with no Resend key, which sends nothing.</param>
+    /// <param name="updates">
+    /// The release news, already built over whatever GitHub and Docker Hub the test wants. Left out,
+    /// the suite gets one whose fetches are refused, which is a cold cache that cannot be filled.
+    /// </param>
     public static async Task<CloudTestHost> StartAsync(
         PostgresFixture db,
         string? rootApiKey = RootKey,
         DateTimeOffset? now = null,
         string? instancesApiKey = InstancesKey,
         string? proxyApiKey = ProxyKey,
-        bool canSendMail = true)
+        bool canSendMail = true,
+        LatestReleases? updates = null)
     {
         await db.ResetAsync();
 
@@ -104,6 +110,12 @@ public sealed class CloudTestHost : IAsyncDisposable
         // And for the showcase pictures Cloud fetches when an administrator saves a row: a handful
         // of known addresses, and 404 for everything else, so no test reaches a picture host.
         builder.Services.AddSingleton(new ShowcasePictures(new HttpClient(new PictureHost())));
+        // The release news, for the same reason. A test that says nothing gets a Cloud that could
+        // not read GitHub at all -- which is the cold-cache case worth having as the default.
+        builder.Services.AddSingleton(updates ?? new LatestReleases(
+            new GitHubReleases(new HttpClient(new RefusingHandler()), token: null, repository: "example/none"),
+            new DockerHubTags(new HttpClient(new RefusingHandler()), image: "example/none"),
+            time));
 
         CloudApp.AddServices(
             builder.Services,
@@ -115,7 +127,9 @@ public sealed class CloudTestHost : IAsyncDisposable
             new MailSettings(canSendMail ? "test-key" : null, "Modbot <noreply@modbot.test>", PublicAddress),
             runDailyUpkeep: false,
             // The tests run the instance checks themselves, against the fake clock.
-            watchInstances: false);
+            watchInstances: false,
+            // Same: a test refreshes the release news itself, and no test reaches GitHub.
+            refreshUpdates: false);
 
         var app = builder.Build();
 

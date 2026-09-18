@@ -7,6 +7,32 @@ Updating Modbot means running a newer build of the server image against the same
 no update command and no database step for you to run: the new version updates the database's tables
 itself when it starts.
 
+## How you find out there is one
+
+Modbot checks for a newer release a minute after it starts and every six hours after that, and
+shows what it found on the **Updates** card under **Settings**, **Host & Database**:
+
+| Row | What it is |
+|---|---|
+| **Running** | The release this server is running. |
+| **Newest** | The newest release there is. |
+| **Pull** | The image and tag to pull, shown only when there is a newer release. |
+| **Last checked** | When Modbot last asked. |
+
+**Modbot never updates itself.** It never pulls an image, never restarts itself and never touches
+your host. It tells you a newer version exists and what to pull; everything below is yours to do
+when it suits you.
+
+The question goes to `cloud.modbot.co`. Nothing about your deployment is sent — no id, no group, no
+version, no account — and nothing is recorded: everyone gets the same answer out of one cached
+copy. For that reason `MODBOT_CLOUD_DISABLED` does **not** turn it off; that variable turns off the
+things that do send something, and an operator who turned those off should still hear about a
+security fix. The **Check for updates** switch on the same card is what turns it off, and turning
+it off clears what Modbot last heard.
+
+If a check fails, the card shows why and keeps the version it last heard of, because "we could not
+ask today" is not "you are up to date".
+
 ## Before you update
 
 Take a backup of the database. The new version may change its tables when it starts, and going back

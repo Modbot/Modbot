@@ -9,6 +9,7 @@ import {
   type LogSettings,
   type PublicAddressView,
   type ServerSettings,
+  type UpdateView,
 } from '@/lib/api'
 import { CREDITS_PATH } from '@/lib/nav'
 import { followLink } from '@/lib/router'
@@ -75,6 +76,7 @@ export function DataSection() {
           <ImportCard />
           <LogsCard />
           <DeploymentCard deployment={data.deployment} />
+          <UpdatesCard />
           <PublicAddressCard />
           <CloudCard />
         </>
@@ -173,6 +175,69 @@ function DeploymentCard({ deployment }: { deployment: DataSettings['deployment']
           label="Log files"
           value={deployment.logFilesWritten ? 'Written to disk' : 'Console and Seq only'}
         />
+      </div>
+    </SettingsCard>
+  )
+}
+
+/**
+ * The newest Modbot release, and the switch that stops this server asking.
+ *
+ * Modbot never updates itself and never pulls an image: the card names the version and what to
+ * pull, and the operator decides. MODBOT_CLOUD_DISABLED does not reach this — the question sends
+ * nothing about the deployment — so this switch is the only thing that turns it off.
+ */
+function UpdatesCard() {
+  const [view, setView] = useState<UpdateView | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api
+      .updateCheck()
+      .then(setView)
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load.'))
+  }, [])
+
+  const choose = (on: boolean) => {
+    setSaving(true)
+    setError(null)
+    api
+      .setUpdateCheck(on)
+      .then(setView)
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setSaving(false))
+  }
+
+  const newest = !view ? '…' : !view.on ? 'Not checked' : (view.newest ?? '—')
+
+  return (
+    <SettingsCard
+      title="Updates"
+      footer={
+        view?.newerAvailable && view.notesUrl ? (
+          <Button asChild size="sm" variant="outline">
+            <a href={view.notesUrl} target="_blank" rel="noreferrer noopener">
+              Release notes
+            </a>
+          </Button>
+        ) : undefined
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <Row label="Running" value={view?.running ?? '…'} />
+        <Row label="Newest" value={newest} />
+        {view?.newerAvailable && view.image && (
+          <Row label="Pull" value={`${view.image}:${view.tag ?? view.newest ?? ''}`} />
+        )}
+        <Row
+          label="Last checked"
+          value={view?.checkedAt ? new Date(view.checkedAt).toLocaleString() : '—'}
+        />
+        <Switch checked={view?.on ?? false} disabled={saving || !view} onChange={choose}>
+          Check for updates
+        </Switch>
+        <Outcome tone="problem">{error ?? (view?.on ? view.problem : null)}</Outcome>
       </div>
     </SettingsCard>
   )
