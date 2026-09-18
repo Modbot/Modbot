@@ -381,6 +381,18 @@ Name: `ManageApiKeys`
 
 In the web app these are under **Settings**, **API**, which also needs **Change settings** to open.
 
+### Use the VRChat proxy
+
+Name: `UseVRChatProxy`
+
+- Sends requests to VRChat's own API through Modbot, as the group's service account, at
+  `/api/proxy/vrchat/…`. Any endpoint the service account can reach, read or write. See
+  [VRChat proxy](/api/vrchat-proxy).
+- The proxy itself is off until an administrator turns it on under **Settings**, **VRChat Proxy**,
+  which needs **Change settings**.
+
+Not part of the built-in roles. Administrator holds it.
+
 ### Administrator
 
 Name: `Administrator`

@@ -371,6 +371,13 @@ public class Settings
     /// </summary>
     public bool McpServerEnabled { get; set; }
 
+    /// <summary>
+    /// Whether <c>/api/proxy/vrchat/…</c> forwards requests to VRChat (VRChat proxy design). Off
+    /// by default; off answers 404. A proxied request goes out as the service account, so the
+    /// switch is the operator's, whatever permissions a caller holds.
+    /// </summary>
+    public bool VRChatProxyEnabled { get; set; }
+
     // --- AI moderation (AI moderation design) ---
 
     /// <summary>The one switch for term lists and AI topics. Off by default, like everything in M8.</summary>

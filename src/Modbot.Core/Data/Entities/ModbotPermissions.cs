@@ -194,6 +194,21 @@ public enum ModbotPermissions : long
     /// </remarks>
     ManageCalendar = 1L << 26,
 
+    // --- The VRChat proxy (VRChat proxy design) ---
+
+    /// <summary>
+    /// Send requests to VRChat's own API through Modbot, as the service account, at
+    /// <c>/api/proxy/vrchat/…</c>.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ManageSettings"/> or <see cref="Ban"/>: a
+    /// proxied request can reach any VRChat endpoint the service account can, read or write,
+    /// which is more than any one Modbot permission grants. Not added to the built-in roles;
+    /// Administrator already holds it. The proxy's own switch, off by default, gates the route
+    /// for everyone.
+    /// </remarks>
+    UseVRChatProxy = 1L << 27,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

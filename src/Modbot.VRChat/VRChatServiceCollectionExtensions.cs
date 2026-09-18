@@ -75,7 +75,8 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             provider.GetRequiredService<IMonotonicClock>(),
             signIns: provider.GetRequiredService<IVRChatSignInStore>(),
-            rateLimits: rateLimits));
+            rateLimits: rateLimits,
+            clientOptions: clientOptions));
 
         return services;
     }

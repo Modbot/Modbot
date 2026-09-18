@@ -82,6 +82,10 @@ public sealed record SweepPollRateSettings(
 /// Whether background sync drives this class. The scheduled ones are what
 /// <see cref="SyncRateSettings.ScheduledTotalPerSecond"/> sums.
 /// </param>
+/// <param name="Backstop">
+/// The backstop bucket this class also draws from: <c>global</c> for background sync,
+/// <c>interactive</c> for what a moderator presses, null for the exempt user reads (spec 4.3.5).
+/// </param>
 public sealed record EndpointClassRate(
     string EndpointClass,
     string Lane,
@@ -93,7 +97,8 @@ public sealed record EndpointClassRate(
     bool Scheduled,
     bool CountsAgainstGlobal,
     bool ResourceScoped,
-    int BurstTokens);
+    int BurstTokens,
+    string? Backstop = null);
 
 /// <param name="BudgetFraction">The share of each estimate Modbot spends (spec 4.3.1).</param>
 /// <param name="ScheduledTotalPerSecond">
@@ -509,7 +514,8 @@ public static class SyncSettingsEndpoints
                 scheduled.Contains(limits.Name),
                 limits.CountsAgainstGlobal,
                 limits.ResourceScoped,
-                limits.BurstTokens))
+                limits.BurstTokens,
+                limits.Backstop))
             .OrderBy(c => c.EndpointClass, StringComparer.Ordinal)
             .ToList();
 

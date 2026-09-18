@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
+using Modbot.VRChat.Proxy;
 using Modbot.VRChat.RateLimiting;
 using Modbot.VRChat.Scheduling;
 using Modbot.VRChat.Session;
@@ -51,6 +52,12 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
     /// </summary>
     private static readonly TimeSpan LostGroupStandsFor = TimeSpan.FromMinutes(15);
 
+    /// <summary>Where VRChat's API lives, for a forwarded request that has no session client to ask.</summary>
+    public static readonly Uri DefaultApiHost = new("https://api.vrchat.cloud");
+
+    /// <summary>How long a forwarded request on a caller's own cookie may take. The SDK's own default.</summary>
+    private static readonly TimeSpan PassthroughTimeout = TimeSpan.FromSeconds(30);
+
     private readonly IVRChatClientFactory _clients;
     private readonly IVRChatConnectionStore _connections;
     private readonly IRateLimiter _limiter;
@@ -59,9 +66,18 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
     private readonly ILogger _logger;
     private readonly IVRChatSignInStore _signIns;
     private readonly int _signInLimit;
+    private readonly Uri _apiHost;
+    private readonly string _passthroughUserAgent;
 
     /// <summary>One check or sign-in at a time.</summary>
     private readonly SemaphoreSlim _session = new(1, 1);
+
+    /// <summary>
+    /// The client for requests forwarded on a caller's own cookie: no jar, no credentials, the
+    /// same egress proxy as the session client. Rebuilt when the proxy changes.
+    /// </summary>
+    private readonly Lock _passthroughLock = new();
+    private (string ProxyKey, HttpClient Client)? _passthrough;
 
     /// <summary>Separate from the session lock, so a health read never waits behind a sign-in.</summary>
     private readonly SemaphoreSlim _loading = new(1, 1);
@@ -101,7 +117,9 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         IMonotonicClock? elapsed = null,
         ILogger? logger = null,
         IVRChatSignInStore? signIns = null,
-        RateLimitOptions? rateLimits = null)
+        RateLimitOptions? rateLimits = null,
+        Uri? apiHost = null,
+        VRChatClientOptions? clientOptions = null)
     {
         ArgumentNullException.ThrowIfNull(clients);
         ArgumentNullException.ThrowIfNull(connections);
@@ -116,6 +134,10 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         _logger = logger ?? Log.Logger;
         _signIns = signIns ?? new MemorySignInStore();
         _signInLimit = (rateLimits ?? new RateLimitOptions()).SignInsPerHour;
+        _apiHost = apiHost ?? DefaultApiHost;
+
+        var options = clientOptions ?? new VRChatClientOptions();
+        _passthroughUserAgent = $"{options.ApplicationName}/{options.ApplicationVersion} {options.DeveloperContactEmail}";
     }
 
     public VRChatSessionState State => _wait is not null ? VRChatSessionState.SignInWaiting : _state;
@@ -232,10 +254,182 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         return VRChatResult<CurrentUser>.Ok(user, 200);
     }
 
+    public Task<VRChatResult<VRChatProxyResponse>> ForwardAsync(
+        VRChatEndpoint endpoint,
+        VRChatProxyRequest request,
+        VRChatProxyAccount account,
+        VRChatCallPriority priority = VRChatCallPriority.Interactive,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return account == VRChatProxyAccount.Caller
+            ? ForwardAsCallerAsync(endpoint, request, priority, ct)
+            : ForwardAsServiceAccountAsync(endpoint, request, priority, ct);
+    }
+
+    /// <summary>
+    /// A forwarded request on the service account is an ordinary gated call whose "SDK call" is
+    /// the session client's own <c>HttpClient</c>: same session, same jar, same limiter, same
+    /// 401 renewal, same cold stop. VRChat's answer is kept aside on the way through, because
+    /// <see cref="Interpret{T}"/> keeps only a 2xx's body and the proxy returns every status as
+    /// it came.
+    /// </summary>
+    private async Task<VRChatResult<VRChatProxyResponse>> ForwardAsServiceAccountAsync(
+        VRChatEndpoint endpoint, VRChatProxyRequest request, VRChatCallPriority priority, CancellationToken ct)
+    {
+        VRChatProxyResponse? answered = null;
+
+        var result = await ExecuteAsync<VRChatProxyResponse>(
+                endpoint,
+                async (vrchat, token) =>
+                {
+                    var host = new Uri(new Uri(vrchat.Configuration.BasePath).GetLeftPart(UriPartial.Authority));
+
+                    using var message = VRChatProxyCall.Build(
+                        host, request, vrchat.Configuration.UserAgent, vrchat.Configuration.DefaultHeaders,
+                        VRChatProxyAccount.Service);
+
+                    using var response = await vrchat.HttpClient
+                        .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, token)
+                        .ConfigureAwait(false);
+
+                    answered = await VRChatProxyCall.ReadAsync(response, VRChatProxyAccount.Service, token)
+                        .ConfigureAwait(false);
+
+                    // The body as text, so a Cloudflare block on a forwarded request is
+                    // classified and shown the way one on any other call is.
+                    return new ApiResponse<VRChatProxyResponse>(
+                        response.StatusCode, answered, VRChatProxyCall.TextOf(answered) ?? string.Empty);
+                },
+                priority,
+                ct)
+            .ConfigureAwait(false);
+
+        // VRChat answered, whatever it said: that answer is the result. The gate's own verdict on
+        // it -- a 401 it could not renew past, a rate limit it recorded -- has already been acted
+        // on above, and the caller gets the status VRChat gave.
+        if (answered is not null && result.StatusCode != 0)
+            return VRChatResult<VRChatProxyResponse>.Ok(answered, answered.StatusCode);
+
+        return VRChatResult<VRChatProxyResponse>.From(result);
+    }
+
+    /// <summary>
+    /// A forwarded request on the caller's own cookie needs no session and must not have one:
+    /// it is paced through the limiter on its own class and sent through the same egress proxy,
+    /// and that is all the gate does for it. It never touches the gate's state, because a
+    /// stranger's 429 says nothing about the service account.
+    /// </summary>
+    private async Task<VRChatResult<VRChatProxyResponse>> ForwardAsCallerAsync(
+        VRChatEndpoint endpoint, VRChatProxyRequest request, VRChatCallPriority priority, CancellationToken ct)
+    {
+        var connection = await _connections.ReadAsync(ct).ConfigureAwait(false);
+        var client = PassthroughClient(connection);
+
+        var lease = await _limiter.AcquireAsync(endpoint, priority, ct).ConfigureAwait(false);
+        await using (lease)
+        {
+            if (!lease.IsAcquired)
+            {
+                var denial = lease.Denial!;
+                return VRChatResult<VRChatProxyResponse>.Failure(
+                    0,
+                    $"{denial.Bucket} is rate limited ({denial.Reason}); " +
+                    $"nothing will be sent on it for another {denial.RetryAfter:g}.",
+                    kind: VRChatFailureKind.RateLimited);
+            }
+
+            var operation = endpoint.Operation ?? "forward";
+            var started = _elapsed.Elapsed;
+
+            try
+            {
+                using var message = VRChatProxyCall.Build(
+                    _apiHost, request, _passthroughUserAgent, defaultHeaders: null, VRChatProxyAccount.Caller);
+
+                using var response = await client
+                    .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct)
+                    .ConfigureAwait(false);
+
+                var answered = await VRChatProxyCall.ReadAsync(response, VRChatProxyAccount.Caller, ct)
+                    .ConfigureAwait(false);
+
+                HttpLog.Completed(
+                    _logger, ServiceName, endpoint.Class, operation,
+                    answered.StatusCode, _elapsed.Elapsed - started, lease.Tokens);
+
+                await lease.ReportAsync(answered.StatusCode, ct).ConfigureAwait(false);
+
+                return VRChatResult<VRChatProxyResponse>.Ok(answered, answered.StatusCode);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                HttpLog.Failed(_logger, ServiceName, endpoint.Class, operation, exception, _elapsed.Elapsed - started);
+                await lease.ReportAsync(0, ct).ConfigureAwait(false);
+
+                return VRChatResult<VRChatProxyResponse>.Failure(
+                    0, exception.Message, kind: VRChatTransportFailure.Classify(exception));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The pass-through client: no cookie jar, so nothing of the service account's can ride
+    /// along and nothing of the caller's is kept; the operator's egress proxy, because the reason
+    /// for one (spec 2.3.1) is this host's network, which a caller's cookie does not change.
+    /// </summary>
+    private HttpClient PassthroughClient(VRChatConnection connection)
+    {
+        var key = $"{connection.ProxyUrl}\0{connection.ProxyUsername}\0{connection.ProxyPassword}";
+
+        lock (_passthroughLock)
+        {
+            if (_passthrough is { } current && current.ProxyKey == key)
+                return current.Client;
+
+            _passthrough?.Client.Dispose();
+
+            var handler = new HttpClientHandler
+            {
+                UseCookies = false,
+                AllowAutoRedirect = false,
+                AutomaticDecompression = DecompressionMethods.None,
+            };
+
+            if (!string.IsNullOrWhiteSpace(connection.ProxyUrl))
+            {
+                var proxy = new WebProxy(connection.ProxyUrl, true);
+                if (!string.IsNullOrWhiteSpace(connection.ProxyUsername))
+                {
+                    proxy.Credentials = new NetworkCredential(
+                        connection.ProxyUsername, connection.ProxyPassword ?? string.Empty);
+                }
+
+                handler.Proxy = proxy;
+                handler.UseProxy = true;
+            }
+
+            var client = new HttpClient(handler, disposeHandler: true) { Timeout = PassthroughTimeout };
+            _passthrough = (key, client);
+            return client;
+        }
+    }
+
     public void Dispose()
     {
         _session.Dispose();
         _loading.Dispose();
+
+        lock (_passthroughLock)
+        {
+            _passthrough?.Client.Dispose();
+            _passthrough = null;
+        }
     }
 
     private async Task<VRChatResult<T>> IssueAsync<T>(

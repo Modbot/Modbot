@@ -8,6 +8,7 @@ import { SyncSection } from '@/components/settings/SyncSection'
 import { VRChatSection } from '@/components/settings/VRChatSection'
 import { AiSection } from '@/components/settings/ai/AiSection'
 import { ApiSection } from '@/components/settings/api/ApiSection'
+import { VRChatProxySection } from '@/components/settings/proxy/VRChatProxySection'
 import { Tabs } from '@/components/ui/tabs'
 import { api, type OnboardingStatus } from '@/lib/api'
 
@@ -25,6 +26,7 @@ const TABS = [
   { value: 'sync', label: 'Sync' },
   { value: 'ai', label: 'AI' },
   { value: 'api', label: 'API' },
+  { value: 'proxy', label: 'VRChat Proxy' },
 ] as const
 
 type TabId = (typeof TABS)[number]['value']
@@ -109,5 +111,7 @@ function Panel({
       return <AiSection />
     case 'api':
       return <ApiSection />
+    case 'proxy':
+      return <VRChatProxySection />
   }
 }

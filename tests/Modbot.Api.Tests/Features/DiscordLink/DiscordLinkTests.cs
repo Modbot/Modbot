@@ -265,7 +265,7 @@ public class DiscordLinkTests
         Assert.Contains(code, notYet.GetProperty("message").GetString(), StringComparison.Ordinal);
 
         var call = Assert.Single(h.Gate.Calls);
-        Assert.Equal(Modbot.VRChat.VRChatEndpointClass.UsersProfile, call.Endpoint.Class);
+        Assert.Equal(Modbot.VRChat.VRChatEndpointClass.UsersLookup, call.Endpoint.Class);
         Assert.Equal(Modbot.VRChat.VRChatCallPriority.Interactive, call.Priority);
 
         h.Host.Clock.Advance(VRChatLinkEndpoints.MinimumGapBetweenChecks);

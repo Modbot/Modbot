@@ -47,6 +47,42 @@ public class BudgetCoverageTests
     }
 
     /// <summary>
+    /// A backstop is a budget like any other, and it is the end of a chain: it names no backstop
+    /// of its own, so a chain is never longer than backstop, class, resource (spec 4.3.1).
+    /// </summary>
+    [Fact]
+    public void EveryBackstopIsABudgetThatHasNone()
+    {
+        foreach (var limits in VRChatRateLimits.Defaults.Values)
+        {
+            if (limits.Backstop is not { } backstop)
+                continue;
+
+            Assert.True(
+                VRChatRateLimits.Defaults.TryGetValue(backstop, out var parent),
+                $"{limits.Name} names {backstop} as its backstop, which has no budget");
+
+            Assert.Null(parent!.Backstop);
+        }
+    }
+
+    /// <summary>
+    /// Spec 4.2's arithmetic, held in one place: the scheduled classes and the interactive
+    /// backstop add up to the global ceiling, so lowering a scheduled cap without moving the
+    /// room left -- or the other way round -- is a change somebody makes on purpose.
+    /// </summary>
+    [Fact]
+    public void TheScheduledClassesAndTheInteractiveRoomAddUpToTheCeiling()
+    {
+        var scheduled = VRChatRateLimits.Scheduled.Sum(c => VRChatRateLimits.Defaults[c].HardMaxPerSecond);
+        var interactive = VRChatRateLimits.Defaults[VRChatEndpointClass.Interactive].HardMaxPerSecond;
+        var global = VRChatRateLimits.Defaults[VRChatEndpointClass.Global].HardMaxPerSecond;
+
+        Assert.Equal(VRChatRateLimits.ScheduledTotalPerSecond, scheduled, 9);
+        Assert.Equal(global, scheduled + interactive, 9);
+    }
+
+    /// <summary>
     /// Spec 4.3.4's whole point: an unmeasured endpoint must not be able to cold-stop a measured
     /// one.
     /// </summary>

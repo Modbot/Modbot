@@ -2190,6 +2190,440 @@
         ]
       }
     },
+    "/api/proxy/vrchat/{path}": {
+      "get": {
+        "tags": [
+          "VRChat proxy"
+        ],
+        "summary": "Forward a GET to VRChat",
+        "description": "Sends the request to `https://api.vrchat.cloud/{path}` and answers with VRChat's status, body and the headers that matter. With a Modbot API key -- in the `Authorization` header, or as the value of a cookie named `auth`, which is where a VRChat client library puts it -- the request goes out as the group's service account. With anything else in the `auth` cookie it goes out with your own cookies, as you. Needs the `UseVRChatProxy` permission for the service account. Answers 404 while the proxy is switched off, 429 when Modbot's own pacing has stopped the proxy, and 503 when Modbot cannot reach VRChat at all.",
+        "operationId": "VRChatProxyGet",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          },
+          { }
+        ]
+      },
+      "post": {
+        "tags": [
+          "VRChat proxy"
+        ],
+        "summary": "Forward a POST to VRChat",
+        "description": "Sends the request to `https://api.vrchat.cloud/{path}` and answers with VRChat's status, body and the headers that matter. With a Modbot API key -- in the `Authorization` header, or as the value of a cookie named `auth`, which is where a VRChat client library puts it -- the request goes out as the group's service account. With anything else in the `auth` cookie it goes out with your own cookies, as you. Needs the `UseVRChatProxy` permission for the service account. Answers 404 while the proxy is switched off, 429 when Modbot's own pacing has stopped the proxy, and 503 when Modbot cannot reach VRChat at all.",
+        "operationId": "VRChatProxyPost",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          },
+          { }
+        ]
+      },
+      "put": {
+        "tags": [
+          "VRChat proxy"
+        ],
+        "summary": "Forward a PUT to VRChat",
+        "description": "Sends the request to `https://api.vrchat.cloud/{path}` and answers with VRChat's status, body and the headers that matter. With a Modbot API key -- in the `Authorization` header, or as the value of a cookie named `auth`, which is where a VRChat client library puts it -- the request goes out as the group's service account. With anything else in the `auth` cookie it goes out with your own cookies, as you. Needs the `UseVRChatProxy` permission for the service account. Answers 404 while the proxy is switched off, 429 when Modbot's own pacing has stopped the proxy, and 503 when Modbot cannot reach VRChat at all.",
+        "operationId": "VRChatProxyPut",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          },
+          { }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "VRChat proxy"
+        ],
+        "summary": "Forward a DELETE to VRChat",
+        "description": "Sends the request to `https://api.vrchat.cloud/{path}` and answers with VRChat's status, body and the headers that matter. With a Modbot API key -- in the `Authorization` header, or as the value of a cookie named `auth`, which is where a VRChat client library puts it -- the request goes out as the group's service account. With anything else in the `auth` cookie it goes out with your own cookies, as you. Needs the `UseVRChatProxy` permission for the service account. Answers 404 while the proxy is switched off, 429 when Modbot's own pacing has stopped the proxy, and 503 when Modbot cannot reach VRChat at all.",
+        "operationId": "VRChatProxyDelete",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          },
+          { }
+        ]
+      }
+    },
+    "/api/settings/vrchat-proxy": {
+      "get": {
+        "tags": [
+          "VRChat proxy"
+        ],
+        "summary": "The VRChat proxy's switch and address",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetVRChatProxySettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VRChatProxySettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "VRChat proxy"
+        ],
+        "summary": "Turn the VRChat proxy on or off",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "SetVRChatProxySettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VRChatProxySettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VRChatProxySettingsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/imports": {
       "post": {
         "tags": [
@@ -26458,6 +26892,36 @@
           }
         }
       },
+      "VRChatProxySettingsResponse": {
+        "required": [
+          "enabled",
+          "baseUrl",
+          "publicAddressSet"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "baseUrl": {
+            "type": "string"
+          },
+          "publicAddressSet": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VRChatProxySettingsUpdate": {
+        "required": [
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
       "VRChatUserProfile": {
         "required": [
           "userId",
@@ -27361,6 +27825,11 @@
       "name": "Webhooks",
       "description": "Addresses Modbot sends new events to, signed with a secret.",
       "x-displayName": "Webhooks"
+    },
+    {
+      "name": "VRChat proxy",
+      "description": "Requests forwarded to VRChat's own API, as the service account or with your own VRChat cookie.",
+      "x-displayName": "VRChat proxy"
     },
     {
       "name": "Members",

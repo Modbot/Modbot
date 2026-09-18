@@ -698,6 +698,11 @@ is reserved for **interactive work**: moderation actions, onboarding, and a mode
 which preempt background sync (§4.1). A background scheduler that consumed the full ceiling would
 make every ban wait behind a member page.
 
+> **Since 2026-09-17 that room is a bucket, not an arithmetic claim.** The scheduled classes
+> draw from `global`; what a moderator presses draws from `interactive`, capped at the ceiling
+> minus the scheduled sum (0.575 req/s with `groups.instances` at 1 per 10 s). Until then a ban
+> still took its token from `global`, which the sweeps keep empty. See §4.3.5.
+
 #### 4.2.1 These are caps, and they are configurable downward only
 
 Every rate above, plus the global ceiling, is operator-configurable through a slider in settings.
@@ -1153,7 +1158,11 @@ endpoint classes §4.2 does not schedule:
 | `users.read` | **0.33 req/s** | `UserProducer` — 3000 ms |
 | `users.profile` | **3.5 req/s** | the maintainer, 2026-09-15 — the same rate as `users.read`, its own budget |
 | `users.groups` | **0.2 req/s** | **no data at all** — see §4.3.4.1 |
-| `moderation.write` | **0.3 req/s** | unknown; interactive and low-volume, kept conservative |
+| `moderation.write` | **0.3 req/s** | unknown; interactive and low-volume, kept conservative; under the `interactive` backstop since 2026-09-17 (§4.3.5) |
+| `groups.moderate` | **0.5 req/s** | the maintainer's deliberately low guess (M4 §12.2); under the `interactive` backstop since 2026-09-17 (§4.3.5) |
+| `users.lookup` | **1 req/s** | 2026-09-17 — one person read because somebody is waiting; §4.2.5's original users-lane rate, kept under the 3.5 the sync reads run at on the same endpoints (§4.3.5) |
+| `proxy` | **0.3 req/s** | 2026-09-17 — a request forwarded as the service account; the bottom of this table's range, because the limiter cannot see which endpoint it reaches (VRChat proxy design §4) |
+| `proxy.passthrough` | **0.5 req/s** | 2026-09-17 — a request forwarded with a caller's own cookie; a guess kept low, not counted against the service account (VRChat proxy design §4) |
 | `auth` | negligible | login and re-login only; at most 4 counted requests an hour (§4.1.2) |
 | `auth.verify` | **0.1 req/s** | **no data** — `GET /auth`, the session check; a guess to confirm (§4.1.2) |
 
@@ -1230,6 +1239,52 @@ What replaces it is cheaper and honest: every event type VRChat is known to emit
 whose type is not recognised is recorded under `modbot.unrecognised` with VRChat's own wording kept
 (§5.3.1) and reported on the health screen, and the mapping table is checked against captured live
 samples in the test suite rather than against a two-week window at runtime.
+
+#### 4.3.5 Two backstops — what a moderator presses never waits for a token the sweeps took
+
+> **Added 2026-09-17.** The full reasoning is in the VRChat proxy and moderator buckets design
+> (`2026-09-17-vrchat-proxy-and-moderator-buckets-design.md`, §2); this section records the shape.
+
+§4.2 reserves the room under the ceiling — 2 req/s minus the scheduled classes' 1.425 — for
+interactive work, and §4.3.1 puts every class that is not exempt through one `global` bucket. Those
+two did not agree. `groups.moderate` had its own class and its own lane, so a ban never queued
+behind a member page in a lane; but it still needed a token from `global`, and `global` is the
+bucket the sweeps keep empty. The priority queue is per lane, and the global bucket has no queue:
+a ban waited for the next global token and then raced three sweeps for it. Nothing reserved the
+room; the arithmetic merely said it was there.
+
+**The backstop is now two buckets, and their caps add up to the ceiling:**
+
+```
+  global       2 req/s     the scheduled classes, places, the calendar, the proxy
+  interactive  0.575 req/s what a moderator presses: groups.moderate, moderation.write
+```
+
+A class names its backstop (`RateLimitClassOptions.Backstop`) rather than saying whether it
+counts against the global one. Background sync names `global`; what a moderator presses names
+`interactive`; the user reads §4.2.5 exempts name nothing. `interactive`'s cap is *defined* as the
+ceiling minus the scheduled sum, and `BudgetCoverageTests` holds the three numbers together, so
+lowering a scheduled cap without moving the room left is a change somebody makes on purpose.
+
+**What a 429 does.** On a class under `interactive`: the class is cold-stopped (most specific
+bucket, as always), `interactive` is halved as its ancestor, and `global` is halved as evidence —
+exactly the treatment `users.read` already gets. On a class under `global`: `global` is halved and
+`interactive` is not. A cold members bucket must not slow a ban, which is the whole point of the
+split; and a rate limit on the sweeps' backstop is not evidence that the moderator's is wrong.
+
+**`users.lookup`.** The one per-person read a person waits on — the link check that reads a bio for
+its code — ran on `users.profile`, the background sync's bucket, so a cold stop the sync earned
+stopped account linking, and a person's lookups spent the sync's allowance. It now has its own
+class and lane at §4.2.5's original 1 req/s, deliberately under the 3.5 the two sync reads run at
+on the same endpoints, and is exempt from both backstops for the reason its siblings are: the
+exemption is about the endpoint, not who asked.
+
+**The proxy** has two classes of its own (`proxy`, `proxy.passthrough`), on the global backstop
+and on none respectively — the VRChat proxy design §4 says why.
+
+The settings screen's per-class list and the health page's bucket table show the new buckets by
+name; the room-left figure the settings screen already computed is now also a bucket an operator
+can see stop.
 
 ### 4.4 Time — one authority, never the local clock
 
@@ -2642,3 +2697,10 @@ Recorded so they are visible rather than buried, and so they are not relitigated
     fact payloads were never "room" and are unchanged. Earlier specs are not rewritten: where one
     says "room", read "instance". An instance is now named on every screen the way VRChat shows it,
     *The Black Cat #19453*, as one link, never as a bare number or a bare id.
+29. **The backstop is two buckets** (2026-09-17, §4.3.5). What a moderator presses draws from an
+    `interactive` bucket sized to the room §4.2 reserves, never from the `global` bucket the sweeps
+    keep empty. Narrows §4.3.1's "a request must acquire a token at every level it belongs to":
+    the levels are still backstop, class, resource, but a class names *which* backstop, and the two
+    backstops' caps add up to the ceiling rather than being one bucket everybody races for. A
+    person's read of one user gets `users.lookup`, apart from both sync reads. The VRChat proxy
+    (its own design, same date) gets `proxy` on the global backstop and `proxy.passthrough` on none.
