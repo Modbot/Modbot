@@ -32,11 +32,59 @@ public sealed record DiscordCommandDefinition(
 public sealed record DiscordEmbedField(string Name, string Value, bool Inline = false);
 
 /// <summary>
+/// A picture sent with a message, which the message's own embeds point at.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <strong>Why a card's pictures are uploaded rather than linked.</strong> VRChat's hosts refuse a
+/// request that carries no session, and Discord fetches an embed's pictures from its own servers,
+/// signed in as nobody. A VRChat address in an embed is therefore always a broken picture, and
+/// Modbot's own <c>/api/files/vrchat</c> route is no better: it needs a signed-in caller, and most
+/// deployments have no address the internet can reach at all. Sending the bytes is the only way
+/// that works everywhere, and once they are sent Discord owns them: the card keeps its picture
+/// when Modbot is offline and when VRChat moves the file.
+/// </para>
+/// <para>
+/// <strong>Paid for once.</strong> An instance card is rewritten every minute for hours. An edit
+/// that sends no pictures keeps the ones the message already has, so the upload happens on the
+/// first post and never again.
+/// </para>
+/// </remarks>
+/// <param name="Name">
+/// The file name, which an embed refers to as <c>attachment://name</c>. It must end in the
+/// extension for the bytes -- Discord decides what a file is from its name, and a picture called
+/// <c>.dat</c> is shown as a download rather than in the card.
+/// </param>
+public sealed record DiscordPicture(string Name, byte[] Bytes)
+{
+    /// <summary>How many files Discord accepts on one message.</summary>
+    public const int PerMessage = 10;
+
+    /// <summary>The scheme an embed uses to point at a file sent with the same message.</summary>
+    public const string Scheme = "attachment://";
+
+    /// <summary>The address an embed refers to this picture by.</summary>
+    public string Reference => Scheme + Name;
+}
+
+/// <summary>
 /// A rich message card, described without the library's types so the formatting can be tested
 /// and the library swapped. Sizes are Discord's: title 256, description 4096, field value 1024.
 /// </summary>
-/// <param name="ImageUrl">A large picture across the bottom of the card. Only an https address is used.</param>
-/// <param name="ThumbnailUrl">A small picture in the top corner. Only an https address is used.</param>
+/// <remarks>
+/// Every picture address may be either an https address or <c>attachment://name</c>, naming a
+/// <see cref="DiscordPicture"/> sent with the same message. <see cref="Url"/> is the card's click
+/// target and stays https only: it is a page, not a picture.
+/// </remarks>
+/// <param name="ImageUrl">A large picture across the bottom of the card.</param>
+/// <param name="ThumbnailUrl">A small picture in the top corner.</param>
+/// <param name="AuthorName">
+/// A line above the title, for the person or thing the card is about. Discord allows 256
+/// characters and shows it smaller than the title, which is why a card about one person puts
+/// their name here and keeps the title for what happened to them.
+/// </param>
+/// <param name="AuthorUrl">Where the author line goes when clicked. Only an https address is used.</param>
+/// <param name="AuthorIconUrl">The small round picture beside the author line.</param>
 public sealed record DiscordEmbedContent(
     string Title,
     string? Description,
@@ -47,21 +95,29 @@ public sealed record DiscordEmbedContent(
     string? Footer,
     string? ImageUrl = null,
     string? ThumbnailUrl = null,
-    string? FooterIconUrl = null);
+    string? FooterIconUrl = null,
+    string? AuthorName = null,
+    string? AuthorUrl = null,
+    string? AuthorIconUrl = null);
 
 /// <summary>A button under a message that opens a web address. Only an https address is used.</summary>
 public sealed record DiscordLinkButton(string Label, string Url);
 
 /// <summary>What the bot says back to a command. Always visible only to the person who asked.</summary>
 /// <param name="Links">Buttons under the reply that open a web address, or null for none.</param>
+/// <param name="Pictures">Files the reply's cards point at by <c>attachment://name</c>.</param>
 public sealed record DiscordReply(
     string? Text,
     IReadOnlyList<DiscordEmbedContent> Embeds,
-    IReadOnlyList<DiscordLinkButton>? Links = null)
+    IReadOnlyList<DiscordLinkButton>? Links = null,
+    IReadOnlyList<DiscordPicture>? Pictures = null)
 {
     public static DiscordReply Say(string text) => new(text, []);
 
     public static DiscordReply Card(DiscordEmbedContent embed) => new(null, [embed]);
+
+    public static DiscordReply Card(DiscordEmbedContent embed, IReadOnlyList<DiscordPicture>? pictures)
+        => new(null, [embed], null, pictures);
 }
 
 /// <summary>
@@ -324,6 +380,21 @@ public interface IDiscordGateway : IAsyncDisposable
         CancellationToken ct);
 
     /// <summary>
+    /// Posts a message with pictures the embeds point at by <c>attachment://name</c>.
+    /// </summary>
+    /// <param name="pictures">
+    /// The files to send, at most <see cref="DiscordPicture.PerMessage"/>. Null or empty sends
+    /// none, which is the same as the overload without them.
+    /// </param>
+    Task<DiscordPostOutcome> PostAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
+        CancellationToken ct);
+
+    /// <summary>
     /// Rewrites a message the bot posted earlier.
     /// </summary>
     /// <remarks>
@@ -339,6 +410,24 @@ public interface IDiscordGateway : IAsyncDisposable
         string? text,
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct);
+
+    /// <summary>
+    /// Rewrites a message the bot posted earlier, and says what its pictures should now be.
+    /// </summary>
+    /// <param name="pictures">
+    /// Null keeps the files the message already has, which is how a card rewritten every minute
+    /// pays for its picture once: the embed keeps pointing at <c>attachment://name</c> and nothing
+    /// is uploaded again. A list -- empty included -- replaces them, so a card that has lost its
+    /// picture loses the file too.
+    /// </param>
+    Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
         CancellationToken ct);
 
     /// <summary>
