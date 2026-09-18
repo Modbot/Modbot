@@ -69,7 +69,7 @@ public sealed class PostgresFixture : IAsyncLifetime
                 "TRUNCATE install, admin_session, settings, instance_alert, showcase_entry, " +
                 "account, account_session, account_token, " +
                 "public_instance, instances_server, registered_server, server_report, " +
-                "page_instance, visitor_instance");
+                "page_instance, visitor_instance, subscriber, visited_server");
 
         await using var engine = NewEngineContext();
         await engine.Database.ExecuteSqlRawAsync("TRUNCATE companion_event, install_clock, event_day_total, event_hour_total, instance_log");
