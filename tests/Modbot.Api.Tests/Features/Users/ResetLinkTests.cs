@@ -127,7 +127,8 @@ public class ResetLinkTests
         await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IMailRelay>(email));
         await SetPublicAddressAsync(_db, "https://modbot.example.com");
         var (user, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
-        await SetEmailAsync(_db, user.Id, "mod@example.com");
+        var userEmail = $"mod-{user.Id:N}@example.com";
+        await SetEmailAsync(_db, user.Id, userEmail);
 
         var real = await host.SendJsonAsync(HttpMethod.Post, "/api/auth/forgot-password", new { username = user.Username }, null, Ct);
         var unknown = await host.SendJsonAsync(HttpMethod.Post, "/api/auth/forgot-password", new { username = $"nobody_{Guid.NewGuid():N}" }, null, Ct);
@@ -138,7 +139,7 @@ public class ResetLinkTests
 
         // And only the real one got a message -- which the caller cannot see.
         var message = Assert.Single(email.Sent);
-        Assert.Equal("mod@example.com", message.To);
+        Assert.Equal(userEmail, message.To);
         Assert.Contains("https://modbot.example.com/reset/", message.Body, StringComparison.Ordinal);
         Assert.Equal(EmailKind.Account, message.Kind);
     }
@@ -181,7 +182,7 @@ public class ResetLinkTests
         await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IMailRelay>(email));
         await SetPublicAddressAsync(_db, null);
         var (user, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
-        await SetEmailAsync(_db, user.Id, "mod@example.com");
+        await SetEmailAsync(_db, user.Id, $"mod-{user.Id:N}@example.com");
 
         var ways = await ApiTestHost.BodyOf(await host.Client.GetAsync("/api/auth/forgot-password", Ct), Ct);
         Assert.False(ways.GetProperty("available").GetBoolean());
@@ -199,7 +200,7 @@ public class ResetLinkTests
         await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IMailRelay>(email));
         await SetPublicAddressAsync(_db, "https://modbot.example.com");
         var (user, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
-        await SetEmailAsync(_db, user.Id, "mod@example.com");
+        await SetEmailAsync(_db, user.Id, $"mod-{user.Id:N}@example.com");
 
         await host.SendJsonAsync(HttpMethod.Post, "/api/auth/forgot-password", new { username = user.Username }, null, Ct);
         await host.SendJsonAsync(HttpMethod.Post, "/api/auth/forgot-password", new { username = user.Username }, null, Ct);
@@ -218,7 +219,7 @@ public class ResetLinkTests
         await using var host = await ApiTestHost.StartAsync(_db, configure: s => s.AddSingleton<IMailRelay>(email));
         await SetPublicAddressAsync(_db, "https://modbot.example.com");
         var (user, _) = await host.SignedInAsync(ModbotPermissions.None, Ct);
-        await SetEmailAsync(_db, user.Id, "mod@example.com");
+        await SetEmailAsync(_db, user.Id, $"mod-{user.Id:N}@example.com");
 
         await host.SendJsonAsync(HttpMethod.Post, "/api/auth/forgot-password", new { username = user.Username }, null, Ct);
 

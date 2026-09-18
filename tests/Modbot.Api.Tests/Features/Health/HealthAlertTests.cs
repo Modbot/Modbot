@@ -60,6 +60,9 @@ public class HealthAlertTests
         await db.HealthAlertRecipients.ExecuteDeleteAsync(ct);
         await db.HealthAlertSettings.ExecuteDeleteAsync(ct);
         await db.EmailQueue.ExecuteDeleteAsync(ct);
+        // Email became unique per account, so the user this method creates below must not be
+        // left behind for the next test in the file to collide with.
+        await db.Users.Where(u => u.Email == "keeper@example.com").ExecuteDeleteAsync(ct);
 
         var user = new ModbotUser
         {
