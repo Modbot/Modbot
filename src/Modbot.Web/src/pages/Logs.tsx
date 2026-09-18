@@ -3,10 +3,11 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { JsonView } from '@/components/JsonView'
 import { api, ApiError, type LogFilters, type LogLevel, type LogLine, type LogPage } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Empty, Select } from './Members'
+import { Empty } from './Members'
 
 const PAGE_SIZE = 100
 

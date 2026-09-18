@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
@@ -443,30 +444,6 @@ function Freshness({ coverage }: { coverage: MemberList['coverage'] }) {
         sweep.
       </span>
     </div>
-  )
-}
-
-export function Select({
-  value,
-  onChange,
-  children,
-  ...rest
-}: {
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-  'aria-label': string
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-8 rounded-md border border-input bg-transparent px-2 text-foreground"
-      style={{ fontSize: 'var(--text-small)' }}
-      {...rest}
-    >
-      {children}
-    </select>
   )
 }
 

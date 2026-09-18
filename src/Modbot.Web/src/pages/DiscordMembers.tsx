@@ -4,6 +4,7 @@ import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { dateTime } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
 import { SubjectLink } from '@/components/facts'
@@ -17,7 +18,7 @@ import { can } from '@/lib/permissions'
 import { useShortcuts } from '@/lib/shortcuts'
 import { openDiscordPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
-import { Empty, Select } from '@/pages/Members'
+import { Empty } from '@/pages/Members'
 
 /**
  * The Discord server's members, as the bot keeps them.
