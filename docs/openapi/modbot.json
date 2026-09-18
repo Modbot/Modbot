@@ -699,7 +699,7 @@
           "Members"
         ],
         "summary": "The group's ban list, as last swept, with search",
-        "description": "This is the group's ban list -- everyone VRChat says is banned right now, whenever the ban was issued -- read by the ban sweep. Who banned them and why is the audit log's to say, at /api/audit/bans. Bans that stand by default; `status=lifted` shows bans a full sweep no longer listed, `status=all` both.\n\nNeeds the `ViewAuditLog` permission.",
+        "description": "This is the group's ban list -- everyone VRChat says is banned right now, whenever the ban was issued -- read by the ban sweep. Who banned them and why is the audit log's to say, at /api/audit/bans. Bans that stand by default; `status=lifted` shows bans a full sweep no longer listed, `status=all` both.\n\nPaged by cursor: send back the `next` or `previous` the answer carries. `page` still works but can repeat or miss a row when a sweep lands mid-read.\n\nNeeds the `ViewAuditLog` permission.",
         "operationId": "GetGroupBans",
         "parameters": [
           {
@@ -711,6 +711,13 @@
           },
           {
             "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
             "in": "query",
             "schema": {
               "type": "string"
@@ -6485,7 +6492,7 @@
           "Discord"
         ],
         "summary": "The Discord server's members, current and past, with search",
-        "description": "Members in the server by default; `state=left` shows people who left, `state=all` both. `search` matches the display name, username, global name, nickname and the id, case-insensitively. `role` is a Discord role id and may be repeated: people holding any of them. `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. `bot`, `pending`, `timedOut` and `boosting` are true or false. `joinedFrom` and `joinedTo` narrow to people who joined inside that stretch. `linked=linked` shows only people with a linked VRChat account and `linked=not-linked` only people without; both need See profiles, as does `linkedVRChat` on each member. Newest joiners first unless `sort=oldest` or `sort=name`. `roles` lists the server's roles with how many current members hold each.\n\n`coverage.listedAt` is null until the bot has read the whole member list once; the list is partial until then.\n\nNeeds the `ViewMembers` permission.",
+        "description": "Members in the server by default; `state=left` shows people who left, `state=all` both. `search` matches the display name, username, global name, nickname and the id, case-insensitively. `role` is a Discord role id and may be repeated: people holding any of them. `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. `bot`, `pending`, `timedOut` and `boosting` are true or false. `joinedFrom` and `joinedTo` narrow to people who joined inside that stretch. `linked=linked` shows only people with a linked VRChat account and `linked=not-linked` only people without; both need See profiles, as does `linkedVRChat` on each member. Newest joiners first unless `sort=oldest` or `sort=name`. `roles` lists the server's roles with how many current members hold each.\n\n`coverage.listedAt` is null until the bot has read the whole member list once; the list is partial until then.\n\nPaged by cursor. Read the first page with no `cursor`, then send back the `next` or `previous` the answer carries, exactly as it came. A cursor that will not read, or that was written while the list was sorted another way, is ignored and the first page comes back. `page` still works, but the bot rewrites this list on every sign-in, so a numbered page can show a row twice or never.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetDiscordMembers",
         "parameters": [
           {
@@ -6582,6 +6589,13 @@
           },
           {
             "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
             "in": "query",
             "schema": {
               "type": "string"
@@ -11078,9 +11092,16 @@
           "Repeat offenders"
         ],
         "summary": "People acted on more than once, most recent action first",
-        "description": "Per person: instance kicks, warns, bans, removals from the group and join requests turned away, all time and over the last 30 and 90 days; how many different moderators acted; the first and last action; and a status decided by the rule in `rule`. Rebuilt from the fact log on the daily totals schedule -- `lastRunAt` says when.\n\nNeeds the `ViewProfile` permission.",
+        "description": "Per person: instance kicks, warns, bans, removals from the group and join requests turned away, all time and over the last 30 and 90 days; how many different moderators acted; the first and last action; and a status decided by the rule in `rule`. Rebuilt from the fact log on the daily totals schedule -- `lastRunAt` says when.\n\nPaged by cursor: read the first page with no `cursor`, then send back the `next` or `previous` the answer carries, exactly as it came. A cursor that will not read is ignored and the first page comes back. `offset` still works, but the whole table is rebuilt on a schedule, so a row can shift across a numbered boundary between one request and the next.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "ListRepeatOffenders",
         "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "offset",
             "in": "query",
@@ -11391,7 +11412,7 @@
           "Members"
         ],
         "summary": "The group's member list, as last swept, with search",
-        "description": "Current members by default; `status=left` shows people a full sweep no longer listed, `status=all` both. `search` matches the display name and the id, case-insensitively. `role` is a role id and may be repeated: people holding any of them. `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. Sorted by join date, newest first, unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without; both need See profiles, as does `linkedDiscord` on each row. `joinedFrom` and `joinedTo` narrow the list to people who joined inside that stretch, which is what an unusual-activity alert links to; `seenFrom` and `seenTo` do the same for when Modbot last saw them. `eighteenPlus` and `representing` are true or false; `profile` is `fetched` or `not-fetched`.\n\n`roles` lists the group's roles with how many current members hold each.\n\n`coverage.firstSweepComplete` is false until the first full sweep has finished; the list is partial until then. Names and pictures come from the profile sync and are null for people it has not fetched yet.\n\nNeeds the `ViewMembers` permission.",
+        "description": "Current members by default; `status=left` shows people a full sweep no longer listed, `status=all` both. `search` matches the display name and the id, case-insensitively. `role` is a role id and may be repeated: people holding any of them. `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. Sorted by join date, newest first, unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without; both need See profiles, as does `linkedDiscord` on each row. `joinedFrom` and `joinedTo` narrow the list to people who joined inside that stretch, which is what an unusual-activity alert links to; `seenFrom` and `seenTo` do the same for when Modbot last saw them. `eighteenPlus` and `representing` are true or false; `profile` is `fetched` or `not-fetched`.\n\n`roles` lists the group's roles with how many current members hold each.\n\nPaged by cursor. Read the first page with no `cursor`, then send back the `next` or `previous` the answer carries. A cursor is the server's to write: send it back exactly as it came, and do not build one. One that will not read, or that was written while the list was sorted another way, is ignored and the first page comes back instead of an error. `page` still works and still counts rows to skip, but a list this long is swept while you read it, so a numbered page can show you a row twice or never; `cursor` cannot, and wins when both are sent. `total` is the whole filtered list either way.\n\n`coverage.firstSweepComplete` is false until the first full sweep has finished; the list is partial until then. Names and pictures come from the profile sync and are null for people it has not fetched yet.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetMembers",
         "parameters": [
           {
@@ -11497,6 +11518,13 @@
           },
           {
             "name": "profile",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
             "in": "query",
             "schema": {
               "type": "string"
@@ -19162,6 +19190,8 @@
           "total",
           "page",
           "pageSize",
+          "next",
+          "previous",
           "coverage",
           "roles"
         ],
@@ -19196,6 +19226,18 @@
               "string"
             ],
             "format": "int32"
+          },
+          "next": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "previous": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "coverage": {
             "$ref": "#/components/schemas/DiscordMemberListCoverage"
@@ -22632,6 +22674,8 @@
           "total",
           "page",
           "pageSize",
+          "next",
+          "previous",
           "coverage"
         ],
         "type": "object",
@@ -22665,6 +22709,18 @@
               "string"
             ],
             "format": "int32"
+          },
+          "next": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "previous": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "coverage": {
             "$ref": "#/components/schemas/BanListCoverage"
@@ -25232,6 +25288,8 @@
           "total",
           "page",
           "pageSize",
+          "next",
+          "previous",
           "roles",
           "coverage"
         ],
@@ -25266,6 +25324,18 @@
               "string"
             ],
             "format": "int32"
+          },
+          "next": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "previous": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "roles": {
             "type": "array",
@@ -26650,6 +26720,8 @@
           "people",
           "total",
           "offset",
+          "next",
+          "previous",
           "rule",
           "lastRunAt",
           "now"
@@ -26677,6 +26749,18 @@
               "string"
             ],
             "format": "int32"
+          },
+          "next": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "previous": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "rule": {
             "type": "string"

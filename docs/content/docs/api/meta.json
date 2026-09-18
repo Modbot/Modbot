@@ -1,1 +1,1 @@
-{ "title": "API", "pages": ["index", "server", "keys", "events-websocket", "long-polling", "live-updates", "webhooks", "vrchat-proxy", "files", "reference"] }
+{ "title": "API", "pages": ["index", "server", "keys", "paging", "events-websocket", "long-polling", "live-updates", "webhooks", "vrchat-proxy", "files", "reference"] }

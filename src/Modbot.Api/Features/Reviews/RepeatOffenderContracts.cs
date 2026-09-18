@@ -33,10 +33,15 @@ public sealed record RepeatOffenderView(
 
 /// <param name="Rule">How the status is decided, in words, at the current threshold.</param>
 /// <param name="LastRunAt">When the counts were last rebuilt. Null means never.</param>
+/// <param name="Offset">How many rows were skipped, for a caller still sending <c>offset</c>. Always 0 for a caller paging by <c>cursor</c>.</param>
+/// <param name="Next">The cursor for the following page, or null on the last one.</param>
+/// <param name="Previous">The cursor for the page before, or null on the first one.</param>
 public sealed record RepeatOffenderListResponse(
     IReadOnlyList<RepeatOffenderView> People,
     int Total,
     int Offset,
+    string? Next,
+    string? Previous,
     string Rule,
     DateTimeOffset? LastRunAt,
     DateTimeOffset Now);

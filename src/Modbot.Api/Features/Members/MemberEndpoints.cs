@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.DiscordLink;
+using Modbot.Api.Lists;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -45,6 +46,31 @@ public static class MemberEndpoints
     public const int DefaultPageSize = 50;
     public const int MaxPageSize = 200;
 
+    /// <summary>Newest joiner first. The default.</summary>
+    public const string SortByJoined = "joined";
+
+    public const string SortByName = "name";
+
+    public const string SortBySeen = "seen";
+
+    /// <summary>The group ban list has one ordering, and this is its name in a cursor.</summary>
+    public const string BanSort = "banned";
+
+    /// <summary>
+    /// The value a member row is ordered on, as a cursor carries it.
+    /// </summary>
+    /// <remarks>
+    /// Null means the row has no value to order on -- no join date, no fetched profile -- which is
+    /// its own place at the end of the list, and is not the same as a value that happens to be
+    /// empty. <see cref="ListCursor"/> keeps the two apart.
+    /// </remarks>
+    private static string? MarkValue(DateTimeOffset? joinedAt, VRChatUser? profile, string sort) => sort switch
+    {
+        SortByName => profile?.DisplayName,
+        SortBySeen => profile is null ? null : ListCursor.Text(profile.LastSeenAt),
+        _ => ListCursor.Text(joinedAt),
+    };
+
     public static IEndpointRouteBuilder MapMembers(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -69,6 +95,7 @@ public static class MemberEndpoints
                 [FromQuery] DateTimeOffset? seenFrom,
                 [FromQuery] DateTimeOffset? seenTo,
                 [FromQuery] string? profile,
+                [FromQuery] string? cursor,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
                 CancellationToken ct) =>
@@ -86,7 +113,8 @@ public static class MemberEndpoints
                 return Results.Ok(await ListMembersAsync(
                     db, clock, search, null, status, sort, page, pageSize, ct, linked, seesLinks, joinedFrom, joinedTo,
                     new MemberFilters(
-                        Ids(roles), Ids(notRoles), noRole, eighteenPlus, representing, seenFrom, seenTo, Trimmed(profile))));
+                        Ids(roles), Ids(notRoles), noRole, eighteenPlus, representing, seenFrom, seenTo, Trimmed(profile)),
+                    cursor));
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetMembers")
@@ -105,6 +133,14 @@ public static class MemberEndpoints
                 + "`eighteenPlus` and `representing` are true or false; `profile` is `fetched` or "
                 + "`not-fetched`.\n\n"
                 + "`roles` lists the group's roles with how many current members hold each.\n\n"
+                + "Paged by cursor. Read the first page with no `cursor`, then send back the "
+                + "`next` or `previous` the answer carries. A cursor is the server's to write: "
+                + "send it back exactly as it came, and do not build one. One that will not read, "
+                + "or that was written while the list was sorted another way, is ignored and the "
+                + "first page comes back instead of an error. `page` still works and still counts "
+                + "rows to skip, but a list this long is swept while you read it, so a numbered "
+                + "page can show you a row twice or never; `cursor` cannot, and wins when both "
+                + "are sent. `total` is the whole filtered list either way.\n\n"
                 + "`coverage.firstSweepComplete` is false until the first full sweep has finished; "
                 + "the list is partial until then. Names and pictures come from the profile sync "
                 + "and are null for people it has not fetched yet.")
@@ -139,10 +175,11 @@ public static class MemberEndpoints
                 [FromServices] IModbotClock clock,
                 [FromQuery] string? search,
                 [FromQuery] string? status,
+                [FromQuery] string? cursor,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
                 CancellationToken ct) =>
-                Results.Ok(await ListBansAsync(db, clock, search, status, page, pageSize, ct)))
+                Results.Ok(await ListBansAsync(db, clock, search, status, page, pageSize, ct, cursor)))
             .RequireAuthorization()
             .RequiresFlag(ModbotPermissions.ViewAuditLog)
             .WithTags("Members")
@@ -152,7 +189,9 @@ public static class MemberEndpoints
                 "This is the group's ban list -- everyone VRChat says is banned right now, "
                 + "whenever the ban was issued -- read by the ban sweep. Who banned them and why "
                 + "is the audit log's to say, at /api/audit/bans. Bans that stand by default; "
-                + "`status=lifted` shows bans a full sweep no longer listed, `status=all` both.")
+                + "`status=lifted` shows bans a full sweep no longer listed, `status=all` both.\n\n"
+                + "Paged by cursor: send back the `next` or `previous` the answer carries. `page` "
+                + "still works but can repeat or miss a row when a sweep lands mid-read.")
             .Produces<GroupBanListResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -173,7 +212,8 @@ public static class MemberEndpoints
         bool seesLinks = false,
         DateTimeOffset? joinedFrom = null,
         DateTimeOffset? joinedTo = null,
-        MemberFilters? more = null)
+        MemberFilters? more = null,
+        string? cursor = null)
     {
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var groupId = settings?.ManagedGroupId ?? string.Empty;
@@ -262,28 +302,147 @@ public static class MemberEndpoints
             _ => query,
         };
 
-        query = Trimmed(sort)?.ToLowerInvariant() switch
+        // The list is counted as well as paged. A group is thousands of rows behind an index, and
+        // the total is the figure the filter bar reads out, so it stays. The fact log, which is
+        // orders of magnitude larger and partitioned, is the list that refuses to count.
+        var total = await query.CountAsync(ct);
+
+        var sortName = Trimmed(sort)?.ToLowerInvariant() switch
         {
-            "name" => query
+            SortByName => SortByName,
+            SortBySeen => SortBySeen,
+            _ => SortByJoined,
+        };
+
+        // A cursor that will not read, or that was written under a different ordering, is no
+        // cursor at all: the reader gets the first page of what they asked for rather than an
+        // error page from a stale bookmark.
+        var at = ListCursor.Read(cursor, sortName);
+        var back = at?.Direction == ListDirection.Back;
+
+        // Which rows come after the cursor's row -- or before it, reading back. Both halves of the
+        // boundary are compared every time: a sweep stamps a whole batch of members with one
+        // moment, so a cursor on the time alone would skip every one of them but the first.
+        if (at is { } mark)
+        {
+            var id = mark.Id;
+            var onwards = mark.Direction == ListDirection.Next;
+
+            if (sortName == SortByName)
+            {
+                // Named people first, in name order; then the ones whose profile has not been
+                // fetched, in id order. A boundary row in the second half has no name to compare.
+                if (mark.Value is { } name)
+                {
+                    query = onwards
+                        ? query.Where(x =>
+                            x.u == null || x.u.DisplayName == null
+                            || string.Compare(x.u.DisplayName, name) > 0
+                            || (x.u.DisplayName == name && string.Compare(x.m.UserId, id) > 0))
+                        : query.Where(x =>
+                            x.u != null && x.u.DisplayName != null
+                            && (string.Compare(x.u.DisplayName, name) < 0
+                                || (x.u.DisplayName == name && string.Compare(x.m.UserId, id) < 0)));
+                }
+                else
+                {
+                    query = onwards
+                        ? query.Where(x =>
+                            (x.u == null || x.u.DisplayName == null)
+                            && string.Compare(x.m.UserId, id) > 0)
+                        : query.Where(x =>
+                            (x.u != null && x.u.DisplayName != null)
+                            || string.Compare(x.m.UserId, id) < 0);
+                }
+            }
+            else if (sortName == SortBySeen)
+            {
+                // Newest sighting first; people with no stored profile at the end.
+                if (ListCursor.Time(mark.Value) is { } seen)
+                {
+                    query = onwards
+                        ? query.Where(x =>
+                            x.u == null
+                            || x.u.LastSeenAt < seen
+                            || (x.u.LastSeenAt == seen && string.Compare(x.m.UserId, id) > 0))
+                        : query.Where(x =>
+                            x.u != null
+                            && (x.u.LastSeenAt > seen
+                                || (x.u.LastSeenAt == seen && string.Compare(x.m.UserId, id) < 0)));
+                }
+                else
+                {
+                    query = onwards
+                        ? query.Where(x => x.u == null && string.Compare(x.m.UserId, id) > 0)
+                        : query.Where(x => x.u != null || string.Compare(x.m.UserId, id) < 0);
+                }
+            }
+            else
+            {
+                // Newest joiner first; people VRChat gave no join date for at the end.
+                if (ListCursor.Time(mark.Value) is { } joined)
+                {
+                    query = onwards
+                        ? query.Where(x =>
+                            x.m.JoinedAt == null
+                            || x.m.JoinedAt < joined
+                            || (x.m.JoinedAt == joined && string.Compare(x.m.UserId, id) > 0))
+                        : query.Where(x =>
+                            x.m.JoinedAt != null
+                            && (x.m.JoinedAt > joined
+                                || (x.m.JoinedAt == joined && string.Compare(x.m.UserId, id) < 0)));
+                }
+                else
+                {
+                    query = onwards
+                        ? query.Where(x => x.m.JoinedAt == null && string.Compare(x.m.UserId, id) > 0)
+                        : query.Where(x => x.m.JoinedAt != null || string.Compare(x.m.UserId, id) < 0);
+                }
+            }
+        }
+
+        query = sortName switch
+        {
+            SortByName when back => query
+                .OrderByDescending(x => x.u == null || x.u.DisplayName == null)
+                .ThenByDescending(x => x.u!.DisplayName)
+                .ThenByDescending(x => x.m.UserId),
+            SortByName => query
                 .OrderBy(x => x.u == null || x.u.DisplayName == null)
                 .ThenBy(x => x.u!.DisplayName)
                 .ThenBy(x => x.m.UserId),
-            "seen" => query
+            SortBySeen when back => query
+                .OrderByDescending(x => x.u == null)
+                .ThenBy(x => x.u!.LastSeenAt)
+                .ThenByDescending(x => x.m.UserId),
+            SortBySeen => query
                 .OrderBy(x => x.u == null)
                 .ThenByDescending(x => x.u!.LastSeenAt)
                 .ThenBy(x => x.m.UserId),
+            _ when back => query
+                .OrderByDescending(x => x.m.JoinedAt == null)
+                .ThenBy(x => x.m.JoinedAt)
+                .ThenByDescending(x => x.m.UserId),
             _ => query
                 .OrderBy(x => x.m.JoinedAt == null)
                 .ThenByDescending(x => x.m.JoinedAt)
                 .ThenBy(x => x.m.UserId),
         };
 
-        var total = await query.CountAsync(ct);
+        // `page` still works for whoever was already calling this with one, and the answer now
+        // carries a cursor they can move to. A cursor, when sent, wins.
+        if (at is null && pageNumber > 1)
+            query = query.Skip((pageNumber - 1) * size);
 
-        var rows = await query
-            .Skip((pageNumber - 1) * size)
-            .Take(size)
-            .ToListAsync(ct);
+        var read = await ListPaging.ReadAsync(
+            query,
+            sortName,
+            size,
+            at,
+            x => (MarkValue(x.m.JoinedAt, x.u, sortName), x.m.UserId),
+            ct);
+
+        var rows = read.Rows;
 
         var discord = seesLinks
             ? await LinkedDiscordAsync(db, settings?.DiscordGuildId, rows.Select(x => x.m.UserId).ToList(), ct)
@@ -317,8 +476,10 @@ public static class MemberEndpoints
         return new MemberListResponse(
             list,
             total,
-            pageNumber,
+            at is null ? pageNumber : 1,
             size,
+            read.Next,
+            read.Previous,
             roles
                 .Select(r => new RoleOption(r.Key, r.Value, held.GetValueOrDefault(r.Key)))
                 .OrderBy(r => r.Name ?? r.Id, StringComparer.OrdinalIgnoreCase)
@@ -452,7 +613,8 @@ public static class MemberEndpoints
         string? status,
         int? page,
         int? pageSize,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? cursor = null)
     {
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var groupId = settings?.ManagedGroupId ?? string.Empty;
@@ -485,20 +647,58 @@ public static class MemberEndpoints
                     || (x.u != null && x.u.DisplayName != null && EF.Functions.ILike(x.u.DisplayName, pattern, "\\")));
         }
 
-        query = query
-            .OrderBy(x => x.b.BannedAt == null)
-            .ThenByDescending(x => x.b.BannedAt)
-            .ThenBy(x => x.b.UserId);
-
         var total = await query.CountAsync(ct);
 
-        var rows = await query
-            .Skip((pageNumber - 1) * size)
-            .Take(size)
-            .ToListAsync(ct);
+        // One ordering, so the cursor's sort is the list's own name. Newest ban first, then the
+        // bans VRChat gave no date for, and the user id breaks ties -- a sweep that finds fifty
+        // bans stamps them all with the same moment, so without it a page boundary in that batch
+        // would lose the other forty-nine.
+        var at = ListCursor.Read(cursor, BanSort);
+        var back = at?.Direction == ListDirection.Back;
+
+        if (at is { } mark)
+        {
+            var id = mark.Id;
+            var onwards = mark.Direction == ListDirection.Next;
+
+            if (ListCursor.Time(mark.Value) is { } banned)
+            {
+                query = onwards
+                    ? query.Where(x =>
+                        x.b.BannedAt == null
+                        || x.b.BannedAt < banned
+                        || (x.b.BannedAt == banned && string.Compare(x.b.UserId, id) > 0))
+                    : query.Where(x =>
+                        x.b.BannedAt != null
+                        && (x.b.BannedAt > banned
+                            || (x.b.BannedAt == banned && string.Compare(x.b.UserId, id) < 0)));
+            }
+            else
+            {
+                query = onwards
+                    ? query.Where(x => x.b.BannedAt == null && string.Compare(x.b.UserId, id) > 0)
+                    : query.Where(x => x.b.BannedAt != null || string.Compare(x.b.UserId, id) < 0);
+            }
+        }
+
+        query = back
+            ? query
+                .OrderByDescending(x => x.b.BannedAt == null)
+                .ThenBy(x => x.b.BannedAt)
+                .ThenByDescending(x => x.b.UserId)
+            : query
+                .OrderBy(x => x.b.BannedAt == null)
+                .ThenByDescending(x => x.b.BannedAt)
+                .ThenBy(x => x.b.UserId);
+
+        if (at is null && pageNumber > 1)
+            query = query.Skip((pageNumber - 1) * size);
+
+        var read = await ListPaging.ReadAsync(
+            query, BanSort, size, at, x => (ListCursor.Text(x.b.BannedAt), x.b.UserId), ct);
 
         return new GroupBanListResponse(
-            rows.Select(x => new BanRow(
+            read.Rows.Select(x => new BanRow(
                 x.b.UserId,
                 x.u?.DisplayName,
                 PlainName.Of(x.u?.DisplayName),
@@ -509,8 +709,10 @@ public static class MemberEndpoints
                 x.b.LiftedAt,
                 x.u?.LastRefreshedAt)).ToList(),
             total,
-            pageNumber,
+            at is null ? pageNumber : 1,
             size,
+            read.Next,
+            read.Previous,
             BanCoverage(settings, clock.UtcNow));
     }
 
