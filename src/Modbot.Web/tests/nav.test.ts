@@ -59,6 +59,11 @@ test('People is its own page and asks for See profiles, not See members', () => 
   assert.equal(mayOpen(person('ViewMembers'), 'people'), false)
 })
 
+test('Requests asks for its own permission, not See members', () => {
+  assert.equal(mayOpen(person('ViewJoinRequests'), 'requests'), true)
+  assert.equal(mayOpen(person('ViewMembers'), 'requests'), false)
+})
+
 test('every page with a go-to chord has its own letter', () => {
   const letters = Object.values(GO_TO_KEYS).filter((l) => l !== '')
 

@@ -37,6 +37,7 @@ import { Connect } from '@/pages/Connect'
 import { Logs } from '@/pages/Logs'
 import { DiscordMembers } from '@/pages/DiscordMembers'
 import { Members } from '@/pages/Members'
+import { Requests } from '@/pages/Requests'
 import { People } from '@/pages/People'
 import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
@@ -52,6 +53,7 @@ import { Setup } from '@/pages/setup/Setup'
 
 const TITLES: Record<PageId, string> = {
   members: 'Members',
+  requests: 'Requests',
   'discord-members': 'Discord members',
   people: 'People',
   live: 'Live',
@@ -82,6 +84,7 @@ const TITLES: Record<PageId, string> = {
  */
 const PATHS: Record<PageId, string> = {
   members: '/',
+  requests: '/requests',
   'discord-members': '/discord/members',
   people: '/people',
   live: '/live',
@@ -412,6 +415,7 @@ function Shell({
         />
         <div className="p-5">
           {page === 'members' && <Members me={me} onOpenSubject={setSubject} />}
+          {page === 'requests' && <Requests me={me} onOpenSubject={setSubject} />}
           {page === 'discord-members' && <DiscordMembers me={me} />}
           {page === 'people' && <People />}
           {page === 'live' && <Live />}
