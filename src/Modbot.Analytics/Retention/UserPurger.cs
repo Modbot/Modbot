@@ -28,8 +28,24 @@ namespace Modbot.Analytics.Retention;
 /// </remarks>
 public interface IUserPurger
 {
-    Task<PurgeResult> PurgeAsync(FactPlatform platform, string subjectId, CancellationToken ct = default);
+    Task<PurgeResult> PurgeAsync(
+        FactPlatform platform,
+        string subjectId,
+        PurgeActor? actor = null,
+        CancellationToken ct = default);
 }
+
+/// <summary>
+/// Who asked for the purge.
+/// </summary>
+/// <remarks>
+/// Erasing somebody is the most consequential thing an operator can do, so the record of it names
+/// the account that did it -- and nothing else about the person erased. Null for a purge nobody
+/// pressed a button for, which today is only the test suite.
+/// </remarks>
+/// <param name="AccountId">The Modbot account. Goes in the fact's actor column.</param>
+/// <param name="Username">Their username at the time. Names change; this is what was seen then.</param>
+public sealed record PurgeActor(Guid AccountId, string Username);
 
 /// <param name="FactsDeleted">Facts erased.</param>
 /// <param name="CountedDailyTotalsDeleted">
@@ -111,6 +127,7 @@ public sealed class UserPurger : IUserPurger
     public async Task<PurgeResult> PurgeAsync(
         FactPlatform platform,
         string subjectId,
+        PurgeActor? actor = null,
         CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(subjectId);
@@ -185,7 +202,12 @@ public sealed class UserPurger : IUserPurger
             if (days.Count > 0)
                 await _dailyTotals.RecomputeDaysAsync(days, ct);
 
-            await RecordAsync(factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, ct);
+            await RecordAsync(
+                platform,
+                actor,
+                new PurgeResult(
+                    factsDeleted, dailyTotalsDeleted, days.Count, messagesDeleted, entriesDeleted, entrantsBlanked),
+                ct);
 
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
@@ -213,14 +235,6 @@ public sealed class UserPurger : IUserPurger
     private static string[] Dimensions(FactPlatform platform, string subjectId)
         => [DailyTotalDimensions.ForUser(platform, subjectId), subjectId];
 
-    /// <summary>
-    /// Records that a purge happened -- and deliberately not who it was about.
-    /// </summary>
-    /// <remarks>
-    /// An erasure log that names the erased person is not an erasure. What is worth keeping is
-    /// that data was destroyed and how much, which is what makes the deletion auditable without
-    /// undoing it.
-    /// </remarks>
     /// <summary>
     /// Deletes a Discord user's messages and every earlier text of them.
     /// </summary>
@@ -286,9 +300,42 @@ public sealed class UserPurger : IUserPurger
         return (entries, entrants);
     }
 
-    private async Task RecordAsync(int facts, int dailyTotals, int days, int messages, CancellationToken ct)
+    /// <summary>
+    /// Records that a purge happened -- who did it, when, and how much went -- and deliberately
+    /// not who it was about.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An erasure log that names the erased person is not an erasure. What is worth keeping is
+    /// that data was destroyed, by whom and how much, which is what makes the deletion auditable
+    /// without undoing it.
+    /// </para>
+    /// <para>
+    /// The platform is recorded because "a VRChat account" and "a Discord account" are different
+    /// operations and neither word points at anybody. Nothing free-text is recorded at all: a
+    /// written reason, which is what <c>DestroyEvidence</c> requires, would be the one field on
+    /// this fact a moderator could type a name into.
+    /// </para>
+    /// </remarks>
+    private async Task RecordAsync(
+        FactPlatform platform, PurgeActor? actor, PurgeResult result, CancellationToken ct)
     {
         await _partitions.EnsureForAsync(_clock.UtcNow, ct);
+
+        var data = new JsonObject
+        {
+            ["platform"] = platform.ToString(),
+            ["facts"] = result.FactsDeleted,
+            // Key kept as first written: this is fact data already in modbot_event.
+            ["countedDailyTotals"] = result.CountedDailyTotalsDeleted,
+            ["daysRecomputed"] = result.DaysRecomputed,
+            ["messages"] = result.MessagesDeleted,
+            ["giveawayEntries"] = result.GiveawayEntriesDeleted,
+            ["giveawayPlaces"] = result.GiveawayEntrantsBlanked,
+        };
+
+        if (actor is not null)
+            data["actorDisplayName"] = actor.Username;
 
         await _facts.WriteAsync(
             new FactRecord
@@ -297,15 +344,10 @@ public sealed class UserPurger : IUserPurger
                 OccurredAt = _clock.UtcNow,
                 SubjectPlatform = FactPlatform.Modbot,
                 SubjectId = "purge",
+                ActorPlatform = actor is null ? null : FactPlatform.Modbot,
+                ActorId = actor?.AccountId.ToString(),
                 Source = FactSource.Modbot,
-                Data = new JsonObject
-                {
-                    ["facts"] = facts,
-                    // Key kept as first written: this is fact data already in modbot_event.
-                    ["countedDailyTotals"] = dailyTotals,
-                    ["daysRecomputed"] = days,
-                    ["messages"] = messages,
-                },
+                Data = data,
             },
             ct);
     }
