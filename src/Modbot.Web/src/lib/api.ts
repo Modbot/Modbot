@@ -382,12 +382,19 @@ export type ProfileFields = {
   pronouns: string | null
   avatarImageUrl: string | null
   avatarThumbnailUrl: string | null
+  /** The best picture the server has: the profile picture, else the avatar. Never fall back here. */
   profilePictureUrl: string | null
+  iconUrl: string | null
+  bannerUrl: string | null
+  representedGroup: RepresentedGroup | null
   dateJoined: string | null
   tags: string[]
   ageVerificationStatus: string | null
   ageVerified: boolean | null
 }
+
+/** The group a person shows on their nameplate. Not a link: it is whatever group they chose, not one Modbot knows. */
+export type RepresentedGroup = { groupId: string; name: string; iconUrl: string | null }
 
 /** The profile as it stood after one recorded change. `factId` is the audit log entry that recorded it. */
 export type ProfileVersion = {
@@ -1674,7 +1681,11 @@ export type VRChatUserProfile = {
   pronouns: string | null
   avatarImageUrl: string | null
   avatarThumbnailUrl: string | null
+  /** The best picture the server has: the profile picture, else the avatar. Never fall back here. */
   profilePictureUrl: string | null
+  iconUrl: string | null
+  bannerUrl: string | null
+  representedGroup: RepresentedGroup | null
   dateJoined: string | null
   tags: string[]
   /** Null until the user read has filled the tags. */
@@ -2032,6 +2043,9 @@ export type ProfileAtBan = {
   avatarImageUrl?: string | null
   avatarThumbnailUrl?: string | null
   profilePictureUrl?: string | null
+  iconUrl?: string | null
+  bannerUrl?: string | null
+  representedGroup?: { groupId?: string | null; name?: string | null; iconUrl?: string | null } | null
   dateJoined?: string | null
   tags?: unknown
   trustRank?: unknown

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * The small pieces the Discord member list and the Discord person popup share: a picture, and a
@@ -28,7 +29,7 @@ export function RoleChip({ name, id, color }: { name: string | null; id: string;
 export function Avatar({ url, className }: { url: string | null | undefined; className?: string }) {
   return url ? (
     <img
-      src={url}
+      src={vrchatMedia(url)}
       alt=""
       className={cn('size-7 shrink-0 rounded-full bg-muted object-cover', className)}
       referrerPolicy="no-referrer"

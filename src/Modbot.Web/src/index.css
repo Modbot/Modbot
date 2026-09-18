@@ -59,6 +59,7 @@
   --warn: #b45309;
   --ok: #15803d;
   --info: #0369a1;
+  --gold: #946f00;
 
   /* Chart series. A fixed order, never cycled: a series keeps its hue when a
      filter removes its neighbours, so "bans are orange" stays learnable.
@@ -110,6 +111,7 @@
   --warn: #fbbf24;
   --ok: #4ade80;
   --info: #38bdf8;
+  --gold: #fde047;
 
   /* The same five hues, stepped for the dark card rather than flipped. All
      five clear 3:1 against it; an automatic inversion clears nothing. */
@@ -180,6 +182,7 @@
   --color-warn: var(--warn);
   --color-ok: var(--ok);
   --color-info: var(--info);
+  --color-gold: var(--gold);
   --color-link: var(--link);
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);

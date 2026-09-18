@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { api, type Showcase, type ShowcasePerson } from '@/lib/api'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * The people the project thanks: the repository's contributors, the sponsors and the early
@@ -73,7 +74,7 @@ export function People() {
                   >
                     {person.avatarUrl && (
                       <img
-                        src={person.avatarUrl}
+                        src={vrchatMedia(person.avatarUrl)}
                         alt=""
                         loading="lazy"
                         className="size-5 rounded-full"
@@ -124,7 +125,7 @@ function Person({ person }: { person: ShowcasePerson }) {
     <>
       {banner && (
         <img
-          src={banner}
+          src={vrchatMedia(banner)}
           alt=""
           loading="lazy"
           referrerPolicy="no-referrer"
@@ -134,7 +135,7 @@ function Person({ person }: { person: ShowcasePerson }) {
       <div className="flex items-center gap-2">
         {picture && (
           <img
-            src={picture}
+            src={vrchatMedia(picture)}
             alt=""
             loading="lazy"
             referrerPolicy="no-referrer"

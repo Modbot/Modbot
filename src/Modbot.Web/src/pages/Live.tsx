@@ -9,6 +9,7 @@ import { PRESENCE_KINDS, INSTANCE_KINDS, stateWord, type LiveEvent } from '@/lib
 import { openInstance, openWorld } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { PageMessage } from '@/pages/analytics/shared'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * How often the page asks again on its own while it is on screen. The head counts come from
@@ -126,7 +127,7 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
               onClick={() => openWorld(instance.worldId)}
               className="shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
             >
-              <img src={instance.worldImageUrl} alt="" loading="lazy" className="aspect-[4/3] w-24 rounded-md object-cover" />
+              <img src={vrchatMedia(instance.worldImageUrl)} alt="" loading="lazy" className="aspect-[4/3] w-24 rounded-md object-cover" />
             </button>
           ) : null}
 

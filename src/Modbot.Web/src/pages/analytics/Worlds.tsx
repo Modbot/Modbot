@@ -4,6 +4,7 @@ import { WorldLink } from '@/components/facts'
 import { api } from '@/lib/api'
 import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /** Below this many presence reports in the range, the numbers are shown but called thin. */
 const THIN = 200
@@ -79,7 +80,7 @@ export function Worlds() {
                           <div className="flex items-center gap-2">
                             {w.thumbnailImageUrl && (
                               <img
-                                src={w.thumbnailImageUrl}
+                                src={vrchatMedia(w.thumbnailImageUrl)}
                                 alt=""
                                 loading="lazy"
                                 className="size-8 shrink-0 rounded-md object-cover"

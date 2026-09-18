@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { dateTime } from '@/components/charts'
 import { SourceBadge } from '@/components/facts'
+import { JsonView } from '@/components/JsonView'
 import { Note, Panel } from '@/components/subject/shared'
 import { api, type ProfileFields, type ProfileVersion } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { fieldName } from '@/lib/profileFields'
 import { useLoad } from '@/lib/useLoad'
 import { cn } from '@/lib/utils'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * A person's profile over time: every version the facts can replay, newest first, with the one
@@ -83,9 +85,10 @@ function VersionRow({ version, chosen, onClick }: { version: ProfileVersion; cho
   )
 }
 
-/** One version, laid out the way the profile card lays out the profile now. */
+/** One version, laid out the way the profile card lays out the profile now, with the record itself behind a control. */
 export function VersionCard({ version }: { version: ProfileVersion }) {
   const p = version.profile
+  const [showJson, setShowJson] = useState(false)
 
   return (
     <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
@@ -110,13 +113,28 @@ export function VersionCard({ version }: { version: ProfileVersion }) {
       )}
 
       <Fields fields={p} highlight={version.changed} />
+
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => setShowJson((s) => !s)}
+          aria-expanded={showJson}
+          className="self-start text-muted-foreground hover:text-foreground hover:underline"
+        >
+          {showJson ? 'Hide JSON' : 'JSON'}
+        </button>
+        {showJson && <JsonView title="Profile" value={p} />}
+      </div>
     </div>
   )
 }
 
 /** The profile's fields, with the ones this change touched marked. */
 export function Fields({ fields: p, highlight }: { fields: ProfileFields; highlight: string[] }) {
-  const picture = p.profilePictureUrl || p.avatarThumbnailUrl
+  const picture = vrchatMedia(p.profilePictureUrl)
+  const banner = vrchatMedia(p.bannerUrl)
+  const icon = vrchatMedia(p.iconUrl)
+  const groupIcon = vrchatMedia(p.representedGroup?.iconUrl)
   const marked = (field: string) => (highlight.includes(field) ? 'ring-2 ring-ring/50 rounded-md' : '')
 
   return (
@@ -129,6 +147,28 @@ export function Fields({ fields: p, highlight }: { fields: ProfileFields; highli
 
       <div className="grid min-w-0 flex-1 grid-cols-[auto_1fr] gap-x-3 gap-y-1">
         <Row label="Name" mark={marked('displayName')}>{p.displayName ?? '—'}</Row>
+        <Row label="Banner" mark={marked('bannerUrl') || marked('banner')}>
+          {banner ? (
+            <img src={banner} alt="" className="aspect-[3/1] w-full max-w-xs rounded-md bg-muted object-cover" referrerPolicy="no-referrer" />
+          ) : '—'}
+        </Row>
+        <Row label="Icon" mark={marked('userIcon')}>
+          {icon ? (
+            <img src={icon} alt="" className="size-8 rounded-full bg-muted object-cover" referrerPolicy="no-referrer" />
+          ) : '—'}
+        </Row>
+        <Row label="Represented group" mark={marked('representedGroup')}>
+          {p.representedGroup ? (
+            <span className="inline-flex items-center gap-1.5" title={p.representedGroup.groupId}>
+              {groupIcon ? (
+                <img src={groupIcon} alt="" className="size-5 shrink-0 rounded-full bg-muted object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="size-5 shrink-0 rounded-full bg-muted" />
+              )}
+              {p.representedGroup.name}
+            </span>
+          ) : '—'}
+        </Row>
         <Row label="Pronouns" mark={marked('pronouns')}>{p.pronouns ?? '—'}</Row>
         <Row label="Status line" mark={marked('statusDescription')}>{p.statusDescription ?? '—'}</Row>
         <Row label="Bio" mark={marked('bio')}>

@@ -13,6 +13,8 @@ export function fieldName(field: string): string {
     currentAvatarImageUrl: 'avatar picture',
     currentAvatarThumbnailImageUrl: 'avatar thumbnail',
     profilePicOverride: 'profile picture',
+    userIcon: 'icon',
+    representedGroup: 'represented group',
     ageVerificationStatus: 'age status',
     ageVerified: 'age verified',
     dateJoined: 'join date',

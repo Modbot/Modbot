@@ -11,6 +11,7 @@ import type { Density, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
 import { Headset, LogOut, Moon, Rows3, Rows2, Search, Sun, UserRound } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /** The group this Modbot manages, as the status endpoint reports it. */
 export type SidebarGroup = { name: string; iconUrl: string | null; bannerUrl: string | null }
@@ -128,11 +129,11 @@ function GroupHeading({ group }: { group: SidebarGroup }) {
   return (
     <div className="pb-5">
       {group.bannerUrl && (
-        <img src={group.bannerUrl} alt="" className="mb-3 aspect-[3/1] w-full rounded-md object-cover" />
+        <img src={vrchatMedia(group.bannerUrl)} alt="" className="mb-3 aspect-[3/1] w-full rounded-md object-cover" />
       )}
       <div className="flex items-center gap-2 px-2">
         {group.iconUrl && (
-          <img src={group.iconUrl} alt="" width={28} height={28} className="size-7 shrink-0 rounded-md object-cover" />
+          <img src={vrchatMedia(group.iconUrl)} alt="" width={28} height={28} className="size-7 shrink-0 rounded-md object-cover" />
         )}
         <div className="truncate font-display text-[0.9375rem] leading-tight">{group.name}</div>
       </div>

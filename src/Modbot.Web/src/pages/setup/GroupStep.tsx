@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { DiagnosisNote } from './DiagnosisNote'
 import { ErrorText, Note, WizardBody, WizardHeader } from './WizardChrome'
 import { WIZARD_FORM_ID, type StepProps } from './types'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 const initials = (name: string) =>
   (name.replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2) || '··').toUpperCase()
@@ -107,7 +108,7 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
                 />
                 <div className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-[0.625rem] font-semibold text-muted-foreground">
                   {group.iconUrl ? (
-                    <img src={group.iconUrl} alt="" className="size-full object-cover" />
+                    <img src={vrchatMedia(group.iconUrl)} alt="" className="size-full object-cover" />
                   ) : (
                     initials(group.name)
                   )}

@@ -6,7 +6,7 @@ import { JsonView } from '@/components/JsonView'
 import { InstanceTable } from '@/components/InstanceTable'
 import { SubjectCaseFiles } from '@/components/SubjectCaseFiles'
 import { SubjectHistory } from '@/components/SubjectHistory'
-import { UserProfileCard } from '@/components/UserProfileCard'
+import { ProfileDetails, ProfileIdentity } from '@/components/UserProfileCard'
 import { DiscordLinkCard } from '@/components/subject/DiscordLinkCard'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
@@ -20,6 +20,7 @@ import type { LiveEvent } from '@/lib/liveStream'
 import { can } from '@/lib/permissions'
 import { useOpeningTab, useOpeningVersion } from '@/lib/subject'
 import { useLiveVersion } from '@/lib/useLiveVersion'
+import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
 
 const TABS = ['overview', 'logs', 'history', 'cases', 'metrics', 'json'] as const
 type Tab = (typeof TABS)[number]
@@ -28,10 +29,14 @@ type Tab = (typeof TABS)[number]
  * One person: their VRChat profile on the left, and what Modbot has recorded about them on the
  * right.
  *
- * Overview is the glance: the repeat-offender counts, the presence figures and the newest facts.
- * Logs is every fact; History is the profile as it stood after each recorded change, replayed
- * from the facts; JSON is the stored records verbatim. The profile card, the history counts and
- * the case files are the same components the side pane used, moved rather than rewritten.
+ * The left column is identity only: picture, name, pronouns, the badge row, how old the reading
+ * is, the 18+ mark, the Discord link and the membership. Overview opens with the rest of the
+ * profile (bio, status, dates, the tags with no badge), then the repeat-offender counts, the
+ * presence figures and the newest facts. Logs is every fact; History is the profile as it stood
+ * after each recorded change, replayed from the facts; JSON is the stored records verbatim.
+ *
+ * The profile is read once here and handed to both places, so opening the popup asks for one
+ * refresh and the left column and the Overview move together when it lands.
  */
 export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
   const seesProfile = can(me, 'ViewProfile')
@@ -46,6 +51,8 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
   // profile change -- for the same reason: the server has it, so read it back.
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id), [id]))
   const fresh = `${acted}-${live}`
+
+  const stored = useStoredProfile(id, live)
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },
@@ -65,7 +72,7 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
       lead={lead}
       left={
         <>
-          <UserProfileCard key={live} subjectId={id} me={me} />
+          <ProfileIdentity stored={stored} me={me} />
           {seesProfile && <DiscordLinkCard key={live} subjectId={id} me={me} />}
 
           {can(me, 'ViewMembers') && (
@@ -75,7 +82,7 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
       }
     >
       <Tabs value={tab} onChange={setTab} tabs={tabs}>
-        {tab === 'overview' && <Overview key={fresh} id={id} me={me} onMore={setTab} />}
+        {tab === 'overview' && <Overview key={fresh} id={id} me={me} stored={stored} onMore={setTab} />}
         {tab === 'logs' && <Logs key={fresh} id={id} />}
         {tab === 'history' && <ProfileVersions key={live} id={id} openAt={version} />}
         {tab === 'cases' && (
@@ -90,8 +97,18 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
   )
 }
 
-/** The glance: how often they have been acted on, where they have been, and the newest facts. */
-function Overview({ id, me, onMore }: { id: string; me: CurrentUser; onMore: (tab: Tab) => void }) {
+/** The glance: the rest of the profile, how often they have been acted on, where they have been, and the newest facts. */
+function Overview({
+  id,
+  me,
+  stored,
+  onMore,
+}: {
+  id: string
+  me: CurrentUser
+  stored: StoredProfile
+  onMore: (tab: Tab) => void
+}) {
   const seesProfile = can(me, 'ViewProfile')
 
   const loadFacts = useCallback(() => api.audit({ subject: id, limit: 8 }), [id])
@@ -102,6 +119,13 @@ function Overview({ id, me, onMore }: { id: string; me: CurrentUser; onMore: (ta
 
   return (
     <div className="flex flex-col gap-3 p-4">
+      {seesProfile && stored.profile?.known && stored.profile.lastRefreshedAt && (
+        <>
+          <div className="font-medium">Profile</div>
+          <ProfileDetails stored={stored} />
+        </>
+      )}
+
       {seesProfile && <SubjectHistory subjectId={id} />}
 
       {metrics.data?.known && (

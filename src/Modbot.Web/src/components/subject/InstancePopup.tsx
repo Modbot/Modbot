@@ -13,13 +13,14 @@ import { access } from '@/lib/format'
 import { instanceName } from '@/lib/instanceName'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 const TABS = ['overview', 'people', 'logs', 'json'] as const
 type Tab = (typeof TABS)[number]
 
 /**
- * One instance: where and when it ran and how busy it got on the left; who was in it and what
- * happened there on the right.
+ * One instance: which world, which number, who can join and whether it is open on the left; where
+ * and when it ran, how busy it got, who was in it and what happened there on the right.
  *
  * An instance's history is its log: the facts recorded there while it was open, which the Logs tab
  * already is. Opened by Modbot's own id for the instance, never VRChat's number, which VRChat hands
@@ -97,11 +98,10 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
 function Identity({ view }: { view: InstanceView }) {
   const instance = view.instance
   const picture = view.worldImageUrl ?? instance.worldThumbnailImageUrl
-  const openFor = minutes(instance.minutesOpen)
 
   return (
     <>
-      {picture && <img src={picture} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />}
+      {picture && <img src={vrchatMedia(picture)} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />}
 
       <Field label="World" title={instance.worldId}>
         <WorldLink id={instance.worldId} name={instance.worldName} />
@@ -115,37 +115,50 @@ function Identity({ view }: { view: InstanceView }) {
       </Field>
 
       <Field label="Who can join">{access(instance.groupAccessType) ?? view.type ?? '—'}</Field>
-      {instance.region && <Field label="Region">{instance.region.toUpperCase()}</Field>}
 
-      <Field label="Opened">{dateTime(instance.openedAt)}</Field>
-      <Field label={instance.closedAt ? 'Closed' : 'Still open'}>
+      <Field label={instance.closedAt ? 'Closed' : 'Open now'}>
         {instance.closedAt
           ? `${dateTime(instance.closedAt)}${instance.closedBy === 'time' ? ' · went quiet' : ''}`
           : `last seen ${dateTime(view.lastSeenAt)}`}
       </Field>
-      <Field label={instance.closedAt ? 'Ran for' : 'Open for'}>{openFor}</Field>
-
-      {!instance.closedAt && <Field label="People now">{instance.peopleNow ?? 0}</Field>}
-      <Field label="Most at once">{instance.peakPeople ?? '—'}</Field>
-
-      {view.canSeeWhoWasThere && (
-        <Field label="Seen by a moderator's client">
-          {view.counts.visitors > 0
-            ? `${compactNumber(view.counts.visitors)} people, ${minutes(view.counts.minutesSeen)} of people-time`
-            : 'nobody'}
-        </Field>
-      )}
     </>
   )
 }
 
-/** The glance: the figures, the people seen longest, the newest facts. */
+/** Where and when it ran, at the top of the Overview. How long and how busy are the figures under it. */
+function Details({ view }: { view: InstanceView }) {
+  const instance = view.instance
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="font-medium">Details</div>
+
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        {instance.region && <Field label="Region">{instance.region.toUpperCase()}</Field>}
+        <Field label="Opened">{dateTime(instance.openedAt)}</Field>
+        {!instance.closedAt && <Field label="People now">{instance.peopleNow ?? 0}</Field>}
+
+        {view.canSeeWhoWasThere && (
+          <Field label="Seen by a moderator's client">
+            {view.counts.visitors > 0
+              ? `${compactNumber(view.counts.visitors)} people, ${minutes(view.counts.minutesSeen)} of people-time`
+              : 'nobody'}
+          </Field>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** The glance: where and when, the figures, the people seen longest, the newest facts. */
 function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => void }) {
   const instance = view.instance
   const longest = [...view.people].sort((a, b) => b.minutesSeen - a.minutesSeen).slice(0, 6)
 
   return (
     <div className="flex flex-col gap-3 p-4">
+      <Details view={view} />
+
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <Figure label={instance.closedAt ? 'Ran for' : 'Open for'} value={minutes(instance.minutesOpen)} />
         <Figure label="Most at once" value={instance.peakPeople === null ? '—' : String(instance.peakPeople)} />

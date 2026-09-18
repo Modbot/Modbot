@@ -8,7 +8,8 @@ import { EvidenceGallery } from '@/components/EvidenceGallery'
 import { Markdown } from '@/components/Markdown'
 import { ReasonButtons, WrittenReasonBox } from '@/components/CaseFileForm'
 import { SubjectLink } from '@/components/facts'
-import { TrustRankBadge } from '@/components/TrustRankBadge'
+import { OtherTags } from '@/components/ProfileBadges'
+import { ProfileHeader } from '@/components/ProfileHeader'
 import {
   api,
   ApiError,
@@ -381,41 +382,36 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
 }
 
 function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
-  const picture = profile.profilePictureUrl || profile.avatarThumbnailUrl
   const tags = textList(profile.tags)
 
   return (
-    <div className="flex gap-3">
-      {/* The image is fetched from VRChat's host as it was then, and may already be gone. That is
-          the honest state: Modbot never copied the bytes. */}
-      {picture ? (
-        <img
-          src={picture}
-          alt=""
-          className="size-16 shrink-0 rounded-md bg-muted object-cover"
-          referrerPolicy="no-referrer"
-        />
-      ) : (
-        <div className="size-16 shrink-0 rounded-md bg-muted" />
-      )}
-
-      <div className="min-w-0 flex-1" style={{ fontSize: 'var(--text-small)' }}>
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium" style={{ fontSize: 'var(--text-base)' }}>
-            {profile.displayName ?? <span className="font-mono">{profile.userId}</span>}
-          </span>
-          {profile.pronouns && <span className="text-muted-foreground">{profile.pronouns}</span>}
-          <TrustRankBadge rank={profile.trustRank} className="self-center" />
-          {profile.eighteenPlus?.verified && (
+    <div className="flex flex-col gap-2">
+      {/* The pictures are fetched from VRChat's host as they were then, and may already be gone.
+          That is the honest state: Modbot never copied the bytes. A snapshot written before the
+          server chose a best picture has only the avatar thumbnail, so that is still read here. */}
+      <ProfileHeader
+        bannerUrl={profile.bannerUrl}
+        pictureUrl={profile.profilePictureUrl || profile.avatarThumbnailUrl}
+        name={profile.displayName}
+        id={profile.userId}
+        pronouns={profile.pronouns}
+        tags={tags}
+        lastPlatform={profile.lastPlatform}
+        rank={profile.trustRank}
+        representedGroup={profile.representedGroup}
+        marks={
+          profile.eighteenPlus?.verified ? (
             <span
-              className="inline-flex items-center rounded-full border border-transparent bg-ok/15 px-2 py-0.5 font-medium text-ok"
+              className="inline-flex items-center self-center rounded-full border border-transparent bg-ok/15 px-2 py-0.5 font-medium text-ok"
               style={{ borderWidth: 'var(--hairline)' }}
             >
               18+ verified
             </span>
-          )}
-        </div>
+          ) : null
+        }
+      />
 
+      <div className="min-w-0" style={{ fontSize: 'var(--text-small)' }}>
         {profile.statusDescription && (
           <div className="mt-0.5 text-muted-foreground">“{profile.statusDescription}”</div>
         )}
@@ -431,12 +427,6 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
               <dd className="text-foreground">{formatDay(profile.dateJoined)}</dd>
             </div>
           )}
-          {profile.lastPlatform && (
-            <div className="flex gap-1">
-              <dt>Last platform:</dt>
-              <dd className="text-foreground">{profile.lastPlatform}</dd>
-            </div>
-          )}
           {profile.ageVerificationStatus && (
             <div className="flex gap-1">
               <dt>VRChat showed:</dt>
@@ -445,19 +435,7 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
           )}
         </dl>
 
-        {tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border px-2 py-0.5 font-mono text-muted-foreground"
-                style={{ borderWidth: 'var(--hairline)', fontSize: '0.6875rem' }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
+        <OtherTags tags={tags} className="mt-2" />
       </div>
     </div>
   )
