@@ -4,6 +4,7 @@ import { MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ReasonButtons } from '@/components/CaseFileForm'
+import { NotesBeforeActing } from '@/components/subject/PersonNotes'
 import {
   api,
   ApiError,
@@ -176,6 +177,13 @@ function ConfirmAction({
       <div className="flex flex-col gap-3">
         {result === null && (
           <>
+            {/*
+              What the group has already written down about this person, before the button is
+              pressed. M4 §8.1: this is the moment that information is worth having and the only
+              moment at which showing it costs nothing. Nothing is drawn when there are none.
+            */}
+            <NotesBeforeActing userId={userId} />
+
             {reasons === null ? (
               <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                 Loading the reasons…

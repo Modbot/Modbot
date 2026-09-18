@@ -1032,6 +1032,38 @@ export type ModerationActionBody = {
   note: string
 }
 
+/**
+ * One note about a person: a moderator's own words, kept beside everything else recorded about
+ * them (notes design).
+ *
+ * `id` is the id of the fact the note is stored as, because the fact is the note. `text` is text
+ * and is rendered as text — never as markup, and never through the Markdown renderer case files
+ * use.
+ */
+export type Note = {
+  id: number
+  writtenAt: string
+  text: string
+  subjectPlatform: string
+  subjectId: string
+  /** The Modbot account that wrote it. Null for one carried in from another system. */
+  authorAccountId: string | null
+  authorName: string | null
+  imported: boolean
+  /** Taken back: it still exists and still shows, it simply no longer stands. */
+  takenBack: boolean
+  takenBackAt: string | null
+  takenBackByName: string | null
+  canTakeBack: boolean
+}
+
+export type NoteList = {
+  notes: Note[]
+  /** How many still stand. */
+  standing: number
+  canWrite: boolean
+}
+
 /** One row of the group's ban list, as the ban sweep last read it. */
 export type GroupBanRow = {
   userId: string
@@ -3968,6 +4000,22 @@ export const api = {
   banPerson: (body: ModerationActionBody) => post<ModerationActionResult>('/api/moderation/ban', body),
 
   unbanPerson: (body: ModerationActionBody) => post<ModerationActionResult>('/api/moderation/unban', body),
+
+  // ── Notes (notes design). Modbot's own record about a person; nothing reaches VRChat. ─────
+
+  /** One person's notes, newest first. Needs ViewAuditLog — a note is a fact in that log. */
+  notes: (query: { userId: string; platform?: string; limit?: number }) => {
+    const q = new URLSearchParams({ userId: query.userId })
+    if (query.platform) q.set('platform', query.platform)
+    if (query.limit) q.set('limit', String(query.limit))
+    return request<NoteList>(`/api/notes?${q.toString()}`)
+  },
+
+  /** Write a note about somebody. Needs WriteNotes. */
+  writeNote: (body: { userId: string; platform?: string; text: string }) => post<Note>('/api/notes', body),
+
+  /** Take a note back. Nothing is deleted; a second fact records that it no longer stands. */
+  takeBackNote: (id: number) => post<Note>(`/api/notes/${id}/take-back`),
 
   // ── The MCP server (MCP server design) ───────────────────────────────────────────────────
 
