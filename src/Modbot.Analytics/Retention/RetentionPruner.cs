@@ -123,6 +123,12 @@ public sealed partial class RetentionPruner
             if (expired.Count == FactRetention.All.Count)
             {
                 await DropAsync(partition, ct);
+
+                // The rows saying which facts were one decision go with the facts they describe.
+                // Partitions are dropped oldest first, so everything below this one's upper bound
+                // is already gone.
+                await Facts.FactLinker.PruneAsync(_db, partition.UpperBound, ct);
+
                 dropped.Add(partition.Name);
                 continue;
             }

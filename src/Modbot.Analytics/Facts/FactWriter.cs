@@ -215,6 +215,25 @@ public sealed class FactWriter : IFactWriter
             throw;
         }
 
+        // Which decision this fact belongs to, before it is let out of sight. A ban and the
+        // instance kick that threw the person out of the instance are one decision and have to
+        // count as one (spec 5.3.2). A type that is in no pair -- which is nearly every fact --
+        // costs a dictionary lookup here and nothing else.
+        //
+        // A failure links nothing and loses nothing: the fact is already written, and the review
+        // run relinks what it finds unlinked. A link that cost a fact would be the wrong trade.
+        try
+        {
+            await FactLinker.LinkAsync(_db, entity, _clock.UtcNow, ct);
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            // Only the link rows are dropped. Clearing the whole change tracker would throw away
+            // whatever the caller had pending around this write.
+            foreach (var entry in _db.ChangeTracker.Entries<LinkedFact>().ToList())
+                entry.State = EntityState.Detached;
+        }
+
         _db.Entry(entity).State = EntityState.Detached;
         _signal?.Pulse();
 

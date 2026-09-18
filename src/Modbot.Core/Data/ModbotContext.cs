@@ -52,6 +52,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The fact log (spec 5.3). Append-only: never update or delete a row here.</summary>
     public DbSet<ModbotEvent> Events => Set<ModbotEvent>();
 
+    /// <summary>
+    /// Facts that belong to the same decision as another fact (spec 5.3.2). Derived from
+    /// <see cref="Events"/> and rebuildable from them.
+    /// </summary>
+    public DbSet<LinkedFact> LinkedFacts => Set<LinkedFact>();
+
     /// <summary>Daily aggregates (spec 5.4). Derived from <see cref="Events"/>, kept forever.</summary>
     public DbSet<DailyTotal> DailyTotals => Set<DailyTotal>();
 
@@ -1000,6 +1006,27 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.Data)
                 .HasDatabaseName("ix_modbot_event_data")
                 .HasMethod("gin");
+        });
+
+        builder.Entity<LinkedFact>(entity =>
+        {
+            entity.ToTable("modbot_linked_fact");
+
+            // One fact belongs to at most one decision, so the follower's id is the whole key.
+            // That is also the check that stops a second main stealing a follower it did not cause.
+            entity.HasKey(e => e.FactId).HasName("pk_modbot_linked_fact");
+
+            // The fact's own id, never one this table hands out.
+            entity.Property(e => e.FactId).ValueGeneratedNever();
+
+            // Deliberately no foreign key to modbot_event: it is partitioned, its rows are dropped
+            // a partition at a time by retention, and a constraint would make that a per-row
+            // cascade. The rows here are a cache and are pruned with the facts they describe.
+            entity.HasIndex(e => new { e.MainFactId, e.MainOccurredAt })
+                .HasDatabaseName("ix_modbot_linked_fact_main");
+
+            entity.HasIndex(e => e.OccurredAt)
+                .HasDatabaseName("ix_modbot_linked_fact_occurred");
         });
 
         builder.Entity<DailyTotal>(entity =>
