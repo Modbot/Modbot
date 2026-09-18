@@ -41,7 +41,11 @@ public sealed record DiscordSyncSettingsView(
     string? RolesProblem,
     DateTimeOffset? BansReadAt,
     string? BansProblem,
-    IReadOnlyList<RolePairView> Pairs);
+    IReadOnlyList<RolePairView> Pairs,
+    IReadOnlyList<GroupRoleView> GroupRoles);
+
+/// <summary>One of the managed group's roles, for the pair form to pick from.</summary>
+public sealed record GroupRoleView(string Id, string Name);
 
 public sealed record DiscordSyncSettingsUpdate(
     bool RoleSyncOn,
@@ -379,6 +383,9 @@ public static class DiscordSyncEndpoints
                     p.Enabled,
                     role?.BotCanAssign ?? false,
                     p.Problem))
+                .ToList(),
+            (snapshot?.Roles ?? [])
+                .Select(r => new GroupRoleView(r.Id, string.IsNullOrWhiteSpace(r.Name) ? r.Id : r.Name!))
                 .ToList());
     }
 
