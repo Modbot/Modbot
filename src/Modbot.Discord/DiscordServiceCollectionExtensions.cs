@@ -84,6 +84,7 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<Sync.RoleSync>();
         services.AddScoped<Sync.BanSync>();
         services.AddHostedService<Sync.DiscordSyncService>();
+        services.AddSingleton<IDiscordSyncRunner, Sync.DiscordSyncRunner>();
 
         services.AddScoped<LookupQuery>();
         services.AddScoped<DiscordCommandHandler>();

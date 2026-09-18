@@ -7480,6 +7480,346 @@
         ]
       }
     },
+    "/api/discord-sync": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Role pairs, the sync switches, and what the bot may do in the server",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "GetDiscordSync",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSyncSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Save the sync switches",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "SetDiscordSync",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordSyncSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSyncSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-sync/pairs": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Pair a group role with a Discord role",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "AddDiscordRolePair",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePairUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSyncSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-sync/pairs/{id}": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Change a role pair",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "SetDiscordRolePair",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePairUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSyncSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Stop pairing two roles. Neither role is changed.",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "DeleteDiscordRolePair",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSyncSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-sync/preview": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "What the two syncs would change right now. Changes nothing.",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "PreviewDiscordSync",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPreviewView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-sync/run": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Copy the roles and bans that are already different",
+        "description": "Needs the `RunDiscordSync` permission.",
+        "operationId": "RunDiscordSync",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPreviewView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/audit": {
       "get": {
         "tags": [
@@ -20088,6 +20428,104 @@
           }
         }
       },
+      "DiscordSyncSettingsUpdate": {
+        "required": [
+          "roleSyncOn",
+          "banSyncToDiscord",
+          "banSyncToVRChat",
+          "banCopyAction"
+        ],
+        "type": "object",
+        "properties": {
+          "roleSyncOn": {
+            "type": "boolean"
+          },
+          "banSyncToDiscord": {
+            "type": "boolean"
+          },
+          "banSyncToVRChat": {
+            "type": "boolean"
+          },
+          "banCopyAction": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordSyncSettingsView": {
+        "required": [
+          "roleSyncOn",
+          "banSyncToDiscord",
+          "banSyncToVRChat",
+          "banCopyAction",
+          "botCanBanMembers",
+          "botCanRemoveMembers",
+          "botCanManageRoles",
+          "rolesRanAt",
+          "rolesProblem",
+          "bansReadAt",
+          "bansProblem",
+          "pairs"
+        ],
+        "type": "object",
+        "properties": {
+          "roleSyncOn": {
+            "type": "boolean"
+          },
+          "banSyncToDiscord": {
+            "type": "boolean"
+          },
+          "banSyncToVRChat": {
+            "type": "boolean"
+          },
+          "banCopyAction": {
+            "type": "string"
+          },
+          "botCanBanMembers": {
+            "type": "boolean"
+          },
+          "botCanRemoveMembers": {
+            "type": "boolean"
+          },
+          "botCanManageRoles": {
+            "type": "boolean"
+          },
+          "rolesRanAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "rolesProblem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bansReadAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "bansProblem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pairs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RolePairView"
+            }
+          }
+        }
+      },
       "EmailQueueRow": {
         "required": [
           "id",
@@ -26374,6 +26812,53 @@
           }
         }
       },
+      "PlannedChangeView": {
+        "required": [
+          "what",
+          "platform",
+          "vrChatUserId",
+          "discordUserId",
+          "name",
+          "roleName",
+          "why"
+        ],
+        "type": "object",
+        "properties": {
+          "what": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "vrChatUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      },
       "ProfileFields": {
         "required": [
           "displayName",
@@ -27237,6 +27722,82 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "RolePairUpdate": {
+        "required": [
+          "vrChatRoleId",
+          "discordRoleId",
+          "decides",
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "vrChatRoleId": {
+            "type": "string"
+          },
+          "discordRoleId": {
+            "type": "string"
+          },
+          "decides": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RolePairView": {
+        "required": [
+          "id",
+          "vrChatRoleId",
+          "vrChatRoleName",
+          "discordRoleId",
+          "discordRoleName",
+          "decides",
+          "enabled",
+          "botCanAssign",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vrChatRoleId": {
+            "type": "string"
+          },
+          "vrChatRoleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordRoleId": {
+            "type": "string"
+          },
+          "discordRoleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "decides": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "botCanAssign": {
+            "type": "boolean"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -28540,6 +29101,36 @@
           "Account",
           "Other"
         ]
+      },
+      "SyncPreviewView": {
+        "required": [
+          "total",
+          "changes",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannedChangeView"
+            }
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
       },
       "TeamAnalytics": {
         "required": [

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Moderation;
 using Modbot.Core.Time;
 using Modbot.Discord.Gateway;
@@ -175,6 +176,8 @@ public sealed class RoleSync
                 if (inGroup == inServer)
                     continue;
 
+                tally.Found++;
+
                 if (pair.Decides == RoleSyncDecides.Nobody)
                 {
                     tally.Disagreed++;
@@ -225,7 +228,7 @@ public sealed class RoleSync
         if (apply)
             await NoteRanAsync(tally.Problem, ct).ConfigureAwait(false);
 
-        return new RoleSyncPass(tally.Given, tally.Taken, tally.Disagreed, tally.Left, tally.Problem, changes);
+        return new RoleSyncPass(tally.Found, tally.Given, tally.Taken, tally.Disagreed, tally.Left, tally.Problem, changes);
     }
 
     // ── One change ─────────────────────────────────────────────────────────────────────────
@@ -461,12 +464,13 @@ public sealed class RoleSync
         }
     }
 
-    private static RoleSyncPass Empty() => new(0, 0, 0, 0, null, []);
+    private static RoleSyncPass Empty() => new(0, 0, 0, 0, 0, null, []);
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private sealed class Tally
     {
+        public int Found;
         public int Given;
         public int Taken;
         public int Disagreed;

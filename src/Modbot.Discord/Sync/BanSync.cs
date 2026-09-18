@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Moderation;
 using Modbot.Core.Time;
 using Modbot.Discord.Gateway;
