@@ -1,0 +1,60 @@
+---
+title: Credits in the client
+description: The client's Credits page — the sponsors, early adopters and contributors it reads from Modbot Cloud, what it sends, and what it keeps on your PC.
+---
+
+The client's **Credits** page shows the same three lists the web app's Credits page does:
+
+- **Sponsors** — with their picture, and for a VRChat group its icon and banner. Pressing one opens
+  that group's page on vrchat.com in your browser.
+- **Early adopters** — the groups that used Modbot early, shown the same way.
+- **Contributors** — the people who have written some of Modbot, as GitHub lists them. Pressing one
+  opens their GitHub profile.
+
+Open it from **Credits** in the sidebar, from the command palette, or with `g` then `c`.
+
+## Where it comes from
+
+The client asks **Modbot Cloud** directly. It does not ask a paired server, and a paired server has
+no say in which Cloud it asks or whether it asks at all — that is decided on your PC, the same way
+[Modbot Cloud backup](/companion/settings#modbot-cloud-backup) is:
+
+1. `MODBOT_CLOUD_ENDPOINT` and `MODBOT_CLOUD_DISABLED`, if they are set for your account.
+2. The `cloud` field in `%APPDATA%\Modbot\settings.json`.
+3. The default: on, reading from `https://cloud.modbot.co`.
+
+A client with no server paired still has a Credits page.
+
+## What is sent
+
+Three requests, each a plain read with no credential, no identity and no body:
+
+| Request | What it asks for |
+|---|---|
+| `GET /api/v1/sponsors` | The sponsor list |
+| `GET /api/v1/early-adopters` | The early adopter list |
+| `GET /api/v1/contributors` | The contributor list |
+
+Nothing about you, your PC, your VRChat account or the servers you are paired with goes with them.
+They are the same three requests anyone could make, and the answer is a list of names the project
+publishes anyway.
+
+The pictures are fetched one by one from the addresses in those answers, which are Modbot Cloud's
+own. Nothing goes with those requests either.
+
+**With Modbot Cloud turned off on your PC, none of this happens** and the page shows nothing.
+
+## What is kept on your PC
+
+One file, `%APPDATA%\Modbot\credits.json`: the three lists as Cloud sent them, and when they were
+read. It is there so the page shows the same names when you are offline, and so opening the page
+does not ask Cloud again every time. Delete it and the page asks again. Nothing in it is private and
+none of it is sent anywhere.
+
+Cloud is asked again when that copy is more than six hours old. The lists change when the project
+adds a sponsor, which is a few times a year.
+
+## When Cloud cannot be reached
+
+The page shows whatever was last read, or nothing at all. There is no error to clear and nothing
+about Modbot works differently for it.

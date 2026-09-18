@@ -73,6 +73,11 @@ is in — never raw log lines. Where they go, and whether they are sent, is set 
 (`settings.json`, and `MODBOT_CLOUD_ENDPOINT` / `MODBOT_CLOUD_DISABLED` in that PC's environment). A
 Modbot server tells its clients nothing about Cloud. See `2026-09-15-cloud-log-backup-design.md`.
 
+**A client also reads Cloud's showcase** — the sponsors, early adopters and contributors on its own
+Credits page — from the same two settings, directly, never through a paired server. Added 2026-09-17;
+the reasoning is in `2026-09-17-credits-everywhere-design.md` §3.2. It is a read with no credential,
+it stops when `MODBOT_CLOUD_DISABLED` is set, and it is the only other thing a client asks Cloud for.
+
 #### 1.1.2 Modbot servers: the plan
 
 A Modbot server talks to Cloud for its own purposes. The maintainer's words:
@@ -89,6 +94,7 @@ A Modbot server talks to Cloud for its own purposes. The maintainer's words:
 | Open rooms on modbot.co (§4.6) | none | **Yes**, since 2026-09-16. On by default; `MODBOT_CLOUD_DISABLED` and the `share_public_rooms` setting each stop it. |
 | Usage reporting and analytics (§5) | none | **Built 2026-09-16.** `ServerReportingService` registers with Cloud and reports on a schedule, at `MODBOT_CLOUD_ENDPOINT`. |
 | Sending its structured app logs, for remote support and backups | not yet | **Built 2026-09-16**, in `2026-09-16-logs-alerts-showcase-design.md`. On by default and honours `MODBOT_CLOUD_DISABLED`. It registers as its own install rather than through the account the registry knows, because the registry's server id and a log-sending install id are still two different things; when they are joined, one method changes (that spec §3.4). |
+| The showcase on the Credits page (sponsors, early adopters, contributors) | none | **Built 2026-09-16**, in `2026-09-16-logs-alerts-showcase-design.md` §7. Read through the server rather than the browser, cached six hours, silent when Cloud is off or unreachable. Since 2026-09-17 the pictures on those rows are Cloud's own addresses rather than VRChat's, because VRChat refuses to serve them to anybody else (`2026-09-17-credits-everywhere-design.md` §2). |
 | Downloading the default term lists | needed | **Built 2026-09-16, without linking.** The lists moved to Cloud and `HubTermLists` reads them from `MODBOT_CLOUD_ENDPOINT`. Linking is not required: they are public data and were public on my.modbot.co, and putting an account in front of them would make a Modbot that cannot moderate until somebody signs up. |
 | Downloading shared term lists, from another Modbot server directly or through Cloud | the owner's account | **No.** |
 

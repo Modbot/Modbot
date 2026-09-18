@@ -65,8 +65,14 @@ It has four tabs:
 - **People** — the repository's contributors, the project's sponsors, and the groups that used
   Modbot early. Read from Modbot Cloud and shown as it is: a sponsor with a VRChat group is a
   clickable link to that group. It is empty when your Modbot has Cloud turned off, or cannot reach
-  it — nothing else changes.
+  it — nothing else changes. The pictures come from Modbot Cloud itself: it fetches each one when
+  the row is added and serves it from its own address, because VRChat will not serve a group's icon
+  or banner to anybody else.
 - **Libraries** — every package Modbot ships, with its version and its licence, and a search box.
 - **Services** — the services and data Modbot is built on, and who they belong to.
 
 It is open to everyone signed in, whatever their permissions.
+
+The Windows client has its own **Credits** page with the same three lists, which it reads from
+Modbot Cloud itself rather than through a paired server. See
+[Credits in the client](/companion/credits).
