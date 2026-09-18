@@ -1,6 +1,6 @@
 ---
 title: Data and retention
-description: What Modbot keeps, for how long, how to set a retention window, how to read the storage estimate, and what deleting does.
+description: What Modbot keeps, for how long, how to set a retention window, how to read the storage estimate and the machine usage charts, and what deleting does.
 ---
 
 Modbot records what happens in your group as a log of **facts**: one short record per thing that
@@ -143,6 +143,36 @@ The **Storage** card covers facts and daily totals. It does not include:
 - The rest of the database, such as settings, accounts, case files and member lists.
 
 Your hosting provider's own dashboard shows the full size of the database.
+
+## Machine usage
+
+At the bottom of **Settings**, **Host & Database** is a **Machine usage** card: how hard the
+machine Modbot runs on has been working over the **last half hour**, as one small chart per figure
+with its current value above it. You need the **View operational log** permission to see it; for
+anybody else the card is not there.
+
+| Chart | What it shows |
+|---|---|
+| **Processor** | How much of the processor Modbot has been using, where 100% is every processor it has been given, flat out. |
+| **Memory** | How much memory Modbot is holding. When something sets a memory limit — which a container usually does — the value reads **384 MB of 2.0 GB** and the chart is drawn against that limit. |
+| **Disk** | Bytes a second Modbot has read from and written to disk. |
+
+Two things are worth knowing before you read too much into it.
+
+- **These are Modbot's own figures, not the whole machine's.** They cover the Modbot process and
+  nothing else. If your database runs beside Modbot rather than inside it — which it does on
+  Railway, and in most Docker setups — then the database's own processor time, memory and disk
+  activity are **not** in these charts. Your hosting provider's dashboard is where you see the
+  whole machine.
+- **A figure the host will not report is left out rather than shown as zero.** The disk counters
+  exist on Linux only, so a Modbot running on Windows shows processor and memory and no disk chart
+  at all. The whole card is missing for the first few seconds after a restart, because processor
+  use and disk activity are rates and a rate needs two readings.
+
+Modbot takes a reading **every ten seconds** and keeps the last **thirty minutes** in memory.
+Nothing about machine usage is written to the database, and nothing survives a restart: it is there
+to answer "is this server struggling right now", and a question about last week is one it was never
+meant to answer. The screen refreshes itself while you have it open.
 
 ## Deleting other things
 
