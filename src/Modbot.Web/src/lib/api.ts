@@ -3163,7 +3163,7 @@ export const api = {
 
   completeOnboarding: () => post<{ onboardingComplete: boolean }>('/api/onboarding/complete'),
 
-  login: (body: { username: string; password: string }) =>
+  login: (body: { username: string; password: string; keepSignedIn: boolean }) =>
     post<CurrentUser>('/api/auth/login', body),
 
   logout: () => post<void>('/api/auth/logout'),

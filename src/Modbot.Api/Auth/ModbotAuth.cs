@@ -49,6 +49,33 @@ public static class ModbotAuth
     /// <summary>The forwarding scheme that picks the key handler or the cookie handler per request.</summary>
     public const string DefaultScheme = "Modbot";
 
+    /// <summary>
+    /// How long a session may go unused before it ends, extended by every request.
+    /// </summary>
+    /// <remarks>
+    /// This is the cookie handler's own span, on the framework's clock. It is a limit on idleness,
+    /// not on age: using Modbot keeps pushing it out.
+    /// </remarks>
+    public static readonly TimeSpan SessionLength = TimeSpan.FromDays(14);
+
+    /// <summary>
+    /// The oldest a "keep me signed in" session may be, counted from sign-in and never extended.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A kept session survives closing the browser, which is exactly what makes a forgotten one on
+    /// a borrowed machine a problem. So being used does not keep it alive for ever: thirty days
+    /// after it started it is over, and the person signs in again. An ordinary session has no such
+    /// limit because closing the browser already ends it.
+    /// </para>
+    /// <para>
+    /// <strong>The length is Modbot's, never the caller's.</strong> The sign-in request carries a
+    /// yes-or-no and nothing else, and this is checked here on every request rather than trusted to
+    /// the cookie, so nothing that arrives with the password can buy a longer session.
+    /// </para>
+    /// </remarks>
+    public static readonly TimeSpan KeepSignedInLength = TimeSpan.FromDays(30);
+
     /// <summary>The permission bitfield, as an invariant decimal string.</summary>
     public const string PermissionsClaim = "modbot:permissions";
 
@@ -140,7 +167,7 @@ public static class ModbotAuth
                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
                 options.Cookie.SameSite = SameSiteMode.Lax;
                 options.SlidingExpiration = true;
-                options.ExpireTimeSpan = TimeSpan.FromDays(14);
+                options.ExpireTimeSpan = SessionLength;
 
                 // Modbot's HTTP surface is an API consumed by a SPA. The default cookie handler
                 // answers an unauthenticated call with a 302 to a login page, which arrives at
@@ -207,25 +234,61 @@ public static class ModbotAuth
     }
 
     /// <summary>Starts a session for this account, stamped from the clock.</summary>
-    public static Task SignInAsync(HttpContext http, ModbotUser user, IModbotClock clock)
+    /// <param name="keepSignedIn">
+    /// What the person ticked. True keeps the session across closing the browser, for
+    /// <see cref="KeepSignedInLength"/> from now.
+    /// </param>
+    public static Task SignInAsync(HttpContext http, ModbotUser user, IModbotClock clock, bool keepSignedIn = false)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(clock);
 
-        return SignInAsync(http, user, clock.UtcNow);
+        return SignInAsync(http, user, clock.UtcNow, keepSignedIn);
     }
 
     /// <summary>
     /// Starts a session stamped with a specific instant. For re-issuing the current session after
     /// a password change at the same instant the cut-off was set, so it survives its own cut-off.
     /// </summary>
-    public static Task SignInAsync(HttpContext http, ModbotUser user, DateTimeOffset signedInAt)
+    public static Task SignInAsync(
+        HttpContext http, ModbotUser user, DateTimeOffset signedInAt, bool keepSignedIn = false)
     {
         ArgumentNullException.ThrowIfNull(http);
 
+        // The whole of the difference, on the cookie's side. Without IsPersistent the browser
+        // throws the cookie away when it closes, whatever ExpireTimeSpan says -- which is what
+        // every session was until "keep me signed in" existed, and still is when it is not asked
+        // for.
+        //
+        // How long a kept session may then live is not written into the cookie. ExpiresUtc would
+        // have to be an instant, and the only instant Modbot may read comes from IModbotClock while
+        // the handler would compare it against the framework's clock -- a comparison between two
+        // clocks is not a comparison (spec 4.4). SessionCheck applies KeepSignedInLength instead,
+        // against the signed-in-at stamp, both from the one clock.
+        var properties = new AuthenticationProperties { IsPersistent = keepSignedIn };
+
         return http.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
-            CreatePrincipal(user, signedInAt));
+            CreatePrincipal(user, signedInAt),
+            properties);
+    }
+
+    /// <summary>
+    /// Re-issues the session in this request with fresh claims, keeping whichever kind it already
+    /// was.
+    /// </summary>
+    /// <remarks>
+    /// A password or username change hands the browser a new cookie. Handing back an ordinary one
+    /// would quietly cancel a "keep me signed in" the person asked for, and they would find
+    /// themselves signed out the next time they closed the browser without ever having said so.
+    /// </remarks>
+    public static async Task ReissueAsync(HttpContext http, ModbotUser user, DateTimeOffset signedInAt)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+
+        var current = await http.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        await SignInAsync(http, user, signedInAt, current.Properties?.IsPersistent ?? false);
     }
 
     public static Task SignOutAsync(HttpContext http)
@@ -289,6 +352,20 @@ internal static class SessionCheck
         {
             await RejectAsync(context);
             return;
+        }
+
+        // A kept session ends a fixed distance from sign-in, however much it is used. This is the
+        // only place that distance is enforced: the cookie says whether the session was kept, never
+        // for how long. Both stamps come from IModbotClock, so the subtraction means something.
+        if (context.Properties.IsPersistent)
+        {
+            var clock = context.HttpContext.RequestServices.GetRequiredService<IModbotClock>();
+
+            if (clock.UtcNow - signedInAt.Value > ModbotAuth.KeepSignedInLength)
+            {
+                await RejectAsync(context);
+                return;
+            }
         }
 
         var accounts = context.HttpContext.RequestServices.GetRequiredService<UserAccountService>();

@@ -291,11 +291,22 @@ The **Sign out** button at the top right ends only the session in the browser yo
 
 ## Sessions
 
-- Signing in starts a session that lasts **14 days**. Using Modbot keeps extending it, so a session
-  only ends by itself after about two weeks without use.
+The sign-in page has a **Keep me signed in** box. It starts unticked, and what you get depends on
+it:
+
+- **Left unticked**, closing the browser signs you out. While the browser stays open, using Modbot
+  keeps the session going; two weeks without using it ends it.
+- **Ticked**, you stay signed in after closing the browser, for **30 days** from when you signed in.
+  Those 30 days do not stretch, however much you use Modbot: after 30 days you sign in again. Leave
+  it unticked on a machine that is not yours.
+
+Whichever you choose:
+
 - Modbot checks the account on every request. Disabling an account, using a reset link, changing
   your password (for your other sessions) and **Sign out everywhere** all take effect on the next
-  click, not at the next sign-in.
+  click, not at the next sign-in. **Sign out everywhere** ends kept sessions too.
+- Changing your password or your username keeps the browser you did it in signed in, and keeps it
+  the same kind: if you had ticked the box, you still have.
 - Restarting or updating Modbot does not sign anybody out.
 
 ### Failed sign-ins

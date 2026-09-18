@@ -71,7 +71,9 @@ public static class LoginHandler
             new JsonObject { ["address"] = address },
             ct);
 
-        await ModbotAuth.SignInAsync(http, user, clock);
+        // The choice arrives with the password, on a route anybody may call. It picks between two
+        // lengths Modbot set; it never names one.
+        await ModbotAuth.SignInAsync(http, user, clock, request.KeepSignedIn);
 
         return Results.Ok(SessionUser.From(user));
     }

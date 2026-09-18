@@ -31,6 +31,7 @@ password reset, **a fact for every account event**, and the web pages for all of
 | §6.3: `ModbotUser` carries a permission bitfield | **Narrowed.** The bitfield is now computed from roles and no longer stored on the user (§3.3). |
 | `ModbotAuth`: permissions travel in the cookie, so a change takes effect at next sign-in | **Reversed.** Every request checks the account once (§5). The trade was made for a dozen staff who change permissions a few times a year; disabling someone who is mid-incident is exactly the case where "next sign-in" is wrong, and the check is one primary-key read. |
 | §5.9.2: auth events are Modbot-side audit entries, moderation retention | Unchanged, and now actually written — the `Login`/`LoginFailed`/`PasswordChanged` constants existed but nothing produced them. |
+| §7.2: a session cookie with a 14-day sliding life | **Extended 2026-09-18.** It was a session cookie in the literal sense — no `IsPersistent`, so closing the browser ended it whatever the 14 days said. A **Keep me signed in** checkbox, unticked by default, now buys a cookie that survives that, for 30 days from sign-in (§5). |
 | §7.2: optional Discord OAuth, "require Discord login" setting | **Deferred.** A typed-in Discord user id ships, used only to deliver reset links (§4.2). |
 | §6.3: `ModbotUser` carries an optional email | **Narrowed 2026-09-17.** Required on every account, unique case-insensitively, and accepted by the sign-in form in place of the username (server info and account email design §4, §5). |
 | §7.1: five wizard steps | **Extended.** A sixth step, linking the administrator's own VRChat account, sits after the connection check (§4.3). |
@@ -296,6 +297,54 @@ What moves the timestamp:
 | Reset link used | every session ends; the person signs in with the new password |
 | Own password changed | every *other* session ends; the current one is re-issued |
 | Sign out everywhere | every session ends, including this one |
+
+### Keep me signed in
+
+The sign-in form carries one checkbox, **Keep me signed in**, and `POST /api/auth/login` one more
+field, `keepSignedIn`. It **starts unticked**: Modbot is opened on borrowed and shared machines, a
+session that outlives the browser is the riskier of the two, and the riskier one is asked for rather
+than assumed. Left out entirely — every client written before the field existed — it is no.
+
+| Ticked | What the person gets |
+|---|---|
+| No | The cookie is thrown away when the browser closes. Within one run of the browser, 14 days without using Modbot ends it, and every request pushes that out. This is what every session was before the checkbox, and what every session still is by default. |
+| Yes | The cookie survives closing the browser, and the session ends **30 days after sign-in** whatever happens in between. |
+
+Until 2026-09-18 sign-in passed no authentication properties at all, so `IsPersistent` was never
+set and **every** session was thrown away when the browser closed — the cookie's 14 days only ever
+meant "14 days within one run of the browser". The checkbox is what changes that, for the people who
+ask for it.
+
+The 30 days are **not** written into the cookie. An expiry in the cookie has to be an absolute
+instant, and the handler would compare it against the framework's clock while the only instant
+Modbot may read comes from `IModbotClock` — the same reason `IssuedUtc` is not used. So the cookie
+says only *whether* the session was kept, and `OnValidatePrincipal` applies the 30 days itself,
+against the `modbot:signed_in_at` stamp, both ends of the subtraction from the one clock.
+
+That is also what makes the length Modbot's rather than the caller's. The choice arrives with the
+password on a route open to anybody; it picks between two lengths Modbot set and can never name one.
+
+A kept session **does not slide**. Being used keeps an ordinary session alive, because closing the
+browser already ends that one; a kept session is precisely the one that might be sitting forgotten
+on somebody else's machine, so thirty days after it started the person signs in again. Everything in
+the table above still reaches it — a disabled account, a reset link, a password change, **Sign out
+everywhere** — because it carries the same `signed_in_at` stamp as any other session and the cut-off
+is compared against that.
+
+Re-issuing keeps what the session already was. A password change hands the browser a new cookie
+stamped at the cut-off, and a kept session stays kept with its thirty days starting again from
+there — the person has just typed their current password. A username change re-issues at the
+*original* instant, so a rename is not a way to keep a session alive for ever by renaming yourself
+once a month.
+
+Nothing else changes. Demo mode has no cookie and no sign-in — it makes a principal per request
+(demo mode design §3) — and the API key scheme has neither; neither can be kept signed in and
+neither is touched. Accepting an invite and creating the first administrator still sign in the
+ordinary way: they are not the sign-in form, and there is nothing to tick.
+
+Ending kept sessions elsewhere is already built: **Sign out everywhere** (§4) ends every session the
+account has, this one included, and a kept session is no exception. There is no list of which
+browsers are signed in and no way to end one of them by name; that would be a separate feature.
 
 The same per-request lookup **refreshes the permissions claim** when it differs from the roles'
 union, so a role change takes effect on the next request rather than the next sign-in.

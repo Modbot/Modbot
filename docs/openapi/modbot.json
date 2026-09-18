@@ -24785,6 +24785,10 @@
           },
           "password": {
             "type": "string"
+          },
+          "keepSignedIn": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
