@@ -26,7 +26,8 @@ public static class TestAccounts
         string password,
         ModbotPermissions permissions,
         bool linked = true,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? email = null)
     {
         ArgumentNullException.ThrowIfNull(db);
 
@@ -35,7 +36,10 @@ public static class TestAccounts
             ? Array.Empty<Guid>()
             : [await RoleForAsync(db, permissions, ct)];
 
-        var user = await service.CreateAsync(username, password, roles, ct);
+        // Every account has an address and they are unique (server info and account email design
+        // §4), so the default is derived from the username rather than shared.
+        var user = await service.CreateAsync(
+            username, password, email ?? $"{username.ToLowerInvariant()}@test.modbot.example", roles, ct);
 
         if (linked)
         {

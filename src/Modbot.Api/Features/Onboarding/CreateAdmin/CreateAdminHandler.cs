@@ -59,14 +59,12 @@ public static class CreateAdminHandler
         if (!firstRun && !IsAuthorised(http))
             return Results.Unauthorized();
 
-        // The first administrator's email is the contact VRChat sees in every request, so the
-        // deployment must not come up without one. Later accounts made through here may skip it.
-        var email = UserEndpoints.Clean(request.Email);
-        if (firstRun && email is null)
-            return Results.BadRequest(new { error = "A contact email is required for the administrator account." });
-
-        if (email is not null && !UserEndpoints.LooksLikeEmail(email))
-            return Results.BadRequest(new { error = "That email address does not look like one." });
+        // Every account needs an address, not only the first (server info and account email
+        // design §4): it is the reset path, the second thing the sign-in form accepts, and -- for
+        // the first administrator -- the contact VRChat sees in every request.
+        var (email, emailProblem) = await NewAccount.ReadEmailAsync(accounts, request.Email, null, ct);
+        if (emailProblem is not null)
+            return emailProblem;
 
         var normalized = UserAccountService.Normalize(request.Username);
         if (await db.Users.AnyAsync(u => u.UsernameNormalized == normalized, ct))
@@ -78,13 +76,7 @@ public static class CreateAdminHandler
         // chosen, and this endpoint is not that screen.
         var roleId = firstRun ? BuiltInRoles.AdministratorId : BuiltInRoles.ViewerId;
 
-        var user = await accounts.CreateAsync(request.Username, request.Password, [roleId], ct);
-
-        if (email is not null)
-        {
-            user.Email = email;
-            await db.SaveChangesAsync(ct);
-        }
+        var user = await accounts.CreateAsync(request.Username, request.Password, email!, [roleId], ct);
 
         await facts.RecordAsync(
             FactType.UserCreated,
@@ -102,6 +94,10 @@ public static class CreateAdminHandler
 
         // The User-Agent's contact may have just come into existence.
         contact.Invalidate();
+
+        // After the commit, and never allowed to fail the account that already exists (design §5).
+        await NewAccount.SubscribeAsync(
+            NewAccount.SubscriberOf(http), facts, user, request.SubscribeToUpdates, ct);
 
         // Signed in immediately, and only on the first run. It is the same credential check the
         // login endpoint would do a second later, and without it the operator is bounced to a

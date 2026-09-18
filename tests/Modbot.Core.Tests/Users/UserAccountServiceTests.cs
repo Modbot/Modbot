@@ -20,6 +20,9 @@ public class UserAccountServiceTests
     /// <summary>Unique per call: the container is shared, so the user table persists across tests.</summary>
     private static string UniqueName() => $"u_{Guid.NewGuid():N}";
 
+    /// <summary>Unique too: addresses are unique across accounts (server info and account email design §4).</summary>
+    private static string UniqueEmail() => $"u_{Guid.NewGuid():N}@test.example";
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static readonly IReadOnlyCollection<Guid> Viewer = [BuiltInRoles.ViewerId];
@@ -32,7 +35,7 @@ public class UserAccountServiceTests
         var service = Create(context, new FakeClock());
         var name = UniqueName();
 
-        var user = await service.CreateAsync(name, "correct horse battery staple", Viewer, Ct);
+        var user = await service.CreateAsync(name, "correct horse battery staple", UniqueEmail(), Viewer, Ct);
 
         Assert.NotEqual("correct horse battery staple", user.PasswordHash);
         Assert.DoesNotContain("correct horse", user.PasswordHash, StringComparison.Ordinal);
@@ -45,7 +48,7 @@ public class UserAccountServiceTests
         await using var context = _db.NewContext();
         var service = Create(context, clock);
 
-        var user = await service.CreateAsync(UniqueName(), "pw", NoRoles, Ct);
+        var user = await service.CreateAsync(UniqueName(), "pw", UniqueEmail(), NoRoles, Ct);
 
         Assert.Equal(clock.UtcNow, user.CreatedAt);
     }
@@ -56,8 +59,8 @@ public class UserAccountServiceTests
         await using var context = _db.NewContext();
         var service = Create(context, new FakeClock());
 
-        var a = await service.CreateAsync(UniqueName(), "shared", NoRoles, Ct);
-        var b = await service.CreateAsync(UniqueName(), "shared", NoRoles, Ct);
+        var a = await service.CreateAsync(UniqueName(), "shared", UniqueEmail(), NoRoles, Ct);
+        var b = await service.CreateAsync(UniqueName(), "shared", UniqueEmail(), NoRoles, Ct);
 
         Assert.NotEqual(a.PasswordHash, b.PasswordHash);
     }
@@ -69,7 +72,7 @@ public class UserAccountServiceTests
         var clock = new FakeClock();
         var service = Create(context, clock);
         var name = UniqueName();
-        await service.CreateAsync(name, "hunter2", Viewer, Ct);
+        await service.CreateAsync(name, "hunter2", UniqueEmail(), Viewer, Ct);
 
         clock.Advance(TimeSpan.FromHours(3));
         var verified = await service.VerifyCredentialsAsync(name, "hunter2", Ct);
@@ -84,7 +87,7 @@ public class UserAccountServiceTests
         await using var context = _db.NewContext();
         var service = Create(context, new FakeClock());
         var name = UniqueName();
-        await service.CreateAsync(name, "hunter2", NoRoles, Ct);
+        await service.CreateAsync(name, "hunter2", UniqueEmail(), NoRoles, Ct);
 
         Assert.Null(await service.VerifyCredentialsAsync(name, "hunter3", Ct));
     }
@@ -104,7 +107,7 @@ public class UserAccountServiceTests
         await using var context = _db.NewContext();
         var service = Create(context, new FakeClock());
         var name = UniqueName();
-        await service.CreateAsync(name, "hunter2", NoRoles, Ct);
+        await service.CreateAsync(name, "hunter2", UniqueEmail(), NoRoles, Ct);
 
         Assert.NotNull(await service.VerifyCredentialsAsync(name.ToUpperInvariant(), "hunter2", Ct));
     }
@@ -115,10 +118,10 @@ public class UserAccountServiceTests
         await using var context = _db.NewContext();
         var service = Create(context, new FakeClock());
         var name = UniqueName();
-        await service.CreateAsync(name, "pw", NoRoles, Ct);
+        await service.CreateAsync(name, "pw", UniqueEmail(), NoRoles, Ct);
 
         await Assert.ThrowsAnyAsync<DbUpdateException>(() => service.CreateAsync(
-            name.ToUpperInvariant(), "pw", NoRoles, Ct));
+            name.ToUpperInvariant(), "pw", UniqueEmail(), NoRoles, Ct));
     }
 
     [Fact]
@@ -127,7 +130,7 @@ public class UserAccountServiceTests
         await using var context = _db.NewContext();
         var service = Create(context, new FakeClock());
         var name = UniqueName();
-        var user = await service.CreateAsync(name, "hunter2", NoRoles, Ct);
+        var user = await service.CreateAsync(name, "hunter2", UniqueEmail(), NoRoles, Ct);
 
         user.IsDisabled = true;
         await context.SaveChangesAsync(Ct);
@@ -146,7 +149,7 @@ public class UserAccountServiceTests
         // Silently dropping it would create an account with fewer permissions than the
         // administrator chose, and nothing would say so.
         await Assert.ThrowsAsync<UnknownRoleException>(() =>
-            service.CreateAsync(UniqueName(), "pw", [Guid.NewGuid()], Ct));
+            service.CreateAsync(UniqueName(), "pw", UniqueEmail(), [Guid.NewGuid()], Ct));
     }
 
     [Fact]
@@ -156,7 +159,7 @@ public class UserAccountServiceTests
         var service = Create(context, new FakeClock());
 
         var kickOnly = await TestAccounts.RoleForAsync(context, ModbotPermissions.Kick, Ct);
-        var user = await service.CreateAsync(UniqueName(), "pw", [BuiltInRoles.ViewerId, kickOnly], Ct);
+        var user = await service.CreateAsync(UniqueName(), "pw", UniqueEmail(), [BuiltInRoles.ViewerId, kickOnly], Ct);
 
         var expected = BuiltInRoles.ViewerPermissions | ModbotPermissions.Kick;
         Assert.Equal(expected, user.EffectivePermissions);
@@ -171,7 +174,7 @@ public class UserAccountServiceTests
     {
         await using var context = _db.NewContext();
         var service = Create(context, new FakeClock());
-        var user = await service.CreateAsync(UniqueName(), "pw", [BuiltInRoles.ModeratorId], Ct);
+        var user = await service.CreateAsync(UniqueName(), "pw", UniqueEmail(), [BuiltInRoles.ModeratorId], Ct);
 
         var (before, after) = await service.SetRolesAsync(user, [BuiltInRoles.ViewerId], Ct);
 
@@ -185,7 +188,7 @@ public class UserAccountServiceTests
     {
         await using var context = _db.NewContext();
         var service = Create(context, new FakeClock());
-        var user = await service.CreateAsync(UniqueName(), "pw", NoRoles, Ct);
+        var user = await service.CreateAsync(UniqueName(), "pw", UniqueEmail(), NoRoles, Ct);
 
         Assert.Equal(ModbotPermissions.None, user.EffectivePermissions);
     }
@@ -210,7 +213,7 @@ public class UserAccountServiceTests
         var clock = new FakeClock();
         await using var context = _db.NewContext();
         var service = Create(context, clock);
-        var user = await service.CreateAsync(UniqueName(), "pw", NoRoles, Ct);
+        var user = await service.CreateAsync(UniqueName(), "pw", UniqueEmail(), NoRoles, Ct);
 
         clock.Advance(TimeSpan.FromMinutes(5));
         var cutOff = await service.EndSessionsAsync(user, Ct);
@@ -224,7 +227,7 @@ public class UserAccountServiceTests
     {
         await using var context = _db.NewContext();
         var service = Create(context, new FakeClock());
-        var user = await service.CreateAsync(UniqueName(), "pw", NoRoles, Ct);
+        var user = await service.CreateAsync(UniqueName(), "pw", UniqueEmail(), NoRoles, Ct);
 
         Assert.False((await service.StateAsync(user.Id, Ct))!.Value.VRChatLinked);
 

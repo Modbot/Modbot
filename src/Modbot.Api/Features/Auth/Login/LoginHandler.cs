@@ -26,16 +26,19 @@ public static class LoginHandler
 
         var address = http.Connection.RemoteIpAddress?.ToString();
 
-        // The wait comes before the check, and applies to a correct password too: that is what
-        // makes it a slowdown rather than a lockout (design §7).
+        // Keyed on what was typed, whichever of the two it is: an attacker who knows somebody's
+        // address and their username would otherwise get two separate allowances against the one
+        // account. The wait comes before the check, and applies to a correct password too: that is
+        // what makes it a slowdown rather than a lockout (design §7).
         var wait = slowdown.WaitFor(request.Username, address);
         if (wait > TimeSpan.Zero)
             await delay.DelayAsync(wait, ct);
 
         var user = await accounts.VerifyCredentialsAsync(request.Username, request.Password, ct);
 
-        // One answer for every kind of failure -- wrong password, no such account, disabled.
-        // Anything more specific tells an attacker which usernames are real.
+        // One answer for every kind of failure -- wrong password, no such account, disabled, an
+        // address nobody here uses. Anything more specific tells an attacker which usernames are
+        // real, and, since the field also takes an address, which people have accounts here.
         if (user is null)
         {
             slowdown.RecordFailure(request.Username, address);

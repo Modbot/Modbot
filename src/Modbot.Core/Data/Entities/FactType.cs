@@ -327,6 +327,17 @@ public static class FactType
     public const string ResetLinkUsed = "modbot.user.password.reset.use";
     public const string SignedOutEverywhere = "modbot.user.sign-out-everywhere";
 
+    /// <summary>
+    /// The person ticked the box asking Modbot Cloud for news about new features and updates while
+    /// making their account (server info and account email design §5).
+    /// </summary>
+    /// <remarks>
+    /// Recorded because "who agreed to be mailed, and when" is a question somebody will be asked.
+    /// The payload carries no address: the account already holds it, and the audit log is read by
+    /// more people than the account page is.
+    /// </remarks>
+    public const string UpdatesSubscribed = "modbot.user.updates.subscribe";
+
     public const string RoleCreated = "modbot.role.create";
     public const string RoleChanged = "modbot.role.change";
     public const string RoleDeleted = "modbot.role.delete";

@@ -168,12 +168,14 @@ public static class InviteEndpoints
                 [FromServices] ModbotContext db,
                 [FromServices] OneTimeLinkService links,
                 [FromServices] IModbotClock clock,
+                HttpContext http,
                 CancellationToken ct) =>
             {
                 var (link, reason) = await CheckAsync(db, links, clock, token, ct);
+                var canSubscribe = NewAccount.CanSubscribe(http);
 
                 if (link is null)
-                    return Results.Ok(new InviteView(false, reason, null, [], null));
+                    return Results.Ok(new InviteView(false, reason, null, [], null, canSubscribe));
 
                 var invitedBy = await db.Users.AsNoTracking()
                     .Where(u => u.Id == link.CreatedByUserId)
@@ -185,7 +187,8 @@ public static class InviteEndpoints
                     .Select(r => r.Name)
                     .ToListAsync(ct);
 
-                return Results.Ok(new InviteView(reason is null, reason, invitedBy, roles, link.ExpiresAt));
+                return Results.Ok(new InviteView(
+                    reason is null, reason, invitedBy, roles, link.ExpiresAt, canSubscribe));
             })
             .WithName("DescribeInvite")
             .WithSummary("Whether an invite link can still be used, and what it offers")
@@ -211,6 +214,13 @@ public static class InviteEndpoints
                 if (PasswordRules.Validate(body.Username, body.Password, body.ConfirmPassword) is { } problem)
                     return Results.BadRequest(new { error = problem });
 
+                // Every account has an address, invited ones included (server info and account
+                // email design §4). The invite carries roles, never an address: the person who
+                // sent it does not get to decide where the invitee's reset link goes.
+                var (email, emailProblem) = await NewAccount.ReadEmailAsync(accounts, body.Email, null, ct);
+                if (emailProblem is not null)
+                    return emailProblem;
+
                 var normalized = UserAccountService.Normalize(body.Username);
                 if (await db.Users.AnyAsync(u => u.UsernameNormalized == normalized, ct))
                     return Results.Conflict(new { error = "That username is already taken." });
@@ -227,7 +237,7 @@ public static class InviteEndpoints
                 ModbotUser user;
                 try
                 {
-                    user = await accounts.CreateAsync(body.Username, body.Password, link.RoleIds, ct);
+                    user = await accounts.CreateAsync(body.Username, body.Password, email!, link.RoleIds, ct);
                 }
                 catch (UnknownRoleException)
                 {
@@ -261,6 +271,10 @@ public static class InviteEndpoints
                     ct);
 
                 await transaction.CommitAsync(ct);
+
+                // After the commit, and never allowed to fail the account (design §5).
+                await NewAccount.SubscribeAsync(
+                    NewAccount.SubscriberOf(http), facts, user, body.SubscribeToUpdates, ct);
 
                 await ModbotAuth.SignInAsync(http, user, clock);
 

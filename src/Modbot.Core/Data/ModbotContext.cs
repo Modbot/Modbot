@@ -360,6 +360,13 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.Property(e => e.Email).HasMaxLength(256);
 
+            // One address, one account (accounts and access design §4.5). Stored lower-cased by
+            // EmailAddress.Normalize, so a plain unique index over the column *is* the
+            // case-insensitive rule -- no expression index, no second column to keep in step.
+            // Filtered to non-null because deployments set up before the address was required
+            // still hold accounts without one, and those must keep signing in.
+            entity.HasIndex(e => e.Email).IsUnique().HasFilter("email IS NOT NULL");
+
             // VRChat ids are opaque (spec 3.1.1): text, no length assumption. Unique because one
             // VRChat account is one person, and two Modbot accounts claiming it would make the
             // attribution the link exists for ambiguous. Nulls do not collide in PostgreSQL.

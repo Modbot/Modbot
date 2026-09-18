@@ -8,15 +8,21 @@ namespace Modbot.Api.Features.Onboarding.CreateAdmin;
 /// and the only recovery from that is editing the database by hand.
 /// </param>
 /// <param name="Email">
-/// Required for the first account. It is the contact email VRChat sees in every request's
-/// User-Agent -- the person to write to before blocking -- and it is where this person's reset
-/// link goes. Optional for accounts created through here afterwards.
+/// Required. For the first account it is also the contact email VRChat sees in every request's
+/// User-Agent -- the person to write to before blocking -- and the address <c>GET /api/server</c>
+/// gives out as the owner's. For every account it is where the reset link goes and the other thing
+/// the sign-in form accepts (server info and account email design §4).
+/// </param>
+/// <param name="SubscribeToUpdates">
+/// The person ticked "Receive emails from Modbot about new features and updates". Ignored when
+/// this server has no Modbot Cloud to ask (design §5).
 /// </param>
 public sealed record CreateAdminRequest(
     string Username,
     string Password,
     string? ConfirmPassword = null,
-    string? Email = null);
+    string? Email = null,
+    bool SubscribeToUpdates = false);
 
 /// <summary>
 /// The rules a password has to satisfy, and the reason there are so few of them.

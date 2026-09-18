@@ -42,6 +42,9 @@ public sealed class CloudServerClient(ModbotCloudAddress cloud, IHttpClientFacto
 
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(20);
 
+    /// <summary>For the one call a person is waiting on. See <see cref="SubscribeAsync"/>.</summary>
+    private static readonly TimeSpan SubscribeTimeout = TimeSpan.FromSeconds(5);
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     /// <summary>Asks Cloud for an id and a secret. Null when it could not be done.</summary>
@@ -77,6 +80,51 @@ public sealed class CloudServerClient(ModbotCloudAddress cloud, IHttpClientFacto
         };
 
         return await SendAsync(bearer, request, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Asks Cloud to send this address the project's news about new features and updates.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only ever called for somebody who ticked the box while making their account (server info and
+    /// account email design §5). Nothing waits on it: the answer is the status code and nothing
+    /// else, and the caller logs a refusal rather than failing anything.
+    /// </para>
+    /// <para>
+    /// <paramref name="bearer"/> is null on a deployment that has not registered with Cloud yet,
+    /// which is every deployment during its own setup wizard -- the first administrator's account
+    /// is made minutes before the first report goes out. Cloud takes the address either way; the
+    /// bearer, when there is one, is what tells it which server the person came from.
+    /// </para>
+    /// <para>
+    /// Its own short timeout rather than the twenty seconds the report gets. A person is waiting
+    /// on the other side of this call, even though the account they asked for is already made.
+    /// </para>
+    /// </remarks>
+    /// <returns>The HTTP status Cloud answered, or null when it could not be reached.</returns>
+    public async Task<int?> SubscribeAsync(string? bearer, string email, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+
+        try
+        {
+            using var client = Client(SubscribeTimeout);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "api/v1/subscribers")
+            {
+                Content = JsonContent.Create(new { email, source = "server" }, options: Json),
+            };
+
+            if (!string.IsNullOrWhiteSpace(bearer))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+
+            using var response = await client.SendAsync(request, ct).ConfigureAwait(false);
+            return (int)response.StatusCode;
+        }
+        catch (Exception e) when (Transient(e, ct))
+        {
+            return null;
+        }
     }
 
     /// <summary>Tells Cloud the hash of the link code this server is showing its owner.</summary>
@@ -118,7 +166,7 @@ public sealed class CloudServerClient(ModbotCloudAddress cloud, IHttpClientFacto
         }
     }
 
-    private HttpClient Client()
+    private HttpClient Client(TimeSpan? timeout = null)
     {
         var client = factory.CreateClient(HttpClientName);
 
@@ -128,7 +176,7 @@ public sealed class CloudServerClient(ModbotCloudAddress cloud, IHttpClientFacto
             ? cloud.Endpoint
             : new Uri(cloud.Endpoint.AbsoluteUri + "/");
 
-        client.Timeout = Timeout;
+        client.Timeout = timeout ?? Timeout;
         return client;
     }
 

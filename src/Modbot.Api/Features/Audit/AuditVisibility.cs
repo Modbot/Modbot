@@ -155,6 +155,7 @@ public static class AuditVisibility
         [FactType.ResetLinkCreated] = AuditCategory.Operational,
         [FactType.ResetLinkUsed] = AuditCategory.Operational,
         [FactType.SignedOutEverywhere] = AuditCategory.Operational,
+        [FactType.UpdatesSubscribed] = AuditCategory.Operational,
         [FactType.RoleCreated] = AuditCategory.Operational,
         [FactType.RoleChanged] = AuditCategory.Operational,
         [FactType.RoleDeleted] = AuditCategory.Operational,

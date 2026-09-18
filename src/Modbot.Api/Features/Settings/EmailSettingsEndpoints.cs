@@ -82,8 +82,8 @@ public static class EmailSettingsEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
-                var to = UserEndpoints.Clean(body.To);
-                if (to is null || !UserEndpoints.LooksLikeEmail(to))
+                var to = Modbot.Core.Users.EmailAddress.Normalize(body.To);
+                if (to is null || !Modbot.Core.Users.EmailAddress.LooksLike(to))
                     return Results.BadRequest(new { error = "Enter the address the test message should go to." });
 
                 var outcome = await email.SendAsync(
