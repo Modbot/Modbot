@@ -3383,6 +3383,96 @@
         ]
       }
     },
+    "/api/settings/repeat-offenders": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "The repeat offender threshold and the kinds of action that count",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetRepeatOffenderRules",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepeatOffenderRulesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Change the threshold or the kinds of action that count",
+        "description": "Both are rules the standings are computed under, so every person's counts are rebuilt from the fact log before this answers.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetRepeatOffenderRules",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRepeatOffenderRulesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepeatOffenderRulesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/cloud": {
       "get": {
         "tags": [
@@ -16285,6 +16375,15 @@
                 "$ref": "#/components/schemas/TrustRank"
               }
             ]
+          },
+          "linked": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            }
           }
         }
       },
@@ -26416,6 +26515,56 @@
           }
         }
       },
+      "RepeatOffenderRulesView": {
+        "required": [
+          "threshold",
+          "types",
+          "lastRunAt"
+        ],
+        "type": "object",
+        "properties": {
+          "threshold": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepeatOffenderTypeOption"
+            }
+          },
+          "lastRunAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "RepeatOffenderTypeOption": {
+        "required": [
+          "value",
+          "label",
+          "counts"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "boolean"
+          }
+        }
+      },
       "RepeatOffenderView": {
         "required": [
           "who",
@@ -27790,6 +27939,32 @@
         "properties": {
           "shared": {
             "type": "boolean"
+          }
+        }
+      },
+      "SetRepeatOffenderRulesRequest": {
+        "required": [
+          "threshold",
+          "types"
+        ],
+        "type": "object",
+        "properties": {
+          "threshold": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "types": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

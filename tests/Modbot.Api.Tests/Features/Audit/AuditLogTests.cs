@@ -401,4 +401,50 @@ public class AuditLogTests
         var percent = await host.GetJsonAsync<AuditPage>("/api/audit?q=%25", cookie, ct);
         Assert.Empty(percent.Entries);
     }
+
+    [Fact]
+    public async Task ABanAndItsInstanceKick_AreOneEntryThatOpensIntoBoth()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        await host.WriteFactAsync(Ban("usr_a", "usr_mod", Day), ct);
+        await host.WriteFactAsync(Kick("usr_a", "wrld_cat", "39047", Day.AddSeconds(1)), ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+        var page = await host.GetJsonAsync<AuditPage>("/api/audit", cookie, ct);
+
+        // One decision, one row -- not two a reader has to notice are a second apart and join in
+        // their head (spec 5.3.2).
+        var entry = Assert.Single(page.Entries);
+        Assert.Equal(FactType.MemberBanned, entry.Type);
+
+        // And every fact is still there, inside it.
+        var linked = Assert.Single(entry.Linked ?? []);
+        Assert.Equal(FactType.GroupInstanceKick, linked.Type);
+        Assert.Equal("wrld_cat", linked.WorldId);
+        Assert.Equal("RedZu", linked.ActorName);
+    }
+
+    [Fact]
+    public async Task FilteringToTheKicks_ShowsAKickThatCameWithABan()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        await host.WriteFactAsync(Ban("usr_a", "usr_mod", Day), ct);
+        await host.WriteFactAsync(Kick("usr_a", "wrld_cat", "39047", Day.AddSeconds(1)), ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+
+        // Hiding a row because of something the filters just excluded would read as a bug: the
+        // ban is not on this list, so the kick is a row of its own.
+        var page = await host.GetJsonAsync<AuditPage>(
+            $"/api/audit?type={Uri.EscapeDataString(FactType.GroupInstanceKick)}", cookie, ct);
+
+        var entry = Assert.Single(page.Entries);
+        Assert.Equal(FactType.GroupInstanceKick, entry.Type);
+    }
 }

@@ -133,6 +133,19 @@ public sealed class UserPurger : IUserPurger
                     .ToList();
             }
 
+            // Which of this person's facts were one decision, before the facts themselves: the
+            // rows name fact ids, and once the facts are gone there is nothing left to match on.
+            await ExecuteAsync(
+                """
+                DELETE FROM modbot_linked_fact l
+                USING modbot_event e
+                WHERE l.fact_id = e.id AND l.occurred_at = e.occurred_at
+                  AND e.subject_platform = @platform AND e.subject_id = @subject
+                """,
+                ct,
+                new NpgsqlParameter("platform", (short)platform),
+                new NpgsqlParameter("subject", subjectId));
+
             var factsDeleted = await ExecuteAsync(
                 """
                 DELETE FROM modbot_event

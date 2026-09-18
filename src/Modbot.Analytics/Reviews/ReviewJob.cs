@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -74,6 +75,24 @@ public sealed class ReviewJob
             var state = await StateAsync(ct);
             var since = rebuild ? null : state.ObservedThrough - WatermarkOverlap;
             var highWater = await MaxObservedAtAsync(ct);
+
+            // 0. Which facts are the same decision (spec 5.3.2). Before the counting, because the
+            // counts leave a decision's second fact out, and a link found a run late would mean a
+            // person sat above the threshold for a day on a decision that was only ever one.
+            //
+            // The whole log is read when this is a rebuild, and also the first time a deployment
+            // runs a version whose set of pairs it has not read under -- which includes every
+            // deployment upgrading to the first version that links anything at all. Otherwise only
+            // what has arrived since the last run.
+            if (rebuild || state.LinkVersion < FactLinker.Version)
+            {
+                await FactLinker.RebuildAsync(_db, now, ct);
+                state.LinkVersion = FactLinker.Version;
+            }
+            else
+            {
+                await FactLinker.RelinkAsync(_db, since, now, ct);
+            }
 
             // 1. Repeat offenders: the people touched, or everybody.
             var subjects = rebuild ? null : await RepeatOffenderCounter.SubjectsDueAsync(_db, since, now, ct);

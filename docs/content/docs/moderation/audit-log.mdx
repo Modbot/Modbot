@@ -79,6 +79,24 @@ open the same [person popup](/moderation/popups#person-popup), which shows every
 can tie to the one you clicked, and the **Account** tab there is everything that Modbot account
 did and everything done to it.
 
+### One decision, several entries
+
+Some single decisions are written down more than once. Banning somebody who is standing in one of
+your group's instances makes VRChat record a ban **and** an instance kick, a second apart. A ban
+pressed in Modbot is recorded by Modbot, naming who pressed it, and by VRChat, which can only say
+"Modbot". A Discord ban arrives as a ban and a leave.
+
+Modbot shows those as **one row**, with a badge such as **2 facts** beside the sentence. Open the
+row and a **Same decision** block lists the other entries; click one to open everything it holds,
+the same as any other entry.
+
+Nothing is hidden: every entry is still there, and anything that counts actions — the
+[repeat offender list and the reviews](/moderation/reviews) — counts the decision once rather than
+twice.
+
+If you filter to a kind of entry that is usually shown inside another, such as **Kicked from an
+instance**, those entries appear as rows of their own.
+
 The sources:
 
 | Source | Meaning |

@@ -606,6 +606,12 @@ export type AuditEntry = {
   modbotInstanceId: string | null
   description: string | null
   data: Record<string, unknown> | null
+  /**
+   * The other facts that came from the same decision — a ban's instance kick, a Discord ban's
+   * leave, Modbot's own record of the press behind VRChat's record of the result. They are not
+   * rows of their own; they are shown inside this entry.
+   */
+  linked?: AuditEntry[] | null
 }
 
 export type AuditCursor = { occurredAt: string; id: number }
@@ -1933,6 +1939,14 @@ export type RepeatOffenderList = {
   rule: string
   lastRunAt: string | null
   now: string
+}
+
+export type RepeatOffenderTypeOption = { value: string; label: string; counts: boolean }
+
+export type RepeatOffenderRules = {
+  threshold: number
+  types: RepeatOffenderTypeOption[]
+  lastRunAt: string | null
 }
 
 export type SubjectHistory = {
@@ -3847,6 +3861,12 @@ export const api = {
     const search = q.toString()
     return request<RepeatOffenderList>(`/api/repeat-offenders${search ? `?${search}` : ''}`)
   },
+
+  repeatOffenderRules: () => request<RepeatOffenderRules>('/api/settings/repeat-offenders'),
+
+  /** Rebuilds every person's counts before it answers, because both are rules they are computed under. */
+  setRepeatOffenderRules: (threshold: number, types: string[]) =>
+    put<RepeatOffenderRules>('/api/settings/repeat-offenders', { threshold, types }),
 
   /** One person's history block. The id goes in the query string, never the path (spec 3.1.1). */
   subjectHistory: (id: string) =>

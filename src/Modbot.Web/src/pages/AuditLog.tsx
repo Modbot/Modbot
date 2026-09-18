@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EntryDetail } from '@/components/audit/EntryDetail'
@@ -418,6 +419,12 @@ function Row({
           {/* Payload text is user-controlled (spec 5.3). The sentence renders it as text, never as
               markup. */}
           <FactSentence entry={entry} />
+          {/* One decision, several facts. The row is the decision; opening it shows every fact. */}
+          {entry.linked && entry.linked.length > 0 && (
+            <Badge variant="secondary" className="ml-2 align-middle">
+              {entry.linked.length + 1} facts
+            </Badge>
+          )}
         </td>
       </tr>
       {open && (

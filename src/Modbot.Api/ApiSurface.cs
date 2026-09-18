@@ -273,6 +273,7 @@ public static class ApiSurface
         app.MapPublicAddressSettings();
         app.MapServerSettings();
         app.MapPublicInstancesSettings();
+        app.MapRepeatOffenderSettings();
         app.MapCloudSettings();
         app.MapUpdateSettings();
         app.MapEmailSettings();

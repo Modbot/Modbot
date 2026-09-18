@@ -18,4 +18,16 @@ public class ReviewRunState
 
     /// <summary>When the last run finished, from <c>IModbotClock</c>.</summary>
     public DateTimeOffset? UpdatedAt { get; set; }
+
+    /// <summary>
+    /// Which set of linked-fact pairs the log has been read under (spec 5.3.2).
+    /// </summary>
+    /// <remarks>
+    /// Zero on a deployment that has never linked anything, which is every deployment the first
+    /// time it runs a version that does. Behind the current number, the next run reads the whole
+    /// log again and finds every decision in it — which is how the facts recorded before linking
+    /// existed get their links, and how a release that learns about a new pair applies it to the
+    /// history as well as to what arrives next.
+    /// </remarks>
+    public int LinkVersion { get; set; }
 }
