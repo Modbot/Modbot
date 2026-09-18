@@ -1,17 +1,23 @@
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Giveaways;
+using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.Giveaways;
 
 namespace Modbot.Discord.Tests.Giveaways;
 
 /// <summary>
-/// Giveaways design §7.1 and §7.3: the card carries the rules in plain words, and neither it nor
-/// the announcement can ping anybody.
+/// Giveaways design §7.1 and §7.3: the card carries the rules in plain words, names a winner the
+/// way every other card names a person (Discord embeds design §2), and neither it nor the
+/// announcement can ping anybody.
 /// </summary>
 public class GiveawayCardTests
 {
     private static readonly DateTimeOffset Now = new(2026, 9, 20, 19, 0, 0, TimeSpan.Zero);
+
+    private const string Address = "https://modbot.example.com";
+
+    private static readonly CardStyle Style = new(Address, "The Kingdom", Address + "/icon-192.png");
 
     private static Giveaway Giveaway(Action<Giveaway>? shape = null)
     {
@@ -44,14 +50,27 @@ public class GiveawayCardTests
         return giveaway;
     }
 
+    /// <summary>A winner as the drawer writes one: the key, the id it was built from, and a name.</summary>
     private static GiveawayEntrant Winner(int rank, string? name, bool purged = false) => new()
     {
         Position = rank - 1,
         Key = $"vrchat:usr_{rank}",
+        VRChatUserId = purged ? null : $"usr_{rank}",
         Name = name,
         Weight = 5,
         WinnerRank = rank,
         Purged = purged,
+    };
+
+    /// <summary>Somebody who entered through Discord and has never linked a VRChat account.</summary>
+    private static GiveawayEntrant DiscordWinner(int rank, string? name) => new()
+    {
+        Position = rank - 1,
+        Key = $"discord:{rank}00",
+        DiscordUserId = $"{rank}00",
+        Name = name,
+        Weight = 5,
+        WinnerRank = rank,
     };
 
     private static string Field(DiscordEmbedContent card, string name)
@@ -187,8 +206,151 @@ public class GiveawayCardTests
         Assert.Contains("and 5 more", Field(card, "Winners"), StringComparison.Ordinal);
     }
 
+    // ── The winners are linked names ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Discord embeds design §2: a person on a card is a linked name. A card announcing that
+    /// somebody won is the last place a moderator should have nothing to click.
+    /// </summary>
+    [Fact]
+    public void AWinnersNameIsALinkWhenThereIsAnAddressToLinkTo()
+    {
+        var card = GiveawayCard.For(
+            Giveaway(), GiveawayCardState.Drawn, 12, [Winner(1, "Ada")], style: Style);
+
+        Assert.Equal($"[Ada]({Address}/audit?subject=usr_1)", Field(card, "Winner"));
+    }
+
+    /// <summary>§2: no public address means no link, because the address would not work.</summary>
+    [Fact]
+    public void AWinnersNameIsPlainWhenThereIsNoAddress()
+    {
+        var card = GiveawayCard.For(
+            Giveaway(), GiveawayCardState.Drawn, 12, [Winner(1, "Ada")], style: new CardStyle(null, "The Kingdom"));
+
+        Assert.Equal("Ada", Field(card, "Winner"));
+        Assert.DoesNotContain("](", Field(card, "Winner"), StringComparison.Ordinal);
+    }
+
+    /// <summary>Somebody who only ever entered through Discord opens their Discord profile.</summary>
+    [Fact]
+    public void AWinnerWhoOnlyHasADiscordAccountLinksToThatProfile()
+    {
+        var card = GiveawayCard.For(
+            Giveaway(), GiveawayCardState.Drawn, 12, [DiscordWinner(1, "Bea")], style: Style);
+
+        Assert.Equal($"[Bea]({Address}/discord/members?subject=discord-person%3A100)", Field(card, "Winner"));
+    }
+
+    /// <summary>
+    /// §6.3: an erased winner has no name and no ids left, so there is nothing to link to and the
+    /// words that replaced them are all the card can show.
+    /// </summary>
+    [Fact]
+    public void AnErasedWinnerNeverBecomesALink()
+    {
+        var card = GiveawayCard.For(
+            Giveaway(), GiveawayCardState.Drawn, 1, [Winner(1, null, purged: true)], style: Style);
+
+        Assert.Contains("erased", Field(card, "Winner"), StringComparison.Ordinal);
+        Assert.DoesNotContain("](", Field(card, "Winner"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A linked name is several times the length of a plain one, so the list is built against
+    /// Discord's field limit rather than cut to it: a cut inside a link would put a raw address on
+    /// the card.
+    /// </summary>
+    [Fact]
+    public void ALinkedWinnerListStaysInsideDiscordsFieldLimit()
+    {
+        var many = Enumerable.Range(1, 25).Select(i => Winner(i, $"Person {i}")).ToList();
+
+        var winners = Field(
+            GiveawayCard.For(Giveaway(), GiveawayCardState.Drawn, 25, many, style: Style), "Winners");
+
+        Assert.True(winners.Length <= GiveawayCard.FieldValueLimit);
+        Assert.Contains(" more", winners, StringComparison.Ordinal);
+        Assert.DoesNotContain("…", winners, StringComparison.Ordinal);
+    }
+
+    // ── The group, the colours and the mark ──────────────────────────────────────────────
+
+    /// <summary>
+    /// The group's name sits above the giveaway's, the way it does on an instance and a calendar
+    /// post, and the footer carries Modbot's mark.
+    /// </summary>
+    [Fact]
+    public void TheGroupAndTheMarkComeFromTheStyle()
+    {
+        var card = GiveawayCard.For(
+            Giveaway(), GiveawayCardState.Open, 12, [], style: Style,
+            picture: new CardPicture(AuthorIcon: "attachment://p0123456789abcdef.png"));
+
+        Assert.Equal("The Kingdom", card.AuthorName);
+        Assert.Equal(Address + "/icon-192.png", card.FooterIconUrl);
+        Assert.Equal("attachment://p0123456789abcdef.png", card.AuthorIconUrl);
+    }
+
+    [Fact]
+    public void ADeploymentWithNoGroupAndNoAddressStillMakesACard()
+    {
+        var card = GiveawayCard.For(Giveaway(), GiveawayCardState.Open, 12, []);
+
+        Assert.Null(card.AuthorName);
+        Assert.Null(card.FooterIconUrl);
+        Assert.Null(card.AuthorIconUrl);
+    }
+
+    /// <summary>The colours are the shared palette's, one per meaning.</summary>
+    [Fact]
+    public void TheColoursComeFromTheSharedPalette()
+    {
+        var giveaway = Giveaway();
+
+        Assert.Equal(CardColour.Violet, GiveawayCard.For(giveaway, GiveawayCardState.Open, 0, []).Color);
+        Assert.Equal(CardColour.Dark, GiveawayCard.For(giveaway, GiveawayCardState.Closed, 0, []).Color);
+        Assert.Equal(CardColour.Green, GiveawayCard.For(giveaway, GiveawayCardState.Drawn, 0, []).Color);
+        Assert.Equal(CardColour.Red, GiveawayCard.For(giveaway, GiveawayCardState.Cancelled, 0, []).Color);
+    }
+
+    /// <summary>
+    /// A title is a slot Discord prints literally, so it is stripped rather than escaped: a
+    /// giveaway called <c>*hats*</c> must not read as <c>\*hats\*</c> on its own card.
+    /// </summary>
+    [Fact]
+    public void TheTitleIsPrintedAsWrittenRatherThanEscaped()
+    {
+        var card = GiveawayCard.For(
+            Giveaway(g => g.Name = "*hats*"), GiveawayCardState.Open, 0, []);
+
+        Assert.Equal("*hats*", card.Title);
+    }
+
+    /// <summary>A Discord role is named by whoever made it, so its name cannot carry formatting.</summary>
+    [Fact]
+    public void ARoleNameInARuleCannotCarryFormatting()
+    {
+        var giveaway = Giveaway(g => g.Rules = GiveawayRules.Store(new GiveawayRule
+        {
+            Kind = GiveawayRuleKinds.AllOf,
+            Rules = [new GiveawayRule { Kind = GiveawayRuleKinds.DiscordRole, Id = "77" }],
+        }));
+
+        var card = GiveawayCard.For(
+            giveaway, GiveawayCardState.Open, 0, [],
+            roleNames: new Dictionary<string, string>(StringComparer.Ordinal) { ["77"] = "**VIP**" });
+
+        Assert.DoesNotContain("**VIP**", Field(card, "Rules"), StringComparison.Ordinal);
+        Assert.Contains("VIP", Field(card, "Rules"), StringComparison.Ordinal);
+    }
+
     // ── The announcement ─────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// The names here stay plain even where the card above them links every winner: this is a line
+    /// of message text rather than an embed.
+    /// </summary>
     [Fact]
     public void TheAnnouncementNamesTheWinner()
     {
