@@ -11,6 +11,9 @@ namespace Modbot.Api.Features.Audit;
 /// <param name="Precision">Only facts whose time is exact, or only those known to a window.</param>
 /// <param name="HasActor">Only facts somebody did, or only facts nobody is named for.</param>
 /// <param name="Text">A word or phrase to find in the payload, the subject id or the actor id.</param>
+/// <param name="Account">
+/// One Modbot account's whole history: facts about it and facts it did, together.
+/// </param>
 public sealed record AuditRequest(
     IReadOnlyList<string> Types,
     IReadOnlyList<FactSource> Sources,
@@ -26,7 +29,8 @@ public sealed record AuditRequest(
     string? InstanceId = null,
     TimePrecision? Precision = null,
     bool? HasActor = null,
-    string? Text = null);
+    string? Text = null,
+    string? Account = null);
 
 /// <summary>
 /// Reads the merged timeline out of the fact log.
@@ -230,6 +234,20 @@ public sealed class AuditQuery(ModbotContext db)
 
         if (request.HasActor is { } hasActor)
             query = hasActor ? query.Where(e => e.ActorId != null) : query.Where(e => e.ActorId == null);
+
+        // A Modbot account's history is both halves at once. The log records what was done to an
+        // account against the subject -- a sign-in, a role change, being disabled -- and what the
+        // account did against the actor, including every kick and ban pressed in Modbot. Either
+        // half alone is half the story, and there is no second log to keep the other half in
+        // (spec 5.9), so the merge happens here.
+        if (!string.IsNullOrWhiteSpace(request.Account))
+        {
+            var account = request.Account;
+
+            query = query.Where(e =>
+                (e.SubjectPlatform == FactPlatform.Modbot && e.SubjectId == account)
+                || (e.ActorPlatform == FactPlatform.Modbot && e.ActorId == account));
+        }
 
         // Ids are matched, never parsed or normalised (spec 3.1.1). An id that does not look like
         // a VRChat id is a legacy id, not a mistake.

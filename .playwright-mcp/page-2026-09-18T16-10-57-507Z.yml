@@ -1,0 +1,26 @@
+- generic:
+  - generic [aria-hidden]:
+    - generic:
+      - generic:
+        - button:
+          - generic: Joined the group
+        - generic: joined
+      - generic:
+        - button:
+          - generic: Zone/M38
+        - generic: Zone/M38
+      - generic:
+        - button:
+          - generic: Add a limit for…
+      - button: Open dialog
+  - dialog [ref=f2e147]:
+    - generic [ref=f2e148]:
+      - heading "Inside a dialog" [level=2] [ref=f2e150]
+      - button "Close" [ref=f2e151]
+    - button "Rule in dialog" [expanded] [ref=f2e158]:
+      - generic [ref=f2e159]: Joined the group
+  - listbox "Rule in dialog" [active] [ref=f2e163]:
+    - option "Joined the group" [selected] [ref=f2e164]
+    - option "Account age" [ref=f2e168]
+    - option "Messages sent" [ref=f2e170]
+    - option "Minutes in instances" [ref=f2e172]

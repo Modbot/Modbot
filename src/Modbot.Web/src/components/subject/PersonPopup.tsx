@@ -7,58 +7,134 @@ import { InstanceTable } from '@/components/InstanceTable'
 import { SubjectCaseFiles } from '@/components/SubjectCaseFiles'
 import { SubjectHistory } from '@/components/SubjectHistory'
 import { ProfileDetails, ProfileIdentity } from '@/components/UserProfileCard'
+import { AccountCard, AccountHistory, AccountRecord } from '@/components/subject/AccountSide'
 import { DiscordLinkCard } from '@/components/subject/DiscordLinkCard'
+import {
+  DiscordHistory,
+  DiscordIdentity,
+  DiscordMessages,
+  DiscordMetrics,
+  DiscordRecords,
+} from '@/components/subject/DiscordSide'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { FactList, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { useLoad } from '@/lib/useLoad'
-import { api, type CurrentUser } from '@/lib/api'
+import { api, type AuditEntry, type CurrentUser, type PersonMetrics, type PersonView } from '@/lib/api'
 import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
 import { concernsPerson } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
-import { can } from '@/lib/permissions'
-import { useOpeningTab, useOpeningVersion } from '@/lib/subject'
+import { can, canAny } from '@/lib/permissions'
+import { useMessageAt, useOpeningTab, useOpeningVersion, type Subject } from '@/lib/subject'
+import { useDiscordMember } from '@/lib/useDiscordMember'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
 
-const TABS = ['overview', 'logs', 'history', 'cases', 'metrics', 'json'] as const
+const TABS = ['overview', 'logs', 'history', 'cases', 'discord', 'messages', 'account', 'metrics', 'json'] as const
 type Tab = (typeof TABS)[number]
 
 /**
- * One person: their VRChat profile on the left, and what Modbot has recorded about them on the
- * right.
+ * One person: every account Modbot can tie to them, and everything recorded about any of them.
  *
- * The left column is identity only: picture, name, pronouns, the badge row, how old the reading
- * is, the 18+ mark, the Discord link and the membership. Overview opens with the rest of the
- * profile (bio, status, dates, the tags with no badge), then the repeat-offender counts, the
- * presence figures and the newest facts. Logs is every fact; History is the profile as it stood
- * after each recorded change, replayed from the facts; JSON is the stored records verbatim.
+ * **Three addresses, one view.** `?subject=usr_…`, `?subject=discord-person:…` and
+ * `?subject=account:…` all open this, because all three name the same human being. The server ties
+ * them together from whichever one arrived (`GET /api/people`); nothing here guesses, and an
+ * account that ties to nothing still opens, showing what is known and saying plainly what is not
+ * (one view per person design §3).
  *
- * The profile is read once here and handed to both places, so opening the popup asks for one
- * refresh and the left column and the Overview move together when it lands.
+ * **Tabs by account, plus one merged Logs.** *What happened to this person* wants the merge, so
+ * **Logs** is every fact about or by any of their accounts, each row naming the account it was
+ * found under. *What did this moderator do* and *what did they write in Discord* want neither
+ * merged nor interleaved, so **Account**, **Discord** and **Messages** stay whole (design §4).
+ *
+ * **Each part is gated on the permission that part already needed.** What this account may not
+ * read is left out rather than drawn empty, and a Modbot account is not even said to be absent
+ * unless the caller may be told whether one exists.
  */
-export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
+export function PersonPopup({ subject, me, lead }: { subject: Subject; me: CurrentUser; lead?: React.ReactNode }) {
+  const { kind, id } = subject
+  const load = useCallback(() => api.person(askOf(kind, id)), [kind, id])
+  const { data: person, error } = useLoad(load)
+
+  if (error)
+    return (
+      <PopupFrame title="Person" lead={lead} left={<Note className="text-destructive">{error}</Note>}>
+        <div />
+      </PopupFrame>
+    )
+
+  if (!person)
+    return (
+      <PopupFrame title="Person" lead={lead} left={<Note>Loading…</Note>}>
+        <div />
+      </PopupFrame>
+    )
+
+  return <Resolved person={person} me={me} lead={lead} at={subject} />
+}
+
+/** Which id the address carried. Exactly one, so the server knows what it was given. */
+function askOf(kind: Subject['kind'], id: string) {
+  if (kind === 'discord-person') return { discord: id }
+  if (kind === 'account') return { account: id }
+  return { vrchat: id }
+}
+
+function Resolved({
+  person,
+  me,
+  lead,
+  at,
+}: {
+  person: PersonView
+  me: CurrentUser
+  lead?: React.ReactNode
+  at: Subject
+}) {
+  const vrchatId = person.vrChat?.id ?? null
+  const discordId = person.discord?.id ?? null
+  const account = person.account
+
   const seesProfile = can(me, 'ViewProfile')
-  const [tab, setTab] = useOpeningTab<Tab>('overview', TABS)
+  const seesMembers = can(me, 'ViewMembers')
+  const readsMessages = can(me, 'ReadDiscordMessages')
+  const readsLogs = canAny(me, ['ViewAuditLog', 'ViewOperationalLog'])
+
+  // Opened at one Discord message, from a source chip under a Chat answer: the Messages tab, on
+  // the page that holds it, with that message marked.
+  const message = useMessageAt()
   const version = useOpeningVersion()
+
+  const opening: Tab = message && discordId && readsMessages ? 'messages' : 'overview'
+  const [tab, setTab] = useOpeningTab<Tab>(opening, TABS)
 
   // Bumped after a kick, ban or unban, which remounts the cards that read what Modbot stores.
   // The server has already written the change, so this reads it back rather than guessing at it.
   const [acted, setActed] = useState(0)
 
-  // And whenever a fact about this person lands on the live stream -- a join, a ban, a role, a
-  // profile change -- for the same reason: the server has it, so read it back.
-  const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id), [id]))
+  // And whenever a fact about any of this person's accounts lands on the live stream.
+  const live = useLiveVersion(
+    useCallback(
+      (event: LiveEvent) =>
+        (vrchatId ? concernsPerson(event, vrchatId) : false)
+        || (discordId ? concernsPerson(event, discordId, 'Discord') : false),
+      [vrchatId, discordId],
+    ),
+  )
   const fresh = `${acted}-${live}`
 
-  const stored = useStoredProfile(id, live)
+  const stored = useStoredProfile(vrchatId ?? '', live)
+  const member = useDiscordMember(discordId, seesMembers)
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },
     { value: 'logs', label: 'Logs' },
-    ...(seesProfile ? [{ value: 'history' as const, label: 'History' }] : []),
-    ...(seesProfile ? [{ value: 'cases' as const, label: 'Cases' }] : []),
+    ...(vrchatId && seesProfile ? [{ value: 'history' as const, label: 'History' }] : []),
+    ...(vrchatId && seesProfile ? [{ value: 'cases' as const, label: 'Cases' }] : []),
+    ...(discordId && seesMembers ? [{ value: 'discord' as const, label: 'Discord' }] : []),
+    ...(discordId && readsMessages ? [{ value: 'messages' as const, label: 'Messages' }] : []),
+    ...(account && readsLogs ? [{ value: 'account' as const, label: 'Account' }] : []),
     ...(seesProfile ? [{ value: 'metrics' as const, label: 'Metrics' }] : []),
     { value: 'json', label: 'JSON' },
   ]
@@ -68,54 +144,131 @@ export function PersonPopup({ id, me, lead }: { id: string; me: CurrentUser; lea
       title="Person"
       // The id verbatim and unparsed: VRChat ids are opaque, and a legacy one looks nothing like
       // a modern one (spec 3.1.1).
-      subtitle={<span className="font-mono" title={id}>{id}</span>}
+      subtitle={<span className="font-mono" title={at.id}>{vrchatId ?? discordId ?? at.id}</span>}
       lead={lead}
       left={
         <>
-          <ProfileIdentity stored={stored} me={me} />
-          {seesProfile && <DiscordLinkCard key={live} subjectId={id} me={me} />}
+          {vrchatId ? (
+            <ProfileIdentity stored={stored} me={me} />
+          ) : discordId && seesMembers ? (
+            <DiscordIdentity read={member} />
+          ) : null}
 
-          {can(me, 'ViewMembers') && (
-            <MembershipCard key={fresh} subjectId={id} me={me} onActed={() => setActed((n) => n + 1)} />
+          {vrchatId === null && <Note>No VRChat account.</Note>}
+
+          {person.discord && seesProfile && (
+            <DiscordLinkCard key={live} side={person.discord} vrchatUserId={vrchatId} me={me} />
+          )}
+          {person.discord === null && seesProfile && <Note>No Discord account.</Note>}
+
+          {account && <AccountCard account={account} />}
+          {account === null && person.canSeeAccount && <Note>No Modbot account.</Note>}
+
+          {vrchatId && seesMembers && (
+            <MembershipCard key={fresh} subjectId={vrchatId} me={me} onActed={() => setActed((n) => n + 1)} />
           )}
         </>
       }
     >
       <Tabs value={tab} onChange={setTab} tabs={tabs}>
-        {tab === 'overview' && <Overview key={fresh} id={id} me={me} stored={stored} onMore={setTab} />}
-        {tab === 'logs' && <Logs key={fresh} id={id} />}
-        {tab === 'history' && <ProfileVersions key={live} id={id} openAt={version} />}
-        {tab === 'cases' && (
+        {tab === 'overview' && (
+          <Overview key={fresh} person={person} me={me} stored={stored} onMore={setTab} />
+        )}
+        {tab === 'logs' && <Logs key={fresh} person={person} />}
+        {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
+        {tab === 'cases' && vrchatId && (
           <div className="p-4">
-            <SubjectCaseFiles key={live} subjectId={id} />
+            <SubjectCaseFiles key={live} subjectId={vrchatId} />
           </div>
         )}
-        {tab === 'metrics' && <Metrics key={live} id={id} />}
-        {tab === 'json' && <Records key={fresh} id={id} me={me} />}
+        {tab === 'discord' && discordId && <DiscordHistory key={live} id={discordId} read={member} />}
+        {tab === 'messages' && discordId && <DiscordMessages id={discordId} at={message} />}
+        {tab === 'account' && account && <AccountHistory key={fresh} accountId={account.id} />}
+        {tab === 'metrics' && <Metrics key={live} person={person} />}
+        {tab === 'json' && <Records key={fresh} person={person} me={me} />}
       </Tabs>
     </PopupFrame>
   )
 }
 
-/** The glance: the rest of the profile, how often they have been acted on, where they have been, and the newest facts. */
+/** What each fact was found under, for the merged list. */
+const VRCHAT = 'VRChat'
+const DISCORD = 'Discord'
+const ACCOUNT = 'Modbot account'
+
+type MergedFacts = { entries: AuditEntry[]; from: Map<number, string> }
+
+/**
+ * Every fact about or by any of this person's accounts, newest first.
+ *
+ * One read per account per side, merged here rather than on the server: the log filters subject
+ * and actor separately, and the newest N of each merged and cut to N are exactly the newest N of
+ * all of them. The Modbot account needs only one read, because `?account=` answers both halves.
+ *
+ * Which account each row was found under travels with it. The merge is a convenience, not a
+ * claim: a Discord row is still a Discord row.
+ */
+function usePersonFacts(person: PersonView, limit: number) {
+  const vrchatId = person.vrChat?.id ?? null
+  const discordId = person.discord?.id ?? null
+  const accountId = person.account?.id ?? null
+
+  const load = useCallback(async (): Promise<MergedFacts> => {
+    const asks: { from: string; page: Promise<{ entries: AuditEntry[] }> }[] = []
+
+    if (vrchatId) {
+      asks.push({ from: VRCHAT, page: api.audit({ subject: vrchatId, subjectPlatform: 'VRChat', limit }) })
+      asks.push({ from: VRCHAT, page: api.audit({ actor: vrchatId, actorPlatform: 'VRChat', limit }) })
+    }
+
+    if (discordId) {
+      asks.push({ from: DISCORD, page: api.audit({ subject: discordId, subjectPlatform: 'Discord', limit }) })
+      asks.push({ from: DISCORD, page: api.audit({ actor: discordId, actorPlatform: 'Discord', limit }) })
+    }
+
+    if (accountId) asks.push({ from: ACCOUNT, page: api.audit({ account: accountId, limit }) })
+
+    const pages = await Promise.all(asks.map((a) => a.page))
+
+    const from = new Map<number, string>()
+    const seen = new Set<number>()
+    const entries: AuditEntry[] = []
+
+    pages.forEach((page, i) => {
+      for (const entry of page.entries) {
+        if (seen.has(entry.id)) continue
+        seen.add(entry.id)
+        from.set(entry.id, asks[i].from)
+        entries.push(entry)
+      }
+    })
+
+    entries.sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt) || b.id - a.id)
+    return { entries: entries.slice(0, limit), from }
+  }, [vrchatId, discordId, accountId, limit])
+
+  return useLoad(load)
+}
+
+/** The glance: the profile, how often they have been acted on, where they have been, and the newest facts. */
 function Overview({
-  id,
+  person,
   me,
   stored,
   onMore,
 }: {
-  id: string
+  person: PersonView
   me: CurrentUser
   stored: StoredProfile
   onMore: (tab: Tab) => void
 }) {
   const seesProfile = can(me, 'ViewProfile')
+  const vrchatId = person.vrChat?.id ?? null
 
-  const loadFacts = useCallback(() => api.audit({ subject: id, limit: 8 }), [id])
-  const facts = useLoad(loadFacts)
+  const facts = usePersonFacts(person, 8)
 
-  const loadMetrics = useCallback(() => api.userMetrics(id), [id])
-  const metrics = useLoad(seesProfile ? loadMetrics : null)
+  const loadMetrics = useCallback(() => api.userMetrics(vrchatId!), [vrchatId])
+  const metrics = useLoad(seesProfile && vrchatId ? loadMetrics : null)
 
   return (
     <div className="flex flex-col gap-3 p-4">
@@ -126,7 +279,7 @@ function Overview({
         </>
       )}
 
-      {seesProfile && <SubjectHistory subjectId={id} />}
+      {seesProfile && vrchatId && <SubjectHistory subjectId={vrchatId} />}
 
       {metrics.data?.known && (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -151,103 +304,130 @@ function Overview({
 
       {facts.error && <Note className="text-destructive">{facts.error}</Note>}
       {!facts.error && !facts.data && <Note>Loading…</Note>}
-      {facts.data && <FactList entries={facts.data.entries} empty="Nothing recorded yet." />}
+      {facts.data && (
+        <FactList
+          entries={facts.data.entries}
+          empty="Nothing recorded yet."
+          from={(entry) => facts.data!.from.get(entry.id)}
+        />
+      )}
     </div>
   )
 }
 
-function Logs({ id }: { id: string }) {
-  const load = useCallback(() => api.audit({ subject: id, limit: 50 }), [id])
-  const { data, error } = useLoad(load)
+function Logs({ person }: { person: PersonView }) {
+  const { data, error } = usePersonFacts(person, 50)
 
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
       <div className="font-medium">Everything recorded about this person</div>
 
       {error && <Note className="text-destructive">{error}</Note>}
       {!error && !data && <Note>Loading…</Note>}
-      {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
+      {data && (
+        <FactList entries={data.entries} empty="Nothing recorded yet." from={(entry) => data.from.get(entry.id)} />
+      )}
     </div>
   )
 }
 
 /**
  * The stored records, verbatim: the profile as the API answers it, the membership and ban
- * standing, and the bodies VRChat last sent. Each needs the permission the screen showing it
- * needs; what this account may not read is left out rather than shown empty.
+ * standing, the bodies VRChat last sent, the Discord member row and the Modbot account. Each
+ * needs the permission the screen showing it needs; what this account may not read is left out
+ * rather than shown empty.
  */
-function Records({ id, me }: { id: string; me: CurrentUser }) {
+function Records({ person, me }: { person: PersonView; me: CurrentUser }) {
   const seesProfile = can(me, 'ViewProfile')
   const seesMembers = can(me, 'ViewMembers')
+  const vrchatId = person.vrChat?.id ?? null
+  const discordId = person.discord?.id ?? null
 
-  const loadProfile = useCallback(() => api.userProfile(id), [id])
-  const profile = useLoad(seesProfile ? loadProfile : null)
+  const loadProfile = useCallback(() => api.userProfile(vrchatId!), [vrchatId])
+  const profile = useLoad(seesProfile && vrchatId ? loadProfile : null)
 
-  const loadRaw = useCallback(() => api.userRaw(id), [id])
-  const raw = useLoad(seesProfile ? loadRaw : null)
+  const loadRaw = useCallback(() => api.userRaw(vrchatId!), [vrchatId])
+  const raw = useLoad(seesProfile && vrchatId ? loadRaw : null)
 
-  const loadMembership = useCallback(() => api.membership(id), [id])
-  const membership = useLoad(seesMembers ? loadMembership : null)
+  const loadMembership = useCallback(() => api.membership(vrchatId!), [vrchatId])
+  const membership = useLoad(seesMembers && vrchatId ? loadMembership : null)
+
+  const nothing = !vrchatId && !discordId && !person.account
 
   return (
-    <div className="flex flex-col gap-3 p-4">
-      {seesProfile && <JsonView title="Profile" value={profile.error ?? profile.data} />}
-      {seesMembers && <JsonView title="Membership" value={membership.error ?? membership.data} />}
-      {seesProfile && (
+    <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
+      {vrchatId && seesProfile && <JsonView title="Profile" value={profile.error ?? profile.data} />}
+      {vrchatId && seesMembers && <JsonView title="Membership" value={membership.error ?? membership.data} />}
+      {vrchatId && seesProfile && (
         <>
           <JsonView title="VRChat public profile, as last read" value={raw.error ?? raw.data?.publicProfile} />
           <JsonView title="VRChat user object, as last read" value={raw.error ?? raw.data?.user} />
         </>
       )}
-      {!seesProfile && !seesMembers && <Note>You do not have permission to see this.</Note>}
+      {discordId && <DiscordRecords id={discordId} me={me} />}
+      {person.account && <AccountRecord account={person.account} />}
+      {(nothing || (!seesProfile && !seesMembers && !discordId && !person.account)) && (
+        <Note>You do not have permission to see this.</Note>
+      )}
     </div>
   )
 }
 
 /**
- * What Modbot can actually work out about one person's time in world.
+ * What Modbot can actually work out about one person's time in world, and their activity in
+ * Discord, side by side.
  *
- * All of it comes from the companion's presence reports, the same arithmetic the Worlds page
- * uses, so it only covers time a moderator's client shared an instance with them. The tab says so,
- * because "never seen" reads like "never there" and is nothing of the kind.
+ * The time-in-world figures come from the companion's presence reports, the same arithmetic the
+ * Worlds page uses, so they only cover time a moderator's client shared an instance with them.
  */
-function Metrics({ id }: { id: string }) {
-  const load = useCallback(() => api.userMetrics(id), [id])
-  const { data, error } = useLoad(load)
+function Metrics({ person }: { person: PersonView }) {
+  const vrchatId = person.vrChat?.id ?? null
+  const discordId = person.discord?.id ?? null
 
-  if (error) return <Panel title="Metrics"><Note className="text-destructive">{error}</Note></Panel>
-  if (!data) return <Panel title="Metrics"><Note>Loading…</Note></Panel>
+  const load = useCallback(() => api.userMetrics(vrchatId!), [vrchatId])
+  const { data, error } = useLoad(vrchatId ? load : null)
 
+  return (
+    <div className="flex min-h-0 flex-col overflow-auto">
+      {vrchatId && (
+        <Panel title="Time in world">
+          {error && <Note className="text-destructive">{error}</Note>}
+          {!error && !data && <Note>Loading…</Note>}
+          {data && !data.known && <Note>Not seen in an instance yet.</Note>}
+          {data?.known && <TimeInWorld data={data} />}
+        </Panel>
+      )}
+
+      {discordId && <DiscordMetrics id={discordId} />}
+    </div>
+  )
+}
+
+function TimeInWorld({ data }: { data: PersonMetrics }) {
   const c = data.counts
 
   return (
-    <Panel title="Time in world">
-      {!data.known ? (
-        <Note>Not seen in an instance yet.</Note>
-      ) : (
-        <>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            <Figure label="Time seen" value={minutes(c.minutesSeen)} />
-            <Figure label="Instances visited" value={compactNumber(c.instances)} />
-            <Figure label="Worlds visited" value={compactNumber(c.worlds)} />
-            <Figure label="Arrivals" value={compactNumber(c.arrivals)} />
-            <Figure
-              label="Last seen"
-              value={c.lastSeenAt ? ago(c.lastSeenAt, data.now) : '—'}
-              note={c.lastSeenAt ? dateTime(c.lastSeenAt) : undefined}
-            />
-            <Figure label="First seen" value={c.firstSeenAt ? formatDay(c.firstSeenAt) : '—'} />
-          </div>
+    <>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <Figure label="Time seen" value={minutes(c.minutesSeen)} />
+        <Figure label="Instances visited" value={compactNumber(c.instances)} />
+        <Figure label="Worlds visited" value={compactNumber(c.worlds)} />
+        <Figure label="Arrivals" value={compactNumber(c.arrivals)} />
+        <Figure
+          label="Last seen"
+          value={c.lastSeenAt ? ago(c.lastSeenAt, data.now) : '—'}
+          note={c.lastSeenAt ? dateTime(c.lastSeenAt) : undefined}
+        />
+        <Figure label="First seen" value={c.firstSeenAt ? formatDay(c.firstSeenAt) : '—'} />
+      </div>
 
-          <div className="mt-2 font-medium">Instances they were seen in</div>
-          {data.recentInstances.length === 0 ? (
-            <Note>No instances yet.</Note>
-          ) : (
-            <InstanceTable instances={data.recentInstances} />
-          )}
-        </>
+      <div className="mt-2 font-medium">Instances they were seen in</div>
+      {data.recentInstances.length === 0 ? (
+        <Note>No instances yet.</Note>
+      ) : (
+        <InstanceTable instances={data.recentInstances} />
       )}
-    </Panel>
+    </>
   )
 }
 

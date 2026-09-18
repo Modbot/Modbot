@@ -2362,7 +2362,8 @@ state.
 
 **Clicking a person, a world or an instance anywhere opens a popup over the current view.** From the
 audit log, the member list, the ban list, the Worlds and Instances pages, another popup — the same
-popup for the same kind of thing.
+popup for the same kind of thing, and for a person the same popup whichever of their accounts was
+clicked.
 
 **This replaces the standalone "profile" page** the milestone table previously listed, and, since
 2026-09-14, the right-hand pane this section first described.
@@ -2388,6 +2389,11 @@ where they were.
   an instance has a world and people, a world has instances, a person was seen in instances. When
   only a person could be opened, every world and instance id on screen was a dead end that merely
   displayed an id.
+- **A person is one human being, not one account (2026-09-18).** A VRChat account, a Discord
+  account and a Modbot account are three ways of naming the same person, so all three open the
+  **same** popup, which ties them together from whichever one the link named. See the
+  one-view-per-person design. The Discord person popup this section used to list separately is
+  gone; its parts are tabs of the person popup.
 - **Popups stack.** A world opened from inside an instance popup opens *on top of* it, and closing it
   returns to the instance. Only the top popup is drawn — a second dimmed layer under the first is
   unreadable and makes Escape ambiguous — and the one underneath is named in a "Back to the …"
@@ -2430,9 +2436,16 @@ does not understand is guessed at.
 | Person | Picture, name, pronouns, the badge row (trust rank, VRC+, platform, staff or nuisance, languages), how old the reading is, the 18+ card, the Discord link, membership and roles with Kick, Ban and Unban | **Profile**: status line, bio, joined VRChat, last seen by Modbot, the remaining tags behind a control | **Logs** (every fact about them), **History** (the profile after each recorded change), **Cases**, **Metrics** (time seen, instances and worlds visited, arrivals, last seen), **JSON** |
 | World | Picture, name, author, who can find it | **Details**: capacity, when first seen, when published, when the page was last read, description | **Instances** (newest first), **History** (facts recorded in any of its instances), **Metrics** (time seen, visitors, instances opened per day), **JSON** |
 | Instance | World picture, world (a link), instance number, who can join, open now or closed | **Details**: region, opened, people now, what a moderator's client saw | **People** (who a moderator's client saw there), **Logs** (facts recorded there while it was open), **JSON** |
-| Discord person | Picture, names, in the server or left, bot, pending, timed out | **Details**: joined, left, timed out until, boosting since, roles | **Logs**, **History** (their own comings and goings), **Messages**, **Metrics**, **JSON** |
 
-Everything in all four comes from Modbot's own tables. Opening a popup asks VRChat for nothing, so
+The person row above is the whole human being. Where they have a Discord account, their picture,
+names and marks (in the server or left, bot, pending, timed out) sit on the left beside the VRChat
+ones, and **Discord** (their details and their own comings and goings) and **Messages** join the
+tabs. Where they hold a Modbot account, the account, its roles and when it last signed in sit on
+the left, and **Account** — everything it did and everything done to it — joins the tabs. An
+account Modbot has no record of is said to be missing rather than silently left out; an account
+this reader may not be told about is left out rather than denied.
+
+Everything in all three comes from Modbot's own tables. Opening a popup asks VRChat for nothing, so
 it costs no API budget however often a moderator does it (§4.3.4). An instance is opened by Modbot's
 own id for it, never VRChat's number, which VRChat hands out again once an instance closes.
 
@@ -2440,15 +2453,19 @@ own id for it, never VRChat's number, which VRChat hands out again once an insta
 
 `?subject=` repeated, in the order things were opened:
 
-- `?subject=usr_…` — one person. **The link this section always specified**, so every link already
-  pasted somewhere opens the same thing.
+- `?subject=usr_…` — one person, by their VRChat account. **The link this section always
+  specified**, so every link already pasted somewhere opens the same thing.
+- `?subject=discord-person:<id>` — the same popup, by their Discord account.
+- `?subject=account:<id>` — the same popup again, by the Modbot account they sign in with.
 - `?subject=world:wrld_…` — one world.
 - `?subject=usr_…&subject=instance:<id>` — a person, then an instance opened from inside it.
 
 A repeated parameter rather than one separated list, because each value is encoded on its own and a
 separator could not be told apart from the same character inside an id — VRChat ids are arbitrary
-text (§3.1.1). The `world:` and `instance:` prefixes are Modbot's own labels on a value Modbot wrote,
-not a reading of the id's shape; anything unprefixed is a person.
+text (§3.1.1). The prefixes are Modbot's own labels on a value Modbot wrote, not a reading of the
+id's shape; anything unprefixed is a person's VRChat account. `discord-person:` and `account:`
+open the same popup as a bare id — they are not different screens, only different ways of saying
+which kind of id the link carries, which a bare value could not say.
 
 Opening pushes a browser history entry. So **Escape, the close button, the back control and the
 browser's back button all do the same thing: close one popup.** A stack somebody was sent as a link

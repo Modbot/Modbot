@@ -1,0 +1,21 @@
+- generic [ref=f2e1]:
+  - generic [ref=f2e3]:
+    - generic [ref=f2e4]:
+      - button "Rule" [ref=f2e5]:
+        - generic [ref=f2e6]: Joined the group
+      - generic [ref=f2e9]: joined
+    - generic [ref=f2e10]:
+      - button "Time zone" [ref=f2e11]:
+        - generic [ref=f2e12]: Zone/M38
+      - generic [ref=f2e15]: Zone/M38
+    - button "Add a limit for" [expanded] [ref=f2e17]:
+      - generic [ref=f2e18]: Add a limit for…
+    - button "Open dialog" [ref=f2e21]
+  - listbox "Add a limit for" [active] [ref=f2e189]:
+    - option "Add a limit for…" [selected] [ref=f2e190]
+    - option "Everyone" [ref=f2e194]
+    - text: Features
+    - option "Chat" [ref=f2e196]
+    - option "Alerts" [ref=f2e198]
+    - text: Chat · roles
+    - option "Moderators" [ref=f2e200]

@@ -1,0 +1,12 @@
+- generic [ref=f2e3]:
+  - generic [ref=f2e4]:
+    - button "Rule" [ref=f2e5]:
+      - generic [ref=f2e6]: Joined the group
+    - generic [ref=f2e9]: joined
+  - generic [ref=f2e10]:
+    - button "Time zone" [ref=f2e11]:
+      - generic [ref=f2e12]: Zone/M38
+    - generic [ref=f2e15]: Zone/M38
+  - button "Add a limit for" [ref=f2e17]:
+    - generic [ref=f2e18]: Add a limit for…
+  - button "Open dialog" [ref=f2e21]

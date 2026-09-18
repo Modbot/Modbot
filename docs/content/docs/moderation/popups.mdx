@@ -8,8 +8,12 @@ instance number in a table. Clicking one opens a popup over the page you are on.
 exactly as it was underneath, with its scroll position, filters and loaded rows, so closing the
 popup puts you back where you were.
 
-There are four kinds: a **person** (a VRChat user), a **world**, an **instance** and a
-**Discord person**.
+There are three kinds: a **person**, a **world** and an **instance**.
+
+A **person** means one human being, not one account. Somebody can be up to three things in Modbot
+— a VRChat account, a Discord account, and the Modbot account they sign in with — and clicking any
+of them opens the same popup, showing every account Modbot can tie to the one you clicked. You
+never have to know which of somebody's accounts to click.
 
 ## How popups stack
 
@@ -28,7 +32,24 @@ the permissions to see what is inside.
 
 ## Person popup
 
-The title is **Person**, with the person's VRChat id under it.
+The title is **Person**, with the person's id under it.
+
+### Which accounts belong together
+
+Modbot ties accounts together from two things and nothing else:
+
+- the [account link](/discord/account-linking) a member proved between their Discord and VRChat
+  accounts;
+- the VRChat account a Modbot account proved, and the Discord id an administrator typed onto a
+  Modbot account.
+
+Names are never used. Two people called the same thing stay two people, and an account link that
+was ended ties nothing.
+
+If an account cannot be tied to the others, the popup still opens on what is known and says which
+are missing: **No VRChat account.**, **No Discord account.**, **No Modbot account.** You are only
+told a Modbot account is missing if you are allowed to know who holds one — otherwise nothing is
+said either way.
 
 ### Left side
 
@@ -39,10 +60,13 @@ The title is **Person**, with the person's VRChat id under it.
   represent (its icon and name; hover for the group id), how old the stored profile is, and the
   18+ verified mark. Opening the popup asks for a fresh copy. See
   [Profiles](/moderation/profiles). The rest of the profile is on the **Overview** tab.
-- **Discord.** Only when the person has linked a Discord account: the Discord name (click it to
-  open the Discord person popup), the Discord id, when they linked, the roles Modbot gave them,
-  and **Not in the server** if they have left it. Anybody with **Manage Discord links** also sees
-  an **Unlink** button. See [Account linking](/discord/account-linking).
+- **Discord.** Only when Modbot knows a Discord account for them: the Discord name and id. When
+  the two accounts proved a link, also when they linked, the roles Modbot gave them, and **Not in
+  the server** if they have left it, and anybody with **Manage Discord links** sees an **Unlink**
+  button. See [Account linking](/discord/account-linking). Where the Discord id was typed onto a
+  Modbot account rather than proved, none of that is shown, because none of it exists.
+- **Modbot account.** Only for people allowed to know who holds one: the username, **Disabled** if
+  it is, its roles, when it was made and when it last signed in.
 - **Membership.** Whether they are in your group now and since when, whether they are
   representing the group, their group roles, the group's manager notes about them, and whether
   they are on the ban list. The last line says how long ago the member list and the ban list were
@@ -55,11 +79,16 @@ The title is **Person**, with the person's VRChat id under it.
 | Tab | What it shows |
 |---|---|
 | **Overview** | **Profile**: their status line, bio, **Joined VRChat**, **Last seen by Modbot**, and the tags that have no badge behind a control that counts them (**12 more tags** / **Hide tags**). Then the **History** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#history-on-a-persons-popup)), the main time-in-world figures, and the newest 8 audit log entries about them. |
-| **Logs** | **Everything recorded about this person**: the newest 50 audit log entries about them. |
+| **Logs** | **Everything recorded about this person**: the newest 50 audit log entries about any of their accounts or done by them, newest first. Each row says which account it was found under, so a Discord ban is never mistaken for a group one. |
 | **History** | Their VRChat profile as it stood after each change Modbot recorded, newest first. Pick a version on the left to see it in full, pictures, banner and represented group included; the fields that change carried are marked. **JSON** under a version shows that version's record as stored; **Hide JSON** puts it away. **Now** is the profile as stored; **First seen** is where the record begins. See [Profile history](#profile-history). |
 | **Cases** | Their case files, withdrawn ones included and marked as such. Click one to open it. See [Bans and case files](/moderation/case-files). |
-| **Metrics** | **Time in world**: **Time seen**, **Instances visited**, **Worlds visited**, **Arrivals**, **Last seen** and **First seen**, then a table of the instances they were seen in (newest 25). |
-| **JSON** | The stored records as Modbot's API answers them: the profile, the membership and ban standing, and the two bodies VRChat last sent (the public profile and the user object). Each has a copy button. |
+| **Discord** | Their Discord details and their own comings and goings in the server. See [Discord members](/discord/members). |
+| **Messages** | Everything they wrote in Discord that Modbot has stored. Needs **Read Discord messages**. |
+| **Account** | Everything their Modbot account did and everything done to it: sign-ins, role changes, settings they changed, and every kick, ban and unban they pressed in Modbot. |
+| **Metrics** | **Time in world**: **Time seen**, **Instances visited**, **Worlds visited**, **Arrivals**, **Last seen** and **First seen**, then a table of the instances they were seen in (newest 25). Their Discord activity is under it. |
+| **JSON** | The stored records as Modbot's API answers them: the profile, the membership and ban standing, the two bodies VRChat last sent (the public profile and the user object), the Discord member row and the Modbot account. Each has a copy button. |
+
+A tab is only there when there is an account behind it and you hold its permission.
 
 #### Profile history
 
@@ -142,17 +171,16 @@ A popup fills the window except for a small margin, with the thing it is about o
 the tabs on the right. The tab a link opens on can be part of the address (`?tab=history`), and
 for a person the version too (`?version=`); switching tabs by hand does not change the address.
 
-## Discord person popup
-
-Opens when you click a Discord name. It is described on [Discord members](/discord/members).
-
 ## Who can see what
 
 | Part | Permission |
 |---|---|
 | Person popup: profile, **Discord** card, **Cases** and **Metrics** tabs, **History** block | **See profiles** |
-| Person popup: **Membership** card | **See members** |
+| Person popup: **Membership** card, **Discord** tab | **See members** |
 | Person popup: **Unlink** button | **Manage Discord links** |
+| Person popup: **Messages** tab | **Read Discord messages** |
+| Person popup: **Modbot account** card — knowing who holds which account | **See the operational log** or **Manage staff accounts** |
+| Person popup: **Account** tab | **See the audit log** for what they did as a moderator, **See the operational log** for their sign-ins and role changes |
 | Person popup: entries in **Logs** | **See the audit log** (and **See the operational log** for Modbot's own entries such as sign-ins) |
 | World popup | **See analytics** |
 | Instance popup | **See analytics** |

@@ -48,6 +48,7 @@ public static class AuditLogEndpoints
                 [FromQuery] string? subjectPlatform,
                 [FromQuery] string? actor,
                 [FromQuery] string? actorPlatform,
+                [FromQuery] Guid? account,
                 [FromQuery] DateTimeOffset? from,
                 [FromQuery] DateTimeOffset? to,
                 [FromQuery] string? world,
@@ -93,7 +94,8 @@ public static class AuditLogEndpoints
                     Trimmed(instance),
                     Enum.TryParse<TimePrecision>(precision, ignoreCase: true, out var exactness) ? exactness : null,
                     hasActor,
-                    Trimmed(q));
+                    Trimmed(q),
+                    account?.ToString());
 
                 // Nothing visible left after the intersection: an honest empty page with the
                 // coverage still attached, not a 403 for asking.
@@ -113,6 +115,13 @@ public static class AuditLogEndpoints
                 + "Facts carry occurredAt and, when the time is an inference rather than a "
                 + "statement, occurredBefore. `precision` says which, so a window is never "
                 + "rendered as an instant.\n\n"
+                + "`account` is one Modbot account's whole history: facts about it — sign-ins, "
+                + "role changes, its password being reset — and facts it did, including every "
+                + "kick and ban pressed in Modbot. Both halves at once, because the log records "
+                + "the first against the subject and the second against the actor, and either "
+                + "alone is half the story. It narrows what you may already see: a caller with "
+                + "only ViewAuditLog gets the account's moderation actions, one with only "
+                + "ViewOperationalLog gets its sign-ins and role changes.\n\n"
                 + "`world` and `instance` narrow to one world or one VRChat instance number; "
                 + "`category` to Moderation or Operational; `precision` to Exact or Window; "
                 + "`hasActor` to facts somebody is named for, or not; `q` finds a word in the "

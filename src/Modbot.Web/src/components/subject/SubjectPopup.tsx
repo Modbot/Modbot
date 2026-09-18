@@ -1,12 +1,11 @@
 import { ArrowLeft } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
-import { DiscordPersonPopup } from '@/components/subject/DiscordPersonPopup'
 import { InstancePopup } from '@/components/subject/InstancePopup'
 import { PersonPopup } from '@/components/subject/PersonPopup'
 import { WorldPopup } from '@/components/subject/WorldPopup'
 import type { CurrentUser } from '@/lib/api'
 import { useModal } from '@/lib/shortcuts'
-import { closeSubject, encodeSubject, useSubjects, type Subject } from '@/lib/subject'
+import { closeSubject, encodeSubject, isPerson, useSubjects, type Subject } from '@/lib/subject'
 
 /**
  * The popup: a person, a world or an instance, over whatever page is open.
@@ -24,6 +23,11 @@ import { closeSubject, encodeSubject, useSubjects, type Subject } from '@/lib/su
  *
  * Opening from inside a popup stacks (see `lib/subject.ts` for how the stack is written into the
  * URL). Only the top of the stack is drawn; the one underneath is named in the back control.
+ *
+ * Three of the five kinds are one popup. A VRChat account, a Discord account and a Modbot account
+ * are three ways of naming the same human being, so all three open the person popup, which ties
+ * them together from whichever one the link named (one view per person design §3). They stay
+ * three values in the address because a link has to say which kind of id it carries.
  */
 export function SubjectPopup({ me }: { me: CurrentUser }) {
   const stack = useSubjects()
@@ -57,19 +61,21 @@ function Open({ top, me, lead }: { top: Subject; me: CurrentUser; lead: React.Re
         if (!open) closeSubject()
       }}
     >
-      {top.kind === 'person' && <PersonPopup id={top.id} me={me} lead={lead} />}
+      {isPerson(top) && <PersonPopup subject={top} me={me} lead={lead} />}
       {top.kind === 'world' && <WorldPopup id={top.id} me={me} lead={lead} />}
       {top.kind === 'instance' && <InstancePopup id={top.id} me={me} lead={lead} />}
-      {top.kind === 'discord-person' && <DiscordPersonPopup id={top.id} me={me} lead={lead} />}
     </Dialog>
   )
 }
 
+// All three ways of naming a human being read as "the person": they open the same popup, so
+// saying anything else in the back control would name a screen that does not exist.
 const KIND_WORD: Record<Subject['kind'], string> = {
   person: 'person',
   world: 'world',
   instance: 'instance',
-  'discord-person': 'Discord person',
+  'discord-person': 'person',
+  account: 'person',
 }
 
 function Back({ below, depth }: { below: Subject; depth: number }) {

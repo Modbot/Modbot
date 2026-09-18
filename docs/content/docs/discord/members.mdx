@@ -1,6 +1,6 @@
 ---
 title: Discord members
-description: The Discord server's member list, and the Discord person popup with a member's details, history, messages and activity.
+description: The Discord server's member list, and the person popup a member opens, with their details, history, messages and activity.
 ---
 
 The **Discord members** page lists the people in your Discord server, as the bot sees them. It sits
@@ -55,23 +55,22 @@ to the search box, and `g` then `d` opens this page from anywhere.
 | **Timed out until** | When a timeout ends, if they are timed out now. |
 | **VRChat** | The VRChat account they linked, if any. Click it to open that VRChat person's popup. Only shown to people with **See profiles**. |
 
-Click a row to open the Discord person popup.
+Click a row to open the person popup.
 
-## The Discord person popup
+## The person popup, from a Discord account
 
-The **Discord person** popup shows one Discord account. It opens from a row on **Discord members**,
-and from a Discord person's name anywhere else in Modbot: an audit log entry, **My Server**, or the
-**Discord** card in a VRChat person's popup.
+Clicking a Discord name opens the **Person** popup — the same popup a VRChat name opens. Where the
+two accounts are linked, it shows both, and their Modbot account too if they have one. See
+[Popups](/moderation/popups). Discord names are clickable everywhere in Modbot: an audit log entry,
+**My Server**, the **Discord** card in a person's popup.
 
-It is a separate popup from the VRChat person popup, even for someone who has linked. Each shows
-its own account's history and points to the other when there is a link. There is no case files tab,
-because case files are written for VRChat bans.
-
-The popup's subtitle is the Discord user id.
+The parts below are the Discord ones. There is no case files tab for somebody with no VRChat
+account, because case files are written for VRChat bans.
 
 ### Left side
 
-**Who they are in the server** (needs **See members**):
+**Who they are in the server** (needs **See members**), when there is no VRChat account to show
+instead:
 
 - picture, server name, Discord display name and `@username`;
 - marks: **In server** or **Left**, **Bot**, **Pending** (they have not passed the server's
@@ -80,26 +79,28 @@ The popup's subtitle is the Discord user id.
 If the bot never saw the person in the server, it says **Not seen in the server.** This happens for
 someone named in an event who was never a member.
 
-The dates and roles are on the **Overview** tab, under **Details**.
+The dates and roles are on the **Discord** tab, under **Details**.
 
-**VRChat** card (needs **See profiles**): the VRChat account they linked, with when they linked.
-Click the name to open the VRChat person popup. People with **Manage Discord links** see
-**Unlink** here (see [Unlinking](/discord/account-linking#unlinking)). The card is not shown when
-there is no link.
+**Discord** card (needs **See profiles**): the Discord account, and — when the two accounts proved
+a link — when they linked, the roles Modbot gave and, for people with **Manage Discord links**,
+**Unlink** (see [Unlinking](/discord/account-linking#unlinking)).
 
 ### Tabs
 
+These are the Discord tabs. The popup also has the VRChat and Modbot account ones when there is an
+account behind them; [Popups](/moderation/popups) lists them all.
+
 | Tab | Needs | What it shows |
 |---|---|---|
-| **Overview** | **See members** for the details, **See the audit log** for the entries, **See profiles** for the figures | **Details** (**Joined**, **Left**, **Timed out until** and **Boosting since** when they apply, and **Roles**), the main activity figures and the newest 8 events about this account. |
-| **Logs** | **See the audit log** or **See the operational log** | The latest 50 events about this account or done by it, newest first. You see the kinds of event your permissions allow in the [audit log](/moderation/audit-log). |
-| **History** | **See the audit log** | Joins, leaves, nickname changes, roles given and taken, bans, kicks, timeouts and account links, newest first. |
+| **Overview** | **See the audit log** for the entries, **See profiles** for the figures | The newest 8 events about any of this person's accounts. |
+| **Logs** | **See the audit log** or **See the operational log** | The latest 50 events about any of this person's accounts or done by them, newest first, each saying which account it came from. You see the kinds of event your permissions allow in the [audit log](/moderation/audit-log). |
+| **Discord** | **See members** | **Details** (**Joined**, **Left**, **Timed out until** and **Boosting since** when they apply, and **Roles**), then joins, leaves, nickname changes, roles given and taken, bans, kicks, timeouts and account links, newest first. |
 | **Messages** | **Read Discord messages** | Everything the person wrote that Modbot has stored, deleted messages included. See [Who can read messages](/discord/messages-and-my-server#who-can-read-messages). |
-| **Metrics** | **See profiles** | Their activity, below. |
+| **Metrics** | **See profiles** | Their activity, below, under **Time in world** if they have a VRChat account too. |
 | **JSON** | **See members** for the member record, **See profiles** for the activity counts | The stored records as the API answers them, with a copy button. |
 
-**Messages** and **Metrics** are hidden from people without their permission. **Logs** and
-**History** are always there, but only load for someone who can see the audit log.
+A tab is only there when there is an account behind it and you hold its permission. **Logs** is
+always there, but only loads for someone who can see the audit log.
 
 ### Metrics
 

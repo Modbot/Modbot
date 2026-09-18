@@ -327,6 +327,12 @@ public static class ApiSurface
         // queue and the record writer resolve optionally, like SyncDiagnostics does above.
         app.MapVRChatUsers();
 
+        // One person's VRChat, Discord and Modbot accounts, tied together from whichever one a
+        // link named, so the popup opens on the human being rather than on one of their accounts
+        // (one view per person design §3). Its own address under /api/people, because the list
+        // below answers a different question and the two were built at the same time.
+        app.MapPersonLookup();
+
         // One world and one instance, for the popup that opens when somebody clicks either (spec
         // 10.2). Read entirely from Modbot's own tables -- opening a popup costs no VRChat
         // budget, however often a moderator does it.

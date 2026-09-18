@@ -67,8 +67,21 @@ export function Panel({ title, children }: { title: string; children: React.Reac
  *
  * The same list on a person's popup and on an instance's, because they are the same thing seen through
  * two different filters, and a reader should not have to learn two layouts for it.
+ *
+ * `from` names the account a row was found under, for the one list that merges several — a
+ * person's VRChat account, their Discord account and their Modbot account are three histories in
+ * one timeline, and a row that does not say which one it came from would be claiming the merge
+ * proves more than it does (one view per person design §4).
  */
-export function FactList({ entries, empty }: { entries: AuditEntry[]; empty: string }) {
+export function FactList({
+  entries,
+  empty,
+  from,
+}: {
+  entries: AuditEntry[]
+  empty: string
+  from?: (entry: AuditEntry) => string | undefined
+}) {
   if (entries.length === 0) return <Note>{empty}</Note>
 
   return (
@@ -81,6 +94,7 @@ export function FactList({ entries, empty }: { entries: AuditEntry[]; empty: str
         >
           <div className="flex items-center gap-2">
             <SourceBadge source={entry.source} />
+            {from?.(entry) && <span className="text-muted-foreground">{from(entry)}</span>}
             <span className="flex-1" />
             <FactTime entry={entry} />
           </div>
