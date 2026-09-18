@@ -1,4 +1,5 @@
 using Modbot.VRChat;
+using Modbot.VRChat.Files;
 using Modbot.VRChat.Proxy;
 using Modbot.VRChat.RateLimiting;
 using Modbot.VRChat.Session;
@@ -126,6 +127,36 @@ public sealed class FakeVRChatGate : IVRChatGate
     {
         Forwarded.Add((endpoint, request, account));
         return Task.FromResult(Forward);
+    }
+
+    /// <summary>Every file address the code under test asked for, in order.</summary>
+    public List<Uri> Fetched { get; } = [];
+
+    /// <summary>
+    /// What <see cref="FetchFileAsync"/> answers. Defaults to "nothing configured", which is
+    /// also what a demo's gate says, so a test that scripts nothing is testing the miss.
+    /// </summary>
+    public VRChatFileResult Fetch { get; set; } =
+        VRChatFileResult.Problems(VRChatFileOutcome.NoSession, "No VRChat account is configured.");
+
+    /// <summary>Scripts one picture for every address asked for.</summary>
+    public FakeVRChatGate Serves(byte[] bytes, string contentType = "image/png")
+    {
+        Fetch = VRChatFileResult.Ok(new VRChatFile(bytes, contentType));
+        return this;
+    }
+
+    /// <summary>Scripts a refusal, so a test can check how the endpoint answers one.</summary>
+    public FakeVRChatGate Refuses(VRChatFileOutcome outcome, string problem = "No.")
+    {
+        Fetch = VRChatFileResult.Problems(outcome, problem);
+        return this;
+    }
+
+    public Task<VRChatFileResult> FetchFileAsync(Uri url, CancellationToken ct = default)
+    {
+        Fetched.Add(url);
+        return Task.FromResult(Fetch);
     }
 
     /// <summary>

@@ -400,6 +400,150 @@ public class VRChatUserProfileTests
         Assert.Contains("different account", fact.Data);
     }
 
+    /// <summary>
+    /// The profile carries the icon, the banner and the represented group of their own, and the
+    /// one picture a list would show is chosen by the shared rule -- here the icon, because
+    /// profilePicOverride left every VRChat call in API specification v1.21.0.
+    /// </summary>
+    [Fact]
+    public async Task TheProfileCarriesTheIconTheBannerAndTheRepresentedGroup()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        host.Clock.UtcNow = Day;
+        await SeedAsync(host, new VRChatUser
+        {
+            UserId = "usr_a",
+            DisplayName = "Trinity",
+            IconUrl = "https://api.vrchat.cloud/api/1/file/file_icon/1/file",
+            BannerUrl = "https://api.vrchat.cloud/api/1/file/file_banner/1/file",
+            CurrentAvatarThumbnailImageUrl = "https://api.vrchat.cloud/api/1/file/file_thumb/1/file",
+            RepresentedGroupId = "grp_a",
+            RepresentedGroupName = "The Black Cat",
+            RepresentedGroupIconUrl = "https://api.vrchat.cloud/api/1/file/file_group/1/file",
+            FirstSeenAt = Day.AddDays(-1),
+            LastSeenAt = Day,
+            LastRefreshedAt = Day,
+        }, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, ct);
+        var profile = await host.GetJsonAsync<VRChatUserProfile>("/api/vrchat-users/profile?id=usr_a", cookie, ct);
+
+        Assert.Equal("https://api.vrchat.cloud/api/1/file/file_icon/1/file", profile.IconUrl);
+        Assert.Equal("https://api.vrchat.cloud/api/1/file/file_banner/1/file", profile.BannerUrl);
+
+        // No override, so the icon is the best picture -- not the older avatar thumbnail.
+        Assert.Equal("https://api.vrchat.cloud/api/1/file/file_icon/1/file", profile.ProfilePictureUrl);
+
+        Assert.NotNull(profile.RepresentedGroup);
+        Assert.Equal("grp_a", profile.RepresentedGroup.GroupId);
+        Assert.Equal("The Black Cat", profile.RepresentedGroup.Name);
+
+        // VRChat's own address, unchanged: a program holding an API key wants the real one, and
+        // turning it into a Modbot address is the web app's job.
+        Assert.StartsWith("https://api.vrchat.cloud/", profile.IconUrl, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The history replays the three new fields under VRChat's own field names, so a version
+    /// shows the face, the banner and the group the person had at that moment.
+    /// </summary>
+    [Fact]
+    public async Task TheHistoryReplaysTheIconTheBannerAndTheRepresentedGroup()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        host.Clock.UtcNow = Day;
+        await SeedAsync(host, new VRChatUser
+        {
+            UserId = "usr_a",
+            DisplayName = "Trinity",
+            IconUrl = "https://api.vrchat.cloud/api/1/file/file_new/1/file",
+            BannerUrl = "https://api.vrchat.cloud/api/1/file/file_banner2/1/file",
+            RepresentedGroupId = "grp_b",
+            RepresentedGroupName = "The White Rabbit",
+            FirstSeenAt = Day.AddDays(-5),
+            LastSeenAt = Day,
+            LastRefreshedAt = Day,
+        }, ct);
+
+        await host.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.UserProfileFirstSeen,
+            OccurredAt = Day.AddDays(-5),
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = "usr_a",
+            Source = FactSource.SyncDiff,
+            Data = new JsonObject { ["baseline"] = new JsonObject { ["displayName"] = "Trinity" } },
+        }, ct);
+
+        await host.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.UserProfileChanged,
+            OccurredAt = Day.AddDays(-1),
+            OccurredBefore = Day,
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = "usr_a",
+            Source = FactSource.SyncDiff,
+            Data = new JsonObject
+            {
+                ["changed"] = new JsonObject
+                {
+                    ["iconUrl"] = new JsonObject
+                    {
+                        ["old"] = "https://api.vrchat.cloud/api/1/file/file_old/1/file",
+                        ["new"] = "https://api.vrchat.cloud/api/1/file/file_new/1/file",
+                    },
+                    ["bannerUrl"] = new JsonObject
+                    {
+                        ["old"] = null,
+                        ["new"] = "https://api.vrchat.cloud/api/1/file/file_banner2/1/file",
+                    },
+
+                    // The whole group under one key, so a version can name both groups rather
+                    // than leave a moderator reading two ids.
+                    ["representedGroup"] = new JsonObject
+                    {
+                        ["old"] = new JsonObject
+                        {
+                            ["groupId"] = "grp_a",
+                            ["name"] = "The Black Cat",
+                            ["iconUrl"] = null,
+                        },
+                        ["new"] = new JsonObject
+                        {
+                            ["groupId"] = "grp_b",
+                            ["name"] = "The White Rabbit",
+                            ["iconUrl"] = null,
+                        },
+                    },
+                },
+            },
+        }, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, ct);
+        var history = await host.GetJsonAsync<ProfileHistory>("/api/vrchat-users/history?id=usr_a", cookie, ct);
+
+        var now = history.Versions[0];
+        Assert.Equal(["bannerUrl", "iconUrl", "representedGroup"], now.Changed.Order());
+        Assert.Equal("https://api.vrchat.cloud/api/1/file/file_new/1/file", now.Profile.IconUrl);
+        Assert.Equal("The White Rabbit", now.Profile.RepresentedGroup!.Name);
+
+        // And as it stood before that change: the old icon, no banner, the old group.
+        var before = history.Versions[1];
+        Assert.Equal("https://api.vrchat.cloud/api/1/file/file_old/1/file", before.Profile.IconUrl);
+        Assert.Null(before.Profile.BannerUrl);
+        Assert.Equal("grp_a", before.Profile.RepresentedGroup!.GroupId);
+
+        // With no override stored, the best picture at each moment is that moment's icon.
+        Assert.Equal(now.Profile.IconUrl, now.Profile.ProfilePictureUrl);
+        Assert.Equal(before.Profile.IconUrl, before.Profile.ProfilePictureUrl);
+    }
+
     [Fact]
     public async Task SyncHealth_CarriesTheProfileSyncsNumbers()
     {
