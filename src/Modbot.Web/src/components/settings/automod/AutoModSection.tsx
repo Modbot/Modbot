@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select } from '@/components/ui/select'
 import { ago } from '@/lib/format'
 import {
   actionLabel,
@@ -622,10 +623,9 @@ function TryCard({ aiEnabled }: { aiEnabled: boolean }) {
     >
       <LongField label="Text" value={text} placeholder="" rows={3} onChange={setText} />
       <div className="flex flex-wrap items-center gap-4" style={{ fontSize: 'var(--text-small)' }}>
-        <select
+        <Select
           value={target}
-          onChange={(e) => setTarget(e.target.value as ModerationTarget)}
-          className="h-8 rounded-md border border-input bg-transparent px-2 text-foreground"
+          onChange={(t) => setTarget(t as ModerationTarget)}
           aria-label="Checks"
         >
           {TARGETS.map((t) => (
@@ -633,7 +633,7 @@ function TryCard({ aiEnabled }: { aiEnabled: boolean }) {
               {t.label}
             </option>
           ))}
-        </select>
+        </Select>
         {aiEnabled && (
           <Checkbox checked={includeAi} onChange={setIncludeAi}>
             Include AI topics

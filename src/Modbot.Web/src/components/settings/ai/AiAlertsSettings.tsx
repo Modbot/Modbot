@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { Button } from '@/components/ui/button'
+import { Select } from '@/components/ui/select'
 import {
   api,
   ApiError,
@@ -183,29 +184,5 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
         </div>
       </SettingsCard>
     </>
-  )
-}
-
-function Select({
-  value,
-  onChange,
-  children,
-  ...rest
-}: {
-  value: string
-  onChange: (value: string) => void
-  children: React.ReactNode
-  'aria-label': string
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-8 rounded-md border border-input bg-transparent px-2 text-foreground"
-      style={{ fontSize: 'var(--text-small)' }}
-      {...rest}
-    >
-      {children}
-    </select>
   )
 }

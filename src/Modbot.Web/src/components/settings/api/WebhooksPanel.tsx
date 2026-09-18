@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Select } from '@/components/ui/select'
 import {
   api,
   type EventTypeOption,
@@ -290,12 +291,11 @@ function WebhookForm({
       <Field label="Address" value={url} placeholder="https://example.com/modbot" onChange={setUrl} />
       <LongField label="Event types" value={eventTypes} placeholder="vrchat.group.member.*" rows={4} onChange={setEventTypes} />
       {types.length > 0 && (
-        <select
-          className="h-8 w-full rounded-md border bg-transparent px-2"
-          style={{ fontSize: 'var(--text-small)' }}
+        <Select
+          className="w-full"
           value=""
           aria-label="Add an event type"
-          onChange={(e) => e.target.value && addType(e.target.value)}
+          onChange={(type) => type && addType(type)}
         >
           <option value="">Add an event type…</option>
           {types.map((t) => (
@@ -303,7 +303,7 @@ function WebhookForm({
               {t.label} ({t.type})
             </option>
           ))}
-        </select>
+        </Select>
       )}
       <LongField label="Subjects" value={subjects} placeholder="usr_…" rows={2} onChange={setSubjects} />
       <Switch checked={enabled} onChange={setEnabled}>
