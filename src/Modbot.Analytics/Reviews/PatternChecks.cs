@@ -90,6 +90,10 @@ internal static class PatternChecks
                   AND e.actor_id <> e.subject_id
                   AND e.occurred_at > @windowStart AND e.occurred_at <= @now
                   AND (c.through IS NULL OR e.occurred_at > c.through)
+                  -- One decision, one action. A ban that also kicked the person out of the
+                  -- instance they were standing in must not read as a moderator acting twice
+                  -- (spec 5.3.2) -- this check is the one where that would be an accusation.
+                  AND NOT EXISTS (SELECT 1 FROM modbot_linked_fact l WHERE l.fact_id = e.id)
                   {actorFilter}
             ),
             pairs AS (

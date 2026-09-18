@@ -41,6 +41,7 @@ internal static class RepeatOffenderCounter
         var parameters = new List<(string, object?)>
         {
             ("types", ActionsOnPeople.Types.Append(FactType.MemberUnbanned).ToArray()),
+            ("counted", thresholds.CountedTypes.ToArray()),
             ("kick", FactType.GroupInstanceKick),
             ("warn", FactType.GroupInstanceWarn),
             ("ban", FactType.MemberBanned),
@@ -69,12 +70,23 @@ internal static class RepeatOffenderCounter
         // "Next change": the earliest action still inside a window is the next to fall out of
         // it, thirty or ninety days after it happened. Facts with no actor still count as actions
         // (VRChat does not always name one) but cannot count as anybody's.
+        //
+        // Facts that are a second record of a decision already counted are left out here, once,
+        // rather than in each column (spec 5.3.2). A ban that also kicked the person out of the
+        // instance they were in is one decision by one moderator; counting it as a ban and a kick
+        // would put a person over the operator's threshold at half the decisions they set, and
+        // would make the columns on the page not add up to the actions beside them.
+        //
+        // Which kinds count towards the status is the operator's to set; which kinds are shown in
+        // their own column is not, because those columns are the record of what happened.
         var sql = $"""
             WITH acts AS (
                 SELECT e.subject_platform, e.subject_id, e.type, e.actor_id, e.occurred_at, e.id,
-                       (e.type <> @unban) AS is_action
+                       (e.type = ANY(@counted)) AS is_action
                 FROM modbot_event e
-                WHERE e.type = ANY(@types) {filter}
+                WHERE e.type = ANY(@types)
+                  AND NOT EXISTS (SELECT 1 FROM modbot_linked_fact l WHERE l.fact_id = e.id)
+                  {filter}
             ),
             per AS (
                 SELECT subject_platform, subject_id,
