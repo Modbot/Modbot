@@ -210,7 +210,7 @@ public sealed class GiveawayDiscordPublisher
 
         var state = StateOf(giveaway);
         var link = Link(pass.PublicAddress, giveaway);
-        var embed = GiveawayCard.For(giveaway, state, entryCount, winners, roleNames, link);
+        var embed = GiveawayCard.For(giveaway, state, entryCount, winners, roleNames, link, pass.Now);
         var links = GiveawayCard.Links(link);
 
         var fingerprint = CalendarFingerprint.Of(

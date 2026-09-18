@@ -161,9 +161,13 @@ public sealed class GiveawayReactions
         var giveaway = await _db.Giveaways
             .FirstOrDefaultAsync(g => g.Id == post.GiveawayId && g.DeletedAt == null, ct);
 
+        // Open, and open *yet*: a giveaway posted on Monday for entries that start on Friday is a
+        // thing people do, and the card says so rather than taking a reaction that counts for
+        // nothing (giveaways design §3.1).
         if (giveaway is null
             || giveaway.State != GiveawayStates.Open
-            || giveaway.EntryWay != GiveawayEntryWays.React)
+            || giveaway.EntryWay != GiveawayEntryWays.React
+            || _clock.UtcNow < giveaway.OpensAt)
         {
             return null;
         }

@@ -119,6 +119,20 @@ public class GiveawayCardTests
         Assert.DoesNotContain(card.Fields, f => f.Name == "Entries");
     }
 
+    /// <summary>
+    /// §3.1: a giveaway posted on Monday for entries that open on Friday says when it opens,
+    /// rather than inviting a reaction that would count for nothing.
+    /// </summary>
+    [Fact]
+    public void ACardPostedBeforeEntriesOpenSaysWhenTheyDo()
+    {
+        var giveaway = Giveaway(g => g.OpensAt = Now.AddDays(2));
+
+        var card = GiveawayCard.For(giveaway, GiveawayCardState.Open, 0, [], now: Now);
+
+        Assert.StartsWith("Opens ", Field(card, "How to enter"), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void ADrawnCardNamesTheWinners()
     {

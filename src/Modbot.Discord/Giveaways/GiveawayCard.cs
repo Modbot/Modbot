@@ -49,13 +49,18 @@ public static class GiveawayCard
     /// <summary>How many rule lines fit in a field before the rest are summed up.</summary>
     public const int MaxRuleLines = 12;
 
+    /// <param name="now">
+    /// So the card can say "Opens" rather than "React with" for a giveaway that has been posted and
+    /// whose entries have not started yet. Null reads as already open.
+    /// </param>
     public static DiscordEmbedContent For(
         Giveaway giveaway,
         GiveawayCardState state,
         int entryCount,
         IReadOnlyList<GiveawayEntrant> winners,
         IReadOnlyDictionary<string, string>? roleNames = null,
-        string? link = null)
+        string? link = null,
+        DateTimeOffset? now = null)
     {
         ArgumentNullException.ThrowIfNull(giveaway);
         ArgumentNullException.ThrowIfNull(winners);
@@ -73,7 +78,7 @@ public static class GiveawayCard
             $"{Stamp(giveaway.ClosesAt, "F")} ({Stamp(giveaway.ClosesAt, "R")})",
             Inline: false));
 
-        fields.Add(new DiscordEmbedField("How to enter", HowToEnter(giveaway, state), Inline: true));
+        fields.Add(new DiscordEmbedField("How to enter", HowToEnter(giveaway, state, now), Inline: true));
         fields.Add(new DiscordEmbedField(
             "Winners", giveaway.WinnerCount.ToString(CultureInfo.InvariantCulture), Inline: true));
 
@@ -153,11 +158,12 @@ public static class GiveawayCard
     public static IReadOnlyList<DiscordLinkButton> Links(string? link) =>
         link is { Length: > 0 } ? [new DiscordLinkButton("Details", link)] : [];
 
-    private static string HowToEnter(Giveaway giveaway, GiveawayCardState state) => state switch
+    private static string HowToEnter(Giveaway giveaway, GiveawayCardState state, DateTimeOffset? now) => state switch
     {
         GiveawayCardState.Cancelled => "Cancelled",
         GiveawayCardState.Drawn => "Drawn",
         GiveawayCardState.Closed => "Closed",
+        _ when now is { } at && at < giveaway.OpensAt => $"Opens {Stamp(giveaway.OpensAt, "R")}",
         _ => giveaway.EntryWay == GiveawayEntryWays.React
             ? $"React with {giveaway.Emoji}"
             : "Nothing — everyone who matches is in",

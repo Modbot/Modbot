@@ -204,6 +204,23 @@ public class GiveawayReactionTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task AReactionBeforeEntriesOpenIsNotAnEntry()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var giveaway = await AddGiveawayAsync(services);
+
+        await using (var context = services.Database.NewContext())
+        {
+            var row = await context.Giveaways.SingleAsync(g => g.Id == giveaway.Id, Ct);
+            row.OpensAt = services.Clock.UtcNow.AddDays(2);
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Assert.False(await AddedAsync(services, Reaction()));
+        Assert.Null(await EntryAsync(services, giveaway.Id));
+    }
+
+    [Fact]
     public async Task AReactionAfterItClosesIsNotAnEntry()
     {
         await using var services = await TestServices.CreateAsync(db, Ct);
