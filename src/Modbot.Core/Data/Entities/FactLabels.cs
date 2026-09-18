@@ -183,6 +183,7 @@ public static class FactLabels
         [FactType.ChatLookup] = "Asked about in chat",
         [FactType.UserPurged] = "User data purged",
         [FactType.NoteAdded] = "Note added",
+        [FactType.NoteTakenBack] = "Note taken back",
         [FactType.ImportDone] = "Import finished",
         [FactType.Unrecognised] = "Event Modbot has no name for yet",
 

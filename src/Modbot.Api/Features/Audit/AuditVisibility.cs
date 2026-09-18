@@ -252,9 +252,12 @@ public static class AuditVisibility
         // for Modbot's internal events, and this is not one of those.
         [FactType.Unrecognised] = AuditCategory.Moderation,
 
-        // A note is moderation history about the person it was written about. An import
-        // finishing is the operator's business, like a settings change (import design §3.3).
+        // A note is moderation history about the person it was written about, and so is the
+        // record that one was taken back -- a note that was written and withdrawn is a different
+        // thing from one nobody ever wrote (notes design §3.2). An import finishing is the
+        // operator's business, like a settings change (import design §3.3).
         [FactType.NoteAdded] = AuditCategory.Moderation,
+        [FactType.NoteTakenBack] = AuditCategory.Moderation,
         [FactType.ImportDone] = AuditCategory.Operational,
 
         // Giveaways: a Modbot feature Modbot runs itself, gated by its own ViewGiveaways and

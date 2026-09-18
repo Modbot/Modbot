@@ -599,10 +599,29 @@ public static class FactType
     public const string UserPurged = "modbot.user.purged";
 
     /// <summary>
-    /// A written note about a person (import design §3.3). Subject is the person; the actor is
-    /// whoever wrote it. Payload: whatever the note said, under <c>data</c>.
+    /// A written note about a person (import design §3.3, notes design §3). Subject is the person;
+    /// the actor is whoever wrote it. Payload: the note's text under <c>text</c>, and the same text
+    /// as <c>description</c> so every reader of a timeline already knows where to find it.
     /// </summary>
+    /// <remarks>
+    /// The importer wrote these before Modbot could, and it still does. A note written here and a
+    /// note carried in from another system are the same fact, which is what lets one list show both
+    /// without knowing which is which.
+    /// </remarks>
     public const string NoteAdded = "modbot.note.add";
+
+    /// <summary>
+    /// A note was taken back: it stops being shown as one of this person's notes, and both facts
+    /// stay in the log (notes design §3.2).
+    /// </summary>
+    /// <remarks>
+    /// Not a deletion, and not an edit. The fact log is append-only (M4 §10), so the way to undo
+    /// something here is the way a ban is undone — another fact that says so. Subject is the person
+    /// the note was about, so the take-back sits beside the note in their timeline; the actor is
+    /// whoever took it back. Payload: <c>noteFactId</c>, and the note's text again, so the log
+    /// still answers "what did it say" from one entry.
+    /// </remarks>
+    public const string NoteTakenBack = "modbot.note.take-back";
 
     /// <summary>
     /// An import of old data finished (import design §4.4). Subject is the import id; the actor
