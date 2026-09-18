@@ -527,6 +527,33 @@ public sealed class DiscordNetGateway : IDiscordGateway
         }
     }
 
+    public async Task<IReadOnlyList<string>?> ReadBansAsync(string guildId, CancellationToken ct)
+    {
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            || _client.GetGuild(id) is not { } guild)
+        {
+            return null;
+        }
+
+        try
+        {
+            var banned = new List<string>();
+
+            await foreach (var page in guild.GetBansAsync(options: new RequestOptions { CancelToken = ct })
+                               .WithCancellation(ct).ConfigureAwait(false))
+            {
+                banned.AddRange(page.Select(b => Text(b.User.Id)));
+            }
+
+            return banned;
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not read the Discord server's ban list");
+            return null;
+        }
+    }
+
     /// <summary>
     /// One ban or unban, by ids, against the server the session already holds.
     /// </summary>

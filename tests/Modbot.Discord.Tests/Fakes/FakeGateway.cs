@@ -117,6 +117,12 @@ public sealed class FakeGateway : IDiscordGateway
     public Task<DiscordModerationOutcome> RemoveAsync(string guildId, string userId, string reason, CancellationToken ct)
         => ModerationAsync("remove", guildId, userId, reason);
 
+    /// <summary>Who the Discord server has banned. Null makes the ban list unreadable.</summary>
+    public List<string>? Banned { get; set; } = [];
+
+    public Task<IReadOnlyList<string>?> ReadBansAsync(string guildId, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<string>?>(Banned);
+
     private Task<DiscordModerationOutcome> ModerationAsync(string action, string guildId, string userId, string reason)
     {
         if (ModerationRefused is { } refused)

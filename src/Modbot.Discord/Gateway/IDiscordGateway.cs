@@ -565,6 +565,16 @@ public interface IDiscordGateway : IAsyncDisposable
     Task<DiscordModerationOutcome> UnbanAsync(string guildId, string userId, string reason, CancellationToken ct);
 
     /// <summary>
+    /// Everybody the server has banned, by id. Null when the bot may not read the ban list.
+    /// </summary>
+    /// <remarks>
+    /// Read only when somebody asks what the first run of ban sync would do (M5 §7). A settled
+    /// deployment never calls it: bans arrive as events after that. Needs Ban Members, and pages
+    /// a thousand at a time.
+    /// </remarks>
+    Task<IReadOnlyList<string>?> ReadBansAsync(string guildId, CancellationToken ct);
+
+    /// <summary>
     /// Removes somebody from the server without banning them. Needs Kick Members. Somebody who is
     /// not in the server counts as nothing to do: they are already out.
     /// </summary>

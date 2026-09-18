@@ -50,6 +50,20 @@ public class DiscordRolePair
     /// <summary>The Discord role's id. Text, never parsed.</summary>
     public string DiscordRoleId { get; set; } = string.Empty;
 
+    /// <summary>
+    /// What each role was called when the pair was last saved.
+    /// </summary>
+    /// <remarks>
+    /// Kept on the row so that a fact about a role change can say "Staff" instead of
+    /// <c>grol_9f3c…</c> years later, the same reason the group's own role list is recorded. The
+    /// live names are shown from each platform's role list; these are the ones written into
+    /// history.
+    /// </remarks>
+    public string? VRChatRoleName { get; set; }
+
+    /// <inheritdoc cref="VRChatRoleName"/>
+    public string? DiscordRoleName { get; set; }
+
     /// <summary>One of <see cref="RoleSyncDecides"/>.</summary>
     public string Decides { get; set; } = RoleSyncDecides.Nobody;
 
