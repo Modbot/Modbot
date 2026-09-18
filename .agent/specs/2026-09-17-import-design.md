@@ -21,8 +21,11 @@ any of that. Until now the only way in was to write facts by hand.
 
 This adds one door: **an upload of plain JSON records**, each of which becomes one fact in the
 same log everything else is written to. Imported facts sit in the audit log, in a person's
-history, in daily totals and in retention beside everything Modbot recorded itself, marked with a
-source of their own so nobody mistakes them for something Modbot saw happen.
+history, in daily totals and in retention beside everything Modbot recorded itself, each filed
+under the source it really came from (§5) and each naming the import that wrote it (§5.2).
+
+There is no screen for it (§9). An import is done with an API key holding **Import old data**
+(§4).
 
 ## 2. The file
 
@@ -39,6 +42,7 @@ One record:
   "subject": { "platform": "vrchat", "id": "usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469" },
   "actor": { "platform": "vrchat", "id": "usr_9a2b…", "name": "Alice" },
   "externalId": "ban-1042",
+  "seenBy": "AuditLog",
   "data": { "reason": "Harassment in the Friday event" }
 }
 ```
@@ -50,16 +54,23 @@ One record:
 | `subject` | yes | Who or what it happened to: `platform` is `vrchat` or `discord` (any case), `id` is that platform's id for them. Never validated for shape (foundation §3.1.1). For an entry about the group itself rather than a person, the group's id is the subject. |
 | `actor` | no | Who did it: `platform`, `id`, and an optional `name`. The name is kept in the fact's data as `actorDisplayName`, the way VRChat's own audit entries carry one. |
 | `externalId` | no | The old platform's own id for this record. Used for idempotency (§6). At most 200 characters. |
+| `seenBy` | no | Which of Modbot's sources this record is filed under (§5). One of `AuditLog`, `SyncDiff`, `Client`, `Discord`, `Manual` or `Modbot`, any case. Falls back to the upload's `seenBy`, then to `Manual`. |
 | `data` | no | Anything else worth keeping, as an object. Stored as the fact's payload. Nothing in it is interpreted. |
 
-Anything else at the top level of a record is ignored. The upload as a whole carries a **source
-label** (§4.1): the name of the platform the file came from, such as `vrcx` or `old-bot`.
+Anything else at the top level of a record is ignored.
+
+Two words that are easy to run together, and are not the same thing:
+
+- the upload's **source label** (§4.1), the name of the platform the file came from, such as
+  `vrcx` or `old-bot`. It scopes the idempotency key (§6) and is kept on every fact as
+  `importSource`;
+- a record's **`seenBy`** (§5), which of Modbot's own sources the fact is filed under.
 
 Every fact written from a record has:
 
 - `occurred_at` = `at`, exact (`occurred_before` null);
 - `observed_at` = now, from `IModbotClock`, like every other fact;
-- `source` = `Import` (§5);
+- `source` = the record's `seenBy` (§5);
 - `data` = the record's `data`, plus `importId`, `importSource`, `externalId` when given, and
   `actorDisplayName` when the actor had a name.
 
@@ -141,6 +152,7 @@ Starts an import. Two body shapes:
 | Parameter | |
 |---|---|
 | `source` | Required. 1–64 characters. The source label every record is filed under (§6). |
+| `seenBy` | Optional. The Modbot source every record carries unless the record sets its own (§5). `Manual` when nothing says otherwise; anything that is not a source name is `400`. |
 | `dryRun` | `true` to validate and count without writing anything (§4.3). |
 | `fileName` | Optional, shown in the list of past imports. |
 
@@ -154,7 +166,7 @@ One import, or the latest fifty, newest first:
 
 | Field | |
 |---|---|
-| `id`, `source`, `fileName`, `dryRun` | As uploaded. |
+| `id`, `source`, `fileName`, `dryRun`, `seenBy` | As uploaded. |
 | `status` | `Queued`, `Running`, `Done` or `Failed`. |
 | `received` | Records read from the file so far, well-formed or not. |
 | `imported` | Facts written. For a dry run, facts that would be written. |
@@ -180,26 +192,66 @@ uploaded it, and the payload carries `source`, `fileName`, `status`, `received`,
 `skipped` and `rejected`. One entry, not one per record: the imported facts themselves already
 say what came in.
 
-## 5. The `Import` source
+## 5. What source an imported fact carries
 
-`FactSource.Import = 7`. Appended, never renumbered. It says: *a person uploaded this from
-somewhere else; Modbot did not see it happen.* That is a different confidence from `AuditLog`
-and a different one again from `SyncDiff`, and the timestamp is whatever the old platform said.
+A record names the source it is filed under with **`seenBy`**, and the upload sets the default
+for the file with a `seenBy` of its own. Any member of `FactSource` may be chosen except
+`Import` — `AuditLog`, `SyncDiff`, `Client`, `Discord`, `Manual`, `Modbot` — matched without
+regard to case. When neither the record nor the upload says anything, it is **`Manual`**.
 
-Where sources are listed, `Import` is listed:
+`Manual` is the default because it is the honest description of an unlabelled import: a person
+put this in, by hand, from somewhere else. It is what `Manual` already means, and it claims
+nothing about a system having seen the event.
 
-- the audit log's **Source** filter, and its default. The default is **VRChat · Discord ·
-  Client · Import**, with Sync still off. Old data is what somebody imported on purpose; hiding
-  it by default would be hiding the reason they uploaded it.
-- the source badge on every fact row (label **Import**);
-- `GET /api/audit/filters`, which reflects over the enum and needs no change;
-- the event stream's `source` field.
+A record naming a source Modbot does not have is a **rejection** with its line number, like any
+other malformed field; an upload-level `seenBy` that is not a source is a `400` before anything
+is queued. This is the one place in the format that is checked against a list, and it is checked
+because the value goes into a column every reader interprets — unlike `kind`, which is kept as it
+is when Modbot has no word for it (§3.2), because the raw kind stays readable and a wrong source
+does not.
 
-The client-report deduplication window (`FactDeduplication.AppliesTo`) stays `Client` only:
-imports have their own idempotency (§6), which is exact rather than a window. The writer's
-held-roles enrichment is skipped for `Import` as it is for `Client`: roles at a date years ago are
-not something the recorded role changes can answer, and it is a query per record on a path that
-runs for thousands.
+### 5.1 Why `Import` stopped being one of them
+
+`FactSource.Import = 7` used to be stamped on every imported fact. It said *a person uploaded
+this from somewhere else.* That answers the wrong question. The source column answers **who says
+so** — every reader treats it that way: the audit log's Source chips, the badge on a row, the
+confidence a timestamp carries. "Somebody uploaded a file" answers *how did this get here*
+instead, and putting it in that column hid the real answer. A ban a group carried over from
+VRChat's own group audit log is a ban VRChat recorded; who moved the file is not the interesting
+part of it.
+
+It also cost the group the freedom to say what it knows. A file can hold VRChat audit entries,
+Discord moderation, notes a person typed into a spreadsheet and inferences from an old tool's
+sync, and all four arrived under one word. Mapping each record onto the source it really came
+from is what makes an imported history sit in the merged timeline as history rather than as a
+block of "imported stuff".
+
+**The enum member stays, and is never renumbered or removed.** Rows written before this change
+carry the number 7, and a member deleted out of an enum whose values are in the database is a
+silent misreading of every one of them. It also stays listed wherever sources are listed — the
+audit log's **Source** filter and its default, the source badge (label **Import**),
+`GET /api/audit/filters`, the event stream — so those rows stay findable and keep rendering. It
+is simply never written again, and it is refused as a `seenBy` with an error that says what to
+pick instead.
+
+### 5.2 Where an imported fact says it was imported
+
+In its own payload, and in `import_record` (§7) — not in its source. Every fact an import writes
+carries:
+
+- `importId` — the import that wrote it;
+- `importSource` — the upload's source label, the platform the file came from;
+- `externalId` — the old platform's own id, when the record had one.
+
+That is what keeps *"where did this claim come from"* answerable for a fact whose source now says
+`AuditLog`, and it is where the answer belonged all along: it is a property of the individual
+fact, not of the category of facts it belongs to. `import_record` holds the other direction, key
+to fact id, which is what a person looking at an import row would follow.
+
+`importId` is also how `FactWriter` recognises an imported fact now that its source no longer
+does. The writer's held-roles enrichment is skipped for one, as it is for a client report: roles
+at a date years ago are not something the recorded role changes can answer, and it is a query per
+record on a path that runs for thousands.
 
 ## 6. Idempotency
 
@@ -208,7 +260,9 @@ Uploading the same file twice writes nothing the second time. The rule:
 - a record with an `externalId` is keyed `id:` + the externalId;
 - a record without one is keyed `hash:` + the SHA-256 of its canonical form: `kind`, `at` in
   UTC, subject platform and id, actor platform and id, and `data` with its keys sorted at every
-  level, joined in that order;
+  level, joined in that order. `seenBy` is deliberately not in it: it says how Modbot files
+  the record, not what happened, so re-uploading a file with the mapping corrected must not
+  import every record a second time under the new source;
 - the key is scoped to the upload's **source label**. `ban-1042` from `old-bot` and `ban-1042`
   from `spreadsheet` are two records.
 
@@ -226,6 +280,7 @@ import                              -- one row per upload
   source             varchar(64)
   file_name          varchar(256)   null
   dry_run            boolean
+  seen_by            smallint       -- the file's default source (§5); 7 on rows from before
   status             smallint       -- Queued 1 | Running 2 | Done 3 | Failed 4
   received, imported, skipped, rejected   integer
   rejections         jsonb          -- [{ line, reason }], at most fifty

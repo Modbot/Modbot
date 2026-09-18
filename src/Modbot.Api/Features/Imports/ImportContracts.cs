@@ -9,6 +9,9 @@ namespace Modbot.Api.Features.Imports;
 public sealed record ImportRejection(int Line, string Reason);
 
 /// <summary>One import as the list and the progress endpoint show it (import design §4.2).</summary>
+/// <param name="SeenBy">
+/// The source records are filed under unless a record names its own (import design §5).
+/// </param>
 /// <param name="Status"><c>Queued</c>, <c>Running</c>, <c>Done</c> or <c>Failed</c>.</param>
 /// <param name="Received">Records read from the file so far, well-formed or not.</param>
 /// <param name="Imported">Facts written. For a dry run, facts that would have been.</param>
@@ -20,6 +23,7 @@ public sealed record ImportView(
     string Source,
     string? FileName,
     bool DryRun,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<FactSource>))] FactSource SeenBy,
     [property: JsonConverter(typeof(JsonStringEnumConverter<ImportStatus>))] ImportStatus Status,
     int Received,
     int Imported,
@@ -53,6 +57,7 @@ public sealed record ImportView(
             import.Source,
             import.FileName,
             import.DryRun,
+            import.SeenBy,
             import.Status,
             import.Received,
             import.Imported,

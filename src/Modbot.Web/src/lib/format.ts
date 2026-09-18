@@ -12,6 +12,8 @@ const SOURCE_LABEL: Record<string, string> = {
   Discord: 'Discord',
   Manual: 'Manual',
   Modbot: 'Modbot',
+  // Legacy: imported records carry the source they really came from now (import design §5.1).
+  // Kept because rows written before that still hold it.
   Import: 'Import',
 }
 

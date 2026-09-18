@@ -154,7 +154,7 @@ public sealed class ImportRunner
         {
             progress.Received++;
 
-            if (ImportFile.TryParse(item, now, out var record, out var reason))
+            if (ImportFile.TryParse(item, now, import.SeenBy, out var record, out var reason))
                 records.Add(record!);
             else
                 progress.Reject(item.Line, reason ?? "Not a record.");
@@ -229,12 +229,15 @@ public sealed class ImportRunner
 
     private static FactRecord ToFact(Import import, ParsedRecord record)
     {
+        // How the fact got here, which its source no longer says (import design §5.1). Written
+        // whatever source the record carries, so "where did this claim come from" stays
+        // answerable for a fact filed under VRChat's audit log.
         var data = record.Data;
-        data["importId"] = import.Id.ToString();
-        data["importSource"] = import.Source;
+        data[ImportedFact.ImportIdKey] = import.Id.ToString();
+        data[ImportedFact.SourceKey] = import.Source;
 
         if (record.ExternalId is not null)
-            data["externalId"] = record.ExternalId;
+            data[ImportedFact.ExternalIdKey] = record.ExternalId;
 
         if (record.ActorName is not null && !data.ContainsKey("actorDisplayName"))
             data["actorDisplayName"] = record.ActorName;
@@ -248,7 +251,7 @@ public sealed class ImportRunner
             SubjectId = record.SubjectId,
             ActorPlatform = record.ActorPlatform,
             ActorId = record.ActorId,
-            Source = FactSource.Import,
+            Source = record.Source,
             Data = data,
         };
     }

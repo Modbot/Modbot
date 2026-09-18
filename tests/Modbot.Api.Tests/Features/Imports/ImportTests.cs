@@ -90,7 +90,10 @@ public class ImportTests
         foreach (var (_, (_, id, type)) in expected)
         {
             var fact = Assert.Single(await host.FactsAsync(type, id, Ct));
-            Assert.Equal(FactSource.Import, fact.Source);
+
+            // Nothing said where these came from, so they are what an unlabelled import is: a
+            // person put them in by hand, from elsewhere.
+            Assert.Equal(FactSource.Manual, fact.Source);
             Assert.Equal(FactPlatform.VRChat, fact.SubjectPlatform);
             Assert.Null(fact.TypeRaw);
             Assert.Equal(source, ApiTestHost.DataOf(fact).GetProperty("importSource").GetString());
@@ -99,7 +102,7 @@ public class ImportTests
         foreach (var (_, type) in discordExpected)
         {
             var fact = Assert.Single(await host.FactsAsync(type, discord, Ct));
-            Assert.Equal(FactSource.Import, fact.Source);
+            Assert.Equal(FactSource.Manual, fact.Source);
             Assert.Equal(FactPlatform.Discord, fact.SubjectPlatform);
         }
     }
@@ -428,6 +431,7 @@ public class ImportTests
         var form = new MultipartFormDataContent
         {
             { new StringContent(source), "source" },
+            { new StringContent("AuditLog"), "seenBy" },
             { new StringContent("false"), "dryRun" },
         };
         var file = new ByteArrayContent(Encoding.UTF8.GetBytes(body));
@@ -446,15 +450,16 @@ public class ImportTests
 
         var done = await FinishedAsync(host, cookie, id);
         Assert.Equal(1, done.GetProperty("imported").GetInt32());
+        Assert.Equal("AuditLog", done.GetProperty("seenBy").GetString());
 
         var list = await ApiTestHost.BodyOf(await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Path, cookie), Ct), Ct);
         Assert.Contains(list.GetProperty("imports").EnumerateArray(), i => i.GetProperty("id").GetString() == id);
 
-        // In the audit log, filtered to the Import source.
+        // In the audit log, under the source the upload chose rather than one of its own.
         var audit = await ApiTestHost.BodyOf(
-            await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, $"/api/audit/?source=Import&subject={subject}", cookie), Ct), Ct);
+            await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, $"/api/audit/?source=AuditLog&subject={subject}", cookie), Ct), Ct);
         var row = Assert.Single(audit.GetProperty("entries").EnumerateArray());
-        Assert.Equal("Import", row.GetProperty("source").GetString());
+        Assert.Equal("AuditLog", row.GetProperty("source").GetString());
     }
 
     private static object Record(string kind, string at, string platform, string id)

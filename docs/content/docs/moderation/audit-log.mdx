@@ -83,7 +83,7 @@ The sources:
 | **Discord** | Seen by the Discord bot. |
 | **Manual** | Entered by a person through Modbot, such as a case file or a change to the 18+ verified mark. |
 | **Modbot** | Something that happened inside Modbot, such as a sign-in or a settings change. |
-| **Import** | Uploaded from an older platform's records. Modbot did not see it happen; the time is what the old platform said. See [Importing old data](/self-hosting/importing-old-data). |
+| **Import** | Older rows only. Imported records used to carry this; each one now carries the source it really came from. See [Importing old data](/self-hosting/importing-old-data). |
 
 ## Filtering
 
@@ -93,7 +93,8 @@ the middle word to switch between **is** and **is not**; click the values to cha
 **×** to remove the chip. Chips combine: an entry must match every one. **Clear** removes them all.
 
 By default the log shows **VRChat**, **Discord**, **Client** and **Import** and leaves **Sync**
-out, because sync entries have a time window and no "who". Add them back by editing the
+out, because sync entries have a time window and no "who". **Import** stays on so rows imported
+before records carried their own source are still there. Add **Sync** back by editing the
 **Source** chip.
 
 | Filter | Values |

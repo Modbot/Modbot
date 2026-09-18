@@ -12,6 +12,10 @@ namespace Modbot.Api.Features.Imports;
 public readonly record struct ImportItem(int Line, JsonElement? Record, string? Problem);
 
 /// <summary>A record read and checked, ready to become a fact (import design §2).</summary>
+/// <param name="Source">
+/// Which of Modbot's sources the fact is filed under: the record's own <c>seenBy</c>, or the
+/// upload's when it said nothing (import design §5).
+/// </param>
 public sealed record ParsedRecord(
     int Line,
     string Kind,
@@ -24,6 +28,7 @@ public sealed record ParsedRecord(
     string? ActorId,
     string? ActorName,
     string? ExternalId,
+    FactSource Source,
     JsonObject Data,
     string Key);
 
@@ -151,7 +156,16 @@ public static class ImportFile
     /// Checks one record and works out its fact type and its idempotency key.
     /// </summary>
     /// <param name="now">Anything dated after this is refused: it cannot have happened yet.</param>
-    public static bool TryParse(ImportItem item, DateTimeOffset now, out ParsedRecord? record, out string? reason)
+    /// <param name="defaultSource">
+    /// What the record is filed under when it does not say (import design §5): the upload's own
+    /// choice, or <see cref="ImportSources.Default"/>.
+    /// </param>
+    public static bool TryParse(
+        ImportItem item,
+        DateTimeOffset now,
+        FactSource defaultSource,
+        out ParsedRecord? record,
+        out string? reason)
     {
         record = null;
         reason = null;
@@ -244,6 +258,25 @@ public static class ImportFile
             }
         }
 
+        var source = defaultSource;
+        if (element.TryGetProperty("seenBy", out var seenByElement) && seenByElement.ValueKind != JsonValueKind.Null)
+        {
+            if (seenByElement.ValueKind != JsonValueKind.String)
+            {
+                reason = "seenBy is not text.";
+                return false;
+            }
+
+            // An empty seenBy is the record saying nothing, so the upload's choice still stands.
+            var seenBy = seenByElement.GetString();
+            if (!string.IsNullOrWhiteSpace(seenBy)
+                && !ImportSources.TryParse(seenBy, out source, out var sourceProblem))
+            {
+                reason = sourceProblem;
+                return false;
+            }
+        }
+
         JsonObject data;
         if (element.TryGetProperty("data", out var dataElement) && dataElement.ValueKind != JsonValueKind.Null)
         {
@@ -268,7 +301,7 @@ public static class ImportFile
 
         record = new ParsedRecord(
             item.Line, kind, type, typeRaw, at,
-            subjectPlatform.Value, subjectId, actorPlatform, actorId, actorName, externalId, data, key);
+            subjectPlatform.Value, subjectId, actorPlatform, actorId, actorName, externalId, source, data, key);
         return true;
     }
 
@@ -355,6 +388,11 @@ public static class ImportFile
     /// event it is, with <c>data</c>'s keys sorted at every level so two spellings of the same
     /// object hash the same.
     /// </summary>
+    /// <remarks>
+    /// <c>seenBy</c> is deliberately not in it. It says how Modbot files the record, not what
+    /// happened, so re-uploading a file with the mapping corrected must not import every record
+    /// a second time under the new source.
+    /// </remarks>
     private static string Hash(
         string kind,
         DateTimeOffset at,

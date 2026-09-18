@@ -529,6 +529,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.Property(e => e.Source).HasMaxLength(Import.MaxSourceLength);
             entity.Property(e => e.FileName).HasMaxLength(Import.MaxFileNameLength);
+            // Rows that already exist ran before records could be mapped, so they wrote the
+            // legacy Import source and the list should keep saying so. New rows always set it.
+            entity.Property(e => e.SeenBy).HasDefaultValue(FactSource.Import);
             entity.Property(e => e.StartedByName).HasMaxLength(64);
             entity.Property(e => e.Rejections).HasColumnType("jsonb");
 
