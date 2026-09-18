@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Analytics.Reviews;
@@ -172,7 +173,9 @@ public class ModerationEngineTests
 
         var fact = await db.Events.SingleAsync(e => e.Type == FactType.AutoModGroupBan, Ct);
         Assert.Equal("usr_9", fact.SubjectId);
-        Assert.Contains("\"done\":true", fact.Data, StringComparison.Ordinal);
+        // Parsed, not matched as a raw string: Postgres rewrites jsonb on the way in -- spaces
+        // after colons, keys reordered -- so a literal substring asserts on Postgres's formatter.
+        Assert.True(JsonDocument.Parse(fact.Data).RootElement.GetProperty("done").GetBoolean());
     }
 
     [Fact]
@@ -261,7 +264,9 @@ public class ModerationEngineTests
         Assert.False((await db.ModerationFlags.SingleAsync(Ct)).GroupBanned);
 
         var fact = await db.Events.SingleAsync(e => e.Type == FactType.AutoModGroupBan, Ct);
-        Assert.Contains("\"done\":false", fact.Data, StringComparison.Ordinal);
+        // Parsed, not matched as a raw string: Postgres rewrites jsonb on the way in -- spaces
+        // after colons, keys reordered -- so a literal substring asserts on Postgres's formatter.
+        Assert.False(JsonDocument.Parse(fact.Data).RootElement.GetProperty("done").GetBoolean());
         Assert.Contains("VRChat said no", fact.Data, StringComparison.Ordinal);
     }
 
