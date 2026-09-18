@@ -33,11 +33,12 @@ export function Login({
       .then(onSignedIn)
       .catch((e: unknown) => {
         // The server answers 401 for every kind of failure without saying which, so that a login
-        // form cannot be used to find out which usernames are real. The message here says the
-        // same thing rather than guessing at something more specific.
+        // form cannot be used to find out which usernames are real -- or, now that the field also
+        // takes an address, who has an account here. The message here says the same thing rather
+        // than guessing at something more specific.
         setError(
           e instanceof ApiError && e.status === 401
-            ? 'That username and password do not match.'
+            ? 'That sign-in and password do not match.'
             : e instanceof ApiError
               ? e.message
               : 'Could not reach the Modbot server.',
@@ -56,7 +57,7 @@ export function Login({
         >
           <WizardHeader eyebrow="Sign in" title="Welcome back" />
           <WizardBody>
-            <Field label="Username" htmlFor="login-username">
+            <Field label="Email or username" htmlFor="login-username">
               <Input
                 id="login-username"
                 autoComplete="username"

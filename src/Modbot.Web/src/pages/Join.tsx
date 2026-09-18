@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type InviteView } from '@/lib/api'
 import { openRegisterOnce } from '@/lib/myModbot'
-import { Brand, ErrorText, Field, Note, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, Field, Note, Tickbox, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
 
 /**
  * Opening an invite link (accounts and access design §4.1): pick a username and a password,
@@ -12,8 +12,10 @@ import { Brand, ErrorText, Field, Note, WizardBody, WizardFooter, WizardHeader }
 export function Join({ token, onJoined }: { token: string; onJoined: () => void }) {
   const [invite, setInvite] = useState<InviteView | null>(null)
   const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [updates, setUpdates] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -21,7 +23,16 @@ export function Join({ token, onJoined }: { token: string; onJoined: () => void 
     api
       .invite(token)
       .then(setInvite)
-      .catch(() => setInvite({ usable: false, reason: 'Could not reach the Modbot server.', invitedBy: null, roles: [], expiresAt: null }))
+      .catch(() =>
+        setInvite({
+          usable: false,
+          reason: 'Could not reach the Modbot server.',
+          invitedBy: null,
+          roles: [],
+          expiresAt: null,
+          canSubscribeToUpdates: false,
+        }),
+      )
   }, [token])
 
   const submit = (event: React.FormEvent) => {
@@ -35,7 +46,13 @@ export function Join({ token, onJoined }: { token: string; onJoined: () => void 
     setBusy(true)
     setError(null)
     api
-      .acceptInvite(token, { username, password, confirmPassword: confirm })
+      .acceptInvite(token, {
+        username,
+        password,
+        confirmPassword: confirm,
+        email,
+        subscribeToUpdates: updates,
+      })
       .then(onJoined)
       .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not create the account.'))
       .finally(() => setBusy(false))
@@ -59,12 +76,20 @@ export function Join({ token, onJoined }: { token: string; onJoined: () => void 
                 <Field label="Username" htmlFor="join-username">
                   <Input id="join-username" autoComplete="username" autoFocus required value={username} onChange={(e) => setUsername(e.target.value)} />
                 </Field>
+                <Field label="Email" htmlFor="join-email">
+                  <Input id="join-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                </Field>
                 <Field label="Password" hint="at least 12 characters" htmlFor="join-password">
                   <Input id="join-password" type="password" autoComplete="new-password" required minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} />
                 </Field>
                 <Field label="Confirm password" htmlFor="join-confirm">
                   <Input id="join-confirm" type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
                 </Field>
+                {invite?.canSubscribeToUpdates && (
+                  <Tickbox id="join-updates" checked={updates} onChange={setUpdates}>
+                    Receive emails from Modbot about new features and updates
+                  </Tickbox>
+                )}
                 <ErrorText>{error}</ErrorText>
               </>
             )}

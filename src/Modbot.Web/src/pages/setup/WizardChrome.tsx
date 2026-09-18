@@ -112,6 +112,37 @@ export function Field({
 }
 
 /**
+ * A checkbox with its label beside it, for the two screens outside the app shell.
+ *
+ * The settings pages have their own; this one lives here because the wizard and the invite page
+ * share the wizard's card and not the settings chrome.
+ */
+export function Tickbox({
+  id,
+  checked,
+  onChange,
+  children,
+}: {
+  id: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+  children: React.ReactNode
+}) {
+  return (
+    <label htmlFor={id} className="flex items-start gap-2" style={{ fontSize: 'var(--text-small)' }}>
+      <input
+        id={id}
+        type="checkbox"
+        className="mt-0.5"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>{children}</span>
+    </label>
+  )
+}
+
+/**
  * A coloured left edge, not a coloured box.
  *
  * Same reasoning as the destructive button in the prototype: colour is the last signal, after

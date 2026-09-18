@@ -7,7 +7,7 @@ import { SubjectPopup } from '@/components/subject/SubjectPopup'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { DemoContext } from '@/lib/demo'
 import { REVIEW_KINDS, type LiveEvent } from '@/lib/liveStream'
-import { setMyModbotOrigin } from '@/lib/myModbot'
+import { setMyModbotOrigin, setServerGroup } from '@/lib/myModbot'
 import { CREDITS_PATH, GO_TO_KEYS, MOVED, NAV, mayOpen, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density } from '@/lib/preferences'
@@ -166,8 +166,10 @@ export default function App() {
     const next = await api.onboardingStatus()
     setStatus(next)
 
-    // Every link to the selector is built from this, so it is set before anything renders.
+    // Every link to the selector is built from these, so they are set before anything renders.
+    // The group rides in the register link, which is why it is kept here and not fetched again.
     setMyModbotOrigin(next.myModbotUrl)
+    setServerGroup(next.group)
 
     // Who is signed in decides what the shell shows (accounts and access design §8). Read
     // alongside status so a permission change, a rename or a fresh VRChat link shows up on the

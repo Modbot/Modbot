@@ -8,10 +8,11 @@ import {
   type LinkCodeView,
   type LogSettings,
   type PublicAddressView,
+  type ServerSettings,
 } from '@/lib/api'
 import { CREDITS_PATH } from '@/lib/nav'
 import { followLink } from '@/lib/router'
-import { Checkbox, Fact, Field, Hint, Outcome, Placeholder, Row } from './fields'
+import { Checkbox, Fact, Field, Hint, Outcome, Placeholder, Row, Switch } from './fields'
 import { ImportCard } from './ImportCard'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { StorageChart } from './StorageChart'
@@ -471,6 +472,48 @@ function PublicAddressCard() {
           </button>
         )}
       </form>
+      <OwnerEmailSwitch />
     </SettingsCard>
+  )
+}
+
+/**
+ * Whether GET /api/server gives out the owner's address (server info and account email design
+ * §2.3). On this card because both are about what this server tells the outside world it is.
+ *
+ * Saves on the switch: there is nothing else here to press Save with, and the public address's own
+ * Save button belongs to its form.
+ */
+function OwnerEmailSwitch() {
+  const [view, setView] = useState<ServerSettings | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    api
+      .serverSettings()
+      .then(setView)
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load the setting.'))
+  }, [])
+
+  return (
+    <>
+      <Switch
+        checked={view?.showOwnerEmail ?? false}
+        disabled={saving || !view}
+        onChange={(next) => {
+          setSaving(true)
+          setError(null)
+          api
+            .setServerSettings(next)
+            .then(setView)
+            .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not save.'))
+            .finally(() => setSaving(false))
+        }}
+      >
+        Show the owner&rsquo;s email address
+      </Switch>
+      <Outcome tone="problem">{error}</Outcome>
+    </>
   )
 }

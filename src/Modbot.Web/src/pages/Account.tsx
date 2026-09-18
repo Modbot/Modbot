@@ -190,6 +190,11 @@ function ChangePassword() {
   )
 }
 
+/**
+ * Email and Discord id. The email is required now (server info and account email design §4): an
+ * account made before that rule lands here with the field empty, which is how such a person is
+ * asked for one.
+ */
 function Contact({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) {
   const [email, setEmail] = useState(me.email ?? '')
   const [discord, setDiscord] = useState(me.discordUserId ?? '')
@@ -216,9 +221,9 @@ function Contact({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) 
     <Card>
       <CardContent>
         <form onSubmit={submit} className="space-y-3">
-          <div className="font-semibold">Password reset</div>
+          <div className="font-semibold">How you can be reached</div>
           <Field label="Email" htmlFor="acct-email">
-            <Input id="acct-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input id="acct-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
           <Field label="Discord user id" htmlFor="acct-discord">
             <Input id="acct-discord" className="font-mono" autoComplete="off" value={discord} onChange={(e) => setDiscord(e.target.value)} />
