@@ -14,7 +14,8 @@ import { openPerson } from '@/lib/subject'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
-import { Empty, Select } from '@/pages/Members'
+import { Select } from '@/components/ui/select'
+import { Empty } from '@/pages/Members'
 
 /**
  * Everyone Modbot has a record of.
