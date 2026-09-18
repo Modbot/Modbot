@@ -119,7 +119,10 @@ public sealed class FakeReleaseHost : HttpMessageHandler
     {
         var url = request.RequestUri?.GetLeftPart(UriPartial.Path) ?? "";
 
-        if (url.StartsWith(ReleasesUrl, StringComparison.Ordinal))
+        // The list call is the exact releases address; a file read is one of its assets, whose
+        // address happens to start with the same prefix. Matching by prefix here would count an
+        // asset read as another list call and serve it the list's own body instead of its own.
+        if (string.Equals(url, ReleasesUrl, StringComparison.Ordinal))
             Interlocked.Increment(ref _releasesAsked);
 
         if (url.StartsWith("https://hub.docker.com/", StringComparison.Ordinal))
@@ -130,7 +133,7 @@ public sealed class FakeReleaseHost : HttpMessageHandler
 
         var body = url switch
         {
-            _ when url.StartsWith(ReleasesUrl, StringComparison.Ordinal) => ReleasesJson,
+            _ when string.Equals(url, ReleasesUrl, StringComparison.Ordinal) => ReleasesJson,
             WinFeedAssetUrl => WindowsFeed,
             LinuxFeedAssetUrl => LinuxFeed,
             _ when url.StartsWith("https://hub.docker.com/", StringComparison.Ordinal) => TagsJson,
