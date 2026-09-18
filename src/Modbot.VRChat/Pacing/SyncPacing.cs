@@ -119,6 +119,8 @@ public sealed record SyncPacing
                 Interval = Seconds(clamped.UserProfileIntervalSeconds) ?? profile.Interval,
                 StaleAfter = Seconds(clamped.UserProfileStaleAfterSeconds) ?? profile.StaleAfter,
                 RecentWindow = Seconds(clamped.UserProfileRecentWindowSeconds) ?? profile.RecentWindow,
+                RefreshNonMembersFor =
+                    Seconds(clamped.UserProfileRefreshNonMembersForSeconds) ?? profile.RefreshNonMembersFor,
                 FreshEnoughWhenOpened =
                     Seconds(clamped.UserProfileFreshEnoughWhenOpenedSeconds) ?? profile.FreshEnoughWhenOpened,
                 FreshEnoughWhenSeenInInstance =

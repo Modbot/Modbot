@@ -1900,6 +1900,8 @@ export type SyncSettings = {
     pacingFloorSeconds: number
     staleAfterSeconds: number
     recentWindowSeconds: number
+    /** How long after they were last seen somebody who is not a member is still refreshed on a schedule. */
+    refreshNonMembersForSeconds: number
     freshEnoughWhenOpenedSeconds: number
     freshEnoughWhenSeenInInstanceSeconds: number
     rateLimitedIntervalSeconds: number

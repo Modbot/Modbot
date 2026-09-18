@@ -68,6 +68,28 @@ public sealed record UserProfileSyncOptions
     public TimeSpan StaleAfter { get; init; } = TimeSpan.FromHours(6);
 
     /// <summary>
+    /// How long after Modbot last saw somebody who is <em>not</em> a current group member it goes
+    /// on refreshing them on a schedule. Thirty days.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The periodic tiers -- <see cref="RefreshReason.ProfileIsOld"/> and
+    /// <see cref="RefreshReason.NeverRefreshed"/> -- used to select from every row in
+    /// <c>vrchat_user</c>, which is a row for everyone Modbot has ever seen anywhere. A stranger
+    /// who walked through one instance a year ago was queued for a refresh forever, competing for
+    /// the budget spec 4.2 accounts for. This window is what keeps them out: a current member is
+    /// always refreshed, and anybody else only while their last sighting is inside it.
+    /// </para>
+    /// <para>
+    /// Nobody becomes unreachable. The two on-demand tiers are untouched -- a sighting in an
+    /// instance and a moderator opening the person in Modbot both still queue a fetch at once --
+    /// so the cost of a long-gone stranger is a profile that is as old as the last time anyone
+    /// cared, not a profile nobody can get.
+    /// </para>
+    /// </remarks>
+    public TimeSpan RefreshNonMembersFor { get; init; } = TimeSpan.FromDays(30);
+
+    /// <summary>
     /// A profile fetched more recently than this is "fresh enough" when somebody opens it in
     /// Modbot: the request is answered from what is stored and nothing is queued. This is what
     /// keeps a moderator clicking through a list from spending the whole lane on one person.
@@ -145,6 +167,7 @@ public sealed record UserProfileSyncOptions
             JitterFraction = Math.Clamp(JitterFraction, 0, 0.5),
             RecentWindow = RecentWindow < TimeSpan.Zero ? TimeSpan.Zero : RecentWindow,
             StaleAfter = StaleAfter < TimeSpan.FromMinutes(1) ? TimeSpan.FromMinutes(1) : StaleAfter,
+            RefreshNonMembersFor = RefreshNonMembersFor < TimeSpan.Zero ? TimeSpan.Zero : RefreshNonMembersFor,
             FreshEnoughWhenOpened = FreshEnoughWhenOpened < TimeSpan.Zero ? TimeSpan.Zero : FreshEnoughWhenOpened,
             FreshEnoughWhenSeenInInstance =
                 FreshEnoughWhenSeenInInstance < TimeSpan.Zero ? TimeSpan.Zero : FreshEnoughWhenSeenInInstance,

@@ -88,6 +88,7 @@ public sealed record SyncPacingDocument
     public double? UserProfileIntervalSeconds { get; init; }
     public double? UserProfileStaleAfterSeconds { get; init; }
     public double? UserProfileRecentWindowSeconds { get; init; }
+    public double? UserProfileRefreshNonMembersForSeconds { get; init; }
     public double? UserProfileFreshEnoughWhenOpenedSeconds { get; init; }
     public double? UserProfileFreshEnoughWhenSeenInInstanceSeconds { get; init; }
     public double? UserProfileRateLimitedIntervalSeconds { get; init; }
@@ -129,6 +130,7 @@ public sealed record SyncPacingDocument
         && UserProfileIntervalSeconds is null
         && UserProfileStaleAfterSeconds is null
         && UserProfileRecentWindowSeconds is null
+        && UserProfileRefreshNonMembersForSeconds is null
         && UserProfileFreshEnoughWhenOpenedSeconds is null
         && UserProfileFreshEnoughWhenSeenInInstanceSeconds is null
         && UserProfileRateLimitedIntervalSeconds is null
@@ -194,6 +196,8 @@ public sealed record SyncPacingDocument
             UserProfileIntervalSeconds = change.UserProfileIntervalSeconds ?? UserProfileIntervalSeconds,
             UserProfileStaleAfterSeconds = change.UserProfileStaleAfterSeconds ?? UserProfileStaleAfterSeconds,
             UserProfileRecentWindowSeconds = change.UserProfileRecentWindowSeconds ?? UserProfileRecentWindowSeconds,
+            UserProfileRefreshNonMembersForSeconds =
+                change.UserProfileRefreshNonMembersForSeconds ?? UserProfileRefreshNonMembersForSeconds,
             UserProfileFreshEnoughWhenOpenedSeconds =
                 change.UserProfileFreshEnoughWhenOpenedSeconds ?? UserProfileFreshEnoughWhenOpenedSeconds,
             UserProfileFreshEnoughWhenSeenInInstanceSeconds =
@@ -387,6 +391,10 @@ public static class SyncPacingJson
             UserProfileRecentWindowSeconds = AtLeast(
                 document.UserProfileRecentWindowSeconds, 0, "userProfileRecentWindowSeconds",
                 "the recent window cannot be negative", found),
+
+            UserProfileRefreshNonMembersForSeconds = AtLeast(
+                document.UserProfileRefreshNonMembersForSeconds, 0, "userProfileRefreshNonMembersForSeconds",
+                "how long a non-member is refreshed for cannot be negative", found),
 
             UserProfileFreshEnoughWhenOpenedSeconds = AtLeast(
                 document.UserProfileFreshEnoughWhenOpenedSeconds, 0, "userProfileFreshEnoughWhenOpenedSeconds",

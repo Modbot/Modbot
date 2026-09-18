@@ -41,6 +41,7 @@ public sealed record GroupInfoPollRateSettings(
 /// <param name="IntervalSeconds">Time between refreshes while somebody is waiting. Floored at the users lane's cap.</param>
 /// <param name="StaleAfterSeconds">How old a profile is before it is refreshed just for being old.</param>
 /// <param name="RecentWindowSeconds">How long a sighting keeps somebody near the front of the queue.</param>
+/// <param name="RefreshNonMembersForSeconds">How long after they were last seen somebody who is not a member is still refreshed on a schedule.</param>
 /// <param name="FreshEnoughWhenOpenedSeconds">A profile fetched more recently than this is not queued again when opened in Modbot.</param>
 /// <param name="FreshEnoughWhenSeenInInstanceSeconds">The same gap for a presence sighting. Shorter.</param>
 public sealed record UserProfilePollRateSettings(
@@ -48,6 +49,7 @@ public sealed record UserProfilePollRateSettings(
     double PacingFloorSeconds,
     double StaleAfterSeconds,
     double RecentWindowSeconds,
+    double RefreshNonMembersForSeconds,
     double FreshEnoughWhenOpenedSeconds,
     double FreshEnoughWhenSeenInInstanceSeconds,
     double RateLimitedIntervalSeconds);
@@ -176,6 +178,7 @@ public sealed record UserProfilePollRateUpdate(
     double? IntervalSeconds = null,
     double? StaleAfterSeconds = null,
     double? RecentWindowSeconds = null,
+    double? RefreshNonMembersForSeconds = null,
     double? FreshEnoughWhenOpenedSeconds = null,
     double? FreshEnoughWhenSeenInInstanceSeconds = null,
     double? RateLimitedIntervalSeconds = null);
@@ -412,10 +415,11 @@ public static class SyncSettingsEndpoints
                 return "The stale-after window must be a positive number of seconds.";
 
             if (Negative(profile.RecentWindowSeconds)
+                || Negative(profile.RefreshNonMembersForSeconds)
                 || Negative(profile.FreshEnoughWhenOpenedSeconds)
                 || Negative(profile.FreshEnoughWhenSeenInInstanceSeconds))
             {
-                return "The recent and fresh-enough windows cannot be negative.";
+                return "The recent, non-member and fresh-enough windows cannot be negative.";
             }
         }
 
@@ -478,6 +482,7 @@ public static class SyncSettingsEndpoints
         UserProfileIntervalSeconds = body.UserProfile?.IntervalSeconds,
         UserProfileStaleAfterSeconds = body.UserProfile?.StaleAfterSeconds,
         UserProfileRecentWindowSeconds = body.UserProfile?.RecentWindowSeconds,
+        UserProfileRefreshNonMembersForSeconds = body.UserProfile?.RefreshNonMembersForSeconds,
         UserProfileFreshEnoughWhenOpenedSeconds = body.UserProfile?.FreshEnoughWhenOpenedSeconds,
         UserProfileFreshEnoughWhenSeenInInstanceSeconds = body.UserProfile?.FreshEnoughWhenSeenInInstanceSeconds,
         UserProfileRateLimitedIntervalSeconds = body.UserProfile?.RateLimitedIntervalSeconds,
@@ -545,6 +550,7 @@ public static class SyncSettingsEndpoints
                 UserProfileSyncOptions.PacingFloor.TotalSeconds,
                 pacing.UserProfile.StaleAfter.TotalSeconds,
                 pacing.UserProfile.RecentWindow.TotalSeconds,
+                pacing.UserProfile.RefreshNonMembersFor.TotalSeconds,
                 pacing.UserProfile.FreshEnoughWhenOpened.TotalSeconds,
                 pacing.UserProfile.FreshEnoughWhenSeenInInstance.TotalSeconds,
                 pacing.UserProfile.RateLimitedInterval.TotalSeconds),
