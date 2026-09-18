@@ -101,6 +101,10 @@ public sealed class CloudTestHost : IAsyncDisposable
             repository: "example/none",
             time));
 
+        // And for the showcase pictures Cloud fetches when an administrator saves a row: a handful
+        // of known addresses, and 404 for everything else, so no test reaches a picture host.
+        builder.Services.AddSingleton(new ShowcasePictures(new HttpClient(new PictureHost())));
+
         CloudApp.AddServices(
             builder.Services,
             db.ConnectionString,
@@ -284,6 +288,63 @@ public sealed class CloudTestHost : IAsyncDisposable
         }
 
         throw new InvalidOperationException("Could not find the repository root above the test output.");
+    }
+
+    /// <summary>The address of a picture Cloud will accept and keep.</summary>
+    public const string PictureAddress = "https://pictures.test/icon.png";
+
+    /// <summary>A second one, so a row can carry a different picture per field.</summary>
+    public const string BannerAddress = "https://pictures.test/banner.png";
+
+    /// <summary>An address that answers with a web page while calling itself a picture.</summary>
+    public const string NotAPictureAddress = "https://pictures.test/page.png";
+
+    /// <summary>An address that answers with more bytes than Cloud will keep.</summary>
+    public const string TooBigAddress = "https://pictures.test/huge.png";
+
+    /// <summary>A PNG: the eight-byte signature and enough after it to be worth serving.</summary>
+    public static byte[] PictureBytes { get; } =
+        [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, .. Enumerable.Repeat((byte)0x2A, 24)];
+
+    /// <summary>A second PNG, told apart from the first by its tail.</summary>
+    public static byte[] BannerBytes { get; } =
+        [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, .. Enumerable.Repeat((byte)0x7B, 32)];
+
+    /// <summary>
+    /// The picture hosts the suite is allowed to reach: two pictures, a web page wearing a
+    /// picture's name, and something far too big.
+    /// </summary>
+    private sealed class PictureHost : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var (bytes, type) = request.RequestUri?.ToString() switch
+            {
+                PictureAddress => (PictureBytes, "image/png"),
+                BannerAddress => (BannerBytes, "image/png"),
+                NotAPictureAddress => (Encoding.UTF8.GetBytes("<!doctype html><html>Not here</html>"), "image/png"),
+                TooBigAddress => (TooBig(), "image/png"),
+                _ => (null, null),
+            };
+
+            if (bytes is null)
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+
+            var content = new ByteArrayContent(bytes);
+            content.Headers.ContentType = new MediaTypeHeaderValue(type!);
+
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = content });
+        }
+
+        private static byte[] TooBig()
+        {
+            var bytes = new byte[ShowcasePicture.MaxBytes + 1024];
+            ReadOnlySpan<byte> png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+
+            png.CopyTo(bytes);
+            return bytes;
+        }
     }
 
     /// <summary>Answers every request with 404, so no test reaches the network.</summary>

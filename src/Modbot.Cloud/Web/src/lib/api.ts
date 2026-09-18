@@ -76,6 +76,9 @@ export type ShowcaseEntry = {
   vrChatGroupId: string | null
   groupImageUrl: string | null
   groupBannerUrl: string | null
+  savedImageUrl: string | null
+  savedGroupImageUrl: string | null
+  savedGroupBannerUrl: string | null
   sortOrder: number
   addedAt: string
 }

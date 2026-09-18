@@ -80,7 +80,12 @@ public static class CloudApp
 
         // Accounts. The hasher is Identity's, standalone: Cloud wants the hash function and none of
         // the rest of Identity, the same way a Modbot server uses it for its own staff accounts.
-        services.AddSingleton(mail ?? new MailSettings(null, null, new Uri(Configuration.CloudEnvironment.DefaultPublicUrl)));
+        var mailSettings = mail ?? new MailSettings(null, null, new Uri(Configuration.CloudEnvironment.DefaultPublicUrl));
+        services.AddSingleton(mailSettings);
+
+        // Where Cloud is reachable from outside. Needed by anything that has to write one of Cloud's
+        // own addresses into an answer read somewhere else entirely — the showcase pictures.
+        services.TryAddSingleton(new Configuration.CloudPublicAddress(mailSettings.PublicAddress));
         services.AddHttpClient();
         services.TryAddSingleton<ICloudMailer, ResendMailer>();
         services.AddSingleton<IPasswordHasher<Account>, PasswordHasher<Account>>();
@@ -116,6 +121,12 @@ public static class CloudApp
             gitHubToken,
             gitHubRepository ?? GitHubContributors.DefaultRepository,
             sp.GetRequiredService<TimeProvider>()));
+
+        // The pictures on those rows, fetched once when an administrator saves a row and served from
+        // Cloud's own domain afterwards, because VRChat will not serve its pictures to anybody else.
+        services.AddHttpClient(ShowcasePictures.HttpClientName, client => client.Timeout = ShowcasePictures.Timeout);
+        services.TryAddScoped(sp => new ShowcasePictures(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(ShowcasePictures.HttpClientName)));
 
         if (runDailyUpkeep)
             services.AddHostedService<DailyUpkeepService>();

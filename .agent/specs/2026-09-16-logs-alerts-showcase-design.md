@@ -314,6 +314,11 @@ This is the statement cloud event backup §10.10 said this feature would owe.
 
 ## 7. The showcase
 
+> **Extended 2026-09-17** by `2026-09-17-credits-everywhere-design.md`: Cloud now keeps and serves
+> each row's three pictures itself (§7.2 below said only that the row carries their addresses), and
+> the companion reads the three lists from Cloud directly rather than through a server (§7.4 below
+> is a rule about a *server*, and the companion is not one).
+
 ### 7.1 Contributors come from GitHub
 
 Not from a table: GitHub already knows, and a second list kept by hand only goes out of date. Cached
@@ -334,18 +339,29 @@ A group id becomes a link to `vrchat.com/home/group/<id>`. It is never checked f
 §3.1.1). A link that is not `http` or `https` is refused on the way in, because these rows are drawn
 on every Modbot in the world.
 
+**The three pictures are Cloud's own from 2026-09-17.** Saving a row makes Cloud fetch the picture,
+the group icon and the group banner and keep the bytes; readers are handed a `cloud.modbot.co`
+address for each. The addresses typed in are kept exactly as entered and are what the next save
+fetches from. VRChat will not serve a group's icon or banner to anybody but VRChat, so an address
+typed straight through drew an empty square on every reader.
+
 ### 7.3 Public to read, admin to write
 
 The three reads need no credential: every Modbot shows them, and asking each to hold a key for a
 list of names the project publishes anyway would be a credential for nothing. Writing needs the
 Cloud admin sign-in — there is no undoing a name that should not have been there.
 
-### 7.4 Modbot reads them through its own server
+### 7.4 A Modbot server reads them for its browsers; the companion reads them itself
 
 Not from the browser, so that a deployment with `MODBOT_CLOUD_DISABLED` set makes no request at all,
 and so one deployment asks Cloud a few times a day rather than once per moderator per visit. Cached
 six hours; a failure is remembered for ten minutes. Cloud being slow or down costs a tab on the
 Credits page and nothing else.
+
+That is a rule about a **server** and its browsers. The Windows client is not one: it asks Cloud
+directly, at the address its own `settings.json` and environment name, because a client with nothing
+paired still has a Credits page and because a paired server must never be able to tell a client
+where to send a request. Added 2026-09-17; see `2026-09-17-credits-everywhere-design.md` §3.2.
 
 ---
 
@@ -369,4 +385,5 @@ log going to Cloud, and stops the Credits page asking for the showcase.
 
 - **Trends over the stored logs.** Nothing reads `instance_log` but the viewer and retention.
 - **Anything on the companion.** Its log stays on the moderator's PC (M3 §10); this feature is
-  about servers.
+  about servers. *(The companion gained a Credits page of its own on 2026-09-17. Its log still
+  stays on the PC; only the showcase is read.)*

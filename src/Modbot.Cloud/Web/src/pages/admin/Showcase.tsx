@@ -73,8 +73,12 @@ export function Showcase() {
           <ul>
             {items.map((item) => (
               <li key={item.id} className="flex flex-wrap items-center gap-3 border-b px-4 py-2 last:border-b-0">
-                {item.imageUrl && (
-                  <img src={item.imageUrl} alt="" className="size-8 rounded-md object-cover" referrerPolicy="no-referrer" />
+                {(item.savedImageUrl ?? item.imageUrl) && (
+                  <img
+                    src={item.savedImageUrl ?? item.imageUrl}
+                    alt=""
+                    className="size-8 rounded-md object-cover"
+                  />
                 )}
                 <span className="font-medium">{item.name}</span>
                 <span className="text-muted-foreground">{item.kind}</span>

@@ -22,6 +22,7 @@ internal enum Page
     SteamVr,
     Log,
     Settings,
+    Credits,
 
     /// <summary>Only with <c>MODBOT_DEBUG_MODE=1</c>.</summary>
     Debug,
@@ -362,6 +363,7 @@ public sealed partial class MainWindow : Window
         _nav.Children.Add(NavItem(Page.SteamVr, "SteamVR", _snapshot.OverlayOrNone.Attached ? "on" : null));
         _nav.Children.Add(NavItem(Page.Log, "Log", null));
         _nav.Children.Add(NavItem(Page.Settings, "Settings", null));
+        _nav.Children.Add(NavItem(Page.Credits, "Credits", null));
 
         if (_snapshot.DebugMode)
             _nav.Children.Add(NavItem(Page.Debug, "Debug", null));
@@ -444,6 +446,9 @@ public sealed partial class MainWindow : Window
                 break;
             case Page.Settings:
                 RenderSettings();
+                break;
+            case Page.Credits:
+                RenderCredits();
                 break;
             case Page.Debug when _snapshot.DebugMode:
                 RenderDebug();

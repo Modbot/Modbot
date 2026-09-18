@@ -118,6 +118,11 @@ function Person({ person }: { person: ShowcasePerson }) {
   // The group link wins when there is one: for a VRChat group, "open the group" is the thing
   // somebody reading the Credits page actually wants.
   const href = group ?? (person.link || null)
+
+  // These three addresses are Modbot Cloud's own: it fetches each picture when an administrator
+  // saves the row and serves it from its domain, because the addresses typed in are usually
+  // VRChat's and VRChat will not serve them to a page that is not its own. Nothing to work around
+  // here any more — they are ordinary pictures.
   const banner = person.groupBannerUrl
   const picture = person.groupImageUrl || person.imageUrl
 
@@ -128,7 +133,6 @@ function Person({ person }: { person: ShowcasePerson }) {
           src={vrchatMedia(banner)}
           alt=""
           loading="lazy"
-          referrerPolicy="no-referrer"
           className="h-20 w-full rounded-md object-cover"
         />
       )}
@@ -138,7 +142,6 @@ function Person({ person }: { person: ShowcasePerson }) {
             src={vrchatMedia(picture)}
             alt=""
             loading="lazy"
-            referrerPolicy="no-referrer"
             className="size-8 shrink-0 rounded-md object-cover"
           />
         )}

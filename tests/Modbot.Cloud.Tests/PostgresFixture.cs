@@ -66,7 +66,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         // unique data per test, not by leaving a table dirty).
         await using (var cloud = NewCloudContext())
             await cloud.Database.ExecuteSqlRawAsync(
-                "TRUNCATE install, admin_session, settings, instance_alert, showcase_entry, " +
+                "TRUNCATE install, admin_session, settings, instance_alert, showcase_entry, showcase_picture, " +
                 "account, account_session, account_token, " +
                 "public_instance, instances_server, registered_server, server_report, " +
                 "page_instance, visitor_instance, subscriber, visited_server");
